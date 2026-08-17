@@ -83,19 +83,21 @@ check("rangées verbe d'abord", verbes.some((v) => txt().indexOf(v) >= 0));
 if ((g.trous || []).length) check("trou de veille nommé (Suivez X)", txt().indexOf("Suivez " + g.trous[0].nom.slice(0, 20)) >= 0, g.trous[0].nom);
 if ((g.savoir || {}).evts_sans_objectif) check("Fixez un objectif à N événements", txt().indexOf("Fixez un objectif à " + g.savoir.evts_sans_objectif) >= 0);
 check("règle CTA : au plus UN bouton plein", body.querySelectorAll(".tb-btnp").length <= 1, body.querySelectorAll(".tb-btnp").length + " plein(s)");
-check("Autour de vous = grille-résumé 6 cartes + panneau (proto 17/08)", body.querySelectorAll(".tb-rb").length === 6 && !!doc.getElementById("tb-rpanel"), body.querySelectorAll(".tb-rb").length + " cartes");
+check("Réorganisation (owner 17/08) : 5 cartes en 2 groupes + panneau", body.querySelectorAll(".tb-rb").length === 5 && !!doc.getElementById("tb-rpanel") && txt().indexOf("Compétitivité") >= 0 && txt().indexOf("Processus métiers") >= 0, body.querySelectorAll(".tb-rb").length + " cartes");
+check("renommages : Activité dans votre périmètre · Mon positionnement · Vos dispositifs", txt().indexOf("Activité dans votre périmètre") >= 0 && txt().indexOf("Mon positionnement") >= 0 && txt().indexOf("Vos dispositifs") >= 0 && txt().indexOf("À surveiller") < 0 && txt().indexOf("Ma veille concurrentielle") < 0);
 check("vignette-carte dans Événements concurrents", body.querySelector('[data-tb-body="ev"]') && body.querySelector('[data-tb-body="ev"]').innerHTML.indexOf("Ouvrir la carte") >= 0);
 
 // ── Volets : l'en-tête EST la réponse. ──
 ["ev", "sv", "sf", "eq", "co"].forEach((id) => {
-  check("volet " + id + " : carte-résumé présente, corps fermé", !!body.querySelector('[data-tb-rb="' + id + '"]') && body.querySelector('[data-tb-body="' + id + '"]').style.display === "none");
+  // sv = panneau de la tuile Prochaine occasion (caché de la grille, corps présent).
+  check("volet " + id + " : " + (id === "sv" ? "corps présent (panneau tuile)" : "carte-résumé présente") + ", fermé", (id === "sv" || !!body.querySelector('[data-tb-rb="' + id + '"]')) && body.querySelector('[data-tb-body="' + id + '"]').style.display === "none");
 });
 check("Événements concurrents — N sur 14 j", txt().indexOf("sur 14 j") >= 0);
 check("À surveiller — menaces · occasions", /menace/.test(txt()) && /occasions/.test(txt()));
 check("zéro donnée de cuisine (niv. N, priorité N, anglais mart)", txt().indexOf("niv.") < 0 && txt().indexOf("priorité ") < 0 && txt().indexOf("detected") < 0);
 
 // ── À surveiller : € chaleur gated registre (règle inchangée). ──
-body.querySelector('[data-tb-rb="sv"]').click(); await tick();
+body.querySelector('[data-tb-tile="sv"]').click(); await tick();
 check("« à récupérer » SEULEMENT avec un € (registre)", !oc.next_hot ? true
   : oc.heat_range ? txt().indexOf("à récupérer") >= 0 && txt().indexOf("jusqu’à") >= 0
   : txt().indexOf("à récupérer") < 0 && txt().indexOf("pas encore chiffré") >= 0,
@@ -111,7 +113,7 @@ check("provenance (types de jours chiffrés)", payload.learnings.length ? txt().
 // ── Ma couverture : veille + offres (absence DITE) + automatisations. ──
 body.querySelector('[data-tb-rb="co"]').click(); await tick();
 // Registre owner 14/08 : trouvailles d'abord, technique SEULEMENT cassé, zéro inventaire de crawl.
-check("volet « Ma veille concurrentielle » (jamais « Ma couverture »)", txt().indexOf("Ma veille concurrentielle") >= 0 && txt().indexOf("Ma couverture") < 0);
+check("volet « Mon positionnement » (jamais « Ma couverture » ni « Ma veille »)", txt().indexOf("Mon positionnement") >= 0 && txt().indexOf("Ma couverture") < 0);
 check("zéro registre crawl (lieux visités / passage)", txt().indexOf("lieux visités") < 0 && txt().indexOf("jamais visité") < 0 && txt().indexOf("passage") < 0);
 const vDefaut = vLieux.filter((v) => !(v.age_j != null && v.age_j <= 1)).length + (((g.veille || {}).sans_cle) || []).length;
 check("technique seulement CASSÉ", vDefaut ? txt().indexOf("échappe à votre veille") >= 0 || txt().indexOf("suivi incomplet") >= 0 : txt().indexOf("échappe à votre veille") < 0);

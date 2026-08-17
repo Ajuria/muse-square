@@ -430,8 +430,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               // L'argent d'abord (owner 17/08) : le € classe, le compte suit.
               ? '<div class="tb-tile" data-tb-tile="af"><p class="tb-eb">À faire</p><div class="n" style="color:' + (j.met_recipe.gap_eur >= 0 ? GREEN : AMBER) + ';">' + signEur(j.met_recipe.gap_eur) + '</div><div class="s" title="gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages">à prendre · ' + aFaire.length + ' gestes en attente</div></div>'
               : '<div class="tb-tile" data-tb-tile="af"><p class="tb-eb">À faire</p><div class="n">' + aFaire.length + '</div><div class="s" title="gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages">gestes en attente</div></div>')
-            + '<div class="tb-tile"><p class="tb-eb">Prochaine occasion</p><div class="n" style="color:' + (rgT ? GREEN : "#111827") + ';">' + occN + '</div><div class="s">' + occSub + '</div></div>'
-            + '<div class="tb-tile" data-tb-tile="co"><p class="tb-eb">Veille</p><div class="n" style="display:flex;align-items:center;gap:8px;' + (nTrouvailles ? '' : 'font-size:15px;color:' + GREEN + ';line-height:1.3;padding-top:4px;') + '"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (veilleCassee ? AMBER : GREEN) + ';flex:none;" title="' + (veilleCassee ? "veille en défaut : un de vos suivis n’est plus lu — détail dans Ma veille concurrentielle" : "veille active sur tous vos suivis") + '"></span>' + (nTrouvailles ? nTrouvailles : 'Rien n\u2019a boug\u00e9') + '</div>'
+            + '<div class="tb-tile" data-tb-tile="sv"><p class="tb-eb">Prochaine occasion</p><div class="n" style="color:' + (rgT ? GREEN : "#111827") + ';">' + occN + '</div><div class="s">' + occSub + '</div></div>'
+            + '<div class="tb-tile" data-tb-tile="co"><p class="tb-eb">Veille</p><div class="n" style="display:flex;align-items:center;gap:8px;' + (nTrouvailles ? '' : 'font-size:15px;color:' + GREEN + ';line-height:1.3;padding-top:4px;') + '"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (veilleCassee ? AMBER : GREEN) + ';flex:none;" title="' + (veilleCassee ? "veille en défaut : un de vos suivis n’est plus lu — détail dans Mon positionnement" : "veille active sur tous vos suivis") + '"></span>' + (nTrouvailles ? nTrouvailles : 'Rien n\u2019a boug\u00e9') + '</div>'
               + '<div class="s">' + (nTrouvailles ? "changement" + (nTrouvailles > 1 ? "s" : "") + " chez vos " + vLieux.length + " suivis" : "vos " + vLieux.length + " suivis · lus cette nuit") + '</div></div>'
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:14px;padding:2px 4px 0;font-size:12px;color:#6b7280;flex-wrap:wrap;">';
@@ -618,8 +618,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           // Grille-résumé (proto validé 17/08) : voletHead ENREGISTRE la carte, la grille
           // s'émet après les corps — chaque carte déplie SON volet dans le panneau partagé.
           var voletMeta = [];
-          var voletHead = function (id, dot, label, resume) {
-            voletMeta.push({ id: id, dot: dot, label: label, resume: resume });
+          var voletHead = function (id, dot, label, resume, groupe, cache) {
+            voletMeta.push({ id: id, dot: dot, label: label, resume: resume, groupe: groupe || "proc", cache: !!cache });
             return "";
           };
           var rbCard = function (v) {
@@ -649,7 +649,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var evAttention = jours.some(function (gg) { return gg.mien || gg.alea; });
           var nCollis = jours.filter(function (gg) { return gg.mien; }).length;
           var evResume = nEvts14 + " sur 14 j" + (nCollis ? " · " + nCollis + " le jour d’une de vos opérations" : "") + " · carte";
-          html += voletHead("ev", evAttention ? AMBER : GREY, "Événements concurrents", evResume)
+          html += voletHead("ev", evAttention ? AMBER : GREY, "Activité dans votre périmètre", evResume, "comp")
             + '<div data-tb-body="ev" class="tb-rbody" style="display:none;">';
           // Vignette-carte du RADAR, réutilisée telle quelle (anneaux SVG légers — Leaflet ne se
           // charge jamais ici) ; compteurs AU RÉFÉRENTIEL du volet : les 14 jours listés dessous.
@@ -678,30 +678,34 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '</a></div>';
           })();
           if (!jours.length) html += '<div style="color:#9CA3AF;font-size:12.5px;">Aucun événement concurrent repéré sur vos 14 prochains jours.</div>';
-          jours.forEach(function (gg) {
-            var hab = habituelFor(gg.loc, gg.d);
-            var e0 = gg.evts[0];
-            var dj = daysTo(gg.d);
+          // Classement par RISQUE de cannibalisation (proto validé 17/08) : score du mart
+          // (audience commune + secteur + proximité + date) + collision avec VOS opérations —
+          // plus jamais une liste chronologique.
+          var evRows = (g.evts14 || []).map(function (m) {
+            var k = m.location_id + "|" + m.d;
+            return { e0: m, mien: occDates[k] || null, rang: (Number(m.score) || 0) + (occDates[k] ? 2 : 0) };
+          }).sort(function (a2, b2) { return b2.rang - a2.rang || a2.e0.d.localeCompare(b2.e0.d); });
+          evRows.forEach(function (r2) {
+            var e0 = r2.e0, mien = r2.mien;
+            var hab = habituelFor(e0.location_id, e0.d);
+            var dj = daysTo(e0.d);
+            var risque = Number(e0.score) || 0;
+            var chaud = risque >= 3 || !!mien;
             var detail = [];
-            if (gg.mien) detail.push("le jour de votre " + esc(trunc(gg.mien, 30)));
-            // Registre (audit 15/08) : l'aléa météo du JOUR n'a rien à faire sous l'événement
-            // DU CONCURRENT — il vit sur Prochaine occasion / À surveiller. Distance toujours dite.
+            if (mien) detail.push("le jour de votre " + esc(trunc(mien, 30)));
             if (e0.m != null) detail.push("à " + (e0.m / 1000).toFixed(1).replace(".", ",") + " km — public partiellement commun");
             html += '<div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:0 10px;align-items:center;padding:8px 0;border-top:1px solid #F3F4F6;">'
-              + '<span><span style="font-size:11px;font-weight:700;color:' + (gg.mien || gg.alea ? AMBER : GREY) + ';">' + (dj === 0 ? "auj." : "J-" + dj) + '</span><span style="display:block;font-size:9.5px;color:#9CA3AF;">' + dowFr(gg.d) + " " + frD(gg.d) + '</span></span>'
-              + '<span style="min-width:0;"><span style="font-weight:600;">' + esc(e0.lieu || "Un concurrent") + ' ouvre « ' + esc(trunc(e0.nom, 38)) + ' »' + (gg.evts.length > 1 ? " +" + (gg.evts.length - 1) : "") + '</span>'
-              + (J.multi_site ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">' + esc((j.sites || []).filter(function (sx) { return sx.location_id === gg.loc; }).map(function (sx) { return sx.label; })[0] || "") + '</span>' : "")
-              + (detail.length ? '<span style="display:block;font-size:11.5px;color:' + (gg.mien || gg.alea ? AMBER : "#6B7280") + ';">' + detail.join(" · ") + '</span>' : "") + '</span>'
-              + '<span style="font-size:12px;white-space:nowrap;">' + (hab ? '<span style="color:#6B7280;">votre ' + dowFull(gg.d) + ' habituel ≈ </span><span style="font-weight:600;">' + frInt(hab) + ' €</span>' : "") + '</span></div>';
+              + '<span><span style="font-size:11px;font-weight:700;color:' + (chaud ? AMBER : GREY) + ';">' + (dj === 0 ? "auj." : "J-" + dj) + '</span><span style="display:block;font-size:9.5px;color:#9CA3AF;">' + dowFr(e0.d) + " " + frD(e0.d) + '</span></span>'
+              + '<span style="min-width:0;"><span class="tb-chip" style="background:' + (chaud ? "#FEF3E2" : "#F3F4F6") + ';color:' + (chaud ? AMBER : "#6b7280") + ';margin-right:6px;" title="score de cannibalisation : audience commune + même secteur + proximité + collision de date">risque ' + risque + '/4' + (mien ? " · collision" : "") + '</span><span style="font-weight:600;">' + esc(e0.lieu || "Un concurrent") + ' ouvre « ' + esc(trunc(e0.nom, 34)) + ' »</span>'
+              + (J.multi_site ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">' + esc((j.sites || []).filter(function (sx) { return sx.location_id === e0.location_id; }).map(function (sx) { return sx.label; })[0] || "") + '</span>' : "")
+              + (detail.length ? '<span style="display:block;font-size:11.5px;color:' + (chaud ? AMBER : "#6B7280") + ';">' + detail.join(" · ") + '</span>' : "") + '</span>'
+              + '<span style="font-size:12px;white-space:nowrap;">' + (hab ? '<span style="color:#6B7280;">votre ' + dowFull(e0.d) + ' habituel ≈ </span><span style="font-weight:600;">' + frInt(hab) + ' €</span>' : "") + '</span></div>';
           });
           html += '</div>';
 
           // ── Volet À SURVEILLER — cartes système 7 j (libellé maison) + occasions chaleur. ──
           var TYPE_FR = {
             weather_hazard_onset: ["Aléa météo annoncé", AMBER], competition_pressure_spike: ["Pic de concurrence", AMBER],
-            event_new: ["Nouvel événement concurrent repéré", AMBER], competitor_event_launch: ["Lancement chez un concurrent", AMBER],
-            competitor_event_ending: ["Fin d’exposition chez un concurrent", AMBER], competitor_positioning_gap: ["Un concurrent mord sur votre offre", AMBER],
-            competitor_reputation_strength: ["Réputation forte d’un concurrent", AMBER], competitor_positioning_brief: ["Votre comparaison face aux suivis est prête", GREY],
             weekend_opportunity: ["Week-end favorable", GREEN], weekend_vacation_low_comp: ["Week-end de vacances, concurrence faible", GREEN],
             low_competition_window: ["Faible concurrence détectée", GREEN], audience_shift_opportunity: ["Bascule de clientèle à saisir", GREEN],
             foreign_tourism_signal: ["Afflux de visiteurs étrangers", GREEN], calendar_audience_shift: ["Calendrier favorable", GREEN],
@@ -742,7 +746,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             '<button type="button" data-tb-fold="tb-occ-fold" style="background:none;border:none;font-family:inherit;font-size:12px;color:#1D3BB3;font-weight:600;cursor:pointer;white-space:nowrap;">Lesquels ▾</button>');
           var svResume = nMen + (nMen > 1 ? " menaces" : " menace") + " · " + nOcc2 + " occasions"
             + (oc.next_hot ? " · jour chaud " + (oc.next_hot === TODAY ? "aujourd’hui" : dowFr(oc.next_hot) + " " + frD(oc.next_hot)) : "");
-          html += voletHead("sv", nMen ? AMBER : GREEN, "À surveiller", svResume)
+          html += voletHead("sv", nMen ? AMBER : GREEN, "Vos prochaines occasions", svResume, "comp", true)
             + '<div data-tb-body="sv" class="tb-rbody" style="display:none;">'
             + occHtml
             + '<div id="tb-occ-fold" class="tb-fold" style="line-height:1.7;">'
@@ -800,7 +804,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var depthMax = (j.sales_depth || []).reduce(function (a, x) { return Math.max(a, x.n_days || 0); }, 0);
             var depthTip = (j.sales_depth || []).map(function (x) { return (x.site_label || "") + " : " + x.n_days + " j (" + frD(x.first_sale) + " → " + frD(x.last_sale) + ")"; }).join(" · ");
             var vTot = (j.judged_meta || []).length;
-            html += voletHead("sf", pc.proven ? GREEN : GREY, "Votre savoir-faire", sfResume)
+            html += voletHead("sf", pc.proven ? GREEN : GREY, "Vos dispositifs", sfResume, "proc")
               + '<div data-tb-body="sf" class="tb-rbody" id="tb-sf" style="display:none;">'
               + '<p class="tb-eb" style="cursor:help;margin:2px 0;" title="Mesuré sur VOS ventes, chez vous — pas des moyennes de secteur. C’est l’actif du compte : il s’accumule et ne se transfère pas.">Ce que l’app a appris de vos sites</p>'
               + capHtml
@@ -808,7 +812,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '<span style="cursor:help;" title="' + esc(depthTip) + '">appris sur ' + depthMax + ' j de ventes · ' + (j.learned_classes || 0) + ' types de jours chiffrés · ' + vTot + ' verdicts</span>'
               + '<button type="button" data-tb-fold="tb-cap-fold" style="background:none;border:none;font-family:inherit;font-size:10.5px;color:#9CA3AF;cursor:pointer;text-decoration:underline;text-underline-offset:2px;">comment lire</button></div>'
               + '<div id="tb-cap-fold" class="tb-fold">'
-              + '<span style="font-weight:600;">Comment lire :</span> tout part de vos ' + depthMax + ' jours de ventes — ils donnent le CA habituel de chacune de vos journées. Chaque ligne ci-dessus est la médiane mesurée de l’écart à ce CA habituel, chez vous, au registre enjeu de l’app (jamais une moyenne de secteur). Les verdicts disent ce qui a marché quand vous avez agi. Plus l’historique grandit, plus ces chiffres — et les occasions d’À surveiller — sont justes.'
+              + '<span style="font-weight:600;">Comment lire :</span> tout part de vos ' + depthMax + ' jours de ventes — ils donnent le CA habituel de chacune de vos journées. Chaque ligne ci-dessus est la médiane mesurée de l’écart à ce CA habituel, chez vous, au registre enjeu de l’app (jamais une moyenne de secteur). Les verdicts disent ce qui a marché quand vous avez agi. Plus l’historique grandit, plus ces chiffres — et vos prochaines occasions — sont justes.'
               + '</div>';
           }
 
@@ -859,7 +863,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var eqResume = eqOpenN + " en cours"
             + (eqLead && (eqLead.open || []).length ? " · " + esc(String(eqLead.who).split("·")[0].trim()) + " porte " + eqLead.open.length : "")
             + (eqLead && eqLead.gap_eur != null ? " · " + signEur(eqLead.gap_eur) : "");
-          html += voletHead("eq", eqOpenN ? GREEN : GREY, "Équipe", eqResume)
+          html += voletHead("eq", eqOpenN ? GREEN : GREY, "Équipe", eqResume, "proc")
             + '<div data-tb-body="eq" class="tb-rbody" style="display:none;">';
           eq.forEach(function (p) {
             // Nettoyage (audit 15/08) : un « porteur » sans nom ET sans rien = pas une rangée
@@ -914,8 +918,65 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var covResume = covSites.map(function (c) { return esc(c.site_label || "") + " " + c.n_suivis + "/" + c.n_total; }).join(" · ")
             + " · " + ((g.offres || []).length ? (g.offres || []).length + " changement" + ((g.offres || []).length > 1 ? "s" : "") + " d’offre" : "offres stables")
             + (nDefaut ? " · veille en défaut sur " + nDefaut : "");
-          html += voletHead("co", covTrou || nDefaut ? AMBER : GREEN, "Ma veille concurrentielle", covResume)
+          html += voletHead("co", covTrou || nDefaut ? AMBER : GREEN, "Mon positionnement", covResume, "comp")
             + '<div data-tb-body="co" class="tb-rbody" style="display:none;">';
+          // ── v2 (proto validé 17/08) : la réponse d'abord, puis LES FICHES nommées par suivi. ──
+          (function () {
+            var fiches = (g.fiches || []).slice().sort(function (a2, b2) { return (b2.note || 0) - (a2.note || 0); });
+            var nChg = (g.offres || []).length;
+            var nTarifsB = ((g.offres_base || {}).n_tarifs) || 0;
+            var hautes = fiches.filter(function (f2) { return f2.note != null && f2.note >= 4.5; });
+            var AUD_FR = { tourists: "touristes", families: "familles", professionals: "professionnels", local: "clientèle locale", mixed: "clientèle mixte", students: "étudiants", seniors: "seniors" };
+            html += '<div style="font-size:13px;line-height:1.6;padding:10px 0 4px;">'
+              + (nChg ? '<span style="font-weight:650;">' + nChg + ' changement' + (nChg > 1 ? 's' : '') + ' détecté' + (nChg > 1 ? 's' : '') + '</span> chez vos suivis — le détail plus bas.'
+                      : '<span style="font-weight:650;">Prix stables chez vos ' + vLieux.length + ' suivis</span> — ' + nTarifsB + ' tarifs comparés, rien à la lecture de cette nuit.')
+              + (hautes.length ? ' ' + hautes.slice(0, 2).map(function (f2) { return esc(String(f2.nom).split(' - ')[0]); }).join(' et ') + ' tiennent une note \u2265 4,5 — regardez ce qu\u2019ils mettent en avant.' : '')
+              + '</div>';
+            var pMax2 = Math.max.apply(null, fiches.map(function (f2) { return f2.p_max || 0; }).concat([1]));
+            fiches.slice(0, 8).forEach(function (f2) {
+              var prix;
+              if (f2.p_min == null) prix = '<span style="font-size:11px;color:#9CA3AF;">tarifs non publiés sur sa page</span>';
+              else {
+                var x1 = (f2.p_min / pMax2) * 100, x2 = Math.max((f2.p_max / pMax2) * 100, x1 + 2);
+                prix = '<span style="display:inline-flex;align-items:center;gap:8px;">'
+                  + '<span style="position:relative;width:110px;height:6px;background:#F3F4F6;border-radius:3px;flex:none;">'
+                  + '<span style="position:absolute;left:' + x1.toFixed(1) + '%;width:' + (x2 - x1).toFixed(1) + '%;height:6px;border-radius:3px;background:#1D3BB3;opacity:0.75;"></span></span>'
+                  + '<span style="font-size:11px;color:#374151;white-space:nowrap;">' + String(f2.p_min).replace('.', ',') + ' – ' + String(f2.p_max).replace('.', ',') + ' € · ' + f2.n_tarifs + ' tarifs</span></span>';
+              }
+              html += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #F5F6F8;font-size:12.5px;flex-wrap:wrap;">'
+                + '<span style="min-width:150px;font-weight:650;">' + esc(String(f2.nom).length > 28 ? String(f2.nom).slice(0, 26) + '\u2026' : f2.nom) + '</span>'
+                + '<span style="min-width:105px;">' + (f2.note != null ? '<span style="font-weight:700;">\u2605 ' + String(f2.note).replace('.', ',') + '</span> <span style="font-size:11px;color:#9CA3AF;">' + (f2.avis != null ? '\u00b7 ' + frInt(f2.avis) + ' avis' : '') + '</span>' : '<span style="font-size:11px;color:#9CA3AF;">note pas encore relevée</span>') + '</span>'
+                + '<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">' + esc(AUD_FR[f2.audience] || f2.audience || '?') + '</span>'
+                + prix
+                + (f2.url ? '<a class="tb-link" style="margin-left:auto;font-size:12px;white-space:nowrap;" href="' + esc(f2.url) + '" target="_blank" rel="noopener">Sa page \u2192</a>' : '<span style="margin-left:auto;font-size:11px;color:#B45309;">sans page lisible — à réparer</span>')
+                + '</div>';
+            });
+            // Signaux concurrents NOMMABLES : les cartes du registre, liées à LEUR page de détail.
+            var SIG_FR = {
+              competitor_positioning_gap: "Un concurrent mord sur votre offre",
+              competitor_positioning_brief: "Votre comparaison face aux suivis est prête",
+              competitor_reputation_strength: "Réputation en force chez un suivi",
+              event_new: "Nouvel événement repéré chez un suivi",
+              competitor_event_ending: "Fin d\u2019exposition chez un suivi — report de flux possible",
+              competitor_event_launch: "Lancement chez un suivi",
+            };
+            var sigs = (g.cartes || []).filter(function (c2) { return SIG_FR[c2.type]; });
+            var vusSig = {};
+            sigs.forEach(function (c2) {
+              if (vusSig[c2.type]) { vusSig[c2.type].n++; return; }
+              vusSig[c2.type] = { n: 1, c: c2 };
+            });
+            Object.keys(vusSig).forEach(function (k2) {
+              var v2 = vusSig[k2];
+              html += '<div style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-top:1px solid #F5F6F8;font-size:12.5px;">'
+                + '<span style="width:8px;height:8px;border-radius:50%;background:' + (k2 === 'competitor_event_ending' ? GREEN : AMBER) + ';flex:none;margin-top:4px;"></span>'
+                + '<span style="min-width:0;">' + SIG_FR[k2] + (v2.n > 1 ? ' <span style="color:#9CA3AF;">\u00d7' + v2.n + '</span>' : '') + '</span>'
+                + '<a class="tb-link" style="margin-left:auto;font-size:12px;white-space:nowrap;" href="/app/insightevent/insight?type=' + encodeURIComponent(k2) + '&date=' + encodeURIComponent(v2.c.d) + '&location_id=' + encodeURIComponent(v2.c.location_id || loc) + '">Lire \u2192</a></div>';
+            });
+            // Enrichissement web : l'emplacement est dessiné, branché sur l'infra existante.
+            html += '<div style="margin:10px 0 6px;padding:9px 12px;background:#F8FAFC;border:1px dashed #D1D5DB;border-radius:8px;font-size:11.5px;color:#6B7280;">'
+              + '<span style="font-weight:600;color:#374151;">Ce qu\u2019il met en avant</span> — lecture web de sa page (expositions phares, offres poussées) \u00b7 <span style="color:#9CA3AF;">à venir : l\u2019enrichissement se branche sur l\u2019infra existante</span></div>';
+          })();
           // La veille : ce qui marche, ce qui est bloqué (cause nommée), les offres.
           if (vLieux.length) {
             var jamaisL = vLieux.filter(function (v) { return !(v.age_j != null && v.age_j <= 1); });
@@ -954,7 +1015,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var auResume = done.length + " reçue" + (done.length > 1 ? "s" : "")
             + " · " + planned.length + " programmée" + (planned.length > 1 ? "s" : "")
             + (toActivate.length ? " · " + toActivate.length + " à activer" : "");
-          html += voletHead("au", toActivate.length ? AMBER : done.length ? GREEN : GREY, "Automatisations", auResume)
+          html += voletHead("au", toActivate.length ? AMBER : done.length ? GREEN : GREY, "Automatisations", auResume, "proc")
             + '<div data-tb-body="au" class="tb-rbody" style="display:none;">'
             + (done.length ? '<p class="tb-eb" style="margin:2px 0 2px;">Reçu</p>' + done.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
             + (planned.length ? '<p class="tb-eb" style="margin:' + (done.length ? "8px" : "2px") + ' 0 2px;">Programmé</p>' + planned.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
@@ -962,7 +1023,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + (toActivate.length ? '<div style="height:1px;background:rgba(0,0,0,0.08);margin:8px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">À activer</p>' + toActivate.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
             + '</div>'
             + '</div>';
-          html += '<div class="tb-rbgrid">' + voletMeta.map(rbCard).join('') + '</div>'
+          // Deux familles (owner 17/08) : Compétitivité (dehors) / Processus métiers (la machine).
+          var _vComp = voletMeta.filter(function (v) { return v.groupe === "comp" && !v.cache; });
+          var _vProc = voletMeta.filter(function (v) { return v.groupe === "proc" && !v.cache; });
+          html += '<p class="tb-eb" style="margin:14px 2px 8px;">Compétitivité</p>'
+            + '<div class="tb-rbgrid" style="grid-template-columns:repeat(2,1fr);">' + _vComp.map(rbCard).join('') + '</div>'
+            + '<p class="tb-eb" style="margin:14px 2px 8px;">Processus métiers</p>'
+            + '<div class="tb-rbgrid">' + _vProc.map(rbCard).join('') + '</div>'
             + '<div id="tb-rpanel" class="tb-card" style="display:none;padding:14px 16px;"></div>';
 
           body.innerHTML = html;

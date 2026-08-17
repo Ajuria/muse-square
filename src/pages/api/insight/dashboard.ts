@@ -35,7 +35,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [serieRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -467,6 +467,23 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 ORDER BY 1, 2`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
+      // Fiches par suivi (« Mon positionnement », proto validé 17/08) : note Google + avis,
+      // audience, fourchette de tarifs relevés, page lue — les absences restent des NULL dits.
+      bq.query({
+        query: `SELECT ct.location_id, cd.competitor_name nom, cd.google_rating note,
+                       cd.google_rating_count avis, cd.primary_audience audience,
+                       COALESCE(cd.tarifs_url, cd.source_url) url,
+                       MIN(h.price_numeric) p_min, MAX(h.price_numeric) p_max,
+                       COUNT(DISTINCT h.item_norm) n_tarifs
+                FROM \`${PROJECT}.raw.competitor_tracking\` ct
+                JOIN \`${PROJECT}.raw.competitor_directory\` cd
+                  ON cd.competitor_id = ct.competitor_id AND cd.deleted_at IS NULL
+                LEFT JOIN \`${PROJECT}.raw.competitor_offering_history\` h
+                  ON h.competitor_id = ct.competitor_id AND h.price_numeric IS NOT NULL
+                WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL
+                GROUP BY 1, 2, 3, 4, 5, 6`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
       // Cartes « série » (proto 17/08) : la frise = dates STOCKÉES (raw.saved_item_dates) +
       // verdict par occurrence (dernier snapshot du commitment de la date).
       bq.query({
@@ -794,7 +811,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
           offres_base: { n_tarifs: Number(num((offBaseRows as any[])[0]?.n_tarifs) ?? 0), n_lieux: Number(num((offBaseRows as any[])[0]?.n_lieux) ?? 0) },
           par_site: (covSiteRows as any[]).map((r) => ({ location_id: str(r.location_id), site_label: siteLabel[String(str(r.location_id))] || null, n_total: num(r.n_total), n_suivis: num(r.n_suivis) })),
           trous: (trousRows as any[]).map((r) => ({ nom: str(r.competitor_name), km: num(r.km), overlap: num(r.overlap), place_id: str(r.google_place_id), city: str(r.city), location_id: str(r.location_id) })),
-          evts14: (evts14Rows as any[]).map((r) => ({ location_id: str(r.location_id), d: str(r.d), nom: str(r.event_name), lieu: str(r.venue_name), m: num(r.m), lvl_heat: num(r.lvl_heat), lvl_rain: num(r.lvl_rain), lvl_wind: num(r.lvl_wind), lvl_snow: num(r.lvl_snow), lvl_cold: num(r.lvl_cold) })),
+          // Mon positionnement (17/08) : la fiche factuelle par suivi — on nomme ou on se tait.
+          fiches: (ficheRows as any[]).map((r) => ({
+            location_id: str(r.location_id), nom: str(r.nom),
+            note: num(r.note), avis: num(r.avis), audience: str(r.audience), url: str(r.url),
+            p_min: num(r.p_min), p_max: num(r.p_max), n_tarifs: num(r.n_tarifs) ?? 0,
+          })),
+          evts14: (evts14Rows as any[]).map((r) => ({ location_id: str(r.location_id), d: str(r.d), nom: str(r.event_name), lieu: str(r.venue_name), m: num(r.m), score: num(r.conflict_score), lvl_heat: num(r.lvl_heat), lvl_rain: num(r.lvl_rain), lvl_wind: num(r.lvl_wind), lvl_snow: num(r.lvl_snow), lvl_cold: num(r.lvl_cold) })),
           habituel_dow: (dowRows as any[]).map((r) => ({ location_id: str(r.location_id), dw: num(r.dw), habituel: num(r.habituel) })),
           savoir: { evts_sans_objectif: Number(num((savoirRows as any[])[0]?.evts_sans_objectif) ?? 0), cartes_bloquees: Number(num((savoirRows as any[])[0]?.cartes_bloquees) ?? 0) },
           cartes: (cartesRows as any[]).map((r) => ({ type: str(r.action_type), cat: str(r.action_category), prio: num(r.action_priority), d: str(r.d), location_id: str(r.location_id) })),
