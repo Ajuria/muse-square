@@ -128,8 +128,17 @@ if ((g.trous || []).some((t) => !t.place_id)) check("Suivre sans clé : repli ch
 if (payload.debloquer && payload.debloquer.declared_no_replay) check("Prouver cible SON dispositif (data-tb-goto)", rawHtml.indexOf("data-tb-goto=") >= 0);
 check("rangées dispositifs marquées par la clé", (payload.practices || []).some((pp) => pp.tier !== "archivee") ? rawHtml.indexOf("data-tb-prid=") >= 0 : true);
 if ((g.mesures || []).length) {
-  check("En mesure : mini-jauge par engagement ouvert", txt().indexOf("En mesure") >= 0 && rawHtml.indexOf('viewBox="0 0 120 62"') >= 0);
-  check("En mesure : lien vers la page évolution", Array.from(body.querySelectorAll("a")).some((aa) => String(aa.getAttribute("href") || "").indexOf("/app/insightevent/engagement?id=") >= 0));
+  check("Opérations en cours : section présente (proto 17/08)", txt().indexOf("Opérations en cours") >= 0 && body.querySelectorAll(".tb-op").length === (g.mesures || []).length, body.querySelectorAll(".tb-op").length + " cartes");
+  const mSerie = (g.mesures || []).filter((m) => m.kind === "serie");
+  if (mSerie.length) check("série : frise + Dossier →", rawHtml.indexOf('viewBox="0 0 330 46"') >= 0 && rawHtml.indexOf("Dossier \u2192") >= 0);
+  const mOcc = (g.mesures || []).filter((m) => m.kind === "occurrence");
+  if (mOcc.length) check("occurrence : jauge + Ajuster →", rawHtml.indexOf('viewBox="0 0 140 72"') >= 0);
+  const mFen = (g.mesures || []).filter((m) => m.kind === "fenetre" && (m.daily || []).length >= 2);
+  if (mFen.length) check("fenêtre : mini-courbe + objectif", rawHtml.indexOf('viewBox="0 0 180 60"') >= 0);
+  check("CTA opérations : jamais « Évolution » (geste acté = Ajuster/Dossier)", (() => {
+    const ops = Array.from(body.querySelectorAll(".tb-op"));
+    return ops.every((o) => o.textContent.indexOf("\u00c9volution") < 0);
+  })());
 }
 
 // ── Inc 3-5 (audit 15/08) : veille exploitable, registres purs, zéro soupe de tirets. ──

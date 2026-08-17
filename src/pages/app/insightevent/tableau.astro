@@ -46,6 +46,11 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
       /* Rangée « occasion / apprentissage » : € d'abord, mini-phrase, action. */
       .tb-occrow { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 0 10px; align-items: center; padding: 6px 0; font-size: 13px; }
       .tb-fold { display: none; margin-top: 8px; padding: 10px 12px; background: #F8FAFC; border-radius: 8px; font-size: 12px; line-height: 1.6; color: #374151; }
+      /* Opérations en cours (proto validé 17/08) : grille de cartes, série pleine largeur. */
+      .tb-opsgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 12px; }
+      @media (max-width: 640px) { .tb-opsgrid { grid-template-columns: 1fr; } }
+      .tb-op { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; padding: 13px 15px 11px; box-shadow: 0 1px 2px rgba(16,24,40,0.04); display: flex; flex-direction: column; gap: 8px; }
+      .tb-op.wide { grid-column: 1 / -1; }
       /* Autour de vous — grille-résumé cliquable (proto validé 17/08). */
       .tb-rbgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
       @media (max-width: 640px) { .tb-rbgrid { grid-template-columns: repeat(2, 1fr); } }
@@ -462,49 +467,138 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '<span class="v">' + (r.droite || "") + '</span>'
               + '<span class="a">' + (r.geste || "") + '</span></div>';
           };
-          // Mini-jauge (owner 16/08) : demi-cercle 120px, tricolore POSITION (règle évolution) —
-          // < habituel rouge · entre habituel et objectif orange · >= objectif vert · sans mesure gris.
-          function miniGauge(m) {
-            var goalPct = m.basis === "pct" && m.value != null ? m.value
-              : m.basis === "residual_z" && m.value != null ? Math.max(1, Math.round(m.value * 0.19 / Math.sqrt(m.days || 7) * 100)) : null;
-            var goal = goalPct != null && m.baseline != null ? m.baseline * (1 + goalPct / 100) : null;
-            var col = m.realized == null ? "#9CA3AF"
-              : (m.baseline != null && m.realized < m.baseline) ? "#b91c1c"
-              : (goal != null ? (m.realized >= goal ? "#059669" : "#B45309") : "#059669");
-            var mx = Math.max(goal || 0, m.realized || 0, m.baseline || 0) * 1.12 || 1;
-            function ang(v) { return Math.PI * (1 - Math.max(0, Math.min(1, v / mx))); }
-            function gx(a2, r) { return (60 + r * Math.cos(a2)).toFixed(1); }
-            function gy(a2, r) { return (56 - r * Math.sin(a2)).toFixed(1); }
-            var R = 40, g = '<path d="M 20 56 A 40 40 0 0 1 100 56" fill="none" stroke="#F3F4F6" stroke-width="9" stroke-linecap="round"/>';
-            if (m.realized != null && m.realized > 0) g += '<path d="M 20 56 A 40 40 0 0 1 ' + gx(ang(m.realized), R) + ' ' + gy(ang(m.realized), R) + '" fill="none" stroke="' + col + '" stroke-width="9" stroke-linecap="round"/>';
-            if (m.baseline != null) { var aB = ang(m.baseline); g += '<line x1="' + gx(aB, R - 6) + '" y1="' + gy(aB, R - 6) + '" x2="' + gx(aB, R + 6) + '" y2="' + gy(aB, R + 6) + '" stroke="#9CA3AF" stroke-width="1.6"/>'; }
-            if (goal != null) { var aG = ang(goal); g += '<line x1="' + gx(aG, R - 7) + '" y1="' + gy(aG, R - 7) + '" x2="' + gx(aG, R + 7) + '" y2="' + gy(aG, R + 7) + '" stroke="#1D3BB3" stroke-width="2.2"/>'; }
-            var isPct = m.metric === "conversion";
-            var vTxt = m.realized == null ? "\u2014" : isPct ? (m.realized * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %"
-              : (m.metric === "transactions" || m.metric === "footfall") ? Math.round(m.realized).toLocaleString("fr-FR")
-              : frInt(m.realized) + " \u20ac";
-            g += '<text x="60" y="48" font-size="13" font-weight="700" fill="' + (m.realized == null ? "#9CA3AF" : col) + '" text-anchor="middle" style="font-variant-numeric:tabular-nums;">' + vTxt + '</text>';
-            return '<svg viewBox="0 0 120 62" style="width:104px;height:auto;flex:none;" role="img">' + g + '</svg>';
-          }
+          // ── OPÉRATIONS EN COURS (proto validé 17/08) — 3 variantes : occurrence (jauge) /
+          //    fenêtre multi-jours (Jour k/n + mini-courbe) / série (frise d'occurrences).
+          //    Tricolore POSITION partout ; CTA = Ajuster → (engagement) ou Dossier → (série).
           var mesures = (g.mesures || []);
           var KPI_MINI_FR = { revenue_residual: "CA/j vs habituel", conversion: "taux de conversion", transactions: "tickets/jour", footfall: "visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/jour" };
+          function opFmt(v, metric) {
+            if (v == null) return "\u2014";
+            if (metric === "conversion") return (v * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %";
+            if (metric === "transactions" || metric === "footfall") return Math.round(v).toLocaleString("fr-FR");
+            return frInt(v) + " \u20ac";
+          }
+          function opGoal(m) {
+            var gp = m.basis === "pct" && m.value != null ? m.value
+              : m.basis === "residual_z" && m.value != null ? Math.max(1, Math.round(m.value * 0.19 / Math.sqrt(m.days || 7) * 100)) : null;
+            return gp != null && m.baseline != null ? m.baseline * (1 + gp / 100) : null;
+          }
+          function opCol(m, goal) {
+            return m.realized == null ? "#1D3BB3"
+              : (m.baseline != null && m.realized < m.baseline) ? "#b91c1c"
+              : (goal != null ? (m.realized >= goal ? "#059669" : "#B45309") : "#059669");
+          }
+          function opGauge(m, goal) {
+            var col = opCol(m, goal);
+            var mx = Math.max(goal || 0, m.realized || 0, m.baseline || 0) * 1.12 || 1;
+            function ang(v) { return Math.PI * (1 - Math.max(0, Math.min(1, v / mx))); }
+            function gx(a2, r) { return (70 + r * Math.cos(a2)).toFixed(1); }
+            function gy(a2, r) { return (64 - r * Math.sin(a2)).toFixed(1); }
+            var R = 48, g2 = "";
+            if (m.realized == null) {
+              // Avant fenêtre : la mesure est ARMÉE, pas absente — arc pointillé + cible.
+              g2 += '<path d="M 22 64 A 48 48 0 0 1 118 64" fill="none" stroke="#C7D2FE" stroke-width="10" stroke-linecap="round" stroke-dasharray="1,14"/>';
+              if (goal != null) { var aG0 = ang(goal); g2 += '<line x1="' + gx(aG0, R - 8) + '" y1="' + gy(aG0, R - 8) + '" x2="' + gx(aG0, R + 8) + '" y2="' + gy(aG0, R + 8) + '" stroke="#1D3BB3" stroke-width="2.6"/>'; }
+              g2 += '<text x="70" y="54" font-size="13" font-weight="700" fill="#1D3BB3" text-anchor="middle">cible ' + opFmt(goal, m.metric) + '</text>';
+            } else {
+              g2 += '<path d="M 22 64 A 48 48 0 0 1 118 64" fill="none" stroke="#F3F4F6" stroke-width="10" stroke-linecap="round"/>';
+              if (m.realized > 0) g2 += '<path d="M 22 64 A 48 48 0 0 1 ' + gx(ang(m.realized), R) + ' ' + gy(ang(m.realized), R) + '" fill="none" stroke="' + col + '" stroke-width="10" stroke-linecap="round"/>';
+              if (m.baseline != null) { var aB = ang(m.baseline); g2 += '<line x1="' + gx(aB, R - 7) + '" y1="' + gy(aB, R - 7) + '" x2="' + gx(aB, R + 7) + '" y2="' + gy(aB, R + 7) + '" stroke="#9CA3AF" stroke-width="1.8"/>'; }
+              if (goal != null) { var aG = ang(goal); g2 += '<line x1="' + gx(aG, R - 8) + '" y1="' + gy(aG, R - 8) + '" x2="' + gx(aG, R + 8) + '" y2="' + gy(aG, R + 8) + '" stroke="#1D3BB3" stroke-width="2.6"/>'; }
+              g2 += '<text x="70" y="54" font-size="15" font-weight="700" fill="' + col + '" text-anchor="middle" style="font-variant-numeric:tabular-nums;">' + opFmt(m.realized, m.metric) + '</text>';
+            }
+            return '<svg viewBox="0 0 140 72" style="width:148px;height:auto;flex:none;">' + g2 + '</svg>';
+          }
+          function opSpark(m, goal) {
+            var pts = m.daily || [];
+            if (pts.length < 2) return "";
+            var all = pts.map(function (p2) { return p2.v; });
+            if (m.baseline != null) all.push(m.baseline);
+            if (goal != null) all.push(goal);
+            var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
+            var span = (mx - mn) || 1; mn -= span * 0.15; mx += span * 0.15;
+            function X(i2) { return (8 + i2 * (164 / Math.max(1, (m.days || pts.length) - 1))).toFixed(1); }
+            function Y(v) { return (54 - (v - mn) / (mx - mn) * 46).toFixed(1); }
+            var col = opCol(m, goal);
+            var g3 = "";
+            if (m.baseline != null) g3 += '<line x1="8" y1="' + Y(m.baseline) + '" x2="172" y2="' + Y(m.baseline) + '" stroke="#D1D5DB" stroke-width="1.2" stroke-dasharray="4,3"/>';
+            if (goal != null) g3 += '<line x1="8" y1="' + Y(goal) + '" x2="172" y2="' + Y(goal) + '" stroke="#1D3BB3" stroke-width="1.4" stroke-dasharray="3,3"/><text x="172" y="' + (Number(Y(goal)) - 3) + '" font-size="8" fill="#1D3BB3" text-anchor="end">objectif</text>';
+            g3 += '<polyline points="' + pts.map(function (p2, i2) { return X(i2) + "," + Y(p2.v); }).join(" ") + '" fill="none" stroke="' + col + '" stroke-width="2"/>';
+            g3 += '<circle cx="' + X(pts.length - 1) + '" cy="' + Y(pts[pts.length - 1].v) + '" r="3" fill="' + col + '"/>';
+            return '<svg viewBox="0 0 180 60" style="width:172px;height:auto;flex:none;">' + g3 + '</svg>';
+          }
+          function opFrise(occ) {
+            var n = occ.length, g4 = "", TODAY2 = TODAY;
+            function X(i2) { return (14 + i2 * (300 / Math.max(1, n - 1))).toFixed(1); }
+            g4 += '<line x1="10" y1="18" x2="318" y2="18" stroke="#E5E7EB" stroke-width="2"/>';
+            occ.forEach(function (o, i2) {
+              var x = X(i2);
+              if (o.verdict === "missed") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="#b91c1c"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">\u2717</text>';
+              else if (o.verdict === "met") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="#059669"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">\u2713</text>';
+              else if (o.status === "open" || o.status === "pending") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-dasharray="2,2.5"/>';
+              else if (o.d <= TODAY2) g4 += '<circle cx="' + x + '" cy="18" r="6.5" fill="#9CA3AF"><title>mesur\u00e9e \u2014 en attente de verdict</title></circle>';
+              else g4 += '<circle cx="' + x + '" cy="18" r="3.5" fill="#E5E7EB"/>';
+              g4 += '<text x="' + x + '" y="40" font-size="8.5" fill="#9CA3AF" text-anchor="middle">' + frD(o.d) + '</text>';
+            });
+            return '<svg viewBox="0 0 330 46" style="width:100%;max-width:360px;height:auto;">' + g4 + '</svg>';
+          }
+          function opChip(txt2, bg, fg) { return '<span class="tb-chip" style="background:' + bg + ';color:' + fg + ';font-weight:600;">' + txt2 + '</span>'; }
+          function opShortName(m) {
+            if (m.event_title) return esc(trunc(m.event_title, 45));
+            var t2 = String(m.texte || "").split("\u2192")[0].split("\u2014")[0].split(",")[0].trim();
+            return esc(t2.length > 45 ? t2.slice(0, 42) + "\u2026" : t2);
+          }
+          if (mesures.length) {
+            html += '<p class="tb-eb" style="margin:2px 0 8px;">Opérations en cours</p><div class="tb-opsgrid">';
+            mesures.forEach(function (m) {
+              var goal = opGoal(m);
+              var kpiLbl = m.metric === "family_revenue" && m.famille ? "CA famille \u00ab " + esc(m.famille) + " \u00bb" : (KPI_MINI_FR[m.metric] || m.metric);
+              var siteChp = m.site && J.multi_site ? opChip(esc(m.site), "#F3F4F6", "#6b7280") : "";
+              var inner = "", wide = false, cta;
+              if (m.kind === "serie") {
+                wide = true;
+                var jug = m.occ.filter(function (o) { return o.verdict === "met" || o.verdict === "missed"; }).length;
+                var ten = m.occ.filter(function (o) { return o.verdict === "met"; }).length;
+                var nxt = m.occ.filter(function (o) { return o.status === "open" || o.status === "pending"; })[0];
+                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(jug + "/" + m.occ.length + " jug\u00e9es \u00b7 " + ten + " tenue" + (ten > 1 ? "s" : ""), "#F3F4F6", "#6b7280") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
+                  + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">' + opFrise(m.occ)
+                  + '<div style="flex:1;min-width:180px;font-size:11.5px;color:#6B7280;line-height:1.55;">Chaque occurrence est jug\u00e9e seule \u2014 la s\u00e9rie cumule les verdicts.' + (nxt ? " Prochaine : " + dowFull(nxt.d) + " " + frD(nxt.d) + " (arm\u00e9e)." : "") + '</div></div>'
+                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">\u2717 manqu\u00e9e \u00b7 \u2713 tenue \u00b7 \u25cf grise = mesur\u00e9e, verdict en attente \u00b7 \u25cc arm\u00e9e \u00b7 petits points = planifi\u00e9es</span>'
+                  + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(m.location_id) + '&saved_item_id=' + encodeURIComponent(m.saved_item_id || "") + '">Dossier \u2192</a></div>';
+              } else if (m.kind === "fenetre" && (m.daily || []).length >= 2) {
+                var cum = m.daily.reduce(function (s2, p2) { return s2 + p2.v; }, 0) / m.daily.length;
+                var dv = goal != null ? cum - goal : null;
+                var col2 = opCol({ realized: cum, baseline: m.baseline, metric: m.metric }, goal);
+                var dTxt = dv == null ? "" : (m.metric === "conversion"
+                  ? (dv >= 0 ? "+" : "\u2212") + Math.abs(dv * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " pt"
+                  : (dv >= 0 ? "+" : "\u2212") + opFmt(Math.abs(dv), m.metric));
+                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip("Jour " + m.daily.length + "/" + (m.days || "?"), "#FEF3E2", "#B45309") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
+                  + '<div style="display:flex;align-items:center;gap:14px;">' + opSpark(m, goal)
+                  + '<div style="flex:1;min-width:0;font-size:11.5px;color:#6B7280;line-height:1.55;">' + (dTxt ? '<span style="font-size:16px;font-weight:700;color:' + col2 + ';font-variant-numeric:tabular-nums;">' + dTxt + '</span> <span style="color:#374151;">vs objectif</span>' : opFmt(cum, m.metric) + " en moyenne")
+                  + '<span style="display:block;font-size:10.5px;color:#9CA3AF;margin-top:2px;">moyenne ' + opFmt(cum, m.metric) + ' \u00b7 provisoire \u2014 verdict au jour ' + (m.days || "?") + '</span></div></div>'
+                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">mesur\u00e9 sur vos ventes, jour par jour</span>'
+                  + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/engagement?id=' + encodeURIComponent(m.commitment_id) + '">Ajuster \u2192</a></div>';
+              } else {
+                var djW = m.ws ? daysTo(m.ws) : null;
+                var armed = m.realized == null;
+                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(armed ? "Arm\u00e9e" + (djW != null && djW > 0 ? " \u00b7 J-" + djW : "") : "En mesure", "#EEF2FF", "#1D3BB3") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
+                  + '<div style="display:flex;align-items:center;gap:14px;">' + opGauge(m, goal)
+                  + '<div style="flex:1;min-width:0;font-size:11.5px;color:#6B7280;line-height:1.55;">' + (armed
+                    ? "Occurrence du " + dowFull(m.ws) + " " + frD(m.ws) + " \u2014 la mesure d\u00e9marre seule, verdict jug\u00e9 apr\u00e8s le " + frD(m.we) + "."
+                    : "Mesur\u00e9 sur la journ\u00e9e \u2014 verdict jug\u00e9 apr\u00e8s le " + frD(m.we) + ".") + '</div></div>'
+                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">' + (armed ? "rien \u00e0 faire d\u2019ici l\u00e0" : "mesur\u00e9 sur vos ventes") + '</span>'
+                  + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/engagement?id=' + encodeURIComponent(m.commitment_id) + '">Ajuster \u2192</a></div>';
+              }
+              html += '<div class="tb-op' + (wide ? " wide" : "") + '"><div style="font-size:13.5px;font-weight:650;line-height:1.3;" title="' + esc(String(m.texte || "")) + '">' + opShortName(m) + '</div>' + inner + '</div>';
+            });
+            html += '</div>';
+          }
 
           html += '<div class="tb-card" id="tb-af-card" style="padding:14px 16px;">'
             + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><p class="tb-eb">À faire</p>'
             + '<span style="font-size:12px;font-weight:600;color:' + (aFaire.length ? BLUE : GREY) + ';">' + aFaire.length + '</span></div>';
           if (!aFaire.length) html += '<div style="font-size:12.5px;color:#9CA3AF;margin-top:4px;">Rien à faire — vos opérations suivent leur cours.</div>';
           aFaire.slice(0, 6).forEach(function (r) { html += afRow(r); });
-          if (mesures.length) {
-            html += '<div style="height:1px;background:rgba(0,0,0,0.06);margin:12px 0 8px;"></div><p class="tb-eb" style="margin-bottom:2px;">En mesure</p>';
-            mesures.forEach(function (m) {
-              var dj = m.we ? daysTo(m.we) : null;
-              html += '<a href="/app/insightevent/engagement?id=' + encodeURIComponent(m.commitment_id) + '" style="display:flex;align-items:center;gap:12px;padding:6px 0;text-decoration:none;color:inherit;" title="Consulter l\u2019\u00e9volution compl\u00e8te">'
-                + miniGauge(m)
-                + '<span style="flex:1;min-width:0;"><span style="display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(trunc(String(m.texte || "").split("\u2014")[0], 60)) + '</span>'
-                + '<span style="display:block;font-size:11px;color:#9CA3AF;">' + esc(KPI_MINI_FR[m.metric] || m.metric) + (m.realized == null ? ' \u00b7 mesure d\u00e8s le ' + frD(m.ws) : '') + (dj != null ? ' \u00b7 verdict ' + (dj <= 0 ? "imminent" : frD(m.we)) : '') + '</span></span>'
-                + '<span class="tb-link" style="font-size:12px;white-space:nowrap;">\u00c9volution \u2192</span></a>';
-            });
-          }
           if (aFaire.length > 6) {
             html += '<button type="button" data-tb-fold="tb-af-more" style="display:block;padding:8px 0 0;font-size:12px;color:#6b7280;background:none;border:none;font-family:inherit;cursor:pointer;">+ ' + (aFaire.length - 6) + ' autres ▾</button>'
               + '<div id="tb-af-more" class="tb-fold" style="padding:0;background:none;">';
