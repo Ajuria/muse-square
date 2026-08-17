@@ -207,7 +207,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             kind: "documenter",
             aline: "→ Documenter votre verdict tenu — il devient un dispositif déclaré",
             sub: "depuis la carte de l’action, dans Agir",
-            goal_fr: "Enrichir vos dispositifs", link_fr: "Documenter le verdict tenu",
+            goal_fr: "Documentez vos résultats", link_fr: "Documenter le verdict tenu",
             href: "/app/insightevent/pulse",
           });
           if (db.declared_no_replay) {
@@ -396,7 +396,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (seuilsCase)
             lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs habituel) mais aucune cible n’est tenue — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
           else if (im.gap_eur != null && im.gap_eur > 0 && im.targets_met > 0)
-            lecture = signEur(im.gap_eur) + " vs habituel et " + im.targets_met + " cible" + (im.targets_met > 1 ? "s" : "") + " tenue" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — réutilisez ce qui tient (Vos dispositifs).";
+            lecture = signEur(im.gap_eur) + " vs habituel et " + im.targets_met + " cible" + (im.targets_met > 1 ? "s" : "") + " tenue" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — réutilisez ce qui tient (Mes dispositifs).";
           else if (im.gap_eur != null && im.gap_eur < 0)
             lecture = "Fenêtres sous votre habituel (" + signEur(im.gap_eur) + ") — resserrez sur les dispositifs prouvés.";
           var lv = j.last_verdict || null;
@@ -826,7 +826,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var depthMax = (j.sales_depth || []).reduce(function (a, x) { return Math.max(a, x.n_days || 0); }, 0);
             var depthTip = (j.sales_depth || []).map(function (x) { return (x.site_label || "") + " : " + x.n_days + " j (" + frD(x.first_sale) + " → " + frD(x.last_sale) + ")"; }).join(" · ");
             var vTot = (j.judged_meta || []).length;
-            html += voletHead("sf", pc.proven ? GREEN : GREY, "Vos dispositifs", sfResume, "proc")
+            html += voletHead("sf", pc.proven ? GREEN : GREY, "Mes dispositifs", sfResume, "proc")
               + '<div data-tb-body="sf" class="tb-rbody" id="tb-sf" style="display:none;">'
               + '<p class="tb-eb" style="cursor:help;margin:2px 0;" title="Mesuré sur VOS ventes, chez vous — pas des moyennes de secteur. C’est l’actif du compte : il s’accumule et ne se transfère pas.">Ce que l’app a appris de vos sites</p>'
               + capHtml
@@ -845,13 +845,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var diChips = '<span class="tb-chip" style="background:' + (pc.proven ? "#E6F6F0" : "#F3F4F6") + ';color:' + (pc.proven ? "#059669" : "#6b7280") + ';">' + pc.proven + " prouvé" + (pc.proven > 1 ? "s" : "") + '</span>'
             + (_nEnTest > 0 ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;margin-left:4px;cursor:help;"' + (replayEnd ? ' title="verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + '"' : "") + '>' + _nEnTest + " en test</span>" : "")
             + (_nEcarte ? '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;margin-left:4px;cursor:help;" title="cible manquée au dernier test — pas réutilisable tel quel — ajustez puis Prouver">' + _nEcarte + " écarté" + (_nEcarte > 1 ? "s" : "") + "</span>" : "");
-          html += '<div style="height:1px;background:rgba(0,0,0,0.08);margin:10px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">Vos dispositifs</p>';
+          html += '<div style="height:1px;background:rgba(0,0,0,0.08);margin:10px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">Mes dispositifs</p>';
           // La phrase owner (17/08) : jugés selon leurs résultats — prouvé = réutilisable.
           (function () {
             var nP2 = listPractices.filter(function (px) { return px.tier === "prouvee"; }).length;
             var nE2 = listPractices.filter(function (px) { return px.tier === "ecartee"; }).length;
             var nT2 = listPractices.length - nP2 - nE2;
-            html += '<div style="font-size:12.5px;color:#374151;margin-bottom:6px;">Vos dispositifs, jugés selon leurs résultats — <span style="font-weight:650;">' + nP2 + ' prouvé' + (nP2 > 1 ? 's' : '') + ' · ' + nT2 + ' en test · ' + nE2 + ' écarté' + (nE2 > 1 ? 's' : '') + '</span>. Prouvé = réutilisable ; écarté = à ajuster avant de retester.</div>';
+            html += '<div style="font-size:12.5px;color:#374151;margin-bottom:6px;">Mes dispositifs, jugés selon leurs résultats — <span style="font-weight:650;">' + nP2 + ' prouvé' + (nP2 > 1 ? 's' : '') + ' · ' + nT2 + ' en test · ' + nE2 + ' écarté' + (nE2 > 1 ? 's' : '') + '</span>. Prouvé = réutilisable ; écarté = à ajuster avant de retester.</div>';
           })();
           var _testByPr = {};
           (g.tests || []).forEach(function (tx) { _testByPr[tx.practice_id] = tx; });
@@ -1002,61 +1002,66 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var fiches = (g.fiches || []).slice().sort(function (a2, b2) { return (b2.note || 0) - (a2.note || 0); });
             var nChg = (g.offres || []).length;
             var nTarifsB = ((g.offres_base || {}).n_tarifs) || 0;
-            var hautes = fiches.filter(function (f2) { return f2.note != null && f2.note >= 4.5; });
             var AUD_FR = { tourists: "touristes", families: "familles", professionals: "professionnels", local: "clientèle locale", mixed: "clientèle mixte", students: "étudiants", seniors: "seniors" };
             html += '<div style="font-size:13px;line-height:1.6;padding:10px 0 4px;">'
               + (nChg ? '<span style="font-weight:650;">' + nChg + ' changement' + (nChg > 1 ? 's' : '') + ' détecté' + (nChg > 1 ? 's' : '') + '</span> chez vos suivis — le détail plus bas.'
                       : '<span style="font-weight:650;">Prix stables chez vos ' + vLieux.length + ' suivis</span> — ' + nTarifsB + ' tarifs comparés, rien à la lecture de cette nuit.')
               + '</div>';
-            var pMax2 = Math.max.apply(null, fiches.map(function (f2) { return f2.p_max || 0; }).concat([1]));
-            // Position réputation (mots humains, lexique 17/08) + public VS VOUS (profil du site).
-            var _notes = fiches.map(function (f2) { return f2.note; }).filter(function (v2) { return v2 != null; });
-            var _maxN = Math.max.apply(null, _notes), _minN = Math.min.apply(null, _notes);
             var _audMoi = {};
             (g.audiences || []).forEach(function (a2) { _audMoi[a2.location_id] = [a2.a1, a2.a2].filter(Boolean); });
-            fiches.forEach(function (f2) {
-              if (f2.note != null && _notes.length > 1) f2._repPos = f2.note >= _maxN - 0.05 ? 'haut' : f2.note <= _minN + 0.05 ? 'bas' : 'moyen';
-              var mes = _audMoi[f2.location_id] || [];
-              f2._pub = mes.indexOf(f2.audience) >= 0 ? ['même public que vous', '#FEF3E2', AMBER]
-                : f2.audience === 'mixed' ? ['public partiellement commun', '#F3F4F6', '#6b7280']
-                : ['public différent du vôtre', '#E6F6F0', GREEN];
-            });
-            fiches.slice(0, 8).forEach(function (f2) {
-              var prix;
-              if (f2.p_min == null) prix = '<span style="font-size:11px;color:#9CA3AF;">tarifs non publiés sur sa page</span>';
-              else {
-                var x1 = (f2.p_min / pMax2) * 100, x2 = Math.max((f2.p_max / pMax2) * 100, x1 + 2);
-                prix = '<span style="display:inline-flex;align-items:center;gap:8px;">'
-                  + '<span style="position:relative;width:110px;height:6px;background:#F3F4F6;border-radius:3px;flex:none;">'
-                  + '<span style="position:absolute;left:' + x1.toFixed(1) + '%;width:' + (x2 - x1).toFixed(1) + '%;height:6px;border-radius:3px;background:#1D3BB3;opacity:0.75;"></span></span>'
-                  + '<span style="font-size:11px;color:#374151;white-space:nowrap;">' + String(f2.p_min).replace('.', ',') + ' – ' + String(f2.p_max).replace('.', ',') + ' € · ' + f2.n_tarifs + ' tarifs</span></span>';
-              }
-              html += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #F5F6F8;font-size:12.5px;flex-wrap:wrap;">'
-                + '<span style="min-width:150px;font-weight:650;">' + esc(String(f2.nom).length > 28 ? String(f2.nom).slice(0, 26) + '\u2026' : f2.nom) + '</span>'
-                + '<span style="min-width:150px;">' + (f2.note != null ? '<span style="font-weight:700;">\u2605 ' + String(f2.note).replace('.', ',') + '</span> <span style="font-size:10.5px;font-weight:600;border-radius:6px;padding:1px 6px;background:' + (f2._repPos === 'haut' ? '#FEF3E2' : '#F3F4F6') + ';color:' + (f2._repPos === 'haut' ? AMBER : '#6b7280') + ';">' + (f2._repPos === 'haut' ? 'parmi les mieux notés' : f2._repPos === 'bas' ? 'le moins bien noté de vos suivis' : 'dans la moyenne') + '</span>' : '<span style="font-size:11px;color:#9CA3AF;">note pas encore relevée</span>') + '</span>'
-                + '<span class="tb-chip" style="background:' + f2._pub[1] + ';color:' + f2._pub[2] + ';" title="' + esc(AUD_FR[f2.audience] || f2.audience || '?') + '">' + f2._pub[0] + '</span>'
-                + prix
-                + (f2.url ? '<a class="tb-link" style="margin-left:auto;font-size:12px;white-space:nowrap;" href="' + esc(f2.url) + '" target="_blank" rel="noopener">leur page \u2192</a>' : '<span style="margin-left:auto;font-size:11px;color:#B45309;">sans page lisible — à réparer</span>')
-                + '</div>';
-            });
-            // Signaux concurrents NOMMABLES : les cartes du registre, liées à LEUR page de détail.
-            // Lignes de VALEUR (owner 17/08) — déduites des données, jamais leur redite.
-            (function () {
-              var memeP = fiches.filter(function (f2) { return f2._pub && f2._pub[0] === 'même public que vous' && f2.note != null; });
+            // Toute COMPARAISON se joue \u00c0 L'INT\u00c9RIEUR d'un site (owner 17/08) : r\u00e9putation,
+            // public, lignes de valeur \u2014 jamais un suivi d'un site compar\u00e9 \u00e0 ceux d'un autre.
+            var parSite = {};
+            fiches.forEach(function (f2) { (parSite[f2.location_id] = parSite[f2.location_id] || []).push(f2); });
+            Object.keys(parSite).sort(function (a2, b2) { return String((parSite[a2][0] || {}).site || "").localeCompare(String((parSite[b2][0] || {}).site || "")); }).forEach(function (sid) {
+              var fs2 = parSite[sid];
+              if (J.multi_site) html += '<div class="tb-eb" style="margin:10px 0 0;">' + esc(fs2[0].site || "") + '</div>';
+              var pMax2 = Math.max.apply(null, fs2.map(function (f2) { return f2.p_max || 0; }).concat([1]));
+              var _notes = fs2.map(function (f2) { return f2.note; }).filter(function (v2) { return v2 != null; });
+              var _maxN = Math.max.apply(null, _notes), _minN = Math.min.apply(null, _notes);
+              var mes = _audMoi[sid] || [];
+              fs2.forEach(function (f2) {
+                if (f2.note != null && _notes.length > 1) f2._repPos = f2.note >= _maxN - 0.05 ? 'haut' : f2.note <= _minN + 0.05 ? 'bas' : 'moyen';
+                // Sans audience de VOTRE profil, pas de comparaison invent\u00e9e : la sienne, nue.
+                f2._pub = !mes.length ? (AUD_FR[f2.audience] ? [AUD_FR[f2.audience], '#F3F4F6', '#6b7280'] : null)
+                  : mes.indexOf(f2.audience) >= 0 ? ['m\u00eame public que vous', '#FEF3E2', AMBER]
+                  : f2.audience === 'mixed' ? ['public partiellement commun', '#F3F4F6', '#6b7280']
+                  : ['public diff\u00e9rent du v\u00f4tre', '#E6F6F0', GREEN];
+              });
+              fs2.slice(0, 8).forEach(function (f2) {
+                var prix;
+                if (f2.p_min == null) prix = '<span style="font-size:11px;color:#9CA3AF;">tarifs non publi\u00e9s sur sa page</span>';
+                else {
+                  var x1 = (f2.p_min / pMax2) * 100, x2 = Math.max((f2.p_max / pMax2) * 100, x1 + 2);
+                  prix = '<span style="display:inline-flex;align-items:center;gap:8px;">'
+                    + '<span style="position:relative;width:110px;height:6px;background:#F3F4F6;border-radius:3px;flex:none;">'
+                    + '<span style="position:absolute;left:' + x1.toFixed(1) + '%;width:' + (x2 - x1).toFixed(1) + '%;height:6px;border-radius:3px;background:#1D3BB3;opacity:0.75;"></span></span>'
+                    + '<span style="font-size:11px;color:#374151;white-space:nowrap;">' + String(f2.p_min).replace('.', ',') + ' \u2013 ' + String(f2.p_max).replace('.', ',') + ' \u20ac \u00b7 ' + f2.n_tarifs + ' tarifs</span></span>';
+                }
+                html += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #F5F6F8;font-size:12.5px;flex-wrap:wrap;">'
+                  + '<span style="min-width:150px;font-weight:650;">' + esc(String(f2.nom).length > 28 ? String(f2.nom).slice(0, 26) + '\u2026' : f2.nom) + '</span>'
+                  + '<span style="min-width:150px;">' + (f2.note != null ? '<span style="font-weight:700;">\u2605 ' + String(f2.note).replace('.', ',') + '</span> <span style="font-size:10.5px;font-weight:600;border-radius:6px;padding:1px 6px;background:' + (f2._repPos === 'haut' ? '#FEF3E2' : '#F3F4F6') + ';color:' + (f2._repPos === 'haut' ? AMBER : '#6b7280') + ';">' + (f2._repPos === 'haut' ? 'parmi les mieux not\u00e9s' : f2._repPos === 'bas' ? 'le moins bien not\u00e9 de vos suivis' : 'dans la moyenne') + '</span>' : '<span style="font-size:11px;color:#9CA3AF;">note pas encore relev\u00e9e</span>') + '</span>'
+                  + (f2._pub ? '<span class="tb-chip" style="background:' + f2._pub[1] + ';color:' + f2._pub[2] + ';" title="' + esc(AUD_FR[f2.audience] || f2.audience || '?') + '">' + f2._pub[0] + '</span>' : '')
+                  + prix
+                  + (f2.url ? '<a class="tb-link" style="margin-left:auto;font-size:12px;white-space:nowrap;" href="' + esc(f2.url) + '" target="_blank" rel="noopener">Consulter \u2192</a>' : '<span style="margin-left:auto;font-size:11px;color:#B45309;">sans page lisible \u2014 \u00e0 r\u00e9parer</span>')
+                  + '</div>';
+              });
+              // Lignes de VALEUR du SITE (owner 17/08) \u2014 d\u00e9duites des donn\u00e9es, jamais leur redite.
+              var memeP = fs2.filter(function (f2) { return f2._pub && f2._pub[0] === 'm\u00eame public que vous' && f2.note != null; });
               if (memeP.length === 1 && memeP[0]._repPos === 'bas') {
                 html += '<div style="display:flex;align-items:baseline;gap:8px;padding:8px 0;border-top:1px solid #F5F6F8;font-size:12.5px;">'
                   + '<span style="width:8px;height:8px;border-radius:50%;background:' + GREEN + ';flex:none;"></span>'
                   + '<span style="min-width:0;flex:1;">Votre seul concurrent direct, <b>' + esc(memeP[0].nom) + '</b>, est aussi le plus mal not\u00e9 (\u2605 ' + String(memeP[0].note).replace('.', ',') + '). Creusez l\u2019\u00e9cart : demandez leurs avis \u00e0 vos clients cette semaine.</span>'
                   + '<a class="tb-link" style="font-size:12px;white-space:nowrap;" href="/app/insightevent/pulse">Communiquer \u2192</a></div>';
               }
-              var gf = (g.gap_facts || []).filter(function (x2) { return x2.item && x2.share != null; })[0];
+              var gf = (g.gap_facts || []).filter(function (x2) { return x2.location_id === sid && x2.item && x2.share != null; })[0];
               if (gf && gf.share < 0.1) {
                 html += '<div style="display:flex;align-items:baseline;gap:8px;padding:8px 0;border-top:1px solid #F5F6F8;font-size:12.5px;">'
                   + '<span style="width:8px;height:8px;border-radius:50%;background:' + BLUE + ';flex:none;"></span>'
-                  + '<span style="min-width:0;flex:1;">Vous n\u2019avez pas de produit signature : votre best seller <b>' + esc(gf.item) + '</b> ne repr\u00e9sente que ' + Math.round(gf.share * 100) + ' % de votre CA. Une offre diff\u00e9renciante dans une niche porteuse augmenterait votre comp\u00e9titivit\u00e9 face \u00e0 ' + fiches.slice(0, 2).map(function (f2) { return esc(String(f2.nom).split(' - ')[0]); }).join(' et ') + '.</span>'
-                  + '<a class="tb-link" style="font-size:12px;white-space:nowrap;" href="/app/insightevent/insight?type=competitor_positioning_gap&date=' + TODAY + '&location_id=' + encodeURIComponent((gf.location_id) || loc) + '">Comparer \u2192</a></div>';
+                  + '<span style="min-width:0;flex:1;">Vous n\u2019avez pas de produit signature : votre best seller <b>' + esc(gf.item) + '</b> ne repr\u00e9sente que ' + Math.round(gf.share * 100) + ' % de votre CA. Une offre diff\u00e9renciante dans une niche porteuse augmenterait votre comp\u00e9titivit\u00e9 face \u00e0 ' + fs2.slice(0, 2).map(function (f2) { return esc(String(f2.nom).split(' - ')[0]); }).join(' et ') + '.</span>'
+                  + '<a class="tb-link" style="font-size:12px;white-space:nowrap;" href="/app/insightevent/insight?type=competitor_positioning_gap&date=' + TODAY + '&location_id=' + encodeURIComponent(sid) + '">Comparer \u2192</a></div>';
               }
-            })();
+            });
             var SIG_FR = {
               competitor_reputation_strength: "Réputation en force chez un suivi",
               event_new: "Nouvel événement repéré chez un suivi",
@@ -1103,7 +1108,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 html += '<div style="padding:2px 0;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">' + esc(trunc(o.nom, 26)) + ' — ' + lbl2 + '</span> · ' + esc(trunc(o.item || "", 40)) + prix
                   + (o.pct != null ? ' <span style="font-weight:600;color:' + AMBER + ';">' + (o.pct > 0 ? "+" : "") + Math.round(o.pct) + " %</span>" : "")
                   + (o.vu_le ? ' <span style="font-size:11px;color:#9CA3AF;">· vu le ' + frD(o.vu_le) + '</span>' : "")
-                  + (o.src_url ? ' · <a class="tb-link" style="font-size:11.5px;" href="' + esc(o.src_url) + '" target="_blank" rel="noopener">leur page →</a>' : "")
+                  + (o.src_url ? ' · <a class="tb-link" style="font-size:11.5px;" href="' + esc(o.src_url) + '" target="_blank" rel="noopener">Consulter →</a>' : "")
                   + '</div>';
               });
             } else if ((g.offres_base || {}).n_tarifs) {

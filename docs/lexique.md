@@ -36,6 +36,8 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Rendre le vécu d'une occurrence passée | **Bilan →** | feedback, débrief |
 | Position d'une note parmi les suivis | **parmi les mieux notés · dans la moyenne · le moins bien noté de vos suivis** | au-dessus/en-dessous de la médiane, percentile |
 | Occurrence passée dont la mesure est annulée | **passée sans mesure** | verdict en attente (faux si aucune mesure) |
+| Lire la page externe d'un tiers (concurrent, source) | **Consulter →** (label déjà en prod — Consulter la source) | leur page, Sa page, Voir, Ouvrir |
+| La section des dispositifs | **Mes dispositifs** (première personne, aligné « Mon positionnement » — owner 17/08) | Vos dispositifs, Votre savoir-faire |
 
 ## Règles de rédaction (héritées des décisions owner)
 

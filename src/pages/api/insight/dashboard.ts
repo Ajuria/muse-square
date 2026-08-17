@@ -840,7 +840,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
           trous: (trousRows as any[]).map((r) => ({ nom: str(r.competitor_name), km: num(r.km), overlap: num(r.overlap), place_id: str(r.google_place_id), city: str(r.city), location_id: str(r.location_id) })),
           // Mon positionnement (17/08) : la fiche factuelle par suivi — on nomme ou on se tait.
           fiches: (ficheRows as any[]).map((r) => ({
-            location_id: str(r.location_id), nom: str(r.nom),
+            location_id: str(r.location_id), site: siteLabel[String(str(r.location_id))] || null, nom: str(r.nom),
             note: num(r.note), avis: num(r.avis), audience: str(r.audience), url: str(r.url),
             p_min: num(r.p_min), p_max: num(r.p_max), n_tarifs: num(r.n_tarifs) ?? 0,
           })),

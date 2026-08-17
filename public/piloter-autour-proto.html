@@ -119,7 +119,7 @@
     html += '<div class="li"><span style="min-width:150px;font-weight:650;">' + esc(String(f.nom).length > 26 ? String(f.nom).slice(0, 24) + '…' : f.nom) + '</span>'
       + '<span style="min-width:120px;"><span class="pos" style="background:' + overlap[1] + ';color:' + overlap[2] + ';">' + overlap[0] + '</span></span>'
       + '<span style="min-width:150px;">' + rep + '</span><span>' + prix + '</span>'
-      + (f.url ? '<a class="cta" href="' + esc(f.url) + '" target="_blank" rel="noopener">Sa page →</a>' : '<span class="cta" style="color:#B45309;font-weight:500;font-size:11px;">page illisible — à réparer</span>') + '</div>';
+      + (f.url ? '<a class="cta" href="' + esc(f.url) + '" target="_blank" rel="noopener">Consulter →</a>' : '<span class="cta" style="color:#B45309;font-weight:500;font-size:11px;">page illisible — à réparer</span>') + '</div>';
   });
   html += '<div style="height:1px;background:#F5F6F8;margin:10px 0;"></div>';
   // La VALEUR déduite du tableau, pas sa redite : le seul suivi qui vise VOTRE public est
@@ -139,12 +139,12 @@
   html += '</div>';
 
   // ══ 7 · VOS DISPOSITIFS — poignée + LE FAIT du dernier test + un geste par état. ══
-  html += '<span class="fix">Correctif 7 — Vos dispositifs</span><div class="card">';
+  html += '<span class="fix">Correctif 7 — Mes dispositifs</span><div class="card">';
   (function () {
     var nP = (D.practices || []).filter(function (p) { return p.tier === 'prouvee'; }).length;
     var nE = (D.practices || []).filter(function (p) { return p.tier === 'ecartee'; }).length;
     var nT = (D.practices || []).filter(function (p) { return p.tier !== 'prouvee' && p.tier !== 'ecartee' && p.tier !== 'archivee'; }).length;
-    html += '<div style="font-size:13px;margin-bottom:4px;">Vos dispositifs, jugés selon leurs résultats — <b>' + nP + ' prouvé' + (nP > 1 ? 's' : '') + ' · ' + nT + ' en test · ' + nE + ' écarté' + (nE > 1 ? 's' : '') + '</b>. Prouvé = réutilisable ; écarté = à ajuster avant de retester.</div>';
+    html += '<div style="font-size:13px;margin-bottom:4px;">Mes dispositifs, jugés selon leurs résultats — <b>' + nP + ' prouvé' + (nP > 1 ? 's' : '') + ' · ' + nT + ' en test · ' + nE + ' écarté' + (nE > 1 ? 's' : '') + '</b>. Prouvé = réutilisable ; écarté = à ajuster avant de retester.</div>';
   })();
   var testBy = {};
   (D.tests || []).forEach(function (t) { testBy[t.practice_id] = t; });

@@ -46,7 +46,7 @@ export const MOTS_BANNIS: Record<string, string> = {
   // Rechutes du 17/08 (owner : « WE HAVE A LANGUAGE IN PLACE ») — le concept s'appelle
   // DISPOSITIF ; « Armer » meurt (la condition vit DANS Automatiser) ; les teasers
   // abstraits meurent (on NOMME le concurrent et le fait, ou on ne dit rien).
-  "Vos recettes": "Vos dispositifs",
+  "Vos recettes": "Mes dispositifs",
   "Armer sur signal": "Automatiser (le signal est une condition du flux)",
   "Armer →": "Automatiser →",
   "lecture de positionnement": "les faits nommés (concurrent, chiffres) — jamais un teaser",
@@ -70,6 +70,11 @@ export const MOTS_BANNIS: Record<string, string> = {
   // Owner 17/08 (correctif Autour de vous) : ce qui est prouvé se RÉUTILISE — jamais « rejouable ».
   rejouable: "réutilisable",
   "se rejoue seule": "se relance seul",
+  // Owner 17/08 soir : zéro label neuf — lire une page externe = « Consulter → » (label déjà
+  // en prod, Consulter la source) ; sections à la première personne (« Mes dispositifs »).
+  "leur page →": "Consulter →",
+  "Sa page →": "Consulter →",
+  "Vos dispositifs": "Mes dispositifs",
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.

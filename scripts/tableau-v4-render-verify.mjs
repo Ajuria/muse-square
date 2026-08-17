@@ -84,7 +84,7 @@ if ((g.trous || []).length) check("trou de veille nommé (Suivez X)", txt().inde
 if ((g.savoir || {}).evts_sans_objectif) check("Fixez un objectif à N événements", txt().indexOf("Fixez un objectif à " + g.savoir.evts_sans_objectif) >= 0);
 check("règle CTA : au plus UN bouton plein", body.querySelectorAll(".tb-btnp").length <= 1, body.querySelectorAll(".tb-btnp").length + " plein(s)");
 check("Réorganisation (owner 17/08) : 5 cartes en 2 groupes + panneau", body.querySelectorAll(".tb-rb").length === 5 && !!doc.getElementById("tb-rpanel") && txt().indexOf("Compétitivité") >= 0 && txt().indexOf("Processus métiers") >= 0, body.querySelectorAll(".tb-rb").length + " cartes");
-check("renommages : Activité dans votre périmètre · Mon positionnement · Vos dispositifs", txt().indexOf("Activité dans votre périmètre") >= 0 && txt().indexOf("Mon positionnement") >= 0 && txt().indexOf("Vos dispositifs") >= 0 && txt().indexOf("À surveiller") < 0 && txt().indexOf("Ma veille concurrentielle") < 0);
+check("renommages : Activité dans votre périmètre · Mon positionnement · Mes dispositifs", txt().indexOf("Activité dans votre périmètre") >= 0 && txt().indexOf("Mon positionnement") >= 0 && txt().indexOf("Mes dispositifs") >= 0 && txt().indexOf("Vos dispositifs") < 0 && txt().indexOf("À surveiller") < 0 && txt().indexOf("Ma veille concurrentielle") < 0);
 check("vignette-carte dans Événements concurrents", body.querySelector('[data-tb-body="ev"]') && body.querySelector('[data-tb-body="ev"]').innerHTML.indexOf("Ouvrir la carte") >= 0);
 
 // ── Volets : l'en-tête EST la réponse. ──
@@ -107,7 +107,7 @@ check("« à récupérer » SEULEMENT avec un € (registre)", !oc.next_hot ? tr
 body.querySelector('[data-tb-rb="sf"]').click(); await tick();
 check("apprentissages (voix maison € d'abord)", payload.learnings.length ? txt().indexOf("Ce que l’app a appris") >= 0 && (txt().indexOf("perdus les ") >= 0 || txt().indexOf("gagnés les ") >= 0) : true);
 check("état par ligne (M'engager / joué / en test / à défendre)", payload.learnings.length ? (txt().indexOf("M’engager") >= 0 || txt().indexOf("joué — dispositif") >= 0 || txt().indexOf("en test — verdict") >= 0 || txt().indexOf("à défendre") >= 0) : true);
-check("dispositifs dans le même volet", txt().indexOf("Vos dispositifs") >= 0 && txt().indexOf("prouvé") >= 0);
+check("dispositifs dans le même volet", txt().indexOf("Mes dispositifs") >= 0 && txt().indexOf("prouvé") >= 0);
 check("provenance (types de jours chiffrés)", payload.learnings.length ? txt().indexOf("types de jours chiffrés") >= 0 : true);
 
 // ── Ma couverture : veille + offres (absence DITE) + automatisations. ──
@@ -190,9 +190,27 @@ check("À faire : bénéfice sous le geste (réutilisable / consigne part / cali
   if (hasCandidate) check("automatisations : rangée « possible » AVEC CTA Automatiser → (data-tb-goto)",
     auBody && auBody.innerHTML.indexOf("possible") >= 0 && Array.from(auBody.querySelectorAll("a[data-tb-goto]")).length >= 1);
 }
-// « Sa page » (label inventé) est mort — la chaîne prod est « leur page → ».
-check("fiches : « leur page → » (jamais « Sa page »)", body.innerHTML.indexOf("Sa page") < 0
-  && (((payload.glance || {}).fiches || []).some((f) => f.url) ? body.innerHTML.indexOf("leur page →") >= 0 : true));
+// Labels externes STREAMLINÉS (owner 17/08 soir) : lire une page externe = « Consulter → » partout.
+check("fiches/offres : « Consulter → » (jamais « Sa page » ni « leur page »)",
+  body.innerHTML.indexOf("Sa page \u2192") < 0 && body.innerHTML.indexOf("leur page \u2192") < 0 && body.innerHTML.indexOf("leur page →") < 0
+  && (((payload.glance || {}).fiches || []).some((f) => f.url) ? body.innerHTML.indexOf("Consulter →") >= 0 : true));
+// Multi-sites : toute comparaison se joue À L'INTÉRIEUR d'un site.
+{
+  const fAll = ((payload.glance || {}).fiches || []);
+  const sites = Array.from(new Set(fAll.map((f) => f.location_id)));
+  const coBody2 = body.querySelector('[data-tb-body="co"]');
+  const coHtml2 = coBody2 ? coBody2.innerHTML : "";
+  if (payload.multi_site && fAll.length)
+    check("positionnement : sous-titre de SITE (compte multi-sites — on dit de quel site sont les suivis)",
+      fAll.every((f) => !f.site || coHtml2.indexOf(f.site) >= 0), sites.length + " site(s)");
+  // La ligne « produit signature » nomme les fiches DU MÊME SITE que la carte gap.
+  const gfRow2 = ((payload.glance || {}).gap_facts || []).filter((x) => x.item && x.share != null && x.share < 0.1)[0];
+  if (gfRow2) {
+    const sameSite = fAll.filter((f) => f.location_id === gfRow2.location_id).sort((a, b) => (b.note || 0) - (a.note || 0)).slice(0, 2).map((f) => String(f.nom).split(" - ")[0]);
+    check("ligne produit signature : concurrents nommés = suivis du MÊME site que la carte",
+      sameSite.every((n) => (coBody2 ? coBody2.textContent : "").indexOf(n) >= 0), sameSite.join(" et "));
+  }
+}
 
 // ── Câblages purs (audit owner 15/08) : chaque geste aboutit à sa cible. ──
 const rawHtml = body.innerHTML;
