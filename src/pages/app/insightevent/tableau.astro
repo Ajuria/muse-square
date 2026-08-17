@@ -1015,6 +1015,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             // public, lignes de valeur \u2014 jamais un suivi d'un site compar\u00e9 \u00e0 ceux d'un autre.
             var SIGNAL_FR = { premium_eux: ['eux plus cher', '#FEF3E2', AMBER], premium_vous: ['vous plus cher', '#FEF3E2', AMBER], parite: ['parit\u00e9', '#F3F4F6', '#6b7280'], gap_eux: ['eux seulement', '#FEF3E2', AMBER], gap_vous: ['vous seulement', '#E6F6F0', GREEN] };
             var _frDT = function (ts) { var d2 = String(ts || '').slice(0, 10).split('-'); return d2.length === 3 ? d2[2] + '/' + d2[1] : ''; };
+            // Gras de balayage (owner 17/08) : prix, %, gratuit\u00e9s, horaires ressortent de la prose.
+            var _gras = function (txt2) {
+              return esc(txt2).replace(/(\d[\d\u00a0 ,.]*\s?\u20ac|[+\u2212-]?\d+[.,]?\d*\s?%|gratuit\w*|\d{1,2}\s?h\s?\d{0,2}(?:\s?[\u2013-]\s?\d{1,2}\s?h\s?\d{0,2})?)/gi, '<b>$1</b>');
+            };
             // Le panneau de fiche enrichie (proto valid\u00e9 owner 17/08) : Offre \u00b7 Publics/Clients vis\u00e9s \u00b7 Actualit\u00e9 commerciale.
             var _fichePanel = function (f2, mes) {
               var h2 = '';
@@ -1029,7 +1033,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                     + '<span>' + (r2.eux ? esc(r2.eux) + (r2.eux_prix ? ' \u00b7 <b>' + esc(r2.eux_prix) + '</b>' : '') : '<span style="color:#9CA3AF;">rien chez eux</span>') + '</span>'
                     + '<span style="color:#6B7280;">' + (r2.vous ? 'vous : ' + esc(r2.vous) + (r2.vous_prix ? ' \u00b7 <b>' + esc(r2.vous_prix) + '</b>' : '') : 'rien chez vous') + '</span>'
                     + (sg ? '<span class="tb-chip" style="background:' + sg[1] + ';color:' + sg[2] + ';">' + sg[0] + '</span>' : '')
-                    + (r2.lecture ? '<span style="flex-basis:100%;font-size:11px;color:#6B7280;">' + esc(r2.lecture) + '</span>' : '')
+                    + (r2.lecture ? '<span style="flex-basis:100%;font-size:11px;color:#6B7280;">' + _gras(r2.lecture) + '</span>' : '')
                     + '</div>';
                 });
                 if ((f2.analyse.gaps || []).length) h2 += '<div style="font-size:11px;color:#6B7280;margin-top:2px;"><b style="color:#374151;">Ils ont, vous n\u2019avez pas :</b> ' + f2.analyse.gaps.map(esc).join(' \u00b7 ') + '</div>';
@@ -1037,7 +1041,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               if (f2.actu && f2.actu.autres_offres) h2 += '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid #F5F6F8;font-size:12px;">'
                 + '<span style="width:7px;height:7px;border-radius:50%;background:' + AMBER + ';flex:none;position:relative;top:-1px;"></span>'
                 + '<span style="min-width:0;flex:1;"><b style="color:' + AMBER + ';">Autres offres et produits</b> <span style="font-size:10px;color:#9CA3AF;">Web \u2014 non v\u00e9rifi\u00e9</span>'
-                + '<span style="display:block;font-size:11px;color:#6B7280;">' + esc(f2.actu.autres_offres) + '</span></span></div>';
+                + '<span style="display:block;font-size:11px;color:#6B7280;">' + _gras(f2.actu.autres_offres) + '</span></span></div>';
               // 2 \u00b7 PUBLICS/CLIENTS VIS\u00c9S + le recouvrement MESUR\u00c9 (mart menace).
               h2 += '<p class="tb-eb" style="margin:10px 0 2px;">Publics/Clients vis\u00e9s</p><div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:12px;">';
               [[f2.audience, 'principal'], [f2.audience2, 'secondaire']].forEach(function (pa) {
@@ -1050,13 +1054,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               // 3 \u00b7 ACTUALIT\u00c9 COMMERCIALE (lecture web, cache 7 j) \u2014 registre Web non v\u00e9rifi\u00e9.
               h2 += '<p class="tb-eb" style="margin:10px 0 2px;">Actualit\u00e9 commerciale <span style="text-transform:none;letter-spacing:0;font-weight:500;color:#9CA3AF;">Web \u2014 non v\u00e9rifi\u00e9' + (f2.actu && f2.actu.lu_le ? ' \u00b7 lu le ' + _frDT(f2.actu.lu_le) : '') + '</span></p>';
               if (f2.actu) {
-                if (f2.actu.lead) h2 += '<div style="font-size:12px;color:#374151;">' + esc(f2.actu.lead) + '</div>';
+                if (f2.actu.lead) h2 += '<div style="font-size:12px;color:#374151;">' + _gras(f2.actu.lead) + '</div>';
                 (f2.actu.mises || []).forEach(function (m2) {
                   h2 += '<div style="display:flex;align-items:baseline;gap:8px;padding:5px 0;border-top:1px solid #F5F6F8;font-size:12px;">'
                     + '<span style="width:7px;height:7px;border-radius:50%;background:' + BLUE + ';flex:none;position:relative;top:-1px;"></span>'
                     + '<span style="min-width:0;flex:1;"><b>' + esc(m2.titre || '') + '</b>'
                     + (m2.dates ? ' <span class="tb-chip" style="background:#EEF2FF;color:' + BLUE + ';">' + esc(m2.dates) + '</span>' : '')
-                    + '<span style="display:block;font-size:11px;color:#6B7280;">' + esc(m2.detail || '') + '</span></span></div>';
+                    + '<span style="display:block;font-size:11px;color:#6B7280;">' + _gras(m2.detail || '') + '</span></span></div>';
                 });
                 if ((f2.actu.sources || []).length) h2 += '<div style="font-size:11px;color:#9CA3AF;margin-top:2px;">Sources : ' + f2.actu.sources.map(function (u2) {
                   return '<a class="tb-link" style="font-weight:500;font-size:11px;" href="' + esc(u2) + '" target="_blank" rel="noopener">' + esc(String(u2).replace(/^https?:\/\/(www\.)?/, '').split('/')[0]) + '</a>';

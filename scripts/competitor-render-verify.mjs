@@ -60,6 +60,8 @@ check("offre : tarifs RELEVÉS ou offres web DANS la carte Offre — absence dit
   : ((payload.analysis && (payload.analysis.price_comparison || []).length) ? true : t.indexOf("Aucun tarif relevé") >= 0),
   (payload.tarifs || []).length + " relevés · web: " + (hasWebOffres ? "oui" : "non"));
 check("les prix lus au web apparaissent (Guimet : 15/12 €)", hasWebOffres ? t.indexOf(String(hasWebOffres).slice(0, 24)) >= 0 : true);
+check("gras de balayage : prix/gratuités EN GRAS dans la prose", hasWebOffres
+  ? /<b>\d[\d\u00a0 ,.]*\s?€<\/b>/.test(c.innerHTML) && /<b>gratuit/i.test(c.innerHTML) : true);
 
 // 2e sujet : un suivi AVEC relevés réels (Domaine de Tavernel) — la liste de prix mesurés s'affiche.
 {

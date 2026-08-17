@@ -106,6 +106,11 @@ if (!location_id) {
         var MEN_FR = { low: "menace faible", medium: "menace mod\u00e9r\u00e9e", moderate: "menace mod\u00e9r\u00e9e", high: "menace forte", critical: "menace critique" };
         var REL_FR = { direct_competitor: "concurrent direct", indirect_competitor: "concurrent indirect", complementary: "compl\u00e9mentaire", substitute: "substitut" };
         var SIGNAL_FR = { premium_eux: ["eux plus cher", "#FEF3E2", AMBER], premium_vous: ["vous plus cher", "#FEF3E2", AMBER], parite: ["parit\u00e9", "#F3F4F6", "#6b7280"], gap_eux: ["eux seulement", "#FEF3E2", AMBER], gap_vous: ["vous seulement", "#E6F6F0", GREEN] };
+        // Gras de balayage (owner 17/08 : « difficult to scan ») : dans la prose, les PRIX,
+        // pourcentages, gratuités et horaires ressortent — échappement D'ABORD, jamais l'inverse.
+        var _gras = function (txt2) {
+          return esc(txt2).replace(/(\d[\d\u00a0 ,.]*\s?\u20ac|[+\u2212-]?\d+[.,]?\d*\s?%|gratuit\w*|\d{1,2}\s?h\s?\d{0,2}(?:\s?[\u2013-]\s?\d{1,2}\s?h\s?\d{0,2})?)/gi, '<b>$1</b>');
+        };
         var chip = function (txt, bg, col) { return '<span style="font-size:10.5px;font-weight:600;border-radius:20px;padding:2px 9px;white-space:nowrap;display:inline-flex;background:' + bg + ';color:' + col + ';">' + txt + '</span>'; };
         var secHd = function (txt, extra) { return '<div style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;font-weight:600;margin:22px 0 10px;">' + txt + (extra || '') + '</div>'; };
         var card = function (inner) { return '<div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.55;">' + inner + '</div>'; };
@@ -134,7 +139,7 @@ if (!location_id) {
         // OFFRE.
         html += secHd('Offre') + card((function () {
           var h2 = '';
-          if (an.value_prop_theirs) h2 += '<div><b>Proposition de valeur :</b> ' + esc(an.value_prop_theirs) + '</div>';
+          if (an.value_prop_theirs) h2 += '<div><b>Proposition de valeur :</b> ' + _gras(an.value_prop_theirs) + '</div>';
           if (an.value_prop_yours) h2 += '<div style="color:#6b7280;margin-top:4px;"><b style="color:#374151;">La v\u00f4tre :</b> ' + esc(an.value_prop_yours) + '</div>';
           var prix = an.price_comparison || [];
           if (prix.length) {
@@ -147,7 +152,7 @@ if (!location_id) {
                 + '<td style="' + td + '">' + (r2.their_item ? esc(r2.their_item) + (r2.their_price ? ' \u00b7 <b>' + esc(r2.their_price) + '</b>' : '') : '<span style="color:#9CA3AF;">\u2014</span>') + '</td>'
                 + '<td style="' + td + '">' + (r2.your_item ? esc(r2.your_item) + (r2.your_price ? ' \u00b7 <b>' + esc(r2.your_price) + '</b>' : '') : '<span style="color:#9CA3AF;">\u2014</span>') + '</td>'
                 + '<td style="' + td + '">' + (sg ? chip(sg[0], sg[1], sg[2]) : '') + '</td></tr>'
-                + (r2.reading ? '<tr><td colspan="4" style="font-size:11.5px;color:#6B7280;border-bottom:1px solid #e5e7eb;padding:0 10px 7px;">' + esc(r2.reading) + '</td></tr>' : '');
+                + (r2.reading ? '<tr><td colspan="4" style="font-size:11.5px;color:#6B7280;border-bottom:1px solid #e5e7eb;padding:0 10px 7px;">' + _gras(r2.reading) + '</td></tr>' : '');
             });
             h2 += '</table>';
           }
@@ -167,7 +172,7 @@ if (!location_id) {
             h2 += '<div style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-top:1px solid #f0f2f5;font-size:12.5px;margin-top:6px;">'
               + '<span style="width:7px;height:7px;border-radius:50%;background:' + AMBER + ';flex:none;"></span>'
               + '<span style="min-width:0;flex:1;"><b style="color:' + AMBER + ';">Autres offres et produits</b> <span style="font-size:10.5px;color:#9CA3AF;">Web \u2014 non v\u00e9rifi\u00e9</span>'
-              + '<span style="display:block;font-size:11.5px;color:#6B7280;">' + esc(webOffres) + '</span></span></div>';
+              + '<span style="display:block;font-size:11.5px;color:#6B7280;">' + _gras(webOffres) + '</span></span></div>';
           }
           if (!tarifs.length && !(an.price_comparison || []).length && !webOffres) {
             h2 += '<div style="font-size:12px;color:#9CA3AF;margin-top:8px;">Aucun tarif relev\u00e9 sur ses pages par la veille de nuit \u2014 tarifs non publi\u00e9s ou page tarifs absente du suivi.</div>';
@@ -188,7 +193,7 @@ if (!location_id) {
           });
           h2 += '<span style="color:#9CA3AF;font-size:11.5px;">le v\u00f4tre : ' + (mes.map(function (a2) { return esc(AUD_FR[a2] || a2); }).join(' \u00b7 ') || 'non renseign\u00e9 au profil') + '</span></div>';
           if (th.audience_overlap_pct != null) h2 += '<div style="font-size:12px;color:#6B7280;margin-top:6px;">Recouvrement mesur\u00e9 : <b>' + Math.round(th.audience_overlap_pct) + ' %</b>' + (th.seasonality_alignment ? ' \u00b7 m\u00eames saisons' : '') + '</div>';
-          if (an.segment_overlap) h2 += '<div style="font-size:12px;color:#6B7280;margin-top:4px;">' + esc(an.segment_overlap) + '</div>';
+          if (an.segment_overlap) h2 += '<div style="font-size:12px;color:#6B7280;margin-top:4px;">' + _gras(an.segment_overlap) + '</div>';
           return h2;
         })());
 
@@ -205,13 +210,13 @@ if (!location_id) {
         html += secHd('Actualit\u00e9 commerciale', ' <span style="text-transform:none;letter-spacing:0;font-weight:500;">Web \u2014 non v\u00e9rifi\u00e9' + (actu && actu.lu_le ? ' \u00b7 lu le ' + String(actu.lu_le).slice(8, 10) + '/' + String(actu.lu_le).slice(5, 7) : '') + '</span>')
           + card((function () {
             if (!actu || !(actu.mises || []).length) return '<span style="color:#9CA3AF;font-size:12.5px;">Pas encore lue \u2014 la veille de nuit lit chaque suivi une fois par semaine.</span>';
-            var h2 = actu.lead ? '<div style="color:#374151;">' + esc(actu.lead) + '</div>' : '';
+            var h2 = actu.lead ? '<div style="color:#374151;">' + _gras(actu.lead) + '</div>' : '';
             (actu.mises || []).forEach(function (m2) {
               h2 += '<div style="display:flex;align-items:baseline;gap:8px;padding:6px 0;border-top:1px solid #f0f2f5;font-size:12.5px;">'
                 + '<span style="width:7px;height:7px;border-radius:50%;background:' + BLUE + ';flex:none;"></span>'
                 + '<span style="min-width:0;flex:1;"><b>' + esc(m2.titre || '') + '</b>'
                 + (m2.dates ? ' ' + chip(esc(m2.dates), '#EEF2FF', BLUE) : '')
-                + '<span style="display:block;font-size:11.5px;color:#6B7280;">' + esc(m2.detail || '') + '</span></span></div>';
+                + '<span style="display:block;font-size:11.5px;color:#6B7280;">' + _gras(m2.detail || '') + '</span></span></div>';
             });
             if ((actu.sources || []).length) h2 += '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Sources : ' + actu.sources.map(function (u2) {
               return '<a href="' + esc(u2) + '" target="_blank" rel="noopener" style="color:#1D3BB3;text-decoration:none;">' + esc(String(u2).replace(/^https?:\/\/(www\.)?/, '').split('/')[0]) + '</a>';
