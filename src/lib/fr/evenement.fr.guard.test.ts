@@ -36,6 +36,7 @@ const SURFACES = [
   "public/piloter-ops-proto.html",
   "public/agir-proto.html",
   "public/fiche-enrich-proto.html",
+  "public/competitor-proto.html",
 ];
 
 /** Retire les commentaires, puis ne garde que le contenu des littéraux de chaîne. */
