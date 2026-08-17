@@ -181,7 +181,18 @@ check("À faire : bénéfice sous le geste (réutilisable / consigne part / cali
       /Mesure & verdict|Communication|Dispositif prêt à l’emploi/.test(auTxt));
     check("automatisations : le journal est mort (Reçu / Programmé)", auTxt.indexOf("Reçu") < 0 && auTxt.indexOf("Programmé") < 0);
   }
+  // Retours owner 17/08 soir : noms de dispositifs CAPITALISÉS coupés AU MOT ; la rangée
+  // « possible » porte son CTA Automatiser → vers le rang du dispositif (data-tb-goto).
+  const nomSpans = auBody ? Array.from(auBody.querySelectorAll('span[style*="font-weight:600"]')).map((n) => (n.textContent || "").trim()).filter(Boolean) : [];
+  check("automatisations : chaque nom commence par une capitale", nomSpans.every((n) => n.charAt(0) === n.charAt(0).toUpperCase()), nomSpans.filter((n) => n.charAt(0) !== n.charAt(0).toUpperCase()).join(" | ") || "tous");
+  check("automatisations : zéro nom coupé mi-mot (… seulement après un mot entier)", nomSpans.every((n) => !/[^\s…]…$/.test(n) || / \S+…$/.test(n)), nomSpans.join(" | ").slice(0, 120));
+  const hasCandidate = (payload.practices || []).some((pp) => pp.tier !== "archivee" && pp.armable && !pp.arm_enabled);
+  if (hasCandidate) check("automatisations : rangée « possible » AVEC CTA Automatiser → (data-tb-goto)",
+    auBody && auBody.innerHTML.indexOf("possible") >= 0 && Array.from(auBody.querySelectorAll("a[data-tb-goto]")).length >= 1);
 }
+// « Sa page » (label inventé) est mort — la chaîne prod est « leur page → ».
+check("fiches : « leur page → » (jamais « Sa page »)", body.innerHTML.indexOf("Sa page") < 0
+  && (((payload.glance || {}).fiches || []).some((f) => f.url) ? body.innerHTML.indexOf("leur page →") >= 0 : true));
 
 // ── Câblages purs (audit owner 15/08) : chaque geste aboutit à sa cible. ──
 const rawHtml = body.innerHTML;

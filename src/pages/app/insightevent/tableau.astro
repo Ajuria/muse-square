@@ -873,6 +873,11 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + " : " + (tx.verdict === "met" ? "cible tenue" : tx.verdict === "missed" ? "cible manquée" : "non concluant (facteur externe)");
           };
           if (!listPractices.length) html += '<div style="color:#9CA3AF;">Aucun — chaque verdict tenu peut en créer un (« Documenter »).</div>';
+          var _nomDsp = function (txt2, max2) {
+            var n2 = String(txt2 || "").split("\u2014")[0].split("(")[0].trim();
+            if (n2.length > max2) { var c2 = n2.slice(0, max2); n2 = c2.slice(0, c2.lastIndexOf(" ")) + "\u2026"; }
+            return n2 ? n2.charAt(0).toUpperCase() + n2.slice(1) : n2;
+          };
           listPractices.slice(0, 6).forEach(function (p, pi) {
             var t = p.tier;
             // Statuts owner 17/08 : « déclaré » n'existe plus à l'écran — c'est « en test ».
@@ -889,8 +894,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               actions = '<a class="tb-link" href="#" data-tb-replay="' + esc(p.practice_id) + '" title="Une exécution mesurée — si la cible tient, le dispositif devient réutilisable">Prouver</a>';
             }
             // Nom coupé AU MOT (owner 17/08 — jamais mi-lettre) + LE FAIT du dernier test dessous.
-            var _nm = String(p.text || "").split("\u2014")[0].split("(")[0].trim();
-            if (_nm.length > 64) { var _cut = _nm.slice(0, 64); _nm = _cut.slice(0, _cut.lastIndexOf(" ")) + "\u2026"; }
+            var _nm = _nomDsp(p.text, 64);
             html += '<div data-tb-prid="' + esc(p.practice_id || "") + '" style="display:flex;gap:8px;align-items:flex-start;padding:5px 0;flex-wrap:wrap;">'
               + '<span class="tb-chip" style="background:' + chip[1] + ';color:' + chip[2] + ';margin-top:2px;">' + chip[0] + '</span>'
               + (p.arm_enabled ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;margin-top:2px;">actif au signal</span>' : "")
@@ -966,7 +970,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               "/app/insightevent/evenement?location_id=" + encodeURIComponent(c.location_id) + "&saved_item_id=" + encodeURIComponent(c.saved_item_id || ""), "Dossier"));
           });
           (au.armed_dispositifs || []).forEach(function (a2) {
-            autoRows.push(_autoRow("active", "Dispositif pr\u00eat \u00e0 l\u2019emploi", esc(String(a2.text || "").split("\u2014")[0].trim().slice(0, 50)),
+            autoRows.push(_autoRow("active", "Dispositif pr\u00eat \u00e0 l\u2019emploi", esc(_nomDsp(a2.text, 50)),
               "D\u00e9clencheur : <b>chaleur annonc\u00e9e pour le lendemain</b> \u2014 la consigne part seule la veille."
               + (a2.n_triggers > 0 && a2.last_fired ? " " + a2.n_triggers + " d\u00e9clenchement" + (a2.n_triggers > 1 ? "s" : "") + ", dernier le " + frD(a2.last_fired) + "." : " Aucun d\u00e9clenchement encore \u2014 en veille sur son signal."),
               null, ""));
@@ -977,8 +981,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               "/notifications", "R\u00e9gler"));
           }
           listPractices.filter(function (px) { return px.armable && !px.arm_enabled; }).slice(0, 2).forEach(function (px) {
-            autoRows.push(_autoRow("possible", "Dispositif pr\u00eat \u00e0 l\u2019emploi", esc(String(px.text || "").split("\u2014")[0].trim().slice(0, 50)),
-              "D\u00e9clencheur : <b>chaleur annonc\u00e9e pour le lendemain</b> \u2014 la consigne partirait seule la veille, la mesure suivrait au jour J.",
+            autoRows.push(_autoRow("possible", "Dispositif pr\u00eat \u00e0 l\u2019emploi", esc(_nomDsp(px.text, 50)),
+              "D\u00e9clencheur : <b>chaleur annonc\u00e9e pour le lendemain</b> \u2014 la consigne partirait seule la veille, la mesure suivrait au jour J."
+              + ' <a class="tb-link" href="#tb-sf" data-tb-open="sf" data-tb-goto="' + esc(px.practice_id || "") + '" style="font-size:12px;white-space:nowrap;">Automatiser \u2192</a>',
               null, ""));
           });
           // « À activer » = interrupteurs réellement ÉTEINTS, vérifiés en base (inchangé).
@@ -1031,7 +1036,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 + '<span style="min-width:150px;">' + (f2.note != null ? '<span style="font-weight:700;">\u2605 ' + String(f2.note).replace('.', ',') + '</span> <span style="font-size:10.5px;font-weight:600;border-radius:6px;padding:1px 6px;background:' + (f2._repPos === 'haut' ? '#FEF3E2' : '#F3F4F6') + ';color:' + (f2._repPos === 'haut' ? AMBER : '#6b7280') + ';">' + (f2._repPos === 'haut' ? 'parmi les mieux notés' : f2._repPos === 'bas' ? 'le moins bien noté de vos suivis' : 'dans la moyenne') + '</span>' : '<span style="font-size:11px;color:#9CA3AF;">note pas encore relevée</span>') + '</span>'
                 + '<span class="tb-chip" style="background:' + f2._pub[1] + ';color:' + f2._pub[2] + ';" title="' + esc(AUD_FR[f2.audience] || f2.audience || '?') + '">' + f2._pub[0] + '</span>'
                 + prix
-                + (f2.url ? '<a class="tb-link" style="margin-left:auto;font-size:12px;white-space:nowrap;" href="' + esc(f2.url) + '" target="_blank" rel="noopener">Sa page \u2192</a>' : '<span style="margin-left:auto;font-size:11px;color:#B45309;">sans page lisible — à réparer</span>')
+                + (f2.url ? '<a class="tb-link" style="margin-left:auto;font-size:12px;white-space:nowrap;" href="' + esc(f2.url) + '" target="_blank" rel="noopener">leur page \u2192</a>' : '<span style="margin-left:auto;font-size:11px;color:#B45309;">sans page lisible — à réparer</span>')
                 + '</div>';
             });
             // Signaux concurrents NOMMABLES : les cartes du registre, liées à LEUR page de détail.
