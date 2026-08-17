@@ -12,8 +12,8 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 
 | Concept | LE mot | Interdits (attrapés en vrai) |
 |---|---|---|
-| Une pratique qui marche, réutilisable | **dispositif** | recette (en nom de section), méthode, playbook |
-| Statuts d'un dispositif | **en test · prouvé · écarté** (owner 17/08 : « déclaré » fusionné dans « en test » ; « écarté » = testé, cible manquée — pas rejouable tel quel ; mot déjà en prod) | déclaré, validé, certifié |
+| Une pratique qui marche, réutilisable | **dispositif** (« Prouvé = réutilisable » — owner 17/08 ; jamais « rejouable ») | recette (en nom de section), méthode, playbook, rejouable |
+| Statuts d'un dispositif | **en test · prouvé · écarté** (owner 17/08 : « déclaré » fusionné dans « en test » ; « écarté » = testé, cible manquée — pas réutilisable tel quel ; mot déjà en prod) | déclaré, validé, certifié |
 | Ce que l'utilisateur promet de faire et mesurer | **engagement** | commitment, pari |
 | Une date d'une série mesurée | **occurrence** | instance, itération |
 | Événement récurrent | **série** | campagne |

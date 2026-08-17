@@ -120,6 +120,69 @@ check("technique seulement CASSÉ", vDefaut ? txt().indexOf("échappe à votre v
 if (!(g.offres || []).length && (g.offres_base || {}).n_tarifs) check("offres : absence DITE et chiffrée", txt().indexOf("rien n’a bougé") >= 0 && txt().indexOf(String(g.offres_base.n_tarifs) + " tarifs sous surveillance") >= 0);
 check("Automatisations = carte à part", !!body.querySelector('[data-tb-rb="au"]') && txt().indexOf("Automatisations") >= 0);
 
+// ── Correctif 8 points (owner 17/08) — appliqué depuis le proto validé. ──
+// 1. UN SEUL vert au héros : le chiffre Impact (mesuré). Le point de santé veille reste un point.
+const heroNums = Array.from(body.querySelectorAll(".tb-hero .n"));
+const greensHero = heroNums.filter((n) => (n.getAttribute("style") || "").indexOf("#059669") >= 0);
+check("héros : un seul chiffre vert (Impact)", greensHero.length <= 1, greensHero.length + " vert(s)");
+// 2. CTA = verbe + flèche ≤ 14 caractères sur les gestes du correctif.
+const ctaTexts = Array.from(body.querySelectorAll("a.tb-link"))
+  .map((a) => (a.textContent || "").trim())
+  .filter((t) => /→$/.test(t) && ["Dossier", "Ajuster", "Préparer", "Bilan", "Communiquer", "Comparer", "Automatiser", "Régler", "Prouver"].some((v) => t.indexOf(v) === 0));
+check("CTA du correctif ≤ 14 caractères", ctaTexts.every((t) => t.replace(/\s*→$/, "").length <= 14), ctaTexts.filter((t) => t.replace(/\s*→$/, "").length > 14).join(" | ") || "tous courts");
+// 2 bis. Bénéfice en sous-titre des rangées À faire (jamais la mécanique).
+check("À faire : bénéfice sous le geste (réutilisable / consigne part / calibre la mesure)",
+  txt().indexOf("réutilisable") >= 0 || txt().indexOf("consigne part") >= 0 || txt().indexOf("calibre la mesure") >= 0);
+// 4-6. Positionnement COMPARATIF : badges humains + public vs vous + lignes de valeur NOMMÉES.
+{
+  const coBody = body.querySelector('[data-tb-body="co"]');
+  const coTxt = coBody ? coBody.textContent : "";
+  const fiches = payload.glance && (payload.glance.fiches || []);
+  if (fiches && fiches.length) {
+    check("positionnement : badge réputation humain (mieux notés / moyenne / moins bien noté)",
+      /mieux notés|dans la moyenne|le moins bien noté/.test(coTxt));
+    check("positionnement : public comparé À VOUS (même public / partiellement commun / différent)",
+      /même public que vous|public partiellement commun|public différent du vôtre/.test(coTxt));
+    check("positionnement : zéro méta (« chaque suivi est positionné » banni)", coTxt.indexOf("chaque suivi est positionné") < 0);
+  }
+  const gl = fiches ? fiches.find((f) => /GL Events/i.test(f.nom || "")) : null;
+  if (gl) check("ligne de valeur 1 : GL Events nommé + geste (avis clients)", coTxt.indexOf("GL Events") >= 0 && coTxt.indexOf("demandez leurs avis à vos clients") >= 0);
+  const gfRow = ((payload.glance && payload.glance.gap_facts) || []).filter((x) => x.item && x.share != null)[0];
+  if (gfRow && gfRow.share < 0.1)
+    check("ligne de valeur 2 : produit signature (best seller NOMMÉ + % CA)",
+      coTxt.indexOf("produit signature") >= 0 && coTxt.indexOf(gfRow.item) >= 0 && coTxt.indexOf(Math.round(gfRow.share * 100) + " % de votre CA") >= 0, gfRow.item);
+}
+// 7. Dispositifs : le FAIT du dernier test sous chaque nom + UN SEUL geste par état.
+{
+  const sfBody = body.querySelector('[data-tb-body="sf"]');
+  const sfHtml = sfBody ? sfBody.innerHTML : "";
+  const sfTxt = sfBody ? sfBody.textContent : "";
+  const practs = (payload.practices || []).filter((pp) => pp.tier !== "archivee");
+  if (practs.length) {
+    check("dispositifs : fait du dernier test (Testé du / Test lancé / Jamais testé)",
+      /Testé du|Test lancé|Jamais testé/.test(sfTxt));
+    check("dispositifs : phrase lexique (Prouvé = réutilisable)", sfTxt.indexOf("Prouvé = réutilisable") >= 0);
+    const rows = Array.from(sfBody.querySelectorAll("[data-tb-prid]"));
+    check("dispositifs : au plus UN geste par rangée (hors Désarmer)", rows.every((r) => {
+      const links = Array.from(r.querySelectorAll("a.tb-link")).filter((a) => a.textContent.indexOf("Désarmer") < 0);
+      return links.length <= 1;
+    }), rows.map((r) => r.querySelectorAll("a.tb-link").length).join(","));
+    check("dispositifs : zéro « rejouable » (owner : réutilisable)", sfHtml.indexOf("rejouable") < 0 && sfHtml.indexOf("se rejoue") < 0);
+  }
+}
+// 8. Automatisations : rangées QUOI + DÉCLENCHEUR, plus de journal Reçu/Programmé.
+{
+  const auBody = body.querySelector('[data-tb-body="au"]');
+  const auTxt = auBody ? auBody.textContent : "";
+  const hasAuto = (payload.automated && ((payload.automated.consignes || []).length || (payload.automated.armed_dispositifs || []).length)) || (payload.glance.mesures || []).some((m) => m.kind === "serie");
+  if (hasAuto) {
+    check("automatisations : chaque rangée porte son DÉCLENCHEUR", auTxt.indexOf("Déclencheur :") >= 0);
+    check("automatisations : type dit (Mesure & verdict / Communication / Dispositif prêt à l’emploi)",
+      /Mesure & verdict|Communication|Dispositif prêt à l’emploi/.test(auTxt));
+    check("automatisations : le journal est mort (Reçu / Programmé)", auTxt.indexOf("Reçu") < 0 && auTxt.indexOf("Programmé") < 0);
+  }
+}
+
 // ── Câblages purs (audit owner 15/08) : chaque geste aboutit à sa cible. ──
 const rawHtml = body.innerHTML;
 check("À surveiller : zéro « Voir » générique vers /pulse", rawHtml.indexOf('href="/app/insightevent/pulse">Voir') < 0);

@@ -396,7 +396,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (seuilsCase)
             lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs habituel) mais aucune cible n’est tenue — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
           else if (im.gap_eur != null && im.gap_eur > 0 && im.targets_met > 0)
-            lecture = signEur(im.gap_eur) + " vs habituel et " + im.targets_met + " cible" + (im.targets_met > 1 ? "s" : "") + " tenue" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — rejouez ce qui tient (Votre savoir-faire).";
+            lecture = signEur(im.gap_eur) + " vs habituel et " + im.targets_met + " cible" + (im.targets_met > 1 ? "s" : "") + " tenue" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — réutilisez ce qui tient (Vos dispositifs).";
           else if (im.gap_eur != null && im.gap_eur < 0)
             lecture = "Fenêtres sous votre habituel (" + signEur(im.gap_eur) + ") — resserrez sur les dispositifs prouvés.";
           var lv = j.last_verdict || null;
@@ -428,10 +428,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '<div class="s">vs habituel · ' + im.targets_met + '/' + im.windows_judged + ' cibles tenues' + (im.next_judgment === TODAY ? " · verdict auj." : im.next_judgment ? " · prochaine " + frD(im.next_judgment) : "") + '</div></div>'
             + (aFaire[0] && aFaire[0].rang === 0 && j.met_recipe && j.met_recipe.gap_eur != null
               // L'argent d'abord (owner 17/08) : le € classe, le compte suit.
-              ? '<div class="tb-tile" data-tb-tile="af"><p class="tb-eb">À faire</p><div class="n" style="color:' + (j.met_recipe.gap_eur >= 0 ? GREEN : AMBER) + ';">' + signEur(j.met_recipe.gap_eur) + '</div><div class="s" title="gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages">à prendre · ' + aFaire.length + ' gestes en attente</div></div>'
+              ? '<div class="tb-tile" data-tb-tile="af"><p class="tb-eb">À faire</p><div class="n">' + signEur(j.met_recipe.gap_eur) + '</div><div class="s" title="gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages">à prendre · ' + aFaire.length + ' gestes en attente</div></div>'
               : '<div class="tb-tile" data-tb-tile="af"><p class="tb-eb">À faire</p><div class="n">' + aFaire.length + '</div><div class="s" title="gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages">gestes en attente</div></div>')
-            + '<div class="tb-tile" data-tb-tile="sv"><p class="tb-eb">Prochaine occasion</p><div class="n" style="color:' + (rgT ? GREEN : "#111827") + ';">' + occN + '</div><div class="s">' + occSub + '</div></div>'
-            + '<div class="tb-tile" data-tb-tile="co"><p class="tb-eb">Veille</p><div class="n" style="display:flex;align-items:center;gap:8px;' + (nTrouvailles ? '' : 'font-size:15px;color:' + GREEN + ';line-height:1.3;padding-top:4px;') + '"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (veilleCassee ? AMBER : GREEN) + ';flex:none;" title="' + (veilleCassee ? "veille en défaut : un de vos suivis n’est plus lu — détail dans Mon positionnement" : "veille active sur tous vos suivis") + '"></span>' + (nTrouvailles ? nTrouvailles : 'Rien n\u2019a boug\u00e9') + '</div>'
+            + '<div class="tb-tile" data-tb-tile="sv"><p class="tb-eb">Prochaine occasion</p><div class="n" style="color:' + (rgT ? BLUE : "#111827") + ';">' + occN + '</div><div class="s">' + occSub + '</div></div>'
+            + '<div class="tb-tile" data-tb-tile="co"><p class="tb-eb">Veille</p><div class="n" style="display:flex;align-items:center;gap:8px;' + (nTrouvailles ? '' : 'font-size:15px;line-height:1.3;padding-top:4px;') + '"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (veilleCassee ? AMBER : GREEN) + ';flex:none;" title="' + (veilleCassee ? "veille en défaut : un de vos suivis n’est plus lu — détail dans Mon positionnement" : "veille active sur tous vos suivis") + '"></span>' + (nTrouvailles ? nTrouvailles : 'Rien n\u2019a boug\u00e9') + '</div>'
               + '<div class="s">' + (nTrouvailles ? "changement" + (nTrouvailles > 1 ? "s" : "") + " chez vos " + vLieux.length + " suivis" : "vos " + vLieux.length + " suivis · lus cette nuit") + '</div></div>'
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:14px;padding:2px 4px 0;font-size:12px;color:#6b7280;flex-wrap:wrap;">';
@@ -453,6 +453,22 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (db.first_test) html += '<div id="tb-first-test" class="tb-card" style="display:none;padding:14px 16px;"></div>';
 
           // ── À FAIRE — le seul bloc ouvert. 6 rangées visibles, le reste sous pli. ──
+          // Le sous-titre dit LE BÉNÉFICE du geste (owner 17/08) — jamais la mécanique.
+          var BENEFICE = {
+            "Documenter": "votre dispositif devient réutilisable — il resservira aux prochains jours du même type",
+            "Préparer": "la consigne part à votre équipe — le jour se joue sans vous derrière",
+            "Bilan": "votre vécu calibre la mesure — météo, accès et fréquentation deviennent comparables",
+            "Prouver": "une cible tenue et le dispositif devient réutilisable en un clic",
+            "Déclarer": "débloque le KPI profit sur toutes vos mesures",
+            "Fixer": "sans cible, aucun verdict — la fixer rend ces événements jugeables",
+            "Suivre": "sa page entre dans votre veille — événements, offres et tarifs lus chaque nuit",
+            "Répondre": "votre réponse débloque le montant de la carte"
+          };
+          var verbeSeul = function (g2) {
+            var t2 = String(g2 || "").replace(/<[^>]+>/g, "");
+            var w = t2.replace(/[«»"]/g, "").trim().split(/\s+/)[0].replace(/→/g, "").trim();
+            return w || "";
+          };
           var afRow = function (r) {
             var quand = "";
             if (r.iso) {
@@ -460,6 +476,12 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               // UNE forme temporelle (owner 17/08) : la relative s'affiche, l'absolue vit en infobulle.
               quand = '<span style="font-size:11px;font-weight:700;color:' + r.col + ';cursor:help;" title="' + dowFr(r.iso) + ' ' + frD(r.iso) + '">' + (dj === 0 ? "auj." : dj > 0 ? "J-" + dj : "il y a " + Math.abs(dj) + " j") + '</span>';
             } else quand = '<span style="display:flex;justify-content:center;"><span style="width:9px;height:9px;border-radius:50%;background:' + r.col + ';"></span></span>';
+            // CTA = verbe + flèche (assertion harnais) ; sous-titre = bénéfice si le verbe en a un.
+            var _verbe = verbeSeul(r.geste);
+            if (_verbe && r.geste && r.geste.indexOf("data-tb-") < 0) {
+              r = Object.assign({}, r, { geste: String(r.geste).replace(/>[^<]*→/, ">" + _verbe + " →") });
+            }
+            if (_verbe && BENEFICE[_verbe]) r = Object.assign({}, r, { sub: BENEFICE[_verbe] });
             return '<div class="tb-af">'
               + '<span>' + quand + '</span>'
               + '<span style="min-width:0;"><span class="t" title="' + esc(r.titre) + '">' + esc(r.titre)
@@ -822,8 +844,34 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var _nEnTest = (pc.en_test || 0) + (pc.declared || 0) - _nEcarte;
           var diChips = '<span class="tb-chip" style="background:' + (pc.proven ? "#E6F6F0" : "#F3F4F6") + ';color:' + (pc.proven ? "#059669" : "#6b7280") + ';">' + pc.proven + " prouvé" + (pc.proven > 1 ? "s" : "") + '</span>'
             + (_nEnTest > 0 ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;margin-left:4px;cursor:help;"' + (replayEnd ? ' title="verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + '"' : "") + '>' + _nEnTest + " en test</span>" : "")
-            + (_nEcarte ? '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;margin-left:4px;cursor:help;" title="cible manquée au dernier test — pas rejouable tel quel, ajustez puis Prouver">' + _nEcarte + " écarté" + (_nEcarte > 1 ? "s" : "") + "</span>" : "");
+            + (_nEcarte ? '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;margin-left:4px;cursor:help;" title="cible manquée au dernier test — pas réutilisable tel quel — ajustez puis Prouver">' + _nEcarte + " écarté" + (_nEcarte > 1 ? "s" : "") + "</span>" : "");
           html += '<div style="height:1px;background:rgba(0,0,0,0.08);margin:10px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">Vos dispositifs</p>';
+          // La phrase owner (17/08) : jugés selon leurs résultats — prouvé = réutilisable.
+          (function () {
+            var nP2 = listPractices.filter(function (px) { return px.tier === "prouvee"; }).length;
+            var nE2 = listPractices.filter(function (px) { return px.tier === "ecartee"; }).length;
+            var nT2 = listPractices.length - nP2 - nE2;
+            html += '<div style="font-size:12.5px;color:#374151;margin-bottom:6px;">Vos dispositifs, jugés selon leurs résultats — <span style="font-weight:650;">' + nP2 + ' prouvé' + (nP2 > 1 ? 's' : '') + ' · ' + nT2 + ' en test · ' + nE2 + ' écarté' + (nE2 > 1 ? 's' : '') + '</span>. Prouvé = réutilisable ; écarté = à ajuster avant de retester.</div>';
+          })();
+          var _testByPr = {};
+          (g.tests || []).forEach(function (tx) { _testByPr[tx.practice_id] = tx; });
+          var _kpiFmtDsp = function (v2, m2) {
+            if (v2 == null) return "\u2014";
+            if (m2 === "conversion") return (v2 * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %";
+            if (m2 === "transactions" || m2 === "footfall") return Math.round(v2).toLocaleString("fr-FR");
+            return frInt(v2) + " \u20ac";
+          };
+          var _KPI_DSP = { transactions: "tickets/jour", conversion: "taux de conversion", revenue_residual: "CA/j", family_revenue: "CA famille/j", basket: "panier moyen", footfall: "visiteurs/jour" };
+          var _factDsp = function (p2) {
+            var tx = _testByPr[p2.practice_id];
+            if (!tx) return "Jamais testé — une exécution mesurée suffit.";
+            if (tx.realized == null && tx.test_status === "open") return "Test lancé — verdict après le " + frD(tx.we) + ".";
+            if (tx.realized == null) return "Dernier test non mesurable (ventes absentes sur ces dates).";
+            var goal2 = tx.basis === "pct" && tx.value != null && tx.baseline != null ? tx.baseline * (1 + tx.value / 100) : null;
+            return "Testé du " + frD(tx.ws) + " au " + frD(tx.we) + " — " + (_KPI_DSP[tx.metric] || tx.metric) + " " + _kpiFmtDsp(tx.realized, tx.metric)
+              + (goal2 != null ? " vs cible " + _kpiFmtDsp(goal2, tx.metric) : "")
+              + " : " + (tx.verdict === "met" ? "cible tenue" : tx.verdict === "missed" ? "cible manquée" : "non concluant (facteur externe)");
+          };
           if (!listPractices.length) html += '<div style="color:#9CA3AF;">Aucun — chaque verdict tenu peut en créer un (« Documenter »).</div>';
           listPractices.slice(0, 6).forEach(function (p, pi) {
             var t = p.tier;
@@ -831,24 +879,27 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var chip = t === "prouvee" ? ["prouvé", "#E6F6F0", "#059669"] : t === "ecartee" ? ["écarté", "#FEF3E2", "#B45309"] : t === "en_test" ? ["en test", "#EEF2FF", "#1D3BB3"] : ["en test", "#F3F4F6", "#6b7280"];
             var canProuver = (t === "declaree" || t === "ecartee") && p.practice_id && p.origin_action_type;
             var autoHref = "/app/insightevent/evenement?location_id=" + encodeURIComponent(p.location_id || loc) + "&new=1&titre=" + encodeURIComponent(String(p.text || "").slice(0, 60)) + "&dispositif=" + encodeURIComponent(String(p.text || "").slice(0, 240));
-            var sep = '<span style="color:#D1D5DB;">·</span>';
             var actions = "";
-            if (t !== "en_test") {
-              if (canProuver) actions += '<a class="tb-link" href="#" data-tb-replay="' + esc(p.practice_id) + '" title="Une exécution mesurée de plus — si la cible tient, le dispositif passe de déclaré à prouvé">Prouver</a>' + sep;
-
-              if (p.armable && !p.arm_enabled) actions += '<a class="tb-link" href="#" data-tb-arm="' + pi + '" data-tb-arm-serie="' + esc(autoHref) + '" title="En série (calendrier) ou au signal (jours chauds annoncés) — la condition se choisit dans le panneau">Automatiser</a>';
-              else actions += '<a class="tb-link" href="' + autoHref + '" title="En faire une série récurrente : mesure J-7, contexte, verdicts — tout seul">Automatiser</a>';
+            // UN SEUL geste par état (owner 17/08) : en test → verdict à venir, rien à faire ;
+            // jamais testé / écarté → Prouver ; prouvé → Automatiser.
+            if (t === "prouvee") {
+              if (p.armable && !p.arm_enabled) actions = '<a class="tb-link" href="#" data-tb-arm="' + pi + '" data-tb-arm-serie="' + esc(autoHref) + '" title="En série (calendrier) ou au signal (jours chauds annoncés) — la condition se choisit dans le panneau">Automatiser</a>';
+              else if (!p.arm_enabled) actions = '<a class="tb-link" href="' + autoHref + '" title="En faire une série récurrente : mesure, contexte, verdicts — tout seul">Automatiser</a>';
+            } else if (t !== "en_test" && canProuver) {
+              actions = '<a class="tb-link" href="#" data-tb-replay="' + esc(p.practice_id) + '" title="Une exécution mesurée — si la cible tient, le dispositif devient réutilisable">Prouver</a>';
             }
-            html += '<div data-tb-prid="' + esc(p.practice_id || "") + '" style="display:flex;gap:8px;align-items:center;padding:3px 0;flex-wrap:wrap;">'
-              + '<span class="tb-chip" style="background:' + chip[1] + ';color:' + chip[2] + ';">' + chip[0] + '</span>'
-              + (p.arm_enabled ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;">armé sur signal</span>' : "")
-              + '<span style="flex:1;min-width:180px;">' + esc(trunc(p.text, 110)) + '</span>'
-              + (t === "en_test" && replayEnd ? '<span style="font-size:11px;color:#9CA3AF;">verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + "</span>" : "")
-              + (t === "declaree" && p.replay_commitment_id ? '<span style="font-size:11px;color:#9CA3AF;" title="Le dernier test n\u2019a pas permis de conclure \u2014 relancez un test sur des dates propres.">dernier test non concluant</span>' : "")
+            // Nom coupé AU MOT (owner 17/08 — jamais mi-lettre) + LE FAIT du dernier test dessous.
+            var _nm = String(p.text || "").split("\u2014")[0].split("(")[0].trim();
+            if (_nm.length > 64) { var _cut = _nm.slice(0, 64); _nm = _cut.slice(0, _cut.lastIndexOf(" ")) + "\u2026"; }
+            html += '<div data-tb-prid="' + esc(p.practice_id || "") + '" style="display:flex;gap:8px;align-items:flex-start;padding:5px 0;flex-wrap:wrap;">'
+              + '<span class="tb-chip" style="background:' + chip[1] + ';color:' + chip[2] + ';margin-top:2px;">' + chip[0] + '</span>'
+              + (p.arm_enabled ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;margin-top:2px;">actif au signal</span>' : "")
+              + '<span style="flex:1;min-width:180px;"><span style="font-weight:600;" title="' + esc(p.text) + '">' + esc(_nm) + '</span>'
+              + '<span style="display:block;font-size:11px;color:#6B7280;">' + esc(_factDsp(p)) + '</span></span>'
               + actions
               + (p.arm_enabled ? '<a class="tb-link" href="#" data-tb-disarm="' + esc(p.practice_id) + "|" + esc(p.location_id || "") + '" style="font-size:11.5px;">Désarmer</a>' : "")
               + '</div>'
-              + (t === "prouvee" && p.armable && p.arm_signal_ctx && p.arm_signal_ctx.n_hot_30 != null ? '<div style="font-size:11px;color:#6B7280;margin:0 0 6px;cursor:help;" title="Son signal (chaleur annoncée) s\u2019est pr\u00e9sent\u00e9 ' + p.arm_signal_ctx.n_hot_30 + ' j sur vos 30 derniers — armé, la recette se rejoue seule à chaque annonce.">Signal chaleur : ' + p.arm_signal_ctx.n_hot_30 + " j/30" + (p.arm_signal_ctx.next_hot ? " · prochain " + dowFr(p.arm_signal_ctx.next_hot) + " " + frD(p.arm_signal_ctx.next_hot) : "") + "</div>" : "")
+              + (t === "prouvee" && p.armable && p.arm_signal_ctx && p.arm_signal_ctx.n_hot_30 != null ? '<div style="font-size:11px;color:#6B7280;margin:0 0 6px;cursor:help;" title="Son signal (chaleur annoncée) s\u2019est pr\u00e9sent\u00e9 ' + p.arm_signal_ctx.n_hot_30 + ' j sur vos 30 derniers — actif, le dispositif se relance seul à chaque annonce.">Signal chaleur : ' + p.arm_signal_ctx.n_hot_30 + " j/30" + (p.arm_signal_ctx.next_hot ? " · prochain " + dowFr(p.arm_signal_ctx.next_hot) + " " + frD(p.arm_signal_ctx.next_hot) : "") + "</div>" : "")
               + (p.armable && !p.arm_enabled ? '<div data-tb-arm-panel="' + pi + '" style="display:none;margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;"></div>' : "");
           });
 
@@ -887,28 +938,49 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           html += '</div>';
 
           var au = j.automated || {};
-          function consigneLine(c) {
-            var dossierHref2 = "/app/insightevent/evenement?location_id=" + encodeURIComponent(c.location_id) + "&saved_item_id=" + encodeURIComponent(c.saved_item_id);
-            var tail = c.last_sent_on
-              ? "dernière envoyée le " + frD(c.last_sent_on) + " à " + (c.last_n_recipients || 0) + " destinataire(s)"
-              : "prochain envoi le " + dowFr(c.next_send) + " " + frD(c.next_send) + " (J-" + c.send_offset + ")";
-            return '✉ Consigne « ' + esc(c.title) + ' »' + (siteChip(c.site_label) ? " " + siteChip(c.site_label) : "") + " — " + tail + ' · <a class="tb-link" style="font-size:11.5px;" href="' + dossierHref2 + '">Dossier →</a>';
+          // Rangées QUOI + DÉCLENCHEUR (owner 17/08) — le journal de bas niveau ne s'affiche plus.
+          var autoRows = [];
+          var _autoRow = function (etat, type2, nom2, detail2, href2, cta2) {
+            return '<div style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid #F5F6F8;flex-wrap:wrap;">'
+              + '<span class="tb-chip" style="background:' + (etat === "active" ? "#E6F6F0" : "#F3F4F6") + ';color:' + (etat === "active" ? GREEN : "#6b7280") + ';margin-top:2px;">' + etat + '</span>'
+              + '<span class="tb-chip" style="background:#F8FAFC;color:#6b7280;border:0.5px solid #E5E7EB;margin-top:2px;">' + type2 + '</span>'
+              + '<span style="flex:1;min-width:180px;"><span style="font-weight:600;">' + nom2 + '</span>'
+              + '<span style="display:block;font-size:11px;color:#6B7280;">' + detail2 + '</span></span>'
+              + (href2 ? '<a class="tb-link" style="font-size:12px;white-space:nowrap;" href="' + href2 + '">' + cta2 + ' \u2192</a>' : '')
+              + '</div>';
+          };
+          (g.mesures || []).filter(function (m2) { return m2.kind === "serie"; }).forEach(function (m2) {
+            var nomS = String(m2.event_title || m2.texte || "").split("\u2014")[0].trim().slice(0, 50);
+            var nxt = (m2.occ || []).filter(function (o2) { return o2.status === "open" || o2.status === "pending"; })[0];
+            var lastV = (m2.occ || []).filter(function (o2) { return o2.verdict === "met" || o2.verdict === "missed"; }).slice(-1)[0];
+            autoRows.push(_autoRow("active", "Mesure &amp; verdict", esc(nomS),
+              "D\u00e9clencheur : <b>chaque " + (nxt ? dowFull(nxt.d) : "occurrence") + "</b> (s\u00e9rie) \u2014 la mesure se lance au jour J, le verdict tombe seul."
+              + (nxt ? " Prochaine : " + dowFull(nxt.d) + " " + frD(nxt.d) + "." : "")
+              + (lastV ? " Dernier verdict : cible " + (lastV.verdict === "met" ? "tenue" : "manqu\u00e9e") + " (" + frD(lastV.d) + ")." : ""),
+              "/app/insightevent/evenement?location_id=" + encodeURIComponent(m2.location_id) + "&saved_item_id=" + encodeURIComponent(m2.saved_item_id || ""), "Dossier"));
+          });
+          (au.consignes || []).forEach(function (c) {
+            autoRows.push(_autoRow("active", "Communication", 'Consigne \u00ab ' + esc(String(c.title || "").slice(0, 40)) + ' \u00bb',
+              "D\u00e9clencheur : <b>J-" + (c.send_offset != null ? c.send_offset : "?") + " avant chaque occurrence</b> \u2014 la consigne part \u00e0 l\u2019\u00e9quipe."
+              + (c.last_sent_on ? " Derni\u00e8re envoy\u00e9e le " + frD(c.last_sent_on) + " \u00e0 " + (c.last_n_recipients || 0) + " destinataire(s)." : c.next_send ? " Prochain envoi " + dowFull(c.next_send) + " " + frD(c.next_send) + "." : ""),
+              "/app/insightevent/evenement?location_id=" + encodeURIComponent(c.location_id) + "&saved_item_id=" + encodeURIComponent(c.saved_item_id || ""), "Dossier"));
+          });
+          (au.armed_dispositifs || []).forEach(function (a2) {
+            autoRows.push(_autoRow("active", "Dispositif pr\u00eat \u00e0 l\u2019emploi", esc(String(a2.text || "").split("\u2014")[0].trim().slice(0, 50)),
+              "D\u00e9clencheur : <b>chaleur annonc\u00e9e pour le lendemain</b> \u2014 la consigne part seule la veille."
+              + (a2.n_triggers > 0 && a2.last_fired ? " " + a2.n_triggers + " d\u00e9clenchement" + (a2.n_triggers > 1 ? "s" : "") + ", dernier le " + frD(a2.last_fired) + "." : " Aucun d\u00e9clenchement encore \u2014 en veille sur son signal."),
+              null, ""));
+          });
+          if ((au.competitor_alerts_7d || []).length) {
+            autoRows.push(_autoRow("active", "Communication", "Alerte concurrent",
+              "D\u00e9clencheur : <b>un concurrent programme un \u00e9v\u00e9nement sur un de vos jours d\u2019op\u00e9ration</b> \u2014 vous recevez un email. " + (au.competitor_alerts_7d || []).length + " en surveillance sur 7 jours.",
+              "/notifications", "R\u00e9gler"));
           }
-          function armedLine(a) {
-            var tail2 = a.n_triggers > 0 && a.last_fired
-              ? a.n_triggers + " déclenchement" + (a.n_triggers > 1 ? "s" : "") + " · dernier le " + frD(a.last_fired)
-              : "0 déclenchement — en veille sur son signal";
-            return '⚡ Dispositif « ' + esc(String(a.text || "").slice(0, 60)) + ' » armé sur chaleur annoncée' + (siteChip(a.site_label) ? " " + siteChip(a.site_label) : "") + " — " + tail2;
-          }
-          var done = [], planned = [];
-          (au.consignes || []).forEach(function (c) { (c.last_sent_on ? done : planned).push(consigneLine(c)); });
-          (au.armed_dispositifs || []).forEach(function (a) { (a.n_triggers > 0 ? done : planned).push(armedLine(a)); });
-          (au.snapshots_recent || []).slice(0, 2).forEach(function (d) { done.push("✓ Contexte de l’occurrence du " + dowFr(d) + " " + frD(d) + " gelé (météo, concurrence, accès)"); });
-          if (au.next_autoarm) planned.push("↻ Occurrence du " + dowFr(au.next_autoarm.occ_date) + " " + frD(au.next_autoarm.occ_date) + " (" + esc(au.next_autoarm.title) + ") : s’armera seule à J-7");
-          var futureVerdicts = (au.verdicts_scheduled || []).filter(function (d) { return d >= TODAY; });
-          if (futureVerdicts.length) planned.push("↻ Verdict" + (futureVerdicts.length > 1 ? "s" : "") + " jugé" + (futureVerdicts.length > 1 ? "s" : "") + " automatiquement après " + futureVerdicts.slice(0, 2).map(function (d) { return dowFr(d) + " " + frD(d); }).join(" et "));
-          var na = (au.competitor_alerts_7d || []).length;
-          if (na) planned.push("⚠ Veille concurrent : " + na + " alerte" + (na > 1 ? "s" : "") + " surveillée" + (na > 1 ? "s" : "") + " sur 7 jours");
+          listPractices.filter(function (px) { return px.armable && !px.arm_enabled; }).slice(0, 2).forEach(function (px) {
+            autoRows.push(_autoRow("possible", "Dispositif pr\u00eat \u00e0 l\u2019emploi", esc(String(px.text || "").split("\u2014")[0].trim().slice(0, 50)),
+              "D\u00e9clencheur : <b>chaleur annonc\u00e9e pour le lendemain</b> \u2014 la consigne partirait seule la veille, la mesure suivrait au jour J.",
+              null, ""));
+          });
           // « À activer » = interrupteurs réellement ÉTEINTS, vérifiés en base (inchangé).
           var toActivate = [];
           if (!db.alerts_critical_on) toActivate.push('Alerte automatique quand un concurrent programme un événement sur un de vos jours <a class="tb-link" href="/notifications">Activer →</a>');
@@ -930,9 +1002,20 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             html += '<div style="font-size:13px;line-height:1.6;padding:10px 0 4px;">'
               + (nChg ? '<span style="font-weight:650;">' + nChg + ' changement' + (nChg > 1 ? 's' : '') + ' détecté' + (nChg > 1 ? 's' : '') + '</span> chez vos suivis — le détail plus bas.'
                       : '<span style="font-weight:650;">Prix stables chez vos ' + vLieux.length + ' suivis</span> — ' + nTarifsB + ' tarifs comparés, rien à la lecture de cette nuit.')
-              + (hautes.length ? ' ' + hautes.slice(0, 2).map(function (f2) { return esc(String(f2.nom).split(' - ')[0]); }).join(' et ') + ' tiennent une note \u2265 4,5 — regardez ce qu\u2019ils mettent en avant.' : '')
               + '</div>';
             var pMax2 = Math.max.apply(null, fiches.map(function (f2) { return f2.p_max || 0; }).concat([1]));
+            // Position réputation (mots humains, lexique 17/08) + public VS VOUS (profil du site).
+            var _notes = fiches.map(function (f2) { return f2.note; }).filter(function (v2) { return v2 != null; });
+            var _maxN = Math.max.apply(null, _notes), _minN = Math.min.apply(null, _notes);
+            var _audMoi = {};
+            (g.audiences || []).forEach(function (a2) { _audMoi[a2.location_id] = [a2.a1, a2.a2].filter(Boolean); });
+            fiches.forEach(function (f2) {
+              if (f2.note != null && _notes.length > 1) f2._repPos = f2.note >= _maxN - 0.05 ? 'haut' : f2.note <= _minN + 0.05 ? 'bas' : 'moyen';
+              var mes = _audMoi[f2.location_id] || [];
+              f2._pub = mes.indexOf(f2.audience) >= 0 ? ['même public que vous', '#FEF3E2', AMBER]
+                : f2.audience === 'mixed' ? ['public partiellement commun', '#F3F4F6', '#6b7280']
+                : ['public différent du vôtre', '#E6F6F0', GREEN];
+            });
             fiches.slice(0, 8).forEach(function (f2) {
               var prix;
               if (f2.p_min == null) prix = '<span style="font-size:11px;color:#9CA3AF;">tarifs non publiés sur sa page</span>';
@@ -945,16 +1028,31 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               }
               html += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #F5F6F8;font-size:12.5px;flex-wrap:wrap;">'
                 + '<span style="min-width:150px;font-weight:650;">' + esc(String(f2.nom).length > 28 ? String(f2.nom).slice(0, 26) + '\u2026' : f2.nom) + '</span>'
-                + '<span style="min-width:105px;">' + (f2.note != null ? '<span style="font-weight:700;">\u2605 ' + String(f2.note).replace('.', ',') + '</span> <span style="font-size:11px;color:#9CA3AF;">' + (f2.avis != null ? '\u00b7 ' + frInt(f2.avis) + ' avis' : '') + '</span>' : '<span style="font-size:11px;color:#9CA3AF;">note pas encore relevée</span>') + '</span>'
-                + '<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">' + esc(AUD_FR[f2.audience] || f2.audience || '?') + '</span>'
+                + '<span style="min-width:150px;">' + (f2.note != null ? '<span style="font-weight:700;">\u2605 ' + String(f2.note).replace('.', ',') + '</span> <span style="font-size:10.5px;font-weight:600;border-radius:6px;padding:1px 6px;background:' + (f2._repPos === 'haut' ? '#FEF3E2' : '#F3F4F6') + ';color:' + (f2._repPos === 'haut' ? AMBER : '#6b7280') + ';">' + (f2._repPos === 'haut' ? 'parmi les mieux notés' : f2._repPos === 'bas' ? 'le moins bien noté de vos suivis' : 'dans la moyenne') + '</span>' : '<span style="font-size:11px;color:#9CA3AF;">note pas encore relevée</span>') + '</span>'
+                + '<span class="tb-chip" style="background:' + f2._pub[1] + ';color:' + f2._pub[2] + ';" title="' + esc(AUD_FR[f2.audience] || f2.audience || '?') + '">' + f2._pub[0] + '</span>'
                 + prix
                 + (f2.url ? '<a class="tb-link" style="margin-left:auto;font-size:12px;white-space:nowrap;" href="' + esc(f2.url) + '" target="_blank" rel="noopener">Sa page \u2192</a>' : '<span style="margin-left:auto;font-size:11px;color:#B45309;">sans page lisible — à réparer</span>')
                 + '</div>';
             });
             // Signaux concurrents NOMMABLES : les cartes du registre, liées à LEUR page de détail.
+            // Lignes de VALEUR (owner 17/08) — déduites des données, jamais leur redite.
+            (function () {
+              var memeP = fiches.filter(function (f2) { return f2._pub && f2._pub[0] === 'même public que vous' && f2.note != null; });
+              if (memeP.length === 1 && memeP[0]._repPos === 'bas') {
+                html += '<div style="display:flex;align-items:baseline;gap:8px;padding:8px 0;border-top:1px solid #F5F6F8;font-size:12.5px;">'
+                  + '<span style="width:8px;height:8px;border-radius:50%;background:' + GREEN + ';flex:none;"></span>'
+                  + '<span style="min-width:0;flex:1;">Votre seul concurrent direct, <b>' + esc(memeP[0].nom) + '</b>, est aussi le plus mal not\u00e9 (\u2605 ' + String(memeP[0].note).replace('.', ',') + '). Creusez l\u2019\u00e9cart : demandez leurs avis \u00e0 vos clients cette semaine.</span>'
+                  + '<a class="tb-link" style="font-size:12px;white-space:nowrap;" href="/app/insightevent/pulse">Communiquer \u2192</a></div>';
+              }
+              var gf = (g.gap_facts || []).filter(function (x2) { return x2.item && x2.share != null; })[0];
+              if (gf && gf.share < 0.1) {
+                html += '<div style="display:flex;align-items:baseline;gap:8px;padding:8px 0;border-top:1px solid #F5F6F8;font-size:12.5px;">'
+                  + '<span style="width:8px;height:8px;border-radius:50%;background:' + BLUE + ';flex:none;"></span>'
+                  + '<span style="min-width:0;flex:1;">Vous n\u2019avez pas de produit signature : votre best seller <b>' + esc(gf.item) + '</b> ne repr\u00e9sente que ' + Math.round(gf.share * 100) + ' % de votre CA. Une offre diff\u00e9renciante dans une niche porteuse augmenterait votre comp\u00e9titivit\u00e9 face \u00e0 ' + fiches.slice(0, 2).map(function (f2) { return esc(String(f2.nom).split(' - ')[0]); }).join(' et ') + '.</span>'
+                  + '<a class="tb-link" style="font-size:12px;white-space:nowrap;" href="/app/insightevent/insight?type=competitor_positioning_gap&date=' + TODAY + '&location_id=' + encodeURIComponent((gf.location_id) || loc) + '">Comparer \u2192</a></div>';
+              }
+            })();
             var SIG_FR = {
-              competitor_positioning_gap: "Un concurrent mord sur votre offre",
-              competitor_positioning_brief: "Votre comparaison face aux suivis est prête",
               competitor_reputation_strength: "Réputation en force chez un suivi",
               event_new: "Nouvel événement repéré chez un suivi",
               competitor_event_ending: "Fin d\u2019exposition chez un suivi — report de flux possible",
@@ -1012,14 +1110,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
 
           // ── Rangée AUTOMATISATIONS — à part : ce n'est pas de la veille concurrentielle
           //    (elles n'habitaient « Ma couverture » que parce que le titre était vague). ──
-          var auResume = done.length + " reçue" + (done.length > 1 ? "s" : "")
-            + " · " + planned.length + " programmée" + (planned.length > 1 ? "s" : "")
-            + (toActivate.length ? " · " + toActivate.length + " à activer" : "");
-          html += voletHead("au", toActivate.length ? AMBER : done.length ? GREEN : GREY, "Automatisations", auResume, "proc")
+          var _nAuAct = autoRows.filter(function (r2) { return r2.indexOf(">active<") > -1; }).length;
+          var auResume = _nAuAct + " active" + (_nAuAct > 1 ? "s" : "")
+            + (autoRows.length > _nAuAct ? " \u00b7 " + (autoRows.length - _nAuAct) + " possible" + (autoRows.length - _nAuAct > 1 ? "s" : "") : "")
+            + (toActivate.length ? " \u00b7 " + toActivate.length + " \u00e0 activer" : "");
+          html += voletHead("au", toActivate.length ? AMBER : _nAuAct ? GREEN : GREY, "Automatisations", auResume, "proc")
             + '<div data-tb-body="au" class="tb-rbody" style="display:none;">'
-            + (done.length ? '<p class="tb-eb" style="margin:2px 0 2px;">Reçu</p>' + done.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
-            + (planned.length ? '<p class="tb-eb" style="margin:' + (done.length ? "8px" : "2px") + ' 0 2px;">Programmé</p>' + planned.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
-            + (!done.length && !planned.length ? '<div style="color:#9CA3AF;">Rien cette semaine — les automatisations s’activent avec vos opérations.</div>' : "")
+            + (autoRows.length ? autoRows.join('') : '<div style="color:#9CA3AF;">Aucune automatisation \u2014 chaque s\u00e9rie ou dispositif peut le devenir (\u00ab Automatiser \u00bb).</div>')
             + (toActivate.length ? '<div style="height:1px;background:rgba(0,0,0,0.08);margin:8px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">À activer</p>' + toActivate.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
             + '</div>'
             + '</div>';

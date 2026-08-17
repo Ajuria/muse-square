@@ -62,7 +62,7 @@
     'Documenter': 'vos +510 € deviennent rejouables — le dispositif resservira aux prochains jours de chaleur',
     'Préparer': 'la consigne part à votre équipe — le jour se joue sans vous derrière',
     'Bilan': 'votre vécu calibre la mesure — météo, accès et fréquentation deviennent comparables d\u2019une occurrence à l\u2019autre',
-    'Prouver': 'une cible tenue et le dispositif devient rejouable en un clic',
+    'Prouver': 'une cible tenue et le dispositif devient réutilisable en un clic',
     'Déclarer': 'débloque le KPI profit sur toutes vos mesures',
     'Fixer': 'sans cible, aucun verdict — la fixer rend ces 4 événements jugeables'
   };
@@ -144,7 +144,7 @@
     var nP = (D.practices || []).filter(function (p) { return p.tier === 'prouvee'; }).length;
     var nE = (D.practices || []).filter(function (p) { return p.tier === 'ecartee'; }).length;
     var nT = (D.practices || []).filter(function (p) { return p.tier !== 'prouvee' && p.tier !== 'ecartee' && p.tier !== 'archivee'; }).length;
-    html += '<div style="font-size:13px;margin-bottom:4px;">Vos dispositifs, jugés selon leurs résultats — <b>' + nP + ' prouvé' + (nP > 1 ? 's' : '') + ' · ' + nT + ' en test · ' + nE + ' écarté' + (nE > 1 ? 's' : '') + '</b>. Prouvé = rejouable ; écarté = à ajuster avant de retester.</div>';
+    html += '<div style="font-size:13px;margin-bottom:4px;">Vos dispositifs, jugés selon leurs résultats — <b>' + nP + ' prouvé' + (nP > 1 ? 's' : '') + ' · ' + nT + ' en test · ' + nE + ' écarté' + (nE > 1 ? 's' : '') + '</b>. Prouvé = réutilisable ; écarté = à ajuster avant de retester.</div>';
   })();
   var testBy = {};
   (D.tests || []).forEach(function (t) { testBy[t.practice_id] = t; });

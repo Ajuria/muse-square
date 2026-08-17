@@ -278,7 +278,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               var oEl = container.querySelector("#evt-doc-occasion");
               var g = (gEl && gEl.value || "").trim();
               var o = (oEl && oEl.value || "").trim();
-              if (!g) { msg.style.color = "#B45309"; msg.textContent = "Dites le geste — concret, rejouable."; if (gEl) gEl.style.borderColor = "#B45309"; return; }
+              if (!g) { msg.style.color = "#B45309"; msg.textContent = "Dites le geste — concret, réutilisable."; if (gEl) gEl.style.borderColor = "#B45309"; return; }
               if (!o) { msg.style.color = "#B45309"; msg.textContent = "Dites l’occasion — quand ce geste se rejoue-t-il ?"; if (oEl) oEl.style.borderColor = "#B45309"; return; }
               recette = g + " — " + o;
             }

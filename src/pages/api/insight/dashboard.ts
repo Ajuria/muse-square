@@ -35,7 +35,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -508,6 +508,33 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 ORDER BY 1, 2`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
+      // Votre public par site (référent du comparatif « même public que vous », 17/08).
+      bq.query({
+        query: `SELECT location_id, ANY_VALUE(primary_audience_1) a1, ANY_VALUE(primary_audience_2) a2
+                FROM \`${PROJECT}.raw.insight_event_user_location_profile\`
+                WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Produit phare (payload réel de la carte gap du jour) — la ligne « offre signature ».
+      bq.query({
+        query: `SELECT location_id, data_payload
+                FROM \`${PROJECT}.mart.fct_location_daily_action_candidates\`
+                WHERE location_id IN UNNEST(@locs) AND action_type = 'competitor_positioning_gap'
+                  AND date = CURRENT_DATE()`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Faits du DERNIER TEST par dispositif (rejeu : dates, KPI, réalisé vs cible, verdict).
+      bq.query({
+        query: `SELECT bp.practice_id, c.verdict, c.measured_metric, c.kpi_window_value, c.kpi_baseline,
+                       c.threshold_basis, c.threshold_value, c.status AS test_status,
+                       CAST(c.window_start AS STRING) ws, CAST(c.window_end AS STRING) we
+                FROM \`${PROJECT}.analytics.best_practices\` bp
+                JOIN (SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
+                      FROM \`${PROJECT}.analytics.action_commitments\`) c
+                  ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
+                WHERE bp.location_id IN UNNEST(@locs) AND bp.status = 'active'`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
     ]);
 
     const siteLabel: Record<string, string> = {};
@@ -816,6 +843,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
             location_id: str(r.location_id), nom: str(r.nom),
             note: num(r.note), avis: num(r.avis), audience: str(r.audience), url: str(r.url),
             p_min: num(r.p_min), p_max: num(r.p_max), n_tarifs: num(r.n_tarifs) ?? 0,
+          })),
+          audiences: (audRows as any[]).map((r) => ({ location_id: str(r.location_id), a1: str(r.a1), a2: str(r.a2) })),
+          gap_facts: (gapRows as any[]).map((r) => {
+            let pl: any = {};
+            try { pl = JSON.parse(String(str(r.data_payload) || "{}")); } catch { /* payload illisible → ligne absente */ }
+            return { location_id: str(r.location_id), item: pl.top_item_description || null,
+                     share: pl.top_item_revenue_share != null ? Number(pl.top_item_revenue_share) : null };
+          }),
+          tests: (testRows as any[]).map((r) => ({
+            practice_id: str(r.practice_id), verdict: str(r.verdict), metric: str(r.measured_metric),
+            realized: num(r.kpi_window_value), baseline: num(r.kpi_baseline),
+            basis: str(r.threshold_basis), value: num(r.threshold_value), test_status: str(r.test_status),
+            ws: str(r.ws), we: str(r.we),
           })),
           evts14: (evts14Rows as any[]).map((r) => ({ location_id: str(r.location_id), d: str(r.d), nom: str(r.event_name), lieu: str(r.venue_name), m: num(r.m), score: num(r.conflict_score), lvl_heat: num(r.lvl_heat), lvl_rain: num(r.lvl_rain), lvl_wind: num(r.lvl_wind), lvl_snow: num(r.lvl_snow), lvl_cold: num(r.lvl_cold) })),
           habituel_dow: (dowRows as any[]).map((r) => ({ location_id: str(r.location_id), dw: num(r.dw), habituel: num(r.habituel) })),

@@ -67,6 +67,9 @@ export const MOTS_BANNIS: Record<string, string> = {
   "sur toute la fenêtre": "sur les jours de l'opération",
   "Armée ·": "Dispositif actif ·",
   "(armée)": "(dispositif actif)",
+  // Owner 17/08 (correctif Autour de vous) : ce qui est prouvé se RÉUTILISE — jamais « rejouable ».
+  rejouable: "réutilisable",
+  "se rejoue seule": "se relance seul",
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.
