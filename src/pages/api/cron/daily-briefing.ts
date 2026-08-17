@@ -22,6 +22,7 @@ import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { Resend } from "resend";
+import { waitUntil } from "@vercel/functions";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
@@ -115,6 +116,10 @@ interface SavedEvent {
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
+// Le pinger externe (offre gratuite) raccroche à 30 s ; le run complet prend ~90 s (contexte du
+// jour par site + rédaction groundée par destinataire). Réponse immédiate, travail gardé vivant
+// par waitUntil (motif maison sync-besttime) — la santé réelle se lit dans
+// raw.notification_preferences.last_daily_email_sent_at et les logs Vercel.
 export const GET: APIRoute = async ({ request }) => {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -123,7 +128,13 @@ export const GET: APIRoute = async ({ request }) => {
       headers: { "content-type": "application/json" },
     });
   }
+  waitUntil(runDailyBriefing().catch((e) => console.error("[daily-briefing] background error:", e?.message)));
+  return new Response(JSON.stringify({ ok: true, status: "started" }), {
+    status: 200, headers: { "content-type": "application/json" },
+  });
+};
 
+async function runDailyBriefing(): Promise<void> {
   const projectId = String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
   const BQ_LOCATION = String(process.env.BQ_LOCATION || "EU").trim();
   const baseUrl = process.env.APP_BASE_URL || "https://dev.musesquare.com";
@@ -163,10 +174,8 @@ export const GET: APIRoute = async ({ request }) => {
     });
 
     if (!Array.isArray(userRows) || userRows.length === 0) {
-      return new Response(JSON.stringify({ ok: true, ...results, reason: "no_users" }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      console.log("[daily-briefing] no_users", JSON.stringify(results));
+      return;
     }
 
     const today = todayYmd();
@@ -296,19 +305,13 @@ export const GET: APIRoute = async ({ request }) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, ...results }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    console.log("[daily-briefing] done", JSON.stringify(results));
 
   } catch (err: any) {
-    console.error("[daily-briefing]", err);
-    return new Response(JSON.stringify({ ok: false, error: err?.message, ...results }), {
-      status: 500,
-      headers: { "content-type": "application/json" },
-    });
+    console.error("[daily-briefing]", err, JSON.stringify(results));
+    throw err;
   }
-};
+}
 
 // ── HTML Builder ──────────────────────────────────────────────────────────────
 

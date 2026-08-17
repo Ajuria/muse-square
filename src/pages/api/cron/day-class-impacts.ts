@@ -11,12 +11,16 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { waitUntil } from "@vercel/functions";
 import { dayClassAggregateSql, catchmentHypothesisSql, DAY_CLASS_STORE, CATCHMENT_HYP_STORE } from "../../../lib/dayClassRegistry";
 
 export const prerender = false;
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
+// Le pinger externe (offre gratuite) raccroche à 30 s ; la reconstruction complète (store +
+// catchment + historique) dépasse. Réponse immédiate, travail gardé vivant par waitUntil
+// (motif maison sync-besttime) — la santé réelle se lit dans computed_at du store.
 export const GET: APIRoute = async ({ request }) => {
   const authHeader = request.headers.get("authorization") || "";
   if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
@@ -24,7 +28,13 @@ export const GET: APIRoute = async ({ request }) => {
       status: 401, headers: { "content-type": "application/json" },
     });
   }
+  waitUntil(runDayClassBatch().catch((e) => console.error("[day-class-impacts] background error:", e?.message)));
+  return new Response(JSON.stringify({ ok: true, status: "started" }), {
+    status: 200, headers: { "content-type": "application/json" },
+  });
+};
 
+async function runDayClassBatch(): Promise<void> {
   const projectId = String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
   const bq = makeBQClient(projectId);
 
@@ -82,13 +92,8 @@ export const GET: APIRoute = async ({ request }) => {
     });
     const stats = (countRows as any[])[0] || {};
     console.log(`[day-class-impacts] rebuilt: ${stats.n_rows} rows / ${stats.locations} locations in ${Date.now() - t0}ms`);
-    return new Response(JSON.stringify({ ok: true, rows: Number(stats.n_rows ?? 0), locations: Number(stats.locations ?? 0), ms: Date.now() - t0 }), {
-      status: 200, headers: { "content-type": "application/json" },
-    });
   } catch (err: any) {
     console.error("[day-class-impacts]", err?.message);
-    return new Response(JSON.stringify({ ok: false, error: err?.message }), {
-      status: 500, headers: { "content-type": "application/json" },
-    });
+    throw err;
   }
-};
+}
