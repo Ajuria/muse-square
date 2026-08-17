@@ -46,6 +46,17 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
       /* Rangée « occasion / apprentissage » : € d'abord, mini-phrase, action. */
       .tb-occrow { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 0 10px; align-items: center; padding: 6px 0; font-size: 13px; }
       .tb-fold { display: none; margin-top: 8px; padding: 10px 12px; background: #F8FAFC; border-radius: 8px; font-size: 12px; line-height: 1.6; color: #374151; }
+      /* Autour de vous — grille-résumé cliquable (proto validé 17/08). */
+      .tb-rbgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+      @media (max-width: 640px) { .tb-rbgrid { grid-template-columns: repeat(2, 1fr); } }
+      .tb-rb { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; padding: 11px 13px; box-shadow: 0 1px 2px rgba(16,24,40,0.04); cursor: pointer; transition: border-color .12s; text-align: left; font-family: inherit; }
+      .tb-rb:hover { border-color: #C7D2FE; }
+      .tb-rb.on { border-color: #1D3BB3; box-shadow: 0 0 0 1px #1D3BB3 inset; }
+      .tb-rb .hd { display: flex; align-items: center; gap: 7px; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: #6B7280; font-weight: 600; }
+      .tb-rb .hd .cv { margin-left: auto; color: #C7D2FE; font-size: 11px; }
+      .tb-rb .num { font-size: 18px; font-weight: 700; margin-top: 5px; letter-spacing: -0.01em; }
+      .tb-rb .num .u { font-size: 11.5px; font-weight: 500; color: #6B7280; margin-left: 4px; }
+      .tb-rb .rs2 { font-size: 10.5px; color: #9CA3AF; margin-top: 3px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
       /* ── Système visuel validé (maquette piloter-proto, 14/08) ──
          héros = grille STRICTE (jamais de wrap), anatomie de tuile unique ;
          À faire = table à colonnes fixes ; volets = rangées d'UNE surface (radar). */
@@ -478,7 +489,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var mesures = (g.mesures || []);
           var KPI_MINI_FR = { revenue_residual: "CA/j vs habituel", conversion: "taux de conversion", transactions: "tickets/jour", footfall: "visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/jour" };
 
-          html += '<div class="tb-card" style="padding:14px 16px;">'
+          html += '<div class="tb-card" id="tb-af-card" style="padding:14px 16px;">'
             + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><p class="tb-eb">À faire</p>'
             + '<span style="font-size:12px;font-weight:600;color:' + (aFaire.length ? BLUE : GREY) + ';">' + aFaire.length + '</span></div>';
           if (!aFaire.length) html += '<div style="font-size:12.5px;color:#9CA3AF;margin-top:4px;">Rien à faire — vos opérations suivent leur cours.</div>';
@@ -509,15 +520,25 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           html += '</div>';
 
           // ── Volets : l'en-tête EST la réponse (chips), le corps s'ouvre au clic. ──
+          // Grille-résumé (proto validé 17/08) : voletHead ENREGISTRE la carte, la grille
+          // s'émet après les corps — chaque carte déplie SON volet dans le panneau partagé.
+          var voletMeta = [];
           var voletHead = function (id, dot, label, resume) {
-            return '<button type="button" class="tb-rv" data-tb-volet="' + id + '" aria-expanded="false">'
-              + '<span style="display:flex;"><span style="width:8px;height:8px;border-radius:50%;background:' + dot + ';margin:auto;"></span></span>'
-              + '<span class="l">' + label + '</span>'
-              + '<span class="r">' + resume + '</span>'
-              + '<span class="c">▾</span></button>';
+            voletMeta.push({ id: id, dot: dot, label: label, resume: resume });
+            return "";
           };
-          // OUVERTURE de la surface radar unique — fermée après Ma couverture.
-          html += '<div class="tb-card" style="padding:0;">';
+          var rbCard = function (v) {
+            var seg = String(v.resume || "").split("·").map(function (x) { return x.trim(); }).filter(Boolean);
+            var first = seg[0] || "";
+            var mNum = first.match(/^([+\u2212-]?\d[\d\u00a0 ,\/]*)\s*(.*)$/);
+            var num = mNum ? mNum[1].trim() : first, unit = mNum ? mNum[2] : "";
+            var rest = seg.slice(1).join(" · ");
+            return '<button type="button" class="tb-rb" data-tb-rb="' + v.id + '"><span class="hd"><span style="width:7px;height:7px;border-radius:50%;background:' + v.dot + ';flex:none;display:inline-block;"></span>' + v.label + '<span class="cv">▾</span></span>'
+              + '<div class="num">' + num + (unit ? '<span class="u">' + unit + '</span>' : "") + '</div>'
+              + '<div class="rs2">' + rest + '</div></button>';
+          };
+          // Corps de volets : conteneur INVISIBLE — le panneau sous la grille les accueille.
+          html += '<div id="tb-rbodies" style="display:none;">';
 
           // ── Volet ÉVÉNEMENTS CONCURRENTS — datés, votre enjeu du jour ; collision = mention.
           var occDates = {};
@@ -843,39 +864,71 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + (toActivate.length ? '<div style="height:1px;background:rgba(0,0,0,0.08);margin:8px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">À activer</p>' + toActivate.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
             + '</div>'
             + '</div>';
+          html += '<div class="tb-rbgrid">' + voletMeta.map(rbCard).join('') + '</div>'
+            + '<div id="tb-rpanel" class="tb-card" style="display:none;padding:14px 16px;"></div>';
 
           body.innerHTML = html;
 
           // ── Écouteurs ──
-          Object.keys(openVolets).forEach(function (k) {
-            if (!openVolets[k]) return;
+          function openVolet(k, scroll) {
+            var panel = document.getElementById("tb-rpanel");
             var v = body.querySelector('[data-tb-body="' + k + '"]');
-            if (v) v.style.display = "block";
-            var btn = body.querySelector('[data-tb-volet="' + k + '"]');
-            if (btn) btn.setAttribute("aria-expanded", "true");
+            if (!panel || !v) return;
+            // Un seul volet ouvert : les autres corps retournent cachés (ils restent câblés —
+            // le DÉPLACEMENT d'un nœud préserve ses écouteurs).
+            panel.querySelectorAll("[data-tb-body]").forEach(function (o) { o.style.display = "none"; });
+            Object.keys(openVolets).forEach(function (kk) { if (kk !== k) openVolets[kk] = false; });
+            var meta = null; voletMeta.forEach(function (vm) { if (vm.id === k) meta = vm; });
+            var head = panel.querySelector("[data-tb-rphead]");
+            if (!head) {
+              panel.innerHTML = '<div data-tb-rphead style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span data-tb-rpdot style="width:8px;height:8px;border-radius:50%;display:inline-block;"></span><span data-tb-rplabel style="font-weight:650;font-size:13px;"></span><span style="flex:1;"></span><button type="button" data-tb-rpclose style="background:none;border:none;color:#9CA3AF;font-size:12px;cursor:pointer;font-family:inherit;">fermer ▴</button></div>';
+              panel.querySelector("[data-tb-rpclose]").addEventListener("click", function () {
+                panel.style.display = "none";
+                Object.keys(openVolets).forEach(function (kk) { openVolets[kk] = false; });
+                body.querySelectorAll(".tb-rb").forEach(function (c2) { c2.classList.remove("on"); });
+              });
+            }
+            if (meta) {
+              panel.querySelector("[data-tb-rpdot]").style.background = meta.dot;
+              var lblEl = panel.querySelector("[data-tb-rplabel]");
+              lblEl.innerHTML = ""; lblEl.textContent = String(meta.label).replace(/<[^>]+>/g, "");
+            }
+            panel.appendChild(v);
+            v.style.display = "block";
+            panel.style.display = "block";
+            openVolets[k] = true;
+            body.querySelectorAll(".tb-rb").forEach(function (c2) { c2.classList.toggle("on", c2.getAttribute("data-tb-rb") === k); });
+            if (scroll) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          }
+          Object.keys(openVolets).forEach(function (k) { if (openVolets[k]) openVolet(k, false); });
+          // Tuiles héros cliquables (proto 17/08) : chacune mène à sa section.
+          body.querySelectorAll("[data-tb-tile]").forEach(function (t) {
+            t.style.cursor = "pointer";
+            t.addEventListener("click", function () {
+              var k = t.getAttribute("data-tb-tile");
+              if (k === "af") { var afc = document.getElementById("tb-af-card"); if (afc) afc.scrollIntoView({ behavior: "smooth", block: "start" }); }
+              else openVolet(k, true);
+            });
           });
           body.querySelectorAll("[data-tb-period]").forEach(function (b) {
             b.addEventListener("click", function () { period = Number(b.getAttribute("data-tb-period")); render(); });
           });
           var mg = document.getElementById("tb-mg");
           if (mg) mg.addEventListener("click", function () { var l = document.getElementById("tb-mg-list"); l.style.display = l.style.display === "none" ? "block" : "none"; });
-          body.querySelectorAll("[data-tb-volet]").forEach(function (b) {
+          body.querySelectorAll("[data-tb-rb]").forEach(function (b) {
             b.addEventListener("click", function () {
-              var k = b.getAttribute("data-tb-volet");
-              var v = body.querySelector('[data-tb-body="' + k + '"]');
-              if (!v) return;
-              var opened = v.style.display === "none";
-              v.style.display = opened ? "block" : "none";
-              openVolets[k] = opened;
-              b.setAttribute("aria-expanded", opened ? "true" : "false");
+              var k = b.getAttribute("data-tb-rb");
+              if (openVolets[k]) {
+                var panel = document.getElementById("tb-rpanel");
+                if (panel) panel.style.display = "none";
+                openVolets[k] = false;
+                b.classList.remove("on");
+              } else openVolet(k, true);
             });
           });
           body.querySelectorAll("[data-tb-open]").forEach(function (a) {
             a.addEventListener("click", function (ev) {
-              var v = body.querySelector('[data-tb-body="' + a.getAttribute("data-tb-open") + '"]');
-              if (v) { v.style.display = "block"; openVolets[a.getAttribute("data-tb-open")] = true; }
-              var btn = body.querySelector('[data-tb-volet="' + a.getAttribute("data-tb-open") + '"]');
-              if (btn) btn.setAttribute("aria-expanded", "true");
+              openVolet(a.getAttribute("data-tb-open"), false);
               // Ciblage (audit 15/08) : le geste aboutit \u00e0 SON dispositif \u2014 d\u00e9filement
               // centr\u00e9 + ouverture du panneau du rang (Prouver/Armer), plus d'ancre \u00e0 chasse.
               var gid = a.getAttribute("data-tb-goto");

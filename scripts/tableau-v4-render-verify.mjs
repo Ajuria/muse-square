@@ -83,40 +83,40 @@ check("rangées verbe d'abord", verbes.some((v) => txt().indexOf(v) >= 0));
 if ((g.trous || []).length) check("trou de veille nommé (Suivez X)", txt().indexOf("Suivez " + g.trous[0].nom.slice(0, 20)) >= 0, g.trous[0].nom);
 if ((g.savoir || {}).evts_sans_objectif) check("Fixez un objectif à N événements", txt().indexOf("Fixez un objectif à " + g.savoir.evts_sans_objectif) >= 0);
 check("règle CTA : au plus UN bouton plein", body.querySelectorAll(".tb-btnp").length <= 1, body.querySelectorAll(".tb-btnp").length + " plein(s)");
-check("radar = UNE surface (6 rangées .tb-rv)", body.querySelectorAll(".tb-rv").length === 6, body.querySelectorAll(".tb-rv").length + " rangées");
+check("Autour de vous = grille-résumé 6 cartes + panneau (proto 17/08)", body.querySelectorAll(".tb-rb").length === 6 && !!doc.getElementById("tb-rpanel"), body.querySelectorAll(".tb-rb").length + " cartes");
 check("vignette-carte dans Événements concurrents", body.querySelector('[data-tb-body="ev"]') && body.querySelector('[data-tb-body="ev"]').innerHTML.indexOf("Ouvrir la carte") >= 0);
 
 // ── Volets : l'en-tête EST la réponse. ──
 ["ev", "sv", "sf", "eq", "co"].forEach((id) => {
-  check("volet " + id + " présent (fermé, chips en tête)", !!body.querySelector('[data-tb-volet="' + id + '"]') && body.querySelector('[data-tb-body="' + id + '"]').style.display === "none");
+  check("volet " + id + " : carte-résumé présente, corps fermé", !!body.querySelector('[data-tb-rb="' + id + '"]') && body.querySelector('[data-tb-body="' + id + '"]').style.display === "none");
 });
 check("Événements concurrents — N sur 14 j", txt().indexOf("sur 14 j") >= 0);
 check("À surveiller — menaces · occasions", /menace/.test(txt()) && /occasions/.test(txt()));
 check("zéro donnée de cuisine (niv. N, priorité N, anglais mart)", txt().indexOf("niv.") < 0 && txt().indexOf("priorité ") < 0 && txt().indexOf("detected") < 0);
 
 // ── À surveiller : € chaleur gated registre (règle inchangée). ──
-body.querySelector('[data-tb-volet="sv"]').click(); await tick();
+body.querySelector('[data-tb-rb="sv"]').click(); await tick();
 check("« à récupérer » SEULEMENT avec un € (registre)", !oc.next_hot ? true
   : oc.heat_range ? txt().indexOf("à récupérer") >= 0 && txt().indexOf("jusqu’à") >= 0
   : txt().indexOf("à récupérer") < 0 && txt().indexOf("pas encore chiffré") >= 0,
   "heat_range=" + JSON.stringify(oc.heat_range));
 
 // ── Savoir-faire : apprentissages + dispositifs fusionnés. ──
-body.querySelector('[data-tb-volet="sf"]').click(); await tick();
+body.querySelector('[data-tb-rb="sf"]').click(); await tick();
 check("apprentissages (voix maison € d'abord)", payload.learnings.length ? txt().indexOf("Ce que l’app a appris") >= 0 && (txt().indexOf("perdus les ") >= 0 || txt().indexOf("gagnés les ") >= 0) : true);
 check("état par ligne (M'engager / joué / en test / à défendre)", payload.learnings.length ? (txt().indexOf("M’engager") >= 0 || txt().indexOf("joué — dispositif") >= 0 || txt().indexOf("en test — verdict") >= 0 || txt().indexOf("à défendre") >= 0) : true);
 check("dispositifs dans le même volet", txt().indexOf("Vos dispositifs") >= 0 && txt().indexOf("prouvé") >= 0);
 check("provenance (types de jours chiffrés)", payload.learnings.length ? txt().indexOf("types de jours chiffrés") >= 0 : true);
 
 // ── Ma couverture : veille + offres (absence DITE) + automatisations. ──
-body.querySelector('[data-tb-volet="co"]').click(); await tick();
+body.querySelector('[data-tb-rb="co"]').click(); await tick();
 // Registre owner 14/08 : trouvailles d'abord, technique SEULEMENT cassé, zéro inventaire de crawl.
 check("volet « Ma veille concurrentielle » (jamais « Ma couverture »)", txt().indexOf("Ma veille concurrentielle") >= 0 && txt().indexOf("Ma couverture") < 0);
 check("zéro registre crawl (lieux visités / passage)", txt().indexOf("lieux visités") < 0 && txt().indexOf("jamais visité") < 0 && txt().indexOf("passage") < 0);
 const vDefaut = vLieux.filter((v) => !(v.age_j != null && v.age_j <= 1)).length + (((g.veille || {}).sans_cle) || []).length;
 check("technique seulement CASSÉ", vDefaut ? txt().indexOf("échappe à votre veille") >= 0 || txt().indexOf("suivi incomplet") >= 0 : txt().indexOf("échappe à votre veille") < 0);
 if (!(g.offres || []).length && (g.offres_base || {}).n_tarifs) check("offres : absence DITE et chiffrée", txt().indexOf("rien n’a bougé") >= 0 && txt().indexOf(String(g.offres_base.n_tarifs) + " tarifs sous surveillance") >= 0);
-check("Automatisations = rangée à part", body.querySelectorAll(".tb-rv").length === 6 && txt().indexOf("Automatisations") >= 0, body.querySelectorAll(".tb-rv").length + " rangées");
+check("Automatisations = carte à part", !!body.querySelector('[data-tb-rb="au"]') && txt().indexOf("Automatisations") >= 0);
 
 // ── Câblages purs (audit owner 15/08) : chaque geste aboutit à sa cible. ──
 const rawHtml = body.innerHTML;
@@ -155,7 +155,8 @@ check("équipe : zéro rangée « — » fantôme", (() => {
 const btn90 = body.querySelector('[data-tb-period="90"]');
 btn90.click(); await tick();
 check("bascule 90 j : € dérivé", gapFor(90) == null ? txt().indexOf("— €") >= 0 : txt().indexOf(eurTxt(gapFor(90))) >= 0, eurTxt(gapFor(90) ?? 0));
-check("bascule 90 j : volet sf TOUJOURS ouvert", body.querySelector('[data-tb-body="sf"]').style.display === "block");
+// Nouveau contrat (17/08) : UN volet ouvert à la fois — le DERNIER ouvert (co) survit à la bascule.
+check("bascule 90 j : le volet ouvert (co) survit à la bascule", body.querySelector('[data-tb-body="co"]').style.display === "block" && body.querySelector('[data-tb-body="sf"]').style.display === "none");
 const lect = body.querySelector("[data-tb-lect]");
 if (lect) { lect.click(); await tick(); }
 check("pli Lecture s'ouvre au clic", lect ? doc.getElementById("tb-lecture").style.display === "block" : true);
