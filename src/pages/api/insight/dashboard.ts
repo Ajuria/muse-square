@@ -573,11 +573,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
       const lid = String(str(r.location_id)), dd = String(str(r.d));
       (_dpBySite[lid] = _dpBySite[lid] || {})[dd] = num(r.rev) ?? 0;
     }
-    const _last7 = [...Array(7)].map((_, i) => new Date(Date.now() - (i + 1) * 86_400_000).toISOString().slice(0, 10));
+    const _last30 = [...Array(30)].map((_, i) => new Date(Date.now() - (i + 1) * 86_400_000).toISOString().slice(0, 10));
     let _real7 = 0, _exp7 = 0, _n7 = 0;
     for (const lid of Object.keys(_dpBySite)) {
       const days = _dpBySite[lid];
-      for (const dd of _last7) {
+      for (const dd of _last30) {
         if (days[dd] == null) continue;
         const dow = new Date(dd + "T12:00:00Z").getUTCDay();
         const peers = Object.keys(days).filter((k) => k < dd && new Date(k + "T12:00:00Z").getUTCDay() === dow).sort().slice(-12).map((k) => days[k]);
@@ -586,7 +586,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         _real7 += days[dd]; _exp7 += sorted[Math.floor(sorted.length / 2)]; _n7++;
       }
     }
-    const ca7 = { pct: _exp7 > 0 ? Math.round(((_real7 - _exp7) / _exp7) * 1000) / 10 : null, real7: Math.round(_real7), exp7: Math.round(_exp7), n_jours: _n7 };
+    const ca30 = { pct: _exp7 > 0 ? Math.round(((_real7 - _exp7) / _exp7) * 1000) / 10 : null, real7: Math.round(_real7), exp7: Math.round(_exp7), n_jours: _n7 };
     const opsValue = (opsValRows as any[]).map((r) => ({ saved_item_id: str(r.saved_item_id), avg_gap: num(r.avg_gap), n: num(r.n) ?? 0 }));
 
     const siteLabel: Record<string, string> = {};
@@ -829,7 +829,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       impact_rows: mart365,
       judged_meta: coms.filter((c) => c.status === "resolved" && c.verdict).map((c) => ({ verdict: c.verdict, created_d: c.created_d })),
       practice_counts: practiceCounts,
-      ca7, ops_value: opsValue,
+      ca30, ops_value: opsValue,
       last_verdict: lastVerdict,
       met_recipe: metRecipe,
       occasions,

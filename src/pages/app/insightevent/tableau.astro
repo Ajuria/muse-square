@@ -424,16 +424,16 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var veilleCassee = vLieux.length > 0 && vVus < vLieux.length;
           html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 8px;flex-wrap:wrap;"><p class="tb-eb" style="cursor:help;" title="Somme des écarts mesurés des fenêtres engagées jugées — jamais extrapolé.">Impact mesuré de vos opérations</p><span style="display:inline-flex;align-items:baseline;gap:8px;">' + periodSel + '<span style="font-size:10.5px;color:#9CA3AF;">filtre l’Impact seul</span></span></div>'
             + '<div class="tb-hero">'
-            // 1 · IMPACT — mesuré sur la plage (le seul vert).
-            + '<div class="tb-tile"><p class="tb-eb">Impact ' + period + ' jours</p><div class="n" style="color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? GREEN : AMBER) + ';" title="' + esc(eurTip) + '">' + (im.gap_eur == null ? "\u2014 \u20ac" : signEur(im.gap_eur)) + '</div>'
-              + '<div class="s">vs habituel \u00b7 ' + im.targets_met + '/' + im.windows_judged + ' cibles tenues' + (im.next_judgment === TODAY ? " \u00b7 verdict auj." : im.next_judgment ? " \u00b7 prochaine " + frD(im.next_judgment) : "") + '</div></div>'
-            // 2 · CA 7 JOURS — vs votre habituel (jamais vs hier).
+            // 1 · CA MULTI-SITE 30 JOURS — le montant signé, sa couleur suit le signe du delta vs habituel.
             + (function () {
-                var c7 = j.ca7 || {};
-                return '<div class="tb-tile" title="CA des 7 derniers jours re\u00e7us vs votre HABITUEL (m\u00e9diane du m\u00eame jour de semaine, 12 derni\u00e8res occurrences, par site puis somm\u00e9 \u2014 ' + (c7.n_jours || 0) + ' site-jours). Jamais vs hier : l\u2019effet jour de semaine est neutralis\u00e9.">'
-                  + '<p class="tb-eb">CA 7 jours</p><div class="n" style="color:' + (c7.pct == null ? '#9CA3AF' : '#111827') + ';">' + (c7.pct == null ? '\u2014' : (c7.pct >= 0 ? '+' : '\u2212') + String(Math.abs(c7.pct)).replace('.', ',') + ' %') + '</div>'
-                  + '<div class="s">vs votre habituel' + (c7.real7 ? ' \u00b7 ' + frInt(c7.real7) + ' \u20ac r\u00e9alis\u00e9s' : '') + '</div></div>';
+                var c30 = j.ca30 || {};
+                return '<div class="tb-tile" title="CA de vos ' + (J.multi_site ? 'sites (tous, rien d\u2019exclu)' : 'ventes') + ' sur les 30 derniers jours re\u00e7us. Le % compare \u00e0 votre HABITUEL (m\u00e9diane du m\u00eame jour de semaine par site, ' + (c30.n_jours || 0) + ' site-jours) \u2014 jamais vs hier.">'
+                  + '<p class="tb-eb">CA multi-site sur 30 jours</p><div class="n" style="color:' + (c30.pct == null ? '#111827' : c30.pct >= 0 ? GREEN : AMBER) + ';">' + (c30.real7 ? '+' + frInt(c30.real7) + ' \u20ac' : '\u2014') + '</div>'
+                  + '<div class="s">' + (c30.pct != null ? (c30.pct >= 0 ? '+' : '\u2212') + String(Math.abs(c30.pct)).replace('.', ',') + ' % vs votre habituel' : 'pas assez de jours re\u00e7us') + '</div></div>';
               })()
+            // 2 · IMPACT DISPOSITIFS — mesuré sur la plage (m\u00eame unit\u00e9 de temps que le CA).
+            + '<div class="tb-tile"><p class="tb-eb">Impact dispositifs sur ' + period + ' jours</p><div class="n" style="color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? GREEN : AMBER) + ';" title="' + esc(eurTip) + '">' + (im.gap_eur == null ? "\u2014 \u20ac" : signEur(im.gap_eur)) + '</div>'
+              + '<div class="s">vs habituel \u00b7 ' + im.targets_met + '/' + im.windows_judged + ' cibles tenues' + (im.next_judgment === TODAY ? " \u00b7 verdict auj." : im.next_judgment ? " \u00b7 prochaine " + frD(im.next_judgment) : "") + '</div></div>'
             // 3 · SIGNAUX TRAITÉS — % de l'enjeu identifi\u00e9 couvert par un dispositif actif.
             + (function () {
                 var ls = j.learnings || [];
@@ -441,7 +441,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 ls.forEach(function (l2) { var v2 = Math.abs(Number(l2.eur_year) || 0); tot += v2; if (l2.covered) cov += v2; });
                 var pct = tot > 0 ? Math.round(cov / tot * 100) : null;
                 return '<div class="tb-tile" data-tb-tile="sf" title="Part de l\u2019enjeu annualis\u00e9 identifi\u00e9 (motifs d\u2019environnement du registre, portes n \u2265 5 + mat\u00e9rialit\u00e9) couverte par un dispositif actif. R\u00e9f\u00e9rentiel : l\u2019enjeu identifi\u00e9, pas votre CA.">'
-                  + '<p class="tb-eb">Signaux trait\u00e9s</p><div class="n" style="color:' + BLUE + ';">' + (pct == null ? '\u2014' : pct + ' %') + '</div>'
+                  + '<p class="tb-eb">Signaux trait\u00e9s</p><div class="n" style="color:#111827;">' + (pct == null ? '\u2014' : pct + ' %') + '</div>'
                   + '<div class="s">' + (tot > 0 ? 'de ' + frInt(tot) + ' \u20ac/an d\u2019enjeux identifi\u00e9s (' + ls.length + ' motif' + (ls.length > 1 ? 's' : '') + ')' : 'aucun motif chiffr\u00e9 encore') + '</div></div>';
               })()
             // 4 · OPÉRATIONS EN COURS — compte ; \u2248 \u20ac/an seulement sur du jug\u00e9.
@@ -465,7 +465,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 var pr0 = (j.practices || []).filter(function (p2) { return p2.tier !== 'archivee'; });
                 var nT0 = pr0.filter(function (p2) { return p2.tier !== 'prouvee' && p2.tier !== 'ecartee'; }).length;
                 return '<div class="tb-tile" data-tb-tile="sf" title="Dispositifs pass\u00e9s PROUV\u00c9S ce mois-ci (cible tenue au test \u2014 \u00e9chelle en test \u00b7 prouv\u00e9 \u00b7 \u00e9cart\u00e9).">'
-                  + '<p class="tb-eb">Dispositifs prouv\u00e9s</p><div class="n" style="color:' + (nMois ? BLUE : '#9CA3AF') + ';">' + nMois + '</div>'
+                  + '<p class="tb-eb">Dispositifs prouv\u00e9s</p><div class="n" style="color:' + (nMois ? '#111827' : '#9CA3AF') + ';">' + nMois + '</div>'
                   + '<div class="s">ce mois-ci \u00b7 ' + nT0 + ' en test \u2014 chaque cible tenue en convertit un</div></div>';
               })()
             + '</div>'

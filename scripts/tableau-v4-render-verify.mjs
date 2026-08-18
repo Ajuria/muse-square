@@ -65,7 +65,7 @@ const g = payload.glance || {};
 const oc = payload.occasions || {};
 // ── HÉROS v10 (proto validé 18/08) : bandeau 5 KPI — titres arbitrés owner. ──
 const vLieux = (g.veille || {}).lieux || [];
-const heroTitles = ["Impact 30 jours", "CA 7 jours", "Signaux traités", "Opérations en cours", "Dispositifs prouvés"];
+const heroTitles = ["CA multi-site sur 30 jours", "Impact dispositifs sur 30 jours", "Signaux traités", "Opérations en cours", "Dispositifs prouvés"];
 check("héros v10 : les 5 titres arbitrés, dans l'ordre", (() => {
   let pos = -1;
   return heroTitles.every((t2) => { const i2 = txt().indexOf(t2); if (i2 < 0 || i2 < pos) return false; pos = i2; return true; });
@@ -74,9 +74,10 @@ check("héros v10 : anciennes tuiles-portes retirées du héros", body.querySele
   && !body.querySelector('.tb-hero [data-tb-tile="af"]') && !body.querySelector('.tb-hero [data-tb-tile="sv"]') && !body.querySelector('.tb-hero [data-tb-tile="co"]'),
   body.querySelectorAll(".tb-hero .tb-tile").length + " tuiles");
 // CA 7 j : le % du payload, avec son référentiel.
-if (payload.ca7 && payload.ca7.pct != null)
-  check("CA 7 jours : % serveur rendu + référentiel « vs votre habituel »",
-    txt().indexOf(String(Math.abs(payload.ca7.pct)).replace(".", ",") + " %") >= 0 && txt().indexOf("vs votre habituel") >= 0, payload.ca7.pct + " %");
+if (payload.ca30 && payload.ca30.pct != null)
+  check("CA multi-site 30 j : MONTANT signé + en chiffre, % signé en sous-ligne",
+    txt().indexOf("+" + Math.round(payload.ca30.real7).toLocaleString("fr-FR") + " €") >= 0
+    && txt().indexOf(String(Math.abs(payload.ca30.pct)).replace(".", ",") + " % vs votre habituel") >= 0, payload.ca30.real7 + " € · " + payload.ca30.pct + " %");
 // Signaux traités : couvert/total des motifs du payload.
 {
   const ls = payload.learnings || [];
@@ -135,10 +136,19 @@ if (!(g.offres || []).length && (g.offres_base || {}).n_tarifs) check("offres : 
 check("Automatisations = carte à part", !!body.querySelector('[data-tb-rb="au"]') && txt().indexOf("Automatisations") >= 0);
 
 // ── Correctif 8 points (owner 17/08) — appliqué depuis le proto validé. ──
-// 1. UN SEUL vert au héros : le chiffre Impact (mesuré). Le point de santé veille reste un point.
+// Règle couleur streamlinée (owner 18/08) : vert/ambre = DELTAS mesurés (Impact, CA 7 j) ;
+// parts et comptes = encre ; zéro = gris. Le signe suit : un delta porte +/-, une part jamais.
 const heroNums = Array.from(body.querySelectorAll(".tb-hero .n"));
 const greensHero = heroNums.filter((n) => (n.getAttribute("style") || "").indexOf("#059669") >= 0);
-check("héros : un seul chiffre vert (Impact)", greensHero.length <= 1, greensHero.length + " vert(s)");
+// Owner 18/08 : le € porte SYSTÉMATIQUEMENT son signe et la couleur de son delta.
+const expectedGreens = (gapFor(30) != null && gapFor(30) >= 0 ? 1 : 0) + (payload.ca30 && payload.ca30.pct != null && payload.ca30.pct >= 0 ? 1 : 0);
+check("héros : verts = les deltas mesurés positifs, exactement", greensHero.length === expectedGreens, greensHero.length + " vs attendu " + expectedGreens);
+check("héros : parts et comptes en encre (jamais bleu, jamais signés)", (() => {
+  const sig = heroNums.find((n) => n.parentElement.textContent.indexOf("Signaux traités") >= 0);
+  const pr = heroNums.find((n) => n.parentElement.textContent.indexOf("Dispositifs prouvés") >= 0);
+  return sig && (sig.getAttribute("style") || "").indexOf("#1D3BB3") < 0 && !/[+\u2212]/.test(sig.textContent)
+    && pr && (pr.getAttribute("style") || "").indexOf("#1D3BB3") < 0;
+})());
 // 2. CTA = verbe + flèche ≤ 14 caractères sur les gestes du correctif.
 const ctaTexts = Array.from(body.querySelectorAll("a.tb-link"))
   .map((a) => (a.textContent || "").trim())
