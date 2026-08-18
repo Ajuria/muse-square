@@ -28,7 +28,7 @@ if (blocks.length !== 1) throw new Error("script liste introuvable");
 function run(urlStr) {
   const win = new Window({ url: urlStr });
   const doc = win.document;
-  doc.body.innerHTML = '<div id="evt-root" data-loc="' + OWNER + '" data-item=""><a id="evt-back"></a><div id="evt-head"><div></div><div></div></div><div id="evt-body">Chargement…</div></div>';
+  doc.body.innerHTML = '<div id="evt-root" data-loc="' + OWNER + '" data-item=""><div id="evt-toolbar"><a id="evt-back"></a></div><div id="evt-head"><div></div><div></div></div><div id="evt-body">Chargement…</div></div>';
   const fetchStub = (url) => Promise.resolve({ json: () => Promise.resolve(String(url).indexOf("list=1") >= 0 ? payload : { ok: false, locations: [] }) });
   new Function("window", "document", "fetch", blocks[0])(win, doc, fetchStub);
   return new Promise((r) => setTimeout(() => r(doc.getElementById("evt-body")), 60));
@@ -44,6 +44,8 @@ const bodyT = await run("https://app.local/app/insightevent/evenement");
 const rowsT = bodyT.querySelectorAll('a[href*="saved_item_id="]').length;
 check("sans filtre : la liste complète est intacte", rowsT === events.length, rowsT + " vs " + events.length);
 check("sans filtre : chips « Objectif non fixé » sur les seuls concernés", (bodyT.innerHTML.match(/Objectif non fixé/g) || []).length === nSans);
+check("« Nouvel événement » dans la rangée Retour (toolbar), plus dans la carte",
+  !!bodyT.ownerDocument.getElementById("evt-new-btn") && bodyT.innerHTML.indexOf("Nouvel événement") < 0);
 
 // ── Pilule BINAIRE (owner 18/08) : objectif fixé (avec sa valeur) ou non — le type meurt. ──
 check("liste : zéro pilule de type (Autre/Lancement…)", bodyT.textContent.indexOf("Autre") < 0 && bodyT.textContent.indexOf("Lancement de produit") < 0 && bodyT.textContent.indexOf("Journée portes ouvertes") < 0);
