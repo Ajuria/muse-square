@@ -47,7 +47,7 @@ fn(OWNER, target.origin_action_type, doc.getElementById("z1"));
 await new Promise((r) => setTimeout(r, 40));
 const z1 = doc.getElementById("z1");
 check("engagement ouvert → contrôle rendu (texte + menée par défaut + 2 gestes)",
-  z1.textContent.indexOf("Engagement en cours sur cette carte") >= 0
+  z1.textContent.indexOf("Engagement en cours") >= 0
   && z1.textContent.indexOf(String(target.committed_action_text).slice(0, 30)) >= 0
   && z1.textContent.indexOf("menée par défaut") >= 0
   && !!z1.querySelector('[data-fs-dispo="fait"]') && !!z1.querySelector('[data-fs-dispo="pas_encore"]'));

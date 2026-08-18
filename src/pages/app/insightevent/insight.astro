@@ -1060,7 +1060,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             if (!open.length) { container.innerHTML = ''; return; }
             var render = function () {
               container.innerHTML = '<div style="padding:14px 0;border-bottom:1px solid #E8EDF5;">'
-                + '<div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px;">Engagement en cours sur cette carte</div>'
+                + '<div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px;">Engagement en cours</div>'
                 + open.map(function(it, i){
                     var done = it.action_done_status === 'fait';
                     return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;padding:4px 0;">'
