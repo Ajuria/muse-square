@@ -75,8 +75,9 @@ check("héros v10 : anciennes tuiles-portes retirées du héros", body.querySele
   body.querySelectorAll(".tb-hero .tb-tile").length + " tuiles");
 // CA 7 j : le % du payload, avec son référentiel.
 if (payload.ca7 && payload.ca7.pct != null)
-  check("CA 7 jours : % serveur rendu + référentiel « vs votre habituel »",
-    txt().indexOf(String(Math.abs(payload.ca7.pct)).replace(".", ",") + " %") >= 0 && txt().indexOf("vs votre habituel") >= 0, payload.ca7.pct + " %");
+  check("CA 7 jours : le MONTANT € en chiffre, le % signé en sous-ligne (owner 18/08 : simple)",
+    txt().indexOf(Math.round(payload.ca7.real7).toLocaleString("fr-FR") + " €") >= 0
+    && txt().indexOf(String(Math.abs(payload.ca7.pct)).replace(".", ",") + " % vs votre habituel") >= 0, payload.ca7.real7 + " € · " + payload.ca7.pct + " %");
 // Signaux traités : couvert/total des motifs du payload.
 {
   const ls = payload.learnings || [];
@@ -139,7 +140,7 @@ check("Automatisations = carte à part", !!body.querySelector('[data-tb-rb="au"]
 // parts et comptes = encre ; zéro = gris. Le signe suit : un delta porte +/-, une part jamais.
 const heroNums = Array.from(body.querySelectorAll(".tb-hero .n"));
 const greensHero = heroNums.filter((n) => (n.getAttribute("style") || "").indexOf("#059669") >= 0);
-const expectedGreens = (gapFor(30) != null && gapFor(30) >= 0 ? 1 : 0) + (payload.ca7 && payload.ca7.pct != null && payload.ca7.pct >= 0 ? 1 : 0);
+const expectedGreens = (gapFor(30) != null && gapFor(30) >= 0 ? 1 : 0); // CA = montant (encre), son delta vit en sous-ligne
 check("héros : verts = les deltas mesurés positifs, exactement", greensHero.length === expectedGreens, greensHero.length + " vs attendu " + expectedGreens);
 check("héros : parts et comptes en encre (jamais bleu, jamais signés)", (() => {
   const sig = heroNums.find((n) => n.parentElement.textContent.indexOf("Signaux traités") >= 0);

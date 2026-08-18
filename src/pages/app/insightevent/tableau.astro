@@ -431,8 +431,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + (function () {
                 var c7 = j.ca7 || {};
                 return '<div class="tb-tile" title="CA des 7 derniers jours re\u00e7us vs votre HABITUEL (m\u00e9diane du m\u00eame jour de semaine, 12 derni\u00e8res occurrences, par site puis somm\u00e9 \u2014 ' + (c7.n_jours || 0) + ' site-jours). Jamais vs hier : l\u2019effet jour de semaine est neutralis\u00e9.">'
-                  + '<p class="tb-eb">CA 7 jours</p><div class="n" style="color:' + (c7.pct == null ? '#9CA3AF' : c7.pct >= 0 ? GREEN : AMBER) + ';">' + (c7.pct == null ? '\u2014' : (c7.pct >= 0 ? '+' : '\u2212') + String(Math.abs(c7.pct)).replace('.', ',') + ' %') + '</div>'
-                  + '<div class="s">vs votre habituel' + (c7.real7 ? ' \u00b7 ' + frInt(c7.real7) + ' \u20ac r\u00e9alis\u00e9s' : '') + '</div></div>';
+                  + '<p class="tb-eb">CA 7 jours</p><div class="n">' + (c7.real7 ? frInt(c7.real7) + ' \u20ac' : '\u2014') + '</div>'
+                  + '<div class="s">' + (c7.pct != null ? (c7.pct >= 0 ? '+' : '\u2212') + String(Math.abs(c7.pct)).replace('.', ',') + ' % vs votre habituel' : 'pas assez de jours re\u00e7us') + '</div></div>';
               })()
             // 3 · SIGNAUX TRAITÉS — % de l'enjeu identifi\u00e9 couvert par un dispositif actif.
             + (function () {
