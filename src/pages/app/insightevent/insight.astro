@@ -917,6 +917,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var _refsHtml = _refs.length ? '<div style="border-top:1px solid #eef1f6;padding-top:12px;margin-top:10px;"><div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#9CA3AF;font-weight:500;margin-bottom:8px;">R\u00e9f\u00e9rences</div>' + _refs.map(function (s, i) { return '<div style="font-size:11.5px;color:#9CA3AF;line-height:1.7;"><sup style="color:' + BR + ';">' + (i + 1) + '</sup> ' + esc(s) + '</div>'; }).join('') + '</div>' : '';
           _actionsHtml += zone('Plan \u00e0 essayer', _intro + _cards + _own + _foot + _refsHtml);
         }
+        _actionsHtml += '<div id="fs-dispo-zone"></div>'; // Engagement OUVERT sur cette carte \u2014 Fait/Pas men\u00e9e en place (d\u00e9cision owner 18/08)
         _actionsHtml += '<div id="fs-bic-zone"></div>';  // Lieux comparables \u2014 filled async (honest-absent)
         if (_ctx) html += grp('Contexte & informations li\u00e9es') + _ctx;
         html += _actionsHtml;
@@ -951,6 +952,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (_isMov || _isWeather || _isEvent || _isCompetitor || _isTourism || _isFootfall || _isDecomp || _isDiscount || _isWeatherWindow) {
           loadAudience(location_id, signal_date, document.getElementById('fs-audience-zone'));
           loadBestInClass(location_id, signal_type, document.getElementById('fs-bic-zone'));
+          loadDisposition(location_id, signal_type, document.getElementById('fs-dispo-zone'));
         }
 
         var descBtn = document.getElementById('fs-desc-btn');
@@ -1046,6 +1048,50 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           .then(function(j){ container.innerHTML = MSCardKit.renderAudience(j); })
           .catch(function(){ container.innerHTML = '<div style="font-size:12.5px;color:#9CA3AF;">Profil audience indisponible.</div>'; });
       }
+      // Fermer la boucle EN PLACE (décision owner 18/08) : l'engagement OUVERT créé depuis cette
+      // carte porte ses gestes Fait / Pas menée ICI — même endpoint et même sémantique que Pulse
+      // (« menée par défaut » : sans déclaration, l'action compte menée à l'échéance).
+      function loadDisposition(locId, actionType, container) {
+        if (!container) return;
+        fetch('/api/commitments?location_id=' + encodeURIComponent(locId))
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+            var open = ((j && j.items) || []).filter(function(it){ return it.status === 'open' && String(it.origin_action_type || '') === String(actionType); });
+            if (!open.length) { container.innerHTML = ''; return; }
+            var render = function () {
+              container.innerHTML = '<div style="padding:14px 0;border-bottom:1px solid #E8EDF5;">'
+                + '<div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px;">Engagement en cours sur cette carte</div>'
+                + open.map(function(it, i){
+                    var done = it.action_done_status === 'fait';
+                    return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;padding:4px 0;">'
+                      + '<span style="min-width:0;flex:1;color:#374151;">\u00ab ' + esc(String(it.committed_action_text || '').slice(0, 70)) + ' \u00bb</span>'
+                      + (done
+                        ? '<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#166534;font-weight:600;">\u2713 Action men\u00e9e</span>'
+                        : '<span style="display:inline-flex;align-items:center;gap:8px;">'
+                          + '<span style="font-size:11px;color:#9CA3AF;cursor:help;text-decoration:underline dotted rgba(156,163,175,0.6);text-underline-offset:2px;" title="Si vous ne d\u00e9clarez rien, l\u2019action est consid\u00e9r\u00e9e comme men\u00e9e \u00e0 l\u2019\u00e9ch\u00e9ance de la fen\u00eatre \u2014 le verdict mesure alors son effet.">men\u00e9e par d\u00e9faut</span>'
+                          + '<button type="button" data-fs-dispo="fait" data-fs-dispo-i="' + i + '" style="font-size:12px;padding:4px 11px;border:1px solid #d1d5db;border-radius:16px;background:#fff;cursor:pointer;font-family:inherit;">Fait</button>'
+                          + '<button type="button" data-fs-dispo="pas_encore" data-fs-dispo-i="' + i + '" style="font-size:12px;padding:4px 11px;border:1px solid #d1d5db;border-radius:16px;background:#fff;cursor:pointer;font-family:inherit;' + (it.action_done_status === 'pas_encore' ? 'opacity:1;font-weight:700;' : '') + '">Pas men\u00e9e</button>'
+                          + '</span>')
+                      + '</div>';
+                  }).join('')
+                + '</div>';
+              container.querySelectorAll('[data-fs-dispo]').forEach(function(b){
+                b.addEventListener('click', function(){
+                  var it = open[Number(b.getAttribute('data-fs-dispo-i'))];
+                  var v = b.getAttribute('data-fs-dispo');
+                  b.disabled = true; b.textContent = '\u2026';
+                  fetch('/api/commitments/disposition', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commitment_id: it.commitment_id, location_id: it.location_id, action_done_status: v }) })
+                    .then(function(r){ return r.json(); })
+                    .then(function(res){ if (res && res.ok) { it.action_done_status = v; render(); } else { b.disabled = false; b.textContent = v === 'fait' ? 'Fait' : 'Pas men\u00e9e'; } })
+                    .catch(function(){ b.disabled = false; b.textContent = v === 'fait' ? 'Fait' : 'Pas men\u00e9e'; });
+                });
+              });
+            };
+            render();
+          })
+          .catch(function(){ container.innerHTML = ''; });
+      }
+
       function loadTrackRecord(locId, actionType, container, onReconduire) {
         if (!container) return;
         fetch('/api/insight/track-record?location_id=' + encodeURIComponent(locId) + '&action_type=' + encodeURIComponent(actionType))
