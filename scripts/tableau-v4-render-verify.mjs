@@ -70,10 +70,12 @@ check("héros v10 : les 5 titres arbitrés, dans l'ordre", (() => {
   let pos = -1;
   return heroTitles.every((t2) => { const i2 = txt().indexOf(t2); if (i2 < 0 || i2 < pos) return false; pos = i2; return true; });
 })(), heroTitles.filter((t2) => txt().indexOf(t2) < 0).join(" | ") || "tous présents");
-check("héros v10 : titres 2 lignes max — unité de temps en petit (span.u) + zone titre à hauteur FIXE (chiffres alignés)",
+check("héros v10 : ⓘ infobulle (2 tuiles €) + zone titre hauteur FIXE clampée (alignement prouvé navigateur 18/08 : 66/66/66/66/66)",
   Array.from(body.querySelectorAll(".tb-hero .tb-eb")).length === 5
-  && body.querySelectorAll(".tb-hero .tb-eb .u").length === 2
+  && body.querySelectorAll(".tb-hero .tb-eb .u[title]").length === 2
   && txt().indexOf("sur 30 jours") < 0);
+check("bandeau : « vs votre résultat habituel » (le nu est banni)", txt().indexOf("vs votre résultat habituel") >= 0
+  && !/vs habituel[^»]/.test(txt().replace(/vs votre résultat habituel/g, "")));
 check("héros v10 : anciennes tuiles-portes retirées du héros", body.querySelectorAll(".tb-hero .tb-tile").length === 5
   && !body.querySelector('.tb-hero [data-tb-tile="af"]') && !body.querySelector('.tb-hero [data-tb-tile="sv"]') && !body.querySelector('.tb-hero [data-tb-tile="co"]'),
   body.querySelectorAll(".tb-hero .tb-tile").length + " tuiles");
@@ -81,7 +83,7 @@ check("héros v10 : anciennes tuiles-portes retirées du héros", body.querySele
 if (payload.ca30 && payload.ca30.pct != null)
   check("CA multi-site 30 j : MONTANT signé + en chiffre, % signé en sous-ligne",
     txt().indexOf("+" + Math.round(payload.ca30.real7).toLocaleString("fr-FR") + " €") >= 0
-    && txt().indexOf(String(Math.abs(payload.ca30.pct)).replace(".", ",") + " % vs votre habituel") >= 0, payload.ca30.real7 + " € · " + payload.ca30.pct + " %");
+    && txt().indexOf(String(Math.abs(payload.ca30.pct)).replace(".", ",") + " % vs votre résultat habituel") >= 0, payload.ca30.real7 + " € · " + payload.ca30.pct + " %");
 // Signaux traités : couvert/total des motifs du payload.
 {
   const ls = payload.learnings || [];

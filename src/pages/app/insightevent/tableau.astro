@@ -66,7 +66,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
          héros = grille STRICTE (jamais de wrap), anatomie de tuile unique ;
          À faire = table à colonnes fixes ; volets = rangées d'UNE surface (radar). */
       .tb-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 10px; }
-      .tb-hero .tb-eb { min-height: 26px; display: block; }
+      .tb-hero .tb-eb { line-height: 1.25; height: 2.5em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
       .tb-hero .tb-eb .u { font-size: 8.5px; letter-spacing: 0.03em; color: #B7BCC5; }
       /* Héros (proto validé 17/08) : chaque tuile est SA carte — grille, plus de séparateurs. */
       @media (max-width: 640px) { .tb-hero { grid-template-columns: repeat(2, 1fr); } }
@@ -396,9 +396,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var seuilsCase = im.gap_eur != null && im.windows_judged > 0 && im.targets_met === 0 && im.gap_eur > 0;
           var lecture = null;
           if (seuilsCase)
-            lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs habituel) mais aucune cible n’est tenue — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
+            lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs votre r\u00e9sultat habituel) mais aucune cible n’est tenue — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
           else if (im.gap_eur != null && im.gap_eur > 0 && im.targets_met > 0)
-            lecture = signEur(im.gap_eur) + " vs habituel et " + im.targets_met + " cible" + (im.targets_met > 1 ? "s" : "") + " tenue" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — réutilisez ce qui tient (Mes dispositifs).";
+            lecture = signEur(im.gap_eur) + " vs votre r\u00e9sultat habituel et " + im.targets_met + " cible" + (im.targets_met > 1 ? "s" : "") + " tenue" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — réutilisez ce qui tient (Mes dispositifs).";
           else if (im.gap_eur != null && im.gap_eur < 0)
             lecture = "Fenêtres sous votre habituel (" + signEur(im.gap_eur) + ") — resserrez sur les dispositifs prouvés.";
           var lv = j.last_verdict || null;
@@ -426,16 +426,16 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var veilleCassee = vLieux.length > 0 && vVus < vLieux.length;
           html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 8px;flex-wrap:wrap;"><p class="tb-eb" style="cursor:help;" title="Somme des écarts mesurés des fenêtres engagées jugées — jamais extrapolé.">Impact mesuré de vos opérations</p><span style="display:inline-flex;align-items:baseline;gap:8px;">' + periodSel + '<span style="font-size:10.5px;color:#9CA3AF;">filtre l’Impact seul</span></span></div>'
             + '<div class="tb-hero">'
-            // 1 · CA MULTI-SITE 30 JOURS — le montant signé, sa couleur suit le signe du delta vs habituel.
+            // 1 · CA MULTI-SITE 30 JOURS — le montant signé, sa couleur suit le signe du delta vs r\u00e9sultat habituel.
             + (function () {
                 var c30 = j.ca30 || {};
-                return '<div class="tb-tile" title="CA de vos ' + (J.multi_site ? 'sites (tous, rien d\u2019exclu)' : 'ventes') + ' sur les 30 derniers jours re\u00e7us. Le % compare \u00e0 votre HABITUEL (m\u00e9diane du m\u00eame jour de semaine par site, ' + (c30.n_jours || 0) + ' site-jours) \u2014 jamais vs hier.">'
-                  + '<p class="tb-eb">CA multi-site <span class="u">30 j</span></p><div class="n" style="color:' + (c30.pct == null ? '#111827' : c30.pct >= 0 ? GREEN : AMBER) + ';">' + (c30.real7 ? '+' + frInt(c30.real7) + ' \u20ac' : '\u2014') + '</div>'
-                  + '<div class="s">' + (c30.pct != null ? (c30.pct >= 0 ? '+' : '\u2212') + String(Math.abs(c30.pct)).replace('.', ',') + ' % vs votre habituel' : 'pas assez de jours re\u00e7us') + '</div></div>';
+                return '<div class="tb-tile" title="CA de vos ' + (J.multi_site ? 'sites (tous, rien d\u2019exclu)' : 'ventes') + ' sur les 30 derniers jours re\u00e7us. Le % compare \u00e0 votre R\u00c9SULTAT HABITUEL (m\u00e9diane du m\u00eame jour de semaine par site, ' + (c30.n_jours || 0) + ' site-jours) \u2014 jamais vs hier.">'
+                  + '<p class="tb-eb">CA multi-site <span class="u" style="cursor:help;" title="Somme de vos 30 derniers jours de ventes re\u00e7us, tous sites">\u24d8</span></p><div class="n" style="color:' + (c30.pct == null ? '#111827' : c30.pct >= 0 ? GREEN : AMBER) + ';">' + (c30.real7 ? '+' + frInt(c30.real7) + ' \u20ac' : '\u2014') + '</div>'
+                  + '<div class="s">' + (c30.pct != null ? (c30.pct >= 0 ? '+' : '\u2212') + String(Math.abs(c30.pct)).replace('.', ',') + ' % vs votre r\u00e9sultat habituel' : 'pas assez de jours re\u00e7us') + '</div></div>';
               })()
             // 2 · IMPACT DISPOSITIFS — mesuré sur la plage (m\u00eame unit\u00e9 de temps que le CA).
-            + '<div class="tb-tile"><p class="tb-eb">Impact dispositifs <span class="u">' + period + ' j</span></p><div class="n" style="color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? GREEN : AMBER) + ';" title="' + esc(eurTip) + '">' + (im.gap_eur == null ? "\u2014 \u20ac" : signEur(im.gap_eur)) + '</div>'
-              + '<div class="s">vs habituel \u00b7 ' + im.targets_met + '/' + im.windows_judged + ' cibles tenues' + (im.next_judgment === TODAY ? " \u00b7 verdict auj." : im.next_judgment ? " \u00b7 prochaine " + frD(im.next_judgment) : "") + '</div></div>'
+            + '<div class="tb-tile"><p class="tb-eb">Impact dispositifs <span class="u" style="cursor:help;" title="' + period + ' derniers jours \u2014 suit le s\u00e9lecteur de plage">\u24d8</span></p><div class="n" style="color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? GREEN : AMBER) + ';" title="' + esc(eurTip) + '">' + (im.gap_eur == null ? "\u2014 \u20ac" : signEur(im.gap_eur)) + '</div>'
+              + '<div class="s">vs votre r\u00e9sultat habituel \u00b7 ' + im.targets_met + '/' + im.windows_judged + ' cibles tenues' + (im.next_judgment === TODAY ? " \u00b7 verdict auj." : im.next_judgment ? " \u00b7 prochaine " + frD(im.next_judgment) : "") + '</div></div>'
             // 3 · SIGNAUX TRAITÉS — % de l'enjeu identifi\u00e9 couvert par un dispositif actif.
             + (function () {
                 var ls = j.learnings || [];
@@ -480,7 +480,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (lecture || lv) {
             html += '<div id="tb-lecture" class="tb-fold" style="margin:6px 0 0;">'
               + (lecture ? '<div><span style="font-weight:600;">Lecture :</span> ' + esc(lecture) + '</div>' : "")
-              + (lv ? '<div style="color:#6b7280;">Dernier verdict : « ' + esc(trunc(lv.text, 70)) + ' » — ' + (VERDICT_FR[lv.verdict] || esc(lv.verdict)) + (lv.gap_eur != null && lv.verdict !== "confounded" ? " · " + signEur(lv.gap_eur) + " vs habituel" : lv.verdict !== "confounded" ? " · € en cours de mesure" : "") + " (" + dowFr(lv.we) + " " + frD(lv.we) + ")</div>" : "")
+              + (lv ? '<div style="color:#6b7280;">Dernier verdict : « ' + esc(trunc(lv.text, 70)) + ' » — ' + (VERDICT_FR[lv.verdict] || esc(lv.verdict)) + (lv.gap_eur != null && lv.verdict !== "confounded" ? " · " + signEur(lv.gap_eur) + " vs votre r\u00e9sultat habituel" : lv.verdict !== "confounded" ? " · € en cours de mesure" : "") + " (" + dowFr(lv.we) + " " + frD(lv.we) + ")</div>" : "")
               + '<div style="color:#9CA3AF;">' + esc(eurTip) + '</div>'
               + '</div>';
           }
@@ -531,7 +531,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           //    fenêtre multi-jours (Jour k/n + mini-courbe) / série (frise d'occurrences).
           //    Tricolore POSITION partout ; CTA = Ajuster → (engagement) ou Dossier → (série).
           var mesures = (g.mesures || []);
-          var KPI_MINI_FR = { revenue_residual: "CA/j vs habituel", conversion: "taux de conversion", transactions: "tickets/jour", footfall: "visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/jour" };
+          var KPI_MINI_FR = { revenue_residual: "CA/j vs votre r\u00e9sultat habituel", conversion: "taux de conversion", transactions: "tickets/jour", footfall: "visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/jour" };
           function opFmt(v, metric) {
             if (v == null) return "\u2014";
             if (metric === "conversion") return (v * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %";

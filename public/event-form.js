@@ -83,10 +83,10 @@
         ? '<select data-ef="owner" style="' + inp + 'cursor:pointer;">' + owners.map(function (o) { return '<option>' + esc(o) + '</option>'; }).join("") + '</select>'
         : '<input data-ef="owner" placeholder="Prénom Nom" style="' + inp + '">')
       + '</div><div style="flex:1;"><label style="' + lbl + '">Objectif — le KPI que le verdict jugera</label><select data-ef="kpi" style="' + inp + 'cursor:pointer;">'
-      + '<option value="revenue_residual">CA du jour vs votre habituel — mesuré, verdict fort</option>'
+      + '<option value="revenue_residual">CA du jour vs votre résultat habituel — mesuré, verdict fort</option>'
       + (fams.length ? '<option value="family_revenue">CA d’une famille produit vs sa moyenne — mesuré</option>' : '')
-      + '<option value="tickets">Tickets vs habituel (base 30 j) — verdict plus faible</option>'
-      + '<option value="basket">Panier moyen vs habituel (base 30 j) — verdict plus faible</option>'
+      + '<option value="tickets">Tickets vs votre résultat habituel (base 30 j) — verdict plus faible</option>'
+      + '<option value="basket">Panier moyen vs votre résultat habituel (base 30 j) — verdict plus faible</option>'
       + '<option value="profit_estimated" disabled>Profit estimé — indisponible : marge non déclarée</option>'
       + '</select></div></div>'
       + '<div data-ef-famwrap style="display:none;margin-top:10px;"><label style="' + lbl + '">Famille produit</label><select data-ef="family" style="' + inp + 'cursor:pointer;">'
@@ -340,13 +340,13 @@
         if (tlab) tlab.textContent = "Cible :";
         if (exp != null && isFinite(t) && t > 0) {
           var app2 = Math.round(exp * t / 100);
-          out = "<strong>L’événement</strong> : +" + frInt(t) + " % vs votre habituel → apport ≈ <strong>+" + frInt(app2) + " €</strong> un " + dayLabel
+          out = "<strong>L’événement</strong> : +" + frInt(t) + " % vs votre résultat habituel → apport ≈ <strong>+" + frInt(app2) + " €</strong> un " + dayLabel
             + "<br><strong>Au total</strong> : ≈ <strong>" + frInt(exp + app2) + " €</strong> de journée (" + dayLabel + " habituel ≈ " + frInt(exp) + " €, vos ventes réelles)";
         }
       } else {
-        if (unit) unit.textContent = "% vs votre habituel (base 30 j)";
+        if (unit) unit.textContent = "% vs votre résultat habituel (base 30 j)";
         if (tlab) tlab.textContent = "Cible :";
-        out = "Référentiel : base 30 j — mesuré, verdict plus faible que le CA vs habituel.";
+        out = "Référentiel : base 30 j — mesuré, verdict plus faible que le CA vs votre résultat habituel.";
       }
       var c = q("[data-ef-cible]"); if (c) c.innerHTML = out;
       var dref = q("[data-ef-dowref]");

@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette — Piloter restylé · Agir allégé</title>
+<style>
+  /* ── Système visuel (spec validée 14/08) ─────────────────────────────────────
+     Échelle typo 22/15/13/11.5 · espacement 4/8/12/16 · largeur 860 ·
+     couleur = verdict SEULEMENT (vert/ambre/gris) · héros = grille stricte ·
+     À faire = table à colonnes fixes · volets = rangées d'UNE surface (radar). */
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #F9FAFB; font-family: system-ui, -apple-system, sans-serif; color: #111827; font-size: 13px; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 16px 16px 90px; }
+  .card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; box-shadow: 0 1px 3px rgba(16,24,40,0.06), 0 1px 2px rgba(16,24,40,0.04); margin-bottom: 12px; }
+  .eb { font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(17,24,39,0.45); font-weight: 600; margin: 0; }
+  .lnk { color: #1D3BB3; font-weight: 600; text-decoration: none; font-size: 12.5px; white-space: nowrap; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+  /* Héros : grille STRICTE, jamais de wrap ; anatomie de tuile unique. */
+  .hero { display: grid; grid-template-columns: 1.2fr 0.65fr 1.32fr 1.1fr; }
+  .tile { padding: 16px 18px 14px; border-left: 1px solid #F3F4F6; min-width: 0; }
+  .tile:first-child { border-left: none; }
+  .tile .n { font-size: 26px; font-weight: 650; line-height: 1.1; margin-top: 6px; letter-spacing: -0.01em; }
+  .tile .s { font-size: 11.5px; color: #6B7280; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* À faire : table à colonnes fixes — [quand 56 · quoi · valeur 88 · action 148]. */
+  .af { display: grid; grid-template-columns: 56px minmax(0,1fr) 88px 148px; gap: 0 12px; align-items: center; min-height: 46px; padding: 6px 0; border-top: 1px solid #F3F4F6; }
+  .af .t { display: block; font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .af .u { display: block; font-size: 12px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .af .v { font-size: 13px; font-weight: 600; text-align: right; white-space: nowrap; }
+  .af .a { text-align: right; }
+  .btnp { display: inline-block; font-size: 12.5px; font-weight: 600; color: #fff; background: #1D3BB3; border-radius: 8px; padding: 7px 14px; text-decoration: none; white-space: nowrap; }
+
+  /* Radar : les volets = rangées d'UNE surface. [pastille · libellé · résumé · chevron] */
+  .rv { display: grid; grid-template-columns: 20px 190px minmax(0,1fr) 20px; gap: 0 10px; align-items: center; min-height: 48px; padding: 0 18px; border-top: 1px solid #F3F4F6; cursor: pointer; background: none; width: 100%; border-left: none; border-right: none; border-bottom: none; font-family: inherit; text-align: left; }
+  .rv:first-child { border-top: none; }
+  .rv:hover { background: #FAFBFC; }
+  .rv .l { font-size: 15px; font-weight: 600; color: #111827; }
+  .rv .r { font-size: 13px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rv .c { color: #9CA3AF; font-size: 11px; transition: transform 0.15s; }
+  .rv[aria-expanded="true"] .c { transform: rotate(180deg); }
+  .rbody { display: none; padding: 4px 18px 14px 48px; border-top: 1px dashed #F3F4F6; }
+  .rrow { display: grid; grid-template-columns: 52px minmax(0,1fr) auto; gap: 0 12px; align-items: center; padding: 7px 0; font-size: 13px; border-top: 1px solid #FAFAFA; }
+
+  /* Agir allégé : cartes d'action (style app simplifié). */
+  .ac { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-left-width: 3px; border-radius: 12px; box-shadow: 0 1px 3px rgba(16,24,40,0.06); padding: 14px 16px; margin-bottom: 10px; }
+  .acbtn { font-size: 12.5px; font-weight: 500; color: #374151; border: 1px solid #E5E7EB; border-radius: 8px; padding: 6px 12px; background: #fff; font-family: inherit; cursor: pointer; }
+
+  .pill { font-size: 12px; font-family: inherit; padding: 6px 12px; border: 1px solid #E5E7EB; border-radius: 20px; background: #fff; color: #374151; cursor: pointer; }
+  .pill.on { background: #EEF2FF; border-color: #1D3BB3; color: #1D3BB3; font-weight: 600; }
+  .banner { font-size: 12px; color: #6B7280; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 9px 12px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner"><strong style="font-weight:600;">Maquette 14/08 — système visuel validé</strong> (grille stricte · table à colonnes fixes · volets = UNE surface · chips rationnées). Données réelles figées au <span id="pb-date"></span>. Le radar d'Agir est dissous dans Piloter ; Agir = cartes seules.</div>
+  <div style="display:flex;gap:8px;margin-bottom:14px;">
+    <button type="button" class="pill on" id="v-pil">Piloter restylé</button>
+    <button type="button" class="pill" id="v-agir">Agir allégé</button>
+  </div>
+  <div id="root"></div>
+</div>
+
+<script src="piloter-proto-data.js?v=9"></script>
+<script>
+(function () {
+  var D = window.PILOTER_PROTO;
+  var root = document.getElementById("root");
+  document.getElementById("pb-date").textContent = D.today.slice(8, 10) + "/" + D.today.slice(5, 7) + "/" + D.today.slice(0, 4);
+
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function frInt(n) { return Math.abs(Math.round(Number(n) || 0)).toLocaleString("fr-FR"); }
+  function frD(iso) { var d = String(iso || "").slice(0, 10); return d ? d.slice(8, 10) + "/" + d.slice(5, 7) : ""; }
+  var DOW = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
+  var DOW_FULL = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+  function dowFull(iso) { return DOW_FULL[jsDow(iso)] || ""; }
+  function jsDow(iso) { return new Date(String(iso).slice(0, 10) + "T00:00:00Z").getUTCDay(); }
+  function dowFr(iso) { return DOW[jsDow(iso)] || ""; }
+  function daysTo(iso) { return Math.round((Date.parse(String(iso).slice(0, 10) + "T12:00:00Z") - Date.parse(D.today + "T12:00:00Z")) / 86400000); }
+  function trunc(s, n) { s = String(s || ""); if (s.length <= n) return s; var t = s.slice(0, n); var sp = t.lastIndexOf(" "); return (sp > n * 0.5 ? t.slice(0, sp) : t) + "…"; }
+  var GREEN = "#059669", AMBER = "#B45309", GREY = "#9CA3AF", BLUE = "#1D3BB3";
+  var site = {}; D.sites.forEach(function (s) { site[s.location_id] = s.label; });
+  var habit = {};
+  D.impact.mon_habituel.forEach(function (h) { habit[h.location_id + "|" + h.dw] = h.habituel; });
+  function habituelFor(l, iso) { return habit[l + "|" + (jsDow(iso) + 1)] || null; }
+  function aleaFor(m) {
+    if (Number(m.lvl_heat) >= 3) return "forte chaleur annoncée";
+    if (Number(m.lvl_rain) >= 3) return "pluie marquée annoncée";
+    if (Number(m.lvl_wind) >= 3) return "vent fort annoncé";
+    return null;
+  }
+
+  // ════════ PILOTER RESTYLÉ ════════
+  function renderPiloter() {
+    var dec = D.decider, man = D.manque, cov = D.couverture;
+    var html = "";
+
+    // ── Données assemblées (identiques à la V6 — seul le VISUEL change). ──
+    var tend = {}; dec.tendance.forEach(function (t) { tend[t.commitment_id] = t; });
+    var aFaire = [];
+    dec.a_documenter.forEach(function (a) {
+      aFaire.push({ iso: a.we, col: GREEN, titre: "Documentez la recette — " + trunc(a.committed_action_text, 60),
+        sub: "objectif atteint — écrite, elle devient un dispositif réutilisable",
+        val: '<span style="color:' + GREEN + ';">+' + frInt(a.gap_eur) + ' €</span>',
+        act: '<a class="btnp" href="#">Documenter</a>' });
+    });
+    dec.ouverts.forEach(function (o) {
+      var demarre = daysTo(o.ws) > 0;
+      var nom = o.event_title || String(o.committed_action_text || "").split("\n")[0];
+      aFaire.push({ iso: demarre ? o.ws : o.we, col: demarre ? GREY : GREEN,
+        titre: (demarre ? "Préparez " + dowFr(o.ws) + " " + frD(o.ws) + " — " : "Ajustez — ") + trunc(nom, 46),
+        sub: demarre ? "la mesure s’arme seule le jour J · objectif famille " + (o.kpi_family || "") : "en cours",
+        val: "", act: '<a class="lnk" href="#">' + (demarre ? "Préparer" : "Ajuster") + ' →</a>' });
+    });
+    if (!man.savoir.marge) aFaire.push({ iso: null, col: AMBER, titre: "Précisez votre marge",
+      sub: "débloque le KPI profit sur chaque objectif d’événement", val: "", act: '<a class="lnk" href="#">Déclarer →</a>' });
+    (cov.trous || []).forEach(function (tr) {
+      aFaire.push({ iso: null, col: AMBER, titre: "Suivez " + trunc(tr.competitor_name, 38),
+        sub: "débloque les alertes sur ses événements — " + String(tr.km).replace(".", ",") + " km, " + tr.overlap + " % de public commun",
+        val: "", act: '<a class="lnk" href="#">Suivre →</a>' });
+    });
+    if (man.savoir.evts_sans_objectif) aFaire.push({ iso: null, col: AMBER,
+      titre: "Fixez un objectif à " + man.savoir.evts_sans_objectif + " événements",
+      sub: "sans objectif, aucun test ne peut conclure", val: "", act: '<a class="lnk" href="#">Fixer →</a>' });
+
+    // ── HÉROS : 4 tuiles, grille stricte, séparateurs verticaux. ──
+    var vLieux = (function () {
+      var parLieu = {}, out = [];
+      (cov.veille || []).forEach(function (v) {
+        var k = v.google_place_id; if (!k) return;
+        if (!parLieu[k]) { parLieu[k] = true; out.push(v); }
+      });
+      return out;
+    })();
+    var vVus = vLieux.filter(function (v) { return v.age_j != null && v.age_j <= 1; }).length;
+    var high = {}; cov.par_site.forEach(function (r) { if (r.threat_level === "high") high[r.location_id] = r; });
+    var covTxt = D.sites.map(function (s) { var h = high[s.location_id]; return h ? s.label + " " + h.n_suivis + "/" + h.n_total : null; }).filter(Boolean).join(" · ");
+    // Tuile Veille = les TROUVAILLES (changements d'offre détectés) — l'absence est une
+    // information (« rien n'a bougé ») ; le technique ne survit que comme couleur de
+    // pastille : ambre seulement si la veille est CASSÉE (un suivi jamais visité).
+    var nTrouvailles = (cov.offres || []).length;
+    // Prochain jour de chaleur ANNONCÉ (>= aujourd'hui), dérivé des aléas capturés.
+    var nextHot = (D.impact.menaces || []).filter(function (m) { return Number(m.lvl_heat) >= 3 && m.d >= D.today; })
+      .map(function (m) { return m.d; }).sort()[0] || null;
+    var vVusN = vLieux.filter(function (v) { return v.age_j != null && v.age_j <= 1; }).length;
+    var veilleCassee = vLieux.length > 0 && vVusN < vLieux.length;
+    var covTrou = Object.keys(high).some(function (l) { return high[l].n_suivis < high[l].n_total; });
+    html += '<div class="card"><div class="hero">'
+      + '<div class="tile"><p class="eb">Impact · <span style="text-decoration:underline;text-underline-offset:3px;color:#111827;">30 j</span> <span style="color:#C4C8CF;">90 j · 12 mois</span></p>'
+        + '<div class="n" style="color:' + GREEN + ';">+1 166 €</div>'
+        + '<div class="s" title="2 fenêtres mesurées · jamais extrapolé">vs votre résultat habituel · 0/2 cibles tenues</div></div>'
+      + '<div class="tile"><p class="eb">À faire</p><div class="n">' + aFaire.length + '</div><div class="s">1 rapporte +510 €</div></div>'
+      + '<div class="tile"><p class="eb">Prochaine occasion</p><div class="n" style="color:' + GREEN + ';font-size:21px;padding-top:4px;white-space:nowrap;" title="médiane mesurée sur vos jours de chaleur passés — jamais extrapolé">jusqu’à 85 €/j</div><div class="s">' + (nextHot ? "à récupérer — jour chaud " + (daysTo(nextHot) === 0 ? "aujourd’hui" : dowFull(nextHot) + " " + frD(nextHot)) : "aucun jour d’environnement annoncé") + '</div></div>'
+      + '<div class="tile"><p class="eb">Veille</p><div class="n" style="display:flex;align-items:center;gap:8px;"><span class="dot" style="width:10px;height:10px;background:' + (veilleCassee ? AMBER : GREEN) + ';"></span>' + nTrouvailles + '</div>'
+        + '<div class="s">' + (nTrouvailles ? "changements chez vos " + vLieux.length + " suivis" : "rien n’a bougé chez vos " + vLieux.length + " suivis") + '</div></div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:14px;padding:10px 18px;border-top:1px solid #F3F4F6;font-size:12px;color:#6B7280;">'
+      + '<span style="display:inline-flex;align-items:center;gap:6px;"><span class="dot" style="background:' + AMBER + ';"></span>dernier verdict : <span style="font-weight:600;color:' + AMBER + ';">cible manquée</span> · 09/08</span>'
+      + '<button type="button" class="chip" style="background:#FEF3E2;color:' + AMBER + ';border:none;font-family:inherit;font-weight:600;cursor:pointer;">Seuils trop hauts ?</button>'
+      + '<span style="flex:1;"></span><span style="font-size:11.5px;color:#9CA3AF;">jamais extrapolé — chaque € vient d’une fenêtre mesurée</span></div>'
+      + '</div>';
+
+    // ── À FAIRE : table à colonnes fixes. ──
+    html += '<div class="card" style="padding:12px 18px 8px;">'
+      + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;"><p class="eb">À faire</p><span style="font-size:12px;font-weight:600;color:' + BLUE + ';">' + aFaire.length + '</span></div>';
+    aFaire.forEach(function (r, ri) {
+      var quand;
+      if (r.iso) {
+        var dj = daysTo(r.iso);
+        quand = '<span style="font-size:11px;font-weight:700;color:' + r.col + ';">' + (dj === 0 ? "auj." : dj > 0 ? "J-" + dj : "il y a " + Math.abs(dj) + " j") + '</span>'
+          + '<span style="display:block;font-size:10px;color:#9CA3AF;">' + dowFr(r.iso) + " " + frD(r.iso) + '</span>';
+      } else quand = '<span style="display:flex;"><span class="dot" style="background:' + r.col + ';margin:auto;"></span></span>';
+      html += '<div class="af"' + (ri === 0 ? ' style="border-top:none;"' : "") + '>'
+        + '<span>' + quand + '</span>'
+        + '<span style="min-width:0;"><span class="t">' + esc(r.titre) + '</span><span class="u">' + esc(r.sub) + '</span></span>'
+        + '<span class="v">' + (r.val || "") + '</span>'
+        + '<span class="a">' + r.act + '</span></div>';
+    });
+    html += '<div style="padding:8px 0 6px;font-size:11.5px;color:#6B7280;">Et ensuite : 6 échéances (→ 26/09) <span style="color:' + BLUE + ';font-weight:600;">›</span></div></div>';
+
+    // ── RADAR : UNE surface, 5 rangées-réponses. ──
+    var evts = D.impact.menaces || [];
+    var parJour = {}; evts.forEach(function (m) { var k = m.location_id + "|" + m.d; (parJour[k] = parJour[k] || []).push(m); });
+    var collis = D.impact.mes_occurrences.some(function (o) { return parJour[o.location_id + "|" + o.d]; });
+    var offB = cov.offres_base || {};
+    var rows = [
+      { id: "ev", dot: collis ? AMBER : GREY, l: "Événements concurrents",
+        r: evts.length + " sur 14 j" + (collis ? " · 1 le jour de votre Corner" : "") + " · carte" },
+      { id: "sv", dot: AMBER, l: "À surveiller", r: "4 menaces · 7 occasions · jour chaud sam 15/08" },
+      { id: "sf", dot: GREY, l: "Votre savoir-faire", r: "0 prouvé · 3 déclarés · 6 types de jours chiffrés" },
+      { id: "eq", dot: GREEN, l: "Équipe", r: "1 en cours · JD porte tout · +1 676 € sur 90 j" },
+      { id: "co", dot: covTrou ? AMBER : GREEN, l: "Ma couverture",
+        r: covTxt + " · veille " + vVus + "/" + vLieux.length + " · offres stables (" + (offB.n_tarifs || 0) + " tarifs comparés)" },
+    ];
+    html += '<div class="card" style="padding:0;">';
+    rows.forEach(function (r) {
+      html += '<button type="button" class="rv" data-rv="' + r.id + '" aria-expanded="false">'
+        + '<span style="display:flex;"><span class="dot" style="background:' + r.dot + ';margin:auto;"></span></span>'
+        + '<span class="l">' + r.l + '</span><span class="r">' + esc(r.r) + '</span><span class="c">▾</span></button>'
+        + '<div class="rbody" data-rb="' + r.id + '">' + rbody(r.id) + '</div>';
+    });
+    html += '</div>';
+    return html;
+
+    function rbody(id) {
+      if (id === "ev") {
+        var evs = D.impact.menaces || [];
+        var n500 = evs.filter(function (m) { return m.m != null && m.m <= 500; }).length;
+        var n5k = evs.filter(function (m) { return m.m != null && m.m <= 5000; }).length;
+        var nSuivis = vLieux.length;
+        var out = '<div style="padding:10px 0 4px;">'
+          + '<button type="button" style="width:100%;display:block;text-align:left;background:none;border:1px solid rgba(0,0,0,0.10);border-radius:10px;overflow:hidden;cursor:pointer;font-family:inherit;padding:0;" title="Ouvre la carte (concurrents suivis + événements autour de votre site)">'
+          + '<div style="position:relative;height:110px;background:#EBEEF2;">'
+            + '<svg viewBox="0 0 400 110" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">'
+              + '<circle cx="200" cy="55" r="48" fill="#1D3BB3" fill-opacity="0.05" stroke="#1D3BB3" stroke-opacity="0.30" stroke-width="1.2"/>'
+              + '<circle cx="200" cy="55" r="21" fill="#1D3BB3" fill-opacity="0.08" stroke="#1D3BB3" stroke-opacity="0.45" stroke-width="1.2"/>'
+              + '<circle cx="200" cy="55" r="5.5" fill="#1D3BB3" stroke="#fff" stroke-width="2"/>'
+              + '<circle cx="252" cy="38" r="4" fill="#B45309" stroke="#fff" stroke-width="1.5"/>'
+              + '<circle cx="238" cy="76" r="4" fill="#9CA3AF" stroke="#fff" stroke-width="1.5"/>'
+              + '<circle cx="152" cy="30" r="4" fill="#9CA3AF" stroke="#fff" stroke-width="1.5"/>'
+            + '</svg>'
+            + '<span style="position:absolute;right:10px;bottom:10px;background:#fff;border:1px solid rgba(0,0,0,0.10);border-radius:6px;font-size:11px;font-weight:600;color:#1D3BB3;padding:3px 9px;">Ouvrir la carte</span>'
+            + '<span class="chip" style="position:absolute;left:10px;top:10px;background:#fff;border:1px solid rgba(0,0,0,0.08);color:#6b7280;">Muse Square</span>'
+          + '</div>'
+          + '<div style="padding:9px 14px;font-size:12px;color:#6B7280;">14 prochains jours : '
+            + (n500 ? n500 + ' événement' + (n500 > 1 ? 's' : '') + ' à moins de 500 m · ' : '')
+            + n5k + ' événement' + (n5k > 1 ? 's' : '') + ' à moins de 5 km · ' + nSuivis + ' concurrents suivis</div>'
+          + '</button></div>';
+        Object.keys(parJour).sort().forEach(function (k) {
+          var g = parJour[k]; var e0 = g[0];
+          var mien = D.impact.mes_occurrences.filter(function (o) { return o.location_id + "|" + o.d === k; })[0];
+          var al = aleaFor(e0); var hab = habituelFor(e0.location_id, e0.d);
+          var det = [];
+          if (mien) det.push("le jour de votre " + trunc(mien.title, 26));
+          if (al) det.push(al);
+          if (!det.length && e0.m != null) det.push("à " + (e0.m / 1000).toFixed(1).replace(".", ",") + " km — public partiellement commun");
+          out += '<div class="rrow"><span><span style="font-size:11px;font-weight:700;color:' + (mien || al ? AMBER : GREY) + ';">' + (daysTo(e0.d) === 0 ? "auj." : "J-" + daysTo(e0.d)) + '</span><span style="display:block;font-size:10px;color:#9CA3AF;">' + dowFr(e0.d) + " " + frD(e0.d) + '</span></span>'
+            + '<span style="min-width:0;"><span style="font-weight:600;">' + esc(e0.venue_name || "") + ' ouvre « ' + esc(trunc(e0.event_name, 36)) + ' »' + (g.length > 1 ? " +" + (g.length - 1) : "") + '</span>'
+            + (det.length ? '<span style="display:block;font-size:11.5px;color:' + (mien || al ? AMBER : "#6B7280") + ';">' + det.join(" · ") + '</span>' : "") + '</span>'
+            + '<span style="font-size:12px;color:#6B7280;">votre ' + dowFull(e0.d) + ' habituel ≈ <span style="font-weight:600;color:#111827;">' + frInt(hab) + ' €</span></span></div>';
+        });
+        return out;
+      }
+      if (id === "sv") return '<div class="rrow"><span style="font-weight:700;color:' + GREEN + ';font-size:12px;">sam 15/08</span><span><span style="font-weight:600;">Jour chaud annoncé — jusqu’à 85 €/j à récupérer</span><span style="display:block;font-size:11.5px;color:#6B7280;">médiane mesurée sur vos jours de chaleur passés — jamais extrapolé</span></span><span><a class="lnk" href="#">Armer →</a></span></div>'
+        + '<div class="rrow"><span style="font-weight:700;color:' + AMBER + ';font-size:12px;">auj.</span><span style="font-weight:600;">Nouvel événement concurrent repéré <span style="font-weight:400;color:#9CA3AF;">— Musée de l’Orangerie</span></span><span><a class="lnk" href="#">Voir →</a></span></div>'
+        + '<div class="rrow"><span style="font-weight:700;color:' + GREEN + ';font-size:12px;">auj.</span><span style="font-weight:600;">Afflux de visiteurs étrangers <span style="font-weight:400;color:#9CA3AF;">×9 sur la semaine</span></span><span><a class="lnk" href="#">Voir →</a></span></div>';
+      if (id === "sf") return '<div class="rrow"><span style="font-weight:700;color:' + AMBER + ';font-size:12px;">−127 €/j</span><span><span style="font-weight:600;">perdus les jours de pluie</span><span style="display:block;font-size:11.5px;color:#6B7280;">22 jours mesurés chez vous</span></span><span><a class="lnk" href="#">M’engager →</a></span></div>'
+        + '<div class="rrow"><span style="font-weight:700;color:' + GREEN + ';font-size:12px;">+205 €/j</span><span><span style="font-weight:600;">gagnés les jours de forte affluence</span><span style="display:block;font-size:11.5px;color:#6B7280;">13 jours mesurés · ≈ +21 931 €/an (estimé)</span></span><span><span class="chip" style="background:#F3F4F6;color:#6b7280;">à défendre</span></span></div>';
+      if (id === "eq") return '<div class="rrow"><span style="width:26px;height:26px;border-radius:50%;background:#EEF2FF;color:' + BLUE + ';display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;">JD</span><span><span style="font-weight:600;">Julen de Ajuriaguerra</span> — Corner de vente producteur (J-2)</span><span style="font-size:12px;color:' + GREEN + ';font-weight:600;">+1 676 €</span></div>';
+      if (id === "co") {
+        var vusL = vLieux.filter(function (v) { return v.age_j != null && v.age_j <= 1; });
+        return '<div class="rrow"><span style="display:flex;"><span class="dot" style="background:' + GREEN + ';margin:auto;"></span></span><span><span style="font-weight:600;">' + vusL.length + ' lieux visités cette nuit</span><span style="display:block;font-size:11.5px;color:#6B7280;">' + esc(vusL.map(function (v) { return trunc(v.competitor_name, 22); }).join(" · ")) + '</span></span><span style="font-size:12px;color:' + GREEN + ';font-weight:600;">à jour</span></div>'
+          + '<div class="rrow"><span style="display:flex;"><span class="dot" style="background:' + GREEN + ';margin:auto;"></span></span><span><span style="font-weight:600;">Leurs offres et tarifs : rien n’a bougé</span><span style="display:block;font-size:11.5px;color:#6B7280;">' + (offB.n_tarifs || 0) + ' tarifs comparés à chaque passage (' + (offB.n_lieux || 0) + ' lieux publient leurs prix)</span></span><span></span></div>'
+          + '<div class="rrow"><span style="display:flex;"><span class="dot" style="background:' + GREEN + ';margin:auto;"></span></span><span><span style="font-weight:600;">1 automatisation reçue</span><span style="display:block;font-size:11.5px;color:#6B7280;">consigne « Corner de vente producteur » envoyée à 2 destinataires</span></span><span></span></div>';
+      }
+      return "";
+    }
+  }
+
+  // ════════ AGIR ALLÉGÉ ════════
+  function renderAgir() {
+    var html = '<div style="margin-bottom:12px;">'
+      + '<div style="display:flex;align-items:baseline;gap:12px;">'
+      + '<span style="font-size:22px;font-weight:650;">Vos cartes du jour</span>'
+      + '<span style="font-size:13px;color:#6B7280;">jeu 14/08 · <span style="color:' + AMBER + ';font-weight:600;">forte chaleur annoncée</span></span>'
+      + '<span style="flex:1;"></span><a class="lnk" href="#">Piloter →</a></div>'
+      + '<div style="font-size:11.5px;color:#9CA3AF;margin-top:2px;">le radar (Opérations / Performance / Concurrence) vit désormais sur Piloter — ici : les cartes, rien d’autre</div>'
+      + '</div>';
+    var cartes = [
+      { col: AMBER, titre: "Forte chaleur annoncée demain", txt: "Vos jours de chaleur passés : −85 €/j vs votre résultat habituel (médiane mesurée). Le dispositif « offre fraîcheur » est prouvé — armez-le pour demain.", enjeu: "−85 €/j mesuré" },
+      { col: AMBER, titre: "Nouvel événement concurrent repéré", txt: "Musée de l’Orangerie ouvre « Visites et activités adultes » aujourd’hui, à 4,2 km — public partiellement commun avec le vôtre.", enjeu: "votre jeu ≈ 1 140 €" },
+      { col: GREEN, titre: "Afflux de visiteurs étrangers", txt: "9 signaux sur la semaine — vos jours à clientèle étrangère portent un panier supérieur. Fenêtre favorable pour l’offre vitrine.", enjeu: "occasion" },
+    ];
+    cartes.forEach(function (c) {
+      html += '<div class="ac" style="border-left-color:' + c.col + ';">'
+        + '<div style="display:flex;align-items:baseline;gap:10px;"><span style="font-size:15px;font-weight:600;">' + esc(c.titre) + '</span>'
+        + '<span style="flex:1;"></span><span style="font-size:12px;font-weight:600;color:' + (c.col === GREEN ? GREEN : AMBER) + ';white-space:nowrap;">' + esc(c.enjeu) + '</span></div>'
+        + '<div style="font-size:13px;color:#374151;line-height:1.55;margin:6px 0 10px;">' + esc(c.txt) + '</div>'
+        + '<div style="display:flex;gap:8px;"><button type="button" class="acbtn" style="color:' + BLUE + ';border-color:' + BLUE + ';font-weight:600;">Agir ▾</button>'
+        + '<button type="button" class="acbtn">Consulter la source</button>'
+        + '<button type="button" class="acbtn">Communiquer</button></div></div>';
+    });
+    html += '<div style="font-size:11.5px;color:#9CA3AF;text-align:center;padding:8px 0;">maquette — 3 cartes réelles simplifiées ; le moteur de cartes (action-cards.js) est inchangé</div>';
+    return html;
+  }
+
+  function render(v) {
+    root.innerHTML = v === "agir" ? renderAgir() : renderPiloter();
+    document.getElementById("v-pil").className = "pill" + (v === "agir" ? "" : " on");
+    document.getElementById("v-agir").className = "pill" + (v === "agir" ? " on" : "");
+    root.querySelectorAll("[data-rv]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var k = b.getAttribute("data-rv");
+        var body = root.querySelector('[data-rb="' + k + '"]');
+        var open = body.style.display === "block";
+        body.style.display = open ? "none" : "block";
+        b.setAttribute("aria-expanded", open ? "false" : "true");
+      });
+    });
+  }
+  document.getElementById("v-pil").addEventListener("click", function () { render("pil"); });
+  document.getElementById("v-agir").addEventListener("click", function () { render("agir"); });
+  render("pil");
+})();
+</script>
+</body>
+</html>
