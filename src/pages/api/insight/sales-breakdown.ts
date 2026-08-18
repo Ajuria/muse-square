@@ -1,24 +1,15 @@
 // src/pages/api/insight/sales-breakdown.ts
-// Card-SPECIFIC drill-down for sales movement cards ("Ce qui a fait la journée").
-// Given (location_id, date), returns the top category MOVERS: each category's revenue on the
-// signal day vs the median of the venue's comparable days (same weekday, trailing), from the
-// existing mart.fct_client_offering_daily (grain location_id × transaction_date × item_category;
-// carries revenue, revenue_share, revenue_rank). This is the "what sold" the universal brain can't give.
-//
-// Deliberately NARROW: reads ONLY the category mart. No assembleDayContext, no weather/competitor/
-// events/tourism. Comparable days = same weekday (how the card frames them to the operator, "vos
-// samedis"), trailing (only what was known at signal time). Honest-absence: a venue with empty
-// item_category returns found:false -> the page shows volume/panier only, never a fabricated mix.
+// Card-SPECIFIC drill-down du mix produit ("Ce qui a fait la journée") — WRAPPER MINCE sur le
+// provider partagé `salesFamily` (src/lib/insightFamilies/sales.ts) depuis la journée dédiée
+// 18/08 : même donnée pour la page carte, le rapport famille et le Q&A groundé. Réponse
+// SUPERSET de l'ancienne (mêmes champs + is_down/signal_types résolus du signal tiré) —
+// la page carte continue de passer son isDown explicite, rien ne casse.
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { salesFamily } from "../../../lib/insightFamilies/sales";
 
 const PROJECT = "muse-square-open-data";
-// Robust baseline floor: with fewer than this many comparable weekdays, we don't claim a median.
-const MIN_COMPARABLE_DAYS = 3;
-// Return the full category set (a café has ~9) so the client tool can sort by revenue for a real
-// "best sellers" view — not just the top movers by delta. Cap is a generous safety bound only.
-const MAX_MOVERS = 20;
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -36,7 +27,6 @@ function normalizeYmd(v: string): string {
   if (!m) throw new Error(`Invalid date format: ${v}`);
   return m[1];
 }
-const num = (v: any): number | null => (v == null ? null : Number(v && typeof v === "object" && "value" in v ? v.value : v));
 
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
@@ -44,79 +34,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const location_id = requireString(url.searchParams.get("location_id"), "location_id");
     requireLocationOwnership(locals, location_id);
     const date = normalizeYmd(requireString(url.searchParams.get("date"), "date"));
-
-    // Per-category: signal-day revenue vs same-weekday trailing median (+ how many comparable days).
-    const [rows] = await bq.query({
-      query: `
-        WITH day AS (
-          SELECT item_category AS category, revenue AS sig_rev, revenue_share, revenue_rank
-          FROM \`${PROJECT}.mart.fct_client_offering_daily\`
-          WHERE location_id = @location_id AND transaction_date = PARSE_DATE('%Y-%m-%d', @date)
-        ),
-        base AS (
-          SELECT item_category AS category,
-                 APPROX_QUANTILES(revenue, 2)[OFFSET(1)] AS med_rev,
-                 COUNT(*) AS n_days
-          FROM \`${PROJECT}.mart.fct_client_offering_daily\`
-          WHERE location_id = @location_id
-            AND EXTRACT(DAYOFWEEK FROM transaction_date) = EXTRACT(DAYOFWEEK FROM PARSE_DATE('%Y-%m-%d', @date))
-            AND transaction_date < PARSE_DATE('%Y-%m-%d', @date)
-          GROUP BY category
-        )
-        SELECT d.category, d.sig_rev, d.revenue_share, d.revenue_rank, b.med_rev, b.n_days
-        FROM day d
-        LEFT JOIN base b ON d.category = b.category
-        ORDER BY ABS(d.sig_rev - COALESCE(b.med_rev, 0)) DESC
-      `,
-      params: { location_id, date },
-      types: { location_id: "STRING", date: "STRING" },
-      location: "EU",
-    }).catch(() => [[]]);
-
-    const raw: any[] = Array.isArray(rows) ? rows : [];
-    // Honest-absence: no category rows for the signal day (empty item_category venue) -> found:false.
-    if (!raw.length) return json(200, { ok: true, found: false });
-
-    // Distinct comparable weekdays actually present (for "vs vos N derniers lundis").
-    const nComparable = raw.reduce((mx, r) => Math.max(mx, num(r.n_days) ?? 0), 0);
-
-    // Movers: only categories with a robust same-weekday baseline. Verbatim numbers from the mart.
-    const movers = raw
-      .map((r) => {
-        const day_eur = num(r.sig_rev);
-        const median_eur = num(r.med_rev);
-        const n_days = num(r.n_days) ?? 0;
-        if (day_eur == null || median_eur == null || n_days < MIN_COMPARABLE_DAYS) return null;
-        const delta_eur = day_eur - median_eur;
-        const share = num(r.revenue_share);
-        return {
-          category: String(r.category),
-          day_eur: Math.round(day_eur),
-          median_eur: Math.round(median_eur),
-          delta_eur: Math.round(delta_eur),
-          delta_pct: median_eur > 0 ? Math.round((delta_eur / median_eur) * 100) : null,
-          // From the mart directly: this category's share of the day's revenue (0-1 -> %) and its rank.
-          share_pct: share != null ? Math.round(share * 100) : null,
-          rank: num(r.revenue_rank),
-        };
-      })
-      .filter(Boolean)
-      .slice(0, MAX_MOVERS);
-
-    if (!movers.length) return json(200, { ok: true, found: false });
-
-    const day_total_eur = Math.round(
-      raw.reduce((s, r) => s + (num(r.sig_rev) ?? 0), 0),
-    );
-
-    return json(200, {
-      ok: true,
-      found: true,
-      date,
-      n_comparable_days: nComparable,
-      day_total_eur,
-      movers,
-    });
+    const fam = await salesFamily(bq, location_id, date);
+    if (!fam.found || !(fam.data as any).found) return json(200, { ok: true, found: false });
+    return json(200, { ok: true, ...(fam.data as Record<string, unknown>) });
   } catch (err: any) {
     console.error("[api/insight/sales-breakdown] Error", err);
     return json(500, { ok: false, error: err?.message ?? "Erreur interne" });

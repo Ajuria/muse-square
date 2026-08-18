@@ -22,6 +22,7 @@ import { weatherFamily } from "./weather";
 import { audienceFamily } from "./audience";
 import { salesDiscountFamily } from "./salesDiscount";
 import { salesDecompFamily } from "./salesDecomp";
+import { salesFamily } from "./sales";
 import { calendarFamily } from "./calendar";
 import { channelsProvider } from "./channels";
 
@@ -197,6 +198,23 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /\b(depense|panier) par client\b/,
     ],
     run: salesDecompFamily,
+  },
+  // SALES / le mix du jour + LE signal tiré (journée dédiée 18/08 — la famille qui manquait).
+  // Enregistrée APRÈS discount/decomp : les questions spécifiques gardent leur famille ; celle-ci
+  // prend le mix produit et les « pourquoi mon CA a bougé ce jour ». is_down vient du SIGNAL TIRÉ
+  // (source de vérité des cartes), jamais re-dérivé — le rendu sans signal est NEUTRE et le dit.
+  sales: {
+    key: "sales",
+    title: "Vos ventes · le mix du jour",
+    render: "renderSales",
+    match: [
+      /\bmix produit\b/,
+      /\bventes? par categorie\b/,
+      /\b(qu ?est.?ce qui|ce qui) (s ?est |se |a )?vend/,
+      /\bpourquoi (mon|le) ca (a |est )?(baisse?|chute?|monte?|grimpe?|augmente?)/,
+      /\bqu(elles?|els?) categories?\b/,
+    ],
+    run: salesFamily,
   },
   // CALENDAR / "les vacances scolaires ou les fériés font-ils bouger mon CA ?".
   // Built from scratch — no deep-page endpoint exists, so chat + report only; `renderCalendar` does not

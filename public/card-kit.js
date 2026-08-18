@@ -140,6 +140,16 @@
     var neg = movers.filter(function (m) { return m.delta_eur < 0; }).sort(function (a, b) { return a.delta_eur - b.delta_eur; });
     var pos = movers.filter(function (m) { return m.delta_eur > 0; }).sort(function (a, b) { return b.delta_eur - a.delta_eur; });
     function eur(n) { return frInt(Math.abs(n)) + ' €'; }
+    // NEUTRE (journée dédiée 18/08) : sans signal tiré ce jour-là, aucune direction n'est
+    // affirmée — le plus gros écart est DÉCRIT, jamais prescrit.
+    if (isDown == null) {
+      var big = movers.slice().sort(function (a, b) { return Math.abs(b.delta_eur) - Math.abs(a.delta_eur); })[0];
+      if (!big) return '';
+      var s0 = 'Plus gros écart du jour : ' + big.category + ' (' + (big.delta_eur >= 0 ? '+' : '\u2212') + eur(big.delta_eur) + ' vs la médiane de vos ' + jour + 's)';
+      var other = movers.slice().sort(function (a, b) { return Math.abs(b.delta_eur) - Math.abs(a.delta_eur); })[1];
+      if (other) s0 += ' · puis ' + other.category + ' (' + (other.delta_eur >= 0 ? '+' : '\u2212') + eur(other.delta_eur) + ')';
+      return s0 + '. Aucun signal CA tir\u00e9 ce jour-l\u00e0 \u2014 lecture descriptive.';
+    }
     if (isDown) {
       if (!neg.length) return '';
       var s = 'La baisse vient surtout de ' + neg[0].category + ' (-' + eur(neg[0].delta_eur) + ')';
@@ -198,6 +208,9 @@
     return html;
   }
   function renderSales(j, isDown, date) {
+    // Repli (famille sales, 18/08) : sans isDown explicite (consommateur par question), la
+    // direction vient du SIGNAL TIRÉ résolu par le provider (j.is_down) — jamais re-dérivée.
+    if (isDown === undefined || isDown === null) isDown = (j && j.is_down === true) ? true : (j && j.is_down === false) ? false : null;
     if (!j || !j.ok || !j.found || !j.movers || !j.movers.length) {
       return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Mix produit indisponible pour ce jour — lecture au volume et au panier ci-dessous.</div>';
     }
