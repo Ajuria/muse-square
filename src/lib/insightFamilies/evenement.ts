@@ -419,7 +419,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     else if (outdoor && (lvlMax >= 1 || heat >= 2)) qs.push({ key: "meteo", tone: "warn", fact_fr: `Météo : ${wLbl}${heat >= 2 ? " — chaleur marquée" : ""} — dispositif extérieur, vigilance.`, href: dayHref, link_fr: "Détail du jour →" });
     else qs.push({ key: "meteo", tone: "ok", fact_fr: `Météo : ${wLbl}${item.event_nature === "indoor" ? " — dispositif intérieur, exposition limitée" : ""}.`, href: dayHref, link_fr: "Détail du jour →" });
     const pr = flat(s.competition_pressure_ratio) != null ? Number(flat(s.competition_pressure_ratio)) : null;
-    qs.push({ key: "concurrence", tone: "info", fact_fr: pr != null ? `Concurrence : pression ×${pr.toFixed(1)} vs votre habituel.` : "Concurrence : pas de mesure ce jour-là." });
+    qs.push({ key: "concurrence", tone: "info", fact_fr: pr != null ? `Concurrence : pression ×${pr.toFixed(1)} vs votre résultat habituel.` : "Concurrence : pas de mesure ce jour-là." });
     return {
       date, dow_fr, present: true, horizon_days: null,
       score: flat(s.opportunity_score) != null ? Number(flat(s.opportunity_score)) : null,

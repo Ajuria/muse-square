@@ -26,9 +26,9 @@
 //    · « rejeu » est banni PARTOUT, y compris comme clé interne (owner : « ça ne veut rien
 //      dire, c'est une traduction de l'anglais ») — l'échelle est déclaré → en test → prouvé.
 export const MOTS_BANNIS: Record<string, string> = {
-  "vs attendu": "vs habituel",
-  "vs l’attendu": "vs votre habituel",
-  "vs l'attendu": "vs votre habituel",
+  "vs attendu": "vs votre résultat habituel",
+  "vs l’attendu": "vs votre résultat habituel",
+  "vs l'attendu": "vs votre résultat habituel",
   "l’attendu": "votre habituel",
   "l'attendu": "votre habituel",
   "attendu du jour": "habituel du jour",
@@ -81,6 +81,9 @@ export const MOTS_BANNIS: Record<string, string> = {
   "Son offre poussée": "Autres offres et produits",
   "Sa proposition :": "Proposition de valeur :",
   "Son public :": "Publics/Clients visés :",
+  // Owner 18/08 (bandeau) : « vs votre résultat habituel » NU est interdit — la référence porte son nom entier.
+  "vs habituel": "vs votre résultat habituel",
+  "vs votre habituel": "vs votre résultat habituel",
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.
@@ -123,7 +126,7 @@ export const EVT_FR = {
   serie_n_objectif: "{met} sur {n} ont atteint votre objectif",
   serie_a_venir: "{n} à venir — une tendance se lit à partir de 3.",
   serie_ligne_objectif: "{kpi} · objectif {valeur}",
-  serie_ligne_ca: "CA {ecart} vs habituel",
+  serie_ligne_ca: "CA {ecart} vs votre résultat habituel",
   serie_pas_de_mesure: "pas de mesure",
 
   // L'état vivant + la décision (le moteur vit sur la page Évolution — on y renvoie).

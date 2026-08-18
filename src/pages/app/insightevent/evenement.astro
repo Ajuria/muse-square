@@ -143,7 +143,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               : e.selected_date ? "Date : " + frD(e.selected_date)
               : e.last_date ? "Terminé le " + frD(e.last_date) : "Dates à choisir";
             var track = e.n_resolved
-              ? '<span style="font-size:11px;font-weight:600;border-radius:20px;padding:3px 9px;color:' + (Number(e.sum_gap_eur) >= 0 ? "#059669" : "#B45309") + ';background:' + (Number(e.sum_gap_eur) >= 0 ? "#E6F6F0" : "#FEF3E2") + ';">' + (e.sum_gap_eur != null ? signEur(e.sum_gap_eur) + " vs habituel · " : "") + (e.n_beat || 0) + "/" + e.n_resolved + " tenue(s)</span>"
+              ? '<span style="font-size:11px;font-weight:600;border-radius:20px;padding:3px 9px;color:' + (Number(e.sum_gap_eur) >= 0 ? "#059669" : "#B45309") + ';background:' + (Number(e.sum_gap_eur) >= 0 ? "#E6F6F0" : "#FEF3E2") + ';">' + (e.sum_gap_eur != null ? signEur(e.sum_gap_eur) + " vs votre résultat habituel · " : "") + (e.n_beat || 0) + "/" + e.n_resolved + " tenue(s)</span>"
               : '<span style="font-size:11px;color:#9CA3AF;">pas encore de mesure résolue</span>';
             return '<a href="/app/insightevent/evenement?location_id=' + encodeURIComponent(loc) + '&saved_item_id=' + encodeURIComponent(e.saved_item_id) + '" style="display:block;text-decoration:none;color:inherit;border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff;">'
               + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">'
@@ -173,11 +173,11 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var kpiSet = !!it.kpi;
           var isFam = it.kpi === "family_revenue";
           var kpiLbl3 = isFam ? "CA famille " + (it.kpi_family ? "\u00ab " + it.kpi_family + " \u00bb" : "") + " (\u20ac)"
-            : it.kpi === "tickets" ? "tickets vs habituel (+%)"
-            : it.kpi === "basket" ? "panier moyen vs habituel (+%)"
-            : "CA du jour vs votre habituel (+%)";
+            : it.kpi === "tickets" ? "tickets vs votre résultat habituel (+%)"
+            : it.kpi === "basket" ? "panier moyen vs votre résultat habituel (+%)"
+            : "CA du jour vs votre résultat habituel (+%)";
           wrap.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#B45309;font-weight:600;margin-bottom:4px;">Objectif \u00e0 fixer</div>'
-            + '<div style="font-size:12.5px;color:#374151;margin-bottom:10px;">Sans objectif, aucun verdict ne peut juger vos occurrences \u2014 fixez-le, la mesure fait le reste.' + (kpiSet ? "" : " KPI par d\u00e9faut : CA du jour vs votre habituel (modifiable ensuite).") + '</div>'
+            + '<div style="font-size:12.5px;color:#374151;margin-bottom:10px;">Sans objectif, aucun verdict ne peut juger vos occurrences \u2014 fixez-le, la mesure fait le reste.' + (kpiSet ? "" : " KPI par d\u00e9faut : CA du jour vs votre résultat habituel (modifiable ensuite).") + '</div>'
             + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
             + '<span style="font-size:12.5px;color:#6B7280;">' + kpiLbl3 + ' :</span>'
             + '<input data-fx-val type="number" min="1" step="1" placeholder="' + (isFam ? "ex. 150" : "ex. 10") + '" style="width:90px;padding:6px 9px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;">'
@@ -250,7 +250,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var inputCss = 'width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;';
           // Deux champs = le CONTRAT du dispositif (owner 10/08 : « how is this a dispositif ? ») —
           // un geste CONCRET + son OCCASION. La structure convertit l'intention en recette ;
-          // les placeholders enseignent la grammaire. Le KPI n'a pas de champ : CA vs votre habituel,
+          // les placeholders enseignent la grammaire. Le KPI n'a pas de champ : CA vs votre résultat habituel,
           // le défaut de toute la chaîne.
           return '<div id="evt-doc-chain" style="margin-top:10px;">'
             + (hasDisp
@@ -282,7 +282,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               if (!o) { msg.style.color = "#B45309"; msg.textContent = "Dites l’occasion — quand ce geste se rejoue-t-il ?"; if (oEl) oEl.style.borderColor = "#B45309"; return; }
               recette = g + " — " + o;
             }
-            var evid = ((jj.apres && jj.apres.rows) || []).filter(function (r) { return r.gap_eur != null; }).map(function (r) { return r.dow_fr + " " + frD(r.date) + " : " + signEur(r.gap_eur) + " vs habituel"; }).join(" ; ");
+            var evid = ((jj.apres && jj.apres.rows) || []).filter(function (r) { return r.gap_eur != null; }).map(function (r) { return r.dow_fr + " " + frD(r.date) + " : " + signEur(r.gap_eur) + " vs votre résultat habituel"; }).join(" ; ");
             go.disabled = true;
             fetch("/api/best-practices", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
               location_id: loc,
@@ -524,7 +524,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             renderConsigne(j);
           }
 
-          var kpiLbl2 = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs votre habituel" : (it.kpi || "");
+          var kpiLbl2 = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs votre résultat habituel" : (it.kpi || "");
           var targetTxt = it.kpi_target_eur != null ? frInt(it.kpi_target_eur) + " €" : it.kpi_target_pct != null ? "+" + frInt(it.kpi_target_pct) + " %" : "";
           var hoursTxt = it.hour_start != null && it.hour_end != null ? "ouverture au public " + it.hour_start + " h – " + it.hour_end + " h" : null;
           var sendDate = offMinus(nextOcc, off);
@@ -804,7 +804,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var chips = '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#EEF2FF;color:#1D3BB3;">Événement</span>'
             + (it.event_type_label_fr ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + esc(it.event_type_label_fr) + '</span>' : "")
             + (it.event_nature ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + (it.event_nature === "outdoor" ? "Extérieur" : it.event_nature === "indoor" ? "Intérieur" : "Int/Ext") + (it.hour_start != null && it.hour_end != null ? " · " + it.hour_start + " h – " + it.hour_end + " h" : "") + '</span>' : "");
-          var kpiLbl = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs votre habituel" : it.kpi;
+          var kpiLbl = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs votre résultat habituel" : it.kpi;
           var head = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">' + chips
             + (it.kpi_target_eur != null || it.kpi_target_pct != null
               ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#E6F6F0;color:#059669;">Objectif : ' + esc(kpiLbl) + (it.kpi_target_eur != null ? " " + frInt(it.kpi_target_eur) + " €" : " +" + frInt(it.kpi_target_pct) + " %") + '</span>'
@@ -873,7 +873,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                 var okT = last.target_met;
                 var detail = it.kpi === "family_revenue" && last.family_rev != null
                   ? "famille " + esc(it.kpi_family || "") + " " + frInt(last.family_rev) + " € (cible " + frInt(it.kpi_target_eur) + " €)"
-                  : it.kpi === "revenue_residual" && last.residual_pct != null ? "CA " + (last.residual_pct >= 0 ? "+" : "") + last.residual_pct + " % vs habituel (objectif +" + frInt(it.kpi_target_pct) + " %)"
+                  : it.kpi === "revenue_residual" && last.residual_pct != null ? "CA " + (last.residual_pct >= 0 ? "+" : "") + last.residual_pct + " % vs votre résultat habituel (objectif +" + frInt(it.kpi_target_pct) + " %)"
                   : "";
                 chip = '<div style="margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:20px;padding:4px 11px;color:' + (okT ? "#059669" : "#B45309") + ';background:' + (okT ? "#E6F6F0" : "#FEF3E2") + ';">' + (okT ? "Cible atteinte" : "Cible manquée") + (detail ? " — " + detail : "") + '</span>'
                   + (j.apres.target_scale ? '<span style="display:block;font-size:11px;color:#9CA3AF;margin-top:4px;">Cible ' + String(j.apres.target_scale.ratio).replace(".", ",") + '× l’ordinaire de la famille (' + frInt(j.apres.target_scale.ref) + ' €/j) — à recalibrer si l’écart se répète.</span>' : "")
@@ -939,7 +939,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                         ? '<span style="min-width:90px;font-weight:600;color:' + (okR === true ? "#059669" : okR === false ? "#B45309" : "#111827") + ';">' + kUnit(kv) + '</span>'
                           + '<span style="flex:1;font-size:11.5px;color:#6B7280;">' + esc(kpiLbl) + (se.kpi_target != null ? " · objectif " + kUnit(se.kpi_target) : "") + '</span>'
                         : '<span style="flex:1;font-size:11px;color:#9CA3AF;">pas de mesure</span>')
-                      + (r.gap_eur != null ? '<span style="font-size:11px;color:#6B7280;white-space:nowrap;">CA ' + signEur(r.gap_eur) + ' vs habituel</span>' : "")
+                      + (r.gap_eur != null ? '<span style="font-size:11px;color:#6B7280;white-space:nowrap;">CA ' + signEur(r.gap_eur) + ' vs votre résultat habituel</span>' : "")
                       + '</div>';
                   }).join("") + '</div>'
                 // La DÉCISION au bout : le moteur (diagnostic + move recommandé + track record

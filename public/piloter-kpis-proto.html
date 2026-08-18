@@ -51,9 +51,9 @@
 
   // 2 · CA 7 JOURS VS HABITUEL — jamais vs hier (un lundi ne se compare pas à un dimanche).
   var g2 = K.croissance;
-  html += '<div class="tile" title="CA des 7 derniers jours reçus vs votre HABITUEL (médiane du même jour de semaine, 12 dernières occurrences, par site puis sommé — ' + g2.n_jours + ' site-jours). Jamais vs hier ni vs semaine brute : l’effet jour de semaine est neutralisé.">'
+  html += '<div class="tile" title="CA des 7 derniers jours reçus vs votre RÉSULTAT HABITUEL (médiane du même jour de semaine, 12 dernières occurrences, par site puis sommé — ' + g2.n_jours + ' site-jours). Jamais vs hier ni vs semaine brute  : l’effet jour de semaine est neutralisé.">'
     + '<div class="k">CA 7 jours</div><div class="n" style="color:' + (g2.pct == null ? '#9CA3AF' : INK) + ';">' + (g2.pct == null ? '—' : (g2.pct >= 0 ? '+' : '−') + String(Math.abs(g2.pct)).replace('.', ',') + ' %') + '</div>'
-    + '<div class="s">vs votre habituel · ' + frI(g2.real7) + ' € réalisés</div></div>';
+    + '<div class="s">vs votre résultat habituel · ' + frI(g2.real7) + ' € réalisés</div></div>';
 
   // 3 · SIGNAUX TRAITÉS — % de l'ENJEU IDENTIFIÉ porté par une action (position défensive).
   var c4 = K.couvert;
@@ -87,7 +87,7 @@
     + '<div class="rb" style="opacity:.55;"><div class="t">Mes dispositifs</div><div class="r">(carte existante, inchangée)</div></div>'
     + '</div>';
 
-  html += '<p class="muted" style="margin-top:14px;">Corrections doctrine appliquées à votre liste : Impact = mesuré sur la plage (jamais annualisé — l’annualisé vit sur les enjeux, marqué ≈) · croissance vs HABITUEL (jamais vs hier) · valeur des opérations seulement sur du jugé · Couvert = % de l’enjeu identifié (pas du CA) · « prouvé » = le mot du lexique (« confirmé » n’y est pas). Un seul vert : le mesuré-gagné.</p>';
+  html += '<p class="muted" style="margin-top:14px;">Corrections doctrine appliquées à votre liste : Impact = mesuré sur la plage (jamais annualisé — l’annualisé vit sur les enjeux, marqué ≈) · croissance vs RÉSULTAT HABITUEL (jamais vs hier) · valeur des opérations seulement sur du jugé · Couvert = % de l’enjeu identifié (pas du CA) · « prouvé » = le mot du lexique (« confirmé » n’y est pas). Un seul vert : le mesuré-gagné.</p>';
   document.getElementById('root').innerHTML = html;
 })();
 </script>

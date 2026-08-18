@@ -891,7 +891,7 @@
         + '</div>'
         + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#9ca3af;">'
           + '<span>habituel</span>'
-          + '<span><strong style="color:#111827;font-weight:600;">' + (_basePct >= 0 ? '+' : '') + fr(_basePct) + ' %</strong> vs habituel</span>'
+          + '<span><strong style="color:#111827;font-weight:600;">' + (_basePct >= 0 ? '+' : '') + fr(_basePct) + ' %</strong> vs votre résultat habituel</span>'
         + '</div></div>';
       // SECONDARY attribution — split when a holiday effect is present (causal-safe: never counts vacances as the action).
       var _attrib = (_ctxPct !== 0)

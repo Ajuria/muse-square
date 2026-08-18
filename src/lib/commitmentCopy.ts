@@ -17,9 +17,9 @@ export const EVOL_COPY = {
   back: "Retour aux engagements",
 
   // subtitle under the title (goal terms recap; owner + date get their own line)
-  subtitle: "Objectif : +{pct} % de CA vs habituel · sous {window}",
+  subtitle: "Objectif : +{pct} % de CA vs votre résultat habituel · sous {window}",
   // Variante KPI-vrai (owner 15/08) : le sous-titre nomme le KPI DÉCLARÉ, jamais « CA » en dur.
-  subtitle_kpi: "Objectif : +{pct} % de {kpi} vs habituel · sous {window}",
+  subtitle_kpi: "Objectif : +{pct} % de {kpi} vs votre résultat habituel · sous {window}",
   owner_line: "Engagé par {name} · le {date}",
   done_suffix: " · action menée le {date}",
 
@@ -52,9 +52,9 @@ export const EVOL_COPY = {
   q1_verdict_confirm: "à confirmer sur plus de jours",
   q1_verdict_flat: "l'effet de l'action n'est pas encore visible",
   q1_verdict_down: "à ce stade, l'action ne paie pas",
-  // vs objectif — position of the effect against the owner's COMMITTED goal (not just vs habituel).
+  // vs objectif — position of the effect against the owner's COMMITTED goal (not just vs votre résultat habituel).
   // Resolved → the authoritative verdict; open → the % target the owner set + current position.
-  q1_objectif_line: "Objectif : +{pct} % vs habituel",
+  q1_objectif_line: "Objectif : +{pct} % vs votre résultat habituel",
   q1_objectif_above: "au-dessus à ce stade",
   q1_objectif_below: "en-dessous à ce stade",
   q1_objectif_met: "Objectif atteint",

@@ -1968,7 +1968,7 @@ if (!location_id) {
         var _dp0 = entry.item.data_payload;
         var _dRev = _dp0.daily_revenue != null ? Number(_dp0.daily_revenue) : null;
         var _dRefV = _dp0.expected_revenue != null ? Number(_dp0.expected_revenue) : (_dp0.avg_30d != null ? Number(_dp0.avg_30d) : (_dp0.revenue_yesterday != null ? Number(_dp0.revenue_yesterday) : null));
-        var _dRefLbl = _dp0.expected_revenue != null ? 'vs votre habituel du jour' : (_dp0.avg_30d != null ? 'vs votre moyenne 30 j' : 'vs hier');
+        var _dRefLbl = _dp0.expected_revenue != null ? 'vs votre résultat habituel du jour' : (_dp0.avg_30d != null ? 'vs votre moyenne 30 j' : 'vs hier');
         if (_dRev != null && _dRefV != null && isFinite(_dRev) && isFinite(_dRefV)) {
           var _dGap = Math.round(_dRev - _dRefV);
           var _dFg = _dGap > 0 ? 'var(--color-pill-green-text)' : '#B45309';
@@ -3575,7 +3575,7 @@ if (!location_id) {
     var sowhat = r.status === 'open' ? escapeHtml('Mesure sur ' + _cgWin(r.window_kind) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'expired' ? escapeHtml('Aucune donnée de ventes reçue en 30 j.')
-      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind) + '.')
+      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind) + '.')
       : escapeHtml('Dates de l\u2019op\u00e9ration : ' + _cgWin(r.window_kind) + '.');
     // Code couleur lisible (proto 27/07) : montant signé + mini-phrase. Objectif bleu tant que
     // rien n'est mesuré ; résultat couleur verdict une fois résolu. Ligne legacy sans seuil et
@@ -3585,7 +3585,7 @@ if (!location_id) {
       var _rPos = Number(pct) >= 0;
       var _rFg = r.verdict === 'met' ? '#166534' : r.verdict === 'missed' ? '#b91c1c' : '#B45309';
       var _rLbl = r.verdict === 'met' ? 'objectif atteint' : r.verdict === 'missed' ? 'objectif manqué' : 'non concluant';
-      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs habituel.') + '">'
+      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel.') + '">'
         + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' %</div>'
         + '<div class="amt-sub">' + _rLbl + '</div>'
       + '</div>';
