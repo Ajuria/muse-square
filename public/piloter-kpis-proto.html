@@ -55,17 +55,17 @@
     + '<div class="k">CA 7 jours</div><div class="n" style="color:' + (g2.pct == null ? '#9CA3AF' : INK) + ';">' + (g2.pct == null ? '—' : (g2.pct >= 0 ? '+' : '−') + String(Math.abs(g2.pct)).replace('.', ',') + ' %') + '</div>'
     + '<div class="s">vs votre habituel · ' + frI(g2.real7) + ' € réalisés</div></div>';
 
-  // 3 · OPÉRATIONS EN COURS — compte + ≈ €/an SEULEMENT sur du jugé (sinon absence dite).
-  var o3 = K.ops;
-  html += '<div class="tile" title="Opérations en cours (mesurées + automatisées). La valeur ≈ €/an ne s’affiche que calculée sur des occurrences JUGÉES (gap mesuré moyen × occurrences/an) — jamais sur une promesse.">'
-    + '<div class="k">Opérations en cours</div><div class="n">' + o3.n + '</div>'
-    + '<div class="s">' + (o3.eur_year != null ? '≈ ' + sEur(o3.eur_year) + '/an (' + esc(o3.basis) + ')' : 'valeur ≈ €/an au 2e verdict jugé — 1 seul pour l’instant') + '</div></div>';
-
-  // 4 · COUVERT — % de l'ENJEU IDENTIFIÉ porté par une action (position défensive).
+  // 3 · SIGNAUX TRAITÉS — % de l'ENJEU IDENTIFIÉ porté par une action (position défensive).
   var c4 = K.couvert;
   html += '<div class="tile" title="Part de l’enjeu annualisé identifié par le registre (motifs d’environnement, portes n ≥ 5 + matérialité) couverte par un dispositif actif. Référentiel : l’enjeu identifié (' + frI(c4.tot) + ' €/an) — PAS votre CA.">'
     + '<div class="k">Signaux traités</div><div class="n" style="color:' + BLUE + ';">' + (c4.pct == null ? '—' : c4.pct + ' %') + '</div>'
     + '<div class="s">de ' + frI(c4.tot) + ' €/an d’enjeux identifiés (' + c4.n_motifs + ' motifs)</div></div>';
+
+  // 4 · OPÉRATIONS EN COURS — compte + ≈ €/an SEULEMENT sur du jugé (sinon absence dite).
+  var o3 = K.ops;
+  html += '<div class="tile" title="Opérations en cours (mesurées + automatisées). La valeur ≈ €/an ne s’affiche que calculée sur des occurrences JUGÉES (gap mesuré moyen × occurrences/an) — jamais sur une promesse.">'
+    + '<div class="k">Opérations en cours</div><div class="n">' + o3.n + '</div>'
+    + '<div class="s">' + (o3.eur_year != null ? '≈ ' + sEur(o3.eur_year) + '/an (' + esc(o3.basis) + ')' : 'valeur ≈ €/an au 2e verdict jugé — 1 seul pour l’instant') + '</div></div>';
 
   // 5 · PROUVÉS CE MOIS-CI — le mot du lexique ; le zéro est l'état réel, il invite à Prouver.
   var p5 = K.prouves;
