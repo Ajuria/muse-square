@@ -45,5 +45,43 @@ const rowsT = bodyT.querySelectorAll('a[href*="saved_item_id="]').length;
 check("sans filtre : la liste complète est intacte", rowsT === events.length, rowsT + " vs " + events.length);
 check("sans filtre : chips « Objectif non fixé » sur les seuls concernés", (bodyT.innerHTML.match(/Objectif non fixé/g) || []).length === nSans);
 
+// ── Pilule BINAIRE (owner 18/08) : objectif fixé (avec sa valeur) ou non — le type meurt. ──
+check("liste : zéro pilule de type (Autre/Lancement…)", bodyT.textContent.indexOf("Autre") < 0 && bodyT.textContent.indexOf("Lancement de produit") < 0 && bodyT.textContent.indexOf("Journée portes ouvertes") < 0);
+const nFixes = events.filter((e) => e.kpi).length;
+check("liste : pilule « Objectif : … » sur les fixés, ambre sur les autres",
+  (bodyT.innerHTML.match(/Objectif : /g) || []).length === nFixes
+  && (bodyT.innerHTML.match(/Objectif non fixé/g) || []).length === nSans, nFixes + " fixés · " + nSans + " sans");
+
+// ── Aperçu absolu + annualisé du bloc « Objectif à fixer » (dossier réel d'un sans-objectif). ──
+const sansEvt = events.filter((e) => !e.kpi)[0];
+if (sansEvt) {
+  const resD = await evGET({ url: new URL("http://l/api/insight/evenement?location_id=" + OWNER + "&saved_item_id=" + sansEvt.saved_item_id), locals });
+  const dossier = JSON.parse(await resD.text());
+  const winD = new Window({ url: "https://app.local/app/insightevent/evenement?location_id=" + OWNER + "&saved_item_id=" + sansEvt.saved_item_id });
+  const docD = winD.document;
+  docD.body.innerHTML = '<div id="evt-root" data-loc="' + OWNER + '" data-item="' + sansEvt.saved_item_id + '"><a id="evt-back"></a><div id="evt-head"><div></div><div></div></div><div id="evt-body">Chargement…</div></div>';
+  const stubD = (url) => Promise.resolve({ json: () => Promise.resolve(String(url).indexOf("saved_item_id=") >= 0 ? dossier : { ok: false }) });
+  new Function("window", "document", "fetch", blocks[0])(winD, docD, stubD);
+  await new Promise((r) => setTimeout(r, 80));
+  const inp = docD.querySelector("[data-fx-val]");
+  check("dossier sans objectif : bloc « Objectif à fixer » présent", !!inp);
+  if (inp) {
+    inp.value = "10";
+    inp.dispatchEvent(new winD.CustomEvent("input"));
+    await new Promise((r) => setTimeout(r, 30));
+    const prev = docD.querySelector("[data-fx-prev]");
+    let refs = ((dossier.days || []).map((d) => d.objectif && d.objectif.expected_eur).filter((v) => v != null));
+    if (!refs.length) refs = (((dossier.apres || {}).rows || []).map((r) => r.expected).filter((v) => v != null));
+    if (refs.length) {
+      check("aperçu : valeur ABSOLUE affichée pendant la saisie (+10 % → € par occurrence)",
+        prev && prev.textContent.indexOf("€ par occurrence") >= 0 && prev.textContent.indexOf("votre résultat habituel") >= 0, prev ? prev.textContent.slice(0, 90) : "vide");
+      check("aperçu : annualisé SEULEMENT en série (ponctuel → jamais extrapolé)",
+        prev && ((sansEvt.recurring) ? prev.textContent.indexOf("€/an") >= 0 : prev.textContent.indexOf("€/an") < 0));
+    } else {
+      check("aperçu : pas de référence habituelle → aperçu vide (jamais un chiffre inventé)", !prev || !prev.textContent.trim(), "réfs: 0");
+    }
+  }
+}
+
 console.log(fails ? `\n${fails} ÉCHEC(S)` : "\nTOUT VERT");
 process.exit(fails ? 1 : 0);
