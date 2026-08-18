@@ -27,6 +27,8 @@ import { discoverAgendaUrl, discoverTarifsUrl } from "../../../lib/competitive/u
 import { geocodeCompetitor } from "../../../lib/competitive/geocode";
 import { VALID_INDUSTRY, VALID_AUDIENCE } from "../../../lib/competitive/constants";
 import { waitUntil } from "@vercel/functions";
+import { salesFresherThanDayClass, runDayClassBatch } from "./day-class-impacts";
+import { makeBQClient as _mkBqDc } from "../../../lib/bq";
 
 export const prerender = false;
 
@@ -1367,6 +1369,17 @@ export const GET: APIRoute = async ({ request }) => {
   }
 
   waitUntil(runSurveillance());
+  // Rattrapage day-class POST-IMPORT (file onboarding ③, 18/08) : si un import de ventes +
+  // full-refresh a atterri depuis le dernier batch, le store d'enjeu se reconstruit DANS les
+  // 15 min (cadence de ce cron) au lieu d'attendre 4 h du matin — les motifs structurels d'un
+  // compte neuf arrivent le jour même. Porte de fraîcheur idempotente, coût quasi nul sinon.
+  waitUntil((async () => {
+    const bq = _mkBqDc(String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim());
+    if (await salesFresherThanDayClass(bq)) {
+      console.log("[day-class rattrapage] import détecté depuis le dernier batch — rebuild");
+      await runDayClassBatch();
+    }
+  })().catch((e) => console.error("[day-class rattrapage]", e?.message)));
 
   return new Response(
     JSON.stringify({ ok: true, status: "started" }),

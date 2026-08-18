@@ -34,7 +34,25 @@ export const GET: APIRoute = async ({ request }) => {
   });
 };
 
-async function runDayClassBatch(): Promise<void> {
+// La PORTE de rattrapage post-import (file onboarding ③, 18/08) : vrai si les marts ventes
+// portent une ingestion plus récente que le dernier batch — un import + full-refresh vient
+// d'atterrir et le store d'enjeu ne l'a pas vu. Converge : après rebuild, computed_at repasse
+// devant. Consommée par competitor-surveillance (cadence 15 min, zéro pinger nouveau).
+export async function salesFresherThanDayClass(bq: any): Promise<boolean> {
+  const [rows] = await bq.query({
+    query: `SELECT EXISTS (
+              SELECT 1 FROM \`${String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim()}.mart.fct_client_daily_performance\` p
+              WHERE p.last_ingested_at > (SELECT COALESCE(MAX(computed_at), TIMESTAMP('2000-01-01'))
+                                          FROM \`${String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim()}.analytics.day_class_impacts\`)
+            ) AS fresher`,
+    location: "EU",
+  }).catch(() => [[{ fresher: false }]]);
+  const r: any = (rows as any[])[0] || {};
+  const v = r.fresher && typeof r.fresher === "object" && "value" in r.fresher ? r.fresher.value : r.fresher;
+  return v === true || v === "true";
+}
+
+export async function runDayClassBatch(): Promise<void> {
   const projectId = String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
   const bq = makeBQClient(projectId);
 
