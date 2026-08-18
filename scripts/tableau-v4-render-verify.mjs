@@ -65,11 +65,15 @@ const g = payload.glance || {};
 const oc = payload.occasions || {};
 // ── HÉROS v10 (proto validé 18/08) : bandeau 5 KPI — titres arbitrés owner. ──
 const vLieux = (g.veille || {}).lieux || [];
-const heroTitles = ["CA multi-site sur 30 jours", "Impact dispositifs sur 30 jours", "Signaux traités", "Opérations en cours", "Dispositifs prouvés"];
+const heroTitles = ["CA multi-site", "Impact dispositifs", "Signaux traités", "Opérations en cours", "Dispositifs prouvés"];
 check("héros v10 : les 5 titres arbitrés, dans l'ordre", (() => {
   let pos = -1;
   return heroTitles.every((t2) => { const i2 = txt().indexOf(t2); if (i2 < 0 || i2 < pos) return false; pos = i2; return true; });
 })(), heroTitles.filter((t2) => txt().indexOf(t2) < 0).join(" | ") || "tous présents");
+check("héros v10 : titres 2 lignes max — unité de temps en petit (span.u) + zone titre à hauteur FIXE (chiffres alignés)",
+  Array.from(body.querySelectorAll(".tb-hero .tb-eb")).length === 5
+  && body.querySelectorAll(".tb-hero .tb-eb .u").length === 2
+  && txt().indexOf("sur 30 jours") < 0);
 check("héros v10 : anciennes tuiles-portes retirées du héros", body.querySelectorAll(".tb-hero .tb-tile").length === 5
   && !body.querySelector('.tb-hero [data-tb-tile="af"]') && !body.querySelector('.tb-hero [data-tb-tile="sv"]') && !body.querySelector('.tb-hero [data-tb-tile="co"]'),
   body.querySelectorAll(".tb-hero .tb-tile").length + " tuiles");
