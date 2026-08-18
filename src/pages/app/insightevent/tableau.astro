@@ -65,7 +65,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
       /* ── Système visuel validé (maquette piloter-proto, 14/08) ──
          héros = grille STRICTE (jamais de wrap), anatomie de tuile unique ;
          À faire = table à colonnes fixes ; volets = rangées d'UNE surface (radar). */
-      .tb-hero { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
+      .tb-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 10px; }
       /* Héros (proto validé 17/08) : chaque tuile est SA carte — grille, plus de séparateurs. */
       @media (max-width: 640px) { .tb-hero { grid-template-columns: repeat(2, 1fr); } }
       .tb-tile { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,0.04); min-width: 0; transition: border-color .12s; }
@@ -424,15 +424,50 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var veilleCassee = vLieux.length > 0 && vVus < vLieux.length;
           html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 8px;flex-wrap:wrap;"><p class="tb-eb" style="cursor:help;" title="Somme des écarts mesurés des fenêtres engagées jugées — jamais extrapolé.">Impact mesuré de vos opérations</p><span style="display:inline-flex;align-items:baseline;gap:8px;">' + periodSel + '<span style="font-size:10.5px;color:#9CA3AF;">filtre l’Impact seul</span></span></div>'
             + '<div class="tb-hero">'
-            + '<div class="tb-tile"><p class="tb-eb">Impact · ' + period + ' j</p><div class="n" style="color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? GREEN : AMBER) + ';" title="' + esc(eurTip) + '">' + (im.gap_eur == null ? "— €" : signEur(im.gap_eur)) + '</div>'
-              + '<div class="s">vs habituel · ' + im.targets_met + '/' + im.windows_judged + ' cibles tenues' + (im.next_judgment === TODAY ? " · verdict auj." : im.next_judgment ? " · prochaine " + frD(im.next_judgment) : "") + '</div></div>'
-            + (aFaire[0] && aFaire[0].rang === 0 && j.met_recipe && j.met_recipe.gap_eur != null
-              // L'argent d'abord (owner 17/08) : le € classe, le compte suit.
-              ? '<div class="tb-tile" data-tb-tile="af"><p class="tb-eb">À faire</p><div class="n">' + signEur(j.met_recipe.gap_eur) + '</div><div class="s" title="gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages">à prendre · ' + aFaire.length + ' gestes en attente</div></div>'
-              : '<div class="tb-tile" data-tb-tile="af"><p class="tb-eb">À faire</p><div class="n">' + aFaire.length + '</div><div class="s" title="gestes en attente : opérations à préparer ou ajuster, verdicts à rendre, déblocages">gestes en attente</div></div>')
-            + '<div class="tb-tile" data-tb-tile="sv"><p class="tb-eb">Prochaine occasion</p><div class="n" style="color:' + (rgT ? BLUE : "#111827") + ';">' + occN + '</div><div class="s">' + occSub + '</div></div>'
-            + '<div class="tb-tile" data-tb-tile="co"><p class="tb-eb">Veille</p><div class="n" style="display:flex;align-items:center;gap:8px;' + (nTrouvailles ? '' : 'font-size:15px;line-height:1.3;padding-top:4px;') + '"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + (veilleCassee ? AMBER : GREEN) + ';flex:none;" title="' + (veilleCassee ? "veille en défaut : un de vos suivis n’est plus lu — détail dans Mon positionnement" : "veille active sur tous vos suivis") + '"></span>' + (nTrouvailles ? nTrouvailles : 'Rien n\u2019a boug\u00e9') + '</div>'
-              + '<div class="s">' + (nTrouvailles ? "changement" + (nTrouvailles > 1 ? "s" : "") + " chez vos " + vLieux.length + " suivis" : "vos " + vLieux.length + " suivis · lus cette nuit") + '</div></div>'
+            // 1 · IMPACT — mesuré sur la plage (le seul vert).
+            + '<div class="tb-tile"><p class="tb-eb">Impact ' + period + ' jours</p><div class="n" style="color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? GREEN : AMBER) + ';" title="' + esc(eurTip) + '">' + (im.gap_eur == null ? "\u2014 \u20ac" : signEur(im.gap_eur)) + '</div>'
+              + '<div class="s">vs habituel \u00b7 ' + im.targets_met + '/' + im.windows_judged + ' cibles tenues' + (im.next_judgment === TODAY ? " \u00b7 verdict auj." : im.next_judgment ? " \u00b7 prochaine " + frD(im.next_judgment) : "") + '</div></div>'
+            // 2 · CA 7 JOURS — vs votre habituel (jamais vs hier).
+            + (function () {
+                var c7 = j.ca7 || {};
+                return '<div class="tb-tile" title="CA des 7 derniers jours re\u00e7us vs votre HABITUEL (m\u00e9diane du m\u00eame jour de semaine, 12 derni\u00e8res occurrences, par site puis somm\u00e9 \u2014 ' + (c7.n_jours || 0) + ' site-jours). Jamais vs hier : l\u2019effet jour de semaine est neutralis\u00e9.">'
+                  + '<p class="tb-eb">CA 7 jours</p><div class="n" style="color:' + (c7.pct == null ? '#9CA3AF' : '#111827') + ';">' + (c7.pct == null ? '\u2014' : (c7.pct >= 0 ? '+' : '\u2212') + String(Math.abs(c7.pct)).replace('.', ',') + ' %') + '</div>'
+                  + '<div class="s">vs votre habituel' + (c7.real7 ? ' \u00b7 ' + frInt(c7.real7) + ' \u20ac r\u00e9alis\u00e9s' : '') + '</div></div>';
+              })()
+            // 3 · SIGNAUX TRAITÉS — % de l'enjeu identifi\u00e9 couvert par un dispositif actif.
+            + (function () {
+                var ls = j.learnings || [];
+                var tot = 0, cov = 0;
+                ls.forEach(function (l2) { var v2 = Math.abs(Number(l2.eur_year) || 0); tot += v2; if (l2.covered) cov += v2; });
+                var pct = tot > 0 ? Math.round(cov / tot * 100) : null;
+                return '<div class="tb-tile" data-tb-tile="sf" title="Part de l\u2019enjeu annualis\u00e9 identifi\u00e9 (motifs d\u2019environnement du registre, portes n \u2265 5 + mat\u00e9rialit\u00e9) couverte par un dispositif actif. R\u00e9f\u00e9rentiel : l\u2019enjeu identifi\u00e9, pas votre CA.">'
+                  + '<p class="tb-eb">Signaux trait\u00e9s</p><div class="n" style="color:' + BLUE + ';">' + (pct == null ? '\u2014' : pct + ' %') + '</div>'
+                  + '<div class="s">' + (tot > 0 ? 'de ' + frInt(tot) + ' \u20ac/an d\u2019enjeux identifi\u00e9s (' + ls.length + ' motif' + (ls.length > 1 ? 's' : '') + ')' : 'aucun motif chiffr\u00e9 encore') + '</div></div>';
+              })()
+            // 4 · OPÉRATIONS EN COURS — compte ; \u2248 \u20ac/an seulement sur du jug\u00e9.
+            + (function () {
+                var au0 = j.automated || {};
+                var nOps = (g.mesures || []).length + (au0.consignes || []).length + (au0.armed_dispositifs || []).length;
+                var ov = {}; (j.ops_value || []).forEach(function (o2) { ov[o2.saved_item_id] = o2; });
+                var tot2 = 0, nJuges = 0;
+                (g.mesures || []).forEach(function (m2) {
+                  var o2 = ov[m2.saved_item_id];
+                  if (o2 && o2.n >= 2 && o2.avg_gap != null) { tot2 += o2.avg_gap * (m2.kind === 'serie' ? 52 : 12); nJuges += o2.n; }
+                });
+                return '<div class="tb-tile" data-tb-tile="ops" title="Op\u00e9rations en cours (mesur\u00e9es + automatis\u00e9es). La valeur \u2248 \u20ac/an ne s\u2019affiche que calcul\u00e9e sur des occurrences JUG\u00c9ES (gap mesur\u00e9 moyen \u00d7 occurrences/an) \u2014 jamais sur une promesse.">'
+                  + '<p class="tb-eb">Op\u00e9rations en cours</p><div class="n">' + nOps + '</div>'
+                  + '<div class="s">' + (nJuges >= 2 ? '\u2248 ' + signEur(Math.round(tot2)) + '/an (' + nJuges + ' occurrences jug\u00e9es)' : nOps ? 'valeur \u2248 \u20ac/an au 2e verdict jug\u00e9' : 'aucune \u2014 cr\u00e9ez un \u00e9v\u00e9nement') + '</div></div>';
+              })()
+            // 5 · DISPOSITIFS PROUVÉS — ce mois-ci (mot du lexique) ; le z\u00e9ro invite \u00e0 Prouver.
+            + (function () {
+                var moisNow = TODAY.slice(0, 7);
+                var nMois = (g.tests || []).filter(function (t2) { return t2.verdict === 'met' && String(t2.we || '').slice(0, 7) === moisNow; }).length;
+                var pr0 = (j.practices || []).filter(function (p2) { return p2.tier !== 'archivee'; });
+                var nT0 = pr0.filter(function (p2) { return p2.tier !== 'prouvee' && p2.tier !== 'ecartee'; }).length;
+                return '<div class="tb-tile" data-tb-tile="sf" title="Dispositifs pass\u00e9s PROUV\u00c9S ce mois-ci (cible tenue au test \u2014 \u00e9chelle en test \u00b7 prouv\u00e9 \u00b7 \u00e9cart\u00e9).">'
+                  + '<p class="tb-eb">Dispositifs prouv\u00e9s</p><div class="n" style="color:' + (nMois ? BLUE : '#9CA3AF') + ';">' + nMois + '</div>'
+                  + '<div class="s">ce mois-ci \u00b7 ' + nT0 + ' en test \u2014 chaque cible tenue en convertit un</div></div>';
+              })()
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:14px;padding:2px 4px 0;font-size:12px;color:#6b7280;flex-wrap:wrap;">';
           if (lv) html += '<button type="button" data-tb-lect style="display:inline-flex;align-items:center;gap:6px;padding:0;background:none;border:none;font-family:inherit;font-size:12px;color:#6b7280;cursor:pointer;">'
@@ -572,7 +607,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             return esc(t2.length > 45 ? t2.slice(0, 42) + "\u2026" : t2);
           }
           if (mesures.length) {
-            html += '<p class="tb-eb" style="margin:2px 0 8px;">Opérations en cours</p><div class="tb-opsgrid">';
+            html += '<p class="tb-eb" id="tb-ops-sec" style="margin:2px 0 8px;">Opérations en cours</p><div class="tb-opsgrid">';
             mesures.forEach(function (m) {
               var goal = opGoal(m);
               var kpiLbl = m.metric === "family_revenue" && m.famille ? "CA famille \u00ab " + esc(m.famille) + " \u00bb" : (KPI_MINI_FR[m.metric] || m.metric);
@@ -768,7 +803,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             '<button type="button" data-tb-fold="tb-occ-fold" style="background:none;border:none;font-family:inherit;font-size:12px;color:#1D3BB3;font-weight:600;cursor:pointer;white-space:nowrap;">Lesquels ▾</button>');
           var svResume = nMen + (nMen > 1 ? " menaces" : " menace") + " · " + nOcc2 + " occasions"
             + (oc.next_hot ? " · jour chaud " + (oc.next_hot === TODAY ? "aujourd’hui" : dowFr(oc.next_hot) + " " + frD(oc.next_hot)) : "");
-          html += voletHead("sv", nMen ? AMBER : GREEN, "Vos prochaines occasions", svResume, "comp", true)
+          html += voletHead("sv", nMen ? AMBER : GREEN, "Vos prochaines occasions", svResume, "comp")
             + '<div data-tb-body="sv" class="tb-rbody" style="display:none;">'
             + occHtml
             + '<div id="tb-occ-fold" class="tb-fold" style="line-height:1.7;">'
@@ -999,6 +1034,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + (nDefaut ? " · veille en défaut sur " + nDefaut : "");
           html += voletHead("co", covTrou || nDefaut ? AMBER : GREEN, "Mon positionnement", covResume, "comp")
             + '<div data-tb-body="co" class="tb-rbody" style="display:none;">';
+          // Porte VEILLE (héros v10 — la tuile déménage en carte, même volet que Mon positionnement).
+          voletHead("co", ((g.veille || {}).lieux || []).length && (typeof vVus !== "undefined") && vVus < (g.veille.lieux || []).length ? AMBER : GREEN, "Veille",
+            ((g.offres || []).length ? (g.offres || []).length + " trouvailles cette nuit" : "Rien n\u2019a boug\u00e9 \u00b7 vos suivis lus cette nuit"), "comp");
           // ── v2 (proto validé 17/08) : la réponse d'abord, puis LES FICHES nommées par suivi. ──
           (function () {
             var fiches = (g.fiches || []).slice().sort(function (a2, b2) { return (b2.note || 0) - (a2.note || 0); });
@@ -1238,6 +1276,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             t.addEventListener("click", function () {
               var k = t.getAttribute("data-tb-tile");
               if (k === "af") { var afc = document.getElementById("tb-af-card"); if (afc) afc.scrollIntoView({ behavior: "smooth", block: "start" }); }
+              else if (k === "ops") { var opc = document.getElementById("tb-ops-sec"); if (opc) opc.scrollIntoView({ behavior: "smooth", block: "start" }); }
               else openVolet(k, true);
             });
           });

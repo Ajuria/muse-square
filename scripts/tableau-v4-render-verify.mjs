@@ -63,16 +63,30 @@ check("cibles tenues (tuile impact)", txt().indexOf("cibles tenues") >= 0);
 // ── Héros : 4 tuiles (refonte 13/08). ──
 const g = payload.glance || {};
 const oc = payload.occasions || {};
-// Tuile 3 = PROCHAINE OCCASION (prospectif, € gated) — le rétrospectif 10/25 a disparu du héros.
-check("tuile prochaine occasion (prospectif)", oc.next_hot
-  ? (oc.heat_range ? txt().indexOf("jusqu’à") >= 0 && txt().indexOf("à récupérer — jour chaud") >= 0 : txt().indexOf("jour chaud annoncé") >= 0)
-  : txt().indexOf("aucun jour d’environnement annoncé") >= 0);
-check("plus de compteur rétrospectif au héros", txt().indexOf("occasions jouées") < 0);
-// Tuile 4 = VEILLE en TROUVAILLES ; l'absence est dite.
+// ── HÉROS v10 (proto validé 18/08) : bandeau 5 KPI — titres arbitrés owner. ──
 const vLieux = (g.veille || {}).lieux || [];
-const nTrv = (g.offres || []).length;
-check("tuile veille : trouvailles ou absence DITE en toutes lettres (owner 17/08 — jamais un gros zéro)",
-  (payload.glance && (payload.glance.offres || []).length) ? true : (txt().indexOf("Rien n’a bougé") >= 0 && txt().indexOf("lus cette nuit") >= 0));
+const heroTitles = ["Impact 30 jours", "CA 7 jours", "Signaux traités", "Opérations en cours", "Dispositifs prouvés"];
+check("héros v10 : les 5 titres arbitrés, dans l'ordre", (() => {
+  let pos = -1;
+  return heroTitles.every((t2) => { const i2 = txt().indexOf(t2); if (i2 < 0 || i2 < pos) return false; pos = i2; return true; });
+})(), heroTitles.filter((t2) => txt().indexOf(t2) < 0).join(" | ") || "tous présents");
+check("héros v10 : anciennes tuiles-portes retirées du héros", body.querySelectorAll(".tb-hero .tb-tile").length === 5
+  && !body.querySelector('.tb-hero [data-tb-tile="af"]') && !body.querySelector('.tb-hero [data-tb-tile="sv"]') && !body.querySelector('.tb-hero [data-tb-tile="co"]'),
+  body.querySelectorAll(".tb-hero .tb-tile").length + " tuiles");
+// CA 7 j : le % du payload, avec son référentiel.
+if (payload.ca7 && payload.ca7.pct != null)
+  check("CA 7 jours : % serveur rendu + référentiel « vs votre habituel »",
+    txt().indexOf(String(Math.abs(payload.ca7.pct)).replace(".", ",") + " %") >= 0 && txt().indexOf("vs votre habituel") >= 0, payload.ca7.pct + " %");
+// Signaux traités : couvert/total des motifs du payload.
+{
+  const ls = payload.learnings || [];
+  const tot = ls.reduce((a, l) => a + Math.abs(l.eur_year || 0), 0);
+  const cov = ls.filter((l) => l.covered).reduce((a, l) => a + Math.abs(l.eur_year || 0), 0);
+  if (tot > 0) check("Signaux traités : % = couvert/total des enjeux (référentiel dit)",
+    txt().indexOf(Math.round(cov / tot * 100) + " %") >= 0 && txt().indexOf("d’enjeux identifiés") >= 0, Math.round(cov / tot * 100) + " %");
+}
+check("Dispositifs prouvés : fenêtre en sous-ligne (ce mois-ci · N en test)", /ce mois-ci · \d+ en test/.test(txt()));
+check("Opérations en cours : valeur ≈ €/an sur du jugé OU absence dite", txt().indexOf("occurrences jugées") >= 0 || txt().indexOf("au 2e verdict jugé") >= 0 || txt().indexOf("aucune — créez") >= 0);
 check("couverture PAR SITE (résumé Ma couverture)", (g.par_site || []).every((c) => txt().indexOf(c.n_suivis + "/" + c.n_total) >= 0));
 check("jours en entier dans l'enjeu (jamais « votre jeu »)", txt().indexOf("votre jeu ") < 0);
 
@@ -83,21 +97,21 @@ check("rangées verbe d'abord", verbes.some((v) => txt().indexOf(v) >= 0));
 if ((g.trous || []).length) check("trou de veille nommé (Suivez X)", txt().indexOf("Suivez " + g.trous[0].nom.slice(0, 20)) >= 0, g.trous[0].nom);
 if ((g.savoir || {}).evts_sans_objectif) check("Fixez un objectif à N événements", txt().indexOf("Fixez un objectif à " + g.savoir.evts_sans_objectif) >= 0);
 check("règle CTA : au plus UN bouton plein", body.querySelectorAll(".tb-btnp").length <= 1, body.querySelectorAll(".tb-btnp").length + " plein(s)");
-check("Réorganisation (owner 17/08) : 5 cartes en 2 groupes + panneau", body.querySelectorAll(".tb-rb").length === 5 && !!doc.getElementById("tb-rpanel") && txt().indexOf("Compétitivité") >= 0 && txt().indexOf("Processus métiers") >= 0, body.querySelectorAll(".tb-rb").length + " cartes");
+check("Réorganisation v10 : 7 cartes (les portes Prochaine occasion + Veille rejoignent la grille) + panneau", body.querySelectorAll(".tb-rb").length === 7 && !!doc.getElementById("tb-rpanel") && txt().indexOf("Compétitivité") >= 0 && txt().indexOf("Processus métiers") >= 0 && txt().indexOf("Vos prochaines occasions") >= 0 && !!Array.from(body.querySelectorAll(".tb-rb")).find((b) => b.textContent.indexOf("Veille") >= 0), body.querySelectorAll(".tb-rb").length + " cartes");
 check("renommages : Activité dans votre périmètre · Mon positionnement · Mes dispositifs", txt().indexOf("Activité dans votre périmètre") >= 0 && txt().indexOf("Mon positionnement") >= 0 && txt().indexOf("Mes dispositifs") >= 0 && txt().indexOf("Vos dispositifs") < 0 && txt().indexOf("À surveiller") < 0 && txt().indexOf("Ma veille concurrentielle") < 0);
 check("vignette-carte dans Événements concurrents", body.querySelector('[data-tb-body="ev"]') && body.querySelector('[data-tb-body="ev"]').innerHTML.indexOf("Ouvrir la carte") >= 0);
 
 // ── Volets : l'en-tête EST la réponse. ──
 ["ev", "sv", "sf", "eq", "co"].forEach((id) => {
   // sv = panneau de la tuile Prochaine occasion (caché de la grille, corps présent).
-  check("volet " + id + " : " + (id === "sv" ? "corps présent (panneau tuile)" : "carte-résumé présente") + ", fermé", (id === "sv" || !!body.querySelector('[data-tb-rb="' + id + '"]')) && body.querySelector('[data-tb-body="' + id + '"]').style.display === "none");
+  check("volet " + id + " : carte-résumé présente, fermé", !!body.querySelector('[data-tb-rb="' + id + '"]') && body.querySelector('[data-tb-body="' + id + '"]').style.display === "none");
 });
 check("Événements concurrents — N sur 14 j", txt().indexOf("sur 14 j") >= 0);
 check("À surveiller — menaces · occasions", /menace/.test(txt()) && /occasions/.test(txt()));
 check("zéro donnée de cuisine (niv. N, priorité N, anglais mart)", txt().indexOf("niv.") < 0 && txt().indexOf("priorité ") < 0 && txt().indexOf("detected") < 0);
 
 // ── À surveiller : € chaleur gated registre (règle inchangée). ──
-body.querySelector('[data-tb-tile="sv"]').click(); await tick();
+body.querySelector('[data-tb-rb="sv"]').click(); await tick();
 check("« à récupérer » SEULEMENT avec un € (registre)", !oc.next_hot ? true
   : oc.heat_range ? txt().indexOf("à récupérer") >= 0 && txt().indexOf("jusqu’à") >= 0
   : txt().indexOf("à récupérer") < 0 && txt().indexOf("pas encore chiffré") >= 0,
