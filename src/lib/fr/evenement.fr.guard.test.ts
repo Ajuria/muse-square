@@ -37,6 +37,8 @@ const SURFACES = [
   "public/agir-proto.html",
   "public/fiche-enrich-proto.html",
   "public/competitor-proto.html",
+  "public/savoir-tile-proto.html",
+  "public/piloter-kpis-proto.html",
   "src/pages/app/insightevent/competitor.astro",
 ];
 
