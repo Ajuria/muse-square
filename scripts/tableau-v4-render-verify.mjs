@@ -135,10 +135,18 @@ if (!(g.offres || []).length && (g.offres_base || {}).n_tarifs) check("offres : 
 check("Automatisations = carte à part", !!body.querySelector('[data-tb-rb="au"]') && txt().indexOf("Automatisations") >= 0);
 
 // ── Correctif 8 points (owner 17/08) — appliqué depuis le proto validé. ──
-// 1. UN SEUL vert au héros : le chiffre Impact (mesuré). Le point de santé veille reste un point.
+// Règle couleur streamlinée (owner 18/08) : vert/ambre = DELTAS mesurés (Impact, CA 7 j) ;
+// parts et comptes = encre ; zéro = gris. Le signe suit : un delta porte +/-, une part jamais.
 const heroNums = Array.from(body.querySelectorAll(".tb-hero .n"));
 const greensHero = heroNums.filter((n) => (n.getAttribute("style") || "").indexOf("#059669") >= 0);
-check("héros : un seul chiffre vert (Impact)", greensHero.length <= 1, greensHero.length + " vert(s)");
+const expectedGreens = (gapFor(30) != null && gapFor(30) >= 0 ? 1 : 0) + (payload.ca7 && payload.ca7.pct != null && payload.ca7.pct >= 0 ? 1 : 0);
+check("héros : verts = les deltas mesurés positifs, exactement", greensHero.length === expectedGreens, greensHero.length + " vs attendu " + expectedGreens);
+check("héros : parts et comptes en encre (jamais bleu, jamais signés)", (() => {
+  const sig = heroNums.find((n) => n.parentElement.textContent.indexOf("Signaux traités") >= 0);
+  const pr = heroNums.find((n) => n.parentElement.textContent.indexOf("Dispositifs prouvés") >= 0);
+  return sig && (sig.getAttribute("style") || "").indexOf("#1D3BB3") < 0 && !/[+\u2212]/.test(sig.textContent)
+    && pr && (pr.getAttribute("style") || "").indexOf("#1D3BB3") < 0;
+})());
 // 2. CTA = verbe + flèche ≤ 14 caractères sur les gestes du correctif.
 const ctaTexts = Array.from(body.querySelectorAll("a.tb-link"))
   .map((a) => (a.textContent || "").trim())

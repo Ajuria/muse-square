@@ -48,8 +48,10 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 1. **CTA = un verbe + flèche (≤ 14 caractères)** — l'objet vit dans le titre de la rangée.
 2. **Un montant porte toujours son référentiel** (gagnés · à prendre · cible · vs habituel) —
    jamais un € nu à côté d'un verbe qui n'en est pas la cause.
-3. **Couleur = verdict** : vert = mesuré positif ; rouge/orange = verdict négatif ou alerte ;
-   bleu = prospectif/possession ; encre = tout le reste. Un seul vert par écran : celui qui est gagné.
+3. **Couleur = direction d'un DELTA MESURÉ** (owner 18/08, bandeau v10) : vert = delta mesuré
+   positif, ambre = négatif ; les parts (%), comptes et stocks restent ENCRE ; zéro = gris
+   (absence) ; bleu = prospectif/possession (hors bandeau). Le signe suit la même règle :
+   un delta porte + ou −, une part n'en porte jamais.
 4. **On NOMME ou on se tait** : jamais « un concurrent », « un écart » — le nom du concurrent,
    le chiffre, le fait. Un teaser vers une autre page n'est pas une information.
 5. **Le technique ne s'affiche que cassé** (« échappe à votre veille ») — jamais en inventaire sain.
