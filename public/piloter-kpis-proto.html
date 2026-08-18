@@ -46,7 +46,7 @@
 
   // 1 · IMPACT — MESURÉ sur la plage (le seul vert ; 30/90/365 dérivés comme aujourd'hui).
   html += '<div class="tile" title="Somme des écarts € des fenêtres engagées JUGÉES sur la plage (mart des verdicts, confounded exclus) — mesuré, jamais extrapolé.">'
-    + '<div class="k">Impact · 30 j</div><div class="n" style="color:' + GREEN + ';">' + sEur(K.impact.p30) + '</div>'
+    + '<div class="k">Impact 30 jours</div><div class="n" style="color:' + GREEN + ';">' + sEur(K.impact.p30) + '</div>'
     + '<div class="s">mesuré — cibles jugées · 90 j : ' + sEur(K.impact.p90) + '</div></div>';
 
   // 2 · CA 7 JOURS VS HABITUEL — jamais vs hier (un lundi ne se compare pas à un dimanche).
@@ -58,20 +58,20 @@
   // 3 · OPÉRATIONS EN COURS — compte + ≈ €/an SEULEMENT sur du jugé (sinon absence dite).
   var o3 = K.ops;
   html += '<div class="tile" title="Opérations en cours (mesurées + automatisées). La valeur ≈ €/an ne s’affiche que calculée sur des occurrences JUGÉES (gap mesuré moyen × occurrences/an) — jamais sur une promesse.">'
-    + '<div class="k">Opérations</div><div class="n">' + o3.n + ' en cours</div>'
+    + '<div class="k">Opérations en cours</div><div class="n">' + o3.n + '</div>'
     + '<div class="s">' + (o3.eur_year != null ? '≈ ' + sEur(o3.eur_year) + '/an (' + esc(o3.basis) + ')' : 'valeur ≈ €/an au 2e verdict jugé — 1 seul pour l’instant') + '</div></div>';
 
   // 4 · COUVERT — % de l'ENJEU IDENTIFIÉ porté par une action (position défensive).
   var c4 = K.couvert;
   html += '<div class="tile" title="Part de l’enjeu annualisé identifié par le registre (motifs d’environnement, portes n ≥ 5 + matérialité) couverte par un dispositif actif. Référentiel : l’enjeu identifié (' + frI(c4.tot) + ' €/an) — PAS votre CA.">'
-    + '<div class="k">Couvert</div><div class="n" style="color:' + BLUE + ';">' + (c4.pct == null ? '—' : c4.pct + ' %') + '</div>'
+    + '<div class="k">Signaux traités</div><div class="n" style="color:' + BLUE + ';">' + (c4.pct == null ? '—' : c4.pct + ' %') + '</div>'
     + '<div class="s">de ' + frI(c4.tot) + ' €/an d’enjeux identifiés (' + c4.n_motifs + ' motifs)</div></div>';
 
   // 5 · PROUVÉS CE MOIS-CI — le mot du lexique ; le zéro est l'état réel, il invite à Prouver.
   var p5 = K.prouves;
   html += '<div class="tile" title="Dispositifs passés PROUVÉS ce mois-ci (cible tenue au test — échelle en test · prouvé · écarté du lexique).">'
-    + '<div class="k">Prouvés ce mois-ci</div><div class="n" style="color:' + (p5.mois ? BLUE : '#9CA3AF') + ';">' + p5.mois + '</div>'
-    + '<div class="s">' + p5.en_test + ' en test — chaque cible tenue en convertit un</div></div>';
+    + '<div class="k">Dispositifs prouvés</div><div class="n" style="color:' + (p5.mois ? BLUE : '#9CA3AF') + ';">' + p5.mois + '</div>'
+    + '<div class="s">ce mois-ci · ' + p5.en_test + ' en test — chaque cible tenue en convertit un</div></div>';
 
   html += '</div>';
 

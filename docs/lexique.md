@@ -65,6 +65,10 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
   reste le NOM DE SECTION — un état de carte ne peut pas porter le même nom que sa section).
   Frise : « ◌ = dispositif actif, mesure au jour J ».
 
+- Bandeau Piloter v10 (owner 18/08) : **Impact 30 jours · CA 7 jours · Signaux traités ·
+  Opérations en cours · Dispositifs prouvés** — « Signaux traités » assumé (même concept de
+  signal partout, arbitrage owner) ; « Dispositifs validés » écarté (« validé » reste banni).
+
 ## Balayage de copie à faire (suite de ces décisions)
 
 - « déclaré(e) » affiché → « en test » ; dernier test cible manquée → « écarté ».
