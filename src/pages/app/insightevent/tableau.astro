@@ -375,7 +375,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if ((g.savoir || {}).evts_sans_objectif) aFaire.push({ rang: 4, iso: null, col: AMBER,
             titre: "Fixez un objectif à " + g.savoir.evts_sans_objectif + " événements",
             sub: "sans objectif, aucun test ne peut conclure",
-            geste: '<a class="tb-link" href="/app/insightevent/evenement">Fixer →</a>' });
+            geste: '<a class="tb-link" href="/app/insightevent/evenement?filtre=sans_objectif">Fixer →</a>' });
           if ((g.savoir || {}).cartes_bloquees) aFaire.push({ rang: 4, iso: null, col: AMBER,
             titre: "Précisez votre zone de clientèle",
             sub: "débloque le chiffrage de " + g.savoir.cartes_bloquees + " cartes concurrence — une question, posée sur la carte",

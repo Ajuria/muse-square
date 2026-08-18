@@ -131,12 +131,29 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         // ── La LISTE (mode par défaut) — la vue user_events : quand, série, track record. ──
         function renderList(events) {
           var newHref = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc) + "&new=1";
+          // « Fixer → » du tableau de bord (owner 18/08) : vue FILTRÉE des événements sans
+          // objectif — même critère que le compteur du bandeau (kpi absent en base).
+          var filtreSansObj = qs.get("filtre") === "sans_objectif";
+          var filtreHead = "";
+          if (filtreSansObj) {
+            var tousHref = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc);
+            var sans = events.filter(function (e) { return !e.kpi; });
+            filtreHead = '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:13px;">'
+              + '<span style="font-weight:650;">' + sans.length + ' \u00e9v\u00e9nement' + (sans.length > 1 ? 's' : '') + ' sans objectif</span>'
+              + '<span style="color:#6B7280;">sans objectif, aucun verdict \u2014 fixez-le, la mesure fait le reste</span>'
+              + '<a href="' + tousHref + '" style="margin-left:auto;color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Tous mes \u00e9v\u00e9nements \u2192</a></div>';
+            events = sans;
+            if (!events.length) {
+              body.innerHTML = filtreHead + '<div style="font-size:13px;color:#6B7280;">Tous vos \u00e9v\u00e9nements ont un objectif sur ce lieu.</div>';
+              return;
+            }
+          }
           if (!events.length) {
             body.innerHTML = '<div style="font-size:13px;color:#6B7280;">Aucun événement pour ce lieu. <a href="' + newHref + '" style="color:#1D3BB3;font-weight:600;">Créer le premier</a>.</div>';
             return;
           }
           var head2 = '<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><a href="' + newHref + '" style="display:inline-flex;align-items:center;padding:8px 14px;background:#1D3BB3;border-radius:6px;font-size:13px;font-weight:500;color:#fff;text-decoration:none;">Nouvel événement</a></div>';
-          body.innerHTML = head2 + events.map(function (e) {
+          body.innerHTML = filtreHead + head2 + events.map(function (e) {
             var when = e.recurring
               ? "Série · " + (e.n_occurrences || 0) + " occurrence(s)" + (e.next_date ? " · prochaine le " + frD(e.next_date) : e.last_date ? " · terminée le " + frD(e.last_date) : "")
               : e.next_date ? "Prochaine date : " + frD(e.next_date)
@@ -149,6 +166,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">'
               + '<span style="font-size:13.5px;font-weight:600;">' + esc(e.title) + '</span>'
               + (e.type_label_fr ? '<span style="display:inline-flex;font-size:11px;padding:2px 8px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + esc(e.type_label_fr) + '</span>' : "")
+              + (!e.kpi ? '<span style="display:inline-flex;font-size:11px;padding:2px 8px;border-radius:20px;background:#FEF3E2;color:#B45309;">Objectif non fix\u00e9</span>' : "")
               + '</div>'
               + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;color:#6B7280;">'
               + '<span>' + esc(when) + '</span>' + track
