@@ -65,7 +65,7 @@ const g = payload.glance || {};
 const oc = payload.occasions || {};
 // ── HÉROS v10 (proto validé 18/08) : bandeau 5 KPI — titres arbitrés owner. ──
 const vLieux = (g.veille || {}).lieux || [];
-const heroTitles = ["Impact 30 jours", "CA 7 jours", "Signaux traités", "Opérations en cours", "Dispositifs prouvés"];
+const heroTitles = ["CA multi-site sur 30 jours", "Impact dispositifs sur 30 jours", "Signaux traités", "Opérations en cours", "Dispositifs prouvés"];
 check("héros v10 : les 5 titres arbitrés, dans l'ordre", (() => {
   let pos = -1;
   return heroTitles.every((t2) => { const i2 = txt().indexOf(t2); if (i2 < 0 || i2 < pos) return false; pos = i2; return true; });
@@ -74,10 +74,10 @@ check("héros v10 : anciennes tuiles-portes retirées du héros", body.querySele
   && !body.querySelector('.tb-hero [data-tb-tile="af"]') && !body.querySelector('.tb-hero [data-tb-tile="sv"]') && !body.querySelector('.tb-hero [data-tb-tile="co"]'),
   body.querySelectorAll(".tb-hero .tb-tile").length + " tuiles");
 // CA 7 j : le % du payload, avec son référentiel.
-if (payload.ca7 && payload.ca7.pct != null)
-  check("CA 7 jours : le MONTANT € en chiffre, le % signé en sous-ligne (owner 18/08 : simple)",
-    txt().indexOf(Math.round(payload.ca7.real7).toLocaleString("fr-FR") + " €") >= 0
-    && txt().indexOf(String(Math.abs(payload.ca7.pct)).replace(".", ",") + " % vs votre habituel") >= 0, payload.ca7.real7 + " € · " + payload.ca7.pct + " %");
+if (payload.ca30 && payload.ca30.pct != null)
+  check("CA multi-site 30 j : MONTANT signé + en chiffre, % signé en sous-ligne",
+    txt().indexOf("+" + Math.round(payload.ca30.real7).toLocaleString("fr-FR") + " €") >= 0
+    && txt().indexOf(String(Math.abs(payload.ca30.pct)).replace(".", ",") + " % vs votre habituel") >= 0, payload.ca30.real7 + " € · " + payload.ca30.pct + " %");
 // Signaux traités : couvert/total des motifs du payload.
 {
   const ls = payload.learnings || [];
@@ -140,7 +140,8 @@ check("Automatisations = carte à part", !!body.querySelector('[data-tb-rb="au"]
 // parts et comptes = encre ; zéro = gris. Le signe suit : un delta porte +/-, une part jamais.
 const heroNums = Array.from(body.querySelectorAll(".tb-hero .n"));
 const greensHero = heroNums.filter((n) => (n.getAttribute("style") || "").indexOf("#059669") >= 0);
-const expectedGreens = (gapFor(30) != null && gapFor(30) >= 0 ? 1 : 0); // CA = montant (encre), son delta vit en sous-ligne
+// Owner 18/08 : le € porte SYSTÉMATIQUEMENT son signe et la couleur de son delta.
+const expectedGreens = (gapFor(30) != null && gapFor(30) >= 0 ? 1 : 0) + (payload.ca30 && payload.ca30.pct != null && payload.ca30.pct >= 0 ? 1 : 0);
 check("héros : verts = les deltas mesurés positifs, exactement", greensHero.length === expectedGreens, greensHero.length + " vs attendu " + expectedGreens);
 check("héros : parts et comptes en encre (jamais bleu, jamais signés)", (() => {
   const sig = heroNums.find((n) => n.parentElement.textContent.indexOf("Signaux traités") >= 0);
