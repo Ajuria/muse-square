@@ -67,7 +67,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 
 | Route | Methods | Purpose | Data source |
 |---|---|---|---|
-| `import/locations.ts` | GET | Lists user-owned establishments for CSV import selection | `dims.dim_client_location` |
+| `import/locations.ts` | GET | Lists user-owned establishments for CSV import selection. **P3.1-c (19/08)** : chaque site porte `pos` (caisse déclarée du profil jointe à `analytics.pos_systems` — pos_key, label_fr, ingestion_mode, import_source = clé parseur sales-csv, export_note_fr ; null si non déclarée) — le flux d'import d'ie-prompt.js saute la question « De quel logiciel ? » et route dessus | `dims.dim_client_location`, `raw.insight_event_user_location_profile` × `analytics.pos_systems` |
 | `import/sales.ts` | POST | Inserts JSON sales payload (transactions + line items) | `raw.client_transactions` |
 | `import/sales-csv.ts` | POST | Parses CSV/Excel, maps columns, idempotent delete-supersede load by source+dates. **29/07 : écrit aussi `invoice_number` / `item_code` / `item_description`** — trois colonnes de destination que la couche d'écriture laissait NULL depuis toujours, alors que le grain déclaré de `stg_client_transactions` est `location_id × transaction_date × invoice_number × item_code`. Le `load` est un WRITE_APPEND sans schéma explicite (BigQuery applique celui de la table), les trois colonnes sont STRING nullable — vérifié en direct | `raw.client_transactions` |
 
@@ -125,7 +125,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | Route | Methods | Purpose | Data source |
 |---|---|---|---|
 | `analytics/admin-dashboard.ts` | GET | Admin dashboard of all sites + stats | `mart.fct_admin_dashboard` |
-| `admin/invite.ts` 🆕 | GET/POST | **P3.1-a onboarding sur invitation (18/08)** — invitations Clerk réelles : POST {email, activity_hint?, pos_hint?} crée (métadonnées → pré-remplissage profil P3.1-b + routage caisse P3.1-c ; redirect sign-up, Clerk envoie l'email), POST {revoke_id} révoque, GET liste les pending ; garde isAdmin (motif admin-dashboard) ; client @clerk/backend EXPLICITE (clé secrète — indépendant du runtime Astro, testable en direct) ; UI = bloc « Inviter un compte » sur admin.astro ; harnais scripts/invite-verify.mts (--send = création+révocation réelles) ; GESTE OWNER restant : instance Clerk en Restricted | Clerk API |
+| `admin/invite.ts` 🆕 | GET/POST | **P3.1-a onboarding sur invitation (18/08)** — invitations Clerk réelles : POST {email, activity_hint?, pos_hint?} crée (métadonnées → pré-remplissage profil P3.1-b + routage caisse P3.1-c ; redirect sign-up, Clerk envoie l'email), POST {revoke_id} révoque, GET liste les pending ; garde isAdmin (motif admin-dashboard) ; client @clerk/backend EXPLICITE (clé secrète — indépendant du runtime Astro, testable en direct) ; UI = bloc « Inviter un compte » sur admin.astro ; harnais scripts/invite-verify.mts (--send = création+révocation réelles) ; GESTE OWNER restant : instance Clerk en Restricted. **P3.1-c (19/08)** : la demande de fichier de ventes part À L'INVITATION (goulot mesuré humain, J+9 Olivades) — email Resend (rail internalSend, reply_to = l'inviteur) avec la consigne d'export de la caisse pressentie (pos_hint apparié sans casse à `analytics.pos_systems`, repli « autre ») ; non bloquant, `file_request_email` dans la réponse ; prouvé réel (--send : sent) | Clerk API, Resend (internalSend), `analytics.pos_systems` |
 | `analytics/admin-errors.ts` | GET | Error + crawl-failure logs for user/location | `analytics.api_error_log`, `…crawl_log` |
 | `analytics/admin-feedback.ts` | GET | User feedback on signal confirmations | `analytics.signal_confirmations` |
 | `analytics/admin-page.ts` | GET | Admin HTML page (Clerk-gated) | none |
@@ -268,7 +268,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 
 | Module | Key exports | Purpose | Data source |
 |---|---|---|---|
-| `channels/internalSend.ts` | `sendSlack`, `sendEmail` | Internal RULE-alert send primitives (sealed rail) | Slack, Resend |
+| `channels/internalSend.ts` | `sendSlack`, `sendEmail` | Internal RULE-alert send primitives (sealed rail). P3.1-c : `InternalMessage.reply_to` optionnel (Resend reply_to — absent, comportement inchangé) | Slack, Resend |
 | `internalAlertCards.ts` | `V1_ALERT_ACTION_TYPES`, `V1_ALERT_ACTION_TYPE_SET` | V1 internal-alert allowlist (5 perf RULE cards) | none |
 | `competitive/constants.ts` | `VALID_CONFIDENCE`, `VALID_INDUSTRY`, `VALID_AUDIENCE`, `audiencesFromProse`, `BUCKET_MAP`, `classifySource`, … | Industry/confidence validators + source URL classifier + **the ONE prose→audience-taxonomy mapper** (Claude describes audiences in French prose; the overlap formula compares exact codes vs the location vocabulary — every writer of `competitor_directory.primary/secondary_audience` must map through here) | none |
 | `competitive/geocode.ts` | `geocodeCompetitor` | Geocode via BAN, reject >30km from city | BAN API |

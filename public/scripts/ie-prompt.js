@@ -1790,10 +1790,33 @@ if (!root) {
           var j = await res.json().catch(function () { return null; });
           if (j && j.ok && Array.isArray(j.locations)) locs = j.locations;
         } catch (e) {}
+        pending.locs = locs;
         if (locs.length > 1) {
           aiBlock(confirmBlock("Pour quel établissement ?", "loc", locs.map(function (l) { return { id: l.location_id, label: l.label }; })));
         } else {
           if (locs.length === 1) pending.location_id = locs[0].location_id;
+          routeOrAskSource();
+        }
+      }
+      // P3.1-c : caisse déclarée au profil → la question saute, l'import route sur
+      // import_source (clé parseur servie par /api/import/locations). Sans caisse : question inchangée.
+      function routeOrAskSource() {
+        var pos = null;
+        var locs = pending.locs || [];
+        for (var i = 0; i < locs.length; i++) {
+          if (locs[i].location_id === pending.location_id) { pos = locs[i].pos || null; break; }
+        }
+        if (!pos && locs.length === 1) pos = locs[0].pos || null;
+        if (pos && pos.import_source) {
+          pending.source = pos.import_source;
+          var srcHtml = '<div style="font-size:13px;color:#6b7280;">Source : <span style="color:#111827;font-weight:600;">' + escapeHtml(pos.label_fr || "votre caisse") + '</span> — votre caisse déclarée (modifiable dans votre profil).</div>';
+          // Connexion directe prévue pour cette caisse : la consigne le dit ici, l'import CSV reste le chemin.
+          if (pos.ingestion_mode === "connector_planned" && pos.export_note_fr) {
+            srcHtml += '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + escapeHtml(pos.export_note_fr) + '</div>';
+          }
+          aiBlock(srcHtml);
+          doImport();
+        } else {
           askSource();
         }
       }
@@ -1871,7 +1894,7 @@ if (!root) {
         var r = opt.querySelector(".ie-import-radio");
         if (r) r.style.border = "5px solid #1D3BB3";
         var kind = opt.getAttribute("data-kind");
-        if (kind === "loc") { pending.location_id = opt.getAttribute("data-id"); askSource(); }
+        if (kind === "loc") { pending.location_id = opt.getAttribute("data-id"); routeOrAskSource(); }
         else if (kind === "src") { pending.source = opt.getAttribute("data-id"); doImport(); }
       });
 

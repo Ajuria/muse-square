@@ -9440,6 +9440,7 @@
    "pos_key",
    "label_fr",
    "ingestion_mode",
+   "import_source",
    "export_note_fr",
    "active",
    "sort"

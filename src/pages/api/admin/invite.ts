@@ -14,6 +14,33 @@ import { createClerkClient } from "@clerk/backend";
 
 const clerk = () => createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY || "" });
 import { isAdmin } from "../../../lib/admins";
+// P3.1-c : la demande de fichier part À L'INVITATION (le goulot mesuré est humain — J+9 chez
+// Les Olivades pour obtenir le fichier ; on le demande donc au plus tôt). Rail Resend interne,
+// réponses routées vers l'inviteur (reply_to). Consigne d'export par caisse pressentie
+// (analytics.pos_systems, repli « autre »). Échec d'envoi = non bloquant, dit dans la réponse.
+import { sendEmail } from "../../../lib/channels/internalSend";
+import { makeBQClient } from "../../../lib/bq";
+
+async function fileRequestNote(pos_hint: string | null): Promise<{ label: string | null; note: string }> {
+  const FALLBACK = "Tout export CSV des ventes convient — une ligne par article vendu, 12 mois si possible.";
+  try {
+    const bq = makeBQClient("muse-square-open-data");
+    const hint = (pos_hint || "").trim().toLowerCase();
+    const [rows] = await bq.query({
+      query: `SELECT pos_key, label_fr, export_note_fr FROM \`muse-square-open-data.analytics.pos_systems\` WHERE active`,
+      location: "EU",
+    });
+    const list: any[] = Array.isArray(rows) ? rows : [];
+    const hit = hint
+      ? list.find((r) => String(r.pos_key).toLowerCase() === hint || String(r.label_fr).toLowerCase() === hint)
+      : null;
+    if (hit && hit.export_note_fr) return { label: String(hit.label_fr), note: String(hit.export_note_fr) };
+    const autre = list.find((r) => String(r.pos_key) === "autre");
+    return { label: null, note: autre && autre.export_note_fr ? String(autre.export_note_fr) : FALLBACK };
+  } catch (_) {
+    return { label: null, note: FALLBACK };
+  }
+}
 
 export const prerender = false;
 
@@ -65,7 +92,41 @@ export const POST: APIRoute = async (context) => {
       redirectUrl: `${process.env.APP_BASE_URL || "https://www.musesquare.com"}/sign-up`,
       notify: true,
     });
-    return json(200, { ok: true, invitation: { id: inv.id, email: inv.emailAddress, status: inv.status } });
+
+    // Demande de fichier de ventes, envoyée dans la foulée de l'invitation.
+    let file_request_email = "not_sent";
+    try {
+      const [{ label, note }, inviter] = await Promise.all([
+        fileRequestNote(pos_hint),
+        clerk().users.getUser(adminId).catch(() => null),
+      ]);
+      const inviterEmail =
+        (inviter && (inviter.emailAddresses?.find((e: any) => e.id === inviter.primaryEmailAddressId)?.emailAddress
+          || inviter.emailAddresses?.[0]?.emailAddress)) || null;
+      const body = [
+        "Bonjour,",
+        "",
+        "Votre invitation Muse Square vient de partir (email séparé).",
+        "",
+        "Pour que vos premières analyses tombent dès votre inscription, préparez dès maintenant votre export de ventes" + (label ? ` (${label})` : "") + " :",
+        note,
+        "",
+        "Répondez à cet email avec le fichier, ou déposez-le dans l'app (page Explorer) une fois connecté.",
+        "",
+        "— Muse Square",
+      ].join("\n");
+      const sent = await sendEmail({}, {
+        title: "Muse Square — préparez votre fichier de ventes",
+        body,
+        recipient: email,
+        ...(inviterEmail ? { reply_to: inviterEmail } : {}),
+      });
+      file_request_email = sent.ok ? "sent" : `not_sent: ${sent.error || "erreur"}`;
+    } catch (e: any) {
+      file_request_email = `not_sent: ${e?.message || "erreur"}`;
+    }
+
+    return json(200, { ok: true, invitation: { id: inv.id, email: inv.emailAddress, status: inv.status }, file_request_email });
   } catch (err: any) {
     // Clerk renvoie des erreurs typées (déjà invité, déjà inscrit…) — les remonter lisibles.
     return json(400, { ok: false, error: err?.errors?.[0]?.message || err?.message || "Erreur Clerk" });

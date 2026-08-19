@@ -20,6 +20,9 @@ if (process.argv.includes("--send")) {
   const r3 = await (POST as any)(ctx(admin, { email: "julen.deajuriaguerra+p3test@gmail.com", activity_hint: "test P3.1-a", pos_hint: "Sage 100" }));
   const j3 = JSON.parse(await r3.text());
   check("création réelle (adresse taguée owner)", r3.status === 200 && j3.ok === true, JSON.stringify(j3.invitation || j3.error));
+  // P3.1-c : la demande de fichier part dans la foulée (Resend réel, consigne Sage 100,
+  // reply_to = l'inviteur). "sent" = Resend a accepté l'email.
+  check("demande de fichier envoyée (Resend réel)", j3.file_request_email === "sent", String(j3.file_request_email));
   if (j3.ok) {
     const r4 = await (POST as any)(ctx(admin, { revoke_id: j3.invitation.id }));
     check("révocation immédiate", r4.status === 200, await r4.text());
