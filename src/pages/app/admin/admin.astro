@@ -26,6 +26,18 @@ if (!isAdmin(userId)) {
           <option value="inactive">Inactive</option>
         </select>
       </div>
+      <!-- P3.1-a : inviter un compte (Clerk invitations réelles — l'instance doit être en Restricted). -->
+      <div id="ivw" style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Inviter un compte</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <input type="email" id="iv-email" placeholder="email@exemple.fr" style="flex:1;min-width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+          <input type="text" id="iv-act" placeholder="activit\u00e9 pressentie (ex. \u00e9picerie fine)" style="width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+          <input type="text" id="iv-pos" placeholder="caisse pressentie (ex. Sage 100)" style="width:180px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+          <button type="button" id="iv-go" style="padding:7px 14px;border-radius:6px;border:none;background:#1D3BB3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Inviter</button>
+          <span id="iv-msg" style="font-size:12px;color:#6b7280;"></span>
+        </div>
+        <div id="iv-list" style="margin-top:8px;font-size:12px;color:#6b7280;"></div>
+      </div>
       <div id="tw" style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;overflow:hidden;"></div>
     </div>
     <div id="dv" style="display:none;"></div>
@@ -33,6 +45,10 @@ if (!isAdmin(userId)) {
   </div>
   <script is:inline>
   var D=[],S=null;
+  // P3.1-a — invitations.
+  function ivList(){fetch("/api/admin/invite").then(function(r){return r.json()}).then(function(j){var el=document.getElementById("iv-list");if(!j.ok){el.textContent="";return}if(!j.invitations.length){el.textContent="Aucune invitation en attente.";return}el.innerHTML=j.invitations.map(function(i){return '<div style="display:flex;gap:8px;align-items:center;padding:3px 0;"><span>'+es(i.email)+'</span><span style="color:#9ca3af;">'+(i.metadata&&i.metadata.pos_hint?es(i.metadata.pos_hint)+" \u00b7 ":"")+fd(i.created_at)+'</span><a href="#" data-iv-rev="'+es(i.id)+'" style="color:#B91C1C;font-size:11px;text-decoration:none;">R\u00e9voquer</a></div>'}).join("");el.querySelectorAll("[data-iv-rev]").forEach(function(a){a.addEventListener("click",function(ev){ev.preventDefault();fetch("/api/admin/invite",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({revoke_id:a.getAttribute("data-iv-rev")})}).then(function(){ivList()})})})}).catch(function(){})}
+  document.getElementById("iv-go").addEventListener("click",function(){var em=document.getElementById("iv-email").value.trim();var ms=document.getElementById("iv-msg");if(!em){ms.textContent="Email requis";return}ms.textContent="\u2026";fetch("/api/admin/invite",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:em,activity_hint:document.getElementById("iv-act").value.trim()||null,pos_hint:document.getElementById("iv-pos").value.trim()||null})}).then(function(r){return r.json()}).then(function(j){ms.textContent=j.ok?"Invitation envoy\u00e9e \u00e0 "+em:"Erreur : "+(j.error||"");if(j.ok){document.getElementById("iv-email").value="";ivList()}}).catch(function(){ms.textContent="Erreur r\u00e9seau"})});
+  ivList();
   function fm(d){if(!d)return"\u2014";var t=new Date(d);return t.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})+" "+t.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
   function fd(d){if(!d)return"\u2014";return new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}
   function ag(d){if(d==null)return"\u2014";if(d===0)return"Aujourd'hui";if(d===1)return"Hier";return d+"j"}

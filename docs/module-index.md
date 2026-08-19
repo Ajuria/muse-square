@@ -125,6 +125,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | Route | Methods | Purpose | Data source |
 |---|---|---|---|
 | `analytics/admin-dashboard.ts` | GET | Admin dashboard of all sites + stats | `mart.fct_admin_dashboard` |
+| `admin/invite.ts` 🆕 | GET/POST | **P3.1-a onboarding sur invitation (18/08)** — invitations Clerk réelles : POST {email, activity_hint?, pos_hint?} crée (métadonnées → pré-remplissage profil P3.1-b + routage caisse P3.1-c ; redirect sign-up, Clerk envoie l'email), POST {revoke_id} révoque, GET liste les pending ; garde isAdmin (motif admin-dashboard) ; client @clerk/backend EXPLICITE (clé secrète — indépendant du runtime Astro, testable en direct) ; UI = bloc « Inviter un compte » sur admin.astro ; harnais scripts/invite-verify.mts (--send = création+révocation réelles) ; GESTE OWNER restant : instance Clerk en Restricted | Clerk API |
 | `analytics/admin-errors.ts` | GET | Error + crawl-failure logs for user/location | `analytics.api_error_log`, `…crawl_log` |
 | `analytics/admin-feedback.ts` | GET | User feedback on signal confirmations | `analytics.signal_confirmations` |
 | `analytics/admin-page.ts` | GET | Admin HTML page (Clerk-gated) | none |
