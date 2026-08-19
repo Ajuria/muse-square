@@ -9,6 +9,7 @@ import { geocodeCompetitor } from "../../../lib/competitive/geocode";
 import { audiencesFromProse } from "../../../lib/competitive/constants";
 import { lookupPlace } from "../../../lib/competitive/places";
 import { VALID_INDUSTRY, BUCKET_MAP } from "../../../lib/competitive/constants";
+import { isAdmin } from "../../../lib/admins";
 
 export const prerender = false;
 
@@ -91,8 +92,8 @@ async function resolveCoordinatesViaPlaces(
 
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
-    const clerk_user_id = String((locals as any)?.clerk_user_id || "").trim();
-    const location_id   = String((locals as any)?.location_id   || "").trim();
+    let clerk_user_id = String((locals as any)?.clerk_user_id || "").trim();
+    let location_id   = String((locals as any)?.location_id   || "").trim();
     if (!clerk_user_id || !location_id) {
       return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
         status: 401, headers: { "content-type": "application/json" }
@@ -100,6 +101,36 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const body = await request.json().catch(() => null);
+
+    // ── C4 : un ADMIN peut suivre POUR un autre compte (body.target_location_id, garde isAdmin).
+    // L'identité STOCKÉE devient celle du propriétaire de la location cible — y compris une clé
+    // en attente « invite:<uuid> » d'un compte pré-provisionné (basculée à la réclamation, C3).
+    // Toutes les écritures/dédups en aval suivent : elles lisent ces deux variables.
+    const target_location_id = String(body?.target_location_id || "").trim();
+    if (target_location_id && target_location_id !== location_id) {
+      if (!isAdmin((locals as any)?.real_clerk_user_id || clerk_user_id)) {
+        return new Response(JSON.stringify({ ok: false, error: "Forbidden: target_location_id" }), {
+          status: 403, headers: { "content-type": "application/json" }
+        });
+      }
+      const bqT = makeBQClient(String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim());
+      const [ownRows] = await bqT.query({
+        query: `SELECT clerk_user_id FROM \`${String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim()}.raw.insight_event_user_location_profile\`
+                WHERE location_id = @l
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY updated_at DESC) = 1`,
+        params: { l: target_location_id },
+        types: { l: "STRING" },
+        location: (process.env.BQ_LOCATION || "EU").trim(),
+      });
+      const ownerId = Array.isArray(ownRows) && ownRows.length ? String(ownRows[0].clerk_user_id || "").trim() : "";
+      if (!ownerId) {
+        return new Response(JSON.stringify({ ok: false, error: "target_location_id inconnu" }), {
+          status: 404, headers: { "content-type": "application/json" }
+        });
+      }
+      clerk_user_id = ownerId;
+      location_id = target_location_id;
+    }
 
     const competitor_name     = String(body?.competitor_name     || "").trim();
     const city                = String(body?.city                || "").trim();

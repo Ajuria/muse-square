@@ -67,6 +67,16 @@ if (process.argv.includes("--send")) {
         JSON.stringify(p1));
       const dim1 = await q(`SELECT location_id, client_industry_code, geo_point IS NOT NULL AS has_geo FROM \`muse-square-open-data.dims.dim_client_location\` WHERE location_id = @l`, { l: locId });
       check("dim_client_location : synchronisée avec géo", dim1.length === 1 && (dim1[0] as any).has_geo === true, JSON.stringify(dim1[0] || null));
+      // ── C4 : l'admin suit un concurrent POUR le compte pré-provisionné (rail réel). ──
+      const { POST: addCompPOST } = await import("../src/pages/api/competitive/add-competitor.ts");
+      const compCtx = (locals: any, b: any) => ({ locals, request: new Request("http://l/", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }) });
+      const rF = await (addCompPOST as any)(compCtx({ clerk_user_id: "user_intrus", location_id: "loc_intrus" }, { target_location_id: locId, competitor_name: "X", city: "Paris" }));
+      check("C4 : target_location_id non-admin → 403", rF.status === 403, String(rF.status));
+      const rC = await (addCompPOST as any)(compCtx({ clerk_user_id: ADMIN_USER_IDS[0], location_id: "harness-admin-loc" }, { target_location_id: locId, competitor_name: "Musée Carnavalet", city: "Paris" }));
+      const jC = JSON.parse(await rC.text());
+      check("C4 : suivi posé pour le compte invité (rail add-competitor réel)", rC.status === 200 && jC.ok === true, JSON.stringify({ status: rC.status, competitor_id: jC.competitor_id || null, error: jC.error || null }));
+      const w1 = await q(`SELECT clerk_user_id, location_id, competitor_name FROM \`muse-square-open-data.raw.watched_competitors\` WHERE location_id = @l AND deleted_at IS NULL`, { l: locId });
+      check("C4 : la veille porte la clé en attente + la location invitée", w1.length === 1 && (w1[0] as any).clerk_user_id === pk, JSON.stringify(w1));
       // Réclamation (la même lib que profile.astro appellera au premier login).
       const { claimProvisionedProfile } = await import("../src/lib/onboardingClaim.ts");
       const cl = await claimProvisionedProfile(bq, { clerk_user_id: "user_c3claimtest", email: "julen.deajuriaguerra+p3test@gmail.com", provision_key: pk });
@@ -75,12 +85,20 @@ if (process.argv.includes("--send")) {
       check("réclamation : idempotente (2e appel = déjà à lui)", cl2.claimed === true && cl2.location_ids.includes(locId), JSON.stringify(cl2));
       const clBad = await claimProvisionedProfile(bq, { clerk_user_id: "user_c3claimtest", email: null, provision_key: "invite:pas-un-uuid" });
       check("réclamation : clé malformée refusée sans toucher la base", clBad.claimed === false || clBad.location_ids.includes(locId), JSON.stringify(clBad));
-      // Purge totale (profil + dim) — le harnais ne laisse RIEN.
+      // La bascule emporte la veille (C4) avec le profil.
+      const w2 = await q(`SELECT clerk_user_id FROM \`muse-square-open-data.raw.watched_competitors\` WHERE location_id = @l AND deleted_at IS NULL`, { l: locId });
+      check("C4 : la veille bascule avec la réclamation", w2.length === 1 && (w2[0] as any).clerk_user_id === "user_c3claimtest", JSON.stringify(w2));
+      // Purge totale (profil + dim + veille) — le harnais ne laisse RIEN au compte synthétique.
+      // (L'entrée competitor_directory du concurrent est PARTAGÉE entre comptes : on n'y touche pas.)
       await q(`DELETE FROM \`muse-square-open-data.raw.insight_event_user_location_profile\` WHERE location_id = @l AND clerk_user_id = 'user_c3claimtest'`, { l: locId });
       await q(`DELETE FROM \`muse-square-open-data.dims.dim_client_location\` WHERE location_id = @l`, { l: locId });
-      const left = await q(`SELECT COUNT(*) AS n FROM \`muse-square-open-data.raw.insight_event_user_location_profile\` WHERE location_id = @l`, { l: locId });
+      await q(`DELETE FROM \`muse-square-open-data.raw.watched_competitors\` WHERE location_id = @l`, { l: locId });
+      await q(`DELETE FROM \`muse-square-open-data.raw.competitor_tracking\` WHERE location_id = @l`, { l: locId });
+      const left = await q(`SELECT (SELECT COUNT(*) FROM \`muse-square-open-data.raw.insight_event_user_location_profile\` WHERE location_id = @l)
+        + (SELECT COUNT(*) FROM \`muse-square-open-data.raw.watched_competitors\` WHERE location_id = @l)
+        + (SELECT COUNT(*) FROM \`muse-square-open-data.raw.competitor_tracking\` WHERE location_id = @l) AS n`, { l: locId });
       const nLeft = Number(((left[0] as any) || {}).n?.value ?? ((left[0] as any) || {}).n ?? -1);
-      check("purge : 0 ligne restante", nLeft === 0, String(nLeft));
+      check("purge : 0 ligne restante (profil + veille)", nLeft === 0, String(nLeft));
     }
     const r4 = await (POST as any)(ctx(admin, { revoke_id: j3.invitation.id }));
     check("révocation immédiate", r4.status === 200, await r4.text());

@@ -35,6 +35,17 @@ export async function claimProvisionedProfile(
     types: { uid: "STRING", em: "STRING", pk: "STRING" },
     location: "EU",
   });
+  // C4 : la veille posée par l'admin AVANT l'inscription (concurrents suivis pour ce compte)
+  // porte la même clé en attente — elle bascule avec le profil. Non fatal par table : un échec
+  // ici ne bloque jamais la réclamation du profil (les lectures de veille passent par location_id).
+  for (const t of ["raw.watched_competitors", "raw.competitor_tracking"]) {
+    await bq.query({
+      query: `UPDATE \`${PROJECT}.${t}\` SET clerk_user_id = @uid WHERE clerk_user_id = @pk`,
+      params: { uid, pk },
+      types: { uid: "STRING", pk: "STRING" },
+      location: "EU",
+    }).catch(() => {});
+  }
   // Vérité relue : ce que le compte possède APRÈS bascule (0 ligne = rien à réclamer, no-op).
   const [rows] = await bq.query({
     query: `SELECT location_id FROM \`${PROJECT}.${TABLE}\` WHERE clerk_user_id = @uid`,
