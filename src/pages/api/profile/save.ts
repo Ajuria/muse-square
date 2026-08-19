@@ -249,6 +249,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       : "";
 
     const company_activity_type = getOptionalString(fd, "company_activity_type");
+    const pos_system = getOptionalString(fd, "pos_system");   // P3.1-b : caisse/logiciel de vente (clé de analytics.pos_systems)
     const location_type = getOptionalString(fd, "location_type");
     const event_time_profile = getOptionalString(fd, "event_time_profile");
     const location_access_pattern = getOptionalString(fd, "location_access_pattern");
@@ -484,6 +485,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             IF(@company_lon IS NULL OR @company_lat IS NULL, NULL, ST_GEOGPOINT(@company_lon, @company_lat))
           ),
         company_activity_type = @company_activity_type,
+        pos_system = @pos_system,
         location_type = @location_type,
         event_time_profile = @event_time_profile,
         location_access_pattern = @location_access_pattern,
@@ -534,6 +536,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         company_geocode_status,
         company_geog,
         company_activity_type,
+        pos_system,
         location_type,
         event_time_profile,
         location_access_pattern,
@@ -584,6 +587,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @company_geocode_status,
         IF(@company_lon IS NULL OR @company_lat IS NULL, NULL, ST_GEOGPOINT(@company_lon, @company_lat)),
         @company_activity_type,
+        @pos_system,
         @location_type,
         @event_time_profile,
         @location_access_pattern,
@@ -636,6 +640,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       company_geocoded_at,
       company_geocode_status,
       company_activity_type,
+      pos_system,
       location_type,
       event_time_profile,
       location_access_pattern,
@@ -678,6 +683,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       company_name: "STRING",
       company_address: "STRING",
       company_activity_type: "STRING",
+      pos_system: "STRING",
       location_type: "STRING",
       event_time_profile: "STRING",
       location_access_pattern: "STRING",
@@ -871,6 +877,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       company_geocoded_at,
       company_geocode_status,
       company_activity_type,
+      pos_system,
       location_type,
       event_time_profile,
       location_access_pattern,

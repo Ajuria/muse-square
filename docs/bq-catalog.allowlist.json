@@ -9435,6 +9435,14 @@
    "month_ratio",
    "month_state",
    "is_run_start"
+  ],
+  "analytics.pos_systems": [
+   "pos_key",
+   "label_fr",
+   "ingestion_mode",
+   "export_note_fr",
+   "active",
+   "sort"
   ]
  }
 }
