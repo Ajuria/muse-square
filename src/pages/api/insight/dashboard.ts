@@ -35,7 +35,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [ca7Rows], [opsValRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [ca7Rows], [opsValRows], [evtPubRows], [evtCovRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -565,6 +565,37 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 GROUP BY 1`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
+      // Événements PUBLICS autour de chaque site (maquette validée 19/08) — LECTURE de la surface
+      // MATÉRIALISÉE la nuit (runEventSurface, cron snapshot-competitors) : le calcul géodésique
+      // coûtait 10-17 s à la requête (mesuré 19/08) — interdit par le budget 3 s. Entonnoir déjà
+      // appliqué à la matérialisation : même bucket que le site + ≤ 15 km, 14 j, dédup nom+lieu
+      // au public LU d'abord. Le rayon d'AFFICHAGE (catchment) se tranche côté client.
+      bq.query({
+        // Les 100 PLUS PROCHES par site (jamais un LIMIT plat : ordonné par location_id il
+        // amputait des sites entiers) — la zone (≤ 20 km max) est toujours dedans ; les COMPTES
+        // vrais voyagent séparément (requête couverture), l'affichage ne ment jamais.
+        query: `SELECT location_id, nom, lieu, ville, d, dfin, pub, gratuit, m
+                FROM \`${PROJECT}.analytics.location_public_events\`
+                WHERE location_id IN UNNEST(@locs)
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY m) <= 100
+                ORDER BY location_id, d, m`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Couverture 30 j (matérialisée) + catchment EN DIRECT sur la dim (le rayon suit la
+      // réponse périmètre sans attendre la nuit) + COMPTES VRAIS calculés serveur : n14 (secteur
+      // ≤ 15 km) et n_zone (rayon du catchment — le MÊME CASE que dayClassRegistry). Un site
+      // sans géo n'a pas de ligne : le bloc ne se rend pas. Table absente → catch → bloc absent.
+      bq.query({
+        query: `SELECT c.location_id, ANY_VALUE(cl.client_catchment) catchment, ANY_VALUE(c.n30) n30,
+                       COUNT(e.nom) n14,
+                       COUNTIF(e.m <= CASE cl.client_catchment WHEN 'commune' THEN 1000 WHEN 'beyond' THEN 20000 ELSE 500 END) n_zone
+                FROM \`${PROJECT}.analytics.location_public_events_coverage\` c
+                JOIN \`${PROJECT}.dims.dim_client_location\` cl ON cl.location_id = c.location_id
+                LEFT JOIN \`${PROJECT}.analytics.location_public_events\` e ON e.location_id = c.location_id
+                WHERE c.location_id IN UNNEST(@locs)
+                GROUP BY c.location_id, cl.client_catchment`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
     ]);
 
     // ── Bandeau v10 : CA 7 jours vs habituel (médiane même jour de semaine, 12 dernières
@@ -941,6 +972,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
             ws: str(r.ws), we: str(r.we),
           })),
           evts14: (evts14Rows as any[]).map((r) => ({ location_id: str(r.location_id), d: str(r.d), nom: str(r.event_name), lieu: str(r.venue_name), m: num(r.m), score: num(r.conflict_score), lvl_heat: num(r.lvl_heat), lvl_rain: num(r.lvl_rain), lvl_wind: num(r.lvl_wind), lvl_snow: num(r.lvl_snow), lvl_cold: num(r.lvl_cold) })),
+          // Événements publics (entonnoir secteur+15 km) + couverture/catchment par site (19/08).
+          evtpub: {
+            sites: (evtCovRows as any[]).map((r) => ({ location_id: str(r.location_id), catchment: str(r.catchment), n30: Number(num(r.n30) ?? 0), n14: Number(num(r.n14) ?? 0), n_zone: Number(num(r.n_zone) ?? 0) })),
+            evts: (evtPubRows as any[]).map((r) => ({ location_id: str(r.location_id), nom: str(r.nom), lieu: str(r.lieu), ville: str(r.ville), d: str(r.d), dfin: str(r.dfin), m: num(r.m), pub: str(r.pub), gratuit: flat(r.gratuit) === true })),
+          },
           habituel_dow: (dowRows as any[]).map((r) => ({ location_id: str(r.location_id), dw: num(r.dw), habituel: num(r.habituel) })),
           savoir: { evts_sans_objectif: Number(num((savoirRows as any[])[0]?.evts_sans_objectif) ?? 0), cartes_bloquees: Number(num((savoirRows as any[])[0]?.cartes_bloquees) ?? 0) },
           cartes: (cartesRows as any[]).map((r) => ({ type: str(r.action_type), cat: str(r.action_category), prio: num(r.action_priority), d: str(r.d), location_id: str(r.location_id) })),

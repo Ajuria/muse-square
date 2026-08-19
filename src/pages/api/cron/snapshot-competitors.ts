@@ -329,6 +329,64 @@ async function runFicheEnrichment() {
   }
 }
 
+// ── Surface « événements publics » MATÉRIALISÉE (19/08) — le budget 3 s du tableau. ──
+// Le calcul (vue jour×événement 14/30 j + jointures géodésiques) coûte 10-17 s : à la requête
+// c'est interdit (mesuré — il aurait mangé le budget du dashboard) ; on le paie UNE fois par
+// nuit ici, même doctrine que fct_location_events_radius_daily. CREATE OR REPLACE = bascule
+// atomique, jamais d'état partiel. Le dashboard ne fait plus que LIRE ces deux tables.
+export async function runEventSurface(): Promise<void> {
+  const projectId = (process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
+  const bq = makeBQClient(projectId);
+  const t0 = Date.now();
+  await bq.query({
+    query: `CREATE OR REPLACE TABLE \`${projectId}.analytics.location_public_events\` AS
+      WITH locs AS (
+        SELECT cl.location_id, cl.geo_point, cib.industry_bucket
+        FROM \`${projectId}.dims.dim_client_location\` cl
+        LEFT JOIN \`${projectId}.open_data.event_industry_keywords_normalization\` cib
+          ON cib.raw_industry_code = cl.client_industry_code AND cib.source = 'client'
+        WHERE cl.active_flag = TRUE AND cl.geo_point IS NOT NULL
+      ),
+      evt AS (
+        SELECT event_uid, ANY_VALUE(event_label) nom, ANY_VALUE(event_venue_name) lieu,
+               ANY_VALUE(city_name) ville, ANY_VALUE(industry_bucket) bucket,
+               ANY_VALUE(geo_point) gp, MIN(date) d, MAX(date) dfin,
+               ANY_VALUE(cached_audience_profile) pub, ANY_VALUE(is_free_bool) gratuit
+        FROM \`${projectId}.intermediate.int_events_event_daily_enriched\`
+        WHERE date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 14 DAY)
+          AND geo_point IS NOT NULL AND COALESCE(is_cancelled_bool, FALSE) = FALSE
+        GROUP BY event_uid
+      )
+      SELECT l.location_id, e.nom, e.lieu, e.ville,
+             CAST(e.d AS STRING) d, CAST(e.dfin AS STRING) dfin,
+             e.pub, e.gratuit, ROUND(ST_DISTANCE(e.gp, l.geo_point)) m,
+             CURRENT_TIMESTAMP() AS computed_at
+      FROM evt e
+      JOIN locs l ON ST_DWITHIN(e.gp, l.geo_point, 15000) AND l.industry_bucket = e.bucket
+      QUALIFY ROW_NUMBER() OVER (PARTITION BY l.location_id, e.nom, COALESCE(e.lieu, '')
+                                 ORDER BY (e.pub IS NOT NULL) DESC, e.d) = 1`,
+    location: "EU",
+  });
+  await bq.query({
+    query: `CREATE OR REPLACE TABLE \`${projectId}.analytics.location_public_events_coverage\` AS
+      WITH locs AS (
+        SELECT cl.location_id, cl.geo_point
+        FROM \`${projectId}.dims.dim_client_location\` cl
+        WHERE cl.active_flag = TRUE AND cl.geo_point IS NOT NULL
+      )
+      SELECT l.location_id,
+             COUNT(DISTINCT IF(ST_DWITHIN(e.geo_point, l.geo_point, 15000), e.event_uid, NULL)) n30,
+             CURRENT_TIMESTAMP() AS computed_at
+      FROM locs l
+      LEFT JOIN \`${projectId}.intermediate.int_events_event_daily_enriched\` e
+        ON e.date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 30 DAY)
+       AND e.geo_point IS NOT NULL
+      GROUP BY l.location_id`,
+    location: "EU",
+  });
+  console.log(`[event-surface] tables matérialisées en ${Math.round((Date.now() - t0) / 1000)} s`);
+}
+
 // ── C5 (19/08) : enrichissement CIBLÉ des événements — l'entonnoir approuvé owner. ──
 // Jamais les ~2 000 événements du mois : seulement ceux qui passent les deux portes GRATUITES
 // (rayon 15 km d'un site client actif + MÊME bucket industrie), sans enrichissement frais
@@ -439,6 +497,7 @@ export const GET: APIRoute = async ({ request }) => {
   waitUntil(runSnapshots().catch((e) => console.error("[snapshot-competitors] background error:", e?.message)));
   waitUntil(runFicheEnrichment().catch((e) => console.error("[fiche-enrich] background error:", e?.message)));
   waitUntil(runEventEnrichment().catch((e) => console.error("[event-enrich] background error:", e?.message)));
+  waitUntil(runEventSurface().catch((e) => console.error("[event-surface] background error:", e?.message)));
 
   return new Response(
     JSON.stringify({ ok: true, status: "started" }),

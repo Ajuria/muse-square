@@ -9446,6 +9446,23 @@
    "export_note_fr",
    "active",
    "sort"
+  ],
+  "analytics.location_public_events": [
+   "location_id",
+   "nom",
+   "lieu",
+   "ville",
+   "d",
+   "dfin",
+   "pub",
+   "gratuit",
+   "m",
+   "computed_at"
+  ],
+  "analytics.location_public_events_coverage": [
+   "location_id",
+   "n30",
+   "computed_at"
   ]
  }
 }

@@ -73,7 +73,9 @@ check("héros v10 : les 5 titres arbitrés, dans l'ordre", (() => {
 check("héros v10 : ⓘ infobulle (2 tuiles €) + zone titre hauteur FIXE clampée (alignement prouvé navigateur 18/08 : 66/66/66/66/66)",
   Array.from(body.querySelectorAll(".tb-hero .tb-eb")).length === 5
   && body.querySelectorAll(".tb-hero .tb-eb .u[title]").length === 2
-  && txt().indexOf("sur 30 jours") < 0);
+  // Portée HÉROS (instruit 19/08) : l'assertion visait les TITRES du bandeau — la page peut
+  // légitimement dire « sur 30 jours » ailleurs (absence dite des événements publics).
+  && (body.querySelector(".tb-hero") ? body.querySelector(".tb-hero").textContent.indexOf("sur 30 jours") < 0 : true));
 check("bandeau : « vs votre résultat habituel » (le nu est banni)", txt().indexOf("vs votre résultat habituel") >= 0
   && !/vs habituel[^»]/.test(txt().replace(/vs votre résultat habituel/g, "")));
 check("héros v10 : anciennes tuiles-portes retirées du héros", body.querySelectorAll(".tb-hero .tb-tile").length === 5
@@ -355,6 +357,52 @@ check("bascule 90 j : le volet ouvert (co) survit à la bascule", body.querySele
 const lect = body.querySelector("[data-tb-lect]");
 if (lect) { lect.click(); await tick(); }
 check("pli Lecture s'ouvre au clic", lect ? doc.getElementById("tb-lecture").style.display === "block" : true);
+
+// ── Événements publics dans le volet « Activité dans votre périmètre » (19/08). ──
+// Assertions dérivées du PAYLOAD lui-même (entonnoir serveur) — jamais de valeurs figées.
+{
+  const ep = (payload.glance || {}).evtpub || {};
+  check("payload : evtpub présent (sites + evts)", Array.isArray(ep.sites) && Array.isArray(ep.evts), (ep.sites || []).length + " site(s) géo, " + (ep.evts || []).length + " évt(s)");
+  const evVolet = body.querySelector('[data-tb-body="ev"]');
+  const openEv = body.querySelector('[data-tb-rb="ev"]') || body.querySelector('[data-tb-volet="ev"]');
+  if (openEv) { openEv.click(); await tick(); }
+  const evTxt = evVolet ? evVolet.textContent : "";
+  check("bloc « Événements publics autour de vous » rendu", evTxt.indexOf("Événements publics autour de vous") >= 0);
+  // Comptes VRAIS serveur (n_zone/n14) — les lignes livrées sont plafonnées aux 100 plus proches.
+  let zoneTot = 0;
+  for (const cv of ep.sites || []) zoneTot += Number(cv.n_zone) || 0;
+  // Chaque site géocodé porte son état : liste (zone > 0) OU absence dite (2 registres).
+  for (const cv of ep.sites || []) {
+    const zone = Number(cv.n_zone) || 0;
+    if (zone > 0) continue;
+    if (!cv.n30) check("absence dite (zone non couverte) pour un site à 0/30 j", evTxt.indexOf("n’est pas encore couverte") >= 0, cv.location_id.slice(0, 8));
+    else check("absence dite (couverte, rien du secteur) pour un site sans zone", evTxt.indexOf("la zone est bien couverte") >= 0, cv.location_id.slice(0, 8) + " n30=" + cv.n30);
+  }
+  if (zoneTot > 0) {
+    check("résumé de tuile : compte des événements publics au référentiel zone", evTxt.length > 0 && body.textContent.indexOf(zoneTot + " événement") >= 0, zoneTot + " attendus");
+    check("filtre « Votre zone » affiché avec le rayon maison", /Votre zone · (1 km|20 km|500 m) \(/.test(evTxt));
+    const beyondLink = evVolet.querySelector("[data-ep-beyond]");
+    const beyondList = evVolet.querySelector("[data-ep-beyond-list]");
+    if (beyondLink && beyondList) {
+      check("« au-delà » caché d'office", beyondList.style.display === "none");
+      beyondLink.click(); await tick();
+      check("« au-delà » se déplie au geste", beyondList.style.display === "block" && beyondList.querySelectorAll("[data-ep-row]").length > 0, beyondList.querySelectorAll("[data-ep-row]").length + " rangée(s)");
+    }
+    const fltCommun = evVolet.querySelector('[data-ep-flt="commun"]');
+    if (fltCommun) {
+      fltCommun.click(); await tick();
+      const list = evVolet.querySelector("[data-ep-list]");
+      const shown = Array.from(list.querySelectorAll("[data-ep-row]")).filter((r) => r.style.display !== "none").length;
+      const nCommunPayload = Number((fltCommun.textContent.match(/\((\d+)\)/) || [])[1] || 0);
+      check("filtre publics : rangées affichées = compte du chip", shown === nCommunPayload, shown + " vs " + nCommunPayload);
+      if (!nCommunPayload) check("filtre à zéro : l'absence est dite", list.textContent.indexOf("pas encore lus") >= 0);
+    }
+    // Un public LU porte sa chip au vocabulaire des fiches ; un public NON lu n'a jamais de chip.
+    const anyRead = (ep.evts || []).some((e) => e.pub);
+    if (anyRead) check("chip publics présente quand un public est lu", /(même public que vous|public partiellement commun|public différent du vôtre)/.test(evTxt));
+    check("l'avancement de la lecture est dit", evTxt.indexOf("public lu") >= 0);
+  }
+}
 
 console.log(fails ? `\n${fails} ÉCHEC(S)` : "\nTOUT VERT (" + body.querySelectorAll(".tb-card").length + " cartes rendues)");
 process.exit(fails ? 1 : 0);
