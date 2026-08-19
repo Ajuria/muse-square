@@ -29,6 +29,7 @@ import { VALID_INDUSTRY, VALID_AUDIENCE } from "../../../lib/competitive/constan
 import { waitUntil } from "@vercel/functions";
 import { salesFresherThanDayClass, runDayClassBatch } from "./day-class-impacts";
 import { makeBQClient as _mkBqDc } from "../../../lib/bq";
+import { runProposedFollows } from "../../../lib/proposedFollows";
 
 export const prerender = false;
 
@@ -1380,6 +1381,14 @@ export const GET: APIRoute = async ({ request }) => {
       await runDayClassBatch();
     }
   })().catch((e) => console.error("[day-class rattrapage]", e?.message)));
+  // Suivis proposés par menace (onboarding P3.1-f, 19/08) : un compte neuf dont la chaîne géo
+  // vient d'aboutir reçoit ses premiers suivis (top menaces mesurées, marqués « proposé »)
+  // dans les 15 min — même cadence, même motif waitUntil, idempotent par marqueur action_log.
+  waitUntil((async () => {
+    const bq = _mkBqDc(String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim());
+    const r = await runProposedFollows(bq);
+    if (r.scanned > 0) console.log("[suivis proposés]", JSON.stringify(r));
+  })().catch((e) => console.error("[suivis proposés]", e?.message)));
 
   return new Response(
     JSON.stringify({ ok: true, status: "started" }),

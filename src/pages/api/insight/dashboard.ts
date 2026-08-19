@@ -481,7 +481,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        ANY_VALUE(cd.commercial_news_json) news_json,
                        CAST(ANY_VALUE(cd.commercial_news_at) AS STRING) news_at,
                        ANY_VALUE(tp.audience_overlap_pct) overlap_pct,
-                       ANY_VALUE(tp.distance_km) km
+                       ANY_VALUE(tp.distance_km) km,
+                       LOGICAL_OR(COALESCE(ct.proposed, FALSE)) proposed
                 FROM \`${PROJECT}.raw.competitor_tracking\` ct
                 JOIN \`${PROJECT}.raw.competitor_directory\` cd
                   ON cd.competitor_id = ct.competitor_id AND cd.deleted_at IS NULL
@@ -922,6 +923,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
               note: num(r.note), avis: num(r.avis), audience: str(r.audience), audience2: str(r.audience2), url: str(r.url),
               p_min: num(r.p_min), p_max: num(r.p_max), n_tarifs: num(r.n_tarifs) ?? 0,
               overlap_pct: num(r.overlap_pct), km: num(r.km), analyse: ana, actu,
+              // P3.1-f : suivi posé par le système à l'onboarding → la fiche le dit (« suivi proposé — ajustez »).
+              proposed: r.proposed === true || (r.proposed && (r.proposed as any).value === true) || false,
             };
           }),
           audiences: (audRows as any[]).map((r) => ({ location_id: str(r.location_id), a1: str(r.a1), a2: str(r.a2) })),
