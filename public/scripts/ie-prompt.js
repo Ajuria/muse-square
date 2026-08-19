@@ -1837,7 +1837,7 @@ if (!root) {
         };
         return m[code] || ("Erreur : " + code);
       }
-      function summaryHtml(out, locId) {
+      function summaryHtml(out, locId, singleSite) {
         if (!out) return '<p style="color:#b91c1c;">Erreur réseau lors de l\'import. Réessayez.</p>';
         var st = out.status;
         var accent = st === "ok" ? "#059669" : st === "partial" ? "#B45309" : "#b91c1c";
@@ -1863,6 +1863,10 @@ if (!root) {
           var url = "/app/insightevent/rapport?start=" + encodeURIComponent(out.date_range[0]) + "&end=" + encodeURIComponent(out.date_range[1]) + (locId ? "&loc=" + encodeURIComponent(locId) : "");
           h += '<a href="' + url + '" style="display:inline-block;margin-top:14px;background:#1D3BB3;color:#fff;text-decoration:none;border-radius:6px;padding:9px 16px;font-size:14px;font-weight:600;">Générer le rapport pour cette période →</a>';
         }
+        // P3.1-d : premier site importé sur un compte mono-site → le geste multi-site se propose ici.
+        if ((st === "ok" || st === "partial") && singleSite) {
+          h += '<div style="margin-top:10px;"><a href="/profile" style="font-size:13px;color:#1D3BB3;text-decoration:none;font-weight:600;">Ajouter vos autres sites →</a></div>';
+        }
         return h;
       }
 
@@ -1878,7 +1882,7 @@ if (!root) {
           out = await res.json().catch(function () { return null; });
         } catch (e) {}
         if (loading && loading.parentElement) loading.parentElement.remove();
-        aiBlock(summaryHtml(out, pending && pending.location_id));
+        aiBlock(summaryHtml(out, pending && pending.location_id, !!(pending && (pending.locs || []).length === 1)));
         pending = null;
       }
 

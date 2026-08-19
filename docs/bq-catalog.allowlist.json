@@ -5252,7 +5252,8 @@
    "source_system",
    "source_type",
    "currency",
-   "ingested_at"
+   "ingested_at",
+   "source_file"
   ],
   "raw.commercial_events_spans": [
    "event_id",

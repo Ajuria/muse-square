@@ -63,7 +63,7 @@ if (!/routeOrAskSource/.test(iife)) throw new Error("l'extrait ne contient pas r
 const POS = { pos_key: "sage100", label_fr: "Sage 100", ingestion_mode: "csv", import_source: "sage100", export_note_fr: "Export Ventes (factures) en CSV." };
 const IMPORT_OK = { ok: true, status: "ok", rows_total: 2, rows_accepted: 2, rows_rejected: 0, date_range: ["2025-01-01", "2025-01-02"] };
 
-async function runScenario(posOrNull) {
+async function runScenario(posOrNull, locsOverride) {
   const win = new Window({ url: "https://app.local/x" });
   const doc = win.document;
   doc.body.innerHTML = [
@@ -78,7 +78,8 @@ async function runScenario(posOrNull) {
   const fetchStub = (url, opts) => {
     calls.push({ url: String(url), opts });
     if (String(url).indexOf("/api/import/locations") >= 0) {
-      return Promise.resolve({ json: () => Promise.resolve({ ok: true, active: LOC, locations: [{ location_id: LOC, label: "MS Test", pos: posOrNull }] }) });
+      const locations = locsOverride || [{ location_id: LOC, label: "MS Test", pos: posOrNull }];
+      return Promise.resolve({ json: () => Promise.resolve({ ok: true, active: LOC, locations }) });
     }
     if (String(url).indexOf("/api/import/sales-csv") >= 0) {
       return Promise.resolve({ json: () => Promise.resolve(IMPORT_OK) });
@@ -123,6 +124,28 @@ async function runScenario(posOrNull) {
     !!csvCall && csvCall.opts && csvCall.opts.body && csvCall.opts.body.get("source") === "sage100",
     csvCall && csvCall.opts && csvCall.opts.body ? String(csvCall.opts.body.get("source")) : "aucun appel");
   check("caisse déclarée : résumé d'import rendu (lignes importées)", thread.indexOf("2 lignes import") >= 0);
+  check("mono-site : geste « Ajouter vos autres sites → » après import réussi (P3.1-d)", thread.indexOf("Ajouter vos autres sites") >= 0);
+}
+
+// Scénario D (P3.1-d) : compte MULTI-site → pas de geste « Ajouter vos autres sites » ; routage après choix du site.
+{
+  const locs = [
+    { location_id: LOC, label: "MS Test", pos: POS },
+    { location_id: "autre-site", label: "Site 2", pos: null },
+  ];
+  const { doc, calls } = await runScenario(null, locs);
+  const threadEl = doc.getElementById("ie-thread");
+  check("multi-site : la question « Pour quel établissement ? » se pose", threadEl.textContent.indexOf("Pour quel établissement") >= 0);
+  const optLoc = threadEl.querySelector('.ie-import-opt[data-id="' + LOC + '"]');
+  check("multi-site : le site MS Test est proposé", !!optLoc);
+  if (optLoc) {
+    optLoc.click();
+    await new Promise((r) => setTimeout(r, 60));
+    const csvCall = calls.find((c) => c.url.indexOf("/api/import/sales-csv") >= 0);
+    check("multi-site : site choisi avec caisse → routé source=sage100 sans question logiciel",
+      !!csvCall && csvCall.opts.body.get("source") === "sage100" && threadEl.textContent.indexOf("De quel logiciel provient") < 0);
+    check("multi-site : PAS de geste « Ajouter vos autres sites »", threadEl.textContent.indexOf("Ajouter vos autres sites") < 0);
+  }
 }
 
 // Scénario A' : caisse connector_planned → même routage + consigne « Connexion directe prévue » visible.
