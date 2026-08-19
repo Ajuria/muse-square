@@ -14,6 +14,8 @@ import { createClerkClient } from "@clerk/backend";
 
 const clerk = () => createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY || "" });
 import { isAdmin } from "../../../lib/admins";
+import { INDUSTRY_LABEL } from "../../../lib/competitive/constants";
+import { PROFILE_AUDIENCE_OPTIONS } from "../../../lib/profileLabels";
 // P3.1-c : la demande de fichier part À L'INVITATION (le goulot mesuré est humain — J+9 chez
 // Les Olivades pour obtenir le fichier ; on le demande donc au plus tôt). Rail Resend interne,
 // réponses routées vers l'inviteur (reply_to). Consigne d'export par caisse pressentie
@@ -85,9 +87,46 @@ export const POST: APIRoute = async (context) => {
     const activity_hint = body?.activity_hint ? String(body.activity_hint).trim().slice(0, 80) : null;
     const pos_hint = body?.pos_hint ? String(body.pos_hint).trim().slice(0, 80) : null;
 
+    // ── C2 : champs structurés du profil, posés par l'owner qui CONNAÎT l'invité. ──
+    // Enums validés contre les SST du formulaire profil (INDUSTRY_LABEL, PROFILE_AUDIENCE_OPTIONS)
+    // — un enum inconnu est une ERREUR lisible, jamais stocké tel quel. Tout est facultatif.
+    const site_name = body?.site_name ? String(body.site_name).trim().slice(0, 120) : null;
+    const company_address = body?.company_address ? String(body.company_address).trim().slice(0, 240) : null;
+    const activity = body?.activity ? String(body.activity).trim() : null;
+    if (activity && !INDUSTRY_LABEL[activity]) {
+      return json(400, { ok: false, error: `Secteur inconnu : ${activity}` });
+    }
+    const audienceKeys = PROFILE_AUDIENCE_OPTIONS.map((o) => o.value);
+    const audience_1 = body?.audience_1 ? String(body.audience_1).trim() : null;
+    const audience_2 = body?.audience_2 ? String(body.audience_2).trim() : null;
+    for (const a of [audience_1, audience_2]) {
+      if (a && !audienceKeys.includes(a)) return json(400, { ok: false, error: `Public inconnu : ${a}` });
+    }
+    let website_url: string | null = null;
+    if (body?.website_url) {
+      const raw = String(body.website_url).trim().slice(0, 240);
+      try {
+        const u = new URL(raw.includes("://") ? raw : `https://${raw}`);
+        if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("proto");
+        website_url = u.toString();
+      } catch {
+        return json(400, { ok: false, error: "Site web invalide" });
+      }
+    }
+
     const inv = await clerk().invitations.createInvitation({
       emailAddress: email,
-      publicMetadata: { invited_by: adminId, ...(activity_hint ? { activity_hint } : {}), ...(pos_hint ? { pos_hint } : {}) },
+      publicMetadata: {
+        invited_by: adminId,
+        ...(activity_hint ? { activity_hint } : {}),
+        ...(pos_hint ? { pos_hint } : {}),
+        ...(site_name ? { site_name } : {}),
+        ...(company_address ? { company_address } : {}),
+        ...(activity ? { activity } : {}),
+        ...(website_url ? { website_url } : {}),
+        ...(audience_1 ? { audience_1 } : {}),
+        ...(audience_2 ? { audience_2 } : {}),
+      },
       // L'invité atterrit sur le sign-up de l'app (le lien Clerk porte son ticket).
       redirectUrl: `${process.env.APP_BASE_URL || "https://www.musesquare.com"}/sign-up`,
       notify: true,

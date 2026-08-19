@@ -25,6 +25,19 @@ export const AUDIENCE_FR: Record<string, string> = {
   mixed: "public mixte",
 };
 
+// The 6 audiences the profile form actually offers (verbatim from profile.astro's
+// AUDIENCE_OPTIONS — value AND label). AUDIENCE_FR above is the SENTENCE register over the full
+// enum; this is the PICKABLE subset with its dropdown labels. Consumed by the admin invitation
+// form (C2 : the owner pre-fills the invitee's profile) and its validation in api/admin/invite.ts.
+export const PROFILE_AUDIENCE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "local", label: "Public local / résidents" },
+  { value: "tourists", label: "Touristes" },
+  { value: "mixed", label: "Public mixte" },
+  { value: "professionals", label: "Professionnels" },
+  { value: "students", label: "Scolaires / étudiants" },
+  { value: "families", label: "Familles" },
+];
+
 // profile.astro labels a dropdown ("Mixte"); in a sentence the model needs the descriptive form, so
 // `mixed` reads "intérieur et extérieur". Same meaning, different register — not a second vocabulary.
 export const VENUE_TYPE_FR: Record<string, string> = {
