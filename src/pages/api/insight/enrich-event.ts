@@ -171,12 +171,19 @@ export async function POST({ request }: { request: Request }) {
       organizer:            parsed.organizer ?? null,
       estimated_attendance: parsed.estimated_attendance ?? null,
       primary_audience:     parsed.primary_audience ?? null,
+      // La surface enrichie (int_events_event_daily_enriched) lit `audience_profile` — colonne
+      // que cet INSERT n'alimentait JAMAIS (cached_audience_profile restait NULL même après
+      // enrichissement, mesuré 0/2084 le 19/08). Le public principal la remplit désormais.
+      audience_profile:     parsed.primary_audience ?? null,
       secondary_audience:   parsed.secondary_audience ?? null,
       source_url:           parsed.source_url ?? null,
       business_takeaway:    parsed.business_takeaway ?? null,
     };
 
-    bq.dataset("dims").table("dim_event_enrichment").insert([row])
+    // ATTENDU (plus un fire-and-forget) : sous la passe nocturne C5 (waitUntil) le process peut
+    // mourir avant qu'un insert non attendu n'aboutisse — l'enrichissement payé se perdait.
+    // Un insert streaming coûte ~ms : imperceptible sur le chemin interactif. Échec non fatal.
+    await bq.dataset("dims").table("dim_event_enrichment").insert([row])
       .catch((err: any) => console.warn("[enrich-event] cache write failed:", err));
   }
 
