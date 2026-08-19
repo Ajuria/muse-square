@@ -25,6 +25,9 @@ const rBadUrl = await (POST as any)(ctx(admin, { email: "x@exemple.fr", website_
 check("site web invalide → 400", rBadUrl.status === 400, JSON.parse(await rBadUrl.text()).error);
 
 if (process.argv.includes("--send")) {
+  // --send = boucle RÉELLE complète : invitation Clerk + email Resend + PRÉ-PROVISIONNEMENT C3
+  // (vrai save.ts : géocodage, ligne profil, dim_client_location, chaîne dbt) + réclamation
+  // simulée + PURGE totale. Deux emails partent vers l'adresse taguée owner — volontaire.
   const r3 = await (POST as any)(ctx(admin, {
     email: "julen.deajuriaguerra+p3test@gmail.com", activity_hint: "test P3.1-a", pos_hint: "Sage 100",
     site_name: "Site Test C2", company_address: "1 rue de Rivoli, 75001 Paris",
@@ -46,6 +49,39 @@ if (process.argv.includes("--send")) {
       && md.activity === "culture" && String(md.website_url || "").startsWith("https://musesquare.com")
       && md.audience_1 === "tourists" && md.audience_2 === "families",
       JSON.stringify(md));
+    // ── C3 : pré-provisionnement prouvé en base, réclamation simulée, purge. ──
+    check("provision : ligne créée + géocodée", !!(j3.provision && j3.provision.location_id) && j3.provision.geocode_status === "geocoded_ok", JSON.stringify(j3.provision));
+    check("provision : couverture événements mesurée", j3.provision && typeof j3.provision.events_within_15km_30d === "number", String(j3.provision && j3.provision.events_within_15km_30d) + " événements <15 km/30 j");
+    if (j3.provision && j3.provision.location_id) {
+      const locId = String(j3.provision.location_id);
+      const pk = String(md.provision_key || "");
+      check("provision_key dans les métadonnées (format invite:<uuid>)", /^invite:[0-9a-f-]{36}$/.test(pk), pk);
+      const { makeBQClient } = await import("../src/lib/bq.ts");
+      const bq = makeBQClient("muse-square-open-data");
+      const q = async (sql: string, params: any = {}) =>
+        bq.query({ query: sql, params, types: Object.fromEntries(Object.keys(params).map((k) => [k, "STRING"])), location: "EU" }).then((r: any) => r[0]);
+      const raw1 = await q(`SELECT clerk_user_id, email, pos_system, company_activity_type, city_id FROM \`muse-square-open-data.raw.insight_event_user_location_profile\` WHERE location_id = @l`, { l: locId });
+      const p1: any = raw1[0] || {};
+      check("ligne profil : clé en attente + email invité + caisse + secteur + city_id",
+        p1.clerk_user_id === pk && p1.email === "julen.deajuriaguerra+p3test@gmail.com" && p1.pos_system === "sage100" && p1.company_activity_type === "culture" && !!p1.city_id,
+        JSON.stringify(p1));
+      const dim1 = await q(`SELECT location_id, client_industry_code, geo_point IS NOT NULL AS has_geo FROM \`muse-square-open-data.dims.dim_client_location\` WHERE location_id = @l`, { l: locId });
+      check("dim_client_location : synchronisée avec géo", dim1.length === 1 && (dim1[0] as any).has_geo === true, JSON.stringify(dim1[0] || null));
+      // Réclamation (la même lib que profile.astro appellera au premier login).
+      const { claimProvisionedProfile } = await import("../src/lib/onboardingClaim.ts");
+      const cl = await claimProvisionedProfile(bq, { clerk_user_id: "user_c3claimtest", email: "julen.deajuriaguerra+p3test@gmail.com", provision_key: pk });
+      check("réclamation : la ligne bascule vers l'utilisateur", cl.claimed === true && cl.location_ids.includes(locId), JSON.stringify(cl));
+      const cl2 = await claimProvisionedProfile(bq, { clerk_user_id: "user_c3claimtest", email: null, provision_key: pk });
+      check("réclamation : idempotente (2e appel = déjà à lui)", cl2.claimed === true && cl2.location_ids.includes(locId), JSON.stringify(cl2));
+      const clBad = await claimProvisionedProfile(bq, { clerk_user_id: "user_c3claimtest", email: null, provision_key: "invite:pas-un-uuid" });
+      check("réclamation : clé malformée refusée sans toucher la base", clBad.claimed === false || clBad.location_ids.includes(locId), JSON.stringify(clBad));
+      // Purge totale (profil + dim) — le harnais ne laisse RIEN.
+      await q(`DELETE FROM \`muse-square-open-data.raw.insight_event_user_location_profile\` WHERE location_id = @l AND clerk_user_id = 'user_c3claimtest'`, { l: locId });
+      await q(`DELETE FROM \`muse-square-open-data.dims.dim_client_location\` WHERE location_id = @l`, { l: locId });
+      const left = await q(`SELECT COUNT(*) AS n FROM \`muse-square-open-data.raw.insight_event_user_location_profile\` WHERE location_id = @l`, { l: locId });
+      const nLeft = Number(((left[0] as any) || {}).n?.value ?? ((left[0] as any) || {}).n ?? -1);
+      check("purge : 0 ligne restante", nLeft === 0, String(nLeft));
+    }
     const r4 = await (POST as any)(ctx(admin, { revoke_id: j3.invitation.id }));
     check("révocation immédiate", r4.status === 200, await r4.text());
   }

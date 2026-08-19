@@ -22,8 +22,14 @@ import { PROFILE_AUDIENCE_OPTIONS } from "../../../lib/profileLabels";
 // (analytics.pos_systems, repli « autre »). Échec d'envoi = non bloquant, dit dans la réponse.
 import { sendEmail } from "../../../lib/channels/internalSend";
 import { makeBQClient } from "../../../lib/bq";
+// C3 : pré-provisionnement — la ligne profil est créée À L'INVITATION via le VRAI save.ts
+// (couture provision_identity : identité injectée, clerk_user_id = clé en attente
+// « invite:<uuid> »). Géocodage, sync dim_client_location et chaîne dbt partent à J0 ;
+// l'invité réclame la ligne au premier login (lib onboardingClaim, appelée par profile.astro).
+import { randomUUID } from "crypto";
+import { POST as saveProfilePOST } from "../profile/save";
 
-async function fileRequestNote(pos_hint: string | null): Promise<{ label: string | null; note: string }> {
+async function fileRequestNote(pos_hint: string | null): Promise<{ pos_key: string | null; label: string | null; note: string }> {
   const FALLBACK = "Tout export CSV des ventes convient — une ligne par article vendu, 12 mois si possible.";
   try {
     const bq = makeBQClient("muse-square-open-data");
@@ -36,11 +42,34 @@ async function fileRequestNote(pos_hint: string | null): Promise<{ label: string
     const hit = hint
       ? list.find((r) => String(r.pos_key).toLowerCase() === hint || String(r.label_fr).toLowerCase() === hint)
       : null;
-    if (hit && hit.export_note_fr) return { label: String(hit.label_fr), note: String(hit.export_note_fr) };
+    if (hit && hit.export_note_fr) return { pos_key: String(hit.pos_key), label: String(hit.label_fr), note: String(hit.export_note_fr) };
     const autre = list.find((r) => String(r.pos_key) === "autre");
-    return { label: null, note: autre && autre.export_note_fr ? String(autre.export_note_fr) : FALLBACK };
+    return { pos_key: null, label: null, note: autre && autre.export_note_fr ? String(autre.export_note_fr) : FALLBACK };
   } catch (_) {
-    return { label: null, note: FALLBACK };
+    return { pos_key: null, label: null, note: FALLBACK };
+  }
+}
+
+// Couverture événements au point géocodé — mesurée à l'invitation, montrée à l'owner :
+// zéro = base pauvre (cas Houdan, mesuré), il saura pré-choisir des concurrents suivis (C4).
+// 15 km / 30 j = la fenêtre de l'audit de couverture ; comptage DISTINCT event_uid.
+async function eventCoverage(lat: number, lon: number): Promise<number | null> {
+  try {
+    const bq = makeBQClient("muse-square-open-data");
+    const [rows] = await bq.query({
+      query: `SELECT COUNT(DISTINCT event_uid) AS n
+              FROM \`muse-square-open-data.intermediate.int_events_event_daily_enriched\`
+              WHERE date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 30 DAY)
+                AND geo_point IS NOT NULL
+                AND ST_DWITHIN(geo_point, ST_GEOGPOINT(@lon, @lat), 15000)`,
+      params: { lat, lon },
+      types: { lat: "FLOAT64", lon: "FLOAT64" },
+      location: "EU",
+    });
+    const n: any = (rows as any[])[0]?.n;
+    return Number(n && typeof n === "object" && "value" in n ? n.value : n);
+  } catch (_) {
+    return null;
   }
 }
 
@@ -114,6 +143,11 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
+    // C3 : la clé en attente n'existe que si on peut provisionner (adresse fournie).
+    // Générée AVANT l'invitation pour voyager dans ses métadonnées (Clerk les recopie sur
+    // l'utilisateur à l'inscription — c'est le fil que la réclamation suivra).
+    const provision_key = company_address ? `invite:${randomUUID()}` : null;
+
     const inv = await clerk().invitations.createInvitation({
       emailAddress: email,
       publicMetadata: {
@@ -126,19 +160,61 @@ export const POST: APIRoute = async (context) => {
         ...(website_url ? { website_url } : {}),
         ...(audience_1 ? { audience_1 } : {}),
         ...(audience_2 ? { audience_2 } : {}),
+        ...(provision_key ? { provision_key } : {}),
       },
       // L'invité atterrit sur le sign-up de l'app (le lien Clerk porte son ticket).
       redirectUrl: `${process.env.APP_BASE_URL || "https://www.musesquare.com"}/sign-up`,
       notify: true,
     });
 
+    // ── C3 : pré-provisionnement du profil (non bloquant — l'invitation est déjà partie). ──
+    // Le VRAI save.ts en mode create : géocodage BAN, MERGE profil, sync dim_client_location,
+    // chaîne dbt J0 (isNewAccount) — exactement le chemin d'une inscription, identité injectée.
+    // Une seule résolution de caisse — partagée entre le provisionnement et l'email de demande.
+    const posInfo = await fileRequestNote(pos_hint);
+    let provision: any = null;
+    if (provision_key && company_address) {
+      try {
+        const pos_key = posInfo.pos_key;
+        const req = new Request("http://internal/api/profile/save", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            mode: "create",
+            company_address,
+            ...(site_name ? { site_name, company_name: site_name } : {}),
+            ...(activity ? { company_activity_type: activity } : {}),
+            ...(website_url ? { website_url } : {}),
+            ...(pos_key ? { pos_system: pos_key } : {}),
+            primary_audience_1: [audience_1, audience_2].filter(Boolean),
+          }),
+        });
+        const res = await (saveProfilePOST as any)({
+          request: req,
+          locals: { clerk_user_id: provision_key, provision_identity: { email, firstName: null, lastName: null } },
+        });
+        const out = await res.json().catch(() => null);
+        if (res.status === 200 && out?.ok) {
+          const lat = out.saved?.company_lat ?? null;
+          const lon = out.saved?.company_lon ?? null;
+          provision = {
+            location_id: out.location_id,
+            geocode_status: out.saved?.company_geocode_status ?? null,
+            events_within_15km_30d: lat != null && lon != null ? await eventCoverage(Number(lat), Number(lon)) : null,
+          };
+        } else {
+          provision = { error: out?.error || `save.ts a répondu ${res.status}` };
+        }
+      } catch (e: any) {
+        provision = { error: e?.message || "provisionnement impossible" };
+      }
+    }
+
     // Demande de fichier de ventes, envoyée dans la foulée de l'invitation.
     let file_request_email = "not_sent";
     try {
-      const [{ label, note }, inviter] = await Promise.all([
-        fileRequestNote(pos_hint),
-        clerk().users.getUser(adminId).catch(() => null),
-      ]);
+      const { label, note } = posInfo;
+      const inviter = await clerk().users.getUser(adminId).catch(() => null);
       const inviterEmail =
         (inviter && (inviter.emailAddresses?.find((e: any) => e.id === inviter.primaryEmailAddressId)?.emailAddress
           || inviter.emailAddresses?.[0]?.emailAddress)) || null;
@@ -165,7 +241,7 @@ export const POST: APIRoute = async (context) => {
       file_request_email = `not_sent: ${e?.message || "erreur"}`;
     }
 
-    return json(200, { ok: true, invitation: { id: inv.id, email: inv.emailAddress, status: inv.status }, file_request_email });
+    return json(200, { ok: true, invitation: { id: inv.id, email: inv.emailAddress, status: inv.status }, file_request_email, provision });
   } catch (err: any) {
     // Clerk renvoie des erreurs typées (déjà invité, déjà inscrit…) — les remonter lisibles.
     return json(400, { ok: false, error: err?.errors?.[0]?.message || err?.message || "Erreur Clerk" });

@@ -165,9 +165,13 @@ async function registerBestTimeVenue(
   }
 }
 
+// Hors runtime Astro (harnais tsx, invocation directe), import.meta.env est absent —
+// acces optionnel, meme semantique sous Astro/Vite.
+const IS_DEV = (import.meta as any).env?.DEV === true;
+
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
-    if (import.meta.env.DEV) {
+    if (IS_DEV) {
       console.log("ENV CHECK:", {
         BQ_PROJECT_ID: process.env.BQ_PROJECT_ID,
         BQ_DATASET: process.env.BQ_DATASET,
@@ -230,8 +234,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // --- Auth + Email (parallel) ---
     const clerk_user_id = getUserIdFromLocals(locals);
+    // C3 (pré-provisionnement) : l'identité peut être INJECTÉE par un appelant interne
+    // (admin/invite.ts crée le profil AVANT que l'invité n'existe chez Clerk — clerk_user_id
+    // porte alors la clé en attente « invite:<uuid> », réclamée au premier login).
+    // locals est posé par le middleware côté HTTP : un client externe ne peut pas l'injecter.
     const { email, firstName: clerkFirstName, lastName: clerkLastName } =
-      await getUserIdentityFromClerk(clerk_user_id);
+      (locals as any)?.provision_identity ?? await getUserIdentityFromClerk(clerk_user_id);
 
     // --- Form fields ---
     // Fall back to the Clerk identity so a row is never created name-less when
@@ -922,7 +930,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // ── Fire-and-forget: crawl website if URL is new/changed ──
     if (website_url) {
-      const baseUrl = import.meta.env.DEV
+      const baseUrl = IS_DEV
         ? "http://localhost:4321"
         : new URL(request.url).origin;
       fetch(`${baseUrl}/api/profile/crawl-website`, {
@@ -947,7 +955,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       err instanceof HttpError ? err.status : 400;
 
     const message =
-      status >= 500 && !import.meta.env.DEV
+      status >= 500 && !IS_DEV
         ? "Server error"
         : (err?.message ?? "Unknown error");
 

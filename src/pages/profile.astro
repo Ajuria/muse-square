@@ -6,6 +6,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { clerkClient } from "@clerk/astro/server";
 import { RECO_BUCKETS } from "../lib/reco-taxonomy";
+// C3 : réclamation du profil pré-provisionné à l'invitation (clé « invite:<uuid> » dans les
+// métadonnées Clerk) — cette page est le passage obligé de tout nouveau compte (middleware).
+import { claimProvisionedProfile } from "../lib/onboardingClaim";
 
 if (import.meta.env.DEV) {
   console.log("PROFILE SSR locals (safe):", {
@@ -233,7 +236,8 @@ type LocationRow = {
 
 let all_locations: LocationRow[] = [];
 
-try {
+// Rappelable : la réclamation C3 (ci-dessous) relit après bascule.
+const loadAllLocations = async (): Promise<LocationRow[]> => {
   const [locRows] = await bigquery.query({
     query: `
       SELECT
@@ -273,7 +277,7 @@ try {
     params: { clerk_user_id },
     types: { clerk_user_id: "STRING" },
   });
-  all_locations = Array.isArray(locRows)
+  return Array.isArray(locRows)
     ? locRows.map((r: any) => ({
         location_id: String(r.location_id || ""),
         site_name: String(r.site_name || ""),
@@ -311,7 +315,25 @@ try {
         google_place_id: String(r.google_place_id || ""),
       }))
     : [];
+};
+try {
+  all_locations = await loadAllLocations();
 } catch (_) {}
+
+// ---- RÉCLAMATION DU PROFIL PRÉ-PROVISIONNÉ (C3) ----
+// Seulement pour un compte SANS ligne portant une clé d'invitation : zéro coût pour tous les
+// autres chargements. Après bascule, relecture — le formulaire s'ouvre pré-rempli et le contexte
+// (géo, suivis proposés) a déjà tourné depuis l'invitation.
+if (!all_locations.length && typeof (clerkMeta as any).provision_key === "string") {
+  try {
+    const res = await claimProvisionedProfile(bigquery, {
+      clerk_user_id,
+      email: clerkEmail || null,
+      provision_key: (clerkMeta as any).provision_key,
+    });
+    if (res.claimed) all_locations = await loadAllLocations();
+  } catch (_) {}
+}
 
 // ---- CAISSES / LOGICIELS DE VENTE (P3.1-b) ----
 // La liste vit dans analytics.pos_systems (SST) — le formulaire ne porte aucune caisse en dur.
