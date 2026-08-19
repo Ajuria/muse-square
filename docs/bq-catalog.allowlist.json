@@ -5252,7 +5252,8 @@
    "source_system",
    "source_type",
    "currency",
-   "ingested_at"
+   "ingested_at",
+   "source_file"
   ],
   "raw.commercial_events_spans": [
    "event_id",
@@ -5434,7 +5435,8 @@
    "clerk_user_id",
    "location_id",
    "created_at",
-   "deleted_at"
+   "deleted_at",
+   "proposed"
   ],
   "raw.ds_suivi_dde_tour": [
    "_airbyte_raw_id",
@@ -9435,6 +9437,32 @@
    "month_ratio",
    "month_state",
    "is_run_start"
+  ],
+  "analytics.pos_systems": [
+   "pos_key",
+   "label_fr",
+   "ingestion_mode",
+   "import_source",
+   "export_note_fr",
+   "active",
+   "sort"
+  ],
+  "analytics.location_public_events": [
+   "location_id",
+   "nom",
+   "lieu",
+   "ville",
+   "d",
+   "dfin",
+   "pub",
+   "gratuit",
+   "m",
+   "computed_at"
+  ],
+  "analytics.location_public_events_coverage": [
+   "location_id",
+   "n30",
+   "computed_at"
   ]
  }
 }

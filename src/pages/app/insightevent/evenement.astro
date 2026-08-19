@@ -131,12 +131,39 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         // ── La LISTE (mode par défaut) — la vue user_events : quand, série, track record. ──
         function renderList(events) {
           var newHref = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc) + "&new=1";
+          // « Nouvel événement » vit dans la rangée Retour (owner 18/08 — même motif que le
+          // tableau de bord), jamais dans la carte de liste.
+          var tb = document.getElementById("evt-toolbar");
+          if (tb && !document.getElementById("evt-new-btn")) {
+            tb.style.cssText += "display:flex;align-items:center;justify-content:space-between;gap:10px;";
+            var nb = document.createElement("a");
+            nb.id = "evt-new-btn"; nb.href = newHref;
+            nb.style.cssText = "display:inline-flex;align-items:center;padding:8px 14px;border:1px solid #1D3BB3;border-radius:8px;font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;background:#fff;";
+            nb.textContent = "Nouvel \u00e9v\u00e9nement";
+            tb.appendChild(nb);
+          }
+          // « Fixer → » du tableau de bord (owner 18/08) : vue FILTRÉE des événements sans
+          // objectif — même critère que le compteur du bandeau (kpi absent en base).
+          var filtreSansObj = qs.get("filtre") === "sans_objectif";
+          var filtreHead = "";
+          if (filtreSansObj) {
+            var tousHref = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc);
+            var sans = events.filter(function (e) { return !e.kpi; });
+            filtreHead = '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px;font-size:13px;">'
+              + '<span style="font-weight:650;">' + sans.length + ' \u00e9v\u00e9nement' + (sans.length > 1 ? 's' : '') + ' sans objectif</span>'
+              + '<span style="color:#6B7280;">sans objectif, aucun verdict \u2014 fixez-le, la mesure fait le reste</span>'
+              + '<a href="' + tousHref + '" style="margin-left:auto;color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Tous mes \u00e9v\u00e9nements \u2192</a></div>';
+            events = sans;
+            if (!events.length) {
+              body.innerHTML = filtreHead + '<div style="font-size:13px;color:#6B7280;">Tous vos \u00e9v\u00e9nements ont un objectif sur ce lieu.</div>';
+              return;
+            }
+          }
           if (!events.length) {
             body.innerHTML = '<div style="font-size:13px;color:#6B7280;">Aucun événement pour ce lieu. <a href="' + newHref + '" style="color:#1D3BB3;font-weight:600;">Créer le premier</a>.</div>';
             return;
           }
-          var head2 = '<div style="display:flex;justify-content:flex-end;margin-bottom:10px;"><a href="' + newHref + '" style="display:inline-flex;align-items:center;padding:8px 14px;background:#1D3BB3;border-radius:6px;font-size:13px;font-weight:500;color:#fff;text-decoration:none;">Nouvel événement</a></div>';
-          body.innerHTML = head2 + events.map(function (e) {
+          body.innerHTML = filtreHead + events.map(function (e) {
             var when = e.recurring
               ? "Série · " + (e.n_occurrences || 0) + " occurrence(s)" + (e.next_date ? " · prochaine le " + frD(e.next_date) : e.last_date ? " · terminée le " + frD(e.last_date) : "")
               : e.next_date ? "Prochaine date : " + frD(e.next_date)
@@ -148,7 +175,10 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             return '<a href="/app/insightevent/evenement?location_id=' + encodeURIComponent(loc) + '&saved_item_id=' + encodeURIComponent(e.saved_item_id) + '" style="display:block;text-decoration:none;color:inherit;border:1px solid rgba(0,0,0,0.08);border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff;">'
               + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">'
               + '<span style="font-size:13.5px;font-weight:600;">' + esc(e.title) + '</span>'
-              + (e.type_label_fr ? '<span style="display:inline-flex;font-size:11px;padding:2px 8px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + esc(e.type_label_fr) + '</span>' : "")
+              // UNE pilule, deux \u00e9tats (owner 18/08) : l'objectif est fix\u00e9 (avec SA valeur) ou pas.
+              + (e.kpi
+                ? '<span style="display:inline-flex;font-size:11px;padding:2px 8px;border-radius:20px;background:#F3F4F6;color:#374151;">Objectif : ' + (e.kpi === 'family_revenue' ? (e.kpi_target_eur != null ? '+' + frInt(e.kpi_target_eur) + ' \u20ac famille' : 'famille') : (e.kpi_target_pct != null ? '+' + String(e.kpi_target_pct).replace('.', ',') + ' %' : 'fix\u00e9')) + '</span>'
+                : '<span style="display:inline-flex;font-size:11px;padding:2px 8px;border-radius:20px;background:#FEF3E2;color:#B45309;">Objectif non fix\u00e9</span>')
               + '</div>'
               + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;color:#6B7280;">'
               + '<span>' + esc(when) + '</span>' + track
@@ -166,7 +196,19 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         // ── Porte objectif (owner 16/08) : « toute page de mesure PORTE un objectif ». Un
         //    événement sans cible n'a pas droit au bilan — on fixe l'objectif D'ABORD, en place
         //    (update.ts accepte kpi/kpi_target_*), puis le dossier se re-rend depuis la base.
-        function renderFixObjectifBlock(it) {
+        function renderFixObjectifBlock(it, jj0) {
+          // Aperçu pendant la saisie (owner 18/08) : la valeur ABSOLUE de l'opération + l'annualisé.
+          // Référence = votre résultat habituel des jours de l'opération (objectif.expected_eur du
+          // dossier) ; annualisé SEULEMENT pour une série (52 hebdo / 12 mensuel) — jamais extrapolé
+          // pour un ponctuel.
+          var _refs = ((jj0 && jj0.days) || []).map(function (d2) { return d2.objectif && d2.objectif.expected_eur; }).filter(function (v2) { return v2 != null; });
+          var _refEur = _refs.length ? _refs.reduce(function (a2, b2) { return a2 + b2; }, 0) / _refs.length : null;
+          // Repli : les occurrences MESURÉES d'Évaluer (apres.rows[].expected — le « vs X € habituel »).
+          if (_refEur == null && jj0 && jj0.apres && jj0.apres.rows) {
+            var _r2 = jj0.apres.rows.map(function (r2) { return r2.expected; }).filter(function (v2) { return v2 != null; });
+            if (_r2.length) _refEur = _r2.reduce(function (a2, b2) { return a2 + b2; }, 0) / _r2.length;
+          }
+          var _occAn = it.recurrence === 'weekly' ? 52 : it.recurrence === 'monthly' ? 12 : null;
           var wrap = document.createElement("div");
           wrap.id = "evt-bilan";
           wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
@@ -183,8 +225,19 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             + '<input data-fx-val type="number" min="1" step="1" placeholder="' + (isFam ? "ex. 150" : "ex. 10") + '" style="width:90px;padding:6px 9px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;">'
             + '<span style="font-size:13px;color:#374151;">' + (isFam ? "\u20ac" : "%") + '</span>'
             + '<button type="button" data-fx-save style="font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border:none;border-radius:8px;padding:6px 13px;cursor:pointer;font-family:inherit;">Fixer l\u2019objectif</button>'
-            + '<span data-fx-msg style="font-size:12px;color:#B45309;"></span></div>';
+            + '<span data-fx-msg style="font-size:12px;color:#B45309;"></span></div>'
+            + '<div data-fx-prev style="font-size:12px;color:#6B7280;margin-top:8px;"></div>';
           (body.querySelector('[data-ev-mount="bilan"]') || body).appendChild(wrap);
+          var _prevEl = wrap.querySelector("[data-fx-prev]");
+          wrap.querySelector("[data-fx-val]").addEventListener("input", function () {
+            var v2 = Number(String(wrap.querySelector("[data-fx-val]").value || "").replace(",", "."));
+            if (!v2 || v2 <= 0) { _prevEl.textContent = ""; return; }
+            var absEur = isFam ? v2 : (_refEur != null && it.kpi !== 'tickets' && it.kpi !== 'basket' ? _refEur * v2 / 100 : null);
+            if (absEur == null) { _prevEl.textContent = ""; return; }
+            _prevEl.innerHTML = '\u2248 <b>+' + frInt(absEur) + ' \u20ac</b> par occurrence'
+              + (isFam ? '' : ' <span style="color:#9CA3AF;">(sur votre r\u00e9sultat habituel \u2248 ' + frInt(_refEur) + ' \u20ac/j)</span>')
+              + (_occAn ? ' \u00b7 \u2248 <b>+' + frInt(absEur * _occAn) + ' \u20ac/an</b> <span style="color:#9CA3AF;">(s\u00e9rie, ' + _occAn + ' occurrences/an)</span>' : '');
+          });
           wrap.querySelector("[data-fx-save]").addEventListener("click", function () {
             var v = Number(String(wrap.querySelector("[data-fx-val]").value || "").replace(",", "."));
             var msg = wrap.querySelector("[data-fx-msg]");
@@ -206,7 +259,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           window._evtBilanItem = it;
           // Porte objectif : pas de cible -> pas de bilan (on ne demande pas un v\u00e9cu qu'aucun
           // verdict ne pourra juger) ; le bloc \u00ab Objectif \u00e0 fixer \u00bb prend la place.
-          if (it.kpi_target_eur == null && it.kpi_target_pct == null) { renderFixObjectifBlock(it); return; }
+          if (it.kpi_target_eur == null && it.kpi_target_pct == null) { renderFixObjectifBlock(it, j); return; }
           var today = new Date().toISOString().slice(0, 10);
           // Terminée = date passée, ou aujourd'hui avec l'heure de fin dépassée (Paris). Sans
           // heure de fin connue, le jour même ne compte pas — on ne demande pas un vécu à venir.

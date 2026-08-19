@@ -1,6 +1,9 @@
 ---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { isAdmin } from "../../../lib/admins";
+// C2 : le formulaire d'invitation porte les enums du PROFIL (mêmes SST que le formulaire profil).
+import { INDUSTRY_LABEL } from "../../../lib/competitive/constants";
+import { PROFILE_AUDIENCE_OPTIONS } from "../../../lib/profileLabels";
 export const prerender = false;
 const userId = Astro.locals.clerk_user_id;
 
@@ -26,6 +29,48 @@ if (!isAdmin(userId)) {
           <option value="inactive">Inactive</option>
         </select>
       </div>
+      <!-- P3.1-a : inviter un compte (Clerk invitations réelles — l'instance doit être en Restricted). -->
+      <div id="ivw" style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Inviter un compte</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <input type="email" id="iv-email" placeholder="email@exemple.fr" style="flex:1;min-width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+          <input type="text" id="iv-act" placeholder="activit\u00e9 pressentie (ex. \u00e9picerie fine)" style="width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+          <input type="text" id="iv-pos" placeholder="caisse pressentie (ex. Sage 100)" style="width:180px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+          <button type="button" id="iv-go" style="padding:7px 14px;border-radius:6px;border:none;background:#1D3BB3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Inviter</button>
+          <span id="iv-msg" style="font-size:12px;color:#6b7280;"></span>
+        </div>
+        <!-- C2 : pr\u00e9-remplissage du profil de l'invit\u00e9 (facultatif \u2014 tout champ pos\u00e9 ici lui \u00e9vite une saisie). -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">
+          <input type="text" id="iv-site" placeholder="nom du site" style="width:170px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+          <input type="text" id="iv-addr" placeholder="adresse professionnelle" style="flex:1;min-width:220px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+          <input type="url" id="iv-web" placeholder="site web (https://\u2026)" style="width:190px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">
+          <select id="iv-sec" style="width:230px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;">
+            <option value="">Secteur d'activit\u00e9\u2026</option>
+            {Object.entries(INDUSTRY_LABEL).map(([val, lbl]) => (<option value={val}>{lbl}</option>))}
+          </select>
+          <select id="iv-aud1" style="width:190px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;">
+            <option value="">Public principal\u2026</option>
+            {PROFILE_AUDIENCE_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}
+          </select>
+          <select id="iv-aud2" style="width:190px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;">
+            <option value="">Public secondaire\u2026</option>
+            {PROFILE_AUDIENCE_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}
+          </select>
+        </div>
+        <!-- C4 : veille posée par l'owner pour le compte invité (visible après un pré-provisionnement). -->
+        <div id="iv-comp" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;">
+          <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Suivre des concurrents pour ce compte</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input type="text" id="ivc-name" placeholder="nom du concurrent" style="flex:1;min-width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+            <input type="text" id="ivc-city" placeholder="ville (sinon celle du site invité)" style="width:210px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+            <button type="button" id="ivc-go" style="padding:7px 14px;border-radius:6px;border:none;background:#1D3BB3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Suivre</button>
+            <span id="ivc-msg" style="font-size:12px;color:#6b7280;"></span>
+          </div>
+        </div>
+        <div id="iv-list" style="margin-top:8px;font-size:12px;color:#6b7280;"></div>
+      </div>
       <div id="tw" style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;overflow:hidden;"></div>
     </div>
     <div id="dv" style="display:none;"></div>
@@ -33,6 +78,13 @@ if (!isAdmin(userId)) {
   </div>
   <script is:inline>
   var D=[],S=null;
+  // P3.1-a — invitations.
+  function ivList(){fetch("/api/admin/invite").then(function(r){return r.json()}).then(function(j){var el=document.getElementById("iv-list");if(!j.ok){el.textContent="";return}if(!j.invitations.length){el.textContent="Aucune invitation en attente.";return}el.innerHTML=j.invitations.map(function(i){return '<div style="display:flex;gap:8px;align-items:center;padding:3px 0;"><span>'+es(i.email)+'</span><span style="color:#9ca3af;">'+(i.metadata&&i.metadata.pos_hint?es(i.metadata.pos_hint)+" \u00b7 ":"")+fd(i.created_at)+'</span><a href="#" data-iv-rev="'+es(i.id)+'" style="color:#B91C1C;font-size:11px;text-decoration:none;">R\u00e9voquer</a></div>'}).join("");el.querySelectorAll("[data-iv-rev]").forEach(function(a){a.addEventListener("click",function(ev){ev.preventDefault();fetch("/api/admin/invite",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({revoke_id:a.getAttribute("data-iv-rev")})}).then(function(){ivList()})})})}).catch(function(){})}
+  document.getElementById("iv-go").addEventListener("click",function(){var em=document.getElementById("iv-email").value.trim();var ms=document.getElementById("iv-msg");if(!em){ms.textContent="Email requis";return}ms.textContent="\u2026";var gv=function(id){var el=document.getElementById(id);return el&&el.value?String(el.value).trim()||null:null};fetch("/api/admin/invite",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:em,activity_hint:gv("iv-act"),pos_hint:gv("iv-pos"),site_name:gv("iv-site"),company_address:gv("iv-addr"),website_url:gv("iv-web"),activity:gv("iv-sec"),audience_1:gv("iv-aud1"),audience_2:gv("iv-aud2")})}).then(function(r){return r.json()}).then(function(j){var extra="";if(j.ok&&j.provision){if(j.provision.location_id){var cv=j.provision.events_within_15km_30d;extra=" \u00b7 profil pr\u00e9-provisionn\u00e9"+(cv!=null?" \u00b7 "+cv+" \u00e9v\u00e9nement"+(cv>1?"s":"")+" public"+(cv>1?"s":"")+" \u00e0 moins de 15 km sur 30 jours"+(cv===0?" \u2014 base pauvre : pensez \u00e0 suivre des concurrents pour ce compte":""):"");window._ivProvLoc=j.provision.location_id;document.getElementById("iv-comp").style.display="block"}else{extra=" \u00b7 profil non provisionn\u00e9 : "+(j.provision.error||"")}}ms.textContent=j.ok?"Invitation envoy\u00e9e \u00e0 "+em+extra:"Erreur : "+(j.error||"");if(j.ok){["iv-email","iv-site","iv-addr","iv-web"].forEach(function(id){document.getElementById(id).value=""});ivList()}}).catch(function(){ms.textContent="Erreur r\u00e9seau"})});
+  // C4 : Suivre \u2192 le rail add-competitor existant, point\u00e9 sur la location PR\u00c9-PROVISIONN\u00c9E
+  // (target_location_id, garde admin c\u00f4t\u00e9 serveur). R\u00e9p\u00e9table \u2014 un concurrent \u00e0 la fois.
+  document.getElementById("ivc-go").addEventListener("click",function(){var nm=document.getElementById("ivc-name").value.trim();var cm=document.getElementById("ivc-msg");if(!window._ivProvLoc){cm.textContent="Aucun compte pr\u00e9-provisionn\u00e9 dans cette session";return}if(!nm){cm.textContent="Nom requis";return}var bt=document.getElementById("ivc-go");bt.disabled=true;cm.textContent="Ajout\u2026 (lecture du site du concurrent, ~1 min)";fetch("/api/competitive/add-competitor",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({target_location_id:window._ivProvLoc,competitor_name:nm,city:document.getElementById("ivc-city").value.trim()})}).then(function(r){return r.json()}).then(function(j){bt.disabled=false;if(j.ok){cm.textContent="Suivi \u2713 "+nm+" \u2014 premi\u00e8re lecture cette nuit";document.getElementById("ivc-name").value=""}else{cm.textContent="Erreur : "+(j.error||"")}}).catch(function(){bt.disabled=false;cm.textContent="Erreur r\u00e9seau"})});
+  ivList();
   function fm(d){if(!d)return"\u2014";var t=new Date(d);return t.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})+" "+t.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
   function fd(d){if(!d)return"\u2014";return new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}
   function ag(d){if(d==null)return"\u2014";if(d===0)return"Aujourd'hui";if(d===1)return"Hier";return d+"j"}

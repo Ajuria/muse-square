@@ -6,6 +6,7 @@ import { createHash } from "crypto";
 import { waitUntil } from "@vercel/functions";
 import { getCompetitorCommercialNews } from "../../../lib/ai/webContext";
 import { GET as competitorProfileGET } from "../competitive/competitor-profile";
+import { POST as enrichEventPOST } from "../insight/enrich-event";
 
 export const prerender = false;
 
@@ -328,6 +329,162 @@ async function runFicheEnrichment() {
   }
 }
 
+// ── Surface « événements publics » MATÉRIALISÉE (19/08) — le budget 3 s du tableau. ──
+// Le calcul (vue jour×événement 14/30 j + jointures géodésiques) coûte 10-17 s : à la requête
+// c'est interdit (mesuré — il aurait mangé le budget du dashboard) ; on le paie UNE fois par
+// nuit ici, même doctrine que fct_location_events_radius_daily. CREATE OR REPLACE = bascule
+// atomique, jamais d'état partiel. Le dashboard ne fait plus que LIRE ces deux tables.
+export async function runEventSurface(): Promise<void> {
+  const projectId = (process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
+  const bq = makeBQClient(projectId);
+  const t0 = Date.now();
+  await bq.query({
+    query: `CREATE OR REPLACE TABLE \`${projectId}.analytics.location_public_events\` AS
+      WITH locs AS (
+        SELECT cl.location_id, cl.geo_point, cib.industry_bucket
+        FROM \`${projectId}.dims.dim_client_location\` cl
+        LEFT JOIN \`${projectId}.open_data.event_industry_keywords_normalization\` cib
+          ON cib.raw_industry_code = cl.client_industry_code AND cib.source = 'client'
+        WHERE cl.active_flag = TRUE AND cl.geo_point IS NOT NULL
+      ),
+      evt AS (
+        SELECT event_uid, ANY_VALUE(event_label) nom, ANY_VALUE(event_venue_name) lieu,
+               ANY_VALUE(city_name) ville, ANY_VALUE(industry_bucket) bucket,
+               ANY_VALUE(geo_point) gp, MIN(date) d, MAX(date) dfin,
+               ANY_VALUE(cached_audience_profile) pub, ANY_VALUE(is_free_bool) gratuit
+        FROM \`${projectId}.intermediate.int_events_event_daily_enriched\`
+        WHERE date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 14 DAY)
+          AND geo_point IS NOT NULL AND COALESCE(is_cancelled_bool, FALSE) = FALSE
+        GROUP BY event_uid
+      )
+      SELECT l.location_id, e.nom, e.lieu, e.ville,
+             CAST(e.d AS STRING) d, CAST(e.dfin AS STRING) dfin,
+             e.pub, e.gratuit, ROUND(ST_DISTANCE(e.gp, l.geo_point)) m,
+             CURRENT_TIMESTAMP() AS computed_at
+      FROM evt e
+      JOIN locs l ON ST_DWITHIN(e.gp, l.geo_point, 15000) AND l.industry_bucket = e.bucket
+      QUALIFY ROW_NUMBER() OVER (PARTITION BY l.location_id, e.nom, COALESCE(e.lieu, '')
+                                 ORDER BY (e.pub IS NOT NULL) DESC, e.d) = 1`,
+    location: "EU",
+  });
+  await bq.query({
+    query: `CREATE OR REPLACE TABLE \`${projectId}.analytics.location_public_events_coverage\` AS
+      WITH locs AS (
+        SELECT cl.location_id, cl.geo_point
+        FROM \`${projectId}.dims.dim_client_location\` cl
+        WHERE cl.active_flag = TRUE AND cl.geo_point IS NOT NULL
+      )
+      SELECT l.location_id,
+             COUNT(DISTINCT IF(ST_DWITHIN(e.geo_point, l.geo_point, 15000), e.event_uid, NULL)) n30,
+             CURRENT_TIMESTAMP() AS computed_at
+      FROM locs l
+      LEFT JOIN \`${projectId}.intermediate.int_events_event_daily_enriched\` e
+        ON e.date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 30 DAY)
+       AND e.geo_point IS NOT NULL
+      GROUP BY l.location_id`,
+    location: "EU",
+  });
+  console.log(`[event-surface] tables matérialisées en ${Math.round((Date.now() - t0) / 1000)} s`);
+}
+
+// ── C5 (19/08) : enrichissement CIBLÉ des événements — l'entonnoir approuvé owner. ──
+// Jamais les ~2 000 événements du mois : seulement ceux qui passent les deux portes GRATUITES
+// (rayon 15 km d'un site client actif + MÊME bucket industrie), sans enrichissement frais
+// (cached_enriched_at NULL ≤ 30 j), les plus proches dans le temps d'abord, plafond par nuit.
+// Chaque enrichissement passe par le VRAI enrich-event (motif fiche-enrich : le rail, pas une
+// copie) et remplit dims.dim_event_enrichment — dont audience_profile, le critère « publics ».
+export async function runEventEnrichment(cap = 3): Promise<number> {
+  const projectId = (process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
+  const bq = makeBQClient(projectId);
+  const flatv = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  const [rows] = await bq.query({
+    query: `
+      WITH locs AS (
+        SELECT cl.location_id, cl.geo_point, cib.industry_bucket
+        FROM \`${projectId}.dims.dim_client_location\` cl
+        LEFT JOIN \`${projectId}.open_data.event_industry_keywords_normalization\` cib
+          ON cib.raw_industry_code = cl.client_industry_code AND cib.source = 'client'
+        WHERE cl.active_flag = TRUE AND cl.geo_point IS NOT NULL AND cib.industry_bucket IS NOT NULL
+      ),
+      evts AS (
+        SELECT event_uid,
+               ANY_VALUE(event_label) AS event_label,
+               ANY_VALUE(description) AS description,
+               ANY_VALUE(city_name) AS city_name,
+               ANY_VALUE(city_id) AS city_id,
+               ANY_VALUE(event_venue_name) AS event_venue_name,
+               ANY_VALUE(industry_code) AS industry_code,
+               ANY_VALUE(industry_bucket) AS industry_bucket,
+               ANY_VALUE(geo_point) AS geo_point,
+               MIN(date) AS first_date
+        FROM \`${projectId}.intermediate.int_events_event_daily_enriched\`
+        WHERE date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 30 DAY)
+          AND geo_point IS NOT NULL
+          AND COALESCE(is_cancelled_bool, FALSE) = FALSE
+          AND industry_bucket IS NOT NULL AND industry_bucket != 'unknown'
+          AND cached_enriched_at IS NULL
+        GROUP BY event_uid
+      )
+      SELECT e.event_uid, e.event_label, e.description, e.city_name, e.city_id,
+             e.event_venue_name, e.industry_code, e.first_date,
+             l.location_id, ST_DISTANCE(e.geo_point, l.geo_point) AS distance_m
+      FROM evts e
+      JOIN locs l
+        ON ST_DWITHIN(e.geo_point, l.geo_point, 15000)
+       AND l.industry_bucket = e.industry_bucket
+      QUALIFY ROW_NUMBER() OVER (PARTITION BY e.event_uid ORDER BY ST_DISTANCE(e.geo_point, l.geo_point)) = 1
+      ORDER BY e.first_date ASC
+      LIMIT @cap`,
+    params: { cap },
+    types: { cap: "INT64" },
+    location: "EU",
+  });
+  const todo = Array.isArray(rows) ? (rows as any[]) : [];
+  console.log(`[event-enrich] ${todo.length} événement(s) cette nuit (rayon+bucket, cap ${cap})`);
+  let done = 0;
+  for (const r of todo) {
+    const label = String(flatv(r.event_label) || "");
+    try {
+      // Contexte profil du site le plus proche — les enums voyagent BRUTS, enrich-event les nomme.
+      const [pRows] = await bq.query({
+        query: `SELECT primary_audience_1, primary_audience_2, company_activity_type, main_event_objective
+                FROM \`${projectId}.raw.insight_event_user_location_profile\`
+                WHERE location_id = @l
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY updated_at DESC) = 1`,
+        params: { l: String(flatv(r.location_id)) },
+        types: { l: "STRING" },
+        location: "EU",
+      });
+      const p: any = (pRows as any[])[0] || {};
+      const req = new Request("http://cron/api/insight/enrich-event", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          event_uid: String(flatv(r.event_uid)),
+          event_label: label,
+          description: flatv(r.description) || null,
+          city_name: flatv(r.city_name) || null,
+          city_id: flatv(r.city_id) || null,
+          event_venue_name: flatv(r.event_venue_name) || null,
+          industry_code: flatv(r.industry_code) || null,
+          distance_m: flatv(r.distance_m) != null ? Number(flatv(r.distance_m)) : null,
+          primary_audience_1: flatv(p.primary_audience_1) || null,
+          primary_audience_2: flatv(p.primary_audience_2) || null,
+          company_activity_type: flatv(p.company_activity_type) || null,
+          main_event_objective: flatv(p.main_event_objective) || null,
+        }),
+      });
+      const res = await enrichEventPOST({ request: req } as any);
+      const j = JSON.parse(await (res as any).text());
+      if (j.ok) done++;
+      console.log(`[event-enrich] ${label}: ${j.ok ? (j.data?.primary_audience ? "public : " + j.data.primary_audience : "enrichi (public introuvable — dit)") : j.error}`);
+    } catch (e: any) {
+      console.error(`[event-enrich] ${label}:`, e?.message);
+    }
+  }
+  return done;
+}
+
 export const GET: APIRoute = async ({ request }) => {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -336,9 +493,11 @@ export const GET: APIRoute = async ({ request }) => {
     });
   }
 
-  // Réponse immédiate ; les deux travaux vivent derrière la réponse (waitUntil — motif maison).
+  // Réponse immédiate ; les travaux vivent derrière la réponse (waitUntil — motif maison).
   waitUntil(runSnapshots().catch((e) => console.error("[snapshot-competitors] background error:", e?.message)));
   waitUntil(runFicheEnrichment().catch((e) => console.error("[fiche-enrich] background error:", e?.message)));
+  waitUntil(runEventEnrichment().catch((e) => console.error("[event-enrich] background error:", e?.message)));
+  waitUntil(runEventSurface().catch((e) => console.error("[event-surface] background error:", e?.message)));
 
   return new Response(
     JSON.stringify({ ok: true, status: "started" }),

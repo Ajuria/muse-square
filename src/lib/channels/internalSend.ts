@@ -16,6 +16,9 @@ export interface InternalMessage {
   title?: string;
   body: string;
   recipient: string;
+  // P3.1-c : les réponses de l'invité doivent atterrir chez la personne qui invite,
+  // pas sur noreply@. Optionnel — absent, comportement inchangé.
+  reply_to?: string;
 }
 
 // ── Slack (chat.postMessage) — mirror of publish.ts handleSlack ──
@@ -73,7 +76,10 @@ export async function sendEmail(
       "content-type": "application/json",
       "authorization": "Bearer " + apiKey,
     },
-    body: JSON.stringify({ from, to: [to], subject, text }),
+    body: JSON.stringify({
+      from, to: [to], subject, text,
+      ...(msg.reply_to && msg.reply_to.includes("@") ? { reply_to: [msg.reply_to] } : {}),
+    }),
   });
   const json = await res.json().catch(() => null);
   if (!res.ok || !json?.id) {

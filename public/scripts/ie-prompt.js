@@ -1790,10 +1790,33 @@ if (!root) {
           var j = await res.json().catch(function () { return null; });
           if (j && j.ok && Array.isArray(j.locations)) locs = j.locations;
         } catch (e) {}
+        pending.locs = locs;
         if (locs.length > 1) {
           aiBlock(confirmBlock("Pour quel établissement ?", "loc", locs.map(function (l) { return { id: l.location_id, label: l.label }; })));
         } else {
           if (locs.length === 1) pending.location_id = locs[0].location_id;
+          routeOrAskSource();
+        }
+      }
+      // P3.1-c : caisse déclarée au profil → la question saute, l'import route sur
+      // import_source (clé parseur servie par /api/import/locations). Sans caisse : question inchangée.
+      function routeOrAskSource() {
+        var pos = null;
+        var locs = pending.locs || [];
+        for (var i = 0; i < locs.length; i++) {
+          if (locs[i].location_id === pending.location_id) { pos = locs[i].pos || null; break; }
+        }
+        if (!pos && locs.length === 1) pos = locs[0].pos || null;
+        if (pos && pos.import_source) {
+          pending.source = pos.import_source;
+          var srcHtml = '<div style="font-size:13px;color:#6b7280;">Source : <span style="color:#111827;font-weight:600;">' + escapeHtml(pos.label_fr || "votre caisse") + '</span> — votre caisse déclarée (modifiable dans votre profil).</div>';
+          // Connexion directe prévue pour cette caisse : la consigne le dit ici, l'import CSV reste le chemin.
+          if (pos.ingestion_mode === "connector_planned" && pos.export_note_fr) {
+            srcHtml += '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + escapeHtml(pos.export_note_fr) + '</div>';
+          }
+          aiBlock(srcHtml);
+          doImport();
+        } else {
           askSource();
         }
       }
@@ -1814,7 +1837,7 @@ if (!root) {
         };
         return m[code] || ("Erreur : " + code);
       }
-      function summaryHtml(out, locId) {
+      function summaryHtml(out, locId, singleSite) {
         if (!out) return '<p style="color:#b91c1c;">Erreur réseau lors de l\'import. Réessayez.</p>';
         var st = out.status;
         var accent = st === "ok" ? "#059669" : st === "partial" ? "#B45309" : "#b91c1c";
@@ -1840,6 +1863,10 @@ if (!root) {
           var url = "/app/insightevent/rapport?start=" + encodeURIComponent(out.date_range[0]) + "&end=" + encodeURIComponent(out.date_range[1]) + (locId ? "&loc=" + encodeURIComponent(locId) : "");
           h += '<a href="' + url + '" style="display:inline-block;margin-top:14px;background:#1D3BB3;color:#fff;text-decoration:none;border-radius:6px;padding:9px 16px;font-size:14px;font-weight:600;">Générer le rapport pour cette période →</a>';
         }
+        // P3.1-d : premier site importé sur un compte mono-site → le geste multi-site se propose ici.
+        if ((st === "ok" || st === "partial") && singleSite) {
+          h += '<div style="margin-top:10px;"><a href="/profile" style="font-size:13px;color:#1D3BB3;text-decoration:none;font-weight:600;">Ajouter vos autres sites →</a></div>';
+        }
         return h;
       }
 
@@ -1855,7 +1882,7 @@ if (!root) {
           out = await res.json().catch(function () { return null; });
         } catch (e) {}
         if (loading && loading.parentElement) loading.parentElement.remove();
-        aiBlock(summaryHtml(out, pending && pending.location_id));
+        aiBlock(summaryHtml(out, pending && pending.location_id, !!(pending && (pending.locs || []).length === 1)));
         pending = null;
       }
 
@@ -1871,7 +1898,7 @@ if (!root) {
         var r = opt.querySelector(".ie-import-radio");
         if (r) r.style.border = "5px solid #1D3BB3";
         var kind = opt.getAttribute("data-kind");
-        if (kind === "loc") { pending.location_id = opt.getAttribute("data-id"); askSource(); }
+        if (kind === "loc") { pending.location_id = opt.getAttribute("data-id"); routeOrAskSource(); }
         else if (kind === "src") { pending.source = opt.getAttribute("data-id"); doImport(); }
       });
 

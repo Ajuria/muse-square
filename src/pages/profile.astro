@@ -6,6 +6,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { clerkClient } from "@clerk/astro/server";
 import { RECO_BUCKETS } from "../lib/reco-taxonomy";
+// C3 : réclamation du profil pré-provisionné à l'invitation (clé « invite:<uuid> » dans les
+// métadonnées Clerk) — cette page est le passage obligé de tout nouveau compte (middleware).
+import { claimProvisionedProfile } from "../lib/onboardingClaim";
 
 if (import.meta.env.DEV) {
   console.log("PROFILE SSR locals (safe):", {
@@ -80,7 +83,7 @@ const sql = `
     clerk_user_id, location_id, email,
     first_name, last_name, position,
     company_name, company_address,
-    company_activity_type, location_type,
+    company_activity_type, pos_system, location_type,
     event_time_profile, location_access_pattern,
     nearest_transit_stop, nearest_transit_stop_id, nearest_transit_lines,
     primary_audience_1, primary_audience_2,
@@ -117,6 +120,7 @@ if (!saved_safe) {
     company_name: "",
     company_address: "",
     company_activity_type: "",
+    pos_system: "",
     location_type: "",
     event_time_profile: "",
     location_access_pattern: "",
@@ -160,6 +164,7 @@ try {
       company_name: escAttr(saved_row.company_name),
       company_address: escAttr(saved_row.company_address),
       company_activity_type: escAttr(saved_row.company_activity_type),
+      pos_system: escAttr(saved_row.pos_system),
       location_type: escAttr(saved_row.location_type),
       event_time_profile: escAttr(saved_row.event_time_profile),
       location_access_pattern: escAttr(saved_row.location_access_pattern),
@@ -199,6 +204,7 @@ type LocationRow = {
   company_address: string;
   is_primary: boolean;
   company_activity_type: string;
+  pos_system: string;
   location_type: string;
   location_access_pattern: string;
   client_catchment: string;
@@ -230,7 +236,8 @@ type LocationRow = {
 
 let all_locations: LocationRow[] = [];
 
-try {
+// Rappelable : la réclamation C3 (ci-dessous) relit après bascule.
+const loadAllLocations = async (): Promise<LocationRow[]> => {
   const [locRows] = await bigquery.query({
     query: `
       SELECT
@@ -240,6 +247,7 @@ try {
         company_address,
         is_primary,
         company_activity_type,
+        pos_system,
         location_type,
         location_access_pattern,
         client_catchment,
@@ -269,7 +277,7 @@ try {
     params: { clerk_user_id },
     types: { clerk_user_id: "STRING" },
   });
-  all_locations = Array.isArray(locRows)
+  return Array.isArray(locRows)
     ? locRows.map((r: any) => ({
         location_id: String(r.location_id || ""),
         site_name: String(r.site_name || ""),
@@ -277,6 +285,7 @@ try {
         company_address: String(r.company_address || ""),
         is_primary: r.is_primary === true,
         company_activity_type: String(r.company_activity_type || ""),
+        pos_system: String(r.pos_system || ""),
         location_type: String(r.location_type || ""),
         location_access_pattern: String(r.location_access_pattern || ""),
         client_catchment: String(r.client_catchment || ""),
@@ -306,7 +315,45 @@ try {
         google_place_id: String(r.google_place_id || ""),
       }))
     : [];
+};
+try {
+  all_locations = await loadAllLocations();
 } catch (_) {}
+
+// ---- RÉCLAMATION DU PROFIL PRÉ-PROVISIONNÉ (C3) ----
+// Seulement pour un compte SANS ligne portant une clé d'invitation : zéro coût pour tous les
+// autres chargements. Après bascule, relecture — le formulaire s'ouvre pré-rempli et le contexte
+// (géo, suivis proposés) a déjà tourné depuis l'invitation.
+if (!all_locations.length && typeof (clerkMeta as any).provision_key === "string") {
+  try {
+    const res = await claimProvisionedProfile(bigquery, {
+      clerk_user_id,
+      email: clerkEmail || null,
+      provision_key: (clerkMeta as any).provision_key,
+    });
+    if (res.claimed) all_locations = await loadAllLocations();
+  } catch (_) {}
+}
+
+// ---- CAISSES / LOGICIELS DE VENTE (P3.1-b) ----
+// La liste vit dans analytics.pos_systems (SST) — le formulaire ne porte aucune caisse en dur.
+// Pré-sélection : la valeur enregistrée du site, sinon la caisse pressentie posée sur
+// l'invitation Clerk (publicMetadata.pos_hint, appariée sans casse sur clé OU libellé).
+type PosOption = { pos_key: string; label_fr: string };
+let pos_options: PosOption[] = [];
+try {
+  const [posRows] = await bigquery.query({
+    query: `SELECT pos_key, label_fr FROM \`${projectId}.analytics.pos_systems\` WHERE active ORDER BY sort`,
+    location: BQ_LOCATION,
+  });
+  pos_options = Array.isArray(posRows)
+    ? posRows.map((r: any) => ({ pos_key: String(r.pos_key || ""), label_fr: String(r.label_fr || "") }))
+    : [];
+} catch (_) {}
+const posHintRaw = String(clerkMeta.pos_hint || "").trim().toLowerCase();
+const pos_hint_key = posHintRaw
+  ? (pos_options.find((o) => o.pos_key.toLowerCase() === posHintRaw || o.label_fr.toLowerCase() === posHintRaw)?.pos_key ?? "")
+  : "";
 
 // ---- HELPERS ----
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -937,6 +984,19 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
             </div>
 
             <div class="field-group">
+              <label class="field-label">Caisse / logiciel de vente</label>
+              <div class="field-select-wrap">
+                <select name="pos_system" class="field-select">
+                  <option value="">Sélectionner…</option>
+                  {pos_options.map((o) => (
+                    <option value={o.pos_key} selected={(loc.pos_system || pos_hint_key) === o.pos_key}>{o.label_fr}</option>
+                  ))}
+                </select>
+              </div>
+              <p class="field-hint">Guide l'import de vos ventes (format d'export, consignes par caisse).</p>
+            </div>
+
+            <div class="field-group">
               <label class="field-label">Types d'événements organisés <span class="field-req">*</span></label>
               <div class="pill-group" data-pill-group={`evt-${idx}`} data-pill-max="3">
                 {EVENT_TYPE_OPTIONS.map(opt => (
@@ -1475,6 +1535,9 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
     <button type="button" onclick="document.getElementById('ms-map-notice-modal').style.display='none';" class="ms-btn h-[56px] font-normal" style="width:100%;padding:14px;background:#111827;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;">J'AI COMPRIS</button>
   </div>
 </div>
+
+<!-- Liste des caisses (analytics.pos_systems) pour le gabarit JS « Nouveau site » — même SST que le select SSR. -->
+<script type="application/json" id="pos-options-json" set:html={JSON.stringify(pos_options)}></script>
 
 <script>
 // @ts-nocheck
@@ -2145,7 +2208,7 @@ window.saveLocation = async function(idx) {
 
   // Named inputs/selects/textareas
   ['site_name','venue_capacity','location_description','website_url','review_link','google_place_id','company_address',
-   'company_activity_type','location_type','weather_sensitivity','seasonality',
+   'company_activity_type','pos_system','location_type','weather_sensitivity','seasonality',
    'location_access_pattern','nearest_transit_stop'].forEach(name => {
     const el = body.querySelector(`[name="${name}"]`);
     if (el) data[name] = el.value;
@@ -2243,6 +2306,17 @@ window.setAsPrimary = async function(locationId) {
 // ============================================================
 // ADD SITE
 // ============================================================
+// Options caisse du gabarit « Nouveau site » — lues depuis le JSON SSR (jamais en dur ici).
+function _posOptionsHtml() {
+  try {
+    var el = document.getElementById('pos-options-json');
+    var list = el ? JSON.parse(el.textContent || '[]') : [];
+    return list.map(function (o) {
+      return '<option value="' + String(o.pos_key).replace(/"/g, '&quot;') + '">' + String(o.label_fr).replace(/</g, '&lt;') + '</option>';
+    }).join('');
+  } catch (_) { return ''; }
+}
+
 document.getElementById('addSiteBtn')?.addEventListener('click', function() {
   const container = document.getElementById('locations-container');
   const addBtn = document.getElementById('addSiteBtn');
@@ -2357,6 +2431,16 @@ document.getElementById('addSiteBtn')?.addEventListener('click', function() {
             <option value="unknown">Autre</option>
           </select>
         </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Caisse / logiciel de vente</label>
+        <div class="field-select-wrap">
+          <select name="pos_system" class="field-select">
+            <option value="">Sélectionner…</option>
+            ${_posOptionsHtml()}
+          </select>
+        </div>
+        <p class="field-hint">Guide l'import de vos ventes (format d'export, consignes par caisse).</p>
       </div>
       <div class="field-group">
         <label class="field-label">Types d'événements organisés <span class="field-req">*</span></label>

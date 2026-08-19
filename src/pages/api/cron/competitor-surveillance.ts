@@ -27,6 +27,9 @@ import { discoverAgendaUrl, discoverTarifsUrl } from "../../../lib/competitive/u
 import { geocodeCompetitor } from "../../../lib/competitive/geocode";
 import { VALID_INDUSTRY, VALID_AUDIENCE } from "../../../lib/competitive/constants";
 import { waitUntil } from "@vercel/functions";
+import { salesFresherThanDayClass, runDayClassBatch } from "./day-class-impacts";
+import { makeBQClient as _mkBqDc } from "../../../lib/bq";
+import { runProposedFollows } from "../../../lib/proposedFollows";
 
 export const prerender = false;
 
@@ -1367,6 +1370,25 @@ export const GET: APIRoute = async ({ request }) => {
   }
 
   waitUntil(runSurveillance());
+  // Rattrapage day-class POST-IMPORT (file onboarding ③, 18/08) : si un import de ventes +
+  // full-refresh a atterri depuis le dernier batch, le store d'enjeu se reconstruit DANS les
+  // 15 min (cadence de ce cron) au lieu d'attendre 4 h du matin — les motifs structurels d'un
+  // compte neuf arrivent le jour même. Porte de fraîcheur idempotente, coût quasi nul sinon.
+  waitUntil((async () => {
+    const bq = _mkBqDc(String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim());
+    if (await salesFresherThanDayClass(bq)) {
+      console.log("[day-class rattrapage] import détecté depuis le dernier batch — rebuild");
+      await runDayClassBatch();
+    }
+  })().catch((e) => console.error("[day-class rattrapage]", e?.message)));
+  // Suivis proposés par menace (onboarding P3.1-f, 19/08) : un compte neuf dont la chaîne géo
+  // vient d'aboutir reçoit ses premiers suivis (top menaces mesurées, marqués « proposé »)
+  // dans les 15 min — même cadence, même motif waitUntil, idempotent par marqueur action_log.
+  waitUntil((async () => {
+    const bq = _mkBqDc(String(process.env.BQ_PROJECT_ID || "muse-square-open-data").trim());
+    const r = await runProposedFollows(bq);
+    if (r.scanned > 0) console.log("[suivis proposés]", JSON.stringify(r));
+  })().catch((e) => console.error("[suivis proposés]", e?.message)));
 
   return new Response(
     JSON.stringify({ ok: true, status: "started" }),

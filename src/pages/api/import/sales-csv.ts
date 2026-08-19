@@ -67,6 +67,7 @@ function canonicalToBqRow(
   clientId: string,
   sourceSystem: string,
   ingestedAt: string,
+  sourceFile: string | null,
 ): Record<string, unknown> {
   return {
     location_id: locationId,
@@ -92,6 +93,8 @@ function canonicalToBqRow(
     source_type: 'pos',
     currency: r.currency ?? 'EUR',
     ingested_at: ingestedAt,
+    // P3.1-d : traçabilité — le nom du fichier déposé suit chaque ligne.
+    source_file: sourceFile,
   };
 }
 
@@ -204,7 +207,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // ── write: idempotent supersede (same source, covered dates) then load ──
   const sourceSystem = source === 'generic' ? 'csv_manual' : source;
   const ingestedAt = new Date().toISOString();
-  const bqRows = accepted.map((r) => canonicalToBqRow(r, locationId, userId, sourceSystem, ingestedAt));
+  const sourceFile = file.name ? String(file.name).slice(0, 200) : null;
+  const bqRows = accepted.map((r) => canonicalToBqRow(r, locationId, userId, sourceSystem, ingestedAt, sourceFile));
   const dates = [...new Set(accepted.map((r) => r.date))];
 
   try {

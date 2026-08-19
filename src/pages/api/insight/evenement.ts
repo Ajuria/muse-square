@@ -90,7 +90,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         query: `SELECT v.saved_item_id, v.title, v.event_type, v.recurrence, v.n_occurrences,
                        CAST(v.first_date AS STRING) AS first_date, CAST(v.last_date AS STRING) AS last_date,
                        CAST(v.selected_date AS STRING) AS selected_date,
-                       v.kpi, v.kpi_family, v.author_person_name,
+                       v.kpi, v.kpi_family, v.kpi_target_pct, v.kpi_target_eur, v.author_person_name,
                        v.n_resolved, v.n_beat, v.sum_gap_eur,
                        CAST(nx.next_date AS STRING) AS next_date
                 FROM \`${PROJECT}.semantic.vw_insight_event_user_events\` v
@@ -119,6 +119,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
           selected_date: flat(r.selected_date), next_date: flat(r.next_date),
           kpi: flat(r.kpi) != null ? String(flat(r.kpi)) : null,
           kpi_family: flat(r.kpi_family) != null ? String(flat(r.kpi_family)) : null,
+          kpi_target_pct: num(r.kpi_target_pct), kpi_target_eur: num(r.kpi_target_eur),
           author_person_name: flat(r.author_person_name) != null ? String(flat(r.author_person_name)) : null,
           n_resolved: num(r.n_resolved), n_beat: num(r.n_beat), sum_gap_eur: num(r.sum_gap_eur),
         })),

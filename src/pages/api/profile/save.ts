@@ -165,9 +165,13 @@ async function registerBestTimeVenue(
   }
 }
 
+// Hors runtime Astro (harnais tsx, invocation directe), import.meta.env est absent —
+// acces optionnel, meme semantique sous Astro/Vite.
+const IS_DEV = (import.meta as any).env?.DEV === true;
+
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
-    if (import.meta.env.DEV) {
+    if (IS_DEV) {
       console.log("ENV CHECK:", {
         BQ_PROJECT_ID: process.env.BQ_PROJECT_ID,
         BQ_DATASET: process.env.BQ_DATASET,
@@ -230,8 +234,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // --- Auth + Email (parallel) ---
     const clerk_user_id = getUserIdFromLocals(locals);
+    // C3 (pré-provisionnement) : l'identité peut être INJECTÉE par un appelant interne
+    // (admin/invite.ts crée le profil AVANT que l'invité n'existe chez Clerk — clerk_user_id
+    // porte alors la clé en attente « invite:<uuid> », réclamée au premier login).
+    // locals est posé par le middleware côté HTTP : un client externe ne peut pas l'injecter.
     const { email, firstName: clerkFirstName, lastName: clerkLastName } =
-      await getUserIdentityFromClerk(clerk_user_id);
+      (locals as any)?.provision_identity ?? await getUserIdentityFromClerk(clerk_user_id);
 
     // --- Form fields ---
     // Fall back to the Clerk identity so a row is never created name-less when
@@ -249,6 +257,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       : "";
 
     const company_activity_type = getOptionalString(fd, "company_activity_type");
+    const pos_system = getOptionalString(fd, "pos_system");   // P3.1-b : caisse/logiciel de vente (clé de analytics.pos_systems)
     const location_type = getOptionalString(fd, "location_type");
     const event_time_profile = getOptionalString(fd, "event_time_profile");
     const location_access_pattern = getOptionalString(fd, "location_access_pattern");
@@ -484,6 +493,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             IF(@company_lon IS NULL OR @company_lat IS NULL, NULL, ST_GEOGPOINT(@company_lon, @company_lat))
           ),
         company_activity_type = @company_activity_type,
+        pos_system = @pos_system,
         location_type = @location_type,
         event_time_profile = @event_time_profile,
         location_access_pattern = @location_access_pattern,
@@ -534,6 +544,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         company_geocode_status,
         company_geog,
         company_activity_type,
+        pos_system,
         location_type,
         event_time_profile,
         location_access_pattern,
@@ -584,6 +595,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @company_geocode_status,
         IF(@company_lon IS NULL OR @company_lat IS NULL, NULL, ST_GEOGPOINT(@company_lon, @company_lat)),
         @company_activity_type,
+        @pos_system,
         @location_type,
         @event_time_profile,
         @location_access_pattern,
@@ -636,6 +648,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       company_geocoded_at,
       company_geocode_status,
       company_activity_type,
+      pos_system,
       location_type,
       event_time_profile,
       location_access_pattern,
@@ -678,6 +691,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       company_name: "STRING",
       company_address: "STRING",
       company_activity_type: "STRING",
+      pos_system: "STRING",
       location_type: "STRING",
       event_time_profile: "STRING",
       location_access_pattern: "STRING",
@@ -871,6 +885,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       company_geocoded_at,
       company_geocode_status,
       company_activity_type,
+      pos_system,
       location_type,
       event_time_profile,
       location_access_pattern,
@@ -915,7 +930,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     // ── Fire-and-forget: crawl website if URL is new/changed ──
     if (website_url) {
-      const baseUrl = import.meta.env.DEV
+      const baseUrl = IS_DEV
         ? "http://localhost:4321"
         : new URL(request.url).origin;
       fetch(`${baseUrl}/api/profile/crawl-website`, {
@@ -940,7 +955,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       err instanceof HttpError ? err.status : 400;
 
     const message =
-      status >= 500 && !import.meta.env.DEV
+      status >= 500 && !IS_DEV
         ? "Server error"
         : (err?.message ?? "Unknown error");
 
