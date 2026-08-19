@@ -4,14 +4,20 @@
 // Ce script rejoue le parcours COMPLET d'un compte neuf sur l'infra RÉELLE, avec un
 // tenant jetable, puis purge tout :
 //   1. profil : ligne clonée du site owner (adresse réelle geocodable) sous des ids
-//      synthétiques + les 4 jobs dbt du sign-up (exactement ceux de profile/save) ;
+//      synthétiques + CAISSE DÉCLARÉE sage100 (P3.1-e) + les 4 jobs dbt du sign-up ;
+//   1bis. routage (P3.1-c) : /api/import/locations rend la caisse → l'import est routé
+//      sur import_source, comme le ferait le flux Explorer ;
 //   2. import : CSV frais généré (45 j, creux/pics calibrés pour les portes 70/130),
-//      POSTé au VRAI handler import/sales-csv → job after-upload ;
+//      POSTé au VRAI handler import/sales-csv avec la source ROUTÉE → job after-upload ;
+//      source_file tracé en base (P3.1-d) ;
 //   3. vérité : marts signaux + cartes ventes candidates + geste « premier test » ;
 //   4. purge : raw + re-déclenchement des jobs pour nettoyer les marts.
 // Chaque étape est CHRONOMÉTRÉE — la sortie est le contrat de service mesuré.
 //
 // Usage : npx tsx scripts/e2e-onboarding-synth.ts            (durée ~10-15 min, poll dbt)
+//         npx tsx scripts/e2e-onboarding-synth.ts --invite   (+ invitation Clerk réelle vers
+//                                                             l'adresse taguée owner : création,
+//                                                             demande de fichier « sent », révocation)
 //         npx tsx scripts/e2e-onboarding-synth.ts --purge    (purge seule, idempotente)
 //
 // GARDE : toute écriture/suppression est bornée aux ids SYNTH_* ci-dessous.
@@ -19,6 +25,7 @@ import "dotenv/config";
 import { makeBQClient } from "../src/lib/bq";
 import { POST as importPOST } from "../src/pages/api/import/sales-csv";
 import { GET as dashGET } from "../src/pages/api/insight/dashboard";
+import { GET as locGET } from "../src/pages/api/import/locations";
 
 const PROJECT = "muse-square-open-data";
 const SYNTH_LOC = "00000000-0000-4000-8000-00000e2e0001";
@@ -87,13 +94,33 @@ async function purge(bq: any): Promise<void> {
   // ── 0. État net ──
   await purge(bq);
 
+  // ── 0bis (P3.1-e, --invite) : invitation Clerk réelle — le VRAI point de départ du parcours.
+  // Création vers l'adresse taguée owner (2 emails réels partent : Clerk + demande de fichier),
+  // demande de fichier « sent », révocation immédiate. Sans le flag : sauté (prouvé par invite-verify).
+  if (process.argv.includes("--invite")) {
+    console.log("\n[0] Invitation réelle…");
+    const { POST: invitePOST } = await import("../src/pages/api/admin/invite");
+    const { ADMIN_USER_IDS } = await import("../src/lib/admins");
+    const adminLocals = { clerk_user_id: ADMIN_USER_IDS[0] };
+    const mkReq = (body: any) => new Request("http://l/api/admin/invite", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    const ir: any = await (invitePOST as any)({ locals: adminLocals, request: mkReq({ email: "julen.deajuriaguerra+e2esynth@gmail.com", activity_hint: "test e2e", pos_hint: "Sage 100" }) });
+    const ij = JSON.parse(await ir.text());
+    if (ir.status !== 200 || !ij.ok) throw new Error("invitation échouée : " + JSON.stringify(ij));
+    if (ij.file_request_email !== "sent") throw new Error("demande de fichier NON envoyée : " + ij.file_request_email);
+    console.log("  ✔ invitation créée + demande de fichier « sent » (consigne Sage 100)");
+    const rr: any = await (invitePOST as any)({ locals: adminLocals, request: mkReq({ revoke_id: ij.invitation.id }) });
+    if (rr.status !== 200) throw new Error("révocation échouée");
+    console.log("  ✔ invitation révoquée (aucune trace durable côté Clerk)");
+  }
+
   // ── 1. « Inscription » : profil synthétique (adresse réelle clonée) + les 4 jobs du sign-up ──
   console.log("\n[1] Inscription synthétique…");
   let t0 = Date.now();
   await bq.query({
     query: `INSERT INTO \`${PROJECT}.raw.insight_event_user_location_profile\`
             SELECT * REPLACE(@loc AS location_id, @u AS clerk_user_id, @em AS email,
-                             '[E2E] Compte synthétique' AS company_name, '[E2E] Compte synthétique' AS site_name)
+                             '[E2E] Compte synthétique' AS company_name, '[E2E] Compte synthétique' AS site_name,
+                             'sage100' AS pos_system)
             FROM \`${PROJECT}.raw.insight_event_user_location_profile\`
             WHERE location_id = @src ORDER BY created_at DESC LIMIT 1`,
     params: { loc: SYNTH_LOC, u: SYNTH_USER, em: SYNTH_EMAIL, src: SOURCE_LOC }, location: "EU",
@@ -119,6 +146,17 @@ async function purge(bq: any): Promise<void> {
   if (Number(flat(dimRow.n)) < 1) throw new Error("dim_client_location ne porte pas le tenant synthétique");
   console.log("  ✔ dim_client_location porte le site synthétique");
 
+  // ── 1bis (P3.1-c). Routage par caisse : l'endpoint rend la caisse déclarée, l'import la suit ──
+  const locals: any = { clerk_user_id: SYNTH_USER, location_id: SYNTH_LOC, all_location_ids: [SYNTH_LOC] };
+  const lres: any = await (locGET as any)({ locals });
+  const lj = JSON.parse(await lres.text());
+  const synthLoc = (lj.locations || []).find((x: any) => x.location_id === SYNTH_LOC);
+  if (!synthLoc || !synthLoc.pos || synthLoc.pos.import_source !== "sage100") {
+    throw new Error("routage caisse absent : " + JSON.stringify(synthLoc && synthLoc.pos));
+  }
+  console.log(`  ✔ routage : caisse ${synthLoc.pos.label_fr} → source ${synthLoc.pos.import_source} (la question du logiciel saute)`);
+  const routedSource = synthLoc.pos.import_source;
+
   // ── 2. Import d'un CSV FRAIS (45 j jusqu'à hier, creux/pics calibrés) ──
   console.log("\n[2] Import des ventes…");
   const lines = ["date;montant;tickets"];
@@ -134,14 +172,23 @@ async function purge(bq: any): Promise<void> {
   const fd = new FormData();
   fd.set("file", csv);
   fd.set("location_id", SYNTH_LOC);
-  fd.set("source", "generic");
-  const locals: any = { clerk_user_id: SYNTH_USER, location_id: SYNTH_LOC, all_location_ids: [SYNTH_LOC] };
+  fd.set("source", routedSource); // la source ROUTÉE (P3.1-c), plus jamais 'generic' en dur
   t0 = Date.now();
   const res: any = await (importPOST as any)({ request: new Request("http://local/api/import/sales-csv", { method: "POST", body: fd }), locals });
   const imp = JSON.parse(await res.text());
   if (imp.status !== "ok") throw new Error("import non propre : " + JSON.stringify(imp).slice(0, 300));
   console.log(`  ✔ import accepté — ${imp.rows_accepted} lignes (${JSON.stringify(imp.date_range)})`);
   if (!imp.refresh_requested) throw new Error("le job after-upload ne s'est PAS déclenché (refresh_requested=false)");
+  // P3.1-d : la traçabilité suit — chaque ligne porte le fichier et la source routée.
+  const [[trace]] = await bq.query({
+    query: `SELECT COUNTIF(source_file = 'e2e-synth-ventes.csv' AND source_system = @s) AS ok_n, COUNT(*) AS n
+            FROM \`${PROJECT}.raw.client_transactions\` WHERE location_id = @loc`,
+    params: { loc: SYNTH_LOC, s: routedSource }, location: "EU",
+  }).then(([r]: any) => [r]);
+  if (Number(flat(trace.ok_n)) !== Number(flat(trace.n)) || Number(flat(trace.n)) < 1) {
+    throw new Error(`traçabilité source_file/source_system incomplète : ${flat(trace.ok_n)}/${flat(trace.n)}`);
+  }
+  console.log(`  ✔ traçabilité : ${flat(trace.n)} lignes portent source_file + source_system=${routedSource}`);
 
   // ── 3. Attendre le job after-upload (celui que L'IMPORT vient de déclencher) ──
   const list: any = await (await fetch(`${DBT_BASE}/runs/?job_definition_id=${JOBS.sales}&order_by=-id&limit=1`, { headers: DBT_HDR })).json();
