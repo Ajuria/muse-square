@@ -372,9 +372,18 @@
   // #5 — competitor_threat_direct
   reg('competitor_threat_direct', 'Contrez votre concurrent direct', 'CONCURRENCE', '\ud83d\udea8', '#D32F2F', 'action', 'pulse#radar-threats',
     function(a, p, d) {
+      // 21/08 — L'IDENTITÉ DE LA CARTE VIENT DE SON PAYLOAD, jamais du contexte-jour.
+      // `topComp(d)` = le concurrent n°1 DU JOUR, sans rapport avec celui sur lequel la carte a
+      // tiré ; et les deux objets n'ont AUCUNE clé commune (le jour porte `event_uid` sans id
+      // d'organisateur, le payload porte `competitor_id` sans event_uid) — l'appariement par
+      // ressemblance est donc impossible à vérifier. L'ancien ordre `c.X || a.X` mélangeait les
+      // deux sources CHAMP PAR CHAMP : mesuré sur Domaine de Poulvarel le 21/08, le corps
+      // annonçait « Office de Tourisme d'Uzès — Balade sonore : Nîmes en filature » pendant que
+      // le geste disait « (Fête votive – Saint-Quentin-la-Poterie) ». Deux événements, une carte.
+      // Même leçon déjà tirée ligne 826 sur mega_event_end, jamais généralisée.
       var c = topComp(d);
-      var name = c.organizer_name || a.competitor_name || 'Concurrent';
-      var event = c.event_label || a.event_label || '';
+      var name = a.competitor_name || c.organizer_name || 'Concurrent';
+      var event = a.event_label || '';
       var dist = distLabel(a.distance_m || c.distance_m);
       var edge = userEdge(p);
       var line = name;
@@ -942,9 +951,18 @@
   // #32 — competitor_sold_out
   reg('competitor_sold_out', 'Complet', 'OPPORTUNIT\u00c9', '\ud83d\udeab', '#2E7D32', 'action', 'pulse#radar-threats',
     function(a, p, d) {
+      // 21/08 — L'IDENTITÉ DE LA CARTE VIENT DE SON PAYLOAD, jamais du contexte-jour.
+      // `topComp(d)` = le concurrent n°1 DU JOUR, sans rapport avec celui sur lequel la carte a
+      // tiré ; et les deux objets n'ont AUCUNE clé commune (le jour porte `event_uid` sans id
+      // d'organisateur, le payload porte `competitor_id` sans event_uid) — l'appariement par
+      // ressemblance est donc impossible à vérifier. L'ancien ordre `c.X || a.X` mélangeait les
+      // deux sources CHAMP PAR CHAMP : mesuré sur Domaine de Poulvarel le 21/08, le corps
+      // annonçait « Office de Tourisme d'Uzès — Balade sonore : Nîmes en filature » pendant que
+      // le geste disait « (Fête votive – Saint-Quentin-la-Poterie) ». Deux événements, une carte.
+      // Même leçon déjà tirée ligne 826 sur mega_event_end, jamais généralisée.
       var c = topComp(d);
-      var name = c.organizer_name || a.competitor_name || '';
-      var event = c.event_label || a.event_label || '';
+      var name = a.competitor_name || c.organizer_name || '';
+      var event = a.event_label || '';
       var dist = distLabel(c.distance_m || a.distance_m);
       var edge = userEdge(p);
       var line = name + ' affiche complet';
@@ -2502,7 +2520,11 @@
     'competitor_threat_direct': { action: function(a, p, d) {
       var name = a.competitor_name || null;
       var dist = a.threat_distance_km != null ? Number(a.threat_distance_km) : (a.distance_m != null ? Number(a.distance_m) / 1000 : null);
-      var ov = a.audience_overlap_pct != null ? Math.round(Number(a.audience_overlap_pct) * 100) : null;
+      // `audience_overlap_pct` est DÉJÀ un pourcentage entier (0-100) dans data_payload —
+      // vérifié en base le 21/08 (min 0, max 100, n=21). Le ×100 rendait « 10000 % ».
+      // Même constat déjà posé dans insight.astro:627 ; competitor_event_launch (2545)
+      // et les lectures 196 / 850 le lisaient brut : ces deux sites étaient les orphelins.
+      var ov = a.audience_overlap_pct != null ? Math.round(Number(a.audience_overlap_pct)) : null;
       var ev = a.event_label || null;
       var s = 'À défendre : ';
       if (name) {
@@ -2552,7 +2574,11 @@
     }, urgency: 'now' },
     'competitor_audience_conflict': { action: function(a, p, d) {
       var name = a.competitor_name || null;
-      var ov = a.audience_overlap_pct != null ? Math.round(Number(a.audience_overlap_pct) * 100) : null;
+      // `audience_overlap_pct` est DÉJÀ un pourcentage entier (0-100) dans data_payload —
+      // vérifié en base le 21/08 (min 0, max 100, n=21). Le ×100 rendait « 10000 % ».
+      // Même constat déjà posé dans insight.astro:627 ; competitor_event_launch (2545)
+      // et les lectures 196 / 850 le lisaient brut : ces deux sites étaient les orphelins.
+      var ov = a.audience_overlap_pct != null ? Math.round(Number(a.audience_overlap_pct)) : null;
       return 'À défendre : conflit d\'audience' + (name ? ' avec ' + name : '') + (ov != null ? ' (audience estimée commune ' + ov + ' %)' : '') + '. Adressez directement votre public partagé avant l\'échéance pour sécuriser votre fréquentation.';
     }, urgency: 'now' },
     'competitor_review_surge': { action: 'Communiquer : sollicitez des avis clients pour \u00e9quilibrer.', urgency: 'soon', channel: 'communiquer' },
