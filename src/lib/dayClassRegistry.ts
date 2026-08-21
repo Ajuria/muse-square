@@ -933,11 +933,20 @@ export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: {
 }
 
 // Cartes d'anomalie ventes (mapping H1 — jamais de pill PROPRE, héritage du jour uniquement).
-const SALES_INHERIT_TYPES = new Set([
+const MOTIF_INHERIT_TYPES = new Set([
   "sales_surge",
   "sales_revenue_down_wow",
   "sales_underperformance",
   "sales_missed_opportunity",
+  // 21/08 — weekend_opportunity entre ici, et l'ensemble perd son préfixe SALES_ qui l'aurait
+  // interdite. Motif : la carte affirmait « Conditions favorables » en chaîne CONSTANTE, puis
+  // accolait météo et densité d'événements sans jamais les évaluer — « conditions favorables
+  // — averses » était rendu tel quel. Rattachée ici, elle hérite du motif MESURÉ de la date
+  // (weather@date / calendar@date) en ligne de CONTEXTE, jamais au coin (doctrine 01/08) :
+  // chez f10c3e58 la pluie vaut −166 €/j sur 20 jours, t = −3,4, et l'effet varie de 1 à 8
+  // selon le site (−165 à −1 318 €/j) — un seuil binaire « alerte ≥ 2 » aurait été plus
+  // grossier que la mesure disponible.
+  "weekend_opportunity",
 ]);
 
 // Doctrine valeur d'action (01/08, GO owner) : le coin d'une carte d'anomalie/conjonction = SA
@@ -965,7 +974,7 @@ const CARD_CONTEXT_CLASS: Record<string, string> = {
 
 // Types dont le coin est régi par la doctrine population/jour (B + C).
 const CARD_VALUE_TYPES = new Set([
-  ...SALES_INHERIT_TYPES,
+  ...MOTIF_INHERIT_TYPES,
   "sales_traffic_not_converting",
   "sales_competition_cannibalization",
 ]);
@@ -977,7 +986,7 @@ export function motifContextForCandidate(result: DayClassResult, candidate: { ac
   const actionType = String(candidate?.action_type || "");
   const ctxKey = CARD_CONTEXT_CLASS[actionType];
   if (ctxKey) return result.impacts.get(ctxKey) ?? null;
-  if (!SALES_INHERIT_TYPES.has(actionType)) return null;
+  if (!MOTIF_INHERIT_TYPES.has(actionType)) return null;
   const iso = String(candidate?.date?.value ?? candidate?.date ?? "").slice(0, 10);
   let best: DayClassImpact | null = null;
   for (const token of ["weather@date", "calendar@date"]) {

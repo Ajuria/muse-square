@@ -351,7 +351,7 @@
   // foreign_tourism_signal — foreign tourist nationalities on holiday (OpenHolidays + INSEE whitelist).
   // Payload: countries_on_school_holiday / countries_on_public_holiday (arrays of {country_name_en}),
   // has_foreign_*_signal, location_access_pattern. FR map = display whitelist (mirror dbt whitelist).
-  reg('foreign_tourism_signal', 'Adaptez-vous au public touristique étranger', 'OPPORTUNITÉ', '🌍', '#2E7D32', 'action', 'pulse#radar-changes',
+  reg('foreign_tourism_signal', 'Adaptez votre dispositif de communication et d\'accueil', 'OPPORTUNITÉ', '🌍', '#2E7D32', 'action', 'pulse#radar-changes',
     function(a, p, d) {
       var FR = {'Germany':'Allemagne','Belgium':'Belgique','Netherlands (the)':'Pays-Bas','Switzerland':'Suisse','Italy':'Italie','Spain':'Espagne','Luxembourg':'Luxembourg','Austria':'Autriche','Ireland':'Irlande','Portugal':'Portugal','Poland':'Pologne','Czechia':'Tchéquie','Sweden':'Suède'};
       function names(arr) {
@@ -549,12 +549,21 @@
   // #11 — weekend_opportunity
   reg('weekend_opportunity', 'Activez une op\u00e9ration ce week-end', 'OPPORTUNIT\u00c9', '\ud83d\udcc5', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
-      var score = num(d.opportunity_score_final_local);
-      var comp = Number(d.events_within_5km_count || 0);
-      var line = 'Conditions favorables pour le week-end' + (d.weather_label_fr ? ' \u2014 ' + d.weather_label_fr.toLowerCase() : '') + ', ' + comp + ' \u00e9v\u00e9nements \u00e0 5 km.';
-      var aud = audLabel(p); if (aud) line += ' Votre cible (' + aud + ') est disponible le week-end.';
-      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
-      return line;
+      // 21/08 — QUATRE fragments retirés, aucun n'était croisé avec quoi que ce soit :
+      //   · d.weather_label_fr, accolé tel quel — d'où « Conditions favorables — averses » ;
+      //   · d.events_within_5km_count, accolé — le GESTE utilise le même nombre comme
+      //     avertissement (« Concurrence dense … démarquez-vous »), le corps le donnait
+      //     comme un appui ;
+      //   · audLabel(p), les deux publics DÉCLARÉS au profil, suivis de « est disponible le
+      //     week-end » — vrai tous les week-ends de l'année, jamais vérifié ;
+      //   · todayHours(p), les horaires déclarés.
+      // Le seul nombre qui pourrait justifier « favorable » — opportunity_score_final_local —
+      // était calculé ligne 1 puis jeté. Le motif MESURÉ de la date arrive désormais par
+      // `context_motif` (MOTIF_INHERIT_TYPES, dayClassRegistry) et pulse.astro le rend seul :
+      // « Motif du jour : jours de pluie marquée (−8 737 €/an sur ce lieu) ».
+      // RESTE À TRANCHER PAR L'OWNER : « Conditions favorables pour le week-end » demeure une
+      // AFFIRMATION CONSTANTE, que rien dans le corps n'établit. Ne pas la réécrire seul.
+      return 'Conditions favorables pour le week-end.';
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Week-end favorable, score ' + num(d.opportunity_score_final_local) + '/10. Mettre en avant : ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -623,7 +632,7 @@
       line += '.';
       if (delta > 0) line += ' Hausse de fr\u00e9quentation attendue : +' + Math.round(delta) + '%.';
       if (isOutdoor(p)) line += ' Espace ext\u00e9rieur de nouveau accessible.';
-      var edge = userEdge(p);      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
+      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
       return line;
     },
     {
@@ -685,7 +694,7 @@
       line += '.';
       if (impactRaw !== 0) line += ' Impact mobilit\u00e9 : ' + Math.round(impactRaw) + '%.';
       if (p.location_access_pattern === 'walking' || p.location_access_pattern === 'public_transit') line += ' Vos visiteurs viennent \u00e0 pied/transports \u2014 impact direct.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Perturbation acc\u00e8s' + (p.nearest_transit_stop_name ? ' (station ' + p.nearest_transit_stop_name + ')' : '') + '. Alternatives. Max 2200 car.'; },
@@ -721,7 +730,7 @@
       var line = 'Acc\u00e8s r\u00e9tabli';
       if (ti) line += ' \u2014 ' + ti.split(',')[0] + ' de nouveau accessible';
       line += '.';
-      var edge = userEdge(p);      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
+      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
       return line;
     },
     {
@@ -741,7 +750,7 @@
       line += '.';
       if (driver) line += ' Facteur : ' + driver + '.';
       line += ' Conditions am\u00e9lior\u00e9es \u2014 c\u2019est le moment de communiquer.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Conditions meilleures qu\u2019hier. Communiquer maintenant. ' + (userEdge(p) || '') + '. Max 2200 car.'; }
@@ -1266,7 +1275,7 @@
       if (Number(a.tourism_index || d.tourism_index_region || 0) > 70) parts.push('tourisme \u00e9lev\u00e9');
       var line = fc + ' facteurs favorables align\u00e9s : ' + (parts.length > 0 ? parts.join(', ') : 'conditions multiples') + '.';
       line += ' Score ' + score + '/10.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Conditions exceptionnelles. ' + (userEdge(p) || 'votre offre') + '. Max 2200 car.'; },
@@ -1283,7 +1292,7 @@
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
       var line = 'M\u00e9t\u00e9o favorable et pression concurrentielle faible (\u00d7' + pr.toFixed(1) + ', ' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
       line += ' Conditions id\u00e9ales pour communiquer.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Beau temps, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1313,7 +1322,7 @@
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
       var line = 'Jour f\u00e9ri\u00e9 avec pression \u00d7' + pr.toFixed(1) + ' (' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
       line += ' Public disponible mais concurrence aussi.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour f\u00e9ri\u00e9, d\u00e9marquez-vous. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1327,7 +1336,7 @@
       var score = num(a.score || d.opportunity_score_final_local);
       var regime = a.regime || d.opportunity_regime || '';
       var line = 'Meilleur jour de la semaine : score ' + score + '/10, r\u00e9gime ' + regime + '.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Meilleur jour de la semaine. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1340,7 +1349,7 @@
     function(a, p, d) {
       var score = num(a.score || d.opportunity_score_final_local);
       var line = 'R\u00e9gime A, score ' + score + '/10. Conditions optimales.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. R\u00e9gime A. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1354,7 +1363,7 @@
       var pctSame = samePct(a, d) || 0;
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
       var line = pctSame + '% des ' + n + ' \u00e9v\u00e9nements \u00e0 5 km sont dans votre secteur.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Secteur satur\u00e9. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1369,7 +1378,7 @@
       var score = num(a.score || d.opportunity_score_final_local);
       var line = 'Week-end de vacances, pression \u00d7' + pr.toFixed(1) + '. Score ' + score + '/10.';
       line += ' Occasion rare \u2014 communiquez maintenant.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Week-end de vacances, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1389,8 +1398,11 @@
       var line = evName ? evName + ' en cours dans votre r\u00e9gion.' : 'Temps fort commercial en cours dans votre r\u00e9gion.';
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       if (isDiscount) line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous sans casser vos prix.' : ' Le flux d\u2019acheteurs est l\u00e0 \u2014 mettez en avant une offre signature plut\u00f4t qu\u2019une remise.';
-      else line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous.' : ' Occasion favorable \u2014 captez le flux.';
-      var edge = userEdge(p);      return line;
+      // « Occasion favorable — captez le flux » : « capter » est proscrit (règle 8), et la
+      // phrase taisait ce qui la fonde — cette branche EST celle de la pression basse.
+      // Le ratio n'est dit que s'il est connu : à 0 il est absent, pas « bas ».
+      else line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous.' : (pr > 0 ? ' Concurrence basse (\u00d7' + pr.toFixed(1) + ').' : '');
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. P\u00e9riode commerciale. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1404,7 +1416,7 @@
       var line = 'Am\u00e9lioration m\u00e9t\u00e9o apr\u00e8s 2+ jours d\u00e9grad\u00e9s.';
       if (weatherSens(p)) line += ' Site sensible (' + p.weather_sensitivity + '/5) \u2014 vos visiteurs reviennent.';
       if (isOutdoor(p)) line += ' Espace ext\u00e9rieur de nouveau accessible.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Le beau temps revient. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1441,7 +1453,7 @@
       var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
       var line = 'Indice touristique \u00e9lev\u00e9 (' + Math.round(idx) + st + '). Afflux de visiteurs dans votre r\u00e9gion.';
       var aud = audLabel(p); if (aud) line += ' Adaptez votre message pour ' + aud + ' et les touristes.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Haute saison touristique. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1456,7 +1468,7 @@
       var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
       var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
       var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + st + ') + vacances scolaires. Double flux de visiteurs.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Tourisme + vacances. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1471,7 +1483,7 @@
       var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
       var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
       var line = 'Pic touristique d\u00e9tect\u00e9 (indice ' + Math.round(idx) + st + '). Maximisez votre visibilit\u00e9.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Pic touristique. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1486,7 +1498,7 @@
       var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
       var st = ST[a.tourism_status] ? ' ' + ST[a.tourism_status] : '';
       var line = 'Triple signal : tourisme (' + Math.round(idx) + st + '), beau temps, vacances. Conditions exceptionnelles.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Tourisme + beau temps + vacances. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1503,7 +1515,7 @@
       var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
       var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + st + ') mais pression \u00d7' + pr.toFixed(1) + '.';
       line += ' Les touristes ont le choix \u2014 d\u00e9marquez-vous.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Tourisme \u00e9lev\u00e9, concurrence aussi. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1519,7 +1531,7 @@
       var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
       var line = 'Tourisme bas (' + Math.round(idx) + st + ') mais jour f\u00e9ri\u00e9. Les r\u00e9sidents sont disponibles.';
       var aud = audLabel(p); if (aud) line += ' Ciblez vos ' + aud.split(',')[0] + '.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Journ\u00e9e pour les locaux. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1564,7 +1576,7 @@
       var stop = p.nearest_transit_stop_name || '';
       var line = 'Acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + ' et pression concurrentielle \u00d7' + pr.toFixed(1) + '.';
       line += ' Vos visiteurs risquent de se d\u00e9tourner vers des concurrents mieux accessibles.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       note_interne: function(a, p, d) { return 'Note urgente. Mobilit\u00e9 + concurrence \u00d7' + Number(a.pressure_ratio||0).toFixed(1) + '. Itin\u00e9raires alt + comm.'; }
@@ -1593,7 +1605,7 @@
       var line = 'Jour habituellement calme mais conditions id\u00e9ales : beau temps et concurrence faible (\u00d7' + pr.toFixed(1) + ').';
       if (a.ft_peak_busyness_pct != null) line += ' Pic habituel ' + (a.ft_peak_hour != null ? 'vers ' + Number(a.ft_peak_hour) + 'h ' : '') + '\u00e0 ' + Number(a.ft_peak_busyness_pct) + ' % d\u2019affluence.';
       line += ' Opportunit\u00e9 de capter du trafic suppl\u00e9mentaire.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour calme, beau temps. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1608,7 +1620,7 @@
       var pctSame = samePct(a, d) || 0;
       var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
       var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') mais ' + pctSame + '% du secteur en concurrence directe.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour de pointe, d\u00e9marquez-vous. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1623,7 +1635,7 @@
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
       var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') et pression faible (\u00d7' + pr.toFixed(1) + '). Occasion en or.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour de pointe, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1639,7 +1651,7 @@
       var idx = num(a.tourism_index || d.tourism_index_region) || 0;
       var pk = (a.ft_peak_hour != null) ? ' vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
       var line = 'Triple signal : pic de fr\u00e9quentation (rang ' + rank + pk + '), tourisme (' + Math.round(idx) + '), vacances. Affluence maximale attendue.';
-      var edge = userEdge(p);      return line;
+      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Pic + tourisme + vacances. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1952,6 +1964,14 @@
 
   // Weekday named explicitly from a card's date — "vos samedis", never "vos jours comparables".
   var MS_DOW_FR_PLURAL = ['dimanches', 'lundis', 'mardis', 'mercredis', 'jeudis', 'vendredis', 'samedis'];
+  // Forme JOUR du lexique (docs/lexique.md, règle 6 + ligne 23) : la référence de comparaison
+  // s'écrit « votre mardi habituel », au SINGULIER. L'owner l'avait écrite au pluriel le 21/08
+  // (« vos mardis habituels ») ; CLAUDE.md tranche — en cas de divergence, le lexique fait loi.
+  var MS_DOW_FR = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  window.msWeekdayFrSing = function (dateStr) {
+    try { return MS_DOW_FR[new Date(String(dateStr) + 'T00:00:00Z').getUTCDay()] || 'jour comparable'; }
+    catch (e) { return 'jour comparable'; }
+  };
   window.msWeekdayFr = function (dateStr) {
     try { return MS_DOW_FR_PLURAL[new Date(String(dateStr) + 'T00:00:00Z').getUTCDay()] || 'jours comparables'; }
     catch (e) { return 'jours comparables'; }
@@ -1972,10 +1992,11 @@
       var dz = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
 
       var jours = window.msWeekdayFr(a.affected_date);
+      var joursS = window.msWeekdayFrSing(a.affected_date);
       // Écart € DU JOUR (01/08) : même règle que sales_revenue_down_wow — référentiel nommé.
       var gapJ = (rev != null && exp != null) ? rev - exp : null;
-      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de vos ' + jours
-        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'habituel du jour (' + exp + ' €).' : '.');
+      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de votre ' + joursS + ' habituel'
+        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € (' + exp + ' €).' : '.');
 
       if (tx != null && bk != null) {
         line += (Math.abs(tx) >= Math.abs(bk))
@@ -2103,12 +2124,13 @@
       var dz = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
       var driver = ({footfall:'moins de trafic', transactions:'moins de ventes (tickets)', basket:'un panier moyen plus faible', conversion:'une conversion plus faible'})[a.primary_revenue_driver] || null;
       var jours = window.msWeekdayFr(a.affected_date);
+      var joursS = window.msWeekdayFrSing(a.affected_date);
       // Écart € DU JOUR (01/08, GO owner) : déjà dans le payload (expected_revenue), référentiel
       // nommé « l'habituel du jour » — JAMAIS la même pastille que l'Enjeu €/an (jour ≠ motif annuel).
       var expD = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
       var gapJ = (rev != null && expD != null) ? rev - expD : null;
-      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous vos ' + jours
-        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € vs l\'habituel du jour (' + expD + ' €).' : '.');
+      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous votre ' + joursS + ' habituel'
+        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € (' + expD + ' €).' : '.');
       if (driver) {
         line += ' Le recul vient ' + (/^[aeiou]/i.test(driver) ? "d'" : 'de ') + driver + '.';
       } else if (tx != null && bk != null) {
@@ -2356,8 +2378,17 @@
         try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, 2).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, 200); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
         // Name the actual weekday on the sales movement cards — never "jours comparables".
-        if (actionType === 'sales_surge') whatText = 'CA supérieur à vos ' + window.msWeekdayFr(feedItem.affected_date);
-        else if (actionType === 'sales_revenue_down_wow') whatText = 'CA inférieur à vos ' + window.msWeekdayFr(feedItem.affected_date);
+        // Titres arbitrés par l'owner le 21/08. Forme jour au SINGULIER + « habituel » : la
+        // référence se nomme comme une référence (lexique ligne 23, règle 6).
+        if (actionType === 'sales_surge') whatText = 'CA > votre ' + window.msWeekdayFrSing(feedItem.affected_date) + ' habituel';
+        else if (actionType === 'sales_revenue_down_wow') whatText = 'CA < votre ' + window.msWeekdayFrSing(feedItem.affected_date) + ' habituel';
+        // « Temps fort commercial — activez » refusé par l'owner : verbe sans objet (règle 8),
+        // et « temps fort commercial » est un nom de catégorie du système, pas une chose de la
+        // journée. Sa formulation, avec l'événement nommé — le corps le connaissait déjà.
+        else if (actionType === 'commercial_event_match') {
+          var _cev = feedItem.commercial_event_name || feedItem.event_label || '';
+          whatText = _cev ? 'Préparez une offre pour ' + (/^[aeiouéèêh]/i.test(_cev) ? "l'" + _cev.toLowerCase() : 'la ' + _cev.toLowerCase()) : 'Préparez une offre pour ce temps fort';
+        }
       } else {
         sowhatText = actionType + ' \u2014 type non reconnu.';
         whatText = actionType.replace(/_/g, ' ');
@@ -2631,7 +2662,7 @@
       return s;
     }, urgency: 'soon' },
     'foreign_tourism_signal': { action: function(a, p, d) {
-      return 'À capter : un public touristique étranger est en congés. Adaptez accueil, langues et offre découverte pour capter ce flux de passage.';
+      return 'À faire : adaptez accueil, langues et signalétique pendant leurs congés.';
     }, urgency: 'soon' },
     'score_up': { action: function(a, p, d) {
       return 'À noter : votre score d\'opportunité est en hausse. Vérifiez si une action de visibilité vaut le coup sur cette occasion.';
@@ -2731,10 +2762,13 @@
       var isDiscount = evCode
         ? /sales|black-friday|cyber-monday/.test(String(evCode))
         : /soldes|black friday|cyber monday|nouvel an|noël/i.test(String(ev || ''));
-      var head = 'À capter : ' + (ev ? 'temps fort commercial « ' + ev + ' »' : 'temps fort commercial en cours') + '. ';
+      // « À capter » + « Alignez … pour capter ce flux » : trois verbes proscrits (lexique
+      // règle 8 — capter, aligner). Le titre nomme désormais l'événement, le geste n'a plus à
+      // le répéter en catégorie système (« temps fort commercial »).
+      var head = 'À faire : ' + (ev ? 'préparez une offre pour ' + (/^[aeiouéèêh]/i.test(ev) ? "l'" : 'la ') + ev.toLowerCase() : 'préparez une offre pour ce temps fort') + '. ';
       return isDiscount
         ? head + 'Le flux d\'acheteurs vient à vous : mettez en avant une offre signature ou une expérience différenciante plutôt qu\'une remise — sur un temps fort, une promotion non nécessaire érode la marge sans gagner de visiteurs.'
-        : head + 'Alignez une offre ou un accueil dédié sur l\'événement pour capter ce flux de passage, plutôt que de vous en tenir à votre programmation habituelle.';
+        : head + 'Briefez l\'équipe dessus en début de service.';
     }, urgency: 'now' },
     'weather_window_after_bad': { action: function(a, p, d) {
       var sens = a.site_sensitivity != null ? Number(a.site_sensitivity) : null;
