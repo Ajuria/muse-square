@@ -144,9 +144,10 @@ refusé le 21/08.
 variable interpolée et sans nom propre est presque toujours une généralité — le garde-fou
 pourrait en sortir la liste à relire, sans faire échouer le build.
 
-**13. Jamais un volume absolu — un écart à la normale DU LIEU.** Nîmes et Paris ne portent pas
+**13. Jamais un volume absolu — un écart au résultat habituel DU LIEU.** Nîmes et Paris ne portent pas
 le même trafic : une phrase qui suppose un volume est fausse sur la moitié du parc.
-`pressure_ratio = 0,93` ne veut pas dire « peu de concurrence » mais « 7 % sous VOTRE normale ».
+`pressure_ratio = 0,93` ne veut pas dire « peu de concurrence » mais « 7 % sous VOTRE résultat
+habituel ».
 Quand le geste lui-même doit changer selon le lieu, c'est la clé `enjeu_positif` /
 `enjeu_negatif` de `reco-library.js` qui tranche (cas mesuré : `low_competition_window`,
 +88 €/j ici, −49 €/j ailleurs) — pas le texte.

@@ -315,6 +315,11 @@ const STRUCTURAL_CHANTIER_FR: Record<string, string> = {
   tourism_low: "Programme basse saison — animer la clientèle locale sur les jours calmes.",
   competition_high: "Différenciation durable — visibilité et offre distinctive sur les jours disputés.",
   competition_low: "Fenêtres calmes — concentrer lancements et temps forts sur les jours à faible pression.",
+  // ⚠ NE PAS CORRIGER SEUL. « Fenêtres » est banni (lexique : « fenêtre » au sens occasion) et
+  // « concentrer » est un verbe proscrit (règle 8) — mais le mot banni EST ici le NOM DU CHANTIER,
+  // c'est-à-dire le concept qui n'a pas encore SON mot dans le lexique. Le retirer oblige à en
+  // inventer un : c'est exactement l'échec du 21/08. Se corrige quand l'owner tranche LE mot du
+  // « chantier à construire » (11 formes en usage aujourd'hui), pas avant. Même file que heat_25_27.
   mobility_disruption: "Protocole perturbations — communication d'itinéraires et offre adaptée dès l'annonce.",
   followed_activity_high: "Rituel « concurrents actifs » — programmation renforcée quand vos suivis animent la zone.",
   school_holiday: "Dispositif vacances scolaires — offre et équipe calées sur le public vacances.",
@@ -339,7 +344,7 @@ export function structuralCardCopyFr(i: {
   if (i.class_key === "discount_no_lift") {
     title = "Des remises accordées sans effet mesuré sur le CA";
   } else if (i.class_key === "events_high" && pos) {
-    title = "Les jours d'événements proches, vous sur-performez";
+    title = "Les jours d'événements proches vous rapportent";
   } else if (register === "identification") {
     title = i.class_key === "traffic_high"
       ? "Identifiez ce qui déclenche vos jours de pointe"
@@ -358,12 +363,12 @@ export function structuralCardCopyFr(i: {
       : `Les ${i.label_fr} vous coûtent`;
   }
   const sowhat = register === "identification"
-    ? "Sur ces journées, vous encaissez plus que votre normale — de façon récurrente, pas accidentelle. La cause précise est chez vous : trouvée et documentée, elle devient déclenchable."
+    ? "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle. La cause précise est chez vous : trouvée et documentée, elle devient déclenchable."
     : (pos
-      ? "Sur ces journées, vous encaissez plus que votre normale — de façon récurrente, pas accidentelle."
-      : "Sur ces journées, votre chiffre passe sous votre normale — de façon récurrente, pas accidentelle.");
+      ? "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle."
+      : "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.");
   const chantier = register === "identification"
-    ? "Enquête : trouvez le mécanisme sur la page dédiée, documentez-le — il deviendra déclenchable."
+    ? "Enquête : trouvez le mécanisme via « Reproduire le dispositif », documentez-le — il deviendra déclenchable."
     : "Chantier : " + (STRUCTURAL_CHANTIER_FR[i.class_key]
       || "Dispositif durable à définir — engagez-vous pour mesurer l'effet mois après mois.");
   return { title_fr: title, sowhat_fr: sowhat, chantier_fr: chantier, register };

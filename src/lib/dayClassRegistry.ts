@@ -93,8 +93,8 @@ export type DayClassResult = {
 // la donnée : 32,7 °C y donne lvl_heat = 3, pas 1. La MESURE de la scission reste valide (elle
 // porte sur lvl 1 vs lvl >= 2, et les +70/-72 €/j sont réels) — seuls les degrés étaient faux.
 export const WEATHER_DAY_CLASSES: Array<{ key: string; level_col: string; min_lvl: number; max_lvl?: number; label_fr: string }> = [
-  { key: "heat_25_27",   level_col: "lvl_heat", min_lvl: 1, max_lvl: 1, label_fr: "journées à 25–27 °C" },
-  { key: "heat_28_plus", level_col: "lvl_heat", min_lvl: 2,             label_fr: "journées à 28 °C et plus" },
+  { key: "heat_25_27",   level_col: "lvl_heat", min_lvl: 1, max_lvl: 1, label_fr: "jours à 25–27 °C" },
+  { key: "heat_28_plus", level_col: "lvl_heat", min_lvl: 2,             label_fr: "jours à 28 °C et plus" },
   { key: "rain", level_col: "lvl_rain", min_lvl: 1, label_fr: "jours de pluie marquée" },
   { key: "wind", level_col: "lvl_wind", min_lvl: 1, label_fr: "jours de vent fort" },
   { key: "snow", level_col: "lvl_snow", min_lvl: 1, label_fr: "jours de neige" },
