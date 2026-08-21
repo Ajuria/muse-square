@@ -294,7 +294,16 @@ export function fillContextFallback(labelKey: string, vars: Record<string, strin
 // Copy des cartes structurelles — UNE phrase-titre chiffrée + l'honnêteté du pool + le chantier
 // proposé. Owner-éditable ici (voix : phrases nominales, jamais de français robotique).
 const STRUCTURAL_CHANTIER_FR: Record<string, string> = {
-  heat: "Plan chaleur permanent — ombrage, offre fraîcheur, communication déclenchée dès prévision de forte chaleur.",
+  // Clé `heat` corrigée le 21/08 : elle n'a correspondu à AUCUNE classe depuis la scission de la
+  // chaleur par dose (29/07, docs/card-truth-audit.md § « Scission de la classe chaleur »).
+  // Les deux classes retombaient sur le chantier générique — visible en production sur f10c3e58,
+  // dont la carte à −8 809 €/an affichait « Dispositif durable à définir ».
+  // Le texte parle de « forte chaleur » : il appartient à heat_28_plus, pas au doux.
+  heat_28_plus: "Plan forte chaleur — ombrage, offre fraîcheur, communication déclenchée dès prévision.",
+  // heat_25_27 : PAS de chantier — la mesure dit que c'est une classe DISTINCTE (site le mieux
+  // mesuré : −610 €/j à 25–27 °C contre −159 €/j à 28 °C+, soit 4× plus pour la chaleur douce),
+  // donc elle ne peut pas hériter du plan forte chaleur. Sa phrase est à écrire par l'owner
+  // (CLAUDE.md, SINGLE SOURCE OF TRUTH (copie) : un concept sans mot ⇒ demander LE mot).
   rain: "Plan pluie — offre de repli en intérieur + communication dès prévision de pluie marquée.",
   wind: "Plan vent — sécurisation extérieure + repli intérieur systématique les jours de vent fort.",
   snow: "Plan neige — accès, horaires et communication adaptés dès prévision de neige.",
@@ -340,9 +349,13 @@ export function structuralCardCopyFr(i: {
   } else if (i.class_key === "competition_low") {
     title = "Les jours calmes ne vous profitent pas encore";
   } else {
+    // Forme C (owner 21/08) : « Les » et non « Vos » — la classe de jour n'appartient pas à
+    // l'exploitant, seul l'effet est sien. Verbe et non adjectif (lexique règle 8), et le couple
+    // rapporter/coûter est déjà celui du coin (« à gagner » / « perdus »). Pas de « du chiffre » :
+    // le corps le dit et le montant est au coin (lexique règle 2 + correction owner « que la normale »).
     title = pos
-      ? `Vos ${i.label_fr} vous rapportent plus que la normale`
-      : `Vos ${i.label_fr} vous font perdre du chiffre`;
+      ? `Les ${i.label_fr} vous rapportent`
+      : `Les ${i.label_fr} vous coûtent`;
   }
   const sowhat = register === "identification"
     ? "Sur ces journées, vous encaissez plus que votre normale — de façon récurrente, pas accidentelle. La cause précise est chez vous : trouvée et documentée, elle devient déclenchable."
