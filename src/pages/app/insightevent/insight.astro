@@ -519,7 +519,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         if (a.watched_competitor_count != null) claims.push({ claim:'Concurrents suivis', value: frInt(a.watched_competitor_count), source:'Muse Square' });
         if (a.enriched_competitor_count != null) claims.push({ claim:'Concurrents analys\u00e9s', value: frInt(a.enriched_competitor_count), source:'Muse Square' });
         if (!claims.length) claims.push({ claim:'Signal', value:'\u00c9cart de positionnement', source:'Muse Square' });
-        return { cat:'Ventes \u00b7 Positionnement', title:'\u00c9cart de positionnement produit', badge:{ label:'Intelligence', bg:'#EEF2FF', fg:'#1D3BB3' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['Caisse \u2014 mix produit','Muse Square \u2014 concurrents suivis'] };
+        return { cat:'Ventes \u00b7 Positionnement', title:'\u00c9cart de positionnement produit', badge:{ label:'Intelligence', bg:'#EEF2FF', fg:'#1D3BB3' }, competitor_id:'', competitor_name:'', descriptif_orientation:'', claims:claims, sources:['Caisse \u2014 mix produit','Muse Square \u2014 concurrents que vous suivez'] };
       }
 
       // ── Sales residual (surge / revenue_down): realized vs conditional expectation ──

@@ -725,7 +725,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var n5k = evsAll.filter(function (m) { return m.m != null && m.m <= 5000; }).length;
             var mapSite = evsAll[0] ? (j.sites || []).filter(function (sx) { return sx.location_id === evsAll[0].location_id; }).map(function (sx) { return sx.label; })[0] : null;
             html += '<div style="padding:10px 0 4px;">'
-              + '<a href="/app/insightevent/map?mode=concurrence" style="width:100%;display:block;text-align:left;background:none;border:1px solid rgba(0,0,0,0.10);border-radius:10px;overflow:hidden;cursor:pointer;text-decoration:none;color:inherit;" title="Ouvre la carte (concurrents suivis + événements autour de votre site)">'
+              + '<a href="/app/insightevent/map?mode=concurrence" style="width:100%;display:block;text-align:left;background:none;border:1px solid rgba(0,0,0,0.10);border-radius:10px;overflow:hidden;cursor:pointer;text-decoration:none;color:inherit;" title="Ouvre la carte (les concurrents que vous suivez et les événements autour de votre site)">'
               + '<div style="position:relative;height:110px;background:#EBEEF2;">'
                 + '<svg viewBox="0 0 400 110" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">'
                   + '<circle cx="200" cy="55" r="48" fill="#1D3BB3" fill-opacity="0.05" stroke="#1D3BB3" stroke-opacity="0.30" stroke-width="1.2"/>'
@@ -740,7 +740,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '</div>'
               + '<div style="padding:9px 14px;font-size:12px;color:#6B7280;">14 prochains jours : '
                 + (n500 ? n500 + ' événement' + (n500 > 1 ? 's' : '') + ' à moins de 500 m · ' : '')
-                + n5k + ' événement' + (n5k > 1 ? 's' : '') + ' à moins de 5 km · ' + vLieux.length + ' concurrents suivis</div>'
+                + n5k + ' événement' + (n5k > 1 ? 's' : '') + ' à moins de 5 km · ' + vLieux.length + ' concurrents que vous suivez</div>'
               + '</a></div>';
           })();
           if (!jours.length) html += '<div style="color:#9CA3AF;font-size:12.5px;">Aucun événement concurrent repéré sur vos 14 prochains jours.</div>';
@@ -1299,7 +1299,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + GREEN + ';margin-right:6px;"></span><span style="font-weight:600;">Leurs offres et tarifs : rien n’a bougé</span> — ' + g.offres_base.n_tarifs + ' tarifs sous surveillance (' + g.offres_base.n_lieux + ' concurrents publient leurs prix)</div>';
             }
           } else html += '<div style="color:#9CA3AF;">Aucun concurrent suivi — suivez vos menaces fortes pour que la veille tourne.</div>';
-          html += '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Une menace « forte » : public commun élevé et proximité. Votre veille lit chaque nuit les pages de vos concurrents suivis — événements, offres, tarifs.</div>';
+          html += '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Une menace « forte » : public commun élevé et proximité. Votre veille lit chaque nuit les pages des concurrents que vous suivez — événements, offres, tarifs.</div>';
           html += '</div>';
 
           // ── Rangée AUTOMATISATIONS — à part : ce n'est pas de la veille concurrentielle
