@@ -349,10 +349,19 @@ export function structuralCardCopyFr(i: {
     title = i.class_key === "traffic_high"
       ? "Identifiez ce qui déclenche vos jours de pointe"
       : i.class_key === "followed_activity_high"
-        ? "L'activité de vos concurrents suivis vous profite — identifiez pourquoi"
-        : "Les jours calmes vous réussissent — identifiez pourquoi";
-  } else if (i.class_key === "competition_low") {
-    title = "Les jours calmes ne vous profitent pas encore";
+        ? "L'activité des concurrents que vous suivez vous profite — identifiez pourquoi"
+        // Aligné le 21/08 : « jours calmes » ne nommait pas la dimension mesurée (même défaut que
+        // le titre correctif retiré le même jour), et « vous réussissent » divergeait du verbe de
+        // la forme C. Le libellé de la classe + « vous rapportent » ; le « — identifiez pourquoi »
+        // reste, c'est lui qui porte le registre identification (doctrine 01/08, amendement 7).
+        : `Les ${i.label_fr} vous rapportent — identifiez pourquoi`;
+  // competition_low négatif : le titre en dur « Les jours calmes ne vous profitent pas encore »
+  // est RETIRÉ le 21/08 (3 arbitrages owner). Il précédait la forme C et la contredisait sur les
+  // trois points : (1) « calmes » ne nommait pas la dimension — la classe mesure
+  // `competition_index_local` = concurrents actifs pondérés par la distance, pas un calme ambiant ;
+  // (2) « ne vous profitent pas » présentait un COÛT mesuré (−162 €/j sur 20 j chez f10c3e58)
+  // comme un profit absent ; (3) « pas encore » promettait un gain latent que rien ne mesure.
+  // Le gabarit par défaut dit les trois : « Les jours à faible pression concurrentielle vous coûtent ».
   } else {
     // Forme C (owner 21/08) : « Les » et non « Vos » — la classe de jour n'appartient pas à
     // l'exploitant, seul l'effet est sien. Verbe et non adjectif (lexique règle 8), et le couple

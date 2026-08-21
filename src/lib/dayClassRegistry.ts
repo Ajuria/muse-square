@@ -122,7 +122,12 @@ export const TERCILE_DAY_CLASSES: Array<{ key: string; family: string; index_col
 
 export const OTHER_DAY_CLASSES: Array<{ key: string; family: string; label_fr: string }> = [
   { key: "mobility_disruption", family: "mobility", label_fr: "jours à perturbation de mobilité" },
-  { key: "followed_activity_high", family: "suivis", label_fr: "jours de forte activité de vos concurrents suivis" },
+  { key: "followed_activity_high", family: "suivis", label_fr: "jours de forte activité des concurrents que vous suivez" },
+  // Libellé arbitré owner 21/08, en DEUX temps. « vos concurrents suivis » d'abord rejeté
+  // (« n'est pas français ») ; « vos concurrents » ensuite écarté parce que la restriction est
+  // MESURÉE et non négociable : dayClassAggregateSql filtre `entity_is_followed = TRUE`, soit
+  // 17 lieux sur 22 détectés chez f10c3e58 — le libellé large aurait annoncé les 22. Forme
+  // retenue : la relative, seule tournure à la fois exacte et grammaticale.
   { key: "school_holiday", family: "calendar", label_fr: "jours de vacances scolaires" },
   { key: "public_holiday", family: "calendar", label_fr: "jours fériés" },
   // Étape 4 (26/07) :
