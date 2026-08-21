@@ -154,7 +154,17 @@
   function crawledBrand(p) { return crawled(p).brand_positioning || ''; }
 
   // Truncate with ellipsis
-  function trunc(s, n) { return s.length > n ? s.substring(0, n) + '\u2026' : s; }
+  // Coupe au dernier ESPACE avant n, jamais en plein mot (21/08). L'ancienne version coupait au
+  // caractère : « planification pour ident… », « — r… » à la place de « risque de cannibalisation ».
+  // Repli sur la coupe dure si le premier mot dépasse déjà n.
+  function trunc(s, n) {
+    s = String(s == null ? '' : s);
+    if (s.length <= n) return s;
+    var cut = s.substring(0, n);
+    var sp = cut.lastIndexOf(' ');
+    if (sp > n * 0.6) cut = cut.substring(0, sp);
+    return cut.replace(/[\s,;:.\u2014-]+$/, '') + '\u2026';
+  }
 
   // User differentiator — best available string from crawled or profile
   function isBoilerplate(s) {
@@ -166,6 +176,17 @@
         || t.indexOf('agr\u00e9gation') >= 0
         || t.indexOf('copilote op\u00e9rationnel') >= 0;
   }
+  // 21/08 — description crawlée RETIRÉE du corps des cartes (arbitrage owner). Motifs :
+  //   · elle ÉVINÇAIT la mesure — le plafond de 200 c. était consommé par elle avant
+  //     d'atteindre le fait mesuré (prouvé sur weekend_opportunity et
+  //     competitor_threat_direct : « Même cible … » et « Votre cible … » disparaissaient) ;
+  //   · l'exploitant CONNAÎT son offre — c'est le repère permanent par excellence, et le
+  //     produit interdit déjà d'en citer un sur une carte du jour
+  //     (packagerGroundedDayPrompt règle 3ter-0, mêmes motifs, pour les concurrents) ;
+  //   · non généralisable en version courte : 3 comptes seulement portent une description,
+  //     de 127 à 279 caractères, sans structure commune — aucune règle d'extraction ne se
+  //     valide sur n=3.
+  // Elle RESTE dans les graines de brouillon (Communiquer), où elle sert à rédiger.
   function userEdge(p) {
     var cands = [crawledDiff(p), crawledOffering(p), crawledDesc(p), evLabel(p)];
     for (var i = 0; i < cands.length; i++) { if (cands[i] && !isBoilerplate(cands[i])) return cands[i]; }
@@ -233,13 +254,11 @@
   reg('high_competition_density', 'Diff\u00e9renciez-vous face \u00e0 vos concurrents', 'CONCURRENCE', '\u2694\ufe0f', '#D32F2F', 'action', 'pulse#carte',
     function(a, p, d) {
       var pr = Number(d.competition_pressure_ratio || 0);
-      var edge = userEdge(p);
       var aud = audLabel(p);
       var line = 'Concurrence pour l\u2019attention au-dessus de la normale';
       if (pr > 0) line += ' (pression \u00d7' + pr.toFixed(1) + ')';
       line += '.';
       if (aud) line += ' Public vis\u00e9 : ' + aud + '.';
-      if (edge) line += ' Votre atout : ' + trunc(edge, 120) + '.';
       return line;
     },
     {
@@ -255,13 +274,11 @@
     function(a, p, d) {
       var prevBad = a.prevBadDays || a.consecutive_bad_days || '2+';
       var t = temp(d.temperature_2m_max);
-      var offering = crawledOffering(p);
       var line = 'Apr\u00e8s ' + prevBad + 'j de mauvais temps, retour au beau : ' + (d.weather_label_fr || 'am\u00e9lioration');
       if (t) line += ', ' + t;
       line += '.';
       if (weatherSens(p)) line += ' Sensibilit\u00e9 m\u00e9t\u00e9o \u00e9lev\u00e9e (' + p.weather_sensitivity + '/5) \u2014 impact direct sur votre fr\u00e9quentation.';
       if (isOutdoor(p)) line += ' Espace mixte/ext\u00e9rieur \u2014 vos visiteurs reviennent.';
-      if (offering) line += ' Mettez en avant : ' + trunc(offering, 80) + '.';
       var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
       return line;
     },
@@ -287,10 +304,8 @@
       else if (comp > 0) parts.push(comp + ' \u00e9v\u00e9nements \u00e0 5 km');
       if (d.holiday_name) parts.push(d.holiday_name);
       if (d.vacation_name) parts.push(d.vacation_name);
-      var offering = crawledOffering(p) || crawledDesc(p);
       var actionHint = '';
-      if (offering) actionHint = ' Mettez en avant : ' + trunc(offering, 100) + '.';
-      else { var ev = evLabel(p); if (ev) actionHint = ' Id\u00e9al pour planifier un ' + ev.split(',')[0].trim() + '.'; }
+      var ev = evLabel(p); if (ev) actionHint = ' Id\u00e9al pour planifier un ' + ev.split(',')[0].trim() + '.';
       var obj = p.main_event_objective === 'maximize_attendance' ? ' Objectif affluence \u2014 toutes les conditions sont align\u00e9es.' : p.main_event_objective === 'avoid_competition' ? ' Occasion id\u00e9ale pour \u00e9viter la concurrence.' : '';
       return parts.join(' \u00b7 ') + '. Meilleur jour de vos dates.' + actionHint + obj;
     },
@@ -385,14 +400,21 @@
       var name = a.competitor_name || c.organizer_name || 'Concurrent';
       var event = a.event_label || '';
       var dist = distLabel(a.distance_m || c.distance_m);
-      var edge = userEdge(p);
       var line = name;
       if (event) line += ' \u2014 ' + event;
       if (dist) line += ', \u00e0 ' + dist;
       line += '.';
-      if (edge) line += ' Votre diff\u00e9renciant face \u00e0 ce concurrent : ' + trunc(edge, 100) + '.';
+      // 21/08 — « Même cible » était affirmé dès que le PROFIL portait un public, sans jamais
+      // lire celui du concurrent : une affirmation, pas une mesure. Conditionné au recouvrement
+      // MESURÉ du payload, à la barre de 40 % qui fait déjà loi côté page profonde
+      // (src/lib/insightFamilies/competitor.ts:19, REAL_BAR — source unique de la règle ;
+      // valeur redite ici faute d'import possible depuis un fichier statique). Son intention
+      // est explicite : sous la barre, ce n'est pas un concurrent — sinon la page dit « aucun
+      // impact mesurable » quand la carte dit « risque de cannibalisation », même donnée,
+      // même jour.
+      var ovPct = Number(a.audience_overlap_pct);
       var aud = audLabel(p);
-      if (aud) line += ' M\u00eame cible (' + aud + ') \u2014 risque de cannibalisation.';
+      if (aud && isFinite(ovPct) && ovPct >= 40) line += ' M\u00eame cible (' + aud + ') \u2014 risque de cannibalisation.';
       var compEnriched = null;
       try { compEnriched = a.competitor_enriched_description ? (typeof a.competitor_enriched_description === 'string' ? JSON.parse(a.competitor_enriched_description) : a.competitor_enriched_description) : null; } catch(e) {}
       if (compEnriched) {
@@ -438,7 +460,6 @@
       var c = topComp(d);
       var nearest = c.organizer_name || c.event_label || '';
       var nearestDist = c.distance_m ? Number(c.distance_m) : 0;
-      var edge = userEdge(p);
       var parts = [];
       if (n500 > 0) parts.push(n500 + ' \u00e9v\u00e9nement' + (n500 > 1 ? 's' : '') + ' \u00e0 moins de 500 m');
       if (n1k > 0) parts.push(n1k + ' \u00e0 1 km');
@@ -446,7 +467,6 @@
       var line = parts.length > 0 ? parts.join(', ') + '. ' : '';
       line += density + ' autour de ' + siteName(p) + '.';
       if (nearest && nearestDist > 0) line += ' Le plus proche : ' + nearest + ' \u00e0 ' + distLabel(nearestDist) + '.';
-      if (edge) line += ' Votre atout face \u00e0 cette densit\u00e9 : ' + trunc(edge, 100) + '.';
       if (isOutdoor(p) && n500 >= 3) line += ' Espace mixte \u2014 votre visibilit\u00e9 ext\u00e9rieure est critique.';
       if (p.nearest_transit_stop_name) line += ' Acc\u00e8s pi\u00e9ton via ' + p.nearest_transit_stop_name + ' (' + Math.round(Number(p.nearest_transit_stop_distance_m || 0)) + 'm).';
       return line;
@@ -518,7 +538,6 @@
       var line = 'Le facteur de risque dominant a chang\u00e9';
       if (from && to) line += ' : ' + from + ' \u2192 ' + to;
       else if (to) line += ' : ' + to;
-      if (to === 'Concurrence' || to === 'competition') { var edge = userEdge(p); if (edge) line += ' Votre atout : ' + trunc(edge, 80) + '.'; }
       if (to === 'M\u00e9t\u00e9o' || to === 'weather') { if (weatherSens(p)) line += ' Sensibilit\u00e9 m\u00e9t\u00e9o \u00e9lev\u00e9e \u2014 impact direct.'; }
       return line;
     },
@@ -532,9 +551,7 @@
     function(a, p, d) {
       var score = num(d.opportunity_score_final_local);
       var comp = Number(d.events_within_5km_count || 0);
-      var edge = userEdge(p);
       var line = 'Conditions favorables pour le week-end' + (d.weather_label_fr ? ' \u2014 ' + d.weather_label_fr.toLowerCase() : '') + ', ' + comp + ' \u00e9v\u00e9nements \u00e0 5 km.';
-      if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
       var aud = audLabel(p); if (aud) line += ' Votre cible (' + aud + ') est disponible le week-end.';
       var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
       return line;
@@ -606,8 +623,7 @@
       line += '.';
       if (delta > 0) line += ' Hausse de fr\u00e9quentation attendue : +' + Math.round(delta) + '%.';
       if (isOutdoor(p)) line += ' Espace ext\u00e9rieur de nouveau accessible.';
-      var edge = userEdge(p); if (edge) line += ' Moment id\u00e9al pour communiquer : ' + trunc(edge, 80) + '.';
-      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
+      var edge = userEdge(p);      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
       return line;
     },
     {
@@ -624,14 +640,12 @@
       var newR = Number(d.competition_pressure_ratio || 0);
       var n = Number(d.events_within_5km_count || 0);
       var same = Number(d.events_within_5km_same_bucket_count || 0);
-      var edge = userEdge(p);
       var line = 'Pression en hausse';
       if (oldR > 0) line += ' : \u00d7' + oldR.toFixed(1) + ' \u2192 \u00d7' + newR.toFixed(1);
       else line += ' : \u00d7' + newR.toFixed(1);
       line += '. ' + n + ' \u00e9v\u00e9nements \u00e0 5 km';
       if (same > 0) line += ', ' + same + ' dans votre secteur';
       line += '.';
-      if (edge) line += ' D\u00e9marquez-vous avec : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
@@ -671,8 +685,7 @@
       line += '.';
       if (impactRaw !== 0) line += ' Impact mobilit\u00e9 : ' + Math.round(impactRaw) + '%.';
       if (p.location_access_pattern === 'walking' || p.location_access_pattern === 'public_transit') line += ' Vos visiteurs viennent \u00e0 pied/transports \u2014 impact direct.';
-      var edge = userEdge(p); if (edge) line += ' Communiquez un itin\u00e9raire alternatif et mettez en avant : ' + trunc(edge, 60) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Perturbation acc\u00e8s' + (p.nearest_transit_stop_name ? ' (station ' + p.nearest_transit_stop_name + ')' : '') + '. Alternatives. Max 2200 car.'; },
@@ -708,8 +721,7 @@
       var line = 'Acc\u00e8s r\u00e9tabli';
       if (ti) line += ' \u2014 ' + ti.split(',')[0] + ' de nouveau accessible';
       line += '.';
-      var edge = userEdge(p); if (edge) line += ' Profitez-en pour communiquer : ' + trunc(edge, 80) + '.';
-      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
+      var edge = userEdge(p);      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
       return line;
     },
     {
@@ -729,8 +741,7 @@
       line += '.';
       if (driver) line += ' Facteur : ' + driver + '.';
       line += ' Conditions am\u00e9lior\u00e9es \u2014 c\u2019est le moment de communiquer.';
-      var edge = userEdge(p); if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Conditions meilleures qu\u2019hier. Communiquer maintenant. ' + (userEdge(p) || '') + '. Max 2200 car.'; }
@@ -800,13 +811,11 @@
       var event = c.event_label || a.new_value || lbl || 'M\u00e9ga-\u00e9v\u00e9nement';
       var attendance = c.estimated_attendance ? num(c.estimated_attendance) + ' visiteurs attendus' : '';
       var dist = distLabel(c.distance_m || a.distance_m);
-      var edge = userEdge(p);
       var line = event;
       if (dist) line += ' \u00e0 ' + dist;
       if (attendance) line += ' \u2014 ' + attendance;
       line += '.';
       line += ' Afflux de visiteurs dans votre zone.';
-      if (edge) line += ' Captez ce trafic en mettant en avant : ' + trunc(edge, 80) + '.';
       var aud = audLabel(p); if (aud) line += ' Votre cible (' + aud + ') sera pr\u00e9sente.';
       return line;
     },
@@ -859,11 +868,9 @@
       var overlap = Number(a.audience_overlap_pct || 0);
       var threatRaw = a.threat_level || a.entity_threat_level || '';
       var threatFr = THREAT_FR[threatRaw] || threatRaw;
-      var edge = userEdge(p);
       var line = name + ' cible votre audience' + (aud ? ' (' + aud + ')' : '') + '.';
       if (overlap > 0) line += ' Chevauchement : ' + overlap + '%.';
       if (threatFr) line += ' Menace ' + threatFr + '.';
-      if (edge) line += ' Diff\u00e9renciez-vous avec : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
@@ -878,13 +885,11 @@
       var name = a.competitor_name || '';
       var count = a.review_count || '';
       var rating = a.rating || '';
-      var edge = userEdge(p);
       var line = name + ' accumule les avis positifs';
       if (count) line += ' (' + count + ' r\u00e9cents';
       if (rating) line += ', note ' + rating + '/5';
       if (count) line += ')';
       line += '. Attractivit\u00e9 en hausse.';
-      if (edge) line += ' Votre r\u00e9ponse : sollicitez vos visiteurs pour des avis et mettez en avant ' + trunc(edge, 60) + '.';
       return line;
     },
     {
@@ -897,9 +902,7 @@
   reg('competitor_review_drop', 'Avis en baisse', 'OPPORTUNIT\u00c9', '\ud83d\udcac', '#2E7D32', 'action', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || '';
-      var edge = userEdge(p);
       var line = name + ' \u2014 note pass\u00e9e de ' + (a.old_rating || '?') + ' \u00e0 ' + (a.new_rating || '?') + '/5. Visiteurs d\u00e9\u00e7us en recherche d\u2019alternative.';
-      if (edge) line += ' Positionnez-vous : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
@@ -932,14 +935,12 @@
       var price = a.new_price_raw || '';
       var dkm = a.entity_threat_distance_km;
       var dist = (dkm != null) ? distLabel(Number(dkm) * 1000) : '';
-      var edge = userEdge(p);
       var line = name + ' lance une nouvelle offre : ' + item;
       if (price) line += ' (' + price + ')';
       if (cat) line += ' \u2014 ' + cat;
       if (dist) line += ', \u00e0 ' + dist;
       line += '.';
       line += threatContext(a, false);
-      if (edge) line += ' Votre positionnement face \u00e0 cette offre : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
@@ -964,12 +965,10 @@
       var name = a.competitor_name || c.organizer_name || '';
       var event = a.event_label || '';
       var dist = distLabel(c.distance_m || a.distance_m);
-      var edge = userEdge(p);
       var line = name + ' affiche complet';
       if (event) line += ' pour ' + event;
       if (dist) line += ' \u00e0 ' + dist;
       line += '. Visiteurs refus\u00e9s en recherche d\u2019alternative.';
-      if (edge) line += ' Captez-les avec : ' + trunc(edge, 80) + '.';
       var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
       return line;
     },
@@ -986,11 +985,9 @@
       var name = a.competitor_name || '';
       var count = a.content_count || '';
       var baseline = a.baseline_content_count || '';
-      var edge = userEdge(p);
       var line = name + ' multiplie les publications';
       if (count && baseline) line += ' (' + count + ' r\u00e9centes vs ' + baseline + ' en moyenne)';
       line += '. Votre visibilit\u00e9 se r\u00e9duit.';
-      if (edge) line += ' Maintenez votre pr\u00e9sence en mettant en avant : ' + trunc(edge, 60) + '.';
       return line;
     },
     {
@@ -1004,9 +1001,7 @@
     function(a, p, d) {
       var name = a.competitor_name || '';
       var days = a.days_silent || '';
-      var edge = userEdge(p);
       var line = name + ' \u2014 aucune publication depuis ' + days + 'j. Espace m\u00e9diatique local disponible.';
-      if (edge) line += ' Prenez la parole avec : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
@@ -1021,12 +1016,10 @@
       var name = a.campaign_name || 'Campagne institutionnelle';
       var org = a.organizer_name || '';
       var dist = distLabel(a.distance_m);
-      var edge = userEdge(p);
       var line = name;
       if (org) line += ' (' + org + ')';
       if (dist) line += ' \u00e0 ' + dist;
       line += ' \u2014 flux de visiteurs attendu.';
-      if (edge) line += ' Captez ce trafic : ' + trunc(edge, 80) + '.';
       var aud = audLabel(p); if (aud) line += ' Votre cible (' + aud + ') sera pr\u00e9sente.';
       return line;
     },
@@ -1041,9 +1034,7 @@
     function(a, p, d) {
       var source = a.media_source || 'm\u00e9dia';
       var topic = a.mention_topic || 'votre zone';
-      var edge = userEdge(p);
       var line = 'Mention dans ' + source + ' \u2014 sujet : ' + topic + '. Visibilit\u00e9 accrue.';
-      if (edge) line += ' Relayez et mettez en avant : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
@@ -1080,13 +1071,11 @@
       var oldP = a.old_price_raw || '?';
       var newP = a.new_price_raw || '?';
       var pctv = (a.price_pct_change != null) ? Number(a.price_pct_change) : null;
-      var edge = userEdge(p);
       var line = name + ' a baiss\u00e9 le prix de ' + item + ' : ' + oldP + ' \u2192 ' + newP;
       if (pctv != null) line += ' (' + pctv + '%)';
       line += '.';
       line += threatContext(a, true);
       line += ' Pression tarifaire \u2014 v\u00e9rifiez votre comp\u00e9titivit\u00e9 sur cette offre.';
-      if (edge) line += ' Votre atout : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
@@ -1101,13 +1090,11 @@
       var name = a.competitor_name || 'Un concurrent';
       var item = a.item || 'une offre';
       var oldP = a.old_price_raw || '';
-      var edge = userEdge(p);
       var line = name + ' ne propose plus : ' + item;
       if (oldP) line += ' (anciennement ' + oldP + ')';
       line += '.';
       line += threatContext(a, true);
       line += ' Opportunit\u00e9 de capter cette demande.';
-      if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
@@ -1166,8 +1153,6 @@
       if (count != null) line += ' sur ' + count + ' avis';
       line += '.';
       line += threatContext(a, true);
-      var edge = userEdge(p);
-      if (edge) line += ' Votre atout : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
@@ -1192,8 +1177,6 @@
       if (pk) line += ' (' + pk + ')';
       line += ' \u2014 c\u2019est le bon moment pour solliciter des avis aupr\u00e8s de vos visiteurs satisfaits.';
       if (n > 1) line += ' ' + n + ' journ\u00e9es porteuses dans les 5 prochains jours.';
-      var edge = userEdge(p);
-      if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
       return line;
     },
     {
@@ -1283,8 +1266,7 @@
       if (Number(a.tourism_index || d.tourism_index_region || 0) > 70) parts.push('tourisme \u00e9lev\u00e9');
       var line = fc + ' facteurs favorables align\u00e9s : ' + (parts.length > 0 ? parts.join(', ') : 'conditions multiples') + '.';
       line += ' Score ' + score + '/10.';
-      var edge = userEdge(p); if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Conditions exceptionnelles. ' + (userEdge(p) || 'votre offre') + '. Max 2200 car.'; },
@@ -1301,8 +1283,7 @@
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
       var line = 'M\u00e9t\u00e9o favorable et pression concurrentielle faible (\u00d7' + pr.toFixed(1) + ', ' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
       line += ' Conditions id\u00e9ales pour communiquer.';
-      var edge = userEdge(p); if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Beau temps, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1332,8 +1313,7 @@
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
       var line = 'Jour f\u00e9ri\u00e9 avec pression \u00d7' + pr.toFixed(1) + ' (' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
       line += ' Public disponible mais concurrence aussi.';
-      var edge = userEdge(p); if (edge) line += ' D\u00e9marquez-vous avec : ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour f\u00e9ri\u00e9, d\u00e9marquez-vous. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1347,8 +1327,7 @@
       var score = num(a.score || d.opportunity_score_final_local);
       var regime = a.regime || d.opportunity_regime || '';
       var line = 'Meilleur jour de la semaine : score ' + score + '/10, r\u00e9gime ' + regime + '.';
-      var edge = userEdge(p); if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Meilleur jour de la semaine. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1361,8 +1340,7 @@
     function(a, p, d) {
       var score = num(a.score || d.opportunity_score_final_local);
       var line = 'R\u00e9gime A, score ' + score + '/10. Conditions optimales.';
-      var edge = userEdge(p); if (edge) line += ' Maximisez avec : ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. R\u00e9gime A. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1376,8 +1354,7 @@
       var pctSame = samePct(a, d) || 0;
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
       var line = pctSame + '% des ' + n + ' \u00e9v\u00e9nements \u00e0 5 km sont dans votre secteur.';
-      var edge = userEdge(p); if (edge) line += ' D\u00e9marquez-vous : ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Secteur satur\u00e9. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1392,8 +1369,7 @@
       var score = num(a.score || d.opportunity_score_final_local);
       var line = 'Week-end de vacances, pression \u00d7' + pr.toFixed(1) + '. Score ' + score + '/10.';
       line += ' Occasion rare \u2014 communiquez maintenant.';
-      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Week-end de vacances, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1414,8 +1390,7 @@
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       if (isDiscount) line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous sans casser vos prix.' : ' Le flux d\u2019acheteurs est l\u00e0 \u2014 mettez en avant une offre signature plut\u00f4t qu\u2019une remise.';
       else line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous.' : ' Occasion favorable \u2014 captez le flux.';
-      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. P\u00e9riode commerciale. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1429,8 +1404,7 @@
       var line = 'Am\u00e9lioration m\u00e9t\u00e9o apr\u00e8s 2+ jours d\u00e9grad\u00e9s.';
       if (weatherSens(p)) line += ' Site sensible (' + p.weather_sensitivity + '/5) \u2014 vos visiteurs reviennent.';
       if (isOutdoor(p)) line += ' Espace ext\u00e9rieur de nouveau accessible.';
-      var edge = userEdge(p); if (edge) line += ' Communiquez : ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Le beau temps revient. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1467,8 +1441,7 @@
       var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
       var line = 'Indice touristique \u00e9lev\u00e9 (' + Math.round(idx) + st + '). Afflux de visiteurs dans votre r\u00e9gion.';
       var aud = audLabel(p); if (aud) line += ' Adaptez votre message pour ' + aud + ' et les touristes.';
-      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Haute saison touristique. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1483,8 +1456,7 @@
       var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
       var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
       var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + st + ') + vacances scolaires. Double flux de visiteurs.';
-      var edge = userEdge(p); if (edge) line += ' Captez-les avec : ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Tourisme + vacances. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1499,8 +1471,7 @@
       var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
       var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
       var line = 'Pic touristique d\u00e9tect\u00e9 (indice ' + Math.round(idx) + st + '). Maximisez votre visibilit\u00e9.';
-      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Pic touristique. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1515,8 +1486,7 @@
       var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
       var st = ST[a.tourism_status] ? ' ' + ST[a.tourism_status] : '';
       var line = 'Triple signal : tourisme (' + Math.round(idx) + st + '), beau temps, vacances. Conditions exceptionnelles.';
-      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Tourisme + beau temps + vacances. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1533,8 +1503,7 @@
       var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
       var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + st + ') mais pression \u00d7' + pr.toFixed(1) + '.';
       line += ' Les touristes ont le choix \u2014 d\u00e9marquez-vous.';
-      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Tourisme \u00e9lev\u00e9, concurrence aussi. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1550,8 +1519,7 @@
       var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
       var line = 'Tourisme bas (' + Math.round(idx) + st + ') mais jour f\u00e9ri\u00e9. Les r\u00e9sidents sont disponibles.';
       var aud = audLabel(p); if (aud) line += ' Ciblez vos ' + aud.split(',')[0] + '.';
-      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Journ\u00e9e pour les locaux. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1596,8 +1564,7 @@
       var stop = p.nearest_transit_stop_name || '';
       var line = 'Acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + ' et pression concurrentielle \u00d7' + pr.toFixed(1) + '.';
       line += ' Vos visiteurs risquent de se d\u00e9tourner vers des concurrents mieux accessibles.';
-      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 60) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       note_interne: function(a, p, d) { return 'Note urgente. Mobilit\u00e9 + concurrence \u00d7' + Number(a.pressure_ratio||0).toFixed(1) + '. Itin\u00e9raires alt + comm.'; }
@@ -1626,8 +1593,7 @@
       var line = 'Jour habituellement calme mais conditions id\u00e9ales : beau temps et concurrence faible (\u00d7' + pr.toFixed(1) + ').';
       if (a.ft_peak_busyness_pct != null) line += ' Pic habituel ' + (a.ft_peak_hour != null ? 'vers ' + Number(a.ft_peak_hour) + 'h ' : '') + '\u00e0 ' + Number(a.ft_peak_busyness_pct) + ' % d\u2019affluence.';
       line += ' Opportunit\u00e9 de capter du trafic suppl\u00e9mentaire.';
-      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour calme, beau temps. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1642,8 +1608,7 @@
       var pctSame = samePct(a, d) || 0;
       var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
       var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') mais ' + pctSame + '% du secteur en concurrence directe.';
-      var edge = userEdge(p); if (edge) line += ' D\u00e9marquez-vous : ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour de pointe, d\u00e9marquez-vous. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1658,8 +1623,7 @@
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
       var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') et pression faible (\u00d7' + pr.toFixed(1) + '). Occasion en or.';
-      var edge = userEdge(p); if (edge) line += ' Mettez en avant : ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour de pointe, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -1675,8 +1639,7 @@
       var idx = num(a.tourism_index || d.tourism_index_region) || 0;
       var pk = (a.ft_peak_hour != null) ? ' vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
       var line = 'Triple signal : pic de fr\u00e9quentation (rang ' + rank + pk + '), tourisme (' + Math.round(idx) + '), vacances. Affluence maximale attendue.';
-      var edge = userEdge(p); if (edge) line += ' ' + trunc(edge, 80) + '.';
-      return line;
+      var edge = userEdge(p);      return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Pic + tourisme + vacances. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
@@ -2390,7 +2353,7 @@
       var actionText = '';
       var whatText = '';
       if (spec) {
-        try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, 2).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = _s1.length > 200 ? _s1.slice(0, 197) + '...' : _s1; } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
+        try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, 2).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, 200); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
         // Name the actual weekday on the sales movement cards — never "jours comparables".
         if (actionType === 'sales_surge') whatText = 'CA supérieur à vos ' + window.msWeekdayFr(feedItem.affected_date);
