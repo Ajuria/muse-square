@@ -381,7 +381,7 @@ if (!location_id) {
     <script is:inline src="/reco-library.js?v=12"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=50"></script>
+    <script is:inline src="/action-cards.js?v=51"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
 
@@ -3520,7 +3520,21 @@ if (!location_id) {
   function _goalStoreKey() { return "ms_pulse_goal:" + (currentLocationId || "default"); }
   // ---- Mes engagements (persistent commitment cards; own grain, own section) ----
   function _cgFv(x){ return (x && typeof x === 'object' && 'value' in x) ? x.value : x; }
-  function _cgWin(k){ if (k === 'day_of') return 'le jour même'; var m = /^(\d+)d$/.exec(String(k || '')); return m ? m[1] + ' j' : '7 j'; }
+  // 22/08 — `day_of` rendait « le jour même », SANS date. Deux engagements ouverts sur deux
+  // occurrences du même événement récurrent (22/08 et 29/08, vérifié en base) s'affichaient
+  // donc à l'identique : même titre, même corps, même objectif — l'owner a lu un doublon là
+  // où il y avait deux dates. Lexique règle 4, ON NOMME OU ON SE TAIT ; et règle 6, jour de
+  // semaine en toutes lettres + date JJ/MM. La fenêtre en jours (`7d`) n'a pas de date à
+  // nommer : elle est inchangée.
+  function _cgWin(k, ymd){
+    if (k === 'day_of') {
+      var d = ymd ? parseYmdToDate(normalizeYmd(ymd)) : null;
+      if (!d) return 'le jour même';
+      var j = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][d.getUTCDay()];
+      return 'le ' + j + ' ' + String(d.getUTCDate()).padStart(2,'0') + '/' + String(d.getUTCMonth()+1).padStart(2,'0');
+    }
+    var m = /^(\d+)d$/.exec(String(k || '')); return m ? m[1] + ' j' : '7 j';
+  }
   function _cgEur(n){ return (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' €'; }
   // indicative % above "habituel" needed to validate the objective — the z threshold
   // translated through the location's noise band (~0.19 = CV × √VIF) over the window.
@@ -3572,11 +3586,11 @@ if (!location_id) {
     // R1 (proto engagement-cards-restyle-proto.html, validé 27/07) : le titre est l'ACTION
     // elle-même ; le chiffre (objectif ou résultat) vit en zone titre (bloc .amt, cf. _amt).
     var _titre = String(r.committed_action_text || '');
-    var sowhat = r.status === 'open' ? escapeHtml('Mesure sur ' + _cgWin(r.window_kind) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
+    var sowhat = r.status === 'open' ? escapeHtml((r.window_kind === 'day_of' ? 'Mesure ' : 'Mesure sur ') + _cgWin(r.window_kind, r.window_start) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'expired' ? escapeHtml('Aucune donnée de ventes reçue en 30 j.')
-      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind) + '.')
-      : escapeHtml('Dates de l\u2019op\u00e9ration : ' + _cgWin(r.window_kind) + '.');
+      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind, r.window_start) + '.')
+      : escapeHtml('Dates de l\u2019op\u00e9ration : ' + _cgWin(r.window_kind, r.window_start) + '.');
     // Code couleur lisible (proto 27/07) : montant signé + mini-phrase. Objectif bleu tant que
     // rien n'est mesuré ; résultat couleur verdict une fois résolu. Ligne legacy sans seuil et
     // rien de mesuré → pas de bloc (le « 1 % » inventé par le plancher de _cgTargetPct disparaît).
@@ -3585,12 +3599,12 @@ if (!location_id) {
       var _rPos = Number(pct) >= 0;
       var _rFg = r.verdict === 'met' ? '#166534' : r.verdict === 'missed' ? '#b91c1c' : '#B45309';
       var _rLbl = r.verdict === 'met' ? 'objectif atteint' : r.verdict === 'missed' ? 'objectif manqué' : 'non concluant';
-      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel.') + '">'
+      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind, r.window_start) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel.') + '">'
         + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' %</div>'
         + '<div class="amt-sub">' + _rLbl + '</div>'
       + '</div>';
     } else if (r.status !== 'expired' && r.threshold_value != null) {
-      _amt = '<div class="amt" title="' + escapeHtml('Objectif : +' + _ypct + ' % vs votre CA habituel' + (_uplift ? ', soit +' + _cgEur(_uplift) + '/jour' : '') + ' sur ' + _cgWin(r.window_kind) + '. Bleu : rien n\'est mesuré encore.') + '">'
+      _amt = '<div class="amt" title="' + escapeHtml('Objectif : +' + _ypct + ' % vs votre CA habituel' + (_uplift ? ', soit +' + _cgEur(_uplift) + '/jour' : '') + ' sur ' + _cgWin(r.window_kind, r.window_start) + '. Bleu : rien n\'est mesuré encore.') + '">'
         + '<div class="amt-val" style="color:#1D3BB3;">' + (_uplift ? '+' + _cgEur(_uplift) + '/jour' : '+' + _ypct + ' %') + '</div>'
         + '<div class="amt-sub">votre objectif</div>'
       + '</div>';

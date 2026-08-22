@@ -2422,8 +2422,10 @@
         // Name the actual weekday on the sales movement cards — never "jours comparables".
         // Titres arbitrés par l'owner le 21/08. Forme jour au SINGULIER + « habituel » : la
         // référence se nomme comme une référence (lexique ligne 23, règle 6).
-        if (actionType === 'sales_surge') whatText = 'CA > votre ' + window.msWeekdayFrSing(feedItem.affected_date) + ' habituel';
-        else if (actionType === 'sales_revenue_down_wow') whatText = 'CA < votre ' + window.msWeekdayFrSing(feedItem.affected_date) + ' habituel';
+        // 22/08 — retour à « supérieur / inférieur à » : l'owner avait écrit « CA > » puis
+        // corrigé son propre arbitrage. Le symbole gagnait deux caractères et perdait la lecture.
+        if (actionType === 'sales_surge') whatText = 'CA supérieur à votre ' + window.msWeekdayFrSing(feedItem.affected_date) + ' habituel';
+        else if (actionType === 'sales_revenue_down_wow') whatText = 'CA inférieur à votre ' + window.msWeekdayFrSing(feedItem.affected_date) + ' habituel';
         // « Temps fort commercial — activez » refusé par l'owner : verbe sans objet (règle 8),
         // et « temps fort commercial » est un nom de catégorie du système, pas une chose de la
         // journée. Sa formulation, avec l'événement nommé — le corps le connaissait déjà.
