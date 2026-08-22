@@ -438,15 +438,40 @@
         return out;
       }
       function uniq(arr) { var seen = {}, r = []; for (var i = 0; i < arr.length; i++) { if (!seen[arr[i]]) { seen[arr[i]] = 1; r.push(arr[i]); } } return r; }
-      var school = uniq(names(a.countries_on_school_holiday));
-      var pub = uniq(names(a.countries_on_public_holiday));
-      var parts = [];
-      if (school.length) parts.push('vacances scolaires : ' + school.join(', '));
-      if (pub.length) parts.push('jour férié : ' + pub.join(', '));
-      var line = parts.length ? 'Public touristique étranger en congés — ' + parts.join(' ; ') + '.'
-                              : 'Contexte touristique étranger détecté.';
+      // 22/08 — LA CARTE LISAIT LE MAUVAIS CHAMP.
+      // Elle construisait sa phrase depuis `countries_on_school_holiday` : en août, 23 pays
+      // européens y figurent, tous en « Summer holidays ». C'est le « ⇒ c'est l'été » que
+      // l'audit du 27/07 avait condamné, et ça s'écrit sans ouvrir le compte (test 11 du lexique).
+      // Le câblage du 01/08 avait mis le chiffre RÉEL juste à côté, dans le même payload, et
+      // personne ne le lisait : `countries_named` (« Royaume-Uni 16%, Suisse 11%… »),
+      // `share_total_pct`, `profile_reference_year`. Couverture mesurée : 108 tirs sur 128,
+      // 27 sites sur 32 (les 5 sans sont la PACA, non publiée — cf. docs/foreign-tourism-cablage.md).
+      //
+      // La phrase n'est pas inventée : elle reprend celle que le modèle dbt écrit DÉJÀ en
+      // `detail_fr` (fct_location_daily_action_candidates, CTE foreign_tourism_named), y compris
+      // sa réserve — « Ce n'est pas une mesure de votre fréquentation ». On l'accentue seulement,
+      // dbt écrivant sans accents par convention. Repli : la phrase de repli du modèle.
+      var named = typeof a.countries_named === 'string' ? a.countries_named.trim() : '';
+      var line;
+      if (named) {
+        // Typographie française : espace avant le %, que dbt ne pose pas.
+        var pays = named.replace(/(\d)%/g, '$1 %');
+        var part = a.share_total_pct != null ? String(a.share_total_pct).replace(/(\d)$/, '$1') : null;
+        var an = a.profile_reference_year != null ? String(a.profile_reference_year) : null;
+        line = pays + ' en vacances scolaires — leur poids dans les nuitées étrangères de votre région'
+             + (an ? ' (INSEE ' + an + ')' : '')
+             + (part ? ', soit ' + part + ' % cumulés' : '') + '. '
+             + 'Ce n\'est pas une mesure de votre fréquentation.';
+      } else {
+        var school = uniq(names(a.countries_on_school_holiday));
+        var pub = uniq(names(a.countries_on_public_holiday));
+        var parts = [];
+        if (school.length) parts.push('vacances scolaires : ' + school.join(', '));
+        if (pub.length) parts.push('jour férié : ' + pub.join(', '));
+        line = (parts.length ? 'Public touristique étranger en congés — ' + parts.join(' ; ') + '. ' : '')
+             + 'Le poids de ces nationalités dans votre région n\'est pas encore disponible.';
+      }
       if (a.location_access_pattern === 'destination_catchment') line += ' Votre site capte un flux de passage — pertinence accrue.';
-      line += ' Adaptez accueil, langues et communication à ce public.';
       return line;
     },
     {

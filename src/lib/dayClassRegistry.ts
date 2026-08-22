@@ -830,10 +830,21 @@ const CARD_TYPE_CLASS: Record<string, string> = {
   competition_proximity: "events_high",
   high_competition_density: "events_high",
   same_bucket_saturation: "events_high",
-  foreign_tourism_signal: "tourism_high",
-  tourist_high_season: "tourism_high",
-  tourist_surge_vacation: "tourism_high",
-  tourism_peak_window: "tourism_high",
+  // 22/08 — LES QUATRE ATTACHES À `tourism_high` SONT RETIRÉES.
+  // La classe est inmesurable PAR CONSTRUCTION, pas faute d'historique : `tourism_index_region`
+  // est un indice MENSUEL (12 valeurs distinctes sur 484 jours), donc le tercile haut sélectionne
+  // des mois entiers — juin et juillet, 61 jours sur 141 sur f10c3e58. Or le contrôle de cellule
+  // est calculé par (lieu × mois × week-end) : tous les jours du mois étant dans la classe,
+  // ctrl_n = 0 sur les quatre cellules, et la base 'marginal' ne produit RIEN. Reste la base
+  // 'pure' (aucune autre classe sur le jour), qui donne n = 1 ici et n = 2 sur 29383776 — sous
+  // le plancher n >= 5. Audit du 22/08 : passe sur 0 site sur 6.
+  // Effet du retrait : `mapped` devient faux, donc silence au lieu de la raison
+  // « Motif du jour non séparable — mûrit avec les saisons ». Cette classe ne mûrira jamais ;
+  // la promesse était fausse, et le silence est le comportement prévu pour une absence PAR DESIGN.
+  // Les trois autres cartes ont été retirées de dbt le 22/08 (PR #45) — attaches mortes.
+  // NON TOUCHÉ à dessein : `COMBO_TYPE_CLASSES` garde ses tokens `tourism_high`. Un token sans
+  // impact y est simplement ignoré (`if (imp && …)`), et les autres tokens du combiné portent le
+  // coin — la dégradation est propre, il n'y a rien à corriger.
   mobility_disruption: "mobility_disruption",
   mobility_disruption_planned: "mobility_disruption",
   ft_peak_mobility: "mobility_disruption",
