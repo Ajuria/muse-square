@@ -14,6 +14,13 @@
 // by sign (…_pos / …_neg) where the wording differs above vs below.
 
 export const EVOL_COPY = {
+  // 22/08 — « mouvement » et « move » disaient la même chose de deux façons, dont une en
+  // anglais. Retenu : « action ». Vérifié avant de le prendre — ce fichier appelle DÉJÀ
+  // l'engagement « votre action » (q1_attrib_split, q1_decomp_action) : le mot ne
+  // s'ajoute pas, il s'aligne. La collision redoutée avec « Actions du jour » (le fil de
+  // cartes) n'existe pas sur cette surface, qui est la vue DÉTAILLÉE d'une seule carte.
+  // « geste » écarté : 43 emplois en commentaire contre 7 en chaîne — mot de code, pas
+  // mot d'écran.
   back: "Retour aux engagements",
 
   // subtitle under the title (goal terms recap; owner + date get their own line)
@@ -131,8 +138,8 @@ export const EVOL_COPY = {
   diag_lever_body: "Si le contexte était neutre et l'exécution complète, c'est le plan lui-même à ajuster.",
   diag_lever_exec: "Exécution incomplète repérée — commencez par là avant de changer de levier.",
   diag_todo_title: "Quoi faire",
-  move_title: "Votre prochain mouvement",
-  diag_move_intro: "Choisissez votre prochain move :",
+  move_title: "Votre prochaine action",
+  diag_move_intro: "Choisissez votre prochaine action :",
   move_intro_ontrack: "Ça marche. À vous de décider la suite — poussez l'avantage ou sécurisez le résultat :",
   move_poursuivre: "Poursuivre",
   move_poursuivre_d: "Garder le plan, mieux le tenir.",

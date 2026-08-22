@@ -34,6 +34,11 @@ export const MOTS_BANNIS: Record<string, string> = {
   "cible manquée": "objectif manqué",
   "verdict tenu": "objectif atteint",
   "non mesurable": "non concluant",
+  // 22/08 — le bloc de la prochaine action disait « mouvement » dans son titre et « move »
+  // dans son intro : deux mots pour un concept, dont un anglicisme. Le fichier appelait déjà
+  // l'engagement « votre action » ailleurs — le mot s'aligne, il ne s'ajoute pas.
+  "prochain mouvement": "prochaine action",
+  "prochain move": "prochaine action",
 
   "vs attendu": "vs votre résultat habituel",
   "vs l’attendu": "vs votre résultat habituel",
