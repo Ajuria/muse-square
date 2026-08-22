@@ -328,7 +328,7 @@ const STRUCTURAL_CHANTIER_FR: Record<string, string> = {
 
 export function structuralCardCopyFr(i: {
   class_key: string; label_fr: string; eur_year: number; tier_label_fr: string;
-  n_days: number; span_months: number; entangled: boolean;
+  n_days: number; span_months: number; entangled: boolean; avg_gap_eur?: number;
 }): { title_fr: string; sowhat_fr: string; chantier_fr: string; register: "correctif" | "identification" } {
   const pos = i.eur_year > 0;
   // Doctrine 01/08, amendement 7 : deux REGISTRES. Identification = le levier est propre au
@@ -371,11 +371,33 @@ export function structuralCardCopyFr(i: {
       ? `Les ${i.label_fr} vous rapportent`
       : `Les ${i.label_fr} vous coûtent`;
   }
+  // CORPS — mesure, plus affirmation (owner 22/08). Les trois phrases précédentes étaient
+  // IDENTIQUES d'une carte à l'autre : sur le compte owner, QUATRE cartes sur cinq portaient
+  // mot pour mot « Sur ces journées, votre chiffre passe sous votre résultat habituel — de
+  // façon récurrente, pas accidentelle ». Rien ne pouvait les différencier : la doctrine du
+  // 01/08 (amendements 1 et 2) avait vidé le corps de tout nombre, le coin et l'infobulle les
+  // ayant pris. Or le coin porte l'enjeu ANNUALISÉ ; les deux facteurs qui le composent —
+  // combien par jour, sur combien de jours mesurés — n'étaient nulle part.
+  //
+  // Ils différencient d'eux-mêmes, sans un mot à écrire : 36 j / −204 € et 20 j / −166 €
+  // racontent une fuite large et lente contre une claque plus rare. Et le corps passe enfin le
+  // test 11 du lexique : il ne peut plus être écrit sans ouvrir le compte.
+  //
+  // « de façon récurrente, pas accidentelle » disparaît sans perte : 36 jours mesurés ne sont
+  // pas un accident — le nombre dit ce que la phrase affirmait. Le libellé de la classe n'est
+  // pas répété (le titre le porte) : « par jour de jours de vacances scolaires » n'existe pas.
+  //
+  // La fréquence ANNUELLE est délibérément absente : span_months vaut 5 sur les 5 classes du
+  // compte owner, donc « j/an » n'est que n_days × 2,4 — aucune information de plus, et le
+  // biais que le registre dénonce lui-même (« 8 jours de pluie dans une fenêtre estivale n'est
+  // pas un taux de pluie annuel »).
+  const eurJour = Number.isFinite(Number(i.avg_gap_eur)) ? Math.round(Number(i.avg_gap_eur)) : null;
+  const mesure = (i.n_days > 0 && eurJour != null)
+    ? `Sur ${i.n_days} jour${i.n_days > 1 ? "s" : ""} mesuré${i.n_days > 1 ? "s" : ""}, ${eurJour > 0 ? "+" : "\u2212"}${Math.abs(eurJour).toLocaleString("fr-FR")} \u20ac par jour.`
+    : (i.n_days > 0 ? `Mesuré sur ${i.n_days} jour${i.n_days > 1 ? "s" : ""}.` : "");
   const sowhat = register === "identification"
-    ? "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle. La cause précise est chez vous : trouvée et documentée, elle devient déclenchable."
-    : (pos
-      ? "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle."
-      : "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.");
+    ? (mesure + " La cause précise est chez vous : trouvée et documentée, elle devient déclenchable.").trim()
+    : mesure;
   const chantier = register === "identification"
     ? "Enquête : trouvez le mécanisme via « Reproduire le dispositif », documentez-le — il deviendra déclenchable."
     : "Chantier : " + (STRUCTURAL_CHANTIER_FR[i.class_key]

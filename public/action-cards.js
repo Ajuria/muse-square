@@ -154,6 +154,15 @@
   function crawledBrand(p) { return crawled(p).brand_positioning || ''; }
 
   // Truncate with ellipsis
+  // Première ligne non vide d'un texte saisi par l'utilisateur (dispositif d'événement,
+  // note libre). Les retours à la ligne et les puces ne survivent pas à une phrase de carte.
+  function msFirstLine(v) {
+    var t = String(v == null ? '' : v).replace(/\r/g, '');
+    var parts = t.split('\n');
+    for (var i = 0; i < parts.length; i++) { var l = parts[i].trim(); if (l) return l; }
+    return '';
+  }
+
   // Coupe au dernier ESPACE avant n, jamais en plein mot (21/08). L'ancienne version coupait au
   // caractère : « planification pour ident… », « — r… » à la place de « risque de cannibalisation ».
   // Repli sur la coupe dure si le premier mot dépasse déjà n.
@@ -1955,7 +1964,12 @@
     function(a) {
       var met = a.weather_label_fr ? ('M\u00e9t\u00e9o demain : ' + a.weather_label_fr + (Number(a.lvl_heat || 0) >= 2 ? ' \u2014 chaleur marqu\u00e9e' : '') + '.') : 'M\u00e9t\u00e9o demain : hors donn\u00e9es \u00e0 cette heure.';
       return {
-        context: '\u00ab ' + (a.event_title || '\u00c9v\u00e9nement') + ' \u00bb demain ' + msEvFrD(a.occurrence_date) + msEvHours(a) + '. ' + (a.dispositif ? 'Dispositif : ' + a.dispositif + ' ' : '') + met,
+        // 22/08 — le dispositif est saisi PAR L'UTILISATEUR, souvent sur plusieurs lignes avec
+        // une liste à puces. Injecté brut, il déversait « Objectif: - valoriser les prodiuits
+        // - se… » dans une phrase, puis se faisait couper par le plafond de 200 caractères.
+        // On ne garde que la PREMIÈRE LIGNE non vide — celle qui décrit le dispositif ; les
+        // objectifs et le détail vivent au dossier, qui est à un clic.
+        context: '\u00ab ' + (a.event_title || '\u00c9v\u00e9nement') + ' \u00bb demain ' + msEvFrD(a.occurrence_date) + msEvHours(a) + '. ' + (msFirstLine(a.dispositif) ? 'Dispositif : ' + msFirstLine(a.dispositif) + ' ' : '') + met,
         action: '\u00c0 faire : briefer l\u2019\u00e9quipe ce soir \u2014 Communiquer pr\u00e9-rempli.'
       };
     },
