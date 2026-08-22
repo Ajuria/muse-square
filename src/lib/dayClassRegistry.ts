@@ -237,7 +237,7 @@ export function catchmentHypothesisSql(singleLocation: boolean): string {
 // départageant plus qu'à sévérité égale.
 //
 // NB : abaisser le seuil rend plus de jours multi-appartenance, donc non « purs » ; ils basculent
-// sur la base 'marginal' (entangled -> tier plafonné « estimé, cause multifactorielle »). C'est le
+// sur la base 'marginal' (entangled -> tier plafonné « estimé, facteurs mêlés »). C'est le
 // comportement voulu, pas une perte. Le seuil de TIR des cartes (alert_level_max >= 2, côté dbt)
 // est indépendant et n'est PAS touché : ce changement ne concerne que la couche de mesure.
 // Balayage par niveau DÉCROISSANT, égalité stricte sur le niveau : à chaque palier on n'émet que
@@ -582,7 +582,13 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
     family: rowFamily || undefined,
     eur_year: eurYear,
     tier,
-    tier_label_fr: entangled ? "estimé, cause multifactorielle" : tier,
+    // 22/08 — « cause multifactorielle » sortait du registre de la recherche, pas de celui
+    // d'un exploitant, et s'affichait EN CLAIR sur la ligne de chantier (pulse:3850). Le
+    // standard du produit veut le jargon dans l'infobulle seulement. Mot retenu : « facteurs
+    // mêlés » — celui que l'auteur de ce fichier emploie deux fois pour expliquer la base
+    // marginale (lignes 431 et 452), donc ni inventé ni traduit. Le concept « niveau de
+    // preuve d'une mesure » n'a PAS d'entrée au lexique : mot à confirmer par l'owner.
+    tier_label_fr: entangled ? "estimé, facteurs mêlés" : tier,
     entangled,
     n_days: n,
     span_months: Math.round(spanDays / 30.44),

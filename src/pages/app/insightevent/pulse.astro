@@ -254,7 +254,7 @@ if (!location_id) {
       .ab-sowhat { font-size:13px; color:#374151; line-height:1.65; max-width:58ch; }
       /* Restyle R1/R5/R6 : montant (Enjeu €/an) dans la zone titre — chiffre d'abord. Libellé
          invariant deux mots (« Enjeu · estimé/mesuré », « Motif de fond · estimé » si hérité) ;
-         « cause multifactorielle » + sens de la couleur en infobulle (title), signalée par le
+         « facteurs mêlés » + sens de la couleur en infobulle (title), signalée par le
          pointillé. Couleur du montant = sens du flux (vert = à capter, ambre = à défendre). */
       .amt { text-align:right; flex:none; cursor:help; max-width:170px; }
       .amt-val { display:inline-block; font-size:19px; font-weight:700; line-height:1.1; white-space:nowrap; font-variant-numeric:tabular-nums; letter-spacing:-0.01em; padding:4px 10px; border-radius:10px; }
@@ -1954,7 +1954,7 @@ if (!location_id) {
         // coin — plus jamais dans la ligne d'explication de la carte.
         var _aTip = [(_enj.n_days ? 'Mesuré sur ' + _enj.n_days + ' j / ' + _enj.span_months + ' mois — ' : 'Enjeu ') + String(_enj.tier_label_fr || _enj.tier || '') + '.'];
         if (_enj.inherited && _aCause) _aTip.push('Motif de fond de la journée : ' + _aCause + '.');
-        if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : plusieurs facteurs se mêlent sur ces jours (cause multifactorielle).');
+        if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : plusieurs facteurs se mêlent sur ces jours.');
         _aTip.push(_aPos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
         _amtHtml = '<div class="amt ' + (_aPos ? 'gain' : 'defend') + '" title="' + escapeHtml(_aTip.join(' ')) + '">'
           + '<div class="amt-val" style="color:' + _aFg + ';">' + (_aPos ? '+' : '−') + _aVal + ' €/an</div>'
