@@ -104,15 +104,48 @@ export const GET: APIRoute = async ({ request }) => {
           SELECT *, ROW_NUMBER() OVER (PARTITION BY saved_item_id ORDER BY created_at ASC) AS rn
           FROM \`${PROJECT}.analytics.action_commitments\` WHERE saved_item_id IS NOT NULL
         ) WHERE rn = 1
+      ),
+      -- CHAÎNAGE DE SÉRIE (22/08, arbitrage owner). La table est APPEND-ONLY : un même
+      -- commitment_id y empile ses transitions. On ne juge donc que son DERNIER état, avec le
+      -- même ordre de départage que api/commitments/index.ts (résolu/annulé gagne à égalité
+      -- d'horodatage) — sinon un engagement clos ressortirait « open » et bloquerait sa série.
+      last_state AS (
+        SELECT * EXCEPT(rn) FROM (
+          SELECT commitment_id, saved_item_id, window_start, status,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY commitment_id
+                   ORDER BY updated_at DESC,
+                            CASE WHEN status IN ('resolved', 'cancelled', 'expired') THEN 1 ELSE 0 END DESC,
+                            created_at DESC
+                 ) AS rn
+          FROM \`${PROJECT}.analytics.action_commitments\` WHERE saved_item_id IS NOT NULL
+        ) WHERE rn = 1
+      ),
+      -- Occurrence NON CLOSE la plus ancienne de la série : tant qu'elle existe, la suivante
+      -- n'est pas créée. 'expired' compte comme close (le cron de résolution l'a tranchée).
+      blocking AS (
+        SELECT saved_item_id, MIN(window_start) AS blocking_occ
+        FROM last_state WHERE status IN ('open', 'pending') GROUP BY 1
+      ),
+      -- Le dernier engagement vivant de la série, pour relier l'enfant à son parent.
+      prev_com AS (
+        SELECT saved_item_id, commitment_id AS prev_id, window_start AS prev_occ FROM (
+          SELECT saved_item_id, commitment_id, window_start,
+                 ROW_NUMBER() OVER (PARTITION BY saved_item_id ORDER BY window_start DESC) AS rn
+          FROM last_state WHERE status != 'cancelled'
+        ) WHERE rn = 1
       )
       SELECT o.*, COALESCE(c.n, 0) AS n_com, COALESCE(s.n, 0) AS n_snap, COALESCE(cs.n, 0) AS n_csend,
              f.threshold_level AS f_level, f.threshold_basis AS f_basis, f.threshold_value AS f_value,
-             f.committed_action_text AS f_text, f.owner_person_name AS f_owner, f.measured_metric AS f_metric
+             f.committed_action_text AS f_text, f.owner_person_name AS f_owner, f.measured_metric AS f_metric,
+             CAST(b.blocking_occ AS STRING) AS blocking_occ, pc.prev_id AS prev_id, CAST(pc.prev_occ AS STRING) AS prev_occ
       FROM occ o
       LEFT JOIN com c ON c.saved_item_id = o.saved_item_id AND c.occ_date = o.occ_date
       LEFT JOIN snap s ON s.saved_item_id = o.saved_item_id AND s.occ_date = o.occ_date
       LEFT JOIN csend cs ON cs.saved_item_id = o.saved_item_id AND cs.occ_date = o.occ_date
       LEFT JOIN first_com f ON f.saved_item_id = o.saved_item_id
+      LEFT JOIN blocking b ON b.saved_item_id = o.saved_item_id
+      LEFT JOIN prev_com pc ON pc.saved_item_id = o.saved_item_id
       ORDER BY o.occ_date
       LIMIT 200`,
     params: { today: bq.date(today), horizon: bq.date(horizon) }, location: "EU",
@@ -120,6 +153,7 @@ export const GET: APIRoute = async ({ request }) => {
 
   let created = 0, snapshots = 0, consignes = 0;
   const details: string[] = [];
+  let skippedChained = 0;   // occurrences non créées : la précédente de la série n'est pas close
   const CAP = 50;
   const SEND_CAP = 20;
   const daysUntil = (occ: string) => Math.round((new Date(occ + "T12:00:00Z").getTime() - new Date(today + "T12:00:00Z").getTime()) / 86_400_000);
@@ -129,8 +163,20 @@ export const GET: APIRoute = async ({ request }) => {
     const loc = String(flat(r.location_id));
     const occ = String(flat(r.occ_date));
     try {
-      // ── Engagement de l'occurrence (si absent, plafond CAP par passage) ──
-      if (Number(flat(r.n_com)) === 0 && created < CAP) {
+      // ── Engagement de l'occurrence — UNE SEULE À LA FOIS PAR SÉRIE (owner 22/08) ──
+      // Avant : le cron créait l'engagement de CHAQUE occurrence à J-7, indépendamment. Une
+      // série hebdomadaire produisait donc deux engagements ouverts côte à côte (mesuré sur
+      // f10c3e58 : 49a325dd pour le 22/08 et bedbbe57 pour le 29/08, `parent_commitment_id`
+      // vide sur les deux), lus comme un doublon puisque rien ne les distinguait à l'écran.
+      // Désormais l'occurrence suivante attend que la précédente soit CLOSE — resolved,
+      // expired ou cancelled — et se relie à elle par `parent_commitment_id`. La série ne peut
+      // pas caler sur le silence de l'exploitant : c'est `cron/commitment-resolve` qui tranche
+      // le verdict, pas lui ; seul le MOUVEMENT (poursuivre / doubler / pivoter / arrêter,
+      // engagement.astro) lui appartient, et il s'exerce sur la carte déjà résolue.
+      const blockingOcc = flat(r.blocking_occ) != null ? String(flat(r.blocking_occ)) : null;
+      const blockedBySeries = blockingOcc != null && blockingOcc < occ;
+      if (blockedBySeries) skippedChained += 1;
+      if (Number(flat(r.n_com)) === 0 && !blockedBySeries && created < CAP) {
         const metric = (flat(r.f_metric) != null ? String(flat(r.f_metric)) : null)
           || kpiKeyForEventKpi(flat(r.kpi) as any) || "revenue_residual";
         const thresholdValue = flat(r.f_value) != null ? Number(flat(r.f_value))
@@ -169,6 +215,9 @@ export const GET: APIRoute = async ({ request }) => {
           owner_person_name: flat(r.f_owner) != null ? String(flat(r.f_owner)) : (flat(r.author_person_name) != null ? String(flat(r.author_person_name)) : "—"),
           owner_person_id: null,
           kpi_baseline: kpiBaseline,
+          // Chaînage explicite : l'occurrence précédente de la MÊME série devient le parent.
+          parent_commitment_id: (flat(r.prev_id) != null && flat(r.prev_occ) != null && String(flat(r.prev_occ)) < occ)
+            ? String(flat(r.prev_id)) : null,
         };
         await readMergeWrite(bq, { commitmentId: crypto.randomUUID(), transitionType: "created", create: true, patch });
         created += 1;
@@ -280,7 +329,7 @@ export const GET: APIRoute = async ({ request }) => {
     }
   }
 
-  return new Response(JSON.stringify({ ok: true, window: [today, horizon], scanned: (rows as any[]).length, created, snapshots_attempted: snapshots, consignes_sent: consignes, details }), {
+  return new Response(JSON.stringify({ ok: true, window: [today, horizon], scanned: (rows as any[]).length, created, skipped_chained: skippedChained, snapshots_attempted: snapshots, consignes_sent: consignes, details }), {
     status: 200, headers: { "content-type": "application/json" },
   });
 };
