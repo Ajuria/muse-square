@@ -299,29 +299,30 @@ const STRUCTURAL_CHANTIER_FR: Record<string, string> = {
   // Les deux classes retombaient sur le chantier générique — visible en production sur f10c3e58,
   // dont la carte à −8 809 €/an affichait « Dispositif durable à définir ».
   // Le texte parle de « forte chaleur » : il appartient à heat_28_plus, pas au doux.
-  heat_28_plus: "Plan forte chaleur — ombrage, offre fraîcheur, communication déclenchée dès prévision.",
+  heat_28_plus: "Dispositif forte chaleur — ombrage, offre fraîcheur, communication déclenchée dès prévision.",
   // heat_25_27 : PAS de chantier — la mesure dit que c'est une classe DISTINCTE (site le mieux
   // mesuré : −610 €/j à 25–27 °C contre −159 €/j à 28 °C+, soit 4× plus pour la chaleur douce),
   // donc elle ne peut pas hériter du plan forte chaleur. Sa phrase est à écrire par l'owner
   // (CLAUDE.md, SINGLE SOURCE OF TRUTH (copie) : un concept sans mot ⇒ demander LE mot).
-  rain: "Plan pluie — offre de repli en intérieur + communication dès prévision de pluie marquée.",
-  wind: "Plan vent — sécurisation extérieure + repli intérieur systématique les jours de vent fort.",
-  snow: "Plan neige — accès, horaires et communication adaptés dès prévision de neige.",
-  cold: "Plan grand froid — confort d'accueil et offre chaude mis en avant.",
-  traffic_high: "Routine « jours de pointe » — renfort accueil/caisse déclenché par la prévision d'affluence.",
-  events_high: "Calendrier des événements voisins — offre et horaires alignés systématiquement.",
-  discount_no_lift: "Règle de remise — plafond et ciblage revus, reconduction conditionnée au lift mesuré.",
-  tourism_high: "Offre visiteurs — capter le flux des jours de forte saison (langues, mise en avant, horaires).",
-  tourism_low: "Programme basse saison — animer la clientèle locale sur les jours calmes.",
-  competition_high: "Différenciation durable — visibilité et offre distinctive sur les jours disputés.",
-  competition_low: "Fenêtres calmes — concentrer lancements et temps forts sur les jours à faible pression.",
-  // ⚠ NE PAS CORRIGER SEUL. « Fenêtres » est banni (lexique : « fenêtre » au sens occasion) et
-  // « concentrer » est un verbe proscrit (règle 8) — mais le mot banni EST ici le NOM DU CHANTIER,
-  // c'est-à-dire le concept qui n'a pas encore SON mot dans le lexique. Le retirer oblige à en
-  // inventer un : c'est exactement l'échec du 21/08. Se corrige quand l'owner tranche LE mot du
-  // « chantier à construire » (11 formes en usage aujourd'hui), pas avant. Même file que heat_25_27.
-  mobility_disruption: "Protocole perturbations — communication d'itinéraires et offre adaptée dès l'annonce.",
-  followed_activity_high: "Rituel « concurrents actifs » — programmation renforcée quand vos suivis animent la zone.",
+  rain: "Dispositif pluie — offre de repli en intérieur + communication dès prévision de pluie marquée.",
+  wind: "Dispositif vent — sécurisation extérieure + repli intérieur systématique les jours de vent fort.",
+  snow: "Dispositif neige — accès, horaires et communication adaptés dès prévision de neige.",
+  cold: "Dispositif grand froid — confort d'accueil et offre chaude mis en avant.",
+  traffic_high: "Dispositif jours de pointe — renfort accueil/caisse déclenché par la prévision d'affluence.",
+  events_high: "Dispositif événements voisins — offre et horaires alignés systématiquement.",
+  discount_no_lift: "Dispositif remise — plafond et ciblage revus, reconduction conditionnée au lift mesuré.",
+  tourism_high: "Dispositif visiteurs — capter le flux des jours de forte saison (langues, mise en avant, horaires).",
+  tourism_low: "Dispositif basse saison — animer la clientèle locale sur les jours calmes.",
+  competition_high: "Dispositif différenciation — visibilité et offre distinctive sur les jours disputés.",
+  // 22/08 — DÉBLOQUÉ. Cette entrée portait deux violations (« Fenêtres » banni au sens occasion,
+  // « concentrer » proscrit règle 8) et attendait la décision de l'owner : le mot banni ÉTAIT le
+  // nom du chantier. L'owner a tranché — « dispositif » nomme l'objet à N'IMPORTE QUEL état, et
+  // « une pratique qui marche » est un dispositif PROUVÉ, pas un dispositif en soi (lexique
+  // corrigé le même jour). « réservés » vient du corpus owner (« Réservez les remises à vos
+  // clients fidèles », reco-library.js) : repris, pas inventé.
+  competition_low: "Dispositif jours calmes — lancements et temps forts réservés aux jours à faible pression.",
+  mobility_disruption: "Dispositif perturbations — communication d'itinéraires et offre adaptée dès l'annonce.",
+  followed_activity_high: "Dispositif concurrents actifs — programmation renforcée quand vos suivis animent la zone.",
   school_holiday: "Dispositif vacances scolaires — offre et équipe calées sur le public vacances.",
   public_holiday: "Dispositif jours fériés — horaires et offre spécifiques actés une fois pour toutes.",
 };

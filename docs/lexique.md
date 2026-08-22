@@ -12,7 +12,8 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 
 | Concept | LE mot | Interdits (attrapés en vrai) |
 |---|---|---|
-| Une pratique qui marche, réutilisable | **dispositif** (« Prouvé = réutilisable » — owner 17/08 ; jamais « rejouable ») | recette (en nom de section), méthode, playbook, rejouable |
+| Un ensemble de règles de gestion posé face à un signal | **dispositif** (owner 22/08 — l'objet, à N'IMPORTE QUEL état ; ses règles sont testées puis prouvées ou invalidées) | recette (en nom de section), méthode, playbook, rejouable, plan, routine, rituel, protocole, programme |
+| Un dispositif dont les règles ont été prouvées | **dispositif prouvé** (owner 22/08 — corrige la ligne du 17/08, qui définissait « dispositif » par son seul état final : « une pratique qui marche » EST un dispositif prouvé, pas un dispositif en soi) | dispositif (employé seul pour dire « prouvé »), recette |
 | Statuts d'un dispositif | **en test · prouvé · écarté** (owner 17/08 : « déclaré » fusionné dans « en test » ; « écarté » = testé, cible manquée — pas réutilisable tel quel ; mot déjà en prod) | déclaré, validé, certifié |
 | Ce que l'utilisateur promet de faire et mesurer | **engagement** | commitment, pari |
 | Une date d'une série mesurée | **occurrence** | instance, itération |
