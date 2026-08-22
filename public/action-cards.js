@@ -2587,7 +2587,21 @@
     }, urgency: 'plan' },
     'sales_competition_cannibalization': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      return 'À surveiller : baisse concomitante à une pression ×' + (pr != null ? pr.toFixed(1) : '?') + '. Confirmez la récurrence avant d\'agir' + (a.top_competitor ? ' ; gardez un œil sur ' + a.top_competitor : '') + '.';
+      // 22/08 — POINT 2 : le produit répond à la place de l'utilisateur.
+      // Ces cartes lui demandaient « ponctuel ou récurrent ? » — une question que le moteur
+      // de classes tranche déjà : si la date appartient à une classe MESURÉE sur ce lieu
+      // (portes n>=5, span>=60, |t_log|>=1, cohérence de signe, matérialité 0,3 % du CA),
+      // le motif arrive dans `context_motif`. Sa présence EST la réponse.
+      // Borné aux cartes RÉTROSPECTIVES : les 23 types prospectifs annoncent un fait à
+      // venir, la récurrence n'a rien à y juger (arbitrage owner 22/08).
+      // « À surveiller » part au passage — surveiller n'est pas un geste (lexique règle 8),
+      // et le vrai verbe était déjà dans la phrase.
+      var _mot = a.context_motif && a.context_motif.label_fr ? a.context_motif : null;
+      var _sfx = a.top_competitor ? ' ; gardez un œil sur ' + a.top_competitor : '';
+      return 'À faire : baisse concomitante à une pression ×' + (pr != null ? pr.toFixed(1) : '?') + '. '
+        + (_mot ? 'Engagez-vous sur le motif, pas sur la journée'
+                : 'Aucun motif mesuré sur cette date, tracez la cause avant d\'agir')
+        + _sfx + '.';
     }, urgency: 'plan' },
     'high_competition_density': { action: function(a, p, d) {
       return 'À temporiser : n\'en faites pas votre créneau de communication prioritaire. Gardez vos ressources pour une occasion moins disputée et misez sur un angle différenciant plutôt que sur le volume.';
@@ -2966,7 +2980,22 @@
     }, urgency: 'plan' },
     'sales_revenue_down_wow': { action: function(a, p, d) {
       var driver = ({footfall:'le trafic', transactions:'le volume de ventes', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver] || null;
-      return 'À surveiller : confirmez si c\'est ponctuel ou récurrent' + (driver ? ' (levier : ' + driver + ')' : '') + ' avant d\'agir ; tracez la cause pour comparer aux prochaines semaines.';
+      // 22/08 — POINT 2 : le produit répond à la place de l'utilisateur.
+      // Ces cartes lui demandaient « ponctuel ou récurrent ? » — une question que le moteur
+      // de classes tranche déjà : si la date appartient à une classe MESURÉE sur ce lieu
+      // (portes n>=5, span>=60, |t_log|>=1, cohérence de signe, matérialité 0,3 % du CA),
+      // le motif arrive dans `context_motif`. Sa présence EST la réponse.
+      // Borné aux cartes RÉTROSPECTIVES : les 23 types prospectifs annoncent un fait à
+      // venir, la récurrence n'a rien à y juger (arbitrage owner 22/08).
+      // « À surveiller » part au passage — surveiller n'est pas un geste (lexique règle 8),
+      // et le vrai verbe était déjà dans la phrase.
+      var _mot = a.context_motif && a.context_motif.label_fr ? a.context_motif : null;
+      // Le motif n'est PAS renommé ici : pulse.astro rend déjà « Motif du jour : <classe>
+      // (−X €/an sur ce lieu) » juste en dessous. Le geste dit quoi faire, la ligne dit pourquoi.
+      var _lev = driver ? ' — levier : ' + driver : '';
+      return _mot
+        ? 'À faire : engagez-vous sur le motif, pas sur la journée' + _lev + '.'
+        : 'À faire : aucun motif mesuré sur cette date, tracez la cause pour comparer aux prochaines semaines' + _lev + '.';
     }, urgency: 'soon' },
     'footfall_vs_basket_decomposition': { action: function(a, p, d) {
       var revPct = a.revenue_vs_30d_avg_pct != null ? Number(a.revenue_vs_30d_avg_pct) : null;
