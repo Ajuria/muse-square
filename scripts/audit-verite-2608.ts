@@ -28,10 +28,15 @@ const STRUCT_CLASSES = ["traffic_high","followed_activity_high","competition_low
     SELECT location_id, SAFE_DIVIDE(SUM(daily_revenue),
              NULLIF(DATE_DIFF(MAX(transaction_date), MIN(transaction_date), DAY)+1,0)) * 365.25 AS ar
     FROM \`muse-square-open-data.mart.fct_client_daily_performance\` GROUP BY 1`, location:"EU" });
+  // PÉRIMÈTRE (arbitrage owner 22/08) : seuls les sites QUI ONT DES VENTES. Un site sans
+  // historique ne peut pas être jugé sur une corrélation — c'est une question d'amorçage, pas
+  // de vérité. Compter des tirs sur 32 sites contre une mesurabilité sur 6 mélangeait deux
+  // populations et gonflait artificiellement le verdict.
   const [fires] = await bq.query({ query: `
     SELECT action_type, COUNT(*) tirs, COUNT(DISTINCT location_id) sites
     FROM \`muse-square-open-data.semantic.vw_insight_event_action_candidates\`
     WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
+      AND location_id IN (SELECT DISTINCT location_id FROM \`muse-square-open-data.mart.fct_client_daily_performance\`)
     GROUP BY 1 ORDER BY tirs DESC`, location:"EU" });
 
   const arBy = new Map((rev as any[]).map((r:any)=>[String(f(r.location_id)), Number(f(r.ar))]));
@@ -51,7 +56,7 @@ const STRUCT_CLASSES = ["traffic_high","followed_activity_high","competition_low
       if (impacts.has(cls)) h.ok.push(loc); else if (immaterial.has(cls)) h.immat.push(loc); else h.none.push(loc);
     }
   }
-  console.log(`Parc : ${bySite.size} sites au store · ${(fires as any[]).length} types de cartes ont tiré sur 90 j\n`);
+  console.log(`Périmètre : ${bySite.size} sites AVEC DES VENTES · ${(fires as any[]).length} types de cartes y ont tiré sur 90 j\n`);
   console.log("═══ A. CLASSES : sur combien de sites la mesure PASSE-t-elle les portes ? ═══");
   console.table([...holds.entries()].sort((a,b)=>b[1].ok.length-a[1].ok.length).map(([cls,h])=>({
     classe: cls, "passe (pilule)": h.ok.length, "écartée matérialité": h.immat.length,
