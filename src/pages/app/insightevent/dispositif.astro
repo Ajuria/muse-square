@@ -200,11 +200,32 @@ const classParam = Astro.url.searchParams.get("class") || "";
               if (d.followed_events && d.followed_events.length) tip.push('Chez vos suivis ce jour-là : ' + d.followed_events.map(function (e) { return '« ' + e.label + ' » (' + e.entity + ')'; }).join(', ')
                 + (d.followed_events_total > d.followed_events.length ? ' +' + (d.followed_events_total - d.followed_events.length) + ' autres' : '') + '.');
               if (d.movers && d.movers.length) tip.push('Mouvements produits : ' + d.movers.map(function (m) { return m.category + ' ' + (m.gap_eur >= 0 ? '+' : '−') + frInt(m.gap_eur) + ' €'; }).join(', ') + ' — chaque famille vs sa moyenne journalière du lieu.');
-              return '<span class="dp-hov" title="' + esc(tip.join(' ') || 'Vérifications internes indisponibles ce jour-là.') + '">' + esc(d.dow_fr.slice(0, 3) + ' ' + frDate(d.date)) + '</span>';
+              return '<span class="dp-hov" title="' + esc(tip.join(' ') || 'Vérifications internes indisponibles ce jour-là.') + '">' + esc(d.dow_fr + ' ' + frDate(d.date)) + '</span>';
             }).join(", ");
-            addEl("dp-aside", 'En marge : ' + (ex.length === 1 ? 'une journée de ce motif' : ex.length + ' journées de ce motif') + ' sans chaleur, ni vacances, ni week-end — ' + exBits + '. '
-              + (hasEv ? 'Poids faible — mais ces journées portaient des événements chez vos suivis (détail au survol).' : 'Poids faible, possiblement la variation ordinaire.')
-              + ' Un souvenir ? <a id="dp-note">Notez-le</a> · sinon, laissez.');
+            // Le RÉSULTAT signé, pas l'inventaire de ce que la machine a écarté (owner 22/08).
+            // Règle 2 du lexique : un montant porte son référentiel. « la normale » est BANNI
+            // (ligne 24) — le mot est « votre résultat habituel ».
+            var exGaps = ex.map(function (d) { return Number(d.gap_eur); }).filter(function (n) { return isFinite(n); });
+            var exSum = exGaps.length ? Math.round(exGaps.reduce(function (a, b) { return a + b; }, 0)) : null;
+            var exMontant = exSum == null ? null : (exSum >= 0 ? '+' : '−') + frInt(exSum) + ' \u20ac vs votre r\u00e9sultat habituel';
+            // Règle 6 : jours en toutes lettres (frDate rend déjà JJ/MM). Cinq dates listées se lisent mal —
+            // quand elles se suivent (le cas courant : le week-end est exclu du filtre, donc une
+            // semaine ouvrée sort d'un bloc), on dit la PÉRIODE.
+            var exSorted = ex.slice().sort(function (a, b) { return String(a.date) < String(b.date) ? -1 : 1; });
+            var suite = exSorted.every(function (d, i) {
+              if (!i) return true;
+              var p = new Date(String(exSorted[i - 1].date) + 'T00:00:00Z');
+              p.setUTCDate(p.getUTCDate() + 1);
+              return p.toISOString().slice(0, 10) === String(d.date);
+            });
+            var quand = (ex.length > 2 && suite)
+              ? 'du ' + exSorted[0].dow_fr + ' ' + frDate(exSorted[0].date) + ' au ' + exSorted[exSorted.length - 1].dow_fr + ' ' + frDate(exSorted[exSorted.length - 1].date)
+              : exBits;
+            addEl("dp-aside", 'En marge : ' + quand + ', '
+              + (ex.length === 1 ? 'une journée de ce motif' : ex.length + ' journées de ce motif')
+              + (exMontant ? ' à ' + exMontant : '') + ', que les données disponibles n\'expliquent pas. '
+              + (hasEv ? 'Ces journées portaient des événements chez vos suivis (détail au survol). ' : '')
+              + 'Avez-vous une explication ? <a id="dp-note">Notez-la</a> · sinon, laissez.');
             var noteLink = document.getElementById("dp-note");
             if (noteLink) noteLink.addEventListener("click", function () {
               input.value = "Le " + frDate(ex[0].date) + ", ";
