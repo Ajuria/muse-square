@@ -769,7 +769,6 @@ const CARD_TYPE_CLASS: Record<string, string> = {
   // CONTEXTE (CARD_CONTEXT_CLASS -> motifContextForCandidate).
   sales_discount_no_lift: "discount_no_lift",
   competition_pressure_spike: "competition_high",
-  weekend_vacation_low_comp: "competition_low",
   low_tourism_local_opp: "tourism_low",
   competition_proximity: "events_high",
   high_competition_density: "events_high",
@@ -983,6 +982,11 @@ const CARD_CONTEXT_CLASS: Record<string, string> = {
   // l'interdit : le coin est l'impact PROPRE à la carte. Le chantier garde le coin, la carte du
   // jour cite la classe en ligne de contexte.
   low_competition_window: "competition_low",
+  // 22/08 — weekend_vacation_low_comp retirée de CARD_TYPE_CLASS pour le MÊME motif que
+  // sa voisine : elle affichait −5 185 €/an chez MS Test, exactement le montant du chantier
+  // structurel « Les jours à faible pression concurrentielle » juste en dessous. Même
+  // classe lue deux fois, doctrine du coin violée.
+  weekend_vacation_low_comp: "competition_low",
 };
 
 // Types dont le coin est régi par la doctrine population/jour (B + C).
@@ -997,6 +1001,7 @@ const CARD_VALUE_TYPES = new Set([
   // ligne la carte perdait sa DIRECTION : elle disait « on ne sait pas encore si elles vous
   // rapportent plus ou moins » alors que `competition_low` est mesurée sur le lieu.
   "low_competition_window",
+  "weekend_vacation_low_comp",
 ]);
 
 /** Motif de CONTEXTE d'une carte (doctrine 01/08) — l'ex-« Motif de fond » hérité, désormais

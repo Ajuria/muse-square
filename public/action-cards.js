@@ -23,6 +23,21 @@
 
   function pct(v) { return v != null ? Math.round(Number(v)) + '%' : ''; }
   function num(v) { return v != null ? String(Math.round(Number(v))) : ''; }
+  // 22/08 — DEUX bugs enchaînés sur le score d'opportunité, vérifiés en base.
+  // 22/08 — DEUX ÉCHELLES pour le même indicateur, mélangées derrière un seul suffixe.
+  //  · l'objet JOUR porte `opportunity_score` sur /10 (6,1 mesuré) — le nom historique
+  //    `opportunity_score_final_local` reste valide côté client, la fusion le renseigne
+  //    (ligne ~2460) ;
+  //  · le PAYLOAD porte `a.score` sur /100 (42 → 66 sur 642 lignes) — le même indicateur, ×10.
+  // Les cartes écrivaient `num(a.score || d.opportunity_score_final_local) + '/10'` : quand le
+  // payload gagnait, une valeur sur 100 s'affichait sous un suffixe sur 10 — « Score 56/10 »,
+  // constaté à l'écran par l'owner. Un seul lecteur désormais, qui ramène tout sur /10.
+  function score10(a, d) {
+    var p = (a && a.score != null) ? Number(a.score) / 10 : null;
+    if (p != null && isFinite(p)) return p;
+    var v = (d && d.opportunity_score != null) ? Number(d.opportunity_score) : null;
+    return (v != null && isFinite(v)) ? v : null;
+  }
   function temp(v) { return v != null ? Math.round(Number(v)) + '\u00b0C' : ''; }
   function ratio(v) { return v != null ? '\u00d7' + Number(v).toFixed(1) : ''; }
   // Part des evenements a 5 km dans VOTRE secteur, en POURCENTAGE (0-100).
@@ -301,7 +316,7 @@
   // #3 — top_day_approaching
   reg('top_day_approaching', 'Meilleur jour de la semaine \u2014 agissez maintenant', 'OPPORTUNIT\u00c9', '\u2b50', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
-      var score = num(d.opportunity_score_final_local);
+      var score = num(score10(a, d));
       var comp = Number(d.events_within_5km_count || 0);
       var pr = Number(d.competition_pressure_ratio || 0);
       var alert = Number(d.alert_level_max || 0);
@@ -319,9 +334,9 @@
       return parts.join(' \u00b7 ') + '. Meilleur jour de vos dates.' + actionHint + obj;
     },
     {
-      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Meilleur jour de la semaine, score ' + num(d.opportunity_score_final_local) + '/10. Mettre en avant : ' + (userEdge(p) || 'votre programmation') + '. Max 2200 car.'; },
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Meilleur jour de la semaine, score ' + num(score10(a, d)) + '/10. Mettre en avant : ' + (userEdge(p) || 'votre programmation') + '. Max 2200 car.'; },
       facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Meilleur jour. Horaires : ' + todayHours(p) + '. Diff\u00e9renciant : ' + (userEdge(p) || '') + '.'; },
-      note_interne: function(a, p, d) { return 'Note interne. Meilleur jour : score ' + num(d.opportunity_score_final_local) + '/10. Renforcer accueil.' + (Number(p.venue_capacity) > 0 ? ' Capacit\u00e9 max : ' + p.venue_capacity + '.' : ''); }
+      note_interne: function(a, p, d) { return 'Note interne. Meilleur jour : score ' + num(score10(a, d)) + '/10. Renforcer accueil.' + (Number(p.venue_capacity) > 0 ? ' Capacit\u00e9 max : ' + p.venue_capacity + '.' : ''); }
     }
   );
 
@@ -442,7 +457,7 @@
   // #6 — regime_c_warning
   reg('regime_c_warning', 'Reportez ou adaptez vos op\u00e9rations', 'URGENT', '\u26a0\ufe0f', '#B71C1C', 'action', 'pulse#radar-score',
     function(a, p, d) {
-      var score = num(d.opportunity_score_final_local);
+      var score = num(score10(a, d));
       var driver = d.primary_score_driver_label_fr || '';
       var comp = Number(d.events_within_5km_count || 0);
       var forced = d.is_forced_regime_c_flag ? ' (forc\u00e9)' : '';
@@ -454,9 +469,9 @@
       return line;
     },
     {
-      note_interne: function(a, p, d) { return 'Note urgente. R\u00e9gime C, score ' + num(d.opportunity_score_final_local) + '/10. Facteur : ' + (d.primary_score_driver_label_fr || '') + '. ' + num(d.events_within_5km_count) + ' \u00e9v\u00e9nements \u00e0 5 km. D\u00e9cisions : effectif, horaires, publications.'; },
-      email: function(a, p, d) { return 'Email interne ' + siteName(p) + '. Objet : Alerte R\u00e9gime C. Score ' + num(d.opportunity_score_final_local) + '/10, facteur ' + (d.primary_score_driver_label_fr || '') + '. Actions \u00e0 discuter.'; },
-      slack: function(a, p, d) { return 'Alerte R\u00e9gime C pour ' + siteName(p) + '. Score ' + num(d.opportunity_score_final_local) + '/10. Facteur : ' + (d.primary_score_driver_label_fr || '') + '. \u00c0 traiter en priorit\u00e9.'; }
+      note_interne: function(a, p, d) { return 'Note urgente. R\u00e9gime C, score ' + num(score10(a, d)) + '/10. Facteur : ' + (d.primary_score_driver_label_fr || '') + '. ' + num(d.events_within_5km_count) + ' \u00e9v\u00e9nements \u00e0 5 km. D\u00e9cisions : effectif, horaires, publications.'; },
+      email: function(a, p, d) { return 'Email interne ' + siteName(p) + '. Objet : Alerte R\u00e9gime C. Score ' + num(score10(a, d)) + '/10, facteur ' + (d.primary_score_driver_label_fr || '') + '. Actions \u00e0 discuter.'; },
+      slack: function(a, p, d) { return 'Alerte R\u00e9gime C pour ' + siteName(p) + '. Score ' + num(score10(a, d)) + '/10. Facteur : ' + (d.primary_score_driver_label_fr || '') + '. \u00c0 traiter en priorit\u00e9.'; }
     }
   );
 
@@ -547,7 +562,7 @@
       var cf = cfEntry(d, 'score_driver_shift');
       var from = cf.old_value || a.old_value || '';
       var to = d.primary_score_driver_label_fr || cf.new_value || a.new_value || '';
-      var score = num(d.opportunity_score_final_local);
+      var score = num(score10(a, d));
       var line = 'Le facteur de risque dominant a chang\u00e9';
       if (from && to) line += ' : ' + from + ' \u2192 ' + to;
       else if (to) line += ' : ' + to;
@@ -555,7 +570,7 @@
       return line;
     },
     {
-      note_interne: function(a, p, d) { var cf = cfEntry(d, 'score_driver_shift'); return 'Note interne. Facteur dominant : ' + (cf.old_value || '') + ' \u2192 ' + (d.primary_score_driver_label_fr || '') + '. Score ' + num(d.opportunity_score_final_local) + '/10. Adapter la priorit\u00e9.'; }
+      note_interne: function(a, p, d) { var cf = cfEntry(d, 'score_driver_shift'); return 'Note interne. Facteur dominant : ' + (cf.old_value || '') + ' \u2192 ' + (d.primary_score_driver_label_fr || '') + '. Score ' + num(score10(a, d)) + '/10. Adapter la priorit\u00e9.'; }
     }
   );
 
@@ -579,9 +594,9 @@
       return 'Conditions favorables pour le week-end.';
     },
     {
-      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Week-end favorable, score ' + num(d.opportunity_score_final_local) + '/10. Mettre en avant : ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Week-end favorable, score ' + num(score10(a, d)) + '/10. Mettre en avant : ' + (userEdge(p) || '') + '. Max 2200 car.'; },
       facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Programme du week-end. Horaires : ' + todayHours(p) + '. ' + (userEdge(p) || '') + '.'; },
-      note_interne: function(a, p, d) { return 'Note interne. Week-end favorable, score ' + num(d.opportunity_score_final_local) + '/10.' + (Number(p.venue_capacity) > 0 ? ' Capacit\u00e9 : ' + p.venue_capacity + '. Renforcer effectif.' : ' Renforcer effectif.'); }
+      note_interne: function(a, p, d) { return 'Note interne. Week-end favorable, score ' + num(score10(a, d)) + '/10.' + (Number(p.venue_capacity) > 0 ? ' Capacit\u00e9 : ' + p.venue_capacity + '. Renforcer effectif.' : ' Renforcer effectif.'); }
     }
   );
 
@@ -755,7 +770,7 @@
   // #20 — score_up
   reg('score_up', 'Profitez de cette journ\u00e9e favorable', 'OPPORTUNIT\u00c9', '\ud83d\udcc8', '#2E7D32', 'notification', 'pulse#radar-score',
     function(a, p, d) {
-      var score = num(d.opportunity_score_final_local);
+      var score = num(score10(a, d));
       var deltaRaw = Number(d.opportunity_score_vs_yesterday || 0);
       var driver = d.primary_score_driver_label_fr || '';
       var line = 'Score ' + score + '/10';
@@ -773,7 +788,7 @@
   // #21 — score_down
   reg('score_down', 'Score en baisse', 'INTELLIGENCE', '\ud83d\udcc9', '#D32F2F', 'notification', 'pulse#radar-score',
     function(a, p, d) {
-      var score = num(d.opportunity_score_final_local);
+      var score = num(score10(a, d));
       var deltaRaw = Number(d.opportunity_score_vs_yesterday || 0);
       var driver = d.primary_score_driver_label_fr || '';
       var line = 'Score ' + score + '/10';
@@ -784,7 +799,7 @@
       return line;
     },
     {
-      note_interne: function(a, p, d) { return 'Note interne. Score en baisse : ' + num(d.opportunity_score_final_local) + '/10. Facteur : ' + (d.primary_score_driver_label_fr || '') + '. \u00c9valuer report publications ou r\u00e9duction effectif.'; }
+      note_interne: function(a, p, d) { return 'Note interne. Score en baisse : ' + num(score10(a, d)) + '/10. Facteur : ' + (d.primary_score_driver_label_fr || '') + '. \u00c9valuer report publications ou r\u00e9duction effectif.'; }
     }
   );
 
@@ -794,7 +809,7 @@
       var cf = cfEntry(d, 'regime_change');
       var from = cf.old_value || a.old_value || '';
       var to = cf.new_value || d.opportunity_regime || a.new_value || '';
-      var score = num(d.opportunity_score_final_local);
+      var score = num(score10(a, d));
       var driver = d.primary_score_driver_label_fr || '';
       var line = 'R\u00e9gime';
       if (from && to) line += ' ' + from + ' \u2192 ' + to;
@@ -815,7 +830,7 @@
       var cf = cfEntry(d, 'medal_change');
       var from = cf.old_value || a.old_value || '';
       var to = cf.new_value || d.opportunity_medal || a.new_value || '';
-      var score = num(d.opportunity_score_final_local);
+      var score = num(score10(a, d));
       var line = 'M\u00e9daille';
       if (from && to) line += ' ' + from + ' \u2192 ' + to;
       else if (to) line += ' ' + to;
@@ -1277,8 +1292,12 @@
   // C1 — perfect_storm
   reg('perfect_storm', 'Conditions exceptionnelles \u2014 tous les feux au vert', 'OPPORTUNIT\u00c9', '\ud83c\udf1f', '#2E7D32', 'action', 'pulse#radar-score',
     function(a, p, d) {
-      var fc = Number(a.favorable_count || 0);
-      var score = num(d.opportunity_score_final_local);
+      // 22/08 — `favorable_count` (payload) et `parts` (contexte-jour) étaient DEUX sources
+      // non croisées : la carte annonçait « 3 facteurs favorables alignés » puis n'en citait
+      // que deux (« météo favorable, vacances »). Le compte suit désormais la liste qu'il
+      // annonce — une seule source, impossible de diverger.
+      var fc = 0;
+      var score = num(score10(a, d));
       var parts = [];
       if (Number(d.alert_level_max || 0) === 0) parts.push('m\u00e9t\u00e9o favorable');
       if (Number(d.competition_pressure_ratio || a.pressure_ratio || 0) < 0.8) parts.push('concurrence faible');
@@ -1286,6 +1305,7 @@
       if (d.vacation_name) parts.push('vacances');
       if (d.is_weekend_flag) parts.push('week-end');
       if (Number(a.tourism_index || d.tourism_index_region || 0) > 70) parts.push('tourisme \u00e9lev\u00e9');
+      fc = parts.length;
       var line = fc + ' facteurs favorables align\u00e9s : ' + (parts.length > 0 ? parts.join(', ') : 'conditions multiples') + '.';
       line += ' Score ' + score + '/10.';
       return line;
@@ -1346,7 +1366,7 @@
   // C5 — best_day_of_week
   reg('best_day_of_week', 'Meilleur jour de la semaine', 'OPPORTUNIT\u00c9', '\ud83c\udfc6', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
-      var score = num(a.score || d.opportunity_score_final_local);
+      var score = num(score10(a, d));
       var regime = a.regime || d.opportunity_regime || '';
       var line = 'Meilleur jour de la semaine : score ' + score + '/10, r\u00e9gime ' + regime + '.';
       return line;
@@ -1360,7 +1380,7 @@
   // C6 — day_opportunity
   reg('day_opportunity', 'Journ\u00e9e tr\u00e8s favorable \u2014 r\u00e9gime A', 'OPPORTUNIT\u00c9', '\u2b50', '#2E7D32', 'action', 'pulse#radar-score',
     function(a, p, d) {
-      var score = num(a.score || d.opportunity_score_final_local);
+      var score = num(score10(a, d));
       var line = 'R\u00e9gime A, score ' + score + '/10. Conditions optimales.';
       return line;
     },
@@ -1388,8 +1408,13 @@
   reg('weekend_vacation_low_comp', 'Week-end de vacances \u2014 faible concurrence', 'OPPORTUNIT\u00c9', '\ud83c\udf34', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
-      var score = num(a.score || d.opportunity_score_final_local);
-      var line = 'Week-end de vacances, pression \u00d7' + pr.toFixed(1) + '. Score ' + score + '/10.';
+      var score = num(score10(a, d));
+      // 22/08 — « Score 56/10 » sur un score qui va de 20 à 79 : l'unité est corrigée dans
+      // tout le fichier, mais le score COMPOSITE lui-même ne dit rien à un exploitant et
+      // l'audit l'avait déjà retiré de low_competition_window pour ce motif. Le ratio de
+      // pression reste : sur CETTE carte il est dans sa plage de sélection (0,02-0,79,
+      // moyenne 0,53 — docs/card-truth-audit.md, « la plus saine du lot »).
+      var line = 'Week-end de vacances, pression \u00d7' + pr.toFixed(1) + '.';
       line += ' Occasion rare \u2014 communiquez maintenant.';
       return line;
     },
@@ -1453,7 +1478,12 @@
       // déclaration : heat_28_plus précède wind). D'où « alerte vent (niveau 4) » avec un coin
       // « perdus · 28 °C et plus ». Une seule source désormais : quand la carte porte un enjeu,
       // le corps nomme SA classe. Sinon on retombe sur la nature du jour.
-      var natureFr = (a && a.enjeu && a.enjeu.label_fr) ? String(a.enjeu.label_fr) : hazardPhrase(d);
+      // 22/08 — le libellé de classe commence par « jours à / jours de » : collé après
+      // « mauvais temps — », il donnait « mauvais temps — jours à 28 °C et plus ». Même
+      // découpe que pulse.astro pour la cause du coin.
+      var natureFr = (a && a.enjeu && a.enjeu.label_fr)
+        ? String(a.enjeu.label_fr).replace(/^jours (de |d\u2019|d'|\u00e0 )?/, '')
+        : hazardPhrase(d);
       var line = '3+ jours consécutifs de mauvais temps — ' + natureFr + (alert > 0 ? ' (niveau ' + alert + ')' : '') + '.';
       var eur = (a && a.enjeu && a.enjeu.eur_year != null) ? Number(a.enjeu.eur_year) : null;
       if (eur != null && eur < 0) line += ' Chez vous, ces journées coûtent en moyenne plus que les autres.';
@@ -2831,7 +2861,7 @@
       var lvl = a.payload_alert_level != null ? Number(a.payload_alert_level) : null;
       var sens = a.site_sensitivity != null ? Number(a.site_sensitivity) : null;
       var s = 'À adapter : météo dégradée sur 3 jours ou plus';
-      if (lvl != null) s += ' — ' + ((a && a.enjeu && a.enjeu.label_fr) ? String(a.enjeu.label_fr) : hazardPhrase(d)) + ' (niveau ' + lvl + ')';
+      if (lvl != null) s += ' — ' + ((a && a.enjeu && a.enjeu.label_fr) ? String(a.enjeu.label_fr).replace(/^jours (de |d\u2019|d'|\u00e0 )?/, '') : hazardPhrase(d)) + ' (niveau ' + lvl + ')';
       s += '. ';
       if (sens != null && sens >= 3) s += 'Site très exposé : planifiez un repli intérieur sur toute la période et ajustez les horaires si la fréquentation chute.';
       else s += 'Planifiez des alternatives couvertes sur toute la période et adaptez vos effectifs.';
