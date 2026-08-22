@@ -755,6 +755,10 @@ const DATE_RESOLVED_WEATHER_TYPES = new Set([
   "weather_worsened",
   "extended_bad_weather",
   "extended_bad_weather_3d",
+  // 22/08 — la seule des quatre cartes météo qui manquait. Elle annonce une amélioration ; la
+  // classe météo MESURÉE de la date dit ce que cette journée vaut réellement sur le lieu — sans
+  // elle, « le temps s'améliore » était une affirmation que rien ne confrontait.
+  "weather_improved",
 ]);
 
 // Card type → cross-family class. ONE class per card, sa PROPRE famille (docs/kpi-enjeu-mapping.md).
@@ -942,6 +946,20 @@ const MOTIF_INHERIT_TYPES = new Set([
   "sales_revenue_down_wow",
   "sales_underperformance",
   "sales_missed_opportunity",
+  // 22/08 — top_day_approaching et perfect_storm rejoignent weekend_opportunity : toutes trois
+  // DÉSIGNENT UNE JOURNÉE sans rien mesurer elles-mêmes. top_day_approaching pointe un jour à
+  // venir, perfect_storm une conjonction de facteurs — le motif mesuré de CETTE date est leur
+  // contexte. Aucun coin nouveau : CARD_POPULATION n'a pas d'entrée pour elles, donc l'enjeu
+  // reste null et seul `context_motif` est servi (doctrine 01/08 : le motif du jour est une
+  // ligne de texte, jamais le coin).
+  "top_day_approaching",
+  "perfect_storm",
+  // 22/08 — commercial_event_match est passée par CALENDAR_TYPES avant d'atterrir ici :
+  // ce jeu-là donne le COIN, et la carte a aussitôt affiché −19 126 €/an — exactement le
+  // montant de la carte structurelle « vacances scolaires » (vérifié au rendu sur 3 comptes).
+  // C'est le doublon de coin corrigé deux fois aujourd'hui, recréé par mon propre câblage.
+  // Sa place est ici : le calendrier de la date est son CONTEXTE, pas son enjeu.
+  "commercial_event_match",
   // 21/08 — weekend_opportunity entre ici, et l'ensemble perd son préfixe SALES_ qui l'aurait
   // interdite. Motif : la carte affirmait « Conditions favorables » en chaîne CONSTANTE, puis
   // accolait météo et densité d'événements sans jamais les évaluer — « conditions favorables
