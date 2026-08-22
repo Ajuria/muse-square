@@ -1398,10 +1398,14 @@
       var line = evName ? evName + ' en cours dans votre r\u00e9gion.' : 'Temps fort commercial en cours dans votre r\u00e9gion.';
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       if (isDiscount) line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous sans casser vos prix.' : ' Le flux d\u2019acheteurs est l\u00e0 \u2014 mettez en avant une offre signature plut\u00f4t qu\u2019une remise.';
-      // « Occasion favorable — captez le flux » : « capter » est proscrit (règle 8), et la
-      // phrase taisait ce qui la fonde — cette branche EST celle de la pression basse.
-      // Le ratio n'est dit que s'il est connu : à 0 il est absent, pas « bas ».
-      else line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous.' : (pr > 0 ? ' Concurrence basse (\u00d7' + pr.toFixed(1) + ').' : '');
+      // « Occasion favorable — captez le flux » retiré (verbe proscrit, règle 8) et NON
+      // remplacé par le ratio : mesuré le 22/08 sur les jours NON filtrés du day_surface,
+      // `competition_pressure_ratio` a une médiane de 0,12 pour une moyenne de 0,33 et
+      // 90 % des jours (14 560 / 16 096) sont sous 1 — la distribution est tirée par de
+      // rares pics. Dire « basse » ou « N % sous votre moyenne » décrirait l'état ORDINAIRE
+      // comme une exception, neuf jours sur dix. Seule la branche HAUTE reste : au-dessus
+      // de 1,3, l'écart est réellement rare.
+      else if (pr > 1.3) line += ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous.';
       return line;
     },
     {
