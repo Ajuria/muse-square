@@ -3651,17 +3651,23 @@ if (!location_id) {
     // change. Objectif atteint ⇒ on ne lui demande rien — reconduire est le défaut silencieux.
     // D'où la condition sur `verdict === 'missed'`, et non sur « résolu sans mouvement » :
     // une première version réclamait une décision même sur un succès.
-    // MOT : « Ajuster » est celui du lexique pour le geste sur un engagement (« Modifier » mort
-    // le 15/08, « Évolution » le 17/08). Construction reprise de « À documenter » — l'app a déjà
-    // sa forme pour « on vous doit quelque chose ». « verdict en attente » écarté (banni,
-    // lexique ligne 38) ; « À décider » écarté aussi : il supposait un choix sur tout verdict.
+    // MOT (owner 22/08, deuxième passe) : « À ajuster » n'était pas intuitif — « ajuster »
+    // n'a pas d'objet implicite, contrairement à « documenter ». C'est la règle 8 du lexique
+    // appliquée à ma propre chaîne : verbe ordinaire SUR UN OBJET QU'ON MANIPULE. Les deux mots
+    // sont sanctionnés — « Ajuster » pour le geste sur un engagement (« Modifier » mort le
+    // 15/08, « Évolution » le 17/08), « dispositif » pour la chose. L'article est gardé :
+    // « Ajuster dispositif » n'est pas du français, et la clarté prime ici sur la densité.
+    // Le mot vaut pour TOUTES les origines, pas seulement l'événement : la page de destination
+    // dit « Votre dispositif » quelle que soit l'origine, alors que `action_card` est
+    // majoritaire (7 engagements sur 13). Écartés : « verdict en attente » (banni, lexique
+    // ligne 38) et « À décider » (supposait un choix sur tout verdict).
     // Passe DEVANT « À documenter » : l'ajustement façonne l'occurrence suivante, la rétro
     // regarde en arrière.
     var _awaitsMove = !open && r.status !== 'cancelled' && r.verdict === 'missed'
       && !r.adjustment_move && !r.__hasChild;
     var _stage = open ? (r.action_done_status ? 'Exécution' : 'Planification')
-      : (_awaitsMove ? 'À ajuster' : (r.retro_worked ? 'Documenté' : 'À documenter'));
-    var _owed = (_stage === 'À documenter' || _stage === 'À ajuster');
+      : (_awaitsMove ? 'Ajuster le dispositif' : (r.retro_worked ? 'Documenté' : 'À documenter'));
+    var _owed = (_stage === 'À documenter' || _stage === 'Ajuster le dispositif');
     var _stageBg = _owed ? '#FAEEDA' : (_stage === 'Documenté') ? '#F1EFE8' : '#EAEFFB';
     var _stageFg = _owed ? '#854F0B' : (_stage === 'Documenté') ? '#5F5E5A' : '#1D3BB3';
     // #4 terminal-cancel states: adjusted (has a child) vs stopped (Arrêter) vs plain cancel.
