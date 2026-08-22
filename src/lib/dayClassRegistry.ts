@@ -813,7 +813,14 @@ const CARD_TYPE_CLASS: Record<string, string> = {
 const CATCHMENT_DEPENDENT_TYPES = new Set(["competition_proximity", "high_competition_density"]);
 
 // Cartes calendrier : classe résolue par la DATE affectée (vacances d'abord, férié sinon).
-const CALENDAR_TYPES = new Set(["calendar_audience_shift", "audience_shift_opportunity"]);
+// 22/08 — VIDE, et c'est délibéré. Cette branche donne le COIN à une carte depuis la classe
+// calendrier de sa date. Or les classes calendrier (school_holiday, public_holiday) portent
+// DÉJÀ leur propre carte structurelle : tout type placé ici affiche donc, au coin, le montant
+// d'une autre carte. Constaté trois fois le 22/08 — sur low_competition_window et
+// weekend_vacation_low_comp (corrigées), puis recréé par mon câblage de commercial_event_match.
+// Ses deux occupants historiques sont passés en CONTEXTE. Ne rien remettre ici sans avoir
+// vérifié qu'aucune carte structurelle ne porte la même classe.
+const CALENDAR_TYPES = new Set<string>([]);
 
 // Cartes COMBINÉES (mapping familles A/B/D « facteur dominant, jamais la somme ») : le dominant est
 // choisi PAR LA MESURE — la classe candidate au plus grand |€/an| mesuré, jamais une pondération
@@ -960,6 +967,11 @@ const MOTIF_INHERIT_TYPES = new Set([
   // C'est le doublon de coin corrigé deux fois aujourd'hui, recréé par mon propre câblage.
   // Sa place est ici : le calendrier de la date est son CONTEXTE, pas son enjeu.
   "commercial_event_match",
+  // 22/08 — les deux derniers occupants de CALENDAR_TYPES, déplacés pour le même motif :
+  // le coin qu'elles affichaient était celui de la carte structurelle « vacances scolaires »
+  // ou « jours fériés ». Défaut préexistant, relevé en câblant leurs voisines.
+  "audience_shift_opportunity",
+  "calendar_audience_shift",
   // 21/08 — weekend_opportunity entre ici, et l'ensemble perd son préfixe SALES_ qui l'aurait
   // interdite. Motif : la carte affirmait « Conditions favorables » en chaîne CONSTANTE, puis
   // accolait météo et densité d'événements sans jamais les évaluer — « conditions favorables
