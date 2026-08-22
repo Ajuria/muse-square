@@ -12,6 +12,9 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypeLabelFr } from "../../../lib/eventTypes";
 import { rowsToImpactsWithImmaterial } from "../../../lib/dayClassRegistry";
+// KPI -> colonne journalière : LU au registre, jamais retapé (les deux CASE ci-dessous en
+// étaient des copies ; un mart qui renomme une colonne cassait alors 3 surfaces sur 4).
+import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpiRegistry";
 
 const PROJECT = "muse-square-open-data";
 const json = (status: number, body: unknown) =>
@@ -409,14 +412,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
                    AND r.date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
                   WHERE c.measured_metric IS NULL OR c.measured_metric = 'revenue_residual' GROUP BY 1),
                 kp AS (
-                  SELECT c.commitment_id, AVG(CASE c.measured_metric
-                    WHEN 'footfall' THEN p.daily_visitors WHEN 'conversion' THEN p.daily_conversion_rate
-                    WHEN 'basket' THEN p.daily_avg_basket WHEN 'transactions' THEN p.daily_transactions
-                    WHEN 'discount' THEN p.daily_discount_total END) realized
+                  SELECT c.commitment_id, AVG(${kpiCaseSql("c.measured_metric", "p")}) realized
                   FROM cm c JOIN \`${PROJECT}.mart.fct_client_daily_performance\` p
                     ON p.location_id = c.location_id
                    AND p.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
-                  WHERE c.measured_metric IN ('footfall','conversion','basket','transactions','discount') GROUP BY 1),
+                  WHERE c.measured_metric IN (${kpiKeyListSql()}) GROUP BY 1),
                 fam AS (
                   SELECT c.commitment_id, SUM(t.revenue) / COUNT(DISTINCT t.transaction_date) realized
                   FROM cm c JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id
@@ -450,12 +450,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 WHERE c.measured_metric IS NULL OR c.measured_metric = 'revenue_residual'
                 UNION ALL
                 SELECT c.commitment_id, CAST(p.transaction_date AS STRING) d,
-                       CASE c.measured_metric WHEN 'footfall' THEN p.daily_visitors WHEN 'conversion' THEN p.daily_conversion_rate
-                            WHEN 'basket' THEN p.daily_avg_basket WHEN 'transactions' THEN p.daily_transactions
-                            WHEN 'discount' THEN p.daily_discount_total END v
+                       ${kpiCaseSql("c.measured_metric", "p")} v
                 FROM cm c JOIN \`${PROJECT}.mart.fct_client_daily_performance\` p
                   ON p.location_id = c.location_id AND p.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
-                WHERE c.measured_metric IN ('footfall','conversion','basket','transactions','discount')
+                WHERE c.measured_metric IN (${kpiKeyListSql()})
                 UNION ALL
                 SELECT c.commitment_id, CAST(t.transaction_date AS STRING) d, SUM(t.revenue) v
                 FROM cm c JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id

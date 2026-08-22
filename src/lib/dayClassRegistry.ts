@@ -163,6 +163,8 @@ const CLASS_LABELS: Record<string, string> = Object.fromEntries([
   ...CARD_POP_CLASSES.map((c) => [c.key, c.label_fr]),
 ]);
 
+import { KPI_PERF_KEYS, KPI_DAILY_COL } from "./kpiRegistry";
+
 const PROJECT = "muse-square-open-data";
 // Offline store (incrément 1) : raw aggregates ONLY — n/avg/sd/span per location × class. The
 // POLICY (gates, tier, €/an, negative-only) lives HERE in rowsToImpacts and is applied at READ
@@ -448,29 +450,18 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
     -- ABSENTS du pivot, et pas par prudence : reputation n'a aucune série côté client
     -- (besttime_rating 100 % NULL, audit 31/07 — il faut un connecteur GBP) et family_revenue
     -- est au grain PRODUIT, donc une autre jointure. Deux lignes le jour où leur donnée existe.
+    -- Colonnes LUES au registre (KPI_DAILY_COL) : la liste des KPI mesurables a UN seul foyer,
+    -- et un KPI de plus s'ajoute là-bas sans toucher à ce fichier.
     perf AS (
-      SELECT location_id, transaction_date AS date, daily_transactions, daily_avg_basket,
-             daily_discount_total, daily_visitors, daily_conversion_rate
+      SELECT location_id, transaction_date AS date, ${KPI_PERF_KEYS.map((k) => KPI_DAILY_COL[k]).join(", ")}
       FROM \`${PROJECT}.mart.fct_client_daily_performance\`
     ),
     vals AS (
       SELECT location_id, date, month_num, weekend_flag, 'revenue_residual' AS metric, gap_eur AS v, gap_log AS v_log
       FROM counted
-      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'transactions', p.daily_transactions,
-             IF(p.daily_transactions > 0, LN(p.daily_transactions), NULL)
-      FROM counted c JOIN perf p USING (location_id, date) WHERE p.daily_transactions IS NOT NULL
-      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'basket', p.daily_avg_basket,
-             IF(p.daily_avg_basket > 0, LN(p.daily_avg_basket), NULL)
-      FROM counted c JOIN perf p USING (location_id, date) WHERE p.daily_avg_basket IS NOT NULL
-      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'discount', p.daily_discount_total,
-             IF(p.daily_discount_total > 0, LN(p.daily_discount_total), NULL)
-      FROM counted c JOIN perf p USING (location_id, date) WHERE p.daily_discount_total IS NOT NULL
-      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'footfall', p.daily_visitors,
-             IF(p.daily_visitors > 0, LN(p.daily_visitors), NULL)
-      FROM counted c JOIN perf p USING (location_id, date) WHERE p.daily_visitors IS NOT NULL
-      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'conversion', p.daily_conversion_rate,
-             IF(p.daily_conversion_rate > 0, LN(p.daily_conversion_rate), NULL)
-      FROM counted c JOIN perf p USING (location_id, date) WHERE p.daily_conversion_rate IS NOT NULL
+      ${KPI_PERF_KEYS.map((k) => `UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, '${k}', p.${KPI_DAILY_COL[k]},
+             IF(p.${KPI_DAILY_COL[k]} > 0, LN(p.${KPI_DAILY_COL[k]}), NULL)
+      FROM counted c JOIN perf p USING (location_id, date) WHERE p.${KPI_DAILY_COL[k]} IS NOT NULL`).join("\n      ")}
     ),
     -- class_days reste le mapping date -> classe (intouché) ; on lui accole la métrique.
     class_metric AS (
