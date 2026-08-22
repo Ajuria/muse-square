@@ -763,7 +763,6 @@ const CARD_TYPE_CLASS: Record<string, string> = {
   // CONTEXTE (CARD_CONTEXT_CLASS -> motifContextForCandidate).
   sales_discount_no_lift: "discount_no_lift",
   competition_pressure_spike: "competition_high",
-  low_competition_window: "competition_low",
   weekend_vacation_low_comp: "competition_low",
   low_tourism_local_opp: "tourism_low",
   competition_proximity: "events_high",
@@ -970,6 +969,14 @@ const CARD_POPULATION: Record<string, string> = {
 const CARD_CONTEXT_CLASS: Record<string, string> = {
   sales_traffic_not_converting: "traffic_high",
   sales_competition_cannibalization: "competition_high",
+  // 22/08 — low_competition_window RETIRÉE de CARD_TYPE_CLASS, même remède que les deux
+  // ci-dessus. Constaté à l'écran par l'owner : la carte du jour « Moins d'activité que
+  // d'habitude dans votre périmètre » et le chantier structurel « Les jours à faible pression
+  // concurrentielle » affichaient LE MÊME montant — −4 757 €/an chez MS Test, +6 381 €/an chez
+  // Muse Square Occitanie. Les deux lisaient la classe `competition_low`. La doctrine du 01/08
+  // l'interdit : le coin est l'impact PROPRE à la carte. Le chantier garde le coin, la carte du
+  // jour cite la classe en ligne de contexte.
+  low_competition_window: "competition_low",
 };
 
 // Types dont le coin est régi par la doctrine population/jour (B + C).
@@ -977,6 +984,13 @@ const CARD_VALUE_TYPES = new Set([
   ...MOTIF_INHERIT_TYPES,
   "sales_traffic_not_converting",
   "sales_competition_cannibalization",
+  // 22/08 — low_competition_window entre ici APRÈS sa sortie de CARD_TYPE_CLASS. Cet ensemble
+  // commande DEUX choses : le coin passe par CARD_POPULATION (aucune entrée pour ce type ⇒
+  // null, coin absent, doublon avec le chantier structurel réglé) ET le calcul de
+  // `context_motif` (enjeuWithReasonForCandidate le conditionne à cet ensemble). Sans cette
+  // ligne la carte perdait sa DIRECTION : elle disait « on ne sait pas encore si elles vous
+  // rapportent plus ou moins » alors que `competition_low` est mesurée sur le lieu.
+  "low_competition_window",
 ]);
 
 /** Motif de CONTEXTE d'une carte (doctrine 01/08) — l'ex-« Motif de fond » hérité, désormais

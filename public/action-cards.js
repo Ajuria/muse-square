@@ -490,7 +490,11 @@
       var line = (pr != null && pr < 1)
         ? 'L’activité autour de vous sera inférieure de ' + Math.round((1 - pr) * 100) + ' % à votre moyenne.'
         : 'L’activité autour de vous sera plus faible que d’habitude.';
-      var eur = (a && a.enjeu && a.enjeu.eur_year != null) ? Number(a.enjeu.eur_year) : null;
+      // 22/08 — le coin est passé en CONTEXTE (il doublait celui du chantier structurel).
+      // La DIRECTION doit survivre : même impact mesuré, servi sous `context_motif`. Sans ce
+      // repli la carte disait « on ne sait pas encore » alors que la mesure existe.
+      var _dc = (a && a.enjeu) ? a.enjeu : (a && a.context_motif) ? a.context_motif : null;
+      var eur = (_dc && _dc.eur_year != null) ? Number(_dc.eur_year) : null;
       if (eur != null && eur > 0) line += ' Chez vous, ces journées rapportent plus que la moyenne.';
       else if (eur != null && eur < 0) line += ' Chez vous, ces journées rapportent moins que la moyenne.';
       else line += ' On ne sait pas encore si elles vous rapportent plus ou moins.';
@@ -1434,8 +1438,14 @@
       // La direction vient de la MESURE du lieu (a.enjeu, classes meteo heat/rain), pas du flag
       // declaratif weather_sensitivity — NULL sur 15 sites sur 32 (verifie le 28/07), alors que
       // la meteo est la famille la MIEUX mesuree du produit (heat significative 4 sites sur 4).
-      var alert = Number(a.alert_level || d.alert_level_max || 0);
-      var line = '3+ jours consécutifs de mauvais temps — ' + hazardPhrase(d) + ' (niveau ' + alert + ').';
+      var alert = Number(a.payload_alert_level != null ? a.payload_alert_level : (d.alert_level_max || 0));
+      // 22/08 — le corps nommait la nature via hazardPhrase(d) tandis que le COIN affichait la
+      // classe météo dominante de la date (conditionByDate, CASE niveau 4→1 puis ordre de
+      // déclaration : heat_28_plus précède wind). D'où « alerte vent (niveau 4) » avec un coin
+      // « perdus · 28 °C et plus ». Une seule source désormais : quand la carte porte un enjeu,
+      // le corps nomme SA classe. Sinon on retombe sur la nature du jour.
+      var natureFr = (a && a.enjeu && a.enjeu.label_fr) ? String(a.enjeu.label_fr) : hazardPhrase(d);
+      var line = '3+ jours consécutifs de mauvais temps — ' + natureFr + (alert > 0 ? ' (niveau ' + alert + ')' : '') + '.';
       var eur = (a && a.enjeu && a.enjeu.eur_year != null) ? Number(a.enjeu.eur_year) : null;
       if (eur != null && eur < 0) line += ' Chez vous, ces journées coûtent en moyenne plus que les autres.';
       else if (eur != null && eur > 0) line += ' Chez vous, ces journées ne vous pénalisent pas — vous y faites même mieux que la moyenne.';
@@ -2364,12 +2374,26 @@
       if (ac.data_payload) { var dp = ac.data_payload; for (var k in dp) { if (dp.hasOwnProperty(k)) feedItem[k] = dp[k]; } }
       feedItem.change_subtype = actionType;
       feedItem.affected_date = ac.date;
+      // 22/08 — le payload porte parfois SON PROPRE `alert_level` (niveau de sévérité météo),
+      // que cette ligne écrasait par la PRIORITÉ de la carte. Constaté à l'écran :
+      // extended_bad_weather_3d (action_priority = 4, payload alert_level = 2) affichait
+      // « alerte vent (niveau 4) » alors que `lvl_wind` plafonne à 2 sur 30 jours et
+      // n'atteint jamais 3 (mart.fct_location_context_daily, 12 640 lignes). Une priorité
+      // rendue en niveau d'alerte. On préserve la valeur d'origine ; le champ partagé garde
+      // sa sémantique pour ses 9 autres lecteurs.
+      if (feedItem.alert_level != null) feedItem.payload_alert_level = feedItem.alert_level;
       feedItem.alert_level = ac.action_priority;
       feedItem.action_category = ac.action_category;
       // 01/08 — l'enjeu résolu DOIT atteindre les sowhats : extended_bad_weather_3d (arbitrage
       // 28/07 « le coût réel ou on ne sait pas ») lisait a.enjeu, jamais copié ici -> la carte
       // disait « on ne sait pas encore » SOUS une pilule -4 925 €/an (contradiction vue owner).
       feedItem.enjeu = ac.enjeu || null;
+      // 22/08 — ligne JUMELLE de la précédente, et même symptôme un an après : quand le coin
+      // d'une carte passe en CONTEXTE (doctrine 01/08), sa direction voyage désormais dans
+      // `context_motif` — non copié ici, low_competition_window disait « on ne sait pas encore
+      // si elles vous rapportent plus ou moins » alors que la classe `competition_low` est
+      // mesurée sur les trois comptes (−5 185 / +5 864 / −8 361 €/an).
+      feedItem.context_motif = ac.context_motif || null;
       var mergedDay = {};
       for (var mk in currentDay) { if (currentDay.hasOwnProperty(mk)) mergedDay[mk] = currentDay[mk]; }
       if (mergedDay.opportunity_score != null && mergedDay.opportunity_score_final_local == null) mergedDay.opportunity_score_final_local = mergedDay.opportunity_score;
@@ -2549,7 +2573,11 @@
       return s;
     }, urgency: 'soon' },
     'low_competition_window': { action: function(a, p, d) {
-      var eur = (a && a.enjeu && a.enjeu.eur_year != null) ? Number(a.enjeu.eur_year) : null;
+      // Même repli que le corps (22/08) : le coin est passé en contexte, la direction suit
+      // `context_motif` quand `enjeu` est absent — sinon le geste retombe sur « À vérifier »
+      // alors que la mesure existe.
+      var _dc = (a && a.enjeu) ? a.enjeu : (a && a.context_motif) ? a.context_motif : null;
+      var eur = (_dc && _dc.eur_year != null) ? Number(_dc.eur_year) : null;
       if (eur != null && eur > 0) return 'À faire : mettez votre meilleure offre sur ces jours — ils vous réussissent mieux que la moyenne.';
       if (eur != null && eur < 0) return 'À faire : commandez moins et ne prévoyez pas d’extra — ces jours vous rapportent moins.';
       return 'À vérifier : fixez-vous un objectif sur ces jours pour savoir s’ils vous rapportent ou vous coûtent.';
@@ -2782,10 +2810,12 @@
       return s;
     }, urgency: 'now' },
     'extended_bad_weather_3d': { action: function(a, p, d) {
-      var lvl = a.alert_level != null ? Number(a.alert_level) : null;
+      // Même correction que le corps (22/08) : `alert_level` est écrasé par la PRIORITÉ de la
+      // carte dans le flatteneur ; le niveau du payload vit sous `payload_alert_level`.
+      var lvl = a.payload_alert_level != null ? Number(a.payload_alert_level) : null;
       var sens = a.site_sensitivity != null ? Number(a.site_sensitivity) : null;
       var s = 'À adapter : météo dégradée sur 3 jours ou plus';
-      if (lvl != null) s += ' — ' + hazardPhrase(d) + ' (niveau ' + lvl + ')';
+      if (lvl != null) s += ' — ' + ((a && a.enjeu && a.enjeu.label_fr) ? String(a.enjeu.label_fr) : hazardPhrase(d)) + ' (niveau ' + lvl + ')';
       s += '. ';
       if (sens != null && sens >= 3) s += 'Site très exposé : planifiez un repli intérieur sur toute la période et ajustez les horaires si la fréquentation chute.';
       else s += 'Planifiez des alternatives couvertes sur toute la période et adaptez vos effectifs.';
