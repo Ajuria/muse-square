@@ -118,13 +118,32 @@
     return types.map(function(t) { return EVT_FR[t] || t; }).join(', ');
   }
   function objLabel(p) { return OBJ_FR[p.main_event_objective] || ''; }
-  function todayHours(p) {
+  // Les horaires du jour DE LA CARTE, pas ceux d'aujourd'hui (22/08).
+  //
+  // La version d'avant lisait `new Date().getDay()`. Or les cartes portent `affected_date` et la
+  // fenêtre serveur va jusqu'à J+14 (monitor.ts) : un brouillon « Programme du week-end » rédigé
+  // un vendredi annonçait les horaires du VENDREDI, et « Jour de pointe favorable » ceux du jour
+  // où l'owner regardait l'écran. Dix-neuf points d'appel, dont weekend_opportunity,
+  // weekend_vacation_low_comp, top_day_approaching, weather_window, weather_improved et
+  // perfect_storm — toutes des cartes dont la date n'est pas aujourd'hui.
+  //
+  // Un jour DÉCLARÉ FERMÉ (`"dim": null` dans operating_hours) rend '' — c'est-à-dire la même
+  // chose que l'absence d'horaires. Les 17 sites sur 32 qui déclarent leurs horaires ferment
+  // TOUS le dimanche, et deux d'entre eux le samedi aussi : la valeur vide n'est donc pas un
+  // cas de bord, c'est un cas courant.
+  // NON TRAITÉ ICI, à trancher : les appelants écrivent « Horaires : » + cette valeur, donc le
+  // vide produit « Horaires : . ». Défaut PRÉEXISTANT (15 sites sur 32 n'ont aucun horaire
+  // déclaré, ils le produisent déjà) ; le corriger reviendrait à réécrire dix-neuf chaînes
+  // visibles qu'on ne m'a pas demandé de réécrire.
+  function hoursForCard(p, a) {
     try {
       var h = typeof p.operating_hours === 'string' ? JSON.parse(p.operating_hours) : p.operating_hours;
       if (!h) return '';
       var days = ['dim','lun','mar','mer','jeu','ven','sam'];
-      var today = days[new Date().getDay()];
-      if (h[today] && h[today].open) return h[today].open + '\u2013' + h[today].close;
+      // Date de la carte si elle en porte une, sinon aujourd'hui (cartes sans affected_date).
+      var d = a && a.affected_date ? new Date(String(a.affected_date) + 'T00:00:00Z') : null;
+      var key = days[d && !isNaN(d.getTime()) ? d.getUTCDay() : new Date().getDay()];
+      if (h[key] && h[key].open) return h[key].open + '\u2013' + h[key].close;
     } catch(e) {}
     return '';
   }
@@ -301,7 +320,7 @@
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. ' + num(d.events_within_5km_count) + ' \u00e9v\u00e9nements concurrents \u00e0 5 km. Mettre en avant : ' + (userEdge(p) || 'votre offre unique') + '. Ton direct, local. Max 2200 car.'; },
-      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Forte concurrence. Inclure horaires : ' + todayHours(p) + '. Acc\u00e8s : ' + (p.nearest_transit_stop_name ? 'station ' + p.nearest_transit_stop_name : 'votre adresse') + '. Diff\u00e9renciant : ' + (userEdge(p) || '') + '.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Forte concurrence. Inclure horaires : ' + hoursForCard(p, a) + '. Acc\u00e8s : ' + (p.nearest_transit_stop_name ? 'station ' + p.nearest_transit_stop_name : 'votre adresse') + '. Diff\u00e9renciant : ' + (userEdge(p) || '') + '.'; },
       email: function(a, p, d) { return 'Email pour ' + siteName(p) + '. Objet : pourquoi nous choisir aujourd\u2019hui. ' + num(d.events_within_5km_count) + ' \u00e9v\u00e9nements autour, voici ce qui nous rend unique : ' + (userEdge(p) || '') + '.'; },
       note_interne: function(a, p, d) { return 'Note interne. Forte densit\u00e9 : ' + num(d.events_within_5km_count) + ' \u00e9v\u00e9nements \u00e0 5 km, pression \u00d7' + Number(d.competition_pressure_ratio||0).toFixed(1) + '. Diff\u00e9renciant : ' + (userEdge(p) || '\u00e0 d\u00e9finir') + '. Renforcer accueil et signal\u00e9tique.'; }
     }
@@ -317,12 +336,12 @@
       line += '.';
       if (weatherSens(p)) line += ' Sensibilit\u00e9 m\u00e9t\u00e9o \u00e9lev\u00e9e (' + p.weather_sensitivity + '/5) \u2014 impact direct sur votre fr\u00e9quentation.';
       if (isOutdoor(p)) line += ' Espace mixte/ext\u00e9rieur \u2014 vos visiteurs reviennent.';
-      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
+      var h = hoursForCard(p, a); if (h) line += ' Ouvert ' + h + '.';
       return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Le beau temps revient \u2014 ' + temp(d.temperature_2m_max) + '. Inviter les visiteurs. Mettre en avant : ' + (userEdge(p) || 'votre offre') + '. Max 2200 car.'; },
-      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Retour du beau temps. Horaires : ' + todayHours(p) + '. Acc\u00e8s : ' + (p.nearest_transit_stop_name || '') + '. Diff\u00e9renciant : ' + (userEdge(p) || '') + '.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Retour du beau temps. Horaires : ' + hoursForCard(p, a) + '. Acc\u00e8s : ' + (p.nearest_transit_stop_name || '') + '. Diff\u00e9renciant : ' + (userEdge(p) || '') + '.'; },
       note_interne: function(a, p, d) { return 'Note interne. Accalmie m\u00e9t\u00e9o apr\u00e8s ' + (a.prevBadDays || '2+') + 'j de mauvais temps. Pr\u00e9voir affluence.' + (Number(p.venue_capacity) > 0 ? ' Capacit\u00e9 : ' + p.venue_capacity + '.' : ''); }
     }
   );
@@ -349,7 +368,7 @@
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Meilleur jour de la semaine, score ' + num(score10(a, d)) + '/10. Mettre en avant : ' + (userEdge(p) || 'votre programmation') + '. Max 2200 car.'; },
-      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Meilleur jour. Horaires : ' + todayHours(p) + '. Diff\u00e9renciant : ' + (userEdge(p) || '') + '.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Meilleur jour. Horaires : ' + hoursForCard(p, a) + '. Diff\u00e9renciant : ' + (userEdge(p) || '') + '.'; },
       note_interne: function(a, p, d) { return 'Note interne. Meilleur jour : score ' + num(score10(a, d)) + '/10. Renforcer accueil.' + (Number(p.venue_capacity) > 0 ? ' Capacit\u00e9 max : ' + p.venue_capacity + '.' : ''); }
     }
   );
@@ -416,7 +435,7 @@
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Public touristique étranger attendu. Message accueillant (multilingue si pertinent). Mettre en avant : ' + (userEdge(p) || 'votre offre') + '. Max 2200 car.'; },
-      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Afflux touristique étranger possible. Horaires : ' + todayHours(p) + '. Offre découverte. ' + (userEdge(p) || '') + '.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Afflux touristique étranger possible. Horaires : ' + hoursForCard(p, a) + '. Offre découverte. ' + (userEdge(p) || '') + '.'; },
       gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Accueil des visiteurs étrangers. Horaires + offre. Max 1500 car.'; },
       note_interne: function(a, p, d) { return 'Note interne ' + siteName(p) + '. Vacances/férié à l\'étranger — public de passage possible. Prévoir accueil multilingue et signalétique adaptée.'; }
     }
@@ -540,7 +559,7 @@
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Peu de concurrence \u2014 moment id\u00e9al pour \u00eatre visible. Mettre en avant : ' + (userEdge(p) || 'votre offre') + '. Max 2200 car.'; },
-      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Journ\u00e9e calme, publiez maintenant. Horaires : ' + todayHours(p) + '. Acc\u00e8s et offre.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Journ\u00e9e calme, publiez maintenant. Horaires : ' + hoursForCard(p, a) + '. Acc\u00e8s et offre.'; },
       gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Offre du jour, horaires. Max 1500 car.'; }
     }
   );
@@ -598,7 +617,7 @@
       //     comme un appui ;
       //   · audLabel(p), les deux publics DÉCLARÉS au profil, suivis de « est disponible le
       //     week-end » — vrai tous les week-ends de l'année, jamais vérifié ;
-      //   · todayHours(p), les horaires déclarés.
+      //   · todayHours(p) (renommé hoursForCard le 22/08), les horaires déclarés.
       // Le seul nombre qui pourrait justifier « favorable » — opportunity_score_final_local —
       // était calculé ligne 1 puis jeté. Le motif MESURÉ de la date arrive désormais par
       // `context_motif` (MOTIF_INHERIT_TYPES, dayClassRegistry) et pulse.astro le rend seul :
@@ -609,7 +628,7 @@
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Week-end favorable, score ' + num(score10(a, d)) + '/10. Mettre en avant : ' + (userEdge(p) || '') + '. Max 2200 car.'; },
-      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Programme du week-end. Horaires : ' + todayHours(p) + '. ' + (userEdge(p) || '') + '.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Programme du week-end. Horaires : ' + hoursForCard(p, a) + '. ' + (userEdge(p) || '') + '.'; },
       note_interne: function(a, p, d) { return 'Note interne. Week-end favorable, score ' + num(score10(a, d)) + '/10.' + (Number(p.venue_capacity) > 0 ? ' Capacit\u00e9 : ' + p.venue_capacity + '. Renforcer effectif.' : ' Renforcer effectif.'); }
     }
   );
@@ -674,12 +693,12 @@
       line += '.';
       if (delta > 0) line += ' Hausse de fr\u00e9quentation attendue : +' + Math.round(delta) + '%.';
       if (isOutdoor(p)) line += ' Espace ext\u00e9rieur de nouveau accessible.';
-      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
+      var h = hoursForCard(p, a); if (h) line += ' Ouvert ' + h + '.';
       return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Le temps s\u2019am\u00e9liore \u2014 ' + (d.weather_label_fr || '') + '. Inviter les visiteurs. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
-      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Am\u00e9lioration m\u00e9t\u00e9o. Horaires : ' + todayHours(p) + '. Acc\u00e8s et offre.'; }
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Am\u00e9lioration m\u00e9t\u00e9o. Horaires : ' + hoursForCard(p, a) + '. Acc\u00e8s et offre.'; }
     }
   );
 
@@ -772,7 +791,7 @@
       var line = 'Acc\u00e8s r\u00e9tabli';
       if (ti) line += ' \u2014 ' + ti.split(',')[0] + ' de nouveau accessible';
       line += '.';
-      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
+      var h = hoursForCard(p, a); if (h) line += ' Ouvert ' + h + '.';
       return line;
     },
     {
@@ -966,14 +985,14 @@
   reg('competitor_hours_change', 'Horaires modifi\u00e9s', 'CONCURRENCE', '\ud83d\udd52', '#E65100', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || '';
-      var h = todayHours(p);
+      var h = hoursForCard(p, a);
       var line = name + ' a chang\u00e9 ses horaires : ' + (a.old_hours || '?') + ' \u2192 ' + (a.new_hours || '?') + '.';
       if (h) line += ' Vos horaires aujourd\u2019hui : ' + h + '.';
       if (a.new_hours && h) line += ' V\u00e9rifiez le chevauchement.';
       return line;
     },
     {
-      note_interne: function(a, p, d) { return 'Note interne. ' + (a.competitor_name || 'Concurrent') + ' a chang\u00e9 ses horaires (' + (a.old_hours || '?') + ' \u2192 ' + (a.new_hours || '?') + '). Vos horaires : ' + todayHours(p) + '. V\u00e9rifier chevauchement.'; }
+      note_interne: function(a, p, d) { return 'Note interne. ' + (a.competitor_name || 'Concurrent') + ' a chang\u00e9 ses horaires (' + (a.old_hours || '?') + ' \u2192 ' + (a.new_hours || '?') + '). Vos horaires : ' + hoursForCard(p, a) + '. V\u00e9rifier chevauchement.'; }
     }
   );
 
@@ -1020,11 +1039,11 @@
       if (event) line += ' pour ' + event;
       if (dist) line += ' \u00e0 ' + dist;
       line += '. Visiteurs refus\u00e9s en recherche d\u2019alternative.';
-      var h = todayHours(p); if (h) line += ' Ouvert ' + h + '.';
+      var h = hoursForCard(p, a); if (h) line += ' Ouvert ' + h + '.';
       return line;
     },
     {
-      instagram: function(a, p, d) { var c = topComp(d); return 'Post Instagram pour ' + siteName(p) + '. ' + (c.organizer_name || 'Un lieu') + ' est complet. Inviter les refus\u00e9s. ' + (userEdge(p) || '') + '. ' + todayHours(p) + '. Max 2200 car.'; },
+      instagram: function(a, p, d) { var c = topComp(d); return 'Post Instagram pour ' + siteName(p) + '. ' + (c.organizer_name || 'Un lieu') + ' est complet. Inviter les refus\u00e9s. ' + (userEdge(p) || '') + '. ' + hoursForCard(p, a) + '. Max 2200 car.'; },
       facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Concurrent complet. Vous accueillez, horaires + acc\u00e8s + ' + (userEdge(p) || '') + '.'; },
       gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Alternative disponible. Horaires + acc\u00e8s. Max 1500 car.'; }
     }
@@ -1319,7 +1338,7 @@
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Conditions exceptionnelles. ' + (userEdge(p) || 'votre offre') + '. Max 2200 car.'; },
-      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Tout est align\u00e9 aujourd\u2019hui. Horaires : ' + todayHours(p) + '. ' + (userEdge(p) || '') + '.'; },
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Tout est align\u00e9 aujourd\u2019hui. Horaires : ' + hoursForCard(p, a) + '. ' + (userEdge(p) || '') + '.'; },
       gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Journ\u00e9e id\u00e9ale. Horaires + offre. Max 1500 car.'; },
       note_interne: function(a, p, d) { return 'Note interne. ' + (a.favorable_count || '3+') + ' facteurs favorables. Renforcer effectif et comm.'; }
     }
@@ -1427,7 +1446,7 @@
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Week-end de vacances, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
-      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Week-end vacances. Horaires : ' + todayHours(p) + '. ' + (userEdge(p) || '') + '.'; }
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Week-end vacances. Horaires : ' + hoursForCard(p, a) + '. ' + (userEdge(p) || '') + '.'; }
     }
   );
 
@@ -1562,7 +1581,7 @@
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Tourisme + beau temps + vacances. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
-      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Triple signal favorable. Horaires : ' + todayHours(p) + '. ' + (userEdge(p) || '') + '.'; }
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Triple signal favorable. Horaires : ' + hoursForCard(p, a) + '. ' + (userEdge(p) || '') + '.'; }
     }
   );
 
@@ -1700,7 +1719,7 @@
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour de pointe, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
       gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Journ\u00e9e id\u00e9ale. Horaires + offre. Max 1500 car.'; },
-      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Jour de pointe favorable. Horaires : ' + todayHours(p) + '. ' + (userEdge(p) || '') + '.'; }
+      facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Jour de pointe favorable. Horaires : ' + hoursForCard(p, a) + '. ' + (userEdge(p) || '') + '.'; }
     }
   );
 
