@@ -23,6 +23,20 @@
 
   function pct(v) { return v != null ? Math.round(Number(v)) + '%' : ''; }
   function num(v) { return v != null ? String(Math.round(Number(v))) : ''; }
+  // 22/08 — le corps de perfect_storm comptait `parts.length` et son geste `a.favorable_count` :
+  // deux sources, « 2 facteurs » dans le corps et « 3 » dans le geste sur la MÊME carte. Un seul
+  // calcul désormais, partagé.
+  function favorableParts(a, d) {
+    a = a || {}; d = d || {};
+    var parts = [];
+    if (Number(d.alert_level_max || 0) === 0) parts.push('m\u00e9t\u00e9o favorable');
+    if (Number(d.competition_pressure_ratio || a.pressure_ratio || 0) < 0.8) parts.push('concurrence faible');
+    if (d.holiday_name) parts.push(d.holiday_name);
+    if (d.vacation_name) parts.push('vacances');
+    if (d.is_weekend_flag) parts.push('week-end');
+    if (Number(a.tourism_index || d.tourism_index_region || 0) > 70) parts.push('tourisme \u00e9lev\u00e9');
+    return parts;
+  }
   // 22/08 — DEUX bugs enchaînés sur le score d'opportunité, vérifiés en base.
   // 22/08 — DEUX ÉCHELLES pour le même indicateur, mélangées derrière un seul suffixe.
   //  · l'objet JOUR porte `opportunity_score` sur /10 (6,1 mesuré) — le nom historique
@@ -1296,16 +1310,9 @@
       // non croisées : la carte annonçait « 3 facteurs favorables alignés » puis n'en citait
       // que deux (« météo favorable, vacances »). Le compte suit désormais la liste qu'il
       // annonce — une seule source, impossible de diverger.
-      var fc = 0;
       var score = num(score10(a, d));
-      var parts = [];
-      if (Number(d.alert_level_max || 0) === 0) parts.push('m\u00e9t\u00e9o favorable');
-      if (Number(d.competition_pressure_ratio || a.pressure_ratio || 0) < 0.8) parts.push('concurrence faible');
-      if (d.holiday_name) parts.push(d.holiday_name);
-      if (d.vacation_name) parts.push('vacances');
-      if (d.is_weekend_flag) parts.push('week-end');
-      if (Number(a.tourism_index || d.tourism_index_region || 0) > 70) parts.push('tourisme \u00e9lev\u00e9');
-      fc = parts.length;
+      var parts = favorableParts(a, d);
+      var fc = parts.length;
       var line = fc + ' facteurs favorables align\u00e9s : ' + (parts.length > 0 ? parts.join(', ') : 'conditions multiples') + '.';
       line += ' Score ' + score + '/10.';
       return line;
@@ -2798,7 +2805,7 @@
       return 'À pousser : amélioration des conditions météo. Relancez vos visiteurs dès maintenant pour profiter de l\'embellie.';
     }, urgency: 'now' },
     'perfect_storm': { action: function(a, p, d) {
-      var n = a.favorable_count != null ? Number(a.favorable_count) : null;
+      var n = favorableParts(a, d).length || null;   // même source que le corps (22/08)
       return 'À pousser : ' + (n != null ? n + ' facteurs favorables alignés' : 'plusieurs facteurs favorables alignés') + '. Occasion rare — concentrez ici votre principal effort de visibilité de la période.';
     }, urgency: 'now' },
     'weather_comp_opportunity': { action: function(a, p, d) {
