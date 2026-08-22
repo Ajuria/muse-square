@@ -3644,20 +3644,24 @@ if (!location_id) {
     var caveat = '';
     if (amber) caveat = '<div style="font-size:11px;color:#B45309;line-height:1.5;padding:0 16px 12px;display:flex;gap:6px;"><span>&#9432;</span><span>Vacances scolaires sur ' + Math.round(Number(r.material_holiday_share) * 100) + ' % de la fenêtre — résultat non attribué au calendrier, mais à garder en tête.</span></div>';
     else if (r.verdict === 'confounded') caveat = '<div style="font-size:11px;color:#B45309;line-height:1.5;padding:0 16px 12px;display:flex;gap:6px;"><span>&#9888;</span><span>' + Math.round(Number(r.material_holiday_share) * 100) + ' % de la fenêtre en vacances scolaires — impossible de distinguer l\'action du calendrier.</span></div>';
-    // 22/08 — « À DÉCIDER », le pendant de « À documenter » pour le MOUVEMENT.
-    // Depuis le chaînage des séries (cron/event-occurrences), l'occurrence suivante attend
-    // seulement que la précédente soit CLOSE — ce que le cron de résolution fait tout seul.
-    // Rien ne réclamait donc à l'exploitant le geste qui, lui, n'appartient qu'à lui :
-    // poursuivre / doubler / pivoter / arrêter (engagement.astro, écrit `adjustment_move` et
-    // crée un enfant). Sans cette pastille la boucle existait sans jamais se demander.
-    // Construction reprise telle quelle de « À documenter » — l'app a déjà sa forme pour
-    // « on vous doit quelque chose », inutile d'en inventer une septième. Passe DEVANT
-    // « À documenter » : le mouvement façonne l'occurrence suivante, la rétro regarde en arrière.
-    // « verdict en attente » écarté — banni au lexique (ligne 38, faux si aucune mesure).
-    var _awaitsMove = !open && r.status !== 'cancelled' && !r.adjustment_move && !r.__hasChild;
+    // 22/08 — « À AJUSTER », le pendant de « À documenter » quand l'objectif est MANQUÉ.
+    // La mesure du KPI ne demande RIEN à l'exploitant : elle vient de l'ingestion des ventes
+    // (API ou CSV) et `cron/commitment-resolve` rend le verdict tout seul. Ce qui lui revient
+    // est un apport QUALITATIF, et seulement quand l'objectif n'est pas atteint : dire ce qu'il
+    // change. Objectif atteint ⇒ on ne lui demande rien — reconduire est le défaut silencieux.
+    // D'où la condition sur `verdict === 'missed'`, et non sur « résolu sans mouvement » :
+    // une première version réclamait une décision même sur un succès.
+    // MOT : « Ajuster » est celui du lexique pour le geste sur un engagement (« Modifier » mort
+    // le 15/08, « Évolution » le 17/08). Construction reprise de « À documenter » — l'app a déjà
+    // sa forme pour « on vous doit quelque chose ». « verdict en attente » écarté (banni,
+    // lexique ligne 38) ; « À décider » écarté aussi : il supposait un choix sur tout verdict.
+    // Passe DEVANT « À documenter » : l'ajustement façonne l'occurrence suivante, la rétro
+    // regarde en arrière.
+    var _awaitsMove = !open && r.status !== 'cancelled' && r.verdict === 'missed'
+      && !r.adjustment_move && !r.__hasChild;
     var _stage = open ? (r.action_done_status ? 'Exécution' : 'Planification')
-      : (_awaitsMove ? 'À décider' : (r.retro_worked ? 'Documenté' : 'À documenter'));
-    var _owed = (_stage === 'À documenter' || _stage === 'À décider');
+      : (_awaitsMove ? 'À ajuster' : (r.retro_worked ? 'Documenté' : 'À documenter'));
+    var _owed = (_stage === 'À documenter' || _stage === 'À ajuster');
     var _stageBg = _owed ? '#FAEEDA' : (_stage === 'Documenté') ? '#F1EFE8' : '#EAEFFB';
     var _stageFg = _owed ? '#854F0B' : (_stage === 'Documenté') ? '#5F5E5A' : '#1D3BB3';
     // #4 terminal-cancel states: adjusted (has a child) vs stopped (Arrêter) vs plain cancel.

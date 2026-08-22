@@ -59,7 +59,7 @@ export const EVOL_COPY = {
   q1_objectif_below: "en-dessous à ce stade",
   q1_objectif_met: "Objectif atteint",
   q1_objectif_missed: "Objectif non atteint",
-  q1_objectif_confounded: "Objectif non mesurable (vacances)",
+  q1_objectif_confounded: "Objectif non concluant (vacances)",
   // Lead hierarchy (goal-first): primary status + progress-to-goal bar + attribution.
   q1_ontrack: "Sur la bonne voie",
   q1_below: "En-dessous de l'objectif",

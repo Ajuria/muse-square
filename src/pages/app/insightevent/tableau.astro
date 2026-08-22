@@ -129,7 +129,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var sp = t.lastIndexOf(" ");
           return (sp > n * 0.5 ? t.slice(0, sp) : t) + "…";
         }
-        var VERDICT_FR = { met: "cible tenue", missed: "cible manquée", confounded: "non mesurable (écarté)" };
+        // 22/08 — trois concepts, six mots : cette page disait « cible tenue / cible manquée /
+        // non mesurable » quand pulse.astro disait « Atteint / Manqué / Non concluant » sur les
+        // MÊMES verdicts. Le lexique avait déjà tranché (docs/lexique.md, « Le jugement
+        // automatique sur la cible ») : atteint · manqué · non concluant. Les formes de cette
+        // page entrent au MOTS_BANNIS dans le même commit — le garde-fou scanne déjà les deux
+        // fichiers, il ne connaissait pas ces mots.
+        var VERDICT_FR = { met: "atteint", missed: "manqué", confounded: "non concluant" };
         var VERDICT_COL = { met: "#059669", missed: "#B45309", confounded: "#6b7280" };
 
         function load() {
@@ -207,9 +213,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           });
           if (db.to_document) goals.push({
             kind: "documenter",
-            aline: "→ Documenter votre verdict tenu — il devient un dispositif déclaré",
+            aline: "→ Documenter votre objectif atteint — il devient un dispositif déclaré",
             sub: "depuis la carte de l’action, dans Agir",
-            goal_fr: "Documentez vos résultats", link_fr: "Documenter le verdict tenu",
+            goal_fr: "Documentez vos résultats", link_fr: "Documenter l'objectif atteint",
             href: "/app/insightevent/pulse",
           });
           if (db.declared_no_replay) {
@@ -318,7 +324,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           goals.filter(function (gg) { return gg.kind === "documenter"; }).forEach(function (gg) {
             var mr = j.met_recipe || null;
             aFaire.push({ rang: 0, iso: mr ? mr.we : null, col: GREEN,
-              titre: "Documentez vos résultats — " + (mr ? trunc(mr.text, 44) : "votre verdict tenu"),
+              titre: "Documentez vos résultats — " + (mr ? trunc(mr.text, 44) : "votre objectif atteint"),
               sub: "objectif atteint — écrite, elle devient un dispositif réutilisable",
               droite: mr && mr.gap_eur != null ? '<span style="color:' + GREEN + ';font-weight:600;">' + signEur(mr.gap_eur) + '</span>' : "",
               geste: '<a class="tb-btnp" href="' + gg.href + '">Documenter</a>' });
@@ -466,9 +472,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 var nMois = (g.tests || []).filter(function (t2) { return t2.verdict === 'met' && String(t2.we || '').slice(0, 7) === moisNow; }).length;
                 var pr0 = (j.practices || []).filter(function (p2) { return p2.tier !== 'archivee'; });
                 var nT0 = pr0.filter(function (p2) { return p2.tier !== 'prouvee' && p2.tier !== 'ecartee'; }).length;
-                return '<div class="tb-tile" data-tb-tile="sf" title="Dispositifs pass\u00e9s PROUV\u00c9S ce mois-ci (cible tenue au test \u2014 \u00e9chelle en test \u00b7 prouv\u00e9 \u00b7 \u00e9cart\u00e9).">'
+                return '<div class="tb-tile" data-tb-tile="sf" title="Dispositifs pass\u00e9s PROUV\u00c9S ce mois-ci (objectif atteint au test \u2014 \u00e9chelle en test \u00b7 prouv\u00e9 \u00b7 \u00e9cart\u00e9).">'
                   + '<p class="tb-eb">Dispositifs prouv\u00e9s</p><div class="n" style="color:' + (nMois ? '#111827' : '#9CA3AF') + ';">' + nMois + '</div>'
-                  + '<div class="s">ce mois-ci \u00b7 ' + nT0 + ' en test \u2014 chaque cible tenue en convertit un</div></div>';
+                  + '<div class="s">ce mois-ci \u00b7 ' + nT0 + ' en test \u2014 chaque objectif atteint en convertit un</div></div>';
               })()
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:14px;padding:2px 4px 0;font-size:12px;color:#6b7280;flex-wrap:wrap;">';
@@ -495,7 +501,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             "Documenter": "votre dispositif devient réutilisable — il resservira aux prochains jours du même type",
             "Préparer": "la consigne part à votre équipe — le jour se joue sans vous derrière",
             "Bilan": "votre vécu calibre la mesure — météo, accès et fréquentation deviennent comparables",
-            "Prouver": "une cible tenue et le dispositif devient réutilisable en un clic",
+            "Prouver": "un objectif atteint et le dispositif devient réutilisable en un clic",
             "Déclarer": "débloque le KPI profit sur toutes vos mesures",
             "Fixer": "sans cible, aucun verdict — la fixer rend ces événements jugeables",
             "Suivre": "sa page entre dans votre veille — événements, offres et tarifs lus chaque nuit",
@@ -935,8 +941,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           });
           if (j.met_recipe) {
             capHtml += occRow(
-              j.met_recipe.gap_eur != null ? signEur(j.met_recipe.gap_eur) : "cible tenue", "#059669",
-              "Fenêtre " + frD(j.met_recipe.ws) + " → " + frD(j.met_recipe.we) + " — cible tenue, écart mesuré vs CA habituel",
+              j.met_recipe.gap_eur != null ? signEur(j.met_recipe.gap_eur) : "objectif atteint", "#059669",
+              "Fenêtre " + frD(j.met_recipe.ws) + " → " + frD(j.met_recipe.we) + " — objectif atteint, écart mesuré vs CA habituel",
               '<span style="font-weight:600;">gagnés</span> — « ' + esc(trunc(j.met_recipe.text, 55)) + ' » a tenu sa cible',
               String(j.met_recipe.text || ""),
               (function () { var _pv = (j.practices || []).filter(function (p) { return p.tier === "prouvee"; })[0];
@@ -964,7 +970,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var _nEnTest = (pc.en_test || 0) + (pc.declared || 0) - _nEcarte;
           var diChips = '<span class="tb-chip" style="background:' + (pc.proven ? "#E6F6F0" : "#F3F4F6") + ';color:' + (pc.proven ? "#059669" : "#6b7280") + ';">' + pc.proven + " prouvé" + (pc.proven > 1 ? "s" : "") + '</span>'
             + (_nEnTest > 0 ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;margin-left:4px;cursor:help;"' + (replayEnd ? ' title="verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + '"' : "") + '>' + _nEnTest + " en test</span>" : "")
-            + (_nEcarte ? '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;margin-left:4px;cursor:help;" title="cible manquée au dernier test — pas réutilisable tel quel — ajustez puis Prouver">' + _nEcarte + " écarté" + (_nEcarte > 1 ? "s" : "") + "</span>" : "");
+            + (_nEcarte ? '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;margin-left:4px;cursor:help;" title="objectif manqué au dernier test — pas réutilisable tel quel — ajustez puis Prouver">' + _nEcarte + " écarté" + (_nEcarte > 1 ? "s" : "") + "</span>" : "");
           html += '<div style="height:1px;background:rgba(0,0,0,0.08);margin:10px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">Mes dispositifs</p>';
           // La phrase owner (17/08) : jugés selon leurs résultats — prouvé = réutilisable.
           (function () {
@@ -986,13 +992,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var tx = _testByPr[p2.practice_id];
             if (!tx) return "Jamais testé — une exécution mesurée suffit.";
             if (tx.realized == null && tx.test_status === "open") return "Test lancé — verdict après le " + frD(tx.we) + ".";
-            if (tx.realized == null) return "Dernier test non mesurable (ventes absentes sur ces dates).";
+            if (tx.realized == null) return "Dernier test non concluant (ventes absentes sur ces dates).";
             var goal2 = tx.basis === "pct" && tx.value != null && tx.baseline != null ? tx.baseline * (1 + tx.value / 100) : null;
             return "Testé du " + frD(tx.ws) + " au " + frD(tx.we) + " — " + (_KPI_DSP[tx.metric] || tx.metric) + " " + _kpiFmtDsp(tx.realized, tx.metric)
               + (goal2 != null ? " vs cible " + _kpiFmtDsp(goal2, tx.metric) : "")
-              + " : " + (tx.verdict === "met" ? "cible tenue" : tx.verdict === "missed" ? "cible manquée" : "non concluant (facteur externe)");
+              + " : " + (tx.verdict === "met" ? "objectif atteint" : tx.verdict === "missed" ? "objectif manqué" : "non concluant (facteur externe)");
           };
-          if (!listPractices.length) html += '<div style="color:#9CA3AF;">Aucun — chaque verdict tenu peut en créer un (« Documenter »).</div>';
+          if (!listPractices.length) html += '<div style="color:#9CA3AF;">Aucun — chaque objectif atteint peut en créer un (« Documenter »).</div>';
           var _siteLbl = function (lid) { return ((j.sites || []).filter(function (sx) { return sx.location_id === lid; })[0] || {}).label || ""; };
           var _nomDsp = function (txt2, max2) {
             var n2 = String(txt2 || "").split("\u2014")[0].split("(")[0].trim();

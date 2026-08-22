@@ -62,7 +62,7 @@
     'Documenter': 'vos +510 € deviennent rejouables — le dispositif resservira aux prochains jours de chaleur',
     'Préparer': 'la consigne part à votre équipe — le jour se joue sans vous derrière',
     'Bilan': 'votre vécu calibre la mesure — météo, accès et fréquentation deviennent comparables d\u2019une occurrence à l\u2019autre',
-    'Prouver': 'une cible tenue et le dispositif devient réutilisable en un clic',
+    'Prouver': 'un objectif atteint et le dispositif devient réutilisable en un clic',
     'Déclarer': 'débloque le KPI profit sur toutes vos mesures',
     'Fixer': 'sans cible, aucun verdict — la fixer rend ces 4 événements jugeables'
   };
@@ -96,7 +96,7 @@
     });
     html += '<svg viewBox="0 0 330 46" style="width:100%;max-width:360px;height:auto;">' + g + '</svg>';
   })();
-  html += '<div class="muted" style="margin-top:6px;">✗ cible manquée · ✓ cible tenue · <b style="color:#6B7280;">○ passée sans mesure (la mesure du 15/08 a été annulée)</b> · ◌ dispositif actif — mesure au jour J · petits points = planifiées</div></div>';
+  html += '<div class="muted" style="margin-top:6px;">✗ objectif manqué · ✓ objectif atteint · <b style="color:#6B7280;">○ passée sans mesure (la mesure du 15/08 a été annulée)</b> · ◌ dispositif actif — mesure au jour J · petits points = planifiées</div></div>';
 
   // ══ 4+5+6 · MON POSITIONNEMENT — COMPARATIF (vous = le référent), signaux NOMMÉS, zéro méta. ══
   html += '<span class="fix">Correctifs 4·5·6 — Mon positionnement</span><div class="card">';
@@ -169,7 +169,7 @@
       var goal = t.basis === 'pct' && t.value != null && t.baseline != null ? t.baseline * (1 + t.value / 100) : null;
       fact = 'Testé du ' + frD(t.ws) + ' au ' + frD(t.we) + ' — ' + (KPI_N[t.metric] || t.metric) + ' ' + kpiFmt(t.realized, t.metric)
         + (goal != null ? ' vs cible ' + kpiFmt(goal, t.metric) : '')
-        + ' : ' + (t.verdict === 'met' ? 'cible tenue' : t.verdict === 'missed' ? 'cible manquée' : 'non concluant (facteur externe — vacances)');
+        + ' : ' + (t.verdict === 'met' ? 'objectif atteint' : t.verdict === 'missed' ? 'objectif manqué' : 'non concluant (facteur externe — vacances)');
     } else if (t && t.ws) fact = 'Test lancé — verdict après le ' + frD(t.we) + '.';
     else fact = 'Jamais testé — une exécution mesurée suffit.';
     html += '<div class="li" style="align-items:flex-start;"><span class="chip" style="background:' + st[1] + ';color:' + st[2] + ';margin-top:2px;">' + st[0] + '</span>'
@@ -193,7 +193,7 @@
   html += '<div class="li"><span class="chip" style="background:#E6F6F0;color:' + GREEN + ';">active</span>'
     + '<span class="chip" style="background:#F8FAFC;color:#6b7280;border:0.5px solid #E5E7EB;">Mesure &amp; verdict</span>'
     + '<span style="min-width:0;flex:1;"><span style="font-weight:650;">Corner de vente producteur</span>'
-    + '<span style="display:block;font-size:11.5px;color:#6B7280;">Déclencheur : <b>chaque samedi</b> (série hebdomadaire) — la mesure se lance au jour J, le verdict tombe seul. Prochaine : samedi 22/08 · dernier verdict : cible manquée (08/08).</span></span>'
+    + '<span style="display:block;font-size:11.5px;color:#6B7280;">Déclencheur : <b>chaque samedi</b> (série hebdomadaire) — la mesure se lance au jour J, le verdict tombe seul. Prochaine : samedi 22/08 · dernier verdict : objectif manqué (08/08).</span></span>'
     + '<a class="cta" href="#">Dossier →</a></div>';
   html += '<div class="li"><span class="chip" style="background:#E6F6F0;color:' + GREEN + ';">active</span>'
     + '<span class="chip" style="background:#F8FAFC;color:#6b7280;border:0.5px solid #E5E7EB;">Communication</span>'

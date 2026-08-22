@@ -189,7 +189,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
 
         // ── Bilan déclaratif — 3 questions (décision owner 03/08 : « conservé en complément du
         //    mesuré, 3 questions »). Complément du MESURÉ : météo vécue (calibre les classes),
-        //    accessibilité vécue (clients vs fournisseurs, non mesurable), fréquentation vs
+        //    accessibilité vécue (clients vs fournisseurs, non concluant), fréquentation vs
         //    attentes (non mesurée pour la plupart des lieux). La concurrence saute : seule
         //    dimension déjà entièrement mesurée par le pipeline. Écrit dans raw.event_outcomes
         //    via /api/saved-items/bilan (endpoint inchangé, competition_felt absent → NULL). ──
@@ -417,7 +417,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var chosen = {};
           var rowB = (((window._evtBilanJ || {}).apres || {}).rows || []).filter(function (r) { return r.date === bilanDate; })[0] || {};
           // F4 (owner 10/08) : le bilan demandait le CONTEXTE vécu mais jamais « avez-vous mené
-          // l'action ? » — sans elle, une cible manquée est inattribuable (météo, ou dispositif
+          // l'action ? » — sans elle, un objectif manqué est inattribuable (météo, ou dispositif
           // jamais appliqué ?). Posée en 1re question quand l'événement porte un dispositif.
           var itB = window._evtBilanItem || {};
           var askAction = !!(itB.dispositif && String(itB.dispositif).trim());
@@ -928,13 +928,13 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                   ? "famille " + esc(it.kpi_family || "") + " " + frInt(last.family_rev) + " € (cible " + frInt(it.kpi_target_eur) + " €)"
                   : it.kpi === "revenue_residual" && last.residual_pct != null ? "CA " + (last.residual_pct >= 0 ? "+" : "") + last.residual_pct + " % vs votre résultat habituel (objectif +" + frInt(it.kpi_target_pct) + " %)"
                   : "";
-                chip = '<div style="margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:20px;padding:4px 11px;color:' + (okT ? "#059669" : "#B45309") + ';background:' + (okT ? "#E6F6F0" : "#FEF3E2") + ';">' + (okT ? "Cible atteinte" : "Cible manquée") + (detail ? " — " + detail : "") + '</span>'
+                chip = '<div style="margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:20px;padding:4px 11px;color:' + (okT ? "#059669" : "#B45309") + ';background:' + (okT ? "#E6F6F0" : "#FEF3E2") + ';">' + (okT ? "Objectif atteint" : "Objectif manqué") + (detail ? " — " + detail : "") + '</span>'
                   + (j.apres.target_scale ? '<span style="display:block;font-size:11px;color:#9CA3AF;margin-top:4px;">Cible ' + String(j.apres.target_scale.ratio).replace(".", ",") + '× l’ordinaire de la famille (' + frInt(j.apres.target_scale.ref) + ' €/j) — à recalibrer si l’écart se répète.</span>' : "")
                   + '</div>';
               }
               if (last.target_met == null && it.kpi_target_eur == null && it.kpi_target_pct == null)
                 chip = '<div style="margin-bottom:8px;font-size:12.5px;color:#6B7280;">Aucun objectif n’était fixé — sans objectif, pas de verdict. Fixez-en un à la prochaine occurrence.</div>';
-              var VERD_FR = { met: "cible tenue", missed: "cible manquée", confounded: "non mesurable (facteur externe)" };
+              var VERD_FR = { met: "objectif atteint", missed: "objectif manqué", confounded: "non concluant (facteur externe)" };
               panel = chip + '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">Dernière occurrence mesurée : ' + last.dow_fr + " " + frD(last.date)
                 + (last.verdict ? ' · <span style="cursor:help;" title="Verdict statistique de l’engagement — bande de bruit et gardes de confusion, distinct du fait « cible atteinte ».">verdict mesuré : ' + esc(VERD_FR[last.verdict] || last.verdict) + '</span>' : " · verdict à la fin de la fenêtre") + '</div>'
               // Habituel au MÊME référentiel que le CA attendu : moyenne de VOS mêmes jours de
