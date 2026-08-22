@@ -77,18 +77,22 @@ export async function runDayClassBatch(): Promise<void> {
       query: `CREATE TABLE IF NOT EXISTS \`${projectId}.analytics.day_class_impacts_history\` (
         batch_date DATE, location_id STRING, class_key STRING, family STRING, basis STRING,
         n_days INT64, avg_gap_eur FLOAT64, sd_gap_eur FLOAT64, span_days INT64, computed_at TIMESTAMP,
-        med_gap_eur FLOAT64, n_log INT64, avg_log FLOAT64, sd_log FLOAT64
+        med_gap_eur FLOAT64, n_log INT64, avg_log FLOAT64, sd_log FLOAT64, metric STRING
       ) PARTITION BY batch_date`,
       location: "EU",
     });
-    // Régime log+médiane (01/08) : la table d'historique préexistante n'a pas les 4 colonnes —
-    // CREATE IF NOT EXISTS ne modifie JAMAIS un schéma existant, d'où l'ALTER idempotent.
+    // Régime log+médiane (01/08), puis métrique-dimension (22/08) : la table d'historique
+    // préexistante n'a pas ces colonnes — CREATE IF NOT EXISTS ne modifie JAMAIS un schéma
+    // existant, d'où l'ALTER idempotent. Les lignes archivées avant le 22/08 gardent
+    // metric NULL : la lecture (rowsToImpactsWithImmaterial) lit NULL comme
+    // 'revenue_residual', ce qu'elles étaient — aucune reprise d'historique à faire.
     await bq.query({
       query: `ALTER TABLE \`${projectId}.analytics.day_class_impacts_history\`
         ADD COLUMN IF NOT EXISTS med_gap_eur FLOAT64,
         ADD COLUMN IF NOT EXISTS n_log INT64,
         ADD COLUMN IF NOT EXISTS avg_log FLOAT64,
-        ADD COLUMN IF NOT EXISTS sd_log FLOAT64`,
+        ADD COLUMN IF NOT EXISTS sd_log FLOAT64,
+        ADD COLUMN IF NOT EXISTS metric STRING`,
       location: "EU",
     });
     await bq.query({
@@ -97,8 +101,8 @@ export async function runDayClassBatch(): Promise<void> {
     });
     await bq.query({
       query: `INSERT INTO \`${projectId}.analytics.day_class_impacts_history\`
-        (batch_date, location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, span_days, computed_at, med_gap_eur, n_log, avg_log, sd_log)
-        SELECT CURRENT_DATE('Europe/Paris'), location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, span_days, computed_at, med_gap_eur, n_log, avg_log, sd_log
+        (batch_date, location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, span_days, computed_at, med_gap_eur, n_log, avg_log, sd_log, metric)
+        SELECT CURRENT_DATE('Europe/Paris'), location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, span_days, computed_at, med_gap_eur, n_log, avg_log, sd_log, metric
         FROM \`${projectId}.${DAY_CLASS_STORE}\``,
       location: "EU",
     });

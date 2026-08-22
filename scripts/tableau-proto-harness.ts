@@ -145,7 +145,7 @@ const str_ = (v: any): string | null => (flat(v) == null ? null : String(flat(v)
   }));
   const [dcRows] = await bq.query({
     query: `SELECT location_id, class_key, family, n_days, ROUND(avg_gap_eur, 0) AS avg_gap_eur
-            FROM \`${PROJECT}.analytics.day_class_impacts\` WHERE location_id IN UNNEST(@locs)`,
+            FROM \`${PROJECT}.analytics.day_class_impacts\` WHERE location_id IN UNNEST(@locs) AND metric = 'revenue_residual'`,
     params: { locs: allLocs }, location: "EU",
   });
   const dayClassStore = (dcRows as any[]).map((r) => ({

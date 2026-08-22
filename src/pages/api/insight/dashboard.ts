@@ -227,10 +227,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // MÊME registre que les pills/chantiers de Pulse — jamais un agrégat brut parallèle.
       // .catch [] : compte jamais batché = carte absente.
       bq.query({
-        query: `SELECT location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur,
+        query: `SELECT location_id, class_key, family, basis, metric, n_days, avg_gap_eur, sd_gap_eur,
                        med_gap_eur, n_log, avg_log, sd_log, span_days
                 FROM \`${PROJECT}.analytics.day_class_impacts\`
-                WHERE location_id IN UNNEST(@locs)`,
+                WHERE location_id IN UNNEST(@locs) AND metric = 'revenue_residual'`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
       // CA annualisé par site (même formule que annualRevenueQuery du registre, groupée) —

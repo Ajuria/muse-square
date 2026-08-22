@@ -24,7 +24,7 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
     query: `SELECT class_key, family, basis, n_days, med_gap_eur, span_days,
                    COUNT(*) OVER (PARTITION BY class_key) AS n_rows
             FROM \`${PROJECT}.analytics.day_class_impacts\`
-            WHERE family != 'card'`,
+            WHERE family != 'card' AND metric = 'revenue_residual'`,
     location: "EU",
   });
 

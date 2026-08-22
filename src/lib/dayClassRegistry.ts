@@ -429,13 +429,63 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
     -- Contrôle marginal PAR CLASSE : les jours HORS classe X du même (mois × type de jour) du site.
     -- C'est le contraste marginal classique — le contrôle peut contenir d'autres classes, ce que
     -- l'étiquette « facteurs mêlés » assume ; >= 3 jours de contrôle requis par cellule.
+    -- ── MÉTRIQUE = DIMENSION (22/08, forme B, arbitrage owner) ───────────────────────────
+    -- Le moteur ne mesurait QUE le résidu de CA, alors que le registre des engagements
+    -- (kpiRegistry) en propose huit. Deux vocabulaires pour la même question — « qu'est-ce que
+    -- cette classe de jours déplace ? ». vals dépivote : une ligne par (lieu, date, métrique),
+    -- et tout l'aval groupe par metric en plus. Un KPI de plus = une branche ici, rien d'autre.
+    --
+    -- BASE : les cinq nouveaux KPI n'ont PAS d'attendu par jour — il n'existe pas de « tickets
+    -- attendus ». Leur seul point de comparaison est le contrôle de cellule (jours HORS classe,
+    -- même mois × type de jour) que le moteur calcule déjà. Ils ne sortent donc qu'en base
+    -- 'marginal' : émettre « 289 tickets » en base pure serait un nombre plausible et vide.
+    -- revenue_residual garde ses deux bases, inchangé.
+    --
+    -- LOG : pour un KPI brut, le log est LN(valeur) — le contraste LN(v) − moyenne(LN(contrôle))
+    -- est un log-ratio, centré comme l'est déjà gap_log. Le test de significativité, la
+    -- cohérence de signe et la matérialité s'appliquent sans changement.
+    --
+    -- ABSENTS du pivot, et pas par prudence : reputation n'a aucune série côté client
+    -- (besttime_rating 100 % NULL, audit 31/07 — il faut un connecteur GBP) et family_revenue
+    -- est au grain PRODUIT, donc une autre jointure. Deux lignes le jour où leur donnée existe.
+    perf AS (
+      SELECT location_id, transaction_date AS date, daily_transactions, daily_avg_basket,
+             daily_discount_total, daily_visitors, daily_conversion_rate
+      FROM \`${PROJECT}.mart.fct_client_daily_performance\`
+    ),
+    vals AS (
+      SELECT location_id, date, month_num, weekend_flag, 'revenue_residual' AS metric, gap_eur AS v, gap_log AS v_log
+      FROM counted
+      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'transactions', p.daily_transactions,
+             IF(p.daily_transactions > 0, LN(p.daily_transactions), NULL)
+      FROM counted c JOIN perf p USING (location_id, date) WHERE p.daily_transactions IS NOT NULL
+      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'basket', p.daily_avg_basket,
+             IF(p.daily_avg_basket > 0, LN(p.daily_avg_basket), NULL)
+      FROM counted c JOIN perf p USING (location_id, date) WHERE p.daily_avg_basket IS NOT NULL
+      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'discount', p.daily_discount_total,
+             IF(p.daily_discount_total > 0, LN(p.daily_discount_total), NULL)
+      FROM counted c JOIN perf p USING (location_id, date) WHERE p.daily_discount_total IS NOT NULL
+      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'footfall', p.daily_visitors,
+             IF(p.daily_visitors > 0, LN(p.daily_visitors), NULL)
+      FROM counted c JOIN perf p USING (location_id, date) WHERE p.daily_visitors IS NOT NULL
+      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'conversion', p.daily_conversion_rate,
+             IF(p.daily_conversion_rate > 0, LN(p.daily_conversion_rate), NULL)
+      FROM counted c JOIN perf p USING (location_id, date) WHERE p.daily_conversion_rate IS NOT NULL
+    ),
+    -- class_days reste le mapping date -> classe (intouché) ; on lui accole la métrique.
+    class_metric AS (
+      SELECT cd.location_id, cd.date, cd.month_num, cd.weekend_flag, cd.n_memberships,
+             cd.family, cd.class_key, v.metric, v.v AS gap_eur, v.v_log AS gap_log
+      FROM class_days cd
+      JOIN vals v ON v.location_id = cd.location_id AND v.date = cd.date
+    ),
     cell_stats AS (
-      SELECT location_id, month_num, weekend_flag, SUM(gap_eur) AS cell_sum, COUNT(*) AS cell_cnt, SUM(gap_log) AS cell_sum_log, COUNTIF(gap_log IS NOT NULL) AS cell_cnt_log
-      FROM counted GROUP BY location_id, month_num, weekend_flag
+      SELECT location_id, month_num, weekend_flag, metric, SUM(v) AS cell_sum, COUNT(*) AS cell_cnt, SUM(v_log) AS cell_sum_log, COUNTIF(v_log IS NOT NULL) AS cell_cnt_log
+      FROM vals GROUP BY location_id, month_num, weekend_flag, metric
     ),
     cell_class AS (
-      SELECT location_id, month_num, weekend_flag, class_key, SUM(gap_eur) AS x_sum, COUNT(*) AS x_cnt, SUM(gap_log) AS x_sum_log, COUNTIF(gap_log IS NOT NULL) AS x_cnt_log
-      FROM class_days GROUP BY location_id, month_num, weekend_flag, class_key
+      SELECT location_id, month_num, weekend_flag, class_key, metric, SUM(gap_eur) AS x_sum, COUNT(*) AS x_cnt, SUM(gap_log) AS x_sum_log, COUNTIF(gap_log IS NOT NULL) AS x_cnt_log
+      FROM class_metric GROUP BY location_id, month_num, weekend_flag, class_key, metric
     ),
     adjusted AS (
       SELECT
@@ -443,42 +493,45 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         SAFE_DIVIDE(cs.cell_sum - cc.x_sum, cs.cell_cnt - cc.x_cnt) AS ctrl_gap,
         SAFE_DIVIDE(cs.cell_sum_log - cc.x_sum_log, cs.cell_cnt_log - cc.x_cnt_log) AS ctrl_gap_log,
         cs.cell_cnt - cc.x_cnt AS ctrl_n
-      FROM class_days cd
-      JOIN cell_stats cs ON cs.location_id = cd.location_id AND cs.month_num = cd.month_num AND cs.weekend_flag = cd.weekend_flag
-      JOIN cell_class cc ON cc.location_id = cd.location_id AND cc.month_num = cd.month_num AND cc.weekend_flag = cd.weekend_flag AND cc.class_key = cd.class_key
+      FROM class_metric cd
+      JOIN cell_stats cs ON cs.location_id = cd.location_id AND cs.month_num = cd.month_num AND cs.weekend_flag = cd.weekend_flag AND cs.metric = cd.metric
+      JOIN cell_class cc ON cc.location_id = cd.location_id AND cc.month_num = cd.month_num AND cc.weekend_flag = cd.weekend_flag AND cc.class_key = cd.class_key AND cc.metric = cd.metric
     ),
     -- Deux BASES par classe. 'pure' = jours purs (n_memberships = 1), gap brut vs normale — sauf
     -- calendrier, contrôlé hors-classe même cellule (leçon calendarFamily). 'marginal' = TOUS les
     -- jours de la classe, gap − contrôle hors-classe (mois × type de jour) — « facteurs mêlés ».
     classed AS (
-      SELECT location_id, date, gap_eur, gap_log, family, class_key, 'pure' AS basis
-      FROM adjusted WHERE n_memberships = 1 AND family != 'calendar'
+      -- 22/08 : la metrique traverse. La base 'pure' reste RÉSERVÉE au résidu de CA — elle compare à
+      -- l'attendu du jour, qui n'existe que pour lui. Pour les cinq autres KPI, seule la base
+      -- 'marginal' a un sens (valeur − contrôle hors-classe de la cellule).
+      SELECT location_id, date, metric, gap_eur, gap_log, family, class_key, 'pure' AS basis
+      FROM adjusted WHERE metric = 'revenue_residual' AND n_memberships = 1 AND family != 'calendar'
       UNION ALL
-      SELECT location_id, date, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'pure'
-      FROM adjusted WHERE n_memberships = 1 AND family = 'calendar' AND ctrl_n >= 3 AND ctrl_gap IS NOT NULL
+      SELECT location_id, date, metric, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'pure'
+      FROM adjusted WHERE metric = 'revenue_residual' AND n_memberships = 1 AND family = 'calendar' AND ctrl_n >= 3 AND ctrl_gap IS NOT NULL
       UNION ALL
-      SELECT location_id, date, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'marginal'
+      SELECT location_id, date, metric, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'marginal'
       FROM adjusted WHERE ctrl_n >= 3 AND ctrl_gap IS NOT NULL
       UNION ALL
       -- discount_no_lift : classe COÛT (€ remisés, stockés négatifs) — fait du jour, hors pureté,
       -- hors ajustement saison, base 'pure' par nature.
-      SELECT location_id, date, -discount_total, CAST(NULL AS FLOAT64), 'sales', 'discount_no_lift', 'pure'
+      SELECT location_id, date, 'revenue_residual', -discount_total, CAST(NULL AS FLOAT64), 'sales', 'discount_no_lift', 'pure'
       FROM counted WHERE discount_no_lift_flag IS TRUE AND discount_total IS NOT NULL AND discount_total > 0
       UNION ALL
       -- Populations de cartes (doctrine 01/08) : base 'pure' par nature (le tir EST
       -- l'appartenance — pas de pureté ni d'ajustement saison : le gap brut vs normale est le
       -- référentiel que la carte affiche). Lecteurs antérieurs : class_key inconnu de
       -- CLASS_LABELS -> ligne ignorée (sûr au déploiement).
-      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_revenue_down', 'pure'
+      SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_revenue_down', 'pure'
       FROM counted WHERE pop_down_flag
       UNION ALL
-      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_revenue_surge', 'pure'
+      SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_revenue_surge', 'pure'
       FROM counted WHERE pop_surge_flag
       UNION ALL
-      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_underperformance', 'pure'
+      SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_underperformance', 'pure'
       FROM counted WHERE pop_underperf_flag
       UNION ALL
-      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_traffic_not_conv', 'pure'
+      SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_traffic_not_conv', 'pure'
       FROM counted WHERE pop_traffic_nc_flag
     ),
     span AS (
@@ -490,6 +543,7 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       cl.class_key,
       cl.family,
       cl.basis,
+      cl.metric,
       COUNT(*) AS n_days,
       AVG(cl.gap_eur) AS avg_gap_eur,
       STDDEV_SAMP(cl.gap_eur) AS sd_gap_eur,
@@ -502,7 +556,7 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       CURRENT_TIMESTAMP() AS computed_at
     FROM classed cl
     JOIN span s ON s.location_id = cl.location_id
-    GROUP BY cl.location_id, cl.class_key, cl.family, cl.basis, s.span_days
+    GROUP BY cl.location_id, cl.class_key, cl.family, cl.basis, cl.metric, s.span_days
   `;
 }
 
@@ -605,9 +659,17 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
 // Exporté 10/08 : le tableau de bord (dashboard.ts) passe ses lignes store par CE pipeline —
 // même registre (log+médiane, |t| ≥ 1, cohérence de signe, matérialité) que les pills/chantiers,
 // jamais un agrégat brut parallèle.
-export function rowsToImpactsWithImmaterial(rows: any[], annualRevenue?: number | null): { impacts: Map<string, DayClassImpact>; immaterial: Set<string> } {
+// 22/08 — le store porte désormais SIX métriques (voir `vals` dans dayClassAggregateSql). Cette
+// fonction est le SEUL point d'entrée de lecture : elle en choisit UNE, et par défaut le résidu
+// de CA. Tout appelant existant garde donc son comportement au caractère près, et un appelant qui
+// veut les tickets ou le panier le DEMANDE. Le regroupement se fait par class_key seul : sans ce
+// filtre, six lignes se disputeraient la même clé et la dernière lue gagnerait.
+// Les lignes d'avant ce commit (store écrasé chaque nuit, historique conservé) n'ont pas de
+// colonne metric : NULL vaut 'revenue_residual', ce qu'elles étaient.
+export function rowsToImpactsWithImmaterial(rows: any[], annualRevenue?: number | null, metric: string = "revenue_residual"): { impacts: Map<string, DayClassImpact>; immaterial: Set<string> } {
   const byClass = new Map<string, { pure?: any; marginal?: any }>();
   for (const row of rows) {
+    if (String(row?.metric ?? "revenue_residual") !== metric) continue;
     const key = String(row?.class_key ?? row?.condition ?? "");
     if (!key) continue;
     const bucket = byClass.get(key) ?? {};
@@ -722,7 +784,7 @@ async function annualRevenueQuery(bq: any, location_id: string): Promise<number 
 export async function getDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
   const [storeRows, dateRes, annualRevenue, hypRows] = await Promise.all([
     bq.query({
-      query: `SELECT class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
+      query: `SELECT class_key, family, basis, metric, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id AND metric = 'revenue_residual'`,
       params: { location_id },
       location: "EU",
     }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
