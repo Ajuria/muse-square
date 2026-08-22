@@ -183,6 +183,14 @@ const classParam = Astro.url.searchParams.get("class") || "";
           }
 
           // ── Note de marge (porte de matérialité : poids faible → note, pas question) ──
+          // 22/08 — « sans facteur météo ni calendrier » DISAIT FAUX. Le filtre du provider est
+          // `!d.heat && !d.vacances && !d.weekend` (insightFamilies/dispositif.ts) : la PLUIE
+          // n'est pas écartée, les JOURS FÉRIÉS non plus. Un exploitant lisant « sans facteur
+          // météo » sur un jour de pluie aurait eu raison de ne plus croire la ligne.
+          // Les trois mots retenus ne sont pas inventés : ils reprennent la phrase VISIBLE juste
+          // au-dessus sur cette même page — « ils arrivent avec la chaleur, les vacances ou le
+          // week-end » — donc la ligne « En marge » en est maintenant le complément exact,
+          // dans le même vocabulaire. (Règle 4 de CLAUDE.md : citer la chaîne rendue.)
           if (ex.length) {
             var hasEv = ex.some(function (d) { return d.followed_events && d.followed_events.length; });
             var exBits = ex.map(function (d) {
@@ -194,7 +202,7 @@ const classParam = Astro.url.searchParams.get("class") || "";
               if (d.movers && d.movers.length) tip.push('Mouvements produits : ' + d.movers.map(function (m) { return m.category + ' ' + (m.gap_eur >= 0 ? '+' : '−') + frInt(m.gap_eur) + ' €'; }).join(', ') + ' — chaque famille vs sa moyenne journalière du lieu.');
               return '<span class="dp-hov" title="' + esc(tip.join(' ') || 'Vérifications internes indisponibles ce jour-là.') + '">' + esc(d.dow_fr.slice(0, 3) + ' ' + frDate(d.date)) + '</span>';
             }).join(", ");
-            addEl("dp-aside", 'En marge : ' + (ex.length === 1 ? 'une journée de ce motif' : ex.length + ' journées de ce motif') + ' sans facteur météo ni calendrier — ' + exBits + '. '
+            addEl("dp-aside", 'En marge : ' + (ex.length === 1 ? 'une journée de ce motif' : ex.length + ' journées de ce motif') + ' sans chaleur, ni vacances, ni week-end — ' + exBits + '. '
               + (hasEv ? 'Poids faible — mais ces journées portaient des événements chez vos suivis (détail au survol).' : 'Poids faible, possiblement la variation ordinaire.')
               + ' Un souvenir ? <a id="dp-note">Notez-le</a> · sinon, laissez.');
             var noteLink = document.getElementById("dp-note");
