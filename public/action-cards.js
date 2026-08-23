@@ -38,7 +38,10 @@
     if (d.holiday_name) parts.push(d.holiday_name);
     if (d.vacation_name) parts.push('vacances');
     if (d.is_weekend_flag) parts.push('week-end');
-    if (Number(a.tourism_index || d.tourism_index_region || 0) > 70) parts.push('tourisme \u00e9lev\u00e9');
+    // 23/08 — « tourisme élevé » RETIRÉ, en même temps que dbt (PR #47) le retire de
+    // favorable_count et de la règle de tir de perfect_storm. tourism_index_region est un indice
+    // MENSUEL : inmesurable par construction (audit 22/08, 0 site sur 6). Le corps doit compter
+    // exactement ce que dbt a compté — sinon « 3 facteurs » pour un tir à 2.
     return parts;
   }
   // 22/08 — DEUX bugs enchaînés sur le score d'opportunité, vérifiés en base.

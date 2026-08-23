@@ -100,8 +100,8 @@ scolaire ». Le geste s'aligne sur l'ordre du corps (commercial d'abord, comme d
 
 | carte | problème |
 |---|---|
-| `perfect_storm` | « 3 facteurs favorables alignés : … **tourisme élevé** » — `tourism_high` est inmesurable par construction (indice mensuel, `ctrl_n = 0`) |
-| `review_solicitation` | « **6 journées** porteuses dans les **5 prochains jours** » — incohérence déjà relevée le 27/07, toujours en place |
+| `perfect_storm` | « … **tourisme élevé** » — **CORRIGÉ 23/08, des deux côtés**. dbt (PR #47) retire le tourisme de `favorable_count` ET de la règle de tir ; le client retire la ligne de `favorableParts`, source unique du corps et du geste. Un PR intermédiaire (#46) ne l'avait retiré que du `where` — le payload aurait dit « 3 facteurs » pour un tir à 2. |
+| `review_solicitation` | « **6 journées** … **5 prochains jours** » — **CORRIGÉ 23/08 dans dbt** (PR #47) : la fenêtre `<= current_date() + 5 day` bornait SIX jours (J à J+5) ; passée à `+ 4 day`, la colonne `favorable_days_next_5` dit enfin vrai. Relevé le 27/07, resté en place un mois. |
 
 ## 4. Les 61 cartes qui ne tirent jamais
 
