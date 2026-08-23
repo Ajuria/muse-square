@@ -7,7 +7,7 @@
 // add-competitor) les consomme sans rien changer.
 //
 // Deux garde-fous que search-competitor n'a pas, parce qu'il n'en a pas besoin :
-//   - les concurrents DÉJÀ SUIVIS par ce site sont exclus (watched_competitors, location_id)
+//   - les concurrents DÉJÀ SUIVIS par ce site sont exclus (competitor_tracking × annuaire, location_id)
 //   - le site LUI-MÊME est exclu (un agent web trouve volontiers l'entreprise qu'on lui décrit)
 //
 // Mesuré à la construction : 18 sites actifs avec adresse + métier + géo ; 10 ne suivent aucun
@@ -81,9 +81,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
         params: { location_id }, location: "EU",
       }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])),
       bq.query({
-        query: `SELECT DISTINCT LOWER(TRIM(competitor_name)) AS n
-                FROM \`${PROJECT}.raw.watched_competitors\`
-                WHERE location_id = @location_id AND deleted_at IS NULL AND competitor_name IS NOT NULL`,
+        // competitor_tracking × annuaire : la table des fiches Piloter et des crawls.
+        // watched_competitors diverge (29 communs sur 32/34) — sur f10c3e58 elle ignorait
+        // GL Events et quai Branly, que l'agent aurait pu re-proposer.
+        query: `SELECT DISTINCT LOWER(TRIM(cd.competitor_name)) AS n
+                FROM \`${PROJECT}.raw.competitor_tracking\` ct
+                JOIN \`${PROJECT}.raw.competitor_directory\` cd ON cd.competitor_id = ct.competitor_id AND cd.deleted_at IS NULL
+                WHERE ct.location_id = @location_id AND ct.deleted_at IS NULL`,
         params: { location_id }, location: "EU",
       }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])),
     ]);

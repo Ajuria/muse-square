@@ -25,7 +25,7 @@ const res = await dashGET({ url: new URL("http://l/api/insight/dashboard?period=
 const payload = JSON.parse(await res.text());
 if (!payload.ok) throw new Error("payload en erreur : " + payload.error);
 const real = (payload.glance.watched_par_site || []).find((w) => w.location_id === OWNER_LOC);
-check("payload réel : watched_par_site porte Muse Square avec n_watched = 3", real && real.n_watched === 3, JSON.stringify(real));
+check("payload réel : watched_par_site porte Muse Square avec n_watched = 5 (competitor_tracking)", real && real.n_watched === 5, JSON.stringify(real));
 // Cas amorçage : 0 suivi.
 payload.glance.watched_par_site = [{ location_id: OWNER_LOC, site_label: "Muse Square", n_watched: 0 }];
 

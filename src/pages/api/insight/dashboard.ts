@@ -336,14 +336,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 WHERE location_id IN UNNEST(@locs) AND threat_level = 'high' GROUP BY 1`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
-      // Suivis RÉELS par site (23/08) : watched_competitors filtré par location_id. Le
-      // `is_followed` de la ligne au-dessus est calculé SANS location_id dans
-      // fct_competitor_directory — un concurrent suivi par n'importe quel site est marqué
-      // suivi pour tous (11 affichés sur f10c3e58, 2 réels). L'amorçage « découvrir des
-      // concurrents » ne peut pas s'appuyer dessus, il ne s'afficherait jamais.
+      // Suivis RÉELS par site (23/08) : competitor_tracking filtré par location_id — la table
+      // que lisent les fiches ci-dessous, les crawls et add/unfollow. Pas watched_competitors :
+      // les deux divergent (34 vs 32 lignes, 29 communes ; sur f10c3e58 l'Orangerie y porte
+      // deux competitor_id différents). Et pas le `is_followed` de la couverture, calculé SANS
+      // location_id dans fct_competitor_directory (11 affichés sur f10c3e58 pour 5 réels).
       bq.query({
         query: `SELECT location_id, COUNT(DISTINCT competitor_id) AS n_watched
-                FROM \`${PROJECT}.raw.watched_competitors\`
+                FROM \`${PROJECT}.raw.competitor_tracking\`
                 WHERE location_id IN UNNEST(@locs) AND deleted_at IS NULL GROUP BY 1`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
