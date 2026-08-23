@@ -2700,7 +2700,14 @@
       else if (e1km != null) s += e1km + ' événements à 1 km';
       else s += 'forte concentration locale';
       s += '. ';
-      if (name) s += 'Concurrent le plus menaçant : ' + name + (dist != null ? ' à ' + dist.toFixed(1) + ' km' : '') + '. ';
+      // 23/08 — le concurrent nommé n'est cité QUE s'il est dans le périmètre dont le corps parle.
+      // `top_competitor` vient du profil de menace (rayon 5 km), les comptes d'événements du
+      // périmètre de proximité (500 m / 1 km). Le geste collait les deux : sur f10c3e58,
+      // « 7 événements à 500 m. Concurrent le plus menaçant : Musée d'Orsay à 4,4 km » —
+      // un lieu hors de la zone dont on vient de parler. Mesuré : 16 tirs sur 32.
+      // Le périmètre de référence est dans le payload (catchment_label « 1 km ») ; à défaut 1 km.
+      var perimKm = (function () { var m = String(a.catchment_label || '').match(/([\d.,]+)\s*km/); return m ? Number(m[1].replace(',', '.')) : (/\bm\b/.test(String(a.catchment_label || '')) ? 0.5 : 1); })();
+      if (name && (dist == null || dist <= perimKm)) s += 'Concurrent le plus menaçant : ' + name + (dist != null ? ' à ' + dist.toFixed(1).replace('.', ',') + ' km' : '') + '. ';
       s += 'Renforcez votre visibilité locale (signalétique, fiche GBP, accueil) pour rester repérable dans la densité.';
       return s;
     }, urgency: 'soon' },
