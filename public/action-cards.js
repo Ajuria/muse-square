@@ -701,6 +701,12 @@
   // CHANGE-FEED TRANSITIONS (12–36)
   // ═══════════════════════════════════════════════════════════════════════════
 
+  function hazardFromFlux(a, d) {
+    var HZ_FR = { rain: 'fortes pluies', wind: 'vent fort', snow: 'neige', heat: 'canicule', cold: 'grand froid' };
+    var nv = String(a && a.new_value || '').split(':')[0];
+    return HZ_FR[nv] ? 'alerte ' + HZ_FR[nv] : hazardPhrase(d);
+  }
+
   // #12 — weather_hazard_onset
   reg('weather_hazard_onset', 'Alerte m\u00e9t\u00e9o', 'M\u00c9T\u00c9O', '\u26a1', '#E65100', 'action', 'pulse#radar-score',
     function(a, p, d) {
@@ -709,12 +715,28 @@
       // 8 453 en alerte, soit 30 %, n'ont aucun aléa nommé et tombaient donc dans le repli.
       // hazardPhrase existe depuis toujours dans ce fichier et gère exactement ce cas
       // (`h === 'alerte météo' ? h : 'alerte ' + h`) — 9 autres cartes l'emploient déjà.
-      var hazard = hazardPhrase(d);
-      var level = Number(d.alert_level_max || 0);
+      // 23/08 — l'aléa qui a DÉCLENCHÉ la carte est dans le flux (payload new_value 'heat:2'),
+      // pas dans le jour résolu : hazardLabel(d) classe vent fort avant canicule à niveau
+      // égal, d'où « Alerte vent » pour une alerte chaleur. Mesuré sur le mart du 23/08 :
+      // 34 cartes sur 112 nommaient un aléa différent de celui du flux.
+      var hazard = hazardFromFlux(a, d);
+      var level = Number(String(a && a.new_value || '').split(':')[1] || d.alert_level_max || 0);
       var levelFr = level >= 3 ? 'critique' : level >= 2 ? 's\u00e9v\u00e8re' : level >= 1 ? 'mod\u00e9r\u00e9' : 'faible';
       var tRange = '';
       if (d.temperature_2m_min != null && d.temperature_2m_max != null) tRange = temp(d.temperature_2m_min) + '\u2013' + temp(d.temperature_2m_max);
-      var line = hazard.charAt(0).toUpperCase() + hazard.slice(1) + ' (niveau ' + levelFr + ').';
+      // 23/08 — la carte ABSORBE extended_bad_weather_3d, saturated_bad_weather et
+      // weather_mobility_double (retirées de dbt : jamais seules sur leur alerte). Leurs faits
+      // arrivent dans le payload (hazard_days, events_5km, pct_same_sector, mobility_disrupted)
+      // et se disent avec leurs mots déjà approuvés. Payload ancien → ligne inchangée.
+      // La surface coupe le corps à 2 phrases / 200 caractères (renderActionCandidates) :
+      // les faits tiennent dans la PREMIÈRE phrase, ou ne s'affichent pas.
+      var hd = Number(a && a.hazard_days || 0);
+      var ev5 = Number(a && a.events_5km || 0), pctS = (a && a.pct_same_sector != null) ? Number(a.pct_same_sector) : null;
+      var line = hazard.charAt(0).toUpperCase() + hazard.slice(1) + ' (niveau ' + levelFr + ')'
+        + (hd >= 2 ? ', ' + hd + ' jours d\u2019affil\u00e9e' : '')
+        + (ev5 >= 5 && pctS != null && pctS > 25 ? ', ' + ev5 + ' \u00e9v\u00e9nements \u00e0 5 km dont ' + Math.round(pctS) + ' % du m\u00eame secteur' : '')
+        + (a && a.mobility_disrupted === true ? ', acc\u00e8s perturb\u00e9' : '')
+        + '.';
       if (d.weather_label_fr) line += ' ' + d.weather_label_fr;
       if (tRange) line += ', ' + tRange;
       var precip = Number(d.precipitation_sum_mm || 0);
@@ -725,9 +747,9 @@
       return line;
     },
     {
-      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. ' + (function(h){ return h.charAt(0).toUpperCase() + h.slice(1); })(hazardPhrase(d)) + '. ' + (isOutdoor(p) ? 'Alternatives couvertes.' : 'Accueil normal.') + ' Max 2200 car.'; },
-      website: function(a, p, d) { return 'Banni\u00e8re ' + hazardPhrase(d) + '. Informer sur adaptations.'; },
-      note_interne: function(a, p, d) { return 'Note interne. ' + (function(h){ return h.charAt(0).toUpperCase() + h.slice(1); })(hazardPhrase(d)) + ' niveau ' + num(d.alert_level_max) + '. ' + (weatherSens(p) ? 'Site sensible \u2014 adapter effectif, programme, s\u00e9curit\u00e9.' : 'Impact limit\u00e9 mais informer l\u2019\u00e9quipe.'); }
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. ' + (function(h){ return h.charAt(0).toUpperCase() + h.slice(1); })(hazardFromFlux(a, d)) + '. ' + (isOutdoor(p) ? 'Alternatives couvertes.' : 'Accueil normal.') + ' Max 2200 car.'; },
+      website: function(a, p, d) { return 'Banni\u00e8re ' + hazardFromFlux(a, d) + '. Informer sur adaptations.'; },
+      note_interne: function(a, p, d) { return 'Note interne. ' + (function(h){ return h.charAt(0).toUpperCase() + h.slice(1); })(hazardFromFlux(a, d)) + ' niveau ' + num(d.alert_level_max) + '. ' + (weatherSens(p) ? 'Site sensible \u2014 adapter effectif, programme, s\u00e9curit\u00e9.' : 'Impact limit\u00e9 mais informer l\u2019\u00e9quipe.'); }
     }
   );
 
