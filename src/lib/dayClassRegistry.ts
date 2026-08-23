@@ -657,6 +657,23 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
 // filtre, six lignes se disputeraient la même clé et la dernière lue gagnerait.
 // Les lignes d'avant ce commit (store écrasé chaque nuit, historique conservé) n'ont pas de
 // colonne metric : NULL vaut 'revenue_residual', ce qu'elles étaient.
+/**
+ * 23/08 — Les JOURS d'une classe, par LE moteur (jamais une recopie de seuils) : la SQL de
+ * dayClassAggregateSql(true) coupée juste après `class_days`, filtrée sur @location_id et
+ * @class_key. Consommateur : le provider dispositif (atelier des mécanismes), pour ouvrir
+ * l'enquête à toute classe mesurée — la porte à trois motifs du 03/08 recopiait l'appartenance
+ * de chacune à la main, ce qui limitait l'entrée à ces trois-là (arbitrage owner 23/08).
+ */
+export function dayClassMembersSql(): string {
+  const full = dayClassAggregateSql(true);
+  const cut = full.indexOf("    vals AS (");
+  if (cut < 0) throw new Error("dayClassMembersSql: CTE vals introuvable — la forme du moteur a changé");
+  // On garde tout jusqu'au CTE précédant `vals` (perf inclus, inoffensif) et on termine proprement.
+  const head = full.slice(0, cut).replace(/,\s*$/, "");
+  return `${head}
+    SELECT date FROM class_days WHERE location_id = @location_id AND class_key = @class_key`;
+}
+
 export function rowsToImpactsWithImmaterial(rows: any[], annualRevenue?: number | null, metric: string = "revenue_residual"): { impacts: Map<string, DayClassImpact>; immaterial: Set<string> } {
   const byClass = new Map<string, { pure?: any; marginal?: any }>();
   for (const row of rows) {
