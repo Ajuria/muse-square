@@ -821,44 +821,52 @@ export async function computeDayClassImpacts(bq: any, location_id: string, dates
 // de l'historique (et non sur 365 j supposés) pour qu'un compte de 3 mois ne soit pas jugé sur un
 // CA sous-estimé d'un facteur 4. Renvoie null si le lieu n'a pas de ventes : la porte ne
 // s'applique alors pas — on ne juge pas une matérialité sans dénominateur.
-async function annualRevenueQuery(bq: any, location_id: string): Promise<number | null> {
+/**
+ * CA annualisé par site — LA formule (somme des jours / amplitude réelle × 365,25), groupée.
+ * Consommée par le registre (dénominateur de matérialité) ET par dashboard.ts — une seule
+ * implémentation (23/08 : dashboard en portait une copie « même formule, groupée »).
+ */
+export async function annualRevenueByLocation(bq: any, location_ids: string[]): Promise<Map<string, number>> {
+  if (!location_ids.length) return new Map();
   const rows = await bq.query({
     query: `
-      SELECT SAFE_DIVIDE(SUM(daily_revenue),
+      SELECT location_id,
+             SAFE_DIVIDE(SUM(daily_revenue),
                          NULLIF(DATE_DIFF(MAX(transaction_date), MIN(transaction_date), DAY) + 1, 0)) * 365.25 AS annual_revenue
       FROM \`${PROJECT}.mart.fct_client_daily_performance\`
-      WHERE location_id = @location_id
+      WHERE location_id IN UNNEST(@locs)
+      GROUP BY location_id
     `,
-    params: { location_id },
+    params: { locs: location_ids },
     location: "EU",
   }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
-  const v = Number((rows as any[])[0]?.annual_revenue);
-  return Number.isFinite(v) && v > 0 ? v : null;
+  const m = new Map<string, number>();
+  for (const r of rows as any[]) { const v = Number(r?.annual_revenue); if (Number.isFinite(v) && v > 0) m.set(String(r.location_id), v); }
+  return m;
+}
+
+async function annualRevenueQuery(bq: any, location_id: string): Promise<number | null> {
+  return (await annualRevenueByLocation(bq, [location_id])).get(location_id) ?? null;
+}
+
+/**
+ * Lecture du store nocturne — LA lecture (23/08) : une requête, filtrée sur la métrique du
+ * résidu de CA. Consommée par getDayClassImpacts ET dashboard.ts (qui en portait une copie
+ * « tolérante aux deux schémas » — le schéma transitoire sans `metric` n'existe plus depuis
+ * le merge sur main ; le store est réécrit chaque nuit par ce code).
+ */
+export async function readDayClassStore(bq: any, location_ids: string[], metric: string = "revenue_residual"): Promise<any[]> {
+  if (!location_ids.length) return [];
+  const cols = "location_id, class_key, family, basis, metric, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days";
+  return await bq.query({
+    query: `SELECT ${cols} FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id IN UNNEST(@locs) AND metric = @metric`,
+    params: { locs: location_ids, metric }, location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
 }
 
 export async function getDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
   const [storeRows, dateRes, annualRevenue, hypRows] = await Promise.all([
-    // LECTURE TOLÉRANTE AUX DEUX SCHÉMAS (23/08). Le store est ÉCRASÉ chaque nuit par le cron,
-    // qui tourne le code de PRODUCTION — or `metric` n'existe que depuis le 22/08 sur dev. Tant
-    // que dev n'est pas mergé, la table oscille : avec colonne après un batch dev, sans colonne
-    // après le batch de 02:00. La requête filtrée échouait alors, le `.catch` la rendait muette,
-    // et le repli LIVE recalculait tout — mesuré à 47 s contre un budget dur de 3 s.
-    // On tente la forme à colonne ; si le schéma est l'ancien, on relit sans elle. Les lignes
-    // legacy n'ont pas de `metric` et rowsToImpactsWithImmaterial les lit déjà comme
-    // 'revenue_residual' : le comportement est identique, seul le coût d'un aller-retour
-    // supplémentaire s'ajoute, et UNIQUEMENT dans le cas dégradé.
-    (async () => {
-      const cols = "class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days";
-      const withMetric = await bq.query({
-        query: `SELECT ${cols}, metric FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id AND metric = 'revenue_residual'`,
-        params: { location_id }, location: "EU",
-      }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => null);
-      if (withMetric) return withMetric;
-      return await bq.query({
-        query: `SELECT ${cols} FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
-        params: { location_id }, location: "EU",
-      }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
-    })(),
+    readDayClassStore(bq, [location_id]),
     dateResolutionQuery(bq, location_id, dates),
     annualRevenueQuery(bq, location_id),
     // Temps 2 périmètre — requête PARALLÈLE (dans le Promise.all : ne coûte que si la plus
@@ -879,8 +887,24 @@ export async function getDayClassImpacts(bq: any, location_id: string, dates: st
     const { impacts, immaterial } = rowsToImpactsWithImmaterial(storeRows as any[], annualRevenue);
     return { impacts, immaterial, ...dateRes, catchmentHypotheses: hyp };
   }
-  const live = await computeDayClassImpacts(bq, location_id, []);
-  return { impacts: live.impacts, ...dateRes, catchmentHypotheses: hyp };
+  // Store vide. Deux cas, mesurés le 23/08 :
+  //  - SANS ventes (26 sites actifs sur 32) : le moteur n'a rien à mesurer (joined est un INNER
+  //    JOIN sur fct_client_day_residual) — le repli live tournait pourtant ENTIER, 32–52 s par
+  //    ouverture de page, pour zéro pilule, dans le Promise.all de monitor.ts. Plus jamais :
+  //    absence immédiate, résolutions date et hypothèses conservées (les cartes météo@date et
+  //    calendrier@date en vivent, ventes ou pas).
+  //  - AVEC ventes (site neuf, avant le batch de 04:00) : repli live, une fois, borné au
+  //    prochain batch — sans refaire dateRes ni annualRevenue, déjà en main.
+  if (annualRevenue == null) {
+    return { impacts: new Map(), immaterial: new Set(), ...dateRes, catchmentHypotheses: hyp };
+  }
+  const aggRows = await bq.query({
+    query: dayClassAggregateSql(true),
+    params: { location_id },
+    location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const { impacts, immaterial } = rowsToImpactsWithImmaterial(aggRows as any[], annualRevenue);
+  return { impacts, immaterial, ...dateRes, catchmentHypotheses: hyp };
 }
 
 // Weather action types that resolve their condition from the AFFECTED DATE (payload has none).

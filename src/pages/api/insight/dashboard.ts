@@ -11,7 +11,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypeLabelFr } from "../../../lib/eventTypes";
-import { rowsToImpactsWithImmaterial } from "../../../lib/dayClassRegistry";
+import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation } from "../../../lib/dayClassRegistry";
 // KPI -> colonne journalière : LU au registre, jamais retapé (les deux CASE ci-dessous en
 // étaient des copies ; un mart qui renomme une colonne cassait alors 3 surfaces sur 4).
 import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpiRegistry";
@@ -224,38 +224,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 ORDER BY nx.next_d LIMIT 20`,
         params: { locs }, location: "EU",
       }),
-      // Store de classes COMPLET (colonnes du pipeline registre — rowsToImpactsWithImmaterial
-      // gate lui-même : log+médiane, |t| ≥ 1, cohérence de signe, span ≥ 60 j, matérialité) :
-      // les APPRENTISSAGES de la carte « Ce que l'app a appris » + le prix des Occasions, au
-      // MÊME registre que les pills/chantiers de Pulse — jamais un agrégat brut parallèle.
-      // .catch [] : compte jamais batché = carte absente.
-      // Tolérante aux deux schémas — même raison que le registre (23/08) : le cron nocturne
-      // tourne le code de PRODUCTION et réécrit le store sans `metric` tant que dev n'est pas
-      // mergé. Ici le `.catch(() => [[]])` ne dégradait pas, il SUPPRIMAIT la carte.
-      (async () => {
-        const cols = `location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur,
-                      med_gap_eur, n_log, avg_log, sd_log, span_days`;
-        const withMetric = await bq.query({
-          query: `SELECT ${cols}, metric FROM \`${PROJECT}.analytics.day_class_impacts\`
-                  WHERE location_id IN UNNEST(@locs) AND metric = 'revenue_residual'`,
-          params: { locs }, location: "EU",
-        }).catch(() => null);
-        if (withMetric) return withMetric;
-        return await bq.query({
-          query: `SELECT ${cols} FROM \`${PROJECT}.analytics.day_class_impacts\`
-                  WHERE location_id IN UNNEST(@locs)`,
-          params: { locs }, location: "EU",
-        }).catch(() => [[]]);
-      })(),
-      // CA annualisé par site (même formule que annualRevenueQuery du registre, groupée) —
-      // dénominateur de la porte de matérialité ; sans CA la porte ne s'applique pas.
-      bq.query({
-        query: `SELECT location_id,
-                       SAFE_DIVIDE(SUM(daily_revenue), NULLIF(DATE_DIFF(MAX(transaction_date), MIN(transaction_date), DAY) + 1, 0)) * 365.25 AS annual_revenue
-                FROM \`${PROJECT}.mart.fct_client_daily_performance\`
-                WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
-        params: { locs }, location: "EU",
-      }).catch(() => [[]]),
+      // Store de classes — LA lecture du registre (readDayClassStore, 23/08) : plus de copie
+      // locale ni de double schéma. Gated ensuite par rowsToImpactsWithImmaterial, même registre
+      // que les pills/chantiers de Pulse. Compte jamais batché = carte absente.
+      readDayClassStore(bq, locs).then((rows: any[]) => [rows]),
+      // CA annualisé par site — LA formule du registre (annualRevenueByLocation, 23/08), plus de
+      // copie locale. Dénominateur de la porte de matérialité ; sans CA la porte ne s'applique pas.
+      annualRevenueByLocation(bq, locs).then((m: Map<string, number>) => [[...m.entries()].map(([location_id, annual_revenue]) => ({ location_id, annual_revenue }))]),
 
       // ═══ Lectures GLANCE (refonte Piloter 13/08 — hiérarchie « À faire → Événements
       //     concurrents → À surveiller → savoir-faire → couverture », prototypée et validée
