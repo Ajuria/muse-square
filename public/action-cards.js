@@ -837,7 +837,9 @@
       var newR = Number(d.competition_pressure_ratio || 0);
       var n = Number(d.events_within_5km_count || 0);
       var same = Number(d.events_within_5km_same_bucket_count || 0);
-      var line = 'Pression en hausse';
+      // 23/08 : le flux émettait aussi les franchissements à la BAISSE (11/11 ce jour-là) et le
+      // corps disait « en hausse ×1,2 → ×0,8 ». Exclus côté dbt ; ici le sens suit les nombres.
+      var line = (oldR > 0 && newR < oldR) ? 'Pression en baisse' : 'Pression en hausse';
       if (oldR > 0) line += ' : \u00d7' + frDec(oldR) + ' \u2192 \u00d7' + frDec(newR);
       else line += ' : \u00d7' + frDec(newR);
       line += '. ' + n + ' \u00e9v\u00e9nements \u00e0 5 km';
@@ -2222,7 +2224,7 @@
 
       if (tx != null && bk != null) {
         line += (Math.abs(tx) >= Math.abs(bk))
-          ? ' La hausse vient de l\'affluence : ' + (tx >= 0 ? '+' : '') + tx + ' % de tickets, panier ' + (bk >= 0 ? '+' : '') + bk + ' %.'
+          ? ' La hausse vient de l\'affluence : ' + (tx >= 0 ? '+' : '') + tx + ' % de ventes, panier ' + (bk >= 0 ? '+' : '') + bk + ' %.'
           : ' La hausse vient du panier moyen (' + (bk >= 0 ? '+' : '') + bk + ' %), pas du volume.';
       }
 
@@ -2810,8 +2812,8 @@
                 : ((tx != null && bk != null) ? (Math.abs(tx) >= Math.abs(bk)) : true);
       var driver = byVol ? 'du volume' : 'du panier moyen';
       var detail = (tx != null && bk != null)
-        ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de tickets, panier ' + (bk >= 0 ? '+' : '') + bk + ' %)'
-        : (tx != null ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de tickets)' : (bk != null ? ' (panier ' + (bk >= 0 ? '+' : '') + bk + ' %)' : ''));
+        ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de ventes, panier ' + (bk >= 0 ? '+' : '') + bk + ' %)'
+        : (tx != null ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de ventes)' : (bk != null ? ' (panier ' + (bk >= 0 ? '+' : '') + bk + ' %)' : ''));
       // Named co-occurring context — observed, not asserted as the sole cause; omitted when nothing specific.
       var hook = a.is_vacation ? 'les vacances scolaires' : (a.is_holiday ? 'le jour férié' : (Number(a.weather_alert || 0) === 0 ? 'une météo favorable' : ''));
       return 'La hausse vient ' + driver + detail + (hook ? ', porté par ' + hook : '') + '. À rejouer sur vos prochaines journées comparables.';
