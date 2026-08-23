@@ -2388,6 +2388,34 @@
       }
     }
   );
+  // 23/08 — item_share_move : le grain PRODUIT, calqué mot pour mot sur offering_mix_shift
+  // (la surface approuvée ci-dessus), « catégorie » → « produit ». Payload dbt
+  // (fct_client_item_signals_daily) : item_description, revenue_share, baseline_share,
+  // share_delta_points, direction — le même contrat, plus units / unit_price / days_sold.
+  reg('item_share_move', 'Bascule d\u2019un produit', 'INTELLIGENCE', '🛍️', '#1565C0', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var cat = a.item_description || 'Un produit';
+      var share = a.revenue_share != null ? frDec(Number(a.revenue_share) * 100) : null;
+      var base = a.baseline_share != null ? frDec(Number(a.baseline_share) * 100) : null;
+      var dpts = a.share_delta_points != null ? Number(a.share_delta_points) : null;
+      var dir = a.direction || (dpts != null && dpts < 0 ? 'collapse' : 'surge');
+      var line = cat + ' représente ' + (share != null ? share + ' %' : 'une part inhabituelle') + ' de votre CA ce jour';
+      if (base != null) line += ' vs ' + base + ' % en moyenne';
+      if (dpts != null) line += ' (' + (dpts >= 0 ? '+' : '\u2212') + frDec(Math.abs(dpts)) + ' pts)';
+      line += '.';
+      line += dir === 'collapse' ? ' Produit qui décroche.' : ' Produit qui surperforme.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var cat = a.item_description || 'un produit';
+        var share = a.revenue_share != null ? frDec(Number(a.revenue_share) * 100) : null;
+        var base = a.baseline_share != null ? frDec(Number(a.baseline_share) * 100) : null;
+        var dir = a.direction || 'surge';
+        return 'Note interne ' + siteName(p) + '. ' + cat + ' = ' + (share != null ? share + ' %' : 'part inhabituelle') + ' du CA ce jour vs ' + (base != null ? base + ' %' : 'la normale') + '. ' + (dir === 'collapse' ? 'Produit en recul : vérifier le stock et sa place en rayon.' : 'Produit qui surperforme : sécuriser son réassort et le mettre en avant.');
+      }
+    }
+  );
 
   // ─── BAR CLASS / PILL MAPPINGS ───────────────────────────────────────────
 
@@ -3144,6 +3172,13 @@
       return dir === 'collapse'
         ? 'À surveiller : ' + cat + ' décroche dans vos ventes du jour. Vérifiez stock, visibilité et prix avant que ça s\'installe.'
         : 'À exploiter : ' + cat + ' surperforme aujourd\'hui. Sécurisez le réassort et mettez cette catégorie en avant pendant qu\'elle tire.';
+    }, urgency: 'soon' },
+    'item_share_move': { action: function(a, p, d) {
+      var cat = a.item_description || 'un produit';
+      var dir = a.direction || 'surge';
+      return dir === 'collapse'
+        ? 'À faire : ' + cat + ' décroche dans vos ventes du jour. Vérifiez son stock et sa place en rayon avant que ça s\'installe.'
+        : 'À exploiter : ' + cat + ' surperforme aujourd\'hui. Sécurisez son réassort et mettez-le en avant pendant qu\'il tire.';
     }, urgency: 'soon' }
   };
 
@@ -3329,6 +3364,6 @@
 
   // v1 internal-alert allowlist — the 5 performance RULE cards eligible for "Communiquer en interne".
   // Keep in sync with src/lib/internalAlertCards.ts (backend Barrier 2).
-  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition'];
+  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move'];
 
 })();
