@@ -798,13 +798,19 @@ async function dateResolutionQuery(bq: any, location_id: string, dates: string[]
  * Live (request-time) computation for ONE location — the FALLBACK when the store has no rows
  * for this location yet (fresh account before the nightly batch). Same SQL, same policy.
  */
+// L'agrégat LIVE d'un site — la même SQL que le batch, filtrée @location_id. Une seule
+// implémentation, consommée par computeDayClassImpacts et par le repli de getDayClassImpacts.
+async function liveAggregateRows(bq: any, location_id: string): Promise<any[]> {
+  return await bq.query({
+    query: dayClassAggregateSql(true),
+    params: { location_id },
+    location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+}
+
 export async function computeDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
   const [aggRows, dateRes, annualRevenue] = await Promise.all([
-    bq.query({
-      query: dayClassAggregateSql(true),
-      params: { location_id },
-      location: "EU",
-    }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+    liveAggregateRows(bq, location_id),
     dateResolutionQuery(bq, location_id, dates),
     annualRevenueQuery(bq, location_id),
   ]);
@@ -898,11 +904,7 @@ export async function getDayClassImpacts(bq: any, location_id: string, dates: st
   if (annualRevenue == null) {
     return { impacts: new Map(), immaterial: new Set(), ...dateRes, catchmentHypotheses: hyp };
   }
-  const aggRows = await bq.query({
-    query: dayClassAggregateSql(true),
-    params: { location_id },
-    location: "EU",
-  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const aggRows = await liveAggregateRows(bq, location_id);
   const { impacts, immaterial } = rowsToImpactsWithImmaterial(aggRows as any[], annualRevenue);
   return { impacts, immaterial, ...dateRes, catchmentHypotheses: hyp };
 }
