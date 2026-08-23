@@ -959,6 +959,30 @@ export const ABSENCE_REASON_FR = {
   not_separable: "Motif du jour non séparable ou insuffisant sur votre historique — mûrit avec les saisons.",
 } as const;
 
+/**
+ * La carte affirme-t-elle une CLASSE que ce site n'a jamais pu mesurer ? (23/08, arbitrage owner)
+ *
+ * Distinct de `immaterial`, déjà filtré depuis le 29/07 : là on SAIT et ça ne pèse rien ; ici on
+ * ne sait pas. L'audit de vérité du 22/08 a montré que la majorité des tirs adossés à une classe
+ * reposaient sur des classes qui ne passent les portes sur AUCUN site.
+ *
+ * DEUX EXEMPTIONS, toutes deux voulues :
+ *  1. `no_history` — le site n'a aucune vente, donc aucune classe mesurable. Consigne owner :
+ *     laisser ces sites en l'état. Le prédicat ne les vise pas (reason_fr y vaut no_history).
+ *  2. Les cartes dont la classe se résout PAR DATE (`weather@date`) : une alerte météo vaut par
+ *     sa PRÉVISION, pas par son prix. Mesuré le 23/08 : sans cette exemption le filtre retirait
+ *     21 tirs sur 52, dont weather_hazard_onset (13) et extended_bad_weather_3d — supprimer une
+ *     alerte orage parce que la classe « vent » n'est pas chiffrable sur ce site serait une perte
+ *     sèche pour l'exploitant.
+ */
+export function classNeverMeasured(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): boolean {
+  const at = String(candidate?.action_type || "").trim();
+  if (at === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(at)) return false;
+  const combo = COMBO_TYPE_CLASSES[at];
+  if (combo && combo.includes("weather@date")) return false;
+  return enjeuWithReasonForCandidate(result, candidate).reason_fr === ABSENCE_REASON_FR.not_separable;
+}
+
 /** enjeu + raison d'absence : LA façade que les endpoints consomment (monitor, futurs). */
 export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean; needs_catchment?: boolean; context_motif?: DayClassImpact | null; corner_day_mode?: boolean } {
   const enjeu = enjeuForCandidate(result, candidate);

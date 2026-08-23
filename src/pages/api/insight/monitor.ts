@@ -6,7 +6,7 @@ import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/contextCopy";
-import { getDayClassImpacts, enjeuWithReasonForCandidate } from "../../../lib/dayClassRegistry";
+import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured } from "../../../lib/dayClassRegistry";
 import { buildEventLifecycleCards } from "../../../lib/eventLifecycleCards";
 
 function json(status: number, body: unknown) {
@@ -1001,6 +1001,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // laissait la carte s'afficher sans euro, avec le motif « non séparable ou insuffisant »
         // — un aveu d'ignorance là où l'on sait, et où la réponse est « ça ne pèse rien ».
         .filter((r: any) => !enjeuWithReasonForCandidate(dayClassResult as any, r).immaterial)
+        // CLASSE JAMAIS MESURÉE (23/08) : second critère, même couture. « Immatériel » = on sait
+        // et ça ne pèse rien ; ici on ne sait pas. Le prédicat vit dans le registre avec la
+        // politique — jamais une règle réinventée ici. Il exempte les sites sans historique
+        // (consigne owner) et les cartes météo résolues par date (la valeur d'une alerte est sa
+        // prévision, pas son prix).
+        .filter((r: any) => !classNeverMeasured(dayClassResult as any, r))
         .map((r: any) => ({
         ...((er) => ({
           enjeu: er.enjeu, enjeu_reason_fr: er.reason_fr, needs_catchment: er.needs_catchment === true,
