@@ -2439,6 +2439,36 @@
     }
   );
 
+  // 23/08 — hour_share_move : le grain HEURE, calqué sur item_share_move (surface approuvée
+  // ci-dessus), « produit » → « heure ». Mots de l'heure = ceux de la surface footfall
+  // (« Jouez le pic de 7h — réassort et offres calés »). Payload dbt
+  // (fct_client_hourly_signals_daily) : transaction_hour, hour_share, baseline_share,
+  // share_delta_points, direction, hour_revenue, day_revenue, hour_transactions.
+  reg('hour_share_move', 'Bascule d\u2019une heure', 'INTELLIGENCE', '\u23f0', '#1565C0', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'Une heure';
+      var share = a.hour_share != null ? frDec(Number(a.hour_share) * 100) : null;
+      var base = a.baseline_share != null ? frDec(Number(a.baseline_share) * 100) : null;
+      var dpts = a.share_delta_points != null ? Number(a.share_delta_points) : null;
+      var dir = a.direction || (dpts != null && dpts < 0 ? 'collapse' : 'surge');
+      var line = hr + ' repr\u00e9sente ' + (share != null ? share + ' %' : 'une part inhabituelle') + ' de votre CA ce jour';
+      if (base != null) line += ' vs ' + base + ' % en moyenne';
+      if (dpts != null) line += ' (' + (dpts >= 0 ? '+' : '\u2212') + frDec(Math.abs(dpts)) + ' pts)';
+      line += '.';
+      line += dir === 'collapse' ? ' Heure qui a manqu\u00e9.' : ' Heure qui porte la journ\u00e9e.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'une heure';
+        var share = a.hour_share != null ? frDec(Number(a.hour_share) * 100) : null;
+        var base = a.baseline_share != null ? frDec(Number(a.baseline_share) * 100) : null;
+        var dir = a.direction || 'surge';
+        return 'Note interne ' + siteName(p) + '. ' + hr + ' = ' + (share != null ? share + ' %' : 'part inhabituelle') + ' du CA ce jour vs ' + (base != null ? base + ' %' : 'sa moyenne') + '. ' + (dir === 'collapse' ? 'Heure qui a manqu\u00e9 \u2014 v\u00e9rifier ouverture, caisse, mise en place.' : 'Heure qui porte \u2014 r\u00e9assort et offres cal\u00e9s dessus.');
+      }
+    }
+  );
+
   // ─── BAR CLASS / PILL MAPPINGS ───────────────────────────────────────────
 
   var CAT_BAR = {
@@ -3201,6 +3231,13 @@
       return dir === 'collapse'
         ? 'À faire : ' + cat + ' décroche dans vos ventes du jour. Vérifiez son stock et sa place en rayon avant que ça s\'installe.'
         : 'À exploiter : ' + cat + ' surperforme aujourd\'hui. Sécurisez son réassort et mettez-le en avant pendant qu\'il tire.';
+    }, urgency: 'soon' },
+    'hour_share_move': { action: function(a, p, d) {
+      var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'cette heure';
+      var dir = a.direction || 'surge';
+      return dir === 'collapse'
+        ? '\u00c0 faire : ' + hr + ' a manqu\u00e9 aujourd\u2019hui. V\u00e9rifiez ce qui s\u2019y est pass\u00e9 \u2014 ouverture, caisse, mise en place \u2014 avant demain.'
+        : '\u00c0 exploiter : ' + hr + ' porte votre journ\u00e9e. Calez-y r\u00e9assort et offres avant l\u2019ouverture.';
     }, urgency: 'soon' }
   };
 
@@ -3386,6 +3423,6 @@
 
   // v1 internal-alert allowlist — the 5 performance RULE cards eligible for "Communiquer en interne".
   // Keep in sync with src/lib/internalAlertCards.ts (backend Barrier 2).
-  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move'];
+  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','hour_share_move'];
 
 })();
