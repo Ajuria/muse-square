@@ -1191,14 +1191,14 @@
       var newP = a.new_price_raw || '?';
       var pctv = (a.price_pct_change != null) ? Number(a.price_pct_change) : null;
       var line = name + ' a augment\u00e9 le prix de ' + item + ' : ' + oldP + ' \u2192 ' + newP;
-      if (pctv != null) line += ' (+' + pctv + '%)';
+      if (pctv != null) line += ' (+' + frDec(pctv) + ' %)';
       line += '.';
       line += threatContext(a, true);
       line += ' Vous disposez peut-\u00eatre d\u2019une marge de repositionnement tarifaire.';
       return line;
     },
     {
-      note_interne: function(a, p, d) { return 'Note interne. ' + (a.competitor_name || 'Concurrent') + ' a augment\u00e9 ' + (a.item || 'une offre') + ' : ' + (a.old_price_raw || '?') + ' \u2192 ' + (a.new_price_raw || '?') + (a.price_pct_change != null ? ' (+' + Number(a.price_pct_change) + '%)' : '') + '. \u00c9valuer une marge de repositionnement.'; }
+      note_interne: function(a, p, d) { return 'Note interne. ' + (a.competitor_name || 'Concurrent') + ' a augment\u00e9 ' + (a.item || 'une offre') + ' : ' + (a.old_price_raw || '?') + ' \u2192 ' + (a.new_price_raw || '?') + (a.price_pct_change != null ? ' (+' + frDec(a.price_pct_change) + ' %)' : '') + '. \u00c9valuer une marge de repositionnement.'; }
     }
   );
 
@@ -1211,7 +1211,7 @@
       var newP = a.new_price_raw || '?';
       var pctv = (a.price_pct_change != null) ? Number(a.price_pct_change) : null;
       var line = name + ' a baiss\u00e9 le prix de ' + item + ' : ' + oldP + ' \u2192 ' + newP;
-      if (pctv != null) line += ' (' + pctv + '%)';
+      if (pctv != null) line += ' (' + (pctv < 0 ? '\u2212' : '') + frDec(Math.abs(pctv)) + ' %)';
       line += '.';
       line += threatContext(a, true);
       line += ' Pression tarifaire \u2014 v\u00e9rifiez votre comp\u00e9titivit\u00e9 sur cette offre.';
@@ -1219,7 +1219,7 @@
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Mettre en avant votre rapport qualit\u00e9-prix et : ' + (userEdge(p) || 'votre offre') + '. Max 2200 car.'; },
-      note_interne: function(a, p, d) { return 'Note interne. ' + (a.competitor_name || 'Concurrent') + ' a baiss\u00e9 ' + (a.item || 'une offre') + ' : ' + (a.old_price_raw || '?') + ' \u2192 ' + (a.new_price_raw || '?') + (a.price_pct_change != null ? ' (' + Number(a.price_pct_change) + '%)' : '') + '. V\u00e9rifier comp\u00e9titivit\u00e9.'; }
+      note_interne: function(a, p, d) { return 'Note interne. ' + (a.competitor_name || 'Concurrent') + ' a baiss\u00e9 ' + (a.item || 'une offre') + ' : ' + (a.old_price_raw || '?') + ' \u2192 ' + (a.new_price_raw || '?') + (a.price_pct_change != null ? ' (' + (Number(a.price_pct_change) < 0 ? '\u2212' : '') + frDec(Math.abs(Number(a.price_pct_change))) + ' %)' : '') + '. V\u00e9rifier comp\u00e9titivit\u00e9.'; }
     }
   );
 
@@ -2866,7 +2866,7 @@
       var inc = a.increase_count != null ? Number(a.increase_count) : null;
       var dec = a.decrease_count != null ? Number(a.decrease_count) : null;
       var s = 'À noter : ' + name + ' a repositionné ' + (n != null ? n + ' tarifs' : 'plusieurs tarifs');
-      if (inc != null && dec != null) s += ' (' + inc + ' hausse(s), ' + dec + ' baisse(s))';
+      if (inc != null && dec != null) s += ' (' + inc + (inc > 1 ? ' hausses' : ' hausse') + ', ' + dec + (dec > 1 ? ' baisses' : ' baisse') + ')';
       s += '. Analysez le mouvement avant d\'ajuster les vôtres.';
       return s;
     }, urgency: 'soon' },

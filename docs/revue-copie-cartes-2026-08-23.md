@@ -119,3 +119,20 @@ Elles occupent le registre, la maintenance et les tests sans rien produire. Troi
 - Elle ne juge pas la **voix**. Un rendu grammaticalement correct peut rester du texte de machine.
 - Le payload d'exemple est UN tir réel par type, pas la moyenne — un défaut peut être conditionnel.
 - Les cartes qui ne tirent pas n'ont pas de rendu, donc pas de verdict de copie.
+
+## 6. Cartes prix / offre concurrents — réveillées le 23/08
+
+Les 5 cartes n'avaient **jamais tiré** : `int_competitor_offering_changes` comparait deux crawls
+espacés de 12 h (fenêtre → 30 j, items stables, PR #52). Première fois en table : `price_increase` 1,
+`price_drop` 1, `repricing_event` 1 (MesRideaux.fr, suivi par les Olivades), `new_offering` 12
+(Micromania, **suivi de test** du site « Annexe éducation »). Rendu par le vrai chemin :
+
+> MesRideaux.fr a augmenté le prix de Rideau Etamine : à partir de 222 € TTC → à partir de 304 € TTC (+36,9 %).
+
+Corrigé : `price_pct_change` contournait `frDec` (« +36.9% » → « +36,9 % »), pluriel programmatique
+« 1 hausse(s) » → « 1 hausse ».
+
+**Signalé, non corrigé — doublon** : `competitor_repricing_event` tire sur le même fait, le même
+jour, le même site que `price_increase` + `price_drop` (3 cartes pour 2 mouvements). Son geste
+(« analysez avant d'ajuster ») n'ajoute pas de dispositif aux deux autres — c'est le test de la
+réserve owner (22/08), et il échoue. À trancher : la garder seulement quand ≥ 3 mouvements ?
