@@ -1145,6 +1145,12 @@ const CARD_VALUE_TYPES = new Set([
   ...MOTIF_INHERIT_TYPES,
   "sales_traffic_not_converting",
   "sales_competition_cannibalization",
+  // 23/08 — cartes de FAITS chiffrées en euros (owner : bascule part -> euros). Sans population
+  // passante (pas encore en CARD_POPULATION) : coin « ce jour » via corner_day_mode, lu sur
+  // delta_eur du payload ; la population B (€/an au rythme constaté) est l'étape suivante.
+  "hour_share_move",
+  "item_share_move",
+  "offering_mix_shift",
   // 22/08 — low_competition_window entre ici APRÈS sa sortie de CARD_TYPE_CLASS. Cet ensemble
   // commande DEUX choses : le coin passe par CARD_POPULATION (aucune entrée pour ce type ⇒
   // null, coin absent, doublon avec le chantier structurel réglé) ET le calcul de
