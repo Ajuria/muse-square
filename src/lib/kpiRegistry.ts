@@ -82,12 +82,15 @@ const KPI_EXPR: Partial<Record<KpiKey, string>> = Object.fromEntries(
   KPI_PERF_KEYS.map((k) => [k, `AVG(${KPI_DAILY_COL[k]})`]),
 ) as Partial<Record<KpiKey, string>>;
 
+// LE mot de chaque KPI — arbitré par l'owner le 23/08 (un concept = un mot, lexique) :
+// chiffre d'affaires · ventes · panier moyen · nombre de visiteurs · taux de conversion.
+// Les copies inline (tableau/insight/rapport/action-cards) MIROIRENT ces mots ; evolution.ts lit ici.
 export const KPI_LABEL_FR: Record<KpiKey, string> = {
-  revenue_residual: "CA vs normale",
-  footfall: "visiteurs/jour",
+  revenue_residual: "chiffre d'affaires vs votre résultat habituel",
+  footfall: "nombre de visiteurs/jour",
   conversion: "taux de conversion",
   basket: "panier moyen",
-  transactions: "tickets/jour",
+  transactions: "ventes/jour",
   discount: "€ remisés/jour",
   reputation: "note Google",
   family_revenue: "CA famille/jour",

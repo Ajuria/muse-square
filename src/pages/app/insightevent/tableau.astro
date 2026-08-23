@@ -547,7 +547,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           //    fenêtre multi-jours (Jour k/n + mini-courbe) / série (frise d'occurrences).
           //    Tricolore POSITION partout ; CTA = Ajuster → (engagement) ou Dossier → (série).
           var mesures = (g.mesures || []);
-          var KPI_MINI_FR = { revenue_residual: "CA/j vs votre r\u00e9sultat habituel", conversion: "taux de conversion", transactions: "tickets/jour", footfall: "visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/jour" };
+          var KPI_MINI_FR = { revenue_residual: "chiffre d\u2019affaires/j vs votre r\u00e9sultat habituel", conversion: "taux de conversion", transactions: "ventes/jour", footfall: "nombre de visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/jour" };
           function opFmt(v, metric) {
             if (v == null) return "\u2014";
             if (metric === "conversion") return (v * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %";
@@ -997,7 +997,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             if (m2 === "transactions" || m2 === "footfall") return Math.round(v2).toLocaleString("fr-FR");
             return frInt(v2) + " \u20ac";
           };
-          var _KPI_DSP = { transactions: "tickets/jour", conversion: "taux de conversion", revenue_residual: "CA/j", family_revenue: "CA famille/j", basket: "panier moyen", footfall: "visiteurs/jour" };
+          var _KPI_DSP = { transactions: "ventes/jour", conversion: "taux de conversion", revenue_residual: "chiffre d\u2019affaires/j", family_revenue: "CA famille/j", basket: "panier moyen", footfall: "nombre de visiteurs/jour" };
           var _factDsp = function (p2) {
             var tx = _testByPr[p2.practice_id];
             if (!tx) return "Jamais testé — une exécution mesurée suffit.";

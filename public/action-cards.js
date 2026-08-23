@@ -2344,7 +2344,7 @@
       var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
       var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
       var dz = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
-      var driver = ({footfall:'moins de trafic', transactions:'moins de ventes (tickets)', basket:'un panier moyen plus faible', conversion:'une conversion plus faible'})[a.primary_revenue_driver] || null;
+      var driver = ({footfall:'moins de visiteurs', transactions:'moins de ventes', basket:'un panier moyen plus faible', conversion:'un taux de conversion plus faible'})[a.primary_revenue_driver] || null;
       var jours = window.msWeekdayFr(a.affected_date);
       var joursS = window.msWeekdayFrSing(a.affected_date);
       // Écart € DU JOUR (01/08, GO owner) : déjà dans le payload (expected_revenue), référentiel
@@ -2366,7 +2366,7 @@
         var exp = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
         var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
         var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
-        var driverN = ({footfall:'le trafic', transactions:'le volume de ventes', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver];
+        var driverN = ({footfall:'le nombre de visiteurs', transactions:'les ventes', basket:'le panier moyen', conversion:'le taux de conversion'})[a.primary_revenue_driver];
         var lever = (a.primary_revenue_driver === 'both')
           ? 'le volume de ventes (' + (tx != null ? (tx >= 0 ? '+' : '') + tx + ' %' : '?') + ') et le panier (' + (bk != null ? (bk >= 0 ? '+' : '') + bk + ' %' : '?') + ')'
           : (driverN || 'plusieurs facteurs');
@@ -3224,7 +3224,7 @@
       return 'À corriger : vos remises n\'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d\'offre.';
     }, urgency: 'plan' },
     'sales_revenue_down_wow': { action: function(a, p, d) {
-      var driver = ({footfall:'le trafic', transactions:'le volume de ventes', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver] || null;
+      var driver = ({footfall:'le nombre de visiteurs', transactions:'les ventes', basket:'le panier moyen', conversion:'le taux de conversion'})[a.primary_revenue_driver] || null;
       // 22/08 — POINT 2 : le produit répond à la place de l'utilisateur.
       // Ces cartes lui demandaient « ponctuel ou récurrent ? » — une question que le moteur
       // de classes tranche déjà : si la date appartient à une classe MESURÉE sur ce lieu
