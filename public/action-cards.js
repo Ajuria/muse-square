@@ -108,7 +108,7 @@
   function weatherSens(p) { return Number(p.weather_sensitivity || 0) >= 3; }
 
   var AUD_FR = {local:'r\u00e9sidents locaux',professionals:'professionnels',tourists:'touristes',students:'\u00e9tudiants',families:'familles',seniors:'seniors',mixed:'public mixte'};
-  var EVT_FR = {corporate:'\u00e9v\u00e9nements corporate',product_launch:'lancements produit',store_opening:'ouvertures de point de vente',concert:'concerts',press_conf:'conf\u00e9rences de presse',expo:'expositions',tasting:'d\u00e9gustations',open_day:'journ\u00e9es portes ouvertes',launch_party:'soir\u00e9es de lancement',promo:'promotions'};
+  var EVT_FR = {corporate:'\u00e9v\u00e9nements corporate',product_launch:'lancements produit',store_opening:'ouvertures de point de vente',concert:'concerts',press_conf:'conf\u00e9rences de presse',expo:'expositions',tasting:'d\u00e9gustations',open_day:'journ\u00e9es portes ouvertes',launch_party:'soir\u00e9es de lancement',promo:'promotions',charity:'\u00e9v\u00e9nements caritatifs'};
   var THREAT_FR = {high:'\u00e9lev\u00e9e',medium:'mod\u00e9r\u00e9e',low:'faible'};
   var OBJ_FR = {maximize_attendance:'maximiser l\u2019affluence',avoid_competition:'\u00e9viter la concurrence',brand_awareness:'notori\u00e9t\u00e9'};
 
@@ -382,7 +382,11 @@
       if (d.holiday_name) parts.push(d.holiday_name);
       if (d.vacation_name) parts.push(d.vacation_name);
       var actionHint = '';
-      var ev = evLabel(p); if (ev) actionHint = ' Id\u00e9al pour planifier un ' + ev.split(',')[0].trim() + '.';
+      // 23/08 — EVT_FR est un dictionnaire de PLURIELS (« événements corporate », « expositions »,
+      // « dégustations ») : « planifier un » + pluriel donnait « un événements corporate ». Réel
+      // sur 2 tirs sur 8 (les sites qui déclarent un type, 17 sur 32). On accorde la phrase au
+      // pluriel du dictionnaire, rien d'autre ne change.
+      var ev = evLabel(p); if (ev) actionHint = ' Id\u00e9al pour planifier vos ' + ev.split(',')[0].trim() + '.';
       var obj = p.main_event_objective === 'maximize_attendance' ? ' Objectif affluence \u2014 toutes les conditions sont align\u00e9es.' : p.main_event_objective === 'avoid_competition' ? ' Occasion id\u00e9ale pour \u00e9viter la concurrence.' : '';
       return parts.join(' \u00b7 ') + '. Meilleur jour de vos dates.' + actionHint + obj;
     },

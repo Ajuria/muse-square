@@ -94,7 +94,7 @@ scolaire ». Le geste s'aligne sur l'ordre du corps (commercial d'abord, comme d
 
 | carte | violation |
 |---|---|
-| `top_day_approaching` | « planifier un **événements corporate** » |
+| `top_day_approaching` | « planifier un **événements corporate** » — **CORRIGÉ 23/08**. Cause : `EVT_FR` est un dictionnaire de PLURIELS ; « un » + pluriel sur les 9 types déclarés. Mesuré : 2 tirs sur 8. Accord au pluriel (« vos événements corporate »). Au passage : `charity`, déclaré par un site, n'était pas dans le dictionnaire et sortait en anglais — ajouté. |
 
 ### Affirme ce qui n'est pas mesurable
 
