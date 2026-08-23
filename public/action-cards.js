@@ -23,6 +23,10 @@
 
   function pct(v) { return v != null ? Math.round(Number(v)) + '%' : ''; }
   function num(v) { return v != null ? String(Math.round(Number(v))) : ''; }
+  // 23/08 — DÉCIMALE FRANÇAISE. 46 `toFixed(1)` finissaient à l'écran avec un point :
+  // « pression ×0.1 », « 4.5/5 », « 4.4 km ». Une seule ligne faisait .replace('.', ',').
+  // CLAUDE.md (Localisation) : virgule décimale, jamais toString() brut. Un seul foyer.
+  function frDec(v, n) { return Number(v).toFixed(n == null ? 1 : n).replace('.', ','); }
   // 22/08 — le corps de perfect_storm comptait `parts.length` et son geste `a.favorable_count` :
   // deux sources, « 2 facteurs » dans le corps et « 3 » dans le geste sur la MÊME carte. Un seul
   // calcul désormais, partagé.
@@ -53,7 +57,7 @@
     return (v != null && isFinite(v)) ? v : null;
   }
   function temp(v) { return v != null ? Math.round(Number(v)) + '\u00b0C' : ''; }
-  function ratio(v) { return v != null ? '\u00d7' + Number(v).toFixed(1) : ''; }
+  function ratio(v) { return v != null ? '\u00d7' + frDec(v) : ''; }
   // Part des evenements a 5 km dans VOTRE secteur, en POURCENTAGE (0-100).
   // DEUX unites coexistent depuis le correctif dbt du 28/07 :
   //   a.pct_same_sector      = payload de la carte -> deja un POURCENTAGE (0-100)
@@ -281,7 +285,7 @@
   function distLabel(m) {
     if (!m) return '';
     var v = Number(m);
-    return v >= 1000 ? (v / 1000).toFixed(1) + ' km' : Math.round(v) + 'm';
+    return v >= 1000 ? frDec(v / 1000) + ' km' : Math.round(v) + 'm';
   }
 
   // Competitor threat/overlap context (offering-change cards) — single compact sentence
@@ -329,7 +333,7 @@
       var pr = Number(d.competition_pressure_ratio || 0);
       var aud = audLabel(p);
       var line = 'Concurrence pour l\u2019attention au-dessus de la normale';
-      if (pr > 0) line += ' (pression \u00d7' + pr.toFixed(1) + ')';
+      if (pr > 0) line += ' (pression \u00d7' + frDec(pr) + ')';
       line += '.';
       if (aud) line += ' Public vis\u00e9 : ' + aud + '.';
       return line;
@@ -338,7 +342,7 @@
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. ' + num(d.events_within_5km_count) + ' \u00e9v\u00e9nements concurrents \u00e0 5 km. Mettre en avant : ' + (userEdge(p) || 'votre offre unique') + '. Ton direct, local. Max 2200 car.'; },
       facebook: function(a, p, d) { return 'Post Facebook pour ' + siteName(p) + '. Forte concurrence. ' + hoursFrag(p, a, 'Inclure horaires') + 'Acc\u00e8s : ' + (p.nearest_transit_stop_name ? 'station ' + p.nearest_transit_stop_name : 'votre adresse') + '. Diff\u00e9renciant : ' + (userEdge(p) || '') + '.'; },
       email: function(a, p, d) { return 'Email pour ' + siteName(p) + '. Objet : pourquoi nous choisir aujourd\u2019hui. ' + num(d.events_within_5km_count) + ' \u00e9v\u00e9nements autour, voici ce qui nous rend unique : ' + (userEdge(p) || '') + '.'; },
-      note_interne: function(a, p, d) { return 'Note interne. Forte densit\u00e9 : ' + num(d.events_within_5km_count) + ' \u00e9v\u00e9nements \u00e0 5 km, pression \u00d7' + Number(d.competition_pressure_ratio||0).toFixed(1) + '. Diff\u00e9renciant : ' + (userEdge(p) || '\u00e0 d\u00e9finir') + '. Renforcer accueil et signal\u00e9tique.'; }
+      note_interne: function(a, p, d) { return 'Note interne. Forte densit\u00e9 : ' + num(d.events_within_5km_count) + ' \u00e9v\u00e9nements \u00e0 5 km, pression \u00d7' + frDec(d.competition_pressure_ratio||0) + '. Diff\u00e9renciant : ' + (userEdge(p) || '\u00e0 d\u00e9finir') + '. Renforcer accueil et signal\u00e9tique.'; }
     }
   );
 
@@ -757,8 +761,8 @@
       var n = Number(d.events_within_5km_count || 0);
       var same = Number(d.events_within_5km_same_bucket_count || 0);
       var line = 'Pression en hausse';
-      if (oldR > 0) line += ' : \u00d7' + oldR.toFixed(1) + ' \u2192 \u00d7' + newR.toFixed(1);
-      else line += ' : \u00d7' + newR.toFixed(1);
+      if (oldR > 0) line += ' : \u00d7' + frDec(oldR) + ' \u2192 \u00d7' + frDec(newR);
+      else line += ' : \u00d7' + frDec(newR);
       line += '. ' + n + ' \u00e9v\u00e9nements \u00e0 5 km';
       if (same > 0) line += ', ' + same + ' dans votre secteur';
       line += '.';
@@ -766,7 +770,7 @@
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Hausse de concurrence. Se d\u00e9marquer avec : ' + (userEdge(p) || '') + '. Max 2200 car.'; },
-      note_interne: function(a, p, d) { return 'Note interne. Pic de pression \u00d7' + Number(d.competition_pressure_ratio||0).toFixed(1) + '. ' + num(d.events_within_5km_count) + ' \u00e9v\u00e9nements \u00e0 5 km. Renforcer comm.'; }
+      note_interne: function(a, p, d) { return 'Note interne. Pic de pression \u00d7' + frDec(d.competition_pressure_ratio||0) + '. ' + num(d.events_within_5km_count) + ' \u00e9v\u00e9nements \u00e0 5 km. Renforcer comm.'; }
     }
   );
 
@@ -946,12 +950,12 @@
     function(a, p, d) {
       var pr = Number(d.competition_pressure_ratio || 0);
       var line = 'M\u00e9ga-\u00e9v\u00e9nement termin\u00e9. Retour au rythme normal.';
-      if (pr > 0) line += ' Pression concurrentielle : \u00d7' + pr.toFixed(1) + '.';
+      if (pr > 0) line += ' Pression concurrentielle : \u00d7' + frDec(pr) + '.';
       if (pr < 1) line += ' Occasion favorable \u2014 profitez-en pour communiquer.';
       return line;
     },
     {
-      note_interne: function(a, p, d) { return 'Note interne. M\u00e9ga-\u00e9v\u00e9nement termin\u00e9. Pression \u00d7' + Number(d.competition_pressure_ratio||0).toFixed(1) + '. Ajuster effectif.'; }
+      note_interne: function(a, p, d) { return 'Note interne. M\u00e9ga-\u00e9v\u00e9nement termin\u00e9. Pression \u00d7' + frDec(d.competition_pressure_ratio||0) + '. Ajuster effectif.'; }
     }
   );
 
@@ -964,7 +968,7 @@
       var name = parts[0] || a.competitor_name || 'Concurrent';
       var event = parts[1] || '';
       var distKm = (a.entity_threat_distance_km != null) ? Number(a.entity_threat_distance_km) : (a.distance_m != null ? Number(a.distance_m) / 1000 : null);
-      var distStr = (distKm != null) ? (Math.round(distKm * 10) / 10).toFixed(1).replace('.', ',') + ' km' : '';
+      var distStr = (distKm != null) ? frDec(distKm) + ' km' : '';
       var line = name + (event ? ' lance \u00ab ' + event + ' \u00bb' : ' lance un \u00e9v\u00e9nement');
       if (distStr) line += ' \u00e0 ' + distStr;
       line += '.';
@@ -1262,11 +1266,13 @@
   reg('competitor_reputation_strength', 'Surveillez la r\u00e9putation concurrente', 'INTELLIGENCE', '\u2b50', '#1565C0', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent suivi';
-      var rating = (a.google_rating != null) ? Number(a.google_rating).toFixed(1) : null;
+      var rating = (a.google_rating != null) ? frDec(a.google_rating) : null;
       var count = (a.google_rating_count != null) ? Number(a.google_rating_count) : null;
       var line = name + ' affiche une r\u00e9putation solide';
       if (rating) line += ' : ' + rating + '/5';
-      if (count != null) line += ' sur ' + count + ' avis';
+      // 23/08 — séparateur de milliers FR (« 96 941 avis », pas « 96941 ») : même convention
+      // que les montants du fichier (toLocaleString('fr-FR')). Localisation CLAUDE.md.
+      if (count != null) line += ' sur ' + count.toLocaleString('fr-FR') + ' avis';
       line += '.';
       line += threatContext(a, true);
       return line;
@@ -1274,7 +1280,7 @@
     {
       note_interne: function(a, p, d) {
         var name = a.competitor_name || 'concurrent';
-        var rating = (a.google_rating != null) ? Number(a.google_rating).toFixed(1) : '?';
+        var rating = (a.google_rating != null) ? frDec(a.google_rating) : '?';
         var count = (a.google_rating_count != null) ? Number(a.google_rating_count) : '?';
         return 'Note interne. R\u00e9putation ' + name + ' : ' + rating + '/5 sur ' + count + ' avis. Solliciter des avis clients et valoriser nos points forts.';
       },
@@ -1395,7 +1401,7 @@
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
-      var line = 'M\u00e9t\u00e9o favorable et pression concurrentielle faible (\u00d7' + pr.toFixed(1) + ', ' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
+      var line = 'M\u00e9t\u00e9o favorable et pression concurrentielle faible (\u00d7' + frDec(pr) + ', ' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
       line += ' Conditions id\u00e9ales pour communiquer.';
       return line;
     },
@@ -1425,13 +1431,13 @@
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
-      var line = 'Jour f\u00e9ri\u00e9 avec pression \u00d7' + pr.toFixed(1) + ' (' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
+      var line = 'Jour f\u00e9ri\u00e9 avec pression \u00d7' + frDec(pr) + ' (' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
       line += ' Public disponible mais concurrence aussi.';
       return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Jour f\u00e9ri\u00e9, d\u00e9marquez-vous. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
-      note_interne: function(a, p, d) { return 'Note interne. F\u00e9ri\u00e9 + concurrence \u00d7' + Number(a.pressure_ratio||0).toFixed(1) + '. Renforcer accueil et comm.'; }
+      note_interne: function(a, p, d) { return 'Note interne. F\u00e9ri\u00e9 + concurrence \u00d7' + frDec(a.pressure_ratio||0) + '. Renforcer accueil et comm.'; }
     }
   );
 
@@ -1486,7 +1492,7 @@
       // l'audit l'avait déjà retiré de low_competition_window pour ce motif. Le ratio de
       // pression reste : sur CETTE carte il est dans sa plage de sélection (0,02-0,79,
       // moyenne 0,53 — docs/card-truth-audit.md, « la plus saine du lot »).
-      var line = 'Week-end de vacances, pression \u00d7' + pr.toFixed(1) + '.';
+      var line = 'Week-end de vacances, pression \u00d7' + frDec(pr) + '.';
       line += ' Occasion rare \u2014 communiquez maintenant.';
       return line;
     },
@@ -1507,7 +1513,7 @@
         : /soldes|black friday|cyber monday|nouvel an|no\u00ebl/i.test(String(evName));
       var line = evName ? evName + ' en cours dans votre r\u00e9gion.' : 'Temps fort commercial en cours dans votre r\u00e9gion.';
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
-      if (isDiscount) line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous sans casser vos prix.' : ' Le flux d\u2019acheteurs est l\u00e0 \u2014 mettez en avant une offre signature plut\u00f4t qu\u2019une remise.';
+      if (isDiscount) line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + frDec(pr) + ') \u2014 d\u00e9marquez-vous sans casser vos prix.' : ' Le flux d\u2019acheteurs est l\u00e0 \u2014 mettez en avant une offre signature plut\u00f4t qu\u2019une remise.';
       // « Occasion favorable — captez le flux » retiré (verbe proscrit, règle 8) et NON
       // remplacé par le ratio : mesuré le 22/08 sur les jours NON filtrés du day_surface,
       // `competition_pressure_ratio` a une médiane de 0,12 pour une moyenne de 0,33 et
@@ -1515,7 +1521,7 @@
       // rares pics. Dire « basse » ou « N % sous votre moyenne » décrirait l'état ORDINAIRE
       // comme une exception, neuf jours sur dix. Seule la branche HAUTE reste : au-dessus
       // de 1,3, l'écart est réellement rare.
-      else if (pr > 1.3) line += ' Concurrence \u00e9lev\u00e9e (\u00d7' + pr.toFixed(1) + ') \u2014 d\u00e9marquez-vous.';
+      else if (pr > 1.3) line += ' Concurrence \u00e9lev\u00e9e (\u00d7' + frDec(pr) + ') \u2014 d\u00e9marquez-vous.';
       return line;
     },
     {
@@ -1638,13 +1644,13 @@
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var ST = {high:'saison haute',normal:'saison normale',low:'saison basse'};
       var st = ST[a.tourism_status] ? ', ' + ST[a.tourism_status] : '';
-      var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + st + ') mais pression \u00d7' + pr.toFixed(1) + '.';
+      var line = 'Tourisme \u00e9lev\u00e9 (' + Math.round(idx) + st + ') mais pression \u00d7' + frDec(pr) + '.';
       line += ' Les touristes ont le choix \u2014 d\u00e9marquez-vous.';
       return line;
     },
     {
       instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Tourisme \u00e9lev\u00e9, concurrence aussi. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
-      note_interne: function(a, p, d) { return 'Note interne. Tourisme + concurrence \u00d7' + Number(a.pressure_ratio||0).toFixed(1) + '. Renforcer diff\u00e9renciation.'; }
+      note_interne: function(a, p, d) { return 'Note interne. Tourisme + concurrence \u00d7' + frDec(a.pressure_ratio||0) + '. Renforcer diff\u00e9renciation.'; }
     }
   );
 
@@ -1699,12 +1705,12 @@
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var stop = p.nearest_transit_stop_name || '';
-      var line = 'Acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + ' et pression concurrentielle \u00d7' + pr.toFixed(1) + '.';
+      var line = 'Acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + ' et pression concurrentielle \u00d7' + frDec(pr) + '.';
       line += ' Vos visiteurs risquent de se d\u00e9tourner vers des concurrents mieux accessibles.';
       return line;
     },
     {
-      note_interne: function(a, p, d) { return 'Note urgente. Mobilit\u00e9 + concurrence \u00d7' + Number(a.pressure_ratio||0).toFixed(1) + '. Itin\u00e9raires alt + comm.'; }
+      note_interne: function(a, p, d) { return 'Note urgente. Mobilit\u00e9 + concurrence \u00d7' + frDec(a.pressure_ratio||0) + '. Itin\u00e9raires alt + comm.'; }
     }
   );
 
@@ -1727,7 +1733,7 @@
   reg('ft_quiet_good_weather', 'Jour calme + conditions favorables', 'OPPORTUNIT\u00c9', '\ud83d\udfe2', '#2E7D32', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
-      var line = 'Jour habituellement calme mais conditions id\u00e9ales : beau temps et concurrence faible (\u00d7' + pr.toFixed(1) + ').';
+      var line = 'Jour habituellement calme mais conditions id\u00e9ales : beau temps et concurrence faible (\u00d7' + frDec(pr) + ').';
       if (a.ft_peak_busyness_pct != null) line += ' Pic habituel ' + (a.ft_peak_hour != null ? 'vers ' + Number(a.ft_peak_hour) + 'h ' : '') + '\u00e0 ' + Number(a.ft_peak_busyness_pct) + ' % d\u2019affluence.';
       line += ' Opportunit\u00e9 de capter du trafic suppl\u00e9mentaire.';
       return line;
@@ -1759,7 +1765,7 @@
       var rank = num(a.ft_rank) || 0;
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
-      var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') et pression faible (\u00d7' + pr.toFixed(1) + '). Occasion en or.';
+      var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') et pression faible (\u00d7' + frDec(pr) + '). Occasion en or.';
       return line;
     },
     {
@@ -1812,12 +1818,12 @@
       if (daysA > 0) parts.push(daysA + 'j r\u00e9gime A');
       if (daysC > 0) parts.push(daysC + 'j r\u00e9gime C');
       if (daysWx > 0) parts.push(daysWx + 'j alerte m\u00e9t\u00e9o');
-      parts.push('pression moy. \u00d7' + avgPr.toFixed(1));
+      parts.push('pression moy. \u00d7' + frDec(avgPr));
       return parts.join(' \u00b7 ') + '.';
     },
     {
       email: function(a, p, d) { return 'Bilan hebdomadaire pour ' + siteName(p) + '. Score moyen ' + num(a.avg_score) + '/10, ' + num(a.days_regime_a) + 'j favorables, ' + num(a.days_regime_c) + 'j d\u00e9favorables.'; },
-      note_interne: function(a, p, d) { return 'Bilan semaine. Score moy ' + num(a.avg_score) + '/10. ' + num(a.days_regime_a) + 'j r\u00e9gime A, ' + num(a.days_regime_c) + 'j r\u00e9gime C. Pression moy \u00d7' + Number(a.avg_pressure_ratio||0).toFixed(1) + '.'; }
+      note_interne: function(a, p, d) { return 'Bilan semaine. Score moy ' + num(a.avg_score) + '/10. ' + num(a.days_regime_a) + 'j r\u00e9gime A, ' + num(a.days_regime_c) + 'j r\u00e9gime C. Pression moy \u00d7' + frDec(a.avg_pressure_ratio||0) + '.'; }
     }
   );
 
@@ -1844,7 +1850,7 @@
 
       var fav = [];
       if (regime === 'A' || regime === 'B') fav.push('régime ' + regime);
-      if (pr != null && pr < 1) fav.push('concurrence faible (×' + pr.toFixed(1) + ')');
+      if (pr != null && pr < 1) fav.push('concurrence faible (×' + frDec(pr) + ')');
       if (alert === 0) fav.push('météo favorable');
       if (fav.length) line += ' Or le contexte était favorable : ' + fav.join(', ') + '.';
 
@@ -1886,7 +1892,7 @@
         : 'CA en net retrait vs votre moyenne 30j.';
 
       if (pr != null && pr > 1.3) {
-        line += ' Cause probable : pression concurrentielle ×' + pr.toFixed(1) + (comp != null ? ' (' + comp + ' événements à 5 km)' : '');
+        line += ' Cause probable : pression concurrentielle ×' + frDec(pr) + (comp != null ? ' (' + comp + ' événements à 5 km)' : '');
         if (a.top_competitor) line += ', principal ' + a.top_competitor;
         line += '.';
       } else if (alert >= 2) {
@@ -2174,10 +2180,10 @@
         ? 'CA ' + rev + ' € — ' + (delta != null ? delta + ' %' : 'en baisse') + ' vs la veille (' + yest + ' €).'
         : 'CA en baisse vs la veille.';
 
-      if (pr != null) line += ' Concomitant à une pression concurrentielle ×' + pr.toFixed(1) + '.';
+      if (pr != null) line += ' Concomitant à une pression concurrentielle ×' + frDec(pr) + '.';
       if (a.top_competitor) {
         line += ' Concurrent le plus proche : ' + a.top_competitor;
-        if (a.competitor_distance_km != null) line += ' à ' + Number(a.competitor_distance_km).toFixed(1) + ' km';
+        if (a.competitor_distance_km != null) line += ' à ' + frDec(a.competitor_distance_km) + ' km';
         if (overlap != null) line += ' (audience estimée commune ' + overlap + ' %)';
         line += '.';
       }
@@ -2187,7 +2193,7 @@
       slack: function(a, p, d) {
         var delta = a.revenue_delta_pct != null ? Math.round(Number(a.revenue_delta_pct)) : null;
         var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-        return 'CA ' + (delta != null ? delta + ' %' : 'en baisse') + ' vs la veille pour ' + siteName(p) + ', concomitant à une pression ×' + (pr != null ? pr.toFixed(1) : '?') + (a.top_competitor ? '. Concurrent proche : ' + a.top_competitor : '') + '. À surveiller.';
+        return 'CA ' + (delta != null ? delta + ' %' : 'en baisse') + ' vs la veille pour ' + siteName(p) + ', concomitant à une pression ×' + (pr != null ? frDec(pr) : '?') + (a.top_competitor ? '. Concurrent proche : ' + a.top_competitor : '') + '. À surveiller.';
       },
       note_interne: function(a, p, d) {
         return 'Note interne ' + siteName(p) + '. Baisse de CA jour-sur-jour concomitante à une pression concurrentielle élevée' + (a.top_competitor ? ' (' + a.top_competitor + ' à proximité)' : '') + '. Co-occurrence à confirmer avant d\'en tirer une conclusion.';
@@ -2230,13 +2236,13 @@
       var drN = a.discount_rate != null ? Number(a.discount_rate) * 100 : null;
       var ddp = a.discount_rate_delta_pct != null ? Number(a.discount_rate_delta_pct) : null;
       var drUsual = (drN != null && ddp != null && (100 + ddp) > 0) ? drN * 100 / (100 + ddp) : null;
-      var line = 'Vous avez remisé ' + (drN != null ? drN.toFixed(1) + ' % du CA aujourd\'hui' : 'plus que d\'habitude') + (drUsual != null ? ', contre ~' + drUsual.toFixed(1) + ' % d\'ordinaire' : '') + ' — sans que le CA suive.';
+      var line = 'Vous avez remisé ' + (drN != null ? frDec(drN) + ' % du CA aujourd\'hui' : 'plus que d\'habitude') + (drUsual != null ? ', contre ~' + frDec(drUsual) + ' % d\'ordinaire' : '') + ' — sans que le CA suive.';
       return line;
     },
     {
       note_interne: function(a, p, d) {
         var dz = a.discount_robust_z != null ? Number(a.discount_robust_z) : null;
-        var dr = a.discount_rate != null ? (Number(a.discount_rate) * 100).toFixed(1) : null;
+        var dr = a.discount_rate != null ? frDec(Number(a.discount_rate) * 100) : null;
         var soft = msSalesConfidence(a) === 'possible';
         return 'Aux équipes commerciales' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'nos remises sont montées bien au-dessus de l\'habituel' + (dr != null ? ' (' + dr + ' % du CA aujourd\'hui)' : '') + ' sans que le chiffre d\'affaires suive. ' + (soft ? 'Regardons si le ciblage des promos est le bon avant de reconduire.' : 'Recentrons les remises sur les clients à forte valeur et arrêtons les promotions non nécessaires.');
       }
@@ -2612,12 +2618,12 @@
     }, urgency: 'soon' },
     'competitor_positioning_brief': { action: function(a, p, d) {
       var name = a.competitor_name || 'ce concurrent';
-      var r = a.google_rating != null ? Number(a.google_rating).toFixed(1) : null;
+      var r = a.google_rating != null ? frDec(a.google_rating) : null;
       return 'À consulter : analyse de positionnement de ' + name + (r != null ? ' (note ' + r + '/5)' : '') + ' disponible. Ouvrez-la pour situer votre offre face à ce concurrent.';
     }, urgency: 'plan' },
     'competitor_reputation_strength': { action: function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent suivi';
-      var r = a.google_rating != null ? Number(a.google_rating).toFixed(1) : null;
+      var r = a.google_rating != null ? frDec(a.google_rating) : null;
       var n = a.google_rating_count != null ? Number(a.google_rating_count) : null;
       return 'À noter : ' + name + ' affiche une réputation solide' + (r != null ? ' (' + r + '/5' + (n != null ? ' sur ' + n + ' avis' : '') + ')' : '') + '. Point de comparaison pour votre propre e-réputation.';
     }, urgency: 'plan' },
@@ -2663,7 +2669,7 @@
       // et le vrai verbe était déjà dans la phrase.
       var _mot = a.context_motif && a.context_motif.label_fr ? a.context_motif : null;
       var _sfx = a.top_competitor ? ' ; gardez un œil sur ' + a.top_competitor : '';
-      return 'À faire : baisse concomitante à une pression ×' + (pr != null ? pr.toFixed(1) : '?') + '. '
+      return 'À faire : baisse concomitante à une pression ×' + (pr != null ? frDec(pr) : '?') + '. '
         + (_mot ? 'Engagez-vous sur le motif, pas sur la journée'
                 : 'Aucun motif mesuré sur cette date, tracez la cause avant d\'agir')
         + _sfx + '.';
@@ -2683,7 +2689,7 @@
       var s = 'À défendre : ';
       if (name) {
         s += name + (ev ? ' (' + ev + ')' : '');
-        if (dist != null) s += ' à ' + dist.toFixed(1) + ' km';
+        if (dist != null) s += ' à ' + frDec(dist) + ' km';
         if (ov != null) s += ', audience estimée commune ' + ov + ' %';
         s += '. ';
       } else { s += 'concurrent actif à proximité. '; }
@@ -2707,7 +2713,7 @@
       // un lieu hors de la zone dont on vient de parler. Mesuré : 16 tirs sur 32.
       // Le périmètre de référence est dans le payload (catchment_label « 1 km ») ; à défaut 1 km.
       var perimKm = (function () { var m = String(a.catchment_label || '').match(/([\d.,]+)\s*km/); return m ? Number(m[1].replace(',', '.')) : (/\bm\b/.test(String(a.catchment_label || '')) ? 0.5 : 1); })();
-      if (name && (dist == null || dist <= perimKm)) s += 'Concurrent le plus menaçant : ' + name + (dist != null ? ' à ' + dist.toFixed(1).replace('.', ',') + ' km' : '') + '. ';
+      if (name && (dist == null || dist <= perimKm)) s += 'Concurrent le plus menaçant : ' + name + (dist != null ? ' à ' + frDec(dist) + ' km' : '') + '. ';
       s += 'Renforcez votre visibilité locale (signalétique, fiche GBP, accueil) pour rester repérable dans la densité.';
       return s;
     }, urgency: 'soon' },
@@ -2903,7 +2909,7 @@
     }, urgency: 'now' },
     'weather_comp_opportunity': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      return 'À pousser : beau temps et faible concurrence' + (pr != null ? ' (pression ×' + pr.toFixed(1) + ')' : '') + '. Conditions propices à la visibilité — concentrez votre communication sur cette occasion.';
+      return 'À pousser : beau temps et faible concurrence' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Conditions propices à la visibilité — concentrez votre communication sur cette occasion.';
     }, urgency: 'now' },
     'saturated_bad_weather': { action: function(a, p, d) {
       var lvl = a.weather_alert != null ? Number(a.weather_alert) : null;
@@ -2915,7 +2921,7 @@
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
       var e5 = a.events_5km != null ? Number(a.events_5km) : null;
       var s = 'À temporiser : jour férié mais concurrence élevée';
-      if (pr != null) s += ' (pression ×' + pr.toFixed(1) + ')';
+      if (pr != null) s += ' (pression ×' + frDec(pr) + ')';
       if (e5 != null) s += ' — ' + e5 + ' événements à 5 km';
       s += '. Le férié attire du monde mais l\'offre est pléthorique : ne surinvestissez pas en communication, démarquez-vous par un angle simple plutôt que par le volume.';
       return s;
@@ -2932,7 +2938,7 @@
     }, urgency: 'soon' },
     'weekend_vacation_low_comp': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      return 'À pousser : week-end de vacances à faible concurrence' + (pr != null ? ' (pression ×' + pr.toFixed(1) + ')' : '') + '. Occasion rare — concentrez votre communication dessus.';
+      return 'À pousser : week-end de vacances à faible concurrence' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Occasion rare — concentrez votre communication dessus.';
     }, urgency: 'now' },
     'commercial_event_match': { action: function(a, p, d) {
       var ev = a.commercial_event_name || (d.commercial_events && d.commercial_events[0] ? d.commercial_events[0].event_name : null) || null;
@@ -2987,7 +2993,7 @@
     'tourism_comp_squeeze': { action: function(a, p, d) {
       var ti = a.tourism_index != null ? Math.round(Number(a.tourism_index)) : null;
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      var s = 'À réorienter : flux touristique élevé' + (ti != null ? ' (indice ' + ti + ')' : '') + ' mais très disputé' + (pr != null ? ' (pression ×' + pr.toFixed(1) + ')' : '') + '. Ciblez un segment ou un angle que vos concurrents n\'adressent pas pour vous démarquer sur ce public.';
+      var s = 'À réorienter : flux touristique élevé' + (ti != null ? ' (indice ' + ti + ')' : '') + ' mais très disputé' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Ciblez un segment ou un angle que vos concurrents n\'adressent pas pour vous démarquer sur ce public.';
       return s;
     }, urgency: 'soon' },
     'low_tourism_local_opp': { action: function(a, p, d) {
@@ -3007,7 +3013,7 @@
     }, urgency: 'now' },
     'mobility_comp_squeeze': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      var s = 'À temporiser : accès perturbé et concurrence élevée' + (pr != null ? ' (pression ×' + pr.toFixed(1) + ')' : '') + '. Conditions doublement défavorables : gardez votre effort de communication pour une meilleure occasion et concentrez-vous sur l\'opérationnel (accès, accueil).';
+      var s = 'À temporiser : accès perturbé et concurrence élevée' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Conditions doublement défavorables : gardez votre effort de communication pour une meilleure occasion et concentrez-vous sur l\'opérationnel (accès, accueil).';
       return s;
     }, urgency: 'now' },
     'ft_peak_bad_weather': { action: function(a, p, d) {
@@ -3017,20 +3023,20 @@
     }, urgency: 'now' },
     'ft_quiet_good_weather': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      return 'À capter : jour habituellement calme mais météo et concurrence favorables' + (pr != null ? ' (pression ×' + pr.toFixed(1) + ')' : '') + '. Stimulez la fréquentation par une communication ciblée pour dépasser l\'affluence habituelle.';
+      return 'À capter : jour habituellement calme mais météo et concurrence favorables' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Stimulez la fréquentation par une communication ciblée pour dépasser l\'affluence habituelle.';
     }, urgency: 'now' },
     'ft_peak_saturated': { action: function(a, p, d) {
       var pct = a.pct_same_sector != null ? Math.round(Number(a.pct_same_sector)) : null;
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
       var s = 'À temporiser : jour habituellement fréquenté mais saturé';
       if (pct != null) s += ' (' + pct + ' % des événements à 5 km dans votre secteur)';
-      if (pr != null) s += ', pression ×' + pr.toFixed(1);
+      if (pr != null) s += ', pression ×' + frDec(pr);
       s += '. L\'affluence est là, mais l\'attention est dispersée — misez sur l\'accueil et l\'expérience sur place plutôt que sur la communication.';
       return s;
     }, urgency: 'soon' },
     'ft_peak_low_comp': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      return 'À pousser : jour habituellement fréquenté + faible concurrence' + (pr != null ? ' (pression ×' + pr.toFixed(1) + ')' : '') + '. Occasion à fort potentiel — concentrez votre communication.';
+      return 'À pousser : jour habituellement fréquenté + faible concurrence' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Occasion à fort potentiel — concentrez votre communication.';
     }, urgency: 'now' },
     'ft_peak_tourism_vacation': { action: function(a, p, d) {
       var ti = a.tourism_index != null ? Math.round(Number(a.tourism_index)) : null;

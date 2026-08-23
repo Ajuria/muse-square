@@ -86,8 +86,9 @@ scolaire ». Le geste s'aligne sur l'ordre du corps (commercial d'abord, comme d
 
 | carte | violation |
 |---|---|
-| `competitor_reputation_strength` | « **96941** avis » — pas de séparateur de milliers |
-| `weekend_vacation_low_comp` | « pression **×0.1** » — décimale en point |
+| `competitor_reputation_strength` | « **96941** avis » — **CORRIGÉ 23/08** (`toLocaleString('fr-FR')` → « 2 580 avis ») |
+| `weekend_vacation_low_comp` | « pression **×0.1** » — **CORRIGÉ 23/08, et c'était SYSTÉMIQUE** : 46 `toFixed(1)` à l'écran (pressions, notes /5, distances km, % remise), une seule ligne conforme. Helper `frDec` posé, 46 basculés. Rendu : « 4,4/5 », « ×0,2 », « 4,3 km ». |
+| `weekend_vacation_low_comp` | **NOUVEAU, non corrigé** : « pression **×0,0** » sur 1 tir sur 21 — `pressure_ratio = 0` exact (valeur réelle : 601 zéros sur 12 653 jours au day surface). Un ratio nul veut dire « aucun événement autour » ; écrire ×0,0 ne le dit pas. Chaîne visible hors demande — signalé. |
 
 ### Grammaire
 
