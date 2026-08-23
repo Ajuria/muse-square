@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-08-07",
+"generated_date": "2026-08-23",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "c883b26",
-"table_count": 474,
-"column_count": 8443
+"dbt_repo_sha_at_generation": "2e538f5",
+"table_count": 484,
+"column_count": 8579
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -804,6 +804,14 @@
 },
 {
 "name": "saved_item_id",
+"type": "STRING"
+},
+{
+"name": "kpi_noise_se",
+"type": "FLOAT64"
+},
+{
+"name": "verdict_basis",
 "type": "STRING"
 }
 ]
@@ -2016,6 +2024,10 @@
 {
 "name": "sd_log",
 "type": "FLOAT64"
+},
+{
+"name": "metric",
+"type": "STRING"
 }
 ]
 },
@@ -2478,6 +2490,68 @@
 }
 ]
 },
+"analytics.location_public_events": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "nom",
+"type": "STRING"
+},
+{
+"name": "lieu",
+"type": "STRING"
+},
+{
+"name": "ville",
+"type": "STRING"
+},
+{
+"name": "d",
+"type": "STRING"
+},
+{
+"name": "dfin",
+"type": "STRING"
+},
+{
+"name": "pub",
+"type": "STRING"
+},
+{
+"name": "gratuit",
+"type": "BOOL"
+},
+{
+"name": "m",
+"type": "FLOAT64"
+},
+{
+"name": "computed_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"analytics.location_public_events_coverage": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "n30",
+"type": "INT64"
+},
+{
+"name": "computed_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "analytics.party_directory": {
 "type": "BASE TABLE",
 "columns": [
@@ -2536,6 +2610,39 @@
 {
 "name": "loaded_at",
 "type": "TIMESTAMP"
+}
+]
+},
+"analytics.pos_systems": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "pos_key",
+"type": "STRING"
+},
+{
+"name": "label_fr",
+"type": "STRING"
+},
+{
+"name": "ingestion_mode",
+"type": "STRING"
+},
+{
+"name": "export_note_fr",
+"type": "STRING"
+},
+{
+"name": "active",
+"type": "BOOL"
+},
+{
+"name": "sort",
+"type": "INT64"
+},
+{
+"name": "import_source",
+"type": "STRING"
 }
 ]
 },
@@ -2600,6 +2707,27 @@
 },
 {
 "name": "published_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"analytics.sales_channel_labels": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "source_location_id",
+"type": "STRING"
+},
+{
+"name": "channel_key",
+"type": "STRING"
+},
+{
+"name": "label",
+"type": "STRING"
+},
+{
+"name": "updated_at",
 "type": "TIMESTAMP"
 }
 ]
@@ -12243,6 +12371,160 @@
 }
 ]
 },
+"mart.fct_client_hourly_signals_daily": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "transaction_hour",
+"type": "INT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "transactions",
+"type": "INT64"
+},
+{
+"name": "day_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "hour_share",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_share",
+"type": "FLOAT64"
+},
+{
+"name": "share_delta_points",
+"type": "FLOAT64"
+},
+{
+"name": "share_robust_z",
+"type": "FLOAT64"
+},
+{
+"name": "share_n",
+"type": "INT64"
+},
+{
+"name": "direction",
+"type": "STRING"
+},
+{
+"name": "is_share_move",
+"type": "BOOL"
+},
+{
+"name": "dbt_updated_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"mart.fct_client_item_signals_daily": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "item_description",
+"type": "STRING"
+},
+{
+"name": "item_category",
+"type": "STRING"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "units",
+"type": "FLOAT64"
+},
+{
+"name": "unit_price",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_share",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_share",
+"type": "FLOAT64"
+},
+{
+"name": "share_delta_points",
+"type": "FLOAT64"
+},
+{
+"name": "share_robust_z",
+"type": "FLOAT64"
+},
+{
+"name": "share_n",
+"type": "INT64"
+},
+{
+"name": "is_daily_item",
+"type": "BOOL"
+},
+{
+"name": "days_sold",
+"type": "INT64"
+},
+{
+"name": "price_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "price_delta_pct",
+"type": "FLOAT64"
+},
+{
+"name": "direction",
+"type": "STRING"
+},
+{
+"name": "is_share_move",
+"type": "BOOL"
+},
+{
+"name": "is_price_move",
+"type": "BOOL"
+},
+{
+"name": "days_since_last_sale",
+"type": "INT64"
+},
+{
+"name": "is_dead_item",
+"type": "BOOL"
+},
+{
+"name": "dbt_updated_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "mart.fct_client_offering_daily": {
 "type": "BASE TABLE",
 "columns": [
@@ -12374,6 +12656,71 @@
 {
 "name": "revenue_rank",
 "type": "INT64"
+}
+]
+},
+"mart.fct_client_offering_signals_daily": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "item_category",
+"type": "STRING"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "units",
+"type": "INT64"
+},
+{
+"name": "promo_count",
+"type": "INT64"
+},
+{
+"name": "revenue_rank",
+"type": "INT64"
+},
+{
+"name": "revenue_share",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_share",
+"type": "FLOAT64"
+},
+{
+"name": "share_delta_points",
+"type": "FLOAT64"
+},
+{
+"name": "share_robust_z",
+"type": "FLOAT64"
+},
+{
+"name": "share_n",
+"type": "INT64"
+},
+{
+"name": "direction",
+"type": "STRING"
+},
+{
+"name": "is_share_move",
+"type": "BOOL"
+},
+{
+"name": "dbt_updated_at",
+"type": "TIMESTAMP"
 }
 ]
 },
@@ -13498,6 +13845,160 @@
 }
 ]
 },
+"mart.fct_location_channel_monthly": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "channel_key",
+"type": "STRING"
+},
+{
+"name": "month_start",
+"type": "DATE"
+},
+{
+"name": "month_end",
+"type": "DATE"
+},
+{
+"name": "ca",
+"type": "FLOAT64"
+},
+{
+"name": "active_days",
+"type": "INT64"
+},
+{
+"name": "invoices",
+"type": "INT64"
+},
+{
+"name": "top_parties",
+"type": "STRING"
+},
+{
+"name": "data_end",
+"type": "DATE"
+},
+{
+"name": "months_observed",
+"type": "INT64"
+},
+{
+"name": "iqr_ratio",
+"type": "FLOAT64"
+},
+{
+"name": "sales_grain",
+"type": "STRING"
+},
+{
+"name": "is_weekly_judgeable",
+"type": "BOOL"
+},
+{
+"name": "is_monthly_judgeable",
+"type": "BOOL"
+},
+{
+"name": "baseline_median",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_months",
+"type": "INT64"
+},
+{
+"name": "month_ratio",
+"type": "FLOAT64"
+},
+{
+"name": "month_state",
+"type": "STRING"
+},
+{
+"name": "is_run_start",
+"type": "BOOL"
+}
+]
+},
+"mart.fct_location_channel_weekly": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "channel_key",
+"type": "STRING"
+},
+{
+"name": "week_start",
+"type": "DATE"
+},
+{
+"name": "week_end",
+"type": "DATE"
+},
+{
+"name": "ca",
+"type": "FLOAT64"
+},
+{
+"name": "active_days",
+"type": "INT64"
+},
+{
+"name": "data_end",
+"type": "DATE"
+},
+{
+"name": "weeks_observed",
+"type": "INT64"
+},
+{
+"name": "med_active_days",
+"type": "INT64"
+},
+{
+"name": "iqr_ratio",
+"type": "FLOAT64"
+},
+{
+"name": "sales_grain",
+"type": "STRING"
+},
+{
+"name": "is_weekly_judgeable",
+"type": "BOOL"
+},
+{
+"name": "baseline_median",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_weeks",
+"type": "INT64"
+},
+{
+"name": "week_ratio",
+"type": "FLOAT64"
+},
+{
+"name": "week_state",
+"type": "STRING"
+},
+{
+"name": "is_run_start",
+"type": "BOOL"
+}
+]
+},
 "mart.fct_location_client_patterns": {
 "type": "BASE TABLE",
 "columns": [
@@ -13511,6 +14012,10 @@
 },
 {
 "name": "party_label",
+"type": "STRING"
+},
+{
+"name": "party_role",
 "type": "STRING"
 },
 {
@@ -19903,6 +20408,14 @@
 {
 "name": "fetch_date",
 "type": "DATE"
+},
+{
+"name": "venue_rating",
+"type": "FLOAT64"
+},
+{
+"name": "venue_reviews",
+"type": "INT64"
 }
 ]
 },
@@ -20130,6 +20643,10 @@
 {
 "name": "ingested_at",
 "type": "TIMESTAMP"
+},
+{
+"name": "source_file",
+"type": "STRING"
 }
 ]
 },
@@ -20432,6 +20949,14 @@
 },
 {
 "name": "last_crawl_attempt_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "commercial_news_json",
+"type": "STRING"
+},
+{
+"name": "commercial_news_at",
 "type": "TIMESTAMP"
 }
 ]
@@ -20834,6 +21359,10 @@
 {
 "name": "deleted_at",
 "type": "TIMESTAMP"
+},
+{
+"name": "proposed",
+"type": "BOOL"
 }
 ]
 },
@@ -20993,6 +21522,10 @@
 },
 {
 "name": "collection_channel",
+"type": "STRING"
+},
+{
+"name": "action_carried",
 "type": "STRING"
 }
 ]
@@ -21484,6 +22017,63 @@
 {
 "name": "jaccepte_que_limage_puisse_etre_librement_utilisee_a_la_condition",
 "type": "BOOL"
+}
+]
+},
+"raw.events_datatourisme_occitanie": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "_airbyte_raw_id",
+"type": "STRING"
+},
+{
+"name": "_airbyte_extracted_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "_airbyte_meta",
+"type": "JSON"
+},
+{
+"name": "_airbyte_generation_id",
+"type": "INT64"
+},
+{
+"name": "type",
+"type": "JSON"
+},
+{
+"name": "uuid",
+"type": "STRING"
+},
+{
+"name": "label",
+"type": "JSON"
+},
+{
+"name": "isOwnedBy",
+"type": "JSON"
+},
+{
+"name": "lastUpdate",
+"type": "DATE"
+},
+{
+"name": "isLocatedAt",
+"type": "JSON"
+},
+{
+"name": "takesPlaceAt",
+"type": "JSON"
+},
+{
+"name": "hasDescription",
+"type": "JSON"
+},
+{
+"name": "hasBeenCreatedBy",
+"type": "JSON"
 }
 ]
 },
@@ -22305,6 +22895,10 @@
 },
 {
 "name": "client_catchment",
+"type": "STRING"
+},
+{
+"name": "pos_system",
 "type": "STRING"
 }
 ]
