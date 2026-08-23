@@ -1539,7 +1539,31 @@ if (!location_id) {
       }, score: 65 });
     }
 
-    candidates.sort(function(a,b) { return b.score - a.score; });
+    // ── « Vu » (23/08, owner : valoriser le nouveau à impact égal, sans toucher aux menaces). ──
+    // Mémoire CLIENT par clé de carte (suppression_key du mart ; repli type|date|site pour les
+    // cartes construites ici), dans localStorage comme les retours fermés — rien côté serveur.
+    // Marquée « vue » au RENDU : à la visite suivante la pastille tombe et la carte recule,
+    // à score et niveau égaux seulement — une menace de niveau 3 passe toujours devant.
+    var _SEEN_LS = "ms_seen_cards";
+    var _seenMap = {};
+    try { _seenMap = JSON.parse(localStorage.getItem(_SEEN_LS) || "{}") || {}; } catch (e) { _seenMap = {}; }
+    function _cardKey(c) {
+      var it = c && c.item ? c.item : (c || {});
+      return String(it.suppression_key || ((it.change_subtype || it.action_type || '') + '|' + (it.affected_date || it.date || '') + '|' + (it.location_id || it.location_label || '')));
+    }
+    function _isNew(c) { return _seenMap[_cardKey(c)] ? 0 : 1; }
+    function _firstSeen(c) { return String(_seenMap[_cardKey(c)] || ''); }
+    // À score égal : non vu d'abord, puis la découverte la plus RÉCENTE d'abord (horodatage de
+    // première vue). Sans ce second critère, une carte entrée par la nouveauté ressortait à la
+    // visite suivante (tout vu → score seul) et l'ordre oscillait (mesuré au harnais, 23/08).
+    function _newTie(a, b) { var d = _isNew(b) - _isNew(a); if (d) return d; var fa = _firstSeen(a), fb = _firstSeen(b); return fb > fa ? 1 : fb < fa ? -1 : 0; }
+    function _markSeen(list) {
+      var now = new Date().toISOString(), changed = false;
+      (list || []).forEach(function (c) { var k = _cardKey(c); if (!_seenMap[k]) { _seenMap[k] = now; changed = true; } });
+      if (changed) { try { localStorage.setItem(_SEEN_LS, JSON.stringify(_seenMap)); } catch (e) {} }
+    }
+    window._msIsNewCard = _isNew; window._msNewTie = _newTie; window._msMarkSeen = _markSeen;
+    candidates.sort(function(a,b) { return (b.score - a.score) || _newTie(a, b); });
     var seen = {};
     var top = [];
     var _catCounts = {};
@@ -1836,7 +1860,12 @@ if (!location_id) {
       return pills.join('');
     }
 
+    // 23/08 — marquées « vues » APRÈS le tri et la sélection (la pastille de ce rendu reste
+    // exacte ; c'est la prochaine visite qui les classe derrière le nouveau).
+    var _markSeenAfter = [];
+    setTimeout(function () { try { if (window._msMarkSeen) window._msMarkSeen(_markSeenAfter); } catch (e) {} }, 0);
     var cardsHtml = top.map(function(entry, cardIdx) {
+      _markSeenAfter.push(entry);
       var t = entry.tmpl;
       try {
         window.__msCardByIdx = window.__msCardByIdx || {};
@@ -2020,6 +2049,7 @@ if (!location_id) {
                 + '<div class="ab-disc' + (t.barClass === 'ab-threat' ? ' urgent' : '') + '" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + (t.barClass === 'ab-opportunity' ? '<path d="M17 7L7 17"/><path d="M8 7h9v9"/>' : t.barClass === 'ab-threat' ? '<path d="M21 3v5l-11 9-4 4-3-3 4-4 9-11z"/><path d="M5 13l6 6"/>' : t.barClass === 'ab-warning' ? '<path d="M9 6v12"/><path d="M15 6v12"/>' : '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>') + '</svg></div>'
                 + '<div style="flex:1;min-width:0;">'
                   + '<div class="ab-pills">'
+                    + ((window._msIsNewCard && window._msIsNewCard(entry)) ? '<span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">nouveau</span>' : '')
                     + (t._goal_card ? '<span class="chip-n">Objectif</span>' : '')
                     + (entry.item.location_label ? '<span class="chip-n">' + escapeHtml(entry.item.location_label) + '</span>' : '')
                     + (t.confidence_tier ? '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">' + escapeHtml((window.MS_TIER_LABEL && window.MS_TIER_LABEL[t.confidence_tier]) || t.confidence_tier) + '</span>' : '')
@@ -3442,6 +3472,9 @@ if (!location_id) {
       const sorted = [...catItems].sort((a, b) => {
         const lvlDiff = (Number(b?.alert_level)||0) - (Number(a?.alert_level)||0);
         if (lvlDiff !== 0) return lvlDiff;
+        // 23/08 — à niveau égal, non vu d'abord (même mémoire « vu » que les Actions du jour).
+        const nd = (window._msNewTie ? window._msNewTie(a, b) : 0);
+        if (nd !== 0) return nd;
         return String(a?.affected_date||"").localeCompare(String(b?.affected_date||""));
       });
       const maxVisible = showAll ? Math.min(sorted.length, 10) : 5;
