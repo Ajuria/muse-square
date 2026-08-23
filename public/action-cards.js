@@ -300,7 +300,7 @@
   function distLabel(m) {
     if (!m) return '';
     var v = Number(m);
-    return v >= 1000 ? frDec(v / 1000) + ' km' : Math.round(v) + 'm';
+    return v >= 1000 ? frDec(v / 1000) + ' km' : Math.round(v) + '\u00a0m';   // 23/08 : « 159 m », pas « 159m » (10 appelants)
   }
 
   // Competitor threat/overlap context (offering-change cards) — single compact sentence
@@ -585,9 +585,13 @@
       if (n500 > 0) parts.push(n500 + ' \u00e9v\u00e9nement' + (n500 > 1 ? 's' : '') + ' \u00e0 moins de 500 m');
       if (n1k > 0) parts.push(n1k + ' \u00e0 1 km');
       var density = ci >= 0.5 ? 'Concentration tr\u00e8s \u00e9lev\u00e9e' : ci >= 0.3 ? 'Concentration \u00e9lev\u00e9e' : ci >= 0.15 ? 'Concentration mod\u00e9r\u00e9e' : 'Concentration faible';
-      var line = parts.length > 0 ? parts.join(', ') + '. ' : '';
+      // 23/08 — l'événement NOMMÉ entre dans la PREMIÈRE phrase : la surface coupe le corps à
+      // 2 phrases / 200 caractères, et « Le plus proche : … » vivait en 3e phrase — jamais
+      // rendue (prouvé sur f10c3e58 le 23/08 : « clubs séniors » à 159 m dans d.top_competitors,
+      // absent du corps). Trou « lequel ? » de la matrice questions-exploitant.
+      var nearestTxt = (nearest && nearestDist > 0) ? ' \u2014 le plus proche : \u00ab\u00a0' + trunc(nearest, 60) + '\u00a0\u00bb \u00e0 ' + distLabel(nearestDist) : '';
+      var line = parts.length > 0 ? parts.join(', ') + nearestTxt + '. ' : (nearestTxt ? nearestTxt.replace(/^ \u2014 le/, 'Le') + '. ' : '');
       line += density + ' autour de ' + siteName(p) + '.';
-      if (nearest && nearestDist > 0) line += ' Le plus proche : ' + nearest + ' \u00e0 ' + distLabel(nearestDist) + '.';
       if (isOutdoor(p) && n500 >= 3) line += ' Espace mixte \u2014 votre visibilit\u00e9 ext\u00e9rieure est critique.';
       if (p.nearest_transit_stop_name) line += ' Acc\u00e8s pi\u00e9ton via ' + p.nearest_transit_stop_name + ' (' + Math.round(Number(p.nearest_transit_stop_distance_m || 0)) + 'm).';
       return line;
