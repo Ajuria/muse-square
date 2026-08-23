@@ -285,6 +285,15 @@
     return '';
   }
 
+  // 23/08 — la perturbation NOMMÉE (payload dbt mobility_named : titre IDFM, ligne, arrêt).
+  // Prime sur l'arrêt du SITE (transitInfo) dans le créneau « accès perturbé — … » des 4 cartes
+  // mobilité ; repli inchangé quand le payload ne la porte pas.
+  function namedDisruption(a) {
+    if (!a || !a.disruption_title) return '';
+    var t = String(a.disruption_title).replace(/\s*-\s*/g, ' \u2013 ');
+    return t + (a.transit_stop ? ', arr\u00eat ' + a.transit_stop : '');
+  }
+
   function transitInfo(p) {
     var name = p.nearest_transit_stop_name || '';
     var line = Array.isArray(p.nearest_transit_line_name)
@@ -843,7 +852,7 @@
   // #17 — mobility_disruption
   reg('mobility_disruption', 'Alertez votre \u00e9quipe \u2014 acc\u00e8s perturb\u00e9', 'URGENT', '\ud83d\udea7', '#B71C1C', 'action', 'pulse#radar-changes',
     function(a, p, d) {
-      var ti = transitInfo(p);
+      var ti = namedDisruption(a) || transitInfo(p);
       var impactRaw = Number(d.delta_att_mobility_pct || 0);
       var line = 'Acc\u00e8s perturb\u00e9';
       if (ti) line += ' \u2014 ' + ti;
@@ -863,7 +872,7 @@
   // #18 — mobility_disruption_planned
   reg('mobility_disruption_planned', 'Alertez votre \u00e9quipe \u2014 travaux pr\u00e9vus', 'PLANIFICATION', '\ud83d\udea7', '#F57F17', 'action', 'pulse#radar-changes',
     function(a, p, d) {
-      var ti = transitInfo(p);
+      var ti = namedDisruption(a) || transitInfo(p);
       var impactRaw = Number(d.delta_att_mobility_pct || 0);
       var line = 'Travaux annonc\u00e9s';
       if (ti) line += ' \u2014 ' + ti;
@@ -1753,6 +1762,7 @@
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var stop = p.nearest_transit_stop_name || '';
+      stop = namedDisruption(a) || stop;
       var line = 'Acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + ' et pression concurrentielle \u00d7' + frDec(pr) + '.';
       line += ' Vos visiteurs risquent de se d\u00e9tourner vers des concurrents mieux accessibles.';
       return line;
@@ -1844,6 +1854,7 @@
       var rank = num(a.ft_rank) || 0;
       var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
       var stop = p.nearest_transit_stop_name || '';
+      stop = namedDisruption(a) || stop;
       var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') mais acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + '. Risque de perte de trafic significative.';
       line += ' Communiquez des alternatives d\u2019acc\u00e8s.';
       return line;
