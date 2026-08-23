@@ -502,8 +502,29 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        CAST(ANY_VALUE(cd.commercial_news_at) AS STRING) news_at,
                        ANY_VALUE(tp.audience_overlap_pct) overlap_pct,
                        ANY_VALUE(tp.distance_km) km,
-                       LOGICAL_OR(COALESCE(ct.proposed, FALSE)) proposed
+                       LOGICAL_OR(COALESCE(ct.proposed, FALSE)) proposed,
+                       -- Mémoire 30 j par suivi (23/08, point 2 « wow ») : nuits de lecture,
+                       -- mouvements de prix du mart (fenêtre 30 j du modèle), prochain événement.
+                       ANY_VALUE(nu.nuits_30j) nuits_30j,
+                       ANY_VALUE(oc.hausses) hausses, ANY_VALUE(oc.baisses) baisses, ANY_VALUE(oc.nouveautes) nouveautes,
+                       ANY_VALUE(ev.prochain_nom) prochain_nom, CAST(ANY_VALUE(ev.prochain_date) AS STRING) prochain_date, ANY_VALUE(ev.n_a_venir) evts_a_venir
                 FROM \`${PROJECT}.raw.competitor_tracking\` ct
+                LEFT JOIN (
+                  -- Nuits de lecture, SANS le filtre price_numeric de la jointure h ci-dessous :
+                  -- une page lue sans prix numérique (quai Branly, sans URL tarifs) est une nuit lue.
+                  SELECT competitor_id, COUNT(DISTINCT DATE(crawled_at)) nuits_30j
+                  FROM \`${PROJECT}.raw.competitor_offering_history\`
+                  WHERE crawled_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY) GROUP BY 1) nu ON nu.competitor_id = ct.competitor_id
+                LEFT JOIN (
+                  SELECT competitor_id, COUNTIF(change_type = 'price_increase') hausses, COUNTIF(change_type = 'price_decrease') baisses, COUNTIF(change_type = 'new_offering') nouveautes
+                  FROM \`${PROJECT}.mart.fct_competitor_offering_changes\` GROUP BY 1) oc ON oc.competitor_id = ct.competitor_id
+                LEFT JOIN (
+                  SELECT competitor_id, location_id, COUNT(*) n_a_venir,
+                         ARRAY_AGG(event_name ORDER BY event_date LIMIT 1)[OFFSET(0)] prochain_nom,
+                         MIN(event_date) prochain_date
+                  FROM \`${PROJECT}.mart.fct_competitor_events_conflicts\`
+                  WHERE event_date >= CURRENT_DATE() AND location_id IN UNNEST(@locs) GROUP BY 1, 2) ev
+                  ON ev.competitor_id = ct.competitor_id AND ev.location_id = ct.location_id
                 JOIN \`${PROJECT}.raw.competitor_directory\` cd
                   ON cd.competitor_id = ct.competitor_id AND cd.deleted_at IS NULL
                 LEFT JOIN \`${PROJECT}.mart.fct_competitor_threat_profile\` tp
@@ -982,6 +1003,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
               overlap_pct: num(r.overlap_pct), km: num(r.km), analyse: ana, actu,
               // P3.1-f : suivi posé par le système à l'onboarding → la fiche le dit (« suivi proposé — ajustez »).
               proposed: r.proposed === true || (r.proposed && (r.proposed as any).value === true) || false,
+              nuits_30j: num(r.nuits_30j), hausses: num(r.hausses), baisses: num(r.baisses), nouveautes: num(r.nouveautes),
+              prochain_nom: str(r.prochain_nom), prochain_date: str(r.prochain_date), evts_a_venir: num(r.evts_a_venir),
             };
           }),
           audiences: (audRows as any[]).map((r) => ({ location_id: str(r.location_id), a1: str(r.a1), a2: str(r.a2) })),

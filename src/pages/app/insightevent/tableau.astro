@@ -1224,6 +1224,19 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   : f2.audience === 'mixed' ? ['public partiellement commun', '#F3F4F6', '#6b7280']
                   : ['public diff\u00e9rent du v\u00f4tre', '#E6F6F0', GREEN];
               });
+              // Mémoire 30 j (23/08) : nuits de lecture + mouvements de prix du mois, dans la
+              // ligne tarifs ; prochain événement nommé sous la ligne. Absences dites, jamais inventées.
+              var _memoire = function (f2) {
+                var n = Number(f2.nuits_30j || 0); if (!n) return '';
+                var h = Number(f2.hausses || 0), b = Number(f2.baisses || 0);
+                var mv = h + b ? [h ? h + ' hausse' + (h > 1 ? 's' : '') : '', b ? b + ' baisse' + (b > 1 ? 's' : '') : ''].filter(Boolean).join(', ') + ' sur 30 j' : 'prix stables';
+                return ' \u00b7 ' + n + ' nuit' + (n > 1 ? 's' : '') + ', ' + mv;
+              };
+              var _prochain = function (f2) {
+                if (!f2.prochain_nom || !f2.prochain_date) return '';
+                var nA = Number(f2.evts_a_venir || 0);
+                return '<div style="font-size:11.5px;color:#6b7280;padding:0 0 6px 160px;">prochain \u00e9v\u00e9nement\u00a0: <b style="color:#374151;">' + esc(String(f2.prochain_nom).length > 48 ? String(f2.prochain_nom).slice(0, 46) + '\u2026' : f2.prochain_nom) + '</b> le ' + frD(f2.prochain_date) + (nA > 1 ? ' \u00b7 ' + nA + ' \u00e0 venir' : '') + '</div>';
+              };
               fs2.slice(0, 8).forEach(function (f2) {
                 var prix;
                 if (f2.p_min == null) prix = '<span style="font-size:11px;color:#9CA3AF;">tarifs non publi\u00e9s sur sa page</span>';
@@ -1232,7 +1245,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   prix = '<span style="display:inline-flex;align-items:center;gap:8px;">'
                     + '<span style="position:relative;width:110px;height:6px;background:#F3F4F6;border-radius:3px;flex:none;">'
                     + '<span style="position:absolute;left:' + x1.toFixed(1) + '%;width:' + (x2 - x1).toFixed(1) + '%;height:6px;border-radius:3px;background:#1D3BB3;opacity:0.75;"></span></span>'
-                    + '<span style="font-size:11px;color:#374151;white-space:nowrap;">' + String(f2.p_min).replace('.', ',') + ' \u2013 ' + String(f2.p_max).replace('.', ',') + ' \u20ac \u00b7 ' + f2.n_tarifs + ' tarifs</span></span>';
+                    + '<span style="font-size:11px;color:#374151;white-space:nowrap;">' + String(f2.p_min).replace('.', ',') + ' \u2013 ' + String(f2.p_max).replace('.', ',') + ' \u20ac \u00b7 ' + f2.n_tarifs + ' tarifs' + _memoire(f2) + '</span></span>';
                 }
                 html += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #F5F6F8;font-size:12.5px;flex-wrap:wrap;">'
                   + '<span style="min-width:150px;font-weight:650;">' + esc(String(f2.nom).length > 28 ? String(f2.nom).slice(0, 26) + '\u2026' : f2.nom)
@@ -1244,6 +1257,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   + (f2.cid ? '<a class="tb-link" style="margin-left:auto;font-size:12px;white-space:nowrap;" href="/app/insightevent/competitor?id=' + encodeURIComponent(f2.cid) + '">Consulter \u2192</a>' : '')
                   + '<a href="#" data-tb-fiche="' + esc(f2.nom) + '" style="color:#9CA3AF;text-decoration:none;font-size:14px;padding:0 2px;" title="Offre \u00b7 publics \u00b7 actualit\u00e9 commerciale">\u203a</a>'
                   + '</div>'
+                  + _prochain(f2)
                   + '<div data-tb-fiche-panel="' + esc(f2.nom) + '" style="display:none;padding:2px 0 10px 8px;border-left:2px solid #EEF2FF;margin:0 0 4px 4px;">' + _fichePanel(f2, _audMoi[sid] || []) + '</div>';
               });
               // Lignes de VALEUR du SITE (owner 17/08) \u2014 d\u00e9duites des donn\u00e9es, jamais leur redite.
