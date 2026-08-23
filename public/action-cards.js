@@ -285,6 +285,38 @@
     return '';
   }
 
+  // 23/08 — la perturbation NOMMÉE (payload dbt mobility_named : titre IDFM, ligne, arrêt).
+  // Prime sur l'arrêt du SITE (transitInfo) dans le créneau « accès perturbé — … » des 4 cartes
+  // mobilité ; repli inchangé quand le payload ne la porte pas.
+  function namedDisruption(a) {
+    if (!a || !a.disruption_title) return '';
+    var t = String(a.disruption_title).replace(/\s*-\s*/g, ' \u2013 ');
+    return t + (a.transit_stop ? ', arr\u00eat ' + a.transit_stop : '');
+  }
+
+  // 23/08 — horaires GBP (regularOpeningHours.periods, jour 0 = dimanche) → diff jour par jour en
+  // français. Rend UNIQUEMENT les jours qui changent : « samedi : 10 h – 12 h 30, 13 h 30 – 18 h
+  // → 13 h 30 – 17 h ». Sans periods lisibles (ancien payload = hash) → ''.
+  function hoursPeriodsFr(json) {
+    var arr; try { arr = typeof json === 'string' ? JSON.parse(json) : json; } catch (e) { return null; }
+    if (!Array.isArray(arr)) return null;
+    var byDay = {};
+    var hm = function (t) { return t ? Number(t.hour) + ' h' + (t.minute ? ' ' + (t.minute < 10 ? '0' : '') + t.minute : '') : ''; };
+    arr.forEach(function (pr) { if (!pr || !pr.open) return; var d = Number(pr.open.day); (byDay[d] = byDay[d] || []).push(hm(pr.open) + ' \u2013 ' + hm(pr.close)); });
+    return byDay;
+  }
+  function hoursDiffFr(oldJson, newJson) {
+    var o = hoursPeriodsFr(oldJson), n = hoursPeriodsFr(newJson);
+    if (!o || !n) return [];
+    var DAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    var out = [];
+    for (var d = 0; d < 7; d++) {
+      var a = (o[d] || []).join(', ') || 'ferm\u00e9', b = (n[d] || []).join(', ') || 'ferm\u00e9';
+      if (a !== b) out.push(DAYS[d] + ' : ' + a + ' \u2192 ' + b);
+    }
+    return out;
+  }
+
   function transitInfo(p) {
     var name = p.nearest_transit_stop_name || '';
     var line = Array.isArray(p.nearest_transit_line_name)
@@ -300,7 +332,7 @@
   function distLabel(m) {
     if (!m) return '';
     var v = Number(m);
-    return v >= 1000 ? frDec(v / 1000) + ' km' : Math.round(v) + 'm';
+    return v >= 1000 ? frDec(v / 1000) + ' km' : Math.round(v) + '\u00a0m';   // 23/08 : « 159 m », pas « 159m » (10 appelants)
   }
 
   // Competitor threat/overlap context (offering-change cards) — single compact sentence
@@ -585,9 +617,13 @@
       if (n500 > 0) parts.push(n500 + ' \u00e9v\u00e9nement' + (n500 > 1 ? 's' : '') + ' \u00e0 moins de 500 m');
       if (n1k > 0) parts.push(n1k + ' \u00e0 1 km');
       var density = ci >= 0.5 ? 'Concentration tr\u00e8s \u00e9lev\u00e9e' : ci >= 0.3 ? 'Concentration \u00e9lev\u00e9e' : ci >= 0.15 ? 'Concentration mod\u00e9r\u00e9e' : 'Concentration faible';
-      var line = parts.length > 0 ? parts.join(', ') + '. ' : '';
+      // 23/08 — l'événement NOMMÉ entre dans la PREMIÈRE phrase : la surface coupe le corps à
+      // 2 phrases / 200 caractères, et « Le plus proche : … » vivait en 3e phrase — jamais
+      // rendue (prouvé sur f10c3e58 le 23/08 : « clubs séniors » à 159 m dans d.top_competitors,
+      // absent du corps). Trou « lequel ? » de la matrice questions-exploitant.
+      var nearestTxt = (nearest && nearestDist > 0) ? ' \u2014 le plus proche : \u00ab\u00a0' + trunc(nearest, 60) + '\u00a0\u00bb \u00e0 ' + distLabel(nearestDist) : '';
+      var line = parts.length > 0 ? parts.join(', ') + nearestTxt + '. ' : (nearestTxt ? nearestTxt.replace(/^ \u2014 le/, 'Le') + '. ' : '');
       line += density + ' autour de ' + siteName(p) + '.';
-      if (nearest && nearestDist > 0) line += ' Le plus proche : ' + nearest + ' \u00e0 ' + distLabel(nearestDist) + '.';
       if (isOutdoor(p) && n500 >= 3) line += ' Espace mixte \u2014 votre visibilit\u00e9 ext\u00e9rieure est critique.';
       if (p.nearest_transit_stop_name) line += ' Acc\u00e8s pi\u00e9ton via ' + p.nearest_transit_stop_name + ' (' + Math.round(Number(p.nearest_transit_stop_distance_m || 0)) + 'm).';
       return line;
@@ -839,7 +875,7 @@
   // #17 — mobility_disruption
   reg('mobility_disruption', 'Alertez votre \u00e9quipe \u2014 acc\u00e8s perturb\u00e9', 'URGENT', '\ud83d\udea7', '#B71C1C', 'action', 'pulse#radar-changes',
     function(a, p, d) {
-      var ti = transitInfo(p);
+      var ti = namedDisruption(a) || transitInfo(p);
       var impactRaw = Number(d.delta_att_mobility_pct || 0);
       var line = 'Acc\u00e8s perturb\u00e9';
       if (ti) line += ' \u2014 ' + ti;
@@ -859,7 +895,7 @@
   // #18 — mobility_disruption_planned
   reg('mobility_disruption_planned', 'Alertez votre \u00e9quipe \u2014 travaux pr\u00e9vus', 'PLANIFICATION', '\ud83d\udea7', '#F57F17', 'action', 'pulse#radar-changes',
     function(a, p, d) {
-      var ti = transitInfo(p);
+      var ti = namedDisruption(a) || transitInfo(p);
       var impactRaw = Number(d.delta_att_mobility_pct || 0);
       var line = 'Travaux annonc\u00e9s';
       if (ti) line += ' \u2014 ' + ti;
@@ -1075,11 +1111,15 @@
   // #30 — competitor_hours_change
   reg('competitor_hours_change', 'Horaires modifi\u00e9s', 'CONCURRENCE', '\ud83d\udd52', '#E65100', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
-      var name = a.competitor_name || '';
+      var name = a.competitor_name || 'Un concurrent suivi';
       var h = hoursForCard(p, a);
-      var line = name + ' a chang\u00e9 ses horaires : ' + (a.old_hours || '?') + ' \u2192 ' + (a.new_hours || '?') + '.';
+      // 23/08 — le payload porte les periods GBP (old_value/new_value) ; le diff nomme le jour.
+      var diff = hoursDiffFr(a.old_value, a.new_value);
+      var line = diff.length
+        ? name + ' a chang\u00e9 ses horaires \u2014 ' + diff.slice(0, 2).join(' ; ') + (diff.length > 2 ? ' ; +' + (diff.length - 2) + ' jour' + (diff.length > 3 ? 's' : '') : '') + '.'
+        : name + ' a chang\u00e9 ses horaires' + (a.old_hours && a.new_hours ? ' : ' + a.old_hours + ' \u2192 ' + a.new_hours : '') + '.';
       if (h) line += ' Vos horaires : ' + h + '.';
-      if (a.new_hours && h) line += ' V\u00e9rifiez le chevauchement.';
+      if ((diff.length || a.new_hours) && h) line += ' V\u00e9rifiez le chevauchement.';
       return line;
     },
     {
@@ -1749,6 +1789,7 @@
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var stop = p.nearest_transit_stop_name || '';
+      stop = namedDisruption(a) || stop;
       var line = 'Acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + ' et pression concurrentielle \u00d7' + frDec(pr) + '.';
       line += ' Vos visiteurs risquent de se d\u00e9tourner vers des concurrents mieux accessibles.';
       return line;
@@ -1840,6 +1881,7 @@
       var rank = num(a.ft_rank) || 0;
       var pk = (a.ft_peak_hour != null) ? ', pic habituel vers ' + Number(a.ft_peak_hour) + 'h' + (a.ft_peak_busyness_pct != null ? ' (affluence ' + Number(a.ft_peak_busyness_pct) + ' %)' : '') : '';
       var stop = p.nearest_transit_stop_name || '';
+      stop = namedDisruption(a) || stop;
       var line = 'Pic de fr\u00e9quentation (rang ' + rank + pk + ') mais acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + '. Risque de perte de trafic significative.';
       line += ' Communiquez des alternatives d\u2019acc\u00e8s.';
       return line;
@@ -2435,6 +2477,36 @@
         var base = a.baseline_share != null ? frDec(Number(a.baseline_share) * 100) : null;
         var dir = a.direction || 'surge';
         return 'Note interne ' + siteName(p) + '. ' + cat + ' = ' + (share != null ? share + ' %' : 'part inhabituelle') + ' du CA ce jour vs ' + (base != null ? base + ' %' : 'la normale') + '. ' + (dir === 'collapse' ? 'Produit en recul : vérifier le stock et sa place en rayon.' : 'Produit qui surperforme : sécuriser son réassort et le mettre en avant.');
+      }
+    }
+  );
+
+  // 23/08 — hour_share_move : le grain HEURE, calqué sur item_share_move (surface approuvée
+  // ci-dessus), « produit » → « heure ». Mots de l'heure = ceux de la surface footfall
+  // (« Jouez le pic de 7h — réassort et offres calés »). Payload dbt
+  // (fct_client_hourly_signals_daily) : transaction_hour, hour_share, baseline_share,
+  // share_delta_points, direction, hour_revenue, day_revenue, hour_transactions.
+  reg('hour_share_move', 'Bascule d\u2019une heure', 'INTELLIGENCE', '\u23f0', '#1565C0', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'Une heure';
+      var share = a.hour_share != null ? frDec(Number(a.hour_share) * 100) : null;
+      var base = a.baseline_share != null ? frDec(Number(a.baseline_share) * 100) : null;
+      var dpts = a.share_delta_points != null ? Number(a.share_delta_points) : null;
+      var dir = a.direction || (dpts != null && dpts < 0 ? 'collapse' : 'surge');
+      var line = hr + ' repr\u00e9sente ' + (share != null ? share + ' %' : 'une part inhabituelle') + ' de votre CA ce jour';
+      if (base != null) line += ' vs ' + base + ' % en moyenne';
+      if (dpts != null) line += ' (' + (dpts >= 0 ? '+' : '\u2212') + frDec(Math.abs(dpts)) + ' pts)';
+      line += '.';
+      line += dir === 'collapse' ? ' Heure qui a manqu\u00e9.' : ' Heure qui porte la journ\u00e9e.';
+      return line;
+    },
+    {
+      note_interne: function(a, p, d) {
+        var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'une heure';
+        var share = a.hour_share != null ? frDec(Number(a.hour_share) * 100) : null;
+        var base = a.baseline_share != null ? frDec(Number(a.baseline_share) * 100) : null;
+        var dir = a.direction || 'surge';
+        return 'Note interne ' + siteName(p) + '. ' + hr + ' = ' + (share != null ? share + ' %' : 'part inhabituelle') + ' du CA ce jour vs ' + (base != null ? base + ' %' : 'sa moyenne') + '. ' + (dir === 'collapse' ? 'Heure qui a manqu\u00e9 \u2014 v\u00e9rifier ouverture, caisse, mise en place.' : 'Heure qui porte \u2014 r\u00e9assort et offres cal\u00e9s dessus.');
       }
     }
   );
@@ -3201,6 +3273,13 @@
       return dir === 'collapse'
         ? 'À faire : ' + cat + ' décroche dans vos ventes du jour. Vérifiez son stock et sa place en rayon avant que ça s\'installe.'
         : 'À exploiter : ' + cat + ' surperforme aujourd\'hui. Sécurisez son réassort et mettez-le en avant pendant qu\'il tire.';
+    }, urgency: 'soon' },
+    'hour_share_move': { action: function(a, p, d) {
+      var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'cette heure';
+      var dir = a.direction || 'surge';
+      return dir === 'collapse'
+        ? '\u00c0 faire : ' + hr + ' a manqu\u00e9 aujourd\u2019hui. V\u00e9rifiez ce qui s\u2019y est pass\u00e9 \u2014 ouverture, caisse, mise en place \u2014 avant demain.'
+        : '\u00c0 exploiter : ' + hr + ' porte votre journ\u00e9e. Calez-y r\u00e9assort et offres avant l\u2019ouverture.';
     }, urgency: 'soon' }
   };
 
@@ -3386,6 +3465,6 @@
 
   // v1 internal-alert allowlist — the 5 performance RULE cards eligible for "Communiquer en interne".
   // Keep in sync with src/lib/internalAlertCards.ts (backend Barrier 2).
-  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move'];
+  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','hour_share_move'];
 
 })();

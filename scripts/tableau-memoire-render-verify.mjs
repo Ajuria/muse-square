@@ -35,5 +35,6 @@ check("ligne tarifs : « N tarifs · 31 nuits, prix stables »", /\d+ tarifs · 
 check("prochain événement rendu : « prochain événement : … le JJ/MM »", /prochain événement : .+ le \d{2}\/\d{2}/.test(txt));
 check("Guimet : « · 24 à venir »", txt.indexOf("· 24 à venir") >= 0);
 check("chaînes approuvées intactes : « Prix stables chez vos 5 suivis »", txt.indexOf("Prix stables chez vos 5 suivis") >= 0);
+check("★ infobulle : « N avis · +N sur 30 j » (Guimet)", (() => { const t = Array.from(doc.querySelectorAll("span[title*=' avis']")).map((e) => e.getAttribute("title")); return t.some((x) => /^\d[\d\u202f\u00a0 ]* avis · \+\d+ sur 30 j$/.test(x)); })(), Array.from(doc.querySelectorAll("span[title*=' avis']")).map((e) => e.getAttribute("title")).slice(0, 3).join(" | "));
 check("rien d'inventé : aucun « prochain événement » sur une fiche sans événement (2 fiches avec, 3 sans)", (txt.match(/prochain événement/g) || []).length === fiches.filter((f) => f.prochain_nom).length, (txt.match(/prochain événement/g) || []).length);
 console.log(fails ? `\n${fails} FAIL` : "\nTOUT VERT"); process.exit(fails ? 1 : 0);

@@ -507,6 +507,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        -- mouvements de prix du mart (fenêtre 30 j du modèle), prochain événement.
                        ANY_VALUE(nu.nuits_30j) nuits_30j,
                        ANY_VALUE(oc.hausses) hausses, ANY_VALUE(oc.baisses) baisses, ANY_VALUE(oc.nouveautes) nouveautes,
+                       ANY_VALUE(av.avis_30j) avis_30j,
                        ANY_VALUE(ev.prochain_nom) prochain_nom, CAST(ANY_VALUE(ev.prochain_date) AS STRING) prochain_date, ANY_VALUE(ev.n_a_venir) evts_a_venir
                 FROM \`${PROJECT}.raw.competitor_tracking\` ct
                 LEFT JOIN (
@@ -518,6 +519,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 LEFT JOIN (
                   SELECT competitor_id, COUNTIF(change_type = 'price_increase') hausses, COUNTIF(change_type = 'price_decrease') baisses, COUNTIF(change_type = 'new_offering') nouveautes
                   FROM \`${PROJECT}.mart.fct_competitor_offering_changes\` GROUP BY 1) oc ON oc.competitor_id = ct.competitor_id
+                LEFT JOIN (
+                  -- Avis gagnés sur 30 j (23/08) : dernier relevé GBP − premier relevé de la fenêtre.
+                  -- Un FAIT par suivi, sans seuil — la carte « surge » reste bloquée (porte absolue :
+                  -- Orsay tirait tous les jours ; porte relative : 3 tirs / 14 j, trop mince).
+                  SELECT competitor_id,
+                         MAX_BY(google_rating_count, snapshot_date) - MIN_BY(google_rating_count, snapshot_date) avis_30j
+                  FROM \`${PROJECT}.raw.competitor_snapshots\`
+                  WHERE source = 'gbp' AND crawl_status = 'success' AND google_rating_count IS NOT NULL
+                    AND snapshot_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+                  GROUP BY 1 HAVING COUNT(DISTINCT snapshot_date) >= 2) av ON av.competitor_id = ct.competitor_id
                 LEFT JOIN (
                   SELECT competitor_id, location_id, COUNT(*) n_a_venir,
                          ARRAY_AGG(event_name ORDER BY event_date LIMIT 1)[OFFSET(0)] prochain_nom,
@@ -1004,6 +1015,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
               // P3.1-f : suivi posé par le système à l'onboarding → la fiche le dit (« suivi proposé — ajustez »).
               proposed: r.proposed === true || (r.proposed && (r.proposed as any).value === true) || false,
               nuits_30j: num(r.nuits_30j), hausses: num(r.hausses), baisses: num(r.baisses), nouveautes: num(r.nouveautes),
+              avis_30j: num(r.avis_30j),
               prochain_nom: str(r.prochain_nom), prochain_date: str(r.prochain_date), evts_a_venir: num(r.evts_a_venir),
             };
           }),

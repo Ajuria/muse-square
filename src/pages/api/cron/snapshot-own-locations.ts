@@ -1,5 +1,6 @@
 import "dotenv/config";
 import type { APIRoute } from "astro";
+import { waitUntil } from "@vercel/functions";
 import { makeBQClient } from "../../../lib/bq";
 import { randomUUID } from "crypto";
 import { createHash } from "crypto";
@@ -133,6 +134,12 @@ async function runSnapshots() {
         continue;
       }
 
+      // 23/08 — Places répond 200 avec {} quand le place_id est une ADRESSE (« 7 Rue de
+      // l'Yvette »), pas un établissement : ni note, ni horaires, ni avis. Ce cas était écrit
+      // « success » avec un JSON vide depuis le 10/08 — un défaut masqué. Il se dit désormais.
+      const isBusiness = details.rating != null || details.userRatingCount != null || details.regularOpeningHours != null || details.currentOpeningHours != null;
+      const crawlStatus = isBusiness ? "success" : "not_a_business";
+      if (!isBusiness) console.error(`[snapshot-own] ${locationId}: google_place_id ${googlePlaceId} n'est pas une fiche établissement (réponse vide) — corriger le profil`);
       const googleRating = details.rating ?? null;
       const googleRatingCount = details.userRatingCount ?? null;
       const googlePhotosCount = details.photos?.length ?? null;
@@ -169,7 +176,7 @@ async function runSnapshots() {
             DATE(@snapshot_date), 'gbp',
             @google_rating, @google_rating_count, @google_photos_count,
             @google_hours_hash, @review_texts_json,
-            @raw_extraction_json, 'success', CURRENT_TIMESTAMP()
+            @raw_extraction_json, @crawl_status, CURRENT_TIMESTAMP()
           )
         `,
         params: {
@@ -183,6 +190,7 @@ async function runSnapshots() {
           google_hours_hash: googleHoursHash,
           review_texts_json: reviewTextsJson,
           raw_extraction_json: rawExtractionJson,
+                  crawl_status: crawlStatus,
         },
         types: {
           snapshot_id: "STRING",
@@ -195,6 +203,7 @@ async function runSnapshots() {
           google_hours_hash: "STRING",
           review_texts_json: "STRING",
           raw_extraction_json: "STRING",
+                  crawl_status: "STRING",
         },
         location: BQ_LOCATION,
       });
@@ -216,7 +225,9 @@ export const GET: APIRoute = async ({ request }) => {
     });
   }
 
-  runSnapshots().catch((e) => console.error("[snapshot-own-locations] background error:", e?.message));
+  // 23/08 — waitUntil : sans lui Vercel tue la fonction après la réponse (rien écrit depuis le
+  // 15/08 malgré « Successful 1,38 s »). Même correctif que day-class-impacts (17/08).
+  waitUntil(runSnapshots().catch((e) => console.error("[snapshot-own-locations] background error:", e?.message)));
 
   return new Response(
     JSON.stringify({ ok: true, status: "started" }),

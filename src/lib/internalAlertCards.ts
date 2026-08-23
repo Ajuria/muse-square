@@ -19,6 +19,7 @@ export const V1_ALERT_ACTION_TYPES: string[] = [
   // cartes de performance first-party, payload = vos propres ventes, rien d'externe.
   "offering_mix_shift",
   "item_share_move",
+  "hour_share_move",
 ];
 
 export const V1_ALERT_ACTION_TYPE_SET: ReadonlySet<string> = new Set(V1_ALERT_ACTION_TYPES);
