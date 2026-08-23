@@ -35,13 +35,22 @@ OPPORTUNITÉ fait 632 tirs avec 3 entrées. MÉTÉO fait 155 tirs sans aucun pla
 
 Chacun est reproductible en exécutant le script. Aucun n'a été corrigé.
 
-### Composition cassée — visible à l'écran
+### Composition cassée — CORRIGÉ ET RECTIFIÉ le 23/08
 
-| carte | tirs | ce que le rendu produit |
+**Deux des trois défauts que ce document annonçait n'existaient pas.** Ils venaient de mon
+échafaudage, qui rendait les cartes avec `d = {}` alors que `d` est le contexte du JOUR. Mesuré
+sur `vw_insight_event_day_surface` : `weather_label_fr` n'est vide sur **aucun** des 14 573 jours.
+Le « . » orphelin de `weather_improved` et `weather_worsened`, et le double point, ne se produisent
+donc jamais en production.
+
+| carte | tirs | verdict après mesure |
 |---|---|---|
-| `weather_hazard_onset` | **112** | « Alerte **alerte météo** (niveau faible)**..** » — mot doublé, double point |
-| `weather_improved` | 40 | « **.** Espace extérieur de nouveau accessible. » — point orphelin en tête |
-| `weather_worsened` | 23 | « **.** Sensibilité météo élevée (3/5). » — idem |
+| `weather_hazard_onset` | 112 | **RÉEL** — « Alerte **alerte météo** » : le repli de `hazardLabel` est « alerte météo », préfixé par « Alerte ». Mesuré : **2 567 jours sur 8 453 en alerte (30 %)** n'ont aucun aléa nommé. **Corrigé** — bascule sur `hazardPhrase(d)`, le helper qui existait déjà dans le fichier et que 9 autres cartes emploient. Idem sur les brouillons instagram, site (qui doublait aussi : « Bannière alerte météo. alerte météo. ») et note interne. |
+| `weather_improved` | 40 | **artefact de l'échafaudage** — rien à corriger |
+| `weather_worsened` | 23 | **artefact de l'échafaudage** — rien à corriger |
+
+**Leçon de méthode** : un rendu produit avec une charge utile vide fabrique des défauts. Le relevé
+doit se faire avec les VRAIES lignes des tables que la carte lit — payload ET contexte du jour.
 
 ### La carte se contredit elle-même
 

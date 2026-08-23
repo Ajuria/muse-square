@@ -681,12 +681,17 @@
   // #12 — weather_hazard_onset
   reg('weather_hazard_onset', 'Alerte m\u00e9t\u00e9o', 'M\u00c9T\u00c9O', '\u26a1', '#E65100', 'action', 'pulse#radar-score',
     function(a, p, d) {
-      var hazard = hazardLabel(d);
+      // 23/08 — hazardPhrase, pas hazardLabel. Le repli de hazardLabel est « alerte météo » ;
+      // préfixé par « Alerte » il donnait « Alerte alerte météo ». Mesuré : 2 567 jours sur
+      // 8 453 en alerte, soit 30 %, n'ont aucun aléa nommé et tombaient donc dans le repli.
+      // hazardPhrase existe depuis toujours dans ce fichier et gère exactement ce cas
+      // (`h === 'alerte météo' ? h : 'alerte ' + h`) — 9 autres cartes l'emploient déjà.
+      var hazard = hazardPhrase(d);
       var level = Number(d.alert_level_max || 0);
       var levelFr = level >= 3 ? 'critique' : level >= 2 ? 's\u00e9v\u00e8re' : level >= 1 ? 'mod\u00e9r\u00e9' : 'faible';
       var tRange = '';
       if (d.temperature_2m_min != null && d.temperature_2m_max != null) tRange = temp(d.temperature_2m_min) + '\u2013' + temp(d.temperature_2m_max);
-      var line = 'Alerte ' + hazard + ' (niveau ' + levelFr + ').';
+      var line = hazard.charAt(0).toUpperCase() + hazard.slice(1) + ' (niveau ' + levelFr + ').';
       if (d.weather_label_fr) line += ' ' + d.weather_label_fr;
       if (tRange) line += ', ' + tRange;
       var precip = Number(d.precipitation_sum_mm || 0);
@@ -697,9 +702,9 @@
       return line;
     },
     {
-      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Alerte ' + hazardLabel(d) + '. ' + (isOutdoor(p) ? 'Alternatives couvertes.' : 'Accueil normal.') + ' Max 2200 car.'; },
-      website: function(a, p, d) { return 'Banni\u00e8re alerte m\u00e9t\u00e9o. ' + hazardLabel(d) + '. Informer sur adaptations.'; },
-      note_interne: function(a, p, d) { return 'Note interne. Alerte ' + hazardLabel(d) + ' niveau ' + num(d.alert_level_max) + '. ' + (weatherSens(p) ? 'Site sensible \u2014 adapter effectif, programme, s\u00e9curit\u00e9.' : 'Impact limit\u00e9 mais informer l\u2019\u00e9quipe.'); }
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. ' + (function(h){ return h.charAt(0).toUpperCase() + h.slice(1); })(hazardPhrase(d)) + '. ' + (isOutdoor(p) ? 'Alternatives couvertes.' : 'Accueil normal.') + ' Max 2200 car.'; },
+      website: function(a, p, d) { return 'Banni\u00e8re ' + hazardPhrase(d) + '. Informer sur adaptations.'; },
+      note_interne: function(a, p, d) { return 'Note interne. ' + (function(h){ return h.charAt(0).toUpperCase() + h.slice(1); })(hazardPhrase(d)) + ' niveau ' + num(d.alert_level_max) + '. ' + (weatherSens(p) ? 'Site sensible \u2014 adapter effectif, programme, s\u00e9curit\u00e9.' : 'Impact limit\u00e9 mais informer l\u2019\u00e9quipe.'); }
     }
   );
 
