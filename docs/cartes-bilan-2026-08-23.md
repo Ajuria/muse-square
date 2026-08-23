@@ -14,76 +14,76 @@ Chaque tir du mart, pas un par type. Coin : €/an propre quand la carte est ado
 - **Les jours à forte pression concurrentielle vous rapportent** — Sur 21 jours mesurés, +127 € par jour. · **+6 891 €/an** (21 j / 5 mois, estimé, facteurs mêlés) · Chantier : Dispositif différenciation — visibilité et offre distinctive sur les jours disputés.
 
 ## I. Comment se porte mon activité ? (mes ventes)
-- `item_share_move` · 24/07 · **+46 € · ce jour**
+- `item_share_move` · 24/07 · **+3 620 €/an** (produits qui ont porté la journée, estimé)
   Ethiopia Rg a fait 72 € contre 26 € votre habituel de ce produit (+46 €), sur une journée à +215 €. Produit qui a porté la journée.
   → À exploiter : Ethiopia Rg surperforme aujourd'hui. Sécurisez son réassort et mettez-le en avant pendant qu'il tire.
-- `item_share_move` · 26/07 · **+44 € · ce jour**
+- `item_share_move` · 26/07 · **+3 620 €/an** (produits qui ont porté la journée, estimé)
   Serenity Green Tea Rg a fait 63 € contre 19 € votre habituel de ce produit (+44 €), sur une journée à +401 €. Produit qui a porté la journée.
   → À exploiter : Serenity Green Tea Rg surperforme aujourd'hui. Sécurisez son réassort et mettez-le en avant pendant qu'il tire.
-- `item_share_move` · 27/07 · **+58 € · ce jour**
+- `item_share_move` · 27/07 · **+3 620 €/an** (produits qui ont porté la journée, estimé)
   Dark chocolate Rg a fait 81 € contre 22 € votre habituel de ce produit (+58 €), sur une journée à +365 €. Produit qui a porté la journée.
   → À exploiter : Dark chocolate Rg surperforme aujourd'hui. Sécurisez son réassort et mettez-le en avant pendant qu'il tire.
-- `item_share_move` · 28/07 · **+44 € · ce jour**
+- `item_share_move` · 28/07 · **+3 620 €/an** (produits qui ont porté la journée, estimé)
   Serenity Green Tea Lg a fait 60 € contre 16 € votre habituel de ce produit (+44 €), sur une journée à +623 €. Produit qui a porté la journée.
   → À exploiter : Serenity Green Tea Lg surperforme aujourd'hui. Sécurisez son réassort et mettez-le en avant pendant qu'il tire.
-- `offering_mix_shift` · 28/07 · **+278 € · ce jour**
+- `offering_mix_shift` · 28/07 · **+5 207 €/an** (familles qui ont porté la journée, estimé)
   Coffee a fait 691 € contre 413 € votre habituel de cette famille (+278 €), sur une journée à +623 €. Famille qui a porté la journée.
   → À exploiter : Coffee surperforme aujourd'hui. Sécurisez le réassort et mettez cette catégorie en avant pendant qu'elle tire.
 - `sales_surge` · 28/07 · **+623 € · ce jour**
   CA 1686 € — une très bonne journée, nettement au-dessus de votre mardi habituel : +623 € (1063 €). La hausse vient de l'affluence : +19 % de ventes, panier +10 %.
   → La hausse vient du volume (+19 % de ventes, panier +10 %), porté par les vacances scolaires. À rejouer sur vos prochaines journées comparables.
-- `hour_share_move` · 30/07 · **−175 € · ce jour**
+- `hour_share_move` · 30/07 · **−3 969 €/an** (heures qui ont manqué, estimé)
   6h a fait 0 € contre 175 € votre habituel de cette heure un jeudi (−175 €), sur une journée à −403 €. Heure qui a manqué.
   → À faire : 6h a manqué aujourd’hui. Vérifiez ce qui s’y est passé — ouverture, caisse, mise en place — avant demain.
 - `sales_discount_no_lift` · 31/07 · —
   Vous avez remisé 3,2 % du CA aujourd'hui, contre ~2,2 % d'ordinaire — sans que le CA suive.
   → À corriger : vos remises n'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d'offre.
-- `hour_share_move` · 01/08 · **−160 € · ce jour**
+- `hour_share_move` · 01/08 · **−3 969 €/an** (heures qui ont manqué, estimé)
   8h a fait 105 € contre 265 € votre habituel de cette heure un samedi (−160 €), sur une journée à −559 €. Heure qui a manqué.
   → À faire : 8h a manqué aujourd’hui. Vérifiez ce qui s’y est passé — ouverture, caisse, mise en place — avant demain.
-- `hour_share_move` · 02/08 · **−163 € · ce jour**
+- `hour_share_move` · 02/08 · **−3 969 €/an** (heures qui ont manqué, estimé)
   7h a fait 111 € contre 274 € votre habituel de cette heure un dimanche (−163 €), sur une journée à −590 €. Heure qui a manqué.
   → À faire : 7h a manqué aujourd’hui. Vérifiez ce qui s’y est passé — ouverture, caisse, mise en place — avant demain.
-- `hour_share_move` · 03/08 · **−282 € · ce jour**
+- `hour_share_move` · 03/08 · **−3 969 €/an** (heures qui ont manqué, estimé)
   6h a fait 0 € contre 282 € votre habituel de cette heure un lundi (−282 €), sur une journée à −547 €. Heure qui a manqué.
   → À faire : 6h a manqué aujourd’hui. Vérifiez ce qui s’y est passé — ouverture, caisse, mise en place — avant demain.
-- `item_share_move` · 05/08 · **+42 € · ce jour**
+- `item_share_move` · 05/08 · **+3 620 €/an** (produits qui ont porté la journée, estimé)
   English Breakfast Lg a fait 69 € contre 27 € votre habituel de ce produit (+42 €), sur une journée à −23 €. Produit qui a porté la journée.
   → À exploiter : English Breakfast Lg surperforme aujourd'hui. Sécurisez son réassort et mettez-le en avant pendant qu'il tire.
-- `hour_share_move` · 06/08 · **−259 € · ce jour**
+- `hour_share_move` · 06/08 · **−3 969 €/an** (heures qui ont manqué, estimé)
   6h a fait 0 € contre 259 € votre habituel de cette heure un jeudi (−259 €), sur une journée à −501 €. Heure qui a manqué.
   → À faire : 6h a manqué aujourd’hui. Vérifiez ce qui s’y est passé — ouverture, caisse, mise en place — avant demain.
-- `hour_share_move` · 07/08 · **−130 € · ce jour**
+- `hour_share_move` · 07/08 · **−3 969 €/an** (heures qui ont manqué, estimé)
   15h a fait 0 € contre 130 € votre habituel de cette heure un vendredi (−130 €), sur une journée à −763 €. Heure qui a manqué.
   → À faire : 15h a manqué aujourd’hui. Vérifiez ce qui s’y est passé — ouverture, caisse, mise en place — avant demain.
-- `offering_mix_shift` · 07/08 · **−324 € · ce jour**
+- `offering_mix_shift` · 07/08 · **−3 290 €/an** (familles qui ont manqué, estimé)
   Coffee a fait 423 € contre 747 € votre habituel de cette famille (−324 €), sur une journée à −763 €. Famille qui a manqué.
   → À surveiller : Coffee décroche dans vos ventes du jour. Vérifiez stock, visibilité et prix avant que ça s'installe.
 - `sales_revenue_down_wow` · 07/08 · **−763 € · ce jour**
   CA 1169 € — journée en retrait, sous votre vendredi habituel : -763 € (1932 €). Le recul vient de moins de ventes.
   → À faire : engagez-vous sur le motif, pas sur la journée — levier : les ventes.
-- `item_share_move` · 08/08 · **+40 € · ce jour**
+- `item_share_move` · 08/08 · **+3 620 €/an** (produits qui ont porté la journée, estimé)
   Jamaican Coffee River Rg a fait 71 € contre 31 € votre habituel de ce produit (+40 €), sur une journée à −165 €. Produit qui a porté la journée.
   → À exploiter : Jamaican Coffee River Rg surperforme aujourd'hui. Sécurisez son réassort et mettez-le en avant pendant qu'il tire.
-- `hour_share_move` · 09/08 · **−115 € · ce jour**
+- `hour_share_move` · 09/08 · **−3 969 €/an** (heures qui ont manqué, estimé)
   14h a fait 33 € contre 148 € votre habituel de cette heure un dimanche (−115 €), sur une journée à −43 €. Heure qui a manqué.
   → À faire : 14h a manqué aujourd’hui. Vérifiez ce qui s’y est passé — ouverture, caisse, mise en place — avant demain.
-- `offering_mix_shift` · 09/08 · **+129 € · ce jour**
+- `offering_mix_shift` · 09/08 · **+5 207 €/an** (familles qui ont porté la journée, estimé)
   Branded a fait 200 € contre 71 € votre habituel de cette famille (+129 €), sur une journée à −43 €. Famille qui a porté la journée.
   → À exploiter : Branded surperforme aujourd'hui. Sécurisez le réassort et mettez cette catégorie en avant pendant qu'elle tire.
 - `sales_discount_no_lift` · 10/08 · —
   Vous avez remisé 2,3 % du CA aujourd'hui, contre ~2,2 % d'ordinaire — sans que le CA suive.
   → À corriger : vos remises n'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d'offre.
-- `hour_share_move` · 11/08 · **−106 € · ce jour**
+- `hour_share_move` · 11/08 · **−3 969 €/an** (heures qui ont manqué, estimé)
   17h a fait 34 € contre 140 € votre habituel de cette heure un mardi (−106 €), sur une journée à −427 €. Heure qui a manqué.
   → À faire : 17h a manqué aujourd’hui. Vérifiez ce qui s’y est passé — ouverture, caisse, mise en place — avant demain.
-- `offering_mix_shift` · 14/08 · **−273 € · ce jour**
+- `offering_mix_shift` · 14/08 · **−3 290 €/an** (familles qui ont manqué, estimé)
   Tea a fait 263 € contre 537 € votre habituel de cette famille (−273 €), sur une journée à −341 €. Famille qui a manqué.
   → À surveiller : Tea décroche dans vos ventes du jour. Vérifiez stock, visibilité et prix avant que ça s'installe.
-- `item_share_move` · 15/08 · **+49 € · ce jour**
+- `item_share_move` · 15/08 · **+3 620 €/an** (produits qui ont porté la journée, estimé)
   Our Old Time Diner Blend Lg a fait 78 € contre 29 € votre habituel de ce produit (+49 €), sur une journée à −217 €. Produit qui a porté la journée.
   → À exploiter : Our Old Time Diner Blend Lg surperforme aujourd'hui. Sécurisez son réassort et mettez-le en avant pendant qu'il tire.
-- `item_share_move` · 20/08 · **+64 € · ce jour**
+- `item_share_move` · 20/08 · **+3 620 €/an** (produits qui ont porté la journée, estimé)
   Cappuccino Lg a fait 106 € contre 42 € votre habituel de ce produit (+64 €), sur une journée à +264 €. Produit qui a porté la journée.
   → À exploiter : Cappuccino Lg surperforme aujourd'hui. Sécurisez son réassort et mettez-le en avant pendant qu'il tire.
 - `sales_discount_no_lift` · 20/08 · —
