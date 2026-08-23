@@ -774,11 +774,27 @@ async function annualRevenueQuery(bq: any, location_id: string): Promise<number 
 
 export async function getDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
   const [storeRows, dateRes, annualRevenue, hypRows] = await Promise.all([
-    bq.query({
-      query: `SELECT class_key, family, basis, metric, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id AND metric = 'revenue_residual'`,
-      params: { location_id },
-      location: "EU",
-    }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+    // LECTURE TOLÉRANTE AUX DEUX SCHÉMAS (23/08). Le store est ÉCRASÉ chaque nuit par le cron,
+    // qui tourne le code de PRODUCTION — or `metric` n'existe que depuis le 22/08 sur dev. Tant
+    // que dev n'est pas mergé, la table oscille : avec colonne après un batch dev, sans colonne
+    // après le batch de 02:00. La requête filtrée échouait alors, le `.catch` la rendait muette,
+    // et le repli LIVE recalculait tout — mesuré à 47 s contre un budget dur de 3 s.
+    // On tente la forme à colonne ; si le schéma est l'ancien, on relit sans elle. Les lignes
+    // legacy n'ont pas de `metric` et rowsToImpactsWithImmaterial les lit déjà comme
+    // 'revenue_residual' : le comportement est identique, seul le coût d'un aller-retour
+    // supplémentaire s'ajoute, et UNIQUEMENT dans le cas dégradé.
+    (async () => {
+      const cols = "class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days";
+      const withMetric = await bq.query({
+        query: `SELECT ${cols}, metric FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id AND metric = 'revenue_residual'`,
+        params: { location_id }, location: "EU",
+      }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => null);
+      if (withMetric) return withMetric;
+      return await bq.query({
+        query: `SELECT ${cols} FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
+        params: { location_id }, location: "EU",
+      }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+    })(),
     dateResolutionQuery(bq, location_id, dates),
     annualRevenueQuery(bq, location_id),
     // Temps 2 périmètre — requête PARALLÈLE (dans le Promise.all : ne coûte que si la plus

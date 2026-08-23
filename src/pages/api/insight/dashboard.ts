@@ -229,13 +229,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // les APPRENTISSAGES de la carte « Ce que l'app a appris » + le prix des Occasions, au
       // MÊME registre que les pills/chantiers de Pulse — jamais un agrégat brut parallèle.
       // .catch [] : compte jamais batché = carte absente.
-      bq.query({
-        query: `SELECT location_id, class_key, family, basis, metric, n_days, avg_gap_eur, sd_gap_eur,
-                       med_gap_eur, n_log, avg_log, sd_log, span_days
-                FROM \`${PROJECT}.analytics.day_class_impacts\`
-                WHERE location_id IN UNNEST(@locs) AND metric = 'revenue_residual'`,
-        params: { locs }, location: "EU",
-      }).catch(() => [[]]),
+      // Tolérante aux deux schémas — même raison que le registre (23/08) : le cron nocturne
+      // tourne le code de PRODUCTION et réécrit le store sans `metric` tant que dev n'est pas
+      // mergé. Ici le `.catch(() => [[]])` ne dégradait pas, il SUPPRIMAIT la carte.
+      (async () => {
+        const cols = `location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur,
+                      med_gap_eur, n_log, avg_log, sd_log, span_days`;
+        const withMetric = await bq.query({
+          query: `SELECT ${cols}, metric FROM \`${PROJECT}.analytics.day_class_impacts\`
+                  WHERE location_id IN UNNEST(@locs) AND metric = 'revenue_residual'`,
+          params: { locs }, location: "EU",
+        }).catch(() => null);
+        if (withMetric) return withMetric;
+        return await bq.query({
+          query: `SELECT ${cols} FROM \`${PROJECT}.analytics.day_class_impacts\`
+                  WHERE location_id IN UNNEST(@locs)`,
+          params: { locs }, location: "EU",
+        }).catch(() => [[]]);
+      })(),
       // CA annualisé par site (même formule que annualRevenueQuery du registre, groupée) —
       // dénominateur de la porte de matérialité ; sans CA la porte ne s'applique pas.
       bq.query({
