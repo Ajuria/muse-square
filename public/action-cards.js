@@ -294,6 +294,29 @@
     return t + (a.transit_stop ? ', arr\u00eat ' + a.transit_stop : '');
   }
 
+  // 23/08 — horaires GBP (regularOpeningHours.periods, jour 0 = dimanche) → diff jour par jour en
+  // français. Rend UNIQUEMENT les jours qui changent : « samedi : 10 h – 12 h 30, 13 h 30 – 18 h
+  // → 13 h 30 – 17 h ». Sans periods lisibles (ancien payload = hash) → ''.
+  function hoursPeriodsFr(json) {
+    var arr; try { arr = typeof json === 'string' ? JSON.parse(json) : json; } catch (e) { return null; }
+    if (!Array.isArray(arr)) return null;
+    var byDay = {};
+    var hm = function (t) { return t ? Number(t.hour) + ' h' + (t.minute ? ' ' + (t.minute < 10 ? '0' : '') + t.minute : '') : ''; };
+    arr.forEach(function (pr) { if (!pr || !pr.open) return; var d = Number(pr.open.day); (byDay[d] = byDay[d] || []).push(hm(pr.open) + ' \u2013 ' + hm(pr.close)); });
+    return byDay;
+  }
+  function hoursDiffFr(oldJson, newJson) {
+    var o = hoursPeriodsFr(oldJson), n = hoursPeriodsFr(newJson);
+    if (!o || !n) return [];
+    var DAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    var out = [];
+    for (var d = 0; d < 7; d++) {
+      var a = (o[d] || []).join(', ') || 'ferm\u00e9', b = (n[d] || []).join(', ') || 'ferm\u00e9';
+      if (a !== b) out.push(DAYS[d] + ' : ' + a + ' \u2192 ' + b);
+    }
+    return out;
+  }
+
   function transitInfo(p) {
     var name = p.nearest_transit_stop_name || '';
     var line = Array.isArray(p.nearest_transit_line_name)
@@ -1088,11 +1111,15 @@
   // #30 — competitor_hours_change
   reg('competitor_hours_change', 'Horaires modifi\u00e9s', 'CONCURRENCE', '\ud83d\udd52', '#E65100', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
-      var name = a.competitor_name || '';
+      var name = a.competitor_name || 'Un concurrent suivi';
       var h = hoursForCard(p, a);
-      var line = name + ' a chang\u00e9 ses horaires : ' + (a.old_hours || '?') + ' \u2192 ' + (a.new_hours || '?') + '.';
+      // 23/08 — le payload porte les periods GBP (old_value/new_value) ; le diff nomme le jour.
+      var diff = hoursDiffFr(a.old_value, a.new_value);
+      var line = diff.length
+        ? name + ' a chang\u00e9 ses horaires \u2014 ' + diff.slice(0, 2).join(' ; ') + (diff.length > 2 ? ' ; +' + (diff.length - 2) + ' jour' + (diff.length > 3 ? 's' : '') : '') + '.'
+        : name + ' a chang\u00e9 ses horaires' + (a.old_hours && a.new_hours ? ' : ' + a.old_hours + ' \u2192 ' + a.new_hours : '') + '.';
       if (h) line += ' Vos horaires : ' + h + '.';
-      if (a.new_hours && h) line += ' V\u00e9rifiez le chevauchement.';
+      if ((diff.length || a.new_hours) && h) line += ' V\u00e9rifiez le chevauchement.';
       return line;
     },
     {
