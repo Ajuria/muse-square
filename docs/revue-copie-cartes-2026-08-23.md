@@ -80,7 +80,7 @@ scolaire ». Le geste s'aligne sur l'ordre du corps (commercial d'abord, comme d
 
 | carte | violation |
 |---|---|
-| `competitor_reputation_strength` | titre « **Surveillez** la réputation concurrente » — règle 8 liste `surveiller` parmi les verbes proscrits (« on fait, ou on ne fait pas ») |
+| `competitor_reputation_strength` | « **Surveillez** … » — **CORRIGÉ 23/08**. Owner : le titre doit COMPARER et NOMMER. Exigeait VOTRE note, qui « n'existait pas » — faux : l'API BestTime la renvoyait dans chaque réponse et le cron la jetait (`cron/sync-besttime.ts` b0b3104 + staging dbt PR #49 + dim reconstruite). Titre dynamique à 3 branches, un seul foyer `ratingCompare` : « Centre Pompidou est mieux noté que vous — 4,5 contre 4,1 » / « Vous êtes mieux noté que … » / « … à égalité ». Le corps cesse de dire « réputation solide » en dur (faux sous votre note). Porte dbt `audience_overlap_pct >= 40` proposée : 25 tirs → 4. Limite : comparatif possible sur les 3 sites qui ont un `besttime_venue_id`. |
 
 ### Localisation française
 

@@ -27,6 +27,18 @@
   // « pression ×0.1 », « 4.5/5 », « 4.4 km ». Une seule ligne faisait .replace('.', ',').
   // CLAUDE.md (Localisation) : virgule décimale, jamais toString() brut. Un seul foyer.
   function frDec(v, n) { return Number(v).toFixed(n == null ? 1 : n).replace('.', ','); }
+  // 23/08 — COMPARAISON DE NOTES, un seul foyer (owner : « doit être comparatif pour être
+  // clair »). Votre note vient de p.besttime_rating — la note Google du lieu telle que BestTime
+  // la relaie, capturée par cron/sync-besttime.ts depuis ce matin (elle tombait par terre
+  // avant). Celle du concurrent vient du payload (google_rating). Même échelle /5.
+  // Rend null si l'une des deux manque : on ne compare pas sans les deux termes.
+  function ratingCompare(a, p) {
+    var mine = p && p.besttime_rating != null ? Number(p.besttime_rating) : NaN;
+    var theirs = a && a.google_rating != null ? Number(a.google_rating) : NaN;
+    if (!isFinite(mine) || !isFinite(theirs)) return null;
+    var d = theirs - mine;
+    return { mine: mine, theirs: theirs, sign: Math.abs(d) < 0.1 ? 0 : (d > 0 ? 1 : -1) };
+  }
   // 22/08 — le corps de perfect_storm comptait `parts.length` et son geste `a.favorable_count` :
   // deux sources, « 2 facteurs » dans le corps et « 3 » dans le geste sur la MÊME carte. Un seul
   // calcul désormais, partagé.
@@ -1275,8 +1287,11 @@
       var name = a.competitor_name || 'Un concurrent suivi';
       var rating = (a.google_rating != null) ? frDec(a.google_rating) : null;
       var count = (a.google_rating_count != null) ? Number(a.google_rating_count) : null;
-      var line = name + ' affiche une r\u00e9putation solide';
-      if (rating) line += ' : ' + rating + '/5';
+      // 23/08 — « réputation solide » était codé en dur : faux quand le concurrent est sous
+      // votre note (rendu vérifié : « 3,8/5 … réputation solide »). Le corps dit la note, le
+      // titre dit la comparaison — jamais un jugement que le chiffre contredit.
+      var line = name + ' est not\u00e9';
+      if (rating) line += ' ' + rating + '/5';
       // 23/08 — séparateur de milliers FR (« 96 941 avis », pas « 96941 ») : même convention
       // que les montants du fichier (toLocaleString('fr-FR')). Localisation CLAUDE.md.
       if (count != null) line += ' sur ' + count.toLocaleString('fr-FR') + ' avis';
@@ -2548,6 +2563,17 @@
           var _cev = feedItem.commercial_event_name || feedItem.event_label || '';
           whatText = _cev ? 'Préparez une offre pour ' + (/^[aeiouéèêh]/i.test(_cev) ? "l'" + _cev.toLowerCase() : 'la ' + _cev.toLowerCase()) : 'Préparez une offre pour ce temps fort';
         }
+        // « Surveillez la réputation concurrente » refusé (lexique ligne 119 : surveiller n'est
+        // pas un geste). Owner 23/08 : le titre doit COMPARER et NOMMER. Sans votre note, le
+        // titre retombe sur le nom seul + la note du concurrent — jamais sur « Surveillez ».
+        else if (actionType === 'competitor_reputation_strength') {
+          var _rc = ratingCompare(feedItem, prof);
+          var _rn = feedItem.competitor_name || 'Un concurrent suivi';
+          if (_rc && _rc.sign > 0) whatText = _rn + ' est mieux noté que vous — ' + frDec(_rc.theirs) + ' contre ' + frDec(_rc.mine);
+          else if (_rc && _rc.sign < 0) whatText = 'Vous êtes mieux noté que ' + _rn + ' — ' + frDec(_rc.mine) + ' contre ' + frDec(_rc.theirs);
+          else if (_rc) whatText = _rn + ' et vous à égalité — ' + frDec(_rc.mine) + ' sur 5';
+          else whatText = _rn + (feedItem.google_rating != null ? ' : ' + frDec(feedItem.google_rating) + '/5' : '');
+        }
       } else {
         sowhatText = actionType + ' \u2014 type non reconnu.';
         whatText = actionType.replace(/_/g, ' ');
@@ -2632,7 +2658,12 @@
       var name = a.competitor_name || 'Un concurrent suivi';
       var r = a.google_rating != null ? frDec(a.google_rating) : null;
       var n = a.google_rating_count != null ? Number(a.google_rating_count) : null;
-      return 'À noter : ' + name + ' affiche une réputation solide' + (r != null ? ' (' + r + '/5' + (n != null ? ' sur ' + n + ' avis' : '') + ')' : '') + '. Point de comparaison pour votre propre e-réputation.';
+      var rc = ratingCompare(a, p);
+      var avis = n != null ? ' sur ' + n.toLocaleString('fr-FR') + ' avis' : '';
+      if (rc && rc.sign > 0) return 'À noter : ' + name + ' est à ' + frDec(rc.theirs) + '/5' + avis + ', vous à ' + frDec(rc.mine) + '/5.';
+      if (rc && rc.sign < 0) return 'À noter : vous êtes à ' + frDec(rc.mine) + '/5, ' + name + ' à ' + frDec(rc.theirs) + '/5' + avis + '.';
+      if (rc) return 'À noter : ' + name + ' et vous à ' + frDec(rc.mine) + '/5' + avis + '.';
+      return 'À noter : ' + name + ' affiche une réputation solide' + (r != null ? ' (' + r + '/5' + avis + ')' : '') + '.';
     }, urgency: 'plan' },
     'sales_missed_opportunity': { action: function(a, p, d) {
       var avg = a.avg_30d != null ? Math.round(Number(a.avg_30d)) : null;
