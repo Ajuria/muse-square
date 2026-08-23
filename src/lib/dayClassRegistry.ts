@@ -154,6 +154,16 @@ export const CARD_POP_CLASSES: Array<{ key: string; family: string; label_fr: st
   // Apostrophe TYPOGRAPHIQUE exigée : le strip du préfixe côté client (« ^jours (de |d’|à )? »)
   // ne connaît qu'elle — l'ASCII donnait « perdus · d'affluence sans conversion » (vu owner 01/08).
   { key: "pop_traffic_not_conv", family: "card", label_fr: "jours d’affluence sans conversion" },
+  // 23/08 — populations des cartes de FAITS en euros (owner : « €/an au rythme constaté »).
+  // Valeur/jour = le delta_eur de la carte (réel − attendu de l'heure/produit/famille), PAS le
+  // résidu du jour. Deux populations par grain — une par sens — sinon la médiane d'un mélange
+  // manque/porte tomberait à ~0 et la porte de cohérence de signe éteindrait tout.
+  { key: "pop_hour_miss",    family: "card", label_fr: "heures qui ont manqué" },
+  { key: "pop_hour_carry",   family: "card", label_fr: "heures qui ont porté la journée" },
+  { key: "pop_item_miss",    family: "card", label_fr: "produits qui ont manqué" },
+  { key: "pop_item_carry",   family: "card", label_fr: "produits qui ont porté la journée" },
+  { key: "pop_family_miss",  family: "card", label_fr: "familles qui ont manqué" },
+  { key: "pop_family_carry", family: "card", label_fr: "familles qui ont porté la journée" },
 ];
 
 const CLASS_LABELS: Record<string, string> = Object.fromEntries([
@@ -281,6 +291,33 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         )) AS d
       WHERE s.entity_is_followed = TRUE AND s.event_date IS NOT NULL
       GROUP BY s.location_id, d
+    ),
+    -- 23/08 — l'écart du jour de chaque carte de fait (l'heure / le produit / la famille au plus
+    -- grand |delta_eur| parmi les tirs, exactement celui que la carte montre). Branché dans l'union
+    -- des populations, jamais joint à joined (coût du plan, voir plus bas).
+    fact_hour AS (
+      SELECT location_id, transaction_date AS date,
+             ARRAY_AGG(delta_eur ORDER BY ABS(delta_eur) DESC LIMIT 1)[OFFSET(0)] AS v
+      FROM \`${PROJECT}.mart.fct_client_hourly_signals_daily\`
+      WHERE is_hour_move AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 730 DAY) AND transaction_date < CURRENT_DATE()
+      ${singleLocation ? "AND location_id = @location_id" : ""}
+      GROUP BY 1, 2
+    ),
+    fact_item AS (
+      SELECT location_id, transaction_date AS date,
+             ARRAY_AGG(delta_eur ORDER BY ABS(delta_eur) DESC LIMIT 1)[OFFSET(0)] AS v
+      FROM \`${PROJECT}.mart.fct_client_item_signals_daily\`
+      WHERE is_eur_move AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 730 DAY) AND transaction_date < CURRENT_DATE()
+      ${singleLocation ? "AND location_id = @location_id" : ""}
+      GROUP BY 1, 2
+    ),
+    fact_family AS (
+      SELECT location_id, transaction_date AS date,
+             ARRAY_AGG(delta_eur ORDER BY ABS(delta_eur) DESC LIMIT 1)[OFFSET(0)] AS v
+      FROM \`${PROJECT}.mart.fct_client_offering_signals_daily\`
+      WHERE is_eur_move AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 730 DAY) AND transaction_date < CURRENT_DATE()
+      ${singleLocation ? "AND location_id = @location_id" : ""}
+      GROUP BY 1, 2
     ),
     joined AS (
       SELECT
@@ -524,6 +561,16 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       UNION ALL
       SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_traffic_not_conv', 'pure'
       FROM counted WHERE pop_traffic_nc_flag
+      UNION ALL
+      -- 23/08 — cartes de faits : valeur/jour = le delta_eur de la carte, gap_log NULL (régime
+      -- linéaire de rowToImpact, comme discount_no_lift). Une population par sens.
+      -- Lues DIRECTEMENT depuis fact_* (pas via joined/counted : counted est référencé ~15 fois
+      -- dans ces unions et BigQuery recalculait joined avec les jointures — mesuré 34 s → 65-170 s).
+      SELECT location_id, date, 'revenue_residual', v, CAST(NULL AS FLOAT64), 'card', IF(v < 0, 'pop_hour_miss', 'pop_hour_carry'), 'pure' FROM fact_hour
+      UNION ALL
+      SELECT location_id, date, 'revenue_residual', v, CAST(NULL AS FLOAT64), 'card', IF(v < 0, 'pop_item_miss', 'pop_item_carry'), 'pure' FROM fact_item
+      UNION ALL
+      SELECT location_id, date, 'revenue_residual', v, CAST(NULL AS FLOAT64), 'card', IF(v < 0, 'pop_family_miss', 'pop_family_carry'), 'pure' FROM fact_family
     ),
     span AS (
       SELECT location_id, DATE_DIFF(MAX(date), MIN(date), DAY) + 1 AS span_days
@@ -977,6 +1024,16 @@ export function enjeuForCandidate(result: DayClassResult, candidate: { action_ty
     // environnementale. L'héritage du motif du jour vit désormais dans
     // motifContextForCandidate (ligne de contexte). Pas de population passant les portes ->
     // null, et le client rend le mode « € ce jour » (amendement 6).
+    // 23/08 — cartes de faits : la population dépend du SENS du tir (direction du payload).
+    const byDir = CARD_POPULATION_BY_DIRECTION[actionType];
+    if (byDir) {
+      // monitor.ts passe la ligne du mart : data_payload y est encore une chaîne JSON.
+      let dp: any = candidate?.data_payload;
+      if (typeof dp === "string") { try { dp = JSON.parse(dp); } catch { dp = null; } }
+      const dir = String(dp?.direction || (Number(dp?.delta_eur ?? 0) < 0 ? "collapse" : "surge"));
+      const popKey = dir === "collapse" ? byDir.miss : byDir.carry;
+      return result.impacts.get(popKey) ?? null;
+    }
     const pop = CARD_POPULATION[actionType];
     return pop ? (result.impacts.get(pop) ?? null) : null;
   }
@@ -1119,6 +1176,13 @@ const CARD_POPULATION: Record<string, string> = {
   // factures grossiste. À brancher quand la règle est re-basée sur le résiduel OU quand les
   // canaux sont séparés (réponse Sage 100 en attente). D'ici là : mode « € ce jour ».
   sales_traffic_not_converting: "pop_traffic_not_conv",
+};
+
+// 23/08 — cartes de faits : population par SENS (heure/produit/famille qui manque ou porte).
+const CARD_POPULATION_BY_DIRECTION: Record<string, { miss: string; carry: string }> = {
+  hour_share_move:    { miss: "pop_hour_miss",   carry: "pop_hour_carry" },
+  item_share_move:    { miss: "pop_item_miss",   carry: "pop_item_carry" },
+  offering_mix_shift: { miss: "pop_family_miss", carry: "pop_family_carry" },
 };
 
 // Contexte environnemental cité par la carte (ligne de texte, jamais le coin).
