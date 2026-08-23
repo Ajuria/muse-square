@@ -378,6 +378,15 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 ? '<button type="button" class="tb-link" data-tb-follow="' + esc(tr.place_id) + '" data-tb-follow-nom="' + esc(tr.nom) + '" data-tb-follow-city="' + esc(tr.city || "") + '" data-tb-follow-loc="' + esc(tr.location_id || "") + '" style="background:none;border:none;padding:0;font-family:inherit;cursor:pointer;" title="Ajoute ' + esc(tr.nom) + ' \u00e0 votre veille \u2014 lecture chaque nuit d\u00e8s ce soir">Suivre →</button>'
                 : '<a class="tb-link" href="/app/insightevent/prompt?q=' + encodeURIComponent("Suivre le concurrent " + tr.nom) + '">Suivre →</a>' });
           });
+          // Amorçage veille (23/08, point 1 « wow ») : un site SANS suivi réel (watched_competitors
+          // × location_id — pas le is_followed sans site de la couverture) n'a ni prix, ni
+          // événements, ni réputation à lire la nuit. La rangée lance discover-competitors ;
+          // les candidats se rendent sous la forme EXACTE des rangées « Suivez X » ci-dessus.
+          ((g.watched_par_site) || []).filter(function (w) { return (w.n_watched || 0) < 3; }).forEach(function (w) {
+            aFaire.push({ rang: 4, iso: null, col: AMBER,
+              titre: "Cherchez vos concurrents \u00b7 " + (w.n_watched ? w.n_watched + " suivi" + (w.n_watched > 1 ? "s" : "") : "aucun suivi"), site: w.site_label || null,
+              geste: '<button type="button" class="tb-link" data-tb-discover="' + esc(w.location_id) + '" style="background:none;border:none;padding:0;font-family:inherit;cursor:pointer;">Chercher \u2192</button>' });
+          });
           if ((g.savoir || {}).evts_sans_objectif) aFaire.push({ rang: 4, iso: null, col: AMBER,
             titre: "Fixez un objectif à " + g.savoir.evts_sans_objectif + " événements",
             sub: "sans objectif, aucun test ne peut conclure",
@@ -505,6 +514,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             "Déclarer": "débloque le KPI profit sur toutes vos mesures",
             "Fixer": "sans cible, aucun verdict — la fixer rend ces événements jugeables",
             "Suivre": "sa page entre dans votre veille — événements, offres et tarifs lus chaque nuit",
+            "Chercher": "3 à 5 concurrents de votre zone, trouvés sur le web — à suivre d'un clic",
             "Répondre": "votre réponse débloque le montant de la carte"
           };
           var verbeSeul = function (g2) {
@@ -527,7 +537,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             if (_verbe && BENEFICE[_verbe]) r = Object.assign({}, r, { sub: BENEFICE[_verbe] });
             return '<div class="tb-af">'
               + '<span>' + quand + '</span>'
-              + '<span style="min-width:0;"><span class="t" title="' + esc(r.titre) + '">' + esc(r.titre)
+              + '<span style="min-width:0;"><span class="t" title="' + esc(r.tip || r.titre) + '">' + esc(r.titre)
               + (J.multi_site && r.site ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;font-weight:400;">' + esc(r.site) + '</span>' : "") + '</span>'
               + (r.sub ? '<span class="u">' + r.sub + '</span>' : "") + '</span>'
               + '<span class="v">' + (r.droite || "") + '</span>'
@@ -1452,7 +1462,38 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               if (pn) pn.style.display = pn.style.display === "none" ? "block" : "none";
             });
           });
-          body.querySelectorAll("[data-tb-follow]").forEach(function (b) {
+          // Découverte (23/08) : POST discover-competitors, puis les candidats s'insèrent sous la
+          // rangée, chacun = rangée « Suivez X » (même afRow, même bouton data-tb-follow,
+          // place_id vide — add-competitor géocode par nom + ville).
+          var bindFollow;
+          body.querySelectorAll("[data-tb-discover]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              if (b.disabled) return;
+              b.disabled = true; b.textContent = "Recherche\u2026";
+              var row = b.closest(".tb-af") || b.parentNode;
+              fetch("/api/competitive/discover-competitors", {
+                method: "POST", headers: { "content-type": "application/json" },
+                body: JSON.stringify({ location_id: b.getAttribute("data-tb-discover") }),
+              }).then(function (r) { return r.json(); }).then(function (jj) {
+                var cands = (jj && jj.ok && jj.candidates) || [];
+                if (!cands.length) { b.textContent = "Rien trouv\u00e9"; b.disabled = true; return; }
+                b.textContent = cands.length + " trouv\u00e9" + (cands.length > 1 ? "s" : "");
+                var frag = document.createElement("div");
+                // La phrase de la page source (preuve de l'agent) vit en infobulle du titre ;
+                // le sous-titre est le bénéfice approuvé du verbe Suivre (BENEFICE, afRow).
+                frag.innerHTML = cands.map(function (c) {
+                  return afRow({ rang: 4, iso: null, col: AMBER,
+                    titre: "Suivez " + trunc(c.competitor_name, 40),
+                    tip: c.source_sentence || c.city || "",
+                    geste: '<button type="button" class="tb-link" data-tb-follow="" data-tb-follow-nom="' + esc(c.competitor_name) + '" data-tb-follow-city="' + esc(c.city || "") + '" data-tb-follow-addr="' + esc(c.address || "") + '" data-tb-follow-url="' + esc(c.source_url || "") + '" data-tb-follow-loc="' + esc(b.getAttribute("data-tb-discover")) + '" style="background:none;border:none;padding:0;font-family:inherit;cursor:pointer;">Suivre \u2192</button>' });
+                }).join("");
+                var after = row; while (frag.firstChild) { after = row.parentNode.insertBefore(frag.firstChild, after.nextSibling); }
+                bindFollow(row.parentNode);
+              }).catch(function () { b.disabled = false; b.textContent = "Chercher \u2192"; });
+            });
+          });
+          bindFollow = function (scope) { scope.querySelectorAll("[data-tb-follow]:not([data-tb-bound])").forEach(function (b) {
+            b.setAttribute("data-tb-bound", "1");
             b.addEventListener("click", function () {
               if (b.disabled) return;
               b.disabled = true; b.textContent = "Ajout\u2026";
@@ -1465,13 +1506,16 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   competitor_name: b.getAttribute("data-tb-follow-nom") || "",
                   city: b.getAttribute("data-tb-follow-city") || "",
                   google_place_id: b.getAttribute("data-tb-follow") || "",
+                  address: b.getAttribute("data-tb-follow-addr") || undefined,
+                  source_url: b.getAttribute("data-tb-follow-url") || undefined,
                 }),
               }).then(function (r) { return r.json(); }).then(function (jj) {
                 if (jj && jj.ok) { b.textContent = "Suivi \u2713"; b.style.color = "#059669"; b.title = "Dans votre veille \u2014 premi\u00e8re lecture cette nuit"; }
                 else { b.disabled = false; b.textContent = "Suivre \u2192"; alert("Ajout impossible : " + ((jj && jj.error) || "r\u00e9essayez")); }
               }).catch(function () { b.disabled = false; b.textContent = "Suivre \u2192"; });
             });
-          });
+          }); };
+          bindFollow(body);
           // Événements publics (19/08) : dépliage « au-delà » + filtre « même public » — bascule
           // d'affichage sur des rangées PRÉ-RENDUES, aucun re-calcul.
           body.querySelectorAll("[data-ep-beyond]").forEach(function (b) {

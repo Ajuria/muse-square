@@ -38,7 +38,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [ca7Rows], [opsValRows], [evtPubRows], [evtCovRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [ca7Rows], [opsValRows], [evtPubRows], [evtCovRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -334,6 +334,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
         query: `SELECT location_id, COUNT(*) AS n_total, COUNTIF(is_followed) AS n_suivis
                 FROM \`${PROJECT}.mart.fct_competitor_threat_profile\`
                 WHERE location_id IN UNNEST(@locs) AND threat_level = 'high' GROUP BY 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // Suivis RÉELS par site (23/08) : watched_competitors filtré par location_id. Le
+      // `is_followed` de la ligne au-dessus est calculé SANS location_id dans
+      // fct_competitor_directory — un concurrent suivi par n'importe quel site est marqué
+      // suivi pour tous (11 affichés sur f10c3e58, 2 réels). L'amorçage « découvrir des
+      // concurrents » ne peut pas s'appuyer dessus, il ne s'afficherait jamais.
+      bq.query({
+        query: `SELECT location_id, COUNT(DISTINCT competitor_id) AS n_watched
+                FROM \`${PROJECT}.raw.watched_competitors\`
+                WHERE location_id IN UNNEST(@locs) AND deleted_at IS NULL GROUP BY 1`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
       // Les trous nommés : menaces fortes NON suivies (le geste « Suivez X »).
@@ -931,6 +942,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
           offres: (offChgRows as any[]).map((r) => ({ nom: str(r.competitor_name), item: str(r.item), change_type: str(r.change_type), direction: str(r.price_direction), avant: num(r.old_price_numeric), apres: num(r.new_price_numeric), pct: num(r.price_pct_change), qualif: str(r.new_price_qualifier), vu_le: str(r.vu_le), src_url: str(r.src_url) })),
           offres_base: { n_tarifs: Number(num((offBaseRows as any[])[0]?.n_tarifs) ?? 0), n_lieux: Number(num((offBaseRows as any[])[0]?.n_lieux) ?? 0) },
           par_site: (covSiteRows as any[]).map((r) => ({ location_id: str(r.location_id), site_label: siteLabel[String(str(r.location_id))] || null, n_total: num(r.n_total), n_suivis: num(r.n_suivis) })),
+          // Suivis réels par site (watched_competitors × location_id) — pour l'amorçage
+          // « découvrir des concurrents » (23/08). Tous les sites demandés, 0 inclus.
+          watched_par_site: locs.map((l) => {
+            const w = (watchedRows as any[]).find((r) => String(str(r.location_id)) === String(l));
+            return { location_id: String(l), site_label: siteLabel[String(l)] || null, n_watched: w ? num(w.n_watched) : 0 };
+          }),
           trous: (trousRows as any[]).map((r) => ({ nom: str(r.competitor_name), km: num(r.km), overlap: num(r.overlap), place_id: str(r.google_place_id), city: str(r.city), location_id: str(r.location_id) })),
           // Mon positionnement (17/08) : la fiche factuelle par suivi — on nomme ou on se tait.
           fiches: (ficheRows as any[]).map((r) => {
