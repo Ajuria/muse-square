@@ -44,14 +44,43 @@ export type KpiKey =
                          //      (nom de famille via saved_items.kpi_family, rejoint par saved_item_id)
                          //      → mesuré par measureFamilyRevenueMean, PAS par KPI_EXPR.
 
-// SQL expression per measurable KPI (daily mean over the period). NULL-safe: AVG ignores NULLs.
-const KPI_EXPR: Partial<Record<KpiKey, string>> = {
-  footfall: "AVG(daily_visitors)",
-  conversion: "AVG(daily_conversion_rate)",
-  basket: "AVG(daily_avg_basket)",
-  transactions: "AVG(daily_transactions)",
-  discount: "AVG(daily_discount_total)",
+// ── KPI → COLONNE : LE foyer unique (22/08) ────────────────────────────────────────────────
+// Cette correspondance était écrite QUATRE fois : ici, deux `CASE measured_metric WHEN …` dans
+// dashboard.ts (réalisé de la fenêtre + mini-courbe par jour), et le dépivot `vals` du moteur de
+// classes. Quatre copies d'une même phrase dérivent : il suffit qu'un mart renomme une colonne
+// pour que trois surfaces sur quatre disent vrai. Un KPI de plus s'ajoute ICI et nulle part
+// ailleurs — les trois consommateurs lisent cette table.
+export const KPI_DAILY_COL: Partial<Record<KpiKey, string>> = {
+  footfall: "daily_visitors",
+  conversion: "daily_conversion_rate",
+  basket: "daily_avg_basket",
+  transactions: "daily_transactions",
+  discount: "daily_discount_total",
 };
+
+/** Les KPI mesurables sur fct_client_daily_performance — l'ordre est stable (clé du map). */
+export const KPI_PERF_KEYS = Object.keys(KPI_DAILY_COL) as KpiKey[];
+
+/** `'footfall','conversion',…` — pour un `IN (…)` SQL. Jamais une liste retapée à la main. */
+export function kpiKeyListSql(): string {
+  return KPI_PERF_KEYS.map((k) => `'${k}'`).join(",");
+}
+
+/**
+ * `CASE <metricExpr> WHEN 'footfall' THEN p.daily_visitors … END` — la valeur journalière du KPI
+ * porté par la ligne. `metricExpr` est l'expression qui donne la clé (p. ex. `c.measured_metric`),
+ * `alias` le préfixe de table des colonnes.
+ */
+export function kpiCaseSql(metricExpr: string, alias: string = "p"): string {
+  const whens = KPI_PERF_KEYS.map((k) => `WHEN '${k}' THEN ${alias}.${KPI_DAILY_COL[k]}`).join(" ");
+  return `CASE ${metricExpr} ${whens} END`;
+}
+
+// SQL expression per measurable KPI (daily mean over the period). NULL-safe: AVG ignores NULLs.
+// DÉRIVÉE de KPI_DAILY_COL — plus jamais une seconde liste à tenir à jour.
+const KPI_EXPR: Partial<Record<KpiKey, string>> = Object.fromEntries(
+  KPI_PERF_KEYS.map((k) => [k, `AVG(${KPI_DAILY_COL[k]})`]),
+) as Partial<Record<KpiKey, string>>;
 
 export const KPI_LABEL_FR: Record<KpiKey, string> = {
   revenue_residual: "CA vs normale",
@@ -185,9 +214,8 @@ export async function measureKpiWindow(bq: any, location_id: string, key: KpiKey
 /** Écart-type JOURNALIER du KPI sur les 30 j pré-fenêtre (même convention que la baseline).
  *  >= 5 jours requis, sinon null — jamais une bande de bruit inventée sur 2 points. */
 export async function measureKpiDailySd(bq: any, location_id: string, key: KpiKey, window_start: string): Promise<number | null> {
-  const expr = KPI_EXPR[key];
-  if (!expr) return null;
-  const col = expr.replace(/^AVG\(/, "").replace(/\)$/, "");
+  const col = KPI_DAILY_COL[key];
+  if (!col) return null;
   const end = new Date(window_start + "T00:00:00Z"); end.setUTCDate(end.getUTCDate() - 1);
   const start = new Date(end); start.setUTCDate(start.getUTCDate() - 29);
   const rows = await bq.query({

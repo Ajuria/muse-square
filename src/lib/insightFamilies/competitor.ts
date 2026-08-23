@@ -78,7 +78,7 @@ async function measureCompetitorImpact(
     if (!arr.length) return { days: 0, contrasts: [] };
     const days = Number(arr[0]?.days ?? 0);
     const LABEL: Record<string, string> = {
-      followed_activity: "Activité de vos concurrents suivis",
+      followed_activity: "Activité des concurrents que vous suivez",
       ambient_index: "Pression locale même secteur (indice)",
     };
     const contrasts: CompetitorContrast[] = [];
@@ -124,7 +124,7 @@ function competitorImpactOutputs(impact: { days: number; contrasts: CompetitorCo
         facts.push({
           fact_fr: isIdx
             ? `Les jours de forte pression concurrentielle locale (même secteur, indice quotidien), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé aux jours de faible pression — ${detail}.`
-            : `Les jours où vos concurrents suivis sont les plus actifs (${hiFr}), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé à leurs jours les plus calmes (${loFr}) — ${detail}.`,
+            : `Les jours où les concurrents que vous suivez sont les plus actifs (${hiFr}), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé à leurs jours les plus calmes (${loFr}) — ${detail}.`,
           claim_type: "observed_difference",
           tier: c.tier,
         });
@@ -221,7 +221,7 @@ export async function competitorFamily(bq: any, location_id: string, date: strin
   const maxOverlap = overlaps.length ? Math.round(Math.max(...overlaps)) : null;
   const real = followed.filter((c: any) => c.overlap != null && c.overlap >= REAL_BAR);
 
-  const SRC_FOLLOWED = "Vos concurrents suivis — audience commune (profil de menace)";
+  const SRC_FOLLOWED = "Les concurrents que vous suivez — audience commune (profil de menace)";
 
   // ── État A — no real competitors: tell the truth, prompt following real ones. No fabricated moves.
   if (!real.length) {
@@ -233,7 +233,7 @@ export async function competitorFamily(bq: any, location_id: string, date: strin
     // "presque un concurrent" and re-invent the rivalry this state exists to refuse.
     const facts: FamilyFact[] = followed.length
       ? [{
-          fact_fr: `Aucun de vos ${followed.length} concurrents suivis n'atteint le seuil de concurrence réelle : leur audience commune plafonne à ${maxOverlap ?? 0} % (seuil : ${REAL_BAR} %).`,
+          fact_fr: `Aucun des ${followed.length} concurrents que vous suivez n'atteint le seuil de concurrence réelle : leur audience commune plafonne à ${maxOverlap ?? 0} % (seuil : ${REAL_BAR} %).`,
           claim_type: "observed",
         }]
       : [{ fact_fr: "Vous ne suivez aucun concurrent pour ce lieu.", claim_type: "observed" }];
@@ -306,7 +306,7 @@ export async function competitorFamily(bq: any, location_id: string, date: strin
   const lead0 = real[0];
   const lead0Overlap = num(lead0?.overlap);
   const facts: FamilyFact[] = [{
-    fact_fr: `${real.length === 1 ? "Un seul de vos concurrents suivis dépasse" : `${real.length} de vos concurrents suivis dépassent`} le seuil de concurrence réelle (≥ ${REAL_BAR} % d'audience commune)${lead0?.name && lead0Overlap != null ? `, dont ${lead0.name} (${Math.round(lead0Overlap)} %)` : ""}.`,
+    fact_fr: `${real.length === 1 ? "Un seul des concurrents que vous suivez dépasse" : `${real.length} des concurrents que vous suivez dépassent`} le seuil de concurrence réelle (≥ ${REAL_BAR} % d'audience commune)${lead0?.name && lead0Overlap != null ? `, dont ${lead0.name} (${Math.round(lead0Overlap)} %)` : ""}.`,
     claim_type: "observed",
   }];
   for (const m of moves) {

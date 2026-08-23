@@ -15,6 +15,10 @@ export const V1_ALERT_ACTION_TYPES: string[] = [
   "sales_discount_no_lift",
   "sales_revenue_down_wow",
   "footfall_vs_basket_decomposition",
+  // 23/08 — famille et produit (fct_client_offering_signals_daily / fct_client_item_signals_daily) :
+  // cartes de performance first-party, payload = vos propres ventes, rien d'externe.
+  "offering_mix_shift",
+  "item_share_move",
 ];
 
 export const V1_ALERT_ACTION_TYPE_SET: ReadonlySet<string> = new Set(V1_ALERT_ACTION_TYPES);

@@ -93,8 +93,8 @@ export type DayClassResult = {
 // la donnée : 32,7 °C y donne lvl_heat = 3, pas 1. La MESURE de la scission reste valide (elle
 // porte sur lvl 1 vs lvl >= 2, et les +70/-72 €/j sont réels) — seuls les degrés étaient faux.
 export const WEATHER_DAY_CLASSES: Array<{ key: string; level_col: string; min_lvl: number; max_lvl?: number; label_fr: string }> = [
-  { key: "heat_25_27",   level_col: "lvl_heat", min_lvl: 1, max_lvl: 1, label_fr: "journées à 25–27 °C" },
-  { key: "heat_28_plus", level_col: "lvl_heat", min_lvl: 2,             label_fr: "journées à 28 °C et plus" },
+  { key: "heat_25_27",   level_col: "lvl_heat", min_lvl: 1, max_lvl: 1, label_fr: "jours à 25–27 °C" },
+  { key: "heat_28_plus", level_col: "lvl_heat", min_lvl: 2,             label_fr: "jours à 28 °C et plus" },
   { key: "rain", level_col: "lvl_rain", min_lvl: 1, label_fr: "jours de pluie marquée" },
   { key: "wind", level_col: "lvl_wind", min_lvl: 1, label_fr: "jours de vent fort" },
   { key: "snow", level_col: "lvl_snow", min_lvl: 1, label_fr: "jours de neige" },
@@ -122,7 +122,12 @@ export const TERCILE_DAY_CLASSES: Array<{ key: string; family: string; index_col
 
 export const OTHER_DAY_CLASSES: Array<{ key: string; family: string; label_fr: string }> = [
   { key: "mobility_disruption", family: "mobility", label_fr: "jours à perturbation de mobilité" },
-  { key: "followed_activity_high", family: "suivis", label_fr: "jours de forte activité de vos concurrents suivis" },
+  { key: "followed_activity_high", family: "suivis", label_fr: "jours de forte activité des concurrents que vous suivez" },
+  // Libellé arbitré owner 21/08, en DEUX temps. « vos concurrents suivis » d'abord rejeté
+  // (« n'est pas français ») ; « vos concurrents » ensuite écarté parce que la restriction est
+  // MESURÉE et non négociable : dayClassAggregateSql filtre `entity_is_followed = TRUE`, soit
+  // 17 lieux sur 22 détectés chez f10c3e58 — le libellé large aurait annoncé les 22. Forme
+  // retenue : la relative, seule tournure à la fois exacte et grammaticale.
   { key: "school_holiday", family: "calendar", label_fr: "jours de vacances scolaires" },
   { key: "public_holiday", family: "calendar", label_fr: "jours fériés" },
   // Étape 4 (26/07) :
@@ -157,6 +162,8 @@ const CLASS_LABELS: Record<string, string> = Object.fromEntries([
   ...OTHER_DAY_CLASSES.map((c) => [c.key, c.label_fr]),
   ...CARD_POP_CLASSES.map((c) => [c.key, c.label_fr]),
 ]);
+
+import { KPI_PERF_KEYS, KPI_DAILY_COL } from "./kpiRegistry";
 
 const PROJECT = "muse-square-open-data";
 // Offline store (incrément 1) : raw aggregates ONLY — n/avg/sd/span per location × class. The
@@ -232,7 +239,7 @@ export function catchmentHypothesisSql(singleLocation: boolean): string {
 // départageant plus qu'à sévérité égale.
 //
 // NB : abaisser le seuil rend plus de jours multi-appartenance, donc non « purs » ; ils basculent
-// sur la base 'marginal' (entangled -> tier plafonné « estimé, cause multifactorielle »). C'est le
+// sur la base 'marginal' (entangled -> tier plafonné « estimé, facteurs mêlés »). C'est le
 // comportement voulu, pas une perte. Le seuil de TIR des cartes (alert_level_max >= 2, côté dbt)
 // est indépendant et n'est PAS touché : ce changement ne concerne que la couche de mesure.
 // Balayage par niveau DÉCROISSANT, égalité stricte sur le niveau : à chaque palier on n'émet que
@@ -424,13 +431,52 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
     -- Contrôle marginal PAR CLASSE : les jours HORS classe X du même (mois × type de jour) du site.
     -- C'est le contraste marginal classique — le contrôle peut contenir d'autres classes, ce que
     -- l'étiquette « facteurs mêlés » assume ; >= 3 jours de contrôle requis par cellule.
+    -- ── MÉTRIQUE = DIMENSION (22/08, forme B, arbitrage owner) ───────────────────────────
+    -- Le moteur ne mesurait QUE le résidu de CA, alors que le registre des engagements
+    -- (kpiRegistry) en propose huit. Deux vocabulaires pour la même question — « qu'est-ce que
+    -- cette classe de jours déplace ? ». vals dépivote : une ligne par (lieu, date, métrique),
+    -- et tout l'aval groupe par metric en plus. Un KPI de plus = une branche ici, rien d'autre.
+    --
+    -- BASE : les cinq nouveaux KPI n'ont PAS d'attendu par jour — il n'existe pas de « tickets
+    -- attendus ». Leur seul point de comparaison est le contrôle de cellule (jours HORS classe,
+    -- même mois × type de jour) que le moteur calcule déjà. Ils ne sortent donc qu'en base
+    -- 'marginal' : émettre « 289 tickets » en base pure serait un nombre plausible et vide.
+    -- revenue_residual garde ses deux bases, inchangé.
+    --
+    -- LOG : pour un KPI brut, le log est LN(valeur) — le contraste LN(v) − moyenne(LN(contrôle))
+    -- est un log-ratio, centré comme l'est déjà gap_log. Le test de significativité, la
+    -- cohérence de signe et la matérialité s'appliquent sans changement.
+    --
+    -- ABSENTS du pivot, et pas par prudence : reputation n'a aucune série côté client
+    -- (besttime_rating 100 % NULL, audit 31/07 — il faut un connecteur GBP) et family_revenue
+    -- est au grain PRODUIT, donc une autre jointure. Deux lignes le jour où leur donnée existe.
+    -- Colonnes LUES au registre (KPI_DAILY_COL) : la liste des KPI mesurables a UN seul foyer,
+    -- et un KPI de plus s'ajoute là-bas sans toucher à ce fichier.
+    perf AS (
+      SELECT location_id, transaction_date AS date, ${KPI_PERF_KEYS.map((k) => KPI_DAILY_COL[k]).join(", ")}
+      FROM \`${PROJECT}.mart.fct_client_daily_performance\`
+    ),
+    vals AS (
+      SELECT location_id, date, month_num, weekend_flag, 'revenue_residual' AS metric, gap_eur AS v, gap_log AS v_log
+      FROM counted
+      ${KPI_PERF_KEYS.map((k) => `UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, '${k}', p.${KPI_DAILY_COL[k]},
+             IF(p.${KPI_DAILY_COL[k]} > 0, LN(p.${KPI_DAILY_COL[k]}), NULL)
+      FROM counted c JOIN perf p USING (location_id, date) WHERE p.${KPI_DAILY_COL[k]} IS NOT NULL`).join("\n      ")}
+    ),
+    -- class_days reste le mapping date -> classe (intouché) ; on lui accole la métrique.
+    class_metric AS (
+      SELECT cd.location_id, cd.date, cd.month_num, cd.weekend_flag, cd.n_memberships,
+             cd.family, cd.class_key, v.metric, v.v AS gap_eur, v.v_log AS gap_log
+      FROM class_days cd
+      JOIN vals v ON v.location_id = cd.location_id AND v.date = cd.date
+    ),
     cell_stats AS (
-      SELECT location_id, month_num, weekend_flag, SUM(gap_eur) AS cell_sum, COUNT(*) AS cell_cnt, SUM(gap_log) AS cell_sum_log, COUNTIF(gap_log IS NOT NULL) AS cell_cnt_log
-      FROM counted GROUP BY location_id, month_num, weekend_flag
+      SELECT location_id, month_num, weekend_flag, metric, SUM(v) AS cell_sum, COUNT(*) AS cell_cnt, SUM(v_log) AS cell_sum_log, COUNTIF(v_log IS NOT NULL) AS cell_cnt_log
+      FROM vals GROUP BY location_id, month_num, weekend_flag, metric
     ),
     cell_class AS (
-      SELECT location_id, month_num, weekend_flag, class_key, SUM(gap_eur) AS x_sum, COUNT(*) AS x_cnt, SUM(gap_log) AS x_sum_log, COUNTIF(gap_log IS NOT NULL) AS x_cnt_log
-      FROM class_days GROUP BY location_id, month_num, weekend_flag, class_key
+      SELECT location_id, month_num, weekend_flag, class_key, metric, SUM(gap_eur) AS x_sum, COUNT(*) AS x_cnt, SUM(gap_log) AS x_sum_log, COUNTIF(gap_log IS NOT NULL) AS x_cnt_log
+      FROM class_metric GROUP BY location_id, month_num, weekend_flag, class_key, metric
     ),
     adjusted AS (
       SELECT
@@ -438,42 +484,45 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         SAFE_DIVIDE(cs.cell_sum - cc.x_sum, cs.cell_cnt - cc.x_cnt) AS ctrl_gap,
         SAFE_DIVIDE(cs.cell_sum_log - cc.x_sum_log, cs.cell_cnt_log - cc.x_cnt_log) AS ctrl_gap_log,
         cs.cell_cnt - cc.x_cnt AS ctrl_n
-      FROM class_days cd
-      JOIN cell_stats cs ON cs.location_id = cd.location_id AND cs.month_num = cd.month_num AND cs.weekend_flag = cd.weekend_flag
-      JOIN cell_class cc ON cc.location_id = cd.location_id AND cc.month_num = cd.month_num AND cc.weekend_flag = cd.weekend_flag AND cc.class_key = cd.class_key
+      FROM class_metric cd
+      JOIN cell_stats cs ON cs.location_id = cd.location_id AND cs.month_num = cd.month_num AND cs.weekend_flag = cd.weekend_flag AND cs.metric = cd.metric
+      JOIN cell_class cc ON cc.location_id = cd.location_id AND cc.month_num = cd.month_num AND cc.weekend_flag = cd.weekend_flag AND cc.class_key = cd.class_key AND cc.metric = cd.metric
     ),
     -- Deux BASES par classe. 'pure' = jours purs (n_memberships = 1), gap brut vs normale — sauf
     -- calendrier, contrôlé hors-classe même cellule (leçon calendarFamily). 'marginal' = TOUS les
     -- jours de la classe, gap − contrôle hors-classe (mois × type de jour) — « facteurs mêlés ».
     classed AS (
-      SELECT location_id, date, gap_eur, gap_log, family, class_key, 'pure' AS basis
-      FROM adjusted WHERE n_memberships = 1 AND family != 'calendar'
+      -- 22/08 : la metrique traverse. La base 'pure' reste RÉSERVÉE au résidu de CA — elle compare à
+      -- l'attendu du jour, qui n'existe que pour lui. Pour les cinq autres KPI, seule la base
+      -- 'marginal' a un sens (valeur − contrôle hors-classe de la cellule).
+      SELECT location_id, date, metric, gap_eur, gap_log, family, class_key, 'pure' AS basis
+      FROM adjusted WHERE metric = 'revenue_residual' AND n_memberships = 1 AND family != 'calendar'
       UNION ALL
-      SELECT location_id, date, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'pure'
-      FROM adjusted WHERE n_memberships = 1 AND family = 'calendar' AND ctrl_n >= 3 AND ctrl_gap IS NOT NULL
+      SELECT location_id, date, metric, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'pure'
+      FROM adjusted WHERE metric = 'revenue_residual' AND n_memberships = 1 AND family = 'calendar' AND ctrl_n >= 3 AND ctrl_gap IS NOT NULL
       UNION ALL
-      SELECT location_id, date, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'marginal'
+      SELECT location_id, date, metric, gap_eur - ctrl_gap, gap_log - ctrl_gap_log, family, class_key, 'marginal'
       FROM adjusted WHERE ctrl_n >= 3 AND ctrl_gap IS NOT NULL
       UNION ALL
       -- discount_no_lift : classe COÛT (€ remisés, stockés négatifs) — fait du jour, hors pureté,
       -- hors ajustement saison, base 'pure' par nature.
-      SELECT location_id, date, -discount_total, CAST(NULL AS FLOAT64), 'sales', 'discount_no_lift', 'pure'
+      SELECT location_id, date, 'revenue_residual', -discount_total, CAST(NULL AS FLOAT64), 'sales', 'discount_no_lift', 'pure'
       FROM counted WHERE discount_no_lift_flag IS TRUE AND discount_total IS NOT NULL AND discount_total > 0
       UNION ALL
       -- Populations de cartes (doctrine 01/08) : base 'pure' par nature (le tir EST
       -- l'appartenance — pas de pureté ni d'ajustement saison : le gap brut vs normale est le
       -- référentiel que la carte affiche). Lecteurs antérieurs : class_key inconnu de
       -- CLASS_LABELS -> ligne ignorée (sûr au déploiement).
-      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_revenue_down', 'pure'
+      SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_revenue_down', 'pure'
       FROM counted WHERE pop_down_flag
       UNION ALL
-      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_revenue_surge', 'pure'
+      SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_revenue_surge', 'pure'
       FROM counted WHERE pop_surge_flag
       UNION ALL
-      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_underperformance', 'pure'
+      SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_underperformance', 'pure'
       FROM counted WHERE pop_underperf_flag
       UNION ALL
-      SELECT location_id, date, gap_eur, gap_log, 'card', 'pop_traffic_not_conv', 'pure'
+      SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_traffic_not_conv', 'pure'
       FROM counted WHERE pop_traffic_nc_flag
     ),
     span AS (
@@ -485,6 +534,7 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       cl.class_key,
       cl.family,
       cl.basis,
+      cl.metric,
       COUNT(*) AS n_days,
       AVG(cl.gap_eur) AS avg_gap_eur,
       STDDEV_SAMP(cl.gap_eur) AS sd_gap_eur,
@@ -497,7 +547,7 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       CURRENT_TIMESTAMP() AS computed_at
     FROM classed cl
     JOIN span s ON s.location_id = cl.location_id
-    GROUP BY cl.location_id, cl.class_key, cl.family, cl.basis, s.span_days
+    GROUP BY cl.location_id, cl.class_key, cl.family, cl.basis, cl.metric, s.span_days
   `;
 }
 
@@ -577,7 +627,13 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
     family: rowFamily || undefined,
     eur_year: eurYear,
     tier,
-    tier_label_fr: entangled ? "estimé, cause multifactorielle" : tier,
+    // 22/08 — « cause multifactorielle » sortait du registre de la recherche, pas de celui
+    // d'un exploitant, et s'affichait EN CLAIR sur la ligne de chantier (pulse:3850). Le
+    // standard du produit veut le jargon dans l'infobulle seulement. Mot retenu : « facteurs
+    // mêlés » — celui que l'auteur de ce fichier emploie deux fois pour expliquer la base
+    // marginale (lignes 431 et 452), donc ni inventé ni traduit. Le concept « niveau de
+    // preuve d'une mesure » n'a PAS d'entrée au lexique : mot à confirmer par l'owner.
+    tier_label_fr: entangled ? "estimé, facteurs mêlés" : tier,
     entangled,
     n_days: n,
     span_months: Math.round(spanDays / 30.44),
@@ -594,9 +650,17 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
 // Exporté 10/08 : le tableau de bord (dashboard.ts) passe ses lignes store par CE pipeline —
 // même registre (log+médiane, |t| ≥ 1, cohérence de signe, matérialité) que les pills/chantiers,
 // jamais un agrégat brut parallèle.
-export function rowsToImpactsWithImmaterial(rows: any[], annualRevenue?: number | null): { impacts: Map<string, DayClassImpact>; immaterial: Set<string> } {
+// 22/08 — le store porte désormais SIX métriques (voir `vals` dans dayClassAggregateSql). Cette
+// fonction est le SEUL point d'entrée de lecture : elle en choisit UNE, et par défaut le résidu
+// de CA. Tout appelant existant garde donc son comportement au caractère près, et un appelant qui
+// veut les tickets ou le panier le DEMANDE. Le regroupement se fait par class_key seul : sans ce
+// filtre, six lignes se disputeraient la même clé et la dernière lue gagnerait.
+// Les lignes d'avant ce commit (store écrasé chaque nuit, historique conservé) n'ont pas de
+// colonne metric : NULL vaut 'revenue_residual', ce qu'elles étaient.
+export function rowsToImpactsWithImmaterial(rows: any[], annualRevenue?: number | null, metric: string = "revenue_residual"): { impacts: Map<string, DayClassImpact>; immaterial: Set<string> } {
   const byClass = new Map<string, { pure?: any; marginal?: any }>();
   for (const row of rows) {
+    if (String(row?.metric ?? "revenue_residual") !== metric) continue;
     const key = String(row?.class_key ?? row?.condition ?? "");
     if (!key) continue;
     const bucket = byClass.get(key) ?? {};
@@ -710,11 +774,27 @@ async function annualRevenueQuery(bq: any, location_id: string): Promise<number 
 
 export async function getDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
   const [storeRows, dateRes, annualRevenue, hypRows] = await Promise.all([
-    bq.query({
-      query: `SELECT class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
-      params: { location_id },
-      location: "EU",
-    }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+    // LECTURE TOLÉRANTE AUX DEUX SCHÉMAS (23/08). Le store est ÉCRASÉ chaque nuit par le cron,
+    // qui tourne le code de PRODUCTION — or `metric` n'existe que depuis le 22/08 sur dev. Tant
+    // que dev n'est pas mergé, la table oscille : avec colonne après un batch dev, sans colonne
+    // après le batch de 02:00. La requête filtrée échouait alors, le `.catch` la rendait muette,
+    // et le repli LIVE recalculait tout — mesuré à 47 s contre un budget dur de 3 s.
+    // On tente la forme à colonne ; si le schéma est l'ancien, on relit sans elle. Les lignes
+    // legacy n'ont pas de `metric` et rowsToImpactsWithImmaterial les lit déjà comme
+    // 'revenue_residual' : le comportement est identique, seul le coût d'un aller-retour
+    // supplémentaire s'ajoute, et UNIQUEMENT dans le cas dégradé.
+    (async () => {
+      const cols = "class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days";
+      const withMetric = await bq.query({
+        query: `SELECT ${cols}, metric FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id AND metric = 'revenue_residual'`,
+        params: { location_id }, location: "EU",
+      }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => null);
+      if (withMetric) return withMetric;
+      return await bq.query({
+        query: `SELECT ${cols} FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id = @location_id`,
+        params: { location_id }, location: "EU",
+      }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+    })(),
     dateResolutionQuery(bq, location_id, dates),
     annualRevenueQuery(bq, location_id),
     // Temps 2 périmètre — requête PARALLÈLE (dans le Promise.all : ne coûte que si la plus
@@ -744,6 +824,10 @@ const DATE_RESOLVED_WEATHER_TYPES = new Set([
   "weather_worsened",
   "extended_bad_weather",
   "extended_bad_weather_3d",
+  // 22/08 — la seule des quatre cartes météo qui manquait. Elle annonce une amélioration ; la
+  // classe météo MESURÉE de la date dit ce que cette journée vaut réellement sur le lieu — sans
+  // elle, « le temps s'améliore » était une affirmation que rien ne confrontait.
+  "weather_improved",
 ]);
 
 // Card type → cross-family class. ONE class per card, sa PROPRE famille (docs/kpi-enjeu-mapping.md).
@@ -758,16 +842,25 @@ const CARD_TYPE_CLASS: Record<string, string> = {
   // CONTEXTE (CARD_CONTEXT_CLASS -> motifContextForCandidate).
   sales_discount_no_lift: "discount_no_lift",
   competition_pressure_spike: "competition_high",
-  low_competition_window: "competition_low",
-  weekend_vacation_low_comp: "competition_low",
   low_tourism_local_opp: "tourism_low",
   competition_proximity: "events_high",
   high_competition_density: "events_high",
   same_bucket_saturation: "events_high",
-  foreign_tourism_signal: "tourism_high",
-  tourist_high_season: "tourism_high",
-  tourist_surge_vacation: "tourism_high",
-  tourism_peak_window: "tourism_high",
+  // 22/08 — LES QUATRE ATTACHES À `tourism_high` SONT RETIRÉES.
+  // La classe est inmesurable PAR CONSTRUCTION, pas faute d'historique : `tourism_index_region`
+  // est un indice MENSUEL (12 valeurs distinctes sur 484 jours), donc le tercile haut sélectionne
+  // des mois entiers — juin et juillet, 61 jours sur 141 sur f10c3e58. Or le contrôle de cellule
+  // est calculé par (lieu × mois × week-end) : tous les jours du mois étant dans la classe,
+  // ctrl_n = 0 sur les quatre cellules, et la base 'marginal' ne produit RIEN. Reste la base
+  // 'pure' (aucune autre classe sur le jour), qui donne n = 1 ici et n = 2 sur 29383776 — sous
+  // le plancher n >= 5. Audit du 22/08 : passe sur 0 site sur 6.
+  // Effet du retrait : `mapped` devient faux, donc silence au lieu de la raison
+  // « Motif du jour non séparable — mûrit avec les saisons ». Cette classe ne mûrira jamais ;
+  // la promesse était fausse, et le silence est le comportement prévu pour une absence PAR DESIGN.
+  // Les trois autres cartes ont été retirées de dbt le 22/08 (PR #45) — attaches mortes.
+  // NON TOUCHÉ à dessein : `COMBO_TYPE_CLASSES` garde ses tokens `tourism_high`. Un token sans
+  // impact y est simplement ignoré (`if (imp && …)`), et les autres tokens du combiné portent le
+  // coin — la dégradation est propre, il n'y a rien à corriger.
   mobility_disruption: "mobility_disruption",
   mobility_disruption_planned: "mobility_disruption",
   ft_peak_mobility: "mobility_disruption",
@@ -800,7 +893,14 @@ const CARD_TYPE_CLASS: Record<string, string> = {
 const CATCHMENT_DEPENDENT_TYPES = new Set(["competition_proximity", "high_competition_density"]);
 
 // Cartes calendrier : classe résolue par la DATE affectée (vacances d'abord, férié sinon).
-const CALENDAR_TYPES = new Set(["calendar_audience_shift", "audience_shift_opportunity"]);
+// 22/08 — VIDE, et c'est délibéré. Cette branche donne le COIN à une carte depuis la classe
+// calendrier de sa date. Or les classes calendrier (school_holiday, public_holiday) portent
+// DÉJÀ leur propre carte structurelle : tout type placé ici affiche donc, au coin, le montant
+// d'une autre carte. Constaté trois fois le 22/08 — sur low_competition_window et
+// weekend_vacation_low_comp (corrigées), puis recréé par mon câblage de commercial_event_match.
+// Ses deux occupants historiques sont passés en CONTEXTE. Ne rien remettre ici sans avoir
+// vérifié qu'aucune carte structurelle ne porte la même classe.
+const CALENDAR_TYPES = new Set<string>([]);
 
 // Cartes COMBINÉES (mapping familles A/B/D « facteur dominant, jamais la somme ») : le dominant est
 // choisi PAR LA MESURE — la classe candidate au plus grand |€/an| mesuré, jamais une pondération
@@ -875,6 +975,30 @@ export const ABSENCE_REASON_FR = {
   not_separable: "Motif du jour non séparable ou insuffisant sur votre historique — mûrit avec les saisons.",
 } as const;
 
+/**
+ * La carte affirme-t-elle une CLASSE que ce site n'a jamais pu mesurer ? (23/08, arbitrage owner)
+ *
+ * Distinct de `immaterial`, déjà filtré depuis le 29/07 : là on SAIT et ça ne pèse rien ; ici on
+ * ne sait pas. L'audit de vérité du 22/08 a montré que la majorité des tirs adossés à une classe
+ * reposaient sur des classes qui ne passent les portes sur AUCUN site.
+ *
+ * DEUX EXEMPTIONS, toutes deux voulues :
+ *  1. `no_history` — le site n'a aucune vente, donc aucune classe mesurable. Consigne owner :
+ *     laisser ces sites en l'état. Le prédicat ne les vise pas (reason_fr y vaut no_history).
+ *  2. Les cartes dont la classe se résout PAR DATE (`weather@date`) : une alerte météo vaut par
+ *     sa PRÉVISION, pas par son prix. Mesuré le 23/08 : sans cette exemption le filtre retirait
+ *     21 tirs sur 52, dont weather_hazard_onset (13) et extended_bad_weather_3d — supprimer une
+ *     alerte orage parce que la classe « vent » n'est pas chiffrable sur ce site serait une perte
+ *     sèche pour l'exploitant.
+ */
+export function classNeverMeasured(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): boolean {
+  const at = String(candidate?.action_type || "").trim();
+  if (at === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(at)) return false;
+  const combo = COMBO_TYPE_CLASSES[at];
+  if (combo && combo.includes("weather@date")) return false;
+  return enjeuWithReasonForCandidate(result, candidate).reason_fr === ABSENCE_REASON_FR.not_separable;
+}
+
 /** enjeu + raison d'absence : LA façade que les endpoints consomment (monitor, futurs). */
 export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean; needs_catchment?: boolean; context_motif?: DayClassImpact | null; corner_day_mode?: boolean } {
   const enjeu = enjeuForCandidate(result, candidate);
@@ -928,11 +1052,39 @@ export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: {
 }
 
 // Cartes d'anomalie ventes (mapping H1 — jamais de pill PROPRE, héritage du jour uniquement).
-const SALES_INHERIT_TYPES = new Set([
+const MOTIF_INHERIT_TYPES = new Set([
   "sales_surge",
   "sales_revenue_down_wow",
   "sales_underperformance",
   "sales_missed_opportunity",
+  // 22/08 — top_day_approaching et perfect_storm rejoignent weekend_opportunity : toutes trois
+  // DÉSIGNENT UNE JOURNÉE sans rien mesurer elles-mêmes. top_day_approaching pointe un jour à
+  // venir, perfect_storm une conjonction de facteurs — le motif mesuré de CETTE date est leur
+  // contexte. Aucun coin nouveau : CARD_POPULATION n'a pas d'entrée pour elles, donc l'enjeu
+  // reste null et seul `context_motif` est servi (doctrine 01/08 : le motif du jour est une
+  // ligne de texte, jamais le coin).
+  "top_day_approaching",
+  "perfect_storm",
+  // 22/08 — commercial_event_match est passée par CALENDAR_TYPES avant d'atterrir ici :
+  // ce jeu-là donne le COIN, et la carte a aussitôt affiché −19 126 €/an — exactement le
+  // montant de la carte structurelle « vacances scolaires » (vérifié au rendu sur 3 comptes).
+  // C'est le doublon de coin corrigé deux fois aujourd'hui, recréé par mon propre câblage.
+  // Sa place est ici : le calendrier de la date est son CONTEXTE, pas son enjeu.
+  "commercial_event_match",
+  // 22/08 — les deux derniers occupants de CALENDAR_TYPES, déplacés pour le même motif :
+  // le coin qu'elles affichaient était celui de la carte structurelle « vacances scolaires »
+  // ou « jours fériés ». Défaut préexistant, relevé en câblant leurs voisines.
+  "audience_shift_opportunity",
+  "calendar_audience_shift",
+  // 21/08 — weekend_opportunity entre ici, et l'ensemble perd son préfixe SALES_ qui l'aurait
+  // interdite. Motif : la carte affirmait « Conditions favorables » en chaîne CONSTANTE, puis
+  // accolait météo et densité d'événements sans jamais les évaluer — « conditions favorables
+  // — averses » était rendu tel quel. Rattachée ici, elle hérite du motif MESURÉ de la date
+  // (weather@date / calendar@date) en ligne de CONTEXTE, jamais au coin (doctrine 01/08) :
+  // chez f10c3e58 la pluie vaut −166 €/j sur 20 jours, t = −3,4, et l'effet varie de 1 à 8
+  // selon le site (−165 à −1 318 €/j) — un seuil binaire « alerte ≥ 2 » aurait été plus
+  // grossier que la mesure disponible.
+  "weekend_opportunity",
 ]);
 
 // Doctrine valeur d'action (01/08, GO owner) : le coin d'une carte d'anomalie/conjonction = SA
@@ -956,13 +1108,34 @@ const CARD_POPULATION: Record<string, string> = {
 const CARD_CONTEXT_CLASS: Record<string, string> = {
   sales_traffic_not_converting: "traffic_high",
   sales_competition_cannibalization: "competition_high",
+  // 22/08 — low_competition_window RETIRÉE de CARD_TYPE_CLASS, même remède que les deux
+  // ci-dessus. Constaté à l'écran par l'owner : la carte du jour « Moins d'activité que
+  // d'habitude dans votre périmètre » et le chantier structurel « Les jours à faible pression
+  // concurrentielle » affichaient LE MÊME montant — −4 757 €/an chez MS Test, +6 381 €/an chez
+  // Muse Square Occitanie. Les deux lisaient la classe `competition_low`. La doctrine du 01/08
+  // l'interdit : le coin est l'impact PROPRE à la carte. Le chantier garde le coin, la carte du
+  // jour cite la classe en ligne de contexte.
+  low_competition_window: "competition_low",
+  // 22/08 — weekend_vacation_low_comp retirée de CARD_TYPE_CLASS pour le MÊME motif que
+  // sa voisine : elle affichait −5 185 €/an chez MS Test, exactement le montant du chantier
+  // structurel « Les jours à faible pression concurrentielle » juste en dessous. Même
+  // classe lue deux fois, doctrine du coin violée.
+  weekend_vacation_low_comp: "competition_low",
 };
 
 // Types dont le coin est régi par la doctrine population/jour (B + C).
 const CARD_VALUE_TYPES = new Set([
-  ...SALES_INHERIT_TYPES,
+  ...MOTIF_INHERIT_TYPES,
   "sales_traffic_not_converting",
   "sales_competition_cannibalization",
+  // 22/08 — low_competition_window entre ici APRÈS sa sortie de CARD_TYPE_CLASS. Cet ensemble
+  // commande DEUX choses : le coin passe par CARD_POPULATION (aucune entrée pour ce type ⇒
+  // null, coin absent, doublon avec le chantier structurel réglé) ET le calcul de
+  // `context_motif` (enjeuWithReasonForCandidate le conditionne à cet ensemble). Sans cette
+  // ligne la carte perdait sa DIRECTION : elle disait « on ne sait pas encore si elles vous
+  // rapportent plus ou moins » alors que `competition_low` est mesurée sur le lieu.
+  "low_competition_window",
+  "weekend_vacation_low_comp",
 ]);
 
 /** Motif de CONTEXTE d'une carte (doctrine 01/08) — l'ex-« Motif de fond » hérité, désormais
@@ -972,7 +1145,7 @@ export function motifContextForCandidate(result: DayClassResult, candidate: { ac
   const actionType = String(candidate?.action_type || "");
   const ctxKey = CARD_CONTEXT_CLASS[actionType];
   if (ctxKey) return result.impacts.get(ctxKey) ?? null;
-  if (!SALES_INHERIT_TYPES.has(actionType)) return null;
+  if (!MOTIF_INHERIT_TYPES.has(actionType)) return null;
   const iso = String(candidate?.date?.value ?? candidate?.date ?? "").slice(0, 10);
   let best: DayClassImpact | null = null;
   for (const token of ["weather@date", "calendar@date"]) {

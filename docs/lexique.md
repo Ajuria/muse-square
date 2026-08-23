@@ -12,7 +12,8 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 
 | Concept | LE mot | Interdits (attrapés en vrai) |
 |---|---|---|
-| Une pratique qui marche, réutilisable | **dispositif** (« Prouvé = réutilisable » — owner 17/08 ; jamais « rejouable ») | recette (en nom de section), méthode, playbook, rejouable |
+| Un ensemble de règles de gestion posé face à un signal | **dispositif** (owner 22/08 — l'objet, à N'IMPORTE QUEL état ; ses règles sont testées puis prouvées ou invalidées) | recette (en nom de section), méthode, playbook, rejouable, plan, routine, rituel, protocole, programme |
+| Un dispositif dont les règles ont été prouvées | **dispositif prouvé** (owner 22/08 — corrige la ligne du 17/08, qui définissait « dispositif » par son seul état final : « une pratique qui marche » EST un dispositif prouvé, pas un dispositif en soi) | dispositif (employé seul pour dire « prouvé »), recette |
 | Statuts d'un dispositif | **en test · prouvé · écarté** (owner 17/08 : « déclaré » fusionné dans « en test » ; « écarté » = testé, cible manquée — pas réutilisable tel quel ; mot déjà en prod) | déclaré, validé, certifié |
 | Ce que l'utilisateur promet de faire et mesurer | **engagement** | commitment, pari |
 | Une date d'une série mesurée | **occurrence** | instance, itération |
@@ -83,3 +84,74 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
   jour (« votre jeudi habituel ≈ 1 221 € ») restent.
 - « Documentez la recette » → « Documentez vos résultats » (action-cards + tableau).
 - « Armée · J-x » (chips) et « ◌ armée » (frise) → « Dispositif actif ».
+- « vos X habituels » (pluriel) → « **votre X habituel** » — forme jour du lexique. Attrapé le
+  21/08 sur `sales_surge` (« CA > vos mardis habituels ») et sur son pendant
+  `sales_revenue_down_wow` (« vos vendredis »).
+- Titres de cartes du jour qui sont un impératif sans objet ou un constat — le geste juste est
+  déjà écrit une ligne plus bas, dans le corps. Relevés le 21/08 : `commercial_event_match`,
+  `competitor_reputation_strength`, `foreign_tourism_signal`, `competitor_event_launch`,
+  `top_day_approaching`, `same_bucket_saturation`, `low_competition_window`,
+  `weather_hazard_onset`, `event_prepare`.
+- `competitor_event_launch` : le titre ordonne « Réagissez », le corps conclut « sans réaction
+  urgente ». Contradiction interne — décision produit avant réécriture.
+- `event_new` : type sans entrée `reg()` — rend « event new / type non reconnu » dans l'app.
+
+## Écriture des gestes et des motifs (owner 21/08) — NON ATTRAPÉ PAR LE GARDE-FOU
+
+**Ces règles ne sont pas grepables.** Le tableau des mots ci-dessus est vérifié par
+`evenement.fr.guard.test.ts` via `MOTS_BANNIS` ; ces règles-ci, non — aucune d'elles ne
+contient de mot interdit. Elles se vérifient **à la relecture**, avant d'écrire une chaîne
+visible. Motif de leur existence : le 21/08 quatre phrases générées ont été refusées par
+l'owner (« llm language is not acceptable as it raises trust issues in the user ») — aucune
+ne contenait de mot banni.
+
+**8. Verbe ordinaire, sur un objet qu'on manipule.** Le verbe est celui que l'exploitant
+emploierait ; l'objet est une chose qu'il tient en main — une offre, le réassort, le staffing,
+l'équipe, les avis, la fiche Google, les remises, le parcours d'achat. Jamais un verbe de
+conseil sur un abstrait.
+
+| Refusé (attrapé en vrai, 21/08) | Retenu |
+|---|---|
+| Alignez une offre **sur** la rentrée scolaire | **Préparez** une offre **pour** la rentrée scolaire (owner) |
+| **Concentrez votre visibilité** sur ce jour | Communication ciblée sur ce jour |
+| **Passez en accueil multilingue** cette semaine | Adaptez votre dispositif de communication et d'accueil (owner) |
+| Temps fort commercial — **activez** | (verbe sans objet : activez quoi ?) |
+| **Surveillez** la réputation concurrente | (surveiller n'est pas un geste : on fait, ou on ne fait pas) |
+
+Verbes de conseil à proscrire : *aligner, capter, concentrer, activer* (sans objet),
+*surveiller, se positionner, optimiser, maximiser, adresser*. Le corpus de référence est
+`public/reco-library.js` — les entrées **écrites** (13), pas l'échafaudage commenté.
+
+**9. Test du retournement.** Écrire le contraire de la phrase. Si le contraire est absurde,
+la phrase n'affirme rien et doit sauter.
+_« Une offre que l'équipe ne sait pas formuler ne se vend pas »_ → le contraire est absurde
+⇒ vide. À comparer avec _« Ramener vos habitués coûte moins que conquérir de nouveaux
+clients »_ (reco-library) : le contraire est discutable ⇒ la phrase affirme quelque chose.
+
+**10. Test de la condition.** La phrase nomme-t-elle une situation précise — un créneau, un
+jour, un seuil, un état ? Les phrases retenues le font toujours : « au moment où le passage
+est là mais n'achète pas », « sur les jours creux », « quand tout le monde regarde ». Une
+phrase vraie partout est utile nulle part.
+
+**11. Test de la donnée.** La phrase aurait-elle pu être écrite **sans ouvrir le compte** ?
+Si oui, c'est du remplissage. (Même exigence que le *Card Quality Bar* de CLAUDE.md : dire à
+l'exploitant quelque chose de vrai qu'il ne pouvait pas voir seul.)
+
+**12. Test de la maxime.** Pas de sentence au présent général, sans sujet réel, de forme
+« X — donc Y ». Le tiret cadratin n'est pas en cause (le lexique l'emploie) ; la sentence
+l'est. _« Le passage existe déjà — un prix d'entrée transforme le passant en client »_ :
+refusé le 21/08.
+**Proxy mécanique possible** (non implémenté) : une chaîne `why` / `sowhat` sans chiffre, sans
+variable interpolée et sans nom propre est presque toujours une généralité — le garde-fou
+pourrait en sortir la liste à relire, sans faire échouer le build.
+
+**13. Jamais un volume absolu — un écart au résultat habituel DU LIEU.** Nîmes et Paris ne portent pas
+le même trafic : une phrase qui suppose un volume est fausse sur la moitié du parc.
+`pressure_ratio = 0,93` ne veut pas dire « peu de concurrence » mais « 7 % sous VOTRE résultat
+habituel ».
+Quand le geste lui-même doit changer selon le lieu, c'est la clé `enjeu_positif` /
+`enjeu_negatif` de `reco-library.js` qui tranche (cas mesuré : `low_competition_window`,
++88 €/j ici, −49 €/j ailleurs) — pas le texte.
+**Limite connue :** cette bascule est binaire (ça aide / ça coûte). Elle ne distingue pas un
+petit d'un gros volume ; une variable d'échelle n'existe pas.
+

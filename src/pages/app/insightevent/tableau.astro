@@ -129,7 +129,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var sp = t.lastIndexOf(" ");
           return (sp > n * 0.5 ? t.slice(0, sp) : t) + "…";
         }
-        var VERDICT_FR = { met: "cible tenue", missed: "cible manquée", confounded: "non mesurable (écarté)" };
+        // 22/08 — trois concepts, six mots : cette page disait « cible tenue / cible manquée /
+        // non mesurable » quand pulse.astro disait « Atteint / Manqué / Non concluant » sur les
+        // MÊMES verdicts. Le lexique avait déjà tranché (docs/lexique.md, « Le jugement
+        // automatique sur la cible ») : atteint · manqué · non concluant. Les formes de cette
+        // page entrent au MOTS_BANNIS dans le même commit — le garde-fou scanne déjà les deux
+        // fichiers, il ne connaissait pas ces mots.
+        var VERDICT_FR = { met: "atteint", missed: "manqué", confounded: "non concluant" };
         var VERDICT_COL = { met: "#059669", missed: "#B45309", confounded: "#6b7280" };
 
         function load() {
@@ -207,9 +213,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           });
           if (db.to_document) goals.push({
             kind: "documenter",
-            aline: "→ Documenter votre verdict tenu — il devient un dispositif déclaré",
+            aline: "→ Documenter votre objectif atteint — il devient un dispositif déclaré",
             sub: "depuis la carte de l’action, dans Agir",
-            goal_fr: "Documentez vos résultats", link_fr: "Documenter le verdict tenu",
+            goal_fr: "Documentez vos résultats", link_fr: "Documenter l'objectif atteint",
             href: "/app/insightevent/pulse",
           });
           if (db.declared_no_replay) {
@@ -318,7 +324,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           goals.filter(function (gg) { return gg.kind === "documenter"; }).forEach(function (gg) {
             var mr = j.met_recipe || null;
             aFaire.push({ rang: 0, iso: mr ? mr.we : null, col: GREEN,
-              titre: "Documentez vos résultats — " + (mr ? trunc(mr.text, 44) : "votre verdict tenu"),
+              titre: "Documentez vos résultats — " + (mr ? trunc(mr.text, 44) : "votre objectif atteint"),
               sub: "objectif atteint — écrite, elle devient un dispositif réutilisable",
               droite: mr && mr.gap_eur != null ? '<span style="color:' + GREEN + ';font-weight:600;">' + signEur(mr.gap_eur) + '</span>' : "",
               geste: '<a class="tb-btnp" href="' + gg.href + '">Documenter</a>' });
@@ -371,6 +377,15 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               geste: tr.place_id
                 ? '<button type="button" class="tb-link" data-tb-follow="' + esc(tr.place_id) + '" data-tb-follow-nom="' + esc(tr.nom) + '" data-tb-follow-city="' + esc(tr.city || "") + '" data-tb-follow-loc="' + esc(tr.location_id || "") + '" style="background:none;border:none;padding:0;font-family:inherit;cursor:pointer;" title="Ajoute ' + esc(tr.nom) + ' \u00e0 votre veille \u2014 lecture chaque nuit d\u00e8s ce soir">Suivre →</button>'
                 : '<a class="tb-link" href="/app/insightevent/prompt?q=' + encodeURIComponent("Suivre le concurrent " + tr.nom) + '">Suivre →</a>' });
+          });
+          // Amorçage veille (23/08, point 1 « wow ») : un site SANS suivi réel (watched_competitors
+          // × location_id — pas le is_followed sans site de la couverture) n'a ni prix, ni
+          // événements, ni réputation à lire la nuit. La rangée lance discover-competitors ;
+          // les candidats se rendent sous la forme EXACTE des rangées « Suivez X » ci-dessus.
+          ((g.watched_par_site) || []).filter(function (w) { return (w.n_watched || 0) < 3; }).forEach(function (w) {
+            aFaire.push({ rang: 4, iso: null, col: AMBER,
+              titre: "Cherchez vos concurrents \u00b7 " + (w.n_watched ? w.n_watched + " suivi" + (w.n_watched > 1 ? "s" : "") : "aucun suivi"), site: w.site_label || null,
+              geste: '<button type="button" class="tb-link" data-tb-discover="' + esc(w.location_id) + '" style="background:none;border:none;padding:0;font-family:inherit;cursor:pointer;">Chercher \u2192</button>' });
           });
           if ((g.savoir || {}).evts_sans_objectif) aFaire.push({ rang: 4, iso: null, col: AMBER,
             titre: "Fixez un objectif à " + g.savoir.evts_sans_objectif + " événements",
@@ -466,9 +481,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 var nMois = (g.tests || []).filter(function (t2) { return t2.verdict === 'met' && String(t2.we || '').slice(0, 7) === moisNow; }).length;
                 var pr0 = (j.practices || []).filter(function (p2) { return p2.tier !== 'archivee'; });
                 var nT0 = pr0.filter(function (p2) { return p2.tier !== 'prouvee' && p2.tier !== 'ecartee'; }).length;
-                return '<div class="tb-tile" data-tb-tile="sf" title="Dispositifs pass\u00e9s PROUV\u00c9S ce mois-ci (cible tenue au test \u2014 \u00e9chelle en test \u00b7 prouv\u00e9 \u00b7 \u00e9cart\u00e9).">'
+                return '<div class="tb-tile" data-tb-tile="sf" title="Dispositifs pass\u00e9s PROUV\u00c9S ce mois-ci (objectif atteint au test \u2014 \u00e9chelle en test \u00b7 prouv\u00e9 \u00b7 \u00e9cart\u00e9).">'
                   + '<p class="tb-eb">Dispositifs prouv\u00e9s</p><div class="n" style="color:' + (nMois ? '#111827' : '#9CA3AF') + ';">' + nMois + '</div>'
-                  + '<div class="s">ce mois-ci \u00b7 ' + nT0 + ' en test \u2014 chaque cible tenue en convertit un</div></div>';
+                  + '<div class="s">ce mois-ci \u00b7 ' + nT0 + ' en test \u2014 chaque objectif atteint en convertit un</div></div>';
               })()
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:14px;padding:2px 4px 0;font-size:12px;color:#6b7280;flex-wrap:wrap;">';
@@ -495,10 +510,11 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             "Documenter": "votre dispositif devient réutilisable — il resservira aux prochains jours du même type",
             "Préparer": "la consigne part à votre équipe — le jour se joue sans vous derrière",
             "Bilan": "votre vécu calibre la mesure — météo, accès et fréquentation deviennent comparables",
-            "Prouver": "une cible tenue et le dispositif devient réutilisable en un clic",
+            "Prouver": "un objectif atteint et le dispositif devient réutilisable en un clic",
             "Déclarer": "débloque le KPI profit sur toutes vos mesures",
             "Fixer": "sans cible, aucun verdict — la fixer rend ces événements jugeables",
             "Suivre": "sa page entre dans votre veille — événements, offres et tarifs lus chaque nuit",
+            "Chercher": "3 à 5 concurrents de votre zone, trouvés sur le web — à suivre d'un clic",
             "Répondre": "votre réponse débloque le montant de la carte"
           };
           var verbeSeul = function (g2) {
@@ -521,7 +537,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             if (_verbe && BENEFICE[_verbe]) r = Object.assign({}, r, { sub: BENEFICE[_verbe] });
             return '<div class="tb-af">'
               + '<span>' + quand + '</span>'
-              + '<span style="min-width:0;"><span class="t" title="' + esc(r.titre) + '">' + esc(r.titre)
+              + '<span style="min-width:0;"><span class="t" title="' + esc(r.tip || r.titre) + '">' + esc(r.titre)
               + (J.multi_site && r.site ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;font-weight:400;">' + esc(r.site) + '</span>' : "") + '</span>'
               + (r.sub ? '<span class="u">' + r.sub + '</span>' : "") + '</span>'
               + '<span class="v">' + (r.droite || "") + '</span>'
@@ -725,7 +741,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var n5k = evsAll.filter(function (m) { return m.m != null && m.m <= 5000; }).length;
             var mapSite = evsAll[0] ? (j.sites || []).filter(function (sx) { return sx.location_id === evsAll[0].location_id; }).map(function (sx) { return sx.label; })[0] : null;
             html += '<div style="padding:10px 0 4px;">'
-              + '<a href="/app/insightevent/map?mode=concurrence" style="width:100%;display:block;text-align:left;background:none;border:1px solid rgba(0,0,0,0.10);border-radius:10px;overflow:hidden;cursor:pointer;text-decoration:none;color:inherit;" title="Ouvre la carte (concurrents suivis + événements autour de votre site)">'
+              + '<a href="/app/insightevent/map?mode=concurrence" style="width:100%;display:block;text-align:left;background:none;border:1px solid rgba(0,0,0,0.10);border-radius:10px;overflow:hidden;cursor:pointer;text-decoration:none;color:inherit;" title="Ouvre la carte (les concurrents que vous suivez et les événements autour de votre site)">'
               + '<div style="position:relative;height:110px;background:#EBEEF2;">'
                 + '<svg viewBox="0 0 400 110" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">'
                   + '<circle cx="200" cy="55" r="48" fill="#1D3BB3" fill-opacity="0.05" stroke="#1D3BB3" stroke-opacity="0.30" stroke-width="1.2"/>'
@@ -740,7 +756,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '</div>'
               + '<div style="padding:9px 14px;font-size:12px;color:#6B7280;">14 prochains jours : '
                 + (n500 ? n500 + ' événement' + (n500 > 1 ? 's' : '') + ' à moins de 500 m · ' : '')
-                + n5k + ' événement' + (n5k > 1 ? 's' : '') + ' à moins de 5 km · ' + vLieux.length + ' concurrents suivis</div>'
+                + n5k + ' événement' + (n5k > 1 ? 's' : '') + ' à moins de 5 km · ' + vLieux.length + ' concurrents que vous suivez</div>'
               + '</a></div>';
           })();
           if (!jours.length) html += '<div style="color:#9CA3AF;font-size:12.5px;">Aucun événement concurrent repéré sur vos 14 prochains jours.</div>';
@@ -935,8 +951,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           });
           if (j.met_recipe) {
             capHtml += occRow(
-              j.met_recipe.gap_eur != null ? signEur(j.met_recipe.gap_eur) : "cible tenue", "#059669",
-              "Fenêtre " + frD(j.met_recipe.ws) + " → " + frD(j.met_recipe.we) + " — cible tenue, écart mesuré vs CA habituel",
+              j.met_recipe.gap_eur != null ? signEur(j.met_recipe.gap_eur) : "objectif atteint", "#059669",
+              "Fenêtre " + frD(j.met_recipe.ws) + " → " + frD(j.met_recipe.we) + " — objectif atteint, écart mesuré vs CA habituel",
               '<span style="font-weight:600;">gagnés</span> — « ' + esc(trunc(j.met_recipe.text, 55)) + ' » a tenu sa cible',
               String(j.met_recipe.text || ""),
               (function () { var _pv = (j.practices || []).filter(function (p) { return p.tier === "prouvee"; })[0];
@@ -964,7 +980,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var _nEnTest = (pc.en_test || 0) + (pc.declared || 0) - _nEcarte;
           var diChips = '<span class="tb-chip" style="background:' + (pc.proven ? "#E6F6F0" : "#F3F4F6") + ';color:' + (pc.proven ? "#059669" : "#6b7280") + ';">' + pc.proven + " prouvé" + (pc.proven > 1 ? "s" : "") + '</span>'
             + (_nEnTest > 0 ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;margin-left:4px;cursor:help;"' + (replayEnd ? ' title="verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + '"' : "") + '>' + _nEnTest + " en test</span>" : "")
-            + (_nEcarte ? '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;margin-left:4px;cursor:help;" title="cible manquée au dernier test — pas réutilisable tel quel — ajustez puis Prouver">' + _nEcarte + " écarté" + (_nEcarte > 1 ? "s" : "") + "</span>" : "");
+            + (_nEcarte ? '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;margin-left:4px;cursor:help;" title="objectif manqué au dernier test — pas réutilisable tel quel — ajustez puis Prouver">' + _nEcarte + " écarté" + (_nEcarte > 1 ? "s" : "") + "</span>" : "");
           html += '<div style="height:1px;background:rgba(0,0,0,0.08);margin:10px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">Mes dispositifs</p>';
           // La phrase owner (17/08) : jugés selon leurs résultats — prouvé = réutilisable.
           (function () {
@@ -986,13 +1002,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var tx = _testByPr[p2.practice_id];
             if (!tx) return "Jamais testé — une exécution mesurée suffit.";
             if (tx.realized == null && tx.test_status === "open") return "Test lancé — verdict après le " + frD(tx.we) + ".";
-            if (tx.realized == null) return "Dernier test non mesurable (ventes absentes sur ces dates).";
+            if (tx.realized == null) return "Dernier test non concluant (ventes absentes sur ces dates).";
             var goal2 = tx.basis === "pct" && tx.value != null && tx.baseline != null ? tx.baseline * (1 + tx.value / 100) : null;
             return "Testé du " + frD(tx.ws) + " au " + frD(tx.we) + " — " + (_KPI_DSP[tx.metric] || tx.metric) + " " + _kpiFmtDsp(tx.realized, tx.metric)
               + (goal2 != null ? " vs cible " + _kpiFmtDsp(goal2, tx.metric) : "")
-              + " : " + (tx.verdict === "met" ? "cible tenue" : tx.verdict === "missed" ? "cible manquée" : "non concluant (facteur externe)");
+              + " : " + (tx.verdict === "met" ? "objectif atteint" : tx.verdict === "missed" ? "objectif manqué" : "non concluant (facteur externe)");
           };
-          if (!listPractices.length) html += '<div style="color:#9CA3AF;">Aucun — chaque verdict tenu peut en créer un (« Documenter »).</div>';
+          if (!listPractices.length) html += '<div style="color:#9CA3AF;">Aucun — chaque objectif atteint peut en créer un (« Documenter »).</div>';
           var _siteLbl = function (lid) { return ((j.sites || []).filter(function (sx) { return sx.location_id === lid; })[0] || {}).label || ""; };
           var _nomDsp = function (txt2, max2) {
             var n2 = String(txt2 || "").split("\u2014")[0].split("(")[0].trim();
@@ -1208,6 +1224,19 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   : f2.audience === 'mixed' ? ['public partiellement commun', '#F3F4F6', '#6b7280']
                   : ['public diff\u00e9rent du v\u00f4tre', '#E6F6F0', GREEN];
               });
+              // Mémoire 30 j (23/08) : nuits de lecture + mouvements de prix du mois, dans la
+              // ligne tarifs ; prochain événement nommé sous la ligne. Absences dites, jamais inventées.
+              var _memoire = function (f2) {
+                var n = Number(f2.nuits_30j || 0); if (!n) return '';
+                var h = Number(f2.hausses || 0), b = Number(f2.baisses || 0);
+                var mv = h + b ? [h ? h + ' hausse' + (h > 1 ? 's' : '') : '', b ? b + ' baisse' + (b > 1 ? 's' : '') : ''].filter(Boolean).join(', ') + ' sur 30 j' : 'prix stables';
+                return ' \u00b7 ' + n + ' nuit' + (n > 1 ? 's' : '') + ', ' + mv;
+              };
+              var _prochain = function (f2) {
+                if (!f2.prochain_nom || !f2.prochain_date) return '';
+                var nA = Number(f2.evts_a_venir || 0);
+                return '<div style="font-size:11.5px;color:#6b7280;padding:0 0 6px 160px;">prochain \u00e9v\u00e9nement\u00a0: <b style="color:#374151;">' + esc(String(f2.prochain_nom).length > 48 ? String(f2.prochain_nom).slice(0, 46) + '\u2026' : f2.prochain_nom) + '</b> le ' + frD(f2.prochain_date) + (nA > 1 ? ' \u00b7 ' + nA + ' \u00e0 venir' : '') + '</div>';
+              };
               fs2.slice(0, 8).forEach(function (f2) {
                 var prix;
                 if (f2.p_min == null) prix = '<span style="font-size:11px;color:#9CA3AF;">tarifs non publi\u00e9s sur sa page</span>';
@@ -1216,7 +1245,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   prix = '<span style="display:inline-flex;align-items:center;gap:8px;">'
                     + '<span style="position:relative;width:110px;height:6px;background:#F3F4F6;border-radius:3px;flex:none;">'
                     + '<span style="position:absolute;left:' + x1.toFixed(1) + '%;width:' + (x2 - x1).toFixed(1) + '%;height:6px;border-radius:3px;background:#1D3BB3;opacity:0.75;"></span></span>'
-                    + '<span style="font-size:11px;color:#374151;white-space:nowrap;">' + String(f2.p_min).replace('.', ',') + ' \u2013 ' + String(f2.p_max).replace('.', ',') + ' \u20ac \u00b7 ' + f2.n_tarifs + ' tarifs</span></span>';
+                    + '<span style="font-size:11px;color:#374151;white-space:nowrap;">' + String(f2.p_min).replace('.', ',') + ' \u2013 ' + String(f2.p_max).replace('.', ',') + ' \u20ac \u00b7 ' + f2.n_tarifs + ' tarifs' + _memoire(f2) + '</span></span>';
                 }
                 html += '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid #F5F6F8;font-size:12.5px;flex-wrap:wrap;">'
                   + '<span style="min-width:150px;font-weight:650;">' + esc(String(f2.nom).length > 28 ? String(f2.nom).slice(0, 26) + '\u2026' : f2.nom)
@@ -1228,6 +1257,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   + (f2.cid ? '<a class="tb-link" style="margin-left:auto;font-size:12px;white-space:nowrap;" href="/app/insightevent/competitor?id=' + encodeURIComponent(f2.cid) + '">Consulter \u2192</a>' : '')
                   + '<a href="#" data-tb-fiche="' + esc(f2.nom) + '" style="color:#9CA3AF;text-decoration:none;font-size:14px;padding:0 2px;" title="Offre \u00b7 publics \u00b7 actualit\u00e9 commerciale">\u203a</a>'
                   + '</div>'
+                  + _prochain(f2)
                   + '<div data-tb-fiche-panel="' + esc(f2.nom) + '" style="display:none;padding:2px 0 10px 8px;border-left:2px solid #EEF2FF;margin:0 0 4px 4px;">' + _fichePanel(f2, _audMoi[sid] || []) + '</div>';
               });
               // Lignes de VALEUR du SITE (owner 17/08) \u2014 d\u00e9duites des donn\u00e9es, jamais leur redite.
@@ -1299,7 +1329,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + GREEN + ';margin-right:6px;"></span><span style="font-weight:600;">Leurs offres et tarifs : rien n’a bougé</span> — ' + g.offres_base.n_tarifs + ' tarifs sous surveillance (' + g.offres_base.n_lieux + ' concurrents publient leurs prix)</div>';
             }
           } else html += '<div style="color:#9CA3AF;">Aucun concurrent suivi — suivez vos menaces fortes pour que la veille tourne.</div>';
-          html += '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Une menace « forte » : public commun élevé et proximité. Votre veille lit chaque nuit les pages de vos concurrents suivis — événements, offres, tarifs.</div>';
+          html += '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Une menace « forte » : public commun élevé et proximité. Votre veille lit chaque nuit les pages des concurrents que vous suivez — événements, offres, tarifs.</div>';
           html += '</div>';
 
           // ── Rangée AUTOMATISATIONS — à part : ce n'est pas de la veille concurrentielle
@@ -1446,7 +1476,38 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               if (pn) pn.style.display = pn.style.display === "none" ? "block" : "none";
             });
           });
-          body.querySelectorAll("[data-tb-follow]").forEach(function (b) {
+          // Découverte (23/08) : POST discover-competitors, puis les candidats s'insèrent sous la
+          // rangée, chacun = rangée « Suivez X » (même afRow, même bouton data-tb-follow,
+          // place_id vide — add-competitor géocode par nom + ville).
+          var bindFollow;
+          body.querySelectorAll("[data-tb-discover]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              if (b.disabled) return;
+              b.disabled = true; b.textContent = "Recherche\u2026";
+              var row = b.closest(".tb-af") || b.parentNode;
+              fetch("/api/competitive/discover-competitors", {
+                method: "POST", headers: { "content-type": "application/json" },
+                body: JSON.stringify({ location_id: b.getAttribute("data-tb-discover") }),
+              }).then(function (r) { return r.json(); }).then(function (jj) {
+                var cands = (jj && jj.ok && jj.candidates) || [];
+                if (!cands.length) { b.textContent = "Rien trouv\u00e9"; b.disabled = true; return; }
+                b.textContent = cands.length + " trouv\u00e9" + (cands.length > 1 ? "s" : "");
+                var frag = document.createElement("div");
+                // La phrase de la page source (preuve de l'agent) vit en infobulle du titre ;
+                // le sous-titre est le bénéfice approuvé du verbe Suivre (BENEFICE, afRow).
+                frag.innerHTML = cands.map(function (c) {
+                  return afRow({ rang: 4, iso: null, col: AMBER,
+                    titre: "Suivez " + trunc(c.competitor_name, 40),
+                    tip: c.source_sentence || c.city || "",
+                    geste: '<button type="button" class="tb-link" data-tb-follow="" data-tb-follow-nom="' + esc(c.competitor_name) + '" data-tb-follow-city="' + esc(c.city || "") + '" data-tb-follow-addr="' + esc(c.address || "") + '" data-tb-follow-url="' + esc(c.source_url || "") + '" data-tb-follow-loc="' + esc(b.getAttribute("data-tb-discover")) + '" style="background:none;border:none;padding:0;font-family:inherit;cursor:pointer;">Suivre \u2192</button>' });
+                }).join("");
+                var after = row; while (frag.firstChild) { after = row.parentNode.insertBefore(frag.firstChild, after.nextSibling); }
+                bindFollow(row.parentNode);
+              }).catch(function () { b.disabled = false; b.textContent = "Chercher \u2192"; });
+            });
+          });
+          bindFollow = function (scope) { scope.querySelectorAll("[data-tb-follow]:not([data-tb-bound])").forEach(function (b) {
+            b.setAttribute("data-tb-bound", "1");
             b.addEventListener("click", function () {
               if (b.disabled) return;
               b.disabled = true; b.textContent = "Ajout\u2026";
@@ -1459,13 +1520,16 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   competitor_name: b.getAttribute("data-tb-follow-nom") || "",
                   city: b.getAttribute("data-tb-follow-city") || "",
                   google_place_id: b.getAttribute("data-tb-follow") || "",
+                  address: b.getAttribute("data-tb-follow-addr") || undefined,
+                  source_url: b.getAttribute("data-tb-follow-url") || undefined,
                 }),
               }).then(function (r) { return r.json(); }).then(function (jj) {
                 if (jj && jj.ok) { b.textContent = "Suivi \u2713"; b.style.color = "#059669"; b.title = "Dans votre veille \u2014 premi\u00e8re lecture cette nuit"; }
                 else { b.disabled = false; b.textContent = "Suivre \u2192"; alert("Ajout impossible : " + ((jj && jj.error) || "r\u00e9essayez")); }
               }).catch(function () { b.disabled = false; b.textContent = "Suivre \u2192"; });
             });
-          });
+          }); };
+          bindFollow(body);
           // Événements publics (19/08) : dépliage « au-delà » + filtre « même public » — bascule
           // d'affichage sur des rangées PRÉ-RENDUES, aucun re-calcul.
           body.querySelectorAll("[data-ep-beyond]").forEach(function (b) {

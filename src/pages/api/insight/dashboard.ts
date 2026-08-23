@@ -12,6 +12,9 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypeLabelFr } from "../../../lib/eventTypes";
 import { rowsToImpactsWithImmaterial } from "../../../lib/dayClassRegistry";
+// KPI -> colonne journalière : LU au registre, jamais retapé (les deux CASE ci-dessous en
+// étaient des copies ; un mart qui renomme une colonne cassait alors 3 surfaces sur 4).
+import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpiRegistry";
 
 const PROJECT = "muse-square-open-data";
 const json = (status: number, body: unknown) =>
@@ -35,7 +38,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [ca7Rows], [opsValRows], [evtPubRows], [evtCovRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [ca7Rows], [opsValRows], [evtPubRows], [evtCovRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -226,13 +229,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // les APPRENTISSAGES de la carte « Ce que l'app a appris » + le prix des Occasions, au
       // MÊME registre que les pills/chantiers de Pulse — jamais un agrégat brut parallèle.
       // .catch [] : compte jamais batché = carte absente.
-      bq.query({
-        query: `SELECT location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur,
-                       med_gap_eur, n_log, avg_log, sd_log, span_days
-                FROM \`${PROJECT}.analytics.day_class_impacts\`
-                WHERE location_id IN UNNEST(@locs)`,
-        params: { locs }, location: "EU",
-      }).catch(() => [[]]),
+      // Tolérante aux deux schémas — même raison que le registre (23/08) : le cron nocturne
+      // tourne le code de PRODUCTION et réécrit le store sans `metric` tant que dev n'est pas
+      // mergé. Ici le `.catch(() => [[]])` ne dégradait pas, il SUPPRIMAIT la carte.
+      (async () => {
+        const cols = `location_id, class_key, family, basis, n_days, avg_gap_eur, sd_gap_eur,
+                      med_gap_eur, n_log, avg_log, sd_log, span_days`;
+        const withMetric = await bq.query({
+          query: `SELECT ${cols}, metric FROM \`${PROJECT}.analytics.day_class_impacts\`
+                  WHERE location_id IN UNNEST(@locs) AND metric = 'revenue_residual'`,
+          params: { locs }, location: "EU",
+        }).catch(() => null);
+        if (withMetric) return withMetric;
+        return await bq.query({
+          query: `SELECT ${cols} FROM \`${PROJECT}.analytics.day_class_impacts\`
+                  WHERE location_id IN UNNEST(@locs)`,
+          params: { locs }, location: "EU",
+        }).catch(() => [[]]);
+      })(),
       // CA annualisé par site (même formule que annualRevenueQuery du registre, groupée) —
       // dénominateur de la porte de matérialité ; sans CA la porte ne s'applique pas.
       bq.query({
@@ -322,6 +336,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 WHERE location_id IN UNNEST(@locs) AND threat_level = 'high' GROUP BY 1`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
+      // Suivis RÉELS par site (23/08) : competitor_tracking filtré par location_id — la table
+      // que lisent les fiches ci-dessous, les crawls et add/unfollow. Pas watched_competitors :
+      // les deux divergent (34 vs 32 lignes, 29 communes ; sur f10c3e58 l'Orangerie y porte
+      // deux competitor_id différents). Et pas le `is_followed` de la couverture, calculé SANS
+      // location_id dans fct_competitor_directory (11 affichés sur f10c3e58 pour 5 réels).
+      bq.query({
+        query: `SELECT location_id, COUNT(DISTINCT competitor_id) AS n_watched
+                FROM \`${PROJECT}.raw.competitor_tracking\`
+                WHERE location_id IN UNNEST(@locs) AND deleted_at IS NULL GROUP BY 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
       // Les trous nommés : menaces fortes NON suivies (le geste « Suivez X »).
       bq.query({
         query: `SELECT tp.location_id, tp.competitor_name, ROUND(tp.distance_km, 1) AS km, ROUND(tp.audience_overlap_pct) AS overlap,
@@ -409,14 +434,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
                    AND r.date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
                   WHERE c.measured_metric IS NULL OR c.measured_metric = 'revenue_residual' GROUP BY 1),
                 kp AS (
-                  SELECT c.commitment_id, AVG(CASE c.measured_metric
-                    WHEN 'footfall' THEN p.daily_visitors WHEN 'conversion' THEN p.daily_conversion_rate
-                    WHEN 'basket' THEN p.daily_avg_basket WHEN 'transactions' THEN p.daily_transactions
-                    WHEN 'discount' THEN p.daily_discount_total END) realized
+                  SELECT c.commitment_id, AVG(${kpiCaseSql("c.measured_metric", "p")}) realized
                   FROM cm c JOIN \`${PROJECT}.mart.fct_client_daily_performance\` p
                     ON p.location_id = c.location_id
                    AND p.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
-                  WHERE c.measured_metric IN ('footfall','conversion','basket','transactions','discount') GROUP BY 1),
+                  WHERE c.measured_metric IN (${kpiKeyListSql()}) GROUP BY 1),
                 fam AS (
                   SELECT c.commitment_id, SUM(t.revenue) / COUNT(DISTINCT t.transaction_date) realized
                   FROM cm c JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id
@@ -450,12 +472,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 WHERE c.measured_metric IS NULL OR c.measured_metric = 'revenue_residual'
                 UNION ALL
                 SELECT c.commitment_id, CAST(p.transaction_date AS STRING) d,
-                       CASE c.measured_metric WHEN 'footfall' THEN p.daily_visitors WHEN 'conversion' THEN p.daily_conversion_rate
-                            WHEN 'basket' THEN p.daily_avg_basket WHEN 'transactions' THEN p.daily_transactions
-                            WHEN 'discount' THEN p.daily_discount_total END v
+                       ${kpiCaseSql("c.measured_metric", "p")} v
                 FROM cm c JOIN \`${PROJECT}.mart.fct_client_daily_performance\` p
                   ON p.location_id = c.location_id AND p.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
-                WHERE c.measured_metric IN ('footfall','conversion','basket','transactions','discount')
+                WHERE c.measured_metric IN (${kpiKeyListSql()})
                 UNION ALL
                 SELECT c.commitment_id, CAST(t.transaction_date AS STRING) d, SUM(t.revenue) v
                 FROM cm c JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id
@@ -482,8 +502,29 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        CAST(ANY_VALUE(cd.commercial_news_at) AS STRING) news_at,
                        ANY_VALUE(tp.audience_overlap_pct) overlap_pct,
                        ANY_VALUE(tp.distance_km) km,
-                       LOGICAL_OR(COALESCE(ct.proposed, FALSE)) proposed
+                       LOGICAL_OR(COALESCE(ct.proposed, FALSE)) proposed,
+                       -- Mémoire 30 j par suivi (23/08, point 2 « wow ») : nuits de lecture,
+                       -- mouvements de prix du mart (fenêtre 30 j du modèle), prochain événement.
+                       ANY_VALUE(nu.nuits_30j) nuits_30j,
+                       ANY_VALUE(oc.hausses) hausses, ANY_VALUE(oc.baisses) baisses, ANY_VALUE(oc.nouveautes) nouveautes,
+                       ANY_VALUE(ev.prochain_nom) prochain_nom, CAST(ANY_VALUE(ev.prochain_date) AS STRING) prochain_date, ANY_VALUE(ev.n_a_venir) evts_a_venir
                 FROM \`${PROJECT}.raw.competitor_tracking\` ct
+                LEFT JOIN (
+                  -- Nuits de lecture, SANS le filtre price_numeric de la jointure h ci-dessous :
+                  -- une page lue sans prix numérique (quai Branly, sans URL tarifs) est une nuit lue.
+                  SELECT competitor_id, COUNT(DISTINCT DATE(crawled_at)) nuits_30j
+                  FROM \`${PROJECT}.raw.competitor_offering_history\`
+                  WHERE crawled_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY) GROUP BY 1) nu ON nu.competitor_id = ct.competitor_id
+                LEFT JOIN (
+                  SELECT competitor_id, COUNTIF(change_type = 'price_increase') hausses, COUNTIF(change_type = 'price_decrease') baisses, COUNTIF(change_type = 'new_offering') nouveautes
+                  FROM \`${PROJECT}.mart.fct_competitor_offering_changes\` GROUP BY 1) oc ON oc.competitor_id = ct.competitor_id
+                LEFT JOIN (
+                  SELECT competitor_id, location_id, COUNT(*) n_a_venir,
+                         ARRAY_AGG(event_name ORDER BY event_date LIMIT 1)[OFFSET(0)] prochain_nom,
+                         MIN(event_date) prochain_date
+                  FROM \`${PROJECT}.mart.fct_competitor_events_conflicts\`
+                  WHERE event_date >= CURRENT_DATE() AND location_id IN UNNEST(@locs) GROUP BY 1, 2) ev
+                  ON ev.competitor_id = ct.competitor_id AND ev.location_id = ct.location_id
                 JOIN \`${PROJECT}.raw.competitor_directory\` cd
                   ON cd.competitor_id = ct.competitor_id AND cd.deleted_at IS NULL
                 LEFT JOIN \`${PROJECT}.mart.fct_competitor_threat_profile\` tp
@@ -922,6 +963,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
           offres: (offChgRows as any[]).map((r) => ({ nom: str(r.competitor_name), item: str(r.item), change_type: str(r.change_type), direction: str(r.price_direction), avant: num(r.old_price_numeric), apres: num(r.new_price_numeric), pct: num(r.price_pct_change), qualif: str(r.new_price_qualifier), vu_le: str(r.vu_le), src_url: str(r.src_url) })),
           offres_base: { n_tarifs: Number(num((offBaseRows as any[])[0]?.n_tarifs) ?? 0), n_lieux: Number(num((offBaseRows as any[])[0]?.n_lieux) ?? 0) },
           par_site: (covSiteRows as any[]).map((r) => ({ location_id: str(r.location_id), site_label: siteLabel[String(str(r.location_id))] || null, n_total: num(r.n_total), n_suivis: num(r.n_suivis) })),
+          // Suivis réels par site (watched_competitors × location_id) — pour l'amorçage
+          // « découvrir des concurrents » (23/08). Tous les sites demandés, 0 inclus.
+          watched_par_site: locs.map((l) => {
+            const w = (watchedRows as any[]).find((r) => String(str(r.location_id)) === String(l));
+            return { location_id: String(l), site_label: siteLabel[String(l)] || null, n_watched: w ? num(w.n_watched) : 0 };
+          }),
           trous: (trousRows as any[]).map((r) => ({ nom: str(r.competitor_name), km: num(r.km), overlap: num(r.overlap), place_id: str(r.google_place_id), city: str(r.city), location_id: str(r.location_id) })),
           // Mon positionnement (17/08) : la fiche factuelle par suivi — on nomme ou on se tait.
           fiches: (ficheRows as any[]).map((r) => {
@@ -956,6 +1003,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
               overlap_pct: num(r.overlap_pct), km: num(r.km), analyse: ana, actu,
               // P3.1-f : suivi posé par le système à l'onboarding → la fiche le dit (« suivi proposé — ajustez »).
               proposed: r.proposed === true || (r.proposed && (r.proposed as any).value === true) || false,
+              nuits_30j: num(r.nuits_30j), hausses: num(r.hausses), baisses: num(r.baisses), nouveautes: num(r.nouveautes),
+              prochain_nom: str(r.prochain_nom), prochain_date: str(r.prochain_date), evts_a_venir: num(r.evts_a_venir),
             };
           }),
           audiences: (audRows as any[]).map((r) => ({ location_id: str(r.location_id), a1: str(r.a1), a2: str(r.a2) })),

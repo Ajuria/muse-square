@@ -254,7 +254,7 @@ if (!location_id) {
       .ab-sowhat { font-size:13px; color:#374151; line-height:1.65; max-width:58ch; }
       /* Restyle R1/R5/R6 : montant (Enjeu €/an) dans la zone titre — chiffre d'abord. Libellé
          invariant deux mots (« Enjeu · estimé/mesuré », « Motif de fond · estimé » si hérité) ;
-         « cause multifactorielle » + sens de la couleur en infobulle (title), signalée par le
+         « facteurs mêlés » + sens de la couleur en infobulle (title), signalée par le
          pointillé. Couleur du montant = sens du flux (vert = à capter, ambre = à défendre). */
       .amt { text-align:right; flex:none; cursor:help; max-width:170px; }
       .amt-val { display:inline-block; font-size:19px; font-weight:700; line-height:1.1; white-space:nowrap; font-variant-numeric:tabular-nums; letter-spacing:-0.01em; padding:4px 10px; border-radius:10px; }
@@ -381,7 +381,7 @@ if (!location_id) {
     <script is:inline src="/reco-library.js?v=12"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=47"></script>
+    <script is:inline src="/action-cards.js?v=65"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
 
@@ -1954,7 +1954,7 @@ if (!location_id) {
         // coin — plus jamais dans la ligne d'explication de la carte.
         var _aTip = [(_enj.n_days ? 'Mesuré sur ' + _enj.n_days + ' j / ' + _enj.span_months + ' mois — ' : 'Enjeu ') + String(_enj.tier_label_fr || _enj.tier || '') + '.'];
         if (_enj.inherited && _aCause) _aTip.push('Motif de fond de la journée : ' + _aCause + '.');
-        if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : plusieurs facteurs se mêlent sur ces jours (cause multifactorielle).');
+        if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : plusieurs facteurs se mêlent sur ces jours.');
         _aTip.push(_aPos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
         _amtHtml = '<div class="amt ' + (_aPos ? 'gain' : 'defend') + '" title="' + escapeHtml(_aTip.join(' ')) + '">'
           + '<div class="amt-val" style="color:' + _aFg + ';">' + (_aPos ? '+' : '−') + _aVal + ' €/an</div>'
@@ -3520,7 +3520,25 @@ if (!location_id) {
   function _goalStoreKey() { return "ms_pulse_goal:" + (currentLocationId || "default"); }
   // ---- Mes engagements (persistent commitment cards; own grain, own section) ----
   function _cgFv(x){ return (x && typeof x === 'object' && 'value' in x) ? x.value : x; }
-  function _cgWin(k){ if (k === 'day_of') return 'le jour même'; var m = /^(\d+)d$/.exec(String(k || '')); return m ? m[1] + ' j' : '7 j'; }
+  // 22/08 — `day_of` rendait « le jour même », SANS date. Deux engagements ouverts sur deux
+  // occurrences du même événement récurrent (22/08 et 29/08, vérifié en base) s'affichaient
+  // donc à l'identique : même titre, même corps, même objectif — l'owner a lu un doublon là
+  // où il y avait deux dates. Lexique règle 4, ON NOMME OU ON SE TAIT ; et règle 6, jour de
+  // semaine en toutes lettres + date JJ/MM. La fenêtre en jours (`7d`) n'a pas de date à
+  // nommer : elle est inchangée.
+  function _cgWin(k, ymd){
+    if (k === 'day_of') {
+      // Le client BigQuery enveloppe les DATE dans { value: 'YYYY-MM-DD' } ; normalizeYmd
+      // reçoit alors « [object Object] » et rend '' — d'où le repli « le jour même » qui
+      // rendait les deux engagements indistinguables malgré le correctif précédent.
+      var raw = (ymd && typeof ymd === 'object' && ymd.value != null) ? ymd.value : ymd;
+      var d = raw ? parseYmdToDate(normalizeYmd(raw)) : null;
+      if (!d) return 'le jour même';
+      var j = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][d.getUTCDay()];
+      return 'le ' + j + ' ' + String(d.getUTCDate()).padStart(2,'0') + '/' + String(d.getUTCMonth()+1).padStart(2,'0');
+    }
+    var m = /^(\d+)d$/.exec(String(k || '')); return m ? m[1] + ' j' : '7 j';
+  }
   function _cgEur(n){ return (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' €'; }
   // indicative % above "habituel" needed to validate the objective — the z threshold
   // translated through the location's noise band (~0.19 = CV × √VIF) over the window.
@@ -3572,11 +3590,11 @@ if (!location_id) {
     // R1 (proto engagement-cards-restyle-proto.html, validé 27/07) : le titre est l'ACTION
     // elle-même ; le chiffre (objectif ou résultat) vit en zone titre (bloc .amt, cf. _amt).
     var _titre = String(r.committed_action_text || '');
-    var sowhat = r.status === 'open' ? escapeHtml('Mesure sur ' + _cgWin(r.window_kind) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
+    var sowhat = r.status === 'open' ? escapeHtml((r.window_kind === 'day_of' ? 'Mesure ' : 'Mesure sur ') + _cgWin(r.window_kind, r.window_start) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'expired' ? escapeHtml('Aucune donnée de ventes reçue en 30 j.')
-      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind) + '.')
-      : escapeHtml('Dates de l\u2019op\u00e9ration : ' + _cgWin(r.window_kind) + '.');
+      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind, r.window_start) + '.')
+      : escapeHtml('Dates de l\u2019op\u00e9ration : ' + _cgWin(r.window_kind, r.window_start) + '.');
     // Code couleur lisible (proto 27/07) : montant signé + mini-phrase. Objectif bleu tant que
     // rien n'est mesuré ; résultat couleur verdict une fois résolu. Ligne legacy sans seuil et
     // rien de mesuré → pas de bloc (le « 1 % » inventé par le plancher de _cgTargetPct disparaît).
@@ -3585,12 +3603,12 @@ if (!location_id) {
       var _rPos = Number(pct) >= 0;
       var _rFg = r.verdict === 'met' ? '#166534' : r.verdict === 'missed' ? '#b91c1c' : '#B45309';
       var _rLbl = r.verdict === 'met' ? 'objectif atteint' : r.verdict === 'missed' ? 'objectif manqué' : 'non concluant';
-      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel.') + '">'
+      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind, r.window_start) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel.') + '">'
         + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' %</div>'
         + '<div class="amt-sub">' + _rLbl + '</div>'
       + '</div>';
     } else if (r.status !== 'expired' && r.threshold_value != null) {
-      _amt = '<div class="amt" title="' + escapeHtml('Objectif : +' + _ypct + ' % vs votre CA habituel' + (_uplift ? ', soit +' + _cgEur(_uplift) + '/jour' : '') + ' sur ' + _cgWin(r.window_kind) + '. Bleu : rien n\'est mesuré encore.') + '">'
+      _amt = '<div class="amt" title="' + escapeHtml('Objectif : +' + _ypct + ' % vs votre CA habituel' + (_uplift ? ', soit +' + _cgEur(_uplift) + '/jour' : '') + ' sur ' + _cgWin(r.window_kind, r.window_start) + '. Bleu : rien n\'est mesuré encore.') + '">'
         + '<div class="amt-val" style="color:#1D3BB3;">' + (_uplift ? '+' + _cgEur(_uplift) + '/jour' : '+' + _ypct + ' %') + '</div>'
         + '<div class="amt-sub">votre objectif</div>'
       + '</div>';
@@ -3626,9 +3644,32 @@ if (!location_id) {
     var caveat = '';
     if (amber) caveat = '<div style="font-size:11px;color:#B45309;line-height:1.5;padding:0 16px 12px;display:flex;gap:6px;"><span>&#9432;</span><span>Vacances scolaires sur ' + Math.round(Number(r.material_holiday_share) * 100) + ' % de la fenêtre — résultat non attribué au calendrier, mais à garder en tête.</span></div>';
     else if (r.verdict === 'confounded') caveat = '<div style="font-size:11px;color:#B45309;line-height:1.5;padding:0 16px 12px;display:flex;gap:6px;"><span>&#9888;</span><span>' + Math.round(Number(r.material_holiday_share) * 100) + ' % de la fenêtre en vacances scolaires — impossible de distinguer l\'action du calendrier.</span></div>';
-    var _stage = open ? (r.action_done_status ? 'Exécution' : 'Planification') : (r.retro_worked ? 'Documenté' : 'À documenter');
-    var _stageBg = (_stage === 'À documenter') ? '#FAEEDA' : (_stage === 'Documenté') ? '#F1EFE8' : '#EAEFFB';
-    var _stageFg = (_stage === 'À documenter') ? '#854F0B' : (_stage === 'Documenté') ? '#5F5E5A' : '#1D3BB3';
+    // 22/08 — « À AJUSTER », le pendant de « À documenter » quand l'objectif est MANQUÉ.
+    // La mesure du KPI ne demande RIEN à l'exploitant : elle vient de l'ingestion des ventes
+    // (API ou CSV) et `cron/commitment-resolve` rend le verdict tout seul. Ce qui lui revient
+    // est un apport QUALITATIF, et seulement quand l'objectif n'est pas atteint : dire ce qu'il
+    // change. Objectif atteint ⇒ on ne lui demande rien — reconduire est le défaut silencieux.
+    // D'où la condition sur `verdict === 'missed'`, et non sur « résolu sans mouvement » :
+    // une première version réclamait une décision même sur un succès.
+    // MOT (owner 22/08, deuxième passe) : « À ajuster » n'était pas intuitif — « ajuster »
+    // n'a pas d'objet implicite, contrairement à « documenter ». C'est la règle 8 du lexique
+    // appliquée à ma propre chaîne : verbe ordinaire SUR UN OBJET QU'ON MANIPULE. Les deux mots
+    // sont sanctionnés — « Ajuster » pour le geste sur un engagement (« Modifier » mort le
+    // 15/08, « Évolution » le 17/08), « dispositif » pour la chose. L'article est gardé :
+    // « Ajuster dispositif » n'est pas du français, et la clarté prime ici sur la densité.
+    // Le mot vaut pour TOUTES les origines, pas seulement l'événement : la page de destination
+    // dit « Votre dispositif » quelle que soit l'origine, alors que `action_card` est
+    // majoritaire (7 engagements sur 13). Écartés : « verdict en attente » (banni, lexique
+    // ligne 38) et « À décider » (supposait un choix sur tout verdict).
+    // Passe DEVANT « À documenter » : l'ajustement façonne l'occurrence suivante, la rétro
+    // regarde en arrière.
+    var _awaitsMove = !open && r.status !== 'cancelled' && r.verdict === 'missed'
+      && !r.adjustment_move && !r.__hasChild;
+    var _stage = open ? (r.action_done_status ? 'Exécution' : 'Planification')
+      : (_awaitsMove ? 'Ajuster le dispositif' : (r.retro_worked ? 'Documenté' : 'À documenter'));
+    var _owed = (_stage === 'À documenter' || _stage === 'Ajuster le dispositif');
+    var _stageBg = _owed ? '#FAEEDA' : (_stage === 'Documenté') ? '#F1EFE8' : '#EAEFFB';
+    var _stageFg = _owed ? '#854F0B' : (_stage === 'Documenté') ? '#5F5E5A' : '#1D3BB3';
     // #4 terminal-cancel states: adjusted (has a child) vs stopped (Arrêter) vs plain cancel.
     if (r.status === 'cancelled') {
       _stage = (r.adjustment_move === 'stop') ? 'Arrêtée' : (r.__hasChild ? 'Ajustée' : 'Annulée');

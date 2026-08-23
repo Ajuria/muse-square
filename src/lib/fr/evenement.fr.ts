@@ -26,6 +26,20 @@
 //    · « rejeu » est banni PARTOUT, y compris comme clé interne (owner : « ça ne veut rien
 //      dire, c'est une traduction de l'anglais ») — l'échelle est déclaré → en test → prouvé.
 export const MOTS_BANNIS: Record<string, string> = {
+  // ── Verdict de l'objectif (22/08) — le lexique a tranché « atteint · manqué · non concluant »
+  // (docs/lexique.md, « Le jugement automatique sur la cible »). tableau.astro en portait une
+  // SECONDE série pour les MÊMES verdicts : trois concepts, six mots, sur deux pages que rien
+  // ne reliait. Le garde-fou scanne déjà les deux fichiers — il ne connaissait pas ces mots.
+  "cible tenue": "objectif atteint",
+  "cible manquée": "objectif manqué",
+  "verdict tenu": "objectif atteint",
+  "non mesurable": "non concluant",
+  // 22/08 — le bloc de la prochaine action disait « mouvement » dans son titre et « move »
+  // dans son intro : deux mots pour un concept, dont un anglicisme. Le fichier appelait déjà
+  // l'engagement « votre action » ailleurs — le mot s'aligne, il ne s'ajoute pas.
+  "prochain mouvement": "prochaine action",
+  "prochain move": "prochaine action",
+
   "vs attendu": "vs votre résultat habituel",
   "vs l’attendu": "vs votre résultat habituel",
   "vs l'attendu": "vs votre résultat habituel",
@@ -108,7 +122,7 @@ export const EVT_FR = {
   objectif_manque: "Objectif manqué",
   verdict_met: "objectif atteint",
   verdict_missed: "objectif manqué",
-  verdict_confounded: "non mesurable (facteur externe)",
+  verdict_confounded: "non concluant (facteur externe)",
   verdict_mesure: "verdict mesuré : {verdict}",
   verdict_attente: "verdict à la fin de la fenêtre",
   box_ca: "CA réalisé",

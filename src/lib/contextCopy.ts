@@ -294,27 +294,42 @@ export function fillContextFallback(labelKey: string, vars: Record<string, strin
 // Copy des cartes structurelles — UNE phrase-titre chiffrée + l'honnêteté du pool + le chantier
 // proposé. Owner-éditable ici (voix : phrases nominales, jamais de français robotique).
 const STRUCTURAL_CHANTIER_FR: Record<string, string> = {
-  heat: "Plan chaleur permanent — ombrage, offre fraîcheur, communication déclenchée dès prévision de forte chaleur.",
-  rain: "Plan pluie — offre de repli en intérieur + communication dès prévision de pluie marquée.",
-  wind: "Plan vent — sécurisation extérieure + repli intérieur systématique les jours de vent fort.",
-  snow: "Plan neige — accès, horaires et communication adaptés dès prévision de neige.",
-  cold: "Plan grand froid — confort d'accueil et offre chaude mis en avant.",
-  traffic_high: "Routine « jours de pointe » — renfort accueil/caisse déclenché par la prévision d'affluence.",
-  events_high: "Calendrier des événements voisins — offre et horaires alignés systématiquement.",
-  discount_no_lift: "Règle de remise — plafond et ciblage revus, reconduction conditionnée au lift mesuré.",
-  tourism_high: "Offre visiteurs — capter le flux des jours de forte saison (langues, mise en avant, horaires).",
-  tourism_low: "Programme basse saison — animer la clientèle locale sur les jours calmes.",
-  competition_high: "Différenciation durable — visibilité et offre distinctive sur les jours disputés.",
-  competition_low: "Fenêtres calmes — concentrer lancements et temps forts sur les jours à faible pression.",
-  mobility_disruption: "Protocole perturbations — communication d'itinéraires et offre adaptée dès l'annonce.",
-  followed_activity_high: "Rituel « concurrents actifs » — programmation renforcée quand vos suivis animent la zone.",
+  // Clé `heat` corrigée le 21/08 : elle n'a correspondu à AUCUNE classe depuis la scission de la
+  // chaleur par dose (29/07, docs/card-truth-audit.md § « Scission de la classe chaleur »).
+  // Les deux classes retombaient sur le chantier générique — visible en production sur f10c3e58,
+  // dont la carte à −8 809 €/an affichait « Dispositif durable à définir ».
+  // Le texte parle de « forte chaleur » : il appartient à heat_28_plus, pas au doux.
+  heat_28_plus: "Dispositif forte chaleur — ombrage, offre fraîcheur, communication déclenchée dès prévision.",
+  // heat_25_27 : PAS de chantier — la mesure dit que c'est une classe DISTINCTE (site le mieux
+  // mesuré : −610 €/j à 25–27 °C contre −159 €/j à 28 °C+, soit 4× plus pour la chaleur douce),
+  // donc elle ne peut pas hériter du plan forte chaleur. Sa phrase est à écrire par l'owner
+  // (CLAUDE.md, SINGLE SOURCE OF TRUTH (copie) : un concept sans mot ⇒ demander LE mot).
+  rain: "Dispositif pluie — offre de repli en intérieur + communication dès prévision de pluie marquée.",
+  wind: "Dispositif vent — sécurisation extérieure + repli intérieur systématique les jours de vent fort.",
+  snow: "Dispositif neige — accès, horaires et communication adaptés dès prévision de neige.",
+  cold: "Dispositif grand froid — confort d'accueil et offre chaude mis en avant.",
+  traffic_high: "Dispositif jours de pointe — renfort accueil/caisse déclenché par la prévision d'affluence.",
+  events_high: "Dispositif événements voisins — offre et horaires alignés systématiquement.",
+  discount_no_lift: "Dispositif remise — plafond et ciblage revus, reconduction conditionnée au lift mesuré.",
+  tourism_high: "Dispositif visiteurs — capter le flux des jours de forte saison (langues, mise en avant, horaires).",
+  tourism_low: "Dispositif basse saison — animer la clientèle locale sur les jours calmes.",
+  competition_high: "Dispositif différenciation — visibilité et offre distinctive sur les jours disputés.",
+  // 22/08 — DÉBLOQUÉ. Cette entrée portait deux violations (« Fenêtres » banni au sens occasion,
+  // « concentrer » proscrit règle 8) et attendait la décision de l'owner : le mot banni ÉTAIT le
+  // nom du chantier. L'owner a tranché — « dispositif » nomme l'objet à N'IMPORTE QUEL état, et
+  // « une pratique qui marche » est un dispositif PROUVÉ, pas un dispositif en soi (lexique
+  // corrigé le même jour). « réservés » vient du corpus owner (« Réservez les remises à vos
+  // clients fidèles », reco-library.js) : repris, pas inventé.
+  competition_low: "Dispositif jours calmes — lancements et temps forts réservés aux jours à faible pression.",
+  mobility_disruption: "Dispositif perturbations — communication d'itinéraires et offre adaptée dès l'annonce.",
+  followed_activity_high: "Dispositif concurrents actifs — programmation renforcée quand vos suivis animent la zone.",
   school_holiday: "Dispositif vacances scolaires — offre et équipe calées sur le public vacances.",
   public_holiday: "Dispositif jours fériés — horaires et offre spécifiques actés une fois pour toutes.",
 };
 
 export function structuralCardCopyFr(i: {
   class_key: string; label_fr: string; eur_year: number; tier_label_fr: string;
-  n_days: number; span_months: number; entangled: boolean;
+  n_days: number; span_months: number; entangled: boolean; avg_gap_eur?: number;
 }): { title_fr: string; sowhat_fr: string; chantier_fr: string; register: "correctif" | "identification" } {
   const pos = i.eur_year > 0;
   // Doctrine 01/08, amendement 7 : deux REGISTRES. Identification = le levier est propre au
@@ -330,27 +345,62 @@ export function structuralCardCopyFr(i: {
   if (i.class_key === "discount_no_lift") {
     title = "Des remises accordées sans effet mesuré sur le CA";
   } else if (i.class_key === "events_high" && pos) {
-    title = "Les jours d'événements proches, vous sur-performez";
+    title = "Les jours d'événements proches vous rapportent";
   } else if (register === "identification") {
     title = i.class_key === "traffic_high"
       ? "Identifiez ce qui déclenche vos jours de pointe"
       : i.class_key === "followed_activity_high"
-        ? "L'activité de vos concurrents suivis vous profite — identifiez pourquoi"
-        : "Les jours calmes vous réussissent — identifiez pourquoi";
-  } else if (i.class_key === "competition_low") {
-    title = "Les jours calmes ne vous profitent pas encore";
+        ? "L'activité des concurrents que vous suivez vous profite — identifiez pourquoi"
+        // Aligné le 21/08 : « jours calmes » ne nommait pas la dimension mesurée (même défaut que
+        // le titre correctif retiré le même jour), et « vous réussissent » divergeait du verbe de
+        // la forme C. Le libellé de la classe + « vous rapportent » ; le « — identifiez pourquoi »
+        // reste, c'est lui qui porte le registre identification (doctrine 01/08, amendement 7).
+        : `Les ${i.label_fr} vous rapportent — identifiez pourquoi`;
+  // competition_low négatif : le titre en dur « Les jours calmes ne vous profitent pas encore »
+  // est RETIRÉ le 21/08 (3 arbitrages owner). Il précédait la forme C et la contredisait sur les
+  // trois points : (1) « calmes » ne nommait pas la dimension — la classe mesure
+  // `competition_index_local` = concurrents actifs pondérés par la distance, pas un calme ambiant ;
+  // (2) « ne vous profitent pas » présentait un COÛT mesuré (−162 €/j sur 20 j chez f10c3e58)
+  // comme un profit absent ; (3) « pas encore » promettait un gain latent que rien ne mesure.
+  // Le gabarit par défaut dit les trois : « Les jours à faible pression concurrentielle vous coûtent ».
   } else {
+    // Forme C (owner 21/08) : « Les » et non « Vos » — la classe de jour n'appartient pas à
+    // l'exploitant, seul l'effet est sien. Verbe et non adjectif (lexique règle 8), et le couple
+    // rapporter/coûter est déjà celui du coin (« à gagner » / « perdus »). Pas de « du chiffre » :
+    // le corps le dit et le montant est au coin (lexique règle 2 + correction owner « que la normale »).
     title = pos
-      ? `Vos ${i.label_fr} vous rapportent plus que la normale`
-      : `Vos ${i.label_fr} vous font perdre du chiffre`;
+      ? `Les ${i.label_fr} vous rapportent`
+      : `Les ${i.label_fr} vous coûtent`;
   }
+  // CORPS — mesure, plus affirmation (owner 22/08). Les trois phrases précédentes étaient
+  // IDENTIQUES d'une carte à l'autre : sur le compte owner, QUATRE cartes sur cinq portaient
+  // mot pour mot « Sur ces journées, votre chiffre passe sous votre résultat habituel — de
+  // façon récurrente, pas accidentelle ». Rien ne pouvait les différencier : la doctrine du
+  // 01/08 (amendements 1 et 2) avait vidé le corps de tout nombre, le coin et l'infobulle les
+  // ayant pris. Or le coin porte l'enjeu ANNUALISÉ ; les deux facteurs qui le composent —
+  // combien par jour, sur combien de jours mesurés — n'étaient nulle part.
+  //
+  // Ils différencient d'eux-mêmes, sans un mot à écrire : 36 j / −204 € et 20 j / −166 €
+  // racontent une fuite large et lente contre une claque plus rare. Et le corps passe enfin le
+  // test 11 du lexique : il ne peut plus être écrit sans ouvrir le compte.
+  //
+  // « de façon récurrente, pas accidentelle » disparaît sans perte : 36 jours mesurés ne sont
+  // pas un accident — le nombre dit ce que la phrase affirmait. Le libellé de la classe n'est
+  // pas répété (le titre le porte) : « par jour de jours de vacances scolaires » n'existe pas.
+  //
+  // La fréquence ANNUELLE est délibérément absente : span_months vaut 5 sur les 5 classes du
+  // compte owner, donc « j/an » n'est que n_days × 2,4 — aucune information de plus, et le
+  // biais que le registre dénonce lui-même (« 8 jours de pluie dans une fenêtre estivale n'est
+  // pas un taux de pluie annuel »).
+  const eurJour = Number.isFinite(Number(i.avg_gap_eur)) ? Math.round(Number(i.avg_gap_eur)) : null;
+  const mesure = (i.n_days > 0 && eurJour != null)
+    ? `Sur ${i.n_days} jour${i.n_days > 1 ? "s" : ""} mesuré${i.n_days > 1 ? "s" : ""}, ${eurJour > 0 ? "+" : "\u2212"}${Math.abs(eurJour).toLocaleString("fr-FR")} \u20ac par jour.`
+    : (i.n_days > 0 ? `Mesuré sur ${i.n_days} jour${i.n_days > 1 ? "s" : ""}.` : "");
   const sowhat = register === "identification"
-    ? "Sur ces journées, vous encaissez plus que votre normale — de façon récurrente, pas accidentelle. La cause précise est chez vous : trouvée et documentée, elle devient déclenchable."
-    : (pos
-      ? "Sur ces journées, vous encaissez plus que votre normale — de façon récurrente, pas accidentelle."
-      : "Sur ces journées, votre chiffre passe sous votre normale — de façon récurrente, pas accidentelle.");
+    ? (mesure + " La cause précise est chez vous : trouvée et documentée, elle devient déclenchable.").trim()
+    : mesure;
   const chantier = register === "identification"
-    ? "Enquête : trouvez le mécanisme sur la page dédiée, documentez-le — il deviendra déclenchable."
+    ? "Enquête : trouvez le mécanisme via « Reproduire le dispositif », documentez-le — il deviendra déclenchable."
     : "Chantier : " + (STRUCTURAL_CHANTIER_FR[i.class_key]
       || "Dispositif durable à définir — engagez-vous pour mesurer l'effet mois après mois.");
   return { title_fr: title, sowhat_fr: sowhat, chantier_fr: chantier, register };
