@@ -57,7 +57,7 @@ export async function salesDecompFamily(bq: any, location_id: string, date: stri
   const txnAvg = txnN ? txnSum / txnN : null;
   const nWin = all.length;
 
-  const DRIVER_FR: Record<string, string> = { transactions: "le trafic (nombre de ventes)", basket: "le panier moyen", both: "le trafic et le panier" };
+  const DRIVER_FR: Record<string, string> = { transactions: "les ventes", basket: "le panier moyen", both: "les ventes et le panier moyen" };
   const driverFr = DRIVER_FR[p.driver || ""] || "le nombre de ventes";
   const dir = (p.rev_vs != null && p.rev_vs < 0) ? "en retrait de" : "en hausse de";
   const absPct = p.rev_vs != null ? Math.abs(Math.round(p.rev_vs)) : null;

@@ -6,6 +6,7 @@
 // field (window_residual_z, _raw, applied_rho/vif, threshold_value, creation_residual_z)
 // and the per-day series returns residual_pct only — so the render cannot leak z.
 import type { APIRoute } from "astro";
+import { KPI_LABEL_FR } from "../../../lib/kpiRegistry";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { readLatestSnapshot } from "../../../lib/actionCommitments";
@@ -41,10 +42,8 @@ const KPI_DAY_COL: Record<string, string> = {
   footfall: "daily_visitors", conversion: "daily_conversion_rate", basket: "daily_avg_basket",
   transactions: "daily_transactions", discount: "daily_discount_total",
 };
-const KPI_LABEL: Record<string, string> = {
-  revenue_residual: "CA vs normale", footfall: "visiteurs/jour", conversion: "taux de conversion",
-  basket: "panier moyen", transactions: "tickets/jour", discount: "\u20ac remis\u00e9s/jour", family_revenue: "CA famille/jour",
-};
+// 23/08 : un seul vocabulaire KPI — celui du registre (owner). Plus de copie locale.
+const KPI_LABEL: Record<string, string> = KPI_LABEL_FR;
 const kpiRound = (v: number): number => (Math.abs(v) < 10 ? Math.round(v * 1000) / 1000 : Math.round(v * 10) / 10);
 
 async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], today: string) {

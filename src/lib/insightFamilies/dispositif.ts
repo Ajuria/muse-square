@@ -18,7 +18,7 @@
 //    « journée écourtée » et « effet produit » AVANT de questionner l'exploitant ;
 //  - impact : la pilule du motif par LE chemin de politique réel (getDayClassImpacts —
 //    jamais une réimplémentation des portes).
-import { getDayClassImpacts, type DayClassImpact } from "../dayClassRegistry";
+import { getDayClassImpacts, dayClassMembersSql, WEATHER_DAY_CLASSES, TERCILE_DAY_CLASSES, OTHER_DAY_CLASSES, type DayClassImpact } from "../dayClassRegistry";
 import { listClassDispositifs, type ClassDispositif } from "../bestPractices";
 import type { FamilyFact } from "./types";
 
@@ -201,17 +201,57 @@ export interface DispositifFamilyResult {
   };
 }
 
+// 23/08 (arbitrage owner, point 5 du plan cartes) : la porte s'ouvre à TOUTE classe mesurée par
+// le moteur, pas seulement aux trois motifs d'identification. Pour une classe hors CLASS_CONFIG :
+//  - appartenance-jour = class_days du moteur lui-même (dayClassMembersSql) — aucun seuil recopié ;
+//  - nom = label_fr du registre (« jours de pluie marquée », s'insère après « vos ») ;
+//  - question de fond = les fragments déjà approuvés de cette page, sans présumer du signe.
+// Les cartes structurelles gardent leurs deux registres (identification / correctif,
+// doctrine 01/08) : seule l'ENTRÉE dans l'atelier change.
+const FAMILY_CHIP_FR: Record<string, string> = {
+  weather: "Météo", calendar: "Calendrier", competition: "Concurrence", tourism: "Tourisme",
+  events: "Événements", mobility: "Mobilité", suivis: "Suivis", traffic: "Affluence",
+};
+function genericClassConfig(class_key: string): (ClassMeta & { days_sql: string }) | null {
+  const w = WEATHER_DAY_CLASSES.find((c) => c.key === class_key);
+  const t = TERCILE_DAY_CLASSES.find((c) => c.key === class_key);
+  const o = OTHER_DAY_CLASSES.find((c) => c.key === class_key);
+  const label = w?.label_fr || t?.label_fr || o?.label_fr;
+  if (!label) return null;
+  const family = w ? "weather" : (t?.family || o?.family || "");
+  return {
+    chip_fr: FAMILY_CHIP_FR[family] || family,
+    noun_fr: label,
+    corner_label_fr: label.replace(/^jours (de |d'|d’|à )?/, ""),
+    job_question_fr: "qu'est-ce que vous faites ces jours-là — et est-ce écrit, pour le rejouer ?",
+    days_sql: `
+      WITH j AS (${DAY_BASE}, 1 AS m
+        FROM \`${PROJECT}.mart.fct_location_context_daily\` c
+        JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+          ON r.location_id = c.location_id AND r.date = c.date
+        JOIN (${dayClassMembersSql()}) cd ON cd.date = c.date
+        LEFT JOIN \`${PROJECT}.mart.fct_client_daily_performance\` perf
+          ON perf.location_id = c.location_id AND perf.transaction_date = c.date
+        ${DAY_TAIL}
+      )
+      ${DAY_SELECT}
+      FROM j
+      ORDER BY j.gap DESC, j.date DESC
+    `,
+  };
+}
+
 export async function dispositifFamily(bq: any, location_id: string, class_key: string): Promise<DispositifFamilyResult> {
-  const cfg = CLASS_CONFIG[class_key];
+  const cfg = CLASS_CONFIG[class_key] || genericClassConfig(class_key);
   if (!cfg) {
-    return { facts: [], data: { found: false, reason: "Motif pas encore couvert par l'enquête — les trois motifs d'identification le sont (affluence, suivis, concurrence faible)." } };
+    return { facts: [], data: { found: false, reason: "Motif inconnu du moteur de classes — aucune appartenance-jour mesurée pour lui." } };
   }
 
   // Q1 — les jours de la classe (l'appartenance EXACTE du moteur, voir CLASS_CONFIG) + flags
   // environnementaux + gap résiduel. Une requête.
   const [dayRows] = await bq.query({
     query: cfg.days_sql,
-    params: { location_id },
+    params: { location_id, class_key },
     location: "EU",
   });
 
@@ -227,7 +267,11 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
   }));
   if (!days.length) return { facts: [], data: { found: false, reason: "Pas assez d'historique mesuré sur ce lieu pour ce motif." } };
 
-  const unexplained = days.filter((d) => !d.heat && !d.vacances && !d.weekend);
+  // 23/08 : la dimension PROPRE de la classe n'explique pas ses propres jours (vacances
+  // scolaires → « 100 % expliqués par les vacances » était une tautologie).
+  const SELF_ENV: Record<string, "heat" | "vacances"> = { school_holiday: "vacances", heat_25_27: "heat", heat_28_plus: "heat" };
+  const self = SELF_ENV[class_key];
+  const unexplained = days.filter((d) => (self === "heat" || !d.heat) && (self === "vacances" || !d.vacances) && !d.weekend);
   const n = days.length;
   const narrative = {
     n_days: n,

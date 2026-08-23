@@ -27,6 +27,8 @@
   // « pression ×0.1 », « 4.5/5 », « 4.4 km ». Une seule ligne faisait .replace('.', ',').
   // CLAUDE.md (Localisation) : virgule décimale, jamais toString() brut. Un seul foyer.
   function frDec(v, n) { return Number(v).toFixed(n == null ? 1 : n).replace('.', ','); }
+  // 23/08 — entier français (espace fine insécable pour les milliers : 1 932).
+  function frInt(v) { return Math.round(Number(v) || 0).toLocaleString('fr-FR'); }
   // 23/08 — COMPARAISON DE NOTES, un seul foyer (owner : « doit être comparatif pour être
   // clair »). Votre note vient de p.besttime_rating — la note Google du lieu telle que BestTime
   // la relaie, capturée par cron/sync-besttime.ts depuis ce matin (elle tombait par terre
@@ -837,7 +839,9 @@
       var newR = Number(d.competition_pressure_ratio || 0);
       var n = Number(d.events_within_5km_count || 0);
       var same = Number(d.events_within_5km_same_bucket_count || 0);
-      var line = 'Pression en hausse';
+      // 23/08 : le flux émettait aussi les franchissements à la BAISSE (11/11 ce jour-là) et le
+      // corps disait « en hausse ×1,2 → ×0,8 ». Exclus côté dbt ; ici le sens suit les nombres.
+      var line = (oldR > 0 && newR < oldR) ? 'Pression en baisse' : 'Pression en hausse';
       if (oldR > 0) line += ' : \u00d7' + frDec(oldR) + ' \u2192 \u00d7' + frDec(newR);
       else line += ' : \u00d7' + frDec(newR);
       line += '. ' + n + ' \u00e9v\u00e9nements \u00e0 5 km';
@@ -2222,7 +2226,7 @@
 
       if (tx != null && bk != null) {
         line += (Math.abs(tx) >= Math.abs(bk))
-          ? ' La hausse vient de l\'affluence : ' + (tx >= 0 ? '+' : '') + tx + ' % de tickets, panier ' + (bk >= 0 ? '+' : '') + bk + ' %.'
+          ? ' La hausse vient de l\'affluence : ' + (tx >= 0 ? '+' : '') + tx + ' % de ventes, panier ' + (bk >= 0 ? '+' : '') + bk + ' %.'
           : ' La hausse vient du panier moyen (' + (bk >= 0 ? '+' : '') + bk + ' %), pas du volume.';
       }
 
@@ -2344,7 +2348,7 @@
       var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
       var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
       var dz = a.revenue_robust_z != null ? Math.abs(Number(a.revenue_robust_z)) : null;
-      var driver = ({footfall:'moins de trafic', transactions:'moins de ventes (tickets)', basket:'un panier moyen plus faible', conversion:'une conversion plus faible'})[a.primary_revenue_driver] || null;
+      var driver = ({footfall:'moins de visiteurs', transactions:'moins de ventes', basket:'un panier moyen plus faible', conversion:'un taux de conversion plus faible'})[a.primary_revenue_driver] || null;
       var jours = window.msWeekdayFr(a.affected_date);
       var joursS = window.msWeekdayFrSing(a.affected_date);
       // Écart € DU JOUR (01/08, GO owner) : déjà dans le payload (expected_revenue), référentiel
@@ -2366,7 +2370,7 @@
         var exp = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
         var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
         var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
-        var driverN = ({footfall:'le trafic', transactions:'le volume de ventes', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver];
+        var driverN = ({footfall:'le nombre de visiteurs', transactions:'les ventes', basket:'le panier moyen', conversion:'le taux de conversion'})[a.primary_revenue_driver];
         var lever = (a.primary_revenue_driver === 'both')
           ? 'le volume de ventes (' + (tx != null ? (tx >= 0 ? '+' : '') + tx + ' %' : '?') + ') et le panier (' + (bk != null ? (bk >= 0 ? '+' : '') + bk + ' %' : '?') + ')'
           : (driverN || 'plusieurs facteurs');
@@ -2428,27 +2432,29 @@
 
   // offering_mix_shift — PERFORMANCE. Payload: item_category, revenue_share,
   // baseline_share, share_delta_points, direction, category_revenue, revenue_rank.
-  reg('offering_mix_shift', 'Bascule de votre mix', 'INTELLIGENCE', '🛍️', '#1565C0', 'action', 'pulse#day-detail',
+  reg('offering_mix_shift', 'Bascule de votre mix', 'INTELLIGENCE', '\ud83e\uddfa', '#1565C0', 'action', 'pulse#day-detail',
     function(a, p, d) {
-      var cat = a.item_category || 'Une catégorie';
-      var share = a.revenue_share != null ? Math.round(Number(a.revenue_share) * 100) : null;
-      var base = a.baseline_share != null ? Math.round(Number(a.baseline_share) * 100) : null;
-      var dpts = a.share_delta_points != null ? Math.round(Number(a.share_delta_points)) : null;
-      var dir = a.direction || (dpts != null && dpts < 0 ? 'collapse' : 'surge');
-      var line = cat + ' représente ' + (share != null ? share + ' %' : 'une part inhabituelle') + ' de votre CA ce jour';
-      if (base != null) line += ' vs ' + base + ' % en moyenne';
-      if (dpts != null) line += ' (' + (dpts >= 0 ? '+' : '') + dpts + ' pts)';
+      // 23/08 v2 (owner : part -> euros). Payload fct_client_offering_signals_daily v2 :
+      // family_revenue, expected_family_revenue, delta_eur, day_gap_eur. Même forme que la carte heure.
+      var nom = a.item_category || 'Une famille';
+      var rev = a.family_revenue != null ? Math.round(Number(a.family_revenue)) : null;
+      var exp = a.expected_family_revenue != null ? Math.round(Number(a.expected_family_revenue)) : null;
+      var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : (rev != null && exp != null ? rev - exp : null);
+      var dg = a.day_gap_eur != null ? Math.round(Number(a.day_gap_eur)) : null;
+      var dir = a.direction || (dlt != null && dlt < 0 ? 'collapse' : 'surge');
+      var sEur = function (n) { return (n >= 0 ? '+' : '\u2212') + frInt(Math.abs(n)) + ' \u20ac'; };
+      var line = nom + ' a fait ' + (rev != null ? frInt(rev) + ' \u20ac' : 'un montant inhabituel');
+      if (exp != null) line += ' contre ' + frInt(exp) + ' \u20ac votre habituel de cette famille';
+      if (dlt != null) line += ' (' + sEur(dlt) + ')';
+      if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += dir === 'collapse' ? ' Catégorie qui décroche.' : ' Catégorie qui surperforme.';
+      line += dir === 'collapse' ? ' Famille qui a manqu\u00e9.' : ' Famille qui a port\u00e9 la journ\u00e9e.';
       return line;
     },
     {
       note_interne: function(a, p, d) {
-        var cat = a.item_category || 'une catégorie';
-        var share = a.revenue_share != null ? Math.round(Number(a.revenue_share) * 100) : null;
-        var base = a.baseline_share != null ? Math.round(Number(a.baseline_share) * 100) : null;
-        var dir = a.direction || 'surge';
-        return 'Note interne ' + siteName(p) + '. ' + cat + ' = ' + (share != null ? share + ' %' : 'part inhabituelle') + ' du CA ce jour vs ' + (base != null ? base + ' %' : 'la normale') + '. ' + (dir === 'collapse' ? 'Catégorie en recul : vérifier stock, visibilité, prix.' : 'Catégorie qui surperforme : sécuriser le réassort et la mettre en avant.');
+        var nom = a.item_category || 'une famille'; var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : null; var dir = a.direction || 'surge';
+        return 'Note interne ' + siteName(p) + '. ' + nom + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs son habituel' : '') + '. ' + (dir === 'collapse' ? 'Famille qui a manqu\u00e9 \u2014 v\u00e9rifier stock et mise en avant.' : 'Famille qui porte \u2014 r\u00e9assort et mise en avant.');
       }
     }
   );
@@ -2456,27 +2462,30 @@
   // (la surface approuvée ci-dessus), « catégorie » → « produit ». Payload dbt
   // (fct_client_item_signals_daily) : item_description, revenue_share, baseline_share,
   // share_delta_points, direction — le même contrat, plus units / unit_price / days_sold.
-  reg('item_share_move', 'Bascule d\u2019un produit', 'INTELLIGENCE', '🛍️', '#1565C0', 'action', 'pulse#day-detail',
+  reg('item_share_move', 'Bascule d\u2019un produit', 'INTELLIGENCE', '\ud83d\udecd\ufe0f', '#1565C0', 'action', 'pulse#day-detail',
     function(a, p, d) {
-      var cat = a.item_description || 'Un produit';
-      var share = a.revenue_share != null ? frDec(Number(a.revenue_share) * 100) : null;
-      var base = a.baseline_share != null ? frDec(Number(a.baseline_share) * 100) : null;
-      var dpts = a.share_delta_points != null ? Number(a.share_delta_points) : null;
-      var dir = a.direction || (dpts != null && dpts < 0 ? 'collapse' : 'surge');
-      var line = cat + ' représente ' + (share != null ? share + ' %' : 'une part inhabituelle') + ' de votre CA ce jour';
-      if (base != null) line += ' vs ' + base + ' % en moyenne';
-      if (dpts != null) line += ' (' + (dpts >= 0 ? '+' : '\u2212') + frDec(Math.abs(dpts)) + ' pts)';
+      // 23/08 v2 (owner : part -> euros). Payload fct_client_item_signals_daily v2 : item_revenue,
+      // expected_item_revenue (part typique du produit x attendu du jour par le moteur), delta_eur,
+      // day_gap_eur. Même forme que la carte heure / la carte jour approuvée.
+      var nom = a.item_description || 'Un produit';
+      var rev = a.item_revenue != null ? Math.round(Number(a.item_revenue)) : null;
+      var exp = a.expected_item_revenue != null ? Math.round(Number(a.expected_item_revenue)) : null;
+      var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : (rev != null && exp != null ? rev - exp : null);
+      var dg = a.day_gap_eur != null ? Math.round(Number(a.day_gap_eur)) : null;
+      var dir = a.direction || (dlt != null && dlt < 0 ? 'collapse' : 'surge');
+      var sEur = function (n) { return (n >= 0 ? '+' : '\u2212') + frInt(Math.abs(n)) + ' \u20ac'; };
+      var line = nom + ' a fait ' + (rev != null ? frInt(rev) + ' \u20ac' : 'un montant inhabituel');
+      if (exp != null) line += ' contre ' + frInt(exp) + ' \u20ac votre habituel de ce produit';
+      if (dlt != null) line += ' (' + sEur(dlt) + ')';
+      if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += dir === 'collapse' ? ' Produit qui décroche.' : ' Produit qui surperforme.';
+      line += dir === 'collapse' ? ' Produit qui a manqu\u00e9.' : ' Produit qui a port\u00e9 la journ\u00e9e.';
       return line;
     },
     {
       note_interne: function(a, p, d) {
-        var cat = a.item_description || 'un produit';
-        var share = a.revenue_share != null ? frDec(Number(a.revenue_share) * 100) : null;
-        var base = a.baseline_share != null ? frDec(Number(a.baseline_share) * 100) : null;
-        var dir = a.direction || 'surge';
-        return 'Note interne ' + siteName(p) + '. ' + cat + ' = ' + (share != null ? share + ' %' : 'part inhabituelle') + ' du CA ce jour vs ' + (base != null ? base + ' %' : 'la normale') + '. ' + (dir === 'collapse' ? 'Produit en recul : vérifier le stock et sa place en rayon.' : 'Produit qui surperforme : sécuriser son réassort et le mettre en avant.');
+        var nom = a.item_description || 'un produit'; var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : null; var dir = a.direction || 'surge';
+        return 'Note interne ' + siteName(p) + '. ' + nom + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs son habituel' : '') + '. ' + (dir === 'collapse' ? 'Produit qui a manqu\u00e9 \u2014 v\u00e9rifier stock et place en rayon.' : 'Produit qui porte \u2014 r\u00e9assort et mise en avant.');
       }
     }
   );
@@ -2488,25 +2497,32 @@
   // share_delta_points, direction, hour_revenue, day_revenue, hour_transactions.
   reg('hour_share_move', 'Bascule d\u2019une heure', 'INTELLIGENCE', '\u23f0', '#1565C0', 'action', 'pulse#day-detail',
     function(a, p, d) {
+      // 23/08 v2 (owner : part -> euros). Payload fct_client_hourly_signals_daily v2 : hour_revenue,
+      // expected_hour_revenue (part typique de l'heure ce jour de semaine x attendu du jour par le
+      // moteur), delta_eur, day_gap_eur. Forme = celle de la carte jour approuvée (« CA 1169 € —
+      // journée en retrait, sous votre vendredi habituel : -763 € (1932 €) »).
       var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'Une heure';
-      var share = a.hour_share != null ? frDec(Number(a.hour_share) * 100) : null;
-      var base = a.baseline_share != null ? frDec(Number(a.baseline_share) * 100) : null;
-      var dpts = a.share_delta_points != null ? Number(a.share_delta_points) : null;
-      var dir = a.direction || (dpts != null && dpts < 0 ? 'collapse' : 'surge');
-      var line = hr + ' repr\u00e9sente ' + (share != null ? share + ' %' : 'une part inhabituelle') + ' de votre CA ce jour';
-      if (base != null) line += ' vs ' + base + ' % en moyenne';
-      if (dpts != null) line += ' (' + (dpts >= 0 ? '+' : '\u2212') + frDec(Math.abs(dpts)) + ' pts)';
+      var rev = a.hour_revenue != null ? Math.round(Number(a.hour_revenue)) : null;
+      var exp = a.expected_hour_revenue != null ? Math.round(Number(a.expected_hour_revenue)) : null;
+      var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : (rev != null && exp != null ? rev - exp : null);
+      var dg = a.day_gap_eur != null ? Math.round(Number(a.day_gap_eur)) : null;
+      var dir = a.direction || (dlt != null && dlt < 0 ? 'collapse' : 'surge');
+      var dow = (function (iso) { var x = new Date(String(iso || '') + 'T00:00:00Z'); var D = ['un dimanche', 'un lundi', 'un mardi', 'un mercredi', 'un jeudi', 'un vendredi', 'un samedi']; return isNaN(x.getTime()) ? '' : ' ' + D[x.getUTCDay()]; })(a.affected_date || a.date);
+      var sEur = function (n) { return (n >= 0 ? '+' : '\u2212') + frInt(Math.abs(n)) + ' \u20ac'; };
+      var line = hr + ' a fait ' + (rev != null ? frInt(rev) + ' \u20ac' : 'un montant inhabituel');
+      if (exp != null) line += ' contre ' + frInt(exp) + ' \u20ac votre habituel de cette heure' + dow;
+      if (dlt != null) line += ' (' + sEur(dlt) + ')';
+      if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += dir === 'collapse' ? ' Heure qui a manqu\u00e9.' : ' Heure qui porte la journ\u00e9e.';
+      line += dir === 'collapse' ? ' Heure qui a manqu\u00e9.' : ' Heure qui a port\u00e9 la journ\u00e9e.';
       return line;
     },
     {
       note_interne: function(a, p, d) {
         var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'une heure';
-        var share = a.hour_share != null ? frDec(Number(a.hour_share) * 100) : null;
-        var base = a.baseline_share != null ? frDec(Number(a.baseline_share) * 100) : null;
+        var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : null;
         var dir = a.direction || 'surge';
-        return 'Note interne ' + siteName(p) + '. ' + hr + ' = ' + (share != null ? share + ' %' : 'part inhabituelle') + ' du CA ce jour vs ' + (base != null ? base + ' %' : 'sa moyenne') + '. ' + (dir === 'collapse' ? 'Heure qui a manqu\u00e9 \u2014 v\u00e9rifier ouverture, caisse, mise en place.' : 'Heure qui porte \u2014 r\u00e9assort et offres cal\u00e9s dessus.');
+        return 'Note interne ' + siteName(p) + '. ' + hr + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs son habituel' : '') + '. ' + (dir === 'collapse' ? 'Heure qui a manqu\u00e9 \u2014 v\u00e9rifier ouverture, caisse, mise en place.' : 'Heure qui porte \u2014 r\u00e9assort et offres cal\u00e9s dessus.');
       }
     }
   );
@@ -2810,8 +2826,8 @@
                 : ((tx != null && bk != null) ? (Math.abs(tx) >= Math.abs(bk)) : true);
       var driver = byVol ? 'du volume' : 'du panier moyen';
       var detail = (tx != null && bk != null)
-        ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de tickets, panier ' + (bk >= 0 ? '+' : '') + bk + ' %)'
-        : (tx != null ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de tickets)' : (bk != null ? ' (panier ' + (bk >= 0 ? '+' : '') + bk + ' %)' : ''));
+        ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de ventes, panier ' + (bk >= 0 ? '+' : '') + bk + ' %)'
+        : (tx != null ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de ventes)' : (bk != null ? ' (panier ' + (bk >= 0 ? '+' : '') + bk + ' %)' : ''));
       // Named co-occurring context — observed, not asserted as the sole cause; omitted when nothing specific.
       var hook = a.is_vacation ? 'les vacances scolaires' : (a.is_holiday ? 'le jour férié' : (Number(a.weather_alert || 0) === 0 ? 'une météo favorable' : ''));
       return 'La hausse vient ' + driver + detail + (hook ? ', porté par ' + hook : '') + '. À rejouer sur vos prochaines journées comparables.';
@@ -3224,7 +3240,7 @@
       return 'À corriger : vos remises n\'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d\'offre.';
     }, urgency: 'plan' },
     'sales_revenue_down_wow': { action: function(a, p, d) {
-      var driver = ({footfall:'le trafic', transactions:'le volume de ventes', basket:'le panier moyen', conversion:'la conversion'})[a.primary_revenue_driver] || null;
+      var driver = ({footfall:'le nombre de visiteurs', transactions:'les ventes', basket:'le panier moyen', conversion:'le taux de conversion'})[a.primary_revenue_driver] || null;
       // 22/08 — POINT 2 : le produit répond à la place de l'utilisateur.
       // Ces cartes lui demandaient « ponctuel ou récurrent ? » — une question que le moteur
       // de classes tranche déjà : si la date appartient à une classe MESURÉE sur ce lieu

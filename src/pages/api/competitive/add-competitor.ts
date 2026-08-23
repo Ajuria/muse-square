@@ -432,6 +432,53 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
+    // ── 2b. Tracking record — written IMMEDIATELY after the watched upsert (23/08).
+    // Before, this block sat ~280 lines further down, after the Browserless crawl, the
+    // directory UPDATE and the competitor_events INSERT — any of which could throw (BQ
+    // streaming buffer) or hit the Vercel time limit. Result: watched_competitors written,
+    // competitor_tracking never (Musée du quai Branly, ff2aeb35, 16/08) and the two tables
+    // diverged (34 vs 32 rows, 29 in common). Adjacent writes, nothing fallible between.
+    const [existingTracking] = await bq.query({
+      query: `
+        SELECT tracking_id
+        FROM \`${projectId}.raw.competitor_tracking\`
+        WHERE competitor_id  = @competitor_id
+          AND clerk_user_id  = @clerk_user_id
+          AND location_id    = @location_id
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      params: { competitor_id, clerk_user_id, location_id },
+      types:  { competitor_id: "STRING", clerk_user_id: "STRING", location_id: "STRING" },
+      location: BQ_LOCATION,
+    });
+
+    let action: string;
+
+    if (Array.isArray(existingTracking) && existingTracking.length > 0) {
+      action = "already_tracked";
+    } else {
+      const tracking_id = randomUUID();
+      await bq.query({
+        query: `
+          INSERT INTO \`${projectId}.raw.competitor_tracking\` (
+            tracking_id, competitor_id, clerk_user_id, location_id,
+            created_at, deleted_at
+          ) VALUES (
+            @tracking_id, @competitor_id, @clerk_user_id, @location_id,
+            CURRENT_TIMESTAMP(), NULL
+          )
+        `,
+        params: { tracking_id, competitor_id, clerk_user_id, location_id },
+        types:  {
+          tracking_id: "STRING", competitor_id: "STRING",
+          clerk_user_id: "STRING", location_id: "STRING",
+        },
+        location: BQ_LOCATION,
+      });
+      action = "created";
+    }
+
     // ── 3. Inline crawl attempt (Browserless) ──
     let crawl_status: "accessible" | "blocked" | "no_url" = "no_url";
     let fetch_http_status: number | null = null;
@@ -664,47 +711,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
 
-    // ── 4. Check if tracking record already exists ──
-    const [existingTracking] = await bq.query({
-      query: `
-        SELECT tracking_id
-        FROM \`${projectId}.raw.competitor_tracking\`
-        WHERE competitor_id  = @competitor_id
-          AND clerk_user_id  = @clerk_user_id
-          AND location_id    = @location_id
-          AND deleted_at IS NULL
-        LIMIT 1
-      `,
-      params: { competitor_id, clerk_user_id, location_id },
-      types:  { competitor_id: "STRING", clerk_user_id: "STRING", location_id: "STRING" },
-      location: BQ_LOCATION,
-    });
-
-    let action: string;
-
-    if (Array.isArray(existingTracking) && existingTracking.length > 0) {
-      action = "already_tracked";
-    } else {
-      const tracking_id = randomUUID();
-      await bq.query({
-        query: `
-          INSERT INTO \`${projectId}.raw.competitor_tracking\` (
-            tracking_id, competitor_id, clerk_user_id, location_id,
-            created_at, deleted_at
-          ) VALUES (
-            @tracking_id, @competitor_id, @clerk_user_id, @location_id,
-            CURRENT_TIMESTAMP(), NULL
-          )
-        `,
-        params: { tracking_id, competitor_id, clerk_user_id, location_id },
-        types:  {
-          tracking_id: "STRING", competitor_id: "STRING",
-          clerk_user_id: "STRING", location_id: "STRING",
-        },
-        location: BQ_LOCATION,
-      });
-      action = "created";
-    }
 
     return new Response(JSON.stringify({
       ok: true,
