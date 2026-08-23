@@ -7,7 +7,13 @@ export const prerender = false;
 
 const BQ_LOCATION = (process.env.BQ_LOCATION || "EU").trim();
 
-async function fetchBestTimeWeek(venueId: string, apiKey: string): Promise<any[] | null> {
+// 23/08 — la réponse porte AUSSI `venue_info` (rating, reviews, venue_type…). Le cron ne
+// lisait que `analysis` : la note Google du lieu, telle que BestTime la relaie, arrivait dans
+// la réponse et tombait par terre. Preuve : le flux Airbyte sur le MÊME endpoint la stocke
+// (raw.besttime_venues_filter : rating sur 2 220 lignes / 2 220) ; les sites clients ne passent
+// que par ce cron (0 ligne Airbyte), d'où besttime_rating NULL sur toute la chaîne dbt jusqu'à
+// vw_insight_event_ai_location_context — et un comparatif « votre note vs la leur » impossible.
+async function fetchBestTimeWeek(venueId: string, apiKey: string): Promise<{ days: any[]; venue: any } | null> {
   if (!apiKey || !venueId) return null;
   try {
     const res = await fetch(
@@ -18,7 +24,7 @@ async function fetchBestTimeWeek(venueId: string, apiKey: string): Promise<any[]
     const data = await res.json();
     const days = data?.analysis;
     if (!Array.isArray(days)) return null;
-    return days;
+    return { days, venue: data?.venue_info ?? {} };
   } catch {
     return null;
   }
@@ -65,6 +71,14 @@ async function runBestTimeSync() {
     `,
     location: BQ_LOCATION,
   });
+  // Additif (23/08) : la table existe déjà en prod, CREATE IF NOT EXISTS n'y ajoute rien — même
+  // motif que day_class_impacts_history. Idempotent.
+  await bq.query({
+    query: `ALTER TABLE \`${projectId}.raw.besttime_foot_traffic\`
+      ADD COLUMN IF NOT EXISTS venue_rating FLOAT64,
+      ADD COLUMN IF NOT EXISTS venue_reviews INT64`,
+    location: BQ_LOCATION,
+  });
 
   // Get all locations with a besttime_venue_id
   const [rows] = await bq.query({
@@ -91,7 +105,10 @@ async function runBestTimeSync() {
     const locationId = String(row.location_id);
     const venueId = String(row.besttime_venue_id);
 
-    const days = await fetchBestTimeWeek(venueId, apiKey);
+    const week = await fetchBestTimeWeek(venueId, apiKey);
+    const days = week?.days ?? null;
+    const venueRating = Number.isFinite(Number(week?.venue?.rating)) ? Number(week!.venue.rating) : null;
+    const venueReviews = Number.isFinite(Number(week?.venue?.reviews)) ? Math.round(Number(week!.venue.reviews)) : null;
     if (!days || days.length === 0) {
       failed++;
       errors.push(locationId);
@@ -126,7 +143,8 @@ async function runBestTimeSync() {
             quiet_hour, quiet_busyness_pct,
             avg_busyness_pct, busy_hours_count, quiet_hours_count,
             venue_open_hour, venue_closed_hour,
-            hourly_raw, fetched_at, fetch_date
+            hourly_raw, fetched_at, fetch_date,
+            venue_rating, venue_reviews
           ) VALUES (
             @row_id, @location_id, @besttime_venue_id,
             @day_int, @day_text,
@@ -135,7 +153,8 @@ async function runBestTimeSync() {
             @quiet_hour, @quiet_busyness_pct,
             @avg_busyness_pct, @busy_hours_count, @quiet_hours_count,
             @venue_open_hour, @venue_closed_hour,
-            @hourly_raw, CURRENT_TIMESTAMP(), DATE(@fetch_date)
+            @hourly_raw, CURRENT_TIMESTAMP(), DATE(@fetch_date),
+            @venue_rating, @venue_reviews
           )
         `,
         params: {
@@ -159,6 +178,8 @@ async function runBestTimeSync() {
           venue_closed_hour: info.venue_closed ?? null,
           hourly_raw: JSON.stringify(raw),
           fetch_date: today,
+          venue_rating: venueRating,
+          venue_reviews: venueReviews,
         },
         types: {
           row_id: "STRING",
@@ -181,6 +202,9 @@ async function runBestTimeSync() {
           venue_closed_hour: "INT64",
           hourly_raw: "STRING",
           fetch_date: "STRING",
+          // Types EXPLICITES : un null sans type fait échouer l'INSERT paramétré BigQuery.
+          venue_rating: "FLOAT64",
+          venue_reviews: "INT64",
         },
         location: BQ_LOCATION,
       });
