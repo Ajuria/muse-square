@@ -158,12 +158,12 @@ export const CARD_POP_CLASSES: Array<{ key: string; family: string; label_fr: st
   // Valeur/jour = le delta_eur de la carte (réel − attendu de l'heure/produit/famille), PAS le
   // résidu du jour. Deux populations par grain — une par sens — sinon la médiane d'un mélange
   // manque/porte tomberait à ~0 et la porte de cohérence de signe éteindrait tout.
-  { key: "pop_hour_miss",    family: "card", label_fr: "heures qui ont manqué" },
-  { key: "pop_hour_carry",   family: "card", label_fr: "heures qui ont porté la journée" },
-  { key: "pop_item_miss",    family: "card", label_fr: "produits qui ont manqué" },
-  { key: "pop_item_carry",   family: "card", label_fr: "produits qui ont porté la journée" },
-  { key: "pop_family_miss",  family: "card", label_fr: "familles qui ont manqué" },
-  { key: "pop_family_carry", family: "card", label_fr: "familles qui ont porté la journée" },
+  { key: "pop_hour_miss",    family: "card", label_fr: "créneaux qui ont sous-performé" },
+  { key: "pop_hour_carry",   family: "card", label_fr: "créneaux qui ont surperformé" },
+  { key: "pop_item_miss",    family: "card", label_fr: "produits qui ont sous-performé" },
+  { key: "pop_item_carry",   family: "card", label_fr: "produits qui ont surperformé" },
+  { key: "pop_family_miss",  family: "card", label_fr: "familles qui ont sous-performé" },
+  { key: "pop_family_carry", family: "card", label_fr: "familles qui ont surperformé" },
 ];
 
 const CLASS_LABELS: Record<string, string> = Object.fromEntries([

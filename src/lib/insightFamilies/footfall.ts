@@ -68,7 +68,7 @@ export async function footfallFamily(bq: any, location_id: string, date: string)
 
   const lead = `Votre CA culmine ${period(peakHour)} — pic à ${peakHour}h (${peakRev} €).`;
   const decision_lines: { head: string; body: string }[] = [
-    { head: `Jouez le pic de ${peakHour}h`, body: "C'est là que se fait votre chiffre — staff, réassort et offres calés sur ce créneau." },
+    { head: `Jouez le pic de ${peakHour}h`, body: "C'est là que se fait votre chiffre — staff, stock et offres calés sur ce créneau." },
   ];
   if (diverge) decision_lines.push({ head: "Ne pilotez pas sur l'affluence externe", body: `Elle pointe ${period(btPeak!)} (${btPeak}h), mais vos ventes sont ${period(peakHour)} — suivez votre CA.` });
   if (bestDay) decision_lines.push({ head: `Votre meilleur jour : ${bestDay.day}`, body: `${bestDay.revenue} € en moyenne — concentrez-y vos temps forts.` });
