@@ -52,21 +52,35 @@ donc jamais en production.
 **Leçon de méthode** : un rendu produit avec une charge utile vide fabrique des défauts. Le relevé
 doit se faire avec les VRAIES lignes des tables que la carte lit — payload ET contexte du jour.
 
+### RECTIFICATIONS après passage par `renderActionCandidates` (v3 de l'échafaudage)
+
+Le relevé v1 rendait `spec.sowhat` avec `d = {}` et lisait `spec.brand_label_fr` comme titre. Or la
+page passe par **`renderActionCandidates`**, qui reçoit les candidats enrichis par `monitor.ts`
+(`enjeu`, `context_motif`) ET surcharge certains titres. Quatre signalements tombent :
+
+| signalé en v1 | réalité par le vrai chemin |
+|---|---|
+| `commercial_event_match` : « Temps fort commercial — activez » | titre RENDU = « **Préparez une offre pour la rentrée scolaire** » (surcharge ligne 2534, formulation owner) — déjà corrigé |
+| `low_competition_window` : « on ne sait pas encore » alors que mesuré | rendu = « Chez vous, ces journées rapportent **moins** que la moyenne » — lit `a.enjeu`/`context_motif`, que v1 ne fournissait pas |
+| `top_day_approaching` : « meilleur » vs « 3e meilleur » | les deux viennent du même `rank` du payload ; le rendu réel dit « 2e meilleur score » au geste et n'affirme plus « Meilleur jour » au corps |
+| `weather_improved` / `weather_worsened` : « . » orphelin | `weather_label_fr` jamais vide (0 / 14 573 jours) |
+
+**Corrigé ce jour** : `audience_shift_opportunity` — corps et geste choisissaient le motif dans deux
+ordres différents ; mesuré **124 tirs sur 124** portant à la fois « Vacances d'été » et « Rentrée
+scolaire ». Le geste s'aligne sur l'ordre du corps (commercial d'abord, comme dbt dans
+`action_priority`).
+
 ### La carte se contredit elle-même
 
 | carte | tirs | corps vs geste |
 |---|---|---|
-| `audience_shift_opportunity` | 124 | corps « **Rentrée scolaire.** » · geste « **Vacances d'été** modifie le profil » — deux motifs différents |
 | `competition_proximity` | 32 | corps « Concentration **faible** » · titre « **Différenciez-vous** » · geste « À **défendre** » |
-| `top_day_approaching` | 23 | corps « **Meilleur** jour de vos dates » · geste « **3e** meilleur score » |
-| `low_competition_window` | 128 | « On ne sait pas encore si elles vous rapportent plus ou moins » — alors que `competition_low` EST mesurée sur ce site (−158 €/j, t = −3,81) |
 
 ### Lexique — règles violées dans des chaînes livrées
 
 | carte | violation |
 |---|---|
 | `competitor_reputation_strength` | titre « **Surveillez** la réputation concurrente » — règle 8 liste `surveiller` parmi les verbes proscrits (« on fait, ou on ne fait pas ») |
-| `commercial_event_match` | titre « Temps fort commercial — **activez** » — le tableau de la règle 8 cite CE cas comme refusé : « verbe sans objet : activez quoi ? » |
 
 ### Localisation française
 

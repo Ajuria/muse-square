@@ -2815,9 +2815,16 @@
       return s;
     }, urgency: 'now' },
     'audience_shift_opportunity': { action: function(a, p, d) {
-      var driver = a.is_holiday ? (a.holiday_name || 'jour férié')
+      // 23/08 — MÊME ORDRE QUE LE CORPS, ou la carte se contredit. Le corps (reg ci-dessus)
+      // prend commercial_event_name > holiday_name > vacation_name ; le geste prenait
+      // is_holiday > is_vacation > commercial. Fin août, le payload porte LES DEUX (vacances
+      // d'été encore en cours + « Rentrée scolaire » en événement commercial) : mesuré, 124 tirs
+      // sur 124 sur 90 j, la carte disait « Rentrée scolaire » au corps et « Vacances d'été »
+      // au geste. L'ordre du corps est retenu : dbt priorise aussi is_commercial_event_flag avant
+      // is_school_holiday_flag dans action_priority (CTE audience_shift).
+      var driver = a.commercial_event_name ? a.commercial_event_name
+                 : a.is_holiday ? (a.holiday_name || 'jour férié')
                  : a.is_vacation ? (a.vacation_name || 'vacances scolaires')
-                 : a.commercial_event_name ? a.commercial_event_name
                  : a.is_commercial ? 'événement commercial'
                  : null;
       var s = 'À réorienter : ';
