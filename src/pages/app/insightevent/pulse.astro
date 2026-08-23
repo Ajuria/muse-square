@@ -1973,7 +1973,7 @@ if (!location_id) {
         // payload (delta_eur = réel − habituel de l'heure/produit ce jour), référentiel nommé.
         if (_dp0.delta_eur != null && isFinite(Number(_dp0.delta_eur))) {
           _dRev = Number(_dp0.delta_eur); _dRefV = 0;
-          _dRefLbl = _dp0.transaction_hour != null ? 'vs votre habituel de cette heure' : (_dp0.item_description ? 'vs votre habituel de ce produit' : 'vs votre habituel de cette famille');
+          _dRefLbl = _dp0.transaction_hour != null ? 'vs votre résultat habituel à cette heure' : (_dp0.item_description ? 'vs votre résultat habituel sur ce produit' : 'vs votre résultat habituel sur cette famille');
         }
         if (_dRev != null && _dRefV != null && isFinite(_dRev) && isFinite(_dRefV)) {
           var _dGap = Math.round(_dRev - _dRefV);
