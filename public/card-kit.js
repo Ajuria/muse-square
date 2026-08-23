@@ -160,7 +160,7 @@
     if (!pos.length) return '';
     var s2 = 'La hausse est portée par ' + pos[0].category + ' (+' + eur(pos[0].delta_eur) + ')';
     if (pos[1]) s2 += ' et ' + pos[1].category + ' (+' + eur(pos[1].delta_eur) + ')';
-    return s2 + '. Sécurisez le réassort de ' + pos[0].category + ' et mettez-la en avant sur vos prochains ' + jour + '.';
+    return s2 + '. Vérifiez le stock de ' + pos[0].category + ' — elle ne doit pas manquer — et mettez-la en avant sur vos prochains ' + jour + '.';
   }
 
   // ---- Renderers (pure: json -> HTML) ----

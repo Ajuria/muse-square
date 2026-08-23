@@ -71,7 +71,7 @@ window.MS_SALES_RECO_LIB = {
   sales_surge: {
     basket: [
       { title: "Reconduisez le levier qui a fait monter le panier", description: "Mise en avant, formule — et mesurez l'effet la semaine suivante.", why: "Ce qui a marché une fois est votre meilleur pari — encore faut-il le rejouer sciemment.", tag: "Panier" },
-      { title: "Sécurisez le réassort des produits à forte marge", description: "Ceux qui ont porté la hausse ne doivent pas manquer.", why: "Une rupture sur un produit qui tire la marge transforme une hausse en occasion manquée.", tag: "Marge" },
+      { title: "Vérifiez le stock des produits à forte marge", description: "Ceux qui ont porté la hausse ne doivent pas manquer.", why: "Une rupture sur un produit qui tire la marge transforme une hausse en occasion manquée.", tag: "Marge" },
       { title: "Poussez la montée en gamme tant que la demande est là", description: "Option supérieure proposée pendant que le flux achète.", why: "La demande chaude accepte plus facilement le premium — la fenêtre est courte.", tag: "Panier" },
     ],
     footfall: [
@@ -81,7 +81,7 @@ window.MS_SALES_RECO_LIB = {
     ],
     _default: [
       { title: "Reconduisez le levier qui a porté la hausse", description: "Et mesurez-le sur la semaine suivante.", why: "Ce qui a marché une fois est votre meilleur pari — encore faut-il le rejouer sciemment.", tag: "À reconduire" },
-      { title: "Sécurisez staffing et réassort", description: "Tenir le pic sans dégrader l'expérience ni rompre les produits clés.", why: "Un pic mal servi ou en rupture transforme une hausse en occasion manquée.", tag: "Opérations" },
+      { title: "Sécurisez staffing et stock", description: "Tenir le pic sans dégrader l'expérience ni rompre les produits clés.", why: "Un pic mal servi ou en rupture transforme une hausse en occasion manquée.", tag: "Opérations" },
       { title: "Capitalisez sur la satisfaction", description: "Avis clients et incitation au retour.", why: "La satisfaction chaude est le meilleur moment pour récolter avis et prochaine visite.", tag: "Fidélisation" },
     ],
   },
@@ -307,7 +307,7 @@ window.MS_SALES_RECO_LIB = {
   client_dormant: {
     _default: [
       { title: "Reprenez contact en direct — un appel, pas une relance écrite", description: "La personne qui connaît ce client l'appelle et pose la question ouvertement.", why: "Un compte régulier qui s'arrête a une raison — saisonnalité, friction, concurrent — et seul un échange direct la donne.", tag: "Relation", steps: ["Identifier qui, dans l'équipe, tient la relation avec ce client.", "L'appeler : demander simplement où il en est (pause saisonnière ? un souci ? un autre fournisseur ?).", "Noter la raison donnée — c'est elle qui décide de la suite."] },
-      { title: "Donnez-lui une raison datée de recommander", description: "Nouveautés, réassort de ses références habituelles, fenêtre de livraison proche.", why: "Une relance sans objet s'ignore ; une raison concrète et datée remet le compte dans son rythme.", tag: "Réactivation", steps: ["Repérer ses références récurrentes dans vos dernières factures.", "Proposer un réassort ou la nouveauté la plus proche de ce qu'il achète.", "Donner une échéance concrète (prochaine tournée, fenêtre de livraison)."] },
+      { title: "Donnez-lui une raison datée de recommander", description: "Nouveautés, retour en stock de ses références habituelles, fenêtre de livraison proche.", why: "Une relance sans objet s'ignore ; une raison concrète et datée remet le compte dans son rythme.", tag: "Réactivation", steps: ["Repérer ses références récurrentes dans vos dernières factures.", "Proposer un retour en stock ou la nouveauté la plus proche de ce qu'il achète.", "Donner une échéance concrète (prochaine tournée, fenêtre de livraison)."] },
       { title: "Si une friction sort de l'échange, traitez-la avant le volume", description: "Délais, transport, tarif, litige — régler d'abord, recommander ensuite.", why: "Relancer du volume sur une friction non traitée grille la relation ; la friction réglée, la commande revient d'elle-même.", tag: "Rétention", steps: ["Qualifier la friction exacte donnée par le client.", "La traiter ou proposer un geste — puis le dire explicitement au client.", "Reproposer ensuite une commande simple, sans pression."] },
     ],
   },
@@ -327,7 +327,7 @@ window.MS_SALES_RECO_LIB = {
   weekly_sales_spike: {
     _default: [
       { title: "Identifiez ce qui a porté la semaine", description: "Grosse vente, client, opération, contexte — le nommer précisément.", why: "Un pic a une cause ; non identifiée, elle ne se rejouera que par hasard.", tag: "Diagnostic", steps: ["Regarder les plus grosses ventes de la semaine et qui les a faites.", "Noter ce qui différait : opération en cours, contexte, visite particulière.", "Écrire la cause en une phrase — c'est votre bonne pratique candidate."] },
-      { title: "Sécurisez le réassort de ce qui s'est vendu", description: "Les références qui ont porté le pic ne doivent pas manquer ensuite.", why: "Une rupture après un pic transforme la demande captée en frustration.", tag: "Réassort" },
+      { title: "Vérifiez le stock de ce qui s'est vendu", description: "Les références qui ont porté le pic ne doivent pas manquer ensuite.", why: "Une rupture après un pic transforme la demande captée en frustration.", tag: "Réassort" },
       { title: "Rejouez la cause sciemment — et mesurez", description: "Si c'est reproductible (opération, mise en avant), la reprogrammer avec un objectif.", why: "Ce qui a marché une fois est votre meilleur pari — encore faut-il le rejouer en le mesurant.", tag: "À reconduire" },
     ],
   },
@@ -345,8 +345,8 @@ window.MS_SALES_RECO_LIB = {
   // Mois de canal exceptionnel (chantier C3) — comprendre compte par compte, puis sécuriser.
   monthly_sales_spike: {
     _default: [
-      { title: "Comprenez chaque gros compte du mois", description: "Commande unique, projet, ou nouveau rythme ? Le qualifier compte par compte.", why: "Un pic pro porté par 2-3 comptes n'a de suite que si on sait lequel va recommander.", tag: "Diagnostic", steps: ["Reprendre les comptes de la carte (top_parties) un par un.", "Qualifier : ponctuel (projet) ou début de rythme (réassort attendu ?).", "Pour les rythmes naissants : noter la cadence attendue — le grain client la surveillera."] },
-      { title: "Sécurisez le réassort de ce qu'ils achètent", description: "Les références des gros comptes du mois ne doivent pas manquer au réachat.", why: "Une rupture au moment du réachat casse un rythme naissant.", tag: "Réassort" },
+      { title: "Comprenez chaque gros compte du mois", description: "Commande unique, projet, ou nouveau rythme ? Le qualifier compte par compte.", why: "Un pic pro porté par 2-3 comptes n'a de suite que si on sait lequel va recommander.", tag: "Diagnostic", steps: ["Reprendre les comptes de la carte (top_parties) un par un.", "Qualifier : ponctuel (projet) ou début de rythme (réachat attendu ?).", "Pour les rythmes naissants : noter la cadence attendue — le grain client la surveillera."] },
+      { title: "Vérifiez le stock de ce qu'ils achètent", description: "Les références des gros comptes du mois ne doivent pas manquer au réachat.", why: "Une rupture au moment du réachat casse un rythme naissant.", tag: "Réassort" },
       { title: "Capitalisez sur la référence", description: "Un gros compte satisfait est un argument commercial — demander le témoignage ou la mise en relation.", why: "Dans le B2B, la preuve par un pair ouvre plus de portes que la prospection froide.", tag: "Développement" },
     ],
   },

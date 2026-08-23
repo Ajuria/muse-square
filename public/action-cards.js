@@ -28,6 +28,8 @@
   // CLAUDE.md (Localisation) : virgule décimale, jamais toString() brut. Un seul foyer.
   function frDec(v, n) { return Number(v).toFixed(n == null ? 1 : n).replace('.', ','); }
   // 23/08 — entier français (espace fine insécable pour les milliers : 1 932).
+  // 23/08 — « le 20/08 » depuis l'ISO du payload (gestes au passé : la carte peut s'afficher des jours après).
+  function frDateFr(iso) { var d = String(iso || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? ' le ' + d.slice(8, 10) + '/' + d.slice(5, 7) : ''; }
   function frInt(v) { return Math.round(Number(v) || 0).toLocaleString('fr-FR'); }
   // 23/08 — COMPARAISON DE NOTES, un seul foyer (owner : « doit être comparatif pour être
   // clair »). Votre note vient de p.besttime_rating — la note Google du lieu telle que BestTime
@@ -2120,7 +2122,7 @@
     function(a) {
       return {
         context: msMoLine(a, 'spike'),
-        action: 'À faire : comprendre chaque gros compte du mois (commande unique ou nouveau rythme ?) — et sécuriser le réassort de ce qu’ils achètent.'
+        action: 'À faire : comprendre chaque gros compte du mois (commande unique ou nouveau rythme ?) — et vérifier le stock de ce qu’ils achètent : il ne doit pas manquer.'
       };
     },
     {
@@ -2454,7 +2456,7 @@
     {
       note_interne: function(a, p, d) {
         var nom = a.item_category || 'une famille'; var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : null; var dir = a.direction || 'surge';
-        return 'Note interne ' + siteName(p) + '. ' + nom + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Famille qui a sous-perform\u00e9 \u2014 v\u00e9rifier stock et mise en avant.' : 'Famille qui a surperform\u00e9 \u2014 r\u00e9assort et mise en avant.');
+        return 'Note interne ' + siteName(p) + '. ' + nom + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Famille qui a sous-perform\u00e9 \u2014 v\u00e9rifier stock et mise en avant.' : 'Famille qui a surperform\u00e9 \u2014 mise en avant, stock v\u00e9rifi\u00e9.');
       }
     }
   );
@@ -2485,14 +2487,14 @@
     {
       note_interne: function(a, p, d) {
         var nom = a.item_description || 'un produit'; var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : null; var dir = a.direction || 'surge';
-        return 'Note interne ' + siteName(p) + '. ' + nom + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Produit qui a sous-perform\u00e9 \u2014 v\u00e9rifier stock et place en rayon.' : 'Produit qui a surperform\u00e9 \u2014 r\u00e9assort et mise en avant.');
+        return 'Note interne ' + siteName(p) + '. ' + nom + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Produit qui a sous-perform\u00e9 \u2014 v\u00e9rifier stock et place en rayon.' : 'Produit qui a surperform\u00e9 \u2014 mise en avant, stock v\u00e9rifi\u00e9.');
       }
     }
   );
 
   // 23/08 — hour_share_move : le grain HEURE, calqué sur item_share_move (surface approuvée
   // ci-dessus), « produit » → « heure ». Mots de l'heure = ceux de la surface footfall
-  // (« Jouez le pic de 7h — réassort et offres calés »). Payload dbt
+  // (« Jouez le pic de 7h — offres calées »). Payload dbt
   // (fct_client_hourly_signals_daily) : transaction_hour, hour_share, baseline_share,
   // share_delta_points, direction, hour_revenue, day_revenue, hour_transactions.
   reg('hour_share_move', 'Bascule d\u2019un cr\u00e9neau', 'INTELLIGENCE', '\u23f0', '#1565C0', 'action', 'pulse#day-detail',
@@ -2523,7 +2525,7 @@
         var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'une heure';
         var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : null;
         var dir = a.direction || 'surge';
-        return 'Note interne ' + siteName(p) + '. ' + hr + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Cr\u00e9neau qui a sous-perform\u00e9 \u2014 v\u00e9rifier ouverture, caisse, mise en place.' : 'Cr\u00e9neau qui a surperform\u00e9 \u2014 r\u00e9assort et offres cal\u00e9s dessus.');
+        return 'Note interne ' + siteName(p) + '. ' + hr + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Cr\u00e9neau qui a sous-perform\u00e9 \u2014 v\u00e9rifier ouverture, caisse, mise en place.' : 'Cr\u00e9neau qui a surperform\u00e9 \u2014 offres cal\u00e9es dessus, stock v\u00e9rifi\u00e9.');
       }
     }
   );
@@ -2712,6 +2714,13 @@
           else if (_rc && _rc.sign < 0) whatText = 'Vous êtes mieux noté que ' + _rn + ' — ' + frDec(_rc.mine) + ' contre ' + frDec(_rc.theirs);
           else if (_rc) whatText = _rn + ' et vous à égalité — ' + frDec(_rc.mine) + ' sur 5';
           else whatText = _rn + (feedItem.google_rating != null ? ' : ' + frDec(feedItem.google_rating) + '/5' : '');
+        }
+        // 23/08 — cartes de faits en euros : le titre suit le SENS (owner : « bascule » datait
+        // des parts). Même forme que les cartes ventes « CA inférieur / supérieur ».
+        else if (actionType === 'hour_share_move' || actionType === 'item_share_move' || actionType === 'offering_mix_shift') {
+          var _fd = feedItem.direction || (Number(feedItem.delta_eur || 0) < 0 ? 'collapse' : 'surge');
+          var _fn = actionType === 'hour_share_move' ? ['Cr\u00e9neau', ''] : actionType === 'item_share_move' ? ['Produit', ''] : ['Famille', 'e'];
+          whatText = _fn[0] + ' ' + (_fd === 'collapse' ? 'sous-performant' : 'surperformant') + _fn[1];
         }
       } else {
         sowhatText = actionType + ' \u2014 type non reconnu.';
@@ -3280,23 +3289,25 @@
     'offering_mix_shift': { action: function(a, p, d) {
       var cat = a.item_category || 'une catégorie';
       var dir = a.direction || 'surge';
+      var quand = frDateFr(a.affected_date || a.date);
       return dir === 'collapse'
-        ? 'À surveiller : ' + cat + ' décroche dans vos ventes du jour. Vérifiez stock, visibilité et prix avant que ça s\'installe.'
-        : 'À exploiter : ' + cat + ' surperforme aujourd\'hui. Sécurisez le réassort et mettez cette catégorie en avant pendant qu\'elle tire.';
+        ? 'À surveiller : ' + cat + ' a sous-performé' + quand + '. Vérifiez stock, visibilité et prix avant que ça s\'installe.'
+        : 'À exploiter : ' + cat + ' a surperformé' + quand + '. Vérifiez le stock de ses produits à forte marge — ceux qui ont porté la hausse ne doivent pas manquer.';
     }, urgency: 'soon' },
     'item_share_move': { action: function(a, p, d) {
       var cat = a.item_description || 'un produit';
       var dir = a.direction || 'surge';
+      var quand = frDateFr(a.affected_date || a.date);
       return dir === 'collapse'
-        ? 'À faire : ' + cat + ' décroche dans vos ventes du jour. Vérifiez son stock et sa place en rayon avant que ça s\'installe.'
-        : 'À exploiter : ' + cat + ' surperforme aujourd\'hui. Sécurisez son réassort et mettez-le en avant pendant qu\'il tire.';
+        ? 'À faire : ' + cat + ' a sous-performé' + quand + '. Vérifiez son stock et sa place en rayon avant l\'ouverture suivante.'
+        : 'À exploiter : ' + cat + ' a surperformé' + quand + '. À l\'ouverture suivante, mettez-le en avant — première place, visible de l\'entrée — et vérifiez son stock : il ne doit pas manquer.';
     }, urgency: 'soon' },
     'hour_share_move': { action: function(a, p, d) {
       var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'cette heure';
       var dir = a.direction || 'surge';
       return dir === 'collapse'
-        ? '\u00c0 faire : le cr\u00e9neau de ' + hr + ' a sous-perform\u00e9. V\u00e9rifiez ce qui s\u2019y est pass\u00e9 \u2014 ouverture, caisse, mise en place \u2014 avant demain.'
-        : '\u00c0 exploiter : le cr\u00e9neau de ' + hr + ' a surperform\u00e9. Calez-y r\u00e9assort et offres avant l\u2019ouverture.';
+        ? '\u00c0 faire : le cr\u00e9neau de ' + hr + ' a sous-perform\u00e9' + frDateFr(a.affected_date || a.date) + '. V\u00e9rifiez ce qui s\u2019y est pass\u00e9 \u2014 ouverture, caisse, mise en place \u2014 avant demain.'
+        : '\u00c0 exploiter : le cr\u00e9neau de ' + hr + ' a surperform\u00e9' + frDateFr(a.affected_date || a.date) + '. Calez-y vos offres, et v\u00e9rifiez le stock avant l\u2019ouverture.';
     }, urgency: 'soon' }
   };
 

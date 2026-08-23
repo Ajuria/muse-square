@@ -38,6 +38,10 @@ export const MOTS_BANNIS: Record<string, string> = {
   // dans son intro : deux mots pour un concept, dont un anglicisme. Le fichier appelait déjà
   // l'engagement « votre action » ailleurs — le mot s'aligne, il ne s'ajoute pas.
   "prochain mouvement": "prochaine action",
+  // 23/08 — « réassort » : pas français pour l'owner. Le concept se dit par le stock et la
+  // rupture (corpus : « ne doivent pas manquer », « vérifiez le stock »).
+  "réassort": "vérifiez le stock — il ne doit pas manquer",
+  "reassort": "vérifiez le stock — il ne doit pas manquer",
   "prochain move": "prochaine action",
 
   "vs attendu": "vs votre résultat habituel",
