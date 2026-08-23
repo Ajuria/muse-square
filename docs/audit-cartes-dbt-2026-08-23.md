@@ -4,6 +4,9 @@
 > cartes littéraux + le passthrough `change_feed`). Demande owner : ne plus avancer changement par
 > changement — auditer tout, livrer tout, avant le lancement commercial.
 > Chaque constat porte sa mesure. Scripts rejouables dans l'historique de session.
+>
+> **Rectifié après lecture des 66 en-têtes de marts** (demande owner : pas de raccourci) : le premier
+> diagnostic mobilité (« stub à remplacer ») était faux — la chaîne site existe et est déjà jointe.
 
 ## 1. Ce qui tire, et ce qui est mort — et POURQUOI
 
@@ -13,7 +16,7 @@ Tester chaque condition élémentaire sur J..J+3 (128 site-jours) et sur 120 jou
 
 | cause | cartes | mesure |
 |---|---|---|
-| **Stub : la donnée n'arrive jamais** | `weather_mobility_double`, `mobility_comp_squeeze`, `ft_peak_mobility`, `tourism_mobility_hit` | `mobility_disruption_flag_region` vrai sur **0 / 4 096** site-jours en 120 j. Racine : `int_mobility_region_daily__aligned` est un **stub** — `'normal' as mobility_status_region, false as mobility_disruption_flag_region`, constantes en dur sur une grille 2000→2035 (170 937 lignes). Or la source EXISTE et est fraîche : `raw.idf_traffic_info` 992 lignes extraites aujourd'hui, 549 perturbations Paris, et le `change_feed` en produit **1 794 `mobility_disruption` en 14 j**. Deux chemins mobilité : un vivant (change_feed), un mort (grille régionale). |
+| **MAUVAISE COLONNE branchée** (corrigé après lecture des 66 marts) | `weather_mobility_double`, `mobility_comp_squeeze`, `ft_peak_mobility`, `tourism_mobility_hit` | Les 4 lisent `mobility_disruption_flag_region` — **régional**, et c'est un stub (`int_mobility_region_daily__aligned` : `false` en dur, grille 2000→2035, vrai sur 0 / 4 096). **Mais la chaîne SITE est vivante et riche** : `fct_location_mobility_disruptions__union` 40 746 perturbations localisées sur 19 sites (204 dans J..J+3) → `fct_location_impact_daily_mobility` donne `delta_att_mobility_pct < 0` sur **529 site-jours / 1 229** (pire −12,6 %), **28 dans J..J+3** → exposé par `fct_location_opportunity_score_daily`, **que le modèle cartes joint DÉJÀ** (CTE `score`). La bonne colonne est à portée de main ; les cartes lisent la mauvaise. Ce n'est pas un stub à écrire, c'est **une colonne à changer**. |
 | **Classe inmesurable par construction** | `tourism_weather_vacation`, `tourism_comp_squeeze`, `low_tourism_local_opp`, `ft_peak_tourism_vacation` | indice tourisme **mensuel** (audit 22/08) |
 | **Seuil au-dessus du maximum atteint** | `sales_missed_opportunity` (score ≥ 80), `best_day_of_week`, `day_opportunity` (score ≥ 70, régime A) | score max **79** en 120 j ; ≥ 70 : 455 site-jours en 120 j mais **0 sur J..J+3** ; régime A : 477 / 4 096, 0 cette semaine. Pas mortes — **saisonnières**, et `sales_missed_opportunity` ne peut jamais tirer. |
 | **Conjonction rare, chaque terme vivant** | `weather_comp_opportunity` (alerte 0 ∧ pr < 0,7), `holiday_high_comp` (férié ∧ pr > 1,3), `ft_peak_*` | alerte 0 : 12 / 128 ; pr < 0,7 : 80 / 128 ; `ft_day_rank_max` présent sur **12 / 128** (3 sites BestTime). Vivantes mais rares. |
@@ -81,8 +84,9 @@ que `alert_level >= 2`** — le reste n'atteint jamais une carte.
    secondes tireront dès que le stub sera remplacé.
 
 **Hors de ce fichier, avant lancement** :
-7. **Remplacer le stub `int_mobility_region_daily__aligned`** par une vraie agrégation depuis
-   `int_location_mobility_disruptions_daily` — débloque 4 cartes d'un coup, la donnée est là.
+7. **Mobilité : brancher les 4 cartes sur `delta_att_mobility_pct`** (grain site, déjà dans la
+   CTE `score`) au lieu de `mobility_disruption_flag_region` (stub). Dans le MÊME fichier — passe
+   donc dans le lot 1-6. 28 site-jours en J..J+3 tireraient aujourd'hui.
 8. **`fct_competitor_directory.is_followed` sans `location_id`** — 11 « suivis » affichés sur
    f10c3e58, 2 réels.
 9. `own_location_review_snapshots` : cron calé depuis 8 j.
