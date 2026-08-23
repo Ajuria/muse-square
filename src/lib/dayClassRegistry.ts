@@ -150,7 +150,6 @@ export const OTHER_DAY_CLASSES: Array<{ key: string; family: string; label_fr: s
 export const CARD_POP_CLASSES: Array<{ key: string; family: string; label_fr: string }> = [
   { key: "pop_revenue_down", family: "card", label_fr: "journées anormalement basses" },
   { key: "pop_revenue_surge", family: "card", label_fr: "journées anormalement hautes" },
-  { key: "pop_underperformance", family: "card", label_fr: "journées nettement sous votre moyenne 30 j" },
   // Apostrophe TYPOGRAPHIQUE exigée : le strip du préfixe côté client (« ^jours (de |d’|à )? »)
   // ne connaît qu'elle — l'ASCII donnait « perdus · d'affluence sans conversion » (vu owner 01/08).
   { key: "pop_traffic_not_conv", family: "card", label_fr: "jours d’affluence sans conversion" },
@@ -361,8 +360,6 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         -- environnementale. Flags des marts ventes, mêmes référentiels que les cartes.
         COALESCE(r.is_revenue_down_residual, FALSE) AS pop_down_flag,
         COALESCE(r.is_revenue_surge_residual, FALSE) AS pop_surge_flag,
-        (sg.daily_revenue IS NOT NULL AND sg.revenue_30d_avg IS NOT NULL AND sg.revenue_30d_avg > 0
-         AND sg.daily_revenue < sg.revenue_30d_avg * 0.7) AS pop_underperf_flag,
         COALESCE(sg.is_traffic_not_converting, FALSE) AS pop_traffic_nc_flag
       FROM \`${PROJECT}.mart.fct_location_context_daily\` c
       JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
@@ -555,9 +552,6 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       UNION ALL
       SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_revenue_surge', 'pure'
       FROM counted WHERE pop_surge_flag
-      UNION ALL
-      SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_underperformance', 'pure'
-      FROM counted WHERE pop_underperf_flag
       UNION ALL
       SELECT location_id, date, 'revenue_residual', gap_eur, gap_log, 'card', 'pop_traffic_not_conv', 'pure'
       FROM counted WHERE pop_traffic_nc_flag
@@ -1161,7 +1155,6 @@ export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: {
 const MOTIF_INHERIT_TYPES = new Set([
   "sales_surge",
   "sales_revenue_down_wow",
-  "sales_underperformance",
   "sales_missed_opportunity",
   // 22/08 — top_day_approaching et perfect_storm rejoignent weekend_opportunity : toutes trois
   // DÉSIGNENT UNE JOURNÉE sans rien mesurer elles-mêmes. top_day_approaching pointe un jour à
@@ -1201,12 +1194,11 @@ const MOTIF_INHERIT_TYPES = new Set([
 const CARD_POPULATION: Record<string, string> = {
   sales_revenue_down_wow: "pop_revenue_down",
   sales_surge: "pop_revenue_surge",
-  // sales_underperformance : population CALCULÉE au store (pop_underperformance) mais NON
-  // branchée — arbitrage owner OUVERT. Mesuré 01/08 chez Les Olivades : 124 tirs/334 j,
-  // −119 500 €/an, t_log −11,3 — béton statistiquement et TROMPEUR : sa règle à seuil fixe
-  // (CA < 70 % de la moyenne 30 j) compare les jours boutique à une moyenne gonflée par les
-  // factures grossiste. À brancher quand la règle est re-basée sur le résiduel OU quand les
-  // canaux sont séparés (réponse Sage 100 en attente). D'ici là : mode « € ce jour ».
+  // sales_underperformance : RETIRÉE le 23/08 (arbitrage tranché par la mesure). Sa règle à seuil
+  // fixe (CA < 70 % de la moyenne 30 j) tirait 128 j / 217 chez Les Olivades — invisibles, la
+  // porte de régime hebdo les supprimait — et, sur les sites quotidiens, posait la même question
+  // que sales_revenue_down_wow avec une autre règle (1 commun sur 6 chez Occitanie). Une
+  // question, une carte : down_wow (résidu jour de semaine + tendance, levier, motif, population B).
   sales_traffic_not_converting: "pop_traffic_not_conv",
 };
 
