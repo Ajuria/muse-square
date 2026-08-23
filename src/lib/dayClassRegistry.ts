@@ -1094,6 +1094,12 @@ export const ABSENCE_REASON_FR = {
 export function classNeverMeasured(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): boolean {
   const at = String(candidate?.action_type || "").trim();
   if (at === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(at)) return false;
+  // 3. 23/08 soir — competition_proximity porte un FAIT (7 événements à 500 m, le plus proche
+  //    NOMMÉ à 159 m, livré le 23/08), pas une affirmation sur sa classe events_high. Le filtre
+  //    la retirait de Muse Square (events_high non mesurable) : l'événement nommé devenait
+  //    invisible sur le compte de référence. Même logique que la météo. same_bucket_saturation
+  //    (un % du même comptage, sans fait nommé — bruit selon l'audit de vérité) reste filtrée.
+  if (at === "competition_proximity") return false;
   const combo = COMBO_TYPE_CLASSES[at];
   if (combo && combo.includes("weather@date")) return false;
   return enjeuWithReasonForCandidate(result, candidate).reason_fr === ABSENCE_REASON_FR.not_separable;
