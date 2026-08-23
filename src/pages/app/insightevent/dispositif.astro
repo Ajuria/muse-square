@@ -221,9 +221,14 @@ const classParam = Astro.url.searchParams.get("class") || "";
             var quand = (ex.length > 2 && suite)
               ? 'du ' + exSorted[0].dow_fr + ' ' + frDate(exSorted[0].date) + ' au ' + exSorted[exSorted.length - 1].dow_fr + ' ' + frDate(exSorted[exSorted.length - 1].date)
               : exBits;
-            addEl("dp-aside", 'En marge : ' + quand + ', '
-              + (ex.length === 1 ? 'une journée de ce motif' : ex.length + ' journées de ce motif')
-              + (exMontant ? ' à ' + exMontant : '') + ', que les données disponibles n\'expliquent pas. '
+            // 23/08 (tranché) : ni « ce motif » (mot de la machine, refusé 22/08), ni le nom de
+            // la classe (« 5 de vos jours d'activité forte chez vos suivis » — refusé, et la
+            // classe elle-même ne tient pas : t = −1,45). La ligne dit les DATES et le RÉSULTAT
+            // que les données n'expliquent pas, puis pose la question. Sans montant : les dates
+            // et le nombre de journées seulement.
+            addEl("dp-aside", quand.charAt(0).toUpperCase() + quand.slice(1)
+              + (exMontant ? ' : ' + exMontant + ', que les données disponibles n\'expliquent pas. '
+                           : ' : ' + (ex.length === 1 ? 'une journée' : ex.length + ' journées') + ' que les données disponibles n\'expliquent pas. ')
               + (hasEv ? 'Ces journées portaient des événements chez vos suivis (détail au survol). ' : '')
               + 'Avez-vous une explication ? <a id="dp-note">Notez-la</a> · sinon, laissez.');
             var noteLink = document.getElementById("dp-note");
