@@ -125,13 +125,15 @@ garde-fou est rouge sur le code encore en place, et un test rouge laissé rouge 
 - Le mot du pont rangée santé ↔ rangée pilotage (« dont +1 166 € mesurés de vos opérations »).
 - « Déclarer vos marges » (pluriel, marge par famille produit) — paraphrase, pas un mot acté.
 - Alignement du volet « Ce que l'app a appris de vos sites » sur « Connaissances créées ».
-- **Doublons inter-pages relevés par l'audit du 24/08** (mêmes concepts, mots/couleurs
-  différents entre tableau et Pulse) : verdicts (« manqué » ambre au tableau, rouge dans
-  Pulse ; « non concluant » gris vs ambre), audiences (« clientèle locale/mixte » au tableau
-  vs « résidents locaux »/« public mixte » partout ailleurs), types de cartes (« Aléa météo
-  annoncé » vs « Alerte météo », « Lancement chez un suivi » vs « Concurrent détecté »…),
-  libellés KPI (« CA famille/jour » vs « CA famille/j »). UN mot et UNE couleur par concept
-  à arbitrer — le garde-fou pourra ensuite les tenir sur les deux fichiers.
+- **Doublons inter-pages (audit 24/08) — TRANCHÉS le 24/08 soir et appliqués** : verdicts
+  (canon couleur : atteint = vert · **manqué = ambre** · non concluant = gris — tableau ET
+  Pulse) ; audiences (« **résidents locaux** » / « **public mixte** » partout — registres du
+  chat compris, MOTS_BANNIS mord) ; météo (« **Alerte météo** » partout) ; maps KPI fusionnées
+  (formes courtes canoniques, « /j »). RESTENT à trancher : les autres types de cartes
+  divergents (« Météo redevenue favorable » vs « Amélioration météo », « Calendrier favorable »
+  vs « Changement d'audience », « Lancement chez un suivi » vs « Concurrent détecté »…), la
+  casse des chips Pulse (« Atteint » vs « atteint »), et la phrase de `contextCopy.ts`
+  « animer la clientèle locale » (copie rédigée — pas reformulée sans owner).
 
 ## Balayage de copie à faire (suite de ces décisions)
 
