@@ -2068,7 +2068,19 @@ if (!location_id) {
                             var cm = entry.item.context_motif;
                             if (!cm || !cm.label_fr || !Number(cm.eur_year)) return '';
                             var v = Math.abs(Math.round(Number(cm.eur_year))).toLocaleString('fr-FR');
-                            return ' ' + escapeHtml('Motif du jour : ' + cm.label_fr + ' (' + (Number(cm.eur_year) > 0 ? '+' : '−') + v + ' €/an sur ce lieu — carte dédiée au motif).');
+                            var line = ' ' + escapeHtml('Motif du jour : ' + cm.label_fr + ' (' + (Number(cm.eur_year) > 0 ? '+' : '−') + v + ' €/an sur ce lieu — carte dédiée au motif).');
+                            // 3-A (owner 24/08) : bonne journée sur un motif qui coûte d'ordinaire
+                            // (« CA supérieur… porté par les vacances scolaires » sous un chip à
+                            // −18 897 €/an) — dire l'anomalie au lieu de laisser la contradiction.
+                            // Cas validé SEULEMENT : motif négatif + jour au-dessus. Le miroir
+                            // (motif positif + mauvais jour) n'a pas de mot arbitré.
+                            var dp = entry.item.data_payload || {};
+                            var g = dp.delta_eur != null ? Number(dp.delta_eur)
+                              : (dp.daily_revenue != null && dp.expected_revenue != null ? Number(dp.daily_revenue) - Number(dp.expected_revenue) : null);
+                            if (g != null && isFinite(g) && g > 0 && Number(cm.eur_year) < 0) {
+                              line += ' ' + escapeHtml('D’ordinaire ce motif vous coûte — pas ce jour-là. Notez ce qui a changé.');
+                            }
+                            return line;
                           })()
                       + '</div>'
                     + '</div>'
