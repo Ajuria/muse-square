@@ -34,6 +34,10 @@ export const MOTS_BANNIS: Record<string, string> = {
   // 24/08 — le pluriel avait survécu au garde-fou (« 0/2 cibles tenues » sur tableau.astro) :
   // une entrée par nombre, la recherche est une sous-chaîne à frontière de mot.
   "cibles tenues": "objectifs atteints",
+  // 24/08 (2e passe) — le verdict ne se dit jamais « tenu » : « objectif atteint/manqué est
+  // plus clair » (owner). Singulier ET pluriel, la leçon du jour.
+  "objectif tenu": "objectif atteint",
+  "objectifs tenus": "objectifs atteints",
   "cible manquée": "objectif manqué",
   "verdict tenu": "objectif atteint",
   "non mesurable": "non concluant",

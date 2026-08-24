@@ -106,7 +106,7 @@ export const EVOL_COPY = {
   advice_cta: "M'engager sur cette action",
   advice_replay_offseason: "Réessayer hors vacances pour isoler l'effet.",
   advice_aim_higher: "En vacances, viser plus de +{pct} %.",
-  advice_met_hold: "Objectif tenu — à reconduire.",
+  advice_met_hold: "Objectif atteint — à reconduire.",
   // Type A track record (fct_location_commitment_learning). "N fois sur M" only — NEVER "prouvé"
   // ni "marche à X %" (self-selected operator track record, not an effectiveness rate).
   advice_track_reconduire: "Menée {done} fois — le CA a battu votre résultat habituel {beat} fois. À reconduire.",

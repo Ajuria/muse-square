@@ -411,7 +411,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var seuilsCase = im.gap_eur != null && im.windows_judged > 0 && im.targets_met === 0 && im.gap_eur > 0;
           var lecture = null;
           if (seuilsCase)
-            lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs votre r\u00e9sultat habituel) mais aucune cible n’est tenue — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
+            lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs votre r\u00e9sultat habituel) mais aucun objectif n’est atteint — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
           else if (im.gap_eur != null && im.gap_eur > 0 && im.targets_met > 0)
             lecture = signEur(im.gap_eur) + " vs votre r\u00e9sultat habituel et " + im.targets_met + " objectif" + (im.targets_met > 1 ? "s" : "") + " atteint" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — réutilisez ce qui tient (Mes dispositifs).";
           else if (im.gap_eur != null && im.gap_eur < 0)
@@ -639,7 +639,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(jug + "/" + m.occ.length + " jug\u00e9es \u00b7 " + ten + " objectif" + (ten > 1 ? "s" : "") + " atteint" + (ten > 1 ? "s" : ""), "#F3F4F6", "#6b7280") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
                   + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">' + opFrise(m.occ)
                   + '<div style="flex:1;min-width:180px;font-size:11.5px;color:#6B7280;line-height:1.55;">Chaque occurrence est jug\u00e9e seule \u2014 la s\u00e9rie cumule les verdicts.' + (nxt ? " Prochaine : " + dowFull(nxt.d) + " " + frD(nxt.d) + " (dispositif actif)." : "") + '</div></div>'
-                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">\u2717 manqu\u00e9e \u00b7 \u2713 tenue \u00b7 \u25cf grise = mesur\u00e9e, verdict en attente \u00b7 \u25cc dispositif actif \u2014 mesure au jour J \u00b7 petits points = planifi\u00e9es</span>'
+                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">\u2717 objectif manqu\u00e9 \u00b7 \u2713 objectif atteint \u00b7 \u25cf grise = mesur\u00e9e, verdict en attente \u00b7 \u25cc dispositif actif \u2014 mesure au jour J \u00b7 petits points = planifi\u00e9es</span>'
                   + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(m.location_id) + '&saved_item_id=' + encodeURIComponent(m.saved_item_id || "") + '">Dossier \u2192</a></div>';
               } else if (m.kind === "fenetre" && (m.daily || []).length >= 2) {
                 var cum = m.daily.reduce(function (s2, p2) { return s2 + p2.v; }, 0) / m.daily.length;
@@ -1048,7 +1048,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
 
           html += '</div>';
 
-          // Équipe — chips : en cours, porteur, tenue (période affichée), € du porteur.
+          // Équipe — chips : en cours, porteur, objectifs atteints (période affichée), € du porteur.
           var cut2 = shiftDate(TODAY, -period);
           var eq = (j.equipe || []).map(function (p) { return p; });
           var eqLead = eq.slice().sort(function (a, b) { return (b.open || []).length - (a.open || []).length; })[0];
@@ -1098,7 +1098,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             autoRows.push(_autoRow("active", "Mesure &amp; verdict", esc(nomS) + (siteChip(m2.site) ? " " + siteChip(m2.site) : ""),
               "D\u00e9clencheur : <b>chaque " + (nxt ? dowFull(nxt.d) : "occurrence") + "</b> (s\u00e9rie) \u2014 la mesure se lance au jour J, le verdict tombe seul."
               + (nxt ? " Prochaine : " + dowFull(nxt.d) + " " + frD(nxt.d) + "." : "")
-              + (lastV ? " Dernier verdict : cible " + (lastV.verdict === "met" ? "tenue" : "manqu\u00e9e") + " (" + frD(lastV.d) + ")." : ""),
+              + (lastV ? " Dernier verdict : objectif " + (lastV.verdict === "met" ? "atteint" : "manqu\u00e9") + " (" + frD(lastV.d) + ")." : ""),
               "/app/insightevent/evenement?location_id=" + encodeURIComponent(m2.location_id) + "&saved_item_id=" + encodeURIComponent(m2.saved_item_id || ""), "Dossier"));
           });
           (au.consignes || []).forEach(function (c) {
