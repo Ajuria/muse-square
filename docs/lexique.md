@@ -21,7 +21,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Le jugement automatique sur la cible | **cible/objectif : atteint · manqué · non concluant** | score, résultat final |
 | L'objectif chiffré | **cible** / **objectif** | target, seuil (réservé aux réglages) |
 | La période mesurée | **date / dates de l'opération** (owner 17/08) | fenêtre de mesure, période de test |
-| La référence de comparaison | **votre résultat habituel** (forme jour : « votre jeudi habituel ») | l'attendu, la normale (sauf « CA vs normale » legacy K1) |
+| La référence de comparaison | **votre résultat habituel** (forme jour : « votre jeudi habituel ») | l'attendu, la normale (sauf « CA vs normale » legacy K1), « votre habituel » nu (owner 24/08 — la référence porte son nom entier ; « votre CA habituel » reste correct) |
 | Ce que vaut un motif à l'année | **enjeu annualisé** (infobulle seulement) | potentiel, opportunité € |
 | Surveillance des concurrents | **veille** / **vos suivis** | couverture, tracking, crawl |
 | Fraîcheur de la veille | **lus cette nuit** | dernier passage, visités, crawlés |
