@@ -37,7 +37,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [ca7Rows], [opsValRows], [evtPubRows], [evtCovRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -88,7 +88,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // (bascule de période instantanée ; dérivation prouvée identique au harnais 09/08).
       bq.query({
         query: `SELECT commitment_id, beat, verdict, CAST(resolved_date AS STRING) AS resolved_date,
-                       ROUND(window_actual_revenue - window_expected_revenue, 0) AS gap_eur
+                       ROUND(window_actual_revenue - window_expected_revenue, 0) AS gap_eur, location_id
                 FROM \`${PROJECT}.mart.fct_client_commitment_outcomes\`
                 WHERE location_id IN UNNEST(@locs)
                   AND resolved_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)`,
@@ -561,14 +561,20 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 WHERE bp.location_id IN UNNEST(@locs) AND bp.status = 'active'`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
-      // Bandeau v10 (owner 18/08) — CA quotidien 100 j par site : le « CA 7 jours vs votre
-      // habituel » se calcule ICI (médiane du même jour de semaine, jamais vs hier).
+      // Héros v11 (spec 24/08) — CA quotidien 365 j par site sur LE référentiel arbitré
+      // (fct_client_day_residual : réel + attendu dow+tendance). UNE série pour trois usages
+      // cohérents : le chiffre (Σ période), le % (vs Σ attendu) et la mini-courbe — l'ancienne
+      // tuile « CA multi-site » sommait seulement les jours ayant ≥ 3 pairs même-jour (21
+      // site-jours retenus → 36 440 € étiquetés « 30 jours ») : chiffre partiel, référentiel
+      // divergent, incompatible avec une courbe. Élucidé + remplacé, cf. piloter-redesign-spec.
       bq.query({
-        query: `SELECT location_id, CAST(transaction_date AS STRING) d, SUM(daily_revenue) rev
-                FROM \`${PROJECT}.mart.fct_client_daily_performance\`
+        query: `SELECT location_id, CAST(DATE(date) AS STRING) d,
+                       ROUND(daily_revenue) ca, ROUND(expected_revenue) exp
+                FROM \`${PROJECT}.mart.fct_client_day_residual\`
                 WHERE location_id IN UNNEST(@locs)
-                  AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 100 DAY) AND CURRENT_DATE()
-                GROUP BY 1, 2`,
+                  AND DATE(date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)
+                  AND DATE(date) < CURRENT_DATE()
+                ORDER BY d`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
       // Bandeau v10 — valeur des opérations : gap mesuré moyen par saved_item JUGÉ (met/missed,
@@ -612,29 +618,49 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 GROUP BY c.location_id, cl.client_catchment`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
+      // Décomposition funnel des fenêtres ouvertes (arbitrage owner 24/08 : un écart € ne
+      // s'affiche jamais seul). Sommes mesurées + attendues PAR FACTEUR sur le référentiel
+      // UNIQUE de day_residual (jamais les baselines 28 j de sales_signals) — ratio des
+      // sommes : CA = passages × conversion × panier ferme exactement, la phrase du client
+      // décompose l'écart sans mélange de référentiels. Deux jeux de jours alignés : n2 =
+      // jours avec attendu ventes (funnel ventes × panier), n3 = jours avec attendu
+      // visiteurs AUSSI (funnel complet) — un facteur absent reste NULL, jamais inventé.
+      bq.query({
+        query: `WITH cm AS (
+                  SELECT * EXCEPT(rn) FROM (
+                    SELECT commitment_id, location_id, status, window_start, window_end,
+                           ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
+                    FROM \`${PROJECT}.analytics.action_commitments\`
+                    WHERE location_id IN UNNEST(@locs))
+                  WHERE rn = 1 AND status = 'open' AND window_end > window_start),
+                d AS (
+                  SELECT c.commitment_id, r.daily_revenue, r.expected_revenue,
+                         s.daily_visitors, s.daily_transactions,
+                         r.expected_visitors, r.expected_transactions
+                  FROM cm c
+                  JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+                    ON r.location_id = c.location_id
+                   AND r.date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
+                  LEFT JOIN \`${PROJECT}.mart.fct_client_sales_signals_daily\` s
+                    ON s.location_id = c.location_id AND s.transaction_date = r.date)
+                SELECT commitment_id,
+                  COUNTIF(expected_transactions IS NOT NULL) n2,
+                  ROUND(SUM(IF(expected_transactions IS NOT NULL, daily_revenue, NULL)), 0) m_rev2,
+                  ROUND(SUM(IF(expected_transactions IS NOT NULL, expected_revenue, NULL)), 0) e_rev2,
+                  SUM(IF(expected_transactions IS NOT NULL, daily_transactions, NULL)) m_tx2,
+                  ROUND(SUM(IF(expected_transactions IS NOT NULL, expected_transactions, NULL)), 0) e_tx2,
+                  COUNTIF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL) n3,
+                  ROUND(SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, daily_revenue, NULL)), 0) m_rev3,
+                  ROUND(SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, expected_revenue, NULL)), 0) e_rev3,
+                  SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, daily_visitors, NULL)) m_vis3,
+                  ROUND(SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, expected_visitors, NULL)), 0) e_vis3,
+                  SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, daily_transactions, NULL)) m_tx3,
+                  ROUND(SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, expected_transactions, NULL)), 0) e_tx3
+                FROM d GROUP BY 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
     ]);
 
-    // ── Bandeau v10 : CA 7 jours vs habituel (médiane même jour de semaine, 12 dernières
-    //    occurrences, par site puis sommé — l'effet jour de semaine est neutralisé). ──
-    const _dpBySite: Record<string, Record<string, number>> = {};
-    for (const r of ca7Rows as any[]) {
-      const lid = String(str(r.location_id)), dd = String(str(r.d));
-      (_dpBySite[lid] = _dpBySite[lid] || {})[dd] = num(r.rev) ?? 0;
-    }
-    const _last30 = [...Array(30)].map((_, i) => new Date(Date.now() - (i + 1) * 86_400_000).toISOString().slice(0, 10));
-    let _real7 = 0, _exp7 = 0, _n7 = 0;
-    for (const lid of Object.keys(_dpBySite)) {
-      const days = _dpBySite[lid];
-      for (const dd of _last30) {
-        if (days[dd] == null) continue;
-        const dow = new Date(dd + "T12:00:00Z").getUTCDay();
-        const peers = Object.keys(days).filter((k) => k < dd && new Date(k + "T12:00:00Z").getUTCDay() === dow).sort().slice(-12).map((k) => days[k]);
-        if (peers.length < 3) continue;
-        const sorted = peers.slice().sort((a, b) => a - b);
-        _real7 += days[dd]; _exp7 += sorted[Math.floor(sorted.length / 2)]; _n7++;
-      }
-    }
-    const ca30 = { pct: _exp7 > 0 ? Math.round(((_real7 - _exp7) / _exp7) * 1000) / 10 : null, real7: Math.round(_real7), exp7: Math.round(_exp7), n_jours: _n7 };
     const opsValue = (opsValRows as any[]).map((r) => ({ saved_item_id: str(r.saved_item_id), avg_gap: num(r.avg_gap), n: num(r.n) ?? 0 }));
 
     const siteLabel: Record<string, string> = {};
@@ -686,7 +712,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     for (const c of coms) if (c.commitment_id) ownerByCommitment[c.commitment_id] = c.owner || "—";
     // Un verdict « confounded » est NON MESURABLE (guardrail 3 du mart) : jamais dans les €,
     // compté à part — le mart le garde flaggé, le tableau respecte le flag.
-    const mart365 = (outRows as any[]).map((r) => ({ commitment_id: String(str(r.commitment_id)), beat: flat(r.beat) === true, verdict: str(r.verdict), resolved_date: str(r.resolved_date), gap_eur: num(r.gap_eur) }));
+    const mart365 = (outRows as any[]).map((r) => ({ commitment_id: String(str(r.commitment_id)), beat: flat(r.beat) === true, verdict: str(r.verdict), resolved_date: str(r.resolved_date), gap_eur: num(r.gap_eur), location_id: str(r.location_id) }));
     const periodCut = new Date(Date.parse(todayYmd + "T12:00:00Z") - period * 86_400_000).toISOString().slice(0, 10);
     const martAll = mart365.filter((r) => String(r.resolved_date || "") >= periodCut);
     const martRows = martAll.filter((r) => r.verdict !== "confounded");
@@ -872,9 +898,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Dérivation des périodes CÔTÉ CLIENT (bascule instantanée, zéro re-fetch) : lignes mart
       // 365 j + méta des verdicts (created_d) — égalité serveur/client prouvée au harnais 09/08.
       impact_rows: mart365,
-      judged_meta: coms.filter((c) => c.status === "resolved" && c.verdict).map((c) => ({ verdict: c.verdict, created_d: c.created_d })),
+      judged_meta: coms.filter((c) => c.status === "resolved" && c.verdict).map((c) => ({ verdict: c.verdict, created_d: c.created_d, location_id: c.location_id })),
       practice_counts: practiceCounts,
-      ca30, ops_value: opsValue,
+      // Série CA quotidienne (365 j, par site) — chiffre/%/courbe dérivés CLIENT par période et par site.
+      ca_daily: (caDailyRows as any[]).map((r) => ({ l: str(r.location_id), d: str(r.d), ca: num(r.ca) ?? 0, exp: num(r.exp) })),
+      ops_value: opsValue,
       last_verdict: lastVerdict,
       met_recipe: metRecipe,
       occasions,
@@ -1004,6 +1032,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
               .map((x) => ({ d: str(x.d), v: Number(flat(x.v)) }));
             const occ = (serieRows as any[]).filter((x) => str(x.commitment_id) === cid)
               .map((x) => ({ d: str(x.d), verdict: str(x.verdict), status: str(x.occ_status) }));
+            // Décomposition funnel (24/08) — sommes fenêtre par facteur, référentiel day_residual.
+            const fr = (funnelRows as any[]).find((x) => str(x.commitment_id) === cid) || null;
+            const funnel = fr ? {
+              n2: num(fr.n2) ?? 0, m_rev2: num(fr.m_rev2), e_rev2: num(fr.e_rev2), m_tx2: num(fr.m_tx2), e_tx2: num(fr.e_tx2),
+              n3: num(fr.n3) ?? 0, m_rev3: num(fr.m_rev3), e_rev3: num(fr.e_rev3), m_vis3: num(fr.m_vis3), e_vis3: num(fr.e_vis3), m_tx3: num(fr.m_tx3), e_tx3: num(fr.e_tx3),
+            } : null;
             return {
               commitment_id: cid, location_id: str(r.location_id),
               metric: str(r.measured_metric) || "revenue_residual",
@@ -1013,7 +1047,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
               texte: str(r.committed_action_text),
               famille: str(r.kpi_family), site: str(r.site_label), event_title: str(r.event_title), saved_item_id: str(r.saved_item_id),
               kind: occ.length ? "serie" : (str(r.ws) === str(r.we) ? "occurrence" : "fenetre"),
-              daily, occ,
+              daily, occ, funnel,
             };
           }),
         };

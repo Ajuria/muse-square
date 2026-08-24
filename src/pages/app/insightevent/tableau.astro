@@ -4,7 +4,7 @@
 // en cours · Dispositifs prouvés) ; « À faire » = table à colonnes fixes (le seul bloc ouvert,
 // verbe d'abord, trié par valeur) ; « Opérations en cours » = grille de cartes (jauge / mini-
 // courbe / frise de série) ; volets = grille de cartes-résumé (couleur = signal, fermé =
-// réponse) en deux familles — Compétitivité / Processus métiers — dont chaque carte ouvre SON
+// réponse) en deux familles — Processus métiers / Mon environnement — dont chaque carte ouvre SON
 // corps dans le panneau partagé sous la grille (une carte peut partager le corps d'une autre :
 // clés id/body distinctes). Le fetch est UNIQUE (period=365) : les périodes 30/90 se DÉRIVENT
 // côté client (impact_rows + judged_meta) — bascule instantanée, volets préservés (dérivation
@@ -27,7 +27,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
     <div id="tb-root" data-loc={locParam}>
       <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:12px;">
         <div style="font-size:20px;font-weight:600;color:#111827;">Tableau de bord</div>
-        <a id="tb-new" href="/app/insightevent/evenement?new=1" style="display:inline-flex;align-items:center;padding:8px 15px;background:transparent;border:1px solid #1D3BB3;border-radius:10px;font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;white-space:nowrap;">Nouvel événement</a>
+        <a id="tb-new" href="/app/insightevent/evenement?new=1" style="display:inline-flex;align-items:center;padding:8px 15px;background:transparent;border:1px solid #1D3BB3;border-radius:10px;font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;white-space:nowrap;">Nouvelle opération</a>
       </div>
       <div id="tb-body" style="font-size:13px;color:#9CA3AF;">Chargement…</div>
     </div>
@@ -62,15 +62,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
       /* ── Système visuel validé (maquette piloter-proto, 14/08) ──
          héros = grille STRICTE (jamais de wrap), anatomie de tuile unique ;
          À faire = table à colonnes fixes ; volets = rangées d'UNE surface (radar). */
-      .tb-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 10px; }
-      .tb-hero .tb-eb { line-height: 1.25; height: 2.5em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-      .tb-hero .tb-eb .u { font-size: 8.5px; letter-spacing: 0.03em; color: #B7BCC5; }
+      /* Héros v11 : rangée pilotage — tuiles en retrait, chiffres encre (séparation muette). */
+      .tb-hero2 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
+      .tb-t2 { background: #F8FAFC; border: 1px solid rgba(0,0,0,0.06); border-radius: 10px; padding: 12px 14px; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+      .tb-t2 .n2 { font-size: 22px; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; white-space: nowrap; }
+      .tb-t2 .s2 { font-size: 10.5px; color: #6B7280; }
       /* Héros (proto validé 17/08) : chaque tuile est SA carte — grille, plus de séparateurs. */
-      @media (max-width: 640px) { .tb-hero { grid-template-columns: repeat(2, 1fr); } }
-      .tb-tile { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,0.04); min-width: 0; transition: border-color .12s; }
-      .tb-tile:hover { border-color: #C7D2FE; }
-      .tb-tile .n { font-size: 21px; font-weight: 700; line-height: 1.15; margin-top: 5px; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; }
-      .tb-tile .s { font-size: 10.5px; color: #6B7280; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      @media (max-width: 640px) { .tb-hero2 { grid-template-columns: repeat(2, 1fr); } }
       .tb-af { display: grid; grid-template-columns: 56px minmax(0,1fr) 88px 148px; gap: 0 12px; align-items: center; min-height: 46px; padding: 6px 0; border-top: 1px solid #F3F4F6; }
       .tb-af .t { display: block; font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .tb-af .u { display: block; font-size: 12px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
@@ -171,7 +169,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               kind: "bilan",
               aline: "→ Faire le bilan de « " + b.title + " » (2 min)" + (late ? " — il attend depuis " + late + " jour" + (late > 1 ? "s" : "") : ""),
               sub: "3 questions · calibre météo, accès et fréquentation",
-              link_fr: "Bilan " + b.title,
+              link_fr: "Faire le bilan",
               href: "/app/insightevent/evenement?location_id=" + encodeURIComponent(b.location_id || "") + "&saved_item_id=" + encodeURIComponent(b.saved_item_id || "") + "&mode=bilan",
             });
           });
@@ -221,21 +219,21 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             kind: "equipe",
             aline: "→ Ajouter votre équipe — vos engagements pourront être assignés et notifiés",
             sub: "Compte → Communication · 2 min",
-            link_fr: "Ajouter vos destinataires",
+            link_fr: "Configurer",   // fusion CTA (24/08) : même onglet Compte → Communication
             href: "/profile?tab=comm",
           });
           if (db.channels_missing) goals.push({
             kind: "canaux",
             aline: "→ Brancher un canal (email ou Slack) — vos alertes et notifications partiront",
             sub: "Compte → Communication · 2 min",
-            link_fr: "Brancher un canal",
+            link_fr: "Configurer",
             href: "/profile?tab=comm",
           });
           if (db.alerts_prefs_missing) goals.push({
             kind: "alertes",
             aline: "→ Choisir ce qui mérite un email — alertes critiques, point du jour, digest",
             sub: "vos préférences d’alertes n’ont jamais été posées",
-            link_fr: "Régler vos alertes",
+            link_fr: "Régler",
             href: "/notifications",
           });
           if (!db.margin_declared) goals.push({
@@ -391,17 +389,33 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           });
 
           // ── HÉROS : 4 tuiles. ──
-          var periodSel = '<span style="display:inline-flex;gap:12px;font-size:11.5px;">'
-            + [[30, "30 j"], [90, "90 j"], [365, "12 mois"]].map(function (pp) {
-                var on = pp[0] === period;
-                return '<button type="button" data-tb-period="' + pp[0] + '" style="font-family:inherit;border:none;background:none;padding:0;cursor:pointer;' + (on ? "color:#111827;font-weight:600;text-decoration:underline;text-underline-offset:3px;" : "color:#9CA3AF;") + '">' + pp[1] + "</button>";
-              }).join("") + "</span>";
+          // ── Héros v11 (spec 24/08, docs/piloter-redesign-spec.md) : DEUX RANGÉES SANS
+          //    étiquettes — rangée 1 = santé (carte CA pleine largeur : chiffre + mini-courbe
+          //    + N-1 en absence honnête datée + Générer un rapport ; UNE série `ca_daily` sur
+          //    LE référentiel dow+tendance — chiffre, % et courbe ne peuvent plus diverger),
+          //    rangée 2 = pilotage (Impact · Objectifs + « Seuils trop hauts ? » · Signaux
+          //    traités · Connaissances créées). Répartition PAR SITE sous chaque chiffre,
+          //    ordre fixe des sites (attribution — jamais un classement). Segments SITE
+          //    (re-fetch filtré) et PÉRIODE (dérivation client, fetch unique 365) en tête.
+          var sites = j.sites || [];
+          var segBtn = function (attr, val, label, on) {
+            return '<button type="button" ' + attr + '="' + esc(val) + '" style="font-family:inherit;border:none;cursor:pointer;font-size:12px;border-radius:7px;padding:5px 12px;'
+              + (on ? 'font-weight:600;color:#111827;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,0.08);' : 'color:#6b7280;background:none;') + '">' + esc(label) + '</button>';
+          };
+          var siteSel = J.multi_site
+            ? '<span style="display:inline-flex;background:#F3F4F6;border-radius:9px;padding:3px;">'
+              + segBtn("data-tb-site", "", "Tous les sites", !locFilter)
+              + sites.map(function (s2) { return segBtn("data-tb-site", s2.location_id, s2.label || "", locFilter === String(s2.location_id)); }).join("")
+              + '</span>'
+            : "";
+          var periodSel = '<span style="display:inline-flex;background:#F3F4F6;border-radius:9px;padding:3px;">'
+            + [[30, "30 j"], [90, "90 j"], [365, "12 mois"]].map(function (pp) { return segBtn("data-tb-period", String(pp[0]), pp[1], pp[0] === period); }).join("") + '</span>';
           var seuilsCase = im.gap_eur != null && im.windows_judged > 0 && im.targets_met === 0 && im.gap_eur > 0;
           var lecture = null;
           if (seuilsCase)
-            lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs votre r\u00e9sultat habituel) mais aucun objectif n’est atteint — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
+            lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs votre résultat habituel) mais aucun objectif n’est atteint — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
           else if (im.gap_eur != null && im.gap_eur > 0 && im.targets_met > 0)
-            lecture = signEur(im.gap_eur) + " vs votre r\u00e9sultat habituel et " + im.targets_met + " objectif" + (im.targets_met > 1 ? "s" : "") + " atteint" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — réutilisez ce qui tient (Mes dispositifs).";
+            lecture = signEur(im.gap_eur) + " vs votre résultat habituel et " + im.targets_met + " objectif" + (im.targets_met > 1 ? "s" : "") + " atteint" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — réutilisez ce qui tient (Mes dispositifs).";
           else if (im.gap_eur != null && im.gap_eur < 0)
             lecture = "Fenêtres sous votre résultat habituel (" + signEur(im.gap_eur) + ") — resserrez sur les dispositifs prouvés.";
           var lv = j.last_verdict || null;
@@ -410,58 +424,140 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var vVus = vLieux.filter(function (v) { return v.age_j != null && v.age_j <= 1; }).length;
           var covSites = g.par_site || [];
           var covTrou = covSites.some(function (c) { return Number(c.n_suivis) < Number(c.n_total); });
-          html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 8px;flex-wrap:wrap;"><p class="tb-eb" style="cursor:help;" title="Somme des écarts mesurés des fenêtres engagées jugées — jamais extrapolé.">Impact mesuré de vos opérations</p><span style="display:inline-flex;align-items:baseline;gap:8px;">' + periodSel + '<span style="font-size:10.5px;color:#9CA3AF;">filtre l’Impact seul</span></span></div>'
-            + '<div class="tb-hero">'
-            // 1 · CA MULTI-SITE 30 JOURS — le montant signé, sa couleur suit le signe du delta vs r\u00e9sultat habituel.
+          var siteName = {}; sites.forEach(function (s2) { siteName[s2.location_id] = s2.label || ""; });
+          // Répartition par site : ordre FIXE = l'ordre des sites du compte, jamais trié par valeur.
+          var splitLine = function (parLabel, fmt) {
+            if (!J.multi_site || locFilter) return "";
+            var parts = sites.map(function (s2) {
+              var v2 = parLabel[s2.label]; if (v2 == null) return null;
+              return esc(s2.label) + ' <b style="color:#374151;">' + fmt(v2) + "</b>";
+            }).filter(Boolean);
+            return parts.length ? '<div style="font-size:10.5px;color:#6b7280;border-top:1px solid #F3F4F6;padding-top:6px;margin-top:auto;">' + parts.join(" · ") + "</div>" : "";
+          };
+
+          // ── Rangée 1 : la carte CA — série quotidienne de la période, sur le référentiel unique.
+          var caCut = shiftDate(TODAY, -period);
+          var caRows = (j.ca_daily || []).filter(function (r2) { return r2.d >= caCut; });
+          var caByDay = {}, caSum = 0, caBySite = {};
+          caRows.forEach(function (r2) {
+            var e2 = caByDay[r2.d] = caByDay[r2.d] || { ca: 0, exp: 0, hasExp: false };
+            e2.ca += r2.ca; if (r2.exp != null) { e2.exp += r2.exp; e2.hasExp = true; }
+            caSum += r2.ca;
+            var lb = siteName[r2.l] || ""; caBySite[lb] = (caBySite[lb] || 0) + r2.ca;
+          });
+          // Le % ne compare que les jours COUVERTS par un attendu — et le dit (infobulle).
+          var caPairCa = 0, caExpSum = 0, caExpDays = 0;
+          var caDays = Object.keys(caByDay).sort();
+          caDays.forEach(function (dd) { var e2 = caByDay[dd]; if (e2.hasExp) { caPairCa += e2.ca; caExpSum += e2.exp; caExpDays++; } });
+          var caPct = caExpSum > 0 ? Math.round((caPairCa - caExpSum) / caExpSum * 1000) / 10 : null;
+          var caSpark = "";
+          if (caDays.length >= 2) {
+            var vals = [], expPts = [];
+            caDays.forEach(function (dd, i2) { vals.push(caByDay[dd].ca); if (caByDay[dd].hasExp) expPts.push([i2, caByDay[dd].exp]); });
+            var all2 = vals.concat(expPts.map(function (e2) { return e2[1]; }));
+            var mn2 = Math.min.apply(null, all2), mx2 = Math.max.apply(null, all2);
+            var span2 = (mx2 - mn2) || 1; mn2 -= span2 * 0.08; mx2 += span2 * 0.08;
+            var X2 = function (i2) { return (6 + i2 * (308 / (caDays.length - 1))).toFixed(1); };
+            var Y2 = function (v2) { return (52 - (v2 - mn2) / (mx2 - mn2) * 46).toFixed(1); };
+            caSpark = '<svg viewBox="0 0 320 62" style="flex:1;min-width:180px;height:62px;">'
+              + (expPts.length >= 2 ? '<polyline points="' + expPts.map(function (e2) { return X2(e2[0]) + "," + Y2(e2[1]); }).join(" ") + '" fill="none" stroke="#D1D5DB" stroke-width="1.2" stroke-dasharray="4,3"><title>votre résultat habituel, jour par jour</title></polyline>' : "")
+              + '<polyline points="' + vals.map(function (v2, i2) { return X2(i2) + "," + Y2(v2); }).join(" ") + '" fill="none" stroke="#059669" stroke-width="2"/>'
+              + '<circle cx="' + X2(vals.length - 1) + '" cy="' + Y2(vals[vals.length - 1]) + '" r="3" fill="#059669"/>'
+              + '<text x="6" y="61" font-size="8.5" fill="#9CA3AF">' + frD(caDays[0]) + '</text>'
+              + '<text x="314" y="61" font-size="8.5" fill="#9CA3AF" text-anchor="end">' + frD(caDays[caDays.length - 1]) + '</text></svg>';
+          }
+          // N-1 : absence honnête DATÉE tant que 12 mois de ventes ne sont pas là (la
+          // comparaison réelle demandera une série étendue — branchée quand la donnée existera).
+          var MOIS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+          var firstSale = null;
+          (j.sales_depth || []).forEach(function (x2) { var f2 = String(x2.first_sale || ""); if (f2 && (!firstSale || f2 < firstSale)) firstSale = f2; });
+          var n1Line = "";
+          if (firstSale) {
+            var avail = shiftDate(firstSale, 365);
+            if (TODAY < avail) {
+              var am = new Date(avail + "T12:00:00Z"), cm = new Date(TODAY + "T12:00:00Z");
+              n1Line = "vs " + MOIS_FR[cm.getUTCMonth()] + " " + (cm.getUTCFullYear() - 1) + " : disponible à partir d’" + ("aoûtavriloctobre".indexOf(MOIS_FR[am.getUTCMonth()]) === 0 ? "" : "") + MOIS_FR[am.getUTCMonth()] + " " + am.getUTCFullYear() + " (12 mois de ventes requis)";
+            }
+          }
+          var prevM = new Date(TODAY + "T12:00:00Z"); prevM.setUTCMonth(prevM.getUTCMonth() - 1);
+          var rapportHref = "/app/insightevent/prompt?q=" + encodeURIComponent("Génère le rapport de " + MOIS_FR[prevM.getUTCMonth()]);
+          html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 2px 10px;">' + siteSel + '<span style="flex:1;"></span>' + periodSel + '</div>'
+            + '<div class="tb-card" style="padding:16px 18px;margin-bottom:10px;">'
+            + '<p class="tb-eb" style="cursor:help;" title="Somme du CA quotidien reçu de ' + (locFilter ? 'ce site' : 'vos sites') + ' sur la période. Le % compare aux ' + caExpDays + ' jours couverts par votre résultat habituel (même référentiel que l’Impact) — jamais vs hier.">CA' + (J.multi_site && !locFilter ? ' multi-site' : '') + '</p>'
+            + '<div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-top:4px;">'
+            + '<div style="flex:none;"><div style="font-size:32px;font-weight:700;line-height:1;color:#111827;letter-spacing:-0.01em;">' + (caSum ? frInt(caSum) + ' €' : '—') + '</div>'
+            + '<div style="font-size:11.5px;margin-top:5px;color:' + (caPct == null ? '#9CA3AF' : caPct >= 0 ? GREEN : AMBER) + ';">' + (caPct != null ? (caPct >= 0 ? '+' : '−') + String(Math.abs(caPct)).replace('.', ',') + ' % vs votre résultat habituel' : 'pas assez de jours reçus') + '</div></div>'
+            + caSpark + '</div>'
+            + '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid #F3F4F6;padding-top:8px;margin-top:10px;">'
+            + (function () { var s3 = splitLine(caBySite, function (v2) { return frInt(v2) + " €"; }); return s3 ? s3.replace('border-top:1px solid #F3F4F6;padding-top:6px;margin-top:auto;', '') : ""; })()
+            + (n1Line ? '<span style="font-size:10.5px;color:#9CA3AF;">' + n1Line + '</span>' : "")
+            + '<span style="flex:1;"></span><a class="tb-link" href="' + rapportHref + '">Générer un rapport →</a></div>'
+            + '</div>';
+
+          // ── Rangée 2 : pilotage — tuiles en retrait, chiffres encre, séparation muette.
+          var perSiteImpact = {}, perSiteObjTot = {}, perSiteObjMet = {}, perSiteSig = {}, perSiteMotifs = {};
+          (J.impact_rows || []).forEach(function (r2) {
+            if (String(r2.resolved_date || "") < caCut || r2.verdict === "confounded") return;
+            var lb = siteName[r2.location_id] || ""; perSiteImpact[lb] = (perSiteImpact[lb] || 0) + (r2.gap_eur || 0);
+          });
+          (J.judged_meta || []).forEach(function (m2) {
+            if (String(m2.created_d || "") < caCut || m2.verdict === "confounded") return;
+            var lb = siteName[m2.location_id] || "";
+            perSiteObjTot[lb] = (perSiteObjTot[lb] || 0) + 1;
+            if (/met|beat/i.test(String(m2.verdict))) perSiteObjMet[lb] = (perSiteObjMet[lb] || 0) + 1;
+          });
+          var ls = j.learnings || [];
+          var sigTot = 0, sigCov = 0;
+          ls.forEach(function (l2) {
+            var v2 = Math.abs(Number(l2.eur_year) || 0); sigTot += v2; if (l2.covered) sigCov += v2;
+            var lb = l2.site_label || "";
+            var e2 = perSiteSig[lb] = perSiteSig[lb] || { cov: 0, tot: 0 };
+            e2.tot += v2; if (l2.covered) e2.cov += v2;
+            perSiteMotifs[lb] = (perSiteMotifs[lb] || 0) + 1;
+          });
+          var sigPct = sigTot > 0 ? Math.round(sigCov / sigTot * 100) : null;
+          var pcH = j.practice_counts || { proven: 0, en_test: 0, declared: 0 };
+          var enTestH = (pcH.en_test || 0) + (pcH.declared || 0);
+          html += '<div class="tb-hero2">'
+            // 1 · IMPACT MESURÉ — ce que l'utilisateur a généré, même niveau que les objectifs.
+            + '<div class="tb-t2" title="Somme des écarts mesurés des fenêtres engagées jugées — jamais extrapolé. ' + esc(eurTip) + '">'
+            + '<p class="tb-eb">Impact mesuré de vos opérations</p>'
+            + '<div class="n2" style="color:' + (im.gap_eur == null ? '#111827' : im.gap_eur >= 0 ? GREEN : AMBER) + ';">' + (im.gap_eur == null ? '— €' : signEur(im.gap_eur)) + '</div>'
+            + '<div class="s2">vs votre résultat habituel · sur ' + im.eur_windows + ' fenêtre' + (im.eur_windows > 1 ? 's' : '') + ' mesurée' + (im.eur_windows > 1 ? 's' : '') + '</div>'
+            + splitLine(perSiteImpact, function (v2) { return signEur(Math.round(v2)); }) + '</div>'
+            // 2 · OBJECTIFS ATTEINTS — le compte + le chip d'explication du cas divergent.
+            + '<div class="tb-t2"><p class="tb-eb">Objectifs atteints</p>'
+            + '<div class="n2" style="color:#111827;">' + im.targets_met + '/' + im.windows_judged + '</div>'
+            + (seuilsCase ? '<div><button type="button" data-tb-lect class="tb-chip" style="background:#FEF3E2;color:#B45309;border:none;cursor:pointer;font-family:inherit;font-weight:600;font-size:10.5px;">Seuils trop hauts ? ▾</button></div>'
+              : '<div class="s2">' + (im.next_judgment === TODAY ? 'verdict auj.' : im.next_judgment ? 'prochaine ' + frD(im.next_judgment) : 'sur la période') + '</div>')
             + (function () {
-                var c30 = j.ca30 || {};
-                return '<div class="tb-tile" title="CA de vos ' + (J.multi_site ? 'sites (tous, rien d\u2019exclu)' : 'ventes') + ' sur les 30 derniers jours re\u00e7us. Le % compare \u00e0 votre R\u00c9SULTAT HABITUEL (m\u00e9diane du m\u00eame jour de semaine par site, ' + (c30.n_jours || 0) + ' site-jours) \u2014 jamais vs hier.">'
-                  + '<p class="tb-eb">CA multi-site <span class="u" style="cursor:help;" title="Somme de vos 30 derniers jours de ventes re\u00e7us, tous sites">\u24d8</span></p><div class="n" style="color:' + (c30.pct == null ? '#111827' : c30.pct >= 0 ? GREEN : AMBER) + ';">' + (c30.real7 ? '+' + frInt(c30.real7) + ' \u20ac' : '\u2014') + '</div>'
-                  + '<div class="s">' + (c30.pct != null ? (c30.pct >= 0 ? '+' : '\u2212') + String(Math.abs(c30.pct)).replace('.', ',') + ' % vs votre r\u00e9sultat habituel' : 'pas assez de jours re\u00e7us') + '</div></div>';
-              })()
-            // 2 · IMPACT DISPOSITIFS — mesuré sur la plage (m\u00eame unit\u00e9 de temps que le CA).
-            + '<div class="tb-tile"><p class="tb-eb">Impact dispositifs <span class="u" style="cursor:help;" title="' + period + ' derniers jours \u2014 suit le s\u00e9lecteur de plage">\u24d8</span></p><div class="n" style="color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? GREEN : AMBER) + ';" title="' + esc(eurTip) + '">' + (im.gap_eur == null ? "\u2014 \u20ac" : signEur(im.gap_eur)) + '</div>'
-              + '<div class="s">vs votre r\u00e9sultat habituel \u00b7 ' + im.targets_met + '/' + im.windows_judged + ' objectifs atteints' + (im.next_judgment === TODAY ? " \u00b7 verdict auj." : im.next_judgment ? " \u00b7 prochaine " + frD(im.next_judgment) : "") + '</div></div>'
-            // 3 · SIGNAUX TRAITÉS — % de l'enjeu identifi\u00e9 couvert par un dispositif actif.
+                var m3 = {}; Object.keys(perSiteObjTot).forEach(function (lb2) { m3[lb2] = (perSiteObjMet[lb2] || 0) + "/" + perSiteObjTot[lb2]; });
+                return splitLine(m3, function (v2) { return v2; });
+              })() + '</div>'
+            // 3 · SIGNAUX TRAITÉS — % couvert de l'enjeu identifié + jauge (crans : mot « palier » en attente).
+            + '<div class="tb-t2" title="Part de l’enjeu annualisé identifié (motifs d’environnement du registre, portes n ≥ 5 + matérialité) couverte par un dispositif actif. Référentiel : l’enjeu identifié, pas votre CA.">'
+            + '<p class="tb-eb">Signaux traités</p>'
+            + '<div style="display:flex;align-items:center;gap:10px;"><span class="n2">' + (sigPct == null ? '—' : sigPct + ' %') + '</span>'
+            + (sigPct != null ? '<span style="position:relative;flex:1;height:6px;background:#EDEFF2;border-radius:3px;"><span style="position:absolute;left:0;top:0;width:' + sigPct + '%;height:6px;border-radius:3px;background:#1D3BB3;"></span></span>' : '') + '</div>'
+            + '<div class="s2">' + (sigTot > 0 ? frInt(sigCov) + ' € couverts sur ' + frInt(sigTot) + ' €/an' : 'aucun motif chiffré encore') + '</div>'
             + (function () {
-                var ls = j.learnings || [];
-                var tot = 0, cov = 0;
-                ls.forEach(function (l2) { var v2 = Math.abs(Number(l2.eur_year) || 0); tot += v2; if (l2.covered) cov += v2; });
-                var pct = tot > 0 ? Math.round(cov / tot * 100) : null;
-                return '<div class="tb-tile" data-tb-tile="sf" title="Part de l\u2019enjeu annualis\u00e9 identifi\u00e9 (motifs d\u2019environnement du registre, portes n \u2265 5 + mat\u00e9rialit\u00e9) couverte par un dispositif actif. R\u00e9f\u00e9rentiel : l\u2019enjeu identifi\u00e9, pas votre CA.">'
-                  + '<p class="tb-eb">Signaux trait\u00e9s</p><div class="n" style="color:#111827;">' + (pct == null ? '\u2014' : pct + ' %') + '</div>'
-                  + '<div class="s">' + (tot > 0 ? 'de ' + frInt(tot) + ' \u20ac/an d\u2019enjeux identifi\u00e9s (' + ls.length + ' motif' + (ls.length > 1 ? 's' : '') + ')' : 'aucun motif chiffr\u00e9 encore') + '</div></div>';
-              })()
-            // 4 · OPÉRATIONS EN COURS — compte ; \u2248 \u20ac/an seulement sur du jug\u00e9.
+                var m3 = {}; Object.keys(perSiteSig).forEach(function (lb2) { var e3 = perSiteSig[lb2]; if (e3.tot > 0) m3[lb2] = Math.round(e3.cov / e3.tot * 100) + " %"; });
+                return splitLine(m3, function (v2) { return v2; });
+              })() + '</div>'
+            // 4 · CONNAISSANCES CRÉÉES — l'actif de savoir (mot owner 24/08 ; le volet garde sa phrase).
+            + '<div class="tb-t2" title="Mesuré sur VOS ventes, chez vous — pas des moyennes de secteur.">'
+            + '<p class="tb-eb">Connaissances créées</p>'
+            + '<div style="display:flex;align-items:baseline;gap:6px;"><span class="n2">' + ls.length + '</span><span style="font-size:11px;color:#6b7280;">motif' + (ls.length > 1 ? 's' : '') + ' chiffré' + (ls.length > 1 ? 's' : '') + '</span></div>'
+            + '<div class="s2">' + pcH.proven + ' prouvé' + (pcH.proven > 1 ? 's' : '') + ' · ' + enTestH + ' en test</div>'
             + (function () {
-                var au0 = j.automated || {};
-                var nOps = (g.mesures || []).length + (au0.consignes || []).length + (au0.armed_dispositifs || []).length;
-                var ov = {}; (j.ops_value || []).forEach(function (o2) { ov[o2.saved_item_id] = o2; });
-                var tot2 = 0, nJuges = 0;
-                (g.mesures || []).forEach(function (m2) {
-                  var o2 = ov[m2.saved_item_id];
-                  if (o2 && o2.n >= 2 && o2.avg_gap != null) { tot2 += o2.avg_gap * (m2.kind === 'serie' ? 52 : 12); nJuges += o2.n; }
-                });
-                return '<div class="tb-tile" data-tb-tile="ops" title="Op\u00e9rations en cours (mesur\u00e9es + automatis\u00e9es). La valeur \u2248 \u20ac/an ne s\u2019affiche que calcul\u00e9e sur des occurrences JUG\u00c9ES (gap mesur\u00e9 moyen \u00d7 occurrences/an) \u2014 jamais sur une promesse.">'
-                  + '<p class="tb-eb">Op\u00e9rations en cours</p><div class="n">' + nOps + '</div>'
-                  + '<div class="s">' + (nJuges >= 2 ? '\u2248 ' + signEur(Math.round(tot2)) + '/an (' + nJuges + ' occurrences jug\u00e9es)' : nOps ? 'valeur \u2248 \u20ac/an au 2e verdict jug\u00e9' : 'aucune \u2014 cr\u00e9ez un \u00e9v\u00e9nement') + '</div></div>';
-              })()
-            // 5 · DISPOSITIFS PROUVÉS — ce mois-ci (mot du lexique) ; le z\u00e9ro invite \u00e0 Prouver.
-            + (function () {
-                var moisNow = TODAY.slice(0, 7);
-                var nMois = (g.tests || []).filter(function (t2) { return t2.verdict === 'met' && String(t2.we || '').slice(0, 7) === moisNow; }).length;
-                var pr0 = (j.practices || []).filter(function (p2) { return p2.tier !== 'archivee'; });
-                var nT0 = pr0.filter(function (p2) { return p2.tier !== 'prouvee' && p2.tier !== 'ecartee'; }).length;
-                return '<div class="tb-tile" data-tb-tile="sf" title="Dispositifs pass\u00e9s PROUV\u00c9S ce mois-ci (objectif atteint au test \u2014 \u00e9chelle en test \u00b7 prouv\u00e9 \u00b7 \u00e9cart\u00e9).">'
-                  + '<p class="tb-eb">Dispositifs prouv\u00e9s</p><div class="n" style="color:' + (nMois ? '#111827' : '#9CA3AF') + ';">' + nMois + '</div>'
-                  + '<div class="s">ce mois-ci \u00b7 ' + nT0 + ' en test \u2014 chaque objectif atteint en convertit un</div></div>';
-              })()
+                var m3 = {}; Object.keys(perSiteMotifs).forEach(function (lb2) { m3[lb2] = perSiteMotifs[lb2] + ""; });
+                return splitLine(m3, function (v2) { return v2; });
+              })() + '</div>'
             + '</div>'
             + '<div style="display:flex;align-items:center;gap:14px;padding:2px 4px 0;font-size:12px;color:#6b7280;flex-wrap:wrap;">';
           if (lv) html += '<button type="button" data-tb-lect style="display:inline-flex;align-items:center;gap:6px;padding:0;background:none;border:none;font-family:inherit;font-size:12px;color:#6b7280;cursor:pointer;">'
             + '<span style="width:8px;height:8px;border-radius:50%;background:' + (VERDICT_COL[lv.verdict] || "#6b7280") + ';flex:none;"></span>'
             + 'dernier verdict : <span style="font-weight:600;color:' + (VERDICT_COL[lv.verdict] || "#6b7280") + ';">' + (VERDICT_FR[lv.verdict] || esc(lv.verdict)).split(" (")[0] + '</span> · ' + frD(lv.we) + ' <span style="font-size:10px;">▾</span></button>';
-          if (seuilsCase) html += '<button type="button" data-tb-lect class="tb-chip" style="background:#FEF3E2;color:#B45309;border:none;cursor:pointer;font-family:inherit;font-weight:600;">Seuils trop hauts ?</button>';
           html += '<span style="flex:1;"></span><span style="font-size:11px;color:#9CA3AF;">jamais extrapolé — chaque € vient d’une fenêtre mesurée</span></div>';
           if (lecture || lv) {
             html += '<div id="tb-lecture" class="tb-fold" style="margin:6px 0 0;">'
@@ -480,13 +576,15 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var BENEFICE = {
             "Documenter": "votre dispositif devient réutilisable — il resservira aux prochains jours du même type",
             "Préparer": "la consigne part à votre équipe — le jour se joue sans vous derrière",
-            "Bilan": "votre vécu calibre la mesure — météo, accès et fréquentation deviennent comparables",
+            "Faire": "votre vécu calibre la mesure — météo, accès et fréquentation deviennent comparables",
             "Prouver": "un objectif atteint et le dispositif devient réutilisable en un clic",
             "Déclarer": "débloque le KPI profit sur toutes vos mesures",
             "Fixer": "sans cible, aucun verdict — la fixer rend ces événements jugeables",
             "Suivre": "sa page entre dans votre veille — événements, offres et tarifs lus chaque nuit",
             "Chercher": "3 à 5 concurrents de votre zone, trouvés sur le web — à suivre d'un clic",
-            "Répondre": "votre réponse débloque le montant de la carte"
+            "Répondre": "votre réponse débloque le montant de la carte",
+            "Configurer": "Compte → Communication · 2 min — destinataires et canaux au même endroit",
+            "Régler": "alertes critiques, point du jour, digest — vos préférences d’email"
           };
           var verbeSeul = function (g2) {
             var t2 = String(g2 || "").replace(/<[^>]+>/g, "");
@@ -556,41 +654,54 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             }
             return '<svg viewBox="0 0 140 72" style="width:148px;height:auto;flex:none;">' + g2 + '</svg>';
           }
-          function opSpark(m, goal) {
-            var pts = m.daily || [];
-            if (pts.length < 2) return "";
-            var all = pts.map(function (p2) { return p2.v; });
-            if (m.baseline != null) all.push(m.baseline);
-            if (goal != null) all.push(goal);
-            var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
-            var span = (mx - mn) || 1; mn -= span * 0.15; mx += span * 0.15;
-            function X(i2) { return (8 + i2 * (164 / Math.max(1, (m.days || pts.length) - 1))).toFixed(1); }
-            function Y(v) { return (54 - (v - mn) / (mx - mn) * 46).toFixed(1); }
-            var col = opCol(m, goal);
-            var g3 = "";
-            if (m.baseline != null) g3 += '<line x1="8" y1="' + Y(m.baseline) + '" x2="172" y2="' + Y(m.baseline) + '" stroke="#D1D5DB" stroke-width="1.2" stroke-dasharray="4,3"/>';
-            if (goal != null) g3 += '<line x1="8" y1="' + Y(goal) + '" x2="172" y2="' + Y(goal) + '" stroke="#1D3BB3" stroke-width="1.4" stroke-dasharray="3,3"/><text x="172" y="' + (Number(Y(goal)) - 3) + '" font-size="8" fill="#1D3BB3" text-anchor="end">objectif</text>';
-            g3 += '<polyline points="' + pts.map(function (p2, i2) { return X(i2) + "," + Y(p2.v); }).join(" ") + '" fill="none" stroke="' + col + '" stroke-width="2"/>';
-            g3 += '<circle cx="' + X(pts.length - 1) + '" cy="' + Y(pts[pts.length - 1].v) + '" r="3" fill="' + col + '"/>';
-            return '<svg viewBox="0 0 180 60" style="width:172px;height:auto;flex:none;">' + g3 + '</svg>';
-          }
-          function opFrise(occ) {
-            var n = occ.length, g4 = "", TODAY2 = TODAY;
-            function X(i2) { return (14 + i2 * (300 / Math.max(1, n - 1))).toFixed(1); }
-            g4 += '<line x1="10" y1="18" x2="318" y2="18" stroke="#E5E7EB" stroke-width="2"/>';
-            occ.forEach(function (o, i2) {
-              var x = X(i2);
-              if (o.verdict === "missed") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="#B45309"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">\u2717</text>';
-              else if (o.verdict === "met") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="#059669"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">\u2713</text>';
-              else if (o.status === "open" || o.status === "pending") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-dasharray="2,2.5"/>';
-              // Deux états distincts (défaut de vérité 24/08) : status présent = un engagement a
-              // couvert l'occurrence ; status null = aucun dispositif ne la couvrait (ou annulé avant mesure).
-              else if (o.d <= TODAY2 && o.status) g4 += '<circle cx="' + x + '" cy="18" r="6.5" fill="#9CA3AF"><title>mesur\u00e9e \u2014 en attente de verdict</title></circle>';
-              else if (o.d <= TODAY2) g4 += '<circle cx="' + x + '" cy="18" r="6.5" fill="none" stroke="#9CA3AF" stroke-width="1.8"><title>pass\u00e9e sans mesure</title></circle>';
-              else g4 += '<circle cx="' + x + '" cy="18" r="3.5" fill="#E5E7EB"/>';
-              g4 += '<text x="' + x + '" y="40" font-size="8.5" fill="#9CA3AF" text-anchor="middle">' + frD(o.d) + '</text>';
-            });
-            return '<svg viewBox="0 0 330 46" style="width:100%;max-width:360px;height:auto;">' + g4 + '</svg>';
+          // ── Ligne funnel (arbitrage owner 24/08) : l'écart € d'une fenêtre ne s'affiche
+          //    jamais seul — il porte sa décomposition CA = passages × conversion × panier,
+          //    chaque facteur vs votre résultat habituel, sur le référentiel UNIQUE de
+          //    day_residual (ratio des sommes — la décomposition ferme exactement ; le MÊME
+          //    référentiel que le € de lead3 via ca_daily). Jamais les baselines 28 j de
+          //    sales_signals, jamais deux référentiels dans la phrase. Sans flux visiteurs :
+          //    CA = ventes × panier. Moins de 2 jours mesurés : rien — le repli isole3
+          //    (régime A non chiffré) reste alors la phrase de la carte.
+          function opFunnel(m) {
+            var f = m.funnel;
+            if (!f) return "";
+            var three = Number(f.n3 || 0) >= 2 && f.m_vis3 > 0 && f.e_vis3 > 0 && f.m_rev3 > 0 && f.e_rev3 > 0 && f.m_tx3 > 0 && f.e_tx3 > 0;
+            var two = Number(f.n2 || 0) >= 2 && f.m_rev2 > 0 && f.e_rev2 > 0 && f.m_tx2 > 0 && f.e_tx2 > 0;
+            if (!three && !two) return "";
+            var mR = three ? Number(f.m_rev3) : Number(f.m_rev2), eR = three ? Number(f.e_rev3) : Number(f.e_rev2);
+            var mT = three ? Number(f.m_tx3) : Number(f.m_tx2), eT = three ? Number(f.e_tx3) : Number(f.e_tx2);
+            var gap = Math.round(mR - eR);
+            var totalLog = Math.log(mR / eR);
+            function pct1(v) { return (v * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + " %"; }
+            function eur2(v) { return v.toLocaleString("fr-FR", { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + " €"; }
+            var facts = [];
+            if (three) {
+              var mV = Number(f.m_vis3), eV = Number(f.e_vis3);
+              facts.push({ m: mV, e: eV, txt: frInt(mV) + " · habituel " + frInt(eV), tenu: "vos passages ont tenu", de: "du passage", pair: "passages" });
+              facts.push({ m: mT / mV, e: eT / eV, txt: pct1(mT / mV) + " · habituel " + pct1(eT / eV), tenu: "votre conversion a tenu", de: "de la conversion", pair: "conversion" });
+            } else {
+              facts.push({ m: mT, e: eT, txt: frInt(mT) + " · habituel " + frInt(eT), tenu: "vos ventes ont tenu", de: "des ventes", pair: "ventes" });
+            }
+            facts.push({ m: mR / mT, e: eR / eT, txt: eur2(mR / mT) + " · habituel " + eur2(eR / eT), tenu: "votre panier moyen a tenu", de: "du panier", pair: "panier" });
+            facts.forEach(function (x) { x.contrib = Math.log(x.m / x.e); });
+            // Attribution = arithmétique de la décomposition (part du log-écart), pas une
+            // cause affirmée : un facteur porte le manque/le gain s'il est du même côté que
+            // l'écart ET pèse ≥ 20 % du log-écart (plancher absolu 2 %).
+            var floor = Math.max(0.02, 0.2 * Math.abs(totalLog));
+            var drivers = facts.filter(function (x) { return (totalLog < 0 ? x.contrib < 0 : x.contrib > 0) && Math.abs(x.contrib) >= floor; });
+            var tenus = facts.filter(function (x) { return drivers.indexOf(x) < 0 && x.m / x.e >= 0.97; });
+            var bares = facts.filter(function (x) { return drivers.indexOf(x) < 0 && tenus.indexOf(x) < 0; });
+            var parts = [];
+            if (tenus.length) parts.push(tenus.map(function (x) { return x.tenu + " (" + x.txt + ")"; }).join(" · "));
+            if (drivers.length) {
+              var dl = drivers.map(function (x) { return x.de + " (" + x.txt + ")"; });
+              parts.push((gap < 0 ? "le manque vient " : "le gain vient ") + (dl.length > 1 ? dl.slice(0, -1).join(", ") + " et " + dl[dl.length - 1] : dl[0]));
+            }
+            var line2 = parts.join(" — ");
+            if (bares.length) line2 += (line2 ? " · " : "") + bares.map(function (x) { return x.pair + " " + x.txt; }).join(" · ");
+            var nDays = three ? Number(f.n3) : Number(f.n2);
+            return '<div style="font-size:11.5px;color:#374151;line-height:1.6;">' + line2
+              + (nDays < (m.daily || []).length ? ' <span style="color:#9CA3AF;">\u00b7 sur ' + nDays + ' jours mesur\u00e9s</span>' : "") + '</div>';
           }
           function opChip(txt2, bg, fg) { return '<span class="tb-chip" style="background:' + bg + ';color:' + fg + ';font-weight:600;">' + txt2 + '</span>'; }
           function opShortName(m) {
@@ -598,55 +709,11 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var t2 = String(m.texte || "").split("\u2192")[0].split("\u2014")[0].split(",")[0].trim();
             return esc(t2.length > 45 ? t2.slice(0, 42) + "\u2026" : t2);
           }
-          if (mesures.length) {
-            html += '<p class="tb-eb" id="tb-ops-sec" style="margin:2px 0 8px;">Opérations en cours</p><div class="tb-opsgrid">';
-            mesures.forEach(function (m) {
-              var goal = opGoal(m);
-              var kpiLbl = m.metric === "family_revenue" && m.famille ? "CA famille \u00ab " + esc(m.famille) + " \u00bb" : m.metric === "revenue_residual" ? KPI_MINI_FR.revenue_residual + " vs votre r\u00e9sultat habituel" : (KPI_MINI_FR[m.metric] || m.metric);
-              var siteChp = m.site && J.multi_site ? opChip(esc(m.site), "#F3F4F6", "#6b7280") : "";
-              var inner = "", wide = false, cta;
-              if (m.kind === "serie") {
-                wide = true;
-                var jug = m.occ.filter(function (o) { return o.verdict === "met" || o.verdict === "missed"; }).length;
-                var ten = m.occ.filter(function (o) { return o.verdict === "met"; }).length;
-                var nxt = m.occ.filter(function (o) { return o.status === "open" || o.status === "pending"; })[0];
-                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(jug + "/" + m.occ.length + " jug\u00e9es \u00b7 " + ten + " objectif" + (ten > 1 ? "s" : "") + " atteint" + (ten > 1 ? "s" : ""), "#F3F4F6", "#6b7280") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
-                  + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">' + opFrise(m.occ)
-                  + '<div style="flex:1;min-width:180px;font-size:11.5px;color:#6B7280;line-height:1.55;">Chaque occurrence est jug\u00e9e seule \u2014 la s\u00e9rie cumule les verdicts.' + (nxt ? " Prochaine : " + dowFull(nxt.d) + " " + frD(nxt.d) + " (dispositif actif)." : "") + '</div></div>'
-                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">\u2717 objectif manqu\u00e9 \u00b7 \u2713 objectif atteint \u00b7 \u25cf grise = mesur\u00e9e, verdict en attente \u00b7 \u25cb pass\u00e9e sans mesure \u00b7 \u25cc dispositif actif \u2014 mesure au jour J \u00b7 petits points = planifi\u00e9es</span>'
-                  + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(m.location_id) + '&saved_item_id=' + encodeURIComponent(m.saved_item_id || "") + '">Dossier \u2192</a></div>';
-              } else if (m.kind === "fenetre" && (m.daily || []).length >= 2) {
-                var cum = m.daily.reduce(function (s2, p2) { return s2 + p2.v; }, 0) / m.daily.length;
-                var dv = goal != null ? cum - goal : null;
-                var col2 = opCol({ realized: cum, baseline: m.baseline, metric: m.metric }, goal);
-                var dTxt = dv == null ? "" : (m.metric === "conversion"
-                  ? (dv >= 0 ? "+" : "\u2212") + Math.abs(dv * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " pt"
-                  : (dv >= 0 ? "+" : "\u2212") + opFmt(Math.abs(dv), m.metric));
-                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip("Jour " + m.daily.length + "/" + (m.days || "?"), "#FEF3E2", "#B45309") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
-                  + '<div style="display:flex;align-items:center;gap:14px;">' + opSpark(m, goal)
-                  + '<div style="flex:1;min-width:0;font-size:11.5px;color:#6B7280;line-height:1.55;">' + (dTxt ? '<span style="font-size:16px;font-weight:700;color:' + col2 + ';font-variant-numeric:tabular-nums;">' + dTxt + '</span> <span style="color:#374151;">vs objectif</span>' : opFmt(cum, m.metric) + " en moyenne")
-                  + '<span style="display:block;font-size:10.5px;color:#9CA3AF;margin-top:2px;">moyenne ' + opFmt(cum, m.metric) + ' \u00b7 provisoire \u2014 verdict au jour ' + (m.days || "?") + '</span></div></div>'
-                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">mesur\u00e9 sur vos ventes, jour par jour</span>'
-                  + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/engagement?id=' + encodeURIComponent(m.commitment_id) + '">Ajuster \u2192</a></div>';
-              } else {
-                var djW = m.ws ? daysTo(m.ws) : null;
-                var armed = m.realized == null;
-                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(armed ? "Dispositif actif" + (djW != null && djW > 0 ? " \u00b7 J-" + djW : "") : "En mesure", "#EEF2FF", "#1D3BB3") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
-                  + '<div style="display:flex;align-items:center;gap:14px;">' + opGauge(m, goal)
-                  + '<div style="flex:1;min-width:0;font-size:11.5px;color:#6B7280;line-height:1.55;">' + (armed
-                    ? "Occurrence du " + dowFull(m.ws) + " " + frD(m.ws) + " \u2014 la mesure d\u00e9marre seule, verdict jug\u00e9 apr\u00e8s le " + frD(m.we) + "."
-                    : "Mesur\u00e9 sur la journ\u00e9e \u2014 verdict jug\u00e9 apr\u00e8s le " + frD(m.we) + ".") + '</div></div>'
-                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">' + (armed ? "rien \u00e0 faire d\u2019ici l\u00e0" : "mesur\u00e9 sur vos ventes") + '</span>'
-                  + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/engagement?id=' + encodeURIComponent(m.commitment_id) + '">Ajuster \u2192</a></div>';
-              }
-              html += '<div class="tb-op' + (wide ? " wide" : "") + '"><div style="font-size:13.5px;font-weight:650;line-height:1.3;" title="' + esc(String(m.texte || "")) + '">' + opShortName(m) + '</div>' + inner + '</div>';
-            });
-            html += '</div>';
-          }
-
-          html += '<div class="tb-card" id="tb-af-card" style="padding:14px 16px;">'
-            + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><p class="tb-eb">À faire</p>'
-            + '<span style="font-size:12px;font-weight:600;color:' + (aFaire.length ? BLUE : GREY) + ';">' + aFaire.length + '</span></div>';
+          // Titre AU NIVEAU SECTION (owner 24/08) — plus d'agrégat € en tête : chaque geste
+          // porte SA valeur sur SA ligne (« +510 € à prendre · 6 gestes » était trompeur).
+          html += '<div style="display:flex;align-items:baseline;gap:10px;margin:2px 2px 6px;"><p class="tb-eb">À faire</p>'
+            + '<span style="font-size:12px;font-weight:600;color:' + (aFaire.length ? BLUE : GREY) + ';">' + aFaire.length + ' en attente</span></div>'
+            + '<div class="tb-card" id="tb-af-card" style="padding:10px 16px 14px;">';
           if (!aFaire.length) html += '<div style="font-size:12.5px;color:#9CA3AF;margin-top:4px;">Rien à faire — vos opérations suivent leur cours.</div>';
           aFaire.slice(0, 6).forEach(function (r) { html += afRow(r); });
           if (aFaire.length > 6) {
@@ -662,6 +729,130 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             .forEach(function (c) { restCount++; if (!restLast || c.we > restLast) restLast = c.we; });
           if (restCount) html += '<a href="/app/insightevent/evenement" title="' + restCount + ' échéances à venir — chacune s’arme seule à J-7" style="display:block;font-size:11.5px;color:#6b7280;margin-top:10px;text-decoration:none;">Et ensuite : ' + restCount + ' (→ ' + frD(restLast) + ') <span style="color:#1D3BB3;font-weight:600;">›</span></a>';
           html += '</div>';
+
+          // € COMMUN de toute carte d'opération (spec 24/08) : CA + attendu de la fenêtre,
+          // lus sur la MÊME série ca_daily que le héros — un seul référentiel à l'écran.
+          function opWinEur(l3, ws3, we3) {
+            var ca3 = 0, exp3 = 0, has3 = 0;
+            (j.ca_daily || []).forEach(function (r3) {
+              if (r3.l !== l3 || r3.d < ws3 || r3.d > we3) return;
+              ca3 += r3.ca; if (r3.exp != null) { exp3 += r3.exp; has3++; }
+            });
+            return { ca: ca3, exp: has3 ? exp3 : null };
+          }
+          if (mesures.length) {
+            html += '<p class="tb-eb" id="tb-ops-sec" style="margin:2px 0 8px;">Opérations en cours</p><div class="tb-opsgrid">';
+            mesures.forEach(function (m) {
+              var goal = opGoal(m);
+              var kpiLbl = m.metric === "family_revenue" && m.famille ? "CA famille \u00ab " + esc(m.famille) + " \u00bb" : m.metric === "revenue_residual" ? KPI_MINI_FR.revenue_residual + " vs votre r\u00e9sultat habituel" : (KPI_MINI_FR[m.metric] || m.metric);
+              var siteChp = m.site && J.multi_site ? opChip(esc(m.site), "#F3F4F6", "#6b7280") : "";
+              var inner = "", wide = false, cta;
+              if (m.kind === "serie") {
+                wide = true;
+                var jug = m.occ.filter(function (o) { return o.verdict === "met" || o.verdict === "missed"; }).length;
+                var ten = m.occ.filter(function (o) { return o.verdict === "met"; }).length;
+                // Cases-résultats AUTO-PORTANTES (owner 24/08) : date + chiffre + référentiel —
+                // la légende à cinq symboles meurt. Futures condensées en une case.
+                var cells = "", futures = [], passed = [];
+                m.occ.slice().sort(function (a3, b3) { return a3.d < b3.d ? -1 : 1; }).forEach(function (o) {
+                  if (!o.verdict && !o.status && o.d > TODAY) { futures.push(o.d); return; }
+                  passed.push(o);
+                });
+                passed.slice(-4).forEach(function (o) {
+                  var dj3 = daysTo(o.d);
+                  if (o.verdict === "met" || o.verdict === "missed") {
+                    var manque = o.verdict === "missed";
+                    var val3 = (o.d === m.ws && m.realized != null) ? opFmt(m.realized, m.metric) : null;
+                    cells += '<div style="border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;min-width:0;">'
+                      + '<span style="font-size:10px;color:#9CA3AF;">' + dowFr(o.d) + ' ' + frD(o.d) + (m.metric === "family_revenue" && m.famille ? ' \u00b7 CA produits \u00ab ' + esc(m.famille) + ' \u00bb' : '') + '</span>'
+                      + (val3 ? '<span style="font-size:15px;font-weight:700;color:' + (manque ? AMBER : GREEN) + ';">' + val3 + '</span>' : '')
+                      + '<span style="font-size:9.5px;color:#6B7280;">' + (goal != null ? 'vs objectif de ' + opFmt(goal, m.metric) + ' \u00b7 ' : '') + '<b style="color:' + (manque ? AMBER : GREEN) + ';">objectif ' + (manque ? 'manqu\u00e9' : 'atteint') + '</b></span></div>';
+                  } else if (o.status === "open" || o.status === "pending") {
+                    cells += '<div style="border:1.5px dashed #1D3BB3;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;background:#F8FAFF;min-width:0;">'
+                      + '<span style="font-size:10px;font-weight:700;color:#1D3BB3;">' + dowFr(o.d) + ' ' + frD(o.d) + (dj3 > 0 ? ' \u00b7 J-' + dj3 : '') + '</span>'
+                      + '<span style="font-size:12px;font-weight:700;color:#1D3BB3;">' + (dj3 > 0 ? 'Dispositif actif' : 'En mesure') + '</span>'
+                      + '<span style="font-size:9.5px;color:#6B7280;">' + (goal != null ? 'cible ' + opFmt(goal, m.metric) + ' \u00b7 ' : '') + 'la mesure s\u2019arme seule le jour J</span></div>';
+                  } else {
+                    // Occurrence passée sans engagement vivant : l'état VRAI (lexique 24/08).
+                    cells += '<div style="border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;min-width:0;">'
+                      + '<span style="font-size:10px;color:#9CA3AF;">' + dowFr(o.d) + ' ' + frD(o.d) + '</span>'
+                      + '<span style="font-size:12px;font-weight:600;color:#9CA3AF;">pass\u00e9e sans mesure</span></div>';
+                  }
+                });
+                if (futures.length) {
+                  var futDows = futures.map(function (d3) { return new Date(d3 + "T12:00:00Z").getUTCDay(); });
+                  var memeDow = futDows.every(function (x3) { return x3 === futDows[0]; });
+                  cells += '<div style="border:1px solid rgba(0,0,0,0.06);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;justify-content:center;min-width:0;">'
+                    + '<span style="font-size:12px;font-weight:600;color:#9CA3AF;">+' + futures.length + ' planifi\u00e9e' + (futures.length > 1 ? 's' : '') + '</span>'
+                    + '<span style="font-size:9.5px;color:#9CA3AF;">' + (memeDow ? 'chaque ' + dowFull(futures[0]) + ' ' : '') + '\u2192 ' + frD(futures[futures.length - 1]) + '</span></div>';
+                }
+                // Zone EXPLICATION (gabarit owner 24/08, régime « facteurs mêlés ») : la dernière
+                // occurrence JUGÉE de l'engagement courant — chaque fait contre SON référentiel
+                // (famille = kpi_baseline DU contrat ; jour du site = ca_daily), énoncés séparément.
+                var expl = "";
+                var lj = m.occ.filter(function (o) { return (o.verdict === "met" || o.verdict === "missed") && o.d === m.ws; })[0];
+                if (lj && m.realized != null && m.baseline != null && m.baseline > 0 && m.metric === "family_revenue") {
+                  var d3b = opWinEur(m.location_id, lj.d, lj.d);
+                  var famPct = Math.round((m.realized - m.baseline) / m.baseline * 100);
+                  var dayPct = d3b.exp != null && d3b.exp > 0 ? Math.round((d3b.ca - d3b.exp) / d3b.exp * 100) : null;
+                  expl = '<div style="font-size:11.5px;color:#374151;line-height:1.6;">occ. du ' + frD(lj.d) + ' : les produits \u00ab ' + esc(m.famille || '') + ' \u00bb ont g\u00e9n\u00e9r\u00e9 ' + frInt(m.realized) + ' \u20ac/j vs ' + frInt(m.baseline) + ' \u20ac/j habituellement (<b style="color:' + (famPct < 0 ? AMBER : GREEN) + ';">' + (famPct >= 0 ? '+' : '\u2212') + Math.abs(famPct) + ' %</b>)'
+                    + (dayPct == null ? '' : dayPct < 0
+                      ? ' \u00b7 <b>Explication :</b> la baisse du CA jour n\u2019explique pas tout (<b style="color:' + AMBER + ';">\u2212' + Math.abs(dayPct) + ' %</b>)'
+                      : ' \u00b7 <b>Explication :</b> le CA du jour \u00e9tait \u00e0 +' + dayPct + ' % de votre r\u00e9sultat habituel')
+                    + ' \u00b7 Autres facteurs : dispositif, produit, autre \u2014 <a class="tb-link" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(m.location_id) + '&saved_item_id=' + encodeURIComponent(m.saved_item_id || '') + '&mode=bilan">Faire le bilan \u2192</a></div>';
+                }
+                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(jug + "/" + m.occ.length + " jug\u00e9es \u00b7 " + ten + " objectif" + (ten > 1 ? "s" : "") + " atteint" + (ten > 1 ? "s" : ""), "#F3F4F6", "#6b7280") + siteChp + '</div>'
+                  + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">' + cells + '</div>'
+                  + expl
+                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">Chaque occurrence est jug\u00e9e seule \u2014 la s\u00e9rie cumule les verdicts.</span>'
+                  + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(m.location_id) + '&saved_item_id=' + encodeURIComponent(m.saved_item_id || "") + '">Dossier \u2192</a></div>';
+              } else if (m.kind === "fenetre" && (m.daily || []).length >= 2) {
+                // Le € MÈNE la carte (owner 24/08) ; le KPI déclaré reste la ligne de CONTRAT —
+                // le verdict se juge dessus, jamais re-dérivé. Chaque fait contre SON référentiel.
+                var cum = m.daily.reduce(function (s2, p2) { return s2 + p2.v; }, 0) / m.daily.length;
+                var w3 = opWinEur(m.location_id, m.ws, m.we);
+                var ec3 = w3.exp != null ? Math.round(w3.ca - w3.exp) : null;
+                var finie = m.we < TODAY;
+                var lead3 = ec3 != null
+                  ? '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><span style="font-size:22px;font-weight:800;color:' + (ec3 >= 0 ? GREEN : AMBER) + ';">' + signEur(ec3) + '</span>'
+                    + '<span style="font-size:12px;color:#374151;">vs votre r\u00e9sultat habituel \u00b7 CA de la fen\u00eatre : ' + frInt(w3.ca) + ' \u20ac</span></div>'
+                  : '<div style="font-size:12px;color:#9CA3AF;">CA de la fen\u00eatre : ' + frInt(w3.ca) + ' \u20ac \u2014 pas encore de r\u00e9sultat habituel sur ces dates</div>';
+                var contrat3 = cum != null && goal != null
+                  ? '<div style="font-size:11.5px;color:#6b7280;"' + (m.baseline != null ? ' title="votre ' + (KPI_MINI_FR[m.metric] || m.metric) + ' habituel : ' + opFmt(m.baseline, m.metric) + '"' : '') + '>objectif du dispositif : ' + (KPI_MINI_FR[m.metric] || m.metric) + ' <b style="color:#1D3BB3;">' + opFmt(goal, m.metric) + '</b> \u00b7 r\u00e9alis\u00e9 ' + opFmt(cum, m.metric) + '</div>'
+                  : '';
+                // Régime A (facteur ISOLÉ, seul cas où l'on nomme) : le KPI contrat a tenu son
+                // habituel pendant que le CA de la fenêtre était dessous ⇒ le manque est ailleurs.
+                var isole3 = m.metric !== "revenue_residual" && cum != null && m.baseline != null && cum >= m.baseline && ec3 != null && ec3 < 0
+                  ? '<div style="font-size:11.5px;color:#374151;line-height:1.6;">votre ' + (KPI_MINI_FR[m.metric] || m.metric) + ' a tenu (' + opFmt(cum, m.metric) + ' \u00b7 habituel ' + opFmt(m.baseline, m.metric) + ') \u2014 le manque vient du passage ou du panier</div>'
+                  : '';
+                // La phrase chiffr\u00e9e (opFunnel, attendus par facteur du build 24/08) prime ;
+                // isole3 (r\u00e9gime A non chiffr\u00e9, r\u00e9f\u00e9rentiel contrat) n'est que son repli \u2014
+                // jamais les deux : deux r\u00e9f\u00e9rentiels ne se m\u00ealent pas sur une carte.
+                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(finie ? "Fen\u00eatre finie" : "Jour " + m.daily.length + "/" + (m.days || "?"), finie ? "#F3F4F6" : "#FEF3E2", finie ? "#6b7280" : "#B45309") + siteChp + '</div>'
+                  + lead3 + (opFunnel(m) || isole3) + contrat3
+                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">' + (finie ? 'fen\u00eatre finie le ' + frD(m.we) + ' \u00b7 le verdict tombe seul' : 'provisoire \u2014 verdict au jour ' + (m.days || "?")) + ' \u00b7 mesur\u00e9 sur vos ventes</span>'
+                  + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/engagement?id=' + encodeURIComponent(m.commitment_id) + '">Ajuster \u2192</a></div>';
+              } else {
+                var djW = m.ws ? daysTo(m.ws) : null;
+                var armed = m.realized == null;
+                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(armed ? "Dispositif actif" + (djW != null && djW > 0 ? " \u00b7 J-" + djW : "") : "En mesure", "#EEF2FF", "#1D3BB3") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
+                  + '<div style="display:flex;align-items:center;gap:14px;">' + opGauge(m, goal)
+                  + '<div style="flex:1;min-width:0;font-size:11.5px;color:#6B7280;line-height:1.55;">' + (armed
+                    ? "Occurrence du " + dowFull(m.ws) + " " + frD(m.ws) + " \u2014 la mesure d\u00e9marre seule, verdict jug\u00e9 apr\u00e8s le " + frD(m.we) + "."
+                    : "Mesur\u00e9 sur la journ\u00e9e \u2014 verdict jug\u00e9 apr\u00e8s le " + frD(m.we) + ".") + '</div></div>'
+                  + (function () {
+                      if (armed) return '';
+                      var wo = opWinEur(m.location_id, m.ws, m.we);
+                      var eo = wo.exp != null ? Math.round(wo.ca - wo.exp) : null;
+                      return eo != null ? '<div style="font-size:11.5px;color:#374151;">CA du jour : ' + frInt(wo.ca) + ' \u20ac \u00b7 <b style="color:' + (eo >= 0 ? GREEN : AMBER) + ';">' + signEur(eo) + '</b> vs votre r\u00e9sultat habituel</div>' : '';
+                    })()
+                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">' + (armed ? "rien \u00e0 faire d\u2019ici l\u00e0" : "mesur\u00e9 sur vos ventes") + '</span>'
+                  + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/engagement?id=' + encodeURIComponent(m.commitment_id) + '">Ajuster \u2192</a></div>';
+              }
+              html += '<div class="tb-op' + (wide ? " wide" : "") + '"><div style="font-size:13.5px;font-weight:650;line-height:1.3;" title="' + esc(String(m.texte || "")) + '">' + opShortName(m) + '</div>' + inner + '</div>';
+            });
+            html += '</div>';
+          }
 
           // ── Volets : l'en-tête EST la réponse (chips), le corps s'ouvre au clic. ──
           // Grille-résumé (proto validé 17/08) : voletHead ENREGISTRE la carte, la grille
@@ -837,24 +1028,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           })();
           html += '</div>';
 
-          // ── Volet À SURVEILLER — cartes système 7 j (libellé maison) + occasions chaleur. ──
-          var TYPE_FR = {
-            weather_hazard_onset: ["Alerte météo", AMBER], competition_pressure_spike: ["Pic de concurrence", AMBER],
-            weekend_opportunity: ["Week-end favorable", GREEN], weekend_vacation_low_comp: ["Week-end de vacances, concurrence faible", GREEN],
-            low_competition_window: ["Faible concurrence détectée", GREEN], audience_shift_opportunity: ["Bascule de clientèle à saisir", GREEN],
-            foreign_tourism_signal: ["Afflux de visiteurs étrangers", GREEN], calendar_audience_shift: ["Calendrier favorable", GREEN],
-            weather_improved: ["Météo redevenue favorable", GREEN], review_solicitation: ["Moment propice aux avis clients", GREEN],
-          };
-          var parType = {};
-          (g.cartes || []).forEach(function (c) {
-            if (!parType[c.type]) parType[c.type] = { type: c.type, n: 0, d0: c.d, prio: c.prio, loc0: c.location_id };
-            parType[c.type].n++;
-            if (c.d < parType[c.type].d0) { parType[c.type].d0 = c.d; parType[c.type].loc0 = c.location_id; }
-          });
-          var typeLignes = Object.keys(parType).map(function (k) { return parType[k]; });
-          typeLignes.sort(function (a, b) { return (a.prio - b.prio) || a.d0.localeCompare(b.d0); });
-          var nMen = 0, nOcc2 = 0;
-          typeLignes.forEach(function (l) { var lb = TYPE_FR[l.type]; if (lb && lb[1] === AMBER) nMen++; else nOcc2++; });
+          // ── Volet OPPORTUNITÉS (ex « À surveiller ») — prospective chaleur, gated registre. ──
           // Occasion chaleur (contenu de l'ancienne carte Occasions — € gated registre inchangé).
           var occHtml = "";
           if (oc.next_hot) {
@@ -878,9 +1052,11 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             'de chaleur passés <span style="font-weight:600;">sans action</span> sur 30 j <span style="color:#9CA3AF;">· ' + (oc.played || 0) + "/" + (oc.total || 0) + " couverts par une action</span>",
             "Jours de chaleur des 30 derniers jours qu’aucune fenêtre engagée ne couvrait",
             '<button type="button" data-tb-fold="tb-occ-fold" style="background:none;border:none;font-family:inherit;font-size:12px;color:#1D3BB3;font-weight:600;cursor:pointer;white-space:nowrap;">Lesquels ▾</button>');
-          var svResume = nMen + (nMen > 1 ? " menaces" : " menace") + " · " + nOcc2 + " occasions"
-            + (oc.next_hot ? " · jour chaud " + (oc.next_hot === TODAY ? "aujourd’hui" : dowFr(oc.next_hot) + " " + frD(oc.next_hot)) : "");
-          html += voletHead("sv", nMen ? AMBER : GREEN, "Vos prochaines occasions", svResume, "comp")
+          // Opportunités (owner 24/08) : le volet garde la PROSPECTIVE (jour chaud + couverture)
+          // et renvoie vers Agir pour les cartes — un objet, une maison (doublon tranché).
+          var svResume = (oc.next_hot ? "jour chaud " + (oc.next_hot === TODAY ? "aujourd’hui" : dowFr(oc.next_hot) + " " + frD(oc.next_hot)) : "aucun jour d’environnement annoncé")
+            + (oc.total ? " · " + (oc.played || 0) + "/" + oc.total + " couverts par une action" : "");
+          html += voletHead("sv", oc.next_hot ? GREEN : GREY, "Opportunités", svResume, "comp")
             + '<div data-tb-body="sv" class="tb-rbody" style="display:none;">'
             + occHtml
             + '<div id="tb-occ-fold" class="tb-fold" style="line-height:1.7;">'
@@ -889,14 +1065,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   + (sByS.missed_dates && sByS.missed_dates.length ? " · manqués : " + sByS.missed_dates.slice(-6).map(frD).join(", ") + (sByS.missed_dates.length > 6 ? "…" : "") : "") + "</div>";
               }).join("")
             + '<div style="color:#9CA3AF;">€/jour = médiane mesurée vs votre CA habituel, registre enjeu de l’app (n ≥ 5, signal |t| ≥ 1) — jamais extrapolé.</div></div>';
-          typeLignes.slice(0, 8).forEach(function (l) {
-            var lb = TYPE_FR[l.type] || [String(l.type).replace(/_/g, " "), GREY];
-            var dj = daysTo(l.d0);
-            html += '<div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:0 10px;align-items:center;padding:7px 0;border-top:1px solid #F3F4F6;">'
-              + '<span><span style="font-size:11px;font-weight:700;color:' + lb[1] + ';">' + (dj === 0 ? "auj." : "J-" + dj) + '</span><span style="display:block;font-size:9.5px;color:#9CA3AF;">' + dowFr(l.d0) + " " + frD(l.d0) + '</span></span>'
-              + '<span style="min-width:0;font-weight:600;">' + lb[0] + (l.n > 1 ? ' <span style="font-size:11.5px;color:#9CA3AF;font-weight:400;">×' + l.n + " sur la semaine</span>" : "") + '</span>'
-              + '<span><a class="tb-link" href="/app/insightevent/insight?type=' + encodeURIComponent(l.type) + '&date=' + encodeURIComponent(l.d0) + '&location_id=' + encodeURIComponent(l.loc0 || loc) + '" title="Ouvre la carte du ' + frD(l.d0) + '">Voir →</a></span></div>';
-          });
+          html += '<div style="border-top:1px solid #F3F4F6;padding-top:8px;margin-top:6px;"><a class="tb-link" href="/app/insightevent/pulse">les cartes des 7 prochains jours \u2192 Agir</a></div>';
           html += '</div>';
 
           // ── Volet VOTRE SAVOIR-FAIRE — apprentissages + dispositifs (échelle déclaré→en
@@ -946,7 +1115,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '<span style="cursor:help;" title="' + esc(depthTip) + '">appris sur ' + depthMax + ' j de ventes · ' + (j.learned_classes || 0) + ' types de jours chiffrés · ' + vTot + ' verdicts</span>'
               + '<button type="button" data-tb-fold="tb-cap-fold" style="background:none;border:none;font-family:inherit;font-size:10.5px;color:#9CA3AF;cursor:pointer;text-decoration:underline;text-underline-offset:2px;">comment lire</button></div>'
               + '<div id="tb-cap-fold" class="tb-fold">'
-              + '<span style="font-weight:600;">Comment lire :</span> tout part de vos ' + depthMax + ' jours de ventes — ils donnent le CA habituel de chacune de vos journées. Chaque ligne ci-dessus est la médiane mesurée de l’écart à ce CA habituel, chez vous, au registre enjeu de l’app (jamais une moyenne de secteur). Les verdicts disent ce qui a marché quand vous avez agi. Plus l’historique grandit, plus ces chiffres — et vos prochaines occasions — sont justes.'
+              + '<span style="font-weight:600;">Comment lire :</span> tout part de vos ' + depthMax + ' jours de ventes — ils donnent le CA habituel de chacune de vos journées. Chaque ligne ci-dessus est la médiane mesurée de l’écart à ce CA habituel, chez vous, au registre enjeu de l’app (jamais une moyenne de secteur). Les verdicts disent ce qui a marché quand vous avez agi. Plus l’historique grandit, plus ces chiffres — et vos prochaines opportunités — sont justes.'
               + '</div>';
           }
 
@@ -1312,13 +1481,14 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + (toActivate.length ? '<div style="height:1px;background:rgba(0,0,0,0.08);margin:8px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">À activer</p>' + toActivate.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
             + '</div>'
             + '</div>';
-          // Deux familles (owner 17/08) : Compétitivité (dehors) / Processus métiers (la machine).
+          // Deux familles, ordre spec 24/08 : Processus métiers (la machine) PUIS
+          // Mon environnement (le dehors — mot owner 24/08, « Compétitivité » banni).
           var _vComp = voletMeta.filter(function (v) { return v.groupe === "comp"; });
           var _vProc = voletMeta.filter(function (v) { return v.groupe === "proc"; });
-          html += '<p class="tb-eb" style="margin:14px 2px 8px;">Compétitivité</p>'
-            + '<div class="tb-rbgrid" style="grid-template-columns:repeat(2,1fr);">' + _vComp.map(rbCard).join('') + '</div>'
-            + '<p class="tb-eb" style="margin:14px 2px 8px;">Processus métiers</p>'
+          html += '<p class="tb-eb" style="margin:14px 2px 8px;">Processus métiers</p>'
             + '<div class="tb-rbgrid">' + _vProc.map(rbCard).join('') + '</div>'
+            + '<p class="tb-eb" style="margin:14px 2px 8px;">Mon environnement</p>'
+            + '<div class="tb-rbgrid" style="grid-template-columns:repeat(2,1fr);">' + _vComp.map(rbCard).join('') + '</div>'
             + '<div id="tb-rpanel" class="tb-card" style="display:none;padding:14px 16px;"></div>';
 
           body.innerHTML = html;
@@ -1355,17 +1525,16 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             if (scroll) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
           }
           Object.keys(openVolets).forEach(function (k) { if (openVolets[k]) openVolet(k, false); });
-          // Tuiles héros cliquables (proto 17/08) : chacune mène à sa section.
-          body.querySelectorAll("[data-tb-tile]").forEach(function (t) {
-            t.style.cursor = "pointer";
-            t.addEventListener("click", function () {
-              var k = t.getAttribute("data-tb-tile");
-              if (k === "ops") { var opc = document.getElementById("tb-ops-sec"); if (opc) opc.scrollIntoView({ behavior: "smooth", block: "start" }); }
-              else openVolet(k, true);
-            });
-          });
           body.querySelectorAll("[data-tb-period]").forEach(function (b) {
             b.addEventListener("click", function () { period = Number(b.getAttribute("data-tb-period")); render(); });
+          });
+          // Segment SITE (héros v11) : re-fetch filtré — la page ENTIÈRE suit le site choisi.
+          body.querySelectorAll("[data-tb-site]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              locFilter = b.getAttribute("data-tb-site") || "";
+              loc = locFilter || ((J.sites && J.sites[0]) ? String(J.sites[0].location_id) : loc);
+              load();
+            });
           });
           body.querySelectorAll("[data-tb-rb]").forEach(function (b) {
             b.addEventListener("click", function () {

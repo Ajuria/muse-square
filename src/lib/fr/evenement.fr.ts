@@ -47,6 +47,11 @@ export const MOTS_BANNIS: Record<string, string> = {
   "aléa météo annoncé": "alerte météo",
   "clientèle locale": "résidents locaux",
   "clientèle mixte": "public mixte",
+  // 24/08 (build tableau) — mots owner : le groupe du dehors et son volet prospectif.
+  // « Nouvel événement » n'entre PAS ici : le sens veille (« Nouvel événement repéré chez un
+  // suivi ») est légitime — seul le BOUTON de création est renommé (règle de relecture).
+  "Compétitivité": "Mon environnement",
+  "Vos prochaines occasions": "Opportunités",
   // 24/08 — « animer » banni (verbe de conseil sur un abstrait, règle 8) : le geste se dit « cibler ».
   "animer": "cibler",
   "Animer": "Cibler",

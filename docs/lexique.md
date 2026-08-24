@@ -29,7 +29,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Zone autour d'un site | **votre périmètre** | catchment, zone de chalandise (à confirmer) |
 | Contexte favorable détecté (le volet du tableau) | **Opportunités** (owner 24/08 — titre du volet ; contenu = prospective chaleur + couverture, renvoi « les cartes des 7 prochains jours → Agir ») ; « occasion » reste le mot d'une occasion individuelle | Vos prochaines occasions (trop long, owner 24/08), fenêtre de la semaine, momentum, jour favorable |
 | Le groupe de volets du dehors (activité, opportunités, positionnement, veille) | **Mon environnement** (owner 24/08) | Compétitivité (owner 24/08 — dit un jugement, le contenu est de la surveillance) |
-| Créer une opération depuis le tableau (bouton) | **Nouvelle opération** (owner 24/08) | Nouvel événement |
+| Créer une opération depuis le tableau (bouton) | **Nouvelle opération** (owner 24/08 — boutons tableau + evenement renommés au build ; PAS de ban mécanique : « Nouvel événement repéré chez un suivi » est l'ÉVÉNEMENT DU CONCURRENT, sens légitime — règle de relecture) | Nouvel événement (comme bouton de création) |
 | La tuile héros du savoir accumulé | **Connaissances créées** (owner 24/08 — la TUILE ; le volet garde « Ce que l'app a appris de vos sites », alignement en attente) | Ce que l'app a appris de vos sites (sur la tuile) |
 | Cause non isolable par la mesure | **facteurs mêlés** | cause multifactorielle |
 | Jour non couvert par une action | **couvert / sans action** | joué, manqué (réservé au verdict) |
@@ -110,10 +110,10 @@ son référentiel, et l'objet est toujours nommé (« produits « Branded » »,
 La conclusion sur le DISPOSITIF (à ajuster / réutilisable) vit au niveau série, quand assez de
 verdicts — jamais sur une occurrence.
 
-**Note MOTS_BANNIS** : les interdits du 24/08 (Compétitivité, Nouvel événement, Vos prochaines
-occasions, « Ce que l'app a appris » sur la tuile, cause multifactorielle) entrent au
-`MOTS_BANNIS` **dans le commit du build qui renomme les surfaces** — pas avant, sinon le
-garde-fou est rouge sur le code encore en place, et un test rouge laissé rouge est un bruit.
+**Note MOTS_BANNIS** : FAIT au build du 24/08 soir — « Compétitivité » et « Vos prochaines
+occasions » sont au `MOTS_BANNIS` (surfaces renommées dans le même train) ; « Nouvel
+événement » n'y entre pas (deux sens, cf. la ligne du tableau) ; « Ce que l'app a appris »
+reste légitime sur le VOLET (tuile seule renommée).
 
 ## À arbitrer (owner) — file ouverte au 24/08
 
