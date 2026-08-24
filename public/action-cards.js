@@ -2473,7 +2473,13 @@
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += dir === 'collapse' ? ' La famille a sous-perform\u00e9.' : ' La famille a surperform\u00e9.';
+      line += dir === 'collapse' ? ' La famille a sous-perform\u00e9' : ' La famille a surperform\u00e9';
+      // 24/08 — recit nature 2 : meme famille x meme direction, 60 j.
+      var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
+      if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
+        line += ' \u2014 ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur cette famille depuis' + frDateFr(a.first_occurrence_date);
+      }
+      line += '.';
       return line;
     },
     {
@@ -2504,7 +2510,13 @@
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += dir === 'collapse' ? ' Le produit a sous-perform\u00e9.' : ' Le produit a surperform\u00e9.';
+      line += dir === 'collapse' ? ' Le produit a sous-perform\u00e9' : ' Le produit a surperform\u00e9';
+      // 24/08 — recit nature 2 : meme produit x meme direction, 60 j.
+      var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
+      if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
+        line += ' \u2014 ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur ce produit depuis' + frDateFr(a.first_occurrence_date);
+      }
+      line += '.';
       return line;
     },
     {
@@ -2540,7 +2552,14 @@
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += dir === 'collapse' ? ' Le cr\u00e9neau a sous-perform\u00e9.' : ' Le cr\u00e9neau a surperform\u00e9.';
+      line += dir === 'collapse' ? ' Le cr\u00e9neau a sous-perform\u00e9' : ' Le cr\u00e9neau a surperform\u00e9';
+      // 24/08 — recit nature 2 : « — 3e jeudi en retrait sur ce creneau depuis le 26/06 »
+      // (n_occurrences_60d = meme creneau x meme jour de semaine x meme direction, 60 j).
+      var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
+      if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
+        line += ' \u2014 ' + nOcc + 'e ' + dow + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur ce cr\u00e9neau depuis' + frDateFr(a.first_occurrence_date);
+      }
+      line += '.';
       return line;
     },
     {
