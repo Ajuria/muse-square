@@ -694,6 +694,27 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var t2 = String(m.texte || "").split("\u2192")[0].split("\u2014")[0].split(",")[0].trim();
             return esc(t2.length > 45 ? t2.slice(0, 42) + "\u2026" : t2);
           }
+          // Titre AU NIVEAU SECTION (owner 24/08) — plus d'agrégat € en tête : chaque geste
+          // porte SA valeur sur SA ligne (« +510 € à prendre · 6 gestes » était trompeur).
+          html += '<div style="display:flex;align-items:baseline;gap:10px;margin:2px 2px 6px;"><p class="tb-eb">À faire</p>'
+            + '<span style="font-size:12px;font-weight:600;color:' + (aFaire.length ? BLUE : GREY) + ';">' + aFaire.length + ' en attente</span></div>'
+            + '<div class="tb-card" id="tb-af-card" style="padding:10px 16px 14px;">';
+          if (!aFaire.length) html += '<div style="font-size:12.5px;color:#9CA3AF;margin-top:4px;">Rien à faire — vos opérations suivent leur cours.</div>';
+          aFaire.slice(0, 6).forEach(function (r) { html += afRow(r); });
+          if (aFaire.length > 6) {
+            html += '<button type="button" data-tb-fold="tb-af-more" style="display:block;padding:8px 0 0;font-size:12px;color:#6b7280;background:none;border:none;font-family:inherit;cursor:pointer;">+ ' + (aFaire.length - 6) + ' autres ▾</button>'
+              + '<div id="tb-af-more" class="tb-fold" style="padding:0;background:none;">';
+            aFaire.slice(6).forEach(function (r) { html += afRow(r); });
+            html += '</div>';
+          }
+          var restCount = 0, restLast = null;
+          Object.keys(restBy).forEach(function (k) { restBy[k].forEach(function (o) { restCount++; if (!restLast || o.occ_date > restLast) restLast = o.occ_date; }); });
+          laterOps.forEach(function (o) { restCount++; if (!restLast || o.occ_date > restLast) restLast = o.occ_date; });
+          openComs.filter(function (c) { return !c.is_event && c.days_to_end != null && c.days_to_end > 7; })
+            .forEach(function (c) { restCount++; if (!restLast || c.we > restLast) restLast = c.we; });
+          if (restCount) html += '<a href="/app/insightevent/evenement" title="' + restCount + ' échéances à venir — chacune s’arme seule à J-7" style="display:block;font-size:11.5px;color:#6b7280;margin-top:10px;text-decoration:none;">Et ensuite : ' + restCount + ' (→ ' + frD(restLast) + ') <span style="color:#1D3BB3;font-weight:600;">›</span></a>';
+          html += '</div>';
+
           if (mesures.length) {
             html += '<p class="tb-eb" id="tb-ops-sec" style="margin:2px 0 8px;">Opérations en cours</p><div class="tb-opsgrid">';
             mesures.forEach(function (m) {
@@ -739,25 +760,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             });
             html += '</div>';
           }
-
-          html += '<div class="tb-card" id="tb-af-card" style="padding:14px 16px;">'
-            + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><p class="tb-eb">À faire</p>'
-            + '<span style="font-size:12px;font-weight:600;color:' + (aFaire.length ? BLUE : GREY) + ';">' + aFaire.length + '</span></div>';
-          if (!aFaire.length) html += '<div style="font-size:12.5px;color:#9CA3AF;margin-top:4px;">Rien à faire — vos opérations suivent leur cours.</div>';
-          aFaire.slice(0, 6).forEach(function (r) { html += afRow(r); });
-          if (aFaire.length > 6) {
-            html += '<button type="button" data-tb-fold="tb-af-more" style="display:block;padding:8px 0 0;font-size:12px;color:#6b7280;background:none;border:none;font-family:inherit;cursor:pointer;">+ ' + (aFaire.length - 6) + ' autres ▾</button>'
-              + '<div id="tb-af-more" class="tb-fold" style="padding:0;background:none;">';
-            aFaire.slice(6).forEach(function (r) { html += afRow(r); });
-            html += '</div>';
-          }
-          var restCount = 0, restLast = null;
-          Object.keys(restBy).forEach(function (k) { restBy[k].forEach(function (o) { restCount++; if (!restLast || o.occ_date > restLast) restLast = o.occ_date; }); });
-          laterOps.forEach(function (o) { restCount++; if (!restLast || o.occ_date > restLast) restLast = o.occ_date; });
-          openComs.filter(function (c) { return !c.is_event && c.days_to_end != null && c.days_to_end > 7; })
-            .forEach(function (c) { restCount++; if (!restLast || c.we > restLast) restLast = c.we; });
-          if (restCount) html += '<a href="/app/insightevent/evenement" title="' + restCount + ' échéances à venir — chacune s’arme seule à J-7" style="display:block;font-size:11.5px;color:#6b7280;margin-top:10px;text-decoration:none;">Et ensuite : ' + restCount + ' (→ ' + frD(restLast) + ') <span style="color:#1D3BB3;font-weight:600;">›</span></a>';
-          html += '</div>';
 
           // ── Volets : l'en-tête EST la réponse (chips), le corps s'ouvre au clic. ──
           // Grille-résumé (proto validé 17/08) : voletHead ENREGISTRE la carte, la grille
