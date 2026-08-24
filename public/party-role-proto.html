@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proto — geste « Préciser ce client » (carte client_dormant)</title>
+<style>
+  /* ── CSS RÉEL copié de pulse.astro / design-tokens.css — aucune valeur inventée ── */
+  :root {
+    --color-bg-card: #ffffff;
+    --color-border: #e5e7eb;
+    --color-text-secondary: #6b7280;
+    --color-pill-green-bg: #E6F6F0;
+    --color-pill-green-text: #059669;
+    --color-pill-source-low-bg: #F3F4F6;
+    --color-pill-source-low-text: #6b7280;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:#F8F9FB; margin:0; padding:32px 16px; }
+  .wrap { max-width: 680px; margin: 0 auto; }
+  h1 { font-size:15px; color:#111827; } p.note { font-size:12px; color:#6b7280; line-height:1.5; }
+
+  .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
+  .ab-card { background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; overflow:visible; margin-bottom:12px; box-shadow:0 1px 3px rgba(16,24,40,0.06),0 1px 2px rgba(16,24,40,0.04); }
+  .ab-card-row { display:flex; }
+  .ab-inner { flex:1; min-width:0; }
+  .ab-summary { padding:14px 16px; cursor:pointer; }
+  .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
+  .ab-pill { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:0.03em; }
+  .ab-what { font-size:14px; font-weight:600; color:#111827; line-height:1.35; margin-bottom:4px; }
+  .ab-sowhat { font-size:12px; color:#6B7280; line-height:1.4; }
+  .ab-cat-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .ab-cat-icon-intelligence { background:#E6F1FB; color:#185FA5; }
+  .aline { color:#1D3BB3; font-size:13px; font-weight:600; line-height:1.5; margin:8px 0 0; }
+  .agir-btn { display:inline-flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#1D3BB3; border:1px solid #1D3BB3; border-radius:10px; padding:6px 12px; background:transparent; cursor:pointer; font-family:inherit; }
+
+  /* ── SEUL AJOUT : la bande de qualification — chips = forme .chip-n existante,
+        rendues cliquables (bouton sans style propre autour du chip). ── */
+  .pr-strip { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .pr-q { font-size:12px; color:#6B7280; }
+  .pr-chip { border:none; background:none; padding:0; cursor:pointer; font-family:inherit; }
+  .pr-chip:hover .chip-n { background:#E6F1FB; color:#185FA5; }
+  .pr-done { font-size:12px; color:var(--color-pill-green-text); margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Prototype — geste « Préciser ce client » (carte client_dormant)</h1>
+  <p class="note">Carte réelle (PARISIENNESOILAIN, payload BigQuery du 07/08). Le menu Agir garde ses
+  3 entrées (décision 03/08) — la qualification vit SUR la carte, sous la ligne d'action, comme la
+  question de zone de chalandise. Un clic écrit le rôle dans l'annuaire des comptes ; la carte se
+  recalibre à la passe suivante. Cliquez un chip pour voir l'état « répondu ».</p>
+
+  <div class="ab-card">
+    <div class="ab-card-row">
+      <div class="ab-inner">
+        <div class="ab-summary">
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div class="ab-cat-icon ab-cat-icon-intelligence" style="margin-top:2px;">📇</div>
+            <div style="flex:1;min-width:0;">
+              <div class="ab-pills">
+                <span class="ab-pill" style="background:#FEF3C7;color:#92400E;">Cette semaine</span>
+                <span class="ab-pill" style="background:#0F766E18;color:#0F766E;">📇 Intelligence</span>
+              </div>
+              <div class="ab-what">Client régulier sans commande</div>
+              <div class="ab-sowhat">PARISIENNESOILAIN : 6 commandes, une tous les ~9 j — silencieux depuis
+                68 jours (7,6× son rythme). 5 487 € sur la période, dernière commande le 20/05.
+                Données jusqu'au 27/07.</div>
+              <div class="aline">À faire : reprendre contact en direct — comprendre si la pause est
+                saisonnière, un point de friction, ou un départ chez un concurrent.</div>
+
+              <!-- ── LE GESTE — TEMPS 1 : qui est ce compte ── -->
+              <div class="pr-strip">
+                <span class="pr-q">Préciser ce compte — c'est :</span>
+                <button class="pr-chip"><span class="chip-n">Une organisation</span></button>
+                <button class="pr-chip"><span class="chip-n">Un particulier</span></button>
+                <button class="pr-chip"><span class="chip-n">Un canal de vente</span></button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;">
+          <button type="button" class="agir-btn">Agir ▾</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h1>Temps 2 — les chips se remplacent selon la 1re réponse</h1>
+  <div class="ab-card"><div class="ab-card-row"><div class="ab-inner"><div class="ab-summary">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="pr-strip">
+        <span class="pr-q">Une organisation qui :</span>
+        <button class="pr-chip"><span class="chip-n">Commande régulièrement</span></button>
+        <button class="pr-chip"><span class="chip-n">Fonctionne par projets / chantiers</span></button>
+      </div>
+      <div class="pr-strip">
+        <span class="pr-q">Un particulier qui :</span>
+        <button class="pr-chip"><span class="chip-n">Achète régulièrement</span></button>
+        <button class="pr-chip"><span class="chip-n">Achat ponctuel</span></button>
+      </div>
+      <div class="pr-strip">
+        <span class="pr-q">Un canal de type :</span>
+        <button class="pr-chip"><span class="chip-n">Corner / dépôt-vente</span></button>
+        <button class="pr-chip"><span class="chip-n">Commissionnaire / agent</span></button>
+        <button class="pr-chip"><span class="chip-n">Autre canal</span></button>
+      </div>
+      <div class="pr-q" style="font-size:11px;color:#9ca3af;">(Dans l'app : une seule de ces trois lignes s'affiche, à la place des chips du temps 1. Un canal nommé reroute son CA vers l'analyse canal — comme le comptoir.)</div>
+    </div>
+  </div></div></div></div>
+
+  <h1>État final — après le clic (ici : « fonctionne par projets »)</h1>
+  <div class="ab-card">
+    <div class="ab-card-row">
+      <div class="ab-inner">
+        <div class="ab-summary">
+          <div style="display:flex;align-items:flex-start;gap:12px;">
+            <div class="ab-cat-icon ab-cat-icon-intelligence" style="margin-top:2px;">📇</div>
+            <div style="flex:1;min-width:0;">
+              <div class="ab-pills">
+                <span class="ab-pill" style="background:#FEF3C7;color:#92400E;">Cette semaine</span>
+                <span class="ab-pill" style="background:#0F766E18;color:#0F766E;">📇 Intelligence</span>
+              </div>
+              <div class="ab-what">Client régulier sans commande</div>
+              <div class="ab-sowhat">PARISIENNESOILAIN : 6 commandes, une tous les ~9 j — silencieux depuis
+                68 jours (7,6× son rythme). 5 487 € sur la période, dernière commande le 20/05.
+                Données jusqu'au 27/07.</div>
+              <div class="aline">À faire : reprendre contact en direct — comprendre si la pause est
+                saisonnière, un point de friction, ou un départ chez un concurrent.</div>
+
+              <!-- ── ÉTAT 2 : la confirmation ── -->
+              <div class="pr-done">Noté : fonctionne par projets — la carte se recalibrera à la prochaine passe.</div>
+
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;">
+          <button type="button" class="agir-btn">Agir ▾</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">Le rôle est écrit dans l'annuaire avec sa provenance ; la carte disparaît ou se
+  recalibre à la prochaine passe (2×/jour). Un compte déjà qualifié ne repose jamais la question.</p>
+</div>
+</body>
+</html>

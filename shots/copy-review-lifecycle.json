@@ -1,0 +1,38 @@
+[
+ {
+  "famille": "cycle de vie événement",
+  "action_type": "event_prepare",
+  "payload_source": "reconstruit",
+  "titre": "Demain : préparez le déclenchement",
+  "corps": "« Événement » demain . Météo demain : hors données à cette heure.",
+  "geste": "À faire : briefer l’équipe ce soir — Communiquer pré-rempli.",
+  "erreur": null
+ },
+ {
+  "famille": "cycle de vie événement",
+  "action_type": "event_measure",
+  "payload_source": "reconstruit",
+  "titre": "Résultat d’hier — documentez ce qui a marché",
+  "corps": "« Événement » hier 22/08 : ventes pas encore ingérées — le mesuré arrive avec l’import.",
+  "geste": "À faire : documenter ce qui a marché — la fiche se pré-remplit depuis le dossier (30 secondes).",
+  "erreur": null
+ },
+ {
+  "famille": "cycle de vie événement",
+  "action_type": "event_decision_due",
+  "payload_source": "reconstruit",
+  "titre": "Choisissez le jour de votre événement",
+  "corps": "« Événement » : décision avant le 22/08 — la comparaison de vos jours candidats est prête. Sans choix, pas de mesure.",
+  "geste": "À faire : ouvrir la comparaison et choisir le jour.",
+  "erreur": null
+ },
+ {
+  "famille": "cycle de vie événement",
+  "action_type": "event_threat",
+  "payload_source": "reconstruit",
+  "titre": "Votre événement est exposé — météo",
+  "corps": "« Événement » le : Fortes pluies (niveau 3) annoncée — votre dispositif est EXTÉRIEUR, directement exposé.",
+  "geste": "À adapter : repli intérieur ou dispositif abrité — décision la veille.",
+  "erreur": null
+ }
+]

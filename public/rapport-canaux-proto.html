@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proto — rapport par canal (données réelles mai-juillet)</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:#F8F9FB; margin:0; padding:32px 16px; color:#111827; }
+  .page { max-width: 760px; margin: 0 auto; background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:32px 36px; }
+  .rp-uc { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #9ca3af; font-weight: 600; margin-bottom: 10px; }
+  h1.proto { font-size:15px; max-width:760px; margin:0 auto 6px; }
+  p.note { font-size:12px; color:#6b7280; max-width:760px; margin:0 auto 18px; line-height:1.5; }
+  table { border-collapse: collapse; width:100%; font-size:14px; margin-bottom:24px; }
+  th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#9ca3af; font-weight:600; padding:6px 10px; border-bottom:1px solid #e5e7eb; }
+  td { padding:7px 10px; border-bottom:1px solid #f3f4f6; }
+  td.num, th.num { text-align:right; font-variant-numeric: tabular-nums; }
+  .up { color:#059669; font-weight:600; } .down { color:#B45309; font-weight:600; }
+  .badge { display:inline-block; font-size:10px; font-weight:700; padding:1px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:.03em; }
+  .b-high { background:#E6F6F0; color:#059669; } .b-low { background:#FEF3C7; color:#92400E; } .b-hole { background:#FEE2E2; color:#991B1B; }
+  .wkbar { display:flex; align-items:flex-end; gap:4px; height:90px; margin:6px 0 4px; }
+  .wk { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:3px; }
+  .wk .bar { width:100%; background:#1D3BB3; border-radius:3px 3px 0 0; opacity:.25; }
+  .wk .bar.on { opacity:1; }
+  .wk .lbl { font-size:9px; color:#9ca3af; white-space:nowrap; }
+  .wk .val { font-size:9px; color:#1D3BB3; font-weight:700; white-space:nowrap; }
+  .medline { border-top:1.5px dashed #9ca3af; position:relative; top:-46px; margin-bottom:-2px; }
+  .sub { font-size:12px; color:#6b7280; line-height:1.55; margin:-16px 0 24px; }
+  .picker { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:22px; }
+  .pick { font-size:12px; padding:4px 12px; border-radius:20px; border:1px solid #e5e7eb; background:#fff; color:#374151; }
+  .pick.on { border-color:#1D3BB3; color:#1D3BB3; font-weight:600; background:#EEF2FF; }
+  .pie { display:inline-block; width:14px; height:14px; border-radius:50%; vertical-align:-2px; margin-right:6px; background:conic-gradient(#1D3BB3 var(--p), #E5E7EB 0); }
+</style>
+</head>
+<body>
+<h1 class="proto">Prototype — « Vos canaux » dans le rapport ventes (données réelles, 01/05 → 27/07/2026)</h1>
+<p class="note">Tout est réel : chiffres des marts canal/hebdo/mensuel, semaines remarquables = celles des cartes (même seuil, jamais deux vérités).
+Le sélecteur en tête montre les <b>rapports spécifiques</b> : « Rapport complet » = le rapport actuel + cette section ; un canal seul = son bloc en document autonome.</p>
+
+<div class="page">
+  <div class="picker">
+    <span class="pick on">Tout Les Olivades (groupe)</span>
+    <span class="pick">Site Les Olivades</span>
+    <span class="pick">Boutique seule</span>
+    <span class="pick">Professionnels seuls</span>
+    <span class="pick">Studio Paris seul</span>
+  </div>
+
+  <div class="rp-uc">Groupe Les Olivades — 2 sites, 3 flux de revenu — 01/05 au 27/07/2026</div>
+  <div style="background:#F8F9FB;border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;line-height:1.6;">
+    <b>D'où vient l'argent :</b> les professionnels font plus de la moitié du chiffre
+    (115 973 €), la boutique un tiers (60 815 €), le studio de Paris le reste (34 910 €).<br>
+    <b>Ce qui marche :</b> la boutique progresse (+16 %) ; le studio a signé deux gros projets
+    (SHLCAPITAL 12 864 €, GUNZBURG 7 710 €).<br>
+    <b>Ce qui ne marche pas :</b> les pros ont moins commandé (−20 %). Le trimestre dernier avait
+    été porté par FLAIREKREA (23 068 €, rien depuis), et trois habitués n'ont rien pris depuis
+    plus de deux mois.<br>
+    <b>À faire :</b> rappeler PARISIENNESOILAIN, HILLARYWTAYLOR et DELAURIERE ; demander à
+    FLAIREKREA si un prochain chantier arrive.
+  </div>
+  <table>
+    <tr><th>Site / canal</th><th class="num">CA</th><th class="num">Part</th><th class="num">vs période préc.</th><th class="num">Factures</th><th>État</th></tr>
+    <tr style="background:#F8F9FB;"><td><b>Site Les Olivades</b></td><td class="num"><b>176 788 €</b></td><td class="num"><span class="pie" style="--p:84%"></span>84 %</td><td class="num down">−11 %</td><td class="num">201</td><td></td></tr>
+    <tr><td style="padding-left:26px;">Professionnels</td><td class="num">115 973 €</td><td class="num"><span class="pie" style="--p:55%"></span>55 %</td><td class="num down">−20 %</td><td class="num">128</td><td><span class="badge b-hole">▼ à traiter</span></td></tr>
+    <tr><td style="padding-left:26px;">Boutique</td><td class="num">60 815 €</td><td class="num"><span class="pie" style="--p:29%"></span>29 %</td><td class="num up">+16 %</td><td class="num">73</td><td><span class="badge b-high">▲ en forme</span></td></tr>
+    <tr style="background:#F8F9FB;"><td><b>Site Studio Paris</b></td><td class="num"><b>34 910 €</b></td><td class="num"><span class="pie" style="--p:16%"></span>16 %</td><td class="num up">+206 %</td><td class="num">14</td><td><span class="badge b-high">▲ exceptionnel</span></td></tr>
+    <tr style="border-top:2px solid #e5e7eb;"><td><b>Total groupe</b></td><td class="num"><b>211 698 €</b></td><td class="num">100 %</td><td class="num up">+1 %</td><td class="num">215</td><td></td></tr>
+  </table>
+  <div class="sub">Pas de colonne « objectif » : aucun objectif par canal n'est déclaré à ce jour —
+  quand un engagement en portera un, il apparaîtra ici (jamais inventé).</div>
+
+  <div class="rp-uc">Boutique — les 13 semaines de la période</div>
+  <div class="picker" style="margin-bottom:8px;">
+    <span class="pick on">Meilleure et pire</span>
+    <span class="pick">3 meilleures</span>
+    <span class="pick">3 pires</span>
+    <span class="pick">Semaines remarquables</span>
+  </div>
+  <div class="wkbar">
+    <div class="wk"><div class="val">1 915 €</div><div class="bar on" style="height:13px"></div><div class="lbl">27/04</div></div>
+    <div class="wk"><div class="bar" style="height:39px"></div><div class="lbl">04/05</div></div>
+    <div class="wk"><div class="bar" style="height:25px"></div><div class="lbl">11/05</div></div>
+    <div class="wk"><div class="val">8 941 €</div><div class="bar on" style="height:60px"></div><div class="lbl">18/05</div></div>
+    <div class="wk"><div class="bar" style="height:31px"></div><div class="lbl">25/05</div></div>
+    <div class="wk"><div class="bar" style="height:24px"></div><div class="lbl">01/06</div></div>
+    <div class="wk"><div class="bar" style="height:25px"></div><div class="lbl">08/06</div></div>
+    <div class="wk"><div class="bar" style="height:30px"></div><div class="lbl">15/06</div></div>
+    <div class="wk"><div class="bar" style="height:37px"></div><div class="lbl">22/06</div></div>
+    <div class="wk"><div class="bar" style="height:27px"></div><div class="lbl">29/06</div></div>
+    <div class="wk"><div class="bar" style="height:45px"></div><div class="lbl">06/07</div></div>
+    <div class="wk"><div class="bar" style="height:23px"></div><div class="lbl">13/07</div></div>
+    <div class="wk"><div class="bar" style="height:29px"></div><div class="lbl">20/07</div></div>
+  </div>
+  <div class="sub" style="margin-top:6px;">Une couleur, une idée : seules la meilleure semaine (18/05, 8 941 €) et la pire
+  (27/04, 1 915 €) ressortent — le sélecteur change le critère. Semaine type : 4 040 € (médiane des 6 dernières).</div>
+
+  <div class="rp-uc">Professionnels — les mois, et qui les porte</div>
+  <table>
+    <tr><th>Mois</th><th class="num">CA</th><th class="num">Factures</th><th>Principaux comptes</th></tr>
+    <tr><td>Mai</td><td class="num">27 433 €</td><td class="num">34</td><td>PORTHAULTNE, FREYPIERRE…</td></tr>
+    <tr><td>Juin</td><td class="num">40 719 €</td><td class="num">53</td><td>DESBARDD (12 673 €), EDMONDPETIT…</td></tr>
+    <tr><td>Juillet (partiel, au 27)</td><td class="num">47 820 €</td><td class="num">41</td><td>PORTHAULTNE…</td></tr>
+    <tr style="border-top:2px solid #e5e7eb;"><td><b>Total période</b></td><td class="num"><b>115 973 €</b></td><td class="num"><b>128</b></td><td></td></tr>
+  </table>
+
+  <div class="rp-uc">Professionnels — les comptes de la période (80)</div>
+  <table>
+    <tr><th>Compte</th><th class="num">CA</th><th class="num">Part du canal</th><th class="num">Commandes</th></tr>
+    <tr><td>PORTHAULTNE</td><td class="num">20 027 €</td><td class="num"><span class="pie" style="--p:17%"></span>17 %</td><td class="num">2</td></tr>
+    <tr><td>DESBARDD</td><td class="num">12 673 €</td><td class="num"><span class="pie" style="--p:11%"></span>11 %</td><td class="num">1</td></tr>
+    <tr><td>FREYPIERRE</td><td class="num">11 583 €</td><td class="num"><span class="pie" style="--p:10%"></span>10 %</td><td class="num">2</td></tr>
+    <tr><td>EDMONDPETIT</td><td class="num">7 182 €</td><td class="num"><span class="pie" style="--p:6%"></span>6 %</td><td class="num">3</td></tr>
+    <tr><td>TRESORSPUB</td><td class="num">6 778 €</td><td class="num"><span class="pie" style="--p:6%"></span>6 %</td><td class="num">3</td></tr>
+    <tr><td>MAYENNETOILES</td><td class="num">5 028 €</td><td class="num"><span class="pie" style="--p:4%"></span>4 %</td><td class="num">4</td></tr>
+    <tr><td style="color:#6b7280;">Autres — 74 comptes</td><td class="num">52 702 €</td><td class="num"><span class="pie" style="--p:45%"></span>45 %</td><td class="num"></td></tr>
+    <tr style="border-top:2px solid #e5e7eb;"><td><b>Total — 80 comptes</b></td><td class="num"><b>115 973 €</b></td><td class="num">100 %</td><td class="num"><b>128</b></td></tr>
+  </table>
+  <div class="sub">Dans l'app, « Autres » se déplie — le rapport imprimé garde les 6 premiers
+  (45 % du canal vit dans la longue traîne : 74 comptes à 712 € en moyenne).</div>
+  <div class="sub">
+    <b>Qui achète :</b> PORTHAULTNE reste votre premier compte (20 027 € en 2 commandes) ;
+    DESBARDD est nouveau et a signé fort d'entrée (12 673 € en juin) ; FREYPIERRE et EDMONDPETIT
+    tiennent leur rythme.<br>
+    <b>Qui manque :</b> PARISIENNESOILAIN (rien depuis fin mai, d'habitude toutes les semaines),
+    HILLARYWTAYLOR et DELAURIERE. Ces trois rappels sont prêts dans l'app — un responsable peut y
+    être nommé.<br>
+    <b>Pourquoi le trimestre est en retrait :</b> mars avait été exceptionnel grâce à FLAIREKREA
+    (23 068 €) — rien depuis. S'il y a un prochain chantier, c'est le moment de le demander.
+  </div>
+
+  <div class="rp-uc">Studio Paris — les factures de la période</div>
+  <table>
+    <tr><th>Compte</th><th class="num">CA</th><th class="num">Part du canal</th><th>Première facture</th></tr>
+    <tr><td>SHLCAPITAL</td><td class="num">12 864 €</td><td class="num"><span class="pie" style="--p:37%"></span>37 %</td><td>20/05</td></tr>
+    <tr><td>GUNZBURG</td><td class="num">7 710 €</td><td class="num"><span class="pie" style="--p:22%"></span>22 %</td><td>23/07</td></tr>
+    <tr><td>CHAHAN</td><td class="num">4 810 €</td><td class="num"><span class="pie" style="--p:14%"></span>14 %</td><td>20/05</td></tr>
+    <tr><td>COUAILHAC GHISLAINE</td><td class="num">4 390 €</td><td class="num"><span class="pie" style="--p:13%"></span>13 %</td><td>12/06</td></tr>
+    <tr><td>MANUCURIST</td><td class="num">2 437 €</td><td class="num"><span class="pie" style="--p:7%"></span>7 %</td><td>30/06</td></tr>
+    <tr><td>VINCENTAGNES</td><td class="num">1 204 €</td><td class="num"><span class="pie" style="--p:3%"></span>3 %</td><td>13/05</td></tr>
+    <tr><td>FINACEA</td><td class="num">593 €</td><td class="num"><span class="pie" style="--p:2%"></span>2 %</td><td>15/06</td></tr>
+    <tr><td>ASSISEDUTAPISSIER</td><td class="num">388 €</td><td class="num"><span class="pie" style="--p:1%"></span>1 %</td><td>19/06</td></tr>
+    <tr><td>LEVYDANIEL</td><td class="num">258 €</td><td class="num"><span class="pie" style="--p:1%"></span>1 %</td><td>22/06</td></tr>
+    <tr><td>MARQUISEETCONFIDE</td><td class="num">139 €</td><td class="num"><span class="pie" style="--p:1%"></span>&lt;1 %</td><td>15/07</td></tr>
+    <tr><td>FALQUEPIER</td><td class="num">75 €</td><td class="num"><span class="pie" style="--p:1%"></span>&lt;1 %</td><td>07/07</td></tr>
+    <tr><td>ASLPARISOBJETS</td><td class="num">42 €</td><td class="num"><span class="pie" style="--p:1%"></span>&lt;1 %</td><td>03/07</td></tr>
+    <tr style="border-top:2px solid #e5e7eb;"><td><b>Total — 12 comptes</b></td><td class="num"><b>34 910 €</b></td><td class="num">100 %</td><td><b>14 factures</b></td></tr>
+  </table>
+
+  <div class="sub" style="margin-bottom:0;border-top:1px solid #f3f4f6;padding-top:14px;">
+    Document interne — les comptes clients y sont nommés.<br>
+    <b>Et dans Consulter :</b> ces mêmes faits alimentent le cerveau — « comment va le comptoir ? », « où en est PORTHAULTNE ? » répondront sur ces chiffres, jamais au-delà.
+  </div>
+</div>
+</body>
+</html>
