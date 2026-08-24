@@ -603,6 +603,56 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             g3 += '<circle cx="' + X(pts.length - 1) + '" cy="' + Y(pts[pts.length - 1].v) + '" r="3" fill="' + col + '"/>';
             return '<svg viewBox="0 0 180 60" style="width:172px;height:auto;flex:none;">' + g3 + '</svg>';
           }
+          // ── Ligne funnel (arbitrage owner 24/08) : l'écart € d'une fenêtre ne s'affiche
+          //    jamais seul — il porte sa décomposition CA = passages × conversion × panier,
+          //    chaque facteur vs votre résultat habituel, sur le référentiel UNIQUE de
+          //    day_residual (ratio des sommes — la décomposition ferme exactement). Jamais
+          //    les baselines 28 j de sales_signals, jamais deux référentiels dans la phrase.
+          //    Sans flux visiteurs : CA = ventes × panier. Moins de 2 jours mesurés : rien.
+          function opFunnel(m) {
+            var f = m.funnel;
+            if (!f) return "";
+            var three = Number(f.n3 || 0) >= 2 && f.m_vis3 > 0 && f.e_vis3 > 0 && f.m_rev3 > 0 && f.e_rev3 > 0 && f.m_tx3 > 0 && f.e_tx3 > 0;
+            var two = Number(f.n2 || 0) >= 2 && f.m_rev2 > 0 && f.e_rev2 > 0 && f.m_tx2 > 0 && f.e_tx2 > 0;
+            if (!three && !two) return "";
+            var mR = three ? Number(f.m_rev3) : Number(f.m_rev2), eR = three ? Number(f.e_rev3) : Number(f.e_rev2);
+            var mT = three ? Number(f.m_tx3) : Number(f.m_tx2), eT = three ? Number(f.e_tx3) : Number(f.e_tx2);
+            var gap = Math.round(mR - eR);
+            var totalLog = Math.log(mR / eR);
+            function pct1(v) { return (v * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1, minimumFractionDigits: 1 }) + " %"; }
+            function eur2(v) { return v.toLocaleString("fr-FR", { maximumFractionDigits: 2, minimumFractionDigits: 2 }) + " €"; }
+            var facts = [];
+            if (three) {
+              var mV = Number(f.m_vis3), eV = Number(f.e_vis3);
+              facts.push({ m: mV, e: eV, txt: frInt(mV) + " · habituel " + frInt(eV), tenu: "vos passages ont tenu", de: "du passage", pair: "passages" });
+              facts.push({ m: mT / mV, e: eT / eV, txt: pct1(mT / mV) + " · habituel " + pct1(eT / eV), tenu: "votre conversion a tenu", de: "de la conversion", pair: "conversion" });
+            } else {
+              facts.push({ m: mT, e: eT, txt: frInt(mT) + " · habituel " + frInt(eT), tenu: "vos ventes ont tenu", de: "des ventes", pair: "ventes" });
+            }
+            facts.push({ m: mR / mT, e: eR / eT, txt: eur2(mR / mT) + " · habituel " + eur2(eR / eT), tenu: "votre panier moyen a tenu", de: "du panier", pair: "panier" });
+            facts.forEach(function (x) { x.contrib = Math.log(x.m / x.e); });
+            // Attribution = arithmétique de la décomposition (part du log-écart), pas une
+            // cause affirmée : un facteur porte le manque/le gain s'il est du même côté que
+            // l'écart ET pèse ≥ 20 % du log-écart (plancher absolu 2 %).
+            var floor = Math.max(0.02, 0.2 * Math.abs(totalLog));
+            var drivers = facts.filter(function (x) { return (totalLog < 0 ? x.contrib < 0 : x.contrib > 0) && Math.abs(x.contrib) >= floor; });
+            var tenus = facts.filter(function (x) { return drivers.indexOf(x) < 0 && x.m / x.e >= 0.97; });
+            var bares = facts.filter(function (x) { return drivers.indexOf(x) < 0 && tenus.indexOf(x) < 0; });
+            var parts = [];
+            if (tenus.length) parts.push(tenus.map(function (x) { return x.tenu + " (" + x.txt + ")"; }).join(" · "));
+            if (drivers.length) {
+              var dl = drivers.map(function (x) { return x.de + " (" + x.txt + ")"; });
+              parts.push((gap < 0 ? "le manque vient " : "le gain vient ") + (dl.length > 1 ? dl.slice(0, -1).join(", ") + " et " + dl[dl.length - 1] : dl[0]));
+            }
+            var line2 = parts.join(" — ");
+            if (bares.length) line2 += (line2 ? " · " : "") + bares.map(function (x) { return x.pair + " " + x.txt; }).join(" · ");
+            var nDays = three ? Number(f.n3) : Number(f.n2);
+            return '<div style="font-size:11.5px;color:#374151;line-height:1.6;border-top:1px solid #F3F4F6;padding-top:7px;">'
+              + '<span style="font-weight:700;color:' + (gap >= 0 ? GREEN : AMBER) + ';font-variant-numeric:tabular-nums;">' + signEur(gap) + '</span>'
+              + ' vs votre résultat habituel · CA mesuré : ' + frInt(mR) + ' €'
+              + (nDays < (m.daily || []).length ? " · " + nDays + " jours" : "")
+              + '<span style="display:block;margin-top:2px;">' + line2 + '</span></div>';
+          }
           function opFrise(occ) {
             var n = occ.length, g4 = "", TODAY2 = TODAY;
             function X(i2) { return (14 + i2 * (300 / Math.max(1, n - 1))).toFixed(1); }
@@ -655,6 +705,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   + '<div style="display:flex;align-items:center;gap:14px;">' + opSpark(m, goal)
                   + '<div style="flex:1;min-width:0;font-size:11.5px;color:#6B7280;line-height:1.55;">' + (dTxt ? '<span style="font-size:16px;font-weight:700;color:' + col2 + ';font-variant-numeric:tabular-nums;">' + dTxt + '</span> <span style="color:#374151;">vs objectif</span>' : opFmt(cum, m.metric) + " en moyenne")
                   + '<span style="display:block;font-size:10.5px;color:#9CA3AF;margin-top:2px;">moyenne ' + opFmt(cum, m.metric) + ' \u00b7 provisoire \u2014 verdict au jour ' + (m.days || "?") + '</span></div></div>'
+                  + opFunnel(m)
                   + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">mesur\u00e9 sur vos ventes, jour par jour</span>'
                   + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/engagement?id=' + encodeURIComponent(m.commitment_id) + '">Ajuster \u2192</a></div>';
               } else {
