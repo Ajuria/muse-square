@@ -118,8 +118,9 @@ rangées de cartes système sortent du volet.
    `non concluant` gris vs ambre), audiences (« clientèle locale/mixte » vs « résidents
    locaux »/« public mixte »), types de cartes (« Aléa météo annoncé » vs « Alerte météo »…),
    maps KPI divergentes (`KPI_MINI_FR` vs `_KPI_DSP`).
-8. Note sécurité hors périmètre : les `public/*proto*` sont servis SANS authentification et
-   figent des données réelles de compte — à trancher (retrait du déploiement prod ?).
+8. ~~Note sécurité~~ RÉSOLU (owner 24/08) : `scripts/strip-protos.mjs` purge les protos/
+   harnais de l'artefact de build (`npm run build`) — 404 en prod, repo et outillage local
+   intacts. Prend effet au prochain déploiement de main.
 
 Protos et harnais de la famille tableau = outillage VIVANT (générateurs + garde-fou FR), pas
 du mort — seul `radar-proto.html` est orphelin (zéro référence).
