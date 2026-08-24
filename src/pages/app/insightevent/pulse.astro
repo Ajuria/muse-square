@@ -3934,6 +3934,8 @@ if (!location_id) {
         + '<span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;flex:none;">Structurel</span>'
         + '<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">' + escapeHtml(String(imp.title_fr || ''))
           + '<span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">' + imp.n_days + ' j / ' + imp.span_months + ' mois · ' + (pos ? 'à gagner' : 'perdus') + ' · ' + escapeHtml(String(imp.tier_label_fr || '')) + ' · ' + escapeHtml(STRUCT_FAM_FR[imp.family] || imp.family || '') + ' · ' + state + (eng && eng.owner_person_name ? ' → ' + escapeHtml(String(eng.owner_person_name)) : '') + '</span>'
+          // 2-A (owner 24/08) : liaison des deux pôles négatifs — posée par monitor.
+          + (imp.liaison_fr ? '<span style="display:block;font-size:11px;color:#1D3BB3;font-weight:400;margin-top:2px;">' + escapeHtml(String(imp.liaison_fr)) + '</span>' : '')
         + '</span>'
         + (coinPorte
             ? '<span class="ab-metric-val" style="font-size:11px;color:#9CA3AF;flex:none;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
@@ -3993,6 +3995,10 @@ if (!location_id) {
           + '<div style="flex:1;min-width:0;">'
             + '<div class="ab-what">' + escapeHtml(String(imp.title_fr || '')) + '</div>'
             + '<div class="ab-sowhat">' + escapeHtml(String(imp.sowhat_fr || '')) + '</div>'
+            // 2-A (owner 24/08) : ligne de liaison quand les deux pôles de la dimension coûtent
+            // (posée par monitor, jamais calculée ici) — sinon les deux cartes lisent comme une
+            // contradiction.
+            + (imp.liaison_fr ? '<div class="ab-sowhat" style="margin-top:2px;color:#1D3BB3;">' + escapeHtml(String(imp.liaison_fr)) + '</div>' : '')
           + '</div>'
           + '<div class="amt" title="' + escapeHtml(tip) + '"><div class="amt-val" style="color:' + fg + ';">' + (pos ? '+' : '−') + amount + ' €/an</div><div class="amt-sub">' + escapeHtml(lbl) + '</div></div>'
         + '</div>'
@@ -4084,7 +4090,7 @@ if (!location_id) {
           signal_type: 'structural_' + String(imp.class_key || ''),
           affected_date: '',
           card_what: String(imp.title_fr || ''),
-          card_sowhat: String(imp.sowhat_fr || '') + (imp.chantier_fr ? ' ' + String(imp.chantier_fr) : ''),
+          card_sowhat: String(imp.sowhat_fr || '') + (imp.liaison_fr ? ' ' + String(imp.liaison_fr) : '') + (imp.chantier_fr ? ' ' + String(imp.chantier_fr) : ''),
           signal: imp,
           artifact_mode: 'post',
           severity: '',

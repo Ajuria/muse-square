@@ -1041,12 +1041,26 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Chantiers structurels (26/07, proto validé) : les motifs du day-class store qui passent les
       // gates, avec leur copy owner-éditable (contextCopy.structuralCardCopyFr). Grain motif × site,
       // sans date. Le client (pulse) rend la section + le lien lifecycle (engagements structural_*).
-      day_class_impacts: [...((dayClassResult as any)?.impacts?.values?.() ?? [])]
+      day_class_impacts: ((impacts: any[]) => {
+        // 2-A (owner 24/08) : quand les DEUX pôles d'une même dimension sont mesurés négatifs
+        // sur le site, « forte pression vous coûte » + « faible pression vous coûte » côte à
+        // côte lisent comme une contradiction — alors que ce sont les jours de pression moyenne
+        // qui portent le compte (MS Test : high −65 €/j t=−1,4, low −80 €/j t=−2,2). Chaque
+        // carte du couple porte la ligne de liaison, mots owner. Concurrence SEULEMENT : les
+        // jours du milieu des autres dimensions n'ont pas de mot arbitré (concept sans mot).
+        const hi = impacts.find((i) => i.class_key === "competition_high");
+        const lo = impacts.find((i) => i.class_key === "competition_low");
+        if (hi && lo && Number(hi.eur_year) < 0 && Number(lo.eur_year) < 0) {
+          const liaison = "Vos jours de pression moyenne portent ce site : les deux extrêmes vous coûtent.";
+          hi.liaison_fr = liaison; lo.liaison_fr = liaison;
+        }
+        return impacts;
+      })([...((dayClassResult as any)?.impacts?.values?.() ?? [])]
         // Doctrine 01/08 : les POPULATIONS DE CARTES (famille 'card') ne sont jamais des motifs
         // structurels — elles ne vivent qu'au coin de leur carte.
         .filter((i: any) => i?.family !== "card")
         .map((i: any) => ({ ...i, ...structuralCardCopyFr(i) }))
-        .sort((a: any, b: any) => Math.abs(b.eur_year) - Math.abs(a.eur_year)),
+        .sort((a: any, b: any) => Math.abs(b.eur_year) - Math.abs(a.eur_year))),
     });
   } catch (err: any) {
     return json(400, {
