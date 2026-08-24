@@ -1146,7 +1146,8 @@
       if (price) line += ' (' + price + ')';
       if (cat) line += ' \u2014 ' + cat;
       if (dist) line += ', \u00e0 ' + dist;
-      line += '.';
+      var dd = frDateFr(a.detected_date);
+      line += (dd ? ',' + dd : '') + '.';
       line += threatContext(a, false);
       return line;
     },
@@ -1260,7 +1261,7 @@
       var pctv = (a.price_pct_change != null) ? Number(a.price_pct_change) : null;
       var line = name + ' a augment\u00e9 le prix de ' + item + ' : ' + oldP + ' \u2192 ' + newP;
       if (pctv != null) line += ' (+' + frDec(pctv) + ' %)';
-      line += '.';
+      line += frDateFr(a.detected_date) + '.';
       line += threatContext(a, true);
       line += ' Vous disposez peut-\u00eatre d\u2019une marge de repositionnement tarifaire.';
       return line;
@@ -1280,7 +1281,7 @@
       var pctv = (a.price_pct_change != null) ? Number(a.price_pct_change) : null;
       var line = name + ' a baiss\u00e9 le prix de ' + item + ' : ' + oldP + ' \u2192 ' + newP;
       if (pctv != null) line += ' (' + (pctv < 0 ? '\u2212' : '') + frDec(Math.abs(pctv)) + ' %)';
-      line += '.';
+      line += frDateFr(a.detected_date) + '.';
       line += threatContext(a, true);
       line += ' Pression tarifaire \u2014 v\u00e9rifiez votre comp\u00e9titivit\u00e9 sur cette offre.';
       return line;
@@ -1299,6 +1300,8 @@
       var oldP = a.old_price_raw || '';
       var line = name + ' ne propose plus : ' + item;
       if (oldP) line += ' (anciennement ' + oldP + ')';
+      var dd = frDateFr(a.detected_date);
+      if (dd) line += ', depuis' + dd;
       line += '.';
       line += threatContext(a, true);
       line += ' Opportunit\u00e9 de capter cette demande.';
@@ -1412,7 +1415,7 @@
       if (inc > 0) parts.push(inc + ' hausse' + (inc > 1 ? 's' : ''));
       if (dec > 0) parts.push(dec + ' baisse' + (dec > 1 ? 's' : ''));
       if (parts.length) line += ' (' + parts.join(', ') + ')';
-      line += '.';
+      line += frDateFr(a.detected_date) + '.';
       var items = a.items_changed || '';
       if (items) line += ' Concern\u00e9 : ' + trunc(items, 100) + '.';
       line += threatContext(a, true);
