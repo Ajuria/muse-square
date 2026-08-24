@@ -58,44 +58,90 @@ const eurTxt = (n) => (n >= 0 ? "+" : "−") + Math.abs(Math.round(n)).toLocaleS
 
 check("rendu sans « Chargement »", txt().indexOf("Chargement") < 0);
 check("impact 30 j dérivé affiché", gapFor(30) == null ? txt().indexOf("— €") >= 0 : txt().indexOf(eurTxt(gapFor(30))) >= 0, eurTxt(gapFor(30) ?? 0));
-check("objectifs atteints (tuile impact)", txt().indexOf("objectifs atteints") >= 0);
+// v11 : le compte d'objectifs a SA tuile (« Objectifs atteints ») — couvert par le bloc héros v11.
 
-// ── Héros : 4 tuiles (refonte 13/08). ──
+// ── HÉROS v11 (spec 24/08, docs/piloter-redesign-spec.md) : segments SITE + PÉRIODE,
+// rangée santé = carte CA (chiffre/%/courbe sur UNE série ca_daily, référentiel dow+tendance),
+// rangée pilotage = 4 tuiles (Impact · Objectifs · Signaux traités · Connaissances créées),
+// répartition par site sous chaque chiffre. Assertions pilotées par le payload réel.
 const g = payload.glance || {};
 const oc = payload.occasions || {};
-// ── HÉROS v10 (proto validé 18/08) : bandeau 5 KPI — titres arbitrés owner. ──
 const vLieux = (g.veille || {}).lieux || [];
-const heroTitles = ["CA multi-site", "Impact dispositifs", "Signaux traités", "Opérations en cours", "Dispositifs prouvés"];
-check("héros v10 : les 5 titres arbitrés, dans l'ordre", (() => {
-  let pos = -1;
-  return heroTitles.every((t2) => { const i2 = txt().indexOf(t2); if (i2 < 0 || i2 < pos) return false; pos = i2; return true; });
-})(), heroTitles.filter((t2) => txt().indexOf(t2) < 0).join(" | ") || "tous présents");
-check("héros v10 : ⓘ infobulle (2 tuiles €) + zone titre hauteur FIXE clampée (alignement prouvé navigateur 18/08 : 66/66/66/66/66)",
-  Array.from(body.querySelectorAll(".tb-hero .tb-eb")).length === 5
-  && body.querySelectorAll(".tb-hero .tb-eb .u[title]").length === 2
-  // Portée HÉROS (instruit 19/08) : l'assertion visait les TITRES du bandeau — la page peut
-  // légitimement dire « sur 30 jours » ailleurs (absence dite des événements publics).
-  && (body.querySelector(".tb-hero") ? body.querySelector(".tb-hero").textContent.indexOf("sur 30 jours") < 0 : true));
-check("bandeau : « vs votre résultat habituel » (le nu est banni)", txt().indexOf("vs votre résultat habituel") >= 0
-  && !/vs habituel[^»]/.test(txt().replace(/vs votre résultat habituel/g, "")));
-check("héros v10 : anciennes tuiles-portes retirées du héros", body.querySelectorAll(".tb-hero .tb-tile").length === 5
-  && !body.querySelector('.tb-hero [data-tb-tile="af"]') && !body.querySelector('.tb-hero [data-tb-tile="sv"]') && !body.querySelector('.tb-hero [data-tb-tile="co"]'),
-  body.querySelectorAll(".tb-hero .tb-tile").length + " tuiles");
-// CA 7 j : le % du payload, avec son référentiel.
-if (payload.ca30 && payload.ca30.pct != null)
-  check("CA multi-site 30 j : MONTANT signé + en chiffre, % signé en sous-ligne",
-    txt().indexOf("+" + Math.round(payload.ca30.real7).toLocaleString("fr-FR") + " €") >= 0
-    && txt().indexOf(String(Math.abs(payload.ca30.pct)).replace(".", ",") + " % vs votre résultat habituel") >= 0, payload.ca30.real7 + " € · " + payload.ca30.pct + " %");
-// Signaux traités : couvert/total des motifs du payload.
+const frInt2 = (n) => Math.abs(Math.round(Number(n) || 0)).toLocaleString("fr-FR");
+check("v11 : segments SITE (Tous les sites + 1/site) et PÉRIODE (3)",
+  body.querySelectorAll("[data-tb-site]").length === (payload.sites || []).length + 1
+  && body.querySelectorAll("[data-tb-period]").length === 3,
+  body.querySelectorAll("[data-tb-site]").length + " sites · " + body.querySelectorAll("[data-tb-period]").length + " périodes");
+const T2 = Array.from(body.querySelectorAll(".tb-hero2 .tb-t2"));
+const v11Titles = ["Impact mesuré de vos opérations", "Objectifs atteints", "Signaux traités", "Connaissances créées"];
+check("v11 : rangée pilotage = 4 tuiles, titres arbitrés dans l'ordre",
+  T2.length === 4 && v11Titles.every((t2, i2) => T2[i2] && T2[i2].textContent.indexOf(t2) >= 0),
+  T2.length + " tuiles : " + T2.map((x) => x.querySelector(".tb-eb")?.textContent).join(" | "));
+// Carte CA : mêmes calculs que la page (30 j par défaut) — chiffre, %, courbe, rapport.
+{
+  const cut30 = new Date(Date.parse(new Date().toISOString().slice(0, 10) + "T12:00:00Z") - 30 * 86_400_000).toISOString().slice(0, 10);
+  const cad = (payload.ca_daily || []).filter((r) => r.d >= cut30);
+  const byDay = {};
+  let caSum = 0;
+  cad.forEach((r) => { const e = byDay[r.d] = byDay[r.d] || { ca: 0, exp: 0, has: false }; e.ca += r.ca; if (r.exp != null) { e.exp += r.exp; e.has = true; } caSum += r.ca; });
+  let pca = 0, pexp = 0;
+  Object.values(byDay).forEach((e) => { if (e.has) { pca += e.ca; pexp += e.exp; } });
+  const caPct = pexp > 0 ? Math.round((pca - pexp) / pexp * 1000) / 10 : null;
+  check("carte CA : chiffre = Σ série de la période (encre, niveau non signé)",
+    caSum > 0 ? txt().indexOf(frInt2(caSum) + " €") >= 0 : true, frInt2(caSum) + " €");
+  if (caPct != null) check("carte CA : % signé avec son référentiel entier",
+    txt().indexOf(String(Math.abs(caPct)).replace(".", ",") + " % vs votre résultat habituel") >= 0, caPct + " %");
+  check("carte CA : mini-courbe réel + habituel pointillé (2 polylines)",
+    body.querySelectorAll(".tb-card svg polyline").length >= 2);
+  check("carte CA : Générer un rapport → (lien profond Consulter, q= pré-rempli)",
+    !!Array.from(body.querySelectorAll("a.tb-link")).find((a) => /rapport/.test(a.textContent) && /prompt\?q=/.test(a.getAttribute("href") || "")));
+  // N-1 : absence honnête DATÉE tant que < 12 mois de ventes.
+  let firstSale = null;
+  (payload.sales_depth || []).forEach((x) => { const f = String(x.first_sale || ""); if (f && (!firstSale || f < firstSale)) firstSale = f; });
+  if (firstSale && new Date(firstSale) > new Date(Date.now() - 365 * 86_400_000))
+    check("carte CA : N-1 en absence honnête datée", txt().indexOf("12 mois de ventes requis") >= 0);
+  // Répartition PAR SITE (ordre fixe) sous le chiffre CA.
+  if ((payload.sites || []).length > 1) {
+    const bySite = {};
+    cad.forEach((r) => { bySite[r.l] = (bySite[r.l] || 0) + r.ca; });
+    check("carte CA : répartition par site présente (attribution, ordre fixe)",
+      (payload.sites || []).every((s) => bySite[s.location_id] == null || txt().indexOf(frInt2(bySite[s.location_id]) + " €") >= 0));
+  }
+}
+// Tuile Impact : delta signé coloré + « sur N fenêtres mesurées ».
+{
+  const gap30 = gapFor(30);
+  if (gap30 != null) check("tuile Impact : € signé + fenêtres mesurées",
+    txt().indexOf((gap30 >= 0 ? "+" : "−") + frInt2(gap30) + " €") >= 0 && / sur \d+ fenêtres? mesurées?/.test(txt()), gap30 + " €");
+}
+// Tuile Objectifs : k/n + chip « Seuils trop hauts ? » SEULEMENT dans le cas divergent.
+{
+  const objTile = T2.find((x) => x.textContent.indexOf("Objectifs atteints") >= 0);
+  const gap30 = gapFor(30);
+  const cut30 = new Date(Date.parse(new Date().toISOString().slice(0, 10) + "T12:00:00Z") - 30 * 86_400_000).toISOString().slice(0, 10);
+  const jm = (payload.judged_meta || []).filter((m) => m.verdict !== "confounded" && String(m.created_d || "") >= cut30);
+  const met = jm.filter((m) => /met|beat/i.test(String(m.verdict))).length;
+  check("tuile Objectifs : k/n de la période", objTile && objTile.textContent.indexOf(met + "/" + jm.length) >= 0, met + "/" + jm.length);
+  const divergent = gap30 != null && gap30 > 0 && jm.length > 0 && met === 0;
+  check("chip « Seuils trop hauts ? » ssi € > 0 et 0 atteint", divergent === !!(objTile && objTile.textContent.indexOf("Seuils trop hauts ?") >= 0), "divergent=" + divergent);
+}
+// Tuile Signaux traités : % couvert/total du payload + jauge.
 {
   const ls = payload.learnings || [];
   const tot = ls.reduce((a, l) => a + Math.abs(l.eur_year || 0), 0);
   const cov = ls.filter((l) => l.covered).reduce((a, l) => a + Math.abs(l.eur_year || 0), 0);
-  if (tot > 0) check("Signaux traités : % = couvert/total des enjeux (référentiel dit)",
-    txt().indexOf(Math.round(cov / tot * 100) + " %") >= 0 && txt().indexOf("d’enjeux identifiés") >= 0, Math.round(cov / tot * 100) + " %");
+  if (tot > 0) check("tuile Signaux : % couvert/total + montants dits",
+    txt().indexOf(Math.round(cov / tot * 100) + " %") >= 0 && txt().indexOf(frInt2(cov) + " € couverts sur " + frInt2(tot) + " €/an") >= 0, Math.round(cov / tot * 100) + " %");
 }
-check("Dispositifs prouvés : fenêtre en sous-ligne (ce mois-ci · N en test)", /ce mois-ci · \d+ en test/.test(txt()));
-check("Opérations en cours : valeur ≈ €/an sur du jugé OU absence dite", txt().indexOf("occurrences jugées") >= 0 || txt().indexOf("au 2e verdict jugé") >= 0 || txt().indexOf("aucune — créez") >= 0);
+// Tuile Connaissances créées (mot owner 24/08) : motifs + échelle des dispositifs.
+{
+  const ls = payload.learnings || [];
+  const pc = payload.practice_counts || {};
+  check("tuile Connaissances créées : N motifs chiffrés + prouvé/en test",
+    txt().indexOf("Connaissances créées") >= 0
+    && new RegExp(ls.length + "\\s*motifs? chiffrés?").test(txt())
+    && new RegExp((pc.proven || 0) + " prouvés? · \\d+ en test").test(txt()));
+}
 check("couverture PAR SITE (résumé Ma couverture)", (g.par_site || []).every((c) => txt().indexOf(c.n_suivis + "/" + c.n_total) >= 0));
 check("jours en entier dans l'enjeu (jamais « votre jeu »)", txt().indexOf("votre jeu ") < 0);
 
@@ -147,16 +193,16 @@ check("Automatisations = carte à part", !!body.querySelector('[data-tb-rb="au"]
 // ── Correctif 8 points (owner 17/08) — appliqué depuis le proto validé. ──
 // Règle couleur streamlinée (owner 18/08) : vert/ambre = DELTAS mesurés (Impact, CA 7 j) ;
 // parts et comptes = encre ; zéro = gris. Le signe suit : un delta porte +/-, une part jamais.
-const heroNums = Array.from(body.querySelectorAll(".tb-hero .n"));
+const heroNums = Array.from(body.querySelectorAll(".tb-hero2 .n2"));
 const greensHero = heroNums.filter((n) => (n.getAttribute("style") || "").indexOf("#059669") >= 0);
-// Owner 18/08 : le € porte SYSTÉMATIQUEMENT son signe et la couleur de son delta.
-const expectedGreens = (gapFor(30) != null && gapFor(30) >= 0 ? 1 : 0) + (payload.ca30 && payload.ca30.pct != null && payload.ca30.pct >= 0 ? 1 : 0);
-check("héros : verts = les deltas mesurés positifs, exactement", greensHero.length === expectedGreens, greensHero.length + " vs attendu " + expectedGreens);
-check("héros : parts et comptes en encre (jamais bleu, jamais signés)", (() => {
+// v11 : dans la rangée pilotage, le SEUL delta € est l'Impact — vert ssi positif.
+const expectedGreens = (gapFor(30) != null && gapFor(30) >= 0 ? 1 : 0);
+check("pilotage : verts = les deltas mesurés positifs, exactement", greensHero.length === expectedGreens, greensHero.length + " vs attendu " + expectedGreens);
+check("pilotage : parts et comptes en encre (jamais bleu, jamais signés)", (() => {
   const sig = heroNums.find((n) => n.parentElement.textContent.indexOf("Signaux traités") >= 0);
-  const pr = heroNums.find((n) => n.parentElement.textContent.indexOf("Dispositifs prouvés") >= 0);
-  return sig && (sig.getAttribute("style") || "").indexOf("#1D3BB3") < 0 && !/[+\u2212]/.test(sig.textContent)
-    && pr && (pr.getAttribute("style") || "").indexOf("#1D3BB3") < 0;
+  const obj = heroNums.find((n) => n.parentElement.textContent.indexOf("Objectifs atteints") >= 0);
+  return (!sig || ((sig.getAttribute("style") || "").indexOf("#1D3BB3") < 0 && !/[+\u2212]/.test(sig.textContent)))
+    && (!obj || !/[+\u2212]/.test(obj.textContent));
 })());
 // 2. CTA = verbe + flèche ≤ 14 caractères sur les gestes du correctif.
 const ctaTexts = Array.from(body.querySelectorAll("a.tb-link"))
