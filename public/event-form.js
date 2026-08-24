@@ -336,7 +336,7 @@
             + (exp != null ? "<br><strong>Au total</strong> : " + dayLabel + " habituel ≈ " + frInt(exp) + " € (vos ventes réelles) + l’apport → ≈ <strong>" + frInt(exp + apport) + " €</strong> de journée" : "");
         }
       } else if (kpi === "revenue_residual") {
-        if (unit) unit.textContent = "% au-dessus de votre habituel du jour";
+        if (unit) unit.textContent = "% au-dessus de votre résultat habituel du jour";
         if (tlab) tlab.textContent = "Cible :";
         if (exp != null && isFinite(t) && t > 0) {
           var app2 = Math.round(exp * t / 100);
