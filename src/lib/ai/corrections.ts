@@ -23,11 +23,30 @@ const TABLE = `\`${PROJECT}.analytics.consulter_correction_events\``;
 // log, same latest-active/supersede/clear lifecycle, but they never enter the identity brief
 // (correctionsBrief filters declared_* out). correction_text holds the bare value ("62", "300").
 // The metric registry (parsers, bounds, answer wiring) lives in lib/ai/declaredMetrics.ts.
+// Marges par famille (owner 24/08) : la marge n'est PAS générale — un type par famille produit,
+// `declared_margin_pct__<slug(item_category)>`. Même log, même cycle assert/supersede/clear par
+// (location_id, type) ; le libellé EXACT de la famille voyage dans raw_turn (le slug seul ne
+// permet pas de le reconstituer). dbt passe tout `declared_%` sans changement
+// (int_location_declared_metrics_current → metric_key = "margin_pct__<slug>").
+export const MARGIN_FAMILY_PREFIX = "declared_margin_pct__";
+export type FamilyMarginType = `${typeof MARGIN_FAMILY_PREFIX}${string}`;
 export type CorrectionType =
   | "activity" | "zone" | "nouveau_meaning" | "other"
-  | "declared_margin_pct" | "declared_client_count";
+  | "declared_margin_pct" | "declared_client_count"
+  | FamilyMarginType;
+
+// Slug STABLE d'une famille produit (item_category) — la clé de jointure entre le type stocké
+// et la famille vivante du mart. Accents retirés, minuscules, non-alphanumérique → "_".
+export function familySlug(label: string): string {
+  return String(label ?? "")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+}
 export type CorrectionAction = "assert" | "supersede" | "clear";
-export type ActiveCorrection = { correction_type: CorrectionType; correction_text: string; declarant_name: string | null; corrected_at: string | null };
+// raw_turn (24/08) : sur un type famille, porte le libellé EXACT de l'item_category déclaré —
+// null sur les autres types (le tour de chat brut n'est pas relu ici).
+export type ActiveCorrection = { correction_type: CorrectionType; correction_text: string; declarant_name: string | null; corrected_at: string | null; raw_turn: string | null };
 
 const str = (v: any): string =>
   (v == null ? "" : String(v && typeof v === "object" && "value" in v ? (v as any).value : v)).trim();
@@ -39,13 +58,13 @@ export async function getActiveCorrections(location_id: string): Promise<ActiveC
     const [rows] = await bq.query({
       query: `
         WITH ranked AS (
-          SELECT correction_type, correction_text, event_action, declarant_name,
+          SELECT correction_type, correction_text, event_action, declarant_name, raw_turn,
                  FORMAT_TIMESTAMP('%Y-%m-%d', created_at) AS corrected_at,
                  ROW_NUMBER() OVER (PARTITION BY correction_type ORDER BY created_at DESC) AS rn
           FROM ${TABLE}
           WHERE location_id = @location_id
         )
-        SELECT correction_type, correction_text, declarant_name, corrected_at
+        SELECT correction_type, correction_text, declarant_name, corrected_at, raw_turn
         FROM ranked
         WHERE rn = 1 AND event_action != 'clear' AND correction_text IS NOT NULL`,
       params: { location_id }, types: { location_id: "STRING" }, location: "EU",
@@ -55,6 +74,7 @@ export async function getActiveCorrections(location_id: string): Promise<ActiveC
       correction_text: str(r.correction_text),
       declarant_name: str(r.declarant_name) || null,
       corrected_at: str(r.corrected_at) || null,
+      raw_turn: str(r.raw_turn) || null,
     })).filter((c: ActiveCorrection) => c.correction_text);
   } catch (e: any) {
     console.warn("[corrections] read failed:", e?.message);
@@ -133,6 +153,25 @@ export async function getDeclaredMetric(
   const value = Number(String(c.correction_text).replace(",", "."));
   if (!Number.isFinite(value)) return null;
   return { value, raw: c.correction_text, declarant_name: c.declarant_name, corrected_at: c.corrected_at };
+}
+
+// ── Marges par famille (owner 24/08) ─────────────────────────────────────────
+// Toutes les marges famille ACTIVES d'un lieu : slug (clé de jointure vers item_category via
+// familySlug), % borné 1-90, libellé exact si stocké (raw_turn). Une ligne par famille déclarée.
+export async function getDeclaredFamilyMargins(
+  location_id: string,
+): Promise<Array<{ slug: string; pct: number; famille: string | null; declarant_name: string | null; corrected_at: string | null }>> {
+  const all = await getActiveCorrections(location_id);
+  return all
+    .filter((c) => String(c.correction_type).startsWith(MARGIN_FAMILY_PREFIX))
+    .map((c) => ({
+      slug: String(c.correction_type).slice(MARGIN_FAMILY_PREFIX.length),
+      pct: Number(String(c.correction_text).replace(",", ".")),
+      famille: c.raw_turn,
+      declarant_name: c.declarant_name,
+      corrected_at: c.corrected_at,
+    }))
+    .filter((m) => m.slug && Number.isFinite(m.pct) && m.pct >= 1 && m.pct <= 90);
 }
 
 // Back-compat wrapper (item-4 call sites) — the margin read, range-guarded as before.

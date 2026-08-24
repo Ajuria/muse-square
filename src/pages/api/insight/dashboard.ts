@@ -15,6 +15,8 @@ import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation
 // KPI -> colonne journalière : LU au registre, jamais retapé (les deux CASE ci-dessous en
 // étaient des copies ; un mart qui renomme une colonne cassait alors 3 surfaces sur 4).
 import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpiRegistry";
+// Marges par famille (24/08) : le slug et le préfixe viennent du propriétaire du log — jamais retapés.
+import { familySlug, MARGIN_FAMILY_PREFIX } from "../../../lib/ai/corrections";
 
 const PROJECT = "muse-square-open-data";
 const json = (status: number, body: unknown) =>
@@ -38,7 +40,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [ca7Rows], [opsValRows], [evtPubRows], [evtCovRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [ca7Rows], [opsValRows], [evtPubRows], [evtCovRows], [famCaRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -148,8 +150,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 ORDER BY COALESCE(si.event_end_date, lo.last_d, si.selected_date) DESC LIMIT 5`,
         params: { locs }, location: "EU",
       }),
+      // + colonnes marges (24/08) : correction_text (le %), raw_turn (libellé famille exact),
+      // location_id — même aller-retour, le compteur facts_active ne change pas.
       bq.query({
-        query: `SELECT correction_type FROM \`${PROJECT}.intermediate.int_consulter_corrections_current\`
+        query: `SELECT location_id, correction_type, correction_text, raw_turn
+                FROM \`${PROJECT}.intermediate.int_consulter_corrections_current\`
                 WHERE location_id IN UNNEST(@locs)`,
         params: { locs }, location: "EU",
       }),
@@ -623,6 +628,18 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 GROUP BY c.location_id, cl.client_catchment`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
+      // Marges par famille (owner 24/08) — CA 30 j par famille produit et par site, la base du
+      // KPI profit progressif (Σ CA_famille × marge_famille sur les familles déclarées).
+      // Fenêtre BORNÉE à CURRENT_DATE() : la graine porte des dates FUTURES (vérifié 24/08,
+      // max 2026-09-30 chez f10c3e58) — sans la borne haute la « fenêtre 30 j » compte 68 jours.
+      bq.query({
+        query: `SELECT location_id, item_category, ROUND(SUM(revenue), 0) AS ca30
+                FROM \`${PROJECT}.mart.fct_client_offering_daily\`
+                WHERE location_id IN UNNEST(@locs)
+                  AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()
+                GROUP BY 1, 2 ORDER BY 3 DESC`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
     ]);
 
     // ── Bandeau v10 : CA 7 jours vs habituel (médiane même jour de semaine, 12 dernières
@@ -725,6 +742,53 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     const bilans = (bilanRows as any[]).map((r) => ({ title: str(r.title), saved_item_id: str(r.saved_item_id), location_id: str(r.location_id), fin: str(r.fin) })).filter((b) => b.title);
     const corrections = (corrRows as any[]).map((r) => str(r.correction_type)).filter(Boolean);
+
+    // ── Marges par famille + KPI profit progressif (owner 24/08). ──
+    // profit = Σ CA_famille_30j × marge_famille sur les familles DÉCLARÉES — jamais un chiffre
+    // qui prétend être complet : la couverture (CA couvert / CA total 30 j) voyage avec.
+    // Flux historique conservé (ADD, don't REPLACE) : une marge GLOBALE active couvre 100 % du
+    // CA de son site tant qu'aucune famille n'y est déclarée.
+    const famMarginBySite: Record<string, Record<string, { pct: number; famille: string | null }>> = {};
+    const globalMarginBySite: Record<string, number> = {};
+    for (const r of corrRows as any[]) {
+      const lid = String(str(r.location_id));
+      const t = String(str(r.correction_type) ?? "");
+      const v = Number(String(str(r.correction_text) ?? "").replace(",", "."));
+      if (!Number.isFinite(v) || v < 1 || v > 90) continue;
+      if (t === "declared_margin_pct") globalMarginBySite[lid] = v;
+      else if (t.startsWith(MARGIN_FAMILY_PREFIX)) {
+        (famMarginBySite[lid] = famMarginBySite[lid] || {})[t.slice(MARGIN_FAMILY_PREFIX.length)] = { pct: v, famille: str(r.raw_turn) };
+      }
+    }
+    const margesFamilles = (famCaRows as any[]).map((r) => {
+      const lid = String(str(r.location_id));
+      const cat = String(str(r.item_category) ?? "");
+      const m = (famMarginBySite[lid] || {})[familySlug(cat)] || null;
+      return { location_id: lid, famille: cat, ca30: Number(num(r.ca30) ?? 0), marge_pct: m ? m.pct : null };
+    }).filter((f) => f.famille && f.ca30 > 0);
+    let _profitEur = 0, _caCovered = 0, _caTotal = 0;
+    {
+      const bySite: Record<string, typeof margesFamilles> = {};
+      for (const f of margesFamilles) (bySite[f.location_id] = bySite[f.location_id] || []).push(f);
+      for (const lid of Object.keys(bySite)) {
+        const fams = bySite[lid];
+        const siteCa = fams.reduce((a, f) => a + f.ca30, 0);
+        _caTotal += siteCa;
+        const declared = fams.filter((f) => f.marge_pct != null);
+        if (declared.length) {
+          for (const f of declared) { _profitEur += f.ca30 * ((f.marge_pct as number) / 100); _caCovered += f.ca30; }
+        } else if (globalMarginBySite[lid] != null) {
+          _profitEur += siteCa * (globalMarginBySite[lid] / 100); _caCovered += siteCa;
+        }
+      }
+    }
+    const marges = {
+      familles: margesFamilles.map((f) => ({ ...f, part_pct: _caTotal > 0 ? Math.round((f.ca30 / _caTotal) * 100) : null })),
+      profit30: _caCovered > 0 ? Math.round(_profitEur) : null,
+      couverture_pct: _caTotal > 0 && _caCovered > 0 ? Math.min(100, Math.round((_caCovered / _caTotal) * 100)) : null,
+      n_declarees: margesFamilles.filter((f) => f.marge_pct != null).length,
+      n_familles: margesFamilles.length,
+    };
     // Armement (cas 1) : dernier tir par pratique + détectabilité v1 (vérité serveur — miroir
     // de HEAT_DETECTABLE du dispatch) ; le client n'invente pas ce qui est branchable.
     const trigByPractice: Record<string, { last_fired: string | null; n: number }> = {};
@@ -888,7 +952,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       impact_rows: mart365,
       judged_meta: coms.filter((c) => c.status === "resolved" && c.verdict).map((c) => ({ verdict: c.verdict, created_d: c.created_d })),
       practice_counts: practiceCounts,
-      ca30, ops_value: opsValue,
+      ca30, marges, ops_value: opsValue,
       last_verdict: lastVerdict,
       met_recipe: metRecipe,
       occasions,
