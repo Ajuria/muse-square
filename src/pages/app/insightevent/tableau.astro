@@ -652,42 +652,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             }
             return '<svg viewBox="0 0 140 72" style="width:148px;height:auto;flex:none;">' + g2 + '</svg>';
           }
-          function opSpark(m, goal) {
-            var pts = m.daily || [];
-            if (pts.length < 2) return "";
-            var all = pts.map(function (p2) { return p2.v; });
-            if (m.baseline != null) all.push(m.baseline);
-            if (goal != null) all.push(goal);
-            var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
-            var span = (mx - mn) || 1; mn -= span * 0.15; mx += span * 0.15;
-            function X(i2) { return (8 + i2 * (164 / Math.max(1, (m.days || pts.length) - 1))).toFixed(1); }
-            function Y(v) { return (54 - (v - mn) / (mx - mn) * 46).toFixed(1); }
-            var col = opCol(m, goal);
-            var g3 = "";
-            if (m.baseline != null) g3 += '<line x1="8" y1="' + Y(m.baseline) + '" x2="172" y2="' + Y(m.baseline) + '" stroke="#D1D5DB" stroke-width="1.2" stroke-dasharray="4,3"/>';
-            if (goal != null) g3 += '<line x1="8" y1="' + Y(goal) + '" x2="172" y2="' + Y(goal) + '" stroke="#1D3BB3" stroke-width="1.4" stroke-dasharray="3,3"/><text x="172" y="' + (Number(Y(goal)) - 3) + '" font-size="8" fill="#1D3BB3" text-anchor="end">objectif</text>';
-            g3 += '<polyline points="' + pts.map(function (p2, i2) { return X(i2) + "," + Y(p2.v); }).join(" ") + '" fill="none" stroke="' + col + '" stroke-width="2"/>';
-            g3 += '<circle cx="' + X(pts.length - 1) + '" cy="' + Y(pts[pts.length - 1].v) + '" r="3" fill="' + col + '"/>';
-            return '<svg viewBox="0 0 180 60" style="width:172px;height:auto;flex:none;">' + g3 + '</svg>';
-          }
-          function opFrise(occ) {
-            var n = occ.length, g4 = "", TODAY2 = TODAY;
-            function X(i2) { return (14 + i2 * (300 / Math.max(1, n - 1))).toFixed(1); }
-            g4 += '<line x1="10" y1="18" x2="318" y2="18" stroke="#E5E7EB" stroke-width="2"/>';
-            occ.forEach(function (o, i2) {
-              var x = X(i2);
-              if (o.verdict === "missed") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="#B45309"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">\u2717</text>';
-              else if (o.verdict === "met") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="#059669"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">\u2713</text>';
-              else if (o.status === "open" || o.status === "pending") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-dasharray="2,2.5"/>';
-              // Deux états distincts (défaut de vérité 24/08) : status présent = un engagement a
-              // couvert l'occurrence ; status null = aucun dispositif ne la couvrait (ou annulé avant mesure).
-              else if (o.d <= TODAY2 && o.status) g4 += '<circle cx="' + x + '" cy="18" r="6.5" fill="#9CA3AF"><title>mesur\u00e9e \u2014 en attente de verdict</title></circle>';
-              else if (o.d <= TODAY2) g4 += '<circle cx="' + x + '" cy="18" r="6.5" fill="none" stroke="#9CA3AF" stroke-width="1.8"><title>pass\u00e9e sans mesure</title></circle>';
-              else g4 += '<circle cx="' + x + '" cy="18" r="3.5" fill="#E5E7EB"/>';
-              g4 += '<text x="' + x + '" y="40" font-size="8.5" fill="#9CA3AF" text-anchor="middle">' + frD(o.d) + '</text>';
-            });
-            return '<svg viewBox="0 0 330 46" style="width:100%;max-width:360px;height:auto;">' + g4 + '</svg>';
-          }
           function opChip(txt2, bg, fg) { return '<span class="tb-chip" style="background:' + bg + ';color:' + fg + ';font-weight:600;">' + txt2 + '</span>'; }
           function opShortName(m) {
             if (m.event_title) return esc(trunc(m.event_title, 45));
@@ -715,6 +679,16 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (restCount) html += '<a href="/app/insightevent/evenement" title="' + restCount + ' échéances à venir — chacune s’arme seule à J-7" style="display:block;font-size:11.5px;color:#6b7280;margin-top:10px;text-decoration:none;">Et ensuite : ' + restCount + ' (→ ' + frD(restLast) + ') <span style="color:#1D3BB3;font-weight:600;">›</span></a>';
           html += '</div>';
 
+          // € COMMUN de toute carte d'opération (spec 24/08) : CA + attendu de la fenêtre,
+          // lus sur la MÊME série ca_daily que le héros — un seul référentiel à l'écran.
+          function opWinEur(l3, ws3, we3) {
+            var ca3 = 0, exp3 = 0, has3 = 0;
+            (j.ca_daily || []).forEach(function (r3) {
+              if (r3.l !== l3 || r3.d < ws3 || r3.d > we3) return;
+              ca3 += r3.ca; if (r3.exp != null) { exp3 += r3.exp; has3++; }
+            });
+            return { ca: ca3, exp: has3 ? exp3 : null };
+          }
           if (mesures.length) {
             html += '<p class="tb-eb" id="tb-ops-sec" style="margin:2px 0 8px;">Opérations en cours</p><div class="tb-opsgrid">';
             mesures.forEach(function (m) {
@@ -726,24 +700,83 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 wide = true;
                 var jug = m.occ.filter(function (o) { return o.verdict === "met" || o.verdict === "missed"; }).length;
                 var ten = m.occ.filter(function (o) { return o.verdict === "met"; }).length;
-                var nxt = m.occ.filter(function (o) { return o.status === "open" || o.status === "pending"; })[0];
-                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(jug + "/" + m.occ.length + " jug\u00e9es \u00b7 " + ten + " objectif" + (ten > 1 ? "s" : "") + " atteint" + (ten > 1 ? "s" : ""), "#F3F4F6", "#6b7280") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
-                  + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">' + opFrise(m.occ)
-                  + '<div style="flex:1;min-width:180px;font-size:11.5px;color:#6B7280;line-height:1.55;">Chaque occurrence est jug\u00e9e seule \u2014 la s\u00e9rie cumule les verdicts.' + (nxt ? " Prochaine : " + dowFull(nxt.d) + " " + frD(nxt.d) + " (dispositif actif)." : "") + '</div></div>'
-                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">\u2717 objectif manqu\u00e9 \u00b7 \u2713 objectif atteint \u00b7 \u25cf grise = mesur\u00e9e, verdict en attente \u00b7 \u25cb pass\u00e9e sans mesure \u00b7 \u25cc dispositif actif \u2014 mesure au jour J \u00b7 petits points = planifi\u00e9es</span>'
+                // Cases-résultats AUTO-PORTANTES (owner 24/08) : date + chiffre + référentiel —
+                // la légende à cinq symboles meurt. Futures condensées en une case.
+                var cells = "", futures = [], passed = [];
+                m.occ.slice().sort(function (a3, b3) { return a3.d < b3.d ? -1 : 1; }).forEach(function (o) {
+                  if (!o.verdict && !o.status && o.d > TODAY) { futures.push(o.d); return; }
+                  passed.push(o);
+                });
+                passed.slice(-4).forEach(function (o) {
+                  var dj3 = daysTo(o.d);
+                  if (o.verdict === "met" || o.verdict === "missed") {
+                    var manque = o.verdict === "missed";
+                    var val3 = (o.d === m.ws && m.realized != null) ? opFmt(m.realized, m.metric) : null;
+                    cells += '<div style="border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;min-width:0;">'
+                      + '<span style="font-size:10px;color:#9CA3AF;">' + dowFr(o.d) + ' ' + frD(o.d) + (m.metric === "family_revenue" && m.famille ? ' \u00b7 CA produits \u00ab ' + esc(m.famille) + ' \u00bb' : '') + '</span>'
+                      + (val3 ? '<span style="font-size:15px;font-weight:700;color:' + (manque ? AMBER : GREEN) + ';">' + val3 + '</span>' : '')
+                      + '<span style="font-size:9.5px;color:#6B7280;">' + (goal != null ? 'vs objectif de ' + opFmt(goal, m.metric) + ' \u00b7 ' : '') + '<b style="color:' + (manque ? AMBER : GREEN) + ';">objectif ' + (manque ? 'manqu\u00e9' : 'atteint') + '</b></span></div>';
+                  } else if (o.status === "open" || o.status === "pending") {
+                    cells += '<div style="border:1.5px dashed #1D3BB3;border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;background:#F8FAFF;min-width:0;">'
+                      + '<span style="font-size:10px;font-weight:700;color:#1D3BB3;">' + dowFr(o.d) + ' ' + frD(o.d) + (dj3 > 0 ? ' \u00b7 J-' + dj3 : '') + '</span>'
+                      + '<span style="font-size:12px;font-weight:700;color:#1D3BB3;">' + (dj3 > 0 ? 'Dispositif actif' : 'En mesure') + '</span>'
+                      + '<span style="font-size:9.5px;color:#6B7280;">' + (goal != null ? 'cible ' + opFmt(goal, m.metric) + ' \u00b7 ' : '') + 'la mesure s\u2019arme seule le jour J</span></div>';
+                  } else {
+                    // Occurrence passée sans engagement vivant : l'état VRAI (lexique 24/08).
+                    cells += '<div style="border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;min-width:0;">'
+                      + '<span style="font-size:10px;color:#9CA3AF;">' + dowFr(o.d) + ' ' + frD(o.d) + '</span>'
+                      + '<span style="font-size:12px;font-weight:600;color:#9CA3AF;">pass\u00e9e sans mesure</span></div>';
+                  }
+                });
+                if (futures.length) {
+                  var futDows = futures.map(function (d3) { return new Date(d3 + "T12:00:00Z").getUTCDay(); });
+                  var memeDow = futDows.every(function (x3) { return x3 === futDows[0]; });
+                  cells += '<div style="border:1px solid rgba(0,0,0,0.06);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;justify-content:center;min-width:0;">'
+                    + '<span style="font-size:12px;font-weight:600;color:#9CA3AF;">+' + futures.length + ' planifi\u00e9e' + (futures.length > 1 ? 's' : '') + '</span>'
+                    + '<span style="font-size:9.5px;color:#9CA3AF;">' + (memeDow ? 'chaque ' + dowFull(futures[0]) + ' ' : '') + '\u2192 ' + frD(futures[futures.length - 1]) + '</span></div>';
+                }
+                // Zone EXPLICATION (gabarit owner 24/08, régime « facteurs mêlés ») : la dernière
+                // occurrence JUGÉE de l'engagement courant — chaque fait contre SON référentiel
+                // (famille = kpi_baseline DU contrat ; jour du site = ca_daily), énoncés séparément.
+                var expl = "";
+                var lj = m.occ.filter(function (o) { return (o.verdict === "met" || o.verdict === "missed") && o.d === m.ws; })[0];
+                if (lj && m.realized != null && m.baseline != null && m.baseline > 0 && m.metric === "family_revenue") {
+                  var d3b = opWinEur(m.location_id, lj.d, lj.d);
+                  var famPct = Math.round((m.realized - m.baseline) / m.baseline * 100);
+                  var dayPct = d3b.exp != null && d3b.exp > 0 ? Math.round((d3b.ca - d3b.exp) / d3b.exp * 100) : null;
+                  expl = '<div style="font-size:11.5px;color:#374151;line-height:1.6;">occ. du ' + frD(lj.d) + ' : les produits \u00ab ' + esc(m.famille || '') + ' \u00bb ont g\u00e9n\u00e9r\u00e9 ' + frInt(m.realized) + ' \u20ac/j vs ' + frInt(m.baseline) + ' \u20ac/j habituellement (<b style="color:' + (famPct < 0 ? AMBER : GREEN) + ';">' + (famPct >= 0 ? '+' : '\u2212') + Math.abs(famPct) + ' %</b>)'
+                    + (dayPct == null ? '' : dayPct < 0
+                      ? ' \u00b7 <b>Explication :</b> la baisse du CA jour n\u2019explique pas tout (<b style="color:' + AMBER + ';">\u2212' + Math.abs(dayPct) + ' %</b>)'
+                      : ' \u00b7 <b>Explication :</b> le CA du jour \u00e9tait \u00e0 +' + dayPct + ' % de votre r\u00e9sultat habituel')
+                    + ' \u00b7 Autres facteurs : dispositif, produit, autre \u2014 <a class="tb-link" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(m.location_id) + '&saved_item_id=' + encodeURIComponent(m.saved_item_id || '') + '&mode=bilan">Faire le bilan \u2192</a></div>';
+                }
+                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(jug + "/" + m.occ.length + " jug\u00e9es \u00b7 " + ten + " objectif" + (ten > 1 ? "s" : "") + " atteint" + (ten > 1 ? "s" : ""), "#F3F4F6", "#6b7280") + siteChp + '</div>'
+                  + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">' + cells + '</div>'
+                  + expl
+                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">Chaque occurrence est jug\u00e9e seule \u2014 la s\u00e9rie cumule les verdicts.</span>'
                   + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(m.location_id) + '&saved_item_id=' + encodeURIComponent(m.saved_item_id || "") + '">Dossier \u2192</a></div>';
               } else if (m.kind === "fenetre" && (m.daily || []).length >= 2) {
+                // Le € MÈNE la carte (owner 24/08) ; le KPI déclaré reste la ligne de CONTRAT —
+                // le verdict se juge dessus, jamais re-dérivé. Chaque fait contre SON référentiel.
                 var cum = m.daily.reduce(function (s2, p2) { return s2 + p2.v; }, 0) / m.daily.length;
-                var dv = goal != null ? cum - goal : null;
-                var col2 = opCol({ realized: cum, baseline: m.baseline, metric: m.metric }, goal);
-                var dTxt = dv == null ? "" : (m.metric === "conversion"
-                  ? (dv >= 0 ? "+" : "\u2212") + Math.abs(dv * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " pt"
-                  : (dv >= 0 ? "+" : "\u2212") + opFmt(Math.abs(dv), m.metric));
-                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip("Jour " + m.daily.length + "/" + (m.days || "?"), "#FEF3E2", "#B45309") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
-                  + '<div style="display:flex;align-items:center;gap:14px;">' + opSpark(m, goal)
-                  + '<div style="flex:1;min-width:0;font-size:11.5px;color:#6B7280;line-height:1.55;">' + (dTxt ? '<span style="font-size:16px;font-weight:700;color:' + col2 + ';font-variant-numeric:tabular-nums;">' + dTxt + '</span> <span style="color:#374151;">vs objectif</span>' : opFmt(cum, m.metric) + " en moyenne")
-                  + '<span style="display:block;font-size:10.5px;color:#9CA3AF;margin-top:2px;">moyenne ' + opFmt(cum, m.metric) + ' \u00b7 provisoire \u2014 verdict au jour ' + (m.days || "?") + '</span></div></div>'
-                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">mesur\u00e9 sur vos ventes, jour par jour</span>'
+                var w3 = opWinEur(m.location_id, m.ws, m.we);
+                var ec3 = w3.exp != null ? Math.round(w3.ca - w3.exp) : null;
+                var finie = m.we < TODAY;
+                var lead3 = ec3 != null
+                  ? '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><span style="font-size:22px;font-weight:800;color:' + (ec3 >= 0 ? GREEN : AMBER) + ';">' + signEur(ec3) + '</span>'
+                    + '<span style="font-size:12px;color:#374151;">vs votre r\u00e9sultat habituel \u00b7 CA de la fen\u00eatre : ' + frInt(w3.ca) + ' \u20ac</span></div>'
+                  : '<div style="font-size:12px;color:#9CA3AF;">CA de la fen\u00eatre : ' + frInt(w3.ca) + ' \u20ac \u2014 pas encore de r\u00e9sultat habituel sur ces dates</div>';
+                var contrat3 = cum != null && goal != null
+                  ? '<div style="font-size:11.5px;color:#6b7280;"' + (m.baseline != null ? ' title="votre ' + (KPI_MINI_FR[m.metric] || m.metric) + ' habituel : ' + opFmt(m.baseline, m.metric) + '"' : '') + '>objectif du dispositif : ' + (KPI_MINI_FR[m.metric] || m.metric) + ' <b style="color:#1D3BB3;">' + opFmt(goal, m.metric) + '</b> \u00b7 r\u00e9alis\u00e9 ' + opFmt(cum, m.metric) + '</div>'
+                  : '';
+                // Régime A (facteur ISOLÉ, seul cas où l'on nomme) : le KPI contrat a tenu son
+                // habituel pendant que le CA de la fenêtre était dessous ⇒ le manque est ailleurs.
+                var isole3 = m.metric !== "revenue_residual" && cum != null && m.baseline != null && cum >= m.baseline && ec3 != null && ec3 < 0
+                  ? '<div style="font-size:11.5px;color:#374151;line-height:1.6;">votre ' + (KPI_MINI_FR[m.metric] || m.metric) + ' a tenu (' + opFmt(cum, m.metric) + ' \u00b7 habituel ' + opFmt(m.baseline, m.metric) + ') \u2014 le manque vient du passage ou du panier</div>'
+                  : '';
+                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(finie ? "Fen\u00eatre finie" : "Jour " + m.daily.length + "/" + (m.days || "?"), finie ? "#F3F4F6" : "#FEF3E2", finie ? "#6b7280" : "#B45309") + siteChp + '</div>'
+                  + lead3 + isole3 + contrat3
+                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">' + (finie ? 'fen\u00eatre finie le ' + frD(m.we) + ' \u00b7 le verdict tombe seul' : 'provisoire \u2014 verdict au jour ' + (m.days || "?")) + ' \u00b7 mesur\u00e9 sur vos ventes</span>'
                   + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/engagement?id=' + encodeURIComponent(m.commitment_id) + '">Ajuster \u2192</a></div>';
               } else {
                 var djW = m.ws ? daysTo(m.ws) : null;
@@ -753,6 +786,12 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   + '<div style="flex:1;min-width:0;font-size:11.5px;color:#6B7280;line-height:1.55;">' + (armed
                     ? "Occurrence du " + dowFull(m.ws) + " " + frD(m.ws) + " \u2014 la mesure d\u00e9marre seule, verdict jug\u00e9 apr\u00e8s le " + frD(m.we) + "."
                     : "Mesur\u00e9 sur la journ\u00e9e \u2014 verdict jug\u00e9 apr\u00e8s le " + frD(m.we) + ".") + '</div></div>'
+                  + (function () {
+                      if (armed) return '';
+                      var wo = opWinEur(m.location_id, m.ws, m.we);
+                      var eo = wo.exp != null ? Math.round(wo.ca - wo.exp) : null;
+                      return eo != null ? '<div style="font-size:11.5px;color:#374151;">CA du jour : ' + frInt(wo.ca) + ' \u20ac \u00b7 <b style="color:' + (eo >= 0 ? GREEN : AMBER) + ';">' + signEur(eo) + '</b> vs votre r\u00e9sultat habituel</div>' : '';
+                    })()
                   + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">' + (armed ? "rien \u00e0 faire d\u2019ici l\u00e0" : "mesur\u00e9 sur vos ventes") + '</span>'
                   + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/engagement?id=' + encodeURIComponent(m.commitment_id) + '">Ajuster \u2192</a></div>';
               }

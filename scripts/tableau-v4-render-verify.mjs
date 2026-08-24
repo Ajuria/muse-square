@@ -364,11 +364,18 @@ check("rangées dispositifs marquées par la clé", (payload.practices || []).so
 if ((g.mesures || []).length) {
   check("Opérations en cours : section présente (proto 17/08)", txt().indexOf("Opérations en cours") >= 0 && body.querySelectorAll(".tb-op").length === (g.mesures || []).length, body.querySelectorAll(".tb-op").length + " cartes");
   const mSerie = (g.mesures || []).filter((m) => m.kind === "serie");
-  if (mSerie.length) check("série : frise + Dossier →", rawHtml.indexOf('viewBox="0 0 330 46"') >= 0 && rawHtml.indexOf("Dossier \u2192") >= 0);
+  // Grammaire 4 zones (spec 24/08) : la frise à symboles est morte — cases-résultats
+  // auto-portantes + zone explication ; le € mène la fenêtre, KPI = ligne de contrat.
+  if (mSerie.length) check("série : cases-résultats (verdict nommé, jamais de légende) + Dossier →",
+    (txt().indexOf("objectif manqué") >= 0 || txt().indexOf("objectif atteint") >= 0 || txt().indexOf("Dispositif actif") >= 0)
+    && rawHtml.indexOf('viewBox="0 0 330 46"') < 0 && txt().indexOf("petits points") < 0 && rawHtml.indexOf("Dossier \u2192") >= 0);
+  if (mSerie.length && mSerie.some((m) => (m.occ || []).some((o) => !o.verdict && !o.status && o.d <= new Date().toISOString().slice(0, 10))))
+    check("série : occurrence passée sans engagement = « passée sans mesure »", txt().indexOf("passée sans mesure") >= 0);
   const mOcc = (g.mesures || []).filter((m) => m.kind === "occurrence");
   if (mOcc.length) check("occurrence : jauge + Ajuster →", rawHtml.indexOf('viewBox="0 0 140 72"') >= 0);
   const mFen = (g.mesures || []).filter((m) => m.kind === "fenetre" && (m.daily || []).length >= 2);
-  if (mFen.length) check("fenêtre : mini-courbe + objectif", rawHtml.indexOf('viewBox="0 0 180 60"') >= 0);
+  if (mFen.length) check("fenêtre : le € mène (écart signé + CA de la fenêtre) + ligne de contrat",
+    txt().indexOf("CA de la fenêtre") >= 0 && txt().indexOf("objectif du dispositif") >= 0 && rawHtml.indexOf('viewBox="0 0 180 60"') < 0);
   check("CTA opérations : jamais « Évolution » (geste acté = Ajuster/Dossier)", (() => {
     const ops = Array.from(body.querySelectorAll(".tb-op"));
     return ops.every((o) => o.textContent.indexOf("\u00c9volution") < 0);
