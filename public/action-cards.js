@@ -2291,7 +2291,9 @@
       var yest = a.revenue_yesterday != null ? Math.round(Number(a.revenue_yesterday)) : null;
       var delta = a.revenue_delta_pct != null ? Math.round(Number(a.revenue_delta_pct)) : null;
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      var overlap = a.competitor_overlap_pct != null ? Math.round(Number(a.competitor_overlap_pct) * 100) : null;
+      // competitor_overlap_pct est DÉJÀ un pourcentage 0-100 (int_competitor_threat_profile
+      // fait « * 100.0 » à la source ; valeurs vivantes 50-100). Le ×100 d'ici affichait 5000 %.
+      var overlap = a.competitor_overlap_pct != null ? Math.round(Number(a.competitor_overlap_pct)) : null;
 
       // 24/08 — fait daté : « la veille » est relative au fait, pas à aujourd'hui.
       var line = (rev != null && yest != null)
