@@ -1014,6 +1014,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
           // quand la population de la carte n'a pas encore la récurrence (amendement 6).
           context_motif: er.context_motif ?? null,
           corner_day_mode: er.corner_day_mode === true,
+          // 24/08 — barreau 2 du coin : % funnel mesuré de la classe de la carte (dayClassRegistry.
+          // funnelCornerForCandidate), rendu par pulse quand ni enjeu ni € du jour n'occupent le coin.
+          funnel_corner: er.funnel_corner ?? null,
           // Temps 2 périmètre : les jours mesurables par hypothèse, UNIQUEMENT sur les cartes qui
           // posent la question (calculés par le cron, CATCHMENT_HYP_STORE — jamais en dur).
           catchment_days: er.needs_catchment === true ? ((dayClassResult as any).catchmentHypotheses ?? null) : null,

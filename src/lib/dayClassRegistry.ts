@@ -66,6 +66,10 @@ export type DayClassResult = {
   // Temps 2 du périmètre : jours mesurables que chaque réponse débloquerait (lu depuis
   // CATCHMENT_HYP_STORE, null tant que le cron n'a pas tourné ou sans historique de ventes).
   catchmentHypotheses?: { commune: number; beyond: number } | null;
+  // 24/08 — barreau 2 du coin (owner) : les lignes BRUTES du store, TOUTES métriques (les KPI
+  // non-K1 sortent en base 'marginal', unités du KPI — visiteurs, taux, tickets — cf. le moteur
+  // § MÉTRIQUE = DIMENSION). funnelCornerForCandidate y lit le % de l'étape funnel de la carte.
+  funnelRows?: any[];
 };
 
 // The registry. Weather = the five conditions of fct_location_context_daily (lvl_* >= 1 depuis le
@@ -172,7 +176,7 @@ const CLASS_LABELS: Record<string, string> = Object.fromEntries([
   ...CARD_POP_CLASSES.map((c) => [c.key, c.label_fr]),
 ]);
 
-import { KPI_PERF_KEYS, KPI_DAILY_COL } from "./kpiRegistry";
+import { KPI_PERF_KEYS, KPI_DAILY_COL, CARD_FUNNEL_STEP } from "./kpiRegistry";
 
 const PROJECT = "muse-square-open-data";
 // Offline store (incrément 1) : raw aggregates ONLY — n/avg/sd/span per location × class. The
@@ -855,18 +859,23 @@ async function annualRevenueQuery(bq: any, location_id: string): Promise<number 
  * « tolérante aux deux schémas » — le schéma transitoire sans `metric` n'existe plus depuis
  * le merge sur main ; le store est réécrit chaque nuit par ce code).
  */
-export async function readDayClassStore(bq: any, location_ids: string[], metric: string = "revenue_residual"): Promise<any[]> {
+// 24/08 — metric: null = TOUTES les métriques (barreau 2 du coin : getDayClassImpacts lit tout
+// en UNE requête ; rowsToImpactsWithImmaterial refiltre revenue_residual, comportement inchangé).
+// Les appelants existants (dashboard) gardent le défaut au caractère près.
+export async function readDayClassStore(bq: any, location_ids: string[], metric: string | null = "revenue_residual"): Promise<any[]> {
   if (!location_ids.length) return [];
   const cols = "location_id, class_key, family, basis, metric, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days";
   return await bq.query({
-    query: `SELECT ${cols} FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id IN UNNEST(@locs) AND metric = @metric`,
-    params: { locs: location_ids, metric }, location: "EU",
+    query: `SELECT ${cols} FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id IN UNNEST(@locs)${metric != null ? " AND metric = @metric" : ""}`,
+    params: metric != null ? { locs: location_ids, metric } : { locs: location_ids }, location: "EU",
   }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
 }
 
 export async function getDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {
   const [storeRows, dateRes, annualRevenue, hypRows] = await Promise.all([
-    readDayClassStore(bq, [location_id]),
+    // 24/08 — toutes métriques en une requête (même table, ~6 lignes par classe au lieu d'1) :
+    // revenue_residual pour les impacts (refiltré en aval), le reste pour le barreau 2 du coin.
+    readDayClassStore(bq, [location_id], null),
     dateResolutionQuery(bq, location_id, dates),
     annualRevenueQuery(bq, location_id),
     // Temps 2 périmètre — requête PARALLÈLE (dans le Promise.all : ne coûte que si la plus
@@ -885,7 +894,7 @@ export async function getDayClassImpacts(bq: any, location_id: string, dates: st
   })();
   if ((storeRows as any[]).length > 0) {
     const { impacts, immaterial } = rowsToImpactsWithImmaterial(storeRows as any[], annualRevenue);
-    return { impacts, immaterial, ...dateRes, catchmentHypotheses: hyp };
+    return { impacts, immaterial, ...dateRes, catchmentHypotheses: hyp, funnelRows: storeRows as any[] };
   }
   // Store vide. Deux cas, mesurés le 23/08 :
   //  - SANS ventes (26 sites actifs sur 32) : le moteur n'a rien à mesurer (joined est un INNER
@@ -900,7 +909,7 @@ export async function getDayClassImpacts(bq: any, location_id: string, dates: st
   }
   const aggRows = await liveAggregateRows(bq, location_id);
   const { impacts, immaterial } = rowsToImpactsWithImmaterial(aggRows as any[], annualRevenue);
-  return { impacts, immaterial, ...dateRes, catchmentHypotheses: hyp };
+  return { impacts, immaterial, ...dateRes, catchmentHypotheses: hyp, funnelRows: aggRows as any[] };
 }
 
 // Weather action types that resolve their condition from the AFFECTED DATE (payload has none).
@@ -1100,13 +1109,16 @@ export function classNeverMeasured(result: DayClassResult, candidate: { action_t
 }
 
 /** enjeu + raison d'absence : LA façade que les endpoints consomment (monitor, futurs). */
-export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean; needs_catchment?: boolean; context_motif?: DayClassImpact | null; corner_day_mode?: boolean } {
+export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean; needs_catchment?: boolean; context_motif?: DayClassImpact | null; corner_day_mode?: boolean; funnel_corner?: FunnelCorner | null } {
   const enjeu = enjeuForCandidate(result, candidate);
   // Doctrine 01/08 : le motif du jour est du CONTEXTE (ligne de texte), servi À CÔTÉ de
   // l'enjeu propre — jamais à sa place.
   const atV = String(candidate?.action_type || "");
   const contextMotif = CARD_VALUE_TYPES.has(atV) ? motifContextForCandidate(result, candidate) : null;
   if (enjeu) return { enjeu, reason_fr: null, context_motif: contextMotif };
+  // 24/08 — barreau 2 : sans enjeu €, le coin peut porter le chiffre funnel mesuré de la carte.
+  // Le client garde l'échelle : € du jour d'abord (corner_day_mode avec payload €), funnel ensuite.
+  const funnelCorner = funnelCornerForCandidate(result, candidate);
   // MATÉRIALITÉ (29/07) : la classe de cette carte a bien été MESURÉE, et elle est négligeable.
   // Ce n'est pas « on ne sait pas » — c'est « on sait, et ça ne pèse rien ». La carte ne doit donc
   // pas s'afficher du tout (décision owner : « ni carte ni chantier »), et surtout pas avec le
@@ -1143,12 +1155,12 @@ export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: {
   const needsCatchment = result?.clientCatchment == null && CATCHMENT_DEPENDENT_TYPES.has(actionType);
   // Amendement 6 (01/08) : plus de raison « anomalie ponctuelle » — le coin passe en mode
   // « € ce jour » (écart du payload, unité en toutes lettres), bascule €/an à n >= 5 tirs.
-  if (CARD_VALUE_TYPES.has(actionType)) return { enjeu: null, reason_fr: null, context_motif: contextMotif, corner_day_mode: true };
+  if (CARD_VALUE_TYPES.has(actionType)) return { enjeu: null, reason_fr: null, context_motif: contextMotif, corner_day_mode: true, funnel_corner: funnelCorner };
   const mapped = actionType === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(actionType)
     || CALENDAR_TYPES.has(actionType) || Boolean(COMBO_TYPE_CLASSES[actionType]) || Boolean(CARD_TYPE_CLASS[actionType]);
-  if (!mapped) return { enjeu: null, reason_fr: null };
+  if (!mapped) return { enjeu: null, reason_fr: null, funnel_corner: funnelCorner };
   if (result.impacts.size === 0) return { enjeu: null, reason_fr: ABSENCE_REASON_FR.no_history, needs_catchment: needsCatchment };
-  return { enjeu: null, reason_fr: ABSENCE_REASON_FR.not_separable, needs_catchment: needsCatchment };
+  return { enjeu: null, reason_fr: ABSENCE_REASON_FR.not_separable, needs_catchment: needsCatchment, funnel_corner: funnelCorner };
 }
 
 // Cartes d'anomalie ventes (mapping H1 — jamais de pill PROPRE, héritage du jour uniquement).
@@ -1265,4 +1277,49 @@ export function motifContextForCandidate(result: DayClassResult, candidate: { ac
     if (imp && (!best || Math.abs(imp.eur_year) > Math.abs(best.eur_year))) best = imp;
   }
   return best ? { ...best, inherited: true } : null;
+}
+
+// ── Barreau 2 du coin (owner 24/08 : « si un chiffre en € ne fonctionne pas, utiliser un autre
+// chiffre, lié à l'étape du funnel ») ────────────────────────────────────────────────────────
+// Quand une carte n'a ni enjeu €/an ni € du jour, son coin porte le chiffre MESURÉ de son étape
+// funnel (CARD_FUNNEL_STEP, kpiRegistry — table validée owner) sur SA classe : % relatif au coin
+// (exp(avg_log)−1, le log-ratio du moteur), absolu en infobulle (avg_gap_eur, unités du KPI —
+// visiteurs, tickets, points de taux : base 'marginal' = contraste vs jours comparables).
+// GARDE-FOUS : la classe est celle de la CARTE (CARD_TYPE_CLASS/CARD_CONTEXT_CLASS statiques),
+// jamais un motif hérité de la date — sinon la rentrée porterait le chiffre des vacances
+// (le doublon de coin corrigé trois fois le 22/08). Portes du moteur : n>=5, span>=60, |t|>=1
+// sur le log, cohérence de signe médiane/log. Plancher d'affichage |%| >= 5 : un « −1 % » au
+// coin serait du bruit présenté comme un fait (calibrage à confirmer par l'owner).
+export type FunnelCorner = {
+  kpi: string;            // clé KPI (kpiRegistry) — jamais 'revenue_residual' (barreaux € existants)
+  pct: number;            // ratio signé (−0,30 = −30 %) — exp(avg_log)−1
+  abs_per_day: number;    // contraste absolu par jour, unités du KPI (visiteurs, tickets, €, taux 0-1)
+  n_days: number;
+  class_key: string;
+  class_label_fr: string;
+};
+export function funnelCornerForCandidate(result: DayClassResult, candidate: { action_type?: any }): FunnelCorner | null {
+  const at = String(candidate?.action_type || "");
+  const step = CARD_FUNNEL_STEP[at];
+  if (!step || step === "revenue_residual") return null;
+  const cls = CARD_TYPE_CLASS[at] ?? CARD_CONTEXT_CLASS[at];
+  if (!cls || !CLASS_LABELS[cls]) return null;
+  const rows = result?.funnelRows;
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const row = rows.find((r: any) => String(r?.class_key ?? "") === cls && String(r?.metric ?? "") === step && String(r?.basis ?? "") === "marginal");
+  if (!row) return null;
+  const n = Number(row?.n_days ?? 0);
+  const spanDays = Number(row?.span_days ?? 0);
+  const avg = Number(row?.avg_gap_eur ?? NaN);
+  const med = Number(row?.med_gap_eur ?? NaN);
+  const nLog = Number(row?.n_log ?? 0);
+  const avgLog = Number(row?.avg_log ?? NaN);
+  const sdLog = Number(row?.sd_log ?? NaN);
+  if (n < 5 || spanDays < 60 || nLog < 5 || !Number.isFinite(avgLog) || !Number.isFinite(sdLog) || !Number.isFinite(avg)) return null;
+  const t = sdLog > 0 ? Math.abs(avgLog) / (sdLog / Math.sqrt(nLog)) : 0;
+  if (t < 1) return null;
+  if (!Number.isFinite(med) || med === 0 || Math.sign(med) !== Math.sign(avgLog)) return null;
+  const pct = Math.exp(avgLog) - 1;
+  if (!Number.isFinite(pct) || Math.abs(pct) < 0.05) return null;
+  return { kpi: step, pct, abs_per_day: avg, n_days: n, class_key: cls, class_label_fr: CLASS_LABELS[cls] };
 }
