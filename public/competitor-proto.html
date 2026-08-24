@@ -30,7 +30,7 @@
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
   var AMBER = '#B45309', GREEN = '#059669', BLUE = '#1D3BB3';
   var P = D.profil, dir = P.directory || {}, th = P.threat || {}, an = P.analysis || {}, us = P.user || {};
-  var AUD_FR = { tourists: 'touristes', families: 'familles', professionals: 'professionnels', local: 'clientèle locale', mixed: 'clientèle mixte', students: 'étudiants', seniors: 'seniors' };
+  var AUD_FR = { tourists: 'touristes', families: 'familles', professionals: 'professionnels', local: 'résidents locaux', mixed: 'public mixte', students: 'étudiants', seniors: 'seniors' };
   var MEN_FR = { low: 'menace faible', moderate: 'menace modérée', high: 'menace forte' };
   var REL_FR = { direct_competitor: 'concurrent direct', indirect_competitor: 'concurrent indirect', complementary: 'complémentaire', substitute: 'substitut' };
   var SIGNAL_FR = { premium_eux: ['eux plus cher', '#FEF3E2', AMBER], premium_vous: ['vous plus cher', '#FEF3E2', AMBER], parite: ['parité', '#F3F4F6', '#6b7280'], gap_eux: ['eux seulement', '#FEF3E2', AMBER], gap_vous: ['vous seulement', '#E6F6F0', GREEN] };

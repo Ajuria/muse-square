@@ -39,6 +39,17 @@ export const MOTS_BANNIS: Record<string, string> = {
   "objectif tenu": "objectif atteint",
   "objectifs tenus": "objectifs atteints",
   "cible manquée": "objectif manqué",
+  // 24/08 — streamline owner : UN libellé par concept sur toutes les pages. Le tableau disait
+  // « Aléa météo annoncé » quand Pulse disait « Alerte météo », et « clientèle locale/mixte »
+  // quand tout le reste disait « résidents locaux »/« public mixte ». Surfaces renommées dans
+  // le même train de commits (audit 24/08) — les interdits mordent à partir d'ici.
+  "Aléa météo annoncé": "Alerte météo",
+  "aléa météo annoncé": "alerte météo",
+  "clientèle locale": "résidents locaux",
+  "clientèle mixte": "public mixte",
+  // 24/08 — « animer » banni (verbe de conseil sur un abstrait, règle 8) : le geste se dit « cibler ».
+  "animer": "cibler",
+  "Animer": "Cibler",
   "verdict tenu": "objectif atteint",
   "non mesurable": "non concluant",
   // 22/08 — le bloc de la prochaine action disait « mouvement » dans son titre et « move »

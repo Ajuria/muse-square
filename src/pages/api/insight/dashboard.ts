@@ -10,7 +10,6 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { eventTypeLabelFr } from "../../../lib/eventTypes";
 import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation } from "../../../lib/dayClassRegistry";
 // KPI -> colonne journalière : LU au registre, jamais retapé (les deux CASE ci-dessous en
 // étaient des copies ; un mart qui renomme une colonne cassait alors 3 surfaces sur 4).
@@ -38,12 +37,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [snapRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [ca7Rows], [opsValRows], [evtPubRows], [evtCovRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [ca7Rows], [opsValRows], [evtPubRows], [evtCovRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
                   SELECT si.saved_item_id, si.location_id, si.title, si.event_type, si.kpi, si.kpi_family,
-                         si.kpi_target_pct, si.kpi_target_eur, si.duration_days, si.author_person_name,
+                         si.kpi_target_pct, si.kpi_target_eur, si.author_person_name,
                          CAST(d.date AS STRING) AS occ_date,
                          ROW_NUMBER() OVER (PARTITION BY si.saved_item_id ORDER BY d.date) AS occ_rank_upcoming,
                          (SELECT COUNT(*) FROM \`${PROJECT}.raw.saved_item_dates\` a WHERE a.saved_item_id = si.saved_item_id) AS n_total,
@@ -151,14 +150,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
       bq.query({
         query: `SELECT correction_type FROM \`${PROJECT}.intermediate.int_consulter_corrections_current\`
                 WHERE location_id IN UNNEST(@locs)`,
-        params: { locs }, location: "EU",
-      }),
-      // Reçu automatisations : contextes gelés récemment (7 j) par le cron/Choisir.
-      bq.query({
-        query: `SELECT CAST(selected_date AS STRING) AS d
-                FROM \`${PROJECT}.raw.saved_item_snapshots\`
-                WHERE location_id IN UNNEST(@locs) AND DATE(snapshotted_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)
-                ORDER BY selected_date LIMIT 10`,
         params: { locs }, location: "EU",
       }),
       // Libellés de site (pastilles multi-sites) — dans le MÊME lot parallèle (budget perf).
@@ -270,9 +261,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // les doublons soft-supprimés (16/04 + 20/05) : c'est le bug d'affichage du 12/08.
       bq.query({
         query: `SELECT ct.location_id, cd.competitor_id, cd.competitor_name, cd.google_place_id, cd.source_url,
-                       DATE_DIFF(CURRENT_DATE(), DATE(cd.last_crawl_attempt_at), DAY) AS age_j,
-                       (SELECT COUNT(*) FROM \`${PROJECT}.raw.competitor_events\` e WHERE e.competitor_id = cd.competitor_id) AS n_evts,
-                       (SELECT COUNT(*) FROM \`${PROJECT}.raw.competitor_offering_history\` o WHERE o.competitor_id = cd.competitor_id) AS n_offres
+                       DATE_DIFF(CURRENT_DATE(), DATE(cd.last_crawl_attempt_at), DAY) AS age_j
                 FROM \`${PROJECT}.raw.competitor_tracking\` ct
                 JOIN \`${PROJECT}.raw.competitor_directory\` cd USING (competitor_id)
                 WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL AND cd.deleted_at IS NULL`,
@@ -481,7 +470,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        -- Mémoire 30 j par suivi (23/08, point 2 « wow ») : nuits de lecture,
                        -- mouvements de prix du mart (fenêtre 30 j du modèle), prochain événement.
                        ANY_VALUE(nu.nuits_30j) nuits_30j,
-                       ANY_VALUE(oc.hausses) hausses, ANY_VALUE(oc.baisses) baisses, ANY_VALUE(oc.nouveautes) nouveautes,
+                       ANY_VALUE(oc.hausses) hausses, ANY_VALUE(oc.baisses) baisses,
                        ANY_VALUE(av.avis_30j) avis_30j,
                        ANY_VALUE(ev.prochain_nom) prochain_nom, CAST(ANY_VALUE(ev.prochain_date) AS STRING) prochain_date, ANY_VALUE(ev.n_a_venir) evts_a_venir
                 FROM \`${PROJECT}.raw.competitor_tracking\` ct
@@ -492,7 +481,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   FROM \`${PROJECT}.raw.competitor_offering_history\`
                   WHERE crawled_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY) GROUP BY 1) nu ON nu.competitor_id = ct.competitor_id
                 LEFT JOIN (
-                  SELECT competitor_id, COUNTIF(change_type = 'price_increase') hausses, COUNTIF(change_type = 'price_decrease') baisses, COUNTIF(change_type = 'new_offering') nouveautes
+                  SELECT competitor_id, COUNTIF(change_type = 'price_increase') hausses, COUNTIF(change_type = 'price_decrease') baisses
                   FROM \`${PROJECT}.mart.fct_competitor_offering_changes\` GROUP BY 1) oc ON oc.competitor_id = ct.competitor_id
                 LEFT JOIN (
                   -- Avis gagnés sur 30 j (23/08) : dernier relevé GBP − premier relevé de la fenêtre.
@@ -662,12 +651,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
         location_id: str(r.location_id),
         site_label: siteLabel[String(str(r.location_id))] || null,
         title: str(r.title),
-        type_label_fr: str(r.event_type) ? eventTypeLabelFr(String(str(r.event_type))) : null,
         occ_date: str(r.occ_date),
         occ_num: Number(num(r.n_past) ?? 0) + Number(num(r.occ_rank_upcoming) ?? 1),
         n_total: num(r.n_total),
         kpi: str(r.kpi), kpi_family: str(r.kpi_family), target,
-        duration_days: num(r.duration_days),
         owner: str(r.author_person_name),
         ready_com: Number(num(r.n_com) ?? 0) > 0,
         ready_snap: Number(num(r.n_snap) ?? 0) > 0,
@@ -837,7 +824,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
     const occasions = {
       next_hot: nextHot,
-      next_hot_site: nextHotSite,
       next_hot_site_label: nextHotSite ? siteLabel[nextHotSite] || null : null,
       heat_range: nextHotRange,
       played: occPlayed, total: occTotal, by_site: occBySite,
@@ -918,15 +904,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
           return {
             saved_item_id: str(r.saved_item_id), location_id: str(r.location_id),
             site_label: siteLabel[String(str(r.location_id))] || null,
-            title: str(r.title), send_offset: off, next_occ: nextOcc,
+            title: str(r.title), send_offset: off,
             next_send: t.toISOString().slice(0, 10),
             last_sent_on: str(r.last_sent_on), last_n_recipients: num(r.last_n),
           };
         }),
-        snapshots_recent: (snapRows as any[]).map((r) => str(r.d)),
-        next_autoarm: operations.filter((o) => !o.ready_com && o.occ_date)
-          .map((o) => ({ title: o.title, occ_date: o.occ_date }))[0] || null,
-        verdicts_scheduled: open.map((c) => c.we).filter((d) => d && String(d) >= todayYmd).sort(),
         competitor_alerts_7d: alerts,
       },
       // ═══ GLANCE (refonte 13/08) — mise en forme minimale ; le client assemble l'écran. ═══
@@ -936,12 +918,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         const parLieu: Record<string, any> = {}; const sansCle: any[] = [];
         for (const v of veilleRows as any[]) {
           const k = str(v.google_place_id);
-          const row = { location_id: str(v.location_id), nom: str(v.competitor_name), age_j: num(v.age_j), n_evts: Number(num(v.n_evts) ?? 0), n_offres: Number(num(v.n_offres) ?? 0), a_url: !!flat(v.source_url) };
+          const row = { location_id: str(v.location_id), nom: str(v.competitor_name), age_j: num(v.age_j), a_url: !!flat(v.source_url) };
           if (!k) { sansCle.push(row); continue; }
           if (!parLieu[k]) parLieu[k] = { ...row, fiches: 0 };
           parLieu[k].fiches++;
           if (row.age_j != null && (parLieu[k].age_j == null || row.age_j < parLieu[k].age_j)) { parLieu[k].age_j = row.age_j; parLieu[k].nom = row.nom; }
-          parLieu[k].n_evts += row.n_evts; parLieu[k].n_offres += row.n_offres;
         }
         return {
           tendance: (tendRows as any[]).map((r) => ({ commitment_id: str(r.commitment_id), metric: str(r.metric), jours: num(r.jours), ecart_pct: num(r.ecart_pct) })),
@@ -984,12 +965,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
             } catch { /* actu illisible → absente */ }
             return {
               location_id: str(r.location_id), cid: str(r.cid), site: siteLabel[String(str(r.location_id))] || null, nom: str(r.nom),
-              note: num(r.note), avis: num(r.avis), audience: str(r.audience), audience2: str(r.audience2), url: str(r.url),
+              note: num(r.note), avis: num(r.avis), audience: str(r.audience), audience2: str(r.audience2),
               p_min: num(r.p_min), p_max: num(r.p_max), n_tarifs: num(r.n_tarifs) ?? 0,
               overlap_pct: num(r.overlap_pct), km: num(r.km), analyse: ana, actu,
               // P3.1-f : suivi posé par le système à l'onboarding → la fiche le dit (« suivi proposé — ajustez »).
               proposed: r.proposed === true || (r.proposed && (r.proposed as any).value === true) || false,
-              nuits_30j: num(r.nuits_30j), hausses: num(r.hausses), baisses: num(r.baisses), nouveautes: num(r.nouveautes),
+              nuits_30j: num(r.nuits_30j), hausses: num(r.hausses), baisses: num(r.baisses),
               avis_30j: num(r.avis_30j),
               prochain_nom: str(r.prochain_nom), prochain_date: str(r.prochain_date), evts_a_venir: num(r.evts_a_venir),
             };
@@ -1026,7 +1007,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
             return {
               commitment_id: cid, location_id: str(r.location_id),
               metric: str(r.measured_metric) || "revenue_residual",
-              basis: str(r.threshold_basis), value: num(r.threshold_value), level: str(r.threshold_level),
+              basis: str(r.threshold_basis), value: num(r.threshold_value),
               days: num(r.window_days_expected), baseline: num(r.kpi_baseline) ?? num(r.exp_base),
               realized: num(r.realized), ws: str(r.ws), we: str(r.we),
               texte: str(r.committed_action_text),
@@ -1070,7 +1051,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
         team_routing_set: Number(num((setupRows as any[])[0]?.routed_n) ?? 0) > 0,
         margin_declared: corrections.includes("declared_margin_pct"),
         bilans_pending: bilans,
-        facts_active: corrections.length,
         to_document: toDocument,
         declared_no_replay: declaredNoReplay,
         replays_running: replaysRunning,

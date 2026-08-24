@@ -45,7 +45,7 @@ for (const p of [30, 90]) {
 }
 
 check("practice_counts présent", j365.practice_counts && typeof j365.practice_counts.proven === "number", JSON.stringify(j365.practice_counts));
-check("tier sur chaque pratique", (j365.practices || []).every((p) => ["prouvee", "rejeu", "declaree", "archivee"].includes(p.tier)),
+check("tier sur chaque pratique", (j365.practices || []).every((p) => ["prouvee", "en_test", "declaree", "ecartee", "archivee"].includes(p.tier)),
   (j365.practices || []).map((p) => p.tier).join(","));
 check("occasions cohérentes", j365.occasions && j365.occasions.total >= j365.occasions.played && j365.occasions.by_site.length >= 1,
   `joués ${j365.occasions?.played}/${j365.occasions?.total} · next_hot ${j365.occasions?.next_hot}`);
@@ -57,7 +57,7 @@ check("met_recipe présent", !!(j365.met_recipe && j365.met_recipe.text), (j365.
 const serie = (j365.operations || []).filter((o) => o.prev_occ);
 check("prev_occ sur la série", serie.length >= 1, serie.map((o) => o.title + ":" + (o.prev_occ?.verdict ?? "attente")).join(" · "));
 check("sales_depth 3 sites", (j365.sales_depth || []).length === 3, JSON.stringify((j365.sales_depth || []).map((x) => x.n_days)));
-check("verdicts_scheduled tous futurs", (j365.automated.verdicts_scheduled || []).every((d) => d >= today), JSON.stringify(j365.automated.verdicts_scheduled));
+// verdicts_scheduled retiré du payload (audit 24/08 : aucun consommateur) — le check devenait vacuellement vert.
 const firstNames = (j365.equipe || []).map((e) => String(e.who).trim().split(/[\s·]+/)[0].toLowerCase());
 check("équipe : prénoms uniques (fusion)", new Set(firstNames).size === firstNames.length, (j365.equipe || []).map((e) => e.who).join(" | "));
 // Rétro-compat e2e : les champs debloquer historiques existent toujours.

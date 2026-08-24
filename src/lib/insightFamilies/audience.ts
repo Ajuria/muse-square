@@ -22,12 +22,12 @@ const PROJECT = "muse-square-open-data";
 const num = (v: any): number | null => (v == null ? null : Number(v && typeof v === "object" && "value" in v ? v.value : v));
 const str = (v: any): string | null => { const s = v == null ? "" : String(v).trim(); return s || null; };
 // primary_audience_* arrive as English tokens (closed set) — render French. Unknown → passthrough.
-// NOTE: the endpoint's own register ("clientèle locale"), which differs from profileLabels.AUDIENCE_FR
+// Registre aligné sur l'arbitrage owner 24/08 : « résidents locaux » / « public mixte » partout.
 // ("résidents locaux"). Kept VERBATIM so the deep page is unchanged — reconciling the registers is an
 // owner copy decision, not a side effect of this extraction.
 const AUDIENCE_FR: Record<string, string> = {
-  local: "clientèle locale", tourists: "touristes", students: "étudiants",
-  professionals: "professionnels", mixed: "clientèle mixte",
+  local: "résidents locaux", tourists: "touristes", students: "étudiants",
+  professionals: "professionnels", mixed: "public mixte",
 };
 const frAudience = (v: string | null): string | null => (v ? (AUDIENCE_FR[v.toLowerCase()] || v) : null);
 

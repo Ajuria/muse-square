@@ -92,7 +92,7 @@
       products: { up: [{ category: 'Coffee', pct: 17 }, { category: 'Tea', pct: 55 }, { category: 'Bakery', pct: 51 }],
         down: [{ category: 'Loose Tea', pct: -43 }, { category: 'Packaged Chocolate', pct: -23 }] } };
 
-    var AUD = { ok: true, found: true, audience: { who: ['clientèle locale', 'professionnels'], catchment: null,
+    var AUD = { ok: true, found: true, audience: { who: ['résidents locaux', 'professionnels'], catchment: null,
       peak_hour: 18, avg_busyness_pct: 41, dwell_min: null, dwell_max: null,
       availability_label: "Certains résidents partent en vacances d'autres restent en ville" } };
 
@@ -140,7 +140,7 @@
     document.getElementById('competitor').innerHTML = MSCardKit.renderCompetitor(COMP_A);
     document.getElementById('competitor2').innerHTML = MSCardKit.renderCompetitor(COMP_B);
     var TOUR = { ok: true, found: true, region_name: 'Île-de-France', relevance: 'low',
-      lead: "Le tourisme afflue en Île-de-France (pleine saison), mais votre cœur de cible (clientèle locale, professionnels) n'est pas ce public — impact direct limité.",
+      lead: "Le tourisme afflue en Île-de-France (pleine saison), mais votre cœur de cible (résidents locaux, professionnels) n'est pas ce public — impact direct limité.",
       countries_intro: 'Qui visite la région, pour contexte :',
       countries: [
         { name: 'États-Unis', nights_k: 4611, yoy_pct: 12.2 },
@@ -152,7 +152,7 @@
       ],
       growing: [],
       decision_lines: [
-        { head: "N'y investissez pas par défaut", body: 'Ces visiteurs (loisir) ne correspondent pas à votre audience (clientèle locale, professionnels).' },
+        { head: "N'y investissez pas par défaut", body: 'Ces visiteurs (loisir) ne correspondent pas à votre audience (résidents locaux, professionnels).' },
         { head: 'Pour capter ce flux, une offre dédiée', body: "Il faudrait un format pensé pour eux (ex. événements en anglais pour États-Unis) — un choix stratégique, pas un réflexe. Sinon, restez concentré sur votre audience." }
       ] };
     document.getElementById('tourism').innerHTML = MSCardKit.renderTourism(TOUR);
