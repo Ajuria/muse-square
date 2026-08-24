@@ -31,6 +31,9 @@ export const MOTS_BANNIS: Record<string, string> = {
   // SECONDE série pour les MÊMES verdicts : trois concepts, six mots, sur deux pages que rien
   // ne reliait. Le garde-fou scanne déjà les deux fichiers — il ne connaissait pas ces mots.
   "cible tenue": "objectif atteint",
+  // 24/08 — le pluriel avait survécu au garde-fou (« 0/2 cibles tenues » sur tableau.astro) :
+  // une entrée par nombre, la recherche est une sous-chaîne à frontière de mot.
+  "cibles tenues": "objectifs atteints",
   "cible manquée": "objectif manqué",
   "verdict tenu": "objectif atteint",
   "non mesurable": "non concluant",

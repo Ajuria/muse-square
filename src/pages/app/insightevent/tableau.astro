@@ -413,7 +413,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (seuilsCase)
             lecture = "Les fenêtres rapportent (" + signEur(im.gap_eur) + " vs votre r\u00e9sultat habituel) mais aucune cible n’est tenue — vos seuils sont trop hauts d’un cran. À recalibrer au prochain engagement.";
           else if (im.gap_eur != null && im.gap_eur > 0 && im.targets_met > 0)
-            lecture = signEur(im.gap_eur) + " vs votre r\u00e9sultat habituel et " + im.targets_met + " cible" + (im.targets_met > 1 ? "s" : "") + " tenue" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — réutilisez ce qui tient (Mes dispositifs).";
+            lecture = signEur(im.gap_eur) + " vs votre r\u00e9sultat habituel et " + im.targets_met + " objectif" + (im.targets_met > 1 ? "s" : "") + " atteint" + (im.targets_met > 1 ? "s" : "") + " sur " + im.windows_judged + " — réutilisez ce qui tient (Mes dispositifs).";
           else if (im.gap_eur != null && im.gap_eur < 0)
             lecture = "Fenêtres sous votre résultat habituel (" + signEur(im.gap_eur) + ") — resserrez sur les dispositifs prouvés.";
           var lv = j.last_verdict || null;
@@ -450,7 +450,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               })()
             // 2 · IMPACT DISPOSITIFS — mesuré sur la plage (m\u00eame unit\u00e9 de temps que le CA).
             + '<div class="tb-tile"><p class="tb-eb">Impact dispositifs <span class="u" style="cursor:help;" title="' + period + ' derniers jours \u2014 suit le s\u00e9lecteur de plage">\u24d8</span></p><div class="n" style="color:' + (im.gap_eur == null ? "#111827" : im.gap_eur >= 0 ? GREEN : AMBER) + ';" title="' + esc(eurTip) + '">' + (im.gap_eur == null ? "\u2014 \u20ac" : signEur(im.gap_eur)) + '</div>'
-              + '<div class="s">vs votre r\u00e9sultat habituel \u00b7 ' + im.targets_met + '/' + im.windows_judged + ' cibles tenues' + (im.next_judgment === TODAY ? " \u00b7 verdict auj." : im.next_judgment ? " \u00b7 prochaine " + frD(im.next_judgment) : "") + '</div></div>'
+              + '<div class="s">vs votre r\u00e9sultat habituel \u00b7 ' + im.targets_met + '/' + im.windows_judged + ' objectifs atteints' + (im.next_judgment === TODAY ? " \u00b7 verdict auj." : im.next_judgment ? " \u00b7 prochaine " + frD(im.next_judgment) : "") + '</div></div>'
             // 3 · SIGNAUX TRAITÉS — % de l'enjeu identifi\u00e9 couvert par un dispositif actif.
             + (function () {
                 var ls = j.learnings || [];
@@ -636,7 +636,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 var jug = m.occ.filter(function (o) { return o.verdict === "met" || o.verdict === "missed"; }).length;
                 var ten = m.occ.filter(function (o) { return o.verdict === "met"; }).length;
                 var nxt = m.occ.filter(function (o) { return o.status === "open" || o.status === "pending"; })[0];
-                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(jug + "/" + m.occ.length + " jug\u00e9es \u00b7 " + ten + " tenue" + (ten > 1 ? "s" : ""), "#F3F4F6", "#6b7280") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
+                inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(jug + "/" + m.occ.length + " jug\u00e9es \u00b7 " + ten + " objectif" + (ten > 1 ? "s" : "") + " atteint" + (ten > 1 ? "s" : ""), "#F3F4F6", "#6b7280") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
                   + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">' + opFrise(m.occ)
                   + '<div style="flex:1;min-width:180px;font-size:11.5px;color:#6B7280;line-height:1.55;">Chaque occurrence est jug\u00e9e seule \u2014 la s\u00e9rie cumule les verdicts.' + (nxt ? " Prochaine : " + dowFull(nxt.d) + " " + frD(nxt.d) + " (dispositif actif)." : "") + '</div></div>'
                   + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">\u2717 manqu\u00e9e \u00b7 \u2713 tenue \u00b7 \u25cf grise = mesur\u00e9e, verdict en attente \u00b7 \u25cc dispositif actif \u2014 mesure au jour J \u00b7 petits points = planifi\u00e9es</span>'
@@ -1073,7 +1073,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             html += '<div style="display:flex;gap:10px;align-items:center;padding:4px 0;flex-wrap:wrap;">'
               + '<span style="width:26px;height:26px;border-radius:50%;background:#EEF2FF;color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:none;">' + esc(initials(p.who)) + '</span>'
               + '<span style="flex:1;min-width:180px;"><span style="font-weight:600;">' + esc(String(p.who).split("·")[0].trim()) + '</span>' + (String(p.who).indexOf("·") > 0 ? " ·" + esc(String(p.who).split("·").slice(1).join("·")) : "") + " — " + opsTxt + '</span>'
-              + (p.judged ? '<span style="font-size:11px;color:#9CA3AF;flex:none;" title="Cibles tenues / fen\u00eatres jug\u00e9es sur la p\u00e9riode">tenue ' + p.kept + "/" + p.judged + '</span>' : "")
+              + (p.judged ? '<span style="font-size:11px;color:#9CA3AF;flex:none;" title="Objectifs atteints / fen\u00eatres jug\u00e9es sur la p\u00e9riode">atteints ' + p.kept + "/" + p.judged + '</span>' : "")
               + (p.gap_eur != null ? '<span style="font-size:11px;font-weight:600;color:' + (p.gap_eur >= 0 ? "#059669" : "#B45309") + ';flex:none;">' + signEur(p.gap_eur) + "</span>" : "")
               + '</div>';
           });
