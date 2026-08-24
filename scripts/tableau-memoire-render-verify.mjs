@@ -22,7 +22,9 @@ check("5 fiches Muse Square (competitor_tracking)", fiches.length === 5, fiches.
 check("chaque fiche porte nuits_30j = 31", fiches.every((f) => f.nuits_30j === 31), fiches.map((f) => f.nuits_30j).join(","));
 const guimet = fiches.find((f) => /Guimet/.test(f.nom));
 check("Guimet : prochain événement nommé, 24 à venir", guimet && guimet.prochain_nom && guimet.evts_a_venir === 24, JSON.stringify({ n: guimet && guimet.prochain_nom, d: guimet && guimet.prochain_date, a: guimet && guimet.evts_a_venir }));
-check("Orangerie : aucun événement → prochain_nom null (absence dite, pas inventée)", (fiches.find((f) => /Orangerie/.test(f.nom)) || {}).prochain_nom == null);
+// Invariant DATA-INDÉPENDANT (l'ancienne version codait en dur « Orangerie sans événement »
+// et a cassé quand la donnée réelle a bougé, 24/08) : prochain nommé ⟺ au moins un à venir.
+check("prochain_nom ⟺ evts_a_venir ≥ 1 (absence dite, jamais inventée)", fiches.every((f) => (f.prochain_nom != null) === (Number(f.evts_a_venir) > 0)), JSON.stringify(fiches.map((f) => ({ nom: f.nom.slice(0, 18), p: f.prochain_nom != null, a: f.evts_a_venir }))));
 
 const astro = readFileSync(new URL("../src/pages/app/insightevent/tableau.astro", import.meta.url), "utf8");
 const m = astro.match(/<script is:inline>\n([\s\S]*?)\n {4}<\/script>/);

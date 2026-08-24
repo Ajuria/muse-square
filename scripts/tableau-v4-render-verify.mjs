@@ -58,7 +58,7 @@ const eurTxt = (n) => (n >= 0 ? "+" : "−") + Math.abs(Math.round(n)).toLocaleS
 
 check("rendu sans « Chargement »", txt().indexOf("Chargement") < 0);
 check("impact 30 j dérivé affiché", gapFor(30) == null ? txt().indexOf("— €") >= 0 : txt().indexOf(eurTxt(gapFor(30))) >= 0, eurTxt(gapFor(30) ?? 0));
-check("cibles tenues (tuile impact)", txt().indexOf("cibles tenues") >= 0);
+check("objectifs atteints (tuile impact)", txt().indexOf("objectifs atteints") >= 0);
 
 // ── Héros : 4 tuiles (refonte 13/08). ──
 const g = payload.glance || {};
@@ -130,7 +130,7 @@ check("« à récupérer » SEULEMENT avec un € (registre)", !oc.next_hot ? tr
 // ── Savoir-faire : apprentissages + dispositifs fusionnés. ──
 body.querySelector('[data-tb-rb="sf"]').click(); await tick();
 check("apprentissages (voix maison € d'abord)", payload.learnings.length ? txt().indexOf("Ce que l’app a appris") >= 0 && (txt().indexOf("perdus les ") >= 0 || txt().indexOf("gagnés les ") >= 0) : true);
-check("état par ligne (M'engager / joué / en test / à défendre)", payload.learnings.length ? (txt().indexOf("M’engager") >= 0 || txt().indexOf("joué — dispositif") >= 0 || txt().indexOf("en test — verdict") >= 0 || txt().indexOf("à défendre") >= 0) : true);
+check("état par ligne (M'engager / joué / en test / à défendre)", payload.learnings.length ? (txt().indexOf("M’engager") >= 0 || txt().indexOf("couvert — dispositif en place") >= 0 || txt().indexOf("en test — verdict") >= 0 || txt().indexOf("à défendre") >= 0) : true);
 check("dispositifs dans le même volet", txt().indexOf("Mes dispositifs") >= 0 && txt().indexOf("prouvé") >= 0);
 check("provenance (types de jours chiffrés)", payload.learnings.length ? txt().indexOf("types de jours chiffrés") >= 0 : true);
 

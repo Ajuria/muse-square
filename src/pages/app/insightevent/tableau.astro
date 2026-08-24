@@ -1,14 +1,15 @@
 ---
-// « /tableau » — le Tableau de bord (refonte « couche 1 lisible en 5 s » validée par maquette
-// public/tableau-proto.html, 09-10/08). Règles de forme : couche 1 = CHIFFRES, points d'état et
-// chips (aucune ligne > 6 mots, UNE seule phrase visible : la ligne d'action) ; la prose
-// (Lecture, dernier verdict, méthodes) s'ouvre AU CLIC ; rangées « Cette semaine » sur UNE ligne
-// en colonnes [date · ● · titre · chips · cible · avatar · ›] ; volets à titres en chips d'état.
-// + les deux cartes moat : « Occasions » (signaux joués/manqués, € mesurés, une action par ligne)
-// et « Ce que l'app a appris de vos sites » (les apprentissages eux-mêmes, voix maison € d'abord).
-// Le fetch est UNIQUE (period=365) : les périodes 30/90 se DÉRIVENT côté client (impact_rows +
-// judged_meta) — bascule instantanée, volets préservés (dérivation prouvée = serveur, 09/08).
-// GARDE-FOU inchangé : aucune métrique brute sans son verdict. Multi-sites par défaut.
+// « /tableau » — le Tableau de bord. État courant (18/08, héros v10 + grilles proto 17/08) :
+// héros = 5 tuiles-cartes (CA multi-site · Impact dispositifs · Signaux traités · Opérations
+// en cours · Dispositifs prouvés) ; « À faire » = table à colonnes fixes (le seul bloc ouvert,
+// verbe d'abord, trié par valeur) ; « Opérations en cours » = grille de cartes (jauge / mini-
+// courbe / frise de série) ; volets = grille de cartes-résumé (couleur = signal, fermé =
+// réponse) en deux familles — Compétitivité / Processus métiers — dont chaque carte ouvre SON
+// corps dans le panneau partagé sous la grille (une carte peut partager le corps d'une autre :
+// clés id/body distinctes). Le fetch est UNIQUE (period=365) : les périodes 30/90 se DÉRIVENT
+// côté client (impact_rows + judged_meta) — bascule instantanée, volets préservés (dérivation
+// prouvée = serveur, 09/08). GARDE-FOU : aucune métrique brute sans son verdict. Multi-sites
+// par défaut. Refonte à venir : docs/piloter-redesign-spec.md (arbitrages owner 24/08).
 export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
@@ -39,10 +40,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
       .tb-eb { font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(17,24,39,0.45); font-weight: 500; margin: 0; }
       .tb-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
       .tb-link { color: #1D3BB3; font-weight: 600; text-decoration: none; font-size: 12.5px; }
-      /* Rangée UNE LIGNE en colonnes — on balaie, on ne lit pas ; toute la rangée est cliquable. */
-      .tb-rarr { color: #9CA3AF; font-size: 15px; font-weight: 600; text-align: right; }
-      .tb-chevron { display: inline-block; transition: transform 0.15s; color: #9CA3AF; font-size: 11px; }
-      .tb-volet[aria-expanded="true"] .tb-chevron { transform: rotate(180deg); }
       /* Rangée « occasion / apprentissage » : € d'abord, mini-phrase, action. */
       .tb-occrow { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 0 10px; align-items: center; padding: 6px 0; font-size: 13px; }
       .tb-fold { display: none; margin-top: 8px; padding: 10px 12px; background: #F8FAFC; border-radius: 8px; font-size: 12px; line-height: 1.6; color: #374151; }
@@ -80,13 +77,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
       .tb-af .v { font-size: 13px; font-weight: 600; text-align: right; white-space: nowrap; }
       .tb-af .a { text-align: right; }
       .tb-btnp { display: inline-block; font-size: 12.5px; font-weight: 600; color: #fff; background: #1D3BB3; border-radius: 8px; padding: 7px 14px; text-decoration: none; white-space: nowrap; }
-      .tb-rv { display: grid; grid-template-columns: 20px 190px minmax(0,1fr) 20px; gap: 0 10px; align-items: center; min-height: 48px; padding: 0 18px; border-top: 1px solid #F3F4F6; cursor: pointer; background: none; width: 100%; border-left: none; border-right: none; border-bottom: none; font-family: inherit; font-size: 13px; text-align: left; color: #111827; }
-      .tb-rv:first-child { border-top: none; }
-      .tb-rv:hover { background: #FAFBFC; }
-      .tb-rv .l { font-size: 15px; font-weight: 600; }
-      .tb-rv .r { font-size: 13px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .tb-rv .c { color: #9CA3AF; font-size: 11px; transition: transform 0.15s; }
-      .tb-rv[aria-expanded="true"] .c { transform: rotate(180deg); }
       .tb-rbody { padding: 4px 18px 14px 48px; border-top: 1px dashed #F3F4F6; font-size: 12.5px; color: #374151; line-height: 1.7; }
     </style>
 
@@ -101,6 +91,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
         var period = 30;
         var J = null;              // payload UNIQUE (period=365) — les périodes se dérivent ici.
         var openVolets = {};       // préservés à la bascule de période (plus de re-fetch).
+        var _tbLearnings = [], _tbPractices = [];   // locales (ex-window.* — aucun consommateur externe, audit 24/08)
 
         function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
         function frInt(n) { return Math.abs(Math.round(Number(n) || 0)).toLocaleString("fr-FR"); }
@@ -166,7 +157,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             confounded: rows.length - kept.length,
             windows_judged: judged.length,
             targets_met: judged.filter(function (m) { return /met|tenu|beat/i.test(String(m.verdict)); }).length,
-            practices_proven: (J.practice_counts || {}).proven || 0,
             next_judgment: (J.impact || {}).next_judgment || null,
           };
         }
@@ -181,7 +171,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               kind: "bilan",
               aline: "→ Faire le bilan de « " + b.title + " » (2 min)" + (late ? " — il attend depuis " + late + " jour" + (late > 1 ? "s" : "") : ""),
               sub: "3 questions · calibre météo, accès et fréquentation",
-              goal_fr: i === 0 ? "Affiner vos prévisions météo/accès" : null,
               link_fr: "Bilan " + b.title,
               href: "/app/insightevent/evenement?location_id=" + encodeURIComponent(b.location_id || "") + "&saved_item_id=" + encodeURIComponent(b.saved_item_id || "") + "&mode=bilan",
             });
@@ -192,7 +181,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + (j.multi_site && db.sales_stale.site_label ? " (" + db.sales_stale.site_label + ")" : "")
               + " · " + db.sales_stale.stale_days + " jours sans données",
             sub: "sans ventes fraîches, ni cartes du jour ni verdicts mesurés",
-            goal_fr: "Réveiller vos cartes du jour", link_fr: "Importer vos ventes récentes",
+            link_fr: "Importer vos ventes récentes",
             href: "/app/insightevent/prompt",
           });
           (db.sales_missing || []).slice(0, 1).forEach(function (m) {
@@ -200,7 +189,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               kind: "ventes",
               aline: "→ Importer les ventes" + (m.site_label ? " de " + m.site_label : "") + " — aucune donnée : le site est aveugle",
               sub: "un export CSV de votre caisse suffit, dans Explorer",
-              goal_fr: "Mesurer ce site", link_fr: "Importer les premières ventes",
+            link_fr: "Importer les premières ventes",
               href: "/app/insightevent/prompt",
             });
           });
@@ -208,14 +197,14 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             kind: "premier_test",
             aline: "→ Engagez votre premier test mesuré — verdict automatique à la fin de la fenêtre",
             sub: "une action, une fenêtre à venir — la mesure et le verdict se font seuls" + (j.multi_site && db.first_test.site_label ? " · " + db.first_test.site_label : ""),
-            goal_fr: "Obtenir votre premier verdict mesuré", link_fr: "Engager votre premier test",
+            link_fr: "Engager votre premier test",
             href: "#tb-first-test",
           });
           if (db.to_document) goals.push({
             kind: "documenter",
             aline: "→ Documenter votre objectif atteint — il devient un dispositif déclaré",
             sub: "depuis la carte de l’action, dans Agir",
-            goal_fr: "Documentez vos résultats", link_fr: "Documenter l'objectif atteint",
+            link_fr: "Documenter l'objectif atteint",
             href: "/app/insightevent/pulse",
           });
           if (db.declared_no_replay) {
@@ -224,7 +213,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               kind: "prouver",
               aline: "→ Prouver un dispositif de plus — une exécution mesurée suffit",
               sub: "si la cible tient, déclaré devient prouvé",
-              goal_fr: "Prouver un dispositif de plus",
               link_fr: "Prouver",
               href: "#tb-sf", open_volet: "sf", goto: firstDeclared ? firstDeclared.practice_id : null,
             });
@@ -233,28 +221,28 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             kind: "equipe",
             aline: "→ Ajouter votre équipe — vos engagements pourront être assignés et notifiés",
             sub: "Compte → Communication · 2 min",
-            goal_fr: "Faire vivre l’Équipe", link_fr: "Ajouter vos destinataires",
+            link_fr: "Ajouter vos destinataires",
             href: "/profile?tab=comm",
           });
           if (db.channels_missing) goals.push({
             kind: "canaux",
             aline: "→ Brancher un canal (email ou Slack) — vos alertes et notifications partiront",
             sub: "Compte → Communication · 2 min",
-            goal_fr: "Recevoir alertes et notifications", link_fr: "Brancher un canal",
+            link_fr: "Brancher un canal",
             href: "/profile?tab=comm",
           });
           if (db.alerts_prefs_missing) goals.push({
             kind: "alertes",
             aline: "→ Choisir ce qui mérite un email — alertes critiques, point du jour, digest",
             sub: "vos préférences d’alertes n’ont jamais été posées",
-            goal_fr: "Choisir ce qui mérite un email", link_fr: "Régler vos alertes",
+            link_fr: "Régler vos alertes",
             href: "/notifications",
           });
           if (!db.margin_declared) goals.push({
             kind: "marge",
             aline: "→ Déclarer votre marge — débloque le KPI profit",
             sub: "un chiffre, ici même — rien d’autre",
-            goal_fr: "Débloquer le KPI profit", link_fr: "Déclarer",
+            link_fr: "Déclarer",
             inline: "marge",
           });
           return goals;
@@ -352,7 +340,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           week.forEach(function (o) {
             var sig = [];
             if (o.competitor_flag) sig.push("concurrent à proximité le jour même");
-            if (Number(o.weather_lvl) >= 3) sig.push(aleaFor({ lvl_heat: o.weather_lvl }) || "aléa météo annoncé");
+            if (Number(o.weather_lvl) >= 3) sig.push(aleaFor({ lvl_heat: o.weather_lvl }) || "alerte météo");
             aFaire.push({ rang: 3, iso: o.occ_date, col: o.ready_com && o.ready_snap ? GREEN : GREY,
               cle: [daysTo(o.occ_date), 0, 0],
               titre: "Préparez " + dowFr(o.occ_date) + " " + frD(o.occ_date) + " — " + trunc(o.title, 42),
@@ -422,23 +410,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var vVus = vLieux.filter(function (v) { return v.age_j != null && v.age_j <= 1; }).length;
           var covSites = g.par_site || [];
           var covTrou = covSites.some(function (c) { return Number(c.n_suivis) < Number(c.n_total); });
-          var veilleOk = vLieux.length > 0 && vVus === vLieux.length && !((g.veille || {}).sans_cle || []).length;
-          var covSub = covSites.map(function (c) { return esc(c.site_label || "") + " " + c.n_suivis + "/" + c.n_total; }).join(" · ") || "menaces fortes suivies";
-          // Tuile 3 — PROCHAINE OCCASION (prospectif ; le compteur rétrospectif joué/manqué
-          // vit dans À surveiller). € SEULEMENT si le registre l'a mesuré (gated, inchangé).
-          var rgT = oc.heat_range || null;
-          var occN, occSub;
-          if (oc.next_hot && rgT) {
-            occN = '<span style="font-size:21px;padding-top:4px;white-space:nowrap;display:inline-block;" title="médiane mesurée sur vos jours de chaleur passés — jamais extrapolé">jusqu’à ' + frInt(Math.abs(Math.min(rgT.mn, rgT.mx))) + ' €/j</span>';
-            occSub = "à récupérer — jour chaud " + (oc.next_hot === TODAY ? "aujourd’hui" : dowFull(oc.next_hot) + " " + frD(oc.next_hot));
-          } else if (oc.next_hot) {
-            occN = '<span style="font-size:21px;padding-top:4px;white-space:nowrap;display:inline-block;">' + (oc.next_hot === TODAY ? "aujourd’hui" : dowFull(oc.next_hot) + " " + frD(oc.next_hot)) + '</span>';
-            occSub = "jour chaud annoncé — impact pas encore chiffré";
-          } else { occN = "—"; occSub = "aucun jour d’environnement annoncé"; }
-          // Tuile 4 — VEILLE = les TROUVAILLES (changements d'offre) ; l'absence est une
-          // information. Le technique n'est que la COULEUR de pastille (ambre = veille cassée).
-          var nTrouvailles = (g.offres || []).length;
-          var veilleCassee = vLieux.length > 0 && vVus < vLieux.length;
           html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 8px;flex-wrap:wrap;"><p class="tb-eb" style="cursor:help;" title="Somme des écarts mesurés des fenêtres engagées jugées — jamais extrapolé.">Impact mesuré de vos opérations</p><span style="display:inline-flex;align-items:baseline;gap:8px;">' + periodSel + '<span style="font-size:10.5px;color:#9CA3AF;">filtre l’Impact seul</span></span></div>'
             + '<div class="tb-hero">'
             // 1 · CA MULTI-SITE 30 JOURS — le montant signé, sa couleur suit le signe du delta vs r\u00e9sultat habituel.
@@ -547,7 +518,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           //    fenêtre multi-jours (Jour k/n + mini-courbe) / série (frise d'occurrences).
           //    Tricolore POSITION partout ; CTA = Ajuster → (engagement) ou Dossier → (série).
           var mesures = (g.mesures || []);
-          var KPI_MINI_FR = { revenue_residual: "chiffre d\u2019affaires/j vs votre r\u00e9sultat habituel", conversion: "taux de conversion", transactions: "ventes/jour", footfall: "nombre de visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/jour" };
+          var KPI_MINI_FR = { revenue_residual: "chiffre d\u2019affaires/j", conversion: "taux de conversion", transactions: "ventes/jour", footfall: "nombre de visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/j" };
           function opFmt(v, metric) {
             if (v == null) return "\u2014";
             if (metric === "conversion") return (v * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %";
@@ -609,7 +580,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             g4 += '<line x1="10" y1="18" x2="318" y2="18" stroke="#E5E7EB" stroke-width="2"/>';
             occ.forEach(function (o, i2) {
               var x = X(i2);
-              if (o.verdict === "missed") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="#b91c1c"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">\u2717</text>';
+              if (o.verdict === "missed") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="#B45309"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">\u2717</text>';
               else if (o.verdict === "met") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="#059669"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">\u2713</text>';
               else if (o.status === "open" || o.status === "pending") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-dasharray="2,2.5"/>';
               // Deux états distincts (défaut de vérité 24/08) : status présent = un engagement a
@@ -631,7 +602,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             html += '<p class="tb-eb" id="tb-ops-sec" style="margin:2px 0 8px;">Opérations en cours</p><div class="tb-opsgrid">';
             mesures.forEach(function (m) {
               var goal = opGoal(m);
-              var kpiLbl = m.metric === "family_revenue" && m.famille ? "CA famille \u00ab " + esc(m.famille) + " \u00bb" : (KPI_MINI_FR[m.metric] || m.metric);
+              var kpiLbl = m.metric === "family_revenue" && m.famille ? "CA famille \u00ab " + esc(m.famille) + " \u00bb" : m.metric === "revenue_residual" ? KPI_MINI_FR.revenue_residual + " vs votre r\u00e9sultat habituel" : (KPI_MINI_FR[m.metric] || m.metric);
               var siteChp = m.site && J.multi_site ? opChip(esc(m.site), "#F3F4F6", "#6b7280") : "";
               var inner = "", wide = false, cta;
               if (m.kind === "serie") {
@@ -696,8 +667,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           // Grille-résumé (proto validé 17/08) : voletHead ENREGISTRE la carte, la grille
           // s'émet après les corps — chaque carte déplie SON volet dans le panneau partagé.
           var voletMeta = [];
-          var voletHead = function (id, dot, label, resume, groupe, cache) {
-            voletMeta.push({ id: id, dot: dot, label: label, resume: resume, groupe: groupe || "proc", cache: !!cache });
+          var voletHead = function (id, dot, label, resume, groupe, bodyId) {
+            // La CARTE (id) et le CORPS (body) sont deux clés : deux cartes peuvent ouvrir le
+            // même corps sans que l'en-tête du panneau mente (bug « co », audit 24/08).
+            voletMeta.push({ id: id, dot: dot, label: label, resume: resume, groupe: groupe || "proc", body: bodyId || id });
             return "";
           };
           var rbCard = function (v) {
@@ -866,7 +839,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
 
           // ── Volet À SURVEILLER — cartes système 7 j (libellé maison) + occasions chaleur. ──
           var TYPE_FR = {
-            weather_hazard_onset: ["Aléa météo annoncé", AMBER], competition_pressure_spike: ["Pic de concurrence", AMBER],
+            weather_hazard_onset: ["Alerte météo", AMBER], competition_pressure_spike: ["Pic de concurrence", AMBER],
             weekend_opportunity: ["Week-end favorable", GREEN], weekend_vacation_low_comp: ["Week-end de vacances, concurrence faible", GREEN],
             low_competition_window: ["Faible concurrence détectée", GREEN], audience_shift_opportunity: ["Bascule de clientèle à saisir", GREEN],
             foreign_tourism_signal: ["Afflux de visiteurs étrangers", GREEN], calendar_audience_shift: ["Calendrier favorable", GREEN],
@@ -933,7 +906,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + (pc.declared ? " · " + pc.declared + " déclaré" + (pc.declared > 1 ? "s" : "") : "")
             + ((j.learned_classes || 0) ? " · " + j.learned_classes + " types de jours chiffrés" : "");
           var capHtml = "";
-          window._tbLearnings = j.learnings || [];
+          _tbLearnings = j.learnings || [];
           (j.learnings || []).forEach(function (r, li) {
             var gain = Number(r.avg_gap_eur) > 0;
             var tip = "Médiane mesurée vs votre CA habituel sur " + r.n_days + " " + r.label_fr + (r.span_months ? " (" + r.span_months + " mois d’historique)" : "")
@@ -978,7 +951,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           }
 
           var listPractices = (j.practices || []).filter(function (p) { return p.tier !== "archivee"; });
-          window._tbPractices = listPractices;
+          _tbPractices = listPractices;
           var _nEcarte = listPractices.filter(function (px) { return px.tier === "ecartee"; }).length;
           var _nEnTest = (pc.en_test || 0) + (pc.declared || 0) - _nEcarte;
           var diChips = '<span class="tb-chip" style="background:' + (pc.proven ? "#E6F6F0" : "#F3F4F6") + ';color:' + (pc.proven ? "#059669" : "#6b7280") + ';">' + pc.proven + " prouvé" + (pc.proven > 1 ? "s" : "") + '</span>'
@@ -994,21 +967,14 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           })();
           var _testByPr = {};
           (g.tests || []).forEach(function (tx) { _testByPr[tx.practice_id] = tx; });
-          var _kpiFmtDsp = function (v2, m2) {
-            if (v2 == null) return "\u2014";
-            if (m2 === "conversion") return (v2 * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %";
-            if (m2 === "transactions" || m2 === "footfall") return Math.round(v2).toLocaleString("fr-FR");
-            return frInt(v2) + " \u20ac";
-          };
-          var _KPI_DSP = { transactions: "ventes/jour", conversion: "taux de conversion", revenue_residual: "chiffre d\u2019affaires/j", family_revenue: "CA famille/j", basket: "panier moyen", footfall: "nombre de visiteurs/jour" };
           var _factDsp = function (p2) {
             var tx = _testByPr[p2.practice_id];
             if (!tx) return "Jamais testé — une exécution mesurée suffit.";
             if (tx.realized == null && tx.test_status === "open") return "Test lancé — verdict après le " + frD(tx.we) + ".";
             if (tx.realized == null) return "Dernier test non concluant (ventes absentes sur ces dates).";
             var goal2 = tx.basis === "pct" && tx.value != null && tx.baseline != null ? tx.baseline * (1 + tx.value / 100) : null;
-            return "Testé du " + frD(tx.ws) + " au " + frD(tx.we) + " — " + (_KPI_DSP[tx.metric] || tx.metric) + " " + _kpiFmtDsp(tx.realized, tx.metric)
-              + (goal2 != null ? " vs cible " + _kpiFmtDsp(goal2, tx.metric) : "")
+            return "Testé du " + frD(tx.ws) + " au " + frD(tx.we) + " — " + (KPI_MINI_FR[tx.metric] || tx.metric) + " " + opFmt(tx.realized, tx.metric)
+              + (goal2 != null ? " vs cible " + opFmt(goal2, tx.metric) : "")
               + " : " + (tx.verdict === "met" ? "objectif atteint" : tx.verdict === "missed" ? "objectif manqué" : "non concluant (facteur externe)");
           };
           if (!listPractices.length) html += '<div style="color:#9CA3AF;">Aucun — chaque objectif atteint peut en créer un (« Documenter »).</div>';
@@ -1051,8 +1017,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
 
           html += '</div>';
 
-          // Équipe — chips : en cours, porteur, objectifs atteints (période affichée), € du porteur.
-          var cut2 = shiftDate(TODAY, -period);
+          // Équipe — chips : en cours, porteur, objectifs atteints, € du porteur.
           var eq = (j.equipe || []).map(function (p) { return p; });
           var eqLead = eq.slice().sort(function (a, b) { return (b.open || []).length - (a.open || []).length; })[0];
           var eqOpenN = eq.reduce(function (a, p) { return a + (p.open || []).length; }, 0);
@@ -1139,14 +1104,14 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           html += voletHead("co", covTrou || nDefaut ? AMBER : GREEN, "Mon positionnement", covResume, "comp")
             + '<div data-tb-body="co" class="tb-rbody" style="display:none;">';
           // Porte VEILLE (héros v10 — la tuile déménage en carte, même volet que Mon positionnement).
-          voletHead("co", ((g.veille || {}).lieux || []).length && (typeof vVus !== "undefined") && vVus < (g.veille.lieux || []).length ? AMBER : GREEN, "Veille",
-            ((g.offres || []).length ? (g.offres || []).length + " trouvailles cette nuit" : "Rien n\u2019a boug\u00e9 \u00b7 vos suivis lus cette nuit"), "comp");
+          voletHead("veille", ((g.veille || {}).lieux || []).length && (typeof vVus !== "undefined") && vVus < (g.veille.lieux || []).length ? AMBER : GREEN, "Veille",
+            ((g.offres || []).length ? (g.offres || []).length + " trouvailles cette nuit" : "Rien n\u2019a boug\u00e9 \u00b7 vos suivis lus cette nuit"), "comp", "co");
           // ── v2 (proto validé 17/08) : la réponse d'abord, puis LES FICHES nommées par suivi. ──
           (function () {
             var fiches = (g.fiches || []).slice().sort(function (a2, b2) { return (b2.note || 0) - (a2.note || 0); });
             var nChg = (g.offres || []).length;
             var nTarifsB = ((g.offres_base || {}).n_tarifs) || 0;
-            var AUD_FR = { tourists: "touristes", families: "familles", professionals: "professionnels", local: "clientèle locale", mixed: "clientèle mixte", students: "étudiants", seniors: "seniors" };
+            var AUD_FR = { tourists: "touristes", families: "familles", professionals: "professionnels", local: "résidents locaux", mixed: "public mixte", students: "étudiants", seniors: "seniors" };
             html += '<div style="font-size:13px;line-height:1.6;padding:10px 0 4px;">'
               + (nChg ? '<span style="font-weight:650;">' + nChg + ' changement' + (nChg > 1 ? 's' : '') + ' détecté' + (nChg > 1 ? 's' : '') + '</span> chez vos suivis — le détail plus bas.'
                       : '<span style="font-weight:650;">Prix stables chez vos ' + vLieux.length + ' suivis</span> — ' + nTarifsB + ' tarifs comparés, rien à la lecture de cette nuit.')
@@ -1348,8 +1313,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + '</div>'
             + '</div>';
           // Deux familles (owner 17/08) : Compétitivité (dehors) / Processus métiers (la machine).
-          var _vComp = voletMeta.filter(function (v) { return v.groupe === "comp" && !v.cache; });
-          var _vProc = voletMeta.filter(function (v) { return v.groupe === "proc" && !v.cache; });
+          var _vComp = voletMeta.filter(function (v) { return v.groupe === "comp"; });
+          var _vProc = voletMeta.filter(function (v) { return v.groupe === "proc"; });
           html += '<p class="tb-eb" style="margin:14px 2px 8px;">Compétitivité</p>'
             + '<div class="tb-rbgrid" style="grid-template-columns:repeat(2,1fr);">' + _vComp.map(rbCard).join('') + '</div>'
             + '<p class="tb-eb" style="margin:14px 2px 8px;">Processus métiers</p>'
@@ -1361,13 +1326,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           // ── Écouteurs ──
           function openVolet(k, scroll) {
             var panel = document.getElementById("tb-rpanel");
-            var v = body.querySelector('[data-tb-body="' + k + '"]');
+            var meta = null; voletMeta.forEach(function (vm) { if (vm.id === k) meta = vm; });
+            var v = body.querySelector('[data-tb-body="' + (meta ? meta.body : k) + '"]');
             if (!panel || !v) return;
             // Un seul volet ouvert : les autres corps retournent cachés (ils restent câblés —
             // le DÉPLACEMENT d'un nœud préserve ses écouteurs).
             panel.querySelectorAll("[data-tb-body]").forEach(function (o) { o.style.display = "none"; });
             Object.keys(openVolets).forEach(function (kk) { if (kk !== k) openVolets[kk] = false; });
-            var meta = null; voletMeta.forEach(function (vm) { if (vm.id === k) meta = vm; });
             var head = panel.querySelector("[data-tb-rphead]");
             if (!head) {
               panel.innerHTML = '<div data-tb-rphead style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span data-tb-rpdot style="width:8px;height:8px;border-radius:50%;display:inline-block;"></span><span data-tb-rplabel style="font-weight:650;font-size:13px;"></span><span style="flex:1;"></span><button type="button" data-tb-rpclose style="background:none;border:none;color:#9CA3AF;font-size:12px;cursor:pointer;font-family:inherit;">fermer ▴</button></div>';
@@ -1395,16 +1360,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             t.style.cursor = "pointer";
             t.addEventListener("click", function () {
               var k = t.getAttribute("data-tb-tile");
-              if (k === "af") { var afc = document.getElementById("tb-af-card"); if (afc) afc.scrollIntoView({ behavior: "smooth", block: "start" }); }
-              else if (k === "ops") { var opc = document.getElementById("tb-ops-sec"); if (opc) opc.scrollIntoView({ behavior: "smooth", block: "start" }); }
+              if (k === "ops") { var opc = document.getElementById("tb-ops-sec"); if (opc) opc.scrollIntoView({ behavior: "smooth", block: "start" }); }
               else openVolet(k, true);
             });
           });
           body.querySelectorAll("[data-tb-period]").forEach(function (b) {
             b.addEventListener("click", function () { period = Number(b.getAttribute("data-tb-period")); render(); });
           });
-          var mg = document.getElementById("tb-mg");
-          if (mg) mg.addEventListener("click", function () { var l = document.getElementById("tb-mg-list"); l.style.display = l.style.display === "none" ? "block" : "none"; });
           body.querySelectorAll("[data-tb-rb]").forEach(function (b) {
             b.addEventListener("click", function () {
               var k = b.getAttribute("data-tb-rb");
@@ -1579,7 +1541,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             b.addEventListener("click", function (ev) {
               ev.preventDefault();
               var li = Number(b.getAttribute("data-tb-engage"));
-              var r = (window._tbLearnings || [])[li];
+              var r = (_tbLearnings || [])[li];
               var panel = body.querySelector('[data-tb-engage-panel="' + li + '"]');
               if (!r || !panel) return;
               if (panel.style.display === "block") { panel.style.display = "none"; panel.innerHTML = ""; return; }
@@ -1613,7 +1575,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             b.addEventListener("click", function (ev) {
               ev.preventDefault();
               var pid = b.getAttribute("data-tb-replay");
-              var pr2 = (window._tbPractices || []).filter(function (x) { return x.practice_id === pid; })[0];
+              var pr2 = (_tbPractices || []).filter(function (x) { return x.practice_id === pid; })[0];
               if (!pr2) return;
               b.textContent = "Test…";
               fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
@@ -1643,7 +1605,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             b.addEventListener("click", function (ev) {
               ev.preventDefault();
               var pi = b.getAttribute("data-tb-arm");
-              var p2 = (window._tbPractices || [])[Number(pi)];
+              var p2 = (_tbPractices || [])[Number(pi)];
               var panel = body.querySelector('[data-tb-arm-panel="' + pi + '"]');
               if (!p2 || !panel) return;
               if (panel.style.display === "block") { panel.style.display = "none"; return; }
