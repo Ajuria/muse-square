@@ -125,6 +125,9 @@ garde-fou est rouge sur le code encore en place, et un test rouge laissé rouge 
 - Le mot du pont rangée santé ↔ rangée pilotage (« dont +1 166 € mesurés de vos opérations »).
 - « Déclarer vos marges » (pluriel, marge par famille produit) — paraphrase, pas un mot acté.
 - Alignement du volet « Ce que l'app a appris de vos sites » sur « Connaissances créées ».
+- ~~contextCopy « animer la clientèle locale »~~ TRANCHÉ 24/08 : « cibler les résidents
+  locaux » (les deux arbitrages du jour combinés — « cibler » owner + « résidents locaux »
+  global ; si « clientèle locale » devait rester dans CETTE phrase, le dire).
 - **Doublons inter-pages (audit 24/08) — TRANCHÉS le 24/08 soir et appliqués** : verdicts
   (canon couleur : atteint = vert · **manqué = ambre** · non concluant = gris — tableau ET
   Pulse) ; audiences (« **résidents locaux** » / « **public mixte** » partout — registres du
@@ -179,7 +182,8 @@ conseil sur un abstrait.
 | **Surveillez** la réputation concurrente | (surveiller n'est pas un geste : on fait, ou on ne fait pas) |
 
 Verbes de conseil à proscrire : *aligner, capter, concentrer, activer* (sans objet),
-*surveiller, se positionner, optimiser, maximiser, adresser*. Le corpus de référence est
+*surveiller, se positionner, optimiser, maximiser, adresser, **animer*** (owner 24/08 —
+« animer la clientèle » → « **cibler** » ; au MOTS_BANNIS). Le corpus de référence est
 `public/reco-library.js` — les entrées **écrites** (13), pas l'échafaudage commenté.
 
 **9. Test du retournement.** Écrire le contraire de la phrase. Si le contraire est absurde,

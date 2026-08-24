@@ -47,6 +47,9 @@ export const MOTS_BANNIS: Record<string, string> = {
   "aléa météo annoncé": "alerte météo",
   "clientèle locale": "résidents locaux",
   "clientèle mixte": "public mixte",
+  // 24/08 — « animer » banni (verbe de conseil sur un abstrait, règle 8) : le geste se dit « cibler ».
+  "animer": "cibler",
+  "Animer": "Cibler",
   "verdict tenu": "objectif atteint",
   "non mesurable": "non concluant",
   // 22/08 — le bloc de la prochaine action disait « mouvement » dans son titre et « move »

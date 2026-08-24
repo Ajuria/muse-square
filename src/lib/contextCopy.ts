@@ -312,7 +312,7 @@ const STRUCTURAL_CHANTIER_FR: Record<string, string> = {
   events_high: "Dispositif événements voisins — offre et horaires alignés systématiquement.",
   discount_no_lift: "Dispositif remise — plafond et ciblage revus, reconduction conditionnée au lift mesuré.",
   tourism_high: "Dispositif visiteurs — capter le flux des jours de forte saison (langues, mise en avant, horaires).",
-  tourism_low: "Dispositif basse saison — animer la clientèle locale sur les jours calmes.",
+  tourism_low: "Dispositif basse saison — cibler les résidents locaux sur les jours calmes.",
   competition_high: "Dispositif différenciation — visibilité et offre distinctive sur les jours disputés.",
   // 22/08 — DÉBLOQUÉ. Cette entrée portait deux violations (« Fenêtres » banni au sens occasion,
   // « concentrer » proscrit règle 8) et attendait la décision de l'owner : le mot banni ÉTAIT le
