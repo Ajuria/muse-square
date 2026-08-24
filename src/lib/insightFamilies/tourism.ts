@@ -44,9 +44,9 @@ export async function tourismFamily(bq: any, location_id: string, date: string):
   if (!nuts2) return empty();
 
   // Impact = does this tourist flow match MY audience? tourist-facing (tourists/mixed) -> high, else low.
-  // NOTE: the endpoint's own register ("clientèle locale") — differs from profileLabels.AUDIENCE_FR
+  // Registre aligné sur l'arbitrage owner 24/08 : « résidents locaux » / « public mixte » partout.
   // ("résidents locaux"). Kept VERBATIM so the deep page is unchanged; reconciling is an owner call.
-  const AUD_FR: Record<string, string> = { local: "clientèle locale", professionals: "professionnels", tourists: "touristes", students: "étudiants", mixed: "clientèle mixte" };
+  const AUD_FR: Record<string, string> = { local: "résidents locaux", professionals: "professionnels", tourists: "touristes", students: "étudiants", mixed: "public mixte" };
   const a1 = str(reg && reg.primary_audience_1), a2 = str(reg && reg.primary_audience_2);
   const audienceFr = [a1, a2].filter(Boolean).map((a) => AUD_FR[String(a).toLowerCase()] || a).join(", ") || "votre audience";
   const touristFacing = [a1, a2].some((a) => a != null && ["tourists", "mixed"].includes(String(a).toLowerCase()));

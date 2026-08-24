@@ -27,7 +27,11 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Fraîcheur de la veille | **lus cette nuit** | dernier passage, visités, crawlés |
 | Un concurrent surveillé | **suivi** | tracké, monitored |
 | Zone autour d'un site | **votre périmètre** | catchment, zone de chalandise (à confirmer) |
-| Contexte favorable détecté | **occasion** (Prochaine occasion · Vos prochaines occasions) | fenêtre de la semaine, momentum, jour favorable |
+| Contexte favorable détecté (le volet du tableau) | **Opportunités** (owner 24/08 — titre du volet ; contenu = prospective chaleur + couverture, renvoi « les cartes des 7 prochains jours → Agir ») ; « occasion » reste le mot d'une occasion individuelle | Vos prochaines occasions (trop long, owner 24/08), fenêtre de la semaine, momentum, jour favorable |
+| Le groupe de volets du dehors (activité, opportunités, positionnement, veille) | **Mon environnement** (owner 24/08) | Compétitivité (owner 24/08 — dit un jugement, le contenu est de la surveillance) |
+| Créer une opération depuis le tableau (bouton) | **Nouvelle opération** (owner 24/08 — boutons tableau + evenement renommés au build ; PAS de ban mécanique : « Nouvel événement repéré chez un suivi » est l'ÉVÉNEMENT DU CONCURRENT, sens légitime — règle de relecture) | Nouvel événement (comme bouton de création) |
+| La tuile héros du savoir accumulé | **Connaissances créées** (owner 24/08 — la TUILE ; le volet garde « Ce que l'app a appris de vos sites », alignement en attente) | Ce que l'app a appris de vos sites (sur la tuile) |
+| Cause non isolable par la mesure | **facteurs mêlés** | cause multifactorielle |
 | Jour non couvert par une action | **couvert / sans action** | joué, manqué (réservé au verdict) |
 | Déclenchement automatique | **Automatiser** (série OU signal — la condition se choisit dans le flux) | Armer, Armer sur signal |
 | Message à l'équipe | **Communiquer** | partager, notifier (notification = réglage) |
@@ -75,6 +79,65 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
   Opérations en cours · Dispositifs prouvés** — « Signaux traités » assumé (même concept de
   signal partout, arbitrage owner) ; « Dispositifs validés » écarté (« validé » reste banni).
 
+## Le gabarit de la zone explication des cartes d'opération (owner 24/08)
+
+Toute carte d'opération du tableau suit UNE grammaire : (1) titre + chips d'état · (2) le(s)
+résultat(s) — chiffre unique (fenêtre) ou rangée de cases (série) · (3) la ligne d'EXPLICATION ·
+(4) pied honnête + UN CTA. La zone (3) est un FORMAT, jamais du texte codé en dur, et elle a
+**deux régimes** :
+
+**Régime A — facteur isolé.** Les chiffres isolent UN facteur du funnel (CA = passages ×
+conversion × panier) ⇒ on le NOMME. Exemple réel (Coupon café glacé, conversion tenue 45,7 %
+vs 43 % pendant que le CA de la fenêtre était sous l'habituel) :
+
+> −1 275 € vs votre résultat habituel · CA de la fenêtre : 11 521 €
+> votre conversion a tenu (45,7 % · habituel 43 %) — le manque vient du passage ou du panier
+
+**Régime B — facteurs mêlés.** Les chiffres n'isolent rien ⇒ JAMAIS de verdict fabriqué : le
+fait, la part expliquée chiffrée, les facteurs candidats nommés sobrement, et le geste qui
+tranche (le bilan de l'occurrence — le vécu de l'exploitant détient la donnée manquante).
+**Gabarit VERBATIM owner (24/08)** :
+
+> occ. du 08/08 : les produits « Branded » ont généré 28 €/j vs 65 €/j habituellement (−56 %) ·
+> Explication : la baisse du CA jour n'explique pas tout (−13 %) · Autres facteurs : dispositif,
+> produit, autre — Faire le bilan →
+
+Contraintes du format : chaque fait contre SON référentiel, énoncé séparément — jamais deux
+référentiels mélangés dans une phrase (les baselines 28 j glissantes du mart contredisent
+l'habituel dow+tendance : décomposition par facteur seulement quand les attendus par facteur
+existent sur LE même référentiel). Le montant montre le NIVEAU + l'ÉCART SIGNÉ, chacun avec
+son référentiel, et l'objet est toujours nommé (« produits « Branded » », jamais « CA famille » nu).
+La conclusion sur le DISPOSITIF (à ajuster / réutilisable) vit au niveau série, quand assez de
+verdicts — jamais sur une occurrence.
+
+**Note MOTS_BANNIS** : FAIT au build du 24/08 soir — « Compétitivité » et « Vos prochaines
+occasions » sont au `MOTS_BANNIS` (surfaces renommées dans le même train) ; « Nouvel
+événement » n'y entre pas (deux sens, cf. la ligne du tableau) ; « Ce que l'app a appris »
+reste légitime sur le VOLET (tuile seule renommée).
+
+## À arbitrer (owner) — file ouverte au 24/08
+
+- « **produits** » vs « **famille** » : l'owner a écrit « CA produits « Branded » » — renommage
+  GLOBAL du mot arbitré « famille » (prod : « CA famille » jusque dans les KPI) à confirmer.
+- « palier » (crans de la jauge Signaux traités) — retirés en attendant LE mot.
+- « geste » (employé par la tuile prod « 6 gestes en attente ») — pas de mot d'interface arbitré.
+- « Voir → » vs « Lire → » : deux mots en prod pour « ouvrir une carte » — un seul doit rester.
+- Le mot du pont rangée santé ↔ rangée pilotage (« dont +1 166 € mesurés de vos opérations »).
+- « Déclarer vos marges » (pluriel, marge par famille produit) — paraphrase, pas un mot acté.
+- Alignement du volet « Ce que l'app a appris de vos sites » sur « Connaissances créées ».
+- ~~contextCopy « animer la clientèle locale »~~ TRANCHÉ 24/08 : « cibler les résidents
+  locaux » (les deux arbitrages du jour combinés — « cibler » owner + « résidents locaux »
+  global ; si « clientèle locale » devait rester dans CETTE phrase, le dire).
+- **Doublons inter-pages (audit 24/08) — TRANCHÉS le 24/08 soir et appliqués** : verdicts
+  (canon couleur : atteint = vert · **manqué = ambre** · non concluant = gris — tableau ET
+  Pulse) ; audiences (« **résidents locaux** » / « **public mixte** » partout — registres du
+  chat compris, MOTS_BANNIS mord) ; météo (« **Alerte météo** » partout) ; maps KPI fusionnées
+  (formes courtes canoniques, « /j »). RESTENT à trancher : les autres types de cartes
+  divergents (« Météo redevenue favorable » vs « Amélioration météo », « Calendrier favorable »
+  vs « Changement d'audience », « Lancement chez un suivi » vs « Concurrent détecté »…), la
+  casse des chips Pulse (« Atteint » vs « atteint »), et la phrase de `contextCopy.ts`
+  « animer la clientèle locale » (copie rédigée — pas reformulée sans owner).
+
 ## Balayage de copie à faire (suite de ces décisions)
 
 - « déclaré(e) » affiché → « en test » ; dernier test cible manquée → « écarté ».
@@ -119,7 +182,8 @@ conseil sur un abstrait.
 | **Surveillez** la réputation concurrente | (surveiller n'est pas un geste : on fait, ou on ne fait pas) |
 
 Verbes de conseil à proscrire : *aligner, capter, concentrer, activer* (sans objet),
-*surveiller, se positionner, optimiser, maximiser, adresser*. Le corpus de référence est
+*surveiller, se positionner, optimiser, maximiser, adresser, **animer*** (owner 24/08 —
+« animer la clientèle » → « **cibler** » ; au MOTS_BANNIS). Le corpus de référence est
 `public/reco-library.js` — les entrées **écrites** (13), pas l'échafaudage commenté.
 
 **9. Test du retournement.** Écrire le contraire de la phrase. Si le contraire est absurde,

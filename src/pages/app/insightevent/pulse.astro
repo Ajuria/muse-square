@@ -3632,8 +3632,8 @@ if (!location_id) {
     if (r.status === 'pending') return { bg:'#F3F4F6', fg:'#6b7280', label:'Attente de ventes', strike:false, p:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>' };
     if (r.status === 'expired') return { bg:'#F3F4F6', fg:'#9ca3af', label:'Non résolu', strike:true, p:'<circle cx="12" cy="12" r="9"/><path d="M5 5 19 19"/>' };
     if (r.verdict === 'met') return { bg:'#DCFCE7', fg:'#166534', label:'Atteint', strike:false, p:'<path d="M20 6 9 17l-5-5"/>' };
-    if (r.verdict === 'missed') return { bg:'#FCEBEB', fg:'#b91c1c', label:'Manqué', strike:false, p:'<path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/>' };
-    return { bg:'#FEF3E2', fg:'#B45309', label:'Non concluant', strike:false, p:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/>' };
+    if (r.verdict === 'missed') return { bg:'#FEF3E2', fg:'#B45309', label:'Manqué', strike:false, p:'<path d="M12 5v14"/><path d="M19 12l-7 7-7-7"/>' };
+    return { bg:'#F3F4F6', fg:'#6b7280', label:'Non concluant', strike:false, p:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/>' };
   }
   function _cgIcon(p, c){ return '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="' + c + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; }
   function _cgDdIcon(p){ return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>'; }
@@ -3685,7 +3685,7 @@ if (!location_id) {
     var _amt = '';
     if (r.status === 'resolved' && pct != null) {
       var _rPos = Number(pct) >= 0;
-      var _rFg = r.verdict === 'met' ? '#166534' : r.verdict === 'missed' ? '#b91c1c' : '#B45309';
+      var _rFg = r.verdict === 'met' ? '#166534' : r.verdict === 'missed' ? '#B45309' : '#6b7280';
       var _rLbl = r.verdict === 'met' ? 'objectif atteint' : r.verdict === 'missed' ? 'objectif manqué' : 'non concluant';
       _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind, r.window_start) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel.') + '">'
         + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' %</div>'
