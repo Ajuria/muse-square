@@ -31,6 +31,22 @@
   // 23/08 — « le 20/08 » depuis l'ISO du payload (gestes au passé : la carte peut s'afficher des jours après).
   function frDateFr(iso) { var d = String(iso || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? ' le ' + d.slice(8, 10) + '/' + d.slice(5, 7) : ''; }
   function frInt(v) { return Math.round(Number(v) || 0).toLocaleString('fr-FR'); }
+  // 24/08 — recit nature 1 (fenetres) : les 6 cartes de fenetre portent window_start/
+  // window_end/window_days (mart, etage gaps-and-islands). Rend ' du lundi 24/08 au
+  // jeudi 27/08 (4 jours)' ; '' si fenetre d'un seul jour ou payload sans fenetre.
+  function frDayDate(iso) {
+    var d = String(iso || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
+    var J = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    var dt = new Date(d + 'T12:00:00');
+    return J[dt.getDay()] + ' ' + d.slice(8, 10) + '/' + d.slice(5, 7);
+  }
+  function windowFr(a) {
+    if (!a || a.window_days == null || Number(a.window_days) < 2) return '';
+    var s = frDayDate(a.window_start), e = frDayDate(a.window_end);
+    if (!s || !e) return '';
+    return ' du ' + s + ' au ' + e + ' (' + Number(a.window_days) + ' jours)';
+  }
   // 23/08 — COMPARAISON DE NOTES, un seul foyer (owner : « doit être comparatif pour être
   // clair »). Votre note vient de p.besttime_rating — la note Google du lieu telle que BestTime
   // la relaie, capturée par cron/sync-besttime.ts depuis ce matin (elle tombait par terre
@@ -461,15 +477,16 @@
                  : (delta <= -1) ? Math.round(delta) + ' %'
                  : '';
       var line = '';
+      var win = windowFr(a);
       if (trigger) {
-        line = trigger + (pctStr ? ' \u2014 affluence attendue ' + pctStr : '');
+        line = trigger + win + (pctStr ? ' \u2014 affluence attendue ' + pctStr : '');
         if (audLabelFr) line += ' : ' + audLabelFr;
         line += '.';
       } else if (audLabelFr) {
-        line = audLabelFr + (pctStr ? ' (' + pctStr + ' attendu)' : '') + '.';
+        line = audLabelFr + win + (pctStr ? ' (' + pctStr + ' attendu)' : '') + '.';
       } else {
         var aud = audLabel(p);
-        line = 'Changement d\u2019audience d\u00e9tect\u00e9' + (pctStr ? ' (' + pctStr + ' attendu)' : '') + '.' + (aud ? ' Vos ' + aud.split(',')[0] + ' c\u00f4toient de nouveaux visiteurs.' : '');
+        line = 'Changement d\u2019audience d\u00e9tect\u00e9' + win + (pctStr ? ' (' + pctStr + ' attendu)' : '') + '.' + (aud ? ' Vos ' + aud.split(',')[0] + ' c\u00f4toient de nouveaux visiteurs.' : '');
       }
       return line.trim();
     },
@@ -517,7 +534,7 @@
         var pays = named.replace(/(\d)%/g, '$1 %');
         var part = a.share_total_pct != null ? String(a.share_total_pct).replace(/(\d)$/, '$1') : null;
         var an = a.profile_reference_year != null ? String(a.profile_reference_year) : null;
-        line = pays + ' en vacances scolaires — leur poids dans les nuitées étrangères de votre région'
+        line = pays + ' en vacances scolaires' + windowFr(a) + ' — leur poids dans les nuitées étrangères de votre région'
              + (an ? ' (INSEE ' + an + ')' : '')
              + (part ? ', soit ' + part + ' % cumulés' : '') + '. '
              + 'Ce n\'est pas une mesure de votre fréquentation.';
@@ -527,7 +544,7 @@
         var parts = [];
         if (school.length) parts.push('vacances scolaires : ' + school.join(', '));
         if (pub.length) parts.push('jour férié : ' + pub.join(', '));
-        line = (parts.length ? 'Public touristique étranger en congés — ' + parts.join(' ; ') + '. ' : '')
+        line = (parts.length ? 'Public touristique étranger en congés' + windowFr(a) + ' — ' + parts.join(' ; ') + '. ' : '')
              + 'Le poids de ces nationalités dans votre région n\'est pas encore disponible.';
       }
       if (a.location_access_pattern === 'destination_catchment') line += ' Votre site capte un flux de passage — pertinence accrue.';
@@ -627,7 +644,7 @@
       // absent du corps). Trou « lequel ? » de la matrice questions-exploitant.
       var nearestTxt = (nearest && nearestDist > 0) ? ' \u2014 le plus proche : \u00ab\u00a0' + trunc(nearest, 60) + '\u00a0\u00bb \u00e0 ' + distLabel(nearestDist) : '';
       var line = parts.length > 0 ? parts.join(', ') + nearestTxt + '. ' : (nearestTxt ? nearestTxt.replace(/^ \u2014 le/, 'Le') + '. ' : '');
-      line += density + ' autour de ' + siteName(p) + '.';
+      line += density + ' autour de ' + siteName(p) + windowFr(a) + '.';
       if (isOutdoor(p) && n500 >= 3) line += ' Espace mixte \u2014 votre visibilit\u00e9 ext\u00e9rieure est critique.';
       if (p.nearest_transit_stop_name) line += ' Acc\u00e8s pi\u00e9ton via ' + p.nearest_transit_stop_name + ' (' + Math.round(Number(p.nearest_transit_stop_distance_m || 0)) + 'm).';
       return line;
@@ -648,7 +665,10 @@
       // le 28/07, 4 sites sur 24 ont une mesure et les signes divergent (+88 / -49 EUR/j).
       var pr = (a && a.pressure_ratio != null) ? Number(a.pressure_ratio)
              : (d && d.competition_pressure_ratio != null) ? Number(d.competition_pressure_ratio) : null;
-      var line = (pr != null && pr < 1)
+      var win = windowFr(a);
+      var line = win
+        ? 'L’activité autour de vous sera inférieure à votre moyenne' + win + '.'
+        : (pr != null && pr < 1)
         ? 'L’activité autour de vous sera inférieure de ' + Math.round((1 - pr) * 100) + ' % à votre moyenne.'
         : 'L’activité autour de vous sera plus faible que d’habitude.';
       // 22/08 — le coin est passé en CONTEXTE (il doublait celui du chantier structurel).
@@ -1566,7 +1586,7 @@
     function(a, p, d) {
       var pctSame = samePct(a, d) || 0;
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
-      var line = pctSame + '% des ' + n + ' \u00e9v\u00e9nements \u00e0 5 km sont dans votre secteur.';
+      var line = pctSame + '% des ' + n + ' \u00e9v\u00e9nements \u00e0 5 km sont dans votre secteur' + windowFr(a) + '.';
       return line;
     },
     {
@@ -1604,7 +1624,7 @@
       var isDiscount = evCode
         ? /sales|black-friday|cyber-monday/.test(String(evCode))
         : /soldes|black friday|cyber monday|nouvel an|no\u00ebl/i.test(String(evName));
-      var line = evName ? evName + ' en cours dans votre r\u00e9gion.' : 'Temps fort commercial en cours dans votre r\u00e9gion.';
+      var line = (evName || 'Temps fort commercial') + ' en cours dans votre r\u00e9gion' + windowFr(a) + '.';
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       if (isDiscount) line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + frDec(pr) + ') \u2014 d\u00e9marquez-vous sans casser vos prix.' : ' Le flux d\u2019acheteurs est l\u00e0 \u2014 mettez en avant une offre signature plut\u00f4t qu\u2019une remise.';
       // « Occasion favorable — captez le flux » retiré (verbe proscrit, règle 8) et NON
