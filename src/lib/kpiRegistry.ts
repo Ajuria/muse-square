@@ -26,6 +26,15 @@
 // À DESSEIN : ancrées à J (pas à la fenêtre du commitment) et définies par-KPI ; ici UNE définition
 // uniforme (30 j pré-fenêtre) pour tous les KPIs, comparable entre eux. Distinct de
 // lib/declaredMetrics.ts (métriques DÉCLARÉES par l'utilisateur, pas mesurées).
+//
+// RÉFÉRENTIEL conversion (établi 24/08, chantier décomposition funnel) : kpiMean fait
+// AVG(daily_conversion_rate) = moyenne des ratios JOURNALIERS (au grain du mart :
+// location × date × source_type) — PAS le ratio des sommes Σtx/Σvisiteurs de la fenêtre.
+// Sur ff2aeb35 03–09/08 les deux disent 45,7 % vs 40,0 % — tous deux vrais, référentiels
+// différents (6 jours à 50 % + un pic visiteurs à 20 % le 09/08). La ligne funnel qui
+// décompose un écart € (tableau) vit sur le ratio des sommes via fct_client_day_residual
+// (expected_* par facteur, handoff 24/08) ; les objectifs de dispositif déjà posés vivent
+// ici. Jamais les deux référentiels dans une même phrase affichée.
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const PERF = `${PROJECT}.mart.fct_client_daily_performance`;
