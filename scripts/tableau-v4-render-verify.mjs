@@ -153,7 +153,13 @@ if ((g.trous || []).length) check("trou de veille nommé (Suivez X)", txt().inde
 if ((g.savoir || {}).evts_sans_objectif) check("Fixez un objectif à N événements → liste FILTRÉE (owner 18/08)", txt().indexOf("Fixez un objectif à " + g.savoir.evts_sans_objectif) >= 0
   && body.innerHTML.indexOf("/app/insightevent/evenement?filtre=sans_objectif") >= 0);
 check("règle CTA : au plus UN bouton plein", body.querySelectorAll(".tb-btnp").length <= 1, body.querySelectorAll(".tb-btnp").length + " plein(s)");
-check("Réorganisation v10 : 7 cartes (les portes Prochaine occasion + Veille rejoignent la grille) + panneau", body.querySelectorAll(".tb-rb").length === 7 && !!doc.getElementById("tb-rpanel") && txt().indexOf("Compétitivité") >= 0 && txt().indexOf("Processus métiers") >= 0 && txt().indexOf("Vos prochaines occasions") >= 0 && !!Array.from(body.querySelectorAll(".tb-rb")).find((b) => b.textContent.indexOf("Veille") >= 0), body.querySelectorAll(".tb-rb").length + " cartes");
+check("grille des volets (24/08) : 7 cartes + panneau · Mon environnement APRÈS Processus métiers · Opportunités", (() => {
+  const ok7 = body.querySelectorAll(".tb-rb").length === 7 && !!doc.getElementById("tb-rpanel");
+  const iProc = txt().indexOf("Processus métiers"), iEnv = txt().indexOf("Mon environnement");
+  return ok7 && iProc >= 0 && iEnv > iProc && txt().indexOf("Opportunités") >= 0
+    && txt().indexOf("Compétitivité") < 0 && txt().indexOf("Vos prochaines occasions") < 0
+    && !!Array.from(body.querySelectorAll(".tb-rb")).find((b) => b.textContent.indexOf("Veille") >= 0);
+})(), body.querySelectorAll(".tb-rb").length + " cartes");
 check("renommages : Activité dans votre périmètre · Mon positionnement · Mes dispositifs", txt().indexOf("Activité dans votre périmètre") >= 0 && txt().indexOf("Mon positionnement") >= 0 && txt().indexOf("Mes dispositifs") >= 0 && txt().indexOf("Vos dispositifs") < 0 && txt().indexOf("À surveiller") < 0 && txt().indexOf("Ma veille concurrentielle") < 0);
 check("vignette-carte dans Événements concurrents", body.querySelector('[data-tb-body="ev"]') && body.querySelector('[data-tb-body="ev"]').innerHTML.indexOf("Ouvrir la carte") >= 0);
 
@@ -163,7 +169,10 @@ check("vignette-carte dans Événements concurrents", body.querySelector('[data-
   check("volet " + id + " : carte-résumé présente, fermé", !!body.querySelector('[data-tb-rb="' + id + '"]') && body.querySelector('[data-tb-body="' + id + '"]').style.display === "none");
 });
 check("Événements concurrents — N sur 14 j", txt().indexOf("sur 14 j") >= 0);
-check("À surveiller — menaces · occasions", /menace/.test(txt()) && /occasions/.test(txt()));
+// Opportunités (24/08) : le résumé dit la prospective + couverture — les comptes
+// menaces/occasions sont morts avec les rangées de cartes (renvoi Agir à la place).
+check("Opportunités — prospective + couverture + renvoi Agir", (oc.total ? /couverts par une action/.test(txt()) : true)
+  && txt().indexOf("les cartes des 7 prochains jours") >= 0);
 check("zéro donnée de cuisine (niv. N, priorité N, anglais mart)", txt().indexOf("niv.") < 0 && txt().indexOf("priorité ") < 0 && txt().indexOf("detected") < 0);
 
 // ── À surveiller : € chaleur gated registre (règle inchangée). ──

@@ -4,7 +4,7 @@
 // en cours · Dispositifs prouvés) ; « À faire » = table à colonnes fixes (le seul bloc ouvert,
 // verbe d'abord, trié par valeur) ; « Opérations en cours » = grille de cartes (jauge / mini-
 // courbe / frise de série) ; volets = grille de cartes-résumé (couleur = signal, fermé =
-// réponse) en deux familles — Compétitivité / Processus métiers — dont chaque carte ouvre SON
+// réponse) en deux familles — Processus métiers / Mon environnement — dont chaque carte ouvre SON
 // corps dans le panneau partagé sous la grille (une carte peut partager le corps d'une autre :
 // clés id/body distinctes). Le fetch est UNIQUE (period=365) : les périodes 30/90 se DÉRIVENT
 // côté client (impact_rows + judged_meta) — bascule instantanée, volets préservés (dérivation
@@ -27,7 +27,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
     <div id="tb-root" data-loc={locParam}>
       <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:12px;">
         <div style="font-size:20px;font-weight:600;color:#111827;">Tableau de bord</div>
-        <a id="tb-new" href="/app/insightevent/evenement?new=1" style="display:inline-flex;align-items:center;padding:8px 15px;background:transparent;border:1px solid #1D3BB3;border-radius:10px;font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;white-space:nowrap;">Nouvel événement</a>
+        <a id="tb-new" href="/app/insightevent/evenement?new=1" style="display:inline-flex;align-items:center;padding:8px 15px;background:transparent;border:1px solid #1D3BB3;border-radius:10px;font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;white-space:nowrap;">Nouvelle opération</a>
       </div>
       <div id="tb-body" style="font-size:13px;color:#9CA3AF;">Chargement…</div>
     </div>
@@ -974,24 +974,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           })();
           html += '</div>';
 
-          // ── Volet À SURVEILLER — cartes système 7 j (libellé maison) + occasions chaleur. ──
-          var TYPE_FR = {
-            weather_hazard_onset: ["Alerte météo", AMBER], competition_pressure_spike: ["Pic de concurrence", AMBER],
-            weekend_opportunity: ["Week-end favorable", GREEN], weekend_vacation_low_comp: ["Week-end de vacances, concurrence faible", GREEN],
-            low_competition_window: ["Faible concurrence détectée", GREEN], audience_shift_opportunity: ["Bascule de clientèle à saisir", GREEN],
-            foreign_tourism_signal: ["Afflux de visiteurs étrangers", GREEN], calendar_audience_shift: ["Calendrier favorable", GREEN],
-            weather_improved: ["Météo redevenue favorable", GREEN], review_solicitation: ["Moment propice aux avis clients", GREEN],
-          };
-          var parType = {};
-          (g.cartes || []).forEach(function (c) {
-            if (!parType[c.type]) parType[c.type] = { type: c.type, n: 0, d0: c.d, prio: c.prio, loc0: c.location_id };
-            parType[c.type].n++;
-            if (c.d < parType[c.type].d0) { parType[c.type].d0 = c.d; parType[c.type].loc0 = c.location_id; }
-          });
-          var typeLignes = Object.keys(parType).map(function (k) { return parType[k]; });
-          typeLignes.sort(function (a, b) { return (a.prio - b.prio) || a.d0.localeCompare(b.d0); });
-          var nMen = 0, nOcc2 = 0;
-          typeLignes.forEach(function (l) { var lb = TYPE_FR[l.type]; if (lb && lb[1] === AMBER) nMen++; else nOcc2++; });
+          // ── Volet OPPORTUNITÉS (ex « À surveiller ») — prospective chaleur, gated registre. ──
           // Occasion chaleur (contenu de l'ancienne carte Occasions — € gated registre inchangé).
           var occHtml = "";
           if (oc.next_hot) {
@@ -1015,9 +998,11 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             'de chaleur passés <span style="font-weight:600;">sans action</span> sur 30 j <span style="color:#9CA3AF;">· ' + (oc.played || 0) + "/" + (oc.total || 0) + " couverts par une action</span>",
             "Jours de chaleur des 30 derniers jours qu’aucune fenêtre engagée ne couvrait",
             '<button type="button" data-tb-fold="tb-occ-fold" style="background:none;border:none;font-family:inherit;font-size:12px;color:#1D3BB3;font-weight:600;cursor:pointer;white-space:nowrap;">Lesquels ▾</button>');
-          var svResume = nMen + (nMen > 1 ? " menaces" : " menace") + " · " + nOcc2 + " occasions"
-            + (oc.next_hot ? " · jour chaud " + (oc.next_hot === TODAY ? "aujourd’hui" : dowFr(oc.next_hot) + " " + frD(oc.next_hot)) : "");
-          html += voletHead("sv", nMen ? AMBER : GREEN, "Vos prochaines occasions", svResume, "comp")
+          // Opportunités (owner 24/08) : le volet garde la PROSPECTIVE (jour chaud + couverture)
+          // et renvoie vers Agir pour les cartes — un objet, une maison (doublon tranché).
+          var svResume = (oc.next_hot ? "jour chaud " + (oc.next_hot === TODAY ? "aujourd’hui" : dowFr(oc.next_hot) + " " + frD(oc.next_hot)) : "aucun jour d’environnement annoncé")
+            + (oc.total ? " · " + (oc.played || 0) + "/" + oc.total + " couverts par une action" : "");
+          html += voletHead("sv", oc.next_hot ? GREEN : GREY, "Opportunités", svResume, "comp")
             + '<div data-tb-body="sv" class="tb-rbody" style="display:none;">'
             + occHtml
             + '<div id="tb-occ-fold" class="tb-fold" style="line-height:1.7;">'
@@ -1026,14 +1011,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   + (sByS.missed_dates && sByS.missed_dates.length ? " · manqués : " + sByS.missed_dates.slice(-6).map(frD).join(", ") + (sByS.missed_dates.length > 6 ? "…" : "") : "") + "</div>";
               }).join("")
             + '<div style="color:#9CA3AF;">€/jour = médiane mesurée vs votre CA habituel, registre enjeu de l’app (n ≥ 5, signal |t| ≥ 1) — jamais extrapolé.</div></div>';
-          typeLignes.slice(0, 8).forEach(function (l) {
-            var lb = TYPE_FR[l.type] || [String(l.type).replace(/_/g, " "), GREY];
-            var dj = daysTo(l.d0);
-            html += '<div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:0 10px;align-items:center;padding:7px 0;border-top:1px solid #F3F4F6;">'
-              + '<span><span style="font-size:11px;font-weight:700;color:' + lb[1] + ';">' + (dj === 0 ? "auj." : "J-" + dj) + '</span><span style="display:block;font-size:9.5px;color:#9CA3AF;">' + dowFr(l.d0) + " " + frD(l.d0) + '</span></span>'
-              + '<span style="min-width:0;font-weight:600;">' + lb[0] + (l.n > 1 ? ' <span style="font-size:11.5px;color:#9CA3AF;font-weight:400;">×' + l.n + " sur la semaine</span>" : "") + '</span>'
-              + '<span><a class="tb-link" href="/app/insightevent/insight?type=' + encodeURIComponent(l.type) + '&date=' + encodeURIComponent(l.d0) + '&location_id=' + encodeURIComponent(l.loc0 || loc) + '" title="Ouvre la carte du ' + frD(l.d0) + '">Voir →</a></span></div>';
-          });
+          html += '<div style="border-top:1px solid #F3F4F6;padding-top:8px;margin-top:6px;"><a class="tb-link" href="/app/insightevent/pulse">les cartes des 7 prochains jours \u2192 Agir</a></div>';
           html += '</div>';
 
           // ── Volet VOTRE SAVOIR-FAIRE — apprentissages + dispositifs (échelle déclaré→en
@@ -1083,7 +1061,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '<span style="cursor:help;" title="' + esc(depthTip) + '">appris sur ' + depthMax + ' j de ventes · ' + (j.learned_classes || 0) + ' types de jours chiffrés · ' + vTot + ' verdicts</span>'
               + '<button type="button" data-tb-fold="tb-cap-fold" style="background:none;border:none;font-family:inherit;font-size:10.5px;color:#9CA3AF;cursor:pointer;text-decoration:underline;text-underline-offset:2px;">comment lire</button></div>'
               + '<div id="tb-cap-fold" class="tb-fold">'
-              + '<span style="font-weight:600;">Comment lire :</span> tout part de vos ' + depthMax + ' jours de ventes — ils donnent le CA habituel de chacune de vos journées. Chaque ligne ci-dessus est la médiane mesurée de l’écart à ce CA habituel, chez vous, au registre enjeu de l’app (jamais une moyenne de secteur). Les verdicts disent ce qui a marché quand vous avez agi. Plus l’historique grandit, plus ces chiffres — et vos prochaines occasions — sont justes.'
+              + '<span style="font-weight:600;">Comment lire :</span> tout part de vos ' + depthMax + ' jours de ventes — ils donnent le CA habituel de chacune de vos journées. Chaque ligne ci-dessus est la médiane mesurée de l’écart à ce CA habituel, chez vous, au registre enjeu de l’app (jamais une moyenne de secteur). Les verdicts disent ce qui a marché quand vous avez agi. Plus l’historique grandit, plus ces chiffres — et vos prochaines opportunités — sont justes.'
               + '</div>';
           }
 
@@ -1449,13 +1427,14 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + (toActivate.length ? '<div style="height:1px;background:rgba(0,0,0,0.08);margin:8px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">À activer</p>' + toActivate.map(function (l) { return "<div>" + l + "</div>"; }).join("") : "")
             + '</div>'
             + '</div>';
-          // Deux familles (owner 17/08) : Compétitivité (dehors) / Processus métiers (la machine).
+          // Deux familles, ordre spec 24/08 : Processus métiers (la machine) PUIS
+          // Mon environnement (le dehors — mot owner 24/08, « Compétitivité » banni).
           var _vComp = voletMeta.filter(function (v) { return v.groupe === "comp"; });
           var _vProc = voletMeta.filter(function (v) { return v.groupe === "proc"; });
-          html += '<p class="tb-eb" style="margin:14px 2px 8px;">Compétitivité</p>'
-            + '<div class="tb-rbgrid" style="grid-template-columns:repeat(2,1fr);">' + _vComp.map(rbCard).join('') + '</div>'
-            + '<p class="tb-eb" style="margin:14px 2px 8px;">Processus métiers</p>'
+          html += '<p class="tb-eb" style="margin:14px 2px 8px;">Processus métiers</p>'
             + '<div class="tb-rbgrid">' + _vProc.map(rbCard).join('') + '</div>'
+            + '<p class="tb-eb" style="margin:14px 2px 8px;">Mon environnement</p>'
+            + '<div class="tb-rbgrid" style="grid-template-columns:repeat(2,1fr);">' + _vComp.map(rbCard).join('') + '</div>'
             + '<div id="tb-rpanel" class="tb-card" style="display:none;padding:14px 16px;"></div>';
 
           body.innerHTML = html;
