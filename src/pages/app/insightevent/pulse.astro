@@ -2039,7 +2039,9 @@ if (!location_id) {
       if (!_amtHtml && entry.item.funnel_corner) {
         var _fc = entry.item.funnel_corner;
         var _fcPct = Math.round(Number(_fc.pct) * 100);
-        var _fcSub = ({ footfall: 'de visiteurs · sur ces jours', transactions: 'de ventes · sur ces jours', basket: 'de panier moyen · sur ces jours', conversion: 'de taux de conversion · sur ces jours' })[_fc.kpi];
+        // « chez vous » (owner 24/08) : le titre parle de l'ENVIRONNEMENT, le coin de CHEZ VOUS —
+        // sans le référent, « Moins d'activité » + « +14 % » lisait comme une contradiction.
+        var _fcSub = ({ footfall: 'de visiteurs chez vous · ces jours-là', transactions: 'de ventes chez vous · ces jours-là', basket: 'de panier moyen chez vous · ces jours-là', conversion: 'de taux de conversion chez vous · ces jours-là' })[_fc.kpi];
         if (_fcPct !== 0 && isFinite(_fcPct) && _fcSub) {
           var _fcAbsTxt = (function (k, v) {
             var a = Number(v); if (!isFinite(a)) return '';

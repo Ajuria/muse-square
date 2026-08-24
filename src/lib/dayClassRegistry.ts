@@ -1306,20 +1306,27 @@ export function funnelCornerForCandidate(result: DayClassResult, candidate: { ac
   if (!cls || !CLASS_LABELS[cls]) return null;
   const rows = result?.funnelRows;
   if (!Array.isArray(rows) || !rows.length) return null;
-  const row = rows.find((r: any) => String(r?.class_key ?? "") === cls && String(r?.metric ?? "") === step && String(r?.basis ?? "") === "marginal");
-  if (!row) return null;
-  const n = Number(row?.n_days ?? 0);
-  const spanDays = Number(row?.span_days ?? 0);
-  const avg = Number(row?.avg_gap_eur ?? NaN);
-  const med = Number(row?.med_gap_eur ?? NaN);
-  const nLog = Number(row?.n_log ?? 0);
-  const avgLog = Number(row?.avg_log ?? NaN);
-  const sdLog = Number(row?.sd_log ?? NaN);
-  if (n < 5 || spanDays < 60 || nLog < 5 || !Number.isFinite(avgLog) || !Number.isFinite(sdLog) || !Number.isFinite(avg)) return null;
-  const t = sdLog > 0 ? Math.abs(avgLog) / (sdLog / Math.sqrt(nLog)) : 0;
-  if (t < 1) return null;
-  if (!Number.isFinite(med) || med === 0 || Math.sign(med) !== Math.sign(avgLog)) return null;
-  const pct = Math.exp(avgLog) - 1;
-  if (!Number.isFinite(pct) || Math.abs(pct) < 0.05) return null;
-  return { kpi: step, pct, abs_per_day: avg, n_days: n, class_key: cls, class_label_fr: CLASS_LABELS[cls] };
+  const evalMetric = (metric: string): FunnelCorner | null => {
+    const row = rows.find((r: any) => String(r?.class_key ?? "") === cls && String(r?.metric ?? "") === metric && String(r?.basis ?? "") === "marginal");
+    if (!row) return null;
+    const n = Number(row?.n_days ?? 0);
+    const spanDays = Number(row?.span_days ?? 0);
+    const avg = Number(row?.avg_gap_eur ?? NaN);
+    const med = Number(row?.med_gap_eur ?? NaN);
+    const nLog = Number(row?.n_log ?? 0);
+    const avgLog = Number(row?.avg_log ?? NaN);
+    const sdLog = Number(row?.sd_log ?? NaN);
+    if (n < 5 || spanDays < 60 || nLog < 5 || !Number.isFinite(avgLog) || !Number.isFinite(sdLog) || !Number.isFinite(avg)) return null;
+    const t = sdLog > 0 ? Math.abs(avgLog) / (sdLog / Math.sqrt(nLog)) : 0;
+    if (t < 1) return null;
+    if (!Number.isFinite(med) || med === 0 || Math.sign(med) !== Math.sign(avgLog)) return null;
+    const pct = Math.exp(avgLog) - 1;
+    if (!Number.isFinite(pct) || Math.abs(pct) < 0.05) return null;
+    return { kpi: metric, pct, abs_per_day: avg, n_days: n, class_key: cls, class_label_fr: CLASS_LABELS[cls] };
+  };
+  // Repli d'une étape (owner 24/08, GO) : étape déclarée d'abord ; une carte VISITEURS dont le
+  // site n'a pas de mesure visiteurs sur sa classe replie sur VENTES (l'autre étape de volume,
+  // mesurée presque partout) — jamais déguisé : `kpi` porte l'étape réellement mesurée et le
+  // libellé du coin dit son mot. Les cartes panier/conversion gardent leur étape stricte.
+  return evalMetric(step) ?? (step === "footfall" ? evalMetric("transactions") : null);
 }
