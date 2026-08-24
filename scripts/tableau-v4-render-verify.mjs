@@ -73,7 +73,7 @@ check("v11 : segments SITE (Tous les sites + 1/site) et PÉRIODE (3)",
   && body.querySelectorAll("[data-tb-period]").length === 3,
   body.querySelectorAll("[data-tb-site]").length + " sites · " + body.querySelectorAll("[data-tb-period]").length + " périodes");
 const T2 = Array.from(body.querySelectorAll(".tb-hero2 .tb-t2"));
-const v11Titles = ["Impact mesuré de vos opérations", "Objectifs atteints", "Signaux traités", "Connaissances créées"];
+const v11Titles = ["Impact de vos opérations", "Prochain verdict", "Signaux traités", "Connaissances créées"];
 check("v11 : rangée pilotage = 4 tuiles, titres arbitrés dans l'ordre",
   T2.length === 4 && v11Titles.every((t2, i2) => T2[i2] && T2[i2].textContent.indexOf(t2) >= 0),
   T2.length + " tuiles : " + T2.map((x) => x.querySelector(".tb-eb")?.textContent).join(" | "));
@@ -114,16 +114,22 @@ check("v11 : rangée pilotage = 4 tuiles, titres arbitrés dans l'ordre",
   if (gap30 != null) check("tuile Impact : € signé + fenêtres mesurées",
     txt().indexOf((gap30 >= 0 ? "+" : "−") + frInt2(gap30) + " €") >= 0 && / sur \d+ fenêtres? mesurées?/.test(txt()), gap30 + " €");
 }
-// Tuile Objectifs : k/n + chip « Seuils trop hauts ? » SEULEMENT dans le cas divergent.
+// Tuile Prochain verdict (owner 24/08 soir) : prospective — date en grand si un verdict est
+// programmé (im.next_judgment), sinon « aucun verdict programmé » ; le pli de lecture (k/n,
+// seuils) reste accessible depuis la tuile ; « Seuils trop hauts ? » y vit ssi cas divergent.
 {
-  const objTile = T2.find((x) => x.textContent.indexOf("Objectifs atteints") >= 0);
+  const pvTile = T2.find((x) => x.textContent.indexOf("Prochain verdict") >= 0);
+  const nj = (payload.impact || {}).next_judgment || null;
+  check("tuile Prochain verdict : date annoncée ou absence dite",
+    pvTile && (nj ? /J-\d+|aujourd|\d{2}\/\d{2}/.test(pvTile.textContent) : pvTile.textContent.indexOf("aucun verdict programmé") >= 0),
+    nj || "aucun");
   const gap30 = gapFor(30);
   const cut30 = new Date(Date.parse(new Date().toISOString().slice(0, 10) + "T12:00:00Z") - 30 * 86_400_000).toISOString().slice(0, 10);
   const jm = (payload.judged_meta || []).filter((m) => m.verdict !== "confounded" && String(m.created_d || "") >= cut30);
   const met = jm.filter((m) => /met|beat/i.test(String(m.verdict))).length;
-  check("tuile Objectifs : k/n de la période", objTile && objTile.textContent.indexOf(met + "/" + jm.length) >= 0, met + "/" + jm.length);
   const divergent = gap30 != null && gap30 > 0 && jm.length > 0 && met === 0;
-  check("chip « Seuils trop hauts ? » ssi € > 0 et 0 atteint", divergent === !!(objTile && objTile.textContent.indexOf("Seuils trop hauts ?") >= 0), "divergent=" + divergent);
+  check("chip « Seuils trop hauts ? » ssi divergent (dans la tuile Prochain verdict)",
+    divergent === !!(pvTile && pvTile.textContent.indexOf("Seuils trop hauts ?") >= 0), "divergent=" + divergent);
 }
 // Tuile Signaux traités : % couvert/total du payload + jauge.
 {
@@ -209,7 +215,7 @@ const expectedGreens = (gapFor(30) != null && gapFor(30) >= 0 ? 1 : 0);
 check("pilotage : verts = les deltas mesurés positifs, exactement", greensHero.length === expectedGreens, greensHero.length + " vs attendu " + expectedGreens);
 check("pilotage : parts et comptes en encre (jamais bleu, jamais signés)", (() => {
   const sig = heroNums.find((n) => n.parentElement.textContent.indexOf("Signaux traités") >= 0);
-  const obj = heroNums.find((n) => n.parentElement.textContent.indexOf("Objectifs atteints") >= 0);
+  const obj = heroNums.find((n) => n.parentElement.textContent.indexOf("Prochain verdict") >= 0);
   return (!sig || ((sig.getAttribute("style") || "").indexOf("#1D3BB3") < 0 && !/[+\u2212]/.test(sig.textContent)))
     && (!obj || !/[+\u2212]/.test(obj.textContent));
 })());

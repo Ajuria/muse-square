@@ -183,7 +183,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       bq.query({
         query: `SELECT location_id,
                        COUNTIF(lvl_heat >= 3 AND DATE(date) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()) AS n_hot_30,
-                       MIN(CASE WHEN lvl_heat >= 3 AND DATE(date) > CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END) AS next_hot,
+                       MIN(CASE WHEN lvl_heat >= 3 AND DATE(date) > CURRENT_DATE() AND DATE(date) <= DATE_ADD(CURRENT_DATE(), INTERVAL 14 DAY) THEN CAST(DATE(date) AS STRING) END) AS next_hot,
                        ARRAY_AGG(CASE WHEN lvl_heat >= 3 AND DATE(date) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END IGNORE NULLS) AS hot_dates
                 FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\`
                 WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
@@ -523,10 +523,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 occ_v AS (
                   SELECT * EXCEPT(rn) FROM (
                     SELECT saved_item_id, CAST(window_start AS STRING) d, verdict, status,
+                           kpi_window_value, kpi_baseline,
                            ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
                     FROM \`${PROJECT}.analytics.action_commitments\`)
                   WHERE rn = 1 AND status != 'cancelled')
-                SELECT DISTINCT c.commitment_id, CAST(sd.date AS STRING) d, v.verdict, v.status AS occ_status
+                SELECT DISTINCT c.commitment_id, CAST(sd.date AS STRING) d, v.verdict, v.status AS occ_status,
+                       v.kpi_window_value AS occ_v, v.kpi_baseline AS occ_base
                 FROM cm c
                 JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id AND si.recurrence != 'none'
                 JOIN \`${PROJECT}.raw.saved_item_dates\` sd ON sd.saved_item_id = c.saved_item_id
@@ -990,7 +992,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
             const daily = (mesDailyRows as any[]).filter((x) => str(x.commitment_id) === cid && flat(x.v) != null)
               .map((x) => ({ d: str(x.d), v: Number(flat(x.v)) }));
             const occ = (serieRows as any[]).filter((x) => str(x.commitment_id) === cid)
-              .map((x) => ({ d: str(x.d), verdict: str(x.verdict), status: str(x.occ_status) }));
+              .map((x) => ({ d: str(x.d), verdict: str(x.verdict), status: str(x.occ_status), v: num(x.occ_v), base: num(x.occ_base) }));
             return {
               commitment_id: cid, location_id: str(r.location_id),
               metric: str(r.measured_metric) || "revenue_residual",

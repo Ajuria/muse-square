@@ -120,6 +120,12 @@ reste légitime sur le VOLET (tuile seule renommée).
 - « **produits** » vs « **famille** » : l'owner a écrit « CA produits « Branded » » — renommage
   GLOBAL du mot arbitré « famille » (prod : « CA famille » jusque dans les KPI) à confirmer.
 - « palier » (crans de la jauge Signaux traités) — retirés en attendant LE mot.
+- **La note de calibrage au choix du % d'objectif** (owner 24/08 soir) : la tuile « Objectifs
+  atteints » est morte (elle insistait sur un négatif qui est un problème de CALIBRAGE, pas de
+  performance) — remplacée par « Prochain verdict ». Le calibrage se traite AU MOMENT où
+  l'utilisateur fixe son % dans le goal-setter : une note qualifie l'ambition. Mots candidats
+  owner (« or something ») : « très prudent · prudent · ambitieux · optimiste » — LES quatre
+  mots à arbitrer avant le build commit-form.
 - « geste » (employé par la tuile prod « 6 gestes en attente ») — pas de mot d'interface arbitré.
 - « Voir → » vs « Lire → » : deux mots en prod pour « ouvrir une carte » — un seul doit rester.
 - Le mot du pont rangée santé ↔ rangée pilotage (« dont +1 166 € mesurés de vos opérations »).
