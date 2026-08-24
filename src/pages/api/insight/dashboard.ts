@@ -37,7 +37,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         query: `WITH occ AS (
@@ -620,6 +620,47 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 GROUP BY c.location_id, cl.client_catchment`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
+      // Décomposition funnel des fenêtres ouvertes (arbitrage owner 24/08 : un écart € ne
+      // s'affiche jamais seul). Sommes mesurées + attendues PAR FACTEUR sur le référentiel
+      // UNIQUE de day_residual (jamais les baselines 28 j de sales_signals) — ratio des
+      // sommes : CA = passages × conversion × panier ferme exactement, la phrase du client
+      // décompose l'écart sans mélange de référentiels. Deux jeux de jours alignés : n2 =
+      // jours avec attendu ventes (funnel ventes × panier), n3 = jours avec attendu
+      // visiteurs AUSSI (funnel complet) — un facteur absent reste NULL, jamais inventé.
+      bq.query({
+        query: `WITH cm AS (
+                  SELECT * EXCEPT(rn) FROM (
+                    SELECT commitment_id, location_id, status, window_start, window_end,
+                           ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
+                    FROM \`${PROJECT}.analytics.action_commitments\`
+                    WHERE location_id IN UNNEST(@locs))
+                  WHERE rn = 1 AND status = 'open' AND window_end > window_start),
+                d AS (
+                  SELECT c.commitment_id, r.daily_revenue, r.expected_revenue,
+                         s.daily_visitors, s.daily_transactions,
+                         r.expected_visitors, r.expected_transactions
+                  FROM cm c
+                  JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+                    ON r.location_id = c.location_id
+                   AND r.date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
+                  LEFT JOIN \`${PROJECT}.mart.fct_client_sales_signals_daily\` s
+                    ON s.location_id = c.location_id AND s.transaction_date = r.date)
+                SELECT commitment_id,
+                  COUNTIF(expected_transactions IS NOT NULL) n2,
+                  ROUND(SUM(IF(expected_transactions IS NOT NULL, daily_revenue, NULL)), 0) m_rev2,
+                  ROUND(SUM(IF(expected_transactions IS NOT NULL, expected_revenue, NULL)), 0) e_rev2,
+                  SUM(IF(expected_transactions IS NOT NULL, daily_transactions, NULL)) m_tx2,
+                  ROUND(SUM(IF(expected_transactions IS NOT NULL, expected_transactions, NULL)), 0) e_tx2,
+                  COUNTIF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL) n3,
+                  ROUND(SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, daily_revenue, NULL)), 0) m_rev3,
+                  ROUND(SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, expected_revenue, NULL)), 0) e_rev3,
+                  SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, daily_visitors, NULL)) m_vis3,
+                  ROUND(SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, expected_visitors, NULL)), 0) e_vis3,
+                  SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, daily_transactions, NULL)) m_tx3,
+                  ROUND(SUM(IF(expected_visitors IS NOT NULL AND expected_transactions IS NOT NULL, expected_transactions, NULL)), 0) e_tx3
+                FROM d GROUP BY 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
     ]);
 
     const opsValue = (opsValRows as any[]).map((r) => ({ saved_item_id: str(r.saved_item_id), avg_gap: num(r.avg_gap), n: num(r.n) ?? 0 }));
@@ -993,6 +1034,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
               .map((x) => ({ d: str(x.d), v: Number(flat(x.v)) }));
             const occ = (serieRows as any[]).filter((x) => str(x.commitment_id) === cid)
               .map((x) => ({ d: str(x.d), verdict: str(x.verdict), status: str(x.occ_status), v: num(x.occ_v), base: num(x.occ_base) }));
+            // Décomposition funnel (24/08) — sommes fenêtre par facteur, référentiel day_residual.
+            const fr = (funnelRows as any[]).find((x) => str(x.commitment_id) === cid) || null;
+            const funnel = fr ? {
+              n2: num(fr.n2) ?? 0, m_rev2: num(fr.m_rev2), e_rev2: num(fr.e_rev2), m_tx2: num(fr.m_tx2), e_tx2: num(fr.e_tx2),
+              n3: num(fr.n3) ?? 0, m_rev3: num(fr.m_rev3), e_rev3: num(fr.e_rev3), m_vis3: num(fr.m_vis3), e_vis3: num(fr.e_vis3), m_tx3: num(fr.m_tx3), e_tx3: num(fr.e_tx3),
+            } : null;
             return {
               commitment_id: cid, location_id: str(r.location_id),
               metric: str(r.measured_metric) || "revenue_residual",
@@ -1002,7 +1049,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
               texte: str(r.committed_action_text),
               famille: str(r.kpi_family), site: str(r.site_label), event_title: str(r.event_title), saved_item_id: str(r.saved_item_id),
               kind: occ.length ? "serie" : (str(r.ws) === str(r.we) ? "occurrence" : "fenetre"),
-              daily, occ,
+              daily, occ, funnel,
             };
           }),
         };
