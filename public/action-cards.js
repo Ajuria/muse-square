@@ -2700,7 +2700,20 @@
       var acDate = normalizeDate(ac.date);
       var actionType = ac.action_type || '';
       if (_perfTypes.indexOf(actionType) >= 0) {
-        if (!_todayN || target !== _todayN || acDate !== _perfLatest[actionType]) continue;
+        if (_todayN && target === _todayN) {
+          if (acDate !== _perfLatest[actionType]) continue;
+          // Limite 7 jours (owner 24/08) : un fait CA de 27 jours n'est plus une « action du
+          // jour » — même daté, il encombre. Au-delà, la carte ne remonte plus sur aujourd'hui ;
+          // elle reste rendue sur SA date (branche ci-dessous) pour le travail rétrospectif.
+          var _ageMs = Date.parse(_todayN + 'T00:00:00Z') - Date.parse(acDate + 'T00:00:00Z');
+          if (isFinite(_ageMs) && _ageMs > 7 * 86400000) continue;
+        } else if (_todayN && target < _todayN) {
+          // Rétrospectif (owner 24/08) : sur une date passée, la carte perf de CETTE date rend —
+          // avant, ces types ne rendaient nulle part ailleurs qu'aujourd'hui.
+          if (acDate !== target) continue;
+        } else {
+          continue;
+        }
       } else if (acDate !== target) {
         continue;
       }
