@@ -93,7 +93,7 @@ export async function salesDiscountFamily(bq: any, location_id: string, date: st
   const facts: FamilyFact[] = [];
   if (highCA != null && lowCA != null) {
     facts.push({
-      fact_fr: `Sur ${WINDOW_DAYS} jours, vos jours les plus remisés font ${pctFr(highCA)} de CA vs votre habituel, contre ${pctFr(lowCA)} pour vos jours les moins remisés.`,
+      fact_fr: `Sur ${WINDOW_DAYS} jours, vos jours les plus remisés font ${pctFr(highCA)} de CA vs votre résultat habituel, contre ${pctFr(lowCA)} pour vos jours les moins remisés.`,
       claim_type: "observed_difference",
     });
     facts.push({

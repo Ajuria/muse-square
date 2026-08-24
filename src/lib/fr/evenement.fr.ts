@@ -31,6 +31,13 @@ export const MOTS_BANNIS: Record<string, string> = {
   // SECONDE série pour les MÊMES verdicts : trois concepts, six mots, sur deux pages que rien
   // ne reliait. Le garde-fou scanne déjà les deux fichiers — il ne connaissait pas ces mots.
   "cible tenue": "objectif atteint",
+  // 24/08 — le pluriel avait survécu au garde-fou (« 0/2 cibles tenues » sur tableau.astro) :
+  // une entrée par nombre, la recherche est une sous-chaîne à frontière de mot.
+  "cibles tenues": "objectifs atteints",
+  // 24/08 (2e passe) — le verdict ne se dit jamais « tenu » : « objectif atteint/manqué est
+  // plus clair » (owner). Singulier ET pluriel, la leçon du jour.
+  "objectif tenu": "objectif atteint",
+  "objectifs tenus": "objectifs atteints",
   "cible manquée": "objectif manqué",
   "verdict tenu": "objectif atteint",
   "non mesurable": "non concluant",
@@ -47,8 +54,8 @@ export const MOTS_BANNIS: Record<string, string> = {
   "vs attendu": "vs votre résultat habituel",
   "vs l’attendu": "vs votre résultat habituel",
   "vs l'attendu": "vs votre résultat habituel",
-  "l’attendu": "votre habituel",
-  "l'attendu": "votre habituel",
+  "l’attendu": "votre résultat habituel",
+  "l'attendu": "votre résultat habituel",
   "attendu du jour": "habituel du jour",
   "sur la série": "un libellé qui dit ce que la section EST",
   rejeu: "test",
@@ -102,6 +109,10 @@ export const MOTS_BANNIS: Record<string, string> = {
   // Owner 18/08 (bandeau) : « vs votre résultat habituel » NU est interdit — la référence porte son nom entier.
   "vs habituel": "vs votre résultat habituel",
   "vs votre habituel": "vs votre résultat habituel",
+  // Owner 24/08 : « votre habituel » NU est banni — la référence porte son nom entier.
+  // Les formes légitimes ne matchent pas (« votre résultat habituel », « votre jeudi habituel »,
+  // « votre CA habituel » : un mot s'intercale toujours entre « votre » et « habituel »).
+  "votre habituel": "votre résultat habituel (forme jour : « votre jeudi habituel »)",
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.

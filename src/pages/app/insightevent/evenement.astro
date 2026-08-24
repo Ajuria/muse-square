@@ -341,7 +341,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
               location_id: loc,
               practice_text: recette.slice(0, 300) + " (événement « " + itC.title + " »)",
               evidence_refs: evid || null,
-              confirmation_test: "La prochaine occurrence dépasse votre habituel du jour",
+              confirmation_test: "La prochaine occurrence dépasse votre résultat habituel du jour",
               origin: { origin_action_type: "event_" + (itC.event_type || "autre") },
             }) }).then(function (r) { return r.json(); }).then(function (p) {
               if (p && p.ok) {
