@@ -125,6 +125,13 @@ garde-fou est rouge sur le code encore en place, et un test rouge laissé rouge 
 - Le mot du pont rangée santé ↔ rangée pilotage (« dont +1 166 € mesurés de vos opérations »).
 - « Déclarer vos marges » (pluriel, marge par famille produit) — paraphrase, pas un mot acté.
 - Alignement du volet « Ce que l'app a appris de vos sites » sur « Connaissances créées ».
+- **Doublons inter-pages relevés par l'audit du 24/08** (mêmes concepts, mots/couleurs
+  différents entre tableau et Pulse) : verdicts (« manqué » ambre au tableau, rouge dans
+  Pulse ; « non concluant » gris vs ambre), audiences (« clientèle locale/mixte » au tableau
+  vs « résidents locaux »/« public mixte » partout ailleurs), types de cartes (« Aléa météo
+  annoncé » vs « Alerte météo », « Lancement chez un suivi » vs « Concurrent détecté »…),
+  libellés KPI (« CA famille/jour » vs « CA famille/j »). UN mot et UNE couleur par concept
+  à arbitrer — le garde-fou pourra ensuite les tenir sur les deux fichiers.
 
 ## Balayage de copie à faire (suite de ces décisions)
 
