@@ -1,0 +1,58 @@
+[
+ {
+  "action_type": "weekend_opportunity",
+  "sites": 31,
+  "avant": {
+   "corps": "Conditions favorables pour le week-end — averses, 246 événements à 5 km. Mettez en avant : Veille quotidienne des signaux qui menacent l'activité, planification pour….",
+   "geste": "À pousser : week-end favorable (régime B). Concentrez votre communication sur ce week-end pour capter le flux."
+  },
+  "apres": {
+   "corps": "Conditions favorables pour le week-end — averses, 246 événements à 5 km. Votre cible (résidents locaux, professionnels) est disponible le week-end.",
+   "geste": "À pousser : week-end favorable (régime B). Concentrez votre communication sur ce week-end pour capter le flux."
+  },
+  "perte_corps": 20,
+  "perte_geste": 0
+ },
+ {
+  "action_type": "competitor_reputation_strength",
+  "sites": 8,
+  "avant": {
+   "corps": "Toiles de Mayenne (Manufacture & Boutique) affiche une réputation solide : 4.4/5 sur 44 avis. Votre atout : Veille quotidienne des signaux qui menacent l'activité, planification pour….",
+   "geste": "À noter : Toiles de Mayenne (Manufacture & Boutique) affiche une réputation solide (4.4/5 sur 44 avis). Point de comparaison pour votre propre e-réputation."
+  },
+  "apres": {
+   "corps": "Toiles de Mayenne (Manufacture & Boutique) affiche une réputation solide : 4.4/5 sur 44 avis.",
+   "geste": "À noter : Toiles de Mayenne (Manufacture & Boutique) affiche une réputation solide (4.4/5 sur 44 avis). Point de comparaison pour votre propre e-réputation."
+  },
+  "perte_corps": 91,
+  "perte_geste": 0
+ },
+ {
+  "action_type": "same_bucket_saturation",
+  "sites": 6,
+  "avant": {
+   "corps": "59% des 245 événements à 5 km sont dans votre secteur. Démarquez-vous : Veille quotidienne des signaux qui menacent l'activité, planification pour….",
+   "geste": "À temporiser : votre secteur est saturé (59 % des 245 événements à 5 km). Inutile de surcommuniquer dans le bruit — réservez votre effort pour un jour où votre secteur est moins représenté."
+  },
+  "apres": {
+   "corps": "59% des 245 événements à 5 km sont dans votre secteur.",
+   "geste": "À temporiser : votre secteur est saturé (59 % des 245 événements à 5 km). Inutile de surcommuniquer dans le bruit — réservez votre effort pour un jour où votre secteur est moins représenté."
+  },
+  "perte_corps": 94,
+  "perte_geste": 0
+ },
+ {
+  "action_type": "competitor_threat_direct",
+  "sites": 1,
+  "avant": {
+   "corps": "Office de Tourisme Destination Pays d'Uzès Pont du Gard — Fête votive de La Capelle-et-Masmolène, à 15.5 km. Votre différenciant face à ce concurrent : Veille quotidienne des signaux qui menacent…",
+   "geste": "À défendre : Office de Tourisme Destination Pays d'Uzès Pont du Gard (Fête votive de La Capelle-et-Masmolène) à 15.5 km, audience estimée commune 100 %. Mettez en avant votre différence (offre, cadre, expérience) plutôt que de vous aligner."
+  },
+  "apres": {
+   "corps": "Office de Tourisme Destination Pays d'Uzès Pont du Gard — Fête votive de La Capelle-et-Masmolène, à 15.5 km. Même cible (résidents locaux, professionnels) — risque de cannibalisation.",
+   "geste": "À défendre : Office de Tourisme Destination Pays d'Uzès Pont du Gard (Fête votive de La Capelle-et-Masmolène) à 15.5 km, audience estimée commune 100 %. Mettez en avant votre différence (offre, cadre, expérience) plutôt que de vous aligner."
+  },
+  "perte_corps": 13,
+  "perte_geste": 0
+ }
+]

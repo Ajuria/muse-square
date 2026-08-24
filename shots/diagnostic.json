@@ -1,0 +1,1304 @@
+[
+ {
+  "famille": "contextuelle",
+  "slug": "low_competition_window",
+  "titre": "Moins d’activité que d’habitude dans votre périmètre",
+  "corps": "L’activité autour de vous sera inférieure de 15 % à votre moyenne. On ne sait pas encore si elles vous rapportent plus ou moins.",
+  "geste": "À vérifier : fixez-vous un objectif sur ces jours pour savoir s’ils vous rapportent ou vous coûtent.",
+  "meta": "32 sites · 128 tirs",
+  "diag": [
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "foreign_tourism_signal",
+  "titre": "Adaptez-vous au public touristique étranger",
+  "corps": "Public touristique étranger en congés — vacances scolaires : Autriche, Suisse, Tchéquie, Allemagne, Luxembourg, Pays-Bas, Pologne, Portugal ; jour férié : Portugal. Adaptez accueil, langues et comm...",
+  "geste": "À capter : un public touristique étranger est en congés. Adaptez accueil, langues et offre découverte pour capter ce flux de passage.",
+  "meta": "32 sites · 128 tirs",
+  "diag": [
+   [
+    "drop",
+    "texte brut tronqué",
+    "corps"
+   ],
+   [
+    "drop",
+    "verbe proscrit : capt",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "weather_hazard_onset",
+  "titre": "Alerte météo",
+  "corps": "Alerte vent (niveau modéré). Averses, 16°C–24°C.",
+  "geste": "À adapter : apparition d'un risque météo. Sécurisez vos installations extérieures et prévenez votre équipe des mesures à prendre.",
+  "meta": "32 sites · 96 tirs",
+  "diag": []
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "audience_shift_opportunity",
+  "titre": "Ajustez votre message au public du jour",
+  "corps": "Rentrée scolaire — affluence attendue +6 % : Certains résidents partent en vacances d'autres restent en ville.",
+  "geste": "À réorienter : Vacances d'été modifie le profil des visiteurs attendus. Adaptez votre message, votre offre et votre accueil au public du jour plutôt qu'à votre cible habituelle.",
+  "meta": "31 sites · 124 tirs",
+  "diag": []
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "commercial_event_match",
+  "titre": "Temps fort commercial — activez",
+  "corps": "Rentrée scolaire en cours dans votre région. Occasion favorable — captez le flux.",
+  "geste": "À capter : temps fort commercial « Rentrée scolaire ». Alignez une offre ou un accueil dédié sur l'événement pour capter ce flux de passage, plutôt que de vous en tenir à votre programmation habituelle.",
+  "meta": "31 sites · 124 tirs",
+  "diag": [
+   [
+    "drop",
+    "verbe sans objet",
+    "titre"
+   ],
+   [
+    "drop",
+    "verbe proscrit : capt",
+    "corps"
+   ],
+   [
+    "drop",
+    "verbe proscrit : align, capt",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "weekend_opportunity",
+  "titre": "Activez une opération ce week-end",
+  "corps": "Conditions favorables pour le week-end — averses, 246 événements à 5 km. Mettez en avant : Veille quotidienne des signaux qui menacent l'activité, planification pour ident….",
+  "geste": "À pousser : week-end favorable (régime B). Concentrez votre communication sur ce week-end pour capter le flux.",
+  "meta": "31 sites · 62 tirs",
+  "diag": [
+   [
+    "drop",
+    "texte brut tronqué",
+    "corps"
+   ],
+   [
+    "drop",
+    "verbe proscrit : capt, concentr",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "review_solicitation",
+  "titre": "Sollicitez des avis clients",
+  "corps": "Une occasion favorable approche (vacances scolaires) — c’est le bon moment pour solliciter des avis auprès de vos visiteurs satisfaits. 6 journées porteuses dans les 5 prochains jours.",
+  "geste": "À pousser : une occasion favorable approche. Profitez de l'affluence attendue pour solliciter des avis auprès de vos visiteurs satisfaits — un bon moment pour renforcer votre e-réputation.",
+  "meta": "31 sites · 31 tirs",
+  "diag": []
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "weekend_vacation_low_comp",
+  "titre": "Week-end de vacances — faible concurrence",
+  "corps": "Week-end de vacances, pression ×0.1. Score 62/10.",
+  "geste": "À pousser : week-end de vacances à faible concurrence (pression ×0.1). Occasion rare — concentrez votre communication dessus.",
+  "meta": "21 sites · 42 tirs",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : concentr",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "tourism_peak_window",
+  "titre": "Pic touristique régional",
+  "corps": "Pic touristique détecté (indice 67, saison haute). Maximisez votre visibilité.",
+  "geste": "À capter : pic touristique régional (indice 67). Mettez en avant votre offre auprès des visiteurs de passage pour capter ce flux supplémentaire.",
+  "meta": "20 sites · 80 tirs",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : maximis",
+    "corps"
+   ],
+   [
+    "drop",
+    "verbe proscrit : capt",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "weather_improved",
+  "titre": "Saisissez cette accalmie météo",
+  "corps": "Averses, 24°C. Espace extérieur de nouveau accessible.",
+  "geste": "À pousser : amélioration des conditions météo. Relancez vos visiteurs dès maintenant pour profiter de l'embellie.",
+  "meta": "20 sites · 23 tirs",
+  "diag": [
+   [
+    "check",
+    "nominalisation en tête : « amélioration »",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "extended_bad_weather_3d",
+  "titre": "Météo dégradée 3+ jours",
+  "corps": "3+ jours consécutifs de mauvais temps — alerte vent (niveau 4). On ne sait pas encore ce que ces journées vous coûtent.",
+  "geste": "À adapter : météo dégradée sur 3 jours ou plus — alerte vent (niveau 4). Planifiez des alternatives couvertes sur toute la période et adaptez vos effectifs.",
+  "meta": "20 sites · 20 tirs",
+  "diag": []
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "weather_worsened",
+  "titre": "Prévenez votre équipe — météo dégradée",
+  "corps": "Averses. Variation : -1%.",
+  "geste": "À adapter : dégradation des conditions météo. Repliez en intérieur si possible, réduisez l'exposition extérieure et ajustez vos horaires.",
+  "meta": "20 sites · 20 tirs",
+  "diag": [
+   [
+    "check",
+    "nominalisation en tête : « dégradation »",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "perfect_storm",
+  "titre": "Conditions exceptionnelles — tous les feux au vert",
+  "corps": "3 facteurs favorables alignés : vacances, tourisme élevé. Score 7/10.",
+  "geste": "À pousser : 3 facteurs favorables alignés. Occasion rare — concentrez ici votre principal effort de visibilité de la période.",
+  "meta": "19 sites · 38 tirs",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : align",
+    "corps"
+   ],
+   [
+    "drop",
+    "verbe proscrit : align, concentr",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "top_day_approaching",
+  "titre": "Meilleur jour de la semaine — agissez maintenant",
+  "corps": "météo acceptable · 246 événements à 5 km · Vacances d'été. Meilleur jour de vos dates.",
+  "geste": "À pousser : 3e meilleur score des prochains jours (régime B). Si vous prévoyez une action de visibilité cette semaine, concentrez-la sur ce jour.",
+  "meta": "14 sites · 14 tirs",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : concentr",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "competition_proximity",
+  "titre": "Différenciez-vous de vos concurrents proches",
+  "corps": "7 événements à moins de 500 m, 11 à 1 km. Concentration élevée autour de Muse Square.",
+  "geste": "À défendre : 3 événements à 500 m. Concurrent le plus menaçant : Bal de la licorne à 0.0 km. Renforcez votre visibilité locale (signalétique, fiche GBP, accueil) pour rester repérable dans la densité.",
+  "meta": "8 sites · 32 tirs",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : concentr",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "competitor_reputation_strength",
+  "titre": "Surveillez la réputation concurrente",
+  "corps": "Toiles de Mayenne (Manufacture & Boutique) affiche une réputation solide : 4.4/5 sur 44 avis. Votre atout : Veille quotidienne des signaux qui menacent l'activité, planification pour ident….",
+  "geste": "À noter : Toiles de Mayenne (Manufacture & Boutique) affiche une réputation solide (4.4/5 sur 44 avis). Point de comparaison pour votre propre e-réputation.",
+  "meta": "8 sites · 25 tirs",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : surveill",
+    "titre"
+   ],
+   [
+    "drop",
+    "texte brut tronqué",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "same_bucket_saturation",
+  "titre": "Saturation dans votre secteur",
+  "corps": "59% des 245 événements à 5 km sont dans votre secteur. Démarquez-vous : Veille quotidienne des signaux qui menacent l'activité, planification pour ident….",
+  "geste": "À temporiser : votre secteur est saturé (59 % des 245 événements à 5 km). Inutile de surcommuniquer dans le bruit — réservez votre effort pour un jour où votre secteur est moins représenté.",
+  "meta": "6 sites · 22 tirs",
+  "diag": [
+   [
+    "check",
+    "nominalisation en tête : « Saturation »",
+    "titre"
+   ],
+   [
+    "drop",
+    "texte brut tronqué",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "competition_pressure_spike",
+  "titre": "Renforcez votre visibilité — pression en hausse",
+  "corps": "Pression en hausse : ×0.9. 246 événements à 5 km, 142 dans votre secteur.",
+  "geste": "À défendre : pression concurrentielle en forte hausse. Maintenez votre présence pour ne pas perdre en partage d'attention.",
+  "meta": "6 sites · 6 tirs",
+  "diag": []
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "competitor_positioning_brief",
+  "titre": "Analysez le positionnement concurrent",
+  "corps": "Micromania-Zing — profil complementaire (pas un concurrent direct). Leur positionnement : Retail gaming, culture pop, divertissement grand public.",
+  "geste": "À consulter : analyse de positionnement de Micromania-Zing (note 3.8/5) disponible. Ouvrez-la pour situer votre offre face à ce concurrent.",
+  "meta": "5 sites · 9 tirs",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : positionn",
+    "titre"
+   ],
+   [
+    "drop",
+    "verbe proscrit : positionn",
+    "corps"
+   ],
+   [
+    "drop",
+    "verbe proscrit : positionn",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "tourist_high_season",
+  "titre": "Haute saison touristique",
+  "corps": "Indice touristique élevé (80, saison haute). Afflux de visiteurs dans votre région.",
+  "geste": "À réorienter : haute saison touristique (indice 80). Votre public de passage est surtout touristique — adaptez votre message et votre offre découverte à ce profil plutôt qu'aux habitués locaux.",
+  "meta": "4 sites · 16 tirs",
+  "diag": []
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "tourist_surge_vacation",
+  "titre": "Afflux touristique en vacances",
+  "corps": "Tourisme élevé (80, saison haute) + vacances scolaires. Double flux de visiteurs.",
+  "geste": "À capter : afflux touristique en période de vacances (indice 80). Adressez-vous à ce public de passage (signalétique, offre découverte, horaires élargis) pour capter ce flux.",
+  "meta": "4 sites · 16 tirs",
+  "diag": [
+   [
+    "check",
+    "« + » comme connecteur",
+    "corps"
+   ],
+   [
+    "drop",
+    "verbe proscrit : adress, capt",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "sales_discount_no_lift",
+  "titre": "Remises sans effet",
+  "corps": "Vous avez remisé 2.9 % du CA aujourd'hui, contre ~2.2 % d'ordinaire — sans que le CA suive.",
+  "geste": "À corriger : vos remises n'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d'offre.",
+  "meta": "4 sites · 11 tirs",
+  "diag": []
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "sales_revenue_down_wow",
+  "titre": "CA inférieur à vos vendredis",
+  "corps": "CA 1175 € — journée en retrait, sous vos vendredis : -760 € vs l'habituel du jour (1935 €). Le recul vient de moins de ventes (tickets).",
+  "geste": "À surveiller : confirmez si c'est ponctuel ou récurrent (levier : le volume de ventes) avant d'agir ; tracez la cause pour comparer aux prochaines semaines.",
+  "meta": "4 sites · 6 tirs",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : surveill",
+    "geste"
+   ],
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "competitor_event_ending",
+  "titre": "Fin d’événement concurrent",
+  "corps": "Musée national des arts asiatiques - Guimet termine « Le secret en Corée – Rencontre autour de L'Oiseau aux ailes d'or de Yi Mun-yol ». La pression de cet événement retombe.",
+  "geste": "À noter : un événement concurrent se termine. La pression retombe sur ces jours — c'est peut-être le bon moment pour prendre la parole.",
+  "meta": "3 sites · 9 tirs",
+  "diag": [
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "competitor_positioning_gap",
+  "titre": "Analysez votre écart de positionnement",
+  "corps": "Votre produit phare (Dark chocolate Lg) pèse 3 % de votre chiffre d’affaires. 3 concurrents suivis à comparer sur ce positionnement.",
+  "geste": "À analyser : votre chiffre d'affaires repose fortement sur un produit. Comparez votre positionnement à vos concurrents suivis pour repérer les écarts d'offre exploitables.",
+  "meta": "3 sites · 3 tirs",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : positionn",
+    "titre"
+   ],
+   [
+    "drop",
+    "verbe proscrit : positionn",
+    "corps"
+   ],
+   [
+    "drop",
+    "verbe proscrit : positionn",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "competitor_event_launch",
+  "titre": "Réagissez au lancement concurrent",
+  "corps": "Musée national des arts asiatiques - Guimet lance « Le secret en Corée – Rencontre autour de L'Oiseau aux ailes d'or de Yi Mun-yol » à 4,0 km.",
+  "geste": "Audiences distinctes (0 % de chevauchement) — pertinence contextuelle. À suivre, sans réaction urgente.",
+  "meta": "2 sites · 3 tirs",
+  "diag": []
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "event_new",
+  "titre": "event new",
+  "corps": "event_new — type non reconnu.",
+  "geste": "",
+  "meta": "2 sites · 3 tirs",
+  "diag": []
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "sales_surge",
+  "titre": "CA supérieur à vos vendredis",
+  "corps": "CA 1686 € — une très bonne journée, nettement au-dessus de vos vendredis : +626 € vs l'habituel du jour (1060 €). La hausse vient de l'affluence : +19 % de tickets, panier +10 %.",
+  "geste": "La hausse vient du volume (+19 % de tickets, panier +10 %), porté par les vacances scolaires. À rejouer sur vos prochaines journées comparables.",
+  "meta": "2 sites · 2 tirs",
+  "diag": []
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "client_dormant",
+  "titre": "Client régulier sans commande",
+  "corps": "HILLARYWTAYLOR : 4 commandes, une tous les ~20 j — silencieux depuis 119 jours (6× son rythme). 1 452 € sur la période, dernière commande le 30/03.",
+  "geste": "À faire : reprendre contact en direct — comprendre si la pause est saisonnière, un point de friction, ou un départ chez un concurrent.",
+  "meta": "1 sites · 3 tirs",
+  "diag": [
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "saturated_bad_weather",
+  "titre": "Mauvais temps + saturation sectorielle",
+  "corps": "Double risque : alerte vent (niveau 2) et 86% du secteur en compétition directe. Site sensible météo.",
+  "geste": "À adapter : alerte vent (niveau 2) et secteur saturé (86 % des événements à 5 km dans votre secteur). Conditions doublement défavorables : dimensionnez vos opérations au minimum et gardez vos ressources pour une meilleure occasion.",
+  "meta": "1 sites · 2 tirs",
+  "diag": [
+   [
+    "check",
+    "« + » comme connecteur",
+    "titre"
+   ],
+   [
+    "check",
+    "nominalisation en tête : « saturation »",
+    "titre"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "competitor_threat_direct",
+  "titre": "Contrez votre concurrent direct",
+  "corps": "Office de Tourisme Destination Pays d'Uzès Pont du Gard — Découvrez les activités des clubs séniors dans le 16e arrondissement de Paris, à 15.5 km. Votre différenciant face à ce concurrent : Veille...",
+  "geste": "À défendre : Office de Tourisme Destination Pays d'Uzès Pont du Gard (Fête votive de La Capelle-et-Masmolène) à 15.5 km, audience estimée commune 10000 %. Mettez en avant votre différence (offre, cadre, expérience) plutôt que de vous aligner.",
+  "meta": "1 sites · 2 tirs",
+  "diag": [
+   [
+    "drop",
+    "texte brut tronqué",
+    "corps"
+   ],
+   [
+    "drop",
+    "verbe proscrit : align",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "sales_competition_cannibalization",
+  "titre": "CA en baisse — concurrence à surveiller",
+  "corps": "CA 893 € — -18 % vs la veille (1090 €). Concomitant à une pression concurrentielle ×1.4.",
+  "geste": "À surveiller : baisse concomitante à une pression ×1.4. Confirmez la récurrence avant d'agir ; gardez un œil sur Visite commentée : dans la perspective d'un jardin.",
+  "meta": "1 sites · 2 tirs",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : surveill",
+    "titre"
+   ],
+   [
+    "drop",
+    "verbe proscrit : surveill",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "sales_underperformance",
+  "titre": "CA en retrait — cause probable",
+  "corps": "CA 893 € — -448 € (-33 %) vs votre moyenne 30j (1341 €). Cause probable : pression concurrentielle ×1.4 (5 événements à 5 km), principal Visite commentée : dans la perspective d'un jardin.",
+  "geste": "À noter : CA -33 % sous la moyenne — renforcez votre visibilité face à la concurrence, et tracez la cause pour ne pas la répéter.",
+  "meta": "1 sites · 1 tirs",
+  "diag": []
+ },
+ {
+  "famille": "contextuelle",
+  "slug": "sales_traffic_not_converting",
+  "titre": "Trafic sans conversion",
+  "corps": "Le public était là (1240 visiteurs, fréquentation +49 % vs habitude) mais peu d'achats : 20 % des visiteurs achètent aujourd'hui, contre ~41 % d'ordinaire.",
+  "geste": "À corriger : du trafic mais conversion nettement sous votre norme. Vérifiez l'accueil, la caisse et la mise en avant aujourd'hui, et posez une routine pour les prochains jours à fort passage.",
+  "meta": "1 sites · 1 tirs",
+  "diag": []
+ },
+ {
+  "famille": "structurelle",
+  "slug": "cold · négatif",
+  "titre": "Les jours de grand froid vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Plan grand froid — confort d'accueil et offre chaude mis en avant.",
+  "meta": "weather · n = 9 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "competition_high · négatif",
+  "titre": "Les jours à forte pression concurrentielle vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Différenciation durable — visibilité et offre distinctive sur les jours disputés.",
+  "meta": "competition · n = 35 j",
+  "diag": [
+   [
+    "check",
+    "nominalisation en tête : « Différenciation »",
+    "geste"
+   ],
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "competition_high · positif",
+  "titre": "Les jours à forte pression concurrentielle vous rapportent",
+  "corps": "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Différenciation durable — visibilité et offre distinctive sur les jours disputés.",
+  "meta": "competition · n = 19 j",
+  "diag": [
+   [
+    "check",
+    "nominalisation en tête : « Différenciation »",
+    "geste"
+   ],
+   [
+    "check",
+    "corps identique sur 6 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "competition_low · négatif",
+  "titre": "Les jours calmes ne vous profitent pas encore",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Fenêtres calmes — concentrer lancements et temps forts sur les jours à faible pression.",
+  "meta": "competition · n = 20 j",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : concentr",
+    "geste"
+   ],
+   [
+    "drop",
+    "mot banni « fenêtre » → lexique · occasion",
+    "geste"
+   ],
+   [
+    "drop",
+    "mot banni « fenêtres » → lexique · occasion",
+    "geste"
+   ],
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "competition_low · positif",
+  "titre": "Les jours calmes vous réussissent — identifiez pourquoi",
+  "corps": "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle. La cause précise est chez vous : trouvée et documentée, elle devient déclenchable.",
+  "geste": "Enquête : trouvez le mécanisme via « Reproduire le dispositif », documentez-le — il deviendra déclenchable.",
+  "meta": "competition · n = 13 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 3 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "discount_no_lift · négatif",
+  "titre": "Des remises accordées sans effet mesuré sur le CA",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Règle de remise — plafond et ciblage revus, reconduction conditionnée au lift mesuré.",
+  "meta": "sales · n = 16 j",
+  "diag": [
+   [
+    "drop",
+    "anglicisme : lift",
+    "geste"
+   ],
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "events_high · négatif",
+  "titre": "Les jours à forte densité d'événements vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Calendrier des événements voisins — offre et horaires alignés systématiquement.",
+  "meta": "events · n = 1 j",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : align",
+    "geste"
+   ],
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "events_high · positif",
+  "titre": "Les jours d'événements proches vous rapportent",
+  "corps": "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Calendrier des événements voisins — offre et horaires alignés systématiquement.",
+  "meta": "events · n = 11 j",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : align",
+    "geste"
+   ],
+   [
+    "check",
+    "corps identique sur 6 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "followed_activity_high · négatif",
+  "titre": "Les jours de forte activité de vos concurrents suivis vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Rituel « concurrents actifs » — programmation renforcée quand vos suivis animent la zone.",
+  "meta": "suivis · n = 23 j",
+  "diag": [
+   [
+    "check",
+    "nominalisation en tête : « programmation »",
+    "geste"
+   ],
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "followed_activity_high · positif",
+  "titre": "L'activité de vos concurrents suivis vous profite — identifiez pourquoi",
+  "corps": "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle. La cause précise est chez vous : trouvée et documentée, elle devient déclenchable.",
+  "geste": "Enquête : trouvez le mécanisme via « Reproduire le dispositif », documentez-le — il deviendra déclenchable.",
+  "meta": "suivis · n = 2 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 3 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "heat_25_27 · négatif",
+  "titre": "Les jours à 25–27 °C vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Dispositif durable à définir — engagez-vous pour mesurer l'effet mois après mois.",
+  "meta": "weather · n = 19 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "heat_25_27 · positif",
+  "titre": "Les jours à 25–27 °C vous rapportent",
+  "corps": "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Dispositif durable à définir — engagez-vous pour mesurer l'effet mois après mois.",
+  "meta": "weather · n = 1 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 6 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "heat_28_plus · négatif",
+  "titre": "Les jours à 28 °C et plus vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Plan forte chaleur — ombrage, offre fraîcheur, communication déclenchée dès prévision.",
+  "meta": "weather · n = 3 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "heat_28_plus · positif",
+  "titre": "Les jours à 28 °C et plus vous rapportent",
+  "corps": "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Plan forte chaleur — ombrage, offre fraîcheur, communication déclenchée dès prévision.",
+  "meta": "weather · n = 3 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 6 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "public_holiday · négatif",
+  "titre": "Les jours fériés vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Dispositif jours fériés — horaires et offre spécifiques actés une fois pour toutes.",
+  "meta": "calendar · n = 7 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "public_holiday · positif",
+  "titre": "Les jours fériés vous rapportent",
+  "corps": "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Dispositif jours fériés — horaires et offre spécifiques actés une fois pour toutes.",
+  "meta": "calendar · n = 1 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 6 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "rain · négatif",
+  "titre": "Les jours de pluie marquée vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Plan pluie — offre de repli en intérieur + communication dès prévision de pluie marquée.",
+  "meta": "weather · n = 32 j",
+  "diag": [
+   [
+    "check",
+    "« + » comme connecteur",
+    "geste"
+   ],
+   [
+    "check",
+    "nominalisation en tête : « communication »",
+    "geste"
+   ],
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "school_holiday · négatif",
+  "titre": "Les jours de vacances scolaires vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Dispositif vacances scolaires — offre et équipe calées sur le public vacances.",
+  "meta": "calendar · n = 36 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "snow · négatif",
+  "titre": "Les jours de neige vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Plan neige — accès, horaires et communication adaptés dès prévision de neige.",
+  "meta": "weather · n = 3 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "tourism_high · positif",
+  "titre": "Les jours à fort flux touristique vous rapportent",
+  "corps": "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Offre visiteurs — capter le flux des jours de forte saison (langues, mise en avant, horaires).",
+  "meta": "tourism · n = 2 j",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : capt",
+    "geste"
+   ],
+   [
+    "check",
+    "corps identique sur 6 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "tourism_low · négatif",
+  "titre": "Les jours de basse saison touristique vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Programme basse saison — animer la clientèle locale sur les jours calmes.",
+  "meta": "tourism · n = 1 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "traffic_high · positif",
+  "titre": "Identifiez ce qui déclenche vos jours de pointe",
+  "corps": "Sur ces journées, vous encaissez plus que votre résultat habituel — de façon récurrente, pas accidentelle. La cause précise est chez vous : trouvée et documentée, elle devient déclenchable.",
+  "geste": "Enquête : trouvez le mécanisme via « Reproduire le dispositif », documentez-le — il deviendra déclenchable.",
+  "meta": "traffic · n = 30 j",
+  "diag": [
+   [
+    "check",
+    "corps identique sur 3 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "structurelle",
+  "slug": "wind · négatif",
+  "titre": "Les jours de vent fort vous coûtent",
+  "corps": "Sur ces journées, votre chiffre passe sous votre résultat habituel — de façon récurrente, pas accidentelle.",
+  "geste": "Chantier : Plan vent — sécurisation extérieure + repli intérieur systématique les jours de vent fort.",
+  "meta": "weather · n = 35 j",
+  "diag": [
+   [
+    "check",
+    "« + » comme connecteur",
+    "geste"
+   ],
+   [
+    "check",
+    "nominalisation en tête : « sécurisation »",
+    "geste"
+   ],
+   [
+    "check",
+    "corps identique sur 14 cartes",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "cycle de vie",
+  "slug": "event_prepare",
+  "titre": "Demain : préparez le déclenchement",
+  "corps": "« Corner de vente producteur » demain 22/08 (9 h – 13 h). Dispositif : Le producteur est sur place et fais la présentation produit et la vente en direct. Objectif: - valoriser les prodiuits - se po...",
+  "geste": "À faire : briefer l’équipe ce soir — Communiquer pré-rempli.",
+  "meta": "payload réel",
+  "diag": [
+   [
+    "drop",
+    "texte brut tronqué",
+    "corps"
+   ]
+  ]
+ },
+ {
+  "famille": "cycle de vie",
+  "slug": "event_measure",
+  "titre": "Résultat d’hier — documentez ce qui a marché",
+  "corps": "« Corner de vente producteur » hier 21/08 : ventes pas encore ingérées — le mesuré arrive avec l’import. Cible famille Branded : verdict au dossier.",
+  "geste": "À faire : documenter ce qui a marché — la fiche se pré-remplit depuis le dossier (30 secondes).",
+  "meta": "payload reconstruit",
+  "diag": []
+ },
+ {
+  "famille": "cycle de vie",
+  "slug": "event_decision_due",
+  "titre": "Choisissez le jour de votre événement",
+  "corps": "« Corner de vente producteur » : décision avant le 21/08 — la comparaison de vos jours candidats est prête. Sans choix, pas de mesure.",
+  "geste": "À faire : ouvrir la comparaison et choisir le jour.",
+  "meta": "payload reconstruit",
+  "diag": [
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "cycle de vie",
+  "slug": "event_threat",
+  "titre": "Votre événement est exposé — météo",
+  "corps": "« Corner de vente producteur » le 22/08 (9 h – 13 h) : Fortes pluies (niveau 3) annoncée — votre dispositif est EXTÉRIEUR, directement exposé.",
+  "geste": "À adapter : repli intérieur ou dispositif abrité — décision la veille.",
+  "meta": "payload reconstruit",
+  "diag": [
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "heat_28_plus",
+  "titre": "",
+  "corps": "",
+  "geste": "Plan forte chaleur — ombrage, offre fraîcheur, communication déclenchée dès prévision.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "rain",
+  "titre": "",
+  "corps": "",
+  "geste": "Plan pluie — offre de repli en intérieur + communication dès prévision de pluie marquée.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "« + » comme connecteur",
+    "geste"
+   ],
+   [
+    "check",
+    "nominalisation en tête : « communication »",
+    "geste"
+   ],
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "wind",
+  "titre": "",
+  "corps": "",
+  "geste": "Plan vent — sécurisation extérieure + repli intérieur systématique les jours de vent fort.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "« + » comme connecteur",
+    "geste"
+   ],
+   [
+    "check",
+    "nominalisation en tête : « sécurisation »",
+    "geste"
+   ],
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "snow",
+  "titre": "",
+  "corps": "",
+  "geste": "Plan neige — accès, horaires et communication adaptés dès prévision de neige.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "cold",
+  "titre": "",
+  "corps": "",
+  "geste": "Plan grand froid — confort d'accueil et offre chaude mis en avant.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "traffic_high",
+  "titre": "",
+  "corps": "",
+  "geste": "Routine « jours de pointe » — renfort accueil/caisse déclenché par la prévision d'affluence.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "barre oblique",
+    "geste"
+   ],
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "events_high",
+  "titre": "",
+  "corps": "",
+  "geste": "Calendrier des événements voisins — offre et horaires alignés systématiquement.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : align",
+    "geste"
+   ],
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "discount_no_lift",
+  "titre": "",
+  "corps": "",
+  "geste": "Règle de remise — plafond et ciblage revus, reconduction conditionnée au lift mesuré.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "drop",
+    "anglicisme : lift",
+    "geste"
+   ],
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "tourism_high",
+  "titre": "",
+  "corps": "",
+  "geste": "Offre visiteurs — capter le flux des jours de forte saison (langues, mise en avant, horaires).",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : capt",
+    "geste"
+   ],
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "tourism_low",
+  "titre": "",
+  "corps": "",
+  "geste": "Programme basse saison — animer la clientèle locale sur les jours calmes.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "competition_high",
+  "titre": "",
+  "corps": "",
+  "geste": "Différenciation durable — visibilité et offre distinctive sur les jours disputés.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "nominalisation en tête : « Différenciation »",
+    "geste"
+   ],
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "competition_low",
+  "titre": "",
+  "corps": "",
+  "geste": "Fenêtres calmes — concentrer lancements et temps forts sur les jours à faible pression.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "drop",
+    "verbe proscrit : concentr",
+    "geste"
+   ],
+   [
+    "drop",
+    "mot banni « fenêtre » → lexique · occasion",
+    "geste"
+   ],
+   [
+    "drop",
+    "mot banni « fenêtres » → lexique · occasion",
+    "geste"
+   ],
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "mobility_disruption",
+  "titre": "",
+  "corps": "",
+  "geste": "Protocole perturbations — communication d'itinéraires et offre adaptée dès l'annonce.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "nominalisation en tête : « communication »",
+    "geste"
+   ],
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "followed_activity_high",
+  "titre": "",
+  "corps": "",
+  "geste": "Rituel « concurrents actifs » — programmation renforcée quand vos suivis animent la zone.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "nominalisation en tête : « programmation »",
+    "geste"
+   ],
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "school_holiday",
+  "titre": "",
+  "corps": "",
+  "geste": "Dispositif vacances scolaires — offre et équipe calées sur le public vacances.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ },
+ {
+  "famille": "chantier",
+  "slug": "public_holiday",
+  "titre": "",
+  "corps": "",
+  "geste": "Dispositif jours fériés — horaires et offre spécifiques actés une fois pour toutes.",
+  "meta": "plan de la classe",
+  "diag": [
+   [
+    "check",
+    "geste sans chiffre ni nom propre — maxime ? (règle 12)",
+    "geste"
+   ]
+  ]
+ }
+]

@@ -1,0 +1,108 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>harnais bilan</title>
+<style>.evt-bl-chip:hover { border-color: #1D3BB3 !important; color: #1D3BB3 !important; }</style></head>
+<body style="font-family:system-ui;max-width:760px;margin:0 auto;padding:16px;">
+<div id="evt-body"></div>
+<script>
+var body = document.getElementById("evt-body");
+function frD(iso) { var d = String(iso || "").slice(0, 10); return d ? d.slice(8, 10) + "/" + d.slice(5, 7) : ""; }
+var item = "cdd37a0a-693c-46e1-a1d3-b8e4ab1164e1";
+var qs = new URLSearchParams("mode=bilan");
+window.__lastBilanPost = null;
+window.fetch = function (url, opts) {
+  window.__lastBilanPost = { url: url, body: opts && opts.body ? JSON.parse(opts.body) : null };
+  return Promise.resolve({ json: function () { return Promise.resolve({ ok: true }); } });
+};
+function renderBilanBlock(bilanDate) {
+          var chosen = {};
+          // Numérotation + surlignage des manquantes (retour owner 05/08 — « validation
+          // bruyante », même patron que le formulaire d'engagement du 26/07).
+          var BL_NUM = { weather_accuracy: 1, mobility_felt: 2, attendance_vs_expect: 3 };
+          var BL_NAME = { weather_accuracy: "la météo", mobility_felt: "l’accès", attendance_vs_expect: "la fréquentation" };
+          function group(key, opts) {
+            return '<div data-bl-grp="' + key + '" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px;">' + opts.map(function (o) {
+              return '<button type="button" class="evt-bl-chip" data-bl-g="' + key + '" data-bl-v="' + o[0] + '" style="font-size:12px;font-family:inherit;padding:6px 12px;border:1px solid #E5E7EB;border-radius:20px;background:#fff;color:#374151;cursor:pointer;">' + o[1] + '</button>';
+            }).join("") + '</div>';
+          }
+          function qhead(key, text) {
+            return '<div data-bl-q="' + key + '" style="font-size:13px;font-weight:500;">' + BL_NUM[key] + '/3 — ' + text + '</div>';
+          }
+          var wrap = document.createElement("div");
+          wrap.id = "evt-bilan";
+          wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
+          wrap.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;margin-bottom:4px;">Bilan déclaratif — votre vécu du ' + frD(bilanDate) + '</div>'
+            + '<div style="font-size:12px;color:#6B7280;margin-bottom:10px;">3 questions — ce que la mesure ne voit pas. Le CA, lui, est déjà mesuré ci-dessus.</div>'
+            + qhead("weather_accuracy", 'Les conditions météo correspondaient-elles à nos prévisions ?')
+            + group("weather_accuracy", [["conforme", "Oui, conforme"], ["mieux", "Meilleures que prévu"], ["pire", "Pires que prévu"]])
+            + qhead("mobility_felt", 'L’accès à votre site était-il fluide pour vos visiteurs ?')
+            + group("mobility_felt", [["fluide", "Fluide"], ["difficile", "Quelques difficultés"], ["perturbe", "Fortement perturbé"]])
+            + qhead("attendance_vs_expect", 'La fréquentation, par rapport à vos attentes ?')
+            + group("attendance_vs_expect", [["beyond", "Bien au-delà"], ["conforme", "Conforme"], ["endeca", "En deçà"]])
+            + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">'
+            + '<div><div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Nb de visiteurs (optionnel)</div><input id="evt-bilan-att" type="number" placeholder="ex. 340" style="width:120px;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;"></div>'
+            + '<div style="flex:1;min-width:200px;"><div style="font-size:12px;color:#6B7280;margin-bottom:4px;">Commentaire (optionnel)</div><textarea id="evt-bilan-com" placeholder="Observation, retour terrain…" style="width:100%;padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;min-height:38px;"></textarea></div>'
+            + '</div>'
+            + '<div style="display:flex;align-items:center;gap:10px;margin-top:10px;"><button type="button" id="evt-bilan-send" style="font-size:13px;font-weight:500;color:#fff;background:#1D3BB3;border:none;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;">Envoyer mon bilan</button><span id="evt-bilan-msg" style="font-size:12px;color:#6B7280;"></span></div>';
+          body.appendChild(wrap);
+          wrap.querySelectorAll("[data-bl-g]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              var g = b.getAttribute("data-bl-g");
+              chosen[g] = b.getAttribute("data-bl-v");
+              var qh = wrap.querySelector('[data-bl-q="' + g + '"]');
+              if (qh) qh.style.color = "";
+              wrap.querySelectorAll('[data-bl-g="' + g + '"]').forEach(function (x) {
+                var on = x === b;
+                x.style.background = on ? "#EEF2FF" : "#fff";
+                x.style.borderColor = on ? "#1D3BB3" : "#E5E7EB";
+                x.style.color = on ? "#1D3BB3" : "#374151";
+                x.style.fontWeight = on ? "600" : "400";
+              });
+            });
+          });
+          wrap.querySelector("#evt-bilan-send").addEventListener("click", function () {
+            var msg = wrap.querySelector("#evt-bilan-msg");
+            var missing = ["weather_accuracy", "mobility_felt", "attendance_vs_expect"].filter(function (k) { return !chosen[k]; });
+            if (missing.length) {
+              missing.forEach(function (k) {
+                var h = wrap.querySelector('[data-bl-q="' + k + '"]');
+                if (h) h.style.color = "#B45309";
+                wrap.querySelectorAll('[data-bl-g="' + k + '"]').forEach(function (x) { x.style.borderColor = "#B45309"; });
+              });
+              msg.style.color = "#B45309";
+              var mParts = missing.map(function (k) { return BL_NUM[k] + " (" + BL_NAME[k] + ")"; });
+              msg.textContent = missing.length === 1
+                ? "Il manque la question " + BL_NUM[missing[0]] + " — " + BL_NAME[missing[0]] + "."
+                : "Il manque les questions " + mParts.slice(0, -1).join(", ") + " et " + mParts[mParts.length - 1] + ".";
+              var h0 = wrap.querySelector('[data-bl-q="' + missing[0] + '"]');
+              if (h0 && h0.scrollIntoView) h0.scrollIntoView({ behavior: "smooth", block: "center" });
+              return;
+            }
+            var att = parseInt(wrap.querySelector("#evt-bilan-att").value || "", 10);
+            var btn = wrap.querySelector("#evt-bilan-send");
+            btn.disabled = true;
+            fetch("/api/saved-items/bilan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+              saved_item_id: item, selected_date: bilanDate,
+              weather_accuracy: chosen.weather_accuracy, mobility_felt: chosen.mobility_felt,
+              attendance_vs_expect: chosen.attendance_vs_expect,
+              attendance_approx: isNaN(att) ? null : att,
+              free_comment: wrap.querySelector("#evt-bilan-com").value.trim() || null,
+              collection_channel: "in_app",
+            }) })
+              .then(function (r) { return r.json(); })
+              .then(function (p) {
+                if (p && p.ok) { wrap.innerHTML = '<div style="font-size:12.5px;color:#166534;background:#E6F6F0;border-radius:8px;padding:9px 12px;">Bilan enregistré — il complète la mesure pour calibrer vos prochaines recommandations.</div>'; }
+                else { msg.style.color = "#B91C1C"; msg.textContent = "Erreur : " + ((p && p.error) || "réessayez."); btn.disabled = false; }
+              })
+              .catch(function () { msg.style.color = "#B91C1C"; msg.textContent = "Erreur réseau."; btn.disabled = false; });
+          });
+          if (qs.get("mode") === "bilan" && wrap.scrollIntoView) wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        // ── Consigne d'opération (inc. 7, audit owner 05/08) — SÉRIES seulement. DEUX modes :
+        //    LECTURE = l'aperçu exact de l'email qui partira (zéro écart écran/envoi) ;
+        //    ÉDITION = deux saisies seulement (votre consigne + l'arrivée) — tout ce que
+        //    l'app sait déjà (horaires, objectif, dispositif) est injecté, jamais resaisi.
+        //    UN seul Enregistrer (offset inclus) : plus d'écriture par chip (le fix de la
+        //    transaction avortée vit côté update.ts). Lexique métier : « opération »,
+        //    jamais « occurrence » ni « horaires de série » à l'écran. ──
+renderBilanBlock("2026-06-19");
+</script></body></html>

@@ -381,7 +381,7 @@ if (!location_id) {
     <script is:inline src="/reco-library.js?v=12"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=74"></script>
+    <script is:inline src="/action-cards.js?v=81"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
 
@@ -858,7 +858,8 @@ if (!location_id) {
       try { var _sc2 = JSON.parse(a?.data_payload || "{}"); } catch(e) { var _sc2 = {}; }
       var _sc2Comp = _sc2.top_competitor || "";
       var _sc2Dist = _sc2.competitor_distance_km != null ? _sc2.competitor_distance_km + " km" : "";
-      var _sc2Ov = _sc2.competitor_overlap_pct != null ? Math.round(_sc2.competitor_overlap_pct * 100) + "% chevauchement" : "";
+      // competitor_overlap_pct est DÉJÀ en 0-100 (« * 100.0 » à la source) — même bug ×100 qu'action-cards.
+      var _sc2Ov = _sc2.competitor_overlap_pct != null ? Math.round(_sc2.competitor_overlap_pct) + "% chevauchement" : "";
       if (_sc2Comp) return _sc2Comp + (_sc2Dist ? " \u00e0 " + _sc2Dist : "") + (_sc2Ov ? " \u2014 " + _sc2Ov : "");
       return "Pression concurrentielle \u00e9lev\u00e9e.";
     }
@@ -2012,7 +2013,9 @@ if (!location_id) {
             : ('Écart du jour ' + _dRefLbl + ' (' + Math.round(_dRefV).toLocaleString('fr-FR') + ' €).');
           _amtHtml = '<div class="amt" title="' + escapeHtml(_dRefTxt + ' Ce coin passera en €/an « au rythme constaté » dès 5 occurrences du même problème — jamais extrapolé d’un jour isolé.') + '">'
             + '<div class="amt-val" style="color:' + _dFg + ';">' + (_dGap >= 0 ? '+' : '−') + Math.abs(_dGap).toLocaleString('fr-FR') + ' €</div>'
-            + '<div class="amt-sub">ce jour · passera en €/an dès récurrence</div>'
+            // 24/08 — le fait est daté : « ce jour » lisait comme aujourd'hui alors que la carte
+            // remonte en latest-per-type des jours après le fait (CA du 28/07 rendu un lundi 24/08).
+            + '<div class="amt-sub">' + ((function (iso) { var s = String(iso || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? 'le ' + s.slice(8, 10) + '/' + s.slice(5, 7) : 'ce jour'; })(entry.item.date)) + ' · passera en €/an dès récurrence</div>'
           + '</div>';
         }
       }
@@ -2028,6 +2031,33 @@ if (!location_id) {
           + '<div class="amt-val" style="color:#1D3BB3;">? €/an</div>'
           + '<div class="amt-sub">votre réponse le débloque</div>'
         + '</div>';
+      }
+      // BARREAU 2 du coin (owner 24/08) : ni enjeu €, ni € du jour, ni question de périmètre —
+      // le coin porte le % MESURÉ de l'étape funnel de la carte sur sa classe (servi par monitor,
+      // funnel_corner ; portes et classe côté registre, jamais recalculées ici). Relatif au coin,
+      // absolu en infobulle (arbitrage owner 24/08).
+      if (!_amtHtml && entry.item.funnel_corner) {
+        var _fc = entry.item.funnel_corner;
+        var _fcPct = Math.round(Number(_fc.pct) * 100);
+        // « chez vous » (owner 24/08) : le titre parle de l'ENVIRONNEMENT, le coin de CHEZ VOUS —
+        // sans le référent, « Moins d'activité » + « +14 % » lisait comme une contradiction.
+        var _fcSub = ({ footfall: 'de visiteurs chez vous · ces jours-là', transactions: 'de ventes chez vous · ces jours-là', basket: 'de panier moyen chez vous · ces jours-là', conversion: 'de taux de conversion chez vous · ces jours-là' })[_fc.kpi];
+        if (_fcPct !== 0 && isFinite(_fcPct) && _fcSub) {
+          var _fcAbsTxt = (function (k, v) {
+            var a = Number(v); if (!isFinite(a)) return '';
+            var s = (a > 0 ? '+' : '−');
+            if (k === 'footfall') return s + Math.abs(Math.round(a)).toLocaleString('fr-FR') + ' visiteurs par jour';
+            if (k === 'transactions') return s + Math.abs(Math.round(a)).toLocaleString('fr-FR') + ' ventes par jour';
+            if (k === 'basket') return s + Math.abs(Math.round(a)).toLocaleString('fr-FR') + ' € de panier moyen';
+            if (k === 'conversion') return s + Math.abs(Math.round(a * 100)) + ' points de taux de conversion';
+            return '';
+          })(_fc.kpi, _fc.abs_per_day);
+          var _fcFg = _fcPct > 0 ? 'var(--color-pill-green-text)' : '#B45309';
+          _amtHtml = '<div class="amt" title="' + escapeHtml('Mesuré sur ' + _fc.n_days + ' jours de ' + _fc.class_label_fr + (_fcAbsTxt ? ' : ' + _fcAbsTxt : '') + ' vs vos jours comparables. Le coin passera en € dès que l’effet CA de ces jours passe les portes de mesure.') + '">'
+            + '<div class="amt-val" style="color:' + _fcFg + ';">' + (_fcPct > 0 ? '+' : '−') + Math.abs(_fcPct) + ' %</div>'
+            + '<div class="amt-sub">' + escapeHtml(_fcSub) + '</div>'
+          + '</div>';
+        }
       }
       // R3 : « Action menée ? » fusionnée dans la strip (2 rangées au lieu de 3) — mêmes
       // data-ab-dispo-* (le handler passe par closest('[data-ab-dispo-row]'), inchangé).
@@ -2065,7 +2095,19 @@ if (!location_id) {
                             var cm = entry.item.context_motif;
                             if (!cm || !cm.label_fr || !Number(cm.eur_year)) return '';
                             var v = Math.abs(Math.round(Number(cm.eur_year))).toLocaleString('fr-FR');
-                            return ' ' + escapeHtml('Motif du jour : ' + cm.label_fr + ' (' + (Number(cm.eur_year) > 0 ? '+' : '−') + v + ' €/an sur ce lieu — carte dédiée au motif).');
+                            var line = ' ' + escapeHtml('Motif du jour : ' + cm.label_fr + ' (' + (Number(cm.eur_year) > 0 ? '+' : '−') + v + ' €/an sur ce lieu — carte dédiée au motif).');
+                            // 3-A (owner 24/08) : bonne journée sur un motif qui coûte d'ordinaire
+                            // (« CA supérieur… porté par les vacances scolaires » sous un chip à
+                            // −18 897 €/an) — dire l'anomalie au lieu de laisser la contradiction.
+                            // Cas validé SEULEMENT : motif négatif + jour au-dessus. Le miroir
+                            // (motif positif + mauvais jour) n'a pas de mot arbitré.
+                            var dp = entry.item.data_payload || {};
+                            var g = dp.delta_eur != null ? Number(dp.delta_eur)
+                              : (dp.daily_revenue != null && dp.expected_revenue != null ? Number(dp.daily_revenue) - Number(dp.expected_revenue) : null);
+                            if (g != null && isFinite(g) && g > 0 && Number(cm.eur_year) < 0) {
+                              line += ' ' + escapeHtml('D’ordinaire ce motif vous coûte — pas ce jour-là. Notez ce qui a changé.');
+                            }
+                            return line;
                           })()
                       + '</div>'
                     + '</div>'
@@ -3931,6 +3973,8 @@ if (!location_id) {
         + '<span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;flex:none;">Structurel</span>'
         + '<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">' + escapeHtml(String(imp.title_fr || ''))
           + '<span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">' + imp.n_days + ' j / ' + imp.span_months + ' mois · ' + (pos ? 'à gagner' : 'perdus') + ' · ' + escapeHtml(String(imp.tier_label_fr || '')) + ' · ' + escapeHtml(STRUCT_FAM_FR[imp.family] || imp.family || '') + ' · ' + state + (eng && eng.owner_person_name ? ' → ' + escapeHtml(String(eng.owner_person_name)) : '') + '</span>'
+          // 2-A (owner 24/08) : liaison des deux pôles négatifs — posée par monitor.
+          + (imp.liaison_fr ? '<span style="display:block;font-size:11px;color:#1D3BB3;font-weight:400;margin-top:2px;">' + escapeHtml(String(imp.liaison_fr)) + '</span>' : '')
         + '</span>'
         + (coinPorte
             ? '<span class="ab-metric-val" style="font-size:11px;color:#9CA3AF;flex:none;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
@@ -3990,6 +4034,10 @@ if (!location_id) {
           + '<div style="flex:1;min-width:0;">'
             + '<div class="ab-what">' + escapeHtml(String(imp.title_fr || '')) + '</div>'
             + '<div class="ab-sowhat">' + escapeHtml(String(imp.sowhat_fr || '')) + '</div>'
+            // 2-A (owner 24/08) : ligne de liaison quand les deux pôles de la dimension coûtent
+            // (posée par monitor, jamais calculée ici) — sinon les deux cartes lisent comme une
+            // contradiction.
+            + (imp.liaison_fr ? '<div class="ab-sowhat" style="margin-top:2px;color:#1D3BB3;">' + escapeHtml(String(imp.liaison_fr)) + '</div>' : '')
           + '</div>'
           + '<div class="amt" title="' + escapeHtml(tip) + '"><div class="amt-val" style="color:' + fg + ';">' + (pos ? '+' : '−') + amount + ' €/an</div><div class="amt-sub">' + escapeHtml(lbl) + '</div></div>'
         + '</div>'
@@ -4081,7 +4129,7 @@ if (!location_id) {
           signal_type: 'structural_' + String(imp.class_key || ''),
           affected_date: '',
           card_what: String(imp.title_fr || ''),
-          card_sowhat: String(imp.sowhat_fr || '') + (imp.chantier_fr ? ' ' + String(imp.chantier_fr) : ''),
+          card_sowhat: String(imp.sowhat_fr || '') + (imp.liaison_fr ? ' ' + String(imp.liaison_fr) : '') + (imp.chantier_fr ? ' ' + String(imp.chantier_fr) : ''),
           signal: imp,
           artifact_mode: 'post',
           severity: '',

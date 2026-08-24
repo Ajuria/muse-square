@@ -612,7 +612,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               if (o.verdict === "missed") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="#b91c1c"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">\u2717</text>';
               else if (o.verdict === "met") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="#059669"/><text x="' + x + '" y="22" font-size="9" fill="#fff" text-anchor="middle" font-weight="700">\u2713</text>';
               else if (o.status === "open" || o.status === "pending") g4 += '<circle cx="' + x + '" cy="18" r="7" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-dasharray="2,2.5"/>';
-              else if (o.d <= TODAY2) g4 += '<circle cx="' + x + '" cy="18" r="6.5" fill="#9CA3AF"><title>mesur\u00e9e \u2014 en attente de verdict</title></circle>';
+              // Deux états distincts (défaut de vérité 24/08) : status présent = un engagement a
+              // couvert l'occurrence ; status null = aucun dispositif ne la couvrait (ou annulé avant mesure).
+              else if (o.d <= TODAY2 && o.status) g4 += '<circle cx="' + x + '" cy="18" r="6.5" fill="#9CA3AF"><title>mesur\u00e9e \u2014 en attente de verdict</title></circle>';
+              else if (o.d <= TODAY2) g4 += '<circle cx="' + x + '" cy="18" r="6.5" fill="none" stroke="#9CA3AF" stroke-width="1.8"><title>pass\u00e9e sans mesure</title></circle>';
               else g4 += '<circle cx="' + x + '" cy="18" r="3.5" fill="#E5E7EB"/>';
               g4 += '<text x="' + x + '" y="40" font-size="8.5" fill="#9CA3AF" text-anchor="middle">' + frD(o.d) + '</text>';
             });
@@ -639,7 +642,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 inner = '<div style="display:flex;gap:5px;flex-wrap:wrap;">' + opChip(jug + "/" + m.occ.length + " jug\u00e9es \u00b7 " + ten + " tenue" + (ten > 1 ? "s" : ""), "#F3F4F6", "#6b7280") + siteChp + opChip(kpiLbl, "#F8FAFC", "#6b7280") + '</div>'
                   + '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">' + opFrise(m.occ)
                   + '<div style="flex:1;min-width:180px;font-size:11.5px;color:#6B7280;line-height:1.55;">Chaque occurrence est jug\u00e9e seule \u2014 la s\u00e9rie cumule les verdicts.' + (nxt ? " Prochaine : " + dowFull(nxt.d) + " " + frD(nxt.d) + " (dispositif actif)." : "") + '</div></div>'
-                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">\u2717 manqu\u00e9e \u00b7 \u2713 tenue \u00b7 \u25cf grise = mesur\u00e9e, verdict en attente \u00b7 \u25cc dispositif actif \u2014 mesure au jour J \u00b7 petits points = planifi\u00e9es</span>'
+                  + '<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #F3F4F6;padding-top:8px;"><span style="font-size:10.5px;color:#9CA3AF;">\u2717 manqu\u00e9e \u00b7 \u2713 tenue \u00b7 \u25cf grise = mesur\u00e9e, verdict en attente \u00b7 \u25cb pass\u00e9e sans mesure \u00b7 \u25cc dispositif actif \u2014 mesure au jour J \u00b7 petits points = planifi\u00e9es</span>'
                   + '<a class="tb-link" style="font-size:12.5px;white-space:nowrap;" href="/app/insightevent/evenement?location_id=' + encodeURIComponent(m.location_id) + '&saved_item_id=' + encodeURIComponent(m.saved_item_id || "") + '">Dossier \u2192</a></div>';
               } else if (m.kind === "fenetre" && (m.daily || []).length >= 2) {
                 var cum = m.daily.reduce(function (s2, p2) { return s2 + p2.v; }, 0) / m.daily.length;

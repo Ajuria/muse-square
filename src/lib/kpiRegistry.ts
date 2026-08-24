@@ -96,6 +96,59 @@ export const KPI_LABEL_FR: Record<KpiKey, string> = {
   family_revenue: "CA famille/jour",
 };
 
+// ── Étape funnel par TYPE DE CARTE (owner 24/08, table validée telle quelle) ──────────────
+// « Each card should be linked to a step in sales funnel » : l'étape que le GESTE de la carte
+// fait bouger — pas celle où on la mesure le mieux. Consommateur : le coin barreau 2
+// (dayClassRegistry.funnelCornerForCandidate — % mesuré de la classe de la carte sur cette
+// étape, absolu en infobulle). K1 y figure pour la complétude : le coin des cartes K1 reste
+// l'affaire de l'enjeu €/« € ce jour » (barreaux existants) — le barreau 2 les ignore, et
+// sales_surge/down_wow restent driver-dynamiques via kpiKeyForOrigin, inchangé.
+// weekly_briefing : hors funnel, volontairement absent (récapitulatif, pas de coin).
+export const CARD_FUNNEL_STEP: Record<string, KpiKey> = {
+  // K2 — nombre de visiteurs (le geste fait venir du monde)
+  commercial_event_match: "footfall",
+  foreign_tourism_signal: "footfall",
+  low_competition_window: "footfall",
+  competition_proximity: "footfall",
+  same_bucket_saturation: "footfall",
+  competition_pressure_spike: "footfall",
+  audience_shift_opportunity: "footfall",
+  calendar_audience_shift: "footfall",
+  top_day_approaching: "footfall",
+  weekend_opportunity: "footfall",
+  weekend_vacation_low_comp: "footfall",
+  mega_event_end: "footfall",
+  competitor_event_launch: "footfall",
+  competitor_event_ending: "footfall",
+  mobility_disruption: "footfall",
+  ft_peak_mobility: "footfall",
+  weather_hazard_onset: "footfall",
+  weather_improved: "footfall",
+  weather_window_after_bad: "footfall",
+  competitor_threat_direct: "footfall",
+  competitor_positioning_brief: "footfall",
+  competitor_positioning_gap: "footfall",
+  competitor_reputation_strength: "footfall",
+  review_solicitation: "footfall",
+  // K3 — taux de conversion
+  sales_traffic_not_converting: "conversion",
+  // K4 — panier moyen (le geste joue sur la valeur du ticket)
+  competitor_price_drop: "basket",
+  competitor_price_increase: "basket",
+  competitor_repricing_event: "basket",
+  competitor_new_offering: "basket",
+  // K5 — ventes (le geste fait des transactions)
+  hour_share_move: "transactions",
+  item_share_move: "transactions",
+  offering_mix_shift: "transactions",
+  client_dormant: "transactions",
+  // K1 — chiffre d'affaires (la carte mesure le résultat final)
+  sales_surge: "revenue_residual",
+  sales_revenue_down_wow: "revenue_residual",
+  sales_competition_cannibalization: "revenue_residual",
+  sales_discount_no_lift: "revenue_residual",
+};
+
 // ── Événements (03/08, spec evenement-dossier § 1.3) — le KPI déclaré sur l'événement
 // (saved_items.kpi) → la clé de mesure du registre. Foyer UNIQUE du mapping : les clients
 // envoient event_kpi brut, le POST commitments traduit ici.

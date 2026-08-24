@@ -31,6 +31,22 @@
   // 23/08 — « le 20/08 » depuis l'ISO du payload (gestes au passé : la carte peut s'afficher des jours après).
   function frDateFr(iso) { var d = String(iso || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? ' le ' + d.slice(8, 10) + '/' + d.slice(5, 7) : ''; }
   function frInt(v) { return Math.round(Number(v) || 0).toLocaleString('fr-FR'); }
+  // 24/08 — recit nature 1 (fenetres) : les 6 cartes de fenetre portent window_start/
+  // window_end/window_days (mart, etage gaps-and-islands). Rend ' du lundi 24/08 au
+  // jeudi 27/08 (4 jours)' ; '' si fenetre d'un seul jour ou payload sans fenetre.
+  function frDayDate(iso) {
+    var d = String(iso || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
+    var J = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    var dt = new Date(d + 'T12:00:00');
+    return J[dt.getDay()] + ' ' + d.slice(8, 10) + '/' + d.slice(5, 7);
+  }
+  function windowFr(a) {
+    if (!a || a.window_days == null || Number(a.window_days) < 2) return '';
+    var s = frDayDate(a.window_start), e = frDayDate(a.window_end);
+    if (!s || !e) return '';
+    return ' du ' + s + ' au ' + e + ' (' + Number(a.window_days) + ' jours)';
+  }
   // 23/08 — COMPARAISON DE NOTES, un seul foyer (owner : « doit être comparatif pour être
   // clair »). Votre note vient de p.besttime_rating — la note Google du lieu telle que BestTime
   // la relaie, capturée par cron/sync-besttime.ts depuis ce matin (elle tombait par terre
@@ -461,15 +477,16 @@
                  : (delta <= -1) ? Math.round(delta) + ' %'
                  : '';
       var line = '';
+      var win = windowFr(a);
       if (trigger) {
-        line = trigger + (pctStr ? ' \u2014 affluence attendue ' + pctStr : '');
+        line = trigger + win + (pctStr ? ' \u2014 affluence attendue ' + pctStr : '');
         if (audLabelFr) line += ' : ' + audLabelFr;
         line += '.';
       } else if (audLabelFr) {
-        line = audLabelFr + (pctStr ? ' (' + pctStr + ' attendu)' : '') + '.';
+        line = audLabelFr + win + (pctStr ? ' (' + pctStr + ' attendu)' : '') + '.';
       } else {
         var aud = audLabel(p);
-        line = 'Changement d\u2019audience d\u00e9tect\u00e9' + (pctStr ? ' (' + pctStr + ' attendu)' : '') + '.' + (aud ? ' Vos ' + aud.split(',')[0] + ' c\u00f4toient de nouveaux visiteurs.' : '');
+        line = 'Changement d\u2019audience d\u00e9tect\u00e9' + win + (pctStr ? ' (' + pctStr + ' attendu)' : '') + '.' + (aud ? ' Vos ' + aud.split(',')[0] + ' c\u00f4toient de nouveaux visiteurs.' : '');
       }
       return line.trim();
     },
@@ -517,7 +534,7 @@
         var pays = named.replace(/(\d)%/g, '$1 %');
         var part = a.share_total_pct != null ? String(a.share_total_pct).replace(/(\d)$/, '$1') : null;
         var an = a.profile_reference_year != null ? String(a.profile_reference_year) : null;
-        line = pays + ' en vacances scolaires — leur poids dans les nuitées étrangères de votre région'
+        line = pays + ' en vacances scolaires' + windowFr(a) + ' — leur poids dans les nuitées étrangères de votre région'
              + (an ? ' (INSEE ' + an + ')' : '')
              + (part ? ', soit ' + part + ' % cumulés' : '') + '. '
              + 'Ce n\'est pas une mesure de votre fréquentation.';
@@ -527,7 +544,7 @@
         var parts = [];
         if (school.length) parts.push('vacances scolaires : ' + school.join(', '));
         if (pub.length) parts.push('jour férié : ' + pub.join(', '));
-        line = (parts.length ? 'Public touristique étranger en congés — ' + parts.join(' ; ') + '. ' : '')
+        line = (parts.length ? 'Public touristique étranger en congés' + windowFr(a) + ' — ' + parts.join(' ; ') + '. ' : '')
              + 'Le poids de ces nationalités dans votre région n\'est pas encore disponible.';
       }
       if (a.location_access_pattern === 'destination_catchment') line += ' Votre site capte un flux de passage — pertinence accrue.';
@@ -627,7 +644,7 @@
       // absent du corps). Trou « lequel ? » de la matrice questions-exploitant.
       var nearestTxt = (nearest && nearestDist > 0) ? ' \u2014 le plus proche : \u00ab\u00a0' + trunc(nearest, 60) + '\u00a0\u00bb \u00e0 ' + distLabel(nearestDist) : '';
       var line = parts.length > 0 ? parts.join(', ') + nearestTxt + '. ' : (nearestTxt ? nearestTxt.replace(/^ \u2014 le/, 'Le') + '. ' : '');
-      line += density + ' autour de ' + siteName(p) + '.';
+      line += density + ' autour de ' + siteName(p) + windowFr(a) + '.';
       if (isOutdoor(p) && n500 >= 3) line += ' Espace mixte \u2014 votre visibilit\u00e9 ext\u00e9rieure est critique.';
       if (p.nearest_transit_stop_name) line += ' Acc\u00e8s pi\u00e9ton via ' + p.nearest_transit_stop_name + ' (' + Math.round(Number(p.nearest_transit_stop_distance_m || 0)) + 'm).';
       return line;
@@ -648,7 +665,10 @@
       // le 28/07, 4 sites sur 24 ont une mesure et les signes divergent (+88 / -49 EUR/j).
       var pr = (a && a.pressure_ratio != null) ? Number(a.pressure_ratio)
              : (d && d.competition_pressure_ratio != null) ? Number(d.competition_pressure_ratio) : null;
-      var line = (pr != null && pr < 1)
+      var win = windowFr(a);
+      var line = win
+        ? 'L’activité autour de vous sera inférieure à votre moyenne' + win + '.'
+        : (pr != null && pr < 1)
         ? 'L’activité autour de vous sera inférieure de ' + Math.round((1 - pr) * 100) + ' % à votre moyenne.'
         : 'L’activité autour de vous sera plus faible que d’habitude.';
       // 22/08 — le coin est passé en CONTEXTE (il doublait celui du chantier structurel).
@@ -1146,7 +1166,8 @@
       if (price) line += ' (' + price + ')';
       if (cat) line += ' \u2014 ' + cat;
       if (dist) line += ', \u00e0 ' + dist;
-      line += '.';
+      var dd = frDateFr(a.detected_date);
+      line += (dd ? ',' + dd : '') + '.';
       line += threatContext(a, false);
       return line;
     },
@@ -1260,7 +1281,7 @@
       var pctv = (a.price_pct_change != null) ? Number(a.price_pct_change) : null;
       var line = name + ' a augment\u00e9 le prix de ' + item + ' : ' + oldP + ' \u2192 ' + newP;
       if (pctv != null) line += ' (+' + frDec(pctv) + ' %)';
-      line += '.';
+      line += frDateFr(a.detected_date) + '.';
       line += threatContext(a, true);
       line += ' Vous disposez peut-\u00eatre d\u2019une marge de repositionnement tarifaire.';
       return line;
@@ -1280,7 +1301,7 @@
       var pctv = (a.price_pct_change != null) ? Number(a.price_pct_change) : null;
       var line = name + ' a baiss\u00e9 le prix de ' + item + ' : ' + oldP + ' \u2192 ' + newP;
       if (pctv != null) line += ' (' + (pctv < 0 ? '\u2212' : '') + frDec(Math.abs(pctv)) + ' %)';
-      line += '.';
+      line += frDateFr(a.detected_date) + '.';
       line += threatContext(a, true);
       line += ' Pression tarifaire \u2014 v\u00e9rifiez votre comp\u00e9titivit\u00e9 sur cette offre.';
       return line;
@@ -1299,6 +1320,8 @@
       var oldP = a.old_price_raw || '';
       var line = name + ' ne propose plus : ' + item;
       if (oldP) line += ' (anciennement ' + oldP + ')';
+      var dd = frDateFr(a.detected_date);
+      if (dd) line += ', depuis' + dd;
       line += '.';
       line += threatContext(a, true);
       line += ' Opportunit\u00e9 de capter cette demande.';
@@ -1412,7 +1435,7 @@
       if (inc > 0) parts.push(inc + ' hausse' + (inc > 1 ? 's' : ''));
       if (dec > 0) parts.push(dec + ' baisse' + (dec > 1 ? 's' : ''));
       if (parts.length) line += ' (' + parts.join(', ') + ')';
-      line += '.';
+      line += frDateFr(a.detected_date) + '.';
       var items = a.items_changed || '';
       if (items) line += ' Concern\u00e9 : ' + trunc(items, 100) + '.';
       line += threatContext(a, true);
@@ -1563,7 +1586,7 @@
     function(a, p, d) {
       var pctSame = samePct(a, d) || 0;
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
-      var line = pctSame + '% des ' + n + ' \u00e9v\u00e9nements \u00e0 5 km sont dans votre secteur.';
+      var line = pctSame + '% des ' + n + ' \u00e9v\u00e9nements \u00e0 5 km sont dans votre secteur' + windowFr(a) + '.';
       return line;
     },
     {
@@ -1601,7 +1624,7 @@
       var isDiscount = evCode
         ? /sales|black-friday|cyber-monday/.test(String(evCode))
         : /soldes|black friday|cyber monday|nouvel an|no\u00ebl/i.test(String(evName));
-      var line = evName ? evName + ' en cours dans votre r\u00e9gion.' : 'Temps fort commercial en cours dans votre r\u00e9gion.';
+      var line = (evName || 'Temps fort commercial') + ' en cours dans votre r\u00e9gion' + windowFr(a) + '.';
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       if (isDiscount) line += pr > 1.3 ? ' Concurrence \u00e9lev\u00e9e (\u00d7' + frDec(pr) + ') \u2014 d\u00e9marquez-vous sans casser vos prix.' : ' Le flux d\u2019acheteurs est l\u00e0 \u2014 mettez en avant une offre signature plut\u00f4t qu\u2019une remise.';
       // « Occasion favorable — captez le flux » retiré (verbe proscrit, règle 8) et NON
@@ -2223,7 +2246,9 @@
       var joursS = window.msWeekdayFrSing(a.affected_date);
       // Écart € DU JOUR (01/08) : même règle que sales_revenue_down_wow — référentiel nommé.
       var gapJ = (rev != null && exp != null) ? rev - exp : null;
-      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de votre ' + joursS + ' habituel'
+      // 24/08 — le fait est DATÉ (même règle que les cartes prix concurrents, lot 3) : la carte
+      // remonte en latest-per-type des jours après le fait ; sans date elle lit comme aujourd'hui.
+      var line = (rev != null ? 'CA ' + rev + ' €' + frDateFr(a.affected_date) + ' — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de votre ' + joursS + ' habituel'
         + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € (' + exp + ' €).' : '.');
 
       if (tx != null && bk != null) {
@@ -2251,7 +2276,7 @@
         var exp = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
         var resid = a.residual_pct != null ? Math.round(Number(a.residual_pct)) : null;
         var soft = msSalesConfidence(a) === 'possible';
-        return 'Aux équipes' + (soft ? ' — à noter ensemble : ' : ' : ') + 'belle journée' + (resid != null ? ', CA +' + resid + ' % au-dessus de l\'attendu pour ce jour' : '') + (rev != null && exp != null ? ' (' + rev + ' € vs ' + exp + ' € attendus)' : '') + '. ' + (soft ? 'Notons ce qui a marché aujourd\'hui (offre, accueil, mise en avant) pour voir si on peut le reproduire.' : 'Documentons les conditions du jour et rejouons cette routine sur les prochaines occasions comparables.');
+        return 'Aux équipes' + (soft ? ' — à noter ensemble : ' : ' : ') + 'belle journée' + (resid != null ? ', CA +' + resid + ' % au-dessus de l\'attendu pour ce jour' : '') + (rev != null && exp != null ? ' (' + rev + ' € vs ' + exp + ' € attendus)' : '') + frDateFr(a.affected_date) + '. ' + (soft ? 'Notons ce qui a marché ce jour-là (offre, accueil, mise en avant) pour voir si on peut le reproduire.' : 'Documentons les conditions du jour et rejouons cette routine sur les prochaines occasions comparables.');
       }
     }
   );
@@ -2266,11 +2291,14 @@
       var yest = a.revenue_yesterday != null ? Math.round(Number(a.revenue_yesterday)) : null;
       var delta = a.revenue_delta_pct != null ? Math.round(Number(a.revenue_delta_pct)) : null;
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      var overlap = a.competitor_overlap_pct != null ? Math.round(Number(a.competitor_overlap_pct) * 100) : null;
+      // competitor_overlap_pct est DÉJÀ un pourcentage 0-100 (int_competitor_threat_profile
+      // fait « * 100.0 » à la source ; valeurs vivantes 50-100). Le ×100 d'ici affichait 5000 %.
+      var overlap = a.competitor_overlap_pct != null ? Math.round(Number(a.competitor_overlap_pct)) : null;
 
+      // 24/08 — fait daté : « la veille » est relative au fait, pas à aujourd'hui.
       var line = (rev != null && yest != null)
-        ? 'CA ' + rev + ' € — ' + (delta != null ? delta + ' %' : 'en baisse') + ' vs la veille (' + yest + ' €).'
-        : 'CA en baisse vs la veille.';
+        ? 'CA ' + rev + ' €' + frDateFr(a.affected_date) + ' — ' + (delta != null ? delta + ' %' : 'en baisse') + ' vs la veille (' + yest + ' €).'
+        : 'CA en baisse vs la veille' + frDateFr(a.affected_date) + '.';
 
       if (pr != null) line += ' Concomitant à une pression concurrentielle ×' + frDec(pr) + '.';
       if (a.top_competitor) {
@@ -2303,12 +2331,13 @@
       var cdp = a.conversion_delta_pct != null ? Number(a.conversion_delta_pct) : null;
       var usual = (rateN != null && cdp != null && (100 + cdp) > 0) ? rateN * 100 / (100 + cdp) : null;
       var vis = a.daily_visitors != null ? num(a.daily_visitors) : null;
-      var line = 'Le public était là';
+      // 24/08 — fait daté ; « achètent aujourd'hui » mentait dès le lendemain du fait.
+      var line = 'Le public était là' + frDateFr(a.affected_date);
       var _fb = [];
       if (vis != null) _fb.push(vis + ' visiteurs');
       if (foot != null) _fb.push('fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' % vs habitude');
       if (_fb.length) line += ' (' + _fb.join(', ') + ')';
-      line += ' mais peu d\'achats : ' + (rateN != null ? Math.round(rateN) + ' % des visiteurs achètent aujourd\'hui' : 'conversion en retrait') + (usual != null ? ', contre ~' + Math.round(usual) + ' % d\'ordinaire' : ' (sous votre norme du même jour)') + '.';
+      line += ' mais peu d\'achats : ' + (rateN != null ? Math.round(rateN) + ' % des visiteurs ont acheté' : 'conversion en retrait') + (usual != null ? ', contre ~' + Math.round(usual) + ' % d\'ordinaire' : ' (sous votre norme du même jour)') + '.';
       return line;
     },
     {
@@ -2316,7 +2345,7 @@
         var foot = a.footfall_delta_pct != null ? Math.round(Number(a.footfall_delta_pct)) : null;
         var cz = a.conversion_robust_z != null ? Number(a.conversion_robust_z) : null;
         var soft = msSalesConfidence(a) === 'possible';
-        return 'Aux équipes de vente' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'du monde en boutique' + (foot != null ? ' (fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' %)' : '') + ' mais peu d\'achats' + (cz != null ? ' (conversion nettement sous notre norme habituelle)' : '') + '. ' + (soft ? 'Regardons ensemble l\'accueil, la caisse et la mise en avant produit pour comprendre le blocage.' : 'Renforçons l\'accueil et la caisse aujourd\'hui, et mettons en place une routine pour les journées à fort passage.');
+        return 'Aux équipes de vente' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'du monde en boutique' + frDateFr(a.affected_date) + (foot != null ? ' (fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' %)' : '') + ' mais peu d\'achats' + (cz != null ? ' (conversion nettement sous notre norme habituelle)' : '') + '. ' + (soft ? 'Regardons ensemble l\'accueil, la caisse et la mise en avant produit pour comprendre le blocage.' : 'Renforçons l\'accueil et la caisse, et mettons en place une routine pour les journées à fort passage.');
       }
     }
   );
@@ -2328,7 +2357,8 @@
       var drN = a.discount_rate != null ? Number(a.discount_rate) * 100 : null;
       var ddp = a.discount_rate_delta_pct != null ? Number(a.discount_rate_delta_pct) : null;
       var drUsual = (drN != null && ddp != null && (100 + ddp) > 0) ? drN * 100 / (100 + ddp) : null;
-      var line = 'Vous avez remisé ' + (drN != null ? frDec(drN) + ' % du CA aujourd\'hui' : 'plus que d\'habitude') + (drUsual != null ? ', contre ~' + frDec(drUsual) + ' % d\'ordinaire' : '') + ' — sans que le CA suive.';
+      // 24/08 — fait daté ; « aujourd'hui » mentait dès le lendemain du fait.
+      var line = 'Vous avez remisé ' + (drN != null ? frDec(drN) + ' % du CA' + frDateFr(a.affected_date) : 'plus que d\'habitude' + frDateFr(a.affected_date)) + (drUsual != null ? ', contre ~' + frDec(drUsual) + ' % d\'ordinaire' : '') + ' — sans que le CA suive.';
       return line;
     },
     {
@@ -2336,7 +2366,7 @@
         var dz = a.discount_robust_z != null ? Number(a.discount_robust_z) : null;
         var dr = a.discount_rate != null ? frDec(Number(a.discount_rate) * 100) : null;
         var soft = msSalesConfidence(a) === 'possible';
-        return 'Aux équipes commerciales' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'nos remises sont montées bien au-dessus de l\'habituel' + (dr != null ? ' (' + dr + ' % du CA aujourd\'hui)' : '') + ' sans que le chiffre d\'affaires suive. ' + (soft ? 'Regardons si le ciblage des promos est le bon avant de reconduire.' : 'Recentrons les remises sur les clients à forte valeur et arrêtons les promotions non nécessaires.');
+        return 'Aux équipes commerciales' + (soft ? ' — à vérifier ensemble : ' : ' : ') + 'nos remises sont montées bien au-dessus de l\'habituel' + (dr != null ? ' (' + dr + ' % du CA' + frDateFr(a.affected_date) + ')' : frDateFr(a.affected_date)) + ' sans que le chiffre d\'affaires suive. ' + (soft ? 'Regardons si le ciblage des promos est le bon avant de reconduire.' : 'Recentrons les remises sur les clients à forte valeur et arrêtons les promotions non nécessaires.');
       }
     }
   );
@@ -2357,7 +2387,8 @@
       // nommé « l'habituel du jour » — JAMAIS la même pastille que l'Enjeu €/an (jour ≠ motif annuel).
       var expD = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
       var gapJ = (rev != null && expD != null) ? rev - expD : null;
-      var line = (rev != null ? 'CA ' + rev + ' € — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous votre ' + joursS + ' habituel'
+      // 24/08 — fait daté, même règle que sales_surge.
+      var line = (rev != null ? 'CA ' + rev + ' €' + frDateFr(a.affected_date) + ' — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous votre ' + joursS + ' habituel'
         + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € (' + expD + ' €).' : '.');
       if (driver) {
         line += ' Le recul vient ' + (/^[aeiou]/i.test(driver) ? "d'" : 'de ') + driver + '.';
@@ -2450,7 +2481,13 @@
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += dir === 'collapse' ? ' La famille a sous-perform\u00e9.' : ' La famille a surperform\u00e9.';
+      line += dir === 'collapse' ? ' La famille a sous-perform\u00e9' : ' La famille a surperform\u00e9';
+      // 24/08 — recit nature 2 : meme famille x meme direction, 60 j.
+      var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
+      if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
+        line += ' \u2014 ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur cette famille depuis' + frDateFr(a.first_occurrence_date);
+      }
+      line += '.';
       return line;
     },
     {
@@ -2481,7 +2518,13 @@
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += dir === 'collapse' ? ' Le produit a sous-perform\u00e9.' : ' Le produit a surperform\u00e9.';
+      line += dir === 'collapse' ? ' Le produit a sous-perform\u00e9' : ' Le produit a surperform\u00e9';
+      // 24/08 — recit nature 2 : meme produit x meme direction, 60 j.
+      var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
+      if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
+        line += ' \u2014 ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur ce produit depuis' + frDateFr(a.first_occurrence_date);
+      }
+      line += '.';
       return line;
     },
     {
@@ -2517,7 +2560,14 @@
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += dir === 'collapse' ? ' Le cr\u00e9neau a sous-perform\u00e9.' : ' Le cr\u00e9neau a surperform\u00e9.';
+      line += dir === 'collapse' ? ' Le cr\u00e9neau a sous-perform\u00e9' : ' Le cr\u00e9neau a surperform\u00e9';
+      // 24/08 — recit nature 2 : « — 3e jeudi en retrait sur ce creneau depuis le 26/06 »
+      // (n_occurrences_60d = meme creneau x meme jour de semaine x meme direction, 60 j).
+      var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
+      if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
+        line += ' \u2014 ' + nOcc + 'e ' + dow + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur ce cr\u00e9neau depuis' + frDateFr(a.first_occurrence_date);
+      }
+      line += '.';
       return line;
     },
     {
@@ -2650,7 +2700,20 @@
       var acDate = normalizeDate(ac.date);
       var actionType = ac.action_type || '';
       if (_perfTypes.indexOf(actionType) >= 0) {
-        if (!_todayN || target !== _todayN || acDate !== _perfLatest[actionType]) continue;
+        if (_todayN && target === _todayN) {
+          if (acDate !== _perfLatest[actionType]) continue;
+          // Limite 7 jours (owner 24/08) : un fait CA de 27 jours n'est plus une « action du
+          // jour » — même daté, il encombre. Au-delà, la carte ne remonte plus sur aujourd'hui ;
+          // elle reste rendue sur SA date (branche ci-dessous) pour le travail rétrospectif.
+          var _ageMs = Date.parse(_todayN + 'T00:00:00Z') - Date.parse(acDate + 'T00:00:00Z');
+          if (isFinite(_ageMs) && _ageMs > 7 * 86400000) continue;
+        } else if (_todayN && target < _todayN) {
+          // Rétrospectif (owner 24/08) : sur une date passée, la carte perf de CETTE date rend —
+          // avant, ces types ne rendaient nulle part ailleurs qu'aujourd'hui.
+          if (acDate !== target) continue;
+        } else {
+          continue;
+        }
       } else if (acDate !== target) {
         continue;
       }
@@ -2747,7 +2810,10 @@
       // remplie depuis data._locations uniquement si multi-sites) via le location_id de LA
       // candidate ; repli sur le label du jour courant. Mono-site : map vide → pas de chip.
       var _locLbl = (ac.location_id && window._engLocLabels && window._engLocLabels[String(ac.location_id)]) || currentDay.location_label || '';
-      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: _locLbl, action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType, enjeu: ac.enjeu || null, enjeu_reason_fr: ac.enjeu_reason_fr || null, needs_catchment: ac.needs_catchment === true, catchment_days: ac.catchment_days || null, context_motif: ac.context_motif || null, corner_day_mode: ac.corner_day_mode === true, data_payload: ac.data_payload || null };
+      // 24/08 — funnel_corner copié ici : TROISIÈME occurrence de la ligne jumelle (enjeu 28/07,
+      // context_motif 22/08) — tout champ serveur que pulse lit sur entry.item DOIT passer par
+      // cette construction, sinon il meurt en silence entre monitor et le rendu.
+      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: _locLbl, action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType, enjeu: ac.enjeu || null, enjeu_reason_fr: ac.enjeu_reason_fr || null, needs_catchment: ac.needs_catchment === true, catchment_days: ac.catchment_days || null, context_motif: ac.context_motif || null, corner_day_mode: ac.corner_day_mode === true, funnel_corner: ac.funnel_corner || null, data_payload: ac.data_payload || null };
       if (ac.data_payload) { var dp2 = ac.data_payload; for (var k2 in dp2) { if (dp2.hasOwnProperty(k2) && !item.hasOwnProperty(k2)) item[k2] = dp2[k2]; } }
       var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, action: actionText, actions: actions, _is_action_candidate: true, confidence_tier: ((item && item.residual_z != null) ? msSalesConfidence(item) : (ac.confidence_tier || (ac.data_payload && ac.data_payload.confidence_tier) || null)), _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
       var score = PRIO_SCORE[ac.action_priority || 2] || 60;

@@ -5,8 +5,9 @@
 //
 // IDEMPOTENT par construction :
 //  - fenêtre GLISSANTE [aujourd'hui, J+7] (rattrape un jour sauté) ;
-//  - un engagement n'est créé QUE s'il n'en existe aucun pour (saved_item_id, occurrence)
-//    — la clé window_start ancrée ;
+//  - un engagement n'est créé QUE s'il n'en existe aucun NON ANNULÉ pour (saved_item_id,
+//    occurrence) — la clé window_start ancrée ; un annulé se RÉ-ARME tant que le jour n'est
+//    pas passé (owner 24/08), sauf annulation par « Arrêter » (adjustment_move='stop') ;
 //  - un snapshot n'est posé QUE s'il n'en existe aucun pour (saved_item_id, occurrence) ; si la
 //    date est hors horizon de la surface, l'INSERT..SELECT n'insère rien → retenté demain.
 // Héritage de SÉRIE : seuil, texte d'action, responsable et measured_metric du PREMIER
@@ -84,10 +85,33 @@ export const GET: APIRoute = async ({ request }) => {
         WHERE d.date BETWEEN @today AND @horizon
           AND (COALESCE(si.recurrence, 'none') != 'none' OR si.selected_date = d.date)
       ),
+      -- CHAÎNAGE DE SÉRIE (22/08, arbitrage owner). La table est APPEND-ONLY : un même
+      -- commitment_id y empile ses transitions. On ne juge donc que son DERNIER état, avec le
+      -- même ordre de départage que api/commitments/index.ts (résolu/annulé gagne à égalité
+      -- d'horodatage) — sinon un engagement clos ressortirait « open » et bloquerait sa série.
+      last_state AS (
+        SELECT * EXCEPT(rn) FROM (
+          SELECT commitment_id, saved_item_id, window_start, status, adjustment_move,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY commitment_id
+                   ORDER BY updated_at DESC,
+                            CASE WHEN status IN ('resolved', 'cancelled', 'expired') THEN 1 ELSE 0 END DESC,
+                            created_at DESC
+                 ) AS rn
+          FROM \`${PROJECT}.analytics.action_commitments\` WHERE saved_item_id IS NOT NULL
+        ) WHERE rn = 1
+      ),
+      -- Idempotence par EXISTENCE, jugée au DERNIER état (owner 24/08) : un engagement ANNULÉ
+      -- ne bloque plus la re-création — l'occurrence se ré-arme à la passe suivante tant que
+      -- son jour est dans la fenêtre. Cas fondateur : l'occ. 15/08 du Corner (f10c3e58),
+      -- armée à J-7 puis annulée, jamais ré-armée ni mesurée. Exception : l'annulation par
+      -- « Arrêter » (adjustment_move='stop') reste définitive — sans elle, le geste Arrêter
+      -- serait défait par le cron chaque nuit.
       com AS (
         SELECT saved_item_id, CAST(window_start AS STRING) AS occ_date, COUNT(*) AS n
-        FROM \`${PROJECT}.analytics.action_commitments\`
-        WHERE saved_item_id IS NOT NULL GROUP BY 1, 2
+        FROM last_state
+        WHERE status != 'cancelled' OR adjustment_move = 'stop'
+        GROUP BY 1, 2
       ),
       snap AS (
         SELECT saved_item_id, CAST(selected_date AS STRING) AS occ_date, COUNT(*) AS n
@@ -102,22 +126,6 @@ export const GET: APIRoute = async ({ request }) => {
                committed_action_text, owner_person_name, measured_metric
         FROM (
           SELECT *, ROW_NUMBER() OVER (PARTITION BY saved_item_id ORDER BY created_at ASC) AS rn
-          FROM \`${PROJECT}.analytics.action_commitments\` WHERE saved_item_id IS NOT NULL
-        ) WHERE rn = 1
-      ),
-      -- CHAÎNAGE DE SÉRIE (22/08, arbitrage owner). La table est APPEND-ONLY : un même
-      -- commitment_id y empile ses transitions. On ne juge donc que son DERNIER état, avec le
-      -- même ordre de départage que api/commitments/index.ts (résolu/annulé gagne à égalité
-      -- d'horodatage) — sinon un engagement clos ressortirait « open » et bloquerait sa série.
-      last_state AS (
-        SELECT * EXCEPT(rn) FROM (
-          SELECT commitment_id, saved_item_id, window_start, status,
-                 ROW_NUMBER() OVER (
-                   PARTITION BY commitment_id
-                   ORDER BY updated_at DESC,
-                            CASE WHEN status IN ('resolved', 'cancelled', 'expired') THEN 1 ELSE 0 END DESC,
-                            created_at DESC
-                 ) AS rn
           FROM \`${PROJECT}.analytics.action_commitments\` WHERE saved_item_id IS NOT NULL
         ) WHERE rn = 1
       ),

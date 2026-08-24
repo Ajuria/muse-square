@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette — Dossier d'événement : hiérarchie, couleur, série</title>
+<style>
+  /* Styles RÉELS de evenement.astro (police, cartes, chips) — rien d'inventé. */
+  body { margin: 0; background: #F9FAFB; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 16px 16px 90px; }
+  .evt-body { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; box-shadow: 0 1px 3px rgba(16,24,40,0.06); padding: 14px 16px; }
+  .eb { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: #9CA3AF; font-weight: 600; }
+  .chip { display: inline-flex; align-items: center; font-size: 12px; padding: 3px 9px; border-radius: 20px; }
+  .pillbtn { font-size: 12px; font-family: inherit; padding: 6px 12px; border: 1px solid #E5E7EB; border-radius: 20px; background: #fff; color: #374151; cursor: pointer; }
+  .pillbtn.on { background: #EEF2FF; border-color: #1D3BB3; color: #1D3BB3; font-weight: 600; }
+  .banner { font-size: 12px; color: #6B7280; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 9px 12px; margin-bottom: 12px; }
+  .segbtn { font-size: 12px; font-family: inherit; border: none; padding: 6px 12px; cursor: pointer; }
+  .fixrow { font-size: 12px; color: #374151; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="banner">
+    <strong style="font-weight:600;">Maquette Avant / Après — données RÉELLES</strong> (provider <code>evenementFamily</code>, compte owner), figées au <span id="pb-date"></span>.
+    Deux cas réels : une <em>série</em> avec KPI famille, et un <em>one-off</em> avec KPI CA vs attendu — pour vérifier que la mise en forme suit le KPI choisi.
+  </div>
+
+  <div class="evt-body" style="margin-bottom:12px;padding:12px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span class="eb" style="margin-right:2px;">Mode</span>
+      <button type="button" class="pillbtn" id="pm-avant">Avant (page actuelle)</button>
+      <button type="button" class="pillbtn" id="pm-apres">Après (proposition)</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;">
+      <span class="eb" style="margin-right:2px;">Événement</span>
+      <button type="button" class="pillbtn" id="pc-corner">Corner (série · KPI famille)</button>
+      <button type="button" class="pillbtn" id="pc-saas">Lancement SaaS (one-off · KPI CA)</button>
+    </div>
+    <div style="margin-top:8px;font-size:12px;color:#374151;">
+      <label style="cursor:pointer;"><input type="checkbox" id="ps-serie"> + cas simulé : 3 occurrences mesurées (la série gagne sa place)</label>
+    </div>
+    <button type="button" id="pf-toggle" style="display:block;padding:8px 0 0;font-size:12px;color:#6b7280;background:none;border:none;font-family:inherit;cursor:pointer;text-align:left;">Ce que la proposition change <span style="font-size:10px;">▾</span></button>
+    <div id="pf-list" style="display:none;padding-top:4px;">
+      <div class="fixrow"><strong style="font-weight:600;">1. Hiérarchie</strong> — le KPI DÉCLARÉ devient le héros (grand chiffre, couleur) ; CA, tickets, panier passent en appuis compacts. Avant : 4 boîtes identiques, aucune n'attire l'œil.</div>
+      <div class="fixrow"><strong style="font-weight:600;">2. Couleur = verdict</strong> — l'écart signé porte la couleur (vert au-dessus de la référence, ambre en dessous, gris sans référence). Sur l'ÉCART, jamais la boîte entière.</div>
+      <div class="fixrow"><strong style="font-weight:600;">3. L'écart d'abord</strong> — « −18 % vs son ordinaire » dit tout ; « 28 € » ne dit rien. L'absolu passe en appui.</div>
+      <div class="fixrow"><strong style="font-weight:600;">4. Ordre par valeur de décision</strong> — KPI, puis le moteur du jour (ici tickets +55 %), puis le reste.</div>
+      <div class="fixrow"><strong style="font-weight:600;">5. Plancher statistique</strong> — sous 3 occurrences mesurées, la série ne s'affiche pas en tableau de stats (une médiane de 1 valeur ne veut rien dire) : une ligne, fusionnée avec « en cours ». À partir de 3, elle devient des barres avec la ligne de cible.</div>
+      <div class="fixrow"><strong style="font-weight:600;">6. Onglets</strong> — « Préparer JJ/MM » · « Résultat JJ/MM » (votre « Résultat » gardé ; « Dispositif » écarté : le dispositif est une propriété de l'événement, déjà en tête, pas le contenu de l'onglet).</div>
+      <div class="fixrow"><strong style="font-weight:600;">7. Replis</strong> — « Pour mémoire » et le bilan passent sous un pli : le panneau garde un héros et deux appuis.</div>
+    </div>
+  </div>
+
+  <div id="proto-root"></div>
+</div>
+
+<script src="dossier-proto-data.js"></script>
+<script>
+(function () {
+  var D = window.DOSSIER_PROTO;
+  var root = document.getElementById("proto-root");
+  document.getElementById("pb-date").textContent = D.today.slice(8, 10) + "/" + D.today.slice(5, 7) + "/" + D.today.slice(0, 4);
+
+  var mode = "avant";
+  var caseKey = "corner";
+  var simSerie = false;
+
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function frInt(n) { return Math.abs(Math.round(Number(n) || 0)).toLocaleString("fr-FR"); }
+  function frDec(n) { return String(Math.round(Number(n) * 100) / 100).replace(".", ","); }
+  function frD(iso) { var d = String(iso || "").slice(0, 10); return d ? d.slice(8, 10) + "/" + d.slice(5, 7) : ""; }
+  var DOW = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+  function dowFr(iso) { var d = new Date(iso + "T00:00:00Z"); return isNaN(d.getTime()) ? "" : DOW[d.getUTCDay()]; }
+  function signEur(n) { return (Number(n) >= 0 ? "+" : "−") + frInt(n) + " €"; }
+  function pct(v, ref) { return ref ? Math.round((v - ref) / ref * 100) : null; }
+  function signPct(p) { return (p >= 0 ? "+" : "−") + Math.abs(p) + " %"; }
+
+  // Payload de travail + cas simulé « 3 occurrences mesurées ».
+  function payload() {
+    var j = JSON.parse(JSON.stringify(D.cases[caseKey].payload));
+    if (simSerie && j.apres && j.apres.rows.length) {
+      var r0 = j.apres.rows[0];
+      var mk = function (date, mult, famMult) {
+        var r = JSON.parse(JSON.stringify(r0));
+        r.date = date; r._sim = true;
+        r.revenue = Math.round(r0.revenue * mult); r.gap_eur = r.revenue - r0.expected;
+        r.residual_pct = Math.round((r.revenue - r0.expected) / r0.expected * 1000) / 10;
+        r.tickets = Math.round(r0.tickets * mult);
+        if (r0.family_rev != null) { r.family_rev = Math.round(r0.family_rev * famMult); r.target_met = r.family_rev >= (j.item.kpi_target_eur || Infinity); }
+        return r;
+      };
+      // Deux occurrences simulées AVANT la réelle (progression plausible).
+      j.apres.rows = [mk("2026-07-25", 0.94, 2.1), mk("2026-08-01", 0.99, 4.3)].concat(j.apres.rows);
+      j.apres.serie.kpi_n_measured = 3; j.apres.serie.n_measured = 3; j.apres.serie.trend_readable = true;
+      var vals = j.apres.rows.map(function (r) { return kpiOf(r, j); }).filter(function (v) { return v != null; }).sort(function (a, b) { return a - b; });
+      j.apres.serie.kpi_median = vals[Math.floor(vals.length / 2)];
+      j.apres.serie.kpi_values = j.apres.rows.map(function (r) { return { date: r.date, value: kpiOf(r, j) }; });
+      j.apres.serie.kpi_n_met = j.apres.serie.kpi_target != null ? vals.filter(function (v) { return v >= j.apres.serie.kpi_target; }).length : null;
+    }
+    return j;
+  }
+  // Accès GÉNÉRIQUE au KPI déclaré (4 options du formulaire) — la mise en forme le suit.
+  function kpiOf(r, j) {
+    var k = j.item.kpi || "revenue_residual";
+    if (k === "family_revenue") return r.family_rev;
+    if (k === "revenue_residual") return r.residual_pct;
+    if (k === "tickets") return r.tickets_delta_pct;
+    if (k === "basket") return r.basket_delta_pct;
+    return null;
+  }
+  function kpiMeta(j, r) {
+    var k = j.item.kpi || "revenue_residual";
+    if (k === "family_revenue") return {
+      label: "Famille " + (j.item.kpi_family || ""), value: r.family_rev, ref: r.family_avg,
+      fmt: function (v) { return frInt(v) + " €"; }, refLabel: "son ordinaire",
+      target: j.item.kpi_target_eur, targetFmt: function (v) { return frInt(v) + " €"; },
+    };
+    if (k === "revenue_residual") return {
+      label: "CA vs attendu", value: r.revenue, ref: r.expected,
+      fmt: function (v) { return frInt(v) + " €"; }, refLabel: "l’attendu du jour",
+      target: j.item.kpi_target_pct, targetFmt: function (v) { return "+" + Math.round(v) + " %"; },
+    };
+    if (k === "tickets") return {
+      label: "Tickets de caisse", value: r.tickets, ref: r.tickets_base_dow != null ? r.tickets_base_dow : r.tickets_base,
+      fmt: function (v) { return frInt(v); }, refLabel: "l’habituel",
+      target: j.item.kpi_target_pct, targetFmt: function (v) { return "+" + Math.round(v) + " %"; },
+    };
+    return {
+      label: "Panier moyen", value: r.basket, ref: r.basket_base_dow != null ? r.basket_base_dow : r.basket_base,
+      fmt: function (v) { return frDec(v) + " €"; }, refLabel: "l’habituel",
+      target: j.item.kpi_target_pct, targetFmt: function (v) { return "+" + Math.round(v) + " %"; },
+    };
+  }
+
+  // ══════════ AVANT : le rendu ACTUEL, à l'identique ══════════
+  function renderAvant(j) {
+    var it = j.item;
+    var rows = j.apres.rows;
+    var last = null; rows.forEach(function (r) { if (r.gap_eur != null) last = r; });
+    var kpiLbl = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs attendu" : it.kpi;
+    var box = function (k, v, b) { return '<div style="flex:1;min-width:120px;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;"><div style="font-size:10.5px;text-transform:uppercase;letter-spacing:0.05em;color:#9CA3AF;font-weight:600;">' + k + '</div><div style="font-size:15px;font-weight:600;margin-top:3px;">' + v + '</div><div style="font-size:10.5px;color:#9CA3AF;margin-top:2px;">' + b + '</div></div>'; };
+    var h = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;"><span class="chip" style="background:#EEF2FF;color:#1D3BB3;">Événement</span>'
+      + (it.event_type_label_fr ? '<span class="chip" style="background:#F3F4F6;color:#6b7280;">' + esc(it.event_type_label_fr) + '</span>' : "")
+      + (it.kpi_target_eur != null || it.kpi_target_pct != null ? '<span class="chip" style="background:#E6F6F0;color:#059669;">Objectif : ' + esc(kpiLbl) + (it.kpi_target_eur != null ? " " + frInt(it.kpi_target_eur) + " €" : " +" + frInt(it.kpi_target_pct) + " %") + '</span>' : '<span class="chip" style="background:#F3F4F6;color:#6b7280;">Sans objectif chiffré · CA suivi vs attendu</span>')
+      + '</div><div style="font-size:14px;font-weight:600;">' + esc(it.title) + '</div>'
+      + '<div style="font-size:12px;color:#6B7280;line-height:1.5;">' + (it.recurrence !== "none" ? "Série · " + it.dates.length + " occurrences" : "Dates : " + it.dates.map(frD).join(" · ")) + (it.dispositif ? "<br>Dispositif : " + esc(String(it.dispositif).slice(0, 150)) : "") + '</div>';
+
+    var seg = '<div style="margin:12px 0;"><span style="display:inline-flex;border:1px solid #1D3BB3;border-radius:8px;overflow:hidden;">'
+      + '<button class="segbtn" style="background:#fff;color:#1D3BB3;">Avant</button><button class="segbtn" style="background:#1D3BB3;color:#fff;">Après</button></span></div>';
+
+    var chip = "";
+    if (last && last.target_met != null) {
+      var okT = last.target_met;
+      var detail = it.kpi === "family_revenue" && last.family_rev != null ? "famille " + esc(it.kpi_family || "") + " " + frInt(last.family_rev) + " € (cible " + frInt(it.kpi_target_eur) + " €)" : "";
+      chip = '<div style="margin-bottom:8px;"><span class="chip" style="font-weight:600;padding:4px 11px;color:' + (okT ? "#059669" : "#B45309") + ';background:' + (okT ? "#E6F6F0" : "#FEF3E2") + ';">' + (okT ? "Cible atteinte" : "Cible manquée") + (detail ? " — " + detail : "") + '</span></div>';
+    } else if (last) {
+      chip = '<div style="margin-bottom:8px;font-size:12px;color:#6B7280;">Aucun objectif n’était posé — le mesuré ci-dessous reste votre référence.</div>';
+    }
+    var VERD = { met: "cible tenue", missed: "cible manquée", confounded: "non mesurable" };
+    var panel = chip + '<div style="font-size:12px;color:#6B7280;margin-bottom:6px;">Dernière occurrence mesurée : ' + dowFr(last.date) + " " + frD(last.date) + (last.verdict ? " · verdict mesuré : " + (VERD[last.verdict] || last.verdict) : "") + '</div>'
+      + '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
+      + (last.family_rev != null ? box("Famille " + esc(it.kpi_family || "") + " — objectif", frInt(last.family_rev) + " €", last.family_avg != null ? "vs " + frInt(last.family_avg) + " € sa moyenne journalière" : "") : "")
+      + box("CA total · mesuré", frInt(last.revenue) + " €", "vs " + frInt(last.expected) + " € attendu (" + signEur(last.gap_eur) + ")")
+      + (last.tickets != null ? box("Tickets de caisse · mesuré", frInt(last.tickets), "vs " + frInt(last.tickets_base_dow != null ? last.tickets_base_dow : last.tickets_base) + " vos " + dowFr(last.date) + "s (90 j) (" + signPct(pct(last.tickets, last.tickets_base_dow != null ? last.tickets_base_dow : last.tickets_base)) + ")") : "")
+      + (last.basket != null ? box("Panier moyen · mesuré", frDec(last.basket) + " €", "vs " + frDec(last.basket_base_dow != null ? last.basket_base_dow : last.basket_base) + " € vos " + dowFr(last.date) + "s (90 j)") : "")
+      + '</div>';
+
+    var se = j.apres.serie;
+    var serie = "";
+    if (se) {
+      var kUnit = function (v) { return se.kpi_unit === "eur" ? frInt(v) + " €" : (v >= 0 ? "+" : "") + Math.round(v) + " %"; };
+      serie = '<div style="margin-top:12px;border-top:1px solid #F3F4F6;padding-top:10px;">'
+        + '<div style="display:flex;align-items:center;gap:10px;"><div style="font-size:13px;font-weight:600;flex:1;">Série — ' + (se.kpi_n_met != null ? se.kpi_n_met : 0) + "/" + se.kpi_n_measured + ' occurrence(s) à la cible (' + kUnit(se.kpi_target) + ')</div>'
+        + (se.kpi_median != null ? '<div style="text-align:right;"><div style="font-size:15px;font-weight:600;">' + kUnit(se.kpi_median) + '</div><div style="font-size:10.5px;color:#9CA3AF;">médiane ' + esc(kpiLbl) + '</div></div>' : "") + '</div>'
+        + '<div style="font-size:11px;color:#9CA3AF;margin:2px 0 6px;">' + se.n_measured + ' mesurée(s) sur ' + se.n_occurrences + ' prévue(s)' + (se.trend_readable ? "" : " — la tendance se lira à partir de 3") + (se.sum_gap_eur != null ? ' · CA du jour cumulé ' + signEur(se.sum_gap_eur) + ' vs attendu' : "") + '</div>'
+        + rows.map(function (r) {
+            return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;"><span style="width:100px;font-weight:600;">' + dowFr(r.date).slice(0, 3) + " " + frD(r.date) + '</span>'
+              + (r.gap_eur != null ? '<span class="chip" style="font-size:11px;font-weight:600;padding:3px 9px;color:' + (r.gap_eur >= 0 ? "#059669" : "#B45309") + ';background:' + (r.gap_eur >= 0 ? "#E6F6F0" : "#FEF3E2") + ';">' + signEur(r.gap_eur) + ' vs attendu</span>' : "")
+              + (r.family_rev != null ? '<span style="font-size:11.5px;color:#6B7280;">' + esc(it.kpi_family || "famille") + " " + frInt(r.family_rev) + " €</span>" : "") + '</div>';
+          }).join("")
+        + '</div>';
+    }
+    var memo = '<div style="background:#F8FAFC;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;line-height:1.7;color:#374151;"><div class="eb" style="margin-bottom:2px;">Pour mémoire</div>'
+      + (it.consigne_store_info ? '<div><span style="font-weight:600;">Consigne :</span> ' + esc(String(it.consigne_store_info).slice(0, 160)) + '</div>' : "")
+      + '<div><span style="font-weight:600;">Votre bilan :</span> météo conforme · accès difficile · fréquentation conforme</div></div>';
+    var lecture = j.apres.reconciliation ? '<div style="font-size:12.5px;line-height:1.6;color:#374151;margin-bottom:10px;"><span style="font-weight:600;">Lecture :</span> ' + esc(j.apres.reconciliation) + '</div>' : "";
+    var nc = j.apres.next_commitment;
+    var ongoing = nc && nc.date ? '<div style="margin-top:10px;font-size:12.5px;color:#1D3BB3;"><span style="font-weight:600;">En cours :</span> prochaine occurrence le ' + frD(nc.date) + ' — engagement armé, verdict automatique à la fin de la fenêtre.</div>' : "";
+    return '<div class="evt-body">' + h + seg + memo + lecture + panel + serie + ongoing + '</div>';
+  }
+
+  // ══════════ APRÈS : héros + appuis, couleur = verdict, plancher statistique ══════════
+  function renderApres(j) {
+    var it = j.item;
+    var rows = j.apres.rows;
+    var last = null; rows.forEach(function (r) { if (r.gap_eur != null) last = r; });
+    var m = kpiMeta(j, last);
+    var dPct = pct(m.value, m.ref);
+    var good = dPct != null && dPct >= 0;
+    var heroCol = dPct == null ? "#111827" : good ? "#059669" : "#B45309";
+    var nc = j.apres.next_commitment;
+
+    // Tête : IDENTITÉ seulement (le job est porté par l'onglet actif).
+    var head = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;"><span class="chip" style="background:#EEF2FF;color:#1D3BB3;">Événement</span>'
+      + (it.event_type_label_fr ? '<span class="chip" style="background:#F3F4F6;color:#6b7280;">' + esc(it.event_type_label_fr) + '</span>' : "")
+      + '</div><div style="font-size:16px;font-weight:600;">' + esc(it.title) + '</div>'
+      + '<div style="font-size:12px;color:#6B7280;line-height:1.5;">' + (it.recurrence !== "none" ? "Série · " + it.dates.length + " occurrences" : "Dates : " + it.dates.map(frD).join(" · ")) + '</div>';
+
+    // Onglets : job + date (« Résultat » gardé, « Dispositif » écarté).
+    var seg = '<div style="margin:12px 0;"><span style="display:inline-flex;border:1px solid #1D3BB3;border-radius:8px;overflow:hidden;">'
+      + (nc && nc.date ? '<button class="segbtn" style="background:#fff;color:#1D3BB3;">Préparer ' + dowFr(nc.date).slice(0, 3) + " " + frD(nc.date) + '</button>' : "")
+      + '<button class="segbtn" style="background:#1D3BB3;color:#fff;">Résultat ' + dowFr(last.date).slice(0, 3) + " " + frD(last.date) + '</button></span></div>';
+
+    // ── HÉROS : le KPI déclaré. L'ÉCART d'abord, en couleur ; l'absolu en appui. ──
+    var targetChip = "";
+    if (m.target != null) {
+      var met = last.target_met === true;
+      targetChip = '<span class="chip" style="font-weight:600;background:' + (met ? "#E6F6F0" : "#FEF3E2") + ';color:' + (met ? "#059669" : "#B45309") + ';">' + (met ? "cible tenue" : "cible manquée") + ' · ' + m.targetFmt(m.target) + '</span>';
+    } else {
+      targetChip = '<span class="chip" style="background:#F3F4F6;color:#6b7280;">sans cible chiffrée</span>';
+    }
+    var hero = '<div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">'
+      + '<div style="min-width:150px;"><div class="eb">' + esc(m.label) + ' · votre objectif</div>'
+      + '<div style="font-size:34px;font-weight:600;line-height:1.05;color:' + heroCol + ';margin-top:2px;">' + (dPct == null ? "—" : signPct(dPct)) + '</div>'
+      + '<div style="font-size:11.5px;color:#6B7280;margin-top:2px;">' + m.fmt(m.value) + ' · vs ' + m.fmt(m.ref) + ' ' + m.refLabel + '</div></div>'
+      + '<div style="flex:1;min-width:200px;padding-top:14px;">' + targetChip
+      + (j.apres.target_scale ? '<div style="font-size:11px;color:#9CA3AF;margin-top:6px;">Cible ' + String(j.apres.target_scale.ratio).replace(".", ",") + '× l’ordinaire (' + frInt(j.apres.target_scale.ref) + ' €/j) — à recalibrer si l’écart se répète.</div>' : "")
+      + '</div></div>';
+
+    // ── APPUIS : compacts, une ligne, écart coloré, triés par valeur de décision. ──
+    var sup = [];
+    var tRef = last.tickets_base_dow != null ? last.tickets_base_dow : last.tickets_base;
+    var bRef = last.basket_base_dow != null ? last.basket_base_dow : last.basket_base;
+    if (it.kpi !== "tickets" && last.tickets != null) sup.push({ k: "Tickets", d: pct(last.tickets, tRef), v: frInt(last.tickets), r: frInt(tRef) + " vos " + dowFr(last.date) + "s" });
+    if (it.kpi !== "revenue_residual") sup.push({ k: "CA du jour", d: pct(last.revenue, last.expected), v: frInt(last.revenue) + " €", r: frInt(last.expected) + " € attendu" });
+    if (it.kpi !== "basket" && last.basket != null) sup.push({ k: "Panier", d: pct(last.basket, bRef), v: frDec(last.basket) + " €", r: frDec(bRef) + " € vos " + dowFr(last.date) + "s" });
+    sup.sort(function (a, b) { return Math.abs(b.d || 0) - Math.abs(a.d || 0); });
+    var supHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">' + sup.map(function (x) {
+      var c = x.d == null ? "#6B7280" : x.d >= 0 ? "#059669" : "#B45309";
+      return '<div style="flex:1;min-width:130px;padding:8px 10px;border-left:2px solid ' + c + ';background:#FAFBFC;border-radius:0 6px 6px 0;">'
+        + '<div style="font-size:11px;color:#6B7280;">' + x.k + '</div>'
+        + '<div style="font-size:15px;font-weight:600;color:' + c + ';">' + (x.d == null ? "—" : signPct(x.d)) + '</div>'
+        + '<div style="font-size:10.5px;color:#9CA3AF;">' + x.v + ' · vs ' + x.r + '</div></div>';
+    }).join("") + '</div>';
+
+    // ── Lecture : la conclusion, une phrase. ──
+    var lecture = j.apres.reconciliation ? '<div style="font-size:12.5px;line-height:1.6;color:#374151;margin-top:12px;padding-top:10px;border-top:1px solid #F3F4F6;"><span style="font-weight:600;">Lecture :</span> ' + esc(j.apres.reconciliation) + '</div>' : "";
+
+    // ── SÉRIE : plancher statistique. < 3 mesurées → UNE ligne (fusionnée avec « en cours »).
+    //    ≥ 3 → barres par occurrence avec la ligne de cible. ──
+    var se = j.apres.serie;
+    var serie = "";
+    if (se && se.kpi_n_measured >= 3) {
+      var vals = se.kpi_values.filter(function (v) { return v.value != null; });
+      var mx = Math.max.apply(null, vals.map(function (v) { return Math.abs(v.value); }).concat([se.kpi_target ? Math.abs(se.kpi_target) : 0]));
+      var barH = 64;
+      serie = '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #F3F4F6;">'
+        + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><span class="eb">Sur la série</span>'
+        + '<span style="font-size:12px;font-weight:600;color:' + (se.kpi_n_met > 0 ? "#059669" : "#B45309") + ';">' + se.kpi_n_met + "/" + se.kpi_n_measured + ' à la cible</span></div>'
+        + '<div style="position:relative;display:flex;align-items:flex-end;gap:10px;height:' + barH + 'px;margin-top:22px;">'
+        + (se.kpi_target ? '<div style="position:absolute;left:0;right:0;bottom:' + Math.round(barH * Math.abs(se.kpi_target) / mx) + 'px;border-top:1px dashed #B45309;"><span style="position:absolute;left:0;top:-15px;font-size:9.5px;color:#B45309;background:#fff;padding-right:6px;">cible ' + (se.kpi_unit === "eur" ? frInt(se.kpi_target) + " €" : se.kpi_target + " %") + '</span></div>' : "")
+        + vals.map(function (v) {
+            var hgt = Math.max(3, Math.round(barH * Math.abs(v.value) / mx));
+            var met = se.kpi_target != null && v.value >= se.kpi_target;
+            return '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:' + barH + 'px;" title="' + frD(v.date) + ' : ' + (se.kpi_unit === "eur" ? frInt(v.value) + " €" : v.value + " %") + '">'
+              + '<div style="width:100%;max-width:44px;height:' + hgt + 'px;background:' + (met ? "#059669" : "#9CA3AF") + ';border-radius:3px 3px 0 0;"></div></div>';
+          }).join("")
+        + '</div>'
+        + '<div style="display:flex;gap:10px;margin-top:4px;">' + vals.map(function (v) { return '<div style="flex:1;text-align:center;font-size:9.5px;color:#9CA3AF;">' + frD(v.date) + '</div>'; }).join("") + '</div>'
+        + '</div>';
+    }
+
+    // ── En cours (+ l'état de série quand elle ne peut rien dire). ──
+    var ongoing = "";
+    if (nc && nc.date) {
+      var ncOpen = nc.status === "open" || nc.status === "pending";
+      var serieLine = se && se.kpi_n_measured < 3 ? se.n_measured + (se.n_measured > 1 ? " occurrences mesurées" : "re occurrence mesurée") + " · " + (se.n_occurrences - se.n_measured) + " à venir — la tendance se lira à la 3e. " : "";
+      ongoing = '<div style="margin-top:14px;padding:10px 12px;background:#F8FAFC;border-radius:8px;font-size:12.5px;color:#374151;line-height:1.6;">'
+        + (se && se.kpi_n_measured < 3 ? '<span style="color:#6B7280;">' + serieLine + '</span>' : "")
+        + '<span style="font-weight:600;color:#1D3BB3;">Prochaine : ' + dowFr(nc.date) + " " + frD(nc.date) + '</span>'
+        + (ncOpen ? ' — engagement armé, verdict automatique à la fin.' : ' — la mesure s’arme seule à J-7.') + '</div>';
+    }
+
+    // ── Replis : mémoire + bilan sortent du flux principal. ──
+    var folds = '<div style="margin-top:12px;display:flex;gap:14px;flex-wrap:wrap;">'
+      + '<button type="button" data-fold="memo" style="background:none;border:none;font-family:inherit;font-size:12px;color:#6b7280;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px;">Pour mémoire ▾</button>'
+      + '<button type="button" data-fold="bilan" style="background:none;border:none;font-family:inherit;font-size:12px;color:#6b7280;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px;">Votre bilan du ' + frD(last.date) + ' ▾</button></div>'
+      + '<div id="fold-memo" style="display:none;margin-top:8px;padding:10px 12px;background:#F8FAFC;border-radius:8px;font-size:12.5px;line-height:1.7;color:#374151;">'
+      + (it.dispositif ? '<div><span style="font-weight:600;">Dispositif :</span> ' + esc(String(it.dispositif).slice(0, 200)) + '</div>' : '<div>Aucune description enregistrée.</div>')
+      + (it.consigne_store_info ? '<div><span style="font-weight:600;">Consigne :</span> ' + esc(String(it.consigne_store_info).slice(0, 160)) + '</div>' : "") + '</div>'
+      + '<div id="fold-bilan" style="display:none;margin-top:8px;padding:10px 12px;background:#F8FAFC;border-radius:8px;font-size:12.5px;line-height:1.7;color:#374151;">météo conforme · accès difficile · fréquentation conforme</div>';
+
+    return '<div class="evt-body">' + head + seg + hero + supHtml + lecture + serie + ongoing + folds + '</div>';
+  }
+
+  function render() {
+    var j = payload();
+    root.innerHTML = mode === "avant" ? renderAvant(j) : renderApres(j);
+    root.querySelectorAll("[data-fold]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var el = document.getElementById("fold-" + b.getAttribute("data-fold"));
+        el.style.display = el.style.display === "none" ? "block" : "none";
+      });
+    });
+  }
+  function setMode(m) {
+    mode = m;
+    document.getElementById("pm-avant").className = "pillbtn" + (m === "avant" ? " on" : "");
+    document.getElementById("pm-apres").className = "pillbtn" + (m === "apres" ? " on" : "");
+    render();
+  }
+  function setCase(c) {
+    caseKey = c;
+    document.getElementById("pc-corner").className = "pillbtn" + (c === "corner" ? " on" : "");
+    document.getElementById("pc-saas").className = "pillbtn" + (c === "saas" ? " on" : "");
+    render();
+  }
+  document.getElementById("pm-avant").addEventListener("click", function () { setMode("avant"); });
+  document.getElementById("pm-apres").addEventListener("click", function () { setMode("apres"); });
+  document.getElementById("pc-corner").addEventListener("click", function () { setCase("corner"); });
+  document.getElementById("pc-saas").addEventListener("click", function () { setCase("saas"); });
+  document.getElementById("ps-serie").addEventListener("change", function (e) { simSerie = e.target.checked; render(); });
+  document.getElementById("pf-toggle").addEventListener("click", function () {
+    var l = document.getElementById("pf-list");
+    l.style.display = l.style.display === "none" ? "block" : "none";
+  });
+
+  setCase("corner");
+  setMode("avant");
+})();
+</script>
+</body>
+</html>

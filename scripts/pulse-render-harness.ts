@@ -12,7 +12,7 @@ import { makeBQClient } from "../src/lib/bq";
 import { GET as monitorGET } from "../src/pages/api/insight/monitor";
 
 const PROJECT = "muse-square-open-data";
-const OWNER = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
+const OWNER = process.env.HARNESS_LOC || "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
 
 (async () => {
@@ -60,7 +60,7 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
   // ── 3. Rendu réel. ──
   win._lastActionCandidates = j.action_candidates || [];
   // Motifs structurels : le boot réel les stampe location_id/label en flatMap multi-sites.
-  win._lastDayClassImpacts = (j.day_class_impacts || []).map((i: any) => ({ ...i, location_id: OWNER, location_label: "Muse Square" }));
+  win._lastDayClassImpacts = (j.day_class_impacts || []).map((i: any) => ({ ...i, location_id: OWNER, location_label: process.env.HARNESS_LBL || "Muse Square" }));
   const days = j.days || [];
   const currentDay = days.filter((d: any) => String(d.date) === today)[0] || days[0] || {};
   const allFeed = j.feed || j.all_feed || [];
