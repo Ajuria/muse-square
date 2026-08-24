@@ -1,6 +1,6 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
-import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredClientCountAnswerFr } from "../../../lib/contextCopy";
+import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredFamilyMarginAnswerFr, declaredClientCountAnswerFr } from "../../../lib/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
@@ -17,7 +17,7 @@ import { buildDayPerformanceFacts } from "../../../lib/ai/facts/buildDayPerforma
 import { buildPracticeFacts } from "../../../lib/ai/facts/buildPracticeFacts";
 import { buildEventFacts } from "../../../lib/ai/facts/buildEventFacts";
 import { listUserEvenements } from "../../../lib/insightFamilies/evenement";
-import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMetric } from "../../../lib/ai/corrections";
+import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMetric, getDeclaredFamilyMargins, familySlug } from "../../../lib/ai/corrections";
 import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declaredMetrics";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
@@ -2542,6 +2542,43 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       const _missingDim = detectMissingDimension(q);
       if (_missingDim && MISSING_DIMENSION_FR[_missingDim]) {
         const _metric = metricForMissingDim(_missingDim);
+        // Marges par famille (24/08) : quand des marges FAMILLE sont déclarées, la réponse marge
+        // se calcule famille par famille (couverture dite) — AVANT le chemin global. Une marge
+        // globale déclarée DANS CE TOUR garde la priorité (fraîcheur, comme avant).
+        if (_missingDim === "marge" && !(_justDeclared && _justDeclared.correction_type === "declared_margin_pct")) {
+          try {
+            const famMargins = await getDeclaredFamilyMargins(location_id);
+            if (famMargins.length) {
+              const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+              // Fenêtre BORNÉE à CURRENT_DATE : la graine porte des dates futures (vérifié 24/08).
+              const [famRows] = await _bq.query({
+                query: `SELECT item_category, ROUND(SUM(revenue), 0) AS ca
+                        FROM \`muse-square-open-data.mart.fct_client_offering_daily\`
+                        WHERE location_id = @location_id
+                          AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()
+                        GROUP BY 1 ORDER BY 2 DESC`,
+                params: { location_id }, types: { location_id: "STRING" }, location: "EU",
+              });
+              const pctBySlug: Record<string, number> = {};
+              for (const m of famMargins) pctBySlug[m.slug] = m.pct;
+              let caTotal = 0;
+              const lines: Array<{ famille: string; ca_eur: number; pct: number }> = [];
+              for (const r of (famRows as any[]) ?? []) {
+                const cat = String((r as any).item_category?.value ?? (r as any).item_category ?? "");
+                const ca = Number((r as any).ca?.value ?? (r as any).ca ?? 0);
+                if (!cat || !Number.isFinite(ca) || ca <= 0) continue;
+                caTotal += ca;
+                const pct = pctBySlug[familySlug(cat)];
+                if (pct != null) lines.push({ famille: cat, ca_eur: ca, pct });
+              }
+              if (lines.length && caTotal > 0) {
+                sinkTelemetry(location_id, "declared-answer", { type: "declared_margin_pct_families", n: lines.length });
+                const ans = declaredFamilyMarginAnswerFr({ lines, ca_total_eur: caTotal, window_fr: "vos 30 derniers jours" });
+                return sysDialogueResponse(ans.headline, ans.answer, "deterministic_declared_margin_v1");
+              }
+            }
+          } catch (e) { console.warn("[declared-metric] family margins read failed:", e); }
+        }
         if (_metric) {
           try {
             // A value declared THIS turn (mixed declare-and-ask) is used directly — fresher than any
@@ -2552,10 +2589,12 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
             if (decl != null) {
               const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
               const [rows] = await _bq.query({
+                // Borne haute ajoutée 24/08 : la graine porte des dates FUTURES — sans elle,
+                // « vos 30 derniers jours » sommait jusqu'à 68 jours (vérifié sur f10c3e58).
                 query: `SELECT SUM(daily_revenue) AS ca
                         FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
                         WHERE location_id = @location_id
-                          AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`,
+                          AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()`,
                 params: { location_id }, types: { location_id: "STRING" }, location: "EU",
               });
               const ca = Number(rows?.[0]?.ca);

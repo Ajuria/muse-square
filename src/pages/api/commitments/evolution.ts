@@ -6,7 +6,7 @@
 // field (window_residual_z, _raw, applied_rho/vif, threshold_value, creation_residual_z)
 // and the per-day series returns residual_pct only — so the render cannot leak z.
 import type { APIRoute } from "astro";
-import { KPI_LABEL_FR } from "../../../lib/kpiRegistry";
+import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpiRegistry";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { readLatestSnapshot } from "../../../lib/actionCommitments";
@@ -75,6 +75,19 @@ async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], 
       const [pr] = await bq.query({ query: `SELECT CAST(transaction_date AS STRING) d, SUM(revenue) v FROM \`${BQ_PROJECT}.raw.client_transactions\` WHERE location_id=@l AND item_category=@f AND transaction_date < @a AND transaction_date <= @t AND EXTRACT(DAYOFWEEK FROM transaction_date) = EXTRACT(DAYOFWEEK FROM @a) GROUP BY 1 ORDER BY 1 DESC LIMIT 8`,
         params: { l: loc, f: family, a: bq.date(ws), t: bq.date(today) }, location: "EU" });
       peers = (pr as any[]).map((x) => ({ date: String(flat(x.d)), v: Number(flat(x.v)) })).reverse();
+    }
+  } else if (metric === "profit_estimated") {
+    // K9 (24/08) : série journalière du profit estimé (marges déclarées lues à la mesure).
+    // Aucune marge déclarée → pas de bloc (absence honnête, même règle que famille sans famille).
+    const dr = await profitEstimatedDaily(bq, loc, ws, we);
+    if (!dr) return null;
+    daily = dr;
+    if (dayOf) {
+      const preStart = new Date(ws + "T00:00:00Z"); preStart.setUTCDate(preStart.getUTCDate() - 70);
+      const preEnd = new Date(ws + "T00:00:00Z"); preEnd.setUTCDate(preEnd.getUTCDate() - 1);
+      const pd = await profitEstimatedDaily(bq, loc, preStart.toISOString().slice(0, 10), preEnd.toISOString().slice(0, 10)).catch(() => null);
+      const dowWs = new Date(ws + "T00:00:00Z").getUTCDay();
+      peers = (pd || []).filter((x) => x.date <= today && new Date(x.date + "T00:00:00Z").getUTCDay() === dowWs).slice(-8);
     }
   } else if (KPI_DAY_COL[metric]) {
     const col = KPI_DAY_COL[metric];

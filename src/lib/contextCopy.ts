@@ -260,6 +260,34 @@ export function declaredMarginAnswerFr(p: {
   };
 }
 
+// Marges par famille (24/08) : quand des marges FAMILLE sont déclarées, la réponse marge se
+// calcule famille par famille — couverture TOUJOURS dite, CA non couvert jamais compté comme
+// s'il l'était. Même voix que la réponse globale : mesuré × déclaré, étiqueté estimation.
+export function declaredFamilyMarginAnswerFr(p: {
+  lines: Array<{ famille: string; ca_eur: number; pct: number }>;   // familles déclarées, CA desc
+  ca_total_eur: number;    // CA mesuré total de la fenêtre (toutes familles)
+  window_fr: string;       // « vos 30 derniers jours »
+}): { headline: string; answer: string } {
+  const eur = (n: number) => `${new Intl.NumberFormat("fr-FR").format(Math.round(n))} €`;
+  const profit = p.lines.reduce((a, l) => a + l.ca_eur * (l.pct / 100), 0);
+  const covered = p.lines.reduce((a, l) => a + l.ca_eur, 0);
+  const covPct = p.ca_total_eur > 0 ? Math.min(100, Math.round((covered / p.ca_total_eur) * 100)) : 0;
+  const rest = Math.max(0, p.ca_total_eur - covered);
+  const detail = p.lines
+    .map((l) => `- ${l.famille} : ${eur(l.ca_eur)} × ${String(l.pct).replace(".", ",")} % = ≈ ${eur(l.ca_eur * (l.pct / 100))}`)
+    .join("\n");
+  return {
+    headline: `Marge estimée : ≈ ${eur(profit)} sur ${p.window_fr} — calculée sur ${covPct} % de votre CA`,
+    answer:
+      `CA mesuré sur ${p.window_fr} : ${eur(p.ca_total_eur)}. Vos marges déclarées par famille en couvrent ${eur(covered)} (${covPct} %) :\n${detail}\n\n` +
+      `Total : ≈ ${eur(profit)} de marge estimée sur le CA couvert.` +
+      (rest >= 1
+        ? ` Le CA restant (${eur(rest)}) n'est pas compté : ses familles n'ont pas de marge déclarée — déclarez-les dans Piloter (« Déclarer votre marge », dans À faire) pour un chiffre complet.`
+        : "") +
+      ` Estimation fondée sur vos marges déclarées — pas une mesure par produit.`,
+  };
+}
+
 // Declared client base → CA-per-client estimate (generalization 16/07; same voice as the margin
 // answer: measured CA over declared value, attributed, labelled estimation). DRAFT — owner-final.
 export function declaredClientCountAnswerFr(p: {

@@ -61,6 +61,9 @@
     var types = Array.isArray(ctx.event_types) ? ctx.event_types : [];
     var fams = Array.isArray(ctx.families) ? ctx.families : [];
     var baseline = Array.isArray(ctx.dow_baseline) ? ctx.dow_baseline : [];
+    // K9 (24/08) : le KPI profit estimé se débloque quand des marges sont déclarées
+    // (par famille, ou globale en repli) — l'endpoint init porte la vérité + le référentiel €/j.
+    var profitCtx = ctx.profit_estimated || {};
     var owners = team.map(function (m) { return (String(m.first_name || "") + (m.last_name ? " " + m.last_name : "")).trim() + (m.role ? " · " + m.role : ""); }).filter(Boolean);
 
     var lbl = 'display:block;font-size:10.5px;font-weight:600;color:#6B7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em;';
@@ -87,7 +90,9 @@
       + (fams.length ? '<option value="family_revenue">CA d’une famille produit vs sa moyenne — mesuré</option>' : '')
       + '<option value="tickets">Tickets vs votre résultat habituel (base 30 j) — verdict plus faible</option>'
       + '<option value="basket">Panier moyen vs votre résultat habituel (base 30 j) — verdict plus faible</option>'
-      + '<option value="profit_estimated" disabled>Profit estimé — indisponible : marge non déclarée</option>'
+      + (profitCtx.available
+        ? '<option value="profit_estimated">Profit estimé vs votre résultat habituel (base 30 j) — sur vos marges déclarées</option>'
+        : '<option value="profit_estimated" disabled>Profit estimé — indisponible : marge non déclarée</option>')
       + '</select></div></div>'
       + '<div data-ef-famwrap style="display:none;margin-top:10px;"><label style="' + lbl + '">Famille produit</label><select data-ef="family" style="' + inp + 'cursor:pointer;">'
       + fams.map(function (f) { return '<option value="' + esc(f.category) + '" data-avg="' + Number(f.avg_day_eur) + '">' + esc(f.category) + ' — ' + frInt(f.avg_day_eur) + ' €/j en moyenne</option>'; }).join("") + '</select></div>'
@@ -342,6 +347,16 @@
           var app2 = Math.round(exp * t / 100);
           out = "<strong>L’événement</strong> : +" + frInt(t) + " % vs votre résultat habituel → apport ≈ <strong>+" + frInt(app2) + " €</strong> un " + dayLabel
             + "<br><strong>Au total</strong> : ≈ <strong>" + frInt(exp + app2) + " €</strong> de journée (" + dayLabel + " habituel ≈ " + frInt(exp) + " €, vos ventes réelles)";
+        }
+      } else if (kpi === "profit_estimated") {
+        if (unit) unit.textContent = "% vs votre résultat habituel (base 30 j)";
+        if (tlab) tlab.textContent = "Cible :";
+        var pAvg = profitCtx.avg_day_eur != null ? Number(profitCtx.avg_day_eur) : null;
+        out = "Référentiel : profit estimé ≈ " + (pAvg != null ? frInt(pAvg) + " €/j" : "vos marges déclarées × vos ventes")
+          + " — estimation sur vos marges déclarées, jamais présentée comme mesurée.";
+        if (pAvg != null && isFinite(t) && t > 0) {
+          var app3 = Math.round(pAvg * t / 100);
+          out += "<br><strong>L’événement</strong> : +" + frInt(t) + " % → apport ≈ <strong>+" + frInt(app3) + " €</strong> de profit estimé par jour mesuré.";
         }
       } else {
         if (unit) unit.textContent = "% vs votre résultat habituel (base 30 j)";

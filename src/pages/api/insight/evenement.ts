@@ -9,6 +9,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypesFor, eventTypeLabelFr } from "../../../lib/eventTypes";
 import { evenementFamily } from "../../../lib/insightFamilies/evenement";
+import { getDeclaredFamilyMargins, getDeclaredMarginPct, familySlug } from "../../../lib/ai/corrections";
 
 const PROJECT = "muse-square-open-data";
 const json = (status: number, body: unknown) =>
@@ -40,8 +41,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     if (url.searchParams.get("create_context")) {
-      // Trois lectures indépendantes — un seul lot parallèle (budget perf).
-      const [[profRows], [dowRows], [famRows]] = await Promise.all([
+      // Lectures indépendantes — un seul lot parallèle (budget perf). Marges déclarées (24/08) :
+      // débloque le KPI profit estimé du formulaire ; famille d'abord, globale en repli.
+      const [[profRows], [dowRows], [famRows], famMargins, globalMargin] = await Promise.all([
         bq.query({
           query: `SELECT company_activity_type FROM \`${PROJECT}.raw.insight_event_user_location_profile\`
                   WHERE location_id = @location_id LIMIT 1`,
@@ -66,6 +68,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   GROUP BY 1 ORDER BY 2 DESC LIMIT 12`,
           params: { location_id }, location: "EU",
         }),
+        getDeclaredFamilyMargins(location_id).catch(() => []),
+        getDeclaredMarginPct(location_id).catch(() => null),
       ]);
       const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
       const industry = profRows?.[0] ? String(flat(profRows[0].company_activity_type) ?? "") || null : null;
@@ -75,12 +79,31 @@ export const GET: APIRoute = async ({ url, locals }) => {
         const dw0 = Number(flat(r.dw)) - 1;
         return { dow: dw0, label_fr: DOW_FR[dw0] || "", expected_eur: Number(flat(r.expected_eur) ?? 0), n_days: Number(flat(r.n) ?? 0) };
       }).sort((a, b) => a.dow - b.dow);
+      const families = (famRows as any[]).map((r) => ({ category: String(flat(r.item_category)), avg_day_eur: Number(flat(r.avg_day_eur) ?? 0) }));
+      // Profit estimé (K9, 24/08) : disponible si au moins une marge est déclarée. La moyenne
+      // journalière = Σ avg_day famille × marge (familles déclarées, jointure par slug) — ou
+      // avg_day total × marge globale — le référentiel de la cible du formulaire.
+      const pctBySlug: Record<string, number> = {};
+      for (const m of famMargins as Array<{ slug: string; pct: number }>) pctBySlug[m.slug] = m.pct;
+      let profitAvgDay: number | null = null;
+      if ((famMargins as any[]).length) {
+        profitAvgDay = Math.round(families.reduce((a, f) => {
+          const pct = pctBySlug[familySlug(f.category)];
+          return pct != null ? a + f.avg_day_eur * (pct / 100) : a;
+        }, 0));
+      } else if (globalMargin) {
+        profitAvgDay = Math.round(families.reduce((a, f) => a + f.avg_day_eur, 0) * ((globalMargin as any).pct / 100)) || null;
+      }
       return json(200, {
         ok: true,
         industry_code: industry,
         event_types: eventTypesFor(industry),
         dow_baseline,
-        families: (famRows as any[]).map((r) => ({ category: String(flat(r.item_category)), avg_day_eur: Number(flat(r.avg_day_eur) ?? 0) })),
+        families,
+        profit_estimated: {
+          available: (famMargins as any[]).length > 0 || Boolean(globalMargin),
+          avg_day_eur: profitAvgDay,
+        },
       });
     }
 

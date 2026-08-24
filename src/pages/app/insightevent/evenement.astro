@@ -41,7 +41,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
       .evt-bl-chip:hover { border-color: #1D3BB3 !important; color: #1D3BB3 !important; }
     </style>
 
-    <script is:inline src="/event-form.js?v=7"></script>
+    <script is:inline src="/event-form.js?v=8"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
     <script is:inline>
       (function () {
@@ -217,6 +217,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var kpiLbl3 = isFam ? "CA famille " + (it.kpi_family ? "\u00ab " + it.kpi_family + " \u00bb" : "") + " (\u20ac)"
             : it.kpi === "tickets" ? "tickets vs votre résultat habituel (+%)"
             : it.kpi === "basket" ? "panier moyen vs votre résultat habituel (+%)"
+            : it.kpi === "profit_estimated" ? "profit estimé vs sa moyenne 90 j (+%)"
             : "CA du jour vs votre résultat habituel (+%)";
           wrap.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#B45309;font-weight:600;margin-bottom:4px;">Objectif \u00e0 fixer</div>'
             + '<div style="font-size:12.5px;color:#374151;margin-bottom:10px;">Sans objectif, aucun verdict ne peut juger vos occurrences \u2014 fixez-le, la mesure fait le reste.' + (kpiSet ? "" : " KPI par d\u00e9faut : CA du jour vs votre résultat habituel (modifiable ensuite).") + '</div>'
@@ -577,7 +578,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             renderConsigne(j);
           }
 
-          var kpiLbl2 = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs votre résultat habituel" : (it.kpi || "");
+          var kpiLbl2 = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs votre résultat habituel" : it.kpi === "profit_estimated" ? "profit estimé" : (it.kpi || "");
           var targetTxt = it.kpi_target_eur != null ? frInt(it.kpi_target_eur) + " €" : it.kpi_target_pct != null ? "+" + frInt(it.kpi_target_pct) + " %" : "";
           var hoursTxt = it.hour_start != null && it.hour_end != null ? "ouverture au public " + it.hour_start + " h – " + it.hour_end + " h" : null;
           var sendDate = offMinus(nextOcc, off);
@@ -857,7 +858,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var chips = '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#EEF2FF;color:#1D3BB3;">Événement</span>'
             + (it.event_type_label_fr ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + esc(it.event_type_label_fr) + '</span>' : "")
             + (it.event_nature ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#F3F4F6;color:#6b7280;">' + (it.event_nature === "outdoor" ? "Extérieur" : it.event_nature === "indoor" ? "Intérieur" : "Int/Ext") + (it.hour_start != null && it.hour_end != null ? " · " + it.hour_start + " h – " + it.hour_end + " h" : "") + '</span>' : "");
-          var kpiLbl = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs votre résultat habituel" : it.kpi;
+          var kpiLbl = it.kpi === "family_revenue" ? "famille " + (it.kpi_family || "") : it.kpi === "revenue_residual" ? "CA vs votre résultat habituel" : it.kpi === "profit_estimated" ? "profit estimé" : it.kpi;
           var head = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;">' + chips
             + (it.kpi_target_eur != null || it.kpi_target_pct != null
               ? '<span style="display:inline-flex;font-size:12px;padding:3px 9px;border-radius:20px;background:#E6F6F0;color:#059669;">Objectif : ' + esc(kpiLbl) + (it.kpi_target_eur != null ? " " + frInt(it.kpi_target_eur) + " €" : " +" + frInt(it.kpi_target_pct) + " %") + '</span>'
@@ -920,13 +921,16 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             var panel = "";
             if (last) {
               var domBox = it.kpi === "family_revenue" && last.family_rev != null
-                ? box("Famille " + esc(it.kpi_family || "") + " — objectif", frInt(last.family_rev) + " €", last.family_avg != null ? "vs " + frInt(last.family_avg) + " € sa moyenne journalière" : "") : "";
+                ? box("Famille " + esc(it.kpi_family || "") + " — objectif", frInt(last.family_rev) + " €", last.family_avg != null ? "vs " + frInt(last.family_avg) + " € sa moyenne journalière" : "")
+                : it.kpi === "profit_estimated" && last.profit_day != null
+                ? box("Profit estimé — objectif", frInt(last.profit_day) + " €", (last.profit_avg != null ? "vs " + frInt(last.profit_avg) + " € sa moyenne (90 j)" : "") + " · vos marges déclarées", "Estimation : CA par famille × vos marges déclarées — jamais présentée comme mesurée") : "";
               var chip = "";
               if (last.target_met != null) {
                 var okT = last.target_met;
                 var detail = it.kpi === "family_revenue" && last.family_rev != null
                   ? "famille " + esc(it.kpi_family || "") + " " + frInt(last.family_rev) + " € (cible " + frInt(it.kpi_target_eur) + " €)"
                   : it.kpi === "revenue_residual" && last.residual_pct != null ? "CA " + (last.residual_pct >= 0 ? "+" : "") + last.residual_pct + " % vs votre résultat habituel (objectif +" + frInt(it.kpi_target_pct) + " %)"
+                  : it.kpi === "profit_estimated" && last.profit_delta_pct != null ? "profit estimé " + (last.profit_delta_pct >= 0 ? "+" : "") + String(last.profit_delta_pct).replace(".", ",") + " % vs sa moyenne 90 j (objectif +" + frInt(it.kpi_target_pct) + " %)"
                   : "";
                 chip = '<div style="margin-bottom:8px;"><span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:20px;padding:4px 11px;color:' + (okT ? "#059669" : "#B45309") + ';background:' + (okT ? "#E6F6F0" : "#FEF3E2") + ';">' + (okT ? "Objectif atteint" : "Objectif manqué") + (detail ? " — " + detail : "") + '</span>'
                   + (j.apres.target_scale ? '<span style="display:block;font-size:11px;color:#9CA3AF;margin-top:4px;">Cible ' + String(j.apres.target_scale.ratio).replace(".", ",") + '× l’ordinaire de la famille (' + frInt(j.apres.target_scale.ref) + ' €/j) — à recalibrer si l’écart se répète.</span>' : "")
@@ -984,7 +988,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                 + (atGoal != null ? '<div style="font-size:12.5px;font-weight:600;color:' + (atGoal > 0 ? "#059669" : "#B45309") + ';">' + (atGoal === 0 ? "aucun n’a atteint votre objectif" : atGoal + " sur " + se.kpi_n_measured + " ont atteint votre objectif") + '</div>' : "") + '</div>'
                 + (se.trend_readable || se.n_occurrences <= se.n_measured ? "" : '<div style="font-size:11px;color:#9CA3AF;margin-top:2px;">' + (se.n_occurrences - se.n_measured) + ' à venir — une tendance se lit à partir de 3.</div>')
                 + '<div style="margin-top:6px;">' + j.apres.rows.map(function (r) {
-                    var kv = it.kpi === "family_revenue" ? r.family_rev : it.kpi === "revenue_residual" ? r.residual_pct : it.kpi === "tickets" ? r.tickets_delta_pct : r.basket_delta_pct;
+                    var kv = it.kpi === "family_revenue" ? r.family_rev : it.kpi === "revenue_residual" ? r.residual_pct : it.kpi === "tickets" ? r.tickets_delta_pct : it.kpi === "profit_estimated" ? r.profit_delta_pct : r.basket_delta_pct;
                     var okR = r.target_met;
                     return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;">'
                       + '<span style="width:92px;font-weight:600;">' + r.dow_fr.slice(0, 3) + " " + frD(r.date) + '</span>'
@@ -1083,6 +1087,8 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
             (j.apres.rows || []).forEach(function (r) { if (r.gap_eur != null) rowS = r; });
             var kpiTxt = it.kpi === "family_revenue" && rowS && rowS.family_rev != null
               ? "famille " + (it.kpi_family || "") + " " + frInt(rowS.family_rev) + " €" + (it.kpi_target_eur != null ? " (objectif " + frInt(it.kpi_target_eur) + " €)" : "")
+              : it.kpi === "profit_estimated" && rowS && rowS.profit_day != null
+              ? "profit estimé " + frInt(rowS.profit_day) + " €" + (rowS.profit_avg != null ? " (sa moyenne 90 j " + frInt(rowS.profit_avg) + " €)" : "")
               : rowS ? "CA " + frInt(rowS.revenue) + " € (habituel " + frInt(rowS.expected) + " €)" : "";
             var whatTxt = it.title + " — " + (rowS ? dowFr(rowS.date) + " " + frD(rowS.date) : "") + (kpiTxt ? " : " + kpiTxt : "")
               + (rowS && rowS.target_met === false ? " — objectif manqué" : rowS && rowS.target_met === true ? " — objectif atteint" : "");

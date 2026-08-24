@@ -75,6 +75,11 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
   Opérations en cours · Dispositifs prouvés** — « Signaux traités » assumé (même concept de
   signal partout, arbitrage owner) ; « Dispositifs validés » écarté (« validé » reste banni).
 
+- Marges par famille (owner 24/08) : le geste garde **« Déclarer votre marge »** (singulier),
+  même devenu par-famille — « Déclarer vos marges » écarté. La tuile Profit s'ajoute au bandeau
+  (6 tuiles, « streamline ») : verrouillée **« Profit — à débloquer »**, sinon
+  **« calculé sur X % de votre CA »** (mots owner du chantier).
+
 ## Balayage de copie à faire (suite de ces décisions)
 
 - « déclaré(e) » affiché → « en test » ; dernier test cible manquée → « écarté ».

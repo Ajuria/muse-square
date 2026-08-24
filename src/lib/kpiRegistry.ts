@@ -30,6 +30,9 @@
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const PERF = `${PROJECT}.mart.fct_client_daily_performance`;
 
+// K9 : les marges déclarées viennent du propriétaire du log (jamais re-dérivées ici).
+import { getDeclaredFamilyMargins, getDeclaredMarginPct, familySlug } from "./ai/corrections";
+
 // CLÉS = le vocabulaire EXISTANT de l'app (DRIVER_SET de /api/commitments + metrics du moteur
 // Type B : footfall/conversion/basket) — jamais un 3e vocabulaire (audit anti-duplication 26/07).
 export type KpiKey =
@@ -40,9 +43,13 @@ export type KpiKey =
   | "transactions"       // K5 — daily_transactions
   | "discount"           // K6 — daily_discount_total
   | "reputation"         // K7 — no own-venue source yet: key exists, measurement stays NULL
-  | "family_revenue";    // K8 — CA journalier d'UNE famille produit (événements, 03/08) : PARAMÉTRÉ
+  | "family_revenue"     // K8 — CA journalier d'UNE famille produit (événements, 03/08) : PARAMÉTRÉ
                          //      (nom de famille via saved_items.kpi_family, rejoint par saved_item_id)
                          //      → mesuré par measureFamilyRevenueMean, PAS par KPI_EXPR.
+  | "profit_estimated";  // K9 — profit journalier ESTIMÉ (24/08, marges par famille) : Σ CA_famille
+                         //      × marge déclarée sur les familles déclarées (marge globale = repli
+                         //      100 % du CA) → mesuré par profitEstimatedDaily/measureProfit*, PAS
+                         //      par KPI_EXPR. Sans marge déclarée : mesure NULL, jamais inventée.
 
 // ── KPI → COLONNE : LE foyer unique (22/08) ────────────────────────────────────────────────
 // Cette correspondance était écrite QUATRE fois : ici, deux `CASE measured_metric WHEN …` dans
@@ -94,6 +101,7 @@ export const KPI_LABEL_FR: Record<KpiKey, string> = {
   discount: "€ remisés/jour",
   reputation: "note Google",
   family_revenue: "CA famille/jour",
+  profit_estimated: "profit estimé/jour",
 };
 
 // ── Étape funnel par TYPE DE CARTE (owner 24/08, table validée telle quelle) ──────────────
@@ -158,6 +166,7 @@ const EVENT_KPI: Record<string, KpiKey> = {
   tickets: "transactions",
   basket: "basket",
   visitors: "footfall",
+  profit_estimated: "profit_estimated",
 };
 export function kpiKeyForEventKpi(eventKpi: string | null | undefined): KpiKey | null {
   const k = String(eventKpi || "").trim();
@@ -182,6 +191,77 @@ export async function measureFamilyRevenueMean(bq: any, location_id: string, fam
   const n = Number(row?.n ?? 0);
   if (!Number.isFinite(v) || n < 1) return null;
   return { value: Math.round(v * 1000) / 1000, n_days: n };
+}
+
+// ── K9 — profit estimé (24/08, marges par famille) ──────────────────────────────────────────
+// Série JOURNALIÈRE du profit estimé sur [start, end] : marges FAMILLE d'abord (Σ CA_famille ×
+// marge/100 sur les familles déclarées, jointure par familySlug(item_category)), marge GLOBALE en
+// repli (CA du jour × marge/100). Aucune marge déclarée → null — jamais un profit inventé.
+// Même référentiel de lignes que K8 (raw.client_transactions) ; les marges sont lues au moment de
+// la mesure (baseline ET fenêtre au même barème — la comparaison reste cohérente).
+export async function profitEstimatedDaily(
+  bq: any, location_id: string, start: string, end: string,
+): Promise<Array<{ date: string; v: number }> | null> {
+  const fams = await getDeclaredFamilyMargins(location_id).catch(() => []);
+  const flat = (x: any): any => (x && typeof x === "object" && "value" in x ? x.value : x);
+  if (fams.length) {
+    const pctBySlug: Record<string, number> = {};
+    for (const f of fams) pctBySlug[f.slug] = f.pct;
+    const rows = await bq.query({
+      query: `SELECT CAST(transaction_date AS STRING) AS d, item_category, SUM(revenue) AS v
+              FROM \`${PROJECT}.raw.client_transactions\`
+              WHERE location_id = @location_id AND transaction_date BETWEEN @start AND @end
+              GROUP BY 1, 2`,
+      params: { location_id, start: bq.date(start), end: bq.date(end) },
+      location: "EU",
+    }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+    const byDay: Record<string, number> = {};
+    for (const r of rows as any[]) {
+      const d = String(flat(r.d));
+      const pct = pctBySlug[familySlug(String(flat(r.item_category) ?? ""))];
+      if (byDay[d] == null) byDay[d] = 0;                       // jour de vente = jour mesuré,
+      if (pct != null) byDay[d] += Number(flat(r.v) ?? 0) * (pct / 100);   // couvert ou pas
+    }
+    return Object.keys(byDay).sort().map((d) => ({ date: d, v: Math.round(byDay[d] * 100) / 100 }));
+  }
+  const g = await getDeclaredMarginPct(location_id).catch(() => null);
+  if (!g) return null;
+  const rows = await bq.query({
+    query: `SELECT CAST(transaction_date AS STRING) AS d, SUM(revenue) AS v
+            FROM \`${PROJECT}.raw.client_transactions\`
+            WHERE location_id = @location_id AND transaction_date BETWEEN @start AND @end
+            GROUP BY 1`,
+    params: { location_id, start: bq.date(start), end: bq.date(end) },
+    location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  return (rows as any[]).map((r) => ({
+    date: String(flat(r.d)),
+    v: Math.round(Number(flat(r.v) ?? 0) * (g.pct / 100) * 100) / 100,
+  })).sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
+/** Moyenne + écart-type journaliers du profit estimé sur [start, end]. null = marges absentes. */
+export async function measureProfitEstimatedStats(
+  bq: any, location_id: string, start: string, end: string,
+): Promise<{ mean: number; sd: number | null; n_days: number } | null> {
+  const daily = await profitEstimatedDaily(bq, location_id, start, end);
+  if (!daily || !daily.length) return null;
+  const n = daily.length;
+  const mean = daily.reduce((a, x) => a + x.v, 0) / n;
+  let sd: number | null = null;
+  if (n >= 2) {
+    const variance = daily.reduce((a, x) => a + (x.v - mean) ** 2, 0) / (n - 1);
+    sd = Math.sqrt(variance);
+  }
+  return { mean: Math.round(mean * 1000) / 1000, sd: sd != null ? Math.round(sd * 1000) / 1000 : null, n_days: n };
+}
+
+/** Baseline K9 = 30 j glissants AVANT la fenêtre (même convention que measureKpiBaseline). */
+export async function measureProfitBaseline(bq: any, location_id: string, window_start: string): Promise<number | null> {
+  const end = new Date(window_start + "T00:00:00Z"); end.setUTCDate(end.getUTCDate() - 1);
+  const start = new Date(end); start.setUTCDate(start.getUTCDate() - 29);
+  const res = await measureProfitEstimatedStats(bq, location_id, start.toISOString().slice(0, 10), end.toISOString().slice(0, 10));
+  return res && res.n_days >= 5 ? res.mean : null;
 }
 
 /** Baseline famille = 30 j glissants AVANT la fenêtre (même convention que measureKpiBaseline). */
