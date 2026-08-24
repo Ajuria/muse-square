@@ -47,8 +47,8 @@ export const MOTS_BANNIS: Record<string, string> = {
   "vs attendu": "vs votre résultat habituel",
   "vs l’attendu": "vs votre résultat habituel",
   "vs l'attendu": "vs votre résultat habituel",
-  "l’attendu": "votre habituel",
-  "l'attendu": "votre habituel",
+  "l’attendu": "votre résultat habituel",
+  "l'attendu": "votre résultat habituel",
   "attendu du jour": "habituel du jour",
   "sur la série": "un libellé qui dit ce que la section EST",
   rejeu: "test",
@@ -102,6 +102,10 @@ export const MOTS_BANNIS: Record<string, string> = {
   // Owner 18/08 (bandeau) : « vs votre résultat habituel » NU est interdit — la référence porte son nom entier.
   "vs habituel": "vs votre résultat habituel",
   "vs votre habituel": "vs votre résultat habituel",
+  // Owner 24/08 : « votre habituel » NU est banni — la référence porte son nom entier.
+  // Les formes légitimes ne matchent pas (« votre résultat habituel », « votre jeudi habituel »,
+  // « votre CA habituel » : un mot s'intercale toujours entre « votre » et « habituel »).
+  "votre habituel": "votre résultat habituel (forme jour : « votre jeudi habituel »)",
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.

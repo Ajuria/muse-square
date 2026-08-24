@@ -523,9 +523,9 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   if (lastMeasured && kpiKeyItem === "family_revenue" && lastMeasured.family_rev != null && famAvg != null) {
     const famUp = lastMeasured.family_rev >= famAvg;
     const dayUp = (lastMeasured.gap_eur as number) > 0;
-    if (!famUp && dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, alors que la journée dépassait votre habituel de +${lastMeasured.gap_eur} € — la hausse du jour ne vient pas de cette opération.`;
-    else if (famUp && !dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, mais la journée est restée sous votre habituel (${lastMeasured.gap_eur} €) — l'opération a porté sa famille sans porter le jour.`;
-    else if (famUp && dayUp) reconciliation = `Famille ${item.kpi_family} au-dessus de son ordinaire (${lastMeasured.family_rev} € vs ${famAvg} €) ET journée au-dessus de votre habituel (+${lastMeasured.gap_eur} €).`;
+    if (!famUp && dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, alors que la journée dépassait votre résultat habituel de +${lastMeasured.gap_eur} € — la hausse du jour ne vient pas de cette opération.`;
+    else if (famUp && !dayUp) reconciliation = `La famille ${item.kpi_family} a fait ${lastMeasured.family_rev} € contre ${famAvg} € son ordinaire, mais la journée est restée sous votre résultat habituel (${lastMeasured.gap_eur} €) — l'opération a porté sa famille sans porter le jour.`;
+    else if (famUp && dayUp) reconciliation = `Famille ${item.kpi_family} au-dessus de son ordinaire (${lastMeasured.family_rev} € vs ${famAvg} €) ET journée au-dessus de votre résultat habituel (+${lastMeasured.gap_eur} €).`;
   }
   // Cible hors d'échelle : un objectif à N× l'ordinaire de la famille n'est pas une performance
   // manquée, c'est un calibrage (fait dit, jamais un reproche).
@@ -544,13 +544,13 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   });
   for (const r of measured) {
     facts.push({
-      fact_fr: `Occurrence du ${r.dow_fr} ${fd(r.date)} : CA ${r.revenue} € contre ${r.expected} € votre habituel du jour (écart ${(r.gap_eur as number) >= 0 ? "+" : "-"}${Math.abs(r.gap_eur as number)} €)${r.family_rev != null && item.kpi_family ? ` ; famille ${item.kpi_family} ${r.family_rev} €${famAvg != null ? ` contre ${famAvg} € sa moyenne journalière` : ""}` : ""}${r.verdict ? ` ; verdict de l'engagement : ${r.verdict}` : ""}.`,
+      fact_fr: `Occurrence du ${r.dow_fr} ${fd(r.date)} : CA ${r.revenue} € contre ${r.expected} € votre ${r.dow_fr} habituel (écart ${(r.gap_eur as number) >= 0 ? "+" : "-"}${Math.abs(r.gap_eur as number)} €)${r.family_rev != null && item.kpi_family ? ` ; famille ${item.kpi_family} ${r.family_rev} €${famAvg != null ? ` contre ${famAvg} € sa moyenne journalière` : ""}` : ""}${r.verdict ? ` ; verdict de l'engagement : ${r.verdict}` : ""}.`,
       claim_type: "measured",
     });
   }
   if (serie && serie.n_measured > 0) {
     facts.push({
-      fact_fr: `Série « ${item.title} » : ${serie.n_above} occurrence(s) sur ${serie.n_measured} mesurée(s) au-dessus de votre habituel ; somme des écarts mesurés ${serie.sum_gap_eur} € (jamais extrapolée).`,
+      fact_fr: `Série « ${item.title} » : ${serie.n_above} occurrence(s) sur ${serie.n_measured} mesurée(s) au-dessus de votre résultat habituel ; somme des écarts mesurés ${serie.sum_gap_eur} € (jamais extrapolée).`,
       claim_type: "measured",
     });
   }
