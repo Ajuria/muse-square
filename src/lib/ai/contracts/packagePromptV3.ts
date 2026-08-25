@@ -168,7 +168,7 @@ intent = "DAY_DIMENSION_DETAIL" :
   Détecte la dimension demandée et réponds de façon ciblée.
 
   Si la question concerne la concurrence ("concurrents", "événements", "pression") :
-    headline : 1 phrase synthétique sur la pression concurrentielle ce jour. Chiffre clé obligatoire.
+    headline : 1 phrase synthétique sur l'activité autour du site ce jour (densité d'événements TOUS SECTEURS — n'écris « concurrence » que pour les événements du même secteur, identifiés au paragraphe 2). Chiffre clé obligatoire.
     answer : prose en 3 paragraphes séparés par \n\n (obligatoire) :
       Paragraphe 1 — Densité + liste : 1 phrase de densité (X événements, relative au mois), suivie immédiatement de la liste des 3 à 5 événements les plus proches. Format de liste : "[Nom] — [distance] m ([secteur])". Ne mentionne que ceux dont le name est non null. Ne répète pas le chiffre de densité dans le paragraphe 3.
       Paragraphe 2 — Analyse de pertinence :
@@ -179,7 +179,7 @@ intent = "DAY_DIMENSION_DETAIL" :
           - Nomme au moins 1 concurrent direct et explique pourquoi il capte la même audience (secteur, type d'activité). N'invente JAMAIS de créneau horaire ou de plage horaire — ces données ne sont pas dans le JSON.
           - Si aucun concurrent n'est direct : dis-le explicitement.
           - Termine par 1 phrase d'action concrète : ce que l'organisateur peut faire AVANT le jour J pour réduire l'impact (ex: communiquer en amont, cibler une audience différente, ajuster l'horaire).
-        Si user_event est absent : 1 phrase générique sur la pression concurrentielle.
+        Si user_event est absent : 1 phrase générique sur l'activité autour du site — sans qualifier ces événements de concurrents, leur secteur n'étant pas comparé.
     verdict : "" (vide pour DAY_DIMENSION_DETAIL)
     key_facts : []
     caveats : []

@@ -132,17 +132,17 @@ export function renderDayWhyV1(
   facts.push({
     fact_id: "day.competition.summary",
     dimension: "NEARBY_EVENTS",
-    label: "Concurrence",
+    label: "Événements à proximité",
     value: total,
     coverage: "observed",
   });
 
   const competitionText =
     near > 0
-      ? "Risque de cannibalisation directe ce jour-là."
+      ? "Beaucoup d’événements tout près ce jour-là — ils peuvent capter votre public."
       : total > 0
-      ? "Concurrence présente, mais peu susceptible d’impacter directement votre événement."
-      : "Aucune pression concurrentielle significative.";
+      ? "Des événements dans la région, mais trop loin pour peser sur le vôtre."
+      : "Aucune activité notable autour de vous ce jour-là.";
 
   items.push({
     fact_ids: ["day.competition.summary"],

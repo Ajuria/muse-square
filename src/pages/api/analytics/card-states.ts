@@ -40,9 +40,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
     requireLocationOwnership(locals, location_id);
 
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+    // Deux familles d'état (25/08, owner point 2) : les cartes DATÉES (clé subtype × date,
+    // fenêtre 30 j) et les motifs STRUCTURELS (change_subtype 'structural_<classe>', SANS date —
+    // un motif n'expire pas avec un jour). Pour les structurels, l'état est le DERNIER événement
+    // du subtype, sans borne de temps : « Pas pour moi » tient tant qu'aucun événement plus
+    // récent ne le remplace (la réversibilité est un événement futur, jamais une suppression).
+    // affected_date sort en STRING ('' côté structurel) — la clé client est subtype|date.
     const [rows] = await bq.query({
       query: `
-        SELECT change_subtype, affected_date, event
+        SELECT change_subtype, CAST(affected_date AS STRING) AS affected_date, event
         FROM (
           SELECT change_subtype, affected_date, event,
                  ROW_NUMBER() OVER (PARTITION BY change_subtype, affected_date ORDER BY created_at DESC) AS rn
@@ -52,6 +58,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
             AND event IN UNNEST(@events)
             AND affected_date IS NOT NULL
             AND affected_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+        )
+        WHERE rn = 1
+        UNION ALL
+        SELECT change_subtype, '' AS affected_date, event
+        FROM (
+          SELECT change_subtype, event,
+                 ROW_NUMBER() OVER (PARTITION BY change_subtype ORDER BY created_at DESC) AS rn
+          FROM \`muse-square-open-data.analytics.action_log\`
+          WHERE user_id = @userId
+            AND location_id = @location_id
+            AND event IN UNNEST(@events)
+            AND affected_date IS NULL
+            AND STARTS_WITH(change_subtype, 'structural_')
         )
         WHERE rn = 1
       `,

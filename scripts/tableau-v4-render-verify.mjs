@@ -73,7 +73,7 @@ check("v11 : segments SITE (Tous les sites + 1/site) et PÉRIODE (3)",
   && body.querySelectorAll("[data-tb-period]").length === 3,
   body.querySelectorAll("[data-tb-site]").length + " sites · " + body.querySelectorAll("[data-tb-period]").length + " périodes");
 const T2 = Array.from(body.querySelectorAll(".tb-hero2 .tb-t2"));
-const v11Titles = ["Impact mesuré de vos opérations", "Objectifs atteints", "Signaux traités", "Connaissances créées"];
+const v11Titles = ["Impact de vos opérations", "Prochain verdict", "Signaux traités", "Connaissances créées"];
 check("v11 : rangée pilotage = 4 tuiles, titres arbitrés dans l'ordre",
   T2.length === 4 && v11Titles.every((t2, i2) => T2[i2] && T2[i2].textContent.indexOf(t2) >= 0),
   T2.length + " tuiles : " + T2.map((x) => x.querySelector(".tb-eb")?.textContent).join(" | "));
@@ -114,16 +114,22 @@ check("v11 : rangée pilotage = 4 tuiles, titres arbitrés dans l'ordre",
   if (gap30 != null) check("tuile Impact : € signé + fenêtres mesurées",
     txt().indexOf((gap30 >= 0 ? "+" : "−") + frInt2(gap30) + " €") >= 0 && / sur \d+ fenêtres? mesurées?/.test(txt()), gap30 + " €");
 }
-// Tuile Objectifs : k/n + chip « Seuils trop hauts ? » SEULEMENT dans le cas divergent.
+// Tuile Prochain verdict (owner 24/08 soir) : prospective — date en grand si un verdict est
+// programmé (im.next_judgment), sinon « aucun verdict programmé » ; le pli de lecture (k/n,
+// seuils) reste accessible depuis la tuile ; « Seuils trop hauts ? » y vit ssi cas divergent.
 {
-  const objTile = T2.find((x) => x.textContent.indexOf("Objectifs atteints") >= 0);
+  const pvTile = T2.find((x) => x.textContent.indexOf("Prochain verdict") >= 0);
+  const nj = (payload.impact || {}).next_judgment || null;
+  check("tuile Prochain verdict : date annoncée ou absence dite",
+    pvTile && (nj ? /J-\d+|aujourd|\d{2}\/\d{2}/.test(pvTile.textContent) : pvTile.textContent.indexOf("aucun verdict programmé") >= 0),
+    nj || "aucun");
   const gap30 = gapFor(30);
   const cut30 = new Date(Date.parse(new Date().toISOString().slice(0, 10) + "T12:00:00Z") - 30 * 86_400_000).toISOString().slice(0, 10);
   const jm = (payload.judged_meta || []).filter((m) => m.verdict !== "confounded" && String(m.created_d || "") >= cut30);
   const met = jm.filter((m) => /met|beat/i.test(String(m.verdict))).length;
-  check("tuile Objectifs : k/n de la période", objTile && objTile.textContent.indexOf(met + "/" + jm.length) >= 0, met + "/" + jm.length);
   const divergent = gap30 != null && gap30 > 0 && jm.length > 0 && met === 0;
-  check("chip « Seuils trop hauts ? » ssi € > 0 et 0 atteint", divergent === !!(objTile && objTile.textContent.indexOf("Seuils trop hauts ?") >= 0), "divergent=" + divergent);
+  check("chip « Seuils trop hauts ? » ssi divergent (dans la tuile Prochain verdict)",
+    divergent === !!(pvTile && pvTile.textContent.indexOf("Seuils trop hauts ?") >= 0), "divergent=" + divergent);
 }
 // Tuile Signaux traités : % couvert/total du payload + jauge.
 {
@@ -153,8 +159,8 @@ if ((g.trous || []).length) check("trou de veille nommé (Suivez X)", txt().inde
 if ((g.savoir || {}).evts_sans_objectif) check("Fixez un objectif à N événements → liste FILTRÉE (owner 18/08)", txt().indexOf("Fixez un objectif à " + g.savoir.evts_sans_objectif) >= 0
   && body.innerHTML.indexOf("/app/insightevent/evenement?filtre=sans_objectif") >= 0);
 check("règle CTA : au plus UN bouton plein", body.querySelectorAll(".tb-btnp").length <= 1, body.querySelectorAll(".tb-btnp").length + " plein(s)");
-check("grille des volets (24/08) : 7 cartes + panneau · Mon environnement APRÈS Processus métiers · Opportunités", (() => {
-  const ok7 = body.querySelectorAll(".tb-rb").length === 7 && !!doc.getElementById("tb-rpanel");
+check("grille des volets (24/08 nuit) : 8 cartes + panneau · Mon environnement APRÈS Processus métiers · Opportunités", (() => {
+  const ok7 = body.querySelectorAll(".tb-rb").length === 8 && !!doc.getElementById("tb-rpanel");
   const iProc = txt().indexOf("Processus métiers"), iEnv = txt().indexOf("Mon environnement");
   return ok7 && iProc >= 0 && iEnv > iProc && txt().indexOf("Opportunités") >= 0
     && txt().indexOf("Compétitivité") < 0 && txt().indexOf("Vos prochaines occasions") < 0
@@ -182,12 +188,15 @@ check("« à récupérer » SEULEMENT avec un € (registre)", !oc.next_hot ? tr
   : txt().indexOf("à récupérer") < 0 && txt().indexOf("pas encore chiffré") >= 0,
   "heat_range=" + JSON.stringify(oc.heat_range));
 
-// ── Savoir-faire : apprentissages + dispositifs fusionnés. ──
+// ── Scission 24/08 nuit (owner : « looks forced ») : Mes dispositifs ouvre sur SA liste ;
+// les apprentissages vivent dans LEUR carte « Connaissances créées » (mot acté du héros).
 body.querySelector('[data-tb-rb="sf"]').click(); await tick();
-check("apprentissages (voix maison € d'abord)", payload.learnings.length ? txt().indexOf("Ce que l’app a appris") >= 0 && (txt().indexOf("perdus les ") >= 0 || txt().indexOf("gagnés les ") >= 0) : true);
+const sfB = body.querySelector('[data-tb-body="sf"]'), ccB = body.querySelector('[data-tb-body="cc"]');
+check("Mes dispositifs ouvre DIRECTEMENT sur la liste jugée", sfB && sfB.textContent.indexOf("jugés selon leurs résultats") >= 0 && sfB.textContent.indexOf("Ce que l’app a appris") < 0);
+body.querySelector('[data-tb-rb="cc"]').click(); await tick();
+check("Connaissances créées = carte à part (voix maison € d'abord)", payload.learnings.length ? ccB && (ccB.textContent.indexOf("perdus les ") >= 0 || ccB.textContent.indexOf("gagnés les ") >= 0) && sfB.textContent.indexOf("perdus les ") < 0 : !!ccB);
 check("état par ligne (M'engager / joué / en test / à défendre)", payload.learnings.length ? (txt().indexOf("M’engager") >= 0 || txt().indexOf("couvert — dispositif en place") >= 0 || txt().indexOf("en test — verdict") >= 0 || txt().indexOf("à défendre") >= 0) : true);
-check("dispositifs dans le même volet", txt().indexOf("Mes dispositifs") >= 0 && txt().indexOf("prouvé") >= 0);
-check("provenance (types de jours chiffrés)", payload.learnings.length ? txt().indexOf("types de jours chiffrés") >= 0 : true);
+check("provenance (types de jours chiffrés) dans Connaissances créées", payload.learnings.length ? ccB && ccB.textContent.indexOf("types de jours chiffrés") >= 0 : true);
 
 // ── Ma couverture : veille + offres (absence DITE) + automatisations. ──
 body.querySelector('[data-tb-rb="co"]').click(); await tick();
@@ -209,7 +218,7 @@ const expectedGreens = (gapFor(30) != null && gapFor(30) >= 0 ? 1 : 0);
 check("pilotage : verts = les deltas mesurés positifs, exactement", greensHero.length === expectedGreens, greensHero.length + " vs attendu " + expectedGreens);
 check("pilotage : parts et comptes en encre (jamais bleu, jamais signés)", (() => {
   const sig = heroNums.find((n) => n.parentElement.textContent.indexOf("Signaux traités") >= 0);
-  const obj = heroNums.find((n) => n.parentElement.textContent.indexOf("Objectifs atteints") >= 0);
+  const obj = heroNums.find((n) => n.parentElement.textContent.indexOf("Prochain verdict") >= 0);
   return (!sig || ((sig.getAttribute("style") || "").indexOf("#1D3BB3") < 0 && !/[+\u2212]/.test(sig.textContent)))
     && (!obj || !/[+\u2212]/.test(obj.textContent));
 })());
@@ -331,10 +340,12 @@ check("À faire : bénéfice sous le geste (réutilisable / consigne part / cali
       const pn4 = coBody3.querySelector('[data-tb-fiche-panel="' + chev.getAttribute("data-tb-fiche") + '"]');
       check("clic chevron : le panneau s'ouvre", !!pn4 && pn4.style.display === "block");
     }
-    check("fiche = UN CTA « Consulter → » vers le profil INTERNE (owner 17/08 : plus de lien externe direct)",
+    // 24/08 soir : le lien SOURCE des offres s'appelle aussi « Consulter → » (mot du ban
+    // « leur page → » 17/08) et il est externe PAR NATURE — l'interdit d'externe ne vaut que
+    // pour le CTA de FICHE : chaque fiche doit porter son lien de profil INTERNE.
+    check("fiche = UN CTA « Consulter → » vers le profil INTERNE (owner 17/08)",
       fAll3.filter((f) => f.cid).every((f) => (coBody3 ? coBody3.innerHTML : "").indexOf("/app/insightevent/competitor?id=" + encodeURIComponent(f.cid)) >= 0)
-      && (coBody3 ? coBody3.textContent : "").indexOf("Profil stratégique") < 0
-      && !(coBody3 && Array.from(coBody3.querySelectorAll("a")).some((a) => /Consulter/.test(a.textContent) && /^https?:/.test(a.getAttribute("href") || "") && a.closest("[data-tb-fiche-panel]") == null)));
+      && (coBody3 ? coBody3.textContent : "").indexOf("Profil stratégique") < 0);
     check("recouvrement mesuré affiché quand le mart le porte", fAll3.some((f) => f.overlap_pct != null)
       ? (coBody3 ? coBody3.textContent : "").indexOf("Recouvrement mesuré") >= 0 : true);
   }
@@ -401,8 +412,14 @@ check("événement concurrent : l'aléa météo du jour n'y est plus", (() => {
   return evBody ? evBody.textContent.indexOf("annoncée") < 0 : true;
 })());
 if ((g.offres || []).length) {
-  check("veille : chaque offre porte sa date de constat", txt().indexOf("vu le ") >= 0);
-  check("veille : lien source quand l'URL existe", (g.offres || []).some((o) => o.src_url) ? rawHtml.indexOf("leur page →") >= 0 : true);
+  // Une SUPPRESSION d'offre n'a pas de date : current_crawled_at est NULL côté latest
+  // (int_competitor_offering_changes, FULL OUTER JOIN — modèle lu 24/08). La date n'est
+  // exigée que pour les lignes qui la portent.
+  check("veille : chaque offre datée rend sa date de constat", (g.offres || []).some((o) => o.vu_le) ? txt().indexOf("vu le ") >= 0 : true);
+  // Une offre RETIRÉE n'a pas de lien (sa page ne la montre plus — owner 24/08 soir).
+check("veille : lien source ssi l'URL existe ET l'offre n'est pas retirée", (g.offres || []).every((o) =>
+  (o.src_url && o.change_type !== "removed_offering") === (rawHtml.indexOf('href="' + o.src_url + '"') >= 0 && o.src_url != null && o.change_type !== "removed_offering"))
+  && (g.offres || []).filter((o) => o.src_url && o.change_type !== "removed_offering").every((o) => rawHtml.indexOf('href="' + o.src_url) >= 0));
 }
 check("dispositifs : un seul statut de dernier test", txt().indexOf("dernier test non mesurable") < 0);
 check("équipe : zéro rangée « — » fantôme", (() => {

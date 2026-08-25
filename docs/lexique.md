@@ -30,7 +30,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Contexte favorable détecté (le volet du tableau) | **Opportunités** (owner 24/08 — titre du volet ; contenu = prospective chaleur + couverture, renvoi « les cartes des 7 prochains jours → Agir ») ; « occasion » reste le mot d'une occasion individuelle | Vos prochaines occasions (trop long, owner 24/08), fenêtre de la semaine, momentum, jour favorable |
 | Le groupe de volets du dehors (activité, opportunités, positionnement, veille) | **Mon environnement** (owner 24/08) | Compétitivité (owner 24/08 — dit un jugement, le contenu est de la surveillance) |
 | Créer une opération depuis le tableau (bouton) | **Nouvelle opération** (owner 24/08 — boutons tableau + evenement renommés au build ; PAS de ban mécanique : « Nouvel événement repéré chez un suivi » est l'ÉVÉNEMENT DU CONCURRENT, sens légitime — règle de relecture) | Nouvel événement (comme bouton de création) |
-| La tuile héros du savoir accumulé | **Connaissances créées** (owner 24/08 — la TUILE ; le volet garde « Ce que l'app a appris de vos sites », alignement en attente) | Ce que l'app a appris de vos sites (sur la tuile) |
+| La tuile héros du savoir accumulé ET sa carte-volet | **Connaissances créées** (owner 24/08 la tuile ; 25/08 la carte-volet à part dans Processus métiers — alignement FAIT, « Mes dispositifs » ouvre sur sa liste) | Ce que l'app a appris de vos sites (comme titre de surface) |
 | Cause non isolable par la mesure | **facteurs mêlés** | cause multifactorielle |
 | Jour non couvert par une action | **couvert / sans action** | joué, manqué (réservé au verdict) |
 | Déclenchement automatique | **Automatiser** (série OU signal — la condition se choisit dans le flux) | Armer, Armer sur signal |
@@ -42,6 +42,13 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Position d'une note parmi les suivis | **parmi les mieux notés · dans la moyenne · le moins bien noté de vos suivis** | au-dessus/en-dessous de la médiane, percentile |
 | Occurrence passée dont la mesure est annulée | **passée sans mesure** | verdict en attente (faux si aucune mesure) |
 | Ouvrir le détail d'un tiers (fiche → profil stratégique interne ; offre de veille → sa page) | **Consulter →** — UN seul CTA par rangée de fiche (owner 17/08 : plus de lien externe direct sur la fiche, la page externe se lit depuis le profil) | leur page, Sa page, Voir, Ouvrir, Profil stratégique → (sur une rangée) |
+| Un concurrent à public commun élevé et proche | **concurrent direct** (owner 25/08 — « menace » jugé dramatique pour le secteur ; mot déjà en prod dans la ligne de valeur du volet, 17/08) | menace, menace forte (sur le tableau) |
+| Ce qu'un geste NE PEUT PAS demander | **le stock** — nous n'avons aucune donnée de réserve, le mart ne connaît que ce qui s'est VENDU ; **l'heure d'ouverture / l'amplitude horaire** — le planning est encadré en France (délai de prévenance 7 j, 3 en HCR) et les horaires déclarés ont été jugés non fiables le 22/08 (owner 25/08). Ce que l'exploitant maîtrise à 2-3 jours : ses **achats**, **ne pas appeler d'extra**, et **ce qu'il fait faire** à l'équipe déjà planifiée (mise en avant, place, prix, communication). Contrat permanent dans le harnais. | vérifiez le stock, il ne doit pas manquer, stock vérifié, assurez l'ouverture à l'heure, amplitude horaire, ajuster l'effectif |
+| L'indice de fréquentation BestTime (`ft_day_mean`, 0-100) mesuré par classe de jour | **affluence estimée** — « votre affluence estimée · ces jours-là », et son absolu en **points d'affluence estimée** (owner 25/08). Métrique DISTINCTE de « vos visiteurs », qui compte des personnes (`daily_visitors`) : mêler les deux comparerait un rang à des gens. Elle n'entre pas dans `KpiKey`/`KPI_DAILY_COL` — ce registre pilote les ENGAGEMENTS, et on ne s'engage pas sur un indice qu'on ne contrôle pas. | visiteurs, fréquentation (pour cet indice), trafic |
+| Ce que mesure `competition_index_local` (classes `competition_high` / `competition_low`, `competition_pressure_ratio`) | **activité dans votre périmètre** — « jours à forte / faible activité dans votre périmètre » (owner 25/08 : « il faut dire la vérité, c'est le contrat de confiance minimal »). L'indice vaut `0,7 × (4×événements 500 m + 3×5 km + 2×10 km + 1×50 km)` sur `fct_location_events_radius_daily`, **sans aucun filtre de secteur** — c'est de l'agenda local, pas de la concurrence. Les variantes filtrées existent dans la même table (`*_same_bucket_count`, commentées « direct competitors ») et ne sont PAS utilisées par l'indice. Le mot « concurrent » reste réservé aux suivis (`competitor_tracking`) et au même secteur (`same_bucket`). | pression concurrentielle, concurrence, jours disputés, cannibalisation — dès lors que la source est cet indice |
+| Les deux natures de signal, dans les filtres du fil Agir | **Menaces** / **Opportunités** (owner 25/08). Remplacent « À défendre » / « À capter », qui nommaient le GESTE ; l'owner veut la NATURE du signal. À noter : « menace » avait été refusé le 25/08 au tableau de bord (« dramatique pour mon secteur ») — il est ici ARBITRÉ par l'owner pour l'étiquette de filtre, où il ne qualifie aucun concurrent en particulier. | À défendre, À capter (comme étiquettes de filtre) |
+| Le préfixe de la ligne de recommandation d'une carte | **Action conseillée :** — et **Actions conseillées :** quand la ligne porte deux gestes (owner 25/08 : « Unifie les préfixes → Action(s) conseillée(s) »). **GÉNÉRALISATION FAITE le 25/08** : les 16 préfixes historiques sont convertis, 89 occurrences, 99 lignes au total ; l'accord se décide au rendu (`accordActionPrefix`, action-cards.js) en comptant les GESTES — impératifs en -ez hors « vous …ez », plus l'enchaînement « …, puis … » — jamais les phrases, la plupart de ces lignes ouvrant sur un fait. | À adapter :, À amplifier :, À analyser :, À capter :, À consulter :, À corriger :, À défendre :, À exploiter :, À faire :, À noter :, À pousser :, À reproduire :, À réorienter :, À temporiser :, À transmettre :, À vérifier : **Chantier :**, **Enquête :** (owner 25/08, « Chantier aussi » — les motifs structurels portent le même préfixe que les cartes datées ; le mot « Dispositif » reste dans le PLAN, seule l'étiquette change), et les 16 préfixes qui re-décrivaient le signal avant d'agir — désormais BANNIS, la conversion est faite |
+| L'en-tête de la page Agir | **Vos actions du jour** (owner 25/08 — l'en-tête dit l'ACTION ; « carte » reste le mot de l'objet : « 9 cartes ce jour ») | Vos cartes du jour |
 | La section des dispositifs | **Mes dispositifs** (première personne, aligné « Mon positionnement » — owner 17/08) | Vos dispositifs, Votre savoir-faire |
 | Ce que vaut l'offre d'un concurrent (fiche enrichie) | **Proposition de valeur** puis **Offre** (la table prix/articles) | Sa proposition, Son offre & ses prix |
 | Les publics d'un concurrent face aux vôtres | **Publics/Clients visés** | Son public |
@@ -115,16 +122,53 @@ occasions » sont au `MOTS_BANNIS` (surfaces renommées dans le même train) ; �
 événement » n'y entre pas (deux sens, cf. la ligne du tableau) ; « Ce que l'app a appris »
 reste légitime sur le VOLET (tuile seule renommée).
 
+## La mini du coin € et le paragraphe de faits (owner 25/08, points 3+5 ratifiés)
+
+**Mini du coin (sous le montant)** : elle ne porte que ce que le TITRE ne dit pas — ≤ 3 mots
++ référentiel. Formes actées :
+- Titre nomme le motif (cartes structurelles) → mini = « perdus » / « à gagner » SEULS, le
+  motif complet reste au ⓘ.
+- Titre ne nomme pas le motif (cartes datées) → mini = « perdus · <qualifiant> » (préfixe
+  « jours de » retiré de la mini uniquement : « perdus · vacances scolaires ») ; le possessif
+  entier « vos jours de… » vit au ⓘ.
+- Coin funnel (%) → « vos ventes · ces jours-là », « vos visiteurs · … », « votre panier
+  moyen · … », « votre taux de conversion · … » — le possessif porte le référent « chez
+  vous » (anti-contradiction du 24/08) en un mot.
+
+**Paragraphe de faits (2e étage, cartes structurelles)** : « Sur N jours mesurés sur M mois »
+est de la MÉTADONNÉE → ⓘ seulement. Le paragraphe porte les signaux et leur impact mesuré :
+« −211 € par jour sur ces journées. » (+ décomposition funnel quand mesurée ET cohérente de
+signe avec l'impact € : « Le manque vient du panier (−12 %) et des ventes (−8 %) vs vos jours
+comparables. » — vocabulaire du créneau, jamais de mélange de référentiels ; à contre-signe,
+absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (dayClassRegistry).
+
 ## À arbitrer (owner) — file ouverte au 24/08
 
 - « **produits** » vs « **famille** » : l'owner a écrit « CA produits « Branded » » — renommage
   GLOBAL du mot arbitré « famille » (prod : « CA famille » jusque dans les KPI) à confirmer.
 - « palier » (crans de la jauge Signaux traités) — retirés en attendant LE mot.
+- **Pied des rangées Agir à DEUX gestes (owner 25/08, maquette v3.1)** : « Communiquer » quitte
+  les rangées du fil (il vit sur la page Consulter) — INVERSION de l'arbitrage antérieur
+  (« Communiquer associé à M'engager sur Agir ») ; « Écarter » remplacé par « **Pas pour moi** »
+  (chaîne DÉJÀ en prod sur cette surface, même action `ecarte`). À ratifier au build.
+- « **transports** » (marqueur mobilité du bandeau de faits, « transports −5 % ») — mot proposé
+  sur la maquette v3, pas encore arbitré.
+- **Les paliers « menace faible · modérée · forte · critique »** (competitor.astro `MEN_FR`,
+  insight.astro « Niveau de menace », protos agir) : même verdict owner que sur le tableau
+  (25/08, « dramatique pour le secteur ») mais c'est l'échelle du mart threat_profile — il
+  faut LES mots de l'échelle avant de toucher ces surfaces. Le tableau, lui, dit désormais
+  « concurrent direct ».
+- **La note de calibrage au choix du % d'objectif** (owner 24/08 soir) : la tuile « Objectifs
+  atteints » est morte (elle insistait sur un négatif qui est un problème de CALIBRAGE, pas de
+  performance) — remplacée par « Prochain verdict ». Le calibrage se traite AU MOMENT où
+  l'utilisateur fixe son % dans le goal-setter : une note qualifie l'ambition. Mots candidats
+  owner (« or something ») : « très prudent · prudent · ambitieux · optimiste » — LES quatre
+  mots à arbitrer avant le build commit-form.
 - « geste » (employé par la tuile prod « 6 gestes en attente ») — pas de mot d'interface arbitré.
 - « Voir → » vs « Lire → » : deux mots en prod pour « ouvrir une carte » — un seul doit rester.
 - Le mot du pont rangée santé ↔ rangée pilotage (« dont +1 166 € mesurés de vos opérations »).
 - « Déclarer vos marges » (pluriel, marge par famille produit) — paraphrase, pas un mot acté.
-- Alignement du volet « Ce que l'app a appris de vos sites » sur « Connaissances créées ».
+- ~~Alignement du volet « Ce que l'app a appris de vos sites » sur « Connaissances créées »~~ FAIT 25/08 : carte-volet « Connaissances créées » à part (Processus métiers), « Mes dispositifs » ouvre sur sa liste.
 - ~~contextCopy « animer la clientèle locale »~~ TRANCHÉ 24/08 : « cibler les résidents
   locaux » (les deux arbitrages du jour combinés — « cibler » owner + « résidents locaux »
   global ; si « clientèle locale » devait rester dans CETTE phrase, le dire).

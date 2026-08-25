@@ -11,7 +11,7 @@
 1. **Le radar quitte Agir** (3 volets → dissous dans Piloter V7) ; **le score /10 est RETIRÉ**
    (agrégat qui cache ses composantes — même famille que le « 4/5 » retiré de Piloter ;
    la boussole de priorité de la page est LA COLONNE €, l'état vit sur Piloter).
-2. **En-tête** : « Vos cartes du jour » + date + aléa EN MOTS + chip Objectif de la semaine
+2. **En-tête** : « Vos actions du jour » (owner 25/08 — ex « Vos cartes du jour », banni) + date + aléa EN MOTS + chip Objectif de la semaine
    (existant) + lien « Piloter → ». Filtres = LES TROIS du triage (26/07) :
    Aujourd'hui/Semaine/Structurel · À défendre/À capter · Trier par enjeu.
 3. **Trois sections, trois grains** : « Vos engagements » (cartes utilisateur, grain propre,

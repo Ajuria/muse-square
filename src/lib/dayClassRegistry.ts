@@ -112,7 +112,7 @@ export const WEATHER_DAY_CLASSES: Array<{ key: string; level_col: string; min_lv
 // l'historique grandit). Les classes calendrier sont EN PLUS contrôlées mois × type-de-jour
 // (leçon calendarFamily : le naïf mesure la saison, pas les vacances).
 export const TERCILE_DAY_CLASSES: Array<{ key: string; family: string; index_col: string; label_fr: string }> = [
-  { key: "competition_high", family: "competition", index_col: "competition_index_local", label_fr: "jours à forte pression concurrentielle" },
+  { key: "competition_high", family: "competition", index_col: "competition_index_local", label_fr: "jours à forte activité dans votre périmètre" },
   { key: "tourism_high", family: "tourism", index_col: "tourism_index_region", label_fr: "jours à fort flux touristique" },
   // index_col RETIRÉ : il n'était lu nulle part (seul label_fr sert, via CLASS_LABELS) et faisait
   // croire à une autorité qu'il n'avait pas. Le rayon dépend désormais du périmètre déclaré par le
@@ -120,7 +120,7 @@ export const TERCILE_DAY_CLASSES: Array<{ key: string; family: string; index_col
   { key: "events_high", family: "events", index_col: "", label_fr: "jours à forte densité d'événements" },
   // Classes BASSES (mapping B2/D2, ajoutées 26/07) : tercile bas — les fenêtres favorables
   // (basse pression, basse saison) ; écart positif attendu → pill verte « À capter ».
-  { key: "competition_low", family: "competition", index_col: "competition_index_local", label_fr: "jours à faible pression concurrentielle" },
+  { key: "competition_low", family: "competition", index_col: "competition_index_local", label_fr: "jours à faible activité dans votre périmètre" },
   { key: "tourism_low", family: "tourism", index_col: "tourism_index_region", label_fr: "jours de basse saison touristique" },
 ];
 
@@ -494,9 +494,25 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       SELECT location_id, transaction_date AS date, ${KPI_PERF_KEYS.map((k) => KPI_DAILY_COL[k]).join(", ")}
       FROM \`${PROJECT}.mart.fct_client_daily_performance\`
     ),
+    -- AFFLUENCE ESTIMÉE (owner 25/08, mot arbitré « affluence estimée »). BestTime remplit
+    -- ft_day_mean dans fct_location_context_daily — 1 638 lignes sur 32 sites au 25/08 — mais
+    -- cette donnée n'atteignait JAMAIS le moteur, qui ne lit que fct_client_daily_performance.
+    -- Conséquence mesurée : le KPI footfall (daily_visitors) n'existe que sur 1 site sur 6,
+    -- donc les 24 types de carte qui déclarent l'étape « visiteurs » n'avaient aucun coin.
+    -- MÉTRIQUE DISTINCTE, jamais fusionnée dans footfall : ft_day_mean est un INDICE de
+    -- fréquentation 0-100, pas un compte de visiteurs — les mêler comparerait un rang à des
+    -- personnes. Elle n'entre pas non plus dans KpiKey/KPI_DAILY_COL : ce registre pilote les
+    -- ENGAGEMENTS, et on ne s'engage pas sur un indice qu'on ne contrôle pas.
+    ftx AS (
+      SELECT location_id, date, ft_day_mean
+      FROM \`${PROJECT}.mart.fct_location_context_daily\`
+      WHERE ft_day_mean IS NOT NULL AND ft_day_mean > 0
+    ),
     vals AS (
       SELECT location_id, date, month_num, weekend_flag, 'revenue_residual' AS metric, gap_eur AS v, gap_log AS v_log
       FROM counted
+      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'busyness', f.ft_day_mean, LN(f.ft_day_mean)
+      FROM counted c JOIN ftx f USING (location_id, date)
       ${KPI_PERF_KEYS.map((k) => `UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, '${k}', p.${KPI_DAILY_COL[k]},
              IF(p.${KPI_DAILY_COL[k]} > 0, LN(p.${KPI_DAILY_COL[k]}), NULL)
       FROM counted c JOIN perf p USING (location_id, date) WHERE p.${KPI_DAILY_COL[k]} IS NOT NULL`).join("\n      ")}
@@ -928,6 +944,29 @@ const DATE_RESOLVED_WEATHER_TYPES = new Set([
 // D'ÉVÉNEMENTS dans leur payload — leur variable réelle est la densité événementielle, pas l'indice
 // de pression ambiante ; elles mappent donc events_high (vérité de la variable, pas du nom).
 const CARD_TYPE_CLASS: Record<string, string> = {
+  // 25/08 — 19 cartes n'avaient AUCUN coin : elles déclarent une étape funnel
+  // (CARD_FUNNEL_STEP) mais funnelCornerForCandidate sort au 2e test, faute de classe.
+  // Rattachées ici SELON LA RÈGLE DE CE FICHIER — « vérité de la VARIABLE, pas du nom » :
+  //   · competitor_event_launch / competitor_event_ending / mega_event_end tirent sur un
+  //     ÉVÉNEMENT proche (change feed + rayon d'événements) : leur variable réelle est la
+  //     densité événementielle, comme competition_proximity → events_high ;
+  //   · foreign_tourism_signal tire sur le poids des visiteurs étrangers → tourism_high.
+  // Rien n'est inventé : le coin reste soumis aux portes du moteur (n >= 5, span >= 60 j,
+  // |t| >= 1, cohérence de signe, plancher 5 %). Une carte sans mesure garde un coin VIDE.
+  competitor_event_launch: "events_high",
+  competitor_event_ending: "events_high",
+  mega_event_end: "events_high",
+  foreign_tourism_signal: "tourism_high",
+  // DÉLIBÉRÉMENT SANS CLASSE, et ce n'est pas un oubli :
+  //   · commercial_event_match — sa variable est une annotation commerciale (rentrée, soldes) ;
+  //     aucune classe ne la mesure. Le mapper sur school_holiday ferait porter à la RENTRÉE le
+  //     chiffre des VACANCES : exactement le doublon de coin corrigé trois fois le 22/08.
+  //   · calendar_audience_shift — tire sur is_public_holiday_flag OU is_school_holiday_flag ;
+  //     une classe STATIQUE en désignerait une au hasard une fois sur deux. Il faudrait résoudre
+  //     la classe par carte depuis le payload — changement de mécanisme, à arbitrer.
+  //   · competitor_reputation_strength — parle d'une NOTE de concurrent, pas d'une classe de
+  //     jour : elle n'a pas de coin € par nature.
+
   // Doctrine 01/08 : sales_traffic_not_converting et sales_competition_cannibalization RETIRÉES
   // d'ici — un poids de classe environnementale au coin d'une carte d'anomalie était le défaut
   // déclencheur (+33 402 « à gagner » sur une carte d'échec ; +73 674 porté par une facture).
@@ -1103,6 +1142,15 @@ export function classNeverMeasured(result: DayClassResult, candidate: { action_t
   //    invisible sur le compte de référence. Même logique que la météo. same_bucket_saturation
   //    (un % du même comptage, sans fait nommé — bruit selon l'audit de vérité) reste filtrée.
   if (at === "competition_proximity") return false;
+  // 4. 25/08 — MÊME LOGIQUE, quatre cartes de plus. En leur donnant une classe (pour débloquer
+  //    le coin funnel), ce filtre s'est mis à les SUPPRIMER quand la classe n'est pas mesurable
+  //    sur le site : mesuré sur le compte owner, 10 cartes présentes avant le rattachement,
+  //    ZÉRO après. Or elles portent toutes un FAIT NOMMÉ — « Guimet lance « Silla » à 2,4 km »,
+  //    « Royaume-Uni 14 %, Allemagne 10 % … (INSEE 2025) » — et non une affirmation sur leur
+  //    classe. Le fait reste vrai que la classe soit mesurable ou non ; seul le COIN dépend de
+  //    la mesure, et il reste vide si les portes ne passent pas.
+  if (at === "competitor_event_launch" || at === "competitor_event_ending"
+      || at === "mega_event_end" || at === "foreign_tourism_signal") return false;
   const combo = COMBO_TYPE_CLASSES[at];
   if (combo && combo.includes("weather@date")) return false;
   return enjeuWithReasonForCandidate(result, candidate).reason_fr === ABSENCE_REASON_FR.not_separable;
@@ -1298,11 +1346,40 @@ export type FunnelCorner = {
   class_key: string;
   class_label_fr: string;
 };
+// Cartes dont la classe se résout à la DATE plutôt qu'en table statique (owner 25/08).
+// Une seule pour l'instant : calendar_audience_shift, qui tire indifféremment sur un jour férié
+// ou un jour de vacances scolaires.
+const CARD_DATE_CALENDAR_TYPES = new Set<string>(["calendar_audience_shift"]);
+
+// PLANCHER D'AFFICHAGE DU COIN, PAR MÉTRIQUE (owner 25/08 : « baisse plancher à 2 % »).
+// 5 % avait été calibré sur des EUROS et des VISITEURS. L'affluence estimée est un indice
+// 0-100 dont la variation est naturellement plus resserrée : mesuré sur le compte owner après
+// le batch, les écarts réels vont de 0,8 % à 1,9 % — tous sous la barre, donc invisibles.
+// 2 % pour cette seule métrique ; les autres gardent 5 %, leur calibrage n'a pas changé.
+const CORNER_FLOOR_PCT: Record<string, number> = { busyness: 0.02 };
+const CORNER_FLOOR_DEFAULT = 0.05;
+const cornerFloor = (metric: string): number => CORNER_FLOOR_PCT[metric] ?? CORNER_FLOOR_DEFAULT;
+
 export function funnelCornerForCandidate(result: DayClassResult, candidate: { action_type?: any }): FunnelCorner | null {
   const at = String(candidate?.action_type || "");
   const step = CARD_FUNNEL_STEP[at];
   if (!step || step === "revenue_residual") return null;
-  const cls = CARD_TYPE_CLASS[at] ?? CARD_CONTEXT_CLASS[at];
+  // CLASSE RÉSOLUE PAR CARTE quand une classe statique se tromperait (owner 25/08).
+  // calendar_audience_shift tire sur `is_public_holiday_flag OU is_school_holiday_flag` : une
+  // entrée statique désignerait la mauvaise classe une fois sur deux — c'est pourquoi elle
+  // était restée SANS classe, donc sans coin. Le registre porte déjà le résolveur qu'il faut,
+  // `resolveClassToken('calendar@date')`, qui lit le CALENDRIER MESURÉ de la date de la carte
+  // (calendarByDate) : vacances scolaires -> school_holiday, sinon férié -> public_holiday,
+  // sinon rien. On lit donc la date de CETTE carte, jamais un motif hérité d'ailleurs — le
+  // garde-fou du 22/08 (« sinon la rentrée porterait le chiffre des vacances ») tient : ici la
+  // classe VIENT de la date qui a fait tirer la carte.
+  // Portée volontairement limitée au COIN : l'enjeu de ces cartes n'est pas touché, donc
+  // classNeverMeasured ne peut pas se mettre à les supprimer (régression mesurée le 25/08 sur
+  // les quatre cartes d'événement — 10 cartes présentes avant, zéro après).
+  const iso = String((candidate as any)?.date?.value ?? (candidate as any)?.date ?? "").slice(0, 10);
+  const cls = CARD_DATE_CALENDAR_TYPES.has(at)
+    ? resolveClassToken("calendar@date", result, iso)
+    : (CARD_TYPE_CLASS[at] ?? CARD_CONTEXT_CLASS[at]);
   if (!cls || !CLASS_LABELS[cls]) return null;
   const rows = result?.funnelRows;
   if (!Array.isArray(rows) || !rows.length) return null;
@@ -1321,12 +1398,71 @@ export function funnelCornerForCandidate(result: DayClassResult, candidate: { ac
     if (t < 1) return null;
     if (!Number.isFinite(med) || med === 0 || Math.sign(med) !== Math.sign(avgLog)) return null;
     const pct = Math.exp(avgLog) - 1;
-    if (!Number.isFinite(pct) || Math.abs(pct) < 0.05) return null;
+    if (!Number.isFinite(pct) || Math.abs(pct) < cornerFloor(metric)) return null;
     return { kpi: metric, pct, abs_per_day: avg, n_days: n, class_key: cls, class_label_fr: CLASS_LABELS[cls] };
   };
   // Repli d'une étape (owner 24/08, GO) : étape déclarée d'abord ; une carte VISITEURS dont le
   // site n'a pas de mesure visiteurs sur sa classe replie sur VENTES (l'autre étape de volume,
   // mesurée presque partout) — jamais déguisé : `kpi` porte l'étape réellement mesurée et le
   // libellé du coin dit son mot. Les cartes panier/conversion gardent leur étape stricte.
-  return evalMetric(step) ?? (step === "footfall" ? evalMetric("transactions") : null);
+  // Repli d'une étape (owner 24/08, GO) : étape déclarée d'abord ; une carte VISITEURS dont le
+  // site n'a pas de mesure visiteurs replie sur l'AFFLUENCE ESTIMÉE (BestTime, mot arbitré
+  // owner 25/08), puis seulement sur les VENTES. L'ordre suit la proximité au concept : un
+  // indice de fréquentation est plus proche des visiteurs qu'un compte de tickets. Jamais
+  // déguisé : `kpi` porte l'étape RÉELLEMENT mesurée et le libellé du coin dit son mot.
+  // Mesuré au 25/08 : 18 lignes d'affluence estimée sur le parc, 2 sites, 7 passent les portes
+  // du moteur et 2 le plancher de 5 % (plus gros écart 6,15 %). C'est peu, et c'est honnête :
+  // ça grandira avec la couverture BestTime, sans qu'aucun chiffre soit inventé d'ici là.
+  return evalMetric(step)
+    ?? (step === "footfall" ? (evalMetric("busyness") ?? evalMetric("transactions")) : null);
+}
+
+// ── Paragraphe de faits des cartes STRUCTURELLES (owner 25/08, point 5) ─────────────────────
+// « Ce qu'on montre, ce sont les signaux eux-mêmes et leur impact business concret et mesuré. »
+// La décomposition funnel du motif : les métriques marginales de SA classe, mêmes portes que le
+// coin (n>=5, span>=60, |t|>=1 sur le log, cohérence de signe médiane/log, |%| >= 5), PLUS une
+// porte de COHÉRENCE DE RÉFÉRENTIEL : revenue_residual marginal contraste des RÉSIDUS
+// (vs attendu dow+trend) quand les autres KPI contrastent des valeurs BRUTES vs jours
+// comparables — les deux ne se composent pas. Mesuré sur le compte owner (25/08) :
+// school_holiday y est à la fois −193 €/j de résidu ET +6 % de ventes brutes. Afficher les
+// deux côte à côte lirait comme une contradiction ; la ligne ne sort donc que si CHAQUE
+// métrique retenue pointe dans le sens de l'impact € — sinon absence honnête (le paragraphe
+// de faits garde l'écart €/j, posé par structuralCardCopyFr).
+// Vocabulaire : celui du funnel du créneau, déjà rendu en prod (« Le gain vient des ventes
+// (95 contre 36 attendues) », action-cards.js) — « Le manque/Le gain vient de… ».
+const STRUCT_FUNNEL_DE: Record<string, string> = {
+  footfall: "des visiteurs", transactions: "des ventes", basket: "du panier", conversion: "du taux de conversion",
+};
+export function structuralFunnelLineFr(rows: any[], class_key: string, eur_year: number): string | null {
+  if (!Array.isArray(rows) || !rows.length || !Number.isFinite(eur_year) || eur_year === 0) return null;
+  const impactSign = Math.sign(eur_year);
+  const parts: { de: string; pct: number }[] = [];
+  for (const metric of Object.keys(STRUCT_FUNNEL_DE)) {
+    const row = rows.find((r: any) => String(r?.class_key ?? "") === class_key && String(r?.metric ?? "") === metric && String(r?.basis ?? "") === "marginal");
+    if (!row) continue;
+    const n = Number(row?.n_days ?? 0);
+    const spanDays = Number(row?.span_days ?? 0);
+    const med = Number(row?.med_gap_eur ?? NaN);
+    const nLog = Number(row?.n_log ?? 0);
+    const avgLog = Number(row?.avg_log ?? NaN);
+    const sdLog = Number(row?.sd_log ?? NaN);
+    if (n < 5 || spanDays < 60 || nLog < 5 || !Number.isFinite(avgLog) || !Number.isFinite(sdLog)) continue;
+    const t = sdLog > 0 ? Math.abs(avgLog) / (sdLog / Math.sqrt(nLog)) : 0;
+    if (t < 1) continue;
+    if (!Number.isFinite(med) || med === 0 || Math.sign(med) !== Math.sign(avgLog)) continue;
+    const pct = Math.exp(avgLog) - 1;
+    // Même plancher partagé (cornerFloor) : busyness n'est pas dans STRUCT_FUNNEL_DE, donc le
+    // comportement de cette ligne est INCHANGÉ — mais une métrique ajoutée demain y trouvera
+    // son propre plancher au lieu d'un 0.05 recopié.
+    if (!Number.isFinite(pct) || Math.abs(pct) < cornerFloor(metric)) continue;
+    // Porte de cohérence : une métrique à contre-sens de l'impact € tue TOUTE la ligne (mélange
+    // de référentiels — voir l'en-tête), pas seulement elle-même.
+    if (Math.sign(pct) !== impactSign) return null;
+    parts.push({ de: STRUCT_FUNNEL_DE[metric], pct });
+  }
+  if (!parts.length) return null;
+  parts.sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
+  const kept = parts.slice(0, 2);
+  const fmt = (p: number) => `${p > 0 ? "+" : "−"}${Math.abs(Math.round(p * 100))} %`;
+  return `${impactSign < 0 ? "Le manque vient" : "Le gain vient"} ${kept.map((x) => `${x.de} (${fmt(x.pct)})`).join(" et ")} vs vos jours comparables.`;
 }

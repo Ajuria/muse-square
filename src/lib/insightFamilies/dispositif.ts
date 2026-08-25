@@ -110,9 +110,9 @@ const CLASS_CONFIG: Record<string, ClassMeta & { days_sql: string }> = {
     `,
   },
   competition_low: {
-    chip_fr: "Concurrence",
-    noun_fr: "jours de faible pression concurrentielle",
-    corner_label_fr: "concurrence faible",
+    chip_fr: "Activité du périmètre",
+    noun_fr: "jours de faible activité dans votre périmètre",
+    corner_label_fr: "périmètre peu actif",
     job_question_fr: "qu'est-ce que vous faites ces jours-là pour en profiter — et est-ce écrit, pour le rejouer à chaque fenêtre calme ?",
     days_sql: `
       WITH j AS (${DAY_BASE}, f.competition_index_local AS m

@@ -34,40 +34,78 @@ export const GET: APIRoute = async ({ url, locals }) => {
     if (!locs.length) return json(400, { ok: false, error: "aucun site" });
     const uid = String((locals as any)?.clerk_user_id || "").trim();
     const period = [30, 90, 365].includes(Number(url.searchParams.get("period"))) ? Number(url.searchParams.get("period")) : 30;
-    const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
+    const bq0 = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
+    // Mesure par requête (CLAUDE.md § Performance : mesurer, jamais déduire) — DASH_TIMING=1
+    // via npx tsx sur le harnais ; zéro effet sans la variable.
+    const bq = (process.env.DASH_TIMING
+      ? { query: async (opts: any) => { const t0 = Date.now(); try { return await bq0.query(opts); } finally { console.error(`[dash-timing] ${Date.now() - t0} ms — ${String(opts.query).replace(/\s+/g, " ").slice(0, 90)}`); } } }
+      : bq0) as typeof bq0;
     const P = { locs, period };
 
     const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
+        // Perf 25/08 : les 5 sous-requêtes corrélées (2,6-4,7 s de plan, 1 Mo scanné — coupable
+        // nommé par JOBS_BY_PROJECT) deviennent des pré-agrégats joints — mêmes clés, mêmes
+        // COUNT (COALESCE 0 : un COUNT corrélé vide rendait 0, jamais NULL), même lvl_max
+        // (grain jour du view — MAX() ne change rien à 1 ligne, l'original aurait planté à 2).
         query: `WITH occ AS (
                   SELECT si.saved_item_id, si.location_id, si.title, si.event_type, si.kpi, si.kpi_family,
                          si.kpi_target_pct, si.kpi_target_eur, si.author_person_name,
                          CAST(d.date AS STRING) AS occ_date,
-                         ROW_NUMBER() OVER (PARTITION BY si.saved_item_id ORDER BY d.date) AS occ_rank_upcoming,
-                         (SELECT COUNT(*) FROM \`${PROJECT}.raw.saved_item_dates\` a WHERE a.saved_item_id = si.saved_item_id) AS n_total,
-                         (SELECT COUNTIF(a.date < CURRENT_DATE()) FROM \`${PROJECT}.raw.saved_item_dates\` a WHERE a.saved_item_id = si.saved_item_id) AS n_past
+                         ROW_NUMBER() OVER (PARTITION BY si.saved_item_id ORDER BY d.date) AS occ_rank_upcoming
                   FROM \`${PROJECT}.raw.saved_items\` si
                   JOIN \`${PROJECT}.raw.saved_item_dates\` d USING (saved_item_id, location_id)
                   WHERE si.location_id IN UNNEST(@locs)
                     AND d.date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 60 DAY)
                     AND (COALESCE(si.recurrence, 'none') != 'none' OR si.selected_date = d.date)
+                ),
+                -- Branches INDÉPENDANTES filtrées @locs (un IN (SELECT … FROM occ) sérialisait le
+                -- plan : occ → semi-join → agrégat, 28 étages mesurés). Invariant d'écriture :
+                -- les lignes d'un saved_item portent toujours SA location (jointure USING des
+                -- deux clés partout) — le filtre site vaut le filtre par saved_item.
+                tot AS (
+                  SELECT a.saved_item_id, COUNT(*) AS n_total, COUNTIF(a.date < CURRENT_DATE()) AS n_past
+                  FROM \`${PROJECT}.raw.saved_item_dates\` a
+                  WHERE a.location_id IN UNNEST(@locs) GROUP BY 1
+                ),
+                com AS (
+                  SELECT c.saved_item_id, CAST(c.window_start AS STRING) AS occ_date, COUNT(*) AS n_com
+                  FROM \`${PROJECT}.analytics.action_commitments\` c
+                  WHERE c.location_id IN UNNEST(@locs) AND c.saved_item_id IS NOT NULL GROUP BY 1, 2
+                ),
+                snap AS (
+                  SELECT s.saved_item_id, CAST(s.selected_date AS STRING) AS occ_date, COUNT(*) AS n_snap
+                  FROM \`${PROJECT}.raw.saved_item_snapshots\` s
+                  WHERE s.location_id IN UNNEST(@locs) GROUP BY 1, 2
+                ),
+                wx AS (
+                  SELECT v.location_id, CAST(v.date AS STRING) AS occ_date,
+                         MAX(GREATEST(COALESCE(v.lvl_rain,0), COALESCE(v.lvl_heat,0), COALESCE(v.lvl_wind,0), COALESCE(v.lvl_snow,0), COALESCE(v.lvl_cold,0))) AS lvl_max
+                  FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\` v
+                  WHERE v.location_id IN UNNEST(@locs)
+                    AND v.date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL 60 DAY)
+                  GROUP BY 1, 2
                 )
-                SELECT o.*,
-                  (SELECT COUNT(*) FROM \`${PROJECT}.analytics.action_commitments\` c
-                    WHERE c.saved_item_id = o.saved_item_id AND CAST(c.window_start AS STRING) = o.occ_date) AS n_com,
-                  (SELECT COUNT(*) FROM \`${PROJECT}.raw.saved_item_snapshots\` s
-                    WHERE s.saved_item_id = o.saved_item_id AND CAST(s.selected_date AS STRING) = o.occ_date) AS n_snap,
-                  (SELECT GREATEST(COALESCE(v.lvl_rain,0), COALESCE(v.lvl_heat,0), COALESCE(v.lvl_wind,0), COALESCE(v.lvl_snow,0), COALESCE(v.lvl_cold,0))
-                    FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\` v
-                    WHERE v.location_id = o.location_id AND CAST(v.date AS STRING) = o.occ_date) AS lvl_max
-                FROM occ o ORDER BY o.occ_date LIMIT 20`,
+                SELECT o.*, tot.n_total, tot.n_past,
+                       COALESCE(com.n_com, 0) AS n_com, COALESCE(snap.n_snap, 0) AS n_snap, wx.lvl_max
+                FROM occ o
+                LEFT JOIN tot USING (saved_item_id)
+                LEFT JOIN com ON com.saved_item_id = o.saved_item_id AND com.occ_date = o.occ_date
+                LEFT JOIN snap ON snap.saved_item_id = o.saved_item_id AND snap.occ_date = o.occ_date
+                LEFT JOIN wx ON wx.location_id = o.location_id AND wx.occ_date = o.occ_date
+                ORDER BY o.occ_date LIMIT 20`,
         params: { locs }, location: "EU",
       }),
       // Engagements — dernier état par commitment (journal append-only) : ouverts + tenue période.
       bq.query({
+        // Perf 25/08 : colonnes nommées avant le ROW_NUMBER — le SELECT * faisait transiter le
+        // journal entier (toutes colonnes) par l'étage de fenêtrage à chaque appel.
         query: `WITH latest AS (
-                  SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                  SELECT commitment_id, location_id, status, verdict, owner_person_name, committed_action_text,
+                         measured_metric, threshold_basis, threshold_value, saved_item_id, window_start, window_end,
+                         origin_action_type, action_done_status, created_at,
+                         ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                   FROM \`${PROJECT}.analytics.action_commitments\` WHERE location_id IN UNNEST(@locs)
                 )
                 SELECT commitment_id, location_id, status, verdict, owner_person_name, committed_action_text,
@@ -104,9 +142,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        c.status AS replay_status, c.verdict AS replay_verdict
                 FROM \`${PROJECT}.analytics.best_practices\` bp
                 LEFT JOIN (
+                  -- Perf 25/08 : journal pré-filtré aux rejeux du compte AVANT le fenêtrage
+                  -- (le ROW_NUMBER tournait sur le journal ENTIER, coût croissant avec lui).
                   SELECT commitment_id, status, verdict,
                          ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                   FROM \`${PROJECT}.analytics.action_commitments\`
+                  WHERE commitment_id IN (SELECT replay_commitment_id FROM \`${PROJECT}.analytics.best_practices\`
+                                          WHERE location_id IN UNNEST(@locs) AND replay_commitment_id IS NOT NULL)
                 ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
                 WHERE bp.location_id IN UNNEST(@locs)
                 ORDER BY bp.created_at DESC LIMIT 20`,
@@ -121,9 +163,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   COUNTIF(bp.status = 'active' AND (c.commitment_id IS NULL OR (c.status != 'open' AND COALESCE(c.verdict, '') != 'met'))) AS n_declared
                 FROM \`${PROJECT}.analytics.best_practices\` bp
                 LEFT JOIN (
+                  -- Perf 25/08 : même pré-filtre que bpRows — journal réduit aux rejeux du compte.
                   SELECT commitment_id, status, verdict,
                          ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                   FROM \`${PROJECT}.analytics.action_commitments\`
+                  WHERE commitment_id IN (SELECT replay_commitment_id FROM \`${PROJECT}.analytics.best_practices\`
+                                          WHERE location_id IN UNNEST(@locs) AND replay_commitment_id IS NOT NULL)
                 ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
                 WHERE bp.location_id IN UNNEST(@locs)`,
         params: { locs }, location: "EU",
@@ -183,7 +228,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       bq.query({
         query: `SELECT location_id,
                        COUNTIF(lvl_heat >= 3 AND DATE(date) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()) AS n_hot_30,
-                       MIN(CASE WHEN lvl_heat >= 3 AND DATE(date) > CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END) AS next_hot,
+                       MIN(CASE WHEN lvl_heat >= 3 AND DATE(date) > CURRENT_DATE() AND DATE(date) <= DATE_ADD(CURRENT_DATE(), INTERVAL 14 DAY) THEN CAST(DATE(date) AS STRING) END) AS next_hot,
                        ARRAY_AGG(CASE WHEN lvl_heat >= 3 AND DATE(date) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE() THEN CAST(DATE(date) AS STRING) END IGNORE NULLS) AS hot_dates
                 FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\`
                 WHERE location_id IN UNNEST(@locs) GROUP BY 1`,
@@ -231,23 +276,28 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // CA total en dur (preuve 13/08 : CA total −16,4 % sur la fenêtre d'un engagement famille
       // dont la métrique a TENU +510 € — deux verdicts opposés sinon ; règle kpi-declare-suit-partout).
       bq.query({
+        // Perf 25/08 : colonnes nommées avant le ROW_NUMBER (même motif que comRows) ; baseline
+        // famille b restreinte aux sites du compte (l'agrégat balayait TOUTES les locations).
         query: `WITH latest AS (
-                  SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved','cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                  SELECT commitment_id, location_id, status, window_start, window_end, measured_metric, saved_item_id,
+                         ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved','cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                   FROM \`${PROJECT}.analytics.action_commitments\` WHERE location_id IN UNNEST(@locs)),
                 o AS (SELECT l.commitment_id, l.location_id, l.window_start, l.window_end, l.measured_metric, si.kpi_family
                       FROM latest l LEFT JOIN \`${PROJECT}.raw.saved_items\` si USING (saved_item_id)
                       WHERE l.rn = 1 AND l.status IN ('open','pending')),
                 ca AS (SELECT o.commitment_id, COUNT(r.date) AS jours, ROUND(SUM(r.daily_revenue), 0) AS valeur, ROUND(SUM(r.expected_revenue), 0) AS reference
-                       FROM o JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+                       FROM o JOIN (SELECT location_id, date, daily_revenue, expected_revenue
+                                    FROM \`${PROJECT}.mart.fct_client_day_residual\` WHERE location_id IN UNNEST(@locs)) r
                          ON r.location_id = o.location_id AND r.date BETWEEN o.window_start AND LEAST(o.window_end, CURRENT_DATE())
                        WHERE o.measured_metric != 'family_revenue' OR o.kpi_family IS NULL GROUP BY 1),
                 fam AS (SELECT o.commitment_id, COUNT(DISTINCT t.transaction_date) AS jours, ROUND(SUM(t.revenue), 0) AS valeur,
                                ROUND(b.avg_day * COUNT(DISTINCT t.transaction_date), 0) AS reference
-                        FROM o JOIN \`${PROJECT}.raw.client_transactions\` t
+                        FROM o JOIN (SELECT location_id, item_category, transaction_date, revenue
+                                     FROM \`${PROJECT}.raw.client_transactions\` WHERE location_id IN UNNEST(@locs)) t
                           ON t.location_id = o.location_id AND t.item_category = o.kpi_family
                          AND t.transaction_date BETWEEN o.window_start AND LEAST(o.window_end, CURRENT_DATE())
                         JOIN (SELECT location_id, item_category, SUM(revenue) / COUNT(DISTINCT transaction_date) AS avg_day
-                              FROM \`${PROJECT}.raw.client_transactions\` GROUP BY 1, 2) b
+                              FROM \`${PROJECT}.raw.client_transactions\` WHERE location_id IN UNNEST(@locs) GROUP BY 1, 2) b
                           ON b.location_id = o.location_id AND b.item_category = o.kpi_family
                         WHERE o.measured_metric = 'family_revenue' AND o.kpi_family IS NOT NULL GROUP BY 1, b.avg_day)
                 SELECT commitment_id, 'ca' AS metric, jours, valeur, reference,
@@ -271,14 +321,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
       bq.query({
         query: `SELECT oc.competitor_name, oc.item, oc.change_type, oc.price_direction,
                        oc.old_price_numeric, oc.new_price_numeric, oc.price_pct_change,
-                       oc.new_price_qualifier, CAST(DATE(oc.current_crawled_at) AS STRING) AS vu_le,
+                       -- « vu le » HONNÊTE (25/08, mart bloc 5) : une offre RETIRÉE n'a pas de
+                       -- current_crawled_at (le crawl où elle disparaît ne la porte plus) — sa
+                       -- date de constat est change_first_seen_on, calculée par l'int (premier
+                       -- crawl après la dernière apparition). Vérifié en base : les 2 retraits
+                       -- du compte (« cinema au musee », Pont du Gard) ont crawl NULL et
+                       -- constat 24/08. COALESCE : les changements de prix gardent leur crawl.
+                       oc.new_price_qualifier,
+                       CAST(COALESCE(DATE(oc.current_crawled_at), oc.change_first_seen_on) AS STRING) AS vu_le,
                        COALESCE(cd.tarifs_url, cd.source_url) AS src_url
                 FROM \`${PROJECT}.mart.fct_competitor_offering_changes\` oc
                 JOIN \`${PROJECT}.raw.competitor_tracking\` ct USING (competitor_id)
                 LEFT JOIN \`${PROJECT}.raw.competitor_directory\` cd
                   ON cd.competitor_id = oc.competitor_id AND cd.deleted_at IS NULL
                 WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL
-                ORDER BY oc.current_crawled_at DESC LIMIT 8`,
+                -- un concurrent suivi par PLUSIEURS sites du compte fan-out sinon (grain mart
+                -- = competitor × item ; liste de trouvailles au niveau compte, prouvé 24/08)
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY oc.competitor_id, oc.item_norm ORDER BY ct.created_at) = 1
+                ORDER BY COALESCE(DATE(oc.current_crawled_at), oc.change_first_seen_on) DESC LIMIT 8`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
       // Base de comparaison des offres : tarifs relevés au DERNIER passage (l'absence se chiffre).
@@ -391,22 +451,27 @@ export const GET: APIRoute = async ({ url, locals }) => {
                     FROM \`${PROJECT}.analytics.action_commitments\`
                     WHERE location_id IN UNNEST(@locs))
                   WHERE rn = 1 AND status = 'open'),
+                -- Perf 25/08 : filtre @locs DANS des tables dérivées — posé en WHERE de jointure il
+                -- n'était pas poussé au scan (mesuré : 199 738 lignes lues → 149 116 shufflées ;
+                -- le même filtre en sous-requête scanne 199 738 → 7 374 dans le b de tendRows).
                 k1 AS (
                   SELECT c.commitment_id, AVG(r.daily_revenue) realized, AVG(r.expected_revenue) exp_base
-                  FROM cm c JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+                  FROM cm c JOIN (SELECT location_id, date, daily_revenue, expected_revenue
+                                  FROM \`${PROJECT}.mart.fct_client_day_residual\` WHERE location_id IN UNNEST(@locs)) r
                     ON r.location_id = c.location_id
                    AND r.date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
                   WHERE c.measured_metric IS NULL OR c.measured_metric = 'revenue_residual' GROUP BY 1),
                 kp AS (
                   SELECT c.commitment_id, AVG(${kpiCaseSql("c.measured_metric", "p")}) realized
-                  FROM cm c JOIN \`${PROJECT}.mart.fct_client_daily_performance\` p
+                  FROM cm c JOIN (SELECT * FROM \`${PROJECT}.mart.fct_client_daily_performance\` WHERE location_id IN UNNEST(@locs)) p
                     ON p.location_id = c.location_id
                    AND p.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
                   WHERE c.measured_metric IN (${kpiKeyListSql()}) GROUP BY 1),
                 fam AS (
                   SELECT c.commitment_id, SUM(t.revenue) / COUNT(DISTINCT t.transaction_date) realized
                   FROM cm c JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id
-                  JOIN \`${PROJECT}.raw.client_transactions\` t
+                  JOIN (SELECT location_id, item_category, transaction_date, revenue
+                        FROM \`${PROJECT}.raw.client_transactions\` WHERE location_id IN UNNEST(@locs)) t
                     ON t.location_id = c.location_id AND t.item_category = si.kpi_family
                    AND t.transaction_date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
                   WHERE c.measured_metric = 'family_revenue' GROUP BY 1)
@@ -415,9 +480,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        CAST(c.window_start AS STRING) ws, CAST(c.window_end AS STRING) we,
                        COALESCE(k1.realized, kp.realized, fam.realized) realized, k1.exp_base,
                        c.saved_item_id, si.kpi_family, si.recurrence, si.title AS event_title,
-                       (SELECT ANY_VALUE(company_name) FROM \`${PROJECT}.raw.insight_event_user_location_profile\` pr WHERE pr.location_id = c.location_id) AS site_label
+                       lbl.site_label
                 FROM cm c LEFT JOIN k1 USING (commitment_id) LEFT JOIN kp USING (commitment_id) LEFT JOIN fam USING (commitment_id)
-                LEFT JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id`,
+                LEFT JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id
+                -- Perf 25/08 : ANY_VALUE(company_name) par site en jointure groupée — la sous-requête
+                -- corrélée par LIGNE était le coupable « WITH cm » de JOBS_BY_PROJECT (2,6-4,1 s).
+                LEFT JOIN (SELECT location_id, ANY_VALUE(company_name) AS site_label
+                           FROM \`${PROJECT}.raw.insight_event_user_location_profile\`
+                           WHERE location_id IN UNNEST(@locs) GROUP BY 1) lbl ON lbl.location_id = c.location_id`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
       // Cartes « fenêtre multi-jours » (proto 17/08) : la mini-courbe veut le KPI PAR JOUR —
@@ -474,15 +544,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        ANY_VALUE(av.avis_30j) avis_30j,
                        ANY_VALUE(ev.prochain_nom) prochain_nom, CAST(ANY_VALUE(ev.prochain_date) AS STRING) prochain_date, ANY_VALUE(ev.n_a_venir) evts_a_venir
                 FROM \`${PROJECT}.raw.competitor_tracking\` ct
+                -- Perf 25/08 : chaque sous-requête agrégeait TOUS les concurrents de la base avant
+                -- que la jointure sur ct n'en garde une poignée — pré-filtre aux suivis du compte
+                -- (exact : une ligne hors suivi ne joignait jamais).
                 LEFT JOIN (
                   -- Nuits de lecture, SANS le filtre price_numeric de la jointure h ci-dessous :
                   -- une page lue sans prix numérique (quai Branly, sans URL tarifs) est une nuit lue.
                   SELECT competitor_id, COUNT(DISTINCT DATE(crawled_at)) nuits_30j
                   FROM \`${PROJECT}.raw.competitor_offering_history\`
-                  WHERE crawled_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY) GROUP BY 1) nu ON nu.competitor_id = ct.competitor_id
+                  WHERE crawled_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+                    AND competitor_id IN (SELECT competitor_id FROM \`${PROJECT}.raw.competitor_tracking\`
+                                          WHERE location_id IN UNNEST(@locs) AND deleted_at IS NULL)
+                  GROUP BY 1) nu ON nu.competitor_id = ct.competitor_id
                 LEFT JOIN (
                   SELECT competitor_id, COUNTIF(change_type = 'price_increase') hausses, COUNTIF(change_type = 'price_decrease') baisses
-                  FROM \`${PROJECT}.mart.fct_competitor_offering_changes\` GROUP BY 1) oc ON oc.competitor_id = ct.competitor_id
+                  FROM \`${PROJECT}.mart.fct_competitor_offering_changes\`
+                  WHERE competitor_id IN (SELECT competitor_id FROM \`${PROJECT}.raw.competitor_tracking\`
+                                          WHERE location_id IN UNNEST(@locs) AND deleted_at IS NULL)
+                  GROUP BY 1) oc ON oc.competitor_id = ct.competitor_id
                 LEFT JOIN (
                   -- Avis gagnés sur 30 j (23/08) : dernier relevé GBP − premier relevé de la fenêtre.
                   -- Un FAIT par suivi, sans seuil — la carte « surge » reste bloquée (porte absolue :
@@ -492,6 +571,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   FROM \`${PROJECT}.raw.competitor_snapshots\`
                   WHERE source = 'gbp' AND crawl_status = 'success' AND google_rating_count IS NOT NULL
                     AND snapshot_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+                    AND competitor_id IN (SELECT competitor_id FROM \`${PROJECT}.raw.competitor_tracking\`
+                                          WHERE location_id IN UNNEST(@locs) AND deleted_at IS NULL)
                   GROUP BY 1 HAVING COUNT(DISTINCT snapshot_date) >= 2) av ON av.competitor_id = ct.competitor_id
                 LEFT JOIN (
                   SELECT competitor_id, location_id, COUNT(*) n_a_venir,
@@ -504,8 +585,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   ON cd.competitor_id = ct.competitor_id AND cd.deleted_at IS NULL
                 LEFT JOIN \`${PROJECT}.mart.fct_competitor_threat_profile\` tp
                   ON tp.location_id = ct.location_id AND tp.competitor_id = ct.competitor_id
-                LEFT JOIN \`${PROJECT}.raw.competitor_offering_history\` h
-                  ON h.competitor_id = ct.competitor_id AND h.price_numeric IS NOT NULL
+                LEFT JOIN (SELECT competitor_id, price_numeric, item_norm
+                           FROM \`${PROJECT}.raw.competitor_offering_history\`
+                           WHERE price_numeric IS NOT NULL
+                             AND competitor_id IN (SELECT competitor_id FROM \`${PROJECT}.raw.competitor_tracking\`
+                                                   WHERE location_id IN UNNEST(@locs) AND deleted_at IS NULL)) h
+                  ON h.competitor_id = ct.competitor_id
                 WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL
                 GROUP BY 1, 2, 3, 4, 5, 6`,
         params: { locs }, location: "EU",
@@ -521,12 +606,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
                     WHERE location_id IN UNNEST(@locs))
                   WHERE rn = 1 AND status = 'open' AND saved_item_id IS NOT NULL),
                 occ_v AS (
+                  -- Perf 25/08 : pré-filtre @locs avant le fenêtrage (journal entier sinon) — un
+                  -- commitment ne change jamais de site, la partition reste entière.
                   SELECT * EXCEPT(rn) FROM (
                     SELECT saved_item_id, CAST(window_start AS STRING) d, verdict, status,
+                           kpi_window_value, kpi_baseline,
                            ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
-                    FROM \`${PROJECT}.analytics.action_commitments\`)
+                    FROM \`${PROJECT}.analytics.action_commitments\`
+                    WHERE location_id IN UNNEST(@locs))
                   WHERE rn = 1 AND status != 'cancelled')
-                SELECT DISTINCT c.commitment_id, CAST(sd.date AS STRING) d, v.verdict, v.status AS occ_status
+                SELECT DISTINCT c.commitment_id, CAST(sd.date AS STRING) d, v.verdict, v.status AS occ_status,
+                       v.kpi_window_value AS occ_v, v.kpi_baseline AS occ_base
                 FROM cm c
                 JOIN \`${PROJECT}.raw.saved_items\` si ON si.saved_item_id = c.saved_item_id AND si.recurrence != 'none'
                 JOIN \`${PROJECT}.raw.saved_item_dates\` sd ON sd.saved_item_id = c.saved_item_id
@@ -555,8 +645,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        c.threshold_basis, c.threshold_value, c.status AS test_status,
                        CAST(c.window_start AS STRING) ws, CAST(c.window_end AS STRING) we
                 FROM \`${PROJECT}.analytics.best_practices\` bp
-                JOIN (SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
-                      FROM \`${PROJECT}.analytics.action_commitments\`) c
+                JOIN (SELECT commitment_id, status, verdict, measured_metric, kpi_window_value, kpi_baseline,
+                             threshold_basis, threshold_value, window_start, window_end,
+                             ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
+                      FROM \`${PROJECT}.analytics.action_commitments\`
+                      -- Perf 25/08 : journal pré-filtré aux rejeux du compte avant le fenêtrage.
+                      WHERE commitment_id IN (SELECT replay_commitment_id FROM \`${PROJECT}.analytics.best_practices\`
+                                              WHERE location_id IN UNNEST(@locs) AND replay_commitment_id IS NOT NULL)) c
                   ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
                 WHERE bp.location_id IN UNNEST(@locs) AND bp.status = 'active'`,
         params: { locs }, location: "EU",
@@ -1031,7 +1126,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
             const daily = (mesDailyRows as any[]).filter((x) => str(x.commitment_id) === cid && flat(x.v) != null)
               .map((x) => ({ d: str(x.d), v: Number(flat(x.v)) }));
             const occ = (serieRows as any[]).filter((x) => str(x.commitment_id) === cid)
-              .map((x) => ({ d: str(x.d), verdict: str(x.verdict), status: str(x.occ_status) }));
+              .map((x) => ({ d: str(x.d), verdict: str(x.verdict), status: str(x.occ_status), v: num(x.occ_v), base: num(x.occ_base) }));
             // Décomposition funnel (24/08) — sommes fenêtre par facteur, référentiel day_residual.
             const fr = (funnelRows as any[]).find((x) => str(x.commitment_id) === cid) || null;
             const funnel = fr ? {

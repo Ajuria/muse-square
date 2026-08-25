@@ -6,7 +6,7 @@ import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/contextCopy";
-import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured } from "../../../lib/dayClassRegistry";
+import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured, structuralFunnelLineFr } from "../../../lib/dayClassRegistry";
 import { buildEventLifecycleCards } from "../../../lib/eventLifecycleCards";
 
 function json(status: number, body: unknown) {
@@ -1054,7 +1054,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         const hi = impacts.find((i) => i.class_key === "competition_high");
         const lo = impacts.find((i) => i.class_key === "competition_low");
         if (hi && lo && Number(hi.eur_year) < 0 && Number(lo.eur_year) < 0) {
-          const liaison = "Vos jours de pression moyenne portent ce site : les deux extrêmes vous coûtent.";
+          const liaison = "Vos jours d'activité moyenne portent ce site : les deux extrêmes vous coûtent.";
           hi.liaison_fr = liaison; lo.liaison_fr = liaison;
         }
         return impacts;
@@ -1062,7 +1062,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // Doctrine 01/08 : les POPULATIONS DE CARTES (famille 'card') ne sont jamais des motifs
         // structurels — elles ne vivent qu'au coin de leur carte.
         .filter((i: any) => i?.family !== "card")
-        .map((i: any) => ({ ...i, ...structuralCardCopyFr(i) }))
+        // 25/08 (owner, point 5) : le paragraphe de faits porte la décomposition funnel du motif
+        // quand elle est mesurée ET cohérente avec le signe de l'impact — portes et référentiels
+        // côté registre (structuralFunnelLineFr), jamais recalculés au client.
+        .map((i: any) => ({
+          ...i,
+          ...structuralCardCopyFr(i),
+          funnel_fr: structuralFunnelLineFr((dayClassResult as any)?.funnelRows ?? [], i.class_key, Number(i.eur_year)),
+        }))
         .sort((a: any, b: any) => Math.abs(b.eur_year) - Math.abs(a.eur_year))),
     });
   } catch (err: any) {

@@ -313,14 +313,14 @@ const STRUCTURAL_CHANTIER_FR: Record<string, string> = {
   discount_no_lift: "Dispositif remise — plafond et ciblage revus, reconduction conditionnée au lift mesuré.",
   tourism_high: "Dispositif visiteurs — capter le flux des jours de forte saison (langues, mise en avant, horaires).",
   tourism_low: "Dispositif basse saison — cibler les résidents locaux sur les jours calmes.",
-  competition_high: "Dispositif différenciation — visibilité et offre distinctive sur les jours disputés.",
+  competition_high: "Dispositif jours chargés — visibilité et offre distinctive quand votre périmètre est très actif.",
   // 22/08 — DÉBLOQUÉ. Cette entrée portait deux violations (« Fenêtres » banni au sens occasion,
   // « concentrer » proscrit règle 8) et attendait la décision de l'owner : le mot banni ÉTAIT le
   // nom du chantier. L'owner a tranché — « dispositif » nomme l'objet à N'IMPORTE QUEL état, et
   // « une pratique qui marche » est un dispositif PROUVÉ, pas un dispositif en soi (lexique
   // corrigé le même jour). « réservés » vient du corpus owner (« Réservez les remises à vos
   // clients fidèles », reco-library.js) : repris, pas inventé.
-  competition_low: "Dispositif jours calmes — lancements et temps forts réservés aux jours à faible pression.",
+  competition_low: "Dispositif jours calmes — lancements et temps forts réservés aux jours où votre périmètre est peu actif.",
   mobility_disruption: "Dispositif perturbations — communication d'itinéraires et offre adaptée dès l'annonce.",
   followed_activity_high: "Dispositif concurrents actifs — programmation renforcée quand vos suivis animent la zone.",
   school_holiday: "Dispositif vacances scolaires — offre et équipe calées sur le public vacances.",
@@ -335,27 +335,38 @@ export function structuralCardCopyFr(i: {
   // Doctrine 01/08, amendement 7 : deux REGISTRES. Identification = le levier est propre au
   // lieu (affluence, suivis, jours calmes qui RÉUSSISSENT) -> titre d'enquête, CTA « Reproduire
   // le dispositif » (côté client). Correctif = levier connu -> titre affirmatif + plan.
-  const IDENTIFICATION_POSITIVE = new Set(["traffic_high", "followed_activity_high", "competition_low"]);
+  // 25/08 (owner) : `competition_high` POSITIF tombait dans le gabarit correctif — la page
+  // affichait « Mettez en place votre dispositif différenciation » au-dessus de « … vous
+  // rapportent +122 € par jour ». Un motif qui RAPPORTE ne se corrige pas, il s'explique :
+  // il rejoint le registre identification, comme son pôle bas (competition_low) l'était déjà.
+  const IDENTIFICATION_POSITIVE = new Set(["traffic_high", "followed_activity_high", "competition_low", "competition_high"]);
   const register: "correctif" | "identification" =
     pos && IDENTIFICATION_POSITIVE.has(i.class_key) ? "identification" : "correctif";
   // Amendement 1 : le NOMBRE n'apparaît qu'au coin — les titres portent le signal.
   // Amendement 2 : la provenance (« Mesuré sur N j / M mois ») vit dans l'infobulle du coin
   // (le client la construit depuis n_days/span_months/tier_label_fr), plus dans la ligne.
+  // TITRE AU VERBE (owner 25/08 soir, point 4 : « Titre avec verbe (engaging), puis les
+  // faits, puis l'action » — trois étages). La forme C du 21/08 n'est pas perdue : elle
+  // DESCEND au paragraphe de faits (« Les jours de pluie marquée vous coûtent −193 € par
+  // jour… »). Le verbe-titre reprend mot pour mot le geste owner du lot 1 (« mettez en
+  // place votre dispositif pluie ») : le nom du dispositif est EXTRAIT de la ligne chantier
+  // arbitrée — zéro mot inventé. Classe sans mot de dispositif (heat_25_27, concept sans
+  // mot) : « Définissez » vient du chantier générique owner (« Dispositif durable à
+  // définir »).
+  const dispositifWord = ((STRUCTURAL_CHANTIER_FR[i.class_key] || "").match(/^Dispositif ([^—]+) —/) || [])[1]?.trim() ?? null;
   let title: string;
   if (i.class_key === "discount_no_lift") {
-    title = "Des remises accordées sans effet mesuré sur le CA";
-  } else if (i.class_key === "events_high" && pos) {
-    title = "Les jours d'événements proches vous rapportent";
+    // « cibler » est LE verbe arbitré (owner 24/08, « animer » → « cibler ») et la ligne
+    // chantier remise parle déjà de « ciblage revu ».
+    title = "Ciblez vos remises — sans effet mesuré sur le CA";
   } else if (register === "identification") {
     title = i.class_key === "traffic_high"
       ? "Identifiez ce qui déclenche vos jours de pointe"
       : i.class_key === "followed_activity_high"
-        ? "L'activité des concurrents que vous suivez vous profite — identifiez pourquoi"
-        // Aligné le 21/08 : « jours calmes » ne nommait pas la dimension mesurée (même défaut que
-        // le titre correctif retiré le même jour), et « vous réussissent » divergeait du verbe de
-        // la forme C. Le libellé de la classe + « vous rapportent » ; le « — identifiez pourquoi »
-        // reste, c'est lui qui porte le registre identification (doctrine 01/08, amendement 7).
-        : `Les ${i.label_fr} vous rapportent — identifiez pourquoi`;
+        ? "Identifiez pourquoi l'activité des concurrents que vous suivez vous profite"
+        : `Identifiez pourquoi les ${i.label_fr} vous rapportent`;
+  } else if (dispositifWord) {
+    title = `Mettez en place votre dispositif ${dispositifWord}`;
   // competition_low négatif : le titre en dur « Les jours calmes ne vous profitent pas encore »
   // est RETIRÉ le 21/08 (3 arbitrages owner). Il précédait la forme C et la contredisait sur les
   // trois points : (1) « calmes » ne nommait pas la dimension — la classe mesure
@@ -364,13 +375,7 @@ export function structuralCardCopyFr(i: {
   // comme un profit absent ; (3) « pas encore » promettait un gain latent que rien ne mesure.
   // Le gabarit par défaut dit les trois : « Les jours à faible pression concurrentielle vous coûtent ».
   } else {
-    // Forme C (owner 21/08) : « Les » et non « Vos » — la classe de jour n'appartient pas à
-    // l'exploitant, seul l'effet est sien. Verbe et non adjectif (lexique règle 8), et le couple
-    // rapporter/coûter est déjà celui du coin (« à gagner » / « perdus »). Pas de « du chiffre » :
-    // le corps le dit et le montant est au coin (lexique règle 2 + correction owner « que la normale »).
-    title = pos
-      ? `Les ${i.label_fr} vous rapportent`
-      : `Les ${i.label_fr} vous coûtent`;
+    title = `Définissez votre dispositif pour les ${i.label_fr}`;
   }
   // CORPS — mesure, plus affirmation (owner 22/08). Les trois phrases précédentes étaient
   // IDENTIQUES d'une carte à l'autre : sur le compte owner, QUATRE cartes sur cinq portaient
@@ -393,15 +398,38 @@ export function structuralCardCopyFr(i: {
   // biais que le registre dénonce lui-même (« 8 jours de pluie dans une fenêtre estivale n'est
   // pas un taux de pluie annuel »).
   const eurJour = Number.isFinite(Number(i.avg_gap_eur)) ? Math.round(Number(i.avg_gap_eur)) : null;
+  // 25/08 (owner, point 5) : « Sur N jours mesurés » est de la MÉTADONNÉE — elle vit dans
+  // l'infobulle du coin (le client la construit déjà depuis n_days/span_months/tier_label_fr),
+  // plus dans le paragraphe de faits. Le paragraphe ne porte que le FAIT : l'écart par jour.
+  // Pas de « en moyenne » : en régime log+médiane, avg_gap_eur EST la médiane (rowToImpact,
+  // dayClassRegistry) — le mot « moyenne » serait un référentiel faux.
+  // ÉCHELLE (owner 25/08 soir : « combien de jours par an ? ») : jours/an = eur_year ÷ €/j —
+  // EXACTEMENT l'annualisation du moteur (rowToImpact : eur_year = €/j × n/(span/365,25)),
+  // jamais un second référentiel. « au rythme constaté » est la formule déjà arbitrée du coin.
+  // Et la forme C du 21/08 (« Les <classe> vous coûtent ») OUVRE la phrase : le titre étant
+  // devenu le geste, c'est ici que le motif porte son verbe.
+  const annualDays = (eurJour != null && eurJour !== 0 && Number.isFinite(Number(i.eur_year)) && Number(i.eur_year) !== 0)
+    ? Math.round(Math.abs(Number(i.eur_year) / Number(i.avg_gap_eur)))
+    : null;
   const mesure = (i.n_days > 0 && eurJour != null)
-    ? `Sur ${i.n_days} jour${i.n_days > 1 ? "s" : ""} mesuré${i.n_days > 1 ? "s" : ""}, ${eurJour > 0 ? "+" : "\u2212"}${Math.abs(eurJour).toLocaleString("fr-FR")} \u20ac par jour.`
-    : (i.n_days > 0 ? `Mesuré sur ${i.n_days} jour${i.n_days > 1 ? "s" : ""}.` : "");
+    ? `Les ${i.label_fr} vous ${pos ? "rapportent" : "coûtent"} ${eurJour > 0 ? "+" : "\u2212"}${Math.abs(eurJour).toLocaleString("fr-FR")} \u20ac par jour${annualDays != null ? ` \u2014 \u2248 ${annualDays} jours par an au rythme constaté` : ""}.`
+    : "";
   const sowhat = register === "identification"
     ? (mesure + " La cause précise est chez vous : trouvée et documentée, elle devient déclenchable.").trim()
     : mesure;
-  const chantier = register === "identification"
-    ? "Enquête : trouvez le mécanisme via « Reproduire le dispositif », documentez-le — il deviendra déclenchable."
-    : "Chantier : " + (STRUCTURAL_CHANTIER_FR[i.class_key]
+  // PRÉFIXE D'ACTION UNIQUE (owner 25/08 : « Unifie les préfixes → Action(s) conseillée(s) »,
+  // puis « Chantier aussi »). Le mot « Chantier » disparaît du PRÉFIXE ; il reste dans le corps
+  // du plan quand l'owner l'y a écrit — seule l'étiquette change, jamais le plan lui-même.
+  // ACCORD : même règle que le moteur client (accordActionPrefix, public/action-cards.js) —
+  // on compte les GESTES (impératif en -ez hors « vous …ez », plus l'enchaînement « …, puis … »),
+  // jamais les phrases. Jumeau côté serveur assumé : la copie structurelle se compose ici, la
+  // copie des cartes datées là-bas ; une seule règle, écrite deux fois, testée des deux côtés.
+  const plan = register === "identification"
+    ? "trouvez le mécanisme via « Reproduire le dispositif », documentez-le — il deviendra déclenchable."
+    : (STRUCTURAL_CHANTIER_FR[i.class_key]
       || "Dispositif durable à définir — engagez-vous pour mesurer l'effet mois après mois.");
+  const gestes = (plan.match(/(^|\s)[A-Za-zÀ-ÿ]{3,}ez\b/g) || [])
+    .filter((m) => !/\bvous\s+\S*$/i.test(m)).length + (/,?\s+puis\s+/i.test(plan) ? 1 : 0);
+  const chantier = (gestes >= 2 ? "Actions conseillées : " : "Action conseillée : ") + plan;
   return { title_fr: title, sowhat_fr: sowhat, chantier_fr: chantier, register };
 }
