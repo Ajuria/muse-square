@@ -319,5 +319,29 @@ check("chantiers : « Voir plus » déplie ET replie (le handler relit le DOM)",
   return ouvert === rows.length && referme === avant;
 })(), root.querySelectorAll("[data-struct-key]").length + " bandeaux");
 
+// ── Variante 2 (owner 25/08) : un motif = une ligne, sites regroupés, dépliage par site. ──
+check("groupes : aucun ne mélange les sens (étendue jamais à cheval sur zéro)", (() => {
+  const grps = [...root.querySelectorAll("[data-struct-group]")];
+  if (!grps.length) return true;
+  const bad = grps.filter((g) => {
+    const f = g.querySelector(".ab-bnd-f")?.textContent || "";
+    return /−/.test(f) && /\+/.test(f);          // un moins ET un plus dans la même étendue
+  });
+  if (bad.length) console.log("    " + bad.length + " groupe(s) à cheval sur zéro");
+  return bad.length === 0;
+})(), root.querySelectorAll("[data-struct-group]").length + " groupes");
+check("« Choisir le site » déplie les rangées par site, chacune avec ses gestes", (() => {
+  const btn = root.querySelector("[data-struct-expand]");
+  if (!btn) return true;                          // mono-site : aucun groupe, rien à déplier
+  const gkey = btn.getAttribute("data-struct-expand");
+  const sub = root.querySelector('[data-struct-sub="' + gkey + '"]');
+  btn.click();
+  const rows = [...sub.querySelectorAll("[data-struct-key]")];
+  const ok = sub.style.display === "block" && rows.length >= 2
+    && rows.every((r) => r.querySelector("[data-struct-commit]") || r.querySelector("[data-struct-follow]"));
+  btn.click();                                    // et il replie
+  return ok && sub.style.display === "none";
+})());
+
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");
 process.exit(fails ? 1 : 0);

@@ -3210,6 +3210,57 @@ if (!location_id) {
   var _STRUCT2FAM = { weather: 'weather', competition: 'competitor', suivis: 'competitor', tourism: 'calendar', events: 'calendar', calendar: 'calendar', mobility: 'mobility', traffic: 'mobility', sales: 'sales' };
   function _famOfStruct(fam) { return _FAM[_STRUCT2FAM[String(fam || '')]] || _FAM.opportunity; }
 
+  // VARIANTE 2 (owner 25/08) — UN MOTIF = UNE LIGNE, sites regroupés. Le même chantier
+  // apparaissait autant de fois qu'il y a de sites : « dispositif vacances scolaires » trois
+  // fois de suite en vue compte. Les lignes d'un même motif fusionnent, le montant est le
+  // CUMUL, les sites sont nommés à droite, et le geste ouvre le détail par site — parce que
+  // « M'engager » doit savoir SUR QUEL SITE (la contrepartie que le proto montrait).
+  //
+  // CE QUI EST DIT, ET CE QUI NE PEUT PAS L'ÊTRE. Le cumul en €/an est exact : c'est une
+  // somme. Le €/JOUR ne l'est pas — additionner des €/j de sites différents supposerait que
+  // leurs journées coïncident, ce que rien ne mesure. La ligne affiche donc l'ÉTENDUE réelle
+  // (« de −211 à −271 € par jour ») et jamais une moyenne fabriquée ; idem pour les jours par
+  // an, en fourchette dès qu'ils diffèrent. Un motif présent sur UN seul site garde la phrase
+  // d'origine, au caractère près.
+  function _structGroupRowHtml(grp) {
+    var tot = grp.reduce(function (a, x) { return a + (Number(x.imp.eur_year) || 0); }, 0);
+    var pos = tot > 0;
+    var pillBg = pos ? 'var(--color-pill-green-bg)' : '#FEF3E2';
+    var pillFg = pos ? 'var(--color-pill-green-text)' : '#B45309';
+    var amount = Math.abs(Math.round(tot)).toLocaleString('fr-FR');
+    var first = grp[0].imp;
+    var _cf = _famOfStruct(first.family);
+    var gkey = 'g|' + String(first.class_key || '') + '|' + (pos ? 'pos' : 'neg');
+    var _fmtE = function (v) { return (v >= 0 ? '+' : '\u2212') + Math.abs(Math.round(v)).toLocaleString('fr-FR') + ' \u20ac'; };
+    var eurs = grp.map(function (x) { return Number(x.imp.avg_gap_eur); }).filter(function (v) { return isFinite(v) && v !== 0; });
+    var jours = grp.map(function (x) {
+      return (Number(x.imp.eur_year) && Number(x.imp.avg_gap_eur)) ? Math.round(Math.abs(Number(x.imp.eur_year) / Number(x.imp.avg_gap_eur))) : null;
+    }).filter(function (v) { return v != null; });
+    var mn = Math.min.apply(null, eurs), mx = Math.max.apply(null, eurs);
+    var jn = jours.length ? Math.min.apply(null, jours) : null, jx = jours.length ? Math.max.apply(null, jours) : null;
+    var fait = grp.length + ' sites';
+    if (eurs.length) fait += ' \u00b7 ' + (mn === mx ? _fmtE(mn) + ' par jour' : 'de ' + _fmtE(mn) + ' \u00e0 ' + _fmtE(mx) + ' par jour');
+    if (jn != null) fait += ' \u00b7 ' + (jn === jx ? '\u2248 ' + jn + ' jours par an' : jn + ' \u00e0 ' + jx + ' jours par an');
+    var sites = grp.map(function (x) { return String(x.imp.location_label || ''); }).filter(Boolean).join(' \u00b7 ');
+    return '<div class="ab-card" data-t-site="' + escapeHtml(String(first.location_label || '')) + '" data-t-h="3" data-t-e="' + Math.abs(Math.round(tot)) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-group="' + escapeHtml(gkey) + '">'
+      + '<div class="ab-bnd">'
+        + '<span style="width:26px;height:26px;border-radius:50%;background:' + _cf.bg + ';color:' + _cf.ink + ';display:inline-flex;align-items:center;justify-content:center;flex:none;" title="' + _cf.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;">' + _cf.svg + '</svg></span>'
+        + '<div class="ab-bnd-body">'
+          + '<div class="ab-bnd-t">' + escapeHtml(String(first.title_fr || '')) + '</div>'
+          + '<div class="ab-bnd-f">' + escapeHtml(fait) + '</div>'
+        + '</div>'
+        + '<div class="ab-bnd-tail">'
+          + '<span class="ab-bnd-site" title="' + escapeHtml(sites) + '">' + escapeHtml(sites) + '</span>'
+          + '<span class="ab-bnd-line">'
+            + '<span class="ab-pill-eur" style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;white-space:nowrap;" title="' + escapeHtml('Cumul des ' + grp.length + ' sites. Le montant annuel est une SOMME ; le €/jour est donné en étendue, jamais en moyenne — additionner des journées de sites différents supposerait qu\u2019elles coïncident.') + '">' + (pos ? '+' : '\u2212') + amount + ' \u20ac/an</span>'
+            + '<button type="button" class="pls-cta-pri" data-struct-expand="' + escapeHtml(gkey) + '" style="white-space:nowrap;">Choisir le site</button>'
+          + '</span>'
+        + '</div>'
+      + '</div>'
+      + '<div data-struct-sub="' + escapeHtml(gkey) + '" style="display:none;"></div>'
+    + '</div>';
+  }
+
   function _structRowHtml(imp, key, coinPorte) {
     var pos = Number(imp.eur_year) > 0;
     var bar = pos ? '#059669' : '#B45309';
@@ -3313,6 +3364,31 @@ if (!location_id) {
   }
 
   function _wireStructRows(scope) {
+    // « Choisir le site » (variante 2, owner 25/08) : le groupe déplie SES rangées par site,
+    // chacune avec ses propres gestes — c'est ainsi que « M'engager » sait sur quel site il
+    // agit, la contrepartie que le proto annonçait. Le sous-bloc est câblé par le même
+    // _wireStructRows, donc rien de neuf à maintenir.
+    scope.querySelectorAll('[data-struct-expand]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var gkey = b.getAttribute('data-struct-expand');
+        var sub = scope.querySelector('[data-struct-sub="' + gkey + '"]');
+        if (!sub) return;
+        if (sub.style.display === 'block') { sub.style.display = 'none'; sub.innerHTML = ''; b.textContent = 'Choisir le site'; return; }
+        var parts = gkey.split('|');          // g | class_key | pos|neg
+        var cls = parts[1], sens = parts[2];
+        var arr = Array.isArray(window._lastDayClassImpacts) ? window._lastDayClassImpacts : [];
+        var rows = arr.filter(function (i) {
+          return String(i.class_key || '') === cls && (Number(i.eur_year) > 0 ? 'pos' : 'neg') === sens;
+        })
+                      .sort(function (x, y) { return Math.abs(Number(y.eur_year) || 0) - Math.abs(Number(x.eur_year) || 0); });
+        if (!rows.length) return;
+        sub.innerHTML = rows.map(function (imp) { return _structRowHtml(imp, _structImpKey(imp), false); }).join('');
+        sub.style.display = 'block';
+        b.textContent = 'Replier';
+        _wireStructRows(sub);
+      });
+    });
+
     // Inc D (owner 25/08, point 2) : « Pas pour moi » structurel — card_not_done SANS date
     // (un motif n'expire pas avec un jour), clé de lecture 'structural_<classe>|' via
     // card-states. La rangée part du fil immédiatement ; l'événement reste en base.
@@ -3542,7 +3618,32 @@ if (!location_id) {
         // Les rangées compactes vivaient À NU sous le bloc, quand toutes les autres rangées du
         // fil sont dans un conteneur encadré : d'où le « bandeau » mal formé signalé trois fois
         // par l'owner, et le décalage d'1 px mesuré au navigateur (la bordure du conteneur).
-        + (compactImps.length ? '<div data-t-struct="0">' + compactImps.map(function(x) { return _structRowHtml(x.imp, x.key, x.porte); }).join('') + '</div>' : '')
+        // VARIANTE 2 (owner 25/08) : regroupement PAR MOTIF (class_key), tous sites confondus.
+        // Un motif présent sur un seul site garde exactement sa ligne d'avant.
+        + (compactImps.length ? '<div data-t-struct="0">' + (function () {
+            // Regroupement par MOTIF **ET PAR SENS** — trouvé en lisant la sortie : sur
+            // « jours chargés », deux sites perdent (−120 €/j) et un gagne (+132 €/j). Les
+            // fondre donnait une étendue à cheval sur zéro, un NET qui masquait le site
+            // gagnant, et surtout UN SEUL titre là où contextCopy en écrit deux — « Mettez en
+            // place votre dispositif… » quand ça coûte, « Identifiez pourquoi… vous
+            // rapportent » quand ça rapporte. Séparés, chaque ligne dit vrai.
+            var byClass = {}, ordre = [];
+            compactImps.forEach(function (x) {
+              var k = String(x.imp.class_key || x.key) + '|' + (Number(x.imp.eur_year) > 0 ? 'pos' : 'neg');
+              if (!byClass[k]) { byClass[k] = []; ordre.push(k); }
+              byClass[k].push(x);
+            });
+            // Tri par |cumul| : le motif le plus lourd du COMPTE en tête, pas celui du 1er site.
+            ordre.sort(function (a, b) {
+              var sa = byClass[a].reduce(function (t, x) { return t + Math.abs(Number(x.imp.eur_year) || 0); }, 0);
+              var sb = byClass[b].reduce(function (t, x) { return t + Math.abs(Number(x.imp.eur_year) || 0); }, 0);
+              return sb - sa;
+            });
+            return ordre.map(function (k) {
+              var grp = byClass[k];
+              return grp.length > 1 ? _structGroupRowHtml(grp) : _structRowHtml(grp[0].imp, grp[0].key, grp[0].porte);
+            }).join('');
+          })() + '</div>' : '')
       + '</div>';
     mount.innerHTML = html;
     var holder = mount.querySelector('[data-t-cards="0"]');
@@ -3607,7 +3708,10 @@ if (!location_id) {
     }
     // Pli chantiers compacts : 3 visibles (fil unique).
     var block0 = mount.querySelector('[data-t-block="0"]');
-    var stRows = [].slice.call(block0.querySelectorAll('[data-struct-key]'));
+    // Le pli porte sur les rangées de PREMIER NIVEAU du bloc chantiers — bandeaux simples ET
+    // groupés (variante 2). `[data-struct-key]` seul ratait les groupes, et aurait compté les
+    // sous-rangées d'un groupe déplié comme des chantiers de plus.
+    var stRows = [].slice.call(block0.querySelectorAll('[data-t-struct] > .ab-card'));
     stRows.forEach(function(r, i) { if (i >= 3) { r.setAttribute('data-t-folded', '1'); r.style.display = 'none'; } });
     if (stRows.length > 3) {
       var moreSt = document.createElement('button');
@@ -3623,7 +3727,7 @@ if (!location_id) {
         // data-t-folded et le display (le pli reste juste), mais le tableau `stRows` capturé ici
         // pointait alors des nœuds DÉTACHÉS : le clic les modifiait hors du document. Le bouton
         // des cartes ne tombait pas dedans parce qu'il relit le DOM — même mécanique désormais.
-        block0.querySelectorAll('[data-struct-key][data-t-folded]').forEach(function(r) { r.style.display = open ? 'none' : ''; });
+        block0.querySelectorAll('[data-t-struct] > .ab-card[data-t-folded]').forEach(function(r) { r.style.display = open ? 'none' : ''; });
         moreSt.setAttribute('data-open', open ? '0' : '1');
         moreSt.textContent = open ? ('Voir ' + (stRows.length - 3) + ' autre' + (stRows.length - 3 > 1 ? 's' : '') + ' chantier' + (stRows.length - 3 > 1 ? 's' : '')) : 'Voir moins';
       });
