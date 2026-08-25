@@ -1330,11 +1330,31 @@ export type FunnelCorner = {
   class_key: string;
   class_label_fr: string;
 };
+// Cartes dont la classe se résout à la DATE plutôt qu'en table statique (owner 25/08).
+// Une seule pour l'instant : calendar_audience_shift, qui tire indifféremment sur un jour férié
+// ou un jour de vacances scolaires.
+const CARD_DATE_CALENDAR_TYPES = new Set<string>(["calendar_audience_shift"]);
+
 export function funnelCornerForCandidate(result: DayClassResult, candidate: { action_type?: any }): FunnelCorner | null {
   const at = String(candidate?.action_type || "");
   const step = CARD_FUNNEL_STEP[at];
   if (!step || step === "revenue_residual") return null;
-  const cls = CARD_TYPE_CLASS[at] ?? CARD_CONTEXT_CLASS[at];
+  // CLASSE RÉSOLUE PAR CARTE quand une classe statique se tromperait (owner 25/08).
+  // calendar_audience_shift tire sur `is_public_holiday_flag OU is_school_holiday_flag` : une
+  // entrée statique désignerait la mauvaise classe une fois sur deux — c'est pourquoi elle
+  // était restée SANS classe, donc sans coin. Le registre porte déjà le résolveur qu'il faut,
+  // `resolveClassToken('calendar@date')`, qui lit le CALENDRIER MESURÉ de la date de la carte
+  // (calendarByDate) : vacances scolaires -> school_holiday, sinon férié -> public_holiday,
+  // sinon rien. On lit donc la date de CETTE carte, jamais un motif hérité d'ailleurs — le
+  // garde-fou du 22/08 (« sinon la rentrée porterait le chiffre des vacances ») tient : ici la
+  // classe VIENT de la date qui a fait tirer la carte.
+  // Portée volontairement limitée au COIN : l'enjeu de ces cartes n'est pas touché, donc
+  // classNeverMeasured ne peut pas se mettre à les supprimer (régression mesurée le 25/08 sur
+  // les quatre cartes d'événement — 10 cartes présentes avant, zéro après).
+  const iso = String((candidate as any)?.date?.value ?? (candidate as any)?.date ?? "").slice(0, 10);
+  const cls = CARD_DATE_CALENDAR_TYPES.has(at)
+    ? resolveClassToken("calendar@date", result, iso)
+    : (CARD_TYPE_CLASS[at] ?? CARD_CONTEXT_CLASS[at]);
   if (!cls || !CLASS_LABELS[cls]) return null;
   const rows = result?.funnelRows;
   if (!Array.isArray(rows) || !rows.length) return null;
