@@ -358,5 +358,31 @@ check("aucune chaîne visible ne parle de STOCK ni d'heure d'ouverture", (() => 
   return bad.length === 0;
 })());
 
+// ── Tri et dédup du fil (owner 25/08) : le chiffré devant, un motif = une carte. ──
+check("tri : aucune carte SANS chiffre ne passe devant une carte chiffrée", (() => {
+  const cards = [...root.querySelectorAll(".ab-card[data-ab-card-idx]")].filter((c) => c.getAttribute("data-t-dup") !== "1");
+  const ks = cards.map((c) => Number(c.getAttribute("data-t-k") || 0));
+  for (let i = 1; i < ks.length; i++) if (ks[i] > ks[i - 1]) { console.log("    rang " + (i + 1) + " chiffré derrière un non chiffré"); return false; }
+  return true;
+})(), root.querySelectorAll(".ab-card[data-ab-card-idx]:not([data-t-dup])").length + " cartes");
+check("dédup : un même motif n'apparaît qu'une fois, et jamais deux SENS fondus", (() => {
+  const vis = [...root.querySelectorAll(".ab-card[data-ab-card-idx]")].filter((c) => c.getAttribute("data-t-dup") !== "1");
+  const vu = {};
+  for (const c of vis) {
+    const amt = c.querySelector(".ab-eur .amt");
+    const sens = amt ? (amt.className.includes("gain") ? "+" : amt.className.includes("defend") ? "-" : "?") : "0";
+    const k = (c.getAttribute("data-t-type") || "") + "|" + ((c.querySelector(".ab-what") || {}).textContent || "").trim() + "|" + sens;
+    if (vu[k]) { console.log("    doublon : " + k.slice(0, 70)); return false; }
+    vu[k] = 1;
+  }
+  return true;
+})());
+check("dédup : la carte survivante NOMME les sites qu'elle représente", (() => {
+  const dups = [...root.querySelectorAll('.ab-card[data-t-dup="1"]')];
+  if (!dups.length) return true;
+  const vis = [...root.querySelectorAll(".ab-card[data-ab-card-idx]")].filter((c) => c.getAttribute("data-t-dup") !== "1");
+  return vis.some((c) => ((c.querySelector(".ab-eur .ab-meta") || {}).textContent || "").split("·").length >= 3);
+})(), root.querySelectorAll('.ab-card[data-t-dup="1"]').length + " cartes fondues");
+
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");
 process.exit(fails ? 1 : 0);

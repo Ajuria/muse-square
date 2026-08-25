@@ -1802,6 +1802,14 @@ if (!location_id) {
         // Règle 5 (01/08) : classe portée par la carte datée (enjeu direct, jamais hérité) —
         // le motif structurel de la même classe reste compact ce jour-là (dédup du coin).
         + ' data-t-class="' + escapeHtml((entry.item.enjeu && !entry.item.enjeu.inherited && entry.item.enjeu.class_key) ? String(entry.item.enjeu.class_key) : '') + '"'
+        // TRI (owner 25/08) — deux clés de plus, parce que l'horizon écrasait tout : les six
+        // cartes portant un montant mesuré (5 412 → 2 242 €/an) étaient TOUTES en horizon 2,
+        // donc toutes sous le pli, derrière des cartes à enjeu ZÉRO.
+        //  · data-t-k = la carte porte-t-elle un chiffre MESURÉ au coin ? « pas encore chiffré »
+        //    et « ? €/an » (périmètre) ne comptent pas : ce sont des absences, pas des mesures.
+        //  · data-t-type = le type, pour regrouper les motifs identiques entre sites.
+        + ' data-t-k="' + ((_amtHtml && _amtHtml.indexOf('amt-val') >= 0 && _amtHtml.indexOf('? €/an') < 0) ? '1' : '0') + '"'
+        + ' data-t-type="' + escapeHtml(String(t._spec_action_type || '')) + '"'
         + '>'
         + '<div class="ab-rgrid">'
           + (function () { var _f = _famOf(t._spec_action_type); return '<div><div class="ab-disc' + (t.barClass === 'ab-threat' ? ' urgent' : '') + '" style="margin-top:2px;background:' + _f.bg + ';color:' + _f.ink + ';" title="' + _f.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + _f.svg + '</svg></div></div>'; })()
@@ -3651,7 +3659,45 @@ if (!location_id) {
     // Le fil du jour est désormais 100 % conjoncturel : une seule échelle, le tri redevient
     // honnête — horizon puis |montant|.
     var _mix = [].slice.call(holder.querySelectorAll('.ab-card[data-t-site]'));
+    // UN MOTIF = UNE CARTE (owner 25/08, variante 2 étendue aux cartes DATÉES). « Préparez une
+    // offre pour la rentrée » apparaissait trois fois, « Adaptez votre dispositif de
+    // communication » trois fois : le même motif, un site par ligne. On garde la PREMIÈRE et
+    // on nomme les autres sites sur sa pilule. Garde-fou repris des chantiers : on ne fusionne
+    // que des cartes de MÊME SENS — un +24 % et un −8 % sous un seul titre mentiraient.
+    (function () {
+      var vus = {};
+      _mix.forEach(function (c) {
+        // SENS lu sur le COIN RENDU, pas sur data-t-n : ce dernier vient de enjeu.eur_year et
+        // vaut 'none' pour les cartes dont le coin est un %. Résultat mesuré au premier jet :
+        // « moins d'activité » fusionnait +24 % avec −8 % et −11 % sous un seul titre et un
+        // seul chiffre — le même mensonge que celui écarté sur les chantiers ce matin.
+        var _amtEl = c.querySelector('.ab-eur .amt');
+        var _sens = _amtEl ? (_amtEl.className.indexOf('gain') >= 0 ? '+' : _amtEl.className.indexOf('defend') >= 0 ? '-' : '?') : '0';
+        var k = (c.getAttribute('data-t-type') || '') + '|' + ((c.querySelector('.ab-what') || {}).textContent || '').trim()
+              + '|' + _sens;
+        if (!vus[k]) { vus[k] = { chef: c, sites: [c.getAttribute('data-t-site') || ''] }; return; }
+        vus[k].sites.push(c.getAttribute('data-t-site') || '');
+        c.setAttribute('data-t-dup', '1');
+        c.style.display = 'none';
+      });
+      Object.keys(vus).forEach(function (k) {
+        var g = vus[k];
+        if (g.sites.length < 2) return;
+        var meta = g.chef.querySelector('.ab-eur .ab-meta');
+        if (!meta) return;
+        var d = (meta.textContent || '').match(/^\s*(\d{2}\/\d{2})/);
+        meta.innerHTML = (d ? escapeHtml(d[1]) + ' \u00b7 ' : '')
+          + '<span style="color:#374151;font-weight:600;">' + escapeHtml(g.sites.join(' \u00b7 ')) + '</span>';
+      });
+      _mix = _mix.filter(function (c) { return c.getAttribute('data-t-dup') !== '1'; });
+    })();
+    // TRI (owner 25/08) : une carte qui porte un chiffre MESURÉ passe devant une carte qui n'en
+    // porte pas — c'est ce qui séparait le signal du remplissage. À l'intérieur de chaque groupe
+    // l'horizon garde la main (arbitrage owner : les prospectives chiffrées restent devant),
+    // puis le montant. Avant : l'horizon écrasait tout, et un enjeu de 0 € battait 5 412 €.
     _mix.sort(function(a, b) {
+      var k = Number(b.getAttribute('data-t-k') || 0) - Number(a.getAttribute('data-t-k') || 0);
+      if (k !== 0) return k;
       var d = Number(a.getAttribute('data-t-h')) - Number(b.getAttribute('data-t-h'));
       return d !== 0 ? d : Number(b.getAttribute('data-t-e')) - Number(a.getAttribute('data-t-e'));
     });
