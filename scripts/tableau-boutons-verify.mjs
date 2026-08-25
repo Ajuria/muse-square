@@ -118,6 +118,12 @@ const qa = (s) => Array.from(body.querySelectorAll(s));
     c.click(); await tick(10);
   }
   check("chaque carte s'allume à l'ouverture (bug « co » réglé)", okAll, detail || cards.length + " testées");
+  // Owner 24/08 soir : « Mon positionnement » et « Veille » ouvraient le MÊME contenu.
+  // Un bouton = un corps : les deux cartes ciblent des corps DISTINCTS, chacun son contenu.
+  const coB = doc.querySelector('[data-tb-body="co"]'), veB = doc.querySelector('[data-tb-body="veille"]');
+  check("Mon positionnement et Veille = deux corps distincts", !!coB && !!veB && coB !== veB);
+  check("corps positionnement = fiches/comparaisons (sans la liste de trouvailles)", !!coB && /Consulter|tarifs/.test(coB.textContent) && coB.textContent.indexOf("échappe à votre veille") < 0);
+  check("corps veille = lecture nocturne (en-tête changements/prix stables)", !!veB && /changements? détectés?|Prix stables chez vos/.test(veB.textContent));
 }
 // 8 · Plis « + N autres » / « au-delà ».
 {

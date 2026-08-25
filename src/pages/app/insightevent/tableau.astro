@@ -1293,25 +1293,19 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (!db.alerts_critical_on) toActivate.push('Alerte automatique quand un concurrent programme un événement sur un de vos jours <a class="tb-link" href="/notifications">Activer →</a>');
           if (!db.team_routing_set && !db.team_empty) toActivate.push('Notification automatique à l’équipe sur signal interne <a class="tb-link" href="/profile?tab=comm">Configurer →</a>');
           // ── Volet MA COUVERTURE — veille concurrents + offres + automatisations. ──
-          var nDefaut = vLieux.filter(function (v) { return !(v.age_j != null && v.age_j <= 1); }).length + (((g.veille || {}).sans_cle || []).length);
           var covResume = covSites.map(function (c) { return esc(c.site_label || "") + " " + c.n_suivis + "/" + c.n_total; }).join(" · ")
-            + " · " + ((g.offres || []).length ? (g.offres || []).length + " changement" + ((g.offres || []).length > 1 ? "s" : "") + " d’offre" : "offres stables")
-            + (nDefaut ? " · veille en défaut sur " + nDefaut : "");
-          html += voletHead("co", covTrou || nDefaut ? AMBER : GREEN, "Mon positionnement", covResume, "comp")
+            + (((g.offres_base || {}).n_tarifs) ? " · " + g.offres_base.n_tarifs + " tarifs comparés" : "")
+            + ((g.offres || []).length ? "" : " · prix stables");
+          html += voletHead("co", covTrou ? AMBER : GREEN, "Mon positionnement", covResume, "comp")
             + '<div data-tb-body="co" class="tb-rbody" style="display:none;">';
           // Porte VEILLE (héros v10 — la tuile déménage en carte, même volet que Mon positionnement).
-          voletHead("veille", ((g.veille || {}).lieux || []).length && (typeof vVus !== "undefined") && vVus < (g.veille.lieux || []).length ? AMBER : GREEN, "Veille",
-            ((g.offres || []).length ? (g.offres || []).length + " trouvailles cette nuit" : "Rien n\u2019a boug\u00e9 \u00b7 vos suivis lus cette nuit"), "comp", "co");
+
           // ── v2 (proto validé 17/08) : la réponse d'abord, puis LES FICHES nommées par suivi. ──
           (function () {
             var fiches = (g.fiches || []).slice().sort(function (a2, b2) { return (b2.note || 0) - (a2.note || 0); });
             var nChg = (g.offres || []).length;
             var nTarifsB = ((g.offres_base || {}).n_tarifs) || 0;
             var AUD_FR = { tourists: "touristes", families: "familles", professionals: "professionnels", local: "résidents locaux", mixed: "public mixte", students: "étudiants", seniors: "seniors" };
-            html += '<div style="font-size:13px;line-height:1.6;padding:10px 0 4px;">'
-              + (nChg ? '<span style="font-weight:650;">' + nChg + ' changement' + (nChg > 1 ? 's' : '') + ' détecté' + (nChg > 1 ? 's' : '') + '</span> chez vos suivis — le détail plus bas.'
-                      : '<span style="font-weight:650;">Prix stables chez vos ' + vLieux.length + ' suivis</span> — ' + nTarifsB + ' tarifs comparés, rien à la lecture de cette nuit.')
-              + '</div>';
             var _audMoi = {};
             (g.audiences || []).forEach(function (a2) { _audMoi[a2.location_id] = [a2.a1, a2.a2].filter(Boolean); });
             // Toute COMPARAISON se joue \u00c0 L'INT\u00c9RIEUR d'un site (owner 17/08) : r\u00e9putation,
@@ -1463,7 +1457,24 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             html += '<div style="margin:10px 0 6px;padding:9px 12px;background:#F8FAFC;border:1px dashed #D1D5DB;border-radius:8px;font-size:11.5px;color:#6B7280;">'
               + '<span style="font-weight:600;color:#374151;">Actualit\u00e9 commerciale</span> — lecture web de sa page (expositions phares, offres poussées) \u00b7 <span style="color:#9CA3AF;">à venir : l\u2019enrichissement se branche sur l\u2019infra existante</span></div>';
           })();
-          // La veille : ce qui marche, ce qui est bloqué (cause nommée), les offres.
+          html += '</div>';
+          // ── Volet VEILLE (corps PROPRE, owner 24/08 soir) : la lecture nocturne — ce qui
+          //    marche, ce qui est bloqué (cause nommée), les changements d'offre détectés.
+          voletHead("veille", ((g.offres || []).length || vLieux.some(function (v) { return !(v.age_j != null && v.age_j <= 1); }) || ((g.veille || {}).sans_cle || []).length) ? AMBER : GREEN, "Veille",
+            (function () {
+              var nDef2 = vLieux.filter(function (v) { return !(v.age_j != null && v.age_j <= 1); }).length + (((g.veille || {}).sans_cle || []).length);
+              var base2 = (g.offres || []).length ? (g.offres || []).length + " trouvailles cette nuit" : "Rien n\u2019a boug\u00e9 \u00b7 vos suivis lus cette nuit";
+              return base2 + (nDef2 ? " \u00b7 veille en d\u00e9faut sur " + nDef2 : "");
+            })(), "comp");
+          html += '<div data-tb-body="veille" class="tb-rbody" style="display:none;">';
+          (function () {
+            var nChg = (g.offres || []).length;
+            var nTarifsB = ((g.offres_base || {}).n_tarifs) || 0;
+            html += '<div style="font-size:13px;line-height:1.6;padding:10px 0 4px;">'
+              + (nChg ? '<span style="font-weight:650;">' + nChg + ' changement' + (nChg > 1 ? 's' : '') + ' détecté' + (nChg > 1 ? 's' : '') + '</span> chez vos suivis — le détail plus bas.'
+                      : '<span style="font-weight:650;">Prix stables chez vos ' + vLieux.length + ' suivis</span> — ' + nTarifsB + ' tarifs comparés, rien à la lecture de cette nuit.')
+              + '</div>';
+          })();
           if (vLieux.length) {
             var jamaisL = vLieux.filter(function (v) { return !(v.age_j != null && v.age_j <= 1); });
             // Le TECHNIQUE ne s'affiche que CASSÉ (owner 14/08) — jamais d'inventaire de crawl sain.
