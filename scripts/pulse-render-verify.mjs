@@ -250,5 +250,22 @@ check("préfixe d'action : aucun préfixe historique ne survit (16 + Chantier/En
   return !/(À (faire|noter|pousser|adapter|capter|défendre|temporiser|réorienter|corriger|vérifier|analyser|consulter|exploiter|transmettre|amplifier|reproduire)|Chantier|Enquête) : /.test(t2);
 })());
 
+// ── Alignement des rangées (owner 25/08, 3e demande) : les TROIS familles partagent la
+// grille. Contrat structurel (happy-dom ne fait pas de layout, donc on vérifie le SQUELETTE,
+// pas les pixels — la mesure au navigateur est dans le commit : 35 rangées, eurRight 999,
+// largeur 156, metaRight 999, discLeft 277, à l'unité près).
+check("alignement : chaque rangée (contextuelle, structurelle pleine ET compacte) est en .ab-rgrid + .ab-eur", (() => {
+  const rows = [...root.querySelectorAll(".ab-card[data-ab-card-idx], [data-struct-full], [data-struct-key]")];
+  if (!rows.length) return false;
+  const hors = rows.filter((r) => !r.querySelector(":scope > .ab-rgrid") || !r.querySelector(":scope > .ab-rgrid > .ab-eur"));
+  if (hors.length) console.log("    " + hors.length + " rangée(s) hors grille");
+  return hors.length === 0;
+})(), root.querySelectorAll(".ab-card[data-ab-card-idx], [data-struct-full], [data-struct-key]").length + " rangées");
+check("alignement : les chantiers compacts vivent dans le conteneur encadré [data-t-struct]", (() => {
+  const compacts = [...root.querySelectorAll("[data-struct-key]")];
+  if (!compacts.length) return true;
+  return compacts.every((c) => c.closest("[data-t-struct]"));
+})());
+
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");
 process.exit(fails ? 1 : 0);
