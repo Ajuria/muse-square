@@ -377,6 +377,15 @@ check("dédup : un même motif n'apparaît qu'une fois, et jamais deux SENS fond
   }
   return true;
 })());
+// Contrat de VISIBILITÉ, pas de marquage (leçon du 25/08 : mon contrôle vérifiait
+// data-t-dup et passait au vert alors que les 6 doublons s'affichaient EN TÊTE du fil,
+// _triageApplyFilters les remettant à display:'' après coup).
+check("dédup : aucun doublon n'est VISIBLE (pas seulement marqué)", (() => {
+  const dups = [...root.querySelectorAll('.ab-card[data-t-dup="1"]')];
+  const visibles = dups.filter((c) => c.style.display !== "none");
+  if (visibles.length) console.log("    " + visibles.length + " doublon(s) affiché(s)");
+  return visibles.length === 0;
+})(), root.querySelectorAll('.ab-card[data-t-dup="1"]').length + " doublons");
 check("dédup : la carte survivante NOMME les sites qu'elle représente", (() => {
   const dups = [...root.querySelectorAll('.ab-card[data-t-dup="1"]')];
   if (!dups.length) return true;

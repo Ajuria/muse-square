@@ -3520,6 +3520,13 @@ if (!location_id) {
       // Un motif PROMU (carte pleine, data-t-h=0) répond aux deux filtres : Aujourd'hui ET Structurel.
       var okH = fh === 'tous' || h === fh;
       var okN = fn === 'tous' || c.getAttribute('data-t-n') === fn;
+      // UN DOUBLON RESTE CACHÉ, quoi qu'il arrive (owner 25/08). Défaut mesuré : le dédup
+      // marquait bien data-t-dup et posait display:none, puis CETTE fonction — qui tourne à la
+      // fin de buildTriageLayout — remettait tout le monde à display:'' selon les seuls filtres.
+      // Résultat sur la page réelle : 6 doublons marqués, 0 caché, et comme ils gardaient leur
+      // position d'origine, ils s'affichaient EN TÊTE du fil. Mon contrôle précédent vérifiait
+      // le marquage, jamais la visibilité — il passait au vert sur une page fausse.
+      if (c.getAttribute('data-t-dup') === '1') { c.style.display = 'none'; return; }
       var folded = c.getAttribute('data-t-folded') === '1';
       c.style.display = (okH && okN && (!folded || filtering || _triageState.sortEnjeu)) ? '' : 'none';
     });
@@ -3689,7 +3696,11 @@ if (!location_id) {
         meta.innerHTML = (d ? escapeHtml(d[1]) + ' \u00b7 ' : '')
           + '<span style="color:#374151;font-weight:600;">' + escapeHtml(g.sites.join(' \u00b7 ')) + '</span>';
       });
+      var _dups = _mix.filter(function (c) { return c.getAttribute('data-t-dup') === '1'; });
       _mix = _mix.filter(function (c) { return c.getAttribute('data-t-dup') !== '1'; });
+      // Repoussés en fin de conteneur : sans ça ils gardaient la place qu'ils occupaient avant
+      // le tri, c'est-à-dire les premiers rangs.
+      _dups.forEach(function (c) { holder.appendChild(c); });
     })();
     // TRI (owner 25/08) : une carte qui porte un chiffre MESURÉ passe devant une carte qui n'en
     // porte pas — c'est ce qui séparait le signal du remplissage. À l'intérieur de chaque groupe
