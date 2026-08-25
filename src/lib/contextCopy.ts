@@ -335,7 +335,11 @@ export function structuralCardCopyFr(i: {
   // Doctrine 01/08, amendement 7 : deux REGISTRES. Identification = le levier est propre au
   // lieu (affluence, suivis, jours calmes qui RÉUSSISSENT) -> titre d'enquête, CTA « Reproduire
   // le dispositif » (côté client). Correctif = levier connu -> titre affirmatif + plan.
-  const IDENTIFICATION_POSITIVE = new Set(["traffic_high", "followed_activity_high", "competition_low"]);
+  // 25/08 (owner) : `competition_high` POSITIF tombait dans le gabarit correctif — la page
+  // affichait « Mettez en place votre dispositif différenciation » au-dessus de « … vous
+  // rapportent +122 € par jour ». Un motif qui RAPPORTE ne se corrige pas, il s'explique :
+  // il rejoint le registre identification, comme son pôle bas (competition_low) l'était déjà.
+  const IDENTIFICATION_POSITIVE = new Set(["traffic_high", "followed_activity_high", "competition_low", "competition_high"]);
   const register: "correctif" | "identification" =
     pos && IDENTIFICATION_POSITIVE.has(i.class_key) ? "identification" : "correctif";
   // Amendement 1 : le NOMBRE n'apparaît qu'au coin — les titres portent le signal.
