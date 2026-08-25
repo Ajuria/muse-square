@@ -251,8 +251,7 @@
     if (e && e.eur_year != null) {
       var mini = e.eur_year < 0 ? "à gagner" : "à défendre";
       var cls = e.eur_year < 0 ? "gain" : "defend";
-      return '<span class="mini" style="margin-bottom:2px;">jusqu’à</span>'
-        + '<span class="amt ' + cls + '" title="' + esc((e.tier === "estimé" ? "estimé, cause multifactorielle" : "mesuré") + " · médiane sur vos " + e.n_days + " " + e.label_fr + " · jamais extrapolé") + '">' + frInt(e.eur_year) + ' €/an</span>'
+      return '<span class="amt ' + cls + '" title="' + esc((e.tier === "estimé" ? "estimé, cause multifactorielle" : "mesuré") + " · médiane sur vos " + e.n_days + " " + e.label_fr + " · jamais extrapolé") + '">' + frInt(e.eur_year) + ' €/an</span>'
         + '<span class="mini">' + mini + '</span>';
     }
     if (c.enjeu_reason_fr) return '<span class="pending" title="' + esc(c.enjeu_reason_fr) + '">pas encore chiffré<br>mûrit avec l’historique</span>';
@@ -268,14 +267,18 @@
     return '<div class="frow' + (compact ? " compact" : "") + '">'
       + '<div>' + med(fam, urgent) + '</div>'
       + '<div style="min-width:0;">'
-      + '<div class="fmeta"><a href="#" class="ftitle" title="Consulter la source">' + esc(c.what || c.action_type) + '</a>'
-      + '<span style="flex:1;"></span>'
-      + (!siteFilter && c.site ? '<span class="chip">' + esc(c.site) + '</span>' : "")
-      + (c.date && c.date !== D.today ? '<span class="chip">' + frD(c.date) + '</span>' : "") + '</div>'
+      + '<div class="fmeta"><a href="#" class="ftitle" title="Consulter la source">' + esc(c.what || c.action_type) + '</a></div>'
       + (!compact && body ? '<div class="fbody">' + esc(body) + '</div>' : "")
       + (!compact && source ? '<div class="fsrc">' + esc(source) + '</div>' : "")
       + '</div>'
-      + '<div class="eur">' + eurCol(c) + '</div>'
+      + '<div class="eur">'
+      + (function () {
+          var meta = [];
+          if (c.date && c.date !== D.today) meta.push(frD(c.date));
+          if (!siteFilter && c.site) meta.push('<span style="color:#374151;font-weight:600;">' + esc(c.site) + '</span>');
+          return meta.length ? '<span style="font-size:11px;color:#6B7280;margin-bottom:3px;white-space:nowrap;">' + meta.join(" · ") + '</span>' : "";
+        })()
+      + eurCol(c) + '</div>'
       + '<div class="foot"><div class="facts"><button type="button" class="sec">Pas pour moi</button><button type="button" class="pri">' + (c.needs_catchment ? "Répondre" : "M’engager") + '</button></div></div>'
       + '</div>';
   }
@@ -310,11 +313,11 @@
       + '<div style="min-width:0;">'
       + '<div class="fmeta"><a href="#" class="ftitle">Relancer une offre les jours de forte chaleur</a>'
       + '<span class="chip" style="background:#E6F6F0;color:#059669;font-weight:600;">objectif atteint</span>'
-      + '<span style="flex:1;"></span><span class="chip">Muse Square Occitanie</span><span class="chip">04/07</span></div>'
+      + '</div>'
       + '<div class="fbody">Votre engagement a tenu son objectif — écrivez la recette : elle devient un dispositif réutilisable.</div>'
       + '<div class="fsrc">mesuré vs votre résultat habituel sur la fenêtre engagée</div>'
       + '</div>'
-      + '<div class="eur"><span class="amt gain">+510 €</span><span class="mini">repris · mesuré</span></div>'
+      + '<div class="eur"><span style="font-size:11px;color:#6B7280;margin-bottom:3px;white-space:nowrap;">04/07 · <span style="color:#374151;font-weight:600;">Muse Square Occitanie</span></span><span class="amt gain">+510 €</span><span class="mini">repris · mesuré</span></div>'
       + '<div class="foot"><div class="disp">Action menée ?'
       + ' <button type="button" class="chip" style="cursor:pointer;background:#fff;border:1px solid #E5E7EB;">Oui</button>'
       + ' <button type="button" class="chip" style="cursor:pointer;background:#fff;border:1px solid #E5E7EB;">Pas encore</button></div>'
@@ -325,11 +328,11 @@
       + '<div style="min-width:0;">'
       + '<div class="fmeta"><a href="#" class="ftitle">Corner de vente producteur</a>'
       + '<span class="chip" style="background:#EEF2FF;color:#1D3BB3;font-weight:600;">Dispositif actif</span>'
-      + '<span style="flex:1;"></span><span class="chip">sam 29/08</span></div>'
+      + '</div>'
       + '<div class="fbody">La mesure s’arme seule le jour J — consigne et contexte gelés. Verdict automatique samedi soir.</div>'
       + '<div class="fsrc">objectif famille Branded +11 %</div>'
       + '</div>'
-      + '<div class="eur"><span class="pending">objectif +11 %<br>verdict sam soir</span></div>'
+      + '<div class="eur"><span style="font-size:11px;color:#6B7280;margin-bottom:3px;">sam 29/08</span><span class="pending">objectif +11 %<br>verdict sam soir</span></div>'
       + '<div class="foot"><div class="facts"><button type="button" class="pri">Ajuster</button></div></div>'
       + '</div>'
     + '</div>'
