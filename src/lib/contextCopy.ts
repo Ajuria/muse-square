@@ -413,9 +413,19 @@ export function structuralCardCopyFr(i: {
   const sowhat = register === "identification"
     ? (mesure + " La cause précise est chez vous : trouvée et documentée, elle devient déclenchable.").trim()
     : mesure;
-  const chantier = register === "identification"
-    ? "Enquête : trouvez le mécanisme via « Reproduire le dispositif », documentez-le — il deviendra déclenchable."
-    : "Chantier : " + (STRUCTURAL_CHANTIER_FR[i.class_key]
+  // PRÉFIXE D'ACTION UNIQUE (owner 25/08 : « Unifie les préfixes → Action(s) conseillée(s) »,
+  // puis « Chantier aussi »). Le mot « Chantier » disparaît du PRÉFIXE ; il reste dans le corps
+  // du plan quand l'owner l'y a écrit — seule l'étiquette change, jamais le plan lui-même.
+  // ACCORD : même règle que le moteur client (accordActionPrefix, public/action-cards.js) —
+  // on compte les GESTES (impératif en -ez hors « vous …ez », plus l'enchaînement « …, puis … »),
+  // jamais les phrases. Jumeau côté serveur assumé : la copie structurelle se compose ici, la
+  // copie des cartes datées là-bas ; une seule règle, écrite deux fois, testée des deux côtés.
+  const plan = register === "identification"
+    ? "trouvez le mécanisme via « Reproduire le dispositif », documentez-le — il deviendra déclenchable."
+    : (STRUCTURAL_CHANTIER_FR[i.class_key]
       || "Dispositif durable à définir — engagez-vous pour mesurer l'effet mois après mois.");
+  const gestes = (plan.match(/(^|\s)[A-Za-zÀ-ÿ]{3,}ez\b/g) || [])
+    .filter((m) => !/\bvous\s+\S*$/i.test(m)).length + (/,?\s+puis\s+/i.test(plan) ? 1 : 0);
+  const chantier = (gestes >= 2 ? "Actions conseillées : " : "Action conseillée : ") + plan;
   return { title_fr: title, sowhat_fr: sowhat, chantier_fr: chantier, register };
 }

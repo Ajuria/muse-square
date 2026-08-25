@@ -237,5 +237,18 @@ check("pilule de rangée : les structurelles (pleines ET compactes) la rendent d
   return rows.every((r) => !r.querySelector(".ab-eur") || r.querySelector(".ab-eur .ab-meta") || !r.querySelector(".ab-meta"));
 })());
 
+// ── Préfixe d'action UNIQUE (owner 25/08 : « Unifie les préfixes », puis « Chantier aussi »). ──
+check("préfixe d'action : CHAQUE ligne d'action porte « Action(s) conseillée(s) : »", (() => {
+  const lignes = [...root.querySelectorAll(".aline")].map((x) => (x.textContent || "").trim()).filter(Boolean);
+  if (!lignes.length) return false;
+  const hors = lignes.filter((l) => !/^Actions? conseillées? : /.test(l));
+  if (hors.length) console.log("    " + JSON.stringify(hors.slice(0, 3).map((x) => x.slice(0, 60))));
+  return hors.length === 0;
+})(), root.querySelectorAll(".aline").length + " lignes");
+check("préfixe d'action : aucun préfixe historique ne survit (16 + Chantier/Enquête)", (() => {
+  const t2 = txt();
+  return !/(À (faire|noter|pousser|adapter|capter|défendre|temporiser|réorienter|corriger|vérifier|analyser|consulter|exploiter|transmettre|amplifier|reproduire)|Chantier|Enquête) : /.test(t2);
+})());
+
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");
 process.exit(fails ? 1 : 0);

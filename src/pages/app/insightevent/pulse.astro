@@ -3355,7 +3355,7 @@ if (!location_id) {
         };
         if (!window.MSBpForm) {
           if (!window.MSCommitForm) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Formulaire indisponible — rechargez la page.</div>'; return; }
-          ws.innerHTML = window.MSCommitForm.buildHtml({ suggestions: [String(imp.chantier_fr || '').replace(/^(Chantier|Enquête)\s*:\s*/, '')] });
+          ws.innerHTML = window.MSCommitForm.buildHtml({ suggestions: [String(imp.chantier_fr || '').replace(/^(Actions? conseillées?|Chantier|Enquête)\s*:\s*/, '')] });
           window.MSCommitForm.wire(ws, { location_id: imp.location_id, origin: origin,
             fetchOwners: function() { return fetchTeamMembers(imp.location_id).then(function(m) { return (m && m.length) ? m : teamMembersPool(imp.location_id); }); },
             onDone: function(j) { ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:' + (j && j.ok ? '#166534' : '#B91C1C') + ';">' + (j && j.ok ? 'Engagement créé.' : ('Erreur : ' + escapeHtml((j && j.error) || 'réessayez'))) + '</div>'; },
@@ -3390,7 +3390,7 @@ if (!location_id) {
         if (ws.style.display === 'block') { ws.style.display = 'none'; ws.innerHTML = ''; return; }
         if (!window.MSCommitForm) { ws.style.display = 'block'; ws.innerHTML = '<div style="padding:14px 16px;font-size:12px;color:#B91C1C;">Formulaire indisponible — rechargez la page.</div>'; return; }
         ws.style.display = 'block';
-        ws.innerHTML = window.MSCommitForm.buildHtml({ suggestions: [String(imp.chantier_fr || '').replace(/^Chantier\s*:\s*/, '')] });
+        ws.innerHTML = window.MSCommitForm.buildHtml({ suggestions: [String(imp.chantier_fr || '').replace(/^(Actions? conseillées?|Chantier)\s*:\s*/, '')] });
         window.MSCommitForm.wire(ws, {
           location_id: imp.location_id,
           origin: {
