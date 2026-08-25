@@ -3148,7 +3148,14 @@ if (!location_id) {
         // part dans l'infobulle du montant ; la sous-ligne garde le FAIT (€/j) et l'état.
         + '<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">' + escapeHtml(String(imp.title_fr || ''))
           + '<span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">'
-            + (imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur)) ? ((Number(imp.avg_gap_eur) >= 0 ? '+' : '−') + Math.abs(Math.round(Number(imp.avg_gap_eur))).toLocaleString('fr-FR') + ' €/j sur ces journées · ') : '')
+            + (function () {
+                if (imp.avg_gap_eur == null || !isFinite(Number(imp.avg_gap_eur)) || Number(imp.avg_gap_eur) === 0) return '';
+                var _j = (Number(imp.avg_gap_eur) >= 0 ? '+' : '−') + Math.abs(Math.round(Number(imp.avg_gap_eur))).toLocaleString('fr-FR') + ' €/j';
+                // Échelle (owner 25/08 soir, « combien de jours par an ? ») : jours/an =
+                // eur_year ÷ €/j — l'annualisation du moteur elle-même, jamais un second calcul.
+                var _n = (Number(imp.eur_year) && Number(imp.avg_gap_eur)) ? Math.round(Math.abs(Number(imp.eur_year) / Number(imp.avg_gap_eur))) : null;
+                return _j + (_n != null ? ' · ≈ ' + _n + ' jours par an' : '') + ' · ';
+              })()
             + state + (eng && eng.owner_person_name ? ' → ' + escapeHtml(String(eng.owner_person_name)) : '') + '</span>'
           // 2-A (owner 24/08) : liaison des deux pôles négatifs — posée par monitor.
           + (imp.liaison_fr ? '<span style="display:block;font-size:11px;color:#1D3BB3;font-weight:400;margin-top:2px;">' + escapeHtml(String(imp.liaison_fr)) + '</span>' : '')
