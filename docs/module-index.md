@@ -130,7 +130,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `analytics/admin-errors.ts` | GET | Error + crawl-failure logs for user/location | `analytics.api_error_log`, `…crawl_log` |
 | `analytics/admin-feedback.ts` | GET | User feedback on signal confirmations | `analytics.signal_confirmations` |
 | `analytics/admin-page.ts` | GET | Admin HTML page (Clerk-gated) | none |
-| `analytics/card-states.ts` | GET | Per-card outcome states (30d) | `analytics.action_log` |
+| `analytics/card-states.ts` | GET | Per-card outcome states — cartes datées (clé subtype × date, 30 j) + **motifs structurels (25/08 : branche date-less — dernier événement par `structural_<classe>`, sans borne de temps, `affected_date` rendu `''` dans la clé client ; consommé par pulse pour filtrer les motifs écartés « Pas pour moi »)** | `analytics.action_log` |
 | `analytics/confirm.ts` | POST | Record signal confirm/dismiss | `analytics.signal_confirmations`, `…action_log` |
 | `analytics/party-role.ts` 🆕 | POST | Qualification du RÔLE d'un compte client depuis la carte client_dormant (geste « Préciser ce compte », spec client-patterns § R.3) — vocabulaire § R validé (5 valeurs + channel_kind obligatoire pour un canal), résolution (site routé → source_location_id) via le mart clients, écriture par MERGE DML (jamais de streaming — table load-job), provenance `user_card:<user>`. Prouvé par harnais tsx 07/08 : 400×3/404/200 + ligne annuaire vérifiée puis provenance restaurée | `mart.fct_location_client_patterns` (lecture), `analytics.party_directory` (MERGE), `…action_log` |
 | `analytics/list-drafts.ts` | GET | List active saved drafts | `analytics.saved_drafts` |
