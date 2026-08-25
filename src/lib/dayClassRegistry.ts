@@ -494,9 +494,25 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       SELECT location_id, transaction_date AS date, ${KPI_PERF_KEYS.map((k) => KPI_DAILY_COL[k]).join(", ")}
       FROM \`${PROJECT}.mart.fct_client_daily_performance\`
     ),
+    -- AFFLUENCE ESTIMÉE (owner 25/08, mot arbitré « affluence estimée »). BestTime remplit
+    -- ft_day_mean dans fct_location_context_daily — 1 638 lignes sur 32 sites au 25/08 — mais
+    -- cette donnée n'atteignait JAMAIS le moteur, qui ne lit que fct_client_daily_performance.
+    -- Conséquence mesurée : le KPI footfall (daily_visitors) n'existe que sur 1 site sur 6,
+    -- donc les 24 types de carte qui déclarent l'étape « visiteurs » n'avaient aucun coin.
+    -- MÉTRIQUE DISTINCTE, jamais fusionnée dans footfall : ft_day_mean est un INDICE de
+    -- fréquentation 0-100, pas un compte de visiteurs — les mêler comparerait un rang à des
+    -- personnes. Elle n'entre pas non plus dans KpiKey/KPI_DAILY_COL : ce registre pilote les
+    -- ENGAGEMENTS, et on ne s'engage pas sur un indice qu'on ne contrôle pas.
+    ftx AS (
+      SELECT location_id, date, ft_day_mean
+      FROM \`${PROJECT}.mart.fct_location_context_daily\`
+      WHERE ft_day_mean IS NOT NULL AND ft_day_mean > 0
+    ),
     vals AS (
       SELECT location_id, date, month_num, weekend_flag, 'revenue_residual' AS metric, gap_eur AS v, gap_log AS v_log
       FROM counted
+      UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, 'busyness', f.ft_day_mean, LN(f.ft_day_mean)
+      FROM counted c JOIN ftx f USING (location_id, date)
       ${KPI_PERF_KEYS.map((k) => `UNION ALL SELECT c.location_id, c.date, c.month_num, c.weekend_flag, '${k}', p.${KPI_DAILY_COL[k]},
              IF(p.${KPI_DAILY_COL[k]} > 0, LN(p.${KPI_DAILY_COL[k]}), NULL)
       FROM counted c JOIN perf p USING (location_id, date) WHERE p.${KPI_DAILY_COL[k]} IS NOT NULL`).join("\n      ")}
@@ -1380,7 +1396,16 @@ export function funnelCornerForCandidate(result: DayClassResult, candidate: { ac
   // site n'a pas de mesure visiteurs sur sa classe replie sur VENTES (l'autre étape de volume,
   // mesurée presque partout) — jamais déguisé : `kpi` porte l'étape réellement mesurée et le
   // libellé du coin dit son mot. Les cartes panier/conversion gardent leur étape stricte.
-  return evalMetric(step) ?? (step === "footfall" ? evalMetric("transactions") : null);
+  // Repli d'une étape (owner 24/08, GO) : étape déclarée d'abord ; une carte VISITEURS dont le
+  // site n'a pas de mesure visiteurs replie sur l'AFFLUENCE ESTIMÉE (BestTime, mot arbitré
+  // owner 25/08), puis seulement sur les VENTES. L'ordre suit la proximité au concept : un
+  // indice de fréquentation est plus proche des visiteurs qu'un compte de tickets. Jamais
+  // déguisé : `kpi` porte l'étape RÉELLEMENT mesurée et le libellé du coin dit son mot.
+  // Mesuré au 25/08 : 18 lignes d'affluence estimée sur le parc, 2 sites, 7 passent les portes
+  // du moteur et 2 le plancher de 5 % (plus gros écart 6,15 %). C'est peu, et c'est honnête :
+  // ça grandira avec la couverture BestTime, sans qu'aucun chiffre soit inventé d'ici là.
+  return evalMetric(step)
+    ?? (step === "footfall" ? (evalMetric("busyness") ?? evalMetric("transactions")) : null);
 }
 
 // ── Paragraphe de faits des cartes STRUCTURELLES (owner 25/08, point 5) ─────────────────────
