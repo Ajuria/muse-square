@@ -51,6 +51,9 @@ export const MOTS_BANNIS: Record<string, string> = {
   // « Nouvel événement » n'entre PAS ici : le sens veille (« Nouvel événement repéré chez un
   // suivi ») est légitime — seul le BOUTON de création est renommé (règle de relecture).
   "Compétitivité": "Mon environnement",
+  // Owner 25/08 : l'en-tête d'Agir dit l'ACTION, pas l'objet-carte (« carte » reste légitime
+  // ailleurs : « 9 cartes ce jour », « les cartes des 7 prochains jours »).
+  "Vos cartes du jour": "Vos actions du jour",
   "Vos prochaines occasions": "Opportunités",
   // 24/08 — « animer » banni (verbe de conseil sur un abstrait, règle 8) : le geste se dit « cibler ».
   "animer": "cibler",

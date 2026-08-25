@@ -21,8 +21,9 @@ describe("fil Agir — invariants de la maquette (14/08)", () => {
     const assemblage = src.slice(src.indexOf("root.innerHTML = pillsHtml"));
     expect(assemblage.slice(0, 400).includes("opsStrip")).toBe(false);
   });
-  it("en-tête cible : Vos cartes du jour + Piloter →", () => {
-    expect(src.includes("Vos cartes du jour")).toBe(true);
+  it("en-tête cible : Vos actions du jour (owner 25/08)", () => {
+    expect(src.includes("Vos actions du jour")).toBe(true);
+    expect(src.includes("Vos cartes du jour")).toBe(false);
     expect(src.includes("/app/insightevent/tableau")).toBe(true);
   });
   it("sections titrées, engagements d'abord", () => {

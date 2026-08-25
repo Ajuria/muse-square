@@ -296,7 +296,7 @@
     + '</span></div>'
     + nav7()
     + '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px;">'
-    + '<span style="font-size:20px;font-weight:650;">Vos cartes du jour</span>'
+    + '<span style="font-size:20px;font-weight:650;">Vos actions du jour</span>'
     + '<span style="font-size:12.5px;color:#6B7280;">' + DOW[new Date(D.today + "T12:00:00Z").getUTCDay()].toLowerCase() + ' ' + frD(D.today)
     + (siteFilter && today0.weather_label_fr ? ' · <span style="' + (wxWarn(today0) ? 'color:#B45309;font-weight:600;' : '') + '">' + esc(today0.weather_label_fr.toLowerCase()) + '</span>' : '') + '</span>'
     + (siteFilter && today0.ft_peak_hour != null ? '<span style="font-size:12.5px;color:#6B7280;">· pic attendu ' + today0.ft_peak_hour + ' h</span>' : '')
