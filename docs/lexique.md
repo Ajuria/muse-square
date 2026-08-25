@@ -42,6 +42,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Position d'une note parmi les suivis | **parmi les mieux notés · dans la moyenne · le moins bien noté de vos suivis** | au-dessus/en-dessous de la médiane, percentile |
 | Occurrence passée dont la mesure est annulée | **passée sans mesure** | verdict en attente (faux si aucune mesure) |
 | Ouvrir le détail d'un tiers (fiche → profil stratégique interne ; offre de veille → sa page) | **Consulter →** — UN seul CTA par rangée de fiche (owner 17/08 : plus de lien externe direct sur la fiche, la page externe se lit depuis le profil) | leur page, Sa page, Voir, Ouvrir, Profil stratégique → (sur une rangée) |
+| Un concurrent à public commun élevé et proche | **concurrent direct** (owner 25/08 — « menace » jugé dramatique pour le secteur ; mot déjà en prod dans la ligne de valeur du volet, 17/08) | menace, menace forte (sur le tableau) |
 | La section des dispositifs | **Mes dispositifs** (première personne, aligné « Mon positionnement » — owner 17/08) | Vos dispositifs, Votre savoir-faire |
 | Ce que vaut l'offre d'un concurrent (fiche enrichie) | **Proposition de valeur** puis **Offre** (la table prix/articles) | Sa proposition, Son offre & ses prix |
 | Les publics d'un concurrent face aux vôtres | **Publics/Clients visés** | Son public |
@@ -120,6 +121,11 @@ reste légitime sur le VOLET (tuile seule renommée).
 - « **produits** » vs « **famille** » : l'owner a écrit « CA produits « Branded » » — renommage
   GLOBAL du mot arbitré « famille » (prod : « CA famille » jusque dans les KPI) à confirmer.
 - « palier » (crans de la jauge Signaux traités) — retirés en attendant LE mot.
+- **Les paliers « menace faible · modérée · forte · critique »** (competitor.astro `MEN_FR`,
+  insight.astro « Niveau de menace », protos agir) : même verdict owner que sur le tableau
+  (25/08, « dramatique pour le secteur ») mais c'est l'échelle du mart threat_profile — il
+  faut LES mots de l'échelle avant de toucher ces surfaces. Le tableau, lui, dit désormais
+  « concurrent direct ».
 - **La note de calibrage au choix du % d'objectif** (owner 24/08 soir) : la tuile « Objectifs
   atteints » est morte (elle insistait sur un négatif qui est un problème de CALIBRAGE, pas de
   performance) — remplacée par « Prochain verdict ». Le calibrage se traite AU MOMENT où

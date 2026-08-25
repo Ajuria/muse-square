@@ -1512,8 +1512,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             } else if ((g.offres_base || {}).n_tarifs) {
               html += '<div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + GREEN + ';margin-right:6px;"></span><span style="font-weight:600;">Leurs offres et tarifs : rien n’a bougé</span> — ' + g.offres_base.n_tarifs + ' tarifs sous surveillance (' + g.offres_base.n_lieux + ' concurrents publient leurs prix)</div>';
             }
-          } else html += '<div style="color:#9CA3AF;">Aucun concurrent suivi — suivez vos menaces fortes pour que la veille tourne.</div>';
-          html += '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">Une menace « forte » : public commun élevé et proximité. Votre veille lit chaque nuit les pages des concurrents que vous suivez — événements, offres, tarifs.</div>';
+          } else html += '<div style="color:#9CA3AF;">Aucun concurrent suivi — suivez vos concurrents directs pour que la veille tourne.</div>';
+          html += '<div style="font-size:12px;color:#374151;line-height:1.6;margin-top:4px;">Un concurrent direct : public commun élevé et proximité. Votre veille lit chaque nuit les pages des concurrents que vous suivez — événements, offres, tarifs.</div>';
           html += '</div>';
 
           // ── Rangée AUTOMATISATIONS — à part : ce n'est pas de la veille concurrentielle
