@@ -1,5 +1,5 @@
 window.AGIR_PROTO_V3 = {
- "captured_at": "2026-08-25T08:17:50.092Z",
+ "captured_at": "2026-08-25T08:40:05.564Z",
  "today": "2026-08-25",
  "site_label": "Muse Square",
  "owner_loc": "f10c3e58-326e-4e38-947c-d59fcbe51df5",

@@ -2567,6 +2567,33 @@
       if (exp != null) line += ' contre ' + frInt(exp) + ' \u20ac votre ' + dow + ' habituel \u00e0 cette heure';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
+      // Funnel horaire (clés dbt HANDOFF-hourly-funnel, gardé sur leur présence) : l'écart se
+      // décompose ventes × panier — vocabulaire d'opFunnel (le manque/le gain vient de…,
+      // « a tenu » ssi ratio 0,97–1,03), MÊME référentiel (part typique 8 sem. × attendu du jour).
+      var eht = a.expected_hour_transactions != null ? Number(a.expected_hour_transactions) : null;
+      var tx = a.hour_transactions != null ? Number(a.hour_transactions) : null;
+      if (eht != null && eht > 0 && tx != null && tx > 0 && rev != null && rev > 0 && exp != null && exp > 0) {
+        var eur2 = function (v) { return v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20ac'; };
+        var facts = [
+          { c: Math.log(tx / eht), r: tx / eht, de: 'des ventes', tenu: 'vos ventes ont tenu', txt: frInt(tx) + ' contre ' + frInt(Math.round(eht)) + ' attendues' },
+          { c: Math.log((rev / tx) / (exp / eht)), r: (rev / tx) / (exp / eht), de: 'du panier', tenu: 'votre panier moyen a tenu', txt: eur2(rev / tx) + ' \u00b7 attendu ' + eur2(exp / eht) }
+        ];
+        var totalLog = Math.log(rev / exp);
+        var floor2 = Math.max(0.02, 0.2 * Math.abs(totalLog));
+        var drivers = facts.filter(function (x) { return (totalLog < 0 ? x.c < 0 : x.c > 0) && Math.abs(x.c) >= floor2; });
+        var tenus = facts.filter(function (x) { return drivers.indexOf(x) < 0 && x.r >= 0.97 && x.r <= 1.03; });
+        if (drivers.length) {
+          line += ' ' + (totalLog < 0 ? 'Le manque vient ' : 'Le gain vient ') + drivers.map(function (x) { return x.de + ' (' + x.txt + ')'; }).join(' et ');
+          if (tenus.length) line += ' \u2014 ' + tenus.map(function (x) { return x.tenu + ' (' + x.txt + ')'; }).join(' \u00b7 ');
+          line += '.';
+        }
+      }
+      // Réserve de régime (trigger arbitré 25/08) : base d'un AUTRE régime calendaire —
+      // l'écart peut tenir au calendrier, la carte ne l'affirme plus.
+      if (a.regime_mismatch_flag === true && a.typ_n != null && a.baseline_same_regime_n != null) {
+        var nAutres = Number(a.typ_n) - Number(a.baseline_same_regime_n);
+        line += ' Compar\u00e9 surtout \u00e0 des ' + dow + 's ' + (a.is_school_holiday_flag === true ? 'hors vacances scolaires' : 'en vacances scolaires') + ' (' + nAutres + ' sur ' + Number(a.typ_n) + ') \u2014 l\u2019\u00e9cart peut tenir au calendrier.';
+      }
       return line;
     },
     {
@@ -2750,7 +2777,10 @@
       var actionText = '';
       var whatText = '';
       if (spec) {
-        try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, 2).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, 200); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
+        // Corps \u00e9tendu PAR CARTE (gabarit owner 25/08) : le cr\u00e9neau dit r\u00e9currence + fait +
+        // funnel + r\u00e9serve de r\u00e9gime — 4 phrases ; les autres cartes gardent 2 phrases / 200.
+        var _swLim = ({ hour_share_move: [4, 420] })[actionType] || [2, 200];
+        try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, _swLim[0]).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, _swLim[1]); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
         // Name the actual weekday on the sales movement cards — never "jours comparables".
         // Titres arbitrés par l'owner le 21/08. Forme jour au SINGULIER + « habituel » : la
@@ -2785,7 +2815,12 @@
           // avec sa fin (grain heure pleine du mart \u2192 h\u2013h+1), ce qui lib\u00e8re le corps.
           if (actionType === 'hour_share_move' && feedItem.transaction_hour != null) {
             var _hh = Number(feedItem.transaction_hour);
-            whatText = 'Le cr\u00e9neau ' + _hh + ' h\u2013' + (_hh + 1) + ' h ' + (_fd === 'collapse' ? 'sous-performe' : 'surperforme');
+            // Réserve de régime (25/08) : le titre dit le FAIT (« en hausse/en retrait »,
+            // mots de la ligne de récurrence), jamais un verdict de performance.
+            whatText = 'Le cr\u00e9neau ' + _hh + ' h\u2013' + (_hh + 1) + ' h '
+              + (feedItem.regime_mismatch_flag === true
+                  ? (_fd === 'collapse' ? 'en retrait' : 'en hausse')
+                  : (_fd === 'collapse' ? 'sous-performe' : 'surperforme'));
           } else {
             var _fn = actionType === 'hour_share_move' ? ['Cr\u00e9neau', ''] : actionType === 'item_share_move' ? ['Produit', ''] : ['Famille', 'e'];
             whatText = _fn[0] + ' ' + (_fd === 'collapse' ? 'sous-performant' : 'surperformant') + _fn[1];
@@ -3375,6 +3410,9 @@
         : 'À exploiter : ' + cat + ' a surperformé' + quand + '. À l\'ouverture suivante, mettez-le en avant — première place, visible de l\'entrée — et vérifiez son stock : il ne doit pas manquer.';
     }, urgency: 'soon' },
     'hour_share_move': { action: function(a, p, d) {
+      // Réserve de régime (25/08) : rétrogradée en information — pas de geste sur un signal
+      // que le calendrier peut expliquer.
+      if (a && a.regime_mismatch_flag === true) return '';
       var dir = a.direction || 'surge';
       return dir === 'collapse'
         ? 'Action conseill\u00e9e : v\u00e9rifiez ce qui s\u2019est pass\u00e9 sur ce cr\u00e9neau \u2014 ouverture, caisse, mise en place \u2014 avant demain.'

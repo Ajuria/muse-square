@@ -97,6 +97,47 @@ spine as (
 
 **6. Matérialisation :** table (pas d'incrémental ici) — un simple `dbt build -s fct_client_hourly_signals_daily` suffit, pas de `--full-refresh` nécessaire.
 
+## ÉTAPE 2 (25/08 après-midi — le mart est livré, RESTE le payload des candidates)
+
+Vérifié en base : les 5 colonnes sont dans le mart, ligne témoin exacte. MAIS la carte lit
+`data_payload` de `fct_location_daily_action_candidates`, dont le STRUCT liste ses champs —
+les nouveaux n'y sont pas. Deux édits dans
+`models/ms_open_data/mart/fct_location_daily_action_candidates.sql`, CTE `hour_share_move as (`
+(vers la ligne 2023) :
+
+**A. Dans le `to_json_string(struct(...))`, INSÉRER sous la ligne**
+`cast(first_occurrence_date as string) as first_occurrence_date` **(ajouter d'abord une
+virgule en fin de cette ligne) :**
+```sql
+            round(expected_hour_transactions, 1) as expected_hour_transactions,
+            typ_n,
+            baseline_same_regime_n,
+            is_school_holiday_flag,
+            regime_mismatch_flag
+```
+
+**B. Dans le sous-select `from (select ... ) where rn = 1 ...` du même CTE, REMPLACER :**
+```sql
+            s.n_occurrences_60d, s.first_occurrence_date,
+```
+**par :**
+```sql
+            s.n_occurrences_60d, s.first_occurrence_date,
+            s.expected_hour_transactions, s.typ_n, s.baseline_same_regime_n,
+            s.is_school_holiday_flag, s.regime_mismatch_flag,
+```
+
+_Le STRUCT étendu a été EXÉCUTÉ en BQ le 25/08 sur la ligne témoin — payload obtenu :
+`{"...","expected_hour_transactions":36.4,"typ_n":8,"baseline_same_regime_n":6,
+"is_school_holiday_flag":true,"regime_mismatch_flag":false}`._
+
+**Message de commit proposé :**
+feat(action_candidates): le payload hour_share_move transporte le funnel horaire
+(expected_hour_transactions) et le drapeau de régime (typ_n, baseline_same_regime_n,
+is_school_holiday_flag, regime_mismatch_flag) — livrés par fct_client_hourly_signals_daily ;
+STRUCT exécuté en BQ sur ff2aeb35 × 20/08 × 8 h. Côté app, la carte lit ces clés dès
+qu'elles arrivent (repli silencieux sinon).
+
 ## Architecture côté cartes (avis, tranché app-side)
 
 **UNE seule carte, jamais deux types.** Le fait est le même (le créneau a dévié) ; ce qui
