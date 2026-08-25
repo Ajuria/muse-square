@@ -156,6 +156,51 @@
     for (var i = 0; i < _STAFF_REWRITES.length; i++) out = out.replace(_STAFF_REWRITES[i][0], _STAFF_REWRITES[i][1]);
     return out;
   }
+  // MOTEUR MESURÉ DE L'ÉCART HORAIRE — UNE seule source, pour le corps ET pour le geste.
+  // Défaut trouvé à l'audit du 25/08 : la carte disait « Le gain vient DES VENTES (95 contre 36
+  // attendues) » puis conseillait « augmenter le PANIER MOYEN ». Le geste ne regardait que le
+  // SENS (hausse/baisse) et ignorait la décomposition que la carte venait de calculer.
+  // Mêmes seuils que le corps (plancher 2 % ou 20 % de l'écart total), pour qu'ils ne puissent
+  // jamais diverger : si le corps nomme les ventes, le geste parle des ventes.
+  // Rend 'ventes' | 'panier' | 'les deux' | null (payload incomplet -> aucun geste spécifique).
+  function hourFunnelDriver(a) {
+    if (!a) return null;
+    var eht = a.expected_hour_transactions != null ? Number(a.expected_hour_transactions) : null;
+    var tx = a.hour_transactions != null ? Number(a.hour_transactions) : null;
+    var rev = a.hour_revenue != null ? Number(a.hour_revenue) : null;
+    var exp = a.expected_hour_revenue != null ? Number(a.expected_hour_revenue) : null;
+    if (!(eht > 0 && tx > 0 && rev > 0 && exp > 0)) return null;
+    var cTx = Math.log(tx / eht);
+    var cPan = Math.log((rev / tx) / (exp / eht));
+    var totalLog = Math.log(rev / exp);
+    var floor2 = Math.max(0.02, 0.2 * Math.abs(totalLog));
+    var okTx = (totalLog < 0 ? cTx < 0 : cTx > 0) && Math.abs(cTx) >= floor2;
+    var okPan = (totalLog < 0 ? cPan < 0 : cPan > 0) && Math.abs(cPan) >= floor2;
+    if (okTx && okPan) return 'les deux';
+    if (okTx) return 'ventes';
+    if (okPan) return 'panier';
+    return null;
+  }
+
+  // LEVIER 2 (owner 25/08) — NOMMER L'OBJET. Une action générique le reste tant qu'elle ne
+  // nomme rien : « adaptez les langues » ne dit pas LAQUELLE, alors que la carte porte déjà
+  // « Royaume-Uni 14 %, Allemagne 10 % … ». La table ci-dessous ne fait que traduire le pays
+  // DÉJÀ NOMMÉ par le payload en langue d'accueil — aucune donnée nouvelle, aucune supposition
+  // sur le lieu. Pays hors table -> on ne nomme pas de langue, on garde la phrase générique.
+  var PAYS_LANGUE_FR = {
+    'royaume-uni': 'anglais', 'irlande': 'anglais', 'etats-unis': 'anglais', 'états-unis': 'anglais',
+    'allemagne': 'allemand', 'autriche': 'allemand',
+    'espagne': 'espagnol', 'italie': 'italien', 'portugal': 'portugais',
+    'pays-bas': 'néerlandais', 'belgique': 'néerlandais',
+    'suisse': 'allemand', 'suede': 'anglais', 'suède': 'anglais', 'danemark': 'anglais', 'norvege': 'anglais'
+  };
+  // « Royaume-Uni 14 %, Allemagne 10 %, … » -> { pays, pct } du PREMIER, celui qui pèse le plus.
+  function premierPays(named) {
+    var m = String(named || '').match(/^\s*([^0-9,]+?)\s+(\d+(?:[.,]\d+)?)\s*%/);
+    if (!m) return null;
+    return { pays: m[1].trim(), pct: m[2].replace('.', ',') };
+  }
+
   function isOutdoor(p) {
     var t = String(p.location_type || p.cl_location_type || p.location_type_client || '').toLowerCase();
     return t === 'outdoor' || t === 'mixed';
@@ -3085,7 +3130,12 @@
       // Le périmètre de référence est dans le payload (catchment_label « 1 km ») ; à défaut 1 km.
       var perimKm = (function () { var m = String(a.catchment_label || '').match(/([\d.,]+)\s*km/); return m ? Number(m[1].replace(',', '.')) : (/\bm\b/.test(String(a.catchment_label || '')) ? 0.5 : 1); })();
       if (name && (dist == null || dist <= perimKm)) s += 'Concurrent le plus menaçant : ' + name + (dist != null ? ' à ' + frDec(dist) + ' km' : '') + '. ';
-      s += 'Renforcez votre visibilité locale (signalétique, fiche GBP, accueil) pour rester repérable dans la densité.';
+      // LEVIER 2 : quand le concurrent du périmètre est NOMMÉ ci-dessus, le geste s'y adosse
+      // au lieu de la check-list générique. Le recouvrement de public vient du payload.
+      var _ov = (a && a.top_competitor_overlap_pct != null) ? Math.round(Number(a.top_competitor_overlap_pct)) : null;
+      s += (name && (dist == null || dist <= perimKm) && _ov != null)
+        ? 'Dites ce que ' + name + ' ne dit pas : vous partagez ' + _ov + ' % de public, votre diff\u00e9rence doit \u00eatre lisible d\u00e8s la vitrine et la fiche Google.'
+        : 'Renforcez votre visibilité locale (signalétique, fiche GBP, accueil) pour rester repérable dans la densité.';
       return s;
     }, urgency: 'soon' },
     'low_competition_window': { action: function(a, p, d) {
@@ -3094,8 +3144,14 @@
       // alors que la mesure existe.
       var _dc = (a && a.enjeu) ? a.enjeu : (a && a.context_motif) ? a.context_motif : null;
       var eur = (_dc && _dc.eur_year != null) ? Number(_dc.eur_year) : null;
-      if (eur != null && eur > 0) return 'Action conseill\u00e9e : mettez votre meilleure offre sur ces jours — ils vous réussissent mieux que la moyenne.';
-      if (eur != null && eur < 0) return 'Action conseill\u00e9e : commandez moins et ne prévoyez pas d’extra — ces jours vous rapportent moins.';
+      // LEVIER 3 (owner 25/08) — DIRE COMBIEN. L'écart par jour est déjà mesuré sur ce motif
+      // (avg_gap_eur, la MÉDIANE du moteur) : le geste le porte au lieu de « plus »/« moins ».
+      // Absent -> phrase d'avant, au caractère près : jamais un ordre de grandeur inventé.
+      var _gj = (_dc && _dc.avg_gap_eur != null && isFinite(Number(_dc.avg_gap_eur)))
+        ? Math.abs(Math.round(Number(_dc.avg_gap_eur))) : null;
+      var _cbn = _gj != null ? ' \u2014 ' + frInt(_gj) + ' \u20ac par jour sur ces journ\u00e9es' : '';
+      if (eur != null && eur > 0) return 'Action conseill\u00e9e : mettez votre meilleure offre sur ces jours' + (_gj != null ? ', ils vous rapportent ' + frInt(_gj) + ' \u20ac de plus par jour' : ' — ils vous réussissent mieux que la moyenne') + '.';
+      if (eur != null && eur < 0) return 'Action conseill\u00e9e : commandez moins et ne pr\u00e9voyez pas d\u2019extra' + (_gj != null ? ' — ces jours vous co\u00fbtent ' + frInt(_gj) + ' \u20ac par jour' : ' — ces jours vous rapportent moins') + '.';
       return 'Action conseill\u00e9e : fixez-vous un objectif sur ces jours pour savoir s’ils vous rapportent ou vous coûtent.';
     }, urgency: 'now' },
     'competition_pressure_spike': { action: function(a, p, d) {
@@ -3217,6 +3273,17 @@
       return s;
     }, urgency: 'soon' },
     'foreign_tourism_signal': { action: function(a, p, d) {
+      // Le pays de tête est DANS la carte ; le geste le nomme, et nomme sa langue.
+      var pp = premierPays(a && a.countries_named);
+      var langue = pp ? PAYS_LANGUE_FR[pp.pays.toLowerCase()] : null;
+      if (pp && langue) {
+        return 'Action conseill\u00e9e : mettez l\u2019' + langue + ' en premier sur votre accueil et votre signal\u00e9tique \u2014 '
+          + pp.pays + ' p\u00e8se ' + pp.pct + ' % des nuit\u00e9es \u00e9trang\u00e8res de votre r\u00e9gion.';
+      }
+      if (pp) {
+        return 'Action conseill\u00e9e : calez votre accueil et votre signal\u00e9tique sur les visiteurs de ' + pp.pays
+          + ' \u2014 ' + pp.pct + ' % des nuit\u00e9es \u00e9trang\u00e8res de votre r\u00e9gion.';
+      }
       return 'Action conseill\u00e9e : adaptez accueil, langues et signalétique pendant leurs congés.';
     }, urgency: 'soon' },
     'score_up': { action: function(a, p, d) {
@@ -3490,9 +3557,17 @@
       // que le calendrier peut expliquer.
       if (a && a.regime_mismatch_flag === true) return '';
       var dir = a.direction || 'surge';
-      return dir === 'collapse'
-        ? 'Action conseill\u00e9e : v\u00e9rifiez ce qui s\u2019est pass\u00e9 sur ce cr\u00e9neau \u2014 ouverture, caisse, mise en place \u2014 avant demain.'
-        : 'Action conseill\u00e9e : montez des bundles et des offres autour de vos produits les plus performants pour augmenter le panier moyen sur ce cr\u00e9neau \u2014 calez-les et v\u00e9rifiez le stock avant l\u2019ouverture.';
+      // LE GESTE SUIT LE MOTEUR MESURÉ (owner 25/08, levier 1), plus seulement le sens.
+      var moteur = hourFunnelDriver(a);
+      if (dir === 'collapse') {
+        if (moteur === 'ventes') return 'Action conseill\u00e9e : il est venu moins de monde sur ce cr\u00e9neau \u2014 v\u00e9rifiez l\u2019ouverture \u00e0 l\u2019heure, la caisse et la mise en place avant demain.';
+        if (moteur === 'panier') return 'Action conseill\u00e9e : le passage \u00e9tait l\u00e0, c\u2019est le panier qui a baiss\u00e9 \u2014 v\u00e9rifiez le stock et la visibilit\u00e9 de vos produits \u00e0 forte marge sur ce cr\u00e9neau.';
+        return 'Action conseill\u00e9e : v\u00e9rifiez ce qui s\u2019est pass\u00e9 sur ce cr\u00e9neau \u2014 ouverture, caisse, mise en place \u2014 avant demain.';
+      }
+      if (moteur === 'ventes') return 'Action conseill\u00e9e : le flux \u00e9tait l\u00e0 \u2014 assurez le stock et l\u2019ouverture \u00e0 l\u2019heure sur ce cr\u00e9neau pour ne pas le perdre la prochaine fois.';
+      if (moteur === 'panier') return 'Action conseill\u00e9e : c\u2019est le panier qui a port\u00e9 la hausse \u2014 remettez en avant ce qui se vend cher sur ce cr\u00e9neau et calez vos offres group\u00e9es dessus.';
+      if (moteur === 'les deux') return 'Action conseill\u00e9e : passage ET panier ont mont\u00e9 \u2014 tenez le stock et l\u2019ouverture \u00e0 l\u2019heure, et gardez en avant ce qui se vend cher sur ce cr\u00e9neau.';
+      return 'Action conseill\u00e9e : calez vos offres group\u00e9es sur ce cr\u00e9neau et v\u00e9rifiez le stock avant l\u2019ouverture.';
     }, urgency: 'soon' }
   };
 
