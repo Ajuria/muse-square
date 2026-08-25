@@ -53,14 +53,23 @@ with hourly as (
 ),
 
 days as (
-    select location_id, transaction_date, sum(revenue) as day_revenue
+    select location_id, transaction_date, sum(revenue) as day_revenue,
+           sum(transactions) as day_transactions
     from hourly group by 1, 2
+),
+
+-- Régime calendaire du jour (drapeau vacances scolaires par site × date) : sert à dire si la
+-- base 8 semaines est du MÊME régime que le jour jugé (question owner 25/08 : cyclicité).
+cal as (
+    select location_id, date, is_school_holiday_flag
+    from {{ ref('fct_location_context_daily') }}
 ),
 
 -- Part observée de chaque heure dans sa journée, par jour de semaine.
 shares as (
     select h.*, extract(dayofweek from h.transaction_date) as dow,
-           safe_divide(h.revenue, d.day_revenue) as share
+           safe_divide(h.revenue, d.day_revenue) as share,
+           safe_divide(h.transactions, d.day_transactions) as tx_share
     from hourly h join days d using (location_id, transaction_date)
 ),
 
@@ -70,13 +79,20 @@ shares as (
 -- sans vente ce jour-là entre dans le squelette avec 0 €.
 spine as (
     select d.location_id, d.transaction_date, d.day_revenue, p.transaction_hour,
-           avg(p.share) as typ_share, count(*) as typ_n
+           avg(p.share) as typ_share, count(*) as typ_n,
+           avg(p.tx_share) as typ_tx_share,
+           -- jours de base partageant le régime vacances du jour jugé (coalesce false :
+           -- une date absente du contexte compte comme hors vacances, jamais comme match muet)
+           countif(coalesce(cp.is_school_holiday_flag, false) = coalesce(cd.is_school_holiday_flag, false)) as baseline_same_regime_n,
+           any_value(coalesce(cd.is_school_holiday_flag, false)) as is_school_holiday_flag
     from days d
+    left join cal cd on cd.location_id = d.location_id and cd.date = d.transaction_date
     join shares p
       on p.location_id = d.location_id
      and p.dow = extract(dayofweek from d.transaction_date)
      and p.transaction_date < d.transaction_date
      and p.transaction_date >= date_sub(d.transaction_date, interval 56 day)
+    left join cal cp on cp.location_id = p.location_id and cp.date = p.transaction_date
     group by 1, 2, 3, 4
     having count(*) >= 5 and avg(p.share) > 0
 ),
@@ -85,7 +101,8 @@ expected as (
     select s.*, coalesce(h.revenue, 0) as revenue, coalesce(h.transactions, 0) as transactions,
            r.expected_revenue, r.daily_revenue - r.expected_revenue as day_gap_eur,
            s.typ_share * r.expected_revenue as expected_hour_revenue,
-           coalesce(h.revenue, 0) - s.typ_share * r.expected_revenue as delta_eur
+           coalesce(h.revenue, 0) - s.typ_share * r.expected_revenue as delta_eur,
+           s.typ_tx_share * r.expected_transactions as expected_hour_transactions
     from spine s
     left join hourly h using (location_id, transaction_date, transaction_hour)
     join {{ ref('fct_client_day_residual') }} r
@@ -114,6 +131,11 @@ select
     round(day_gap_eur, 2)           as day_gap_eur,
     round(typ_share, 4)             as typical_share,
     round(expected_hour_revenue, 2) as expected_hour_revenue,
+    round(expected_hour_transactions, 2) as expected_hour_transactions,
+    typ_n,
+    baseline_same_regime_n,
+    is_school_holiday_flag,
+    safe_divide(baseline_same_regime_n, typ_n) < 0.5 as regime_mismatch_flag,
     round(delta_eur, 2)             as delta_eur,
     round(delta_z, 2)               as delta_z,
     delta_n,
