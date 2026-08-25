@@ -18,8 +18,15 @@ const today = new Date();
 const dates = [];
 for (let i = 0; i < 7; i++) dates.push(new Date(today.getTime() + i * 86_400_000).toISOString().slice(0, 10));
 const locals = { clerk_user_id: uid, location_id: OWNER, all_location_ids: [OWNER] };
-const res = await monitorGET({ url: new URL(`http://l/api/insight/monitor?location_id=${OWNER}&selected_dates=${dates.join(",")}&light=1`), locals });
-const monitorPayload = JSON.parse(await res.text());
+// MULTI-SITE réel (owner 25/08 : le dump mono cachait chips site, vue agrégée, périodes taguées).
+const [siteRows] = await bq.query({ query: `SELECT location_id, ANY_VALUE(company_name) AS label FROM \`${PROJECT}.raw.insight_event_user_location_profile\` WHERE clerk_user_id = @u GROUP BY 1`, params: { u: uid }, location: "EU" });
+const sites = siteRows.map((r) => ({ location_id: String(flat(r.location_id)), company_name: String(flat(r.label) || "") }));
+const payloadBySite = {};
+for (const s of sites) {
+  const r2 = await monitorGET({ url: new URL(`http://l/api/insight/monitor?location_id=${s.location_id}&selected_dates=${dates.join(",")}&light=1`), locals: { clerk_user_id: uid, location_id: s.location_id, all_location_ids: sites.map((x) => x.location_id) } });
+  payloadBySite[s.location_id] = JSON.parse(await r2.text());
+  console.log(s.company_name, "· candidates:", (payloadBySite[s.location_id].action_candidates || []).length);
+}
 
 const astro = readFileSync(new URL("../src/pages/app/insightevent/pulse.astro", import.meta.url), "utf8");
 const inline = [...astro.matchAll(/<script is:inline(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).sort((a, b) => b.length - a.length)[0];
@@ -28,11 +35,11 @@ const MODULES = ["ms-loader.js", "reco-library.js", "commit-form.js", "bp-form.j
 const win = new Window({ url: "https://app.local/app/insightevent/pulse" });
 const doc = win.document;
 doc.body.innerHTML = '<div id="pls-root"></div>';
-const locationsPayload = { ok: true, locations: [{ location_id: OWNER, company_name: "Muse Square" }] };
+const locationsPayload = { ok: true, locations: sites };
 const fetchStub = (url) => {
   const u2 = String(url);
   let body = { ok: true };
-  if (u2.includes("/api/insight/monitor")) body = monitorPayload;
+  if (u2.includes("/api/insight/monitor")) { const m2 = u2.match(/location_id=([0-9a-f-]+)/); body = payloadBySite[m2 ? m2[1] : OWNER] || { ok: false }; }
   else if (u2.includes("/api/profile/locations")) body = locationsPayload;
   else if (u2.includes("/api/commitments")) body = { ok: true, commitments: [] };
   else if (u2.includes("/api/competitive/competitor-signals")) body = { ok: true, signals: [], followed_count: 0, followed_competitors: [], top_threats: [] };

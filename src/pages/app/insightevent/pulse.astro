@@ -216,7 +216,8 @@ if (!location_id) {
       .ab-summary { padding:18px 20px 8px; cursor:pointer; }
       .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
       .ab-pill { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:0.03em; }
-      .ab-what { font-size:15.5px; font-weight:650; color:#111827; line-height:1.35; margin-bottom:7px; letter-spacing:-0.01em; }
+      .ab-what { font-size:15.5px; font-weight:650; color:#111827; line-height:1.35; margin-bottom:7px; letter-spacing:-0.01em; cursor:pointer; }
+      .ab-what:hover { color:#1D3BB3; }
       .ab-what[data-consult-open]:hover { color:#1D3BB3; }
       .ab-sowhat { font-size:13px; color:#374151; line-height:1.65; max-width:58ch; }
       /* Restyle R1/R5/R6 : montant (Enjeu €/an) dans la zone titre — chiffre d'abord. Libellé
@@ -227,7 +228,19 @@ if (!location_id) {
       .amt-val { display:inline-block; font-size:19px; font-weight:700; line-height:1.1; white-space:nowrap; font-variant-numeric:tabular-nums; letter-spacing:-0.01em; padding:4px 10px; border-radius:10px; }
       .amt.gain .amt-val { color:#059669; background:#ECFDF5; }
       .amt.defend .amt-val { color:#B45309; background:#FFF7ED; }
-      .amt-sub { font-size:11px; color:#9CA3AF; margin-top:3px; text-decoration:underline dotted rgba(156,163,175,0.6); text-underline-offset:2px; }
+      .amt-sub { font-size:11px; color:#6B7280; margin-top:3px; text-align:right; max-width:150px; }
+      .amt-i { cursor:help; width:14px; height:14px; border-radius:50%; border:1px solid #D1D5DB; color:#9CA3AF; font-size:9.5px; display:inline-flex; align-items:center; justify-content:center; font-style:italic; font-family:Georgia,serif; flex:none; }
+      .ab-meta { display:block; font-size:11px; color:#6B7280; margin-bottom:3px; white-space:nowrap; }
+      /* Peau de rangée (Inc 5) : la carte est une RANGÉE du fil — filet, grille, plus de boîte. */
+      .ab-rgrid { display:grid; grid-template-columns:46px minmax(0,1fr) 156px; gap:0 14px; padding:16px 20px 0 16px; }
+      .ab-eur { text-align:right; display:flex; flex-direction:column; align-items:flex-end; }
+      .ab-eur .amt { display:flex; flex-direction:column; align-items:flex-end; }
+      .ab-rfoot { display:flex; align-items:center; gap:7px; flex-wrap:wrap; padding:12px 20px 14px 76px; }
+      #pls-triage .ab-card { border:none; border-radius:0; box-shadow:none; border-top:1px solid rgba(17,24,39,0.06); background:var(--color-bg-card); margin:0; }
+      #pls-triage .ab-card:first-child { border-top:none; }
+      #pls-triage [data-t-cards] { background:var(--color-bg-card); border:1px solid rgba(0,0,0,0.08); border-radius:14px; overflow:hidden; }
+      .ab-newline { display:flex; align-items:center; gap:10px; padding:6px 16px; color:#1D3BB3; font-size:11.5px; font-weight:600; }
+      .ab-newline::before, .ab-newline::after { content:""; flex:1; height:1px; background:#1D3BB3; opacity:0.35; }
       /* Décision D (18/07) : cartes action fermées à 3 lignes, « Voir plus » seulement si ça déborde. */
       .ab-sowhat.pls-clamp { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
       .pls-more { font-size:11.5px; font-weight:600; color:#1D3BB3; cursor:pointer; margin-top:5px; }
@@ -1516,7 +1529,9 @@ if (!location_id) {
     // exacte ; c'est la prochaine visite qui les classe derrière le nouveau).
     var _markSeenAfter = [];
     setTimeout(function () { try { if (window._msMarkSeen) window._msMarkSeen(_markSeenAfter); } catch (e) {} }, 0);
-    var cardsHtml = top.map(function(entry, cardIdx) {
+    var cardsHtml = '';
+    var entries = top;
+    var cardsArr = top.map(function(entry, cardIdx) {
       _markSeenAfter.push(entry);
       var t = entry.tmpl;
       try {
@@ -1602,13 +1617,24 @@ if (!location_id) {
       // 27/07) : montant SIGNÉ (+/−) + mini-phrase en français courant — « à gagner »,
       // « perdus · <cause> ». La cause vient de label_fr (préfixe « jours de » retiré), jamais
       // écrite à la main. « estimé/mesuré », « motif de fond », « multifactorielle » → infobulle.
+      // Méta de provenance de la rangée : date (si ≠ jour affiché) · site (si vue compte) —
+      // au-dessus du KPI, site en encre lisible (arbitrage owner 25/08, proto v3.2b).
+      var _metaLine = (function () {
+        var parts = [];
+        var _ad = normalizeYmd(entry.item.affected_date) || '';
+        if (_ad && _ad !== selectedDate) parts.push(_ad.slice(8, 10) + '/' + _ad.slice(5, 7));
+        // Le site ne se répète pas : le triage groupe déjà les rangées par BLOC de site
+        // (l'en-tête du bloc le porte) — la méta ne garde que la date.
+        return parts.length ? '<span class="ab-meta">' + parts.join(' \u00b7 ') + '</span>' : '';
+      })();
       var _amtHtml = '';
       if (entry.item.enjeu && Number(entry.item.enjeu.eur_year) && entry.item.enjeu.tier) {
         var _enj = entry.item.enjeu;
         var _aVal = Math.abs(Math.round(Number(_enj.eur_year))).toLocaleString('fr-FR');
         var _aPos = Number(_enj.eur_year) > 0;
         var _aFg = _aPos ? 'var(--color-pill-green-text)' : '#B45309';
-        var _aCause = _enj.label_fr ? String(_enj.label_fr).replace(/^jours (de |d’|à )?/, '') : '';
+        // v3.2d (owner 25/08) : le MOTIF coûte — « vos jours de… », label_fr ENTIER, possessif.
+        var _aCause = _enj.label_fr ? 'vos ' + String(_enj.label_fr) : '';
         var _aLbl = _aPos
           ? ('à gagner' + (_enj.inherited && _aCause ? ' · ' + _aCause : ''))
           : ('perdus' + (_aCause ? ' · ' + _aCause : ''));
@@ -1619,7 +1645,7 @@ if (!location_id) {
         if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : plusieurs facteurs se mêlent sur ces jours.');
         _aTip.push(_aPos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
         _amtHtml = '<div class="amt ' + (_aPos ? 'gain' : 'defend') + '" title="' + escapeHtml(_aTip.join(' ')) + '">'
-          + '<div class="amt-val" style="color:' + _aFg + ';">' + (_aPos ? '+' : '−') + _aVal + ' €/an</div>'
+          + '<span style="display:inline-flex;align-items:center;gap:5px;"><div class="amt-val" style="color:' + _aFg + ';">' + (_aPos ? '+' : '−') + _aVal + ' €/an</div><span class="amt-i">i</span></span>'
           + '<div class="amt-sub">' + escapeHtml(_aLbl) + '</div>'
         + '</div>';
       }
@@ -1643,7 +1669,7 @@ if (!location_id) {
           var _dRefTxt = _dp0.delta_eur != null
             ? ('Écart ' + _dRefLbl + (_dp0.expected_hour_revenue != null ? ' (' + Math.round(Number(_dp0.expected_hour_revenue)).toLocaleString('fr-FR') + ' €)' : '') + '.')
             : ('Écart du jour ' + _dRefLbl + ' (' + Math.round(_dRefV).toLocaleString('fr-FR') + ' €).');
-          _amtHtml = '<div class="amt" title="' + escapeHtml(_dRefTxt + ' Ce coin passera en €/an « au rythme constaté » dès 5 occurrences du même problème — jamais extrapolé d’un jour isolé.') + '">'
+          _amtHtml = '<div class="amt ' + (_dGap >= 0 ? 'gain' : 'defend') + '" title="' + escapeHtml(_dRefTxt + ' Ce coin passera en €/an « au rythme constaté » dès 5 occurrences du même problème — jamais extrapolé d’un jour isolé.') + '">'
             + '<div class="amt-val" style="color:' + _dFg + ';">' + (_dGap >= 0 ? '+' : '−') + Math.abs(_dGap).toLocaleString('fr-FR') + ' €</div>'
             // 24/08 — le fait est daté : « ce jour » lisait comme aujourd'hui alors que la carte
             // remonte en latest-per-type des jours après le fait (CA du 28/07 rendu un lundi 24/08).
@@ -1685,36 +1711,11 @@ if (!location_id) {
             return '';
           })(_fc.kpi, _fc.abs_per_day);
           var _fcFg = _fcPct > 0 ? 'var(--color-pill-green-text)' : '#B45309';
-          _amtHtml = '<div class="amt" title="' + escapeHtml('Mesuré sur ' + _fc.n_days + ' jours de ' + _fc.class_label_fr + (_fcAbsTxt ? ' : ' + _fcAbsTxt : '') + ' vs vos jours comparables. Le coin passera en € dès que l’effet CA de ces jours passe les portes de mesure.') + '">'
+          _amtHtml = '<div class="amt ' + (_fcPct >= 0 ? 'gain' : 'defend') + '" title="' + escapeHtml('Mesuré sur ' + _fc.n_days + ' jours de ' + _fc.class_label_fr + (_fcAbsTxt ? ' : ' + _fcAbsTxt : '') + ' vs vos jours comparables. Le coin passera en € dès que l’effet CA de ces jours passe les portes de mesure.') + '">'
             + '<div class="amt-val" style="color:' + _fcFg + ';">' + (_fcPct > 0 ? '+' : '−') + Math.abs(_fcPct) + ' %</div>'
             + '<div class="amt-sub">' + escapeHtml(_fcSub) + '</div>'
           + '</div>';
         }
-      }
-      // Médaillon-famille (build v3.2, Inc 3) : l'identité vit sur l'avatar — la doctrine
-      // « couleur = direction » continue de régir les chiffres. 6 familles, routage action_type.
-      var _FAM = {
-        weather:    { bg: '#E0F2FE', ink: '#0369A1', label: 'météo',
-          svg: '<path d="M17.5 19a4.5 4.5 0 1 0-1.7-8.7 6 6 0 1 0-9.8 5.2"/><path d="M8 19h9.5"/>' },
-        competitor: { bg: '#FEF3E2', ink: '#B45309', label: 'concurrence',
-          svg: '<path d="M4 21V4h12l-2 4 2 4H4"/>' },
-        mobility:   { bg: '#EDE9FE', ink: '#6D28D9', label: 'transports',
-          svg: '<rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 21l1-4M16 21l-1-4"/>' },
-        calendar:   { bg: '#F6EED9', ink: '#92671E', label: 'calendrier & événements',
-          svg: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>' },
-        sales:      { bg: '#EEF2FF', ink: '#1D3BB3', label: 'vos ventes',
-          svg: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>' },
-        opportunity:{ bg: '#E6F6F0', ink: '#059669', label: 'opportunités',
-          svg: '<path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3"/>' }
-      };
-      function _famOf(ty) {
-        ty = String(ty || '');
-        if (/mobility/.test(ty)) return _FAM.mobility;
-        if (/weather|bad_weather|perfect_storm/.test(ty)) return _FAM.weather;
-        if (/competitor|competition|same_bucket|saturat|medal|media_|institution/.test(ty)) return _FAM.competitor;
-        if (/event_|calendar|holiday|tourism|tourist|mega_|weekend|commercial_event/.test(ty)) return _FAM.calendar;
-        if (/sales|revenue|item_share|hour_share|offering|client_|regime_|score_|monthly|weekly|footfall|ft_/.test(ty)) return _FAM.sales;
-        return _FAM.opportunity;
       }
       // Inc 4 : pied à DEUX gestes (ratifié 25/08) — « Pas pour moi » seul geste tertiaire des
       // cartes système (même action ecarte) ; « Action menée ?/Déjà fait » = engagements ;
@@ -1728,21 +1729,9 @@ if (!location_id) {
         // le motif structurel de la même classe reste compact ce jour-là (dédup du coin).
         + ' data-t-class="' + escapeHtml((entry.item.enjeu && !entry.item.enjeu.inherited && entry.item.enjeu.class_key) ? String(entry.item.enjeu.class_key) : '') + '"'
         + '>'
-        + '<div class="ab-card-row">'
-          + '<div class="ab-bar ' + t.barClass + '"></div>'
-          + '<div class="ab-inner">'
-            + '<div class="ab-summary">'
-              + '<div style="display:flex;align-items:flex-start;gap:12px;">'
-                + (function () { var _f = _famOf(t._spec_action_type); return '<div class="ab-disc' + (t.barClass === 'ab-threat' ? ' urgent' : '') + '" style="margin-top:2px;background:' + _f.bg + ';color:' + _f.ink + ';" title="' + _f.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + _f.svg + '</svg></div>'; })()
-                + '<div style="flex:1;min-width:0;">'
-                  + '<div class="ab-pills">'
-                    + ((window._msIsNewCard && window._msIsNewCard(entry)) ? '<span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">nouveau</span>' : '')
-                    + (t._goal_card ? '<span class="chip-n">Objectif</span>' : '')
-                    + (entry.item.location_label ? '<span class="chip-n">' + escapeHtml(entry.item.location_label) + '</span>' : '')
-                    + (t.confidence_tier ? '<span class="chip-n" style="background:transparent;color:#9ca3af;border:0.5px solid #e5e7eb;font-weight:400;">' + escapeHtml((window.MS_TIER_LABEL && window.MS_TIER_LABEL[t.confidence_tier]) || t.confidence_tier) + '</span>' : '')
-                  + '</div>'
-                  + '<div style="display:flex;align-items:flex-start;gap:12px;">'
-                    + '<div style="flex:1;min-width:0;">'
+        + '<div class="ab-rgrid">'
+          + (function () { var _f = _famOf(t._spec_action_type); return '<div><div class="ab-disc' + (t.barClass === 'ab-threat' ? ' urgent' : '') + '" style="margin-top:2px;background:' + _f.bg + ';color:' + _f.ink + ';" title="' + _f.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + _f.svg + '</svg></div></div>'; })()
+          + '<div style="min-width:0;">'
                       + '<div class="ab-what"' + consultOpen + '>' + t.what + '</div>'
                       + '<div class="ab-sowhat"' + consultOpen + '>' + escapeHtml(_swText)
                         // Doctrine 01/08 : le motif du jour est du CONTEXTE — une phrase, jamais
@@ -1752,7 +1741,9 @@ if (!location_id) {
                             var cm = entry.item.context_motif;
                             if (!cm || !cm.label_fr || !Number(cm.eur_year)) return '';
                             var v = Math.abs(Math.round(Number(cm.eur_year))).toLocaleString('fr-FR');
-                            var line = ' ' + escapeHtml('Motif du jour : ' + cm.label_fr + ' (' + (Number(cm.eur_year) > 0 ? '+' : '−') + v + ' €/an sur ce lieu — carte dédiée au motif).');
+                            // Streamline (owner 25/08) : le corps dit le motif SEUL — le chiffrage
+                            // annuel et le renvoi vivent en infobulle de la rangée, pas en prose.
+                            var line = ' ' + escapeHtml('Motif du jour : ' + cm.label_fr + '.');
                             // 3-A (owner 24/08) : bonne journée sur un motif qui coûte d'ordinaire
                             // (« CA supérieur… porté par les vacances scolaires » sous un chip à
                             // −18 897 €/an) — dire l'anomalie au lieu de laisser la contradiction.
@@ -1767,15 +1758,12 @@ if (!location_id) {
                             return line;
                           })()
                       + '</div>'
-                    + '</div>'
-                    + _amtHtml
-                  + '</div>'
                   + (t.action ? '<div class="aline">' + escapeHtml(t.action) + '</div>' : '')
                   + msPartyRoleStrip(entry.item)
-                + '</div>'
-              + '</div>'
-            + '</div>'
-            + '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;"'
+          + '</div>'
+          + '<div class="ab-eur">' + _metaLine + _amtHtml + '</div>'
+        + '</div>'
+        + '<div class="ab-rfoot"'
               + ' data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '"'
               + ' data-ab-draft-what="' + escapeHtml(String(t.what).replace(/<[^>]+>/g,"")) + '"'
               + ' data-ab-draft-sowhat="' + escapeHtml(String(t.sowhat||"")) + '"'
@@ -1788,12 +1776,21 @@ if (!location_id) {
                 + _dispoHtml
                 + _commitEntry
               + '</span>'
-            + '</div>'
-            + '<div class="ab-workspace" id="' + cardId + '-workspace" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
-          + '</div>'
         + '</div>'
+        + '<div class="ab-workspace" id="' + cardId + '-workspace" style="display:none;padding:0 16px 14px;"></div>'
       + '</div>';
-    }).join("");
+    });
+    // Filet « Nouveau depuis votre dernière visite » — un séparateur, plus de chip par carte.
+    (function () {
+      var firstNew = -1;
+      for (var ni = 0; ni < entries.length; ni++) {
+        if (window._msIsNewCard && window._msIsNewCard(entries[ni])) { firstNew = ni; break; }
+      }
+      if (firstNew >= 0 && cardsArr[firstNew] != null) {
+        cardsArr[firstNew] = '<div class="ab-newline">Nouveau depuis votre dernière visite</div>' + cardsArr[firstNew];
+      }
+    })();
+    cardsHtml += cardsArr.join("");
  
     // ---- Pending feedback cards (Layer A) ----
     var feedbackCardsHtml = "";
@@ -3091,6 +3088,35 @@ if (!location_id) {
     return null;
   }
 
+  // Médaillon-famille (build v3.2, Inc 3) : l'identité vit sur l'avatar — la doctrine
+  // « couleur = direction » continue de régir les chiffres. 6 familles, routage action_type.
+  var _FAM = {
+    weather:    { bg: '#E0F2FE', ink: '#0369A1', label: 'météo',
+      svg: '<path d="M17.5 19a4.5 4.5 0 1 0-1.7-8.7 6 6 0 1 0-9.8 5.2"/><path d="M8 19h9.5"/>' },
+    competitor: { bg: '#FEF3E2', ink: '#B45309', label: 'concurrence',
+      svg: '<path d="M4 21V4h12l-2 4 2 4H4"/>' },
+    mobility:   { bg: '#EDE9FE', ink: '#6D28D9', label: 'transports',
+      svg: '<rect x="4" y="3" width="16" height="14" rx="3"/><path d="M4 11h16M8 21l1-4M16 21l-1-4"/>' },
+    calendar:   { bg: '#F6EED9', ink: '#92671E', label: 'calendrier & événements',
+      svg: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/>' },
+    sales:  { bg: '#EEF2FF', ink: '#1D3BB3', label: 'vos ventes',
+      svg: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>' },
+    opportunity:{ bg: '#E6F6F0', ink: '#059669', label: 'opportunités',
+      svg: '<path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3"/>' }
+  };
+  function _famOf(ty) {
+    ty = String(ty || '');
+    if (/mobility/.test(ty)) return _FAM.mobility;
+    if (/weather|bad_weather|perfect_storm/.test(ty)) return _FAM.weather;
+    if (/competitor|competition|same_bucket|saturat|medal|media_|institution/.test(ty)) return _FAM.competitor;
+    if (/event_|calendar|holiday|tourism|tourist|mega_|weekend|commercial_event/.test(ty)) return _FAM.calendar;
+    if (/sales|revenue|item_share|hour_share|offering|client_|regime_|score_|monthly|weekly|footfall|ft_/.test(ty)) return _FAM.sales;
+    return _FAM.opportunity;
+  }
+  // Famille STRUCTURELLE → famille visuelle (mêmes teintes que les cartes datées).
+  var _STRUCT2FAM = { weather: 'weather', competition: 'competitor', suivis: 'competitor', tourism: 'calendar', events: 'calendar', calendar: 'calendar', mobility: 'mobility', traffic: 'mobility', sales: 'sales' };
+  function _famOfStruct(fam) { return _FAM[_STRUCT2FAM[String(fam || '')]] || _FAM.opportunity; }
+
   function _structRowHtml(imp, key, coinPorte) {
     var pos = Number(imp.eur_year) > 0;
     var bar = pos ? '#059669' : '#B45309';
@@ -3104,7 +3130,7 @@ if (!location_id) {
       : '<button type="button" class="pls-cta-pri" data-struct-commit="' + key + '" style="white-space:nowrap;">M’engager</button>';
     return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="3" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-key="' + key + '">'
       + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;">'
-        + '<span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;flex:none;">Structurel</span>'
+        + (function () { var _cf = _famOfStruct(imp.family); return '<span style="width:22px;height:22px;border-radius:50%;background:' + _cf.bg + ';color:' + _cf.ink + ';display:inline-flex;align-items:center;justify-content:center;flex:none;" title="' + _cf.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;">' + _cf.svg + '</svg></span>'; })()
         + '<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">' + escapeHtml(String(imp.title_fr || ''))
           + '<span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">' + imp.n_days + ' j / ' + imp.span_months + ' mois · ' + (pos ? 'à gagner' : 'perdus') + ' · ' + escapeHtml(String(imp.tier_label_fr || '')) + ' · ' + escapeHtml(STRUCT_FAM_FR[imp.family] || imp.family || '') + ' · ' + state + (eng && eng.owner_person_name ? ' → ' + escapeHtml(String(eng.owner_person_name)) : '') + '</span>'
           // 2-A (owner 24/08) : liaison des deux pôles négatifs — posée par monitor.
@@ -3112,7 +3138,7 @@ if (!location_id) {
         + '</span>'
         + (coinPorte
             ? '<span class="ab-metric-val" style="font-size:11px;color:#9CA3AF;flex:none;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
-            : '<span class="ab-metric-val" style="font-size:13px;color:' + pillFg + ';flex:none;white-space:nowrap;" title="' + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.') + '">' + (pos ? '+' : '−') + amount + ' €/an</span>')
+            : '<span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;padding:3px 9px;flex:none;white-space:nowrap;" title="' + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.') + '">' + (pos ? '+' : '−') + amount + ' €/an</span>')
         + btn
       + '</div>'
       + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
@@ -3147,7 +3173,7 @@ if (!location_id) {
     var bar = pos ? '#059669' : '#B45309';
     var fg = pos ? 'var(--color-pill-green-text)' : '#B45309';
     var amount = Math.abs(Math.round(Number(imp.eur_year))).toLocaleString('fr-FR');
-    var cause = imp.label_fr ? String(imp.label_fr).replace(/^jours (de |d’|à )?/, '') : '';
+    var cause = imp.label_fr ? 'vos ' + String(imp.label_fr) : '';
     var lbl = (pos ? 'à gagner' : 'perdus') + (cause ? ' · ' + cause : '');
     var tip = 'Mesuré sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois — ' + String(imp.tier_label_fr || '') + '. '
       + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
@@ -3158,28 +3184,30 @@ if (!location_id) {
     var btn = ident
       ? '<button type="button" data-struct-page="' + key + '" class="pls-cta-pri">Reproduire le dispositif</button>'
       : '<button type="button" data-struct-commit="' + key + '" class="pls-cta-pri">M’engager</button>';
+    // Titre COMPLET (owner 25/08, streamline) : « … vous coûtent −211 €/j en moyenne » — le
+    // fait /jour vit au titre, l'annuel à la colonne, la provenance en infobulle (jamais deux
+    // fois le même chiffre). Le corps provenance disparaît ; la liaison reste.
+    var _medJ = imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur))
+      ? (Number(imp.avg_gap_eur) >= 0 ? '+' : '−') + Math.abs(Math.round(Number(imp.avg_gap_eur))).toLocaleString('fr-FR') + ' €/j en moyenne'
+      : '';
+    var _titreFull = String(imp.title_fr || '');
+    if (_medJ && /(coûtent|rapportent)$/.test(_titreFull)) _titreFull += ' ' + _medJ;
+    var _sf = _famOfStruct(imp.family);
     return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="0" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-full="' + key + '">'
-      + '<div class="ab-summary">'
-        + '<div class="ab-pills"><span class="chip-n" style="background:#EEF2FF;color:#1D3BB3;">Structurel</span>'
-        + (imp.location_label ? '<span class="chip-n">' + escapeHtml(String(imp.location_label)) + '</span>' : '')
-        + '<span class="chip-n">' + escapeHtml(STRUCT_FAM_FR[imp.family] || imp.family || '') + '</span></div>'
-        + '<div style="display:flex;align-items:flex-start;gap:12px;">'
-          + _structDiscHtml(imp.family)
-          + '<div style="flex:1;min-width:0;">'
-            + '<div class="ab-what">' + escapeHtml(String(imp.title_fr || '')) + '</div>'
-            + '<div class="ab-sowhat">' + escapeHtml(String(imp.sowhat_fr || '')) + '</div>'
-            // 2-A (owner 24/08) : ligne de liaison quand les deux pôles de la dimension coûtent
-            // (posée par monitor, jamais calculée ici) — sinon les deux cartes lisent comme une
-            // contradiction.
-            + (imp.liaison_fr ? '<div class="ab-sowhat" style="margin-top:2px;color:#1D3BB3;">' + escapeHtml(String(imp.liaison_fr)) + '</div>' : '')
-          + '</div>'
-          + '<div class="amt" title="' + escapeHtml(tip) + '"><div class="amt-val" style="color:' + fg + ';">' + (pos ? '+' : '−') + amount + ' €/an</div><div class="amt-sub">' + escapeHtml(lbl) + '</div></div>'
+      + '<div class="ab-rgrid">'
+        + '<div><div class="ab-disc" style="margin-top:2px;background:' + _sf.bg + ';color:' + _sf.ink + ';" title="' + _sf.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + _sf.svg + '</svg></div></div>'
+        + '<div style="min-width:0;">'
+          + '<div class="ab-what">' + escapeHtml(_titreFull) + '</div>'
+          + (imp.liaison_fr ? '<div class="ab-sowhat" style="color:#1D3BB3;">' + escapeHtml(String(imp.liaison_fr)) + '</div>' : '')
+          + (imp.chantier_fr ? '<div class="aline">' + escapeHtml(String(imp.chantier_fr)) + '</div>' : '')
         + '</div>'
-        + (imp.chantier_fr ? '<div class="aline">' + escapeHtml(String(imp.chantier_fr)) + '</div>' : '')
+        + '<div class="ab-eur">'
+          + '<div class="amt ' + (pos ? 'gain' : 'defend') + '" title="' + escapeHtml(tip) + '"><span style="display:inline-flex;align-items:center;gap:5px;"><div class="amt-val" style="color:' + fg + ';">' + (pos ? '+' : '−') + amount + ' €/an</div><span class="amt-i">i</span></span><div class="amt-sub">' + escapeHtml(lbl) + '</div></div>'
+        + '</div>'
       + '</div>'
-      + '<div style="display:flex;align-items:center;gap:7px;padding:10px 16px 12px;"><span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
+      + '<div class="ab-rfoot"><span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
         + btn + '</span></div>'
-      + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
+      + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;"></div>'
     + '</div>';
   }
 
@@ -3361,12 +3389,12 @@ if (!location_id) {
     imps.forEach(function(i) { var st = String(i.location_label || ''); if (order.indexOf(st) < 0) order.push(st); });
     // Barre de filtres (3 contrôles, pas plus — décision owner « too complicated »).
     var bar = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:14px 0 4px;">'
-      + ['tous|Tous', 'today|Aujourd’hui', 'week|Cette semaine', 'struct|Structurel'].map(function(x) {
+      + ['today|Aujourd’hui', 'week|Cette semaine', 'struct|Structurel'].map(function(x) {
           var v = x.split('|');
           return '<button type="button" data-t-fh="' + v[0] + '" style="font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid ' + (v[0] === 'tous' ? '#1D3BB3' : 'var(--color-border)') + ';background:' + (v[0] === 'tous' ? '#EEF2FF' : '#fff') + ';color:' + (v[0] === 'tous' ? '#1D3BB3' : '#374151') + ';cursor:pointer;font-family:inherit;">' + v[1] + '</button>';
         }).join('')
       + '<span style="width:1px;height:18px;background:var(--color-border);margin:0 4px;"></span>'
-      + ['tous|Tout', 'defend|À défendre', 'capture|À capter'].map(function(x) {
+      + ['defend|À défendre', 'capture|À capter'].map(function(x) {
           var v = x.split('|');
           return '<button type="button" data-t-fn="' + v[0] + '" style="font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid ' + (v[0] === 'tous' ? '#1D3BB3' : 'var(--color-border)') + ';background:' + (v[0] === 'tous' ? '#EEF2FF' : '#fff') + ';color:' + (v[0] === 'tous' ? '#1D3BB3' : '#374151') + ';cursor:pointer;font-family:inherit;">' + v[1] + '</button>';
         }).join('')
@@ -3491,10 +3519,10 @@ if (!location_id) {
       if (sb) { var on = _triageState.sortEnjeu; sb.style.borderColor = on ? '#1D3BB3' : 'rgba(0,0,0,0.08)'; sb.style.background = on ? '#EEF2FF' : '#fff'; sb.style.color = on ? '#1D3BB3' : '#374151'; sb.style.fontWeight = on ? '600' : '400'; }
     }
     mount.querySelectorAll('[data-t-fh]').forEach(function(b) {
-      b.addEventListener('click', function() { _triageState.fh = b.getAttribute('data-t-fh'); paintChips(); _triageApplyFilters(mount); });
+      b.addEventListener('click', function() { var v = b.getAttribute('data-t-fh'); _triageState.fh = (_triageState.fh === v) ? 'tous' : v; paintChips(); _triageApplyFilters(mount); });
     });
     mount.querySelectorAll('[data-t-fn]').forEach(function(b) {
-      b.addEventListener('click', function() { _triageState.fn = b.getAttribute('data-t-fn'); paintChips(); _triageApplyFilters(mount); });
+      b.addEventListener('click', function() { var v = b.getAttribute('data-t-fn'); _triageState.fn = (_triageState.fn === v) ? 'tous' : v; paintChips(); _triageApplyFilters(mount); });
     });
     var sortBtn = mount.querySelector('[data-t-sort]');
     if (sortBtn) sortBtn.addEventListener('click', function() {
@@ -4051,11 +4079,7 @@ if (!location_id) {
       + `</div>`
     + `</div>`;
 
-    // Actions-menées counter (single-site; baseline from dbt table, bumped live on card_done)
-    var _cardsDone = (!isMultisite && data.activity && data.activity.cards_done != null) ? Number(data.activity.cards_done) : null;
-    var counterHtml = (_cardsDone != null)
-      ? '<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;"><span style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#059669;">\u2713 <span data-actions-counter>' + _cardsDone + '</span> actions men\u00e9es</span></div>'
-      : "";
+    var counterHtml = "";
 
     // Assemble
     // Radar retiré (14/08) : ses trois volets vivent sur Piloter (héros + Événements
