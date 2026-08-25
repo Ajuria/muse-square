@@ -337,10 +337,12 @@ check("À faire : bénéfice sous le geste (réutilisable / consigne part / cali
       const pn4 = coBody3.querySelector('[data-tb-fiche-panel="' + chev.getAttribute("data-tb-fiche") + '"]');
       check("clic chevron : le panneau s'ouvre", !!pn4 && pn4.style.display === "block");
     }
-    check("fiche = UN CTA « Consulter → » vers le profil INTERNE (owner 17/08 : plus de lien externe direct)",
+    // 24/08 soir : le lien SOURCE des offres s'appelle aussi « Consulter → » (mot du ban
+    // « leur page → » 17/08) et il est externe PAR NATURE — l'interdit d'externe ne vaut que
+    // pour le CTA de FICHE : chaque fiche doit porter son lien de profil INTERNE.
+    check("fiche = UN CTA « Consulter → » vers le profil INTERNE (owner 17/08)",
       fAll3.filter((f) => f.cid).every((f) => (coBody3 ? coBody3.innerHTML : "").indexOf("/app/insightevent/competitor?id=" + encodeURIComponent(f.cid)) >= 0)
-      && (coBody3 ? coBody3.textContent : "").indexOf("Profil stratégique") < 0
-      && !(coBody3 && Array.from(coBody3.querySelectorAll("a")).some((a) => /Consulter/.test(a.textContent) && /^https?:/.test(a.getAttribute("href") || "") && a.closest("[data-tb-fiche-panel]") == null)));
+      && (coBody3 ? coBody3.textContent : "").indexOf("Profil stratégique") < 0);
     check("recouvrement mesuré affiché quand le mart le porte", fAll3.some((f) => f.overlap_pct != null)
       ? (coBody3 ? coBody3.textContent : "").indexOf("Recouvrement mesuré") >= 0 : true);
   }
@@ -407,8 +409,11 @@ check("événement concurrent : l'aléa météo du jour n'y est plus", (() => {
   return evBody ? evBody.textContent.indexOf("annoncée") < 0 : true;
 })());
 if ((g.offres || []).length) {
-  check("veille : chaque offre porte sa date de constat", txt().indexOf("vu le ") >= 0);
-  check("veille : lien source quand l'URL existe", (g.offres || []).some((o) => o.src_url) ? rawHtml.indexOf("leur page →") >= 0 : true);
+  // Une SUPPRESSION d'offre n'a pas de date : current_crawled_at est NULL côté latest
+  // (int_competitor_offering_changes, FULL OUTER JOIN — modèle lu 24/08). La date n'est
+  // exigée que pour les lignes qui la portent.
+  check("veille : chaque offre datée rend sa date de constat", (g.offres || []).some((o) => o.vu_le) ? txt().indexOf("vu le ") >= 0 : true);
+  check("veille : lien source quand l'URL existe (« Consulter → » externe — ban « leur page » 17/08)", (g.offres || []).some((o) => o.src_url) ? (g.offres || []).filter((o) => o.src_url).every((o) => rawHtml.indexOf('href="' + o.src_url) >= 0) : true);
 }
 check("dispositifs : un seul statut de dernier test", txt().indexOf("dernier test non mesurable") < 0);
 check("équipe : zéro rangée « — » fantôme", (() => {

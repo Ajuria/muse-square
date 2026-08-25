@@ -71,6 +71,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
       @media (max-width: 640px) { .tb-hero2 { grid-template-columns: repeat(2, 1fr); } }
       .tb-af { display: grid; grid-template-columns: 118px minmax(0,1fr) 128px; gap: 0 12px; align-items: center; min-height: 48px; padding: 7px 0; border-top: 1px solid #F3F4F6; }
       .tb-af .t { display: block; font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tb-af .t[data-tb-t] { cursor: pointer; }
+      .tb-af .t[data-tb-t]:hover { color: #1D3BB3; text-decoration: underline; text-underline-offset: 2px; }
       .tb-af .u { display: block; font-size: 12px; color: #6B7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
       .tb-af .a { text-align: right; }
       .tb-btnp { display: inline-block; font-size: 12.5px; font-weight: 600; color: #fff; background: #1D3BB3; border-radius: 8px; padding: 7px 14px; text-decoration: none; white-space: nowrap; }
@@ -126,18 +128,36 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
         var VERDICT_FR = { met: "atteint", missed: "manqué", confounded: "non concluant" };
         var VERDICT_COL = { met: "#059669", missed: "#B45309", confounded: "#6b7280" };
 
-        function load() {
+        var lastFilter = "";
+        var allSites = null, accountMulti = false;   // liste de segments du compte ENTIER
+        function load(tentative) {
           body.innerHTML = '<div style="font-size:13px;color:#9CA3AF;">Chargement…</div>';
+          var gotPayload = false;
           fetch("/api/insight/dashboard?period=365" + (locFilter ? "&location_id=" + encodeURIComponent(locFilter) : ""), { cache: "no-store" })
             .then(function (r) { return r.json(); })
             .then(function (j) {
+              gotPayload = true;
               if (!j || !j.ok) { body.textContent = "Erreur : " + ((j && j.error) || "réessayez."); return; }
-              J = j;
+              J = j; lastFilter = locFilter;
+              if (!locFilter || !allSites) { allSites = j.sites || []; accountMulti = !!j.multi_site; }
               if (!loc && Array.isArray(j.sites) && j.sites[0]) loc = String(j.sites[0].location_id);
               document.getElementById("tb-new").href = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc) + "&new=1";
               render();
             })
-            .catch(function () { body.textContent = "Erreur de chargement."; });
+            .catch(function (e) {
+              // Réseau/JSON tombé (pas le payload) : UN retry silencieux — un serveur dev qui
+              // redémarre ne doit pas coûter la page.
+              if (!gotPayload && !tentative) { setTimeout(function () { load(1); }, 700); return; }
+              if (window.console && console.error) console.error(e);
+              if (J) {
+                // Retour à la dernière vue SAINE (payload + filtre appariés — jamais les données
+                // d'un site sous le libellé d'un autre) ; re-render = écouteurs re-liés.
+                locFilter = lastFilter;
+                loc = locFilter || ((J.sites && J.sites[0]) ? String(J.sites[0].location_id) : loc);
+                render();
+                body.insertAdjacentHTML("afterbegin", '<div style="font-size:12px;color:#B45309;background:#FEF3E2;border-radius:8px;padding:8px 12px;margin-bottom:10px;">Erreur de chargement.</div>');
+              } else body.textContent = "Erreur de chargement.";
+            });
         }
 
         // Impact de la période AFFICHÉE, dérivé du payload 365 (mêmes règles que le serveur —
@@ -414,10 +434,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             return '<button type="button" ' + attr + '="' + esc(val) + '" style="font-family:inherit;border:none;cursor:pointer;font-size:12px;border-radius:7px;padding:5px 12px;'
               + (on ? 'font-weight:600;color:#111827;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,0.08);' : 'color:#6b7280;background:none;') + '">' + esc(label) + '</button>';
           };
-          var siteSel = J.multi_site
+          var siteSel = accountMulti
             ? '<span style="display:inline-flex;background:#F3F4F6;border-radius:9px;padding:3px;">'
               + segBtn("data-tb-site", "", "Tous les sites", !locFilter)
-              + sites.map(function (s2) { return segBtn("data-tb-site", s2.location_id, s2.label || "", locFilter === String(s2.location_id)); }).join("")
+              + (allSites || sites).map(function (s2) { return segBtn("data-tb-site", s2.location_id, s2.label || "", locFilter === String(s2.location_id)); }).join("")
               + '</span>'
             : "";
           var periodSel = '<span style="display:inline-flex;background:#F3F4F6;border-radius:9px;padding:3px;">'
@@ -634,7 +654,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             if (_verbe && BENEFICE[_verbe]) r = Object.assign({}, r, { sub: BENEFICE[_verbe] });
             return '<div class="tb-af">'
               + '<span>' + quand + '</span>'
-              + '<span style="min-width:0;"><span class="t" title="' + esc(r.tip || r.titre) + '">' + esc(r.titre)
+              + '<span style="min-width:0;"><span class="t' + (r.geste ? '" data-tb-t="1' : '') + '" title="' + esc(r.tip || r.titre) + '">' + esc(r.titre)
               + (J.multi_site && r.site ? ' <span class="tb-chip" style="background:#F3F4F6;color:#6b7280;font-weight:400;">' + esc(r.site) + '</span>' : "") + '</span>'
               + (r.sub ? '<span class="u">' + r.sub + '</span>' : "") + '</span>'
               + '<span class="a">' + (r.geste || "") + '</span></div>';
@@ -1707,6 +1727,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           });
           body.querySelectorAll("[data-tb-lect]").forEach(function (b) {
             b.addEventListener("click", function () { var l = document.getElementById("tb-lecture"); if (l) l.style.display = l.style.display === "none" || !l.style.display ? "block" : "none"; });
+          });
+          // Titre À faire = même geste que le CTA de sa rangée (clic transféré).
+          body.querySelectorAll(".tb-af .t[data-tb-t]").forEach(function (el) {
+            el.addEventListener("click", function () {
+              var a2 = el.closest(".tb-af").querySelector(".a a, .a button");
+              if (a2) a2.click();
+            });
           });
           body.querySelectorAll("[data-tb-fold]").forEach(function (b) {
             b.addEventListener("click", function () { var l = document.getElementById(b.getAttribute("data-tb-fold")); if (l) l.style.display = l.style.display === "none" || !l.style.display ? "block" : "none"; });
