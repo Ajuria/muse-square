@@ -271,7 +271,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
       bq.query({
         query: `SELECT oc.competitor_name, oc.item, oc.change_type, oc.price_direction,
                        oc.old_price_numeric, oc.new_price_numeric, oc.price_pct_change,
-                       oc.new_price_qualifier, CAST(DATE(oc.current_crawled_at) AS STRING) AS vu_le,
+                       -- « vu le » HONNÊTE (25/08, mart bloc 5) : une offre RETIRÉE n'a pas de
+                       -- current_crawled_at (le crawl où elle disparaît ne la porte plus) — sa
+                       -- date de constat est change_first_seen_on, calculée par l'int (premier
+                       -- crawl après la dernière apparition). Vérifié en base : les 2 retraits
+                       -- du compte (« cinema au musee », Pont du Gard) ont crawl NULL et
+                       -- constat 24/08. COALESCE : les changements de prix gardent leur crawl.
+                       oc.new_price_qualifier,
+                       CAST(COALESCE(DATE(oc.current_crawled_at), oc.change_first_seen_on) AS STRING) AS vu_le,
                        COALESCE(cd.tarifs_url, cd.source_url) AS src_url
                 FROM \`${PROJECT}.mart.fct_competitor_offering_changes\` oc
                 JOIN \`${PROJECT}.raw.competitor_tracking\` ct USING (competitor_id)
@@ -281,7 +288,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 -- un concurrent suivi par PLUSIEURS sites du compte fan-out sinon (grain mart
                 -- = competitor × item ; liste de trouvailles au niveau compte, prouvé 24/08)
                 QUALIFY ROW_NUMBER() OVER (PARTITION BY oc.competitor_id, oc.item_norm ORDER BY ct.created_at) = 1
-                ORDER BY oc.current_crawled_at DESC LIMIT 8`,
+                ORDER BY COALESCE(DATE(oc.current_crawled_at), oc.change_first_seen_on) DESC LIMIT 8`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
       // Base de comparaison des offres : tarifs relevés au DERNIER passage (l'absence se chiffre).
