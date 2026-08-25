@@ -165,6 +165,18 @@ check("rangées structurelles compactes : la métadonnée « N j / M mois » a q
   if (!rows.length) return true;
   return rows.every((r) => !/\d+ j \/ \d+ mois/.test(r.textContent || ""));
 })());
+// ── Inc E (owner 25/08 soir, point 4) : titres au VERBE, objet nommé (forme du créneau). ──
+check("titres trio : « Produit surperformant »/« Famille sous-performante » morts, verbe + objet nommé", (() => {
+  const titles = [...root.querySelectorAll(".ab-what")].map((x) => (x.textContent || "").trim());
+  if (titles.some((t) => /^(Produit|Famille|Créneau) (sur|sous-)performant/.test(t))) return false;
+  return titles.filter((t) => /^(Le produit|La famille) /.test(t))
+    .every((t) => /(surperforme|sous-performe|en hausse|en retrait)$/.test(t));
+})());
+check("corps trio : le verdict ne se répète plus sous le titre (« a surperformé » mort du corps)", (() => {
+  const bodies = [...root.querySelectorAll(".ab-card .ab-sowhat")].map((x) => x.textContent || "");
+  return !bodies.some((b) => /(a surperformé|a sous-performé)/.test(b));
+})());
+
 // ── Inc D (owner 25/08 soir, point 2) : pied à deux gestes AUSSI sur les structurelles. ──
 check("structurelles : « Pas pour moi » (data-struct-dispo) sur pleines ET compactes non engagées", (() => {
   const fulls = [...root.querySelectorAll("[data-struct-full]")];

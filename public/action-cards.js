@@ -2478,16 +2478,13 @@
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      // Sous réserve de régime, le FAIT sans verdict (« est en retrait/en hausse »).
-      line += a.regime_mismatch_flag === true
-        ? (dir === 'collapse' ? ' La famille est en retrait' : ' La famille est en hausse')
-        : (dir === 'collapse' ? ' La famille a sous-perform\u00e9' : ' La famille a surperform\u00e9');
-      // 24/08 — recit nature 2 : meme famille x meme direction, 60 j.
+      // Point 4 (owner 25/08 soir) : le verdict vit au TITRE (« La famille X sous-performe »)
+      // — le corps ne le répète plus (même traitement que le créneau, lot 1). La récurrence
+      // (récit nature 2, 24/08) devient une phrase autonome.
       var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
       if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
-        line += ' \u2014 ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur cette famille depuis' + frDateFr(a.first_occurrence_date);
+        line += ' ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur cette famille depuis' + frDateFr(a.first_occurrence_date) + '.';
       }
-      line += '.';
       // Réserve de régime (trigger arbitré 25/08) : base 30 j d'un AUTRE régime calendaire.
       if (a.regime_mismatch_flag === true && a.typ_n != null && a.baseline_same_regime_n != null) {
         var nAutres = Number(a.typ_n) - Number(a.baseline_same_regime_n);
@@ -2523,15 +2520,13 @@
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += a.regime_mismatch_flag === true
-        ? (dir === 'collapse' ? ' Le produit est en retrait' : ' Le produit est en hausse')
-        : (dir === 'collapse' ? ' Le produit a sous-perform\u00e9' : ' Le produit a surperform\u00e9');
-      // 24/08 — recit nature 2 : meme produit x meme direction, 60 j.
+      // Point 4 (owner 25/08 soir) : le verdict vit au TITRE (« Le produit X sous-performe »)
+      // — le corps ne le répète plus (même traitement que le créneau, lot 1). La récurrence
+      // (récit nature 2, 24/08) devient une phrase autonome.
       var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
       if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
-        line += ' \u2014 ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur ce produit depuis' + frDateFr(a.first_occurrence_date);
+        line += ' ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur ce produit depuis' + frDateFr(a.first_occurrence_date) + '.';
       }
-      line += '.';
       // Réserve de régime (trigger arbitré 25/08) : base 30 j d'un AUTRE régime calendaire.
       if (a.regime_mismatch_flag === true && a.typ_n != null && a.baseline_same_regime_n != null) {
         var nAutres = Number(a.typ_n) - Number(a.baseline_same_regime_n);
@@ -2822,7 +2817,9 @@
           if (_rc && _rc.sign > 0) whatText = _rn + ' est mieux noté que vous — ' + frDec(_rc.theirs) + ' contre ' + frDec(_rc.mine);
           else if (_rc && _rc.sign < 0) whatText = 'Vous êtes mieux noté que ' + _rn + ' — ' + frDec(_rc.mine) + ' contre ' + frDec(_rc.theirs);
           else if (_rc) whatText = _rn + ' et vous à égalité — ' + frDec(_rc.mine) + ' sur 5';
-          else whatText = _rn + (feedItem.google_rating != null ? ' : ' + frDec(feedItem.google_rating) + '/5' : '');
+          // Point 4 (owner 25/08 soir) : titre au verbe — miroir du corps déjà rendu
+          // (« … est noté 4,6/5 ») quand seule leur note est connue.
+          else whatText = _rn + (feedItem.google_rating != null ? ' est noté ' + frDec(feedItem.google_rating) + '/5' : '');
         }
         // 23/08 — cartes de faits en euros : le titre suit le SENS (owner : « bascule » datait
         // des parts). Même forme que les cartes ventes « CA inférieur / supérieur ».
@@ -2839,10 +2836,16 @@
                   ? (_fd === 'collapse' ? 'en retrait' : 'en hausse')
                   : (_fd === 'collapse' ? 'sous-performe' : 'surperforme'));
           } else {
-            var _fn = actionType === 'hour_share_move' ? ['Cr\u00e9neau', ''] : actionType === 'item_share_move' ? ['Produit', ''] : ['Famille', 'e'];
-            whatText = feedItem.regime_mismatch_flag === true
-              ? _fn[0] + (_fd === 'collapse' ? ' en retrait' : ' en hausse')
-              : _fn[0] + ' ' + (_fd === 'collapse' ? 'sous-performant' : 'surperformant') + _fn[1];
+            // Point 4 (owner 25/08 soir) : titre au VERBE, objet nomm\u00e9 \u2014 la forme du
+            // cr\u00e9neau valid\u00e9e par l'owner (\u00ab Le cr\u00e9neau 8 h\u20139 h surperforme \u00bb), \u00e9tendue
+            // aux deux cartes s\u0153urs du trio. \u00ab Produit surperformant \u00bb (adjectif, objet
+            // anonyme) meurt.
+            var _fnm = actionType === 'item_share_move' ? (feedItem.item_description ? 'Le produit ' + feedItem.item_description : 'Le produit')
+              : actionType === 'offering_mix_shift' ? (feedItem.item_category ? 'La famille ' + feedItem.item_category : 'La famille')
+              : 'Le cr\u00e9neau';
+            whatText = _fnm + ' ' + (feedItem.regime_mismatch_flag === true
+              ? (_fd === 'collapse' ? 'en retrait' : 'en hausse')
+              : (_fd === 'collapse' ? 'sous-performe' : 'surperforme'));
           }
         }
       } else {
