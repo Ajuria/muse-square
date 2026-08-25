@@ -165,6 +165,14 @@ check("rangées structurelles compactes : la métadonnée « N j / M mois » a q
   if (!rows.length) return true;
   return rows.every((r) => !/\d+ j \/ \d+ mois/.test(r.textContent || ""));
 })());
+// ── Inc D (owner 25/08 soir, point 2) : pied à deux gestes AUSSI sur les structurelles. ──
+check("structurelles : « Pas pour moi » (data-struct-dispo) sur pleines ET compactes non engagées", (() => {
+  const fulls = [...root.querySelectorAll("[data-struct-full]")];
+  const compacts = [...root.querySelectorAll("[data-struct-key]")];
+  const okFulls = fulls.every((c) => c.querySelector("[data-struct-dispo]"));
+  const okCompacts = compacts.every((c) => c.querySelector("[data-struct-dispo]") || c.querySelector("[data-struct-follow]"));
+  return okFulls && okCompacts;
+})(), root.querySelectorAll("[data-struct-dispo]").length + " boutons");
 check("décomposition funnel structurelle : si présente, vocabulaire du créneau + référentiel nommé", (() => {
   const bodies = [...root.querySelectorAll("[data-struct-full] .ab-sowhat")].map((x) => x.textContent || "");
   const withFunnel = bodies.filter((b) => /vient (des|du)/.test(b));

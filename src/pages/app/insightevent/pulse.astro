@@ -3135,7 +3135,10 @@ if (!location_id) {
     var state = eng ? 'En amélioration' : 'Actif';
     var btn = eng
       ? '<button type="button" class="pls-cta-sec" data-struct-follow="1" style="white-space:nowrap;">Voir l’engagement</button>'
-      : '<button type="button" class="pls-cta-pri" data-struct-commit="' + key + '" style="white-space:nowrap;">M’engager</button>';
+      // Inc D : « Pas pour moi » aussi sur la rangée compacte — jamais sur un motif ENGAGÉ
+      // (l'engagement se clôt, il ne s'écarte pas).
+      : '<button type="button" data-struct-dispo="' + key + '" class="pls-cta-sec" style="white-space:nowrap;">Pas pour moi</button>'
+        + '<button type="button" class="pls-cta-pri" data-struct-commit="' + key + '" style="white-space:nowrap;">M’engager</button>';
     return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="3" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-key="' + key + '">'
       + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;">'
         + (function () { var _cf = _famOfStruct(imp.family); return '<span style="width:22px;height:22px;border-radius:50%;background:' + _cf.bg + ';color:' + _cf.ink + ';display:inline-flex;align-items:center;justify-content:center;flex:none;" title="' + _cf.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;">' + _cf.svg + '</svg></span>'; })()
@@ -3220,6 +3223,8 @@ if (!location_id) {
         + '</div>'
       + '</div>'
       + '<div class="ab-rfoot"><span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
+        // Inc D (owner 25/08, point 2) : pied à deux gestes AUSSI sur les structurelles.
+        + '<button type="button" data-struct-dispo="' + key + '" class="pls-cta-sec">Pas pour moi</button>'
         + btn + '</span></div>'
       + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;"></div>'
     + '</div>';
@@ -3238,6 +3243,25 @@ if (!location_id) {
   }
 
   function _wireStructRows(scope) {
+    // Inc D (owner 25/08, point 2) : « Pas pour moi » structurel — card_not_done SANS date
+    // (un motif n'expire pas avec un jour), clé de lecture 'structural_<classe>|' via
+    // card-states. La rangée part du fil immédiatement ; l'événement reste en base.
+    scope.querySelectorAll('[data-struct-dispo]').forEach(function(b) {
+      b.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var imp = _impByKey(b.getAttribute('data-struct-dispo'));
+        if (!imp) return;
+        fetch('/api/analytics/track', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ event: 'card_not_done', location_id: imp.location_id, action_type: 'structural_' + String(imp.class_key || ''), change_subtype: 'structural_' + String(imp.class_key || ''), affected_date: null })
+        }).catch(function(){});
+        var map = _cardStatesByLoc[imp.location_id];
+        if (map) map['structural_' + String(imp.class_key || '') + '|'] = 'ecarte';
+        var card = b.closest('.ab-card');
+        if (card) card.remove();
+      });
+    });
     // Navigation vers la page « Reproduire le dispositif gagnant » (CTA identification).
     scope.querySelectorAll('[data-struct-page]').forEach(function(b) {
       b.addEventListener('click', function() {
@@ -3396,6 +3420,10 @@ if (!location_id) {
       });
       imps = dedup;
     })();
+    // Inc D (owner 25/08, point 2) : un motif écarté (« Pas pour moi », action_log
+    // card_not_done sans date) ne revient pas au fil — état lu par site via card-states,
+    // clé 'structural_<classe>|'. Réversible : c'est un événement, jamais une suppression.
+    imps = imps.filter(function(i) { return cardStateFor('structural_' + String(i.class_key || ''), '', i.location_id) !== 'ecarte'; });
     imps.sort(function(a, b) { return Math.abs(Number(b.eur_year) || 0) - Math.abs(Number(a.eur_year) || 0); });
     // Ordre des sites : apparition dans le feed, puis sites à chantiers seuls.
     var order = [];
