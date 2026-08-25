@@ -895,9 +895,12 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var first = seg[0] || "";
             var mNum = first.match(/^([+\u2212-]?\d[\d\u00a0 ,\/]*)\s*(.*)$/);
             var num = mNum ? mNum[1].trim() : first, unit = mNum ? mNum[2] : "";
+            // Num TEXTUEL harmonisé (owner 25/08, maquette) : 15 px + majuscule initiale —
+            // le 18 px reste réservé aux chiffres.
+            if (!mNum && num) num = num.charAt(0).toUpperCase() + num.slice(1);
             var rest = seg.slice(1).join(" · ");
             return '<button type="button" class="tb-rb" data-tb-rb="' + v.id + '"><span class="hd"><span style="width:7px;height:7px;border-radius:50%;background:' + v.dot + ';flex:none;display:inline-block;"></span>' + v.label + '<span class="cv">▾</span></span>'
-              + '<div class="num">' + num + (unit ? '<span class="u">' + unit + '</span>' : "") + '</div>'
+              + '<div class="num"' + (mNum ? '' : ' style="font-size:15px;"') + '>' + num + (unit ? '<span class="u">' + unit + '</span>' : "") + '</div>'
               + '<div class="rs2">' + rest + '</div></button>';
           };
           // Corps de volets : conteneur INVISIBLE — le panneau sous la grille les accueille.
@@ -1302,7 +1305,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (!db.alerts_critical_on) toActivate.push('Alerte automatique quand un concurrent programme un événement sur un de vos jours <a class="tb-link" href="/notifications">Activer →</a>');
           if (!db.team_routing_set && !db.team_empty) toActivate.push('Notification automatique à l’équipe sur signal interne <a class="tb-link" href="/profile?tab=comm">Configurer →</a>');
           // ── Volet MA COUVERTURE — veille concurrents + offres + automatisations. ──
-          var covResume = covSites.map(function (c) { return esc(c.site_label || "") + " " + c.n_suivis + "/" + c.n_total; }).join(" · ")
+          var covTotSuivis = covSites.reduce(function (a2, c) { return a2 + Number(c.n_suivis || 0); }, 0);
+          var covResume = covTotSuivis + " suivi" + (covTotSuivis > 1 ? "s" : "")
+            + " · " + covSites.map(function (c) { return esc(c.site_label || "") + " " + c.n_suivis + "/" + c.n_total; }).join(" · ")
             + (((g.offres_base || {}).n_tarifs) ? " · " + g.offres_base.n_tarifs + " tarifs comparés" : "")
             + ((g.offres || []).length ? "" : " · prix stables");
           html += voletHead("co", covTrou ? AMBER : GREEN, "Mon positionnement", covResume, "comp")
@@ -1472,7 +1477,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           voletHead("veille", ((g.offres || []).length || vLieux.some(function (v) { return !(v.age_j != null && v.age_j <= 1); }) || ((g.veille || {}).sans_cle || []).length) ? AMBER : GREEN, "Veille",
             (function () {
               var nDef2 = vLieux.filter(function (v) { return !(v.age_j != null && v.age_j <= 1); }).length + (((g.veille || {}).sans_cle || []).length);
-              var base2 = (g.offres || []).length ? (g.offres || []).length + " trouvailles cette nuit" : "Rien n\u2019a boug\u00e9 \u00b7 vos suivis lus cette nuit";
+              var base2 = (g.offres || []).length ? (g.offres || []).length + " trouvaille" + ((g.offres || []).length > 1 ? "s" : "") + " cette nuit" : "Rien n\u2019a boug\u00e9 \u00b7 vos suivis lus cette nuit";
               return base2 + (nDef2 ? " \u00b7 veille en d\u00e9faut sur " + nDef2 : "");
             })(), "comp");
           html += '<div data-tb-body="veille" class="tb-rbody" style="display:none;">';
