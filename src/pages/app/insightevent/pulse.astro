@@ -136,6 +136,11 @@ if (!location_id) {
       .n7wx { font-size:11.5px; color:#374151; }
       .n7wx.warn { color:#B45309; font-weight:650; }
       .n7t { font-size:10.5px; color:#9CA3AF; }
+      .n7ico { width:22px; height:22px; flex:none; }
+      .n7ico.sm { width:13px; height:13px; }
+      .n7temp { font-size:13px; font-weight:700; color:#111827; line-height:1; }
+      .n7mini { display:inline-flex; align-items:center; gap:4px; font-size:10px; color:#6B7280; max-width:100%; }
+      .n7mini.warn { color:#B45309; font-weight:650; }
       .n7chip { font-size:9.5px; padding:1px 7px; border-radius:12px; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
       .n7calm { color:#D1D5DB; font-size:11px; margin-top:auto; }
       .n7period { display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin:8px 4px 0; font-size:11.5px; color:#374151; }
@@ -3681,6 +3686,30 @@ if (!location_id) {
     // Vue AGRÉGÉE : jamais la météo d'UN site donnée pour le compte — faits partagés + ALERTES
     // taguées de LEUR site (_siteData porte les days par site).
     const _wxWarn = (d) => Number(d && d.alert_level_max) >= 3 || Number(d && d.lvl_rain) >= 3 || Number(d && d.lvl_wind) >= 3 || Number(d && d.lvl_snow) >= 3;
+    // Inc B (owner 25/08 soir, point 1 : « ça doit être beau ») — icônes météo dessinées depuis
+    // le weather_code WMO du payload (présent sur chaque jour, vérifié sur le compte owner).
+    // Un GROUPE d'icône par famille de code ; le groupe sert aussi de clé de consensus multi-site.
+    const _wmoWx = (code) => {
+      const c = Number(code);
+      const CLOUD = '<path d="M17.8 15.9H7.4a3.65 3.65 0 0 1-.45-7.27 5.05 5.05 0 0 1 9.8-1.05 4.3 4.3 0 0 1 1.05 8.32z" fill="#E2E8F0" stroke="#94A3B8"/>';
+      const CLOUD_DARK = '<path d="M17.8 15.9H7.4a3.65 3.65 0 0 1-.45-7.27 5.05 5.05 0 0 1 9.8-1.05 4.3 4.3 0 0 1 1.05 8.32z" fill="#CBD5E1" stroke="#64748B"/>';
+      const SUN = '<g stroke="#F59E0B"><circle cx="12" cy="12" r="4" fill="#FCD34D"/><path d="M12 3.2v2M12 18.8v2M3.2 12h2M18.8 12h2M5.8 5.8l1.4 1.4M16.8 16.8l1.4 1.4M5.8 18.2l1.4-1.4M16.8 7.2l1.4-1.4"/></g>';
+      const SUN_SM = '<g stroke="#F59E0B"><circle cx="7.3" cy="7.2" r="2.5" fill="#FCD34D"/><path d="M7.3 2.8v1.4M2.9 7.2h1.4M4.2 4.1l1 1M10.4 4.1l-1 1"/></g>';
+      const RAIN2 = '<g stroke="#3B82F6" stroke-width="1.6"><path d="M9.4 18.2l-.8 2.3M14.6 18.2l-.8 2.3"/></g>';
+      const RAIN3 = '<g stroke="#3B82F6" stroke-width="1.6"><path d="M7.8 18.2l-.8 2.3M12 18.2l-.8 2.3M16.2 18.2l-.8 2.3"/></g>';
+      const SNOW = '<g fill="#7DD3FC" stroke="none"><circle cx="8.6" cy="19" r="1.05"/><circle cx="12.4" cy="20.8" r="1.05"/><circle cx="16.2" cy="19" r="1.05"/></g>';
+      const FOG = '<g stroke="#94A3B8" stroke-width="1.5"><path d="M5.8 18.4h12.4M7.8 21h8.4"/></g>';
+      const BOLT = '<path d="M12.7 15.3l-2.7 4.1h2.2l-1.2 3.4 3.8-4.7h-2.3l1.7-2.8z" fill="#F59E0B" stroke="none"/>';
+      if (c === 0 || c === 1) return { g: "sun", svg: SUN };
+      if (c === 2) return { g: "suncloud", svg: SUN_SM + CLOUD };
+      if (c === 45 || c === 48) return { g: "fog", svg: CLOUD + FOG };
+      if ((c >= 51 && c <= 57) || c === 61 || c === 80) return { g: "rain", svg: CLOUD + RAIN2 };
+      if ((c >= 63 && c <= 67) || c === 81 || c === 82) return { g: "rain", svg: CLOUD_DARK + RAIN3 };
+      if ((c >= 71 && c <= 77) || c === 85 || c === 86) return { g: "snow", svg: CLOUD + SNOW };
+      if (c >= 95) return { g: "storm", svg: CLOUD_DARK + BOLT };
+      return { g: "cloud", svg: CLOUD };
+    };
+    const _wxIcoHtml = (w, sm) => `<svg class="n7ico${sm ? " sm" : ""}" viewBox="0 0 24 24" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${w.svg}</svg>`;
     const _n7Sites = (isMultisite && Array.isArray(data._siteData) && data._siteData.length > 1) ? data._siteData : null;
     const _shortSite = (s) => String(s || "").replace(/^Muse Square\s+/, "") || String(s || "");
     const _ddmm = (ymd) => String(ymd || "").slice(8, 10) + "/" + String(ymd || "").slice(5, 7);
@@ -3716,22 +3745,52 @@ if (!location_id) {
         const d0 = dayMap.get(ymd);
         let facts = "";
         if (_n7Sites) {
-          const seen = {};
+          // Inc B : la r\u00e8gle \u00ab jamais la m\u00e9t\u00e9o d'UN site pour le compte \u00bb tenait, mais laissait
+          // les jours calmes VIDES (owner 25/08 : \u00ab Not all 6 upcoming days have data \u00bb). La m\u00e9t\u00e9o
+          // par site existe chaque jour : on rend le GROUPE MAJORITAIRE (ic\u00f4ne + t\u00b0, fourchette si
+          // \u00e9cart > 2\u00b0) et chaque groupe divergent en mini-ligne tagu\u00e9e de SES sites \u2014 tout est
+          // couvert, rien n'est attribu\u00e9 au compte \u00e0 tort.
+          const present = [];
           for (const s of _n7Sites) {
             const d = (s.days || []).find((x) => String(x.date).slice(0, 10) === ymd);
-            if (!d) continue;
-            const tag = _shortSite(s.label);
-            if (_wxWarn(d) && d.weather_label_fr) {
-              const k = d.weather_label_fr + "|" + tag;
-              if (!seen[k]) { seen[k] = 1; facts += `<span class="n7wx warn" title="${escapeHtml(d.weather_alert_fr || "")}">${escapeHtml(d.weather_label_fr)}</span><span class="n7t">${escapeHtml(tag)}</span>`; }
+            if (d) present.push({ tag: _shortSite(s.label), d });
+          }
+          const gmap = new Map();
+          for (const p of present) {
+            if (p.d.weather_code == null) continue;
+            const w = _wmoWx(p.d.weather_code);
+            if (!gmap.has(w.g)) gmap.set(w.g, { w, items: [] });
+            gmap.get(w.g).items.push(p);
+          }
+          const gs = [...gmap.values()].sort((a, b) => b.items.length - a.items.length);
+          if (gs.length) {
+            const g0 = gs[0];
+            const temps = g0.items.map((p) => p.d.temperature_2m_max).filter((v) => v != null).map((v) => Math.round(v));
+            const tTxt = temps.length ? (Math.max.apply(null, temps) - Math.min.apply(null, temps) > 2 ? Math.min.apply(null, temps) + "\u2013" + Math.max.apply(null, temps) + "\u00b0" : Math.max.apply(null, temps) + "\u00b0") : "";
+            const labels = [...new Set(g0.items.map((p) => String(p.d.weather_label_fr || "")).filter(Boolean))];
+            const warn0 = g0.items.some((p) => _wxWarn(p.d));
+            const tip0 = g0.items.map((p) => p.d.weather_alert_fr).filter(Boolean).join(" ");
+            facts += _wxIcoHtml(g0.w, false);
+            if (tTxt) facts += `<span class="n7temp">${tTxt}</span>`;
+            if (labels.length === 1) facts += `<span class="n7wx${warn0 ? " warn" : ""}"${tip0 ? ` title="${escapeHtml(tip0)}"` : ""}>${escapeHtml(labels[0])}</span>`;
+            for (const g of gs.slice(1)) {
+              const warn = g.items.some((p) => _wxWarn(p.d));
+              const tip = g.items.map((p) => p.d.weather_alert_fr).filter(Boolean).join(" ");
+              const lbl = String(g.items[0].d.weather_label_fr || "");
+              const tags = g.items.map((p) => p.tag).join(", ");
+              facts += `<span class="n7mini${warn ? " warn" : ""}"${tip ? ` title="${escapeHtml(tip)}"` : ""}>${_wxIcoHtml(g.w, true)}${escapeHtml(lbl)} \u00b7 ${escapeHtml(tags)}</span>`;
             }
-            if (d.delta_att_mobility_pct != null && Number(d.delta_att_mobility_pct) <= -4)
-              facts += `<span class="n7chip" style="background:#EDE9FE;color:#6D28D9;font-weight:650;">transports \u2212${Math.abs(Math.round(d.delta_att_mobility_pct))} % \u00b7 ${escapeHtml(tag)}</span>`;
+          }
+          for (const p of present) {
+            if (p.d.delta_att_mobility_pct != null && Number(p.d.delta_att_mobility_pct) <= -4)
+              facts += `<span class="n7chip" style="background:#EDE9FE;color:#6D28D9;font-weight:650;">transports \u2212${Math.abs(Math.round(p.d.delta_att_mobility_pct))} % \u00b7 ${escapeHtml(p.tag)}</span>`;
           }
           if (d0 && d0.holiday_name) facts = `<span class="n7chip" style="background:#F6EED9;color:#92671E;font-weight:650;">${escapeHtml(d0.holiday_name)}</span>` + facts;
         } else if (d0) {
-          if (d0.weather_label_fr) facts += `<span class="n7wx${_wxWarn(d0) ? " warn" : ""}">${escapeHtml(d0.weather_label_fr)}</span>`;
-          if (d0.temperature_2m_max != null) facts += `<span class="n7t">${Math.round(d0.temperature_2m_max)}\u00b0${d0.precipitation_probability_max_pct != null && Number(d0.precipitation_probability_max_pct) >= 40 ? " \u00b7 pluie " + Math.round(d0.precipitation_probability_max_pct) + " %" : ""}</span>`;
+          if (d0.weather_code != null) facts += _wxIcoHtml(_wmoWx(d0.weather_code), false);
+          if (d0.temperature_2m_max != null) facts += `<span class="n7temp">${Math.round(d0.temperature_2m_max)}\u00b0</span>`;
+          if (d0.weather_label_fr) facts += `<span class="n7wx${_wxWarn(d0) ? " warn" : ""}"${d0.weather_alert_fr ? ` title="${escapeHtml(d0.weather_alert_fr)}"` : ""}>${escapeHtml(d0.weather_label_fr)}</span>`;
+          if (d0.precipitation_probability_max_pct != null && Number(d0.precipitation_probability_max_pct) >= 40) facts += `<span class="n7t">pluie ${Math.round(d0.precipitation_probability_max_pct)} %</span>`;
           if (d0.holiday_name) facts += `<span class="n7chip" style="background:#F6EED9;color:#92671E;font-weight:650;">${escapeHtml(d0.holiday_name)}</span>`;
           else if (d0.vacation_name && !covered.has(String(d0.vacation_name) + "|" + ymd)) facts += `<span class="n7chip" style="background:#F6EED9;color:#92671E;">${escapeHtml(d0.vacation_name)}</span>`;
           if (d0.delta_att_mobility_pct != null && Number(d0.delta_att_mobility_pct) <= -4) facts += `<span class="n7chip" style="background:#EDE9FE;color:#6D28D9;font-weight:650;">transports \u2212${Math.abs(Math.round(d0.delta_att_mobility_pct))} %</span>`;

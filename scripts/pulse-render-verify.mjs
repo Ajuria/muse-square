@@ -101,6 +101,17 @@ check("bandeau : colonnes à FAITS (météo courte du payload)", (() => {
   const d0 = (monitorPayload.days || [])[0] || {};
   return d0.weather_label_fr ? txt().includes(d0.weather_label_fr) : true;
 })());
+// Inc B (owner 25/08 soir, point 1) : icône WMO + t° en gras sur CHAQUE jour porteur de météo.
+check("bandeau : icône météo (svg .n7ico) sur chaque jour à weather_code", (() => {
+  const withWx = (monitorPayload.days || []).filter((d) => d.weather_code != null).length;
+  return root.querySelectorAll(".pls-col svg.n7ico").length >= withWx;
+})(), root.querySelectorAll(".pls-col svg.n7ico").length + " icônes");
+check("bandeau : température en gras (.n7temp)", (() => {
+  const d0 = (monitorPayload.days || [])[0] || {};
+  if (d0.temperature_2m_max == null) return true;
+  const t0 = root.querySelector(".pls-col .n7temp");
+  return !!t0 && t0.textContent.includes(Math.round(d0.temperature_2m_max) + "°");
+})());
 check("bandeau : période (vacances ≥ 3 j) en ligne unique avec échéance", (() => {
   const vac = (monitorPayload.days || []).filter((d) => d.vacation_name);
   if (vac.length < 3) return true;
