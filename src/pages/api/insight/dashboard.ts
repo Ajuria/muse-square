@@ -278,6 +278,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 LEFT JOIN \`${PROJECT}.raw.competitor_directory\` cd
                   ON cd.competitor_id = oc.competitor_id AND cd.deleted_at IS NULL
                 WHERE ct.location_id IN UNNEST(@locs) AND ct.deleted_at IS NULL
+                -- un concurrent suivi par PLUSIEURS sites du compte fan-out sinon (grain mart
+                -- = competitor × item ; liste de trouvailles au niveau compte, prouvé 24/08)
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY oc.competitor_id, oc.item_norm ORDER BY ct.created_at) = 1
                 ORDER BY oc.current_crawled_at DESC LIMIT 8`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),

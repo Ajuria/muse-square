@@ -1497,7 +1497,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 html += '<div style="padding:2px 0;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + AMBER + ';margin-right:6px;"></span><span style="font-weight:600;">' + esc(trunc(o.nom, 26)) + ' — ' + lbl2 + '</span> · ' + esc(trunc(o.item || "", 40)) + prix
                   + (o.pct != null ? ' <span style="font-weight:600;color:' + AMBER + ';">' + (o.pct > 0 ? "+" : "") + Math.round(o.pct) + " %</span>" : "")
                   + (o.vu_le ? ' <span style="font-size:11px;color:#9CA3AF;">· vu le ' + frD(o.vu_le) + '</span>' : "")
-                  + (o.src_url ? ' · <a class="tb-link" style="font-size:11.5px;" href="' + esc(o.src_url) + '" target="_blank" rel="noopener">Consulter →</a>' : "")
+                  + (o.src_url && o.change_type !== "removed_offering" ? ' · <a class="tb-link" style="font-size:11.5px;" href="' + esc(o.src_url) + '" target="_blank" rel="noopener">Consulter →</a>' : "")
                   + '</div>';
               });
             } else if ((g.offres_base || {}).n_tarifs) {

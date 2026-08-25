@@ -413,7 +413,10 @@ if ((g.offres || []).length) {
   // (int_competitor_offering_changes, FULL OUTER JOIN — modèle lu 24/08). La date n'est
   // exigée que pour les lignes qui la portent.
   check("veille : chaque offre datée rend sa date de constat", (g.offres || []).some((o) => o.vu_le) ? txt().indexOf("vu le ") >= 0 : true);
-  check("veille : lien source quand l'URL existe (« Consulter → » externe — ban « leur page » 17/08)", (g.offres || []).some((o) => o.src_url) ? (g.offres || []).filter((o) => o.src_url).every((o) => rawHtml.indexOf('href="' + o.src_url) >= 0) : true);
+  // Une offre RETIRÉE n'a pas de lien (sa page ne la montre plus — owner 24/08 soir).
+check("veille : lien source ssi l'URL existe ET l'offre n'est pas retirée", (g.offres || []).every((o) =>
+  (o.src_url && o.change_type !== "removed_offering") === (rawHtml.indexOf('href="' + o.src_url + '"') >= 0 && o.src_url != null && o.change_type !== "removed_offering"))
+  && (g.offres || []).filter((o) => o.src_url && o.change_type !== "removed_offering").every((o) => rawHtml.indexOf('href="' + o.src_url) >= 0));
 }
 check("dispositifs : un seul statut de dernier test", txt().indexOf("dernier test non mesurable") < 0);
 check("équipe : zéro rangée « — » fantôme", (() => {
