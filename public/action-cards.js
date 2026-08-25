@@ -3079,15 +3079,16 @@
       return 'Action conseill\u00e9e : analyse de positionnement de ' + name + (r != null ? ' (note ' + r + '/5)' : '') + ' disponible. Ouvrez-la pour situer votre offre face à ce concurrent.';
     }, urgency: 'plan' },
     'competitor_reputation_strength': { action: function(a, p, d) {
-      var name = a.competitor_name || 'Un concurrent suivi';
-      var r = a.google_rating != null ? frDec(a.google_rating) : null;
-      var n = a.google_rating_count != null ? Number(a.google_rating_count) : null;
-      var rc = ratingCompare(a, p);
-      var avis = n != null ? ' sur ' + n.toLocaleString('fr-FR') + ' avis' : '';
-      if (rc && rc.sign > 0) return 'Action conseill\u00e9e : ' + name + ' est à ' + frDec(rc.theirs) + '/5' + avis + ', vous à ' + frDec(rc.mine) + '/5.';
-      if (rc && rc.sign < 0) return 'Action conseill\u00e9e : vous êtes à ' + frDec(rc.mine) + '/5, ' + name + ' à ' + frDec(rc.theirs) + '/5' + avis + '.';
-      if (rc) return 'Action conseill\u00e9e : ' + name + ' et vous à ' + frDec(rc.mine) + '/5' + avis + '.';
-      return 'Action conseill\u00e9e : ' + name + ' affiche une réputation solide' + (r != null ? ' (' + r + '/5' + avis + ')' : '') + '.';
+      // RÉTROGRADÉE EN INFORMATION (owner 25/08). Les quatre branches rendaient le FAIT sous
+      // l'étiquette « Action conseillée » — « Centre Pompidou est à 4,5/5 sur 134 avis, vous à
+      // 4,1/5 » n'est pas un geste, c'est le titre recopié. Le corpus owner de cette carte
+      // (reco-library) est un échafaudage VIDE : aucun mot n'a été arbitré pour ce cas, et la
+      // règle maison interdit d'en inventer un (« un concept sans mot ⇒ demander LE mot »).
+      // Le geste voisin existe déjà par ailleurs, porté par sa propre carte
+      // (review_solicitation) : en fabriquer un doublon ici serait pire que le silence.
+      // Même mécanisme que la réserve de régime : '' -> la carte garde titre et fait, sans
+      // ligne d'action. À rouvrir le jour où l'owner écrit le geste.
+      return '';
     }, urgency: 'plan' },
     'sales_missed_opportunity': { action: function(a, p, d) {
       var avg = a.avg_30d != null ? Math.round(Number(a.avg_30d)) : null;

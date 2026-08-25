@@ -387,7 +387,7 @@ if (!location_id) {
     <script is:inline src="/reco-library.js?v=12"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=93"></script>
+    <script is:inline src="/action-cards.js?v=94"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
 
@@ -2911,7 +2911,16 @@ if (!location_id) {
     var _uplift = _base != null ? Math.round((_base / _days) * _ypct / 100 / 10) * 10 : null; // €/day, rounded to 10
     // R1 (proto engagement-cards-restyle-proto.html, validé 27/07) : le titre est l'ACTION
     // elle-même ; le chiffre (objectif ou résultat) vit en zone titre (bloc .amt, cf. _amt).
-    var _titre = String(r.committed_action_text || '');
+    // TITRE COURT, OBJECTIF EN DESSOUS (owner 25/08). `committed_action_text` est la saisie
+    // BRUTE de l'exploitant : sur le compte owner, quarante mots avec leurs coquilles servaient
+    // de titre de carte, sur deux lignes tronquées. La carte garde la phrase ENTIÈRE — c'est sa
+    // parole, on n'y touche pas — mais le titre s'arrête au premier séparateur fort (tiret
+    // cadratin, deux-points, point, retour à la ligne) et le reste descend dans le corps.
+    // Repli : phrase courte -> titre inchangé, aucun corps ajouté.
+    var _saisie = String(r.committed_action_text || '');
+    var _coupe = _saisie.search(/\s+[—–]\s+|\s*:\s|\.\s|\n/);
+    var _titre = (_coupe > 12 && _saisie.length > 70) ? _saisie.slice(0, _coupe).trim() : _saisie;
+    var _reste = (_titre !== _saisie) ? _saisie.slice(_titre.length).replace(/^[\s—–:.]+/, '').trim() : '';
     var sowhat = r.status === 'open' ? escapeHtml((r.window_kind === 'day_of' ? 'Mesure ' : 'Mesure sur ') + _cgWin(r.window_kind, r.window_start) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'expired' ? escapeHtml('Aucune donnée de ventes reçue en 30 j.')
@@ -3013,6 +3022,7 @@ if (!location_id) {
               + '<div style="display:flex;align-items:flex-start;gap:12px;justify-content:space-between;">'
                 + '<div style="flex:1;min-width:0;">'
                   + '<div class="ab-what" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;" title="' + escapeHtml(_titre) + '">' + escapeHtml(_titre) + '</div>'
+                  + (_reste ? '<div class="ab-sowhat" style="color:#4B5563;">' + escapeHtml(_reste) + '</div>' : '')
                   + '<div class="ab-sowhat">' + sowhat + '</div>'
                 + '</div>'
                 + '<div class="ab-eur">' + _plsRowMeta(r.window_start, locLabel) + _amt + '</div>'
