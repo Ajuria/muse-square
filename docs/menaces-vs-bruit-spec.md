@@ -1,61 +1,74 @@
-# Menaces réelles vs bruit ambiant — spec courte (25/08, point 7 owner)
+# Menaces vs bruit — AMENDEMENT à `competition-split-spec.md` (25/08)
 
-**Constat owner (25/08)** : « Différenciez-vous de vos concurrents proches » cite des
-événements du rayon qui ne le concernent pas. Le problème est structurel : les cartes de
-densité comptent TOUT le rayon, pas ce qui vous prend des clients.
+> **Ce document a été RÉÉCRIT le 25/08 au soir.** Sa première version rouvrait une question
+> déjà tranchée : elle re-dérivait la doctrine de `docs/competition-split-spec.md` (28/07)
+> sans la citer, et proposait un seuil CONCURRENT du seuil déjà en production. Ce qui suit
+> ne garde que ce qui n'existait nulle part, et corrige les trois erreurs.
 
-**Verdicts de `docs/card-truth-audit.md` (cités, pas re-déduits)** :
-- `competition_proximity` — recouvrement d'audience plat à **33 %**, sous la barre **40 %**
-  que la page profonde concurrence applique déjà ; « concurrents » = Louvre, Orsay,
-  Quai Branly ; classe `competition_high` mesurée +14 €/j, t = 0,4 → bruit.
-  Verdict audit : **durcir (overlap ≥ 40 %) ou démettre**.
-- `high_competition_density` — la règle de tir **ignore le même-secteur** (pressure_ratio +
-  events_5km, jamais une densité concurrente) ; part même-secteur réelle 53 % sur f10c3e58,
-  payload affichant « 0 » (bug d'unité). Verdict audit : **brancher la copie sur la part
-  même-secteur + corriger l'unité**.
-- `low_competition_window` — règle **SAINE** (tercile bas de `competition_index_local`,
-  mesure +88 €/j t = 2,4). **Garder telle quelle.**
+## Ce qui existe déjà, et fait loi
 
-## Doctrine (ratifiée 25/08)
+**`docs/competition-split-spec.md` (28/07)** pose EXACTEMENT la question du 25/08 —
+« la densité autour de moi cannibalise-t-elle ou entraîne-t-elle ? » — et la tranche :
 
-**Une MENACE a un lien DIRECT à vous**, trois sources déjà en base :
-1. **Vos suivis** — `competitor_tracking` × directory par location_id (la vérité, mémoire
-   23/08) : leurs événements, changements de prix, offres (la veille les calcule déjà —
-   `fct_competitor_offering_changes`).
-2. **Le recouvrement mesuré** — `threat_profile` (public commun × distance), seuil ≥ 40 %,
-   le même que la page profonde concurrence (aucun nouveau seuil à inventer).
-3. **Le même secteur dans votre périmètre déclaré** — part même-secteur (`same_bucket`),
-   jamais la densité toutes-catégories.
+> Cannibaliser exige une substitution → événement du **même secteur**.
+> Entraîner ne l'exige pas → n'importe quel événement met du public dans le quartier.
 
-**Le reste est du CONTEXTE** : la densité d'événements ambiante quitte les cartes-action et
-descend dans le **bandeau** comme fait du jour (« N événements à 1 km », infobulle : les plus
-proches nommés) — visible, jamais impératif. `days[]` porte déjà
-`events_within_500m/1km/5km_count` : zéro fetch de plus.
+Et ses 5 modifications sont **EN PRODUCTION** (vérifié dans `origin/main` du dépôt dbt,
+25/08) : `* 100` sur l'unité à 6 endroits, seuils `>= 0.25` / `> 0.25` à 3 endroits, la
+scission exposée (`events_within_5km_same_bucket_count`, l. 644 et 762-763), et la copie
+qui bifurque déjà sur le même-secteur :
 
-## Sort des cartes
+> ≥ 25 % : « …% sont dans votre secteur - ils disputent votre public. Differenciez votre offre. »
+> < 25 % : « Seulement …% sont dans votre secteur : ce public est dans le quartier sans vous
+> etre dispute. Allez le capter. »
 
-| Carte | Sort |
-|---|---|
-| `competitor_threat_direct`, `competitor_event_launch`, `competitor_audience_conflict`, `competitor_review_*`, `competitor_hours_change`, `competitor_new_offering`, `competitor_sold_out` | **Gardent l'action** — déjà fondées sur les suivis |
-| `competition_proximity` | Porte lien-direct : ne tire que si overlap ≥ 40 % OU l'événement le plus proche appartient à un suivi ; sinon son fait part au bandeau |
-| `high_competition_density`, `competition_pressure_spike` | Copie re-branchée sur la part MÊME-SECTEUR (verdict audit) ; sous le seuil → bandeau |
-| `low_competition_window` | Inchangée (audit : saine) |
+## Les trois erreurs de la première version (corrigées ici)
 
-## Incréments
+1. **Seuil forké.** Elle proposait « carte si part ≥ 40 % » comme décision owner. Le seuil
+   du même-secteur est **25 %**, arbitré et déployé le 28/07, et il gouverne déjà les deux
+   gestes ci-dessus. Aucun seuil à décider : il existe.
+2. **Verdict périmé (unité).** Elle écrivait « payload affichant "0" (bug d'unité) ».
+   Corrigé le 28/07 (modification 1).
+3. **Verdict périmé (proximité) — le plus grave.** Elle écrivait « durcir ≥ 40 % ou
+   démettre » pour `competition_proximity`, en citant l'audit du 28/07. Or le **RÉEXAMEN DU
+   31/07** (même fichier) le reclasse **A — déclaratif** et conclut « **non jugeable
+   aujourd'hui** » ; et le **30/07, l'owner avait refusé de la démettre** et imposé la
+   question du périmètre à la place. La spec rouvrait une décision owner déjà prise.
 
-1. **App — bandeau contexte** : ligne densité dans la colonne jour (fait + infobulle),
-   retrait des tirs ambiants du fil. Aucun changement dbt.
-2. **App — porte lien-direct** sur `competition_proximity` (overlap déjà dans le payload de
-   la page profonde ; vérifier sa présence dans le payload candidates via bq-verify avant de
-   coder — sinon petite passe dbt pour l'y joindre).
-3. **dbt (éventuel)** : joindre événement ↔ suivi (event × competitor_id des suivis) pour que
-   « le plus proche » ne soit nommé que s'il est un concurrent au sens ci-dessus.
+Erreur de méthode adjacente : « la règle de tir ignore le même-secteur » était présentée
+comme un défaut. C'est une décision explicite du 28/07 — « **Ne pas la tuer** : une forte
+densité non concurrente reste actionnable […] c'est la **copie et le payload** qui doivent
+se brancher sur la scission, **pas la règle de tir** ».
 
-## Décisions owner AVANT code
+## Ce qui est réellement neuf (deux choses)
 
-- Le mot du bandeau pour la densité ambiante (« autour de vous » est acté au tableau ;
-  proposer : « N événements à 1 km » nu, sans qualificatif) — un mot à valider.
-- Démettre ou durcir `competition_proximity` (l'audit laisse les deux ouverts).
-- Le seuil même-secteur qui sépare carte (action) et bandeau (contexte) — l'audit mesure
-  53 % sur votre site ; proposition : carte si part ≥ 40 % (cohérence avec l'overlap), sinon
-  bandeau.
+### 1 · La re-mesure de `competition_proximity` est DÉBLOQUÉE
+
+Le réexamen du 31/07 la suspendait à une condition précise : « re-mesurer après les
+premières réponses » au périmètre (`client_catchment` NULL sur les 32 lieux à l'époque).
+
+**Mesuré le 25/08** : `mart.fct_location_context_daily`, date du jour — 32 lieux,
+**1 réponse**, et c'est **la vôtre** : `f10c3e58 → commune`.
+
+La condition posée le 31/07 est donc remplie **sur votre compte**. Le geste n'est pas
+d'écrire une spec : c'est de **re-mesurer le recouvrement au rayon commune** et de comparer
+aux 33 % mesurés à l'ancien rayon. Le verdict suivra la mesure, pas l'inverse.
+
+### 2 · La densité ambiante comme CONTEXTE au bandeau
+
+Rien dans les docs existants ne dit OÙ va la densité non concurrente. Aujourd'hui elle
+reste une carte-action (« Différenciez-vous… »), donc un impératif, alors que la doctrine
+du 28/07 en fait du public à capter — pas une menace.
+
+**Proposition** : sous le seuil de 25 %, le fait descend dans la colonne du jour du bandeau
+Agir (fait + infobulle nommant les plus proches) et quitte le fil des actions.
+`days[]` porte déjà `events_within_500m/1km/5km_count` — zéro requête de plus, zéro dbt.
+
+**Seule décision owner** : le mot du bandeau. Proposition : « N événements à 1 km », nu,
+sans qualificatif (« autour de vous » est déjà acté au tableau, réutilisable).
+
+## Ordre
+
+1. Re-mesurer le recouvrement de `competition_proximity` au périmètre déclaré `commune`
+   (votre site) — chiffre d'abord, verdict ensuite.
+2. Bandeau contexte, dès que le mot est validé.
