@@ -127,29 +127,6 @@ if (!location_id) {
       .mon-statut-risk { background: var(--color-pill-risk-bg); color: var(--color-pill-risk-text); border: 1px solid var(--color-pill-risk-border); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 
       /* ---- Date pills ---- */
-      .pls-pills {
-        display: flex; gap: 6px; flex-wrap: wrap;
-        padding: 12px 0 0 0;
-      }
-
-      .pls-pill {
-        padding: 5px 12px; border-radius: 999px;
-        font-size: 12px; font-weight: 600;
-        border: 1px solid #e5e7eb;
-        background: #fff; color: #6b7280;
-        cursor: pointer; white-space: nowrap;
-        transition: all 100ms;
-        display: inline-flex; align-items: center; gap: 6px;
-      }
-      .pls-pill.is-today { border-color: #1D3BB3; color: #1D3BB3; }
-      .pls-pill.is-active { background: #1D3BB3; border-color: #1D3BB3; color: #fff; }
-      .pls-pill.has-crit  { border-color: #e24b4a; }
-      .pls-pill.has-warn  { border-color: #ef9f27; }
-      .pls-pill-dot {
-        width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
-      }
-
-      /* ---- Navigator (7-day score-bar strip) ---- */
       .pls-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 1px 5px; border-radius:10px; background:transparent; border:none; font-family:inherit; cursor:pointer; }
       .pls-col.is-sel { background:rgba(29,59,179,0.08); }
       .pls-ba { height:70px; width:100%; display:flex; align-items:flex-end; justify-content:center; }
@@ -182,18 +159,7 @@ if (!location_id) {
       .pls-goal-pop { position:absolute; top:100%; right:0; margin-top:4px; z-index:20; min-width:220px; max-width:280px; background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; box-shadow:0 6px 20px rgba(16,24,40,0.12); padding:12px; }
       .pls-goal-pop[hidden] { display:none; }
 
-      .mon-context-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
-      .mon-context-cell { display: flex; flex-direction: column; gap: 2px; }
-      .mon-context-label { font-size: 11px; color: #9CA3AF; text-transform: uppercase; letter-spacing: .06em; }
-      .mon-context-value { font-size: 13px; color: #111827; }
 
-      .mon-map-btn {
-        height: 36px; border: 1px solid #E5E7EB; border-radius: 6px;
-        background: #f9fafb; color: #6b7280;
-        font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
-        text-transform: uppercase; cursor: pointer;
-      }
-      .mon-map-btn.is-active { border-color: #0b37e5; color: #0b37e5; }
 
       /* ---- Action-card chips / action line / Agir / disposition ---- */
       .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
@@ -268,8 +234,6 @@ if (!location_id) {
       .pls-sk { background:linear-gradient(90deg,#EDEFF2 25%,#F6F7F9 50%,#EDEFF2 75%); background-size:200% 100%; animation:pls-sk 1.4s infinite; border-radius:6px; }
       @keyframes pls-sk { 0% { background-position:200% 0; } 100% { background-position:-200% 0; } }
       @media (prefers-reduced-motion: reduce) { .pls-sk { animation:none; } }
-      .ab-toggle { display:flex; align-items:center; padding:0 16px 12px; }
-      .ab-toggle-btn { font-size:12px; font-weight:700; color:#1D3BB3; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; display:flex; align-items:center; gap:5px; }
       .ab-actions { display:none; padding:0 16px 14px; border-top:1px solid #F3F4F6; }
       .ab-actions.is-open { display:block; }
       .ab-action-item { display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid #F9FAFB; }
@@ -282,11 +246,6 @@ if (!location_id) {
       .ab-action-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; margin-left:auto; padding-top:2px; }
       .ab-copy { font-size:10px; font-weight:600; color:#1D3BB3; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; white-space:nowrap; }
       .ab-copy.is-copied { color:#059669; }
-      .ab-progress { display:flex; align-items:center; gap:8px; margin-top:8px; }
-      .ab-progress-bar { flex:1; height:3px; background:#E5E7EB; overflow:hidden; }
-      .ab-progress-fill { height:100%; background:#059669; transition:width 0.3s; }
-      .ab-progress-label { font-size:10px; color:#6B7280; white-space:nowrap; }
-      .ab-help-link { display:block; margin-top:10px; padding-top:10px; border-top:1px solid #F3F4F6; font-size:11px; color:#1D3BB3; text-decoration:none; font-weight:500; }
       .ab-zero { background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.15); border-radius:10px; padding:16px 18px; display:flex; align-items:center; gap:10px; font-size:13px; font-weight:500; color:#059669; }
       .ab-gen { font-size:10px; font-weight:600; color:#1D3BB3; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; white-space:nowrap; }
       .ab-gen.is-loading { color:#9CA3AF; pointer-events:none; }
@@ -300,13 +259,7 @@ if (!location_id) {
       .ab-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:9999; align-items:flex-end; justify-content:center; }
       /* ---- Tier 2 visual uplift ---- */
       .ab-cat-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-      .ab-cat-icon-opportunity { background:#E1F5EE; color:#0F6E56; }
-      .ab-cat-icon-weather { background:#FAEEDA; color:#854F0B; }
-      .ab-cat-icon-competition { background:#FCEBEB; color:#A32D2D; }
-      .ab-cat-icon-calendar { background:#EEEDFE; color:#534AB7; }
-      .ab-cat-icon-urgent { background:#FCEBEB; color:#A32D2D; }
       .ab-cat-icon-intelligence { background:#E6F1FB; color:#185FA5; }
-      .ab-cat-icon-performance { background:#E6F1FB; color:#185FA5; }
       .ab-disc { width:34px; height:34px; border-radius:50%; background:rgba(29,59,179,0.08); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
       .ab-metrics-strip { display:flex; gap:6px; flex-wrap:wrap; padding:0 16px 12px; }
       .ab-metric, .ab-metric-warn, .ab-metric-good { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); font-size:12px; color:var(--color-pill-source-low-text); border:none; }
@@ -483,36 +436,6 @@ if (!location_id) {
     context:      'CONTEXTE',
   };
 
-  function computeStatusPill(day) {
-    if (day?.is_forced_regime_c_flag === true) {
-      return { cls: 'mon-statut-risk', label: 'À RISQUE' };
-    }
-    const all = [
-      ...(day?.attendance   || []),
-      ...(day?.operations   || []),
-      ...(day?.installation || []),
-      ...(day?.context      || []),
-    ].filter(r => r.severity !== 'A');
-
-    if (!all.length) {
-      return { cls: 'mon-statut-safe', label: 'SANS RISQUE' };
-    }
-
-    const maxSev = all.reduce((max, r) => {
-      return (['D','C','B'].indexOf(r.severity) < ['D','C','B'].indexOf(max) ? r.severity : max);
-    }, 'B');
-
-    const cls = (maxSev === 'D' || maxSev === 'C') ? 'mon-statut-risk' : 'mon-statut-warn';
-
-    if (all.length === 1) {
-      const block = all[0].block;
-      const label = 'ALERTE ' + (BLOCK_LABELS[block] || block.toUpperCase());
-      return { cls, label };
-    }
-
-    const count = all.length;
-    return { cls, label: `${count} RISQUES` };
-  }
 
   function next8Days() {
     const dates = [];
@@ -534,18 +457,7 @@ if (!location_id) {
   const AMBER  = "background:var(--color-pill-warn-bg);color:var(--color-pill-warn-text);border:1px solid var(--color-pill-warn-border);";
   const RED    = "background:var(--color-pill-risk-bg);color:var(--color-pill-risk-text);border:1px solid var(--color-pill-risk-border);";
 
-  function severityDots(level) {
-    const l = Math.min(4, Math.max(1, Number(level)||1));
-    return [1,2,3,4].map(i =>
-      `<span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${i<=l?"#1D3BB3":"#E2E8F0"};"></span>`
-    ).join("&nbsp;");
-  }
 
-  function iconSVG(kind) {
-    if (kind==="alert")   return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 9v4" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/><path d="M12 17h.01" stroke="#1D3BB3" stroke-width="3" stroke-linecap="round"/><path d="M10.3 4.3l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-2.7l-8-14a2 2 0 0 0-3.4 0z" stroke="#1D3BB3" stroke-width="1.6"/></svg>`;
-    if (kind==="context") return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M7 2v3M17 2v3" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"/><path d="M3.5 9h17" stroke="#1D3BB3" stroke-width="1.6"/><path d="M6 5h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" stroke="#1D3BB3" stroke-width="1.6"/></svg>`;
-    return "";
-  }
 
   function feedCatIcon(cat) {
     const c = String(cat||"").toLowerCase();
@@ -1025,259 +937,6 @@ if (!location_id) {
   // ----------------------------------------------------------------
   // Concurrents suivis section (UNTOUCHED — reference model)
   // ----------------------------------------------------------------
-  function renderSuivisMonitorSection(signals, eventDate, followedCount) {
-    if (signals.length === 0) {
-      if (!followedCount) return "";
-      return `
-        <div class="mon-card">
-          <div class="mon-head">
-            <div class="mon-ico">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="1.6" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </div>
-            <div>
-              <div class="mon-kicker" style="margin:0;">Concurrents suivis</div>
-              <div style="font-size:13px;color:#6B7280;margin-top:4px;">Aucun signal détecté. <a href="/app/insightevent/suivis" style="color:#1D3BB3;text-decoration:none;">Gérer mes suivis →</a></div>
-            </div>
-          </div>
-        </div>`;
-    }
-
-    const fmtDate = (iso) => {
-      if (!iso) return "—";
-      const months = ["jan.","fév.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
-      const raw = String(iso).slice(0,10);
-      const parts = raw.split("-");
-      return parseInt(parts[2]) + " " + months[parseInt(parts[1])-1] + " " + parts[0];
-    };
-
-    const fmtDateRange = (start, end) => {
-      const s = fmtDate(start);
-      if (!end) return s;
-      const e = fmtDate(end);
-      return `${s} → ${e}`;
-    };
-
-    const byComp = new Map();
-    for (const s of signals) {
-      const cid = s.competitor_id || "unknown";
-      if (!byComp.has(cid)) byComp.set(cid, []);
-      byComp.get(cid).push(s);
-    }
-
-    const compEntries = [...byComp.entries()].sort((a, b) => {
-      const aOverlaps = a[1].filter(s => s.industry_overlap || s.audience_overlap || s.distance_flag).length;
-      const bOverlaps = b[1].filter(s => s.industry_overlap || s.audience_overlap || s.distance_flag).length;
-      if (bOverlaps !== aOverlaps) return bOverlaps - aOverlaps;
-      const aMax = Math.max(...a[1].map(s => Number(s.conflict_score || 0)));
-      const bMax = Math.max(...b[1].map(s => Number(s.conflict_score || 0)));
-      return bMax - aMax;
-    });
-
-    const totalSignals = signals.length;
-    const totalComps = compEntries.length;
-
-    const cardsHtml = compEntries.map(([cid, compSignals]) => {
-      const first = compSignals[0];
-      const name = first.competitor_name || "Concurrent";
-      const rating = first.google_rating;
-      const ratingCount = first.google_rating_count;
-      const photo = first.google_photos;
-      const distM = first.distance_from_location_m;
-      const distKm = distM ? (Number(distM) / 1000).toFixed(1) : null;
-
-      const hasAudienceOverlap = compSignals.some(s => s.audience_overlap);
-      const hasIndustryOverlap = compSignals.some(s => s.industry_overlap);
-      const hasDistanceFlag = compSignals.some(s => s.distance_flag);
-      const hasAnyOverlap = hasAudienceOverlap || hasIndustryOverlap || hasDistanceFlag;
-
-      const launches = compSignals.filter(s => s.is_launch);
-      const active = compSignals.filter(s => s.is_active && !s.is_launch);
-      const upcoming = compSignals.filter(s => s.is_upcoming && !s.is_active && !s.is_launch);
-
-      const AUDIENCE_FR = {
-        local: "résidents locaux", professionals: "professionnels",
-        tourists: "touristes", students: "étudiants",
-        families: "familles", seniors: "seniors",
-        general_public: "grand public", art_lovers: "amateurs d'art",
-        mixed: "public mixte"
-      };
-      const locAuds = [first.location_primary_audience_1, first.location_primary_audience_2].filter(Boolean);
-      
-      const compAuds = [first.competitor_primary_audience, first.competitor_secondary_audience].filter(Boolean);
-      const sharedCompAuds = compAuds.filter(a => locAuds.includes(a)).map(a => AUDIENCE_FR[a] || a);
-      
-      const eventAuds = [...new Set(compSignals.map(s => s.event_primary_audience).filter(Boolean))];
-      const sharedEventAuds = eventAuds.filter(a => locAuds.includes(a)).map(a => AUDIENCE_FR[a] || a);
-      
-      const shortEvents = compSignals.filter(s => {
-        if (!s.event_date_end) return true;
-        const start = new Date(normalizeYmd(s.event_date?.value ?? s.event_date));
-        const end = new Date(normalizeYmd(s.event_date_end?.value ?? s.event_date_end));
-        return (end - start) / 86400000 < 14;
-      });
-      const longEvents = compSignals.filter(s => {
-        if (!s.event_date_end) return false;
-        const start = new Date(normalizeYmd(s.event_date?.value ?? s.event_date));
-        const end = new Date(normalizeYmd(s.event_date_end?.value ?? s.event_date_end));
-        return (end - start) / 86400000 >= 14;
-      });
-
-      let takeaway = "";
-      let takeawayAccent = "#1D3BB3";
-
-      if (sharedEventAuds.length > 0 && launches.length > 0) {
-        takeaway = `Lancement ciblant ${sharedEventAuds.join(" et ")}${distKm ? ` à ${distKm} km` : ""} — captation directe de votre audience.`;
-        takeawayAccent = "#E24B4A";
-      } else if (sharedEventAuds.length > 0 && shortEvents.length > 0) {
-        takeaway = `${shortEvents.length} événement${shortEvents.length > 1 ? "s" : ""} ciblant ${sharedEventAuds.join(" et ")}${distKm ? ` à ${distKm} km` : ""} — concurrence directe sur votre public.`;
-        takeawayAccent = "#E24B4A";
-      } else if (sharedCompAuds.length > 0 && sharedEventAuds.length === 0) {
-        const eventAudLabels = eventAuds.map(a => AUDIENCE_FR[a] || a).join(", ");
-        takeaway = eventAudLabels
-          ? `Concurrent ciblant ${sharedCompAuds.join(" et ")}, mais programmation actuelle orientée ${eventAudLabels} — impact limité.`
-          : `Concurrent ciblant ${sharedCompAuds.join(" et ")}${distKm ? ` à ${distKm} km` : ""} — surveiller la programmation.`;
-        takeawayAccent = "#EF9F27";
-      } else if (sharedEventAuds.length > 0 && longEvents.length > 0 && shortEvents.length === 0) {
-        takeaway = `Programmation longue ciblant ${sharedEventAuds.join(" et ")} — présence continue, impact diffus.`;
-        takeawayAccent = "#EF9F27";
-      } else if (hasIndustryOverlap && !hasAudienceOverlap) {
-        takeaway = `Même secteur, public différent${distKm ? ` (${distKm} km)` : ""} — concurrence indirecte.`;
-        takeawayAccent = "#1D3BB3";
-      } else if (hasDistanceFlag && !hasAudienceOverlap && !hasIndustryOverlap) {
-        const compAudLabel = compAuds.map(a => AUDIENCE_FR[a] || a).join(", ");
-        takeaway = compAudLabel
-          ? `Cible ${compAudLabel}${distKm ? ` à ${distKm} km` : ""} — public différent du vôtre.`
-          : `À proximité${distKm ? ` (${distKm} km)` : ""} — faible risque.`;
-        takeawayAccent = "#1D3BB3";
-      } else if (!hasAnyOverlap) {
-        takeaway = "";
-        takeawayAccent = "#9CA3AF";
-      } else {
-        takeaway = `${compSignals.length} événement${compSignals.length > 1 ? "s" : ""} détecté${compSignals.length > 1 ? "s" : ""}${distKm ? ` à ${distKm} km` : ""}.`;
-        takeawayAccent = "#1D3BB3";
-      }
-
-      const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-      const photoHtml = photo
-        ? `<img style="width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;" src="${escapeHtml(photo)}" alt="">`
-        : `<div style="width:52px;height:52px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:16px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">${escapeHtml(initials)}</div>`;
-
-      const ratingHtml = rating
-        ? `<span style="color:#854F0B;font-weight:500;">★ ${rating}${ratingCount ? ` · ${Number(ratingCount).toLocaleString('fr-FR')} avis` : ''}</span>`
-        : '';
-
-      const threatLevel = first.entity_threat_level || null;
-      const threatIndustryTier = first.entity_threat_industry_tier || null;
-      const threatSeasonality = first.entity_threat_seasonality_flag === true;
-      const THREAT_PILL = { high: { bg: "var(--color-pill-risk-bg)", fg: "var(--color-pill-risk-text)", t: "Menace \u00e9lev\u00e9e" }, moderate: { bg: "var(--color-pill-warn-bg)", fg: "var(--color-pill-warn-text)", t: "Menace mod\u00e9r\u00e9e" }, low: { bg: "var(--color-pill-source-low-bg)", fg: "var(--color-pill-source-low-text)", t: "Menace faible" } };
-      const INDUSTRY_PILL = { direct: { bg: "var(--color-pill-risk-bg)", fg: "var(--color-pill-risk-text)", t: "M\u00eame secteur" }, partial: { bg: "var(--color-pill-risk-bg)", fg: "var(--color-pill-risk-text)", t: "Secteur proche" }, contextual: { bg: "var(--color-pill-source-low-bg)", fg: "var(--color-pill-source-low-text)", t: "Secteur diff\u00e9rent" } };
-      const tp = THREAT_PILL[threatLevel] || null;
-      const ip = INDUSTRY_PILL[threatIndustryTier] || null;
-      const sharedAudLabel = sharedEventAuds.length ? sharedEventAuds.join(", ") : (sharedCompAuds.length ? sharedCompAuds.join(", ") : null);
-      const pillParts = [];
-      if (tp) pillParts.push(plsChip(tp.t, tp));
-      if (ip) pillParts.push(plsChip(ip.t, ip));
-      if (sharedAudLabel) pillParts.push(plsChip("Cible : " + sharedAudLabel, { bg: "var(--color-pill-risk-bg)", fg: "var(--color-pill-risk-text)" }));
-      if (threatSeasonality) pillParts.push(plsChip("M\u00eame saisonnalit\u00e9", { bg: "var(--color-pill-info-bg)", fg: "var(--color-pill-info-text)" }));
-      const flagsHtml = pillParts.length ? `<div style="display:flex;gap:5px;flex-wrap:wrap;">${pillParts.join("")}</div>` : '';
-
-      function renderEventRows(events, maxVisible, defaultDotColor) {
-        if (!events.length) return "";
-        const visible = events.slice(0, maxVisible);
-        const hidden = events.slice(maxVisible);
-        function eventDotColor(s) {
-          if (s.audience_overlap) return "var(--color-dot-audience)";
-          if (s.industry_overlap) return "var(--color-dot-industry)";
-          if (s.distance_flag) return "var(--color-dot-proximity)";
-          return "var(--color-dot-neutral)";
-        }
-        function eventThreatLine(s) {
-          const evAud = s.event_primary_audience ? (AUDIENCE_FR[s.event_primary_audience] || s.event_primary_audience) : null;
-          if (s.audience_overlap && s.industry_overlap) return '<div style="font-size:11px;color:var(--color-pill-risk-text);margin-top:3px;">Concurrence directe \u2014 m\u00eame public, m\u00eame secteur</div>';
-          if (s.audience_overlap) return '<div style="font-size:11px;color:var(--color-pill-risk-text);margin-top:3px;">Capte votre audience' + (evAud ? ' \u2014 ' + escapeHtml(evAud) : '') + '</div>';
-          if (s.industry_overlap) return '<div style="font-size:11px;color:var(--color-pill-warn-text);margin-top:3px;">M\u00eame secteur, public diff\u00e9rent</div>';
-          if (s.date_conflict) return '<div style="font-size:11px;color:var(--color-pill-risk-text);margin-top:3px;">Conflit de date avec votre \u00e9v\u00e9nement</div>';
-          return '';
-        }
-        let html = visible.map(s => {
-          const evName = s.event_name || "\u2014";
-          const venue = s.venue_name || "";
-          const dateStr = s.event_date_end
-            ? fmtDateRange(normalizeYmd(s.event_date?.value ?? s.event_date), normalizeYmd(s.event_date_end?.value ?? s.event_date_end))
-            : fmtDate(normalizeYmd(s.event_date?.value ?? s.event_date));
-          const detailParts = [dateStr, venue].filter(Boolean);
-          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid #F3F4F6;">
-            <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px;background:${eventDotColor(s)};"></span>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;color:var(--color-text-primary);line-height:1.35;">${escapeHtml(evName)}</div>
-              ${detailParts.length ? `<div style="font-size:11px;color:var(--color-text-secondary);margin-top:2px;">${escapeHtml(detailParts.join(' \u00b7 '))}</div>` : ''}
-              ${eventThreatLine(s)}
-            </div>
-          </div>`;
-        }).join("");
-        if (hidden.length) {
-          const hiddenHtml = hidden.map(s => {
-            const evName = s.event_name || "\u2014";
-            const venue = s.venue_name || "";
-            const dateStr = s.event_date_end
-              ? fmtDateRange(normalizeYmd(s.event_date?.value ?? s.event_date), normalizeYmd(s.event_date_end?.value ?? s.event_date_end))
-              : fmtDate(normalizeYmd(s.event_date?.value ?? s.event_date));
-            const detailParts = [dateStr, venue].filter(Boolean);
-            return `<div class="ms-comp-extra" style="display:none;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid #F3F4F6;">
-              <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px;background:${eventDotColor(s)};"></span>
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:13px;color:var(--color-text-primary);line-height:1.35;">${escapeHtml(evName)}</div>
-                ${detailParts.length ? `<div style="font-size:11px;color:var(--color-text-secondary);margin-top:2px;">${escapeHtml(detailParts.join(' \u00b7 '))}</div>` : ''}
-                ${eventThreatLine(s)}
-              </div>
-            </div>`;
-          }).join("");
-          html += hiddenHtml;
-          html += `<div style="padding:8px 0 0;"><button type="button" onclick="this.parentElement.style.display='none';this.closest('.ms-comp-card').querySelectorAll('.ms-comp-extra').forEach(e=>e.style.display='flex');" style="font-size:11px;font-weight:500;color:var(--color-brand-blue);background:none;border:none;padding:0;cursor:pointer;">+${hidden.length} \u00e9v\u00e9nement${hidden.length > 1 ? 's' : ''} \u2192</button></div>`;
-        }
-        return html;
-      }
-
-      function section(label, content) {
-        if (!content) return "";
-        return `<div style="font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:#9CA3AF;padding:14px 0 6px;border-top:0.5px solid #F3F4F6;margin-top:12px;">${escapeHtml(label)}</div>${content}`;
-      }
-
-      const launchesHtml = launches.length ? section("Lancements événements concurrents", renderEventRows(launches, 3, "#E24B4A")) : "";
-      const activeHtml = active.length ? section("Événements en cours", renderEventRows(active, 3, "#1D3BB3")) : "";
-      const upcomingHtml = upcoming.length ? section("À venir", renderEventRows(upcoming, 3, "#EF9F27")) : "";
-
-      return `<div class="ms-comp-card" style="background:#fff;border:0.5px solid #E8EDF5;border-radius:12px;overflow:hidden;">
-        <div style="display:flex;align-items:center;gap:12px;padding:16px 20px;">
-          ${photoHtml}
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:15px;font-weight:500;color:#111827;margin:0 0 2px;">${escapeHtml(name)}</div>
-            <div style="font-size:12px;color:#6B7280;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              ${ratingHtml}
-              ${distKm ? `<span>${distKm} km</span>` : ''}
-            </div>
-          </div>
-        </div>
-        <div style="padding:0 20px 16px;">
-          ${flagsHtml}
-          ${takeaway ? `<div style="font-size:12px;color:#111827;background:#F9FAFB;border-radius:8px;padding:10px 14px;margin-top:${hasAnyOverlap ? '10' : '0'}px;line-height:1.45;border-left:3px solid ${takeawayAccent};">${escapeHtml(takeaway)}</div>` : ''}
-          ${launchesHtml}
-          ${activeHtml}
-          ${upcomingHtml}
-          <div style="padding-top:8px;border-top:0.5px solid #F3F4F6;margin-top:8px;">
-            <a href="/app/insightevent/competitor?id=${encodeURIComponent(cid)}" style="font-size:11px;font-weight:600;color:#1D3BB3;text-decoration:none;">Profil strat\u00e9gique \u2192</a>
-          </div>
-        </div>
-      </div>`;
-    }).join("");
-
-    return `<div style="padding:0;">
-      <div style="display:flex;flex-direction:column;gap:10px;">${cardsHtml}</div>
-      <div style="padding:12px 0 0;display:flex;justify-content:flex-end;">
-        <a href="/app/insightevent/suivis" style="font-size:12px;color:var(--color-brand-blue);text-decoration:none;">Gérer mes suivis \u2192</a>
-      </div>
-    </div>`;
-  }
 
   // ================================================================
   // DAILY ACTION BRIEF — V0 (Beta)
@@ -1771,15 +1430,6 @@ if (!location_id) {
     var briefStatuses = {};
     try { briefStatuses = JSON.parse(localStorage.getItem("ms_brief_status_" + locationId + "_" + selectedDate) || "{}"); } catch(e) {}
  
-    var CAT_ICON_MAP = {
-      'URGENT': {cls:'ab-cat-icon-urgent', icon:'\u26a0\ufe0f'},
-      'CONCURRENCE': {cls:'ab-cat-icon-competition', icon:'\ud83c\udfaf'},
-      'M\u00c9T\u00c9O': {cls:'ab-cat-icon-weather', icon:'\u2601\ufe0f'},
-      'OPPORTUNIT\u00c9': {cls:'ab-cat-icon-opportunity', icon:'\ud83d\ude80'},
-      'INTELLIGENCE': {cls:'ab-cat-icon-intelligence', icon:'\ud83d\udcca'},
-      'PLANIFICATION': {cls:'ab-cat-icon-calendar', icon:'\ud83d\udcc5'},
-      'R\u00c9PUTATION': {cls:'ab-cat-icon-intelligence', icon:'\u2b50'},
-    };
 
     // Operational meta pills (lower-left strip \u2014 replaces the old pression/\u00e9v\u00e9n/score pills):
     // is a response automated on this signal, and who owns it. Read from the venue's active
@@ -1889,7 +1539,6 @@ if (!location_id) {
       var dataSignalAttr = t._signal_id ? ' data-signal-id="' + escapeHtml(t._signal_id) + '"' : '';
 
       var catLabel = t.typePill ? t.typePill.label.replace(/^[^\s]+ /, '') : 'INTELLIGENCE';
-      var catIconInfo = CAT_ICON_MAP[catLabel] || CAT_ICON_MAP['INTELLIGENCE'];
 
       // --- Channels for Agir dropdown ---
       var commChannels = t._available_channels || [];
@@ -1966,9 +1615,7 @@ if (!location_id) {
       // ---- Restyle R1-R6 (validé 26/07, proto cards-restyle-proto.html) ----
       // R2 : barre latérale sémantique = border-left de la carte (couleurs .ab-bar existantes :
       // rouge menace / ambre vigilance / vert opportunité, gris neutre sinon).
-      var _barColor = t.barClass === 'ab-threat' ? '#e24b4a' : t.barClass === 'ab-warning' ? '#ef9f27' : t.barClass === 'ab-opportunity' ? '#059669' : '#6B7280';
       // R2 : chip catégorie sobre — sans emoji, sans MAJUSCULES (le sémantique est sur la barre).
-      var _catNice = catLabel ? catLabel.charAt(0) + catLabel.slice(1).toLowerCase() : '';
       // R1/R5/R6 + code couleur lisible (proto engagement-cards-restyle-proto.html, validé
       // 27/07) : montant SIGNÉ (+/−) + mini-phrase en français courant — « à gagner »,
       // « perdus · <cause> ». La cause vient de label_fr (préfixe « jours de » retiré), jamais
@@ -2242,7 +1889,6 @@ if (!location_id) {
       try { allStatuses = JSON.parse(localStorage.getItem("ms_brief_status_" + locationId + "_" + selectedDate) || "{}"); } catch(e) {}
       var completed = Object.values(allStatuses).filter(function(s) { return s === "copied" || s === "saved"; }).length;
       var totalCards = root.querySelectorAll(".ab-card[data-ab-card-idx]").length;
-      var fill = root.querySelector("#daily-brief-section .ab-progress-fill, #daily-brief-section [style*='background:#059669']");
       // Update via DOM
       var section = document.getElementById("daily-brief-section");
       if (section) {
@@ -3113,14 +2759,6 @@ if (!location_id) {
   // V4 NEW — Radar strip (collapsible)
   // ----------------------------------------------------------------
   // (renderRadarStrip supprimé — radar retiré de l'assemblage, 14/08.)
-  function scoreVerdict(score, regime) {
-    var s = (score != null && isFinite(Number(score))) ? Number(score) : null;
-    if (s == null) return regime === "A" ? { t: "Contexte favorable", bg: "#dcfce7", fg: "#166534", ac: "#16a34a" } : regime === "C" ? { t: "Contexte à surveiller", bg: "#FEF3E2", fg: "#B45309", ac: "#d97706" } : { t: "Conditions normales", bg: "#f3f4f6", fg: "#374151", ac: "#94a3b8" };
-    if (s >= 7) return { t: "Contexte favorable", bg: "#dcfce7", fg: "#166534", ac: "#16a34a" };
-    if (s >= 5) return { t: "Contexte correct", bg: "#EEF2FF", fg: "#1D3BB3", ac: "#1D3BB3" };
-    if (s >= 3.5) return { t: "Contexte mitigé", bg: "#FEF3E2", fg: "#B45309", ac: "#d97706" };
-    return { t: "Contexte défavorable", bg: "#fee2e2", fg: "#991b1b", ac: "#dc2626" };
-  }
 
   function sevStyle(level) {
     if (level === "favorable") return { ac: "#16a34a", bg: "#DCFCE7", fg: "#166534" };
@@ -3168,217 +2806,12 @@ if (!location_id) {
 
   // (renderScoreDetail supprimé — radar retiré de l'assemblage, 14/08.)
   // (renderThreatSummary supprimé — radar retiré de l'assemblage, 14/08.)
-  function renderPotentialCompetitors(topThreats) {
-    if (!topThreats || !topThreats.length) {
-      return '<div style="text-align:center;padding:32px 0;color:#9CA3AF;font-size:14px;">Aucun concurrent potentiel d\u00e9tect\u00e9.</div>';
-    }
-    var AUDIENCE_FR = {local:"r\u00e9sidents locaux",professionals:"professionnels",tourists:"touristes",students:"\u00e9tudiants",families:"familles",seniors:"seniors",general_public:"grand public",art_lovers:"amateurs d\u0027art",mixed:"public mixte"};
-    var INDUSTRY_TIER_FR = {direct:"M\u00eame secteur",partial:"Secteur proche",contextual:"Secteur diff\u00e9rent"};
-    var THREAT_BADGE = {high:{bg:"#fee2e2",fg:"#991b1b",t:"Menace \u00e9lev\u00e9e"},moderate:{bg:"#fef3c7",fg:"#92400e",t:"Menace mod\u00e9r\u00e9e"},low:{bg:"#f3f4f6",fg:"#6b7280",t:"Menace faible"}};
-    return topThreats.map(function(tc, idx) {
-      var name = tc.competitor_name || "Concurrent";
-      var distKm = tc.distance_km != null ? Number(tc.distance_km).toFixed(1) : null;
-      var badge = THREAT_BADGE[tc.threat_level] || THREAT_BADGE.low;
-      var indLabel = INDUSTRY_TIER_FR[tc.industry_match_tier] || "";
-      var locAuds = [tc.location_primary_audience_1, tc.location_primary_audience_2].filter(Boolean);
-      var compAuds = [tc.competitor_primary_audience, tc.competitor_secondary_audience].filter(Boolean);
-      var sharedAuds = compAuds.filter(function(a) { return locAuds.includes(a); }).map(function(a) { return AUDIENCE_FR[a] || a; });
-      var audLine = sharedAuds.length > 0 ? "Cible les m\u00eames audiences : " + sharedAuds.join(", ") : (compAuds.length > 0 ? "Cible : " + compAuds.map(function(a) { return AUDIENCE_FR[a] || a; }).join(", ") : "");
-      var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
-      return '<div style="display:flex;align-items:flex-start;gap:11px;padding:13px 0;' + (idx > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
-          + '<div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>'
-          + '<div style="flex:1;min-width:0;">'
-            + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-              + '<span style="font-size:14px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</span>'
-              + (distKm ? '<span style="font-size:11px;color:#8A909A;">' + escapeHtml(distKm + ' km') + '</span>' : '')
-            + '</div>'
-            + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
-              + '<span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:10px;font-weight:600;background:' + badge.bg + ';color:' + badge.fg + ';">' + escapeHtml(badge.t) + '</span>'
-              + (indLabel ? '<span style="font-size:11px;color:#6b7280;">' + escapeHtml(indLabel) + '</span>' : '')
-            + '</div>'
-            + (audLine ? '<div style="font-size:11px;color:#6b7280;margin-top:3px;">' + escapeHtml(audLine) + '</div>' : '')
-          + '</div>'
-          + '<button type="button" data-follow-threat="' + escapeHtml(tc.competitor_id) + '" data-follow-name="' + escapeHtml(name) + '" style="padding:4px 10px;border-radius:6px;border:1px solid #dbeafe;background:#eff6ff;font-size:11px;font-weight:600;color:#1e40af;cursor:pointer;white-space:nowrap;font-family:inherit;flex-shrink:0;margin-top:2px;">Suivre \u2192</button>'
-        + '</div>';
-    }).join("");
-  }
 
-  function renderFollowedCompetitorsList(signals, followedCount, followedCompetitors) {
-    var byComp = new Map();
-    for (var i = 0; i < signals.length; i++) {
-      var s = signals[i];
-      var cid = s.competitor_id || "unknown";
-      if (!byComp.has(cid)) byComp.set(cid, []);
-      byComp.get(cid).push(s);
-    }
-    if (byComp.size === 0 && !followedCount) {
-      return '<div style="padding:20px 16px;border-bottom:0.5px solid #F3F4F6;">'
-        + '<div style="display:flex;align-items:center;gap:14px;">'
-          + '<div style="width:40px;height:40px;border-radius:10px;background:#EEF2FF;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
-            + '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
-          + '</div>'
-          + '<div style="flex:1;min-width:0;">'
-            + '<div style="font-size:14px;color:#111827;font-weight:500;margin:0 0 3px;">Rechercher un concurrent</div>'
-            + '<div style="font-size:12px;color:#6B7280;line-height:1.4;">Par nom, secteur ou mot-cl\u00e9 dans votre zone</div>'
-          + '</div>'
-          + '<a href="/app/insightevent/prompt" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:#1D3BB3;color:#fff;border-radius:8px;font-size:12px;font-weight:500;text-decoration:none;white-space:nowrap;flex-shrink:0;">+ Ajouter</a>'
-        + '</div>'
-      + '</div>';
-    }
-    if (byComp.size === 0 && followedCompetitors && followedCompetitors.length > 0) {
-      var fcHtml = followedCompetitors.map(function(fc, idx) {
-        var name = fc.competitor_name || "Concurrent";
-        var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
-        var distKm = fc.distance_km != null ? Number(fc.distance_km).toFixed(1) : null;
-        var photoHtml = fc.google_photos
-          ? '<img style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;" src="' + escapeHtml(fc.google_photos) + '" alt="">'
-          : '<div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>';
-        var ratingHtml = fc.google_rating ? '<span style="font-size:11px;color:#854F0B;">\u2605 ' + Number(fc.google_rating).toFixed(1) + (fc.google_rating_count ? ' \u00b7 ' + Number(fc.google_rating_count).toLocaleString('fr-FR') + ' avis' : '') + '</span>' : '';
-        var metaParts = [];
-        if (distKm) metaParts.push(distKm + ' km');
-        metaParts.push('0 \u00e9v\u00e9n.');
-        var enrichedSummary = '';
-        if (fc.auto_enriched_description) {
-          try {
-            var enr = typeof fc.auto_enriched_description === 'string' ? JSON.parse(fc.auto_enriched_description) : fc.auto_enriched_description;
-            if (enr && enr.business_description) enrichedSummary = '<div style="font-size:11px;color:#6b7280;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px;">' + escapeHtml(enr.business_description.substring(0, 80)) + '\u2026</div>';
-          } catch(e) {}
-        }
-        return '<a href="/app/insightevent/competitor?id=' + encodeURIComponent(fc.competitor_id) + '" style="text-decoration:none;color:inherit;display:block;">'
-          + '<div style="display:flex;align-items:center;gap:11px;padding:13px 0;' + (idx > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
-            + photoHtml
-            + '<div style="flex:1;min-width:0;">'
-              + '<div style="font-size:14px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</div>'
-              + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
-                + threatChipHtml(fc.threat_level)
-                + '<span style="font-size:12px;color:#6b7280;">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</span>'
-              + '</div>'
-              + (ratingHtml ? '<div style="margin-top:3px;">' + ratingHtml + '</div>' : '')
-              + enrichedSummary
-            + '</div>'
-            + '<span style="font-size:12px;color:#1D3BB3;font-weight:600;flex-shrink:0;">Profil \u2192</span>'
-          + '</div>'
-        + '</a>';
-      }).join("");
-      return '<div>' + fcHtml + '</div>';
-    }
-    if (byComp.size === 0) {
-      return '<div style="text-align:center;padding:24px 0;color:#9CA3AF;font-size:13px;">Aucun signal d\u00e9tect\u00e9. <a href="/app/insightevent/suivis" style="color:#1D3BB3;text-decoration:none;">G\u00e9rer mes suivis \u2192</a></div>';
-    }
-    var entries = [...byComp.entries()].sort(function(a, b) {
-      var aScore = Number(a[1][0].entity_threat_score || 0);
-      var bScore = Number(b[1][0].entity_threat_score || 0);
-      return bScore - aScore;
-    });
-    var html = entries.map(function(entry, idx) {
-      var cid = entry[0];
-      var sigs = entry[1];
-      var first = sigs[0];
-      var name = first.competitor_name || "Concurrent";
-      var distKm = first.distance_from_location_m ? (Number(first.distance_from_location_m) / 1000).toFixed(1) : null;
-      var rating = first.google_rating;
-      var ratingCount = first.google_rating_count;
-      var photo = first.google_photos;
-      var threatLevel = first.entity_threat_level || "low";
-      var activeCount = sigs.filter(function(s) { return s.is_active; }).length;
-      var initials = name.split(" ").map(function(w) { return (w[0] || ""); }).join("").slice(0, 2).toUpperCase();
-      var photoHtml = photo
-        ? '<img style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0;" src="' + escapeHtml(photo) + '" alt="">'
-        : '<div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#0C447C;background:#E6F1FB;flex-shrink:0;">' + escapeHtml(initials) + '</div>';
-      var ratingHtml = rating ? '<span style="font-size:11px;color:#854F0B;">\u2605 ' + rating + (ratingCount ? ' \u00b7 ' + Number(ratingCount).toLocaleString('fr-FR') + ' avis' : '') + '</span>' : '';
-      var metaParts = [];
-      if (distKm) metaParts.push(distKm + ' km');
-      if (activeCount > 0) metaParts.push(activeCount + ' \u00e9v\u00e9n. actif' + (activeCount > 1 ? 's' : ''));
-      return '<a href="/app/insightevent/competitor?id=' + encodeURIComponent(cid) + '" style="text-decoration:none;color:inherit;display:block;">'
-        + '<div style="display:flex;align-items:center;gap:11px;padding:13px 0;' + (idx > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
-          + photoHtml
-          + '<div style="flex:1;min-width:0;">'
-            + '<div style="font-size:14px;font-weight:500;color:#111827;">' + escapeHtml(name) + '</div>'
-            + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
-              + threatChipHtml(threatLevel)
-              + (metaParts.length ? '<span style="font-size:12px;color:#6b7280;">' + escapeHtml(metaParts.join(' \u00b7 ')) + '</span>' : '')
-            + '</div>'
-            + (ratingHtml ? '<div style="margin-top:3px;">' + ratingHtml + '</div>' : '')
-          + '</div>'
-          + '<span style="font-size:12px;color:#1D3BB3;font-weight:600;flex-shrink:0;">Profil \u2192</span>'
-        + '</div>'
-      + '</a>';
-    }).join("");
-    return '<div>' + html + '</div>';
-  }
 
   // ----------------------------------------------------------------
   // V4 NEW — Change detail (strip 3 expanded)
   // ----------------------------------------------------------------
   // (renderChangeDetail supprimé — radar retiré de l'assemblage, 14/08.)
-  function fillOpsVolet(active, past) {
-    var body = document.getElementById("pls-ops-volet");
-    var secEl = document.querySelector("[data-ops-secondary]");
-    var chipEl = document.querySelector("[data-ops-chip]");
-    if (!body) return;
-    active = active || []; past = past || [];
-    var _ymd = function(v) { return String((v && v.value) || v || "").slice(0, 10); };
-    var resolved = past.filter(function(r) { return r.status === "resolved" && r.window_actual_revenue != null && r.window_expected_revenue != null; });
-    var measuredNet = resolved.reduce(function(s, r) { return s + (Number(r.window_actual_revenue) - Number(r.window_expected_revenue)); }, 0);
-
-    // En-tête : fermé = la réponse. Chip = le trophée € mesuré (seule couleur persistante).
-    if (secEl) {
-      secEl.textContent = active.length
-        ? active.length + " en cours" + (resolved.length ? " · " + resolved.length + " mesurée" + (resolved.length > 1 ? "s" : "") : "")
-        : "Aucune opération en cours";
-    }
-    if (chipEl) {
-      var chipWrap = chipEl.parentElement;
-      if (resolved.length) {
-        chipEl.textContent = (measuredNet >= 0 ? "+" : "−") + Math.abs(Math.round(measuredNet)).toLocaleString("fr-FR") + " € mesurés";
-        if (chipWrap) { chipWrap.style.background = measuredNet >= 0 ? "#DCFCE7" : "#FEF3C7"; chipWrap.style.color = measuredNet >= 0 ? "#166534" : "#92400E"; }
-      } else if (chipWrap) { chipWrap.style.display = "none"; }
-    }
-
-    if (!active.length && !resolved.length) {
-      body.innerHTML = '<div style="display:flex;align-items:center;gap:14px;padding:6px 0 2px;">'
-        + '<div style="flex:1;min-width:0;font-size:13px;color:#6B7280;line-height:1.5;">Engagez-vous sur une carte du jour : son impact sera mesuré ici, en euros.</div>'
-        + '<a href="#pls-engagement-cards" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:#1D3BB3;color:#fff;border-radius:8px;font-size:12px;font-weight:500;text-decoration:none;white-space:nowrap;flex-shrink:0;">Voir les actions du jour</a>'
-      + '</div>';
-      return;
-    }
-
-    var html = "";
-    active.slice(0, 3).forEach(function(r, i) {
-      var start = _ymd(r.window_start), end = _ymd(r.window_end);
-      var totalDays = Number(r.window_days_expected) || (start && end && parseYmdToDate(end) && parseYmdToDate(start) ? Math.round((parseYmdToDate(end) - parseYmdToDate(start)) / 86400000) : null);
-      var elapsed = start && parseYmdToDate(start) ? Math.max(0, Math.round((parseYmdToDate(todayYmd()) - parseYmdToDate(start)) / 86400000)) : null;
-      var meta = (elapsed != null && totalDays) ? "J+" + Math.min(elapsed, totalDays) + " / " + totalDays + (end ? " · verdict le " + fmtDateShort(end) : "") : "Mesure en cours";
-      var pct = (elapsed != null && totalDays) ? Math.max(3, Math.min(100, Math.round((elapsed / totalDays) * 100))) : 0;
-      html += '<div style="padding:11px 0;' + (i > 0 ? 'border-top:1px solid #E6E8EC;' : '') + '">'
-        + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(String(r.committed_action_text || "Action engagée").slice(0, 110)) + '</div>'
-        + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
-          + plsChip("En cours", { bg: "#EEF2FF", fg: "#1D3BB3" })
-          + '<span style="font-size:12px;color:#6b7280;">' + meta + '</span>'
-        + '</div>'
-        + (pct ? '<div style="height:3px;border-radius:2px;background:#E6E8EC;margin-top:9px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;border-radius:2px;background:#1D3BB3;"></div></div>' : '')
-      + '</div>';
-    });
-    resolved.slice(0, 2).forEach(function(r) {
-      var v = String(r.verdict || "");
-      var b = v === "met" ? { bg: "#dcfce7", fg: "#166534", t: "Objectif atteint" }
-        : v === "missed" ? { bg: "#FEF3C7", fg: "#92400E", t: "Sous votre résultat habituel" }
-        : { bg: "#F1F5F9", fg: "#475569", t: "Terminée" };
-      var delta = Number(r.window_actual_revenue) - Number(r.window_expected_revenue);
-      html += '<div style="padding:11px 0;' + (html ? 'border-top:1px solid #E6E8EC;' : '') + '">'
-        + '<div style="font-size:13px;font-weight:500;color:#111827;">' + escapeHtml(String(r.committed_action_text || "Action").slice(0, 110)) + '</div>'
-        + '<div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">'
-          + plsChip(b.t, b)
-          + '<span style="font-size:12px;color:#6b7280;">' + _cgEur(r.window_actual_revenue) + ' réalisés vs ' + _cgEur(r.window_expected_revenue) + ' attendus · ' + (delta >= 0 ? "+" : "−") + Math.abs(Math.round(delta)).toLocaleString('fr-FR') + ' €</span>'
-        + '</div>'
-      + '</div>';
-    });
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 0;border-top:1px solid #E6E8EC;">'
-      + (resolved.length ? '<span style="font-size:12px;color:var(--color-text-secondary);">Mesuré au total : <span style="font-weight:600;color:' + (measuredNet >= 0 ? '#166534' : '#92400E') + ';">' + (measuredNet >= 0 ? "+" : "−") + Math.abs(Math.round(measuredNet)).toLocaleString('fr-FR') + ' €</span></span>' : '<span></span>')
-      + '<a href="#pls-engagement-cards" style="font-size:12px;color:#9CA3AF;text-decoration:none;">Tout voir dans Actions du jour ↓</a>'
-    + '</div>';
-    body.innerHTML = html;
-  }
 
   // ----------------------------------------------------------------
   // V4 NEW — Feed with CTAs
@@ -4471,7 +3904,7 @@ if (!location_id) {
       window._plsCommitments = items;
       try { renderStructuralSection(); } catch (e) {}
       var pastMount = document.getElementById('pls-past-actions');
-      if (!items.length) { mount.innerHTML = ''; if (pastMount) pastMount.innerHTML = ''; renderEngagementFeedLog([]); if (typeof fillOpsVolet === 'function') fillOpsVolet([], []); return; }
+      if (!items.length) { mount.innerHTML = ''; if (pastMount) pastMount.innerHTML = ''; renderEngagementFeedLog([]); return; }
       // newest first across all sites (updated_at may serialize as {value})
       items.sort(function(a, b){
         var av = (a.updated_at && a.updated_at.value) ? a.updated_at.value : a.updated_at;
@@ -4487,7 +3920,6 @@ if (!location_id) {
       var _active = items.filter(function(r){ return r.status === 'open' || r.status === 'pending'; });
       var _past = items.filter(function(r){ return r.status !== 'open' && r.status !== 'pending'; });
       // Radar v5 — le volet Opérations est le résumé hélicoptère de CES items (aucun 2e fetch).
-      if (typeof fillOpsVolet === 'function') fillOpsVolet(_active, _past);
       mount.innerHTML = _active.length ? _active.map(function(r, i){ return _cgActionCardHtml(r, i); }).join('') : '';
       _engReveal(_active.length);
       wireEngagementCards(mount);
@@ -4562,46 +3994,6 @@ if (!location_id) {
         + `</button>`;
       }).join("")
       + `</div>`;
-
-    // ---- Alerts (severity != A, shown as strips before radar) ----
-    const dayAlertsRaw = [
-      ...(currentDay.attendance || []),
-      ...(currentDay.operations || []),
-      ...(currentDay.installation || []),
-      ...(currentDay.context || []),
-    ].filter(r => r.severity !== "A");
-    var _seenAlerts = {};
-    const dayAlerts = [];
-    for (var ai = 0; ai < dayAlertsRaw.length; ai++) {
-      var ar = dayAlertsRaw[ai];
-      var ak = String(ar.block||"") + "|" + String(ar.sentence||"");
-      if (_seenAlerts[ak]) continue;
-      _seenAlerts[ak] = true;
-      dayAlerts.push(ar);
-    }
-
-    let alertsHtml = "";
-    if (dayAlerts.length > 0) {
-      alertsHtml = `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
-        ${dayAlerts.slice(0, 5).map(a => {
-          const isCrit = a.severity === "D" || a.severity === "C";
-          const bg = isCrit ? "#fef2f2" : "#fffbeb";
-          const border = isCrit ? "#dc2626" : "#f59e0b";
-          const labelColor = isCrit ? "#991b1b" : "#92400e";
-          const icon = isCrit ? '<span style="width:8px;height:8px;border-radius:50%;background:#dc2626;display:inline-block;"></span>' : '<span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block;"></span>';
-          const blockLabel = BLOCK_LABELS[a.block] || a.block.toUpperCase();
-          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:8px;background:${bg};border-left:3px solid ${border};">
-            <span style="display:flex;align-items:center;margin-top:2px;">${icon}</span>
-            <div style="flex:1;">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:${labelColor};margin-bottom:1px;">${escapeHtml(blockLabel)}</div>
-              <div style="font-size:12.5px;color:#1f2937;line-height:1.4;">${escapeHtml(a.sentence)}</div>
-            </div>
-          </div>`;
-        }).join("")}
-      </div>`;
-    } else {
-      alertsHtml = '<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:12px;padding:8px 12px;background:rgba(16,185,129,0.06);border-radius:8px;"><div style="display:flex;align-items:center;gap:6px;"><span style="color:#059669;font-size:13px;">\u2713</span><span style="font-size:12.5px;color:#059669;font-weight:500;">Aucune alerte</span></div><div style="font-size:11.5px;color:#6B7280;padding-left:21px;">Trafic routier et transports en commun fluides</div></div>';
-    }
 
     // ---- Carte view ----
     if (activeView === "carte") {
@@ -4898,101 +4290,12 @@ if (!location_id) {
     // Strip 1: Score
     const score = currentDay.opportunity_score;
     const regime = String(currentDay.opportunity_regime || "B").toUpperCase();
-    const regimeLabel = scoreVerdict(score, regime).t;
-
-    // weekRank
-    const sortedDays = [...days].filter(d => d.opportunity_score != null).sort((a, b) => (b.opportunity_score ?? 0) - (a.opportunity_score ?? 0));
-    const rankIdx = sortedDays.findIndex(d => normalizeYmd(d.date) === normalizeYmd(currentDay.date));
-    const rank = rankIdx >= 0 ? rankIdx + 1 : null;
-    const totalDays = sortedDays.length;
-    let weekRankShort = "";
-    if (rank === 1) weekRankShort = "Meilleur jour de la semaine";
-    else if (rank === totalDays) weekRankShort = "Jour le moins favorable de la semaine";
-    else if (rank != null && totalDays > 0) weekRankShort = `${rank}e meilleur jour de la semaine`;
-
-    const _scoreSv = scoreVerdict(score, regime);
-    const _scoreWord = _scoreSv.t.replace("Contexte ", "").replace("Conditions ", "");
-    const scorePrimary = "Score du jour";
-    const scoreSecondary = (score != null) ? (weekRankShort ? escapeHtml(weekRankShort) : "") : "Score indisponible";
-    const scoreChip = (score != null && Number.isFinite(Number(score)))
-      ? { label: Number(score).toFixed(1) + "/10 · " + _scoreWord.charAt(0).toUpperCase() + _scoreWord.slice(1), bg: _scoreSv.bg, fg: _scoreSv.fg }
-      : null;
-    const scoreAccent = (score != null) ? _scoreSv.ac : "#94a3b8";
-
-    // Strip 2: Threats — recap across ALL followed competitors
-    const compByComp = new Map();
-    for (const s of competitorSignals) {
-      const cid = s.competitor_id || "unknown";
-      if (!compByComp.has(cid)) compByComp.set(cid, []);
-      compByComp.get(cid).push(s);
-    }
-    const followedCompetitors = data._followed_competitors || [];
-    const totalComps = Math.max(compByComp.size, followedCompetitors.length);
-    const totalActiveEvents = competitorSignals.filter(s => s.is_active).length;
-
-    // Find worst threat level across all competitors
-    const THREAT_ORDER = { high: 3, moderate: 2, low: 1 };
-    let worstThreatLevel = null;
-    let worstThreatScore = 0;
-    let hasAnyAudOverlap = false;
-    for (const [, sigs] of compByComp) {
-      const lvl = sigs[0]?.entity_threat_level || null;
-      const ts = Number(sigs[0]?.entity_threat_score || 0);
-      if (ts > worstThreatScore) { worstThreatScore = ts; worstThreatLevel = lvl; }
-      if (sigs.some(s => s.audience_overlap)) hasAnyAudOverlap = true;
-    }
-
-    // Include threat levels from followed competitors without event signals
-    for (const fc of followedCompetitors) {
-      const ts = Number(fc.threat_score || 0);
-      const lvl = fc.threat_level || null;
-      if (ts > worstThreatScore) { worstThreatScore = ts; worstThreatLevel = lvl; }
-    }
-
-    const THREAT_LABELS_FR = { high: "Menace \u00e9lev\u00e9e", moderate: "Menace mod\u00e9r\u00e9e", low: "Menace faible" };
-    let threatPrimary, threatSecondary, _threatLevel;
-    if (totalComps > 0) {
-      const _worstLabel = THREAT_LABELS_FR[worstThreatLevel] || null;
-      const _hasConflict = (worstThreatLevel === "high" || hasAnyAudOverlap);
-      threatPrimary = _hasConflict ? escapeHtml(_worstLabel || "Conflit direct") : "Aucun conflit direct";
-      _threatLevel = _hasConflict ? (worstThreatLevel === "high" ? "alerte" : "attention") : "favorable";
-      const _tp = [`${totalComps} concurrent${totalComps > 1 ? "s" : ""} suivi${totalComps > 1 ? "s" : ""}`];
-      if (totalActiveEvents > 0) _tp.push(`${totalActiveEvents} évén. actif${totalActiveEvents > 1 ? "s" : ""}`);
-      threatSecondary = _tp.join(" · ");
-    } else {
-      threatPrimary = followedCount > 0 ? "Aucun conflit direct" : "Aucun concurrent suivi";
-      _threatLevel = followedCount > 0 ? "favorable" : "neutre";
-      threatSecondary = followedCount > 0 ? `${followedCount} concurrent${followedCount > 1 ? "s" : ""} suivi${followedCount > 1 ? "s" : ""}` : "";
-    }
-    // Radar v5 : chip neutre quand il n'y a pas de conflit (couleur = signal, comme le proto) —
-    // « Aucun conflit direct » en gris, jamais en vert décoratif.
-    const _threatSev = sevStyle(_threatLevel === "favorable" ? "neutre" : _threatLevel);
-    const threatTitle = "Menaces concurrentielles";
-    const threatChip = { label: threatPrimary, bg: _threatSev.bg, fg: _threatSev.fg };
-    const threatAccent = _threatSev.ac;
-
-    // Radar v5 — 3 volets, couleur = signal (neutres tant que rien ne mérite l'attention).
-    // L'ancien volet Environnement a migré : pression/compteurs → drivers du reveal "Pourquoi ce
-    // score" (renderScoreDetail) ; carte → volet Concurrence. renderChangeDetail/renderThreatSummary
-    // restent définis (non appelés) tant que la v5 n'est pas validée en réel.
-
-    // (volets radar supprimés — leur contenu vit sur Piloter V7, 14/08.)
 
     // Feed
     var _feedCoveredTypes = (typeof window.getActionCandidateTypes === 'function' && window._lastActionCandidates) ? window.getActionCandidateTypes(window._lastActionCandidates, selectedDate) : {};
     const feedHtml = renderFeed(allFeed, isMultisite, _feedCoveredTypes);
 
     // Verdict hero (v1 — single grounded line; no delta/segment)
-    const _vBest = (Array.isArray(sortedDays) && sortedDays.length) ? sortedDays[0] : null;
-    const _vBestYmd = _vBest ? normalizeYmd(_vBest.date) : "";
-    const _vIsBest = _vBestYmd && _vBestYmd === selectedDate;
-    const _vBestDt = _vBestYmd ? parseYmdToDate(_vBestYmd) : null;
-    const _vBestWeekday = _vBestDt ? ["lundi","mardi","mercredi","jeudi","vendredi","samedi","dimanche"][((_vBestDt.getUTCDay()+6)%7)] : "";
-    // ↓↓↓ EDITABLE COPY ↓↓↓
-    const verdictLine = (_vIsBest || !_vBestWeekday)
-      ? `${regimeLabel}. Meilleure occasion de la semaine.`
-      : `${regimeLabel}. ${_vBestWeekday.charAt(0).toUpperCase() + _vBestWeekday.slice(1)} est plus favorable cette semaine.`;
-    // ↑↑↑ EDITABLE COPY ↑↑↑
     const _vScore = (score != null && Number.isFinite(Number(score)));
     // Radar v5 \u2014 le header porte le score ET s'ouvre sur sa preuve : \u00ab Pourquoi ce score \u00bb
     // (renderScoreDetail, l'ancien contenu du volet Score) se r\u00e9v\u00e8le inline sous le hero.
@@ -5151,178 +4454,6 @@ if (!location_id) {
     // Radar strip toggles — v5: accordéon (un volet ouvert à la fois), état mémorisé par site,
     // carte Concurrence initialisée au premier dépliage (Leaflet lazy).
     const _radarOpenKey = "ms_radar_open_" + currentLocationId;
-    const _setVoletOpen = (id, open) => {
-      const body = root.querySelector(`[data-radar-body="${id}"]`);
-      const chevron = root.querySelector(`[data-radar-chevron="${id}"]`);
-      if (!body) return;
-      body.style.display = open ? "block" : "none";
-      if (chevron) chevron.style.transform = open ? "rotate(180deg)" : "none";
-    };
-    const _voletIds = Array.from(root.querySelectorAll("[data-radar-toggle]")).map(b => b.getAttribute("data-radar-toggle"));
-    root.querySelectorAll("[data-radar-toggle]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-radar-toggle");
-        const body = root.querySelector(`[data-radar-body="${id}"]`);
-        if (!body) return;
-        const isOpen = body.style.display !== "none";
-        _voletIds.forEach(other => { if (other !== id) _setVoletOpen(other, false); });
-        _setVoletOpen(id, !isOpen);
-        try { localStorage.setItem(_radarOpenKey, isOpen ? "" : id); } catch (e) {}
-      });
-    });
-    // Restaure le volet ouvert lors de la dernière visite.
-    try {
-      const _savedOpen = localStorage.getItem(_radarOpenKey);
-      if (_savedOpen && _voletIds.indexOf(_savedOpen) >= 0) _setVoletOpen(_savedOpen, true);
-    } catch (e) {}
-
-    // Header — « Pourquoi ce score » : le hero se déplie sur sa preuve (renderScoreDetail).
-    const _heroToggle = root.querySelector("[data-hero-toggle]");
-    const _heroBody = root.querySelector("[data-hero-body]");
-    if (_heroToggle && _heroBody) {
-      _heroToggle.addEventListener("click", (e) => {
-        if (e.target.closest("a,button")) return; // liens/CTA internes gardent leur comportement
-        const isOpen = _heroBody.style.display !== "none";
-        _heroBody.style.display = isOpen ? "none" : "block";
-        const ch = root.querySelector("[data-hero-chevron]");
-        if (ch) ch.style.transform = isOpen ? "none" : "rotate(180deg)";
-      });
-    }
-
-    // Score / Fiabilité tab switching
-    root.querySelectorAll("[data-score-tab]").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        var tab = btn.getAttribute("data-score-tab");
-        var scorePanel = root.querySelector('[data-score-panel="score"]');
-        var fiabPanel = root.querySelector('[data-score-panel="fiabilite"]');
-        if (!scorePanel || !fiabPanel) return;
-        scorePanel.style.display = tab === "score" ? "block" : "none";
-        fiabPanel.style.display = tab === "fiabilite" ? "block" : "none";
-        root.querySelectorAll("[data-score-tab]").forEach(function(b) {
-          var isActive = b.getAttribute("data-score-tab") === tab;
-          b.style.color = isActive ? "#1D3BB3" : "#94A3B8";
-          b.style.borderBottom = isActive ? "2px solid #1D3BB3" : "2px solid transparent";
-        });
-        // Lazy-load accuracy data on first fiabilité click
-        if (tab === "fiabilite" && !root._fiabiliteLoaded) {
-          root._fiabiliteLoaded = true;
-          var barsEl = root.querySelector("[data-fiabilite-bars]");
-          var globalEl = root.querySelector("[data-fiabilite-global]");
-          var metaEl = root.querySelector("[data-fiabilite-meta]");
-          var badgeEl = root.querySelector("[data-fiabilite-badge]");
-          fetch("/api/analytics/signal-accuracy?location_id=" + encodeURIComponent(location_id))
-            .then(function(r) { return r.json(); })
-            .then(function(json) {
-              if (!json.ok || !json.signals) throw new Error("No data");
-              var SIGNAL_DEFS = [
-                { key: "competition", label: "Concurrence", icon: "\ud83d\udcca" },
-                { key: "mobility", label: "Mobilit\u00e9", icon: "\ud83d\ude87" },
-                { key: "weather", label: "M\u00e9t\u00e9o", icon: "\ud83c\udf26" },
-              ];
-              // An accuracy is a fraction 0-100. Anything outside that range is a metric that
-              // isn't trustworthy yet (the competition composite can go negative upstream) — show
-              // it as calibrating, never as a false percentage, and keep it out of the average.
-              var _accValid = function(s) { var d = json.signals[s.key]; return d && isFinite(d.accuracy_pct) && d.accuracy_pct >= 0 && d.accuracy_pct <= 100; };
-              var available = SIGNAL_DEFS.filter(_accValid);
-              var calibrating = SIGNAL_DEFS.filter(function(s) { return json.signals[s.key] && !_accValid(s); });
-              var pending = SIGNAL_DEFS.filter(function(s) { return !json.signals[s.key]; });
-              var totalSamples = 0;
-              var globalAvg = 0;
-              if (available.length) {
-                globalAvg = Math.round(available.reduce(function(sum, s) { return sum + json.signals[s.key].accuracy_pct; }, 0) / available.length);
-                totalSamples = available.reduce(function(sum, s) { return sum + json.signals[s.key].sample_size; }, 0);
-              }
-              var gc = "#1D3BB3";
-              if (globalEl) {
-                globalEl.innerHTML = available.length
-                  ? '<span style="font-size:32px;font-weight:800;color:' + gc + ';line-height:1;">' + globalAvg + '</span><span style="font-size:14px;color:#9ca3af;">%</span>'
-                  : '<span style="font-size:14px;color:#9ca3af;font-style:italic;">Donn\u00e9es insuffisantes</span>';
-              }
-              if (metaEl) metaEl.innerHTML = "30 derniers jours<br>" + totalSamples + " signaux";
-              if (badgeEl) {
-                if (available.length) {
-                  badgeEl.style.background = "#EFF6FF";
-                  badgeEl.style.color = "#1D3BB3";
-                  badgeEl.textContent = globalAvg + "%";
-                }
-              }
-              var barsHtml = "";
-              available.forEach(function(s) {
-                var d = json.signals[s.key];
-                var pct = d.accuracy_pct;
-                var bc = "#1D3BB3";
-                var bbg = "#DBEAFE";
-                barsHtml += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:0.5px solid #f3f4f6;">'
-                  + '<span style="font-size:14px;flex-shrink:0;">' + s.icon + '</span>'
-                  + '<span style="font-size:12px;color:#374151;font-weight:500;min-width:85px;">' + s.label + '</span>'
-                  + '<div style="flex:1;height:6px;background:' + bbg + ';border-radius:3px;overflow:hidden;">'
-                    + '<div style="width:' + pct + '%;height:100%;background:' + bc + ';border-radius:3px;"></div>'
-                  + '</div>'
-                  + '<span style="font-size:13px;font-weight:700;color:' + bc + ';min-width:36px;text-align:right;">' + pct + '%</span>'
-                + '</div>';
-              });
-              calibrating.concat(pending).forEach(function(s) {
-                var _msg = calibrating.indexOf(s) >= 0 ? "Fiabilité en calibrage" : "En cours de collecte";
-                barsHtml += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:0.5px solid #f3f4f6;opacity:0.45;">'
-                  + '<span style="font-size:14px;flex-shrink:0;">' + s.icon + '</span>'
-                  + '<span style="font-size:12px;color:#9ca3af;font-weight:500;min-width:85px;">' + s.label + '</span>'
-                  + '<span style="font-size:11px;color:#9ca3af;font-style:italic;">' + _msg + '</span>'
-                + '</div>';
-              });
-              if (barsEl) barsEl.innerHTML = barsHtml;
-            })
-            .catch(function() {
-              if (barsEl) barsEl.innerHTML = '<div style="font-size:12px;color:#9ca3af;padding:8px 0;">Donn\u00e9es de fiabilit\u00e9 indisponibles.</div>';
-              if (globalEl) globalEl.innerHTML = '<span style="font-size:14px;color:#9ca3af;font-style:italic;">Indisponible</span>';
-            });
-        }
-      });
-    });
-
-    // Foot traffic day/week tabs
-    root.querySelectorAll("[data-ft-tab]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const tab = btn.getAttribute("data-ft-tab");
-        const dayView = root.querySelector("#ft-view-day");
-        const weekView = root.querySelector("#ft-view-week");
-        if (!dayView || !weekView) return;
-        dayView.style.display = tab === "day" ? "block" : "none";
-        weekView.style.display = tab === "week" ? "block" : "none";
-        root.querySelectorAll("[data-ft-tab]").forEach(b => {
-          const isActive = b.getAttribute("data-ft-tab") === tab;
-          b.style.color = isActive ? "#185FA5" : "var(--color-text-secondary)";
-          b.style.fontWeight = isActive ? "500" : "500";
-          b.style.borderBottom = isActive ? "2px solid #185FA5" : "2px solid transparent";
-        });
-      });
-    });
-
-    // Foot traffic day/week tabs
-    root.querySelectorAll("[data-ft-tab]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const tab = btn.getAttribute("data-ft-tab");
-        const dayView = root.querySelector("#ft-view-day");
-        const weekView = root.querySelector("#ft-view-week");
-        if (!dayView || !weekView) return;
-        dayView.style.display = tab === "day" ? "block" : "none";
-        weekView.style.display = tab === "week" ? "block" : "none";
-        root.querySelectorAll("[data-ft-tab]").forEach(b => {
-          const isActive = b.getAttribute("data-ft-tab") === tab;
-          b.style.color = isActive ? "#1D3BB3" : "#9ca3af";
-          b.style.fontWeight = isActive ? "600" : "500";
-          b.style.borderBottom = isActive ? "2px solid #1D3BB3" : "2px solid transparent";
-        });
-      });
-    });
-
-    // Carte CTA in strip 3
-    root.querySelectorAll("[data-radar-carte]").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        data._mapMode = null;
-        renderPulse(data, selectedDate, "carte");
-      });
-    });
 
     // Competitor tab switching inside strip 3
     root.querySelectorAll("[data-comp-tab]").forEach(function(btn) {
