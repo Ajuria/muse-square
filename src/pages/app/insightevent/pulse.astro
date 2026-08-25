@@ -127,14 +127,19 @@ if (!location_id) {
       .mon-statut-risk { background: var(--color-pill-risk-bg); color: var(--color-pill-risk-text); border: 1px solid var(--color-pill-risk-border); padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 
       /* ---- Date pills ---- */
-      .pls-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 1px 5px; border-radius:10px; background:transparent; border:none; font-family:inherit; cursor:pointer; }
-      .pls-col.is-sel { background:rgba(29,59,179,0.08); }
-      .pls-ba { height:70px; width:100%; display:flex; align-items:flex-end; justify-content:center; }
-      .pls-bar { width:64%; border-radius:3px 3px 0 0; background:rgba(29,59,179,0.24); }
-      .pls-bar.is-now { background:#1D3BB3; }
-      .pls-sc { font-size:13px; font-weight:500; color:var(--color-text-primary); }
-      .pls-dy { font-size:11px; color:var(--color-text-muted); text-align:center; line-height:1.15; }
-      .pls-dy.is-now { color:#1D3BB3; font-weight:500; }
+      /* Bandeau de FAITS (build v3.2, 25/08) : colonnes-jours à faits — le score est mort. */
+      .pls-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 4px 9px; border-radius:10px; background:transparent; border:1px solid transparent; font-family:inherit; cursor:pointer; min-height:88px; }
+      .pls-col:hover { background:#FAFBFC; }
+      .pls-col.is-sel { background:rgba(29,59,179,0.06); border-color:rgba(29,59,179,0.35); }
+      .n7day { font-size:11.5px; font-weight:650; color:#374151; }
+      .n7day.is-now { color:#1D3BB3; }
+      .n7wx { font-size:11.5px; color:#374151; }
+      .n7wx.warn { color:#B45309; font-weight:650; }
+      .n7t { font-size:10.5px; color:#9CA3AF; }
+      .n7chip { font-size:9.5px; padding:1px 7px; border-radius:12px; white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+      .n7calm { color:#D1D5DB; font-size:11px; margin-top:auto; }
+      .n7period { display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin:8px 4px 0; font-size:11.5px; color:#374151; }
+      .n7aff { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:8px 4px 0; font-size:11.5px; color:#374151; }
 
       /* ---- Location switcher ---- */
       .pls-loc-row {
@@ -154,10 +159,6 @@ if (!location_id) {
         margin-bottom: 2px;
       }
 
-      .pls-goal { position:relative; align-self:flex-start; }
-      .pls-goal-chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#1D3BB3; background:#fff; border:1px solid #1D3BB3; border-radius:10px; padding:6px 10px; cursor:pointer; font-family:inherit; }
-      .pls-goal-pop { position:absolute; top:100%; right:0; margin-top:4px; z-index:20; min-width:220px; max-width:280px; background:var(--color-bg-card); border:1px solid var(--color-border); border-radius:10px; box-shadow:0 6px 20px rgba(16,24,40,0.12); padding:12px; }
-      .pls-goal-pop[hidden] { display:none; }
 
 
 
@@ -3034,10 +3035,7 @@ if (!location_id) {
   // Session goal state — ONE weekly goal across all sites (the aggregate and any
   // site picked in the header dropdown). Sticky across reloads via localStorage;
   // falls back to a genuine single-site server goal. Drives the "Goal pass" reorder.
-  var _activeGoalKey = "";
-  var _goalInit = false;
   var _engagementLocs = []; // sites the current view covers (in-view aggregate sites, or the single viewed site) — engagements are fetched for exactly these, like system cards
-  function _goalStoreKey() { return "ms_pulse_goal:" + (currentLocationId || "default"); }
   // ---- Mes engagements (persistent commitment cards; own grain, own section) ----
   function _cgFv(x){ return (x && typeof x === 'object' && 'value' in x) ? x.value : x; }
   // 22/08 — `day_of` rendait « le jour même », SANS date. Deux engagements ouverts sur deux
@@ -3938,14 +3936,6 @@ if (!location_id) {
     activeView = activeView || "radar";
     const root = document.getElementById("pls-root");
     if (!root) return;
-    if (!_goalInit) {
-      _goalInit = true;
-      var _lsGoal = null;
-      try { _lsGoal = localStorage.getItem(_goalStoreKey()); } catch (e) {}
-      if (_lsGoal) _activeGoalKey = _lsGoal;
-      else if (data.active_goal) _activeGoalKey = String((data.active_goal.goal != null ? data.active_goal.goal : data.active_goal) || "");
-    }
-    var _effGoalKey = _activeGoalKey || "";
 
     const days = Array.isArray(data.days) ? data.days : [];
     window._lastActionCandidates = Array.isArray(data.action_candidates) ? data.action_candidates : [];
@@ -3970,30 +3960,101 @@ if (!location_id) {
 
     const today = todayYmd();
 
-    // ---- Navigator (7-day score-bar strip) ----
-    const navMaxScore = days.reduce(function(m, d) {
-      const s = Number(d && d.opportunity_score);
-      return (Number.isFinite(s) && s > m) ? s : m;
-    }, 0);
-    const pillsHtml = `<p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-tertiary);font-weight:500;margin:22px 0 10px;">7 jours à venir &middot; choisissez un jour</p>`
-      + `<div style="display:flex;align-items:flex-end;gap:4px;">`
-      + dates.map(ymd => {
-        const d = dayMap.get(ymd);
-        const sc = d != null ? Number(d.opportunity_score) : NaN;
-        const hasScore = Number.isFinite(sc);
-        const isToday = ymd === today;
-        const isSel = ymd === selectedDate;
-        const barPx = (hasScore && navMaxScore > 0) ? Math.max(3, Math.round(sc / navMaxScore * 65)) : 3;
+    // ---- Bandeau de FAITS (7 jours) — build v3.2 (proto validé 25/08). Le score meurt
+    // (décision owner 14/08 : un agrégat qui cache ses composantes) : chaque colonne dit SES
+    // faits (météo courte + t° + pluie, férié nommé, transports au seuil métier −4 %) ; les
+    // faits de PÉRIODE (vacances, méga-événement ≥ 3 j) en ligne unique avec leur échéance ;
+    // l'affluence attendue du jour choisi dessous (ft_* de days[] — zéro fetch de plus).
+    // Vue AGRÉGÉE : jamais la météo d'UN site donnée pour le compte — faits partagés + ALERTES
+    // taguées de LEUR site (_siteData porte les days par site).
+    const _wxWarn = (d) => Number(d && d.alert_level_max) >= 3 || Number(d && d.lvl_rain) >= 3 || Number(d && d.lvl_wind) >= 3 || Number(d && d.lvl_snow) >= 3;
+    const _n7Sites = (isMultisite && Array.isArray(data._siteData) && data._siteData.length > 1) ? data._siteData : null;
+    const _shortSite = (s) => String(s || "").replace(/^Muse Square\s+/, "") || String(s || "");
+    const _ddmm = (ymd) => String(ymd || "").slice(8, 10) + "/" + String(ymd || "").slice(5, 7);
+    const _periodRuns = () => {
+      const runs = new Map();
+      const addFrom = (dlist, siteLabel) => {
+        for (const d of (dlist || [])) {
+          const names = [];
+          if (d.vacation_name) names.push([String(d.vacation_name), "#F6EED9", "#92671E"]);
+          if (d.is_mega_event_flag) names.push([String(d.active_mega_event_name || "méga-événement"), "#FEF3E2", "#B45309"]);
+          for (const nb of names) {
+            if (!runs.has(nb[0])) runs.set(nb[0], { nom: nb[0], bg: nb[1], fg: nb[2], dates: new Set(), sites: new Set() });
+            const r = runs.get(nb[0]);
+            r.dates.add(String(d.date).slice(0, 10));
+            r.sites.add(siteLabel || "");
+          }
+        }
+      };
+      if (_n7Sites) _n7Sites.forEach((s) => addFrom(s.days, s.label));
+      else addFrom(days, "");
+      return [...runs.values()].filter((r) => r.dates.size >= 3);
+    };
+    const pillsHtml = (() => {
+      let cols = "";
+      const runs = _periodRuns();
+      const covered = new Set();
+      runs.forEach((r) => r.dates.forEach((d2) => covered.add(r.nom + "|" + d2)));
+      for (const ymd of dates) {
+        const isToday = ymd === today, isSel = ymd === selectedDate;
         const dt = parseYmdToDate(ymd);
-        const dowFr = dt ? ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"][((dt.getUTCDay()+6)%7)] : "";
+        const dowFr = dt ? ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"][((dt.getUTCDay() + 6) % 7)] : "";
         const dayLabel = isToday ? "Auj." : (dt ? `${dowFr} ${dt.getUTCDate()}` : ymd);
-        return `<button type="button" class="pls-col${isSel ? " is-sel" : ""}" data-pill-date="${ymd}">`
-          + `<div class="pls-sc">${hasScore ? sc.toFixed(1) : "\u2014"}</div>`
-          + `<div class="pls-ba"><div class="pls-bar${isSel ? " is-now" : ""}" style="height:${barPx}px;"></div></div>`
-          + `<div class="pls-dy${isSel ? " is-now" : ""}">${escapeHtml(dayLabel)}</div>`
-        + `</button>`;
-      }).join("")
-      + `</div>`;
+        const d0 = dayMap.get(ymd);
+        let facts = "";
+        if (_n7Sites) {
+          const seen = {};
+          for (const s of _n7Sites) {
+            const d = (s.days || []).find((x) => String(x.date).slice(0, 10) === ymd);
+            if (!d) continue;
+            const tag = _shortSite(s.label);
+            if (_wxWarn(d) && d.weather_label_fr) {
+              const k = d.weather_label_fr + "|" + tag;
+              if (!seen[k]) { seen[k] = 1; facts += `<span class="n7wx warn" title="${escapeHtml(d.weather_alert_fr || "")}">${escapeHtml(d.weather_label_fr)}</span><span class="n7t">${escapeHtml(tag)}</span>`; }
+            }
+            if (d.delta_att_mobility_pct != null && Number(d.delta_att_mobility_pct) <= -4)
+              facts += `<span class="n7chip" style="background:#EDE9FE;color:#6D28D9;font-weight:650;">transports \u2212${Math.abs(Math.round(d.delta_att_mobility_pct))} % \u00b7 ${escapeHtml(tag)}</span>`;
+          }
+          if (d0 && d0.holiday_name) facts = `<span class="n7chip" style="background:#F6EED9;color:#92671E;font-weight:650;">${escapeHtml(d0.holiday_name)}</span>` + facts;
+        } else if (d0) {
+          if (d0.weather_label_fr) facts += `<span class="n7wx${_wxWarn(d0) ? " warn" : ""}">${escapeHtml(d0.weather_label_fr)}</span>`;
+          if (d0.temperature_2m_max != null) facts += `<span class="n7t">${Math.round(d0.temperature_2m_max)}\u00b0${d0.precipitation_probability_max_pct != null && Number(d0.precipitation_probability_max_pct) >= 40 ? " \u00b7 pluie " + Math.round(d0.precipitation_probability_max_pct) + " %" : ""}</span>`;
+          if (d0.holiday_name) facts += `<span class="n7chip" style="background:#F6EED9;color:#92671E;font-weight:650;">${escapeHtml(d0.holiday_name)}</span>`;
+          else if (d0.vacation_name && !covered.has(String(d0.vacation_name) + "|" + ymd)) facts += `<span class="n7chip" style="background:#F6EED9;color:#92671E;">${escapeHtml(d0.vacation_name)}</span>`;
+          if (d0.delta_att_mobility_pct != null && Number(d0.delta_att_mobility_pct) <= -4) facts += `<span class="n7chip" style="background:#EDE9FE;color:#6D28D9;font-weight:650;">transports \u2212${Math.abs(Math.round(d0.delta_att_mobility_pct))} %</span>`;
+        }
+        if (!facts) facts = `<span class="n7calm">\u2014</span>`;
+        cols += `<button type="button" class="pls-col${isSel ? " is-sel" : ""}" data-pill-date="${ymd}" title="${escapeHtml((d0 && d0.top_risk_sentence) || "")}"><span class="n7day${isSel ? " is-now" : ""}">${escapeHtml(dayLabel)}</span>${facts}</button>`;
+      }
+      let extra = "";
+      if (runs.length) {
+        const lastYmd = dates[dates.length - 1];
+        extra += `<div class="n7period">` + runs.map((r) => {
+          const fin = [...r.dates].sort().pop();
+          const dtf = parseYmdToDate(fin);
+          const finLbl = fin === lastYmd ? "toute la semaine" : "jusqu\u2019au " + (dtf ? ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"][dtf.getUTCDay()] + " " : "") + _ddmm(fin);
+          const partial = _n7Sites && r.sites.size < _n7Sites.length ? " \u00b7 " + [...r.sites].map(_shortSite).join(", ") : "";
+          return `<span style="display:inline-flex;align-items:center;gap:6px;"><span class="n7chip" style="background:${r.bg};color:${r.fg};font-weight:650;">${escapeHtml(r.nom.length > 26 ? r.nom.slice(0, 24) + "\u2026" : r.nom)}</span> ${finLbl}${escapeHtml(partial)}</span>`;
+        }).join("") + `</div>`;
+      }
+      // Affluence attendue du jour choisi (site unique — une affluence de compte n'existe pas).
+      if (!_n7Sites) {
+        const dSel = dayMap.get(selectedDate);
+        if (dSel && dSel.ft_peak_hour != null) {
+          const dts = parseYmdToDate(selectedDate);
+          const jLbl = selectedDate === today ? "aujourd\u2019hui" : (dts ? ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"][dts.getUTCDay()] + " " : "") + _ddmm(selectedDate);
+          let curve = "";
+          if (Array.isArray(dSel.ft_hourly_raw) && dSel.ft_hourly_raw.length > 1) {
+            const mx = Math.max.apply(null, dSel.ft_hourly_raw) || 1;
+            const pts = dSel.ft_hourly_raw.map((v, k) => (k * (160 / (dSel.ft_hourly_raw.length - 1))).toFixed(1) + "," + (26 - (v / mx) * 24).toFixed(1)).join(" ");
+            curve = ` <svg viewBox="0 0 160 28" style="width:160px;height:28px;vertical-align:middle;"><polyline points="${pts}" fill="none" stroke="#1D3BB3" stroke-width="1.5"/></svg>`;
+          }
+          extra += `<div class="n7aff"><span style="font-weight:650;">${escapeHtml(jLbl)}</span><span>affluence attendue : pic <b>${Number(dSel.ft_peak_hour)} h</b>${dSel.ft_peak_busyness_pct != null ? " (" + Math.round(dSel.ft_peak_busyness_pct) + " %)" : ""} \u00b7 creux ${Number(dSel.ft_quiet_hour)} h${dSel.ft_avg_busyness_pct != null ? " \u00b7 moyenne " + Math.round(dSel.ft_avg_busyness_pct) + " %" : ""}</span>${curve}</div>`;
+        }
+      }
+      return `<p style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-tertiary);font-weight:500;margin:22px 0 10px;">7 jours à venir &middot; choisissez un jour</p>`
+        + `<div style="display:flex;align-items:stretch;gap:4px;">` + cols + `</div>` + extra;
+    })();
 
     // ---- Carte view ----
     if (activeView === "carte") {
@@ -4285,7 +4346,7 @@ if (!location_id) {
     }
 
     // Daily Action Brief
-    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId, days, followedCount, _effGoalKey);
+    var briefHtml = renderDailyBrief(allFeed, data.profile || {}, currentDay, selectedDate, currentLocationId, days, followedCount, "");
 
     // Strip 1: Score
     const score = currentDay.opportunity_score;
@@ -4310,42 +4371,10 @@ if (!location_id) {
         + `<span style="font-size:20px;font-weight:650;letter-spacing:-0.01em;color:var(--color-text-primary);">Vos actions du jour</span>`
         + `<span style="font-size:12.5px;color:var(--color-text-secondary);">${escapeHtml(fmtDateLong(selectedDate))}</span>`
         + (_vAlertSv ? `<span style="font-size:12.5px;font-weight:600;color:${_vAlertSv.fg};">${_vAlert >= 3 ? "vigilance m\u00e9t\u00e9o forte" : "vigilance m\u00e9t\u00e9o"}</span>` : "")
+        + (!_n7Sites && currentDay.ft_peak_hour != null ? `<span style="font-size:12.5px;color:var(--color-text-secondary);">\u00b7 pic attendu ${Number(currentDay.ft_peak_hour)} h</span>` : "")
         + `<span style="flex:1;"></span>`
-        + `<a href="/app/insightevent/tableau" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;white-space:nowrap;">Piloter \u2192</a>`
       + `</div>`
     + `</div>`;
-
-    // Weekly goal — ONE goal for the whole account; picking it reorders the cards live.
-    var GOAL_OPTS = [
-      { key: "faire_venir", label: "Faire venir" },
-      { key: "augmenter_panier", label: "Augmenter le CA" },
-      { key: "plus_avis", label: "Plus d\u2019avis" },
-      { key: "surveiller_marche", label: "Surveiller le march\u00e9" },
-    ];
-    // One weekly goal for the whole account — the header dropdown handles which site
-    // you are looking at, so the goal no longer carries its own site picker.
-    var activeGoalKey = _effGoalKey;
-    var _goalChipLabel = activeGoalKey
-      ? ("Objectif\u00a0: " + ((GOAL_OPTS.filter(function(g){ return g.key === activeGoalKey; })[0] || {}).label || ""))
-      : "D\u00e9finir un objectif";
-    var goalSelectorHtml = (
-      '<div class="pls-goal" data-goal-selector>'
-      + '<button type="button" class="pls-goal-chip" data-goal-chip-toggle aria-expanded="false">'
-        + '<span data-goal-chip-label>' + escapeHtml(_goalChipLabel) + '</span>'
-        + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>'
-      + '</button>'
-      + '<div class="pls-goal-pop" data-goal-popover hidden>'
-        + '<div class="eb" style="margin-bottom:6px;">Objectif de la semaine</div>'
-        + '<div style="font-size:11px;color:#6B7280;margin-bottom:10px;line-height:1.4;">Les cartes qui servent cet objectif passent en t\u00eate de la liste.</div>'
-        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
-        + GOAL_OPTS.map(function(g) {
-            var sel = (g.key === activeGoalKey);
-            return '<button type="button" data-goal-key="' + g.key + '" aria-pressed="' + (sel ? 'true' : 'false') + '" style="font-size:12px;font-weight:600;padding:6px 12px;border:1px solid ' + (sel ? '#1D3BB3' : '#E5E7EB') + ';background:' + (sel ? '#1D3BB3' : '#fff') + ';color:' + (sel ? '#fff' : '#6B7280') + ';cursor:pointer;font-family:inherit;">' + escapeHtml(g.label) + '</button>';
-          }).join("")
-        + '</div>'
-      + '</div>'
-      + '</div>'
-    );
 
     // Actions-menées counter (single-site; baseline from dbt table, bumped live on card_done)
     var _cardsDone = (!isMultisite && data.activity && data.activity.cards_done != null) ? Number(data.activity.cards_done) : null;
@@ -4356,7 +4385,7 @@ if (!location_id) {
     // Assemble
     // Radar retiré (14/08) : ses trois volets vivent sur Piloter (héros + Événements
     // concurrents + Ma veille concurrentielle) — les hooks ops sont gardés contre null.
-    root.innerHTML = pillsHtml + verdictHtml + goalSelectorHtml + counterHtml + briefHtml + feedHtml;
+    root.innerHTML = pillsHtml + verdictHtml + counterHtml + briefHtml + feedHtml;
     applySowhatClamp(root);
 
     // Engagement cards — merged into Fil d'actualité, scoped to the SAME sites the feed
@@ -4396,66 +4425,6 @@ if (!location_id) {
       });
     });
 
-    // Weekly goal chip — relocate into the site-context row (.pls-loc-row)
-    var _goalNode = root.querySelector("[data-goal-selector]");
-    var _locRow = document.querySelector(".pls-loc-row");
-    if (_goalNode && _locRow) {
-      var _oldGoal = _locRow.querySelector("[data-goal-selector]");
-      if (_oldGoal) _oldGoal.remove();
-      _locRow.appendChild(_goalNode);
-    }
-    document.querySelectorAll("[data-goal-chip-toggle]").forEach(function(chip) {
-      var pop = chip.parentElement ? chip.parentElement.querySelector("[data-goal-popover]") : null;
-      chip.addEventListener("click", function(e) {
-        e.stopPropagation();
-        if (!pop) return;
-        if (pop.hasAttribute("hidden")) { pop.removeAttribute("hidden"); chip.setAttribute("aria-expanded", "true"); }
-        else { pop.setAttribute("hidden", ""); chip.setAttribute("aria-expanded", "false"); }
-      });
-    });
-    if (!window.__plsGoalDocClick) {
-      window.__plsGoalDocClick = true;
-      document.addEventListener("click", function(e) {
-        document.querySelectorAll("[data-goal-popover]").forEach(function(pop) {
-          var wrap = pop.closest("[data-goal-selector]");
-          if (wrap && !wrap.contains(e.target)) {
-            pop.setAttribute("hidden", "");
-            var c = wrap.querySelector("[data-goal-chip-toggle]");
-            if (c) c.setAttribute("aria-expanded", "false");
-          }
-        });
-      });
-    }
-
-    // Weekly goal selector
-    document.querySelectorAll("[data-goal-selector] [data-goal-key]").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        var key = btn.getAttribute("data-goal-key");
-        var clear = btn.getAttribute("aria-pressed") === "true"; // re-tapping the active goal deselects
-        _activeGoalKey = clear ? "" : key;
-        // Sticky across reloads for every view (aggregate + single-site).
-        try { if (clear) localStorage.removeItem(_goalStoreKey()); else localStorage.setItem(_goalStoreKey(), key); } catch (e) {}
-        // Also persist server-side for genuine single-site accounts (per-location goal store).
-        if (Array.isArray(allLocations) && allLocations.length <= 1 && currentLocationId) {
-          data.active_goal = clear ? null : { goal: key };
-          fetch("/api/insight/set-goal", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(clear
-              ? { location_id: currentLocationId, scope: "weekly", clear: true }
-              : { location_id: currentLocationId, scope: "weekly", goal: key }),
-          }).catch(function(){});
-        }
-        // Re-render so the Goal pass reorders the cards and the chip reflects the choice.
-        renderPulse(data, selectedDate, "radar");
-      });
-    });
-
-    // Radar strip toggles — v5: accordéon (un volet ouvert à la fois), état mémorisé par site,
-    // carte Concurrence initialisée au premier dépliage (Leaflet lazy).
-    const _radarOpenKey = "ms_radar_open_" + currentLocationId;
-
-    // Competitor tab switching inside strip 3
     root.querySelectorAll("[data-comp-tab]").forEach(function(btn) {
       btn.addEventListener("click", function() {
         var tab = btn.getAttribute("data-comp-tab");

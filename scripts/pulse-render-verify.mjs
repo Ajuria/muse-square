@@ -94,5 +94,30 @@ check("titre créneau : format spécifique quand la carte est rendue", (() => {
 })());
 check("CTA « M’engager » présent sur les cartes", txt().includes("M’engager"));
 
+// ── Build v3.2 · Inc 1-2 : bandeau de FAITS + en-tête épuré. ──
+const strip = root.querySelector(".pls-col") ? root : null;
+check("bandeau : le SCORE est mort (aucun chiffre /10, aucune barre)", !root.querySelector(".pls-sc, .pls-ba, .pls-bar"));
+check("bandeau : colonnes à FAITS (météo courte du payload)", (() => {
+  const d0 = (monitorPayload.days || [])[0] || {};
+  return d0.weather_label_fr ? txt().includes(d0.weather_label_fr) : true;
+})());
+check("bandeau : période (vacances ≥ 3 j) en ligne unique avec échéance", (() => {
+  const vac = (monitorPayload.days || []).filter((d) => d.vacation_name);
+  if (vac.length < 3) return true;
+  return !!root.querySelector(".n7period") && / jusqu’au |toute la semaine/.test(root.querySelector(".n7period").textContent);
+})());
+check("bandeau : affluence attendue du jour choisi (ft_* présents)", (() => {
+  const d0 = (monitorPayload.days || [])[0] || {};
+  if (d0.ft_peak_hour == null) return true;
+  const aff = root.querySelector(".n7aff");
+  return !!aff && aff.textContent.includes("affluence attendue") && aff.textContent.includes(Number(d0.ft_peak_hour) + " h");
+})());
+check("en-tête : pic attendu + PLUS de « Piloter → » ni d'« Objectif de la semaine »", (() => {
+  const d0 = (monitorPayload.days || [])[0] || {};
+  const okPic = d0.ft_peak_hour == null || txt().includes("pic attendu " + Number(d0.ft_peak_hour) + " h");
+  return okPic && !txt().includes("Objectif de la semaine") && !/Piloter\s*→/.test(txt());
+})());
+check("clic-jour : data-pill-date conservé (mécanique de rechargement)", root.querySelectorAll("[data-pill-date]").length === 7);
+
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");
 process.exit(fails ? 1 : 0);
