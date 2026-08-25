@@ -185,23 +185,40 @@
     return { reste: Math.round(reste), objet: Math.round(dlt), part: part };
   }
 
-  function hourFunnelDriver(a) {
+  // LA décomposition horaire — UNE seule fonction pour le corps ET pour le geste. Le commit du
+  // 25/08 affirmait « une seule source » alors qu'il y avait DEUX copies de la même formule
+  // dans ce fichier (le corps calculait ses `facts`, le geste les recalculait). Elles
+  // s'accordaient parce que je les avais tapées à l'identique — rien ne l'imposait.
+  // Règle d'attribution : un facteur porte l'écart s'il est du MÊME CÔTÉ que le total ET pèse
+  // >= 20 % du log-écart, plancher absolu 2 %. Elle vient d'`opFunnel` (tableau.astro, chantier
+  // « attendus par facteur ») et est reprise ici À L'IDENTIQUE — volontairement, pour que les
+  // deux surfaces attribuent pareil. Les deux fonctions restent séparées : opFunnel travaille
+  // au grain OPÉRATION avec TROIS facteurs (passages / conversion / panier), celle-ci au grain
+  // HEURE avec DEUX (ventes / panier), sur d'autres entrées. Les fondre est un refactor à part.
+  function hourFunnelFacts(a) {
     if (!a) return null;
     var eht = a.expected_hour_transactions != null ? Number(a.expected_hour_transactions) : null;
     var tx = a.hour_transactions != null ? Number(a.hour_transactions) : null;
     var rev = a.hour_revenue != null ? Number(a.hour_revenue) : null;
     var exp = a.expected_hour_revenue != null ? Number(a.expected_hour_revenue) : null;
     if (!(eht > 0 && tx > 0 && rev > 0 && exp > 0)) return null;
-    var cTx = Math.log(tx / eht);
-    var cPan = Math.log((rev / tx) / (exp / eht));
+    var eur2 = function (v) { return v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20ac'; };
+    var facts = [
+      { c: Math.log(tx / eht), r: tx / eht, de: 'des ventes', tenu: 'vos ventes ont tenu', txt: frInt(tx) + ' contre ' + frInt(Math.round(eht)) + ' attendues' },
+      { c: Math.log((rev / tx) / (exp / eht)), r: (rev / tx) / (exp / eht), de: 'du panier', tenu: 'votre panier moyen a tenu', txt: eur2(rev / tx) + ' \u00b7 attendu ' + eur2(exp / eht) }
+    ];
     var totalLog = Math.log(rev / exp);
     var floor2 = Math.max(0.02, 0.2 * Math.abs(totalLog));
-    var okTx = (totalLog < 0 ? cTx < 0 : cTx > 0) && Math.abs(cTx) >= floor2;
-    var okPan = (totalLog < 0 ? cPan < 0 : cPan > 0) && Math.abs(cPan) >= floor2;
-    if (okTx && okPan) return 'les deux';
-    if (okTx) return 'ventes';
-    if (okPan) return 'panier';
-    return null;
+    var drivers = facts.filter(function (x) { return (totalLog < 0 ? x.c < 0 : x.c > 0) && Math.abs(x.c) >= floor2; });
+    var tenus = facts.filter(function (x) { return drivers.indexOf(x) < 0 && x.r >= 0.97 && x.r <= 1.03; });
+    return { facts: facts, drivers: drivers, tenus: tenus, totalLog: totalLog };
+  }
+  // Le MOTEUR nommé, dérivé de la MÊME décomposition — plus de second calcul.
+  function hourFunnelDriver(a) {
+    var f = hourFunnelFacts(a);
+    if (!f || !f.drivers.length) return null;
+    if (f.drivers.length === 2) return 'les deux';
+    return f.drivers[0].de === 'des ventes' ? 'ventes' : 'panier';
   }
 
   // LEVIER 2 (owner 25/08) — NOMMER L'OBJET. Une action générique le reste tant qu'elle ne
@@ -2715,23 +2732,15 @@
       // Funnel horaire (clés dbt HANDOFF-hourly-funnel, gardé sur leur présence) : l'écart se
       // décompose ventes × panier — vocabulaire d'opFunnel (le manque/le gain vient de…,
       // « a tenu » ssi ratio 0,97–1,03), MÊME référentiel (part typique 8 sem. × attendu du jour).
-      var eht = a.expected_hour_transactions != null ? Number(a.expected_hour_transactions) : null;
-      var tx = a.hour_transactions != null ? Number(a.hour_transactions) : null;
-      if (eht != null && eht > 0 && tx != null && tx > 0 && rev != null && rev > 0 && exp != null && exp > 0) {
-        var eur2 = function (v) { return v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20ac'; };
-        var facts = [
-          { c: Math.log(tx / eht), r: tx / eht, de: 'des ventes', tenu: 'vos ventes ont tenu', txt: frInt(tx) + ' contre ' + frInt(Math.round(eht)) + ' attendues' },
-          { c: Math.log((rev / tx) / (exp / eht)), r: (rev / tx) / (exp / eht), de: 'du panier', tenu: 'votre panier moyen a tenu', txt: eur2(rev / tx) + ' \u00b7 attendu ' + eur2(exp / eht) }
-        ];
-        var totalLog = Math.log(rev / exp);
-        var floor2 = Math.max(0.02, 0.2 * Math.abs(totalLog));
-        var drivers = facts.filter(function (x) { return (totalLog < 0 ? x.c < 0 : x.c > 0) && Math.abs(x.c) >= floor2; });
-        var tenus = facts.filter(function (x) { return drivers.indexOf(x) < 0 && x.r >= 0.97 && x.r <= 1.03; });
-        if (drivers.length) {
-          line += ' ' + (totalLog < 0 ? 'Le manque vient ' : 'Le gain vient ') + drivers.map(function (x) { return x.de + ' (' + x.txt + ')'; }).join(' et ');
-          if (tenus.length) line += ' \u2014 ' + tenus.map(function (x) { return x.tenu + ' (' + x.txt + ')'; }).join(' \u00b7 ');
-          line += '.';
-        }
+      // Le corps consomme LA décomposition partagée (hourFunnelFacts) — plus sa propre copie de
+      // la formule. Le commit du 25/08 disait « une seule source » alors qu'il y en avait deux
+      // dans ce fichier ; c'est vrai maintenant. Vocabulaire d'opFunnel inchangé.
+      var _hf = hourFunnelFacts(a);
+      if (_hf && _hf.drivers.length) {
+        line += ' ' + (_hf.totalLog < 0 ? 'Le manque vient ' : 'Le gain vient ')
+          + _hf.drivers.map(function (x) { return x.de + ' (' + x.txt + ')'; }).join(' et ');
+        if (_hf.tenus.length) line += ' \u2014 ' + _hf.tenus.map(function (x) { return x.tenu + ' (' + x.txt + ')'; }).join(' \u00b7 ');
+        line += '.';
       }
       // Réserve de régime (trigger arbitré 25/08) : base d'un AUTRE régime calendaire —
       // l'écart peut tenir au calendrier, la carte ne l'affirme plus.
