@@ -30,7 +30,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Contexte favorable détecté (le volet du tableau) | **Opportunités** (owner 24/08 — titre du volet ; contenu = prospective chaleur + couverture, renvoi « les cartes des 7 prochains jours → Agir ») ; « occasion » reste le mot d'une occasion individuelle | Vos prochaines occasions (trop long, owner 24/08), fenêtre de la semaine, momentum, jour favorable |
 | Le groupe de volets du dehors (activité, opportunités, positionnement, veille) | **Mon environnement** (owner 24/08) | Compétitivité (owner 24/08 — dit un jugement, le contenu est de la surveillance) |
 | Créer une opération depuis le tableau (bouton) | **Nouvelle opération** (owner 24/08 — boutons tableau + evenement renommés au build ; PAS de ban mécanique : « Nouvel événement repéré chez un suivi » est l'ÉVÉNEMENT DU CONCURRENT, sens légitime — règle de relecture) | Nouvel événement (comme bouton de création) |
-| La tuile héros du savoir accumulé | **Connaissances créées** (owner 24/08 — la TUILE ; le volet garde « Ce que l'app a appris de vos sites », alignement en attente) | Ce que l'app a appris de vos sites (sur la tuile) |
+| La tuile héros du savoir accumulé ET sa carte-volet | **Connaissances créées** (owner 24/08 la tuile ; 25/08 la carte-volet à part dans Processus métiers — alignement FAIT, « Mes dispositifs » ouvre sur sa liste) | Ce que l'app a appris de vos sites (comme titre de surface) |
 | Cause non isolable par la mesure | **facteurs mêlés** | cause multifactorielle |
 | Jour non couvert par une action | **couvert / sans action** | joué, manqué (réservé au verdict) |
 | Déclenchement automatique | **Automatiser** (série OU signal — la condition se choisit dans le flux) | Armer, Armer sur signal |
