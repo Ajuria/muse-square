@@ -240,8 +240,32 @@ if (!location_id) {
          La pastille garde sa forme ; c'est le TEXTE qui doit tomber sur la même verticale :
          chaque élément de la colonne porte donc le même retrait. --ab-eur-pad est la seule
          source de ce nombre — le changer réaligne tout d'un coup. */
+      /* BANDEAU (format B, proto agir-formats-proto) — les CHANTIERS ne sont pas des cartes :
+         une ligne, hauteur fixe, deux lignes de texte, pas de pied. Mettre ces rangées sur
+         .ab-rgrid + .ab-rfoot (25/08 après-midi) en avait fait des cartes normales : c'est la
+         régression signalée par l'owner. La colonne droite garde le MÊME bord d'encre que les
+         cartes (var --ab-eur-pad), donc les deux formats s'alignent verticalement. */
+      /* padding-right 20 px = celui de .ab-rgrid : sans ça, bandeaux et cartes tombaient sur
+         deux bords distants de 2 px (mesuré : 951 contre 949). */
+      .ab-bnd { display:flex; align-items:center; gap:12px; padding:0 20px 0 18px; min-height:62px; }
+      .ab-bnd-body { flex:1; min-width:0; }
+      .ab-bnd-t { font-size:13px; font-weight:620; color:#111827; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+      .ab-bnd-t:hover { color:#1D3BB3; }
+      .ab-bnd-f { font-size:11.5px; color:#6B7280; line-height:1.3; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .ab-bnd-tail { display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex:none; margin-left:14px; }
+      /* La LOCATION est collée au bord droit : aucun retrait. Son encre tombe exactement sur
+         celle du dernier geste de la ligne du dessous (owner 25/08 : « je VEUX la location à
+         droite »). --ab-eur-pad ne s'applique PAS ici : il n'existe que dans .ab-eur, et un
+         retrait de 10 px décalait la location de 10 px vers la gauche. */
+      .ab-bnd-site { font-size:10.5px; color:#9CA3AF; white-space:nowrap; }
+      .ab-bnd-line { display:flex; align-items:center; gap:14px; }
+      .ab-bnd-line .pls-cta-sec, .ab-bnd-line .pls-cta-pri { padding:0; }
       .ab-eur { --ab-eur-pad:10px; }
-      .ab-eur .ab-meta, .ab-eur .amt-sub { padding-right:var(--ab-eur-pad); }
+      /* LOCATION COLLÉE AU BORD DROIT (owner 25/08 : « je VEUX la location à droite »).
+         Le retrait de 10 px posé plus tôt alignait son encre sur celle du NOMBRE (939) mais la
+         décollait du bord (949) : c'est ce décalage que l'owner voyait. Priorité au bord —
+         la location, le sous-texte, la pastille et les gestes du pied partagent 949. */
+      .ab-eur .ab-meta, .ab-eur .amt-sub { padding-right:0; }
       .ab-eur .amt-val { padding-left:var(--ab-eur-pad); padding-right:var(--ab-eur-pad); }
       .ab-eur .ab-pill-eur { padding:3px var(--ab-eur-pad); }
       .amt-i { cursor:help; width:14px; height:14px; border-radius:50%; border:1px solid #D1D5DB; color:#9CA3AF; font-size:9.5px; display:inline-flex; align-items:center; justify-content:center; font-style:italic; font-family:Georgia,serif; flex:none; }
@@ -3204,34 +3228,38 @@ if (!location_id) {
     // tentatives précédentes) ne pouvait pas marcher. Elle passe sur .ab-rgrid (46 | 1fr |
     // 156) + .ab-eur + .ab-rfoot, exactement comme les rangées pleines et contextuelles.
     // Le caractère COMPACT reste : padding vertical réduit, médaillon 22 px, corps 12,5 px.
+    // BANDEAU, pas carte (owner 25/08 : « tes chantiers structurels redeviennent des cartes
+    // normales »). Ma passe précédente les avait mis sur .ab-rgrid + .ab-rfoot pour régler
+    // l'alignement — l'alignement était réglé, mais le FORMAT était perdu : un motif de fond
+    // n'a pas de date, ne se traite pas aujourd'hui, et ne mérite pas la place d'une carte.
+    // Format B du proto agir-formats-proto : une ligne, hauteur fixe 62 px, titre + fait sur
+    // deux lignes, et à droite le site AU-DESSUS de [montant · gestes], tout collé au même
+    // bord d'encre que les cartes (--ab-eur-pad). Pas de pied.
+    var _bFait = (function () {
+      if (imp.avg_gap_eur == null || !isFinite(Number(imp.avg_gap_eur)) || Number(imp.avg_gap_eur) === 0) return state;
+      var _j = (Number(imp.avg_gap_eur) >= 0 ? '+' : '\u2212') + Math.abs(Math.round(Number(imp.avg_gap_eur))).toLocaleString('fr-FR') + ' \u20ac/j';
+      // Échelle (owner 25/08) : jours/an = eur_year ÷ €/j — l'annualisation du moteur.
+      var _n = (Number(imp.eur_year) && Number(imp.avg_gap_eur)) ? Math.round(Math.abs(Number(imp.eur_year) / Number(imp.avg_gap_eur))) : null;
+      return _j + (_n != null ? ' \u00b7 \u2248 ' + _n + ' jours par an' : '') + ' \u00b7 ' + state
+        + (eng && eng.owner_person_name ? ' \u2192 ' + String(eng.owner_person_name) : '');
+    })();
     return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="3" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-key="' + key + '">'
-      + '<div class="ab-rgrid" style="padding:12px 20px 0 16px;">'
-        + '<div>' + (function () { var _cf = _famOfStruct(imp.family); return '<span style="width:22px;height:22px;border-radius:50%;background:' + _cf.bg + ';color:' + _cf.ink + ';display:inline-flex;align-items:center;justify-content:center;flex:none;margin-top:1px;" title="' + _cf.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;">' + _cf.svg + '</svg></span>'; })() + '</div>'
-        + '<div style="min-width:0;">'
-          + '<div style="font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">' + escapeHtml(String(imp.title_fr || '')) + '</div>'
-          // Point 5 (owner 25/08) : « N j / M mois · tier · famille » est de la MÉTADONNÉE —
-          // elle vit dans l'infobulle du montant ; la sous-ligne garde le FAIT et l'état.
-          + '<div style="font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">'
-            + (function () {
-                if (imp.avg_gap_eur == null || !isFinite(Number(imp.avg_gap_eur)) || Number(imp.avg_gap_eur) === 0) return '';
-                var _j = (Number(imp.avg_gap_eur) >= 0 ? '+' : '\u2212') + Math.abs(Math.round(Number(imp.avg_gap_eur))).toLocaleString('fr-FR') + ' \u20ac/j';
-                // Échelle (owner 25/08 soir) : jours/an = eur_year ÷ €/j — l'annualisation du
-                // moteur elle-même, jamais un second calcul.
-                var _n = (Number(imp.eur_year) && Number(imp.avg_gap_eur)) ? Math.round(Math.abs(Number(imp.eur_year) / Number(imp.avg_gap_eur))) : null;
-                return _j + (_n != null ? ' \u00b7 \u2248 ' + _n + ' jours par an' : '') + ' \u00b7 ';
-              })()
-            + state + (eng && eng.owner_person_name ? ' \u2192 ' + escapeHtml(String(eng.owner_person_name)) : '') + '</div>'
-          // 2-A (owner 24/08) : liaison des deux pôles négatifs — posée par monitor.
-          + (imp.liaison_fr ? '<div style="font-size:11px;color:#1D3BB3;font-weight:400;margin-top:2px;">' + escapeHtml(String(imp.liaison_fr)) + '</div>' : '')
+      + '<div class="ab-bnd">'
+        + (function () { var _cf = _famOfStruct(imp.family); return '<span style="width:26px;height:26px;border-radius:50%;background:' + _cf.bg + ';color:' + _cf.ink + ';display:inline-flex;align-items:center;justify-content:center;flex:none;" title="' + _cf.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;">' + _cf.svg + '</svg></span>'; })()
+        + '<div class="ab-bnd-body">'
+          + '<div class="ab-bnd-t">' + escapeHtml(String(imp.title_fr || '')) + '</div>'
+          + '<div class="ab-bnd-f">' + escapeHtml(_bFait) + (imp.liaison_fr ? ' \u00b7 ' + escapeHtml(String(imp.liaison_fr)) : '') + '</div>'
         + '</div>'
-        + '<div class="ab-eur">'
-          + _plsRowMeta(null, imp.location_label)
-          + (coinPorte
-              ? '<span class="ab-metric-val" style="font-size:11px;color:#9CA3AF;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
-              : '<span class="ab-pill-eur" style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;white-space:nowrap;" title="' + escapeHtml('Mesur\u00e9 sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois \u2014 ' + String(imp.tier_label_fr || '') + '. ' + (pos ? '\u20ac encaiss\u00e9s en plus sur ces jours \u2014 \u00e0 gagner en les amplifiant.' : '\u20ac perdus sur ce motif \u2014 \u00e0 r\u00e9duire.')) + '">' + (pos ? '+' : '\u2212') + amount + ' \u20ac/an</span>')
+        + '<div class="ab-bnd-tail">'
+          + (imp.location_label ? '<span class="ab-bnd-site">' + escapeHtml(String(imp.location_label)) + '</span>' : '')
+          + '<span class="ab-bnd-line">'
+            + (coinPorte
+                ? '<span style="font-size:11px;color:#9CA3AF;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
+                : '<span class="ab-pill-eur" style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;white-space:nowrap;" title="' + escapeHtml('Mesur\u00e9 sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois \u2014 ' + String(imp.tier_label_fr || '') + '. ' + (pos ? '\u20ac encaiss\u00e9s en plus sur ces jours \u2014 \u00e0 gagner en les amplifiant.' : '\u20ac perdus sur ce motif \u2014 \u00e0 r\u00e9duire.')) + '">' + (pos ? '+' : '\u2212') + amount + ' \u20ac/an</span>')
+            + btn
+          + '</span>'
         + '</div>'
       + '</div>'
-      + '<div class="ab-rfoot" style="padding-bottom:12px;"><span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">' + btn + '</span></div>'
       + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
     + '</div>';
   }

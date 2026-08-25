@@ -254,13 +254,25 @@ check("préfixe d'action : aucun préfixe historique ne survit (16 + Chantier/En
 // grille. Contrat structurel (happy-dom ne fait pas de layout, donc on vérifie le SQUELETTE,
 // pas les pixels — la mesure au navigateur est dans le commit : 35 rangées, eurRight 999,
 // largeur 156, metaRight 999, discLeft 277, à l'unité près).
-check("alignement : chaque rangée (contextuelle, structurelle pleine ET compacte) est en .ab-rgrid + .ab-eur", (() => {
-  const rows = [...root.querySelectorAll(".ab-card[data-ab-card-idx], [data-struct-full], [data-struct-key]")];
-  if (!rows.length) return false;
-  const hors = rows.filter((r) => !r.querySelector(":scope > .ab-rgrid") || !r.querySelector(":scope > .ab-rgrid > .ab-eur"));
-  if (hors.length) console.log("    " + hors.length + " rangée(s) hors grille");
-  return hors.length === 0;
-})(), root.querySelectorAll(".ab-card[data-ab-card-idx], [data-struct-full], [data-struct-key]").length + " rangées");
+// DEUX FORMATS, pas un (owner 25/08) : CARTE (.ab-rgrid + .ab-eur) pour le conjoncturel,
+// BANDEAU (.ab-bnd) pour les chantiers structurels — une ligne, pas de pied. Le contrat
+// vérifie que chaque rangée est dans L'UN des deux, et jamais entre les deux.
+check("format : cartes en .ab-rgrid + .ab-eur, chantiers compacts en .ab-bnd (jamais d'hybride)", (() => {
+  const cartes = [...root.querySelectorAll(".ab-card[data-ab-card-idx], [data-struct-full]")];
+  const horsCarte = cartes.filter((r) => !r.querySelector(":scope > .ab-rgrid > .ab-eur"));
+  const bandeaux = [...root.querySelectorAll("[data-struct-key]")];
+  const horsBandeau = bandeaux.filter((r) => !r.querySelector(":scope > .ab-bnd") || r.querySelector(".ab-rfoot"));
+  if (horsCarte.length || horsBandeau.length) console.log("    " + horsCarte.length + " carte(s) hors grille · " + horsBandeau.length + " bandeau(x) hybrides");
+  return horsCarte.length === 0 && horsBandeau.length === 0;
+})(), root.querySelectorAll(".ab-card[data-ab-card-idx], [data-struct-full]").length + " cartes · " + root.querySelectorAll("[data-struct-key]").length + " bandeaux");
+// LOCATION À DROITE (owner 25/08, exigence répétée) : dans les deux formats, l'encre du
+// libellé de site tombe sur le bord droit — happy-dom ne fait pas de layout, donc le contrat
+// porte sur l'ABSENCE de retrait ; la mesure pixel est au navigateur (35 rangées à 949).
+check("location : rendue à droite dans les deux formats, sans retrait", (() => {
+  const sites = [...root.querySelectorAll(".ab-eur .ab-meta, .ab-bnd-site")];
+  if (!sites.length) return false;
+  return sites.every((s) => !/padding-right\s*:\s*[1-9]/.test(s.getAttribute("style") || ""));
+})(), root.querySelectorAll(".ab-eur .ab-meta, .ab-bnd-site").length + " libellés");
 check("alignement : les chantiers compacts vivent dans le conteneur encadré [data-t-struct]", (() => {
   const compacts = [...root.querySelectorAll("[data-struct-key]")];
   if (!compacts.length) return true;
