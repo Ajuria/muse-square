@@ -140,7 +140,12 @@ _Preuve : modèle complet modifié exécuté — Latte Rg 22/08 : `typ_n 30 · s
     )
 ```
 
-**3c. CTE `scored` — INSÉRER sous** `(revenue_share - share_baseline) * 100                           as share_delta_points` **(+ virgule) : les 3 lignes du bloc 2c** (`win_n as typ_n`, `baseline_same_regime_n`, `regime_mismatch_flag`).
+**3c. CTE `scored` — INSÉRER sous** `(revenue_share - share_baseline) * 100                           as share_delta_points` **(+ virgule en fin de cette ligne) :**
+```sql
+        win_n as typ_n,
+        if(is_school_holiday_flag, win_vac_n, win_n - win_vac_n) as baseline_same_regime_n,
+        safe_divide(if(is_school_holiday_flag, win_vac_n, win_n - win_vac_n), win_n) < 0.5 as regime_mismatch_flag
+```
 
 **3d. CTE `labeled` — INSÉRER sous** `(delta_n >= 20 and abs(delta_z) >= 2.5 and abs(delta_eur) >= 60) as is_eur_move` **(+ virgule) :**
 ```sql
@@ -170,7 +175,20 @@ Fichier : `fct_location_daily_action_candidates.sql`.
             s.typ_n, s.baseline_same_regime_n, s.is_school_holiday_flag, s.regime_mismatch_flag,
 ```
 
-**4b. CTE `offering_mix_shift as (` (~l. 1897) — mêmes deux édits** (STRUCT : les 4 mêmes lignes sous `first_occurrence_date` ; sous-select : la même ligne `s.typ_n, …`).
+**4b. CTE `offering_mix_shift as (` (~l. 1897)** — dans le STRUCT, INSÉRER sous `cast(first_occurrence_date as string) as first_occurrence_date` (+ virgule) :
+```sql
+            typ_n,
+            baseline_same_regime_n,
+            is_school_holiday_flag,
+            regime_mismatch_flag
+```
+et dans son sous-select, REMPLACER `s.n_occurrences_60d, s.first_occurrence_date,` par :
+```sql
+            s.n_occurrences_60d, s.first_occurrence_date,
+            s.typ_n, s.baseline_same_regime_n, s.is_school_holiday_flag, s.regime_mismatch_flag,
+```
+(Les TROIS CTE candidates complets, prêts à coller en bloc, ont été fournis dans la
+conversation du 25/08 — en cas de doute, remplacer chaque bloc `xxx as ( … ),` entier.)
 _Preuve : STRUCTs exécutés sur les modèles modifiés (Latte Rg / Coffee beans ci-dessus)._
 
 ---
@@ -181,10 +199,34 @@ _Preuve : STRUCTs exécutés sur les modèles modifiés (Latte Rg / Coffee beans
 retraits (premier crawl après la dernière apparition ; vérifié en base : « Cinéma au musée »
 → 2026-08-24). Le mart ne la passe pas.
 
-Fichier : `models/ms_open_data/mart/fct_competitor_offering_changes.sql` — **INSÉRER sous la
-ligne** `current_crawled_at,` **du select :**
+Fichier : `models/ms_open_data/mart/fct_competitor_offering_changes.sql` — DEUX insertions
+(le CTE fait PASSER la colonne, le select final l'EXPOSE ; un seul des deux → « Unrecognized
+name »). Diff prouvé purement additif (4 lignes ajoutées, 0 supprimée). AUCUN édit de l'int :
+il calcule déjà `change_first_seen_on` dans son select final.
+
+**5a. Dans le CTE `changes` (en haut du fichier), INSÉRER sous** `    current_crawled_at,` :
 ```sql
     change_first_seen_on,
+```
+
+**5b. Dans le select FINAL (après le bloc « fenêtre de détection »), REMPLACER :**
+```sql
+  -- fenêtre de détection
+  c.previous_crawled_at,
+  c.current_crawled_at,
+
+  -- provenance
+```
+**par :**
+```sql
+  -- fenêtre de détection
+  c.previous_crawled_at,
+  c.current_crawled_at,
+
+  -- la DATE du fait (int) — le « vu le » honnête, y compris sur les retraits
+  c.change_first_seen_on,
+
+  -- provenance
 ```
 
 ---
