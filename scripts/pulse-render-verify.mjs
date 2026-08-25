@@ -145,23 +145,27 @@ check("cartes système : « Pas pour moi » présent, « Communiquer »/« Déj�
 })());
 
 // ── Inc A (owner 25/08 soir, points 3+5) : minis courtes + paragraphe de faits structurel. ──
-check("structurelles pleines : titre au VERBE sans chiffre, faits = forme C + €/j + jours/an", (() => {
-  const fulls = [...root.querySelectorAll("[data-struct-full]")];
-  if (!fulls.length) return true;
-  return fulls.every((c) => {
-    const title = c.querySelector(".ab-what")?.textContent || "";
-    const body = [...c.querySelectorAll(".ab-sowhat")].map((x) => x.textContent).join(" ");
-    return /^(Mettez en place|Définissez|Identifiez|Ciblez)/.test(title) && !/€/.test(title)
-      && /€ par jour/.test(body) && /jours par an au rythme constaté/.test(body);
+// 25/08 : la promotion en carte pleine est morte, la copie structurelle vit dans le BANDEAU.
+// Le contrat suit le contenu — sans quoi il passerait à VIDE (un vert qui ne teste rien).
+check("bandeaux : titre au VERBE sans chiffre, fait = forme C + €/j + jours/an", (() => {
+  const bnds = [...root.querySelectorAll("[data-struct-key]")];
+  if (!bnds.length) return true;
+  const bad = bnds.filter((c) => {
+    const title = c.querySelector(".ab-bnd-t")?.textContent || "";
+    const fait = c.querySelector(".ab-bnd-f")?.textContent || "";
+    return !/^(Mettez en place|Définissez|Identifiez|Ciblez)/.test(title) || /€/.test(title)
+      || !/€ par jour/.test(fait) || !/jours par an/.test(fait);
   });
-})(), root.querySelectorAll("[data-struct-full]").length + " cartes");
+  if (bad.length) console.log("    " + JSON.stringify(bad.slice(0, 2).map((c) => (c.querySelector(".ab-bnd-t")?.textContent || "").slice(0, 50))));
+  return bad.length === 0;
+})(), root.querySelectorAll("[data-struct-key]").length + " bandeaux");
 // ── Audit 2 (owner) : TOUS les titres au verbe — la liste des amorces est FERMÉE, un titre
 // hors liste = FAIL (les formes-fait arbitrées 21-22/08 restent : CA supérieur/inférieur,
 // trio « surperforme/sous-performe/en hausse/en retrait », comparatifs de note).
 check("titres : CHAQUE titre rendu commence par un verbe (ou forme-fait arbitrée)", (() => {
   const VERB = /^(Adaptez|Préparez|Identifiez|Différenciez|Sécurisez|Capitalisez|Mettez|Réagissez|Protégez|Répondez|Renforcez|Contrez|Saisissez|Ciblez|Anticipez|Définissez|Amplifiez|Ajustez|Alertez|Activez|Prévenez|Profitez|Documentez|Analysez|Comparez|Choisissez|Reportez|Sollicitez|Demain)/;
   const FACT = /(surperforme|sous-performe|en hausse|en retrait)$|^CA (supérieur|inférieur)|est (mieux )?noté|êtes mieux noté|à égalité/;
-  const titles = [...root.querySelectorAll(".ab-card[data-ab-card-idx] .ab-what, [data-struct-full] .ab-what")]
+  const titles = [...root.querySelectorAll(".ab-card[data-ab-card-idx] .ab-what, .ab-bnd-t")]
     .map((x) => (x.textContent || "").trim()).filter(Boolean);
   const bad = titles.filter((t) => !VERB.test(t) && !FACT.test(t));
   if (bad.length) console.log("    titres hors grammaire : " + JSON.stringify(bad));
@@ -177,7 +181,7 @@ check("fin de fil : « Vous êtes à jour — N cartes ce jour. » rendue SANS c
 check("minis du coin : jamais « chez vous · », jamais « vos jours de », structurelles réduites à perdus/à gagner", (() => {
   const subs = [...root.querySelectorAll(".amt-sub")].map((s) => s.textContent || "");
   if (subs.some((s) => s.includes("chez vous ·") || s.includes("vos jours de"))) return false;
-  const structSubs = [...root.querySelectorAll("[data-struct-full] .amt-sub")].map((s) => (s.textContent || "").trim());
+  const structSubs = [];  // la mini structurelle a disparu avec la carte pleine (bandeau : le titre porte le motif)
   return structSubs.every((s) => s === "perdus" || s === "à gagner");
 })());
 check("rangées structurelles compactes : la métadonnée « N j / M mois » a quitté la sous-ligne", (() => {
@@ -199,14 +203,12 @@ check("corps trio : le verdict ne se répète plus sous le titre (« a surperfor
 
 // ── Inc D (owner 25/08 soir, point 2) : pied à deux gestes AUSSI sur les structurelles. ──
 check("structurelles : « Pas pour moi » (data-struct-dispo) sur pleines ET compactes non engagées", (() => {
-  const fulls = [...root.querySelectorAll("[data-struct-full]")];
-  const compacts = [...root.querySelectorAll("[data-struct-key]")];
-  const okFulls = fulls.every((c) => c.querySelector("[data-struct-dispo]"));
-  const okCompacts = compacts.every((c) => c.querySelector("[data-struct-dispo]") || c.querySelector("[data-struct-follow]"));
-  return okFulls && okCompacts;
+  const bnds = [...root.querySelectorAll("[data-struct-key]")];
+  if (!bnds.length) return false;
+  return bnds.every((c) => c.querySelector("[data-struct-dispo]") || c.querySelector("[data-struct-follow]"));
 })(), root.querySelectorAll("[data-struct-dispo]").length + " boutons");
 check("décomposition funnel structurelle : si présente, vocabulaire du créneau + référentiel nommé", (() => {
-  const bodies = [...root.querySelectorAll("[data-struct-full] .ab-sowhat")].map((x) => x.textContent || "");
+  const bodies = [...root.querySelectorAll(".ab-bnd-f")].map((x) => x.textContent || "");
   const withFunnel = bodies.filter((b) => /vient (des|du)/.test(b));
   return withFunnel.every((b) => /(Le manque vient|Le gain vient)/.test(b) && b.includes("vs vos jours comparables"));
 })());
@@ -232,7 +234,7 @@ check("pilule de rangée : chaque carte datée porte « JJ/MM » (date toujours 
   return sansDate.length === 0;
 })());
 check("pilule de rangée : les structurelles (pleines ET compactes) la rendent dans .ab-eur", (() => {
-  const rows = [...root.querySelectorAll("[data-struct-full], [data-struct-key]")];
+  const rows = [...root.querySelectorAll("[data-struct-key]")];
   if (!rows.length) return true;
   return rows.every((r) => !r.querySelector(".ab-eur") || r.querySelector(".ab-eur .ab-meta") || !r.querySelector(".ab-meta"));
 })());
@@ -258,13 +260,13 @@ check("préfixe d'action : aucun préfixe historique ne survit (16 + Chantier/En
 // BANDEAU (.ab-bnd) pour les chantiers structurels — une ligne, pas de pied. Le contrat
 // vérifie que chaque rangée est dans L'UN des deux, et jamais entre les deux.
 check("format : cartes en .ab-rgrid + .ab-eur, chantiers compacts en .ab-bnd (jamais d'hybride)", (() => {
-  const cartes = [...root.querySelectorAll(".ab-card[data-ab-card-idx], [data-struct-full]")];
+  const cartes = [...root.querySelectorAll(".ab-card[data-ab-card-idx]")];
   const horsCarte = cartes.filter((r) => !r.querySelector(":scope > .ab-rgrid > .ab-eur"));
   const bandeaux = [...root.querySelectorAll("[data-struct-key]")];
   const horsBandeau = bandeaux.filter((r) => !r.querySelector(":scope > .ab-bnd") || r.querySelector(".ab-rfoot"));
   if (horsCarte.length || horsBandeau.length) console.log("    " + horsCarte.length + " carte(s) hors grille · " + horsBandeau.length + " bandeau(x) hybrides");
   return horsCarte.length === 0 && horsBandeau.length === 0;
-})(), root.querySelectorAll(".ab-card[data-ab-card-idx], [data-struct-full]").length + " cartes · " + root.querySelectorAll("[data-struct-key]").length + " bandeaux");
+})(), root.querySelectorAll(".ab-card[data-ab-card-idx]").length + " cartes · " + root.querySelectorAll("[data-struct-key]").length + " bandeaux");
 // LOCATION À DROITE (owner 25/08, exigence répétée) : dans les deux formats, l'encre du
 // libellé de site tombe sur le bord droit — happy-dom ne fait pas de layout, donc le contrat
 // porte sur l'ABSENCE de retrait ; la mesure pixel est au navigateur (35 rangées à 949).
@@ -277,6 +279,27 @@ check("alignement : les chantiers compacts vivent dans le conteneur encadré [da
   const compacts = [...root.querySelectorAll("[data-struct-key]")];
   if (!compacts.length) return true;
   return compacts.every((c) => c.closest("[data-t-struct]"));
+})());
+
+// ── Fin de la promotion structurelle + pli à quota par site (owner 25/08, options 1 + 3). ──
+check("promotion structurelle MORTE : aucun motif de fond en carte pleine dans le fil", (() => {
+  return root.querySelectorAll("[data-struct-full]").length === 0;
+})());
+check("pli : chaque site présent dans le pli avec au moins 2 cartes (multi-sites)", (() => {
+  const vis = [...root.querySelectorAll(".ab-card[data-ab-card-idx]")].filter((c) => !c.hasAttribute("data-t-folded"));
+  const tous = [...new Set([...root.querySelectorAll(".ab-card[data-ab-card-idx]")].map((c) => c.getAttribute("data-t-site") || ""))];
+  if (tous.length < 2) return vis.length > 0;                     // mono-site : pli simple
+  const parSite = {};
+  vis.forEach((c) => { const s2 = c.getAttribute("data-t-site") || ""; parSite[s2] = (parSite[s2] || 0) + 1; });
+  const manquants = tous.filter((s2) => (parSite[s2] || 0) < 2);
+  if (manquants.length) console.log("    sites sous quota : " + JSON.stringify(manquants));
+  return manquants.length === 0;
+})(), root.querySelectorAll(".ab-card[data-ab-card-idx]:not([data-t-folded])").length + " cartes visibles");
+check("pli : la carte du PÉRIMÈTRE reste atteignable sans déplier", (() => {
+  const q = root.querySelector("[data-catchment-amt]");
+  if (!q) return true;
+  const card = q.closest(".ab-card");
+  return !!card && !card.hasAttribute("data-t-folded");
 })());
 
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");

@@ -3294,55 +3294,6 @@ if (!location_id) {
     return '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + g + '</svg></div>';
   }
 
-  function _structFullCardHtml(imp, key) {
-    var pos = Number(imp.eur_year) > 0;
-    var bar = pos ? '#059669' : '#B45309';
-    var fg = pos ? 'var(--color-pill-green-text)' : '#B45309';
-    var amount = Math.abs(Math.round(Number(imp.eur_year))).toLocaleString('fr-FR');
-    // Mini du coin (owner 25/08, point 3) : elle ne porte que ce que le titre ne dit pas.
-    // Le titre structurel NOMME le motif -> la mini se réduit à « perdus »/« à gagner »,
-    // le motif complet reste dans l'infobulle.
-    var lbl = pos ? 'à gagner' : 'perdus';
-    var tip = 'Mesuré sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois — ' + String(imp.tier_label_fr || '') + '. '
-      + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
-    var ident = imp.register === 'identification';
-    // CTA identification (01/08 soir) : la PAGE « Reproduire le dispositif gagnant » existe
-    // (dispositif.astro, provider partagé) — le bouton y navigue. data-struct-doc (Documenter
-    // en workspace) reste câblé pour les usages futurs, plus émis ici.
-    var btn = ident
-      ? '<button type="button" data-struct-page="' + key + '" class="pls-cta-pri">Reproduire le dispositif</button>'
-      : '<button type="button" data-struct-commit="' + key + '" class="pls-cta-pri">M’engager</button>';
-    // Trois étages (owner 25/08, points 4+5) : TITRE au verbe (forme C, sans chiffre — le
-    // suffixe « −211 €/j en moyenne » de l'Inc 5 est retiré : « moyenne » était de surcroît un
-    // référentiel faux, avg_gap_eur est la médiane), puis PARAGRAPHE DE FAITS (l'écart €/j posé
-    // par structuralCardCopyFr + la décomposition funnel quand elle est mesurée et cohérente —
-    // monitor.funnel_fr), puis l'ACTION (chantier). La provenance reste au ⓘ.
-    var _titreFull = String(imp.title_fr || '');
-    var _faits = [String(imp.sowhat_fr || ''), String(imp.funnel_fr || '')].filter(Boolean).join(' ');
-    var _sf = _famOfStruct(imp.family);
-    return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="0" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-full="' + key + '">'
-      + '<div class="ab-rgrid">'
-        + '<div><div class="ab-disc" style="margin-top:2px;background:' + _sf.bg + ';color:' + _sf.ink + ';" title="' + _sf.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + _sf.svg + '</svg></div></div>'
-        + '<div style="min-width:0;">'
-          + '<div class="ab-what">' + escapeHtml(_titreFull) + '</div>'
-          + (_faits ? '<div class="ab-sowhat">' + escapeHtml(_faits) + '</div>' : '')
-          + (imp.liaison_fr ? '<div class="ab-sowhat" style="color:#1D3BB3;">' + escapeHtml(String(imp.liaison_fr)) + '</div>' : '')
-          + (imp.chantier_fr ? '<div class="aline">' + escapeHtml(String(imp.chantier_fr)) + '</div>' : '')
-        + '</div>'
-        + '<div class="ab-eur">'
-          // Proto (owner 25/08 soir) : la pilule SITE en haut à droite, aussi sur les
-          // structurelles (fil unique — plus d'en-tête de bloc pour la porter).
-          + _plsRowMeta(null, imp.location_label)
-          + '<div class="amt ' + (pos ? 'gain' : 'defend') + '" title="' + escapeHtml(tip) + '"><span style="display:inline-flex;align-items:center;gap:5px;"><span class="amt-i">i</span><div class="amt-val" style="color:' + fg + ';">' + (pos ? '+' : '−') + amount + ' €/an</div></span><div class="amt-sub">' + escapeHtml(lbl) + '</div></div>'
-        + '</div>'
-      + '</div>'
-      + '<div class="ab-rfoot"><span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
-        // Inc D (owner 25/08, point 2) : pied à deux gestes AUSSI sur les structurelles.
-        + '<button type="button" data-struct-dispo="' + key + '" class="pls-cta-sec">Pas pour moi</button>'
-        + btn + '</span></div>'
-      + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;"></div>'
-    + '</div>';
-  }
 
   // IDENTITÉ PAR LA CLÉ (01/08, bug trouvé en traçant le multi-sites) : les rangs structurels
   // étaient keyés par l'INDEX DU TABLEAU TRIÉ (buildTriageLayout trie une copie) tandis que le
@@ -3478,7 +3429,7 @@ if (!location_id) {
     mount.querySelectorAll('.ab-card[data-t-site]').forEach(function(c) {
       var h = c.getAttribute('data-t-h') === '3' ? 'struct' : (c.getAttribute('data-t-h') === '0' ? 'today' : 'week');
       // Un motif PROMU (carte pleine, data-t-h=0) répond aux deux filtres : Aujourd'hui ET Structurel.
-      var okH = fh === 'tous' || h === fh || (fh === 'struct' && c.hasAttribute('data-struct-full'));
+      var okH = fh === 'tous' || h === fh;
       var okN = fn === 'tous' || c.getAttribute('data-t-n') === fn;
       var folded = c.getAttribute('data-t-folded') === '1';
       c.style.display = (okH && okN && (!folded || filtering || _triageState.sortEnjeu)) ? '' : 'none';
@@ -3560,64 +3511,92 @@ if (!location_id) {
       + '<span style="width:1px;height:18px;background:var(--color-border);margin:0 4px;"></span>'
       + '<button type="button" data-t-sort="1" style="font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid var(--color-border);background:#fff;color:#374151;cursor:pointer;font-family:inherit;">Trier par enjeu</button>'
       + '</div>';
-    var promoted = [], compactImps = [];
+    // FIN DE LA PROMOTION STRUCTURELLE (owner 25/08, option 1). Un motif de fond n'a plus
+    // qu'UNE forme : le bandeau. La doctrine du 01/08 en promouvait jusqu'à 2 par site en
+    // CARTE PLEINE dans le fil du jour — mesuré sur le compte owner, ces cartes occupaient
+    // 4 des 5 lignes visibles, ne laissant qu'UNE vraie carte du jour sur 20, et deux sites
+    // sur trois sans aucune carte visible. Cause : le tri mêlait deux ÉCHELLES — un €/an
+    // structurel (−24 965) et un € du jour ou un % — qui ne se comparent pas. Les motifs ne
+    // perdent rien : ils sont tous listés en bandeaux sous « Chantiers structurels ».
+    var compactImps = [];
     order.forEach(function(site) {
       var siteCtx = ctxCards.filter(function(c) { return (c.getAttribute('data-t-site') || '') === site; });
       var _siteCls = {};
       siteCtx.forEach(function(c) { var k = c.getAttribute('data-t-class'); if (k) _siteCls[k] = 1; });
-      var siteImps = imps.map(function(imp) { return { imp: imp, key: _structImpKey(imp) }; }).filter(function(x) { return String(x.imp.location_label || '') === site; });
-      var p = siteImps.filter(function(x) {
-        return !_structActiveCommit(x.imp) && !_siteCls[String(x.imp.class_key || '')];
-      }).slice(0, 2);
-      var pk = {};
-      p.forEach(function(x) { pk[x.key] = 1; });
-      promoted.push.apply(promoted, p);
-      siteImps.forEach(function(x) { if (!pk[x.key]) { x.porte = !!_siteCls[String(x.imp.class_key || '')]; compactImps.push(x); } });
+      imps.filter(function(imp) { return String(imp.location_label || '') === site; })
+        .forEach(function(imp) {
+          // Règle 5 (doctrine valeur) conservée : un motif dont la classe est portée AUJOURD'HUI
+          // par une carte datée du site n'affiche pas son montant deux fois.
+          compactImps.push({ imp: imp, key: _structImpKey(imp), porte: !!_siteCls[String(imp.class_key || '')] });
+        });
     });
     var html = bar
       + '<div data-t-block="0">'
-        + '<div data-t-cards="0">' + promoted.map(function(x) { return _structFullCardHtml(x.imp, x.key); }).join('') + '</div>'
+        + '<div data-t-cards="0"></div>'
         + (compactImps.length ? '<div data-t-subhead="0" style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:12px 0 8px 2px;">Chantiers structurels</div>' : '')
         // Les rangées compactes vivaient À NU sous le bloc, quand toutes les autres rangées du
         // fil sont dans un conteneur encadré : d'où le « bandeau » mal formé signalé trois fois
         // par l'owner, et le décalage d'1 px mesuré au navigateur (la bordure du conteneur).
-        // Même conteneur, donc même cadre et même alignement au pixel.
         + (compactImps.length ? '<div data-t-struct="0">' + compactImps.map(function(x) { return _structRowHtml(x.imp, x.key, x.porte); }).join('') + '</div>' : '')
       + '</div>';
     mount.innerHTML = html;
     var holder = mount.querySelector('[data-t-cards="0"]');
     ctxCards.forEach(function(c) { holder.appendChild(c); });
-    // TRI UNIQUE (règle 1, doctrine 01/08) : motifs promus et cartes contextuelles CONFONDUS —
-    // horizon puis |coin €/an|.
+    // Le fil du jour est désormais 100 % conjoncturel : une seule échelle, le tri redevient
+    // honnête — horizon puis |montant|.
     var _mix = [].slice.call(holder.querySelectorAll('.ab-card[data-t-site]'));
     _mix.sort(function(a, b) {
       var d = Number(a.getAttribute('data-t-h')) - Number(b.getAttribute('data-t-h'));
       return d !== 0 ? d : Number(b.getAttribute('data-t-e')) - Number(a.getAttribute('data-t-e'));
     });
+    // PLI À QUOTA PAR SITE (owner 25/08, option 3). Le pli global laissait des sites entiers
+    // hors du premier écran — un site sans carte visible se lit « rien à faire ici », ce qui
+    // est faux. Chaque site garde donc QUOTA cartes dans le pli, prises dans l'ordre du tri ;
+    // le reste des places va aux plus gros enjeux, tous sites confondus. Vue mono-site :
+    // strictement l'ancien comportement (un seul site, quota sans effet, pli à 5).
+    var QUOTA = 2;
+    var _sites = [];
+    _mix.forEach(function(c) { var st = c.getAttribute('data-t-site') || ''; if (_sites.indexOf(st) < 0) _sites.push(st); });
+    var FOLD = Math.max(5, QUOTA * _sites.length);
+    var _seen = {}, _quota = [], _reste = [];
+    _mix.forEach(function(c) {
+      var st = c.getAttribute('data-t-site') || '';
+      _seen[st] = (_seen[st] || 0) + 1;
+      (_seen[st] <= QUOTA ? _quota : _reste).push(c);
+    });
+    var _visible = _quota.slice(0, FOLD);
+    while (_visible.length < FOLD && _reste.length) _visible.push(_reste.shift());
+    // L'ordre du tri global est rendu à l'intérieur de chaque groupe (le quota choisit QUI est
+    // visible, jamais dans quel ordre les lignes se lisent).
+    var _rang = {};
+    _mix.forEach(function(c, i) { _rang[c.getAttribute('data-ab-card-idx') || ('#' + i)] = i; });
+    var _byRang = function(a, b) { return _rang[a.getAttribute('data-ab-card-idx')] - _rang[b.getAttribute('data-ab-card-idx')]; };
+    _visible.sort(_byRang);
+    var _caches = _mix.filter(function(c) { return _visible.indexOf(c) < 0; }).sort(_byRang);
     // PÉRIMÈTRE — LA PLACE RÉSERVÉE DOIT SURVIVRE AU PLI (31/07) : la carte qui pose la
     // question du périmètre (marqueur [data-catchment-amt], data-t-e = 0 par définition)
-    // remonte au dernier rang VISIBLE — la question reste atteignable sans déplier.
-    var FOLD = 5;
-    var _pIdx = -1;
-    for (var _pi = 0; _pi < _mix.length; _pi++) {
-      if (_mix[_pi].querySelector('[data-catchment-amt]')) { _pIdx = _pi; break; }
+    // entre dans le pli si elle en est sortie — la question reste atteignable sans déplier.
+    for (var _pi = 0; _pi < _caches.length; _pi++) {
+      if (_caches[_pi].querySelector('[data-catchment-amt]')) {
+        _visible.push(_caches.splice(_pi, 1)[0]);
+        _visible.sort(_byRang);
+        break;
+      }
     }
-    if (_pIdx >= FOLD) _mix.splice(FOLD - 1, 0, _mix.splice(_pIdx, 1)[0]);
-    _mix.forEach(function(el, i) {
-      if (i >= FOLD) { el.setAttribute('data-t-folded', '1'); el.style.display = 'none'; }
-      holder.appendChild(el);
-    });
-    if (_mix.length > FOLD) {
+    _visible.forEach(function(el) { holder.appendChild(el); });
+    _caches.forEach(function(el) { el.setAttribute('data-t-folded', '1'); el.style.display = 'none'; holder.appendChild(el); });
+    if (_caches.length) {
       var more = document.createElement('button');
       more.type = 'button';
       more.setAttribute('data-t-more', '0');
       more.style.cssText = 'display:block;width:100%;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#9CA3AF;background:none;border:none;border-top:1px solid rgba(17,24,39,0.06);cursor:pointer;padding:8px 2px;font-family:inherit;text-align:center;';
-      more.textContent = 'aussi aujourd\u2019hui \u2014 ' + (_mix.length - FOLD) + ' carte' + (_mix.length - FOLD > 1 ? 's' : '') + ' \u25be';
+      var _lbl = 'aussi aujourd\u2019hui \u2014 ' + _caches.length + ' carte' + (_caches.length > 1 ? 's' : '') + ' \u25be';
+      more.textContent = _lbl;
       more.addEventListener('click', function() {
         var open = more.getAttribute('data-open') === '1';
         holder.querySelectorAll('[data-t-folded]').forEach(function(c) { c.style.display = open ? 'none' : ''; });
         more.setAttribute('data-open', open ? '0' : '1');
-        more.textContent = open ? ('aussi aujourd\u2019hui \u2014 ' + (_mix.length - FOLD) + ' carte' + (_mix.length - FOLD > 1 ? 's' : '') + ' \u25be') : 'replier \u25b4';
+        more.textContent = open ? _lbl : 'replier \u25b4';
       });
       holder.after(more);
     }
