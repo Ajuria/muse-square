@@ -133,5 +133,32 @@ check("cartes système : « Pas pour moi » présent, « Communiquer »/« Déj�
     && ![...root.querySelectorAll(".ab-card[data-ab-card-idx] button")].some((b) => b.textContent.trim() === "Communiquer");
 })());
 
+// ── Inc A (owner 25/08 soir, points 3+5) : minis courtes + paragraphe de faits structurel. ──
+check("structurelles pleines : titre SANS chiffre, paragraphe de faits « € par jour sur ces journées »", (() => {
+  const fulls = [...root.querySelectorAll("[data-struct-full]")];
+  if (!fulls.length) return true;
+  return fulls.every((c) => {
+    const title = c.querySelector(".ab-what")?.textContent || "";
+    const body = [...c.querySelectorAll(".ab-sowhat")].map((x) => x.textContent).join(" ");
+    return !/€\/j/.test(title) && !/en moyenne/.test(title) && /€ par jour sur ces journées/.test(body);
+  });
+})(), root.querySelectorAll("[data-struct-full]").length + " cartes");
+check("minis du coin : jamais « chez vous · », jamais « vos jours de », structurelles réduites à perdus/à gagner", (() => {
+  const subs = [...root.querySelectorAll(".amt-sub")].map((s) => s.textContent || "");
+  if (subs.some((s) => s.includes("chez vous ·") || s.includes("vos jours de"))) return false;
+  const structSubs = [...root.querySelectorAll("[data-struct-full] .amt-sub")].map((s) => (s.textContent || "").trim());
+  return structSubs.every((s) => s === "perdus" || s === "à gagner");
+})());
+check("rangées structurelles compactes : la métadonnée « N j / M mois » a quitté la sous-ligne", (() => {
+  const rows = [...root.querySelectorAll("[data-struct-key]")];
+  if (!rows.length) return true;
+  return rows.every((r) => !/\d+ j \/ \d+ mois/.test(r.textContent || ""));
+})());
+check("décomposition funnel structurelle : si présente, vocabulaire du créneau + référentiel nommé", (() => {
+  const bodies = [...root.querySelectorAll("[data-struct-full] .ab-sowhat")].map((x) => x.textContent || "");
+  const withFunnel = bodies.filter((b) => /vient (des|du)/.test(b));
+  return withFunnel.every((b) => /(Le manque vient|Le gain vient)/.test(b) && b.includes("vs vos jours comparables"));
+})());
+
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");
 process.exit(fails ? 1 : 0);

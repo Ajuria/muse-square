@@ -1330,3 +1330,50 @@ export function funnelCornerForCandidate(result: DayClassResult, candidate: { ac
   // libellé du coin dit son mot. Les cartes panier/conversion gardent leur étape stricte.
   return evalMetric(step) ?? (step === "footfall" ? evalMetric("transactions") : null);
 }
+
+// ── Paragraphe de faits des cartes STRUCTURELLES (owner 25/08, point 5) ─────────────────────
+// « Ce qu'on montre, ce sont les signaux eux-mêmes et leur impact business concret et mesuré. »
+// La décomposition funnel du motif : les métriques marginales de SA classe, mêmes portes que le
+// coin (n>=5, span>=60, |t|>=1 sur le log, cohérence de signe médiane/log, |%| >= 5), PLUS une
+// porte de COHÉRENCE DE RÉFÉRENTIEL : revenue_residual marginal contraste des RÉSIDUS
+// (vs attendu dow+trend) quand les autres KPI contrastent des valeurs BRUTES vs jours
+// comparables — les deux ne se composent pas. Mesuré sur le compte owner (25/08) :
+// school_holiday y est à la fois −193 €/j de résidu ET +6 % de ventes brutes. Afficher les
+// deux côte à côte lirait comme une contradiction ; la ligne ne sort donc que si CHAQUE
+// métrique retenue pointe dans le sens de l'impact € — sinon absence honnête (le paragraphe
+// de faits garde l'écart €/j, posé par structuralCardCopyFr).
+// Vocabulaire : celui du funnel du créneau, déjà rendu en prod (« Le gain vient des ventes
+// (95 contre 36 attendues) », action-cards.js) — « Le manque/Le gain vient de… ».
+const STRUCT_FUNNEL_DE: Record<string, string> = {
+  footfall: "des visiteurs", transactions: "des ventes", basket: "du panier", conversion: "du taux de conversion",
+};
+export function structuralFunnelLineFr(rows: any[], class_key: string, eur_year: number): string | null {
+  if (!Array.isArray(rows) || !rows.length || !Number.isFinite(eur_year) || eur_year === 0) return null;
+  const impactSign = Math.sign(eur_year);
+  const parts: { de: string; pct: number }[] = [];
+  for (const metric of Object.keys(STRUCT_FUNNEL_DE)) {
+    const row = rows.find((r: any) => String(r?.class_key ?? "") === class_key && String(r?.metric ?? "") === metric && String(r?.basis ?? "") === "marginal");
+    if (!row) continue;
+    const n = Number(row?.n_days ?? 0);
+    const spanDays = Number(row?.span_days ?? 0);
+    const med = Number(row?.med_gap_eur ?? NaN);
+    const nLog = Number(row?.n_log ?? 0);
+    const avgLog = Number(row?.avg_log ?? NaN);
+    const sdLog = Number(row?.sd_log ?? NaN);
+    if (n < 5 || spanDays < 60 || nLog < 5 || !Number.isFinite(avgLog) || !Number.isFinite(sdLog)) continue;
+    const t = sdLog > 0 ? Math.abs(avgLog) / (sdLog / Math.sqrt(nLog)) : 0;
+    if (t < 1) continue;
+    if (!Number.isFinite(med) || med === 0 || Math.sign(med) !== Math.sign(avgLog)) continue;
+    const pct = Math.exp(avgLog) - 1;
+    if (!Number.isFinite(pct) || Math.abs(pct) < 0.05) continue;
+    // Porte de cohérence : une métrique à contre-sens de l'impact € tue TOUTE la ligne (mélange
+    // de référentiels — voir l'en-tête), pas seulement elle-même.
+    if (Math.sign(pct) !== impactSign) return null;
+    parts.push({ de: STRUCT_FUNNEL_DE[metric], pct });
+  }
+  if (!parts.length) return null;
+  parts.sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
+  const kept = parts.slice(0, 2);
+  const fmt = (p: number) => `${p > 0 ? "+" : "−"}${Math.abs(Math.round(p * 100))} %`;
+  return `${impactSign < 0 ? "Le manque vient" : "Le gain vient"} ${kept.map((x) => `${x.de} (${fmt(x.pct)})`).join(" et ")} vs vos jours comparables.`;
+}

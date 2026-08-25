@@ -393,9 +393,14 @@ export function structuralCardCopyFr(i: {
   // biais que le registre dénonce lui-même (« 8 jours de pluie dans une fenêtre estivale n'est
   // pas un taux de pluie annuel »).
   const eurJour = Number.isFinite(Number(i.avg_gap_eur)) ? Math.round(Number(i.avg_gap_eur)) : null;
+  // 25/08 (owner, point 5) : « Sur N jours mesurés » est de la MÉTADONNÉE — elle vit dans
+  // l'infobulle du coin (le client la construit déjà depuis n_days/span_months/tier_label_fr),
+  // plus dans le paragraphe de faits. Le paragraphe ne porte que le FAIT : l'écart par jour.
+  // Pas de « en moyenne » : en régime log+médiane, avg_gap_eur EST la médiane (rowToImpact,
+  // dayClassRegistry) — le mot « moyenne » serait un référentiel faux.
   const mesure = (i.n_days > 0 && eurJour != null)
-    ? `Sur ${i.n_days} jour${i.n_days > 1 ? "s" : ""} mesuré${i.n_days > 1 ? "s" : ""}, ${eurJour > 0 ? "+" : "\u2212"}${Math.abs(eurJour).toLocaleString("fr-FR")} \u20ac par jour.`
-    : (i.n_days > 0 ? `Mesuré sur ${i.n_days} jour${i.n_days > 1 ? "s" : ""}.` : "");
+    ? `${eurJour > 0 ? "+" : "\u2212"}${Math.abs(eurJour).toLocaleString("fr-FR")} \u20ac par jour sur ces journées.`
+    : "";
   const sowhat = register === "identification"
     ? (mesure + " La cause précise est chez vous : trouvée et documentée, elle devient déclenchable.").trim()
     : mesure;

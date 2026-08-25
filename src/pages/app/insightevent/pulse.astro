@@ -1633,11 +1633,14 @@ if (!location_id) {
         var _aVal = Math.abs(Math.round(Number(_enj.eur_year))).toLocaleString('fr-FR');
         var _aPos = Number(_enj.eur_year) > 0;
         var _aFg = _aPos ? 'var(--color-pill-green-text)' : '#B45309';
-        // v3.2d (owner 25/08) : le MOTIF coûte — « vos jours de… », label_fr ENTIER, possessif.
+        // v3.2d (owner 25/08) : le MOTIF coûte — possessif « vos jours de… » au COMPLET dans
+        // l'infobulle. Point 3 (owner 25/08 soir) : la mini reste courte — le qualifiant seul
+        // (« perdus · vacances scolaires »), préfixe « jours de » retiré de la mini uniquement.
         var _aCause = _enj.label_fr ? 'vos ' + String(_enj.label_fr) : '';
+        var _aCauseCourt = _enj.label_fr ? String(_enj.label_fr).replace(/^jours (de |d’|d')/, '') : '';
         var _aLbl = _aPos
-          ? ('à gagner' + (_enj.inherited && _aCause ? ' · ' + _aCause : ''))
-          : ('perdus' + (_aCause ? ' · ' + _aCause : ''));
+          ? ('à gagner' + (_enj.inherited && _aCauseCourt ? ' · ' + _aCauseCourt : ''))
+          : ('perdus' + (_aCauseCourt ? ' · ' + _aCauseCourt : ''));
         // Amendement 2 (01/08) : la provenance (fenêtre de mesure) vit ICI, dans l'infobulle du
         // coin — plus jamais dans la ligne d'explication de la carte.
         var _aTip = [(_enj.n_days ? 'Mesuré sur ' + _enj.n_days + ' j / ' + _enj.span_months + ' mois — ' : 'Enjeu ') + String(_enj.tier_label_fr || _enj.tier || '') + '.'];
@@ -1699,7 +1702,9 @@ if (!location_id) {
         var _fcPct = Math.round(Number(_fc.pct) * 100);
         // « chez vous » (owner 24/08) : le titre parle de l'ENVIRONNEMENT, le coin de CHEZ VOUS —
         // sans le référent, « Moins d'activité » + « +14 % » lisait comme une contradiction.
-        var _fcSub = ({ footfall: 'de visiteurs chez vous · ces jours-là', transactions: 'de ventes chez vous · ces jours-là', basket: 'de panier moyen chez vous · ces jours-là', conversion: 'de taux de conversion chez vous · ces jours-là' })[_fc.kpi];
+        // Point 3 (owner 25/08 soir, « de ventes chez vous · ces jours-là » trop long) : le
+        // possessif « vos/votre » porte le référent en un mot — même rôle, mini plus courte.
+        var _fcSub = ({ footfall: 'vos visiteurs · ces jours-là', transactions: 'vos ventes · ces jours-là', basket: 'votre panier moyen · ces jours-là', conversion: 'votre taux de conversion · ces jours-là' })[_fc.kpi];
         if (_fcPct !== 0 && isFinite(_fcPct) && _fcSub) {
           var _fcAbsTxt = (function (k, v) {
             var a = Number(v); if (!isFinite(a)) return '';
@@ -3074,7 +3079,6 @@ if (!location_id) {
   //    ambre peut coexister avec une carte opportunité : le bon jour est l'exception du motif.
   // buildTriageLayout() re-construit tout à chaque rendu du brief (wireBriefHandlers) ;
   // renderStructuralSection() (nom historique) ne fait plus que rafraîchir les chantiers/états.
-  var STRUCT_FAM_FR = { weather: 'Météo', competition: 'Concurrence', tourism: 'Tourisme', events: 'Événements', mobility: 'Mobilité', suivis: 'Concurrents suivis', calendar: 'Calendrier', traffic: 'Affluence', sales: 'Remises' };
   var _triageState = { fh: 'tous', fn: 'tous', sortEnjeu: false };
 
   function _structActiveCommit(imp) {
@@ -3131,14 +3135,18 @@ if (!location_id) {
     return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="3" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-key="' + key + '">'
       + '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;">'
         + (function () { var _cf = _famOfStruct(imp.family); return '<span style="width:22px;height:22px;border-radius:50%;background:' + _cf.bg + ';color:' + _cf.ink + ';display:inline-flex;align-items:center;justify-content:center;flex:none;" title="' + _cf.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;">' + _cf.svg + '</svg></span>'; })()
+        // Point 5 (owner 25/08) : « N j / M mois · tier · famille » est de la MÉTADONNÉE — elle
+        // part dans l'infobulle du montant ; la sous-ligne garde le FAIT (€/j) et l'état.
         + '<span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#111827;line-height:1.35;">' + escapeHtml(String(imp.title_fr || ''))
-          + '<span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">' + imp.n_days + ' j / ' + imp.span_months + ' mois · ' + (pos ? 'à gagner' : 'perdus') + ' · ' + escapeHtml(String(imp.tier_label_fr || '')) + ' · ' + escapeHtml(STRUCT_FAM_FR[imp.family] || imp.family || '') + ' · ' + state + (eng && eng.owner_person_name ? ' → ' + escapeHtml(String(eng.owner_person_name)) : '') + '</span>'
+          + '<span style="display:block;font-size:11px;color:#9CA3AF;font-weight:400;margin-top:2px;">'
+            + (imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur)) ? ((Number(imp.avg_gap_eur) >= 0 ? '+' : '−') + Math.abs(Math.round(Number(imp.avg_gap_eur))).toLocaleString('fr-FR') + ' €/j sur ces journées · ') : '')
+            + state + (eng && eng.owner_person_name ? ' → ' + escapeHtml(String(eng.owner_person_name)) : '') + '</span>'
           // 2-A (owner 24/08) : liaison des deux pôles négatifs — posée par monitor.
           + (imp.liaison_fr ? '<span style="display:block;font-size:11px;color:#1D3BB3;font-weight:400;margin-top:2px;">' + escapeHtml(String(imp.liaison_fr)) + '</span>' : '')
         + '</span>'
         + (coinPorte
             ? '<span class="ab-metric-val" style="font-size:11px;color:#9CA3AF;flex:none;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
-            : '<span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;padding:3px 9px;flex:none;white-space:nowrap;" title="' + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.') + '">' + (pos ? '+' : '−') + amount + ' €/an</span>')
+            : '<span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;padding:3px 9px;flex:none;white-space:nowrap;" title="' + escapeHtml('Mesuré sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois — ' + String(imp.tier_label_fr || '') + '. ' + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.')) + '">' + (pos ? '+' : '−') + amount + ' €/an</span>')
         + btn
       + '</div>'
       + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
@@ -3173,8 +3181,10 @@ if (!location_id) {
     var bar = pos ? '#059669' : '#B45309';
     var fg = pos ? 'var(--color-pill-green-text)' : '#B45309';
     var amount = Math.abs(Math.round(Number(imp.eur_year))).toLocaleString('fr-FR');
-    var cause = imp.label_fr ? 'vos ' + String(imp.label_fr) : '';
-    var lbl = (pos ? 'à gagner' : 'perdus') + (cause ? ' · ' + cause : '');
+    // Mini du coin (owner 25/08, point 3) : elle ne porte que ce que le titre ne dit pas.
+    // Le titre structurel NOMME le motif -> la mini se réduit à « perdus »/« à gagner »,
+    // le motif complet reste dans l'infobulle.
+    var lbl = pos ? 'à gagner' : 'perdus';
     var tip = 'Mesuré sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois — ' + String(imp.tier_label_fr || '') + '. '
       + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
     var ident = imp.register === 'identification';
@@ -3184,20 +3194,20 @@ if (!location_id) {
     var btn = ident
       ? '<button type="button" data-struct-page="' + key + '" class="pls-cta-pri">Reproduire le dispositif</button>'
       : '<button type="button" data-struct-commit="' + key + '" class="pls-cta-pri">M’engager</button>';
-    // Titre COMPLET (owner 25/08, streamline) : « … vous coûtent −211 €/j en moyenne » — le
-    // fait /jour vit au titre, l'annuel à la colonne, la provenance en infobulle (jamais deux
-    // fois le même chiffre). Le corps provenance disparaît ; la liaison reste.
-    var _medJ = imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur))
-      ? (Number(imp.avg_gap_eur) >= 0 ? '+' : '−') + Math.abs(Math.round(Number(imp.avg_gap_eur))).toLocaleString('fr-FR') + ' €/j en moyenne'
-      : '';
+    // Trois étages (owner 25/08, points 4+5) : TITRE au verbe (forme C, sans chiffre — le
+    // suffixe « −211 €/j en moyenne » de l'Inc 5 est retiré : « moyenne » était de surcroît un
+    // référentiel faux, avg_gap_eur est la médiane), puis PARAGRAPHE DE FAITS (l'écart €/j posé
+    // par structuralCardCopyFr + la décomposition funnel quand elle est mesurée et cohérente —
+    // monitor.funnel_fr), puis l'ACTION (chantier). La provenance reste au ⓘ.
     var _titreFull = String(imp.title_fr || '');
-    if (_medJ && /(coûtent|rapportent)$/.test(_titreFull)) _titreFull += ' ' + _medJ;
+    var _faits = [String(imp.sowhat_fr || ''), String(imp.funnel_fr || '')].filter(Boolean).join(' ');
     var _sf = _famOfStruct(imp.family);
     return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="0" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-full="' + key + '">'
       + '<div class="ab-rgrid">'
         + '<div><div class="ab-disc" style="margin-top:2px;background:' + _sf.bg + ';color:' + _sf.ink + ';" title="' + _sf.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + _sf.svg + '</svg></div></div>'
         + '<div style="min-width:0;">'
           + '<div class="ab-what">' + escapeHtml(_titreFull) + '</div>'
+          + (_faits ? '<div class="ab-sowhat">' + escapeHtml(_faits) + '</div>' : '')
           + (imp.liaison_fr ? '<div class="ab-sowhat" style="color:#1D3BB3;">' + escapeHtml(String(imp.liaison_fr)) + '</div>' : '')
           + (imp.chantier_fr ? '<div class="aline">' + escapeHtml(String(imp.chantier_fr)) + '</div>' : '')
         + '</div>'

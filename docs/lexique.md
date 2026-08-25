@@ -118,6 +118,26 @@ occasions » sont au `MOTS_BANNIS` (surfaces renommées dans le même train) ; �
 événement » n'y entre pas (deux sens, cf. la ligne du tableau) ; « Ce que l'app a appris »
 reste légitime sur le VOLET (tuile seule renommée).
 
+## La mini du coin € et le paragraphe de faits (owner 25/08, points 3+5 ratifiés)
+
+**Mini du coin (sous le montant)** : elle ne porte que ce que le TITRE ne dit pas — ≤ 3 mots
++ référentiel. Formes actées :
+- Titre nomme le motif (cartes structurelles) → mini = « perdus » / « à gagner » SEULS, le
+  motif complet reste au ⓘ.
+- Titre ne nomme pas le motif (cartes datées) → mini = « perdus · <qualifiant> » (préfixe
+  « jours de » retiré de la mini uniquement : « perdus · vacances scolaires ») ; le possessif
+  entier « vos jours de… » vit au ⓘ.
+- Coin funnel (%) → « vos ventes · ces jours-là », « vos visiteurs · … », « votre panier
+  moyen · … », « votre taux de conversion · … » — le possessif porte le référent « chez
+  vous » (anti-contradiction du 24/08) en un mot.
+
+**Paragraphe de faits (2e étage, cartes structurelles)** : « Sur N jours mesurés sur M mois »
+est de la MÉTADONNÉE → ⓘ seulement. Le paragraphe porte les signaux et leur impact mesuré :
+« −211 € par jour sur ces journées. » (+ décomposition funnel quand mesurée ET cohérente de
+signe avec l'impact € : « Le manque vient du panier (−12 %) et des ventes (−8 %) vs vos jours
+comparables. » — vocabulaire du créneau, jamais de mélange de référentiels ; à contre-signe,
+absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (dayClassRegistry).
+
 ## À arbitrer (owner) — file ouverte au 24/08
 
 - « **produits** » vs « **famille** » : l'owner a écrit « CA produits « Branded » » — renommage
