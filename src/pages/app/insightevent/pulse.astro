@@ -1627,8 +1627,10 @@ if (!location_id) {
         var parts = [];
         var _ad = normalizeYmd(entry.item.affected_date) || '';
         if (_ad && _ad !== selectedDate) parts.push(_ad.slice(8, 10) + '/' + _ad.slice(5, 7));
-        // Le site ne se répète pas : le triage groupe déjà les rangées par BLOC de site
-        // (l'en-tête du bloc le porte) — la méta ne garde que la date.
+        // Proto (owner 25/08 soir, « je ne vois pas les pilules de location ») : la pilule
+        // date · SITE vit en haut à droite de CHAQUE rangée en vue compte — date d'abord,
+        // site en encre lisible (600). En vue site, location_label est absent : rien.
+        if (entry.item.location_label) parts.push('<span style="color:#374151;font-weight:600;">' + escapeHtml(String(entry.item.location_label)) + '</span>');
         return parts.length ? '<span class="ab-meta">' + parts.join(' \u00b7 ') + '</span>' : '';
       })();
       var _amtHtml = '';
@@ -3151,9 +3153,13 @@ if (!location_id) {
           // 2-A (owner 24/08) : liaison des deux pôles négatifs — posée par monitor.
           + (imp.liaison_fr ? '<span style="display:block;font-size:11px;color:#1D3BB3;font-weight:400;margin-top:2px;">' + escapeHtml(String(imp.liaison_fr)) + '</span>' : '')
         + '</span>'
-        + (coinPorte
-            ? '<span class="ab-metric-val" style="font-size:11px;color:#9CA3AF;flex:none;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
-            : '<span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;padding:3px 9px;flex:none;white-space:nowrap;" title="' + escapeHtml('Mesuré sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois — ' + String(imp.tier_label_fr || '') + '. ' + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.')) + '">' + (pos ? '+' : '−') + amount + ' €/an</span>')
+        // Proto (owner 25/08 soir) : pilule SITE au-dessus du montant, aussi en compact.
+        + '<span style="display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none;">'
+          + (imp.location_label ? '<span style="font-size:11px;color:#374151;font-weight:600;white-space:nowrap;">' + escapeHtml(String(imp.location_label)) + '</span>' : '')
+          + (coinPorte
+              ? '<span class="ab-metric-val" style="font-size:11px;color:#9CA3AF;flex:none;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
+              : '<span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;padding:3px 9px;flex:none;white-space:nowrap;" title="' + escapeHtml('Mesuré sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois — ' + String(imp.tier_label_fr || '') + '. ' + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.')) + '">' + (pos ? '+' : '−') + amount + ' €/an</span>')
+        + '</span>'
         + btn
       + '</div>'
       + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
@@ -3219,6 +3225,9 @@ if (!location_id) {
           + (imp.chantier_fr ? '<div class="aline">' + escapeHtml(String(imp.chantier_fr)) + '</div>' : '')
         + '</div>'
         + '<div class="ab-eur">'
+          // Proto (owner 25/08 soir) : la pilule SITE en haut à droite, aussi sur les
+          // structurelles (fil unique — plus d'en-tête de bloc pour la porter).
+          + (imp.location_label ? '<span class="ab-meta"><span style="color:#374151;font-weight:600;">' + escapeHtml(String(imp.location_label)) + '</span></span>' : '')
           + '<div class="amt ' + (pos ? 'gain' : 'defend') + '" title="' + escapeHtml(tip) + '"><span style="display:inline-flex;align-items:center;gap:5px;"><div class="amt-val" style="color:' + fg + ';">' + (pos ? '+' : '−') + amount + ' €/an</div><span class="amt-i">i</span></span><div class="amt-sub">' + escapeHtml(lbl) + '</div></div>'
         + '</div>'
       + '</div>'
@@ -3425,7 +3434,10 @@ if (!location_id) {
     // clé 'structural_<classe>|'. Réversible : c'est un événement, jamais une suppression.
     imps = imps.filter(function(i) { return cardStateFor('structural_' + String(i.class_key || ''), '', i.location_id) !== 'ecarte'; });
     imps.sort(function(a, b) { return Math.abs(Number(b.eur_year) || 0) - Math.abs(Number(a.eur_year) || 0); });
-    // Ordre des sites : apparition dans le feed, puis sites à chantiers seuls.
+    // FIL UNIQUE (proto agir-proto-v3, owner 25/08 soir : « tu n'as pas suivi le prototype »)
+    // — plus de blocs par site : une seule liste triée, chaque rangée porte sa pilule
+    // date · SITE en haut à droite (vue compte). La PROMOTION structurelle reste PAR SITE
+    // (doctrine 01/08 : plafond 2, motif engagé compact, classe portée aujourd'hui compacte).
     var order = [];
     ctxCards.forEach(function(c) { var st = c.getAttribute('data-t-site') || ''; if (order.indexOf(st) < 0) order.push(st); });
     imps.forEach(function(i) { var st = String(i.location_label || ''); if (order.indexOf(st) < 0) order.push(st); });
@@ -3433,120 +3445,103 @@ if (!location_id) {
     var bar = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:14px 0 4px;">'
       + ['today|Aujourd’hui', 'week|Cette semaine', 'struct|Structurel'].map(function(x) {
           var v = x.split('|');
-          return '<button type="button" data-t-fh="' + v[0] + '" style="font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid ' + (v[0] === 'tous' ? '#1D3BB3' : 'var(--color-border)') + ';background:' + (v[0] === 'tous' ? '#EEF2FF' : '#fff') + ';color:' + (v[0] === 'tous' ? '#1D3BB3' : '#374151') + ';cursor:pointer;font-family:inherit;">' + v[1] + '</button>';
+          return '<button type="button" data-t-fh="' + v[0] + '" style="font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid var(--color-border);background:#fff;color:#374151;cursor:pointer;font-family:inherit;">' + v[1] + '</button>';
         }).join('')
       + '<span style="width:1px;height:18px;background:var(--color-border);margin:0 4px;"></span>'
       + ['defend|À défendre', 'capture|À capter'].map(function(x) {
           var v = x.split('|');
-          return '<button type="button" data-t-fn="' + v[0] + '" style="font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid ' + (v[0] === 'tous' ? '#1D3BB3' : 'var(--color-border)') + ';background:' + (v[0] === 'tous' ? '#EEF2FF' : '#fff') + ';color:' + (v[0] === 'tous' ? '#1D3BB3' : '#374151') + ';cursor:pointer;font-family:inherit;">' + v[1] + '</button>';
+          return '<button type="button" data-t-fn="' + v[0] + '" style="font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid var(--color-border);background:#fff;color:#374151;cursor:pointer;font-family:inherit;">' + v[1] + '</button>';
         }).join('')
       + '<span style="width:1px;height:18px;background:var(--color-border);margin:0 4px;"></span>'
       + '<button type="button" data-t-sort="1" style="font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid var(--color-border);background:#fff;color:#374151;cursor:pointer;font-family:inherit;">Trier par enjeu</button>'
       + '</div>';
-    var html = bar;
-    order.forEach(function(site, si) {
+    var promoted = [], compactImps = [];
+    order.forEach(function(site) {
       var siteCtx = ctxCards.filter(function(c) { return (c.getAttribute('data-t-site') || '') === site; });
-      var siteImps = imps.map(function(imp) { return { imp: imp, key: _structImpKey(imp) }; }).filter(function(x) { return String(x.imp.location_label || '') === site; });
-      // PROMOTION (doctrine 01/08, règles validées) : les motifs les plus lourds NON TRAITÉS
-      // deviennent des cartes PLEINES dans le flux du site — plafond 2 (règle 4) ; un motif
-      // engagé reste compact (règle 3) ; un motif dont la classe est portée AUJOURD'HUI par une
-      // carte datée du site reste compact (règle 5 — la carte datée EST l'instance du motif).
-      // siteImps est déjà trié par |€/an| (tri global de imps).
       var _siteCls = {};
       siteCtx.forEach(function(c) { var k = c.getAttribute('data-t-class'); if (k) _siteCls[k] = 1; });
-      var _promoted = siteImps.filter(function(x) {
+      var siteImps = imps.map(function(imp) { return { imp: imp, key: _structImpKey(imp) }; }).filter(function(x) { return String(x.imp.location_label || '') === site; });
+      var p = siteImps.filter(function(x) {
         return !_structActiveCommit(x.imp) && !_siteCls[String(x.imp.class_key || '')];
       }).slice(0, 2);
-      var _promotedKeys = {};
-      _promoted.forEach(function(x) { _promotedKeys[x.key] = 1; });
-      var _compactImps = siteImps.filter(function(x) { return !_promotedKeys[x.key]; });
-      html += '<div data-t-block="' + si + '" data-t-block-site="' + escapeHtml(site) + '">'
-        + '<div style="display:flex;align-items:baseline;gap:10px;margin:20px 0 8px;">'
-          + '<span style="font-size:14px;font-weight:600;color:#111827;">' + escapeHtml(site || 'Votre site') + '</span>'
-          + '<span style="font-size:11px;color:#9CA3AF;">' + siteCtx.length + ' action' + (siteCtx.length > 1 ? 's' : '') + (siteImps.length ? ' · ' + siteImps.length + ' chantier' + (siteImps.length > 1 ? 's' : '') : '') + '</span>'
-        + '</div>'
-        + '<div data-t-cards="' + si + '">' + _promoted.map(function(x) { return _structFullCardHtml(x.imp, x.key); }).join('') + '</div>'
-        + (_compactImps.length ? '<div data-t-subhead="' + si + '" style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:12px 0 8px 2px;">Chantiers structurels</div>' : '')
-        + _compactImps.map(function(x) { return _structRowHtml(x.imp, x.key, !!_siteCls[String(x.imp.class_key || '')]); }).join('')
-        + '</div>';
+      var pk = {};
+      p.forEach(function(x) { pk[x.key] = 1; });
+      promoted.push.apply(promoted, p);
+      siteImps.forEach(function(x) { if (!pk[x.key]) { x.porte = !!_siteCls[String(x.imp.class_key || '')]; compactImps.push(x); } });
     });
+    var html = bar
+      + '<div data-t-block="0">'
+        + '<div data-t-cards="0">' + promoted.map(function(x) { return _structFullCardHtml(x.imp, x.key); }).join('') + '</div>'
+        + (compactImps.length ? '<div data-t-subhead="0" style="font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--color-text-muted);font-weight:500;margin:12px 0 8px 2px;">Chantiers structurels</div>' : '')
+        + compactImps.map(function(x) { return _structRowHtml(x.imp, x.key, x.porte); }).join('')
+      + '</div>';
     mount.innerHTML = html;
-    // Déplacer les cartes contextuelles dans leur bloc, triées horizon puis |enjeu|, pli après 3.
-    order.forEach(function(site, si) {
-      var holder = mount.querySelector('[data-t-cards="' + si + '"]');
-      if (!holder) return;
-      var siteCtx = ctxCards.filter(function(c) { return (c.getAttribute('data-t-site') || '') === site; });
-      siteCtx.sort(function(a, b) {
-        var d = Number(a.getAttribute('data-t-h')) - Number(b.getAttribute('data-t-h'));
-        return d !== 0 ? d : Number(b.getAttribute('data-t-e')) - Number(a.getAttribute('data-t-e'));
-      });
-      // PÉRIMÈTRE — LA PLACE RÉSERVÉE DOIT SURVIVRE AU PLI (31/07/2026).
-      // La passe de sélection (renderDailyBrief, « PÉRIMÈTRE PASS ») réserve déjà une place par
-      // site à la carte qui pose la question du périmètre. Ce tri-ci la reperdait : cette carte
-      // n'a PAS d'enjeu — c'est sa définition — donc data-t-e=0 la renvoie en fin de son groupe
-      // d'horizon, et le pli à 3 lui pose display:none.
-      // Mesuré le 31/07 sur f10c3e58, en exécutant le vrai action-cards.js puis le vrai bloc de
-      // sélection : 8 cartes pour le site (l'en-tête « 8 actions » de l'owner), la carte
-      // competition_proximity au rang 3 — le PREMIER rang replié. Le bloc .ms-catchment-ask était
-      // bien produit par buildMetricsStrip, avec le bon location_id : il était caché, pas absent.
-      // On la remonte au dernier rang visible (2) : les deux cartes les plus urgentes gardent leur
-      // rang, et la question est atteignable sans déplier. La carte est reconnue par le bloc
-      // qu'elle porte, jamais par une liste de types recopiée.
-      // Marqueur : [data-catchment-amt], porté par la zone montant « ? €/an » — et non plus
-      // .ms-catchment-ask, retiré de la carte le 31/07 (la question ne vit plus que dans
-      // « M'engager »). Sans ce changement la carte reperdait sa place réservée et retombait au
-      // rang 3, donc repliée : exactement le défaut corrigé ce matin.
-      var _pIdx = -1;
-      for (var _pi = 0; _pi < siteCtx.length; _pi++) {
-        if (siteCtx[_pi].querySelector('[data-catchment-amt]')) { _pIdx = _pi; break; }
-      }
-      if (_pIdx > 2) siteCtx.splice(2, 0, siteCtx.splice(_pIdx, 1)[0]);
-      siteCtx.forEach(function(c, i) {
-        if (i >= 3) { c.setAttribute('data-t-folded', '1'); c.style.display = 'none'; }
-        holder.appendChild(c);
-      });
-      // TRI UNIQUE (règle 1, doctrine 01/08) : motifs promus et cartes contextuelles CONFONDUS —
-      // horizon puis |coin €/an|. Les états déjà posés (pli, place réservée périmètre) suivent
-      // leurs éléments : seul l'ORDRE change, jamais la visibilité.
-      var _mix = [].slice.call(holder.querySelectorAll('.ab-card[data-t-site]'));
-      _mix.sort(function(a, b) {
-        var d = Number(a.getAttribute('data-t-h')) - Number(b.getAttribute('data-t-h'));
-        return d !== 0 ? d : Number(b.getAttribute('data-t-e')) - Number(a.getAttribute('data-t-e'));
-      });
-      _mix.forEach(function(el) { holder.appendChild(el); });
-      if (siteCtx.length > 3) {
-        var more = document.createElement('button');
-        more.type = 'button';
-        more.setAttribute('data-t-more', si);
-        more.style.cssText = 'display:block;width:100%;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#9CA3AF;background:none;border:none;border-top:1px solid rgba(17,24,39,0.06);cursor:pointer;padding:8px 2px;font-family:inherit;text-align:center;';
-        more.textContent = 'aussi aujourd\u2019hui \u2014 ' + (siteCtx.length - 3) + ' carte' + (siteCtx.length - 3 > 1 ? 's' : '') + ' \u25be';
-        more.addEventListener('click', function() {
-          var open = more.getAttribute('data-open') === '1';
-          holder.querySelectorAll('[data-t-folded]').forEach(function(c) { c.style.display = open ? 'none' : ''; });
-          more.setAttribute('data-open', open ? '0' : '1');
-          more.textContent = open ? ('aussi aujourd\u2019hui \u2014 ' + (siteCtx.length - 3) + ' carte' + (siteCtx.length - 3 > 1 ? 's' : '') + ' \u25be') : 'replier \u25b4';
-        });
-        holder.after(more);
-      }
-      // Pli chantiers : 2 visibles.
-      var block = mount.querySelector('[data-t-block="' + si + '"]');
-      var stRows = [].slice.call(block.querySelectorAll('[data-struct-key]'));
-      stRows.forEach(function(r, i) { if (i >= 2) { r.setAttribute('data-t-folded', '1'); r.style.display = 'none'; } });
-      if (stRows.length > 2) {
-        var moreSt = document.createElement('button');
-        moreSt.type = 'button';
-        moreSt.setAttribute('data-t-more', 'st' + si);
-        moreSt.style.cssText = 'font-size:12px;font-weight:600;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:2px 2px 0;font-family:inherit;';
-        moreSt.textContent = 'Voir ' + (stRows.length - 2) + ' autre' + (stRows.length - 2 > 1 ? 's' : '') + ' chantier' + (stRows.length - 2 > 1 ? 's' : '');
-        moreSt.addEventListener('click', function() {
-          var open = moreSt.getAttribute('data-open') === '1';
-          stRows.forEach(function(r, i) { if (i >= 2) r.style.display = open ? 'none' : ''; });
-          moreSt.setAttribute('data-open', open ? '0' : '1');
-          moreSt.textContent = open ? ('Voir ' + (stRows.length - 2) + ' autre' + (stRows.length - 2 > 1 ? 's' : '') + ' chantier' + (stRows.length - 2 > 1 ? 's' : '')) : 'Voir moins';
-        });
-        block.appendChild(moreSt);
-      }
+    var holder = mount.querySelector('[data-t-cards="0"]');
+    ctxCards.forEach(function(c) { holder.appendChild(c); });
+    // TRI UNIQUE (règle 1, doctrine 01/08) : motifs promus et cartes contextuelles CONFONDUS —
+    // horizon puis |coin €/an|.
+    var _mix = [].slice.call(holder.querySelectorAll('.ab-card[data-t-site]'));
+    _mix.sort(function(a, b) {
+      var d = Number(a.getAttribute('data-t-h')) - Number(b.getAttribute('data-t-h'));
+      return d !== 0 ? d : Number(b.getAttribute('data-t-e')) - Number(a.getAttribute('data-t-e'));
     });
+    // PÉRIMÈTRE — LA PLACE RÉSERVÉE DOIT SURVIVRE AU PLI (31/07) : la carte qui pose la
+    // question du périmètre (marqueur [data-catchment-amt], data-t-e = 0 par définition)
+    // remonte au dernier rang VISIBLE — la question reste atteignable sans déplier.
+    var FOLD = 5;
+    var _pIdx = -1;
+    for (var _pi = 0; _pi < _mix.length; _pi++) {
+      if (_mix[_pi].querySelector('[data-catchment-amt]')) { _pIdx = _pi; break; }
+    }
+    if (_pIdx >= FOLD) _mix.splice(FOLD - 1, 0, _mix.splice(_pIdx, 1)[0]);
+    _mix.forEach(function(el, i) {
+      if (i >= FOLD) { el.setAttribute('data-t-folded', '1'); el.style.display = 'none'; }
+      holder.appendChild(el);
+    });
+    if (_mix.length > FOLD) {
+      var more = document.createElement('button');
+      more.type = 'button';
+      more.setAttribute('data-t-more', '0');
+      more.style.cssText = 'display:block;width:100%;font-size:11px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:#9CA3AF;background:none;border:none;border-top:1px solid rgba(17,24,39,0.06);cursor:pointer;padding:8px 2px;font-family:inherit;text-align:center;';
+      more.textContent = 'aussi aujourd\u2019hui \u2014 ' + (_mix.length - FOLD) + ' carte' + (_mix.length - FOLD > 1 ? 's' : '') + ' \u25be';
+      more.addEventListener('click', function() {
+        var open = more.getAttribute('data-open') === '1';
+        holder.querySelectorAll('[data-t-folded]').forEach(function(c) { c.style.display = open ? 'none' : ''; });
+        more.setAttribute('data-open', open ? '0' : '1');
+        more.textContent = open ? ('aussi aujourd\u2019hui \u2014 ' + (_mix.length - FOLD) + ' carte' + (_mix.length - FOLD > 1 ? 's' : '') + ' \u25be') : 'replier \u25b4';
+      });
+      holder.after(more);
+    }
+    // Pli chantiers compacts : 3 visibles (fil unique).
+    var block0 = mount.querySelector('[data-t-block="0"]');
+    var stRows = [].slice.call(block0.querySelectorAll('[data-struct-key]'));
+    stRows.forEach(function(r, i) { if (i >= 3) { r.setAttribute('data-t-folded', '1'); r.style.display = 'none'; } });
+    if (stRows.length > 3) {
+      var moreSt = document.createElement('button');
+      moreSt.type = 'button';
+      moreSt.setAttribute('data-t-more', 'st0');
+      moreSt.style.cssText = 'font-size:12px;font-weight:600;color:#1D3BB3;background:none;border:none;cursor:pointer;padding:2px 2px 0;font-family:inherit;';
+      moreSt.textContent = 'Voir ' + (stRows.length - 3) + ' autre' + (stRows.length - 3 > 1 ? 's' : '') + ' chantier' + (stRows.length - 3 > 1 ? 's' : '');
+      moreSt.addEventListener('click', function() {
+        var open = moreSt.getAttribute('data-open') === '1';
+        stRows.forEach(function(r, i) { if (i >= 3) r.style.display = open ? 'none' : ''; });
+        moreSt.setAttribute('data-open', open ? '0' : '1');
+        moreSt.textContent = open ? ('Voir ' + (stRows.length - 3) + ' autre' + (stRows.length - 3 > 1 ? 's' : '') + ' chantier' + (stRows.length - 3 > 1 ? 's' : '')) : 'Voir moins';
+      });
+      block0.appendChild(moreSt);
+    }
+    // Fin de fil (proto ; DÉPLACÉE hors du handler « Trier par enjeu » où une accolade mal
+    // placée l'avait enfermée avec le vieux filet jour-borné — elle ne tournait QU'AU CLIC).
+    (function () {
+      var nAll = ctxCards.length;
+      if (!nAll) return;
+      var fin = document.createElement('div');
+      fin.style.cssText = 'text-align:center;padding:14px;color:#9CA3AF;font-size:12px;';
+      fin.textContent = 'Vous \u00eates \u00e0 jour \u2014 ' + nAll + ' carte' + (nAll > 1 ? 's' : '') + ' ce jour.';
+      mount.appendChild(fin);
+    })();
+// (Filet « Nouveau » : UNE seule implémentation — la per-carte de renderActionCandidates
+    // (_msIsNewCard, seen-store). Le doublon jour-borné du 14/08 est retiré.)
     // Filtres.
     function paintChips() {
       mount.querySelectorAll('[data-t-fh]').forEach(function(b) {
@@ -3571,31 +3566,6 @@ if (!location_id) {
       _triageState.sortEnjeu = !_triageState.sortEnjeu;
       paintChips();
       mount.querySelectorAll('[data-t-block]').forEach(function(block) { _triageSortSite(block); });
-      // Maquette 14/08 — fin de fil : l'état « à jour » (compte réel des cartes du jour).
-      (function () {
-        var nAll = ctxCards.length;
-        if (!nAll) return;
-        var fin = document.createElement('div');
-        fin.style.cssText = 'text-align:center;padding:14px;color:#9CA3AF;font-size:12px;';
-        fin.textContent = 'Vous \u00eates \u00e0 jour \u2014 ' + nAll + ' carte' + (nAll > 1 ? 's' : '') + ' ce jour.';
-        mount.appendChild(fin);
-      })();
-      // Maquette 14/08 — filet « Nouveau depuis votre derni\u00e8re visite » (1re visite du jour).
-      (function () {
-        try {
-          var k = 'ms_agir_last_visit';
-          var last = localStorage.getItem(k) || '';
-          var today = new Date(); var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-          var ymd = today.getFullYear() + '-' + pad(today.getMonth() + 1) + '-' + pad(today.getDate());
-          if (last && last < ymd && ctxCards.length) {
-            var nl = document.createElement('div');
-            nl.style.cssText = 'display:flex;align-items:center;gap:10px;padding:4px 4px 8px;color:#1D3BB3;font-size:11.5px;font-weight:600;';
-            nl.innerHTML = '<span style="flex:1;height:1px;background:#1D3BB3;opacity:0.35;"></span>Nouveau depuis votre derni\u00e8re visite<span style="flex:1;height:1px;background:#1D3BB3;opacity:0.35;"></span>';
-            mount.insertBefore(nl, mount.firstChild);
-          }
-          localStorage.setItem(k, ymd);
-        } catch (e) {}
-      })();
       _triageApplyFilters(mount);
     });
     _wireStructRows(mount);

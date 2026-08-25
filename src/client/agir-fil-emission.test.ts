@@ -63,7 +63,9 @@ describe("fil Agir — invariants de la maquette (14/08)", () => {
   });
   it("fin de fil + filet Nouveau + pli « aussi aujourd'hui »", () => {
     expect(src.includes("Vous \\u00eates \\u00e0 jour")).toBe(true);
-    expect(src.includes("Nouveau depuis votre derni\\u00e8re visite")).toBe(true);
+    // 25/08 soir — UNE seule implémentation du filet : la per-carte de renderActionCandidates
+    // (ab-newline, texte en clair) ; le doublon jour-borné du 14/08 (échappé) est retiré.
+    expect(src.includes("Nouveau depuis votre dernière visite")).toBe(true);
     expect(src.includes("aussi aujourd\\u2019hui")).toBe(true);
   });
   it("chrome hors maquette mort : progression, Besoin d'aide", () => {

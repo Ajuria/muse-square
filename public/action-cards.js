@@ -656,7 +656,7 @@
   );
 
   // #8 — low_competition_window
-  reg('low_competition_window', 'Moins d’activité que d’habitude dans votre périmètre', 'OPPORTUNIT\u00c9', '\ud83d\udfe2', '#2E7D32', 'action', 'pulse#carte',
+  reg('low_competition_window', 'Adaptez vos opérations — moins d’activité que d’habitude dans votre périmètre', 'OPPORTUNIT\u00c9', '\ud83d\udfe2', '#2E7D32', 'action', 'pulse#carte',
     function(a, p, d) {
       // Un seul chiffre : l'ecart en % sous la normale DU LIEU. On ne compare plus un compte
       // d'evenements a un indice pondere (unites differentes : competition_index_local =
@@ -765,7 +765,7 @@
   }
 
   // #12 — weather_hazard_onset
-  reg('weather_hazard_onset', 'Alerte m\u00e9t\u00e9o', 'M\u00c9T\u00c9O', '\u26a1', '#E65100', 'action', 'pulse#radar-score',
+  reg('weather_hazard_onset', 'Anticipez l\u2019alerte m\u00e9t\u00e9o', 'M\u00c9T\u00c9O', '\u26a1', '#E65100', 'action', 'pulse#radar-score',
     function(a, p, d) {
       // 23/08 — hazardPhrase, pas hazardLabel. Le repli de hazardLabel est « alerte météo » ;
       // préfixé par « Alerte » il donnait « Alerte alerte météo ». Mesuré : 2 567 jours sur
@@ -875,7 +875,7 @@
   );
 
   // #16 — calendar_audience_shift
-  reg('calendar_audience_shift', 'Contexte calendaire', 'INTELLIGENCE', '\ud83d\uddd3\ufe0f', '#1565C0', 'action', 'pulse#radar-changes',
+  reg('calendar_audience_shift', 'Ciblez le public du jour', 'INTELLIGENCE', '\ud83d\uddd3\ufe0f', '#1565C0', 'action', 'pulse#radar-changes',
     function(a, p, d) {
       var trigger = d.holiday_name || d.vacation_name || ((d.commercial_events && d.commercial_events[0]) ? d.commercial_events[0].event_name : null) || 'changement calendaire';
       var audience = d.audience_availability_label || '';
@@ -1046,7 +1046,7 @@
   );
 
   // #25 — mega_event_end
-  reg('mega_event_end', 'Fin m\u00e9ga-\u00e9v\u00e9nement', 'INTELLIGENCE', '\ud83c\udfc1', '#1565C0', 'notification', 'pulse#radar-score',
+  reg('mega_event_end', 'Anticipez la fin du m\u00e9ga-\u00e9v\u00e9nement', 'INTELLIGENCE', '\ud83c\udfc1', '#1565C0', 'notification', 'pulse#radar-score',
     function(a, p, d) {
       var pr = Number(d.competition_pressure_ratio || 0);
       var line = 'M\u00e9ga-\u00e9v\u00e9nement termin\u00e9. Retour au rythme normal.';
@@ -1310,7 +1310,7 @@
   );
 
   // #39 — competitor_offering_removed
-  reg('competitor_offering_removed', 'Captez l\u2019offre abandonn\u00e9e', 'INTELLIGENCE', '\ud83d\uddd1\ufe0f', '#1565C0', 'action', 'pulse#radar-threats',
+  reg('competitor_offering_removed', 'Saisissez l\u2019offre abandonn\u00e9e', 'INTELLIGENCE', '\ud83d\uddd1\ufe0f', '#1565C0', 'action', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent';
       var item = a.item || 'une offre';
@@ -1370,7 +1370,7 @@
   );
 
   // competitor_reputation_strength — standing rating signal (fires immediately)
-  reg('competitor_reputation_strength', 'Surveillez la r\u00e9putation concurrente', 'INTELLIGENCE', '\u2b50', '#1565C0', 'notification', 'pulse#radar-threats',
+  reg('competitor_reputation_strength', 'Comparez votre note \u00e0 la leur', 'INTELLIGENCE', '\u2b50', '#1565C0', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent suivi';
       var rating = (a.google_rating != null) ? frDec(a.google_rating) : null;
@@ -1453,7 +1453,7 @@
   );
 
   // competitor_event_ending — launch twin. competitor_id is null (no enrichment fetch).
-  reg('competitor_event_ending', 'Fin d\u2019\u00e9v\u00e9nement concurrent', 'CONCURRENCE', '\ud83c\udfc1', '#E65100', 'notification', 'pulse#radar-threats',
+  reg('competitor_event_ending', 'Pr\u00e9parez la fin de l\u2019\u00e9v\u00e9nement concurrent', 'CONCURRENCE', '\ud83c\udfc1', '#E65100', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
       var parts = String(a.new_value || '').split(' \u2014 ');
       var name = parts[0] || a.competitor_name || 'Un concurrent';
@@ -1579,7 +1579,7 @@
   );
 
   // C7 — same_bucket_saturation
-  reg('same_bucket_saturation', 'Saturation dans votre secteur', 'CONCURRENCE', '\ud83d\udfe0', '#E65100', 'action', 'pulse#carte',
+  reg('same_bucket_saturation', 'Diff\u00e9renciez-vous \u2014 forte activit\u00e9 dans votre secteur', 'CONCURRENCE', '\ud83d\udfe0', '#E65100', 'action', 'pulse#carte',
     function(a, p, d) {
       var pctSame = samePct(a, d) || 0;
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
@@ -1593,7 +1593,7 @@
   );
 
   // C8 — weekend_vacation_low_comp
-  reg('weekend_vacation_low_comp', 'Week-end de vacances \u2014 faible concurrence', 'OPPORTUNIT\u00c9', '\ud83c\udf34', '#2E7D32', 'action', 'pulse#day-detail',
+  reg('weekend_vacation_low_comp', 'Pr\u00e9parez vos jours d\u2019ouverture du week-end \u2014 vacances, faible pression', 'OPPORTUNIT\u00c9', '\ud83c\udf34', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var score = num(score10(a, d));
@@ -1826,7 +1826,7 @@
   );
 
   // C21 — ft_peak_bad_weather
-  reg('ft_peak_bad_weather', 'Jour de pointe mais m\u00e9t\u00e9o d\u00e9grad\u00e9e', 'M\u00c9T\u00c9O', '\ud83c\udf26\ufe0f', '#E65100', 'action', 'pulse#radar-score',
+  reg('ft_peak_bad_weather', 'Prot\u00e9gez votre jour de pointe \u2014 m\u00e9t\u00e9o d\u00e9grad\u00e9e', 'M\u00c9T\u00c9O', '\ud83c\udf26\ufe0f', '#E65100', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var rank = num(a.ft_rank) || 0;
       var alert = Number(a.weather_alert || d.alert_level_max || 0);
@@ -2349,7 +2349,7 @@
 
   // sales_discount_no_lift — PERFORMANCE. Payload: discount_rate,
   // discount_rate_delta_pct, revenue_vs_30d_avg_pct, daily_revenue.
-  reg('sales_discount_no_lift', 'Remises sans effet', 'INTELLIGENCE', '🏷️', '#B45309', 'action', 'pulse#day-detail',
+  reg('sales_discount_no_lift', 'Ciblez vos remises \u2014 sans effet mesur\u00e9', 'INTELLIGENCE', '🏷️', '#B45309', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var drN = a.discount_rate != null ? Number(a.discount_rate) * 100 : null;
       var ddp = a.discount_rate_delta_pct != null ? Number(a.discount_rate_delta_pct) : null;
@@ -2820,6 +2820,11 @@
           // Point 4 (owner 25/08 soir) : titre au verbe — miroir du corps déjà rendu
           // (« … est noté 4,6/5 ») quand seule leur note est connue.
           else whatText = _rn + (feedItem.google_rating != null ? ' est noté ' + frDec(feedItem.google_rating) + '/5' : '');
+        }
+        // Point 4 (owner 25/08 soir) : titre au verbe + aléa NOMMÉ — hazardFromFlux (l'aléa
+        // qui a déclenché la carte, jamais celui du jour résolu, fix 23/08).
+        else if (actionType === 'weather_hazard_onset') {
+          whatText = 'Anticipez l\u2019' + hazardFromFlux(feedItem, mergedDay || {});
         }
         // 23/08 — cartes de faits en euros : le titre suit le SENS (owner : « bascule » datait
         // des parts). Même forme que les cartes ventes « CA inférieur / supérieur ».

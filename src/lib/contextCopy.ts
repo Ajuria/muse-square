@@ -341,21 +341,28 @@ export function structuralCardCopyFr(i: {
   // Amendement 1 : le NOMBRE n'apparaît qu'au coin — les titres portent le signal.
   // Amendement 2 : la provenance (« Mesuré sur N j / M mois ») vit dans l'infobulle du coin
   // (le client la construit depuis n_days/span_months/tier_label_fr), plus dans la ligne.
+  // TITRE AU VERBE (owner 25/08 soir, point 4 : « Titre avec verbe (engaging), puis les
+  // faits, puis l'action » — trois étages). La forme C du 21/08 n'est pas perdue : elle
+  // DESCEND au paragraphe de faits (« Les jours de pluie marquée vous coûtent −193 € par
+  // jour… »). Le verbe-titre reprend mot pour mot le geste owner du lot 1 (« mettez en
+  // place votre dispositif pluie ») : le nom du dispositif est EXTRAIT de la ligne chantier
+  // arbitrée — zéro mot inventé. Classe sans mot de dispositif (heat_25_27, concept sans
+  // mot) : « Définissez » vient du chantier générique owner (« Dispositif durable à
+  // définir »).
+  const dispositifWord = ((STRUCTURAL_CHANTIER_FR[i.class_key] || "").match(/^Dispositif ([^—]+) —/) || [])[1]?.trim() ?? null;
   let title: string;
   if (i.class_key === "discount_no_lift") {
-    title = "Des remises accordées sans effet mesuré sur le CA";
-  } else if (i.class_key === "events_high" && pos) {
-    title = "Les jours d'événements proches vous rapportent";
+    // « cibler » est LE verbe arbitré (owner 24/08, « animer » → « cibler ») et la ligne
+    // chantier remise parle déjà de « ciblage revu ».
+    title = "Ciblez vos remises — sans effet mesuré sur le CA";
   } else if (register === "identification") {
     title = i.class_key === "traffic_high"
       ? "Identifiez ce qui déclenche vos jours de pointe"
       : i.class_key === "followed_activity_high"
-        ? "L'activité des concurrents que vous suivez vous profite — identifiez pourquoi"
-        // Aligné le 21/08 : « jours calmes » ne nommait pas la dimension mesurée (même défaut que
-        // le titre correctif retiré le même jour), et « vous réussissent » divergeait du verbe de
-        // la forme C. Le libellé de la classe + « vous rapportent » ; le « — identifiez pourquoi »
-        // reste, c'est lui qui porte le registre identification (doctrine 01/08, amendement 7).
-        : `Les ${i.label_fr} vous rapportent — identifiez pourquoi`;
+        ? "Identifiez pourquoi l'activité des concurrents que vous suivez vous profite"
+        : `Identifiez pourquoi les ${i.label_fr} vous rapportent`;
+  } else if (dispositifWord) {
+    title = `Mettez en place votre dispositif ${dispositifWord}`;
   // competition_low négatif : le titre en dur « Les jours calmes ne vous profitent pas encore »
   // est RETIRÉ le 21/08 (3 arbitrages owner). Il précédait la forme C et la contredisait sur les
   // trois points : (1) « calmes » ne nommait pas la dimension — la classe mesure
@@ -364,13 +371,7 @@ export function structuralCardCopyFr(i: {
   // comme un profit absent ; (3) « pas encore » promettait un gain latent que rien ne mesure.
   // Le gabarit par défaut dit les trois : « Les jours à faible pression concurrentielle vous coûtent ».
   } else {
-    // Forme C (owner 21/08) : « Les » et non « Vos » — la classe de jour n'appartient pas à
-    // l'exploitant, seul l'effet est sien. Verbe et non adjectif (lexique règle 8), et le couple
-    // rapporter/coûter est déjà celui du coin (« à gagner » / « perdus »). Pas de « du chiffre » :
-    // le corps le dit et le montant est au coin (lexique règle 2 + correction owner « que la normale »).
-    title = pos
-      ? `Les ${i.label_fr} vous rapportent`
-      : `Les ${i.label_fr} vous coûtent`;
+    title = `Définissez votre dispositif pour les ${i.label_fr}`;
   }
   // CORPS — mesure, plus affirmation (owner 22/08). Les trois phrases précédentes étaient
   // IDENTIQUES d'une carte à l'autre : sur le compte owner, QUATRE cartes sur cinq portaient
@@ -398,8 +399,16 @@ export function structuralCardCopyFr(i: {
   // plus dans le paragraphe de faits. Le paragraphe ne porte que le FAIT : l'écart par jour.
   // Pas de « en moyenne » : en régime log+médiane, avg_gap_eur EST la médiane (rowToImpact,
   // dayClassRegistry) — le mot « moyenne » serait un référentiel faux.
+  // ÉCHELLE (owner 25/08 soir : « combien de jours par an ? ») : jours/an = eur_year ÷ €/j —
+  // EXACTEMENT l'annualisation du moteur (rowToImpact : eur_year = €/j × n/(span/365,25)),
+  // jamais un second référentiel. « au rythme constaté » est la formule déjà arbitrée du coin.
+  // Et la forme C du 21/08 (« Les <classe> vous coûtent ») OUVRE la phrase : le titre étant
+  // devenu le geste, c'est ici que le motif porte son verbe.
+  const annualDays = (eurJour != null && eurJour !== 0 && Number.isFinite(Number(i.eur_year)) && Number(i.eur_year) !== 0)
+    ? Math.round(Math.abs(Number(i.eur_year) / Number(i.avg_gap_eur)))
+    : null;
   const mesure = (i.n_days > 0 && eurJour != null)
-    ? `${eurJour > 0 ? "+" : "\u2212"}${Math.abs(eurJour).toLocaleString("fr-FR")} \u20ac par jour sur ces journées.`
+    ? `Les ${i.label_fr} vous ${pos ? "rapportent" : "coûtent"} ${eurJour > 0 ? "+" : "\u2212"}${Math.abs(eurJour).toLocaleString("fr-FR")} \u20ac par jour${annualDays != null ? ` \u2014 \u2248 ${annualDays} jours par an au rythme constaté` : ""}.`
     : "";
   const sowhat = register === "identification"
     ? (mesure + " La cause précise est chez vous : trouvée et documentée, elle devient déclenchable.").trim()

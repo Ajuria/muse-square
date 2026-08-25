@@ -145,15 +145,35 @@ check("cartes système : « Pas pour moi » présent, « Communiquer »/« Déj�
 })());
 
 // ── Inc A (owner 25/08 soir, points 3+5) : minis courtes + paragraphe de faits structurel. ──
-check("structurelles pleines : titre SANS chiffre, paragraphe de faits « € par jour sur ces journées »", (() => {
+check("structurelles pleines : titre au VERBE sans chiffre, faits = forme C + €/j + jours/an", (() => {
   const fulls = [...root.querySelectorAll("[data-struct-full]")];
   if (!fulls.length) return true;
   return fulls.every((c) => {
     const title = c.querySelector(".ab-what")?.textContent || "";
     const body = [...c.querySelectorAll(".ab-sowhat")].map((x) => x.textContent).join(" ");
-    return !/€\/j/.test(title) && !/en moyenne/.test(title) && /€ par jour sur ces journées/.test(body);
+    return /^(Mettez en place|Définissez|Identifiez|Ciblez)/.test(title) && !/€/.test(title)
+      && /€ par jour/.test(body) && /jours par an au rythme constaté/.test(body);
   });
 })(), root.querySelectorAll("[data-struct-full]").length + " cartes");
+// ── Audit 2 (owner) : TOUS les titres au verbe — la liste des amorces est FERMÉE, un titre
+// hors liste = FAIL (les formes-fait arbitrées 21-22/08 restent : CA supérieur/inférieur,
+// trio « surperforme/sous-performe/en hausse/en retrait », comparatifs de note).
+check("titres : CHAQUE titre rendu commence par un verbe (ou forme-fait arbitrée)", (() => {
+  const VERB = /^(Adaptez|Préparez|Identifiez|Différenciez|Sécurisez|Capitalisez|Mettez|Réagissez|Protégez|Répondez|Renforcez|Contrez|Saisissez|Ciblez|Anticipez|Définissez|Amplifiez|Ajustez|Alertez|Activez|Prévenez|Profitez|Documentez|Analysez|Comparez|Choisissez|Reportez|Sollicitez|Demain)/;
+  const FACT = /(surperforme|sous-performe|en hausse|en retrait)$|^CA (supérieur|inférieur)|est (mieux )?noté|êtes mieux noté|à égalité/;
+  const titles = [...root.querySelectorAll(".ab-card[data-ab-card-idx] .ab-what, [data-struct-full] .ab-what")]
+    .map((x) => (x.textContent || "").trim()).filter(Boolean);
+  const bad = titles.filter((t) => !VERB.test(t) && !FACT.test(t));
+  if (bad.length) console.log("    titres hors grammaire : " + JSON.stringify(bad));
+  return bad.length === 0;
+})());
+check("fil unique : plus d'en-têtes de bloc par site, pilule SITE sur les rangées (vue compte)", (() => {
+  if (root.querySelector("[data-t-block-site]")) return false;
+  return root.querySelectorAll("[data-t-block]").length <= 1;
+})());
+check("fin de fil : « Vous êtes à jour — N cartes ce jour. » rendue SANS clic sur le tri", (() => {
+  return /Vous êtes à jour — \d+ carte/.test(txt());
+})());
 check("minis du coin : jamais « chez vous · », jamais « vos jours de », structurelles réduites à perdus/à gagner", (() => {
   const subs = [...root.querySelectorAll(".amt-sub")].map((s) => s.textContent || "");
   if (subs.some((s) => s.includes("chez vous ·") || s.includes("vos jours de"))) return false;
