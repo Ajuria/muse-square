@@ -2624,6 +2624,7 @@
   // ─── BAR CLASS / PILL MAPPINGS ───────────────────────────────────────────
 
   var CAT_BAR = {
+    '\u00c9V\u00c9NEMENT': 'ab-warning',
     'URGENT': 'ab-threat',
     'CONCURRENCE': 'ab-warning',
     'M\u00c9T\u00c9O': 'ab-warning',
@@ -2634,6 +2635,7 @@
   };
 
   var CAT_URGENCY = {
+    '\u00c9V\u00c9NEMENT': { bg: '#FEF3C7', fg: '#92400E' },
     'URGENT': { label: 'Urgent', style: 'background:#FEE2E2;color:#991B1B;' },
     'CONCURRENCE': { label: 'Concurrence', style: 'background:#FEF3C7;color:#92400E;' },
     'M\u00c9T\u00c9O': { label: 'M\u00e9t\u00e9o', style: 'background:#FEF3C7;color:#92400E;' },

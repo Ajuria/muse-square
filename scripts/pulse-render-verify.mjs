@@ -119,5 +119,19 @@ check("en-tête : pic attendu + PLUS de « Piloter → » ni d'« Objectif de la
 })());
 check("clic-jour : data-pill-date conservé (mécanique de rechargement)", root.querySelectorAll("[data-pill-date]").length === 7);
 
+// ── Build v3.2 · Inc 3-4 : médaillons FAMILLE + pied à deux gestes. ──
+check("médaillons : teintes de FAMILLE (≥ 2 fonds distincts, plus le bleu unique)", (() => {
+  const discs = [...root.querySelectorAll(".ab-card .ab-disc")];
+  const bgs = new Set(discs.map((d) => (d.getAttribute("style") || "").match(/background:(#[0-9A-Fa-f]{6})/)?.[1]).filter(Boolean));
+  return discs.length >= 3 && bgs.size >= 2;
+})());
+check("cartes système : « Pas pour moi » présent, « Communiquer »/« Déjà fait »/« Action menée ? » absents", (() => {
+  const card = root.querySelector(".ab-card[data-ab-card-idx]");
+  if (!card) return false;
+  const t2 = txt();
+  return t2.includes("Pas pour moi") && !t2.includes("Déjà fait") && !t2.includes("Action menée ?")
+    && ![...root.querySelectorAll(".ab-card[data-ab-card-idx] button")].some((b) => b.textContent.trim() === "Communiquer");
+})());
+
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");
 process.exit(fails ? 1 : 0);

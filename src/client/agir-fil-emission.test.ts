@@ -21,10 +21,11 @@ describe("fil Agir — invariants de la maquette (14/08)", () => {
     const assemblage = src.slice(src.indexOf("root.innerHTML = pillsHtml"));
     expect(assemblage.slice(0, 400).includes("opsStrip")).toBe(false);
   });
-  it("en-tête cible : Vos actions du jour (owner 25/08)", () => {
+  it("en-tête cible : Vos actions du jour, sans « Piloter → » (owner 25/08)", () => {
     expect(src.includes("Vos actions du jour")).toBe(true);
     expect(src.includes("Vos cartes du jour")).toBe(false);
-    expect(src.includes("/app/insightevent/tableau")).toBe(true);
+    // Le lien « Piloter → » d'en-tête est mort (la nav globale le porte).
+    expect(/Piloter \\u2192|Piloter →/.test(src)).toBe(false);
   });
   it("sections titrées, engagements d'abord", () => {
     const iEng = src.indexOf(">Vos engagements<");
@@ -40,11 +41,14 @@ describe("fil Agir — invariants de la maquette (14/08)", () => {
     expect(sansCommentaires.includes("Piloter ▾")).toBe(false);
     expect(sansCommentaires.includes("data-eng-agir-toggle")).toBe(false);
   });
-  it("grammaire CTA : gestes directs (liste fermée) + Communiquer", () => {
+  it("grammaire CTA : pied à DEUX gestes — Pas pour moi · geste bleu (ratifié 25/08)", () => {
     for (const cls of ['class="pls-cta-pri"', 'class="pls-cta-sec"']) expect(src.includes(cls)).toBe(true);
-    expect(src.includes(">Communiquer</button>")).toBe(true);
-    // Geste bleu = dernier du pied (l'ordre d'émission : sec avant pri).
-    expect(src.indexOf("_commEntry2\n                + _commitEntry")).toBeGreaterThan(-1);
+    // « Communiquer » a quitté les rangées (il vit sur Consulter) ; « Déjà fait » aussi.
+    expect(src.includes(">Communiquer</button>")).toBe(false);
+    expect(src.includes(">Déjà fait</button>")).toBe(false);
+    expect(src.includes(">Pas pour moi</button>")).toBe(true);
+    // Geste bleu = dernier du pied (Pas pour moi avant le geste).
+    expect(src.indexOf("_dispoHtml\n                + _commitEntry")).toBeGreaterThan(-1);
   });
   it("possession : conteneur engagements bleu pâle + liseré", () => {
     expect(src.includes("#pls-engagement-cards:not(:empty) { background:#F7F9FF")).toBe(true);
