@@ -1351,6 +1351,15 @@ export type FunnelCorner = {
 // ou un jour de vacances scolaires.
 const CARD_DATE_CALENDAR_TYPES = new Set<string>(["calendar_audience_shift"]);
 
+// PLANCHER D'AFFICHAGE DU COIN, PAR MÉTRIQUE (owner 25/08 : « baisse plancher à 2 % »).
+// 5 % avait été calibré sur des EUROS et des VISITEURS. L'affluence estimée est un indice
+// 0-100 dont la variation est naturellement plus resserrée : mesuré sur le compte owner après
+// le batch, les écarts réels vont de 0,8 % à 1,9 % — tous sous la barre, donc invisibles.
+// 2 % pour cette seule métrique ; les autres gardent 5 %, leur calibrage n'a pas changé.
+const CORNER_FLOOR_PCT: Record<string, number> = { busyness: 0.02 };
+const CORNER_FLOOR_DEFAULT = 0.05;
+const cornerFloor = (metric: string): number => CORNER_FLOOR_PCT[metric] ?? CORNER_FLOOR_DEFAULT;
+
 export function funnelCornerForCandidate(result: DayClassResult, candidate: { action_type?: any }): FunnelCorner | null {
   const at = String(candidate?.action_type || "");
   const step = CARD_FUNNEL_STEP[at];
@@ -1389,7 +1398,7 @@ export function funnelCornerForCandidate(result: DayClassResult, candidate: { ac
     if (t < 1) return null;
     if (!Number.isFinite(med) || med === 0 || Math.sign(med) !== Math.sign(avgLog)) return null;
     const pct = Math.exp(avgLog) - 1;
-    if (!Number.isFinite(pct) || Math.abs(pct) < 0.05) return null;
+    if (!Number.isFinite(pct) || Math.abs(pct) < cornerFloor(metric)) return null;
     return { kpi: metric, pct, abs_per_day: avg, n_days: n, class_key: cls, class_label_fr: CLASS_LABELS[cls] };
   };
   // Repli d'une étape (owner 24/08, GO) : étape déclarée d'abord ; une carte VISITEURS dont le
@@ -1442,7 +1451,10 @@ export function structuralFunnelLineFr(rows: any[], class_key: string, eur_year:
     if (t < 1) continue;
     if (!Number.isFinite(med) || med === 0 || Math.sign(med) !== Math.sign(avgLog)) continue;
     const pct = Math.exp(avgLog) - 1;
-    if (!Number.isFinite(pct) || Math.abs(pct) < 0.05) continue;
+    // Même plancher partagé (cornerFloor) : busyness n'est pas dans STRUCT_FUNNEL_DE, donc le
+    // comportement de cette ligne est INCHANGÉ — mais une métrique ajoutée demain y trouvera
+    // son propre plancher au lieu d'un 0.05 recopié.
+    if (!Number.isFinite(pct) || Math.abs(pct) < cornerFloor(metric)) continue;
     // Porte de cohérence : une métrique à contre-sens de l'impact € tue TOUTE la ligne (mélange
     // de référentiels — voir l'en-tête), pas seulement elle-même.
     if (Math.sign(pct) !== impactSign) return null;
