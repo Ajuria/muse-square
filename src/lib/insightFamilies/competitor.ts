@@ -116,14 +116,14 @@ function competitorImpactOutputs(impact: { days: number; contrasts: CompetitorCo
   if (impact && impact.contrasts.length) {
     for (const c of impact.contrasts) {
       const isIdx = c.key === "ambient_index";
-      const hiFr = isIdx ? "forte pression" : `≥ ${c.hi} événements en cours`;
-      const loFr = isIdx ? "faible pression" : `≤ ${c.lo}`;
+      const hiFr = isIdx ? "forte activité" : `≥ ${c.hi} événements en cours`;
+      const loFr = isIdx ? "faible activité" : `≤ ${c.lo}`;
       const detail = `${c.n_high} jours (${hiFr}) vs ${c.n_low} jours (${loFr})`;
       if (c.tier) {
         const dir = c.delta_pp >= 0 ? "au-dessus de" : "en dessous de";
         facts.push({
           fact_fr: isIdx
-            ? `Les jours de forte pression concurrentielle locale (même secteur, indice quotidien), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé aux jours de faible pression — ${detail}.`
+            ? `Les jours de forte activité dans votre périmètre (tous secteurs, indice quotidien pondéré par la distance), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé aux jours les moins actifs — ${detail}.`
             : `Les jours où les concurrents que vous suivez sont les plus actifs (${hiFr}), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé à leurs jours les plus calmes (${loFr}) — ${detail}.`,
           claim_type: "observed_difference",
           tier: c.tier,

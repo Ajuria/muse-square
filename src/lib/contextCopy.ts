@@ -313,14 +313,14 @@ const STRUCTURAL_CHANTIER_FR: Record<string, string> = {
   discount_no_lift: "Dispositif remise — plafond et ciblage revus, reconduction conditionnée au lift mesuré.",
   tourism_high: "Dispositif visiteurs — capter le flux des jours de forte saison (langues, mise en avant, horaires).",
   tourism_low: "Dispositif basse saison — cibler les résidents locaux sur les jours calmes.",
-  competition_high: "Dispositif différenciation — visibilité et offre distinctive sur les jours disputés.",
+  competition_high: "Dispositif jours chargés — visibilité et offre distinctive quand votre périmètre est très actif.",
   // 22/08 — DÉBLOQUÉ. Cette entrée portait deux violations (« Fenêtres » banni au sens occasion,
   // « concentrer » proscrit règle 8) et attendait la décision de l'owner : le mot banni ÉTAIT le
   // nom du chantier. L'owner a tranché — « dispositif » nomme l'objet à N'IMPORTE QUEL état, et
   // « une pratique qui marche » est un dispositif PROUVÉ, pas un dispositif en soi (lexique
   // corrigé le même jour). « réservés » vient du corpus owner (« Réservez les remises à vos
   // clients fidèles », reco-library.js) : repris, pas inventé.
-  competition_low: "Dispositif jours calmes — lancements et temps forts réservés aux jours à faible pression.",
+  competition_low: "Dispositif jours calmes — lancements et temps forts réservés aux jours où votre périmètre est peu actif.",
   mobility_disruption: "Dispositif perturbations — communication d'itinéraires et offre adaptée dès l'annonce.",
   followed_activity_high: "Dispositif concurrents actifs — programmation renforcée quand vos suivis animent la zone.",
   school_holiday: "Dispositif vacances scolaires — offre et équipe calées sur le public vacances.",

@@ -413,7 +413,7 @@ function pressureSpikePrompt(ctx: PromptContext): string {
   const oldN = safeStr(s.old_value);
   const delta = (safeNum(s.new_value) ?? 0) - (safeNum(s.old_value) ?? 0);
 
-  return `Contexte interne : pression concurrentielle en hausse (${newN} événements à 5 km, +${delta} vs avant).
+  return `Contexte interne : activité en hausse dans votre périmètre (${newN} événements à 5 km, tous secteurs, +${delta} vs avant).
 
 Notre activité : ${effectiveActivity(p)}
 Notre public : ${AUDIENCE_FR[safeStr(p.primary_audience_1)] || "notre clientèle"}

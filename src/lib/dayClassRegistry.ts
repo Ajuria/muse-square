@@ -112,7 +112,7 @@ export const WEATHER_DAY_CLASSES: Array<{ key: string; level_col: string; min_lv
 // l'historique grandit). Les classes calendrier sont EN PLUS contrôlées mois × type-de-jour
 // (leçon calendarFamily : le naïf mesure la saison, pas les vacances).
 export const TERCILE_DAY_CLASSES: Array<{ key: string; family: string; index_col: string; label_fr: string }> = [
-  { key: "competition_high", family: "competition", index_col: "competition_index_local", label_fr: "jours à forte pression concurrentielle" },
+  { key: "competition_high", family: "competition", index_col: "competition_index_local", label_fr: "jours à forte activité dans votre périmètre" },
   { key: "tourism_high", family: "tourism", index_col: "tourism_index_region", label_fr: "jours à fort flux touristique" },
   // index_col RETIRÉ : il n'était lu nulle part (seul label_fr sert, via CLASS_LABELS) et faisait
   // croire à une autorité qu'il n'avait pas. Le rayon dépend désormais du périmètre déclaré par le
@@ -120,7 +120,7 @@ export const TERCILE_DAY_CLASSES: Array<{ key: string; family: string; index_col
   { key: "events_high", family: "events", index_col: "", label_fr: "jours à forte densité d'événements" },
   // Classes BASSES (mapping B2/D2, ajoutées 26/07) : tercile bas — les fenêtres favorables
   // (basse pression, basse saison) ; écart positif attendu → pill verte « À capter ».
-  { key: "competition_low", family: "competition", index_col: "competition_index_local", label_fr: "jours à faible pression concurrentielle" },
+  { key: "competition_low", family: "competition", index_col: "competition_index_local", label_fr: "jours à faible activité dans votre périmètre" },
   { key: "tourism_low", family: "tourism", index_col: "tourism_index_region", label_fr: "jours de basse saison touristique" },
 ];
 

@@ -1054,7 +1054,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         const hi = impacts.find((i) => i.class_key === "competition_high");
         const lo = impacts.find((i) => i.class_key === "competition_low");
         if (hi && lo && Number(hi.eur_year) < 0 && Number(lo.eur_year) < 0) {
-          const liaison = "Vos jours de pression moyenne portent ce site : les deux extrêmes vous coûtent.";
+          const liaison = "Vos jours d'activité moyenne portent ce site : les deux extrêmes vous coûtent.";
           hi.liaison_fr = liaison; lo.liaison_fr = liaison;
         }
         return impacts;

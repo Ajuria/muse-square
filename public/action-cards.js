@@ -1555,7 +1555,7 @@
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
-      var line = 'M\u00e9t\u00e9o favorable et pression concurrentielle faible (\u00d7' + frDec(pr) + ', ' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
+      var line = 'M\u00e9t\u00e9o favorable et faible activit\u00e9 dans votre p\u00e9rim\u00e8tre (\u00d7' + frDec(pr) + ', ' + n + ' \u00e9v\u00e9n. \u00e0 5 km).';
       line += ' Conditions id\u00e9ales pour communiquer.';
       return line;
     },
@@ -1637,7 +1637,7 @@
   );
 
   // C8 — weekend_vacation_low_comp
-  reg('weekend_vacation_low_comp', 'Pr\u00e9parez vos jours d\u2019ouverture du week-end \u2014 vacances, faible pression', 'OPPORTUNIT\u00c9', '\ud83c\udf34', '#2E7D32', 'action', 'pulse#day-detail',
+  reg('weekend_vacation_low_comp', 'Pr\u00e9parez vos jours d\u2019ouverture du week-end \u2014 vacances, p\u00e9rim\u00e8tre peu actif', 'OPPORTUNIT\u00c9', '\ud83c\udf34', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var score = num(score10(a, d));
@@ -1860,7 +1860,7 @@
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var stop = p.nearest_transit_stop_name || '';
       stop = namedDisruption(a) || stop;
-      var line = 'Acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + ' et pression concurrentielle \u00d7' + frDec(pr) + '.';
+      var line = 'Acc\u00e8s perturb\u00e9' + (stop ? ' (' + stop + ')' : '') + ' et activit\u00e9 dans votre p\u00e9rim\u00e8tre \u00d7' + frDec(pr) + '.';
       line += ' Vos visiteurs risquent de se d\u00e9tourner vers des concurrents mieux accessibles.';
       return line;
     },
@@ -2048,7 +2048,7 @@
         : 'CA en net retrait vs votre moyenne 30j.';
 
       if (pr != null && pr > 1.3) {
-        line += ' Cause probable : pression concurrentielle ×' + frDec(pr) + (comp != null ? ' (' + comp + ' événements à 5 km)' : '');
+        line += ' Cause probable : activité dans votre périmètre ×' + frDec(pr) + (comp != null ? ' (' + comp + ' événements à 5 km)' : '');
         if (a.top_competitor) line += ', principal ' + a.top_competitor;
         line += '.';
       } else if (alert >= 2) {
@@ -2341,7 +2341,7 @@
         ? 'CA ' + rev + ' €' + frDateFr(a.affected_date) + ' — ' + (delta != null ? delta + ' %' : 'en baisse') + ' vs la veille (' + yest + ' €).'
         : 'CA en baisse vs la veille' + frDateFr(a.affected_date) + '.';
 
-      if (pr != null) line += ' Concomitant à une pression concurrentielle ×' + frDec(pr) + '.';
+      if (pr != null) line += ' Concomitant à une activité dans votre périmètre ×' + frDec(pr) + '.';
       if (a.top_competitor) {
         line += ' Concurrent le plus proche : ' + a.top_competitor;
         if (a.competitor_distance_km != null) line += ' à ' + frDec(a.competitor_distance_km) + ' km';
@@ -2357,7 +2357,7 @@
         return 'CA ' + (delta != null ? delta + ' %' : 'en baisse') + ' vs la veille pour ' + siteName(p) + ', concomitant à une pression ×' + (pr != null ? frDec(pr) : '?') + (a.top_competitor ? '. Concurrent proche : ' + a.top_competitor : '') + '. À surveiller.';
       },
       note_interne: function(a, p, d) {
-        return 'Note interne ' + siteName(p) + '. Baisse de CA jour-sur-jour concomitante à une pression concurrentielle élevée' + (a.top_competitor ? ' (' + a.top_competitor + ' à proximité)' : '') + '. Co-occurrence à confirmer avant d\'en tirer une conclusion.';
+        return 'Note interne ' + siteName(p) + '. Baisse de CA jour-sur-jour concomitante à une activité élevée dans votre périmètre' + (a.top_competitor ? ' (' + a.top_competitor + ' à proximité)' : '') + '. Co-occurrence à confirmer avant d\'en tirer une conclusion.';
       }
     }
   );
@@ -3100,7 +3100,7 @@
     }, urgency: 'now' },
     'competition_pressure_spike': { action: function(a, p, d) {
       var name = a.competitor_name || null;
-      var s = 'Action conseill\u00e9e : pression concurrentielle en forte hausse';
+      var s = 'Action conseill\u00e9e : activit\u00e9 en forte hausse dans votre p\u00e9rim\u00e8tre';
       if (name) s += ', portée notamment par ' + name;
       s += '. Maintenez votre présence pour ne pas perdre en partage d\'attention.';
       return s;
