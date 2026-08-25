@@ -163,6 +163,28 @@
   // Mêmes seuils que le corps (plancher 2 % ou 20 % de l'écart total), pour qu'ils ne puissent
   // jamais diverger : si le corps nomme les ventes, le geste parle des ventes.
   // Rend 'ventes' | 'panier' | 'les deux' | null (payload incomplet -> aucun geste spécifique).
+  // S'AJOUTE-T-IL, OU PREND-IL LA PLACE ? (owner 25/08, seuil 10 % arbitré.)
+  // Le payload des TROIS cartes de performance porte le couple : l'écart de l'OBJET
+  // (delta_eur — créneau, produit, famille) et l'écart de la JOURNÉE (day_gap_eur). Aucune
+  // carte ne les confrontait. Or c'est le fait le plus utile qu'elles détiennent : sur le
+  // compte owner, le créneau 8 h gagne +300 € pendant que la journée n'en gagne que +262 —
+  // le RESTE de la journée a donc perdu 38 €. Selon que ces clients s'ajoutent ou changent
+  // d'heure, il y a quelque chose à prendre, ou rien.
+  // Rend { reste, part } quand le reste va À CONTRE-SENS de l'objet ET pèse au moins 10 % de
+  // l'écart de l'objet (le seuil évite de commenter un arrondi). Sinon null : la carte se tait.
+  // Les deux nombres sont des ÉCARTS au résultat habituel du lieu, jamais des volumes (règle 13).
+  function reportOuSurplus(a) {
+    if (!a) return null;
+    var dlt = a.delta_eur != null ? Number(a.delta_eur) : null;
+    var dg = a.day_gap_eur != null ? Number(a.day_gap_eur) : null;
+    if (dlt == null || dg == null || !isFinite(dlt) || !isFinite(dg) || dlt === 0) return null;
+    var reste = dg - dlt;
+    if (Math.sign(reste) === Math.sign(dlt) || reste === 0) return null;
+    var part = Math.abs(reste) / Math.abs(dlt);
+    if (part < 0.10) return null;
+    return { reste: Math.round(reste), objet: Math.round(dlt), part: part };
+  }
+
   function hourFunnelDriver(a) {
     if (!a) return null;
     var eht = a.expected_hour_transactions != null ? Number(a.expected_hour_transactions) : null;
@@ -2574,6 +2596,14 @@
       if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
         line += ' ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur cette famille depuis' + frDateFr(a.first_occurrence_date) + '.';
       }
+      // LE FAIT QUE LA CARTE TAISAIT (owner 25/08) : l'écart de l'objet contre celui de la
+      // journée. Pour un article, la question est celle de la PLACE dans l'assortiment.
+      var _rsB = reportOuSurplus(a);
+      if (_rsB) {
+        line += ' Le reste de vos ventes a ' + (_rsB.reste < 0 ? 'perdu ' : 'gagn\u00e9 ')
+          + frInt(Math.abs(_rsB.reste)) + ' \u20ac pendant que lui en '
+          + (_rsB.objet > 0 ? 'gagnait ' : 'perdait ') + frInt(Math.abs(_rsB.objet)) + ' \u20ac.';
+      }
       // Réserve de régime (trigger arbitré 25/08) : base 30 j d'un AUTRE régime calendaire.
       if (a.regime_mismatch_flag === true && a.typ_n != null && a.baseline_same_regime_n != null) {
         var nAutres = Number(a.typ_n) - Number(a.baseline_same_regime_n);
@@ -2615,6 +2645,14 @@
       var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
       if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
         line += ' ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur ce produit depuis' + frDateFr(a.first_occurrence_date) + '.';
+      }
+      // LE FAIT QUE LA CARTE TAISAIT (owner 25/08) : l'écart de l'objet contre celui de la
+      // journée. Pour un article, la question est celle de la PLACE dans l'assortiment.
+      var _rsB = reportOuSurplus(a);
+      if (_rsB) {
+        line += ' Le reste de vos ventes a ' + (_rsB.reste < 0 ? 'perdu ' : 'gagn\u00e9 ')
+          + frInt(Math.abs(_rsB.reste)) + ' \u20ac pendant que lui en '
+          + (_rsB.objet > 0 ? 'gagnait ' : 'perdait ') + frInt(Math.abs(_rsB.objet)) + ' \u20ac.';
       }
       // Réserve de régime (trigger arbitré 25/08) : base 30 j d'un AUTRE régime calendaire.
       if (a.regime_mismatch_flag === true && a.typ_n != null && a.baseline_same_regime_n != null) {
@@ -2666,6 +2704,14 @@
       if (exp != null) line += ' contre ' + frInt(exp) + ' \u20ac votre ' + dow + ' habituel \u00e0 cette heure';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
+      // LE FAIT QUE LA CARTE TAISAIT (owner 25/08) : l'écart de l'objet contre celui de la
+      // JOURNÉE. Les deux sont dans le payload depuis toujours ; personne ne les confrontait.
+      var _rsF = reportOuSurplus(a);
+      if (_rsF) {
+        line += ' Le reste de la journ\u00e9e a ' + (_rsF.reste < 0 ? 'perdu ' : 'gagn\u00e9 ')
+          + frInt(Math.abs(_rsF.reste)) + ' \u20ac pendant que ce cr\u00e9neau en '
+          + (_rsF.objet > 0 ? 'gagnait ' : 'perdait ') + frInt(Math.abs(_rsF.objet)) + ' \u20ac.';
+      }
       // Funnel horaire (clés dbt HANDOFF-hourly-funnel, gardé sur leur présence) : l'écart se
       // décompose ventes × panier — vocabulaire d'opFunnel (le manque/le gain vient de…,
       // « a tenu » ssi ratio 0,97–1,03), MÊME référentiel (part typique 8 sem. × attendu du jour).
@@ -3542,12 +3588,20 @@
       // Lot 2 copie (owner 25/08) : « Action conseill\u00e9e : » + geste seul, redite du signal
       // morte ; rétrogradée en information sous réserve de régime.
       if (a && a.regime_mismatch_flag === true) return '';
+      // S'ajoute-t-elle, ou prend-elle la place ? (owner 25/08) — prioritaire sur le geste
+      // générique : tant qu'on ne sait pas, « garder en avant » peut ne rien rapporter.
+      var _rs = reportOuSurplus(a);
+      var _nom = a.item_category || a.family_name || 'cette famille';
+      if (_rs) return 'Action conseill\u00e9e : au prochain jour comme celui-ci, regardez si le reste de vos ventes bouge encore \u2014 ' + _nom + ' en plus, ou ' + _nom + ' \u00e0 la place.';
       return (a.direction || 'surge') === 'collapse'
         ? 'Action conseill\u00e9e : revoyez sa visibilité et son prix avant que ça s\'installe.'
         : 'Action conseill\u00e9e : gardez en avant ce qui a porté la hausse sur cette famille.';
     }, urgency: 'soon' },
     'item_share_move': { action: function(a, p, d) {
       if (a && a.regime_mismatch_flag === true) return '';
+      var _rs2 = reportOuSurplus(a);
+      var _nom2 = a.item_description || 'ce produit';
+      if (_rs2) return 'Action conseill\u00e9e : au prochain jour comme celui-ci, regardez si le reste de vos ventes bouge encore \u2014 ' + _nom2 + ' en plus, ou ' + _nom2 + ' \u00e0 la place.';
       return (a.direction || 'surge') === 'collapse'
         ? 'Action conseill\u00e9e : revoyez sa place et son prix.'
         : 'Action conseill\u00e9e : mettez-le en avant — première place, visible de l\'entrée.';
@@ -3557,6 +3611,16 @@
       // que le calendrier peut expliquer.
       if (a && a.regime_mismatch_flag === true) return '';
       var dir = a.direction || 'surge';
+      // S'AJOUTENT-ILS, OU CHANGENT-ILS D'HEURE ? (owner 25/08) — cette question passe AVANT
+      // le moteur : tant qu'elle n'est pas tranchée, tout geste de mise en avant peut porter
+      // sur des clients qui se sont seulement déplacés dans la journée.
+      var _rsh = reportOuSurplus(a);
+      if (_rsh) {
+        var _jour = (function (iso) { var x = new Date(String(iso || '') + 'T00:00:00Z'); var D = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi']; return isNaN(x.getTime()) ? 'jour' : D[x.getUTCDay()]; })(a.affected_date || a.date);
+        var _hh = a.transaction_hour != null ? Number(a.transaction_hour) : null;
+        return 'Action conseill\u00e9e : au prochain ' + _jour + (_hh != null ? ' ' + _hh + ' h' : '')
+          + ', regardez si le reste de la journ\u00e9e bouge encore \u2014 m\u00eame monde \u00e0 une autre heure, ou monde en plus.';
+      }
       // LE GESTE SUIT LE MOTEUR MESURÉ (owner 25/08, levier 1), plus seulement le sens.
       var moteur = hourFunnelDriver(a);
       if (dir === 'collapse') {
