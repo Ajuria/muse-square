@@ -211,5 +211,31 @@ check("décomposition funnel structurelle : si présente, vocabulaire du crénea
   return withFunnel.every((b) => /(Le manque vient|Le gain vient)/.test(b) && b.includes("vs vos jours comparables"));
 })());
 
+// ── Inc B (owner 25/08 soir) : fuite entre sites + pilule de rangée unique. ──
+check("fuite entre sites : aucun corps ne nomme un site autre que celui de sa rangée", (() => {
+  const labels = [...new Set([...root.querySelectorAll(".ab-card[data-t-site]")].map((c) => c.getAttribute("data-t-site")).filter(Boolean))];
+  if (labels.length < 2) return true;
+  const bad = [];
+  for (const card of root.querySelectorAll(".ab-card[data-t-site]")) {
+    const own = card.getAttribute("data-t-site");
+    const body = [...card.querySelectorAll(".ab-sowhat, .aline")].map((x) => x.textContent || "").join(" ");
+    for (const l of labels) if (l !== own && body.includes(l)) bad.push(own + " ← « " + l + " »");
+  }
+  if (bad.length) console.log("    " + JSON.stringify(bad.slice(0, 3)));
+  return bad.length === 0;
+})());
+check("pilule de rangée : chaque carte datée porte « JJ/MM » (date toujours visible)", (() => {
+  const cards = [...root.querySelectorAll(".ab-card[data-ab-card-idx]")];
+  if (!cards.length) return false;
+  const sansDate = cards.filter((c) => !/\d{2}\/\d{2}/.test(c.querySelector(".ab-meta")?.textContent || ""));
+  if (sansDate.length) console.log("    " + sansDate.length + " carte(s) sans date");
+  return sansDate.length === 0;
+})());
+check("pilule de rangée : les structurelles (pleines ET compactes) la rendent dans .ab-eur", (() => {
+  const rows = [...root.querySelectorAll("[data-struct-full], [data-struct-key]")];
+  if (!rows.length) return true;
+  return rows.every((r) => !r.querySelector(".ab-eur") || r.querySelector(".ab-eur .ab-meta") || !r.querySelector(".ab-meta"));
+})());
+
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");
 process.exit(fails ? 1 : 0);

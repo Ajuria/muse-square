@@ -352,7 +352,7 @@ if (!location_id) {
     <script is:inline src="/reco-library.js?v=12"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=87"></script>
+    <script is:inline src="/action-cards.js?v=88"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
 
@@ -1187,7 +1187,37 @@ if (!location_id) {
 
     var candidates = [];
     if (typeof window.renderActionCandidates === 'function' && window._lastActionCandidates) {
-      candidates = window.renderActionCandidates(window._lastActionCandidates, prof, currentDay, selectedDate, "veille", _channelConfigsCache || {}, today);
+      // FUITE ENTRE SITES — corrigée le 25/08 (défaut trouvé au rendu réel, pas à la lecture).
+      // Cet appel passait le profil ET le contexte-jour du site de SESSION à toutes les cartes,
+      // y compris celles des autres sites : la carte competition_proximity de la rangée
+      // « Muse Square » disait « autour de MS Test », et son « concurrent le plus proche »
+      // venait du rayon d'un autre site. On rend donc PAR SITE, chacun avec SON profil et SON
+      // jour (window._plsSiteData, déjà en mémoire — zéro requête), puis on concatène.
+      // Vue mono-site ou table absente : comportement d'avant, au caractère près.
+      var _sd = Array.isArray(window._plsSiteData) ? window._plsSiteData : null;
+      if (_sd && _sd.length > 1) {
+        var _byLoc = {};
+        window._lastActionCandidates.forEach(function (c) {
+          var k = String((c && c.location_id) || '');
+          (_byLoc[k] = _byLoc[k] || []).push(c);
+        });
+        _sd.forEach(function (site) {
+          var list = _byLoc[String(site.location_id)];
+          if (!list || !list.length) return;
+          var sDay = (site.days || []).filter(function (d) { return normalizeYmd(d.date) === normalizeYmd(selectedDate); })[0]
+            || (site.days || [])[0] || {};
+          var part = window.renderActionCandidates(list, site.profile || prof, sDay, selectedDate, "veille", _channelConfigsCache || {}, today) || [];
+          candidates = candidates.concat(part);
+          delete _byLoc[String(site.location_id)];
+        });
+        // Cartes sans site connu (jamais observé, mais rien ne doit disparaître silencieusement).
+        Object.keys(_byLoc).forEach(function (k) {
+          candidates = candidates.concat(window.renderActionCandidates(_byLoc[k], prof, currentDay, selectedDate, "veille", _channelConfigsCache || {}, today) || []);
+        });
+        candidates.sort(function (a, b) { return (b.score - a.score) || 0; });
+      } else {
+        candidates = window.renderActionCandidates(window._lastActionCandidates, prof, currentDay, selectedDate, "veille", _channelConfigsCache || {}, today);
+      }
     }
     // ---- audience_mismatch (client-side only — needs profile join) ----
     var audLabel = String(currentDay.audience_availability_label || "").toLowerCase();
@@ -1624,14 +1654,7 @@ if (!location_id) {
       // Méta de provenance de la rangée : date (si ≠ jour affiché) · site (si vue compte) —
       // au-dessus du KPI, site en encre lisible (arbitrage owner 25/08, proto v3.2b).
       var _metaLine = (function () {
-        var parts = [];
-        var _ad = normalizeYmd(entry.item.affected_date) || '';
-        if (_ad && _ad !== selectedDate) parts.push(_ad.slice(8, 10) + '/' + _ad.slice(5, 7));
-        // Proto (owner 25/08 soir, « je ne vois pas les pilules de location ») : la pilule
-        // date · SITE vit en haut à droite de CHAQUE rangée en vue compte — date d'abord,
-        // site en encre lisible (600). En vue site, location_label est absent : rien.
-        if (entry.item.location_label) parts.push('<span style="color:#374151;font-weight:600;">' + escapeHtml(String(entry.item.location_label)) + '</span>');
-        return parts.length ? '<span class="ab-meta">' + parts.join(' \u00b7 ') + '</span>' : '';
+        return _plsRowMeta(normalizeYmd(entry.item.affected_date) || entry.item.date, entry.item.location_label);
       })();
       var _amtHtml = '';
       if (entry.item.enjeu && Number(entry.item.enjeu.eur_year) && entry.item.enjeu.tier) {
@@ -2934,13 +2957,17 @@ if (!location_id) {
           + '<div class="ab-summary"><div style="display:flex;align-items:flex-start;gap:12px;">'
             + '<div class="ab-disc" style="margin-top:2px;"><svg viewBox="0 0 24 24" fill="none" stroke="#1D3BB3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></div>'
             + '<div style="flex:1;min-width:0;">'
-              + '<div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:' + _stageBg + ';color:' + _stageFg + ';">' + _stage + '</span>' + (locLabel ? '<span class="chip-n">' + escapeHtml(locLabel) + '</span>' : '') + '</div>'
+              // 25/08 soir (owner : « même problème d'affichage des locations des user action
+              // cards + pas de date non plus ») : le site quitte les chips de gauche pour la
+              // pilule de rangée « JJ/MM · Site » en haut à droite — même forme et même
+              // colonne que les cartes contextuelles et structurelles.
+              + '<div class="ab-pills"><span class="chip-n">Engagement</span><span class="chip-n" style="background:' + _stageBg + ';color:' + _stageFg + ';">' + _stage + '</span></div>'
               + '<div style="display:flex;align-items:flex-start;gap:12px;justify-content:space-between;">'
                 + '<div style="flex:1;min-width:0;">'
                   + '<div class="ab-what" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;" title="' + escapeHtml(_titre) + '">' + escapeHtml(_titre) + '</div>'
                   + '<div class="ab-sowhat">' + sowhat + '</div>'
                 + '</div>'
-                + _amt
+                + '<div class="ab-eur">' + _plsRowMeta(r.window_start, locLabel) + _amt + '</div>'
               + '</div>'
             + '</div></div></div>'
           + '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:10px 16px 12px;">'
@@ -3100,6 +3127,22 @@ if (!location_id) {
 
   // Médaillon-famille (build v3.2, Inc 3) : l'identité vit sur l'avatar — la doctrine
   // « couleur = direction » continue de régir les chiffres. 6 familles, routage action_type.
+  // PILULE DE RANGÉE — UNE SEULE FORME POUR TOUT LE FIL (owner 25/08 soir : « je ne vois pas
+  // la date de la carte contextuelle à gauche de la pill location », « même problème sur les
+  // user action cards »). Forme « JJ/MM · Site » : date TOUJOURS rendue quand elle existe —
+  // l'ancienne règle la masquait dès qu'elle valait le jour affiché, donc sur presque toutes
+  // les cartes du jour. Site en encre lisible ; vue mono-site : pas de site ; motif structurel :
+  // pas de date (il n'en a pas — événement sans date, arbitrage 25/08).
+  // SCOPE MODULE : les trois familles de rangées (contextuelle, structurelle, engagement) la
+  // rendent, et les structurelles se construisent avant la première carte contextuelle.
+  function _plsRowMeta(iso, site) {
+    var parts = [];
+    var y = String(iso || '').slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(y)) parts.push(y.slice(8, 10) + '/' + y.slice(5, 7));
+    if (site) parts.push('<span style="color:#374151;font-weight:600;">' + escapeHtml(String(site)) + '</span>');
+    return parts.length ? '<span class="ab-meta">' + parts.join(' \u00b7 ') + '</span>' : '';
+  }
+
   var _FAM = {
     weather:    { bg: '#E0F2FE', ink: '#0369A1', label: 'météo',
       svg: '<path d="M17.5 19a4.5 4.5 0 1 0-1.7-8.7 6 6 0 1 0-9.8 5.2"/><path d="M8 19h9.5"/>' },
@@ -3160,13 +3203,15 @@ if (!location_id) {
           // 2-A (owner 24/08) : liaison des deux pôles négatifs — posée par monitor.
           + (imp.liaison_fr ? '<span style="display:block;font-size:11px;color:#1D3BB3;font-weight:400;margin-top:2px;">' + escapeHtml(String(imp.liaison_fr)) + '</span>' : '')
         + '</span>'
-        // Proto (owner 25/08 soir) : pilule SITE au-dessus du montant, aussi en compact.
-        + '<span style="display:inline-flex;flex-direction:column;align-items:flex-end;gap:2px;flex:none;">'
-          + (imp.location_label ? '<span style="font-size:11px;color:#374151;font-weight:600;white-space:nowrap;">' + escapeHtml(String(imp.location_label)) + '</span>' : '')
+        // 25/08 soir (owner : « pills toujours mal placées dans les bandeaux de cartes
+        // structurelles ») : la colonne droite compacte devient la MÊME que celle des rangées
+        // pleines — .ab-eur, donc même largeur, même alignement à droite, même .ab-meta.
+        + '<div class="ab-eur" style="flex:none;">'
+          + _plsRowMeta(null, imp.location_label)
           + (coinPorte
               ? '<span class="ab-metric-val" style="font-size:11px;color:#9CA3AF;flex:none;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
               : '<span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;padding:3px 9px;flex:none;white-space:nowrap;" title="' + escapeHtml('Mesuré sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois — ' + String(imp.tier_label_fr || '') + '. ' + (pos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.')) + '">' + (pos ? '+' : '−') + amount + ' €/an</span>')
-        + '</span>'
+        + '</div>'
         + btn
       + '</div>'
       + '<div data-struct-ws="' + key + '" style="display:none;padding:0 16px 14px;border-top:1px solid #F3F4F6;"></div>'
@@ -3234,7 +3279,7 @@ if (!location_id) {
         + '<div class="ab-eur">'
           // Proto (owner 25/08 soir) : la pilule SITE en haut à droite, aussi sur les
           // structurelles (fil unique — plus d'en-tête de bloc pour la porter).
-          + (imp.location_label ? '<span class="ab-meta"><span style="color:#374151;font-weight:600;">' + escapeHtml(String(imp.location_label)) + '</span></span>' : '')
+          + _plsRowMeta(null, imp.location_label)
           + '<div class="amt ' + (pos ? 'gain' : 'defend') + '" title="' + escapeHtml(tip) + '"><span style="display:inline-flex;align-items:center;gap:5px;"><div class="amt-val" style="color:' + fg + ';">' + (pos ? '+' : '−') + amount + ' €/an</div><span class="amt-i">i</span></span><div class="amt-sub">' + escapeHtml(lbl) + '</div></div>'
         + '</div>'
       + '</div>'
@@ -4575,8 +4620,14 @@ if (!location_id) {
               profile: data.profile || null,
               days: data.days || [],
             })),
+            // 25/08 — FUITE ENTRE SITES (défaut trouvé au rendu réel) : renderDailyBrief ne
+            // recevait QU'UN profil et QU'UN contexte-jour, ceux du site de session, et les
+            // passait à TOUTES les cartes, y compris celles des autres sites. Preuve rendue :
+            // la carte competition_proximity de la rangée « Muse Square » disait « autour de
+            // MS Test ». Le brief résout désormais profil + jour PAR carte via cette table.
           };
 
+          window._plsSiteData = mergedData._siteData;
           // Radar v5 — agrégat multi-sites du sales_summary : sommes par date sur tous les sites
           // (CA, ventes, moyenne 30 j, même-jour-semaine-passée sont additives ; les % sont
           // RECALCULÉS sur les sommes — même convention « pourcent » que le mart, vérifiée sur

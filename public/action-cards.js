@@ -628,23 +628,41 @@
   // #7 — competition_proximity
   reg('competition_proximity', 'Diff\u00e9renciez-vous de vos concurrents proches', 'CONCURRENCE', '\ud83d\udccd', '#E65100', 'action', 'pulse#carte',
     function(a, p, d) {
-      var n500 = Number(d.events_within_500m_count || 0);
-      var n1k = Number(d.events_within_1km_count || 0);
-      var ci = Number(d.concentration_index_score || 0);
+      // MÊME RÉFÉRENTIEL QUE LA RÈGLE DE TIR (25/08, défaut trouvé au rendu réel). La carte tire
+      // sur les compteurs MÊME SECTEUR du mart (events_within_500m_same_bucket_count >= 3 ou
+      // 1km >= 10) et décrivait les compteurs TOUS SECTEURS + concentration_index_score, un
+      // indice pondéré toutes catégories : « Différenciez-vous de vos concurrents proches » +
+      // « Concentration faible » dans la même carte. Le payload porte les deux (mesuré sur
+      // f10c3e58 : events_500m 7 / events_500m_same_sector 7 · 1km 11 / 9) — on dit celui qui
+      // a fait tirer, et « de votre secteur » nomme le référentiel. Doctrine du 28/07
+      // (competition-split-spec) : même secteur = ils disputent votre public.
+      var n500 = (a && a.events_500m_same_sector != null) ? Number(a.events_500m_same_sector) : Number(d.events_within_500m_count || 0);
+      var n1k = (a && a.events_1km_same_sector != null) ? Number(a.events_1km_same_sector) : Number(d.events_within_1km_count || 0);
+      var _sect = (a && a.events_500m_same_sector != null) ? ' de votre secteur' : '';
+      var parts = [];
+      if (n500 > 0) parts.push(n500 + ' \u00e9v\u00e9nement' + (n500 > 1 ? 's' : '') + _sect + ' \u00e0 moins de 500 m');
+      if (n1k > 0) parts.push(n1k + ' \u00e0 1 km');
+      // LE PLUS PROCHE N'EST PAS LE PLUS CONCURRENT (owner 25/08 : « des événements qui ne me
+      // concernent pas vraiment »). topComp(d) rend l'événement le plus PROCHE, quel qu'il soit
+      // — un article de presse, une animation de quartier. Quand le payload porte un concurrent
+      // au sens de la maison (recouvrement d'audience >= 40 %, la REAL_BAR de
+      // insightFamilies/competitor.ts), c'est LUI qu'on nomme, avec son recouvrement mesuré.
+      var _tcName = (a && a.top_competitor) ? String(a.top_competitor) : '';
+      var _tcOv = (a && a.top_competitor_overlap_pct != null) ? Number(a.top_competitor_overlap_pct) : null;
+      var _tcKm = (a && a.top_competitor_distance_km != null) ? Number(a.top_competitor_distance_km) : null;
       var c = topComp(d);
       var nearest = c.organizer_name || c.event_label || '';
       var nearestDist = c.distance_m ? Number(c.distance_m) : 0;
-      var parts = [];
-      if (n500 > 0) parts.push(n500 + ' \u00e9v\u00e9nement' + (n500 > 1 ? 's' : '') + ' \u00e0 moins de 500 m');
-      if (n1k > 0) parts.push(n1k + ' \u00e0 1 km');
-      var density = ci >= 0.5 ? 'Concentration tr\u00e8s \u00e9lev\u00e9e' : ci >= 0.3 ? 'Concentration \u00e9lev\u00e9e' : ci >= 0.15 ? 'Concentration mod\u00e9r\u00e9e' : 'Concentration faible';
       // 23/08 — l'événement NOMMÉ entre dans la PREMIÈRE phrase : la surface coupe le corps à
       // 2 phrases / 200 caractères, et « Le plus proche : … » vivait en 3e phrase — jamais
       // rendue (prouvé sur f10c3e58 le 23/08 : « clubs séniors » à 159 m dans d.top_competitors,
       // absent du corps). Trou « lequel ? » de la matrice questions-exploitant.
-      var nearestTxt = (nearest && nearestDist > 0) ? ' \u2014 le plus proche : \u00ab\u00a0' + trunc(nearest, 60) + '\u00a0\u00bb \u00e0 ' + distLabel(nearestDist) : '';
+      var nearestTxt = (_tcName && _tcOv != null && _tcOv >= 40)
+        ? ' \u2014 le plus concurrent : ' + trunc(_tcName, 60) + ' (' + Math.round(_tcOv) + ' % de public commun'
+          + (_tcKm != null ? ', \u00e0 ' + frDec(_tcKm) + ' km' : '') + ')'
+        : ((nearest && nearestDist > 0) ? ' \u2014 le plus proche : \u00ab\u00a0' + trunc(nearest, 60) + '\u00a0\u00bb \u00e0 ' + distLabel(nearestDist) : '');
       var line = parts.length > 0 ? parts.join(', ') + nearestTxt + '. ' : (nearestTxt ? nearestTxt.replace(/^ \u2014 le/, 'Le') + '. ' : '');
-      line += density + ' autour de ' + siteName(p) + windowFr(a) + '.';
+      line += 'Autour de ' + siteName(p) + windowFr(a) + '.';
       if (isOutdoor(p) && n500 >= 3) line += ' Espace mixte \u2014 votre visibilit\u00e9 ext\u00e9rieure est critique.';
       if (p.nearest_transit_stop_name) line += ' Acc\u00e8s pi\u00e9ton via ' + p.nearest_transit_stop_name + ' (' + Math.round(Number(p.nearest_transit_stop_distance_m || 0)) + 'm).';
       return line;
@@ -1471,8 +1489,14 @@
       var item = a.top_item_description || 'votre produit phare';
       var share = (a.top_item_revenue_share != null) ? Math.round(Number(a.top_item_revenue_share) * 100) : null;
       var line = 'Votre produit phare (' + item + ')' + (share != null ? ' p\u00e8se ' + share + ' % de votre chiffre d\u2019affaires' : '') + '.';
+      // 25/08 — accord au singulier (rendu réel : « 1 concurrents suivis »).
+      // NOMMER le concurrent est impossible ici et ce n'est pas un oubli : le payload de
+      // CETTE carte ne porte que des COMPTES (enriched_competitor_count,
+      // watched_competitor_count, top_item_*) — vérifié sur les 2 lignes du parc, 25/08.
+      // Le nom viendrait d'une passe dbt (top_competitor, comme les autres cartes
+      // concurrence) : signalé, pas improvisé.
       var n = (a.watched_competitor_count != null) ? Number(a.watched_competitor_count) : null;
-      if (n != null) line += ' ' + n + ' concurrents suivis \u00e0 comparer sur ce positionnement.';
+      if (n != null) line += ' ' + n + ' concurrent' + (n > 1 ? 's' : '') + ' suivi' + (n > 1 ? 's' : '') + ' \u00e0 comparer sur ce positionnement.';
       return line;
     },
     {
