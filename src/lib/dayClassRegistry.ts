@@ -928,6 +928,29 @@ const DATE_RESOLVED_WEATHER_TYPES = new Set([
 // D'ÉVÉNEMENTS dans leur payload — leur variable réelle est la densité événementielle, pas l'indice
 // de pression ambiante ; elles mappent donc events_high (vérité de la variable, pas du nom).
 const CARD_TYPE_CLASS: Record<string, string> = {
+  // 25/08 — 19 cartes n'avaient AUCUN coin : elles déclarent une étape funnel
+  // (CARD_FUNNEL_STEP) mais funnelCornerForCandidate sort au 2e test, faute de classe.
+  // Rattachées ici SELON LA RÈGLE DE CE FICHIER — « vérité de la VARIABLE, pas du nom » :
+  //   · competitor_event_launch / competitor_event_ending / mega_event_end tirent sur un
+  //     ÉVÉNEMENT proche (change feed + rayon d'événements) : leur variable réelle est la
+  //     densité événementielle, comme competition_proximity → events_high ;
+  //   · foreign_tourism_signal tire sur le poids des visiteurs étrangers → tourism_high.
+  // Rien n'est inventé : le coin reste soumis aux portes du moteur (n >= 5, span >= 60 j,
+  // |t| >= 1, cohérence de signe, plancher 5 %). Une carte sans mesure garde un coin VIDE.
+  competitor_event_launch: "events_high",
+  competitor_event_ending: "events_high",
+  mega_event_end: "events_high",
+  foreign_tourism_signal: "tourism_high",
+  // DÉLIBÉRÉMENT SANS CLASSE, et ce n'est pas un oubli :
+  //   · commercial_event_match — sa variable est une annotation commerciale (rentrée, soldes) ;
+  //     aucune classe ne la mesure. Le mapper sur school_holiday ferait porter à la RENTRÉE le
+  //     chiffre des VACANCES : exactement le doublon de coin corrigé trois fois le 22/08.
+  //   · calendar_audience_shift — tire sur is_public_holiday_flag OU is_school_holiday_flag ;
+  //     une classe STATIQUE en désignerait une au hasard une fois sur deux. Il faudrait résoudre
+  //     la classe par carte depuis le payload — changement de mécanisme, à arbitrer.
+  //   · competitor_reputation_strength — parle d'une NOTE de concurrent, pas d'une classe de
+  //     jour : elle n'a pas de coin € par nature.
+
   // Doctrine 01/08 : sales_traffic_not_converting et sales_competition_cannibalization RETIRÉES
   // d'ici — un poids de classe environnementale au coin d'une carte d'anomalie était le défaut
   // déclencheur (+33 402 « à gagner » sur une carte d'échec ; +73 674 porté par une facture).
@@ -1103,6 +1126,15 @@ export function classNeverMeasured(result: DayClassResult, candidate: { action_t
   //    invisible sur le compte de référence. Même logique que la météo. same_bucket_saturation
   //    (un % du même comptage, sans fait nommé — bruit selon l'audit de vérité) reste filtrée.
   if (at === "competition_proximity") return false;
+  // 4. 25/08 — MÊME LOGIQUE, quatre cartes de plus. En leur donnant une classe (pour débloquer
+  //    le coin funnel), ce filtre s'est mis à les SUPPRIMER quand la classe n'est pas mesurable
+  //    sur le site : mesuré sur le compte owner, 10 cartes présentes avant le rattachement,
+  //    ZÉRO après. Or elles portent toutes un FAIT NOMMÉ — « Guimet lance « Silla » à 2,4 km »,
+  //    « Royaume-Uni 14 %, Allemagne 10 % … (INSEE 2025) » — et non une affirmation sur leur
+  //    classe. Le fait reste vrai que la classe soit mesurable ou non ; seul le COIN dépend de
+  //    la mesure, et il reste vide si les portes ne passent pas.
+  if (at === "competitor_event_launch" || at === "competitor_event_ending"
+      || at === "mega_event_end" || at === "foreign_tourism_signal") return false;
   const combo = COMBO_TYPE_CLASSES[at];
   if (combo && combo.includes("weather@date")) return false;
   return enjeuWithReasonForCandidate(result, candidate).reason_fr === ABSENCE_REASON_FR.not_separable;

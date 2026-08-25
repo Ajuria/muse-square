@@ -302,5 +302,22 @@ check("pli : la carte du PÉRIMÈTRE reste atteignable sans déplier", (() => {
   return !!card && !card.hasAttribute("data-t-folded");
 })());
 
+// ── « Voir plus » des chantiers (owner 25/08 : « n'affiche rien »). Le bouton doit relire le
+// DOM au clic : renderStructuralSection() remplace chaque bandeau quand le fetch des
+// engagements retombe, et un tableau capturé pointe alors des nœuds détachés.
+check("chantiers : « Voir plus » déplie ET replie (le handler relit le DOM)", (() => {
+  const rows = [...root.querySelectorAll("[data-struct-key]")];
+  const btn = [...root.querySelectorAll("[data-t-more]")].find((b) => /chantier/i.test(b.textContent || ""));
+  if (!btn) return rows.length <= 3;                       // pas de pli : rien à déplier
+  const vis = () => rows.filter((r) => r.style.display !== "none").length;
+  const avant = vis();
+  btn.click();
+  const ouvert = vis();
+  btn.click();
+  const referme = vis();
+  if (!(ouvert === rows.length && referme === avant)) console.log("    " + avant + " → " + ouvert + " → " + referme + " sur " + rows.length);
+  return ouvert === rows.length && referme === avant;
+})(), root.querySelectorAll("[data-struct-key]").length + " bandeaux");
+
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");
 process.exit(fails ? 1 : 0);

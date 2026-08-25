@@ -3612,7 +3612,13 @@ if (!location_id) {
       moreSt.textContent = 'Voir ' + (stRows.length - 3) + ' autre' + (stRows.length - 3 > 1 ? 's' : '') + ' chantier' + (stRows.length - 3 > 1 ? 's' : '');
       moreSt.addEventListener('click', function() {
         var open = moreSt.getAttribute('data-open') === '1';
-        stRows.forEach(function(r, i) { if (i >= 3) r.style.display = open ? 'none' : ''; });
+        // LE DOM SE RELIT AU CLIC, jamais un tableau capturé (owner 25/08 : « Voir plus n'affiche
+        // rien »). Cause mesurée : renderStructuralSection() — déclenchée quand le fetch des
+        // engagements retombe — fait row.replaceWith(newRow) sur CHAQUE bandeau. Elle recopie
+        // data-t-folded et le display (le pli reste juste), mais le tableau `stRows` capturé ici
+        // pointait alors des nœuds DÉTACHÉS : le clic les modifiait hors du document. Le bouton
+        // des cartes ne tombait pas dedans parce qu'il relit le DOM — même mécanique désormais.
+        block0.querySelectorAll('[data-struct-key][data-t-folded]').forEach(function(r) { r.style.display = open ? 'none' : ''; });
         moreSt.setAttribute('data-open', open ? '0' : '1');
         moreSt.textContent = open ? ('Voir ' + (stRows.length - 3) + ' autre' + (stRows.length - 3 > 1 ? 's' : '') + ' chantier' + (stRows.length - 3 > 1 ? 's' : '')) : 'Voir moins';
       });
