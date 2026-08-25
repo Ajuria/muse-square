@@ -233,6 +233,17 @@ if (!location_id) {
       .amt.gain .amt-val { color:#059669; background:#ECFDF5; }
       .amt.defend .amt-val { color:#B45309; background:#FFF7ED; }
       .amt-sub { font-size:11px; color:#6B7280; margin-top:3px; text-align:right; max-width:150px; }
+      /* ALIGNEMENT À DROITE — SUR L'ENCRE, PAS SUR LES BOÎTES (owner 25/08, demandé dix fois ;
+         mes mesures précédentes comparaient des rectangles et concluaient « aligné » à tort).
+         Mesuré au navigateur AVANT : site à 949 px, nombres à 918 (pastille + ⓘ posé à SA
+         DROITE), 939 et 940 (pastilles à padding 9 ou 10 px) — quatre bords dans une colonne.
+         La pastille garde sa forme ; c'est le TEXTE qui doit tomber sur la même verticale :
+         chaque élément de la colonne porte donc le même retrait. --ab-eur-pad est la seule
+         source de ce nombre — le changer réaligne tout d'un coup. */
+      .ab-eur { --ab-eur-pad:10px; }
+      .ab-eur .ab-meta, .ab-eur .amt-sub { padding-right:var(--ab-eur-pad); }
+      .ab-eur .amt-val { padding-left:var(--ab-eur-pad); padding-right:var(--ab-eur-pad); }
+      .ab-eur .ab-pill-eur { padding:3px var(--ab-eur-pad); }
       .amt-i { cursor:help; width:14px; height:14px; border-radius:50%; border:1px solid #D1D5DB; color:#9CA3AF; font-size:9.5px; display:inline-flex; align-items:center; justify-content:center; font-style:italic; font-family:Georgia,serif; flex:none; }
       .ab-meta { display:block; font-size:11px; color:#6B7280; margin-bottom:3px; white-space:nowrap; }
       /* Peau de rangée (Inc 5) : la carte est une RANGÉE du fil — filet, grille, plus de boîte. */
@@ -1677,7 +1688,7 @@ if (!location_id) {
         if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : plusieurs facteurs se mêlent sur ces jours.');
         _aTip.push(_aPos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
         _amtHtml = '<div class="amt ' + (_aPos ? 'gain' : 'defend') + '" title="' + escapeHtml(_aTip.join(' ')) + '">'
-          + '<span style="display:inline-flex;align-items:center;gap:5px;"><div class="amt-val" style="color:' + _aFg + ';">' + (_aPos ? '+' : '−') + _aVal + ' €/an</div><span class="amt-i">i</span></span>'
+          + '<span style="display:inline-flex;align-items:center;gap:5px;"><span class="amt-i">i</span><div class="amt-val" style="color:' + _aFg + ';">' + (_aPos ? '+' : '−') + _aVal + ' €/an</div></span>'
           + '<div class="amt-sub">' + escapeHtml(_aLbl) + '</div>'
         + '</div>';
       }
@@ -3217,7 +3228,7 @@ if (!location_id) {
           + _plsRowMeta(null, imp.location_label)
           + (coinPorte
               ? '<span class="ab-metric-val" style="font-size:11px;color:#9CA3AF;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
-              : '<span style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;padding:3px 9px;white-space:nowrap;" title="' + escapeHtml('Mesur\u00e9 sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois \u2014 ' + String(imp.tier_label_fr || '') + '. ' + (pos ? '\u20ac encaiss\u00e9s en plus sur ces jours \u2014 \u00e0 gagner en les amplifiant.' : '\u20ac perdus sur ce motif \u2014 \u00e0 r\u00e9duire.')) + '">' + (pos ? '+' : '\u2212') + amount + ' \u20ac/an</span>')
+              : '<span class="ab-pill-eur" style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;white-space:nowrap;" title="' + escapeHtml('Mesur\u00e9 sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois \u2014 ' + String(imp.tier_label_fr || '') + '. ' + (pos ? '\u20ac encaiss\u00e9s en plus sur ces jours \u2014 \u00e0 gagner en les amplifiant.' : '\u20ac perdus sur ce motif \u2014 \u00e0 r\u00e9duire.')) + '">' + (pos ? '+' : '\u2212') + amount + ' \u20ac/an</span>')
         + '</div>'
       + '</div>'
       + '<div class="ab-rfoot" style="padding-bottom:12px;"><span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">' + btn + '</span></div>'
@@ -3287,7 +3298,7 @@ if (!location_id) {
           // Proto (owner 25/08 soir) : la pilule SITE en haut à droite, aussi sur les
           // structurelles (fil unique — plus d'en-tête de bloc pour la porter).
           + _plsRowMeta(null, imp.location_label)
-          + '<div class="amt ' + (pos ? 'gain' : 'defend') + '" title="' + escapeHtml(tip) + '"><span style="display:inline-flex;align-items:center;gap:5px;"><div class="amt-val" style="color:' + fg + ';">' + (pos ? '+' : '−') + amount + ' €/an</div><span class="amt-i">i</span></span><div class="amt-sub">' + escapeHtml(lbl) + '</div></div>'
+          + '<div class="amt ' + (pos ? 'gain' : 'defend') + '" title="' + escapeHtml(tip) + '"><span style="display:inline-flex;align-items:center;gap:5px;"><span class="amt-i">i</span><div class="amt-val" style="color:' + fg + ';">' + (pos ? '+' : '−') + amount + ' €/an</div></span><div class="amt-sub">' + escapeHtml(lbl) + '</div></div>'
         + '</div>'
       + '</div>'
       + '<div class="ab-rfoot"><span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
