@@ -1943,7 +1943,7 @@ if (!location_id) {
       else if (typeof _sw === 'string') { _swText = _sw; }
       // Corps étendu PAR CARTE (gabarit owner 25/08, miroir d'action-cards.js) : le créneau
       // porte récurrence + fait + funnel + réserve de régime ; les autres restent à 2 / 200.
-      var _swLim = ({ hour_share_move: [4, 420] })[String(t._spec_action_type || '')] || [2, 200];
+      var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320] })[String(t._spec_action_type || '')] || [2, 200];
       var _sArr = String(_swText || '').split('. ');
       var _s1 = _sArr.slice(0, _swLim[0]).join('. ');
       if (_s1 && !_s1.endsWith('.')) _s1 += '.';

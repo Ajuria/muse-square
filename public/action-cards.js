@@ -2478,13 +2478,21 @@
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += dir === 'collapse' ? ' La famille a sous-perform\u00e9' : ' La famille a surperform\u00e9';
+      // Sous réserve de régime, le FAIT sans verdict (« est en retrait/en hausse »).
+      line += a.regime_mismatch_flag === true
+        ? (dir === 'collapse' ? ' La famille est en retrait' : ' La famille est en hausse')
+        : (dir === 'collapse' ? ' La famille a sous-perform\u00e9' : ' La famille a surperform\u00e9');
       // 24/08 — recit nature 2 : meme famille x meme direction, 60 j.
       var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
       if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
         line += ' \u2014 ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur cette famille depuis' + frDateFr(a.first_occurrence_date);
       }
       line += '.';
+      // Réserve de régime (trigger arbitré 25/08) : base 30 j d'un AUTRE régime calendaire.
+      if (a.regime_mismatch_flag === true && a.typ_n != null && a.baseline_same_regime_n != null) {
+        var nAutres = Number(a.typ_n) - Number(a.baseline_same_regime_n);
+        line += ' Compar\u00e9 surtout \u00e0 des jours ' + (a.is_school_holiday_flag === true ? 'hors vacances scolaires' : 'en vacances scolaires') + ' (' + nAutres + ' sur ' + Number(a.typ_n) + ') \u2014 l\u2019\u00e9cart peut tenir au calendrier.';
+      }
       return line;
     },
     {
@@ -2515,13 +2523,20 @@
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
-      line += dir === 'collapse' ? ' Le produit a sous-perform\u00e9' : ' Le produit a surperform\u00e9';
+      line += a.regime_mismatch_flag === true
+        ? (dir === 'collapse' ? ' Le produit est en retrait' : ' Le produit est en hausse')
+        : (dir === 'collapse' ? ' Le produit a sous-perform\u00e9' : ' Le produit a surperform\u00e9');
       // 24/08 — recit nature 2 : meme produit x meme direction, 60 j.
       var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
       if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
         line += ' \u2014 ' + nOcc + 'e fois' + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur ce produit depuis' + frDateFr(a.first_occurrence_date);
       }
       line += '.';
+      // Réserve de régime (trigger arbitré 25/08) : base 30 j d'un AUTRE régime calendaire.
+      if (a.regime_mismatch_flag === true && a.typ_n != null && a.baseline_same_regime_n != null) {
+        var nAutres = Number(a.typ_n) - Number(a.baseline_same_regime_n);
+        line += ' Compar\u00e9 surtout \u00e0 des jours ' + (a.is_school_holiday_flag === true ? 'hors vacances scolaires' : 'en vacances scolaires') + ' (' + nAutres + ' sur ' + Number(a.typ_n) + ') \u2014 l\u2019\u00e9cart peut tenir au calendrier.';
+      }
       return line;
     },
     {
@@ -2779,7 +2794,7 @@
       if (spec) {
         // Corps \u00e9tendu PAR CARTE (gabarit owner 25/08) : le cr\u00e9neau dit r\u00e9currence + fait +
         // funnel + r\u00e9serve de r\u00e9gime — 4 phrases ; les autres cartes gardent 2 phrases / 200.
-        var _swLim = ({ hour_share_move: [4, 420] })[actionType] || [2, 200];
+        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320] })[actionType] || [2, 200];
         try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, _swLim[0]).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, _swLim[1]); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
         // Name the actual weekday on the sales movement cards — never "jours comparables".
@@ -2823,7 +2838,9 @@
                   : (_fd === 'collapse' ? 'sous-performe' : 'surperforme'));
           } else {
             var _fn = actionType === 'hour_share_move' ? ['Cr\u00e9neau', ''] : actionType === 'item_share_move' ? ['Produit', ''] : ['Famille', 'e'];
-            whatText = _fn[0] + ' ' + (_fd === 'collapse' ? 'sous-performant' : 'surperformant') + _fn[1];
+            whatText = feedItem.regime_mismatch_flag === true
+              ? _fn[0] + (_fd === 'collapse' ? ' en retrait' : ' en hausse')
+              : _fn[0] + ' ' + (_fd === 'collapse' ? 'sous-performant' : 'surperformant') + _fn[1];
           }
         }
       } else {
@@ -3394,20 +3411,18 @@
       return 'À reproduire : ce type d\'action est associé à un CA ' + (avg != null ? (avg >= 0 ? '+' : '') + avg + ' % ' : '') + 'au-dessus de votre référence. Rejouez-le sur des jours comparables et continuez à mesurer.';
     }, urgency: 'plan' },
     'offering_mix_shift': { action: function(a, p, d) {
-      var cat = a.item_category || 'une catégorie';
-      var dir = a.direction || 'surge';
-      var quand = frDateFr(a.affected_date || a.date);
-      return dir === 'collapse'
-        ? 'À surveiller : ' + cat + ' a sous-performé' + quand + '. Vérifiez stock, visibilité et prix avant que ça s\'installe.'
-        : 'À exploiter : ' + cat + ' a surperformé' + quand + '. Vérifiez le stock de ses produits à forte marge — ceux qui ont porté la hausse ne doivent pas manquer.';
+      // Lot 2 copie (owner 25/08) : « Action conseillée : » + geste seul, redite du signal
+      // morte ; rétrogradée en information sous réserve de régime.
+      if (a && a.regime_mismatch_flag === true) return '';
+      return (a.direction || 'surge') === 'collapse'
+        ? 'Action conseillée : vérifiez stock, visibilité et prix avant que ça s\'installe.'
+        : 'Action conseillée : vérifiez le stock de ses produits à forte marge — ceux qui ont porté la hausse ne doivent pas manquer.';
     }, urgency: 'soon' },
     'item_share_move': { action: function(a, p, d) {
-      var cat = a.item_description || 'un produit';
-      var dir = a.direction || 'surge';
-      var quand = frDateFr(a.affected_date || a.date);
-      return dir === 'collapse'
-        ? 'À faire : ' + cat + ' a sous-performé' + quand + '. Vérifiez son stock et sa place en rayon avant l\'ouverture suivante.'
-        : 'À exploiter : ' + cat + ' a surperformé' + quand + '. À l\'ouverture suivante, mettez-le en avant — première place, visible de l\'entrée — et vérifiez son stock : il ne doit pas manquer.';
+      if (a && a.regime_mismatch_flag === true) return '';
+      return (a.direction || 'surge') === 'collapse'
+        ? 'Action conseillée : vérifiez son stock et sa place en rayon avant l\'ouverture suivante.'
+        : 'Action conseillée : à l\'ouverture suivante, mettez-le en avant — première place, visible de l\'entrée — et vérifiez son stock : il ne doit pas manquer.';
     }, urgency: 'soon' },
     'hour_share_move': { action: function(a, p, d) {
       // Réserve de régime (25/08) : rétrogradée en information — pas de geste sur un signal
