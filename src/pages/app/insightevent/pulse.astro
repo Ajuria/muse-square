@@ -157,12 +157,11 @@ if (!location_id) {
         font-size: 12px; font-weight: 600; color: #1D3BB3;
         background: none; border: none; cursor: pointer; padding: 0;
       }
-      .pls-site-select {
-        font-size: 13px; font-weight: 600; color: #111827;
-        background: #fff; border: 1px solid #E5E7EB; border-radius: 8px;
-        padding: 4px 8px; cursor: pointer; max-width: 240px;
-        margin-bottom: 2px;
-      }
+      /* Inc C (owner 25/08, point 6) : le menu déroulant de site meurt — segments du proto
+         (agir-proto-v3, segBtn) : groupe gris, segment actif blanc ombré. */
+      .pls-seg-wrap { display:inline-flex; background:#F3F4F6; border-radius:9px; padding:3px; margin-bottom:4px; max-width:100%; overflow-x:auto; }
+      .pls-seg { font-family:inherit; border:none; cursor:pointer; font-size:12px; border-radius:7px; padding:5px 12px; color:#6b7280; background:none; white-space:nowrap; }
+      .pls-seg.is-on { font-weight:600; color:#111827; background:#fff; box-shadow:0 1px 2px rgba(16,24,40,0.08); }
 
 
 
@@ -316,7 +315,7 @@ if (!location_id) {
       <div class="pls-loc-row" style="margin-bottom:16px;">
         <div>
           <div class="pls-loc-name" id="pls-loc-name"></div>
-          <select id="pls-site-select" class="pls-site-select" style="display:none;" aria-label="Filtrer par site"></select>
+          <div id="pls-site-segs" class="pls-seg-wrap" style="display:none;" role="group" aria-label="Filtrer par site"></div>
           <div class="pls-loc-addr" id="pls-loc-addr"></div>
           <div id="pls-subtitle" style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-top:4px;">Veille opérationnelle · 7 jours</div>
         </div>
@@ -4717,21 +4716,23 @@ if (!location_id) {
         mergedData._followed_competitors = _fused.followed_competitors;
         renderPulse(mergedData, todayYmd(), "radar");
 
-        // Site filter — switch between the aggregate ("Tous mes sites") and a single site.
+        // Site filter — switch between the aggregate ("Tous les sites") and a single site.
         // Re-renders from data already fetched (per-venue rule/team/card-state caches are
         // populated for every site), so switching is instant and needs no re-fetch.
-        var siteSelect = document.getElementById("pls-site-select");
-        if (siteSelect) {
+        // Inc C (owner 25/08, point 6) : SEGMENTS du proto à la place du menu déroulant —
+        // même logique de switch, l'état actif se lit d'un coup d'œil.
+        var siteSegs = document.getElementById("pls-site-segs");
+        if (siteSegs) {
           // Radar v5 (17/07) : le switch DOIT déplacer currentLocationId — sinon la vue « site X »
           // continue de charger les commitments (volet Opérations, cartes engagement) et la clé
-          // d'objectif du site de SESSION. Retour « Tous mes sites » → restaure la session.
+          // d'objectif du site de SESSION. Retour « Tous les sites » → restaure la session.
           var _sessionLocationId = currentLocationId;
-          siteSelect.innerHTML = '<option value="__all__">Tous mes sites</option>'
-            + locs.map(function(l){ return '<option value="' + escapeHtml(l.location_id) + '">' + escapeHtml(l.company_name || l.location_id) + '</option>'; }).join("");
+          siteSegs.innerHTML = '<button type="button" class="pls-seg is-on" data-seg-site="__all__">Tous les sites</button>'
+            + locs.map(function(l){ return '<button type="button" class="pls-seg" data-seg-site="' + escapeHtml(l.location_id) + '">' + escapeHtml(l.company_name || l.location_id) + '</button>'; }).join("");
           if (nameEl) nameEl.style.display = "none";
-          siteSelect.style.display = "";
-          siteSelect.addEventListener("change", function(){
-            var id = siteSelect.value;
+          siteSegs.style.display = "";
+          var switchSite = function(id){
+            siteSegs.querySelectorAll(".pls-seg").forEach(function(b){ b.classList.toggle("is-on", b.getAttribute("data-seg-site") === id); });
             if (!id || id === "__all__") {
               currentLocationId = _sessionLocationId;
               if (addrEl) addrEl.textContent = locs.length + " sites surveillés";
@@ -4756,6 +4757,10 @@ if (!location_id) {
             d._top_threats = _cs.top_threats;
             d._followed_competitors = _cs.followed_competitors;
             renderPulse(d, todayYmd(), "radar");
+          };
+          siteSegs.addEventListener("click", function(ev){
+            var b = ev.target && ev.target.closest ? ev.target.closest("[data-seg-site]") : null;
+            if (b) switchSite(b.getAttribute("data-seg-site"));
           });
         }
 

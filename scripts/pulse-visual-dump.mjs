@@ -34,7 +34,14 @@ const css = [...astro.matchAll(/<style is:inline>([\s\S]*?)<\/style>/g)].map((m)
 const MODULES = ["ms-loader.js", "reco-library.js", "commit-form.js", "bp-form.js", "action-cards.js", "draft-workspace.js"];
 const win = new Window({ url: "https://app.local/app/insightevent/pulse" });
 const doc = win.document;
-doc.body.innerHTML = '<div id="pls-root"></div>';
+// Le squelette de l'en-tête (loc-row) fait partie de la page — les SEGMENTS de site (Inc C)
+// s'y montent, hors #pls-root : sans lui, le dump les cacherait.
+doc.body.innerHTML = '<div class="pls-loc-row" style="margin-bottom:16px;"><div>'
+  + '<div class="pls-loc-name" id="pls-loc-name"></div>'
+  + '<div id="pls-site-segs" class="pls-seg-wrap" style="display:none;"></div>'
+  + '<div class="pls-loc-addr" id="pls-loc-addr"></div>'
+  + '<div id="pls-subtitle" style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-top:4px;"></div>'
+  + '</div></div><div id="pls-root"></div>';
 const locationsPayload = { ok: true, locations: sites };
 const fetchStub = (url) => {
   const u2 = String(url);
@@ -51,6 +58,21 @@ win.fetch = fetchStub;
 for (const m of MODULES) new Function("window", "document", "fetch", readFileSync(new URL("../public/" + m, import.meta.url), "utf8"))(win, doc, fetchStub);
 new Function("window", "document", "fetch", "location_id", "sessionStorage", "localStorage", "var locationId = location_id;\n" + inline)(win, doc, fetchStub, OWNER, win.sessionStorage, win.localStorage);
 await new Promise((r) => setTimeout(r, 900));
+// Segments de site (Inc C) — vérité COMPORTEMENT : 1 + N segments, le clic filtre le fil au
+// site et le retour « Tous les sites » restaure l'agrégat. Échec = dump non écrit.
+{
+  const segs = [...doc.querySelectorAll("#pls-site-segs .pls-seg")];
+  if (segs.length !== sites.length + 1) { console.error("SEGMENTS : " + segs.length + " rendus, attendu " + (sites.length + 1)); process.exit(1); }
+  const siteBtn = segs.find((b) => b.getAttribute("data-seg-site") !== "__all__");
+  siteBtn.click();
+  await new Promise((r) => setTimeout(r, 400));
+  const blocksSingle = doc.querySelectorAll("#pls-root [data-t-cards]").length;
+  const onAfter = doc.querySelector("#pls-site-segs .pls-seg.is-on");
+  if (!onAfter || onAfter.getAttribute("data-seg-site") === "__all__") { console.error("SEGMENTS : l'état actif n'a pas suivi le clic"); process.exit(1); }
+  segs.find((b) => b.getAttribute("data-seg-site") === "__all__").click();
+  await new Promise((r) => setTimeout(r, 400));
+  console.log("segments : " + segs.length + " rendus · clic site OK (blocs=" + blocksSingle + ") · retour Tous OK");
+}
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>pulse — dump visuel</title>
 <style>
 body{font-family:system-ui,-apple-system,sans-serif;background:#F9FAFB;margin:0;padding:24px;color:#111827;
@@ -58,7 +80,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#F9FAFB;margin:0;
 --color-border:#E5E7EB;--color-bg-card:#fff;--color-pill-green-text:#166534;}
 #wrap{max-width:760px;margin:0 auto;}
 ${css}
-</style></head><body><div id="wrap">${doc.getElementById("pls-root").innerHTML}</div></body></html>`;
+</style></head><body><div id="wrap">${doc.body.querySelector(".pls-loc-row").outerHTML}${doc.getElementById("pls-root").outerHTML}</div></body></html>`;
 writeFileSync(OUT, html);
 console.log("dump écrit :", OUT, "—", html.length, "octets");
 process.exit(0);
