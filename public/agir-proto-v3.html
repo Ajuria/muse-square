@@ -85,7 +85,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="banner"><strong style="font-weight:600;">Maquette FIL AGIR v3.1</strong> — grammaire v2 validée + propositions du 25/08 (+ owner : filtre par site, pied à DEUX gestes — « Communiquer » part vivre sur la page Consulter ; « Écarter » → « Pas pour moi », chaîne déjà en prod) : <strong style="font-weight:600;">(A)</strong> bandeau de FAITS 7 jours (données réelles du <span id="pb-date"></span> — le score meurt) · <strong style="font-weight:600;">(B)</strong> médaillon = la famille (teinte + glyphe ; la couleur des CHIFFRES reste la direction). Corps réels (vrai <code>action-cards.js</code>). Palette famille = CANDIDATE, à arbitrer.</div>
+  <div class="banner"><strong style="font-weight:600;">Maquette FIL AGIR v3.2</strong> — grammaire v2 validée + propositions du 25/08 (+ owner : filtre par site, pied à DEUX gestes — « Communiquer » part vivre sur la page Consulter ; « Écarter » → « Pas pour moi », chaîne déjà en prod ; affluence attendue au bandeau — pic/creux BestTime, courbe horaire au clic quand elle existe ; « Objectif de la semaine » et « Piloter → » retirés) : <strong style="font-weight:600;">(A)</strong> bandeau de FAITS 7 jours (données réelles du <span id="pb-date"></span> — le score meurt) · <strong style="font-weight:600;">(B)</strong> médaillon = la famille (teinte + glyphe ; la couleur des CHIFFRES reste la direction). Corps réels (vrai <code>action-cards.js</code>). Palette famille = CANDIDATE, à arbitrer.</div>
   <div id="root"></div>
 </div>
 
@@ -95,6 +95,7 @@
   var D = window.AGIR_PROTO_V3;
   var root = document.getElementById("root");
   var siteFilter = "";   // "" = Tous les sites
+  var dayIdx = 0;        // jour choisi du bandeau
   if (!D || !D.cards) { root.innerHTML = '<div style="padding:30px;color:#B45309;font-size:14px;">Données introuvables — rechargez avec Cmd+Shift+R (cache).</div>'; return; }
   document.getElementById("pb-date").textContent = D.today.slice(8, 10) + "/" + D.today.slice(5, 7);
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
@@ -190,10 +191,31 @@
       if (!allSites && d.mobility_pct != null && d.mobility_pct <= -4) facts += '<span class="n7chip" style="background:#EDE9FE;color:#6D28D9;font-weight:650;">transports ' + String(Math.round(d.mobility_pct)).replace("-", "−") + ' %</span>';
       if (d.mega && !covered[(d.mega === true ? "méga-événement" : String(d.mega)) + "|" + d.date]) facts += '<span class="n7chip" style="background:#FEF3E2;color:#B45309;font-weight:650;">' + esc(d.mega === true ? "méga-événement" : trunc(String(d.mega), 16)) + '</span>';
       if (!facts) facts = '<span class="n7calm">—</span>';
-      h += '<button type="button" class="n7col' + (i === 0 ? " is-sel" : "") + '" title="' + esc(d.top_risk_sentence || "") + '">'
+      h += '<button type="button" class="n7col' + (i === dayIdx ? " is-sel" : "") + '" data-ap-day="' + i + '" title="' + esc(d.top_risk_sentence || "") + '">'
         + '<span class="n7day">' + lbl + '</span>' + facts + '</button>';
     });
     h += '</div>';
+    // ── AFFLUENCE ATTENDUE du jour choisi (owner 25/08 : le foot traffic revit ICI, pas sur
+    //    Piloter) : pic/creux/moyenne BestTime, courbe horaire quand le direct la donne.
+    //    Par SITE seulement (une affluence de compte n'existe pas) ; site sans couverture → rien.
+    if (siteFilter) {
+      var dSel = daysFor()[dayIdx];
+      if (dSel && dSel.ft_peak_hour != null) {
+        var dts = new Date(dSel.date + "T12:00:00Z");
+        var jLbl = dayIdx === 0 ? "aujourd\u2019hui" : DOW[dts.getUTCDay()].toLowerCase() + " " + frD(dSel.date);
+        var curve = "";
+        if (dSel.ft_hourly && dSel.ft_hourly.length) {
+          var mx = Math.max.apply(null, dSel.ft_hourly) || 1;
+          var pts = dSel.ft_hourly.map(function (v2, k2) { return (k2 * (160 / (dSel.ft_hourly.length - 1))).toFixed(1) + "," + (26 - (v2 / mx) * 24).toFixed(1); }).join(" ");
+          curve = ' <svg viewBox="0 0 160 28" style="width:160px;height:28px;vertical-align:middle;margin-left:6px;"><polyline points="' + pts + '" fill="none" stroke="#1D3BB3" stroke-width="1.5"/></svg>';
+        }
+        h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:9px 4px 0;font-size:11.5px;color:#374151;">'
+          + '<span style="font-weight:650;">' + jLbl + '</span>'
+          + '<span>affluence attendue : pic <b>' + dSel.ft_peak_hour + ' h</b>' + (dSel.ft_peak_pct != null ? ' (' + Math.round(dSel.ft_peak_pct) + ' %)' : '')
+          + ' \u00b7 creux ' + dSel.ft_quiet_hour + ' h'
+          + (dSel.ft_avg_pct != null ? ' \u00b7 moyenne ' + Math.round(dSel.ft_avg_pct) + ' %' : '') + '</span>' + curve + '</div>';
+      }
+    }
     if (runs.length) {
       var lastDay = daysFor()[daysFor().length - 1] || {};
       h += '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:9px 4px 0;font-size:11.5px;color:#374151;">'
@@ -269,9 +291,8 @@
     + '<span style="font-size:20px;font-weight:650;">Vos cartes du jour</span>'
     + '<span style="font-size:12.5px;color:#6B7280;">' + DOW[new Date(D.today + "T12:00:00Z").getUTCDay()].toLowerCase() + ' ' + frD(D.today)
     + (siteFilter && today0.weather_label_fr ? ' · <span style="' + (wxWarn(today0) ? 'color:#B45309;font-weight:600;' : '') + '">' + esc(today0.weather_label_fr.toLowerCase()) + '</span>' : '') + '</span>'
-    + '<span style="flex:1;"></span>'
-    + '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:10px;padding:6px 10px;cursor:pointer;">Objectif de la semaine ▾</span>'
-    + '<a href="#" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Piloter →</a></div>'
+    + (siteFilter && today0.ft_peak_hour != null ? '<span style="font-size:12.5px;color:#6B7280;">· pic attendu ' + today0.ft_peak_hour + ' h</span>' : '')
+    + '<span style="flex:1;"></span></div>'
     + '<div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;">'
     + '<button type="button" class="pill on">Aujourd’hui</button>'
     + '<button type="button" class="pill">Semaine</button>'
@@ -332,12 +353,9 @@
   Array.prototype.forEach.call(document.querySelectorAll("[data-ap-site]"), function (b) {
     b.addEventListener("click", function () { siteFilter = b.getAttribute("data-ap-site") || ""; renderAll(); });
   });
-  // Clic-jour : sélection visuelle seule (au build : recharge le fil du jour — mécanique conservée).
+  // Clic-jour : le détail (affluence) suit ; au build il recharge aussi le fil du jour.
   Array.prototype.forEach.call(document.querySelectorAll(".n7col"), function (b) {
-    b.addEventListener("click", function () {
-      Array.prototype.forEach.call(document.querySelectorAll(".n7col"), function (x) { x.classList.remove("is-sel"); });
-      b.classList.add("is-sel");
-    });
+    b.addEventListener("click", function () { dayIdx = Number(b.getAttribute("data-ap-day")) || 0; renderAll(); });
   });
   }
   renderAll();

@@ -1,5 +1,5 @@
 window.AGIR_PROTO_V3 = {
- "captured_at": "2026-08-25T07:03:51.390Z",
+ "captured_at": "2026-08-25T07:24:20.599Z",
  "today": "2026-08-25",
  "site_label": "Muse Square",
  "owner_loc": "f10c3e58-326e-4e38-947c-d59fcbe51df5",
@@ -36,7 +36,12 @@ window.AGIR_PROTO_V3 = {
    "top_risk_sentence": "Forte chaleur possible — peut décourager les déplacements",
    "status": "C",
    "opportunity_score": "6.5",
-   "events_5km": 249
+   "events_5km": 249,
+   "ft_peak_hour": 18,
+   "ft_quiet_hour": 4,
+   "ft_peak_pct": 95,
+   "ft_avg_pct": 53.95833333333333,
+   "ft_hourly": null
   },
   {
    "date": "2026-08-26",
@@ -56,7 +61,12 @@ window.AGIR_PROTO_V3 = {
    "top_risk_sentence": "Forte chaleur possible — peut décourager les déplacements",
    "status": "C",
    "opportunity_score": "6.9",
-   "events_5km": 252
+   "events_5km": 252,
+   "ft_peak_hour": 18,
+   "ft_quiet_hour": 2,
+   "ft_peak_pct": 95,
+   "ft_avg_pct": 54.37500000000001,
+   "ft_hourly": null
   },
   {
    "date": "2026-08-27",
@@ -76,7 +86,12 @@ window.AGIR_PROTO_V3 = {
    "top_risk_sentence": "Fortes pluies prévues — impact probable sur la venue des visiteurs",
    "status": "D",
    "opportunity_score": "4.7",
-   "events_5km": 245
+   "events_5km": 245,
+   "ft_peak_hour": 18,
+   "ft_quiet_hour": 3,
+   "ft_peak_pct": 90,
+   "ft_avg_pct": 52.91666666666668,
+   "ft_hourly": null
   },
   {
    "date": "2026-08-28",
@@ -96,7 +111,12 @@ window.AGIR_PROTO_V3 = {
    "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
    "status": "C",
    "opportunity_score": "6.9",
-   "events_5km": 242
+   "events_5km": 242,
+   "ft_peak_hour": 18,
+   "ft_quiet_hour": 2,
+   "ft_peak_pct": 95,
+   "ft_avg_pct": 53.33333333333332,
+   "ft_hourly": null
   },
   {
    "date": "2026-08-29",
@@ -116,7 +136,12 @@ window.AGIR_PROTO_V3 = {
    "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
    "status": "C",
    "opportunity_score": "6.9",
-   "events_5km": 234
+   "events_5km": 234,
+   "ft_peak_hour": 18,
+   "ft_quiet_hour": 6,
+   "ft_peak_pct": 60,
+   "ft_avg_pct": 40.83333333333333,
+   "ft_hourly": null
   },
   {
    "date": "2026-08-30",
@@ -136,7 +161,12 @@ window.AGIR_PROTO_V3 = {
    "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
    "status": "C",
    "opportunity_score": "6.8",
-   "events_5km": 225
+   "events_5km": 225,
+   "ft_peak_hour": 19,
+   "ft_quiet_hour": 2,
+   "ft_peak_pct": 55,
+   "ft_avg_pct": 35.83333333333333,
+   "ft_hourly": null
   },
   {
    "date": "2026-08-31",
@@ -156,7 +186,12 @@ window.AGIR_PROTO_V3 = {
    "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
    "status": "C",
    "opportunity_score": "6.9",
-   "events_5km": 208
+   "events_5km": 208,
+   "ft_peak_hour": 17,
+   "ft_quiet_hour": 2,
+   "ft_peak_pct": 100,
+   "ft_avg_pct": 56.874999999999986,
+   "ft_hourly": null
   }
  ],
  "days_by_site": {
@@ -179,7 +214,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Fortes pluies prévues — impact probable sur la venue des visiteurs",
     "status": "D",
     "opportunity_score": "4.4",
-    "events_5km": 0
+    "events_5km": 0,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-26",
@@ -199,7 +239,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Forte chaleur possible — peut décourager les déplacements",
     "status": "C",
     "opportunity_score": "7.0",
-    "events_5km": 0
+    "events_5km": 0,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-27",
@@ -219,7 +264,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Pluie possible — peut réduire la venue des visiteurs",
     "status": "B",
     "opportunity_score": "6.6",
-    "events_5km": 0
+    "events_5km": 0,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-28",
@@ -239,7 +289,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
     "status": "C",
     "opportunity_score": "6.9",
-    "events_5km": 0
+    "events_5km": 0,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-29",
@@ -259,7 +314,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
     "status": "C",
     "opportunity_score": "7.0",
-    "events_5km": 0
+    "events_5km": 0,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-30",
@@ -279,7 +339,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
     "status": "C",
     "opportunity_score": "6.9",
-    "events_5km": 0
+    "events_5km": 0,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-31",
@@ -299,7 +364,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
     "status": "C",
     "opportunity_score": "6.9",
-    "events_5km": 0
+    "events_5km": 0,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    }
   ],
   "ff2aeb35-084f-4bbf-915c-94faf7be8785": [
@@ -321,7 +391,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Forte chaleur possible — peut décourager les déplacements",
     "status": "C",
     "opportunity_score": "7.8",
-    "events_5km": 4
+    "events_5km": 4,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-26",
@@ -341,7 +416,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Forte chaleur possible — peut décourager les déplacements",
     "status": "C",
     "opportunity_score": "7.9",
-    "events_5km": 4
+    "events_5km": 4,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-27",
@@ -361,7 +441,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Forte chaleur possible — peut décourager les déplacements",
     "status": "C",
     "opportunity_score": "7.8",
-    "events_5km": 4
+    "events_5km": 4,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-28",
@@ -381,7 +466,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Fortes pluies prévues — impact probable sur la venue des visiteurs",
     "status": "D",
     "opportunity_score": "7.4",
-    "events_5km": 4
+    "events_5km": 4,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-29",
@@ -401,7 +491,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Forte chaleur possible — peut décourager les déplacements",
     "status": "C",
     "opportunity_score": "7.8",
-    "events_5km": 4
+    "events_5km": 4,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-30",
@@ -421,7 +516,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Forte chaleur possible — peut décourager les déplacements",
     "status": "D",
     "opportunity_score": "7.4",
-    "events_5km": 4
+    "events_5km": 4,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-31",
@@ -441,7 +541,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Forte chaleur possible — peut décourager les déplacements",
     "status": "D",
     "opportunity_score": "7.4",
-    "events_5km": 4
+    "events_5km": 4,
+    "ft_peak_hour": null,
+    "ft_quiet_hour": null,
+    "ft_peak_pct": null,
+    "ft_avg_pct": null,
+    "ft_hourly": null
    }
   ],
   "f10c3e58-326e-4e38-947c-d59fcbe51df5": [
@@ -463,7 +568,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Forte chaleur possible — peut décourager les déplacements",
     "status": "C",
     "opportunity_score": "6.5",
-    "events_5km": 249
+    "events_5km": 249,
+    "ft_peak_hour": 18,
+    "ft_quiet_hour": 4,
+    "ft_peak_pct": 95,
+    "ft_avg_pct": 53.95833333333333,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-26",
@@ -483,7 +593,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Forte chaleur possible — peut décourager les déplacements",
     "status": "C",
     "opportunity_score": "6.9",
-    "events_5km": 252
+    "events_5km": 252,
+    "ft_peak_hour": 18,
+    "ft_quiet_hour": 2,
+    "ft_peak_pct": 95,
+    "ft_avg_pct": 54.37500000000001,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-27",
@@ -503,7 +618,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Fortes pluies prévues — impact probable sur la venue des visiteurs",
     "status": "D",
     "opportunity_score": "4.7",
-    "events_5km": 245
+    "events_5km": 245,
+    "ft_peak_hour": 18,
+    "ft_quiet_hour": 3,
+    "ft_peak_pct": 90,
+    "ft_avg_pct": 52.91666666666668,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-28",
@@ -523,7 +643,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
     "status": "C",
     "opportunity_score": "6.9",
-    "events_5km": 242
+    "events_5km": 242,
+    "ft_peak_hour": 18,
+    "ft_quiet_hour": 2,
+    "ft_peak_pct": 95,
+    "ft_avg_pct": 53.33333333333332,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-29",
@@ -543,7 +668,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
     "status": "C",
     "opportunity_score": "6.9",
-    "events_5km": 234
+    "events_5km": 234,
+    "ft_peak_hour": 18,
+    "ft_quiet_hour": 6,
+    "ft_peak_pct": 60,
+    "ft_avg_pct": 40.83333333333333,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-30",
@@ -563,7 +693,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
     "status": "C",
     "opportunity_score": "6.8",
-    "events_5km": 225
+    "events_5km": 225,
+    "ft_peak_hour": 19,
+    "ft_quiet_hour": 2,
+    "ft_peak_pct": 55,
+    "ft_avg_pct": 35.83333333333333,
+    "ft_hourly": null
    },
    {
     "date": "2026-08-31",
@@ -583,7 +718,12 @@ window.AGIR_PROTO_V3 = {
     "top_risk_sentence": "Vent fort possible — impact sur les conditions d'exploitation",
     "status": "C",
     "opportunity_score": "6.9",
-    "events_5km": 208
+    "events_5km": 208,
+    "ft_peak_hour": 17,
+    "ft_quiet_hour": 2,
+    "ft_peak_pct": 100,
+    "ft_avg_pct": 56.874999999999986,
+    "ft_hourly": null
    }
   ]
  },

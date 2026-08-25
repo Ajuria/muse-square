@@ -51,6 +51,10 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
     status: d.status ?? null,
     opportunity_score: d.opportunity_score ?? null,
     events_5km: d.events_within_5km_count ?? null,
+    // Affluence attendue (BestTime, déjà calculée par monitor — jamais rendue jusqu'ici).
+    ft_peak_hour: d.ft_peak_hour ?? null, ft_quiet_hour: d.ft_quiet_hour ?? null,
+    ft_peak_pct: d.ft_peak_busyness_pct ?? null, ft_avg_pct: d.ft_avg_busyness_pct ?? null,
+    ft_hourly: d.ft_hourly_raw ?? null,
   }));
   const days = mapDays(j);
   days.forEach((d: any) => console.log(" ", d.date, "|", d.weather_label_fr, "| vac:", d.vacation_name, "| mob:", d.mobility_pct));
