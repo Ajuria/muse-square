@@ -3212,7 +3212,6 @@ if (!location_id) {
     var pillFg = pos ? 'var(--color-pill-green-text)' : '#B45309';
     var amount = Math.abs(Math.round(Number(imp.eur_year))).toLocaleString('fr-FR');
     var eng = _structActiveCommit(imp);
-    var state = eng ? 'En amélioration' : 'Actif';
     var btn = eng
       ? '<button type="button" class="pls-cta-sec" data-struct-follow="1" style="white-space:nowrap;">Voir l’engagement</button>'
       // Inc D : « Pas pour moi » aussi sur la rangée compacte — jamais sur un motif ENGAGÉ
@@ -3235,13 +3234,21 @@ if (!location_id) {
     // Format B du proto agir-formats-proto : une ligne, hauteur fixe 62 px, titre + fait sur
     // deux lignes, et à droite le site AU-DESSUS de [montant · gestes], tout collé au même
     // bord d'encre que les cartes (--ab-eur-pad). Pas de pied.
+    // La ligne de fait REPREND la phrase mesurée de la carte (imp.sowhat_fr, composée par
+    // contextCopy) — owner 25/08 : « −120 €/j · ≈ 89 jours par an » ne veut rien dire seul,
+    // le nombre avait perdu son sujet. La phrase le nomme : « Les jours de forte pression
+    // concurrentielle vous coûtent −120 € par jour — ≈ 89 jours par an ». « au rythme
+    // constaté » saute (la place manque sur une ligne ; l'infobulle du montant porte la
+    // provenance). Repli sur les chiffres nus si la phrase manque.
+    // « Actif » RETIRÉ (owner 25/08 : « ça n'ajoute rien ») — l'état ne se dit que lorsqu'il
+    // dit quelque chose, c'est-à-dire quand un engagement est en cours.
     var _bFait = (function () {
-      if (imp.avg_gap_eur == null || !isFinite(Number(imp.avg_gap_eur)) || Number(imp.avg_gap_eur) === 0) return state;
-      var _j = (Number(imp.avg_gap_eur) >= 0 ? '+' : '\u2212') + Math.abs(Math.round(Number(imp.avg_gap_eur))).toLocaleString('fr-FR') + ' \u20ac/j';
-      // Échelle (owner 25/08) : jours/an = eur_year ÷ €/j — l'annualisation du moteur.
-      var _n = (Number(imp.eur_year) && Number(imp.avg_gap_eur)) ? Math.round(Math.abs(Number(imp.eur_year) / Number(imp.avg_gap_eur))) : null;
-      return _j + (_n != null ? ' \u00b7 \u2248 ' + _n + ' jours par an' : '') + ' \u00b7 ' + state
-        + (eng && eng.owner_person_name ? ' \u2192 ' + String(eng.owner_person_name) : '');
+      var _p = String(imp.sowhat_fr || '').replace(' au rythme constat\u00e9', '');
+      if (!_p && imp.avg_gap_eur != null && isFinite(Number(imp.avg_gap_eur)) && Number(imp.avg_gap_eur) !== 0) {
+        _p = (Number(imp.avg_gap_eur) >= 0 ? '+' : '\u2212') + Math.abs(Math.round(Number(imp.avg_gap_eur))).toLocaleString('fr-FR') + ' \u20ac/j';
+      }
+      if (eng) _p += (_p ? ' \u00b7 ' : '') + 'En am\u00e9lioration' + (eng.owner_person_name ? ' \u2192 ' + String(eng.owner_person_name) : '');
+      return _p;
     })();
     return '<div class="ab-card" data-t-site="' + escapeHtml(String(imp.location_label || '')) + '" data-t-h="3" data-t-e="' + Math.abs(Math.round(Number(imp.eur_year))) + '" data-t-n="' + (pos ? 'capture' : 'defend') + '" data-struct-key="' + key + '">'
       + '<div class="ab-bnd">'
@@ -3546,7 +3553,7 @@ if (!location_id) {
           return '<button type="button" data-t-fh="' + v[0] + '" style="font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid var(--color-border);background:#fff;color:#374151;cursor:pointer;font-family:inherit;">' + v[1] + '</button>';
         }).join('')
       + '<span style="width:1px;height:18px;background:var(--color-border);margin:0 4px;"></span>'
-      + ['defend|À défendre', 'capture|À capter'].map(function(x) {
+      + ['defend|Menaces', 'capture|Opportunités'].map(function(x) {
           var v = x.split('|');
           return '<button type="button" data-t-fn="' + v[0] + '" style="font-size:12px;padding:4px 11px;border-radius:20px;border:1px solid var(--color-border);background:#fff;color:#374151;cursor:pointer;font-family:inherit;">' + v[1] + '</button>';
         }).join('')
