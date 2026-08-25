@@ -130,6 +130,26 @@
     [/effectif en caisse, fluidit\u00e9 du parcours et mise en avant produit/g, 'fluidit\u00e9 du parcours et mise en avant produit'],
     [/un effectif d[\u2019']accueil suffisant/g, 'un dispositif d\u2019accueil suffisant']
   ];
+  // Accord du préfixe d'action (owner 25/08). SINGULIER par défaut ; PLURIEL seulement quand
+  // la ligne porte VRAIMENT deux gestes. On compte les GESTES, pas les phrases : ces lignes
+  // ouvrent presque toutes sur un FAIT puis proposent une action (« 7 événements à 500 m.
+  // Renforcez votre visibilité… » = un seul geste), donc compter les phrases mettait tout au
+  // pluriel — vérifié sur les 9 cartes concurrence avant correction.
+  // Marqueur d'impératif en français : la 2e personne du pluriel en -ez, hors « vous …ez »
+  // (indicatif : « si vous proposez un équivalent »). Plus l'enchaînement « …, puis … », qui
+  // porte les gestes à l'infinitif (« reconstituer la semaine, puis ajuster… »).
+  function accordActionPrefix(txt) {
+    var SING = 'Action conseill\u00e9e : ';
+    var t = String(txt || '');
+    if (t.indexOf(SING) !== 0) return t;
+    var corps = t.slice(SING.length);
+    var nb = 0;
+    corps.replace(/(\S+)\s+([A-Za-z\u00c0-\u00ff]{3,}ez)\b/g, function (all, prev) { if (!/^vous$/i.test(prev)) nb++; return all; });
+    if (/^[A-Za-z\u00c0-\u00ff]{3,}ez\b/.test(corps)) nb++;
+    var enchaine = /,?\s+puis\s+/i.test(corps);
+    return (nb >= 2 || enchaine) ? ('Actions conseill\u00e9es : ' + corps) : t;
+  }
+
   function deLeverStaffing(s) {
     if (!s) return s;
     var out = String(s);
@@ -2072,7 +2092,7 @@
       if (a.data_end) line += ' Données jusqu’au ' + msEvFrD(a.data_end) + '.';
       return {
         context: line,
-        action: 'À faire : reprendre contact en direct — comprendre si la pause est saisonnière, un point de friction, ou un départ chez un concurrent.'
+        action: 'Action conseill\u00e9e : reprendre contact en direct — comprendre si la pause est saisonnière, un point de friction, ou un départ chez un concurrent.'
       };
     },
     {
@@ -2108,7 +2128,7 @@
     function(a) {
       return {
         context: msWkLine(a, 'hole'),
-        action: 'À faire : reconstituer la semaine (fermetures, absence, contexte local), puis ajuster ce qui se pilote à ce terme — achats et animation.'
+        action: 'Action conseill\u00e9e : reconstituer la semaine (fermetures, absence, contexte local), puis ajuster ce qui se pilote à ce terme — achats et animation.'
       };
     },
     {
@@ -2121,7 +2141,7 @@
     function(a) {
       return {
         context: msWkLine(a, 'spike'),
-        action: 'À faire : identifier ce qui a porté la semaine (client, opération, contexte) — et le noter pour le rejouer sciemment.'
+        action: 'Action conseill\u00e9e : identifier ce qui a porté la semaine (client, opération, contexte) — et le noter pour le rejouer sciemment.'
       };
     },
     {
@@ -2153,7 +2173,7 @@
     function(a) {
       return {
         context: msMoLine(a, 'hole'),
-        action: 'À faire : passer les comptes du mois en revue — qui n’a pas commandé, et pourquoi ? Le grain client (cartes clients) dit qui relancer.'
+        action: 'Action conseill\u00e9e : passer les comptes du mois en revue — qui n’a pas commandé, et pourquoi ? Le grain client (cartes clients) dit qui relancer.'
       };
     },
     {
@@ -2166,7 +2186,7 @@
     function(a) {
       return {
         context: msMoLine(a, 'spike'),
-        action: 'À faire : comprendre chaque gros compte du mois (commande unique ou nouveau rythme ?) — et vérifier le stock de ce qu’ils achètent : il ne doit pas manquer.'
+        action: 'Action conseill\u00e9e : comprendre chaque gros compte du mois (commande unique ou nouveau rythme ?) — et vérifier le stock de ce qu’ils achètent : il ne doit pas manquer.'
       };
     },
     {
@@ -2189,7 +2209,7 @@
       var w = a.weather_label_fr ? String(a.weather_label_fr) : 'm\u00e9t\u00e9o d\u00e9grad\u00e9e';
       return {
         context: '\u00ab ' + (a.event_title || '\u00c9v\u00e9nement') + ' \u00bb le ' + msEvFrD(a.occurrence_date) + msEvHours(a) + ' : ' + w + ' (niveau ' + (a.lvl_max != null ? a.lvl_max : '?') + ') annonc\u00e9e \u2014 votre dispositif est ' + (a.event_nature === 'both' ? 'en partie ext\u00e9rieur' : 'EXT\u00c9RIEUR') + ', directement expos\u00e9.',
-        action: '\u00c0 adapter : repli int\u00e9rieur ou dispositif abrit\u00e9 \u2014 d\u00e9cision la veille.'
+        action: 'Action conseill\u00e9e : repli int\u00e9rieur ou dispositif abrit\u00e9 \u2014 d\u00e9cision la veille.'
       };
     },
     { note_interne: function(a, p) { return 'Note interne ' + siteName(p) + '. \u00c9v\u00e9nement \u00ab ' + (a.event_title || '') + ' \u00bb du ' + msEvFrD(a.occurrence_date) + ' : alerte ' + (a.weather_label_fr || 'm\u00e9t\u00e9o') + ' \u2014 pr\u00e9parons le repli int\u00e9rieur ou l\u2019abri du dispositif, d\u00e9cision la veille.'; } }
@@ -2199,7 +2219,7 @@
     function(a) {
       return {
         context: '\u00ab ' + (a.event_title || '\u00c9v\u00e9nement') + ' \u00bb : d\u00e9cision avant le ' + msEvFrD(a.decision_date) + ' \u2014 la comparaison de vos jours candidats est pr\u00eate. Sans choix, pas de mesure.',
-        action: '\u00c0 faire : ouvrir la comparaison et choisir le jour.'
+        action: 'Action conseill\u00e9e : ouvrir la comparaison et choisir le jour.'
       };
     }
   );
@@ -2214,7 +2234,7 @@
         // On ne garde que la PREMIÈRE LIGNE non vide — celle qui décrit le dispositif ; les
         // objectifs et le détail vivent au dossier, qui est à un clic.
         context: '\u00ab ' + (a.event_title || '\u00c9v\u00e9nement') + ' \u00bb demain ' + msEvFrD(a.occurrence_date) + msEvHours(a) + '. ' + (msFirstLine(a.dispositif) ? 'Dispositif : ' + msFirstLine(a.dispositif) + ' ' : '') + met,
-        action: '\u00c0 faire : briefer l\u2019\u00e9quipe ce soir \u2014 Communiquer pr\u00e9-rempli.'
+        action: 'Action conseill\u00e9e : briefer l\u2019\u00e9quipe ce soir \u2014 Communiquer pr\u00e9-rempli.'
       };
     },
     { note_interne: function(a, p) { return 'Note interne ' + siteName(p) + '. Demain ' + msEvFrD(a.occurrence_date) + ' : \u00ab ' + (a.event_title || '') + ' \u00bb' + msEvHours(a) + '. ' + (a.dispositif ? 'Le dispositif : ' + a.dispositif + ' ' : '') + 'Chacun conna\u00eet son r\u00f4le \u2014 questions ce soir.'; } }
@@ -2230,7 +2250,7 @@
         line += 'ventes pas encore ing\u00e9r\u00e9es \u2014 le mesur\u00e9 arrive avec l\u2019import.';
       }
       if (a.kpi === 'family_revenue' && a.kpi_family) line += ' Cible famille ' + a.kpi_family + ' : verdict au dossier.';
-      return { context: line, action: '\u00c0 faire : documenter ce qui a march\u00e9 \u2014 la fiche se pr\u00e9-remplit depuis le dossier (30 secondes).' };
+      return { context: line, action: 'Action conseill\u00e9e : documenter ce qui a march\u00e9 \u2014 la fiche se pr\u00e9-remplit depuis le dossier (30 secondes).' };
     }
   );
 
@@ -2882,6 +2902,13 @@
         whatText = actionType.replace(/_/g, ' ');
       }
       sowhatText = deLeverStaffing(sowhatText); actionText = deLeverStaffing(actionText);
+      // PRÉFIXE D'ACTION UNIQUE (owner 25/08 soir : « Unifie les préfixes → Action(s)
+      // conseillée(s) »). Les 16 préfixes historiques (« À faire : », « À noter : »,
+      // « À pousser : », « À défendre : », « À temporiser : »…) sont normalisés dans les
+      // chaînes elles-mêmes ; l'ACCORD, lui, se décide ici, une seule fois : pluriel quand la
+      // ligne propose plusieurs gestes — deux phrases, ou deux gestes enchaînés par « puis ».
+      // Le « (s) » du brief n'est pas rendu tel quel : une carte sait combien elle propose.
+      actionText = accordActionPrefix(actionText);
       var catLabel = spec ? spec.category_label_fr : (ac.action_category || 'INTELLIGENCE');
       var barClass = CAT_BAR[catLabel] || 'ab-info';
       var brandLabel = spec ? spec.category_label_fr : actionType.replace(/_/g, ' ');
@@ -2933,23 +2960,23 @@
   // ── Wrap sowhats to return {context, action, urgency} ──
   var ACTION_SENTENCES = {
     'competitor_event_ending': { action: function(a, p, d) {
-      return 'À noter : un événement concurrent se termine. La pression retombe sur ces jours — c\'est peut-être le bon moment pour prendre la parole.';
+      return 'Action conseill\u00e9e : un événement concurrent se termine. La pression retombe sur ces jours — c\'est peut-être le bon moment pour prendre la parole.';
     }, urgency: 'plan' },
     'competitor_positioning_gap': { action: function(a, p, d) {
-      return 'À analyser : votre chiffre d\'affaires repose fortement sur un produit. Comparez votre positionnement à vos concurrents suivis pour repérer les écarts d\'offre exploitables.';
+      return 'Action conseill\u00e9e : votre chiffre d\'affaires repose fortement sur un produit. Comparez votre positionnement à vos concurrents suivis pour repérer les écarts d\'offre exploitables.';
     }, urgency: 'plan' },
     'score_down': { action: function(a, p, d) {
-      return 'À noter : votre score d\'opportunité est en baisse. Adaptez votre planning et vos attentes pour cette journée.';
+      return 'Action conseill\u00e9e : votre score d\'opportunité est en baisse. Adaptez votre planning et vos attentes pour cette journée.';
     }, urgency: 'soon' },
     'score_driver_shift': { action: function(a, p, d) {
-      return 'À noter : le facteur dominant de votre score change d\'aujourd\'hui à demain. Surveillez ce basculement pour ajuster vos priorités opérationnelles.';
+      return 'Action conseill\u00e9e : le facteur dominant de votre score change d\'aujourd\'hui à demain. Surveillez ce basculement pour ajuster vos priorités opérationnelles.';
     }, urgency: 'plan' },
     'day_opportunity': { action: function(a, p, d) {
       var regime = a.regime || null;
-      return 'À noter : journée favorable' + (regime ? ' (régime ' + regime + ')' : '') + '. Conditions globalement positives — à confirmer avec votre planning.';
+      return 'Action conseill\u00e9e : journée favorable' + (regime ? ' (régime ' + regime + ')' : '') + '. Conditions globalement positives — à confirmer avec votre planning.';
     }, urgency: 'plan' },
     'regime_c_warning': { action: function(a, p, d) {
-      var s = 'À noter : journée défavorable signalée à venir';
+      var s = 'Action conseill\u00e9e : journée défavorable signalée à venir';
       if (a.forced_c) s += ' (régime C forcé)';
       else if (a.realization_risk) s += ' (risque de réalisation majeur)';
       s += '. Anticipez : reportez les activités sensibles ou prévoyez une alternative.';
@@ -2958,7 +2985,7 @@
     'competitor_positioning_brief': { action: function(a, p, d) {
       var name = a.competitor_name || 'ce concurrent';
       var r = a.google_rating != null ? frDec(a.google_rating) : null;
-      return 'À consulter : analyse de positionnement de ' + name + (r != null ? ' (note ' + r + '/5)' : '') + ' disponible. Ouvrez-la pour situer votre offre face à ce concurrent.';
+      return 'Action conseill\u00e9e : analyse de positionnement de ' + name + (r != null ? ' (note ' + r + '/5)' : '') + ' disponible. Ouvrez-la pour situer votre offre face à ce concurrent.';
     }, urgency: 'plan' },
     'competitor_reputation_strength': { action: function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent suivi';
@@ -2966,24 +2993,24 @@
       var n = a.google_rating_count != null ? Number(a.google_rating_count) : null;
       var rc = ratingCompare(a, p);
       var avis = n != null ? ' sur ' + n.toLocaleString('fr-FR') + ' avis' : '';
-      if (rc && rc.sign > 0) return 'À noter : ' + name + ' est à ' + frDec(rc.theirs) + '/5' + avis + ', vous à ' + frDec(rc.mine) + '/5.';
-      if (rc && rc.sign < 0) return 'À noter : vous êtes à ' + frDec(rc.mine) + '/5, ' + name + ' à ' + frDec(rc.theirs) + '/5' + avis + '.';
-      if (rc) return 'À noter : ' + name + ' et vous à ' + frDec(rc.mine) + '/5' + avis + '.';
-      return 'À noter : ' + name + ' affiche une réputation solide' + (r != null ? ' (' + r + '/5' + avis + ')' : '') + '.';
+      if (rc && rc.sign > 0) return 'Action conseill\u00e9e : ' + name + ' est à ' + frDec(rc.theirs) + '/5' + avis + ', vous à ' + frDec(rc.mine) + '/5.';
+      if (rc && rc.sign < 0) return 'Action conseill\u00e9e : vous êtes à ' + frDec(rc.mine) + '/5, ' + name + ' à ' + frDec(rc.theirs) + '/5' + avis + '.';
+      if (rc) return 'Action conseill\u00e9e : ' + name + ' et vous à ' + frDec(rc.mine) + '/5' + avis + '.';
+      return 'Action conseill\u00e9e : ' + name + ' affiche une réputation solide' + (r != null ? ' (' + r + '/5' + avis + ')' : '') + '.';
     }, urgency: 'plan' },
     'sales_missed_opportunity': { action: function(a, p, d) {
       var avg = a.avg_30d != null ? Math.round(Number(a.avg_30d)) : null;
       var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
       var gap = (avg != null && rev != null) ? Math.round(avg - rev) : null;
       var regime = a.regime || '';
-      return 'À noter : ' + (gap != null ? 'écart ~' + gap + ' € sur un jour ' + (regime ? 'noté ' + regime : 'favorable') + '. ' : '') + 'Posez une règle pour les prochains jours favorables (publication J-2, renfort accueil) et tracez ce qui a limité ce jour-ci.';
+      return 'Action conseill\u00e9e : ' + (gap != null ? 'écart ~' + gap + ' € sur un jour ' + (regime ? 'noté ' + regime : 'favorable') + '. ' : '') + 'Posez une règle pour les prochains jours favorables (publication J-2, renfort accueil) et tracez ce qui a limité ce jour-ci.';
     }, urgency: 'plan' },
     'sales_underperformance': { action: function(a, p, d) {
       var pctBelow = a.revenue_vs_avg_pct != null ? Math.abs(Math.round(Number(a.revenue_vs_avg_pct))) : null;
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
       var alert = Number(a.weather_alert || 0);
       var lever = (pr != null && pr > 1.3) ? 'renforcez votre visibilité face à la concurrence' : (alert >= 2) ? 'communiquez vos conditions adaptées à la météo' : 'vérifiez vos leviers internes (effectif, horaires, communication)';
-      return 'À noter : CA ' + (pctBelow != null ? '-' + pctBelow + ' % ' : '') + 'sous la moyenne — ' + lever + ', et tracez la cause pour ne pas la répéter.';
+      return 'Action conseill\u00e9e : CA ' + (pctBelow != null ? '-' + pctBelow + ' % ' : '') + 'sous la moyenne — ' + lever + ', et tracez la cause pour ne pas la répéter.';
     }, urgency: 'plan' },
     'sales_surge': { action: function(a, p, d) {
       var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
@@ -3013,13 +3040,13 @@
       // et le vrai verbe était déjà dans la phrase.
       var _mot = a.context_motif && a.context_motif.label_fr ? a.context_motif : null;
       var _sfx = a.top_competitor ? ' ; gardez un œil sur ' + a.top_competitor : '';
-      return 'À faire : baisse concomitante à une pression ×' + (pr != null ? frDec(pr) : '?') + '. '
+      return 'Action conseill\u00e9e : baisse concomitante à une pression ×' + (pr != null ? frDec(pr) : '?') + '. '
         + (_mot ? 'Engagez-vous sur le motif, pas sur la journée'
                 : 'Aucun motif mesuré sur cette date, tracez la cause avant d\'agir')
         + _sfx + '.';
     }, urgency: 'plan' },
     'high_competition_density': { action: function(a, p, d) {
-      return 'À temporiser : n\'en faites pas votre créneau de communication prioritaire. Gardez vos ressources pour une occasion moins disputée et misez sur un angle différenciant plutôt que sur le volume.';
+      return 'Action conseill\u00e9e : n\'en faites pas votre créneau de communication prioritaire. Gardez vos ressources pour une occasion moins disputée et misez sur un angle différenciant plutôt que sur le volume.';
     }, urgency: 'soon' },
     'competitor_threat_direct': { action: function(a, p, d) {
       var name = a.competitor_name || null;
@@ -3030,7 +3057,7 @@
       // et les lectures 196 / 850 le lisaient brut : ces deux sites étaient les orphelins.
       var ov = a.audience_overlap_pct != null ? Math.round(Number(a.audience_overlap_pct)) : null;
       var ev = a.event_label || null;
-      var s = 'À défendre : ';
+      var s = 'Action conseill\u00e9e : ';
       if (name) {
         s += name + (ev ? ' (' + ev + ')' : '');
         if (dist != null) s += ' à ' + frDec(dist) + ' km';
@@ -3045,7 +3072,7 @@
       var e1km = a.events_1km != null ? Number(a.events_1km) : null;
       var name = a.top_competitor || null;
       var dist = a.top_competitor_distance_km != null ? Number(a.top_competitor_distance_km) : null;
-      var s = 'À défendre : ';
+      var s = 'Action conseill\u00e9e : ';
       if (e500 != null && e500 >= 3) s += e500 + ' événements à 500 m';
       else if (e1km != null) s += e1km + ' événements à 1 km';
       else s += 'forte concentration locale';
@@ -3067,13 +3094,13 @@
       // alors que la mesure existe.
       var _dc = (a && a.enjeu) ? a.enjeu : (a && a.context_motif) ? a.context_motif : null;
       var eur = (_dc && _dc.eur_year != null) ? Number(_dc.eur_year) : null;
-      if (eur != null && eur > 0) return 'À faire : mettez votre meilleure offre sur ces jours — ils vous réussissent mieux que la moyenne.';
-      if (eur != null && eur < 0) return 'À faire : commandez moins et ne prévoyez pas d’extra — ces jours vous rapportent moins.';
-      return 'À vérifier : fixez-vous un objectif sur ces jours pour savoir s’ils vous rapportent ou vous coûtent.';
+      if (eur != null && eur > 0) return 'Action conseill\u00e9e : mettez votre meilleure offre sur ces jours — ils vous réussissent mieux que la moyenne.';
+      if (eur != null && eur < 0) return 'Action conseill\u00e9e : commandez moins et ne prévoyez pas d’extra — ces jours vous rapportent moins.';
+      return 'Action conseill\u00e9e : fixez-vous un objectif sur ces jours pour savoir s’ils vous rapportent ou vous coûtent.';
     }, urgency: 'now' },
     'competition_pressure_spike': { action: function(a, p, d) {
       var name = a.competitor_name || null;
-      var s = 'À défendre : pression concurrentielle en forte hausse';
+      var s = 'Action conseill\u00e9e : pression concurrentielle en forte hausse';
       if (name) s += ', portée notamment par ' + name;
       s += '. Maintenez votre présence pour ne pas perdre en partage d\'attention.';
       return s;
@@ -3094,19 +3121,19 @@
       // Même constat déjà posé dans insight.astro:627 ; competitor_event_launch (2545)
       // et les lectures 196 / 850 le lisaient brut : ces deux sites étaient les orphelins.
       var ov = a.audience_overlap_pct != null ? Math.round(Number(a.audience_overlap_pct)) : null;
-      return 'À défendre : conflit d\'audience' + (name ? ' avec ' + name : '') + (ov != null ? ' (audience estimée commune ' + ov + ' %)' : '') + '. Adressez directement votre public partagé avant l\'échéance pour sécuriser votre fréquentation.';
+      return 'Action conseill\u00e9e : conflit d\'audience' + (name ? ' avec ' + name : '') + (ov != null ? ' (audience estimée commune ' + ov + ' %)' : '') + '. Adressez directement votre public partagé avant l\'échéance pour sécuriser votre fréquentation.';
     }, urgency: 'now' },
     'competitor_review_surge': { action: 'Communiquer : sollicitez des avis clients pour \u00e9quilibrer.', urgency: 'soon', channel: 'communiquer' },
     'competitor_review_drop': { action: 'Communiquer : capitalisez sur votre r\u00e9putation.', urgency: 'plan', channel: 'communiquer' },
     'review_solicitation': { action: function(a, p, d) {
-      return 'À pousser : une occasion favorable approche. Profitez de l\'affluence attendue pour solliciter des avis auprès de vos visiteurs satisfaits — un bon moment pour renforcer votre e-réputation.';
+      return 'Action conseill\u00e9e : une occasion favorable approche. Profitez de l\'affluence attendue pour solliciter des avis auprès de vos visiteurs satisfaits — un bon moment pour renforcer votre e-réputation.';
     }, urgency: 'soon' },
     'competitor_hours_change': { action: 'Faire suivre : v\u00e9rifiez si vos horaires restent comp\u00e9titifs.', urgency: 'soon', channel: 'suivre' },
     'competitor_new_offering': { action: function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent';
       var item = a.item || 'une nouvelle offre';
       var newP = a.new_price_raw || null;
-      return 'À défendre : ' + name + ' lance ' + item + (newP ? ' à ' + newP : '') + '. Repositionnez votre offre équivalente et mettez en avant ce qui vous distingue.';
+      return 'Action conseill\u00e9e : ' + name + ' lance ' + item + (newP ? ' à ' + newP : '') + '. Repositionnez votre offre équivalente et mettez en avant ce qui vous distingue.';
     }, urgency: 'soon' },
     'competitor_price_increase': { action: function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent';
@@ -3114,7 +3141,7 @@
       var oldP = a.old_price_raw || null;
       var newP = a.new_price_raw || null;
       var pct = a.price_pct_change != null ? Number(a.price_pct_change) : null;
-      var s = 'À exploiter : ' + name + ' a augmenté ' + item;
+      var s = 'Action conseill\u00e9e : ' + name + ' a augmenté ' + item;
       if (oldP && newP) s += ' (' + oldP + ' → ' + newP + ')';
       else if (pct != null) s += ' (+' + pct + ' %)';
       s += '. Votre positionnement tarifaire devient relativement plus attractif : mettez en avant votre rapport qualité-prix, ou évaluez une marge de repositionnement.';
@@ -3126,7 +3153,7 @@
       var oldP = a.old_price_raw || null;
       var newP = a.new_price_raw || null;
       var pct = a.price_pct_change != null ? Number(a.price_pct_change) : null;
-      var s = 'À défendre : ' + name + ' a baissé ' + item;
+      var s = 'Action conseill\u00e9e : ' + name + ' a baissé ' + item;
       if (oldP && newP) s += ' (' + oldP + ' → ' + newP + ')';
       else if (pct != null) s += ' (' + pct + ' %)';
       s += '. Ne vous alignez pas par réflexe : vérifiez votre marge sur ce poste, puis argumentez sur votre différence de gamme.';
@@ -3136,25 +3163,25 @@
       var name = a.competitor_name || 'Un concurrent';
       var item = a.item || 'une offre';
       var oldP = a.old_price_raw || null;
-      return 'À vérifier : ' + name + ' ne propose plus ' + item + (oldP ? ' (anciennement ' + oldP + ')' : '') + '. Confirmez que le retrait est durable (pas un simple changement de page) ; si vous proposez un équivalent, vous êtes peut-être seul sur ce créneau localement.';
+      return 'Action conseill\u00e9e : ' + name + ' ne propose plus ' + item + (oldP ? ' (anciennement ' + oldP + ')' : '') + '. Confirmez que le retrait est durable (pas un simple changement de page) ; si vous proposez un équivalent, vous êtes peut-être seul sur ce créneau localement.';
     }, urgency: 'soon' },
     'competitor_repricing_event': { action: function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent';
       var n = a.price_change_count != null ? Number(a.price_change_count) : null;
       var inc = a.increase_count != null ? Number(a.increase_count) : null;
       var dec = a.decrease_count != null ? Number(a.decrease_count) : null;
-      var s = 'À noter : ' + name + ' a repositionné ' + (n != null ? n + ' tarifs' : 'plusieurs tarifs');
+      var s = 'Action conseill\u00e9e : ' + name + ' a repositionné ' + (n != null ? n + ' tarifs' : 'plusieurs tarifs');
       if (inc != null && dec != null) s += ' (' + inc + (inc > 1 ? ' hausses' : ' hausse') + ', ' + dec + (dec > 1 ? ' baisses' : ' baisse') + ')';
       s += '. Analysez le mouvement avant d\'ajuster les vôtres.';
       return s;
     }, urgency: 'soon' },
-    'competitor_sold_out': { action: 'À capter : un concurrent affiche complet. Adressez-vous au public qui n\'a pas pu réserver pour récupérer ce report de demande.', urgency: 'now' },
-    'competitor_content_spike': { action: 'À défendre : un concurrent intensifie ses publications. Maintenez votre présence pour ne pas perdre en partage d\'attention.', urgency: 'now' },
-    'competitor_content_silent': { action: 'À capter : un concurrent est silencieux sur ses canaux. Prenez la parole maintenant pour occuper l\'espace d\'attention local.', urgency: 'now' },
+    'competitor_sold_out': { action: 'Action conseill\u00e9e : un concurrent affiche complet. Adressez-vous au public qui n\'a pas pu réserver pour récupérer ce report de demande.', urgency: 'now' },
+    'competitor_content_spike': { action: 'Action conseill\u00e9e : un concurrent intensifie ses publications. Maintenez votre présence pour ne pas perdre en partage d\'attention.', urgency: 'now' },
+    'competitor_content_silent': { action: 'Action conseill\u00e9e : un concurrent est silencieux sur ses canaux. Prenez la parole maintenant pour occuper l\'espace d\'attention local.', urgency: 'now' },
     'top_day_approaching': { action: function(a, p, d) {
       var rank = a.rank != null ? Number(a.rank) : null;
       var regime = a.regime || null;
-      var s = 'À pousser : ';
+      var s = 'Action conseill\u00e9e : ';
       if (rank === 1) s += 'votre meilleur score des prochains jours';
       else if (rank != null) s += rank + 'e meilleur score des prochains jours';
       else s += 'occasion favorable à venir';
@@ -3166,7 +3193,7 @@
       var regime = a.regime || null;
       var alert = Number(a.weather_alert || 0);
       var ev = a.events_5km != null ? Number(a.events_5km) : null;
-      var s = 'À pousser : week-end favorable' + (regime ? ' (régime ' + regime + ')' : '') + (alert === 0 ? ', sans alerte météo' : '') + '. ';
+      var s = 'Action conseill\u00e9e : week-end favorable' + (regime ? ' (régime ' + regime + ')' : '') + (alert === 0 ? ', sans alerte météo' : '') + '. ';
       if (ev != null && ev >= 50) s += 'Concurrence dense (' + ev + ' événements à 5 km) — démarquez-vous, mais c\'est une occasion à activer.';
       else s += 'Concentrez votre communication sur ce week-end pour capter le flux.';
       return s;
@@ -3184,22 +3211,22 @@
                  : a.is_vacation ? (a.vacation_name || 'vacances scolaires')
                  : a.is_commercial ? 'événement commercial'
                  : null;
-      var s = 'À réorienter : ';
+      var s = 'Action conseill\u00e9e : ';
       s += driver ? driver + ' modifie le profil des visiteurs attendus. ' : 'le profil des visiteurs attendus change. ';
       s += 'Adaptez votre message, votre offre et votre accueil au public du jour plutôt qu\'à votre cible habituelle.';
       return s;
     }, urgency: 'soon' },
     'foreign_tourism_signal': { action: function(a, p, d) {
-      return 'À faire : adaptez accueil, langues et signalétique pendant leurs congés.';
+      return 'Action conseill\u00e9e : adaptez accueil, langues et signalétique pendant leurs congés.';
     }, urgency: 'soon' },
     'score_up': { action: function(a, p, d) {
-      return 'À noter : votre score d\'opportunité est en hausse. Vérifiez si une action de visibilité vaut le coup sur cette occasion.';
+      return 'Action conseill\u00e9e : votre score d\'opportunité est en hausse. Vérifiez si une action de visibilité vaut le coup sur cette occasion.';
     }, urgency: 'now' },
     'weather_window': { action: function(a, p, d) {
       var ya = a.yesterday_alert != null ? Number(a.yesterday_alert) : null;
       var ta = a.today_alert != null ? Number(a.today_alert) : null;
       var sens = a.site_sensitivity != null ? Number(a.site_sensitivity) : null;
-      var s = 'À pousser : retour de conditions favorables';
+      var s = 'Action conseill\u00e9e : retour de conditions favorables';
       if (ya != null && ta != null) s += ' (alerte ' + ya + ' → ' + ta + ')';
       s += '. ';
       if (sens != null && sens >= 3) s += 'Votre site est sensible à la météo — relancez vos visiteurs et activez vos espaces extérieurs aujourd\'hui.';
@@ -3209,62 +3236,62 @@
     'extended_bad_weather': { action: function(a, p, d) {
       var lvl = a.alert_level != null ? Number(a.alert_level) : null;
       var sens = a.site_sensitivity != null ? Number(a.site_sensitivity) : null;
-      // Lot 1 copie (owner 25/08) : « Action conseillée : » + le geste seul — plus jamais
+      // Lot 1 copie (owner 25/08) : « Action conseill\u00e9e : » + le geste seul — plus jamais
       // la re-description du signal (durée/aléa/niveau vivent dans le corps de la carte).
-      var s = 'Action conseillée : ';
+      var s = 'Action conseill\u00e9e : ';
       if (sens != null && sens >= 3) s += 'repliez en intérieur si vous avez un espace couvert, sinon réduisez l\'effectif d\'accueil extérieur.';
       else s += 'préparez une alternative couverte et réduisez l\'effectif extérieur sur ces jours.';
       return s;
     }, urgency: 'now' },
     'weather_hazard_onset': { action: function(a, p, d) {
-      return 'Action conseillée : sécurisez vos installations extérieures et prévenez votre équipe des mesures à prendre.';
+      return 'Action conseill\u00e9e : sécurisez vos installations extérieures et prévenez votre équipe des mesures à prendre.';
     }, urgency: 'now' },
     'calendar_audience_shift': { action: function(a, p, d) {
-      return 'À réorienter : changement de profil d\'audience attendu. Adaptez votre message et votre offre au public du jour plutôt qu\'à votre cible habituelle.';
+      return 'Action conseill\u00e9e : changement de profil d\'audience attendu. Adaptez votre message et votre offre au public du jour plutôt qu\'à votre cible habituelle.';
     }, urgency: 'plan' },
-    'institution_campaign_detected': { action: 'À capter : une campagne institutionnelle proche peut générer du passage. Préparez une offre ou un message pour capter ce flux.', urgency: 'soon' },
+    'institution_campaign_detected': { action: 'Action conseill\u00e9e : une campagne institutionnelle proche peut générer du passage. Préparez une offre ou un message pour capter ce flux.', urgency: 'soon' },
     'mega_event_activation': { action: function(a, p, d) {
       var ev = (a.event_label && a.event_label !== 'Signal détecté') ? a.event_label : (a.new_value || null);
-      return 'À capter : ' + (ev ? 'méga-événement « ' + ev + ' »' : 'méga-événement') + ' générant du trafic dans votre zone. Publiez une offre ou un message ciblé pour capter ce flux de passage.';
+      return 'Action conseill\u00e9e : ' + (ev ? 'méga-événement « ' + ev + ' »' : 'méga-événement') + ' générant du trafic dans votre zone. Publiez une offre ou un message ciblé pour capter ce flux de passage.';
     }, urgency: 'now' },
     'mega_event_end': { action: function(a, p, d) {
-      return 'À noter : fin d\'un méga-événement dans votre zone. Le pic de trafic retombe — reprenez votre communication habituelle.';
+      return 'Action conseill\u00e9e : fin d\'un méga-événement dans votre zone. Le pic de trafic retombe — reprenez votre communication habituelle.';
     }, urgency: 'now' },
     'mobility_disruption': { action: function(a, p, d) {
-      return 'À adapter : perturbation d\'accès à votre zone. Communiquez un itinéraire alternatif et anticipez une baisse de fréquentation à l\'entrée.';
+      return 'Action conseill\u00e9e : perturbation d\'accès à votre zone. Communiquez un itinéraire alternatif et anticipez une baisse de fréquentation à l\'entrée.';
     }, urgency: 'now' },
     'mobility_disruption_planned': { action: function(a, p, d) {
-      return 'À adapter : perturbation d\'accès prévue. Préparez un plan d\'accès alternatif (itinéraire, parking, horaires) et informez vos visiteurs en amont.';
+      return 'Action conseill\u00e9e : perturbation d\'accès prévue. Préparez un plan d\'accès alternatif (itinéraire, parking, horaires) et informez vos visiteurs en amont.';
     }, urgency: 'soon' },
     'mobility_disruption_resolved': { action: function(a, p, d) {
-      return 'À capter : l\'accès à votre zone est rétabli. Relancez vos visiteurs et signalez le retour à la normale.';
+      return 'Action conseill\u00e9e : l\'accès à votre zone est rétabli. Relancez vos visiteurs et signalez le retour à la normale.';
     }, urgency: 'now' },
-    'media_mention_detected': { action: 'À capter : une mention média dans votre zone peut générer de la visibilité. Relayez-la et préparez un message pour convertir ce passage.', urgency: 'soon' },
+    'media_mention_detected': { action: 'Action conseill\u00e9e : une mention média dans votre zone peut générer de la visibilité. Relayez-la et préparez un message pour convertir ce passage.', urgency: 'soon' },
     'weekly_summary': { action: 'Faire suivre : partagez le bilan avec votre \u00e9quipe.', urgency: 'plan', channel: 'suivre' },
     'weather_worsened': { action: function(a, p, d) {
-      return 'À adapter : dégradation des conditions météo. Repliez en intérieur si possible, réduisez l\'exposition extérieure et ajustez l\'effectif.';
+      return 'Action conseill\u00e9e : dégradation des conditions météo. Repliez en intérieur si possible, réduisez l\'exposition extérieure et ajustez l\'effectif.';
     }, urgency: 'now' },
     'weather_improved': { action: function(a, p, d) {
-      return 'À pousser : amélioration des conditions météo. Relancez vos visiteurs dès maintenant pour profiter de l\'embellie.';
+      return 'Action conseill\u00e9e : amélioration des conditions météo. Relancez vos visiteurs dès maintenant pour profiter de l\'embellie.';
     }, urgency: 'now' },
     'perfect_storm': { action: function(a, p, d) {
       var n = favorableParts(a, d).length || null;   // même source que le corps (22/08)
-      return 'À pousser : ' + (n != null ? n + ' facteurs favorables alignés' : 'plusieurs facteurs favorables alignés') + '. Occasion rare — concentrez ici votre principal effort de visibilité de la période.';
+      return 'Action conseill\u00e9e : ' + (n != null ? n + ' facteurs favorables alignés' : 'plusieurs facteurs favorables alignés') + '. Occasion rare — concentrez ici votre principal effort de visibilité de la période.';
     }, urgency: 'now' },
     'weather_comp_opportunity': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      return 'À pousser : beau temps et faible concurrence' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Conditions propices à la visibilité — concentrez votre communication sur cette occasion.';
+      return 'Action conseill\u00e9e : beau temps et faible concurrence' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Conditions propices à la visibilité — concentrez votre communication sur cette occasion.';
     }, urgency: 'now' },
     'saturated_bad_weather': { action: function(a, p, d) {
       var lvl = a.weather_alert != null ? Number(a.weather_alert) : null;
       var pct = samePct(a, d);
-      var s = 'À adapter : ' + hazardPhrase(d) + (lvl != null ? ' (niveau ' + lvl + ')' : '') + ' et secteur saturé' + (pct != null ? ' (' + pct + ' % des événements à 5 km dans votre secteur)' : '') + '. Conditions doublement défavorables : dimensionnez vos opérations au minimum et gardez vos ressources pour une meilleure occasion.';
+      var s = 'Action conseill\u00e9e : ' + hazardPhrase(d) + (lvl != null ? ' (niveau ' + lvl + ')' : '') + ' et secteur saturé' + (pct != null ? ' (' + pct + ' % des événements à 5 km dans votre secteur)' : '') + '. Conditions doublement défavorables : dimensionnez vos opérations au minimum et gardez vos ressources pour une meilleure occasion.';
       return s;
     }, urgency: 'now' },
     'holiday_high_comp': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
       var e5 = a.events_5km != null ? Number(a.events_5km) : null;
-      var s = 'À temporiser : jour férié mais concurrence élevée';
+      var s = 'Action conseill\u00e9e : jour férié mais concurrence élevée';
       if (pr != null) s += ' (pression ×' + frDec(pr) + ')';
       if (e5 != null) s += ' — ' + e5 + ' événements à 5 km';
       s += '. Le férié attire du monde mais l\'offre est pléthorique : ne surinvestissez pas en communication, démarquez-vous par un angle simple plutôt que par le volume.';
@@ -3272,17 +3299,17 @@
     }, urgency: 'now' },
     'best_day_of_week': { action: function(a, p, d) {
       var regime = a.regime || null;
-      return 'À pousser : meilleur jour de la semaine' + (regime ? ' (régime ' + regime + ')' : '') + '. Si vous ne menez qu\'une action cette semaine, faites-la aujourd\'hui.';
+      return 'Action conseill\u00e9e : meilleur jour de la semaine' + (regime ? ' (régime ' + regime + ')' : '') + '. Si vous ne menez qu\'une action cette semaine, faites-la aujourd\'hui.';
     }, urgency: 'now' },
     'same_bucket_saturation': { action: function(a, p, d) {
       var pct = a.pct_same_sector != null ? Math.round(Number(a.pct_same_sector)) : null;
       var e5 = a.events_5km != null ? Number(a.events_5km) : null;
-      var s = 'À temporiser : votre secteur est saturé' + (pct != null ? ' (' + pct + ' % des ' + (e5 != null ? e5 + ' ' : '') + 'événements à 5 km)' : '') + '. Inutile de surcommuniquer dans le bruit — réservez votre effort pour un jour où votre secteur est moins représenté.';
+      var s = 'Action conseill\u00e9e : votre secteur est saturé' + (pct != null ? ' (' + pct + ' % des ' + (e5 != null ? e5 + ' ' : '') + 'événements à 5 km)' : '') + '. Inutile de surcommuniquer dans le bruit — réservez votre effort pour un jour où votre secteur est moins représenté.';
       return s;
     }, urgency: 'soon' },
     'weekend_vacation_low_comp': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      return 'À pousser : week-end de vacances à faible concurrence' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Occasion rare — concentrez votre communication dessus.';
+      return 'Action conseill\u00e9e : week-end de vacances à faible concurrence' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Occasion rare — concentrez votre communication dessus.';
     }, urgency: 'now' },
     'commercial_event_match': { action: function(a, p, d) {
       var ev = a.commercial_event_name || (d.commercial_events && d.commercial_events[0] ? d.commercial_events[0].event_name : null) || null;
@@ -3293,14 +3320,14 @@
       // « À capter » + « Alignez … pour capter ce flux » : trois verbes proscrits (lexique
       // règle 8 — capter, aligner). Le titre nomme désormais l'événement, le geste n'a plus à
       // le répéter en catégorie système (« temps fort commercial »).
-      var head = 'À faire : ' + (ev ? 'préparez une offre pour ' + (/^[aeiouéèêh]/i.test(ev) ? "l'" : 'la ') + ev.toLowerCase() : 'préparez une offre pour ce temps fort') + '. ';
+      var head = 'Action conseill\u00e9e : ' + (ev ? 'préparez une offre pour ' + (/^[aeiouéèêh]/i.test(ev) ? "l'" : 'la ') + ev.toLowerCase() : 'préparez une offre pour ce temps fort') + '. ';
       return isDiscount
         ? head + 'Le flux d\'acheteurs vient à vous : mettez en avant une offre signature ou une expérience différenciante plutôt qu\'une remise — sur un temps fort, une promotion non nécessaire érode la marge sans gagner de visiteurs.'
         : head + 'Briefez l\'équipe dessus en début de service.';
     }, urgency: 'now' },
     'weather_window_after_bad': { action: function(a, p, d) {
       var sens = a.site_sensitivity != null ? Number(a.site_sensitivity) : null;
-      var s = 'À capter : retour au beau après plusieurs jours dégradés. ';
+      var s = 'Action conseill\u00e9e : retour au beau après plusieurs jours dégradés. ';
       if (sens != null && sens >= 3) s += 'Votre site est sensible à la météo — relancez vos visiteurs et rouvrez vos espaces extérieurs dès aujourd\'hui.';
       else s += 'Relancez vos visiteurs maintenant que les conditions sont favorables.';
       return s;
@@ -3310,7 +3337,7 @@
       // carte dans le flatteneur ; le niveau du payload vit sous `payload_alert_level`.
       var lvl = a.payload_alert_level != null ? Number(a.payload_alert_level) : null;
       var sens = a.site_sensitivity != null ? Number(a.site_sensitivity) : null;
-      var s = 'À adapter : météo dégradée sur 3 jours ou plus';
+      var s = 'Action conseill\u00e9e : météo dégradée sur 3 jours ou plus';
       if (lvl != null) s += ' — ' + ((a && a.enjeu && a.enjeu.label_fr) ? String(a.enjeu.label_fr).replace(/^jours (de |d\u2019|d'|\u00e0 )?/, '') : hazardPhrase(d)) + ' (niveau ' + lvl + ')';
       s += '. ';
       if (sens != null && sens >= 3) s += 'Site très exposé : planifiez un repli intérieur sur toute la période et ajustez les horaires si la fréquentation chute.';
@@ -3319,60 +3346,60 @@
     }, urgency: 'now' },
     'tourist_high_season': { action: function(a, p, d) {
       var ti = a.tourism_index != null ? Math.round(Number(a.tourism_index)) : null;
-      var s = 'À réorienter : haute saison touristique' + (ti != null ? ' (indice ' + ti + ')' : '') + '. Votre public de passage est surtout touristique — adaptez votre message et votre offre découverte à ce profil plutôt qu\'aux habitués locaux.';
+      var s = 'Action conseill\u00e9e : haute saison touristique' + (ti != null ? ' (indice ' + ti + ')' : '') + '. Votre public de passage est surtout touristique — adaptez votre message et votre offre découverte à ce profil plutôt qu\'aux habitués locaux.';
       return s;
     }, urgency: 'now' },
     'tourist_surge_vacation': { action: function(a, p, d) {
       var ti = a.tourism_index != null ? Math.round(Number(a.tourism_index)) : null;
-      return 'À capter : afflux touristique en période de vacances' + (ti != null ? ' (indice ' + ti + ')' : '') + '. Adressez-vous à ce public de passage (signalétique, offre découverte, horaires élargis) pour capter ce flux.';
+      return 'Action conseill\u00e9e : afflux touristique en période de vacances' + (ti != null ? ' (indice ' + ti + ')' : '') + '. Adressez-vous à ce public de passage (signalétique, offre découverte, horaires élargis) pour capter ce flux.';
     }, urgency: 'now' },
     'tourism_peak_window': { action: function(a, p, d) {
       var ti = a.tourism_index != null ? Math.round(Number(a.tourism_index)) : null;
-      return 'À capter : pic touristique régional' + (ti != null ? ' (indice ' + ti + ')' : '') + '. Mettez en avant votre offre auprès des visiteurs de passage pour capter ce flux supplémentaire.';
+      return 'Action conseill\u00e9e : pic touristique régional' + (ti != null ? ' (indice ' + ti + ')' : '') + '. Mettez en avant votre offre auprès des visiteurs de passage pour capter ce flux supplémentaire.';
     }, urgency: 'now' },
     'tourism_weather_vacation': { action: function(a, p, d) {
       var ti = a.tourism_index != null ? Math.round(Number(a.tourism_index)) : null;
-      return 'À pousser : tourisme élevé' + (ti != null ? ' (indice ' + ti + ')' : '') + ', beau temps et vacances. Triple signal — concentrez ici votre effort de visibilité.';
+      return 'Action conseill\u00e9e : tourisme élevé' + (ti != null ? ' (indice ' + ti + ')' : '') + ', beau temps et vacances. Triple signal — concentrez ici votre effort de visibilité.';
     }, urgency: 'now' },
     'tourism_comp_squeeze': { action: function(a, p, d) {
       var ti = a.tourism_index != null ? Math.round(Number(a.tourism_index)) : null;
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      var s = 'À réorienter : flux touristique élevé' + (ti != null ? ' (indice ' + ti + ')' : '') + ' mais très disputé' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Ciblez un segment ou un angle que vos concurrents n\'adressent pas pour vous démarquer sur ce public.';
+      var s = 'Action conseill\u00e9e : flux touristique élevé' + (ti != null ? ' (indice ' + ti + ')' : '') + ' mais très disputé' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Ciblez un segment ou un angle que vos concurrents n\'adressent pas pour vous démarquer sur ce public.';
       return s;
     }, urgency: 'soon' },
     'low_tourism_local_opp': { action: function(a, p, d) {
       var ti = a.tourism_index != null ? Math.round(Number(a.tourism_index)) : null;
-      var s = 'À réorienter : tourisme faible' + (ti != null ? ' (indice ' + ti + ')' : '') + ' mais contexte calendaire porteur. Ciblez les résidents locaux (offre habitués, communication de proximité) plutôt que le public de passage.';
+      var s = 'Action conseill\u00e9e : tourisme faible' + (ti != null ? ' (indice ' + ti + ')' : '') + ' mais contexte calendaire porteur. Ciblez les résidents locaux (offre habitués, communication de proximité) plutôt que le public de passage.';
       return s;
     }, urgency: 'plan' },
     'tourism_mobility_hit': { action: function(a, p, d) {
       var ti = a.tourism_index != null ? Math.round(Number(a.tourism_index)) : null;
-      var s = 'À adapter : afflux touristique' + (ti != null ? ' (indice ' + ti + ')' : '') + ' mais accès perturbé. Communiquez un itinéraire alternatif et renforcez l\'accueil pour ne pas perdre ce flux à l\'entrée.';
+      var s = 'Action conseill\u00e9e : afflux touristique' + (ti != null ? ' (indice ' + ti + ')' : '') + ' mais accès perturbé. Communiquez un itinéraire alternatif et renforcez l\'accueil pour ne pas perdre ce flux à l\'entrée.';
       return s;
     }, urgency: 'now' },
     'weather_mobility_double': { action: function(a, p, d) {
       var lvl = a.weather_alert != null ? Number(a.weather_alert) : null;
-      var s = 'À adapter : double contrainte — ' + hazardPhrase(d) + (lvl != null ? ' (niveau ' + lvl + ')' : '') + ' et accès perturbé. Sécurisez l\'installation, anticipez un accès alternatif et ajustez l\'effectif au plus juste.';
+      var s = 'Action conseill\u00e9e : double contrainte — ' + hazardPhrase(d) + (lvl != null ? ' (niveau ' + lvl + ')' : '') + ' et accès perturbé. Sécurisez l\'installation, anticipez un accès alternatif et ajustez l\'effectif au plus juste.';
       return s;
     }, urgency: 'now' },
     'mobility_comp_squeeze': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      var s = 'À temporiser : accès perturbé et concurrence élevée' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Conditions doublement défavorables : gardez votre effort de communication pour une meilleure occasion et concentrez-vous sur l\'opérationnel (accès, accueil).';
+      var s = 'Action conseill\u00e9e : accès perturbé et concurrence élevée' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Conditions doublement défavorables : gardez votre effort de communication pour une meilleure occasion et concentrez-vous sur l\'opérationnel (accès, accueil).';
       return s;
     }, urgency: 'now' },
     'ft_peak_bad_weather': { action: function(a, p, d) {
       var lvl = a.weather_alert != null ? Number(a.weather_alert) : null;
-      var s = 'À adapter : jour habituellement fréquenté mais ' + hazardPhrase(d) + (lvl != null ? ' (niveau ' + lvl + ')' : '') + '. Prévoyez un repli couvert et un effectif d\'accueil suffisant : la fréquentation peut rester élevée malgré la météo.';
+      var s = 'Action conseill\u00e9e : jour habituellement fréquenté mais ' + hazardPhrase(d) + (lvl != null ? ' (niveau ' + lvl + ')' : '') + '. Prévoyez un repli couvert et un effectif d\'accueil suffisant : la fréquentation peut rester élevée malgré la météo.';
       return s;
     }, urgency: 'now' },
     'ft_quiet_good_weather': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      return 'À capter : jour habituellement calme mais météo et concurrence favorables' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Stimulez la fréquentation par une communication ciblée pour dépasser l\'affluence habituelle.';
+      return 'Action conseill\u00e9e : jour habituellement calme mais météo et concurrence favorables' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Stimulez la fréquentation par une communication ciblée pour dépasser l\'affluence habituelle.';
     }, urgency: 'now' },
     'ft_peak_saturated': { action: function(a, p, d) {
       var pct = a.pct_same_sector != null ? Math.round(Number(a.pct_same_sector)) : null;
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      var s = 'À temporiser : jour habituellement fréquenté mais saturé';
+      var s = 'Action conseill\u00e9e : jour habituellement fréquenté mais saturé';
       if (pct != null) s += ' (' + pct + ' % des événements à 5 km dans votre secteur)';
       if (pr != null) s += ', pression ×' + frDec(pr);
       s += '. L\'affluence est là, mais l\'attention est dispersée — misez sur l\'accueil et l\'expérience sur place plutôt que sur la communication.';
@@ -3380,21 +3407,21 @@
     }, urgency: 'soon' },
     'ft_peak_low_comp': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
-      return 'À pousser : jour habituellement fréquenté + faible concurrence' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Occasion à fort potentiel — concentrez votre communication.';
+      return 'Action conseill\u00e9e : jour habituellement fréquenté + faible concurrence' + (pr != null ? ' (pression ×' + frDec(pr) + ')' : '') + '. Occasion à fort potentiel — concentrez votre communication.';
     }, urgency: 'now' },
     'ft_peak_tourism_vacation': { action: function(a, p, d) {
       var ti = a.tourism_index != null ? Math.round(Number(a.tourism_index)) : null;
-      return 'À pousser : jour de pointe + tourisme élevé' + (ti != null ? ' (indice ' + ti + ')' : '') + ' + vacances. Affluence attendue maximale — concentrez ici votre principal effort.';
+      return 'Action conseill\u00e9e : jour de pointe + tourisme élevé' + (ti != null ? ' (indice ' + ti + ')' : '') + ' + vacances. Affluence attendue maximale — concentrez ici votre principal effort.';
     }, urgency: 'now' },
     'ft_peak_mobility': { action: function(a, p, d) {
-      var s = 'À adapter : jour de pointe mais accès perturbé. Communiquez un itinéraire/parking alternatif et renforcez l\'accueil pour absorber l\'affluence malgré la gêne d\'accès.';
+      var s = 'Action conseill\u00e9e : jour de pointe mais accès perturbé. Communiquez un itinéraire/parking alternatif et renforcez l\'accueil pour absorber l\'affluence malgré la gêne d\'accès.';
       return s;
     }, urgency: 'now' },
     'weekly_briefing': { action: function(a, p, d) {
       var avg = a.avg_score != null ? Math.round(Number(a.avg_score)) : null;
       var ra = a.days_regime_a != null ? Number(a.days_regime_a) : null;
       var rc = a.days_regime_c != null ? Number(a.days_regime_c) : null;
-      var s = 'À transmettre : bilan de la semaine';
+      var s = 'Action conseill\u00e9e : bilan de la semaine';
       if (ra != null || rc != null) s += ' — ' + (ra != null ? ra + ' jour(s) favorable(s)' : '') + (ra != null && rc != null ? ', ' : '') + (rc != null ? rc + ' défavorable(s)' : '');
       if (avg != null) s += ', score moyen ' + avg;
       s += '. Partagez-le avec votre équipe.';
@@ -3402,10 +3429,10 @@
     }, urgency: 'plan' },
     'sales_traffic_not_converting': { action: function(a, p, d) {
       var cz = a.conversion_robust_z != null ? Number(a.conversion_robust_z) : null;
-      return 'À corriger : du trafic mais ' + (cz != null ? 'conversion nettement sous votre norme' : 'peu de conversions') + '. Vérifiez l\'accueil, la caisse et la mise en avant aujourd\'hui, et posez une routine pour les prochains jours à fort passage.';
+      return 'Action conseill\u00e9e : du trafic mais ' + (cz != null ? 'conversion nettement sous votre norme' : 'peu de conversions') + '. Vérifiez l\'accueil, la caisse et la mise en avant aujourd\'hui, et posez une routine pour les prochains jours à fort passage.';
     }, urgency: 'soon' },
     'sales_discount_no_lift': { action: function(a, p, d) {
-      return 'À corriger : vos remises n\'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d\'offre.';
+      return 'Action conseill\u00e9e : vos remises n\'ont pas tiré le CA. Réexaminez le ciblage et le niveau de promotion avant de reconduire ce type d\'offre.';
     }, urgency: 'plan' },
     'sales_revenue_down_wow': { action: function(a, p, d) {
       var driver = ({footfall:'le nombre de visiteurs', transactions:'les ventes', basket:'le panier moyen', conversion:'le taux de conversion'})[a.primary_revenue_driver] || null;
@@ -3423,8 +3450,8 @@
       // (−X €/an sur ce lieu) » juste en dessous. Le geste dit quoi faire, la ligne dit pourquoi.
       var _lev = driver ? ' — levier : ' + driver : '';
       return _mot
-        ? 'À faire : engagez-vous sur le motif, pas sur la journée' + _lev + '.'
-        : 'À faire : aucun motif mesuré sur cette date, tracez la cause pour comparer aux prochaines semaines' + _lev + '.';
+        ? 'Action conseill\u00e9e : engagez-vous sur le motif, pas sur la journée' + _lev + '.'
+        : 'Action conseill\u00e9e : aucun motif mesuré sur cette date, tracez la cause pour comparer aux prochaines semaines' + _lev + '.';
     }, urgency: 'soon' },
     'footfall_vs_basket_decomposition': { action: function(a, p, d) {
       var revPct = a.revenue_vs_30d_avg_pct != null ? Number(a.revenue_vs_30d_avg_pct) : null;
@@ -3437,26 +3464,26 @@
         ? 'la fréquentation et la conversion (accueil, mise en avant, communication)'
         : 'le mix produit et la montée en gamme (cross-sell, offres groupées)';
       return up
-        ? 'À amplifier : le CA est tiré par ' + src + '. Renforcez ' + lever + ' pour prolonger l\'effet.'
-        : 'À corriger : le recul de CA vient surtout de ' + src + '. Agissez sur ' + lever + '.';
+        ? 'Action conseill\u00e9e : le CA est tiré par ' + src + '. Renforcez ' + lever + ' pour prolonger l\'effet.'
+        : 'Action conseill\u00e9e : le recul de CA vient surtout de ' + src + '. Agissez sur ' + lever + '.';
     }, urgency: 'soon' },
     'proven_action_replication': { action: function(a, p, d) {
       var avg = a.avg_revenue_delta_pct != null ? Math.round(Number(a.avg_revenue_delta_pct)) : null;
-      return 'À reproduire : ce type d\'action est associé à un CA ' + (avg != null ? (avg >= 0 ? '+' : '') + avg + ' % ' : '') + 'au-dessus de votre référence. Rejouez-le sur des jours comparables et continuez à mesurer.';
+      return 'Action conseill\u00e9e : ce type d\'action est associé à un CA ' + (avg != null ? (avg >= 0 ? '+' : '') + avg + ' % ' : '') + 'au-dessus de votre référence. Rejouez-le sur des jours comparables et continuez à mesurer.';
     }, urgency: 'plan' },
     'offering_mix_shift': { action: function(a, p, d) {
-      // Lot 2 copie (owner 25/08) : « Action conseillée : » + geste seul, redite du signal
+      // Lot 2 copie (owner 25/08) : « Action conseill\u00e9e : » + geste seul, redite du signal
       // morte ; rétrogradée en information sous réserve de régime.
       if (a && a.regime_mismatch_flag === true) return '';
       return (a.direction || 'surge') === 'collapse'
-        ? 'Action conseillée : vérifiez stock, visibilité et prix avant que ça s\'installe.'
-        : 'Action conseillée : vérifiez le stock de ses produits à forte marge — ceux qui ont porté la hausse ne doivent pas manquer.';
+        ? 'Action conseill\u00e9e : vérifiez stock, visibilité et prix avant que ça s\'installe.'
+        : 'Action conseill\u00e9e : vérifiez le stock de ses produits à forte marge — ceux qui ont porté la hausse ne doivent pas manquer.';
     }, urgency: 'soon' },
     'item_share_move': { action: function(a, p, d) {
       if (a && a.regime_mismatch_flag === true) return '';
       return (a.direction || 'surge') === 'collapse'
-        ? 'Action conseillée : vérifiez son stock et sa place en rayon avant l\'ouverture suivante.'
-        : 'Action conseillée : à l\'ouverture suivante, mettez-le en avant — première place, visible de l\'entrée — et vérifiez son stock : il ne doit pas manquer.';
+        ? 'Action conseill\u00e9e : vérifiez son stock et sa place en rayon avant l\'ouverture suivante.'
+        : 'Action conseill\u00e9e : à l\'ouverture suivante, mettez-le en avant — première place, visible de l\'entrée — et vérifiez son stock : il ne doit pas manquer.';
     }, urgency: 'soon' },
     'hour_share_move': { action: function(a, p, d) {
       // Réserve de régime (25/08) : rétrogradée en information — pas de geste sur un signal
