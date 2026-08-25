@@ -1099,8 +1099,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           //    test→prouvé) fusionnés : l'actif du compte, en un seul endroit. ──
           var sfResume = pc.proven + " prouvé" + (pc.proven > 1 ? "s" : "")
             + (pc.en_test ? " · " + pc.en_test + " en test" : "")
-            + (pc.declared ? " · " + pc.declared + " déclaré" + (pc.declared > 1 ? "s" : "") : "")
-            + ((j.learned_classes || 0) ? " · " + j.learned_classes + " types de jours chiffrés" : "");
+            + (pc.declared ? " · " + pc.declared + " déclaré" + (pc.declared > 1 ? "s" : "") : "");
           var capHtml = "";
           _tbLearnings = j.learnings || [];
           (j.learnings || []).forEach(function (r, li) {
@@ -1130,21 +1129,20 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               (function () { var _pv = (j.practices || []).filter(function (p) { return p.tier === "prouvee"; })[0];
                 return '<a class="tb-link" href="#tb-sf" data-tb-open="sf"' + (_pv ? ' data-tb-goto="' + esc(_pv.practice_id) + '"' : "") + ' style="font-size:12px;white-space:nowrap;">Rejouer →</a>'; })());
           }
-          {
-            var depthMax = (j.sales_depth || []).reduce(function (a, x) { return Math.max(a, x.n_days || 0); }, 0);
+          var depthMax = (j.sales_depth || []).reduce(function (a, x) { return Math.max(a, x.n_days || 0); }, 0);
+          var ccBody = (function () {
             var depthTip = (j.sales_depth || []).map(function (x) { return (x.site_label || "") + " : " + x.n_days + " j (" + frD(x.first_sale) + " → " + frD(x.last_sale) + ")"; }).join(" · ");
             var vTot = (j.judged_meta || []).length;
-            html += voletHead("sf", pc.proven ? GREEN : GREY, "Mes dispositifs", sfResume, "proc")
-              + '<div data-tb-body="sf" class="tb-rbody" id="tb-sf" style="display:none;">'
-              + '<p class="tb-eb" style="cursor:help;margin:2px 0;" title="Mesuré sur VOS ventes, chez vous — pas des moyennes de secteur. C’est l’actif du compte : il s’accumule et ne se transfère pas.">Ce que l’app a appris de vos sites</p>'
-              + capHtml
+            return capHtml
               + '<div style="display:flex;align-items:baseline;gap:6px;margin-top:6px;font-size:10.5px;color:#9CA3AF;">'
               + '<span style="cursor:help;" title="' + esc(depthTip) + '">appris sur ' + depthMax + ' j de ventes · ' + (j.learned_classes || 0) + ' types de jours chiffrés · ' + vTot + ' verdicts</span>'
               + '<button type="button" data-tb-fold="tb-cap-fold" style="background:none;border:none;font-family:inherit;font-size:10.5px;color:#9CA3AF;cursor:pointer;text-decoration:underline;text-underline-offset:2px;">comment lire</button></div>'
               + '<div id="tb-cap-fold" class="tb-fold">'
               + '<span style="font-weight:600;">Comment lire :</span> tout part de vos ' + depthMax + ' jours de ventes — ils donnent le CA habituel de chacune de vos journées. Chaque ligne ci-dessus est la médiane mesurée de l’écart à ce CA habituel, chez vous, au registre enjeu de l’app (jamais une moyenne de secteur). Les verdicts disent ce qui a marché quand vous avez agi. Plus l’historique grandit, plus ces chiffres — et vos prochaines opportunités — sont justes.'
               + '</div>';
-          }
+          })();
+          html += voletHead("sf", pc.proven ? GREEN : GREY, "Mes dispositifs", sfResume, "proc")
+            + '<div data-tb-body="sf" class="tb-rbody" id="tb-sf" style="display:none;">';
 
           var listPractices = (j.practices || []).filter(function (p) { return p.tier !== "archivee"; });
           _tbPractices = listPractices;
@@ -1153,7 +1151,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var diChips = '<span class="tb-chip" style="background:' + (pc.proven ? "#E6F6F0" : "#F3F4F6") + ';color:' + (pc.proven ? "#059669" : "#6b7280") + ';">' + pc.proven + " prouvé" + (pc.proven > 1 ? "s" : "") + '</span>'
             + (_nEnTest > 0 ? '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;margin-left:4px;cursor:help;"' + (replayEnd ? ' title="verdict ' + dowFr(replayEnd) + " " + frD(replayEnd) + '"' : "") + '>' + _nEnTest + " en test</span>" : "")
             + (_nEcarte ? '<span class="tb-chip" style="background:#FEF3E2;color:#B45309;margin-left:4px;cursor:help;" title="objectif manqué au dernier test — pas réutilisable tel quel — ajustez puis Prouver">' + _nEcarte + " écarté" + (_nEcarte > 1 ? "s" : "") + "</span>" : "");
-          html += '<div style="height:1px;background:rgba(0,0,0,0.08);margin:10px 0;"></div><p class="tb-eb" style="margin-bottom:4px;">Mes dispositifs</p>';
           // La phrase owner (17/08) : jugés selon leurs résultats — prouvé = réutilisable.
           (function () {
             var nP2 = listPractices.filter(function (px) { return px.tier === "prouvee"; }).length;
@@ -1212,6 +1209,18 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
 
 
           html += '</div>';
+
+          // ── Volet CONNAISSANCES CRÉÉES (owner 24/08 nuit : sa propre carte — le bloc était
+          //    « forcé » dans Mes dispositifs) : le mot acté du héros, mêmes chiffres. Ambre =
+          //    des €/j perdus sans dispositif (le geste M'engager attend), vert = motifs tenus.
+          (function () {
+            var lsC = j.learnings || [];
+            var ccUnc = lsC.some(function (r2) { return !(Number(r2.avg_gap_eur) > 0) && !r2.covered && !r2.in_test; });
+            var ccResume = lsC.length + " motif" + (lsC.length > 1 ? "s" : "") + " chiffré" + (lsC.length > 1 ? "s" : "")
+              + " · appris sur " + depthMax + " j de ventes";
+            html += voletHead("cc", lsC.length ? (ccUnc ? AMBER : GREEN) : GREY, "Connaissances créées", ccResume, "proc")
+              + '<div data-tb-body="cc" class="tb-rbody" style="display:none;">' + ccBody + '</div>';
+          })();
 
           // Équipe — chips : en cours, porteur, objectifs atteints, € du porteur.
           var eq = (j.equipe || []).map(function (p) { return p; });
@@ -1524,7 +1533,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           var _vComp = voletMeta.filter(function (v) { return v.groupe === "comp"; });
           var _vProc = voletMeta.filter(function (v) { return v.groupe === "proc"; });
           html += '<p class="tb-eb" style="margin:14px 2px 8px;">Processus métiers</p>'
-            + '<div class="tb-rbgrid">' + _vProc.map(rbCard).join('') + '</div>'
+            + '<div class="tb-rbgrid" style="grid-template-columns:repeat(2,1fr);">' + _vProc.map(rbCard).join('') + '</div>'
             + '<p class="tb-eb" style="margin:14px 2px 8px;">Mon environnement</p>'
             + '<div class="tb-rbgrid" style="grid-template-columns:repeat(2,1fr);">' + _vComp.map(rbCard).join('') + '</div>'
             + '<div id="tb-rpanel" class="tb-card" style="display:none;padding:14px 16px;"></div>';

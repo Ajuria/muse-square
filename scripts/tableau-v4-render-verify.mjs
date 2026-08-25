@@ -159,8 +159,8 @@ if ((g.trous || []).length) check("trou de veille nommé (Suivez X)", txt().inde
 if ((g.savoir || {}).evts_sans_objectif) check("Fixez un objectif à N événements → liste FILTRÉE (owner 18/08)", txt().indexOf("Fixez un objectif à " + g.savoir.evts_sans_objectif) >= 0
   && body.innerHTML.indexOf("/app/insightevent/evenement?filtre=sans_objectif") >= 0);
 check("règle CTA : au plus UN bouton plein", body.querySelectorAll(".tb-btnp").length <= 1, body.querySelectorAll(".tb-btnp").length + " plein(s)");
-check("grille des volets (24/08) : 7 cartes + panneau · Mon environnement APRÈS Processus métiers · Opportunités", (() => {
-  const ok7 = body.querySelectorAll(".tb-rb").length === 7 && !!doc.getElementById("tb-rpanel");
+check("grille des volets (24/08 nuit) : 8 cartes + panneau · Mon environnement APRÈS Processus métiers · Opportunités", (() => {
+  const ok7 = body.querySelectorAll(".tb-rb").length === 8 && !!doc.getElementById("tb-rpanel");
   const iProc = txt().indexOf("Processus métiers"), iEnv = txt().indexOf("Mon environnement");
   return ok7 && iProc >= 0 && iEnv > iProc && txt().indexOf("Opportunités") >= 0
     && txt().indexOf("Compétitivité") < 0 && txt().indexOf("Vos prochaines occasions") < 0
@@ -188,12 +188,15 @@ check("« à récupérer » SEULEMENT avec un € (registre)", !oc.next_hot ? tr
   : txt().indexOf("à récupérer") < 0 && txt().indexOf("pas encore chiffré") >= 0,
   "heat_range=" + JSON.stringify(oc.heat_range));
 
-// ── Savoir-faire : apprentissages + dispositifs fusionnés. ──
+// ── Scission 24/08 nuit (owner : « looks forced ») : Mes dispositifs ouvre sur SA liste ;
+// les apprentissages vivent dans LEUR carte « Connaissances créées » (mot acté du héros).
 body.querySelector('[data-tb-rb="sf"]').click(); await tick();
-check("apprentissages (voix maison € d'abord)", payload.learnings.length ? txt().indexOf("Ce que l’app a appris") >= 0 && (txt().indexOf("perdus les ") >= 0 || txt().indexOf("gagnés les ") >= 0) : true);
+const sfB = body.querySelector('[data-tb-body="sf"]'), ccB = body.querySelector('[data-tb-body="cc"]');
+check("Mes dispositifs ouvre DIRECTEMENT sur la liste jugée", sfB && sfB.textContent.indexOf("jugés selon leurs résultats") >= 0 && sfB.textContent.indexOf("Ce que l’app a appris") < 0);
+body.querySelector('[data-tb-rb="cc"]').click(); await tick();
+check("Connaissances créées = carte à part (voix maison € d'abord)", payload.learnings.length ? ccB && (ccB.textContent.indexOf("perdus les ") >= 0 || ccB.textContent.indexOf("gagnés les ") >= 0) && sfB.textContent.indexOf("perdus les ") < 0 : !!ccB);
 check("état par ligne (M'engager / joué / en test / à défendre)", payload.learnings.length ? (txt().indexOf("M’engager") >= 0 || txt().indexOf("couvert — dispositif en place") >= 0 || txt().indexOf("en test — verdict") >= 0 || txt().indexOf("à défendre") >= 0) : true);
-check("dispositifs dans le même volet", txt().indexOf("Mes dispositifs") >= 0 && txt().indexOf("prouvé") >= 0);
-check("provenance (types de jours chiffrés)", payload.learnings.length ? txt().indexOf("types de jours chiffrés") >= 0 : true);
+check("provenance (types de jours chiffrés) dans Connaissances créées", payload.learnings.length ? ccB && ccB.textContent.indexOf("types de jours chiffrés") >= 0 : true);
 
 // ── Ma couverture : veille + offres (absence DITE) + automatisations. ──
 body.querySelector('[data-tb-rb="co"]').click(); await tick();

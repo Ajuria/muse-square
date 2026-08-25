@@ -130,7 +130,7 @@ reste légitime sur le VOLET (tuile seule renommée).
 - « Voir → » vs « Lire → » : deux mots en prod pour « ouvrir une carte » — un seul doit rester.
 - Le mot du pont rangée santé ↔ rangée pilotage (« dont +1 166 € mesurés de vos opérations »).
 - « Déclarer vos marges » (pluriel, marge par famille produit) — paraphrase, pas un mot acté.
-- Alignement du volet « Ce que l'app a appris de vos sites » sur « Connaissances créées ».
+- ~~Alignement du volet « Ce que l'app a appris de vos sites » sur « Connaissances créées »~~ FAIT 25/08 : carte-volet « Connaissances créées » à part (Processus métiers), « Mes dispositifs » ouvre sur sa liste.
 - ~~contextCopy « animer la clientèle locale »~~ TRANCHÉ 24/08 : « cibler les résidents
   locaux » (les deux arbitrages du jour combinés — « cibler » owner + « résidents locaux »
   global ; si « clientèle locale » devait rester dans CETTE phrase, le dire).
