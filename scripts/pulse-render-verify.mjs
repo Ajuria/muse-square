@@ -343,5 +343,20 @@ check("« Choisir le site » déplie les rangées par site, chacune avec ses ges
   return ok && sub.style.display === "none";
 })());
 
+// ── Deux affirmations INTERDITES dans une chaîne visible (owner 25/08). ──
+// STOCK : nous n'avons aucune donnée de réserve — on ne connaît que ce qui s'est VENDU.
+// HEURE D'OUVERTURE / AMPLITUDE : le planning est encadré en France (délai de prévenance),
+// et les horaires déclarés ont été jugés non fiables le 22/08. Ce que l'exploitant maîtrise
+// à 2-3 jours : ses ACHATS, ne pas appeler d'extra, et ce qu'il FAIT FAIRE à l'équipe déjà
+// planifiée (mise en avant, place, prix, communication).
+check("aucune chaîne visible ne parle de STOCK ni d'heure d'ouverture", (() => {
+  const t2 = txt();
+  const bad = [];
+  if (/stock/i.test(t2)) bad.push("stock");
+  if (/ouverture à l’heure|ouverture à l'heure|amplitude horaire/i.test(t2)) bad.push("horaire");
+  if (bad.length) console.log("    " + JSON.stringify(bad));
+  return bad.length === 0;
+})());
+
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");
 process.exit(fails ? 1 : 0);

@@ -122,11 +122,11 @@
     [/adapter effectif, programme, s\u00e9curit\u00e9/g, 'adapter horaires, offre, s\u00e9curit\u00e9'],
     [/Adapter effectif/g, 'Adapter horaires et offre'],
     [/adapter effectif/g, 'adapter horaires et offre'],
-    [/Ajuster effectif/g, 'Ajuster horaires et communication'],
+    [/Ajuster effectif/g, 'Ajuster l\u2019offre et la communication'],
     [/r\u00e9duction effectif/g, 'report des publications'],
-    [/effectif, amplitude horaire, communication/g, 'amplitude horaire, offre, communication'],
-    [/effectif, horaires, publications/g, 'horaires, offre, publications'],
-    [/effectif, horaires, communication/g, 'horaires, offre, communication'],
+    [/effectif, amplitude horaire, communication/g, 'offre, mise en avant, communication'],
+    [/effectif, horaires, publications/g, 'offre, mise en avant, publications'],
+    [/effectif, horaires, communication/g, 'offre, mise en avant, communication'],
     [/effectif en caisse, fluidit\u00e9 du parcours et mise en avant produit/g, 'fluidit\u00e9 du parcours et mise en avant produit'],
     [/un effectif d[\u2019']accueil suffisant/g, 'un dispositif d\u2019accueil suffisant']
   ];
@@ -2062,7 +2062,7 @@
         var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
         var avg = a.avg_30d != null ? Math.round(Number(a.avg_30d)) : null;
         var gap = (avg != null && rev != null) ? Math.round(avg - rev) : null;
-        return 'Note interne ' + siteName(p) + '. Jour bien noté mais CA ' + (rev != null ? rev + ' €' : 'en retrait') + (gap != null ? ', écart ~' + gap + ' € vs moyenne 30j (' + avg + ' €)' : '') + '. Identifier la cause (effectif, amplitude horaire, communication) et définir une règle pour les prochains jours favorables.';
+        return 'Note interne ' + siteName(p) + '. Jour bien noté mais CA ' + (rev != null ? rev + ' €' : 'en retrait') + (gap != null ? ', écart ~' + gap + ' € vs moyenne 30j (' + avg + ' €)' : '') + '. Identifier la cause (offre, mise en avant, communication) et définir une règle pour les prochains jours favorables.';
       },
       email: function(a, p, d) {
         var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
@@ -2231,7 +2231,7 @@
     function(a) {
       return {
         context: msMoLine(a, 'spike'),
-        action: 'Action conseill\u00e9e : comprendre chaque gros compte du mois (commande unique ou nouveau rythme ?) — et vérifier le stock de ce qu’ils achètent : il ne doit pas manquer.'
+        action: 'Action conseill\u00e9e : comprendre chaque gros compte du mois (commande unique ou nouveau rythme ?) — et ce que vous devrez commander si le rythme se confirme.'
       };
     },
     {
@@ -2584,7 +2584,7 @@
     {
       note_interne: function(a, p, d) {
         var nom = a.item_category || 'une famille'; var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : null; var dir = a.direction || 'surge';
-        return 'Note interne ' + siteName(p) + '. ' + nom + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Famille qui a sous-perform\u00e9 \u2014 v\u00e9rifier stock et mise en avant.' : 'Famille qui a surperform\u00e9 \u2014 mise en avant, stock v\u00e9rifi\u00e9.');
+        return 'Note interne ' + siteName(p) + '. ' + nom + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Famille qui a sous-perform\u00e9 \u2014 revoir mise en avant et prix.' : 'Famille qui a surperform\u00e9 \u2014 garder en avant ce qui a port\u00e9 la hausse.');
       }
     }
   );
@@ -2626,7 +2626,7 @@
     {
       note_interne: function(a, p, d) {
         var nom = a.item_description || 'un produit'; var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : null; var dir = a.direction || 'surge';
-        return 'Note interne ' + siteName(p) + '. ' + nom + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Produit qui a sous-perform\u00e9 \u2014 v\u00e9rifier stock et place en rayon.' : 'Produit qui a surperform\u00e9 \u2014 mise en avant, stock v\u00e9rifi\u00e9.');
+        return 'Note interne ' + siteName(p) + '. ' + nom + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Produit qui a sous-perform\u00e9 \u2014 revoir sa place et son prix.' : 'Produit qui a surperform\u00e9 \u2014 le garder en premi\u00e8re place.');
       }
     }
   );
@@ -2700,7 +2700,7 @@
         var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'une heure';
         var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : null;
         var dir = a.direction || 'surge';
-        return 'Note interne ' + siteName(p) + '. ' + hr + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Cr\u00e9neau qui a sous-perform\u00e9 \u2014 v\u00e9rifier ouverture, caisse, mise en place.' : 'Cr\u00e9neau qui a surperform\u00e9 \u2014 offres cal\u00e9es dessus, stock v\u00e9rifi\u00e9.');
+        return 'Note interne ' + siteName(p) + '. ' + hr + (dlt != null ? ' : ' + (dlt >= 0 ? '+' : '\u2212') + frInt(Math.abs(dlt)) + ' \u20ac vs votre r\u00e9sultat habituel' : '') + '. ' + (dir === 'collapse' ? 'Cr\u00e9neau qui a sous-perform\u00e9 \u2014 revoir la mise en place.' : 'Cr\u00e9neau qui a surperform\u00e9 \u2014 offres cal\u00e9es dessus.');
       }
     }
   );
@@ -3543,14 +3543,14 @@
       // morte ; rétrogradée en information sous réserve de régime.
       if (a && a.regime_mismatch_flag === true) return '';
       return (a.direction || 'surge') === 'collapse'
-        ? 'Action conseill\u00e9e : vérifiez stock, visibilité et prix avant que ça s\'installe.'
-        : 'Action conseill\u00e9e : vérifiez le stock de ses produits à forte marge — ceux qui ont porté la hausse ne doivent pas manquer.';
+        ? 'Action conseill\u00e9e : revoyez sa visibilité et son prix avant que ça s\'installe.'
+        : 'Action conseill\u00e9e : gardez en avant ce qui a porté la hausse sur cette famille.';
     }, urgency: 'soon' },
     'item_share_move': { action: function(a, p, d) {
       if (a && a.regime_mismatch_flag === true) return '';
       return (a.direction || 'surge') === 'collapse'
-        ? 'Action conseill\u00e9e : vérifiez son stock et sa place en rayon avant l\'ouverture suivante.'
-        : 'Action conseill\u00e9e : à l\'ouverture suivante, mettez-le en avant — première place, visible de l\'entrée — et vérifiez son stock : il ne doit pas manquer.';
+        ? 'Action conseill\u00e9e : revoyez sa place et son prix.'
+        : 'Action conseill\u00e9e : mettez-le en avant — première place, visible de l\'entrée.';
     }, urgency: 'soon' },
     'hour_share_move': { action: function(a, p, d) {
       // Réserve de régime (25/08) : rétrogradée en information — pas de geste sur un signal
@@ -3560,14 +3560,14 @@
       // LE GESTE SUIT LE MOTEUR MESURÉ (owner 25/08, levier 1), plus seulement le sens.
       var moteur = hourFunnelDriver(a);
       if (dir === 'collapse') {
-        if (moteur === 'ventes') return 'Action conseill\u00e9e : il est venu moins de monde sur ce cr\u00e9neau \u2014 v\u00e9rifiez l\u2019ouverture \u00e0 l\u2019heure, la caisse et la mise en place avant demain.';
-        if (moteur === 'panier') return 'Action conseill\u00e9e : le passage \u00e9tait l\u00e0, c\u2019est le panier qui a baiss\u00e9 \u2014 v\u00e9rifiez le stock et la visibilit\u00e9 de vos produits \u00e0 forte marge sur ce cr\u00e9neau.';
-        return 'Action conseill\u00e9e : v\u00e9rifiez ce qui s\u2019est pass\u00e9 sur ce cr\u00e9neau \u2014 ouverture, caisse, mise en place \u2014 avant demain.';
+        if (moteur === 'ventes') return 'Action conseill\u00e9e : il est venu moins de monde sur ce cr\u00e9neau \u2014 ce n\u2019est pas votre offre qui a manqu\u00e9 : ajustez ce que vous pr\u00e9parez pour cette heure-l\u00e0.';
+        if (moteur === 'panier') return 'Action conseill\u00e9e : le passage \u00e9tait l\u00e0, c\u2019est le panier qui a baiss\u00e9 \u2014 remettez en avant ce qui se vend cher sur ce cr\u00e9neau.';
+        return 'Action conseill\u00e9e : notez ce qui se passait chez vous sur ce cr\u00e9neau \u2014 c\u2019est ce qui dira si \u00e7a se reproduit.';
       }
-      if (moteur === 'ventes') return 'Action conseill\u00e9e : le flux \u00e9tait l\u00e0 \u2014 assurez le stock et l\u2019ouverture \u00e0 l\u2019heure sur ce cr\u00e9neau pour ne pas le perdre la prochaine fois.';
-      if (moteur === 'panier') return 'Action conseill\u00e9e : c\u2019est le panier qui a port\u00e9 la hausse \u2014 remettez en avant ce qui se vend cher sur ce cr\u00e9neau et calez vos offres group\u00e9es dessus.';
-      if (moteur === 'les deux') return 'Action conseill\u00e9e : passage ET panier ont mont\u00e9 \u2014 tenez le stock et l\u2019ouverture \u00e0 l\u2019heure, et gardez en avant ce qui se vend cher sur ce cr\u00e9neau.';
-      return 'Action conseill\u00e9e : calez vos offres group\u00e9es sur ce cr\u00e9neau et v\u00e9rifiez le stock avant l\u2019ouverture.';
+      if (moteur === 'ventes') return 'Action conseill\u00e9e : le flux \u00e9tait l\u00e0 \u2014 reconduisez la m\u00eame mise en avant sur ce cr\u00e9neau et calez vos achats dessus.';
+      if (moteur === 'panier') return 'Action conseill\u00e9e : c\u2019est le panier qui a port\u00e9 la hausse \u2014 gardez en avant ce qui se vend cher sur ce cr\u00e9neau.';
+      if (moteur === 'les deux') return 'Action conseill\u00e9e : passage ET panier ont mont\u00e9 \u2014 reconduisez la mise en avant de ce cr\u00e9neau et calez vos achats dessus.';
+      return 'Action conseill\u00e9e : calez vos offres group\u00e9es sur ce cr\u00e9neau.';
     }, urgency: 'soon' }
   };
 
