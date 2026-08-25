@@ -3680,8 +3680,13 @@ if (!location_id) {
         // seul chiffre — le même mensonge que celui écarté sur les chantiers ce matin.
         var _amtEl = c.querySelector('.ab-eur .amt');
         var _sens = _amtEl ? (_amtEl.className.indexOf('gain') >= 0 ? '+' : _amtEl.className.indexOf('defend') >= 0 ? '-' : '?') : '0';
+        // La DATE entre dans la clé : deux cartes du même type sur des jours DIFFÉRENTS sont
+        // deux faits distincts, jamais un doublon. Sans elle, un site seul qui reçoit deux
+        // alertes le même motif à deux dates n'en verrait qu'une — cas non rencontré sur le
+        // parc au 25/08, mais latent et invisible le jour où il arrive.
+        var _dte = ((c.querySelector('.ab-eur .ab-meta') || {}).textContent || '').match(/\d{2}\/\d{2}/);
         var k = (c.getAttribute('data-t-type') || '') + '|' + ((c.querySelector('.ab-what') || {}).textContent || '').trim()
-              + '|' + _sens;
+              + '|' + _sens + '|' + (_dte ? _dte[0] : '');
         if (!vus[k]) { vus[k] = { chef: c, sites: [c.getAttribute('data-t-site') || ''] }; return; }
         vus[k].sites.push(c.getAttribute('data-t-site') || '');
         c.setAttribute('data-t-dup', '1');
