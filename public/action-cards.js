@@ -695,16 +695,13 @@
       var weather = d.weather_label_fr || '';
       var t = temp(d.temperature_2m_max);
       var wind = Number(d.wind_speed_10m_max || 0);
-      var impactRaw = Number(d.impact_weather_pct || 0);
+            // Gabarit owner 25/08 (lot 1 copie) : UNE phrase — durée + faits du jour fusionnés,
+      // chaque fait UNE fois à son étage (l'état du site vit dans la ligne d'action).
       // « consécutifs » commence à 2 (owner 15/08) — 1 jour = météo dégradée, sans compteur.
-      var line = (Number(days) >= 2 ? days + ' jours cons\u00e9cutifs de mauvais temps. ' : 'M\u00e9t\u00e9o d\u00e9grad\u00e9e aujourd\u2019hui. ') + weather;
+      var line = (Number(days) >= 2 ? 'M\u00e9t\u00e9o d\u00e9grad\u00e9e sur ' + days + ' jours \u2014 aujourd\u2019hui : ' : 'M\u00e9t\u00e9o d\u00e9grad\u00e9e aujourd\u2019hui : ') + weather.toLowerCase();
       if (t) line += ', ' + t;
       if (wind > 0) line += ', vent ' + Math.round(wind) + ' km/h';
       line += '.';
-      if (impactRaw !== 0) line += ' Impact fr\u00e9quentation estim\u00e9 : ' + Math.round(impactRaw) + '%.';
-      if (weatherSens(p)) line += ' Site sensible m\u00e9t\u00e9o (' + p.weather_sensitivity + '/5) \u2014 impact renforc\u00e9.';
-      if (isOutdoor(p)) line += ' Espace ext\u00e9rieur impact\u00e9 \u2014 communiquez sur votre offre int\u00e9rieure.';
-      else line += ' Site couvert \u2014 positionnez-vous comme refuge.';
       return line;
     },
     {
@@ -2546,7 +2543,6 @@
       // expected_hour_revenue (part typique de l'heure ce jour de semaine x attendu du jour par le
       // moteur), delta_eur, day_gap_eur. Forme = celle de la carte jour approuvée (« CA 1169 € —
       // journée en retrait, sous votre vendredi habituel : -763 € (1932 €) »).
-      var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'Une heure';
       var rev = a.hour_revenue != null ? Math.round(Number(a.hour_revenue)) : null;
       var exp = a.expected_hour_revenue != null ? Math.round(Number(a.expected_hour_revenue)) : null;
       var dlt = a.delta_eur != null ? Math.round(Number(a.delta_eur)) : (rev != null && exp != null ? rev - exp : null);
@@ -2555,18 +2551,21 @@
       // Lexique, ligne 24 : la référence = « votre résultat habituel », forme jour « votre jeudi habituel ».
       var dow = (function (iso) { var x = new Date(String(iso || '') + 'T00:00:00Z'); var D = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi']; return isNaN(x.getTime()) ? 'r\u00e9sultat' : D[x.getUTCDay()]; })(a.affected_date || a.date);
       var sEur = function (n) { return (n >= 0 ? '+' : '\u2212') + frInt(Math.abs(n)) + ' \u20ac'; };
-      var line = 'Le cr\u00e9neau de ' + hr + ' a fait ' + (rev != null ? frInt(rev) + ' \u20ac' : 'un montant inhabituel');
-      if (exp != null) line += ' contre ' + frInt(exp) + ' \u20ac votre ' + dow + ' habituel \u00e0 cette heure';
-      if (dlt != null) line += ' (' + sEur(dlt) + ')';
-      if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
-      line += '.';
-      line += dir === 'collapse' ? ' Le cr\u00e9neau a sous-perform\u00e9' : ' Le cr\u00e9neau a surperform\u00e9';
-      // 24/08 — recit nature 2 : « — 3e jeudi en retrait sur ce creneau depuis le 26/06 »
-      // (n_occurrences_60d = meme creneau x meme jour de semaine x meme direction, 60 j).
+      // 24/08 récit nature 2 + 25/08 lot 1 : la récurrence OUVRE la phrase, le delta se dit
+      // en %, le créneau ne se répète pas (le titre le nomme, fin comprise).
       var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
+      var pct = (dlt != null && exp != null && exp > 0) ? Math.round(dlt / exp * 100) : null;
+      var line = '';
+      var sujet = 'ce cr\u00e9neau';
       if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
-        line += ' \u2014 ' + nOcc + 'e ' + dow + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur ce cr\u00e9neau depuis' + frDateFr(a.first_occurrence_date);
+        line += nOcc + 'e ' + dow + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur ce cr\u00e9neau depuis' + frDateFr(a.first_occurrence_date) + '. ';
+        sujet = 'il';
       }
+      line += 'Ce ' + dow + ', ' + sujet + ' a fait ' + (rev != null ? frInt(rev) + ' \u20ac' : 'un montant inhabituel');
+      if (pct != null) line += ' (' + (pct >= 0 ? '+' : '\u2212') + Math.abs(pct) + ' %)';
+      else if (dlt != null) line += ' (' + sEur(dlt) + ')';
+      if (exp != null) line += ' contre ' + frInt(exp) + ' \u20ac votre ' + dow + ' habituel \u00e0 cette heure';
+      if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
       return line;
     },
@@ -2782,8 +2781,15 @@
         // des parts). Même forme que les cartes ventes « CA inférieur / supérieur ».
         else if (actionType === 'hour_share_move' || actionType === 'item_share_move' || actionType === 'offering_mix_shift') {
           var _fd = feedItem.direction || (Number(feedItem.delta_eur || 0) < 0 ? 'collapse' : 'surge');
-          var _fn = actionType === 'hour_share_move' ? ['Cr\u00e9neau', ''] : actionType === 'item_share_move' ? ['Produit', ''] : ['Famille', 'e'];
-          whatText = _fn[0] + ' ' + (_fd === 'collapse' ? 'sous-performant' : 'surperformant') + _fn[1];
+          // Lot 1 copie (owner 25/08) : le titre porte le FAIT sp\u00e9cifique — le cr\u00e9neau nomm\u00e9
+          // avec sa fin (grain heure pleine du mart \u2192 h\u2013h+1), ce qui lib\u00e8re le corps.
+          if (actionType === 'hour_share_move' && feedItem.transaction_hour != null) {
+            var _hh = Number(feedItem.transaction_hour);
+            whatText = 'Le cr\u00e9neau ' + _hh + ' h\u2013' + (_hh + 1) + ' h ' + (_fd === 'collapse' ? 'sous-performe' : 'surperforme');
+          } else {
+            var _fn = actionType === 'hour_share_move' ? ['Cr\u00e9neau', ''] : actionType === 'item_share_move' ? ['Produit', ''] : ['Famille', 'e'];
+            whatText = _fn[0] + ' ' + (_fd === 'collapse' ? 'sous-performant' : 'surperformant') + _fn[1];
+          }
         }
       } else {
         sowhatText = actionType + ' \u2014 type non reconnu.';
@@ -3117,15 +3123,15 @@
     'extended_bad_weather': { action: function(a, p, d) {
       var lvl = a.alert_level != null ? Number(a.alert_level) : null;
       var sens = a.site_sensitivity != null ? Number(a.site_sensitivity) : null;
-      var s = 'À adapter : météo dégradée sur au moins 2 jours';
-      if (lvl != null) s += ' — ' + hazardPhrase(d) + ' (niveau ' + lvl + ')';
-      s += '. ';
-      if (sens != null && sens >= 3) s += 'Site sensible à la météo : repliez en intérieur si vous avez un espace couvert, sinon réduisez l\'effectif d\'accueil extérieur.';
-      else s += 'Préparez une alternative couverte et réduisez l\'effectif extérieur sur ces jours.';
+      // Lot 1 copie (owner 25/08) : « Action conseillée : » + le geste seul — plus jamais
+      // la re-description du signal (durée/aléa/niveau vivent dans le corps de la carte).
+      var s = 'Action conseillée : ';
+      if (sens != null && sens >= 3) s += 'repliez en intérieur si vous avez un espace couvert, sinon réduisez l\'effectif d\'accueil extérieur.';
+      else s += 'préparez une alternative couverte et réduisez l\'effectif extérieur sur ces jours.';
       return s;
     }, urgency: 'now' },
     'weather_hazard_onset': { action: function(a, p, d) {
-      return 'À adapter : apparition d\'un risque météo. Sécurisez vos installations extérieures et prévenez votre équipe des mesures à prendre.';
+      return 'Action conseillée : sécurisez vos installations extérieures et prévenez votre équipe des mesures à prendre.';
     }, urgency: 'now' },
     'calendar_audience_shift': { action: function(a, p, d) {
       return 'À réorienter : changement de profil d\'audience attendu. Adaptez votre message et votre offre au public du jour plutôt qu\'à votre cible habituelle.';
@@ -3369,11 +3375,10 @@
         : 'À exploiter : ' + cat + ' a surperformé' + quand + '. À l\'ouverture suivante, mettez-le en avant — première place, visible de l\'entrée — et vérifiez son stock : il ne doit pas manquer.';
     }, urgency: 'soon' },
     'hour_share_move': { action: function(a, p, d) {
-      var hr = a.transaction_hour != null ? Number(a.transaction_hour) + 'h' : 'cette heure';
       var dir = a.direction || 'surge';
       return dir === 'collapse'
-        ? '\u00c0 faire : le cr\u00e9neau de ' + hr + ' a sous-perform\u00e9' + frDateFr(a.affected_date || a.date) + '. V\u00e9rifiez ce qui s\u2019y est pass\u00e9 \u2014 ouverture, caisse, mise en place \u2014 avant demain.'
-        : '\u00c0 exploiter : le cr\u00e9neau de ' + hr + ' a surperform\u00e9' + frDateFr(a.affected_date || a.date) + '. Calez-y vos offres, et v\u00e9rifiez le stock avant l\u2019ouverture.';
+        ? 'Action conseill\u00e9e : v\u00e9rifiez ce qui s\u2019est pass\u00e9 sur ce cr\u00e9neau \u2014 ouverture, caisse, mise en place \u2014 avant demain.'
+        : 'Action conseill\u00e9e : montez des bundles et des offres autour de vos produits les plus performants pour augmenter le panier moyen sur ce cr\u00e9neau \u2014 calez-les et v\u00e9rifiez le stock avant l\u2019ouverture.';
     }, urgency: 'soon' }
   };
 
