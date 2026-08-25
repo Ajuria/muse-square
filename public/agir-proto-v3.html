@@ -85,7 +85,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="banner"><strong style="font-weight:600;">Maquette FIL AGIR v3</strong> — grammaire v2 validée + 2 propositions du 25/08 : <strong style="font-weight:600;">(A)</strong> bandeau de FAITS 7 jours (données réelles du <span id="pb-date"></span> — le score meurt) · <strong style="font-weight:600;">(B)</strong> médaillon = la famille (teinte + glyphe ; la couleur des CHIFFRES reste la direction). Corps réels (vrai <code>action-cards.js</code>). Palette famille = CANDIDATE, à arbitrer.</div>
+  <div class="banner"><strong style="font-weight:600;">Maquette FIL AGIR v3.1</strong> — grammaire v2 validée + propositions du 25/08 (+ owner : filtre par site, pied à DEUX gestes — « Communiquer » part vivre sur la page Consulter ; « Écarter » → « Pas pour moi », chaîne déjà en prod) : <strong style="font-weight:600;">(A)</strong> bandeau de FAITS 7 jours (données réelles du <span id="pb-date"></span> — le score meurt) · <strong style="font-weight:600;">(B)</strong> médaillon = la famille (teinte + glyphe ; la couleur des CHIFFRES reste la direction). Corps réels (vrai <code>action-cards.js</code>). Palette famille = CANDIDATE, à arbitrer.</div>
   <div id="root"></div>
 </div>
 
@@ -94,6 +94,7 @@
 (function () {
   var D = window.AGIR_PROTO_V3;
   var root = document.getElementById("root");
+  var siteFilter = "";   // "" = Tous les sites
   if (!D || !D.cards) { root.innerHTML = '<div style="padding:30px;color:#B45309;font-size:14px;">Données introuvables — rechargez avec Cmd+Shift+R (cache).</div>'; return; }
   document.getElementById("pb-date").textContent = D.today.slice(8, 10) + "/" + D.today.slice(5, 7);
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
@@ -142,7 +143,7 @@
     var runs = [];
     [["vacation_name", "#F6EED9", "#92671E"], ["mega", "#FEF3E2", "#B45309"]].forEach(function (spec) {
       var key = spec[0], byName = {};
-      (D.days || []).forEach(function (d) {
+      daysFor().forEach(function (d) {
         var v = d[key]; if (!v) return;
         var nom = v === true ? "méga-événement" : String(v);
         (byName[nom] = byName[nom] || []).push(d.date);
@@ -153,23 +154,40 @@
     });
     return runs;
   }
+  function daysFor() {
+    if (siteFilter && D.days_by_site && D.days_by_site[siteFilter]) return D.days_by_site[siteFilter];
+    return D.days || [];
+  }
   function nav7() {
     var runs = periodRuns();
     var covered = {};
     runs.forEach(function (r) { r.covers.forEach(function (d2) { covered[r.nom + "|" + d2] = 1; }); });
     var h = '<div class="nav7"><p class="nav7-title">7 jours à venir · choisissez un jour</p><div class="nav7-grid">';
-    (D.days || []).forEach(function (d, i) {
+    var allSites = !siteFilter && D.days_by_site;
+    daysFor().forEach(function (d, i) {
       var dt = new Date(d.date + "T12:00:00Z");
       var lbl = i === 0 ? "Auj." : DOW[dt.getUTCDay()] + " " + dt.getUTCDate();
       var facts = "";
-      // Météo : le libellé FR du payload + t° max ; ambre si niveau d'alerte.
-      if (d.weather_label_fr) facts += '<span class="n7wx' + (wxWarn(d) ? " warn" : "") + '">' + G.weather + esc(d.weather_label_fr) + '</span>';
-      if (d.t_max != null) facts += '<span class="n7t">' + Math.round(d.t_max) + '°' + (d.precip_pct != null && d.precip_pct >= 40 ? ' · pluie ' + Math.round(d.precip_pct) + ' %' : '') + '</span>';
+      // Vue TOUS LES SITES : jamais la météo d'UN site donnée pour celle du compte —
+      // seuls les faits partagés (calendrier) + les ALERTES, taguées de LEUR site.
+      if (allSites) {
+        var seen2 = {};
+        (D.sites || []).forEach(function (s2) {
+          var ds = (D.days_by_site[s2.location_id] || [])[i]; if (!ds) return;
+          var tag = s2.label === "Muse Square" ? "Muse Square" : s2.label.replace("Muse Square ", "");
+          if (wxWarn(ds)) { var wlbl = ds.weather_alert_fr || ds.weather_label_fr; if (wlbl) { var k2 = wlbl + "|" + tag; if (!seen2[k2]) { seen2[k2] = 1; facts += '<span class="n7wx warn">' + G.weather + esc(wlbl) + '</span><span class="n7t">' + esc(tag) + '</span>'; } } }
+          if (ds.mobility_pct != null && ds.mobility_pct <= -4) facts += '<span class="n7chip" style="background:#EDE9FE;color:#6D28D9;font-weight:650;">transports ' + String(Math.round(ds.mobility_pct)).replace("-", "\u2212") + ' % · ' + esc(tag) + '</span>';
+        });
+      } else {
+        // Météo : le libellé FR du payload + t° max ; ambre si niveau d'alerte.
+        if (d.weather_label_fr) facts += '<span class="n7wx' + (wxWarn(d) ? " warn" : "") + '">' + G.weather + esc(d.weather_label_fr) + '</span>';
+        if (d.t_max != null) facts += '<span class="n7t">' + Math.round(d.t_max) + '°' + (d.precip_pct != null && d.precip_pct >= 40 ? ' · pluie ' + Math.round(d.precip_pct) + ' %' : '') + '</span>';
+      }
       // Férié NOMMÉ (jour unique) ; vacances/méga de période vivent dans la ligne du bas.
       if (d.holiday_name) facts += '<span class="n7chip" style="background:#F6EED9;color:#92671E;font-weight:650;">' + esc(d.holiday_name) + '</span>';
       else if (d.vacation_name && !covered[String(d.vacation_name) + "|" + d.date]) facts += '<span class="n7chip" style="background:#F6EED9;color:#92671E;">' + esc(d.vacation_name) + '</span>';
       // Transports : seulement si le seuil métier existant est franchi (−4 %).
-      if (d.mobility_pct != null && d.mobility_pct <= -4) facts += '<span class="n7chip" style="background:#EDE9FE;color:#6D28D9;font-weight:650;">transports ' + String(Math.round(d.mobility_pct)).replace("-", "−") + ' %</span>';
+      if (!allSites && d.mobility_pct != null && d.mobility_pct <= -4) facts += '<span class="n7chip" style="background:#EDE9FE;color:#6D28D9;font-weight:650;">transports ' + String(Math.round(d.mobility_pct)).replace("-", "−") + ' %</span>';
       if (d.mega && !covered[(d.mega === true ? "méga-événement" : String(d.mega)) + "|" + d.date]) facts += '<span class="n7chip" style="background:#FEF3E2;color:#B45309;font-weight:650;">' + esc(d.mega === true ? "méga-événement" : trunc(String(d.mega), 16)) + '</span>';
       if (!facts) facts = '<span class="n7calm">—</span>';
       h += '<button type="button" class="n7col' + (i === 0 ? " is-sel" : "") + '" title="' + esc(d.top_risk_sentence || "") + '">'
@@ -177,7 +195,7 @@
     });
     h += '</div>';
     if (runs.length) {
-      var lastDay = (D.days || [])[(D.days || []).length - 1] || {};
+      var lastDay = daysFor()[daysFor().length - 1] || {};
       h += '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:9px 4px 0;font-size:11.5px;color:#374151;">'
         + runs.map(function (r) {
             var dtf = new Date(r.fin + "T12:00:00Z");
@@ -190,8 +208,14 @@
   }
 
   var MEASURABLE = /weather|bad_weather|competition_proximity|low_competition|same_bucket|ft_peak|sales/;
+  function segBtn(val, label, on) {
+    return '<button type="button" data-ap-site="' + esc(val) + '" style="font-family:inherit;border:none;cursor:pointer;font-size:12px;border-radius:7px;padding:5px 12px;'
+      + (on ? 'font-weight:600;color:#111827;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,0.08);' : 'color:#6b7280;background:none;') + '">' + esc(label) + '</button>';
+  }
+  function renderAll() {
   var seen = {}, main = [], also = [];
   (D.cards || []).forEach(function (c) {
+    if (siteFilter && c.location_id !== siteFilter) return;
     var k = c.action_type + "|" + (c.what || "");
     if (seen[k]) return; seen[k] = 1;
     if (c.enjeu && c.enjeu.eur_year != null) { c._prio = Math.abs(c.enjeu.eur_year); main.push(c); }
@@ -223,21 +247,28 @@
       + '<div>' + med(fam, urgent) + '</div>'
       + '<div style="min-width:0;">'
       + '<div class="fmeta"><a href="#" class="ftitle" title="Consulter la source">' + esc(c.what || c.action_type) + '</a>'
-      + '<span style="flex:1;"></span>' + (c.date && c.date !== D.today ? '<span class="chip">' + frD(c.date) + '</span>' : "") + '</div>'
+      + '<span style="flex:1;"></span>'
+      + (!siteFilter && c.site ? '<span class="chip">' + esc(c.site) + '</span>' : "")
+      + (c.date && c.date !== D.today ? '<span class="chip">' + frD(c.date) + '</span>' : "") + '</div>'
       + (!compact && body ? '<div class="fbody">' + esc(body) + '</div>' : "")
       + (!compact && source ? '<div class="fsrc">' + esc(source) + '</div>' : "")
       + '</div>'
       + '<div class="eur">' + eurCol(c) + '</div>'
-      + '<div class="foot"><div class="facts"><button type="button" class="sec" style="color:#B9BEC6;">Écarter</button><button type="button" class="sec">Communiquer</button><button type="button" class="pri">' + (c.needs_catchment ? "Répondre" : "M’engager") + '</button></div></div>'
+      + '<div class="foot"><div class="facts"><button type="button" class="sec">Pas pour moi</button><button type="button" class="pri">' + (c.needs_catchment ? "Répondre" : "M’engager") + '</button></div></div>'
       + '</div>';
   }
 
-  var today0 = D.days && D.days[0] ? D.days[0] : {};
-  var html = nav7()
+  var today0 = daysFor()[0] || {};
+  var html = '<div style="display:flex;align-items:center;gap:10px;margin:0 2px 12px;">'
+    + '<span style="display:inline-flex;background:#F3F4F6;border-radius:9px;padding:3px;">'
+    + segBtn("", "Tous les sites", !siteFilter)
+    + (D.sites || []).map(function (s2) { return segBtn(s2.location_id, s2.label || "", siteFilter === s2.location_id); }).join("")
+    + '</span></div>'
+    + nav7()
     + '<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px;">'
     + '<span style="font-size:20px;font-weight:650;">Vos cartes du jour</span>'
     + '<span style="font-size:12.5px;color:#6B7280;">' + DOW[new Date(D.today + "T12:00:00Z").getUTCDay()].toLowerCase() + ' ' + frD(D.today)
-    + (today0.weather_label_fr ? ' · <span style="' + (wxWarn(today0) ? 'color:#B45309;font-weight:600;' : '') + '">' + esc(today0.weather_label_fr.toLowerCase()) + '</span>' : '') + '</span>'
+    + (siteFilter && today0.weather_label_fr ? ' · <span style="' + (wxWarn(today0) ? 'color:#B45309;font-weight:600;' : '') + '">' + esc(today0.weather_label_fr.toLowerCase()) + '</span>' : '') + '</span>'
     + '<span style="flex:1;"></span>'
     + '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:10px;padding:6px 10px;cursor:pointer;">Objectif de la semaine ▾</span>'
     + '<a href="#" style="color:#1D3BB3;font-weight:600;text-decoration:none;font-size:12.5px;">Piloter →</a></div>'
@@ -266,7 +297,7 @@
       + '<div class="foot"><div class="disp">Action menée ?'
       + ' <button type="button" class="chip" style="cursor:pointer;background:#fff;border:1px solid #E5E7EB;">Oui</button>'
       + ' <button type="button" class="chip" style="cursor:pointer;background:#fff;border:1px solid #E5E7EB;">Pas encore</button></div>'
-      + '<div class="facts"><button type="button" class="sec">Communiquer</button><button type="button" class="pri">Documenter</button></div></div>'
+      + '<div class="facts"><button type="button" class="pri">Documenter</button></div></div>'
       + '</div>'
     + '<div class="frow mine">'
       + '<div><div class="med" style="background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div></div>'
@@ -278,7 +309,7 @@
       + '<div class="fsrc">objectif famille Branded +11 %</div>'
       + '</div>'
       + '<div class="eur"><span class="pending">objectif +11 %<br>verdict sam soir</span></div>'
-      + '<div class="foot"><div class="facts"><button type="button" class="sec">Communiquer</button><button type="button" class="pri">Ajuster</button></div></div>'
+      + '<div class="foot"><div class="facts"><button type="button" class="pri">Ajuster</button></div></div>'
       + '</div>'
     + '</div>'
     + '<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;"><span style="font-size:12px;font-weight:650;letter-spacing:0.07em;text-transform:uppercase;color:rgba(17,24,39,0.60);">Actions du jour</span><span style="font-size:11px;color:#9CA3AF;" id="ap-count"></span></div>'
@@ -294,10 +325,13 @@
     + '<div class="legend">Familles (palette candidate) : '
     + Object.keys(FAM).map(function (k) { return '<span class="l"><span class="d" style="background:' + FAM[k].bg + ';box-shadow:inset 0 0 0 1.5px ' + FAM[k].ink + ';"></span>' + FAM[k].label + '</span>'; }).join("")
     + '</div>';
-  var cnt = document.getElementById ? null : null;
   root.innerHTML = html;
   var ap = document.getElementById("ap-count");
   if (ap) ap.textContent = String(main.length + also.length);
+  // Segments SITE : le fil ET le bandeau suivent le site choisi.
+  Array.prototype.forEach.call(document.querySelectorAll("[data-ap-site]"), function (b) {
+    b.addEventListener("click", function () { siteFilter = b.getAttribute("data-ap-site") || ""; renderAll(); });
+  });
   // Clic-jour : sélection visuelle seule (au build : recharge le fil du jour — mécanique conservée).
   Array.prototype.forEach.call(document.querySelectorAll(".n7col"), function (b) {
     b.addEventListener("click", function () {
@@ -305,6 +339,8 @@
       b.classList.add("is-sel");
     });
   });
+  }
+  renderAll();
 })();
 </script>
 </body>

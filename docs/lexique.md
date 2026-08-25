@@ -121,6 +121,12 @@ reste légitime sur le VOLET (tuile seule renommée).
 - « **produits** » vs « **famille** » : l'owner a écrit « CA produits « Branded » » — renommage
   GLOBAL du mot arbitré « famille » (prod : « CA famille » jusque dans les KPI) à confirmer.
 - « palier » (crans de la jauge Signaux traités) — retirés en attendant LE mot.
+- **Pied des rangées Agir à DEUX gestes (owner 25/08, maquette v3.1)** : « Communiquer » quitte
+  les rangées du fil (il vit sur la page Consulter) — INVERSION de l'arbitrage antérieur
+  (« Communiquer associé à M'engager sur Agir ») ; « Écarter » remplacé par « **Pas pour moi** »
+  (chaîne DÉJÀ en prod sur cette surface, même action `ecarte`). À ratifier au build.
+- « **transports** » (marqueur mobilité du bandeau de faits, « transports −5 % ») — mot proposé
+  sur la maquette v3, pas encore arbitré.
 - **Les paliers « menace faible · modérée · forte · critique »** (competitor.astro `MEN_FR`,
   insight.astro « Niveau de menace », protos agir) : même verdict owner que sur le tableau
   (25/08, « dramatique pour le secteur ») mais c'est l'échelle du mart threat_profile — il
