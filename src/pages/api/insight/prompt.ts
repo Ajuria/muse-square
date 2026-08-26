@@ -5570,6 +5570,10 @@ Règles :
             longDescription
           FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
           WHERE
+            -- P1 (27/08) : les lignes competitor_event portent un location_id REEL — le
+            -- fallback global ne doit jamais servir l'evenement d'un suivi d'un AUTRE compte.
+            (location_id IS NULL OR location_id = @location_id)
+            AND (
             LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
             OR LOWER(
               REGEXP_REPLACE(
@@ -5583,6 +5587,7 @@ Règles :
             OR (
               @q_token1 != '' AND LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(event_name, r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o')) LIKE CONCAT('%', @q_token1, '%')
               AND (@q_token2 = '' OR LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(event_name, r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o')) LIKE CONCAT('%', @q_token2, '%'))
+            )
             )
           ORDER BY
             CASE scope_type
@@ -5612,11 +5617,11 @@ Règles :
 
         const rows_global = await bqAll(
           lookupSqlFallback,
-          bqParams({ q_entity, q_token1, q_token2 })
+          bqParams({ q_entity, q_token1, q_token2, location_id })
         );
 
         const rows_accented = q_lookup_accented !== q_entity
-          ? await bqAll(lookupSqlFallback, bqParams({ q_entity: q_lookup_accented, q_token1, q_token2 }))
+          ? await bqAll(lookupSqlFallback, bqParams({ q_entity: q_lookup_accented, q_token1, q_token2, location_id }))
           : [];
 
         let rows = [...(rows_scoped ?? []), ...(rows_global ?? []), ...(rows_accented ?? [])];
