@@ -1,4 +1,4 @@
-# Audit structurel du modèle cartes dbt — 23/08/2026
+# Audit structurel du modèle cartes dbt — 23/08/2026 — DÉFINITIF
 
 > `fct_location_daily_action_candidates.sql` (`main` bb881d9, 3 277 lignes, 82 CTE, 48 types de
 > cartes littéraux + le passthrough `change_feed`). Demande owner : ne plus avancer changement par
