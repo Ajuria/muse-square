@@ -16,6 +16,7 @@ import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { buildDayPerformanceFacts } from "../../../lib/ai/facts/buildDayPerformanceFacts";
 import { buildPracticeFacts } from "../../../lib/ai/facts/buildPracticeFacts";
 import { buildEventFacts } from "../../../lib/ai/facts/buildEventFacts";
+import { buildUserInputFacts } from "../../../lib/ai/facts/buildUserInputFacts";
 import { listUserEvenements } from "../../../lib/insightFamilies/evenement";
 import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMetric } from "../../../lib/ai/corrections";
 import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declaredMetrics";
@@ -4917,6 +4918,14 @@ Règles :
           console.warn("[grounded] event facts skipped:", e);
           return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
         });
+        // Incrément app (27/08) — les ENTRÉES UTILISATEUR entrent dans la liste blanche :
+        // règles d'automatisation actives + bilans déclarés (surfaces semantic des incréments
+        // 2-3). Même lot parallèle (coût = max, pas somme) ; libellés repris des surfaces qui
+        // les affichent (profile.astro, evenement.astro) — voir l'en-tête du builder.
+        const _userInputsP = buildUserInputFacts(location_id).catch((e) => {
+          console.warn("[grounded] user-input facts skipped:", e);
+          return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
+        });
         // R2-2 (07/08) — the MEASURED impact verdicts join the day whitelist: the competitor and
         // event-density contrasts (tiered observed_difference or measured-null) measured on THIS
         // venue's own history. Without them the day answer narrates static proximity while the
@@ -4985,6 +4994,7 @@ Règles :
         const _dayPerf = await _dayPerfP;
         const _practices = await _practicesP;
         const _events = await _eventsP;
+        const _userInputs = await _userInputsP;
         const _competitorImpact = await _competitorImpactP;
         const _densityImpact = await _densityImpactP;
         const _dayLandscape = await _dayLandscapeP;
@@ -5036,11 +5046,11 @@ Règles :
               // ÉTAPE 3 : le blanking du CA remplacé par le RANG — les facts de la famille lead
               // d'abord (la dimension demandée mène), PUIS la performance du jour (une réponse météo
               // peut enfin dire ce que le jour a fait), puis les familles secondaires, puis le reste.
-              { question: qRaw, date: effective_date, extraFacts: [...tagFactOrigin(_famResult!.facts as any[], FAMILY_FACT_ORIGIN[_famKey!] ?? null), ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ..._secondaryFamFacts, ..._identityFacts, ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] },
+              { question: qRaw, date: effective_date, extraFacts: [...tagFactOrigin(_famResult!.facts as any[], FAMILY_FACT_ORIGIN[_famKey!] ?? null), ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ..._secondaryFamFacts, ..._identityFacts, ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user"), ...tagFactOrigin(_userInputs.facts as any[], "declarations")] },
             )
           // Phase 4 (amendé ÉTAPE 3) : les day-perf facts rejoignent les DEUX branches — le lead de la
           // dimension demandée est assuré par le RANG (famille d'abord), plus jamais par exclusion.
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._interpFacts, ..._dayClaimFacts, ..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_dayLandscape as any[], "evenements_proximite"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] });
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._interpFacts, ..._dayClaimFacts, ..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_dayLandscape as any[], "evenements_proximite"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user"), ...tagFactOrigin(_userInputs.facts as any[], "declarations")] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
         // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical
