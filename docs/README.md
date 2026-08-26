@@ -24,6 +24,17 @@ appliquer, aucun « avant/après ». On le lit pour savoir comment le produit fo
 Dit **ce qui reste à faire**. Contient des instructions, des blocs à appliquer, des arbitrages en
 attente. Il est destiné à être consommé, puis converti.
 
+### Le cas des audits et diagnostics
+
+Un audit, un diagnostic, une revue de copie décrivent **un moment**, pas l'état courant. Ils sont
+`— DÉFINITIF` (il n'y a rien à y appliquer) et leur **date reste dans le titre** : elle dit que le
+document est un instantané. On ne les met jamais à jour — un audit réécrit n'est plus un audit. Si
+le constat doit être rejoué, c'est un nouveau document (`card-truth-audit-2026-08-22` à côté de
+`card-truth-audit`), et le plus récent cite le précédent.
+
+Corollaire : **ne jamais fonder une décision sur un audit sans re-vérifier ses chiffres**. Ce qu'il
+affirme était vrai à sa date, pas aujourd'hui.
+
 ---
 
 ## Les trois règles
