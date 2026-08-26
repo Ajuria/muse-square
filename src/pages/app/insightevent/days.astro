@@ -2094,11 +2094,13 @@ const show_actions = has_selected_dates;
         function buildMetaForDate(ymd) {
           const d = parseYmdToDate(ymd);
           if (!d) {
-            return { monthYear: "", weekLabel: "", dow3: "", dayNum2: "", isWeekend: null };
+            return { monthYear: "", weekLabel: "", dowFull: "", dayNum2: "", monthNum2: "", isWeekend: null };
           }
 
-          const dow3 = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"][((d.getUTCDay() + 6) % 7)];
+          // Lexique règle 6 : jours en toutes lettres — jamais d'abréviation.
+          const dowFull = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"][((d.getUTCDay() + 6) % 7)];
           const dayNum2 = String(d.getUTCDate()).padStart(2, "0");
+          const monthNum2 = String(d.getUTCMonth() + 1).padStart(2, "0");
 
           const monthYearRaw = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric" }).format(d);
           const monthYear = monthYearRaw ? monthYearRaw.charAt(0).toUpperCase() + monthYearRaw.slice(1) : "";
@@ -2108,7 +2110,7 @@ const show_actions = has_selected_dates;
 
           const isWeekend = (d.getUTCDay() === 0) || (d.getUTCDay() === 6);
 
-          return { monthYear, weekLabel, dow3, dayNum2, isWeekend };
+          return { monthYear, weekLabel, dowFull, dayNum2, monthNum2, isWeekend };
         }
 
         function escapeHtml(v) {
@@ -3012,8 +3014,10 @@ const show_actions = has_selected_dates;
                   const d = normalizeYmd(d0);
                   const isActive = d === selectedDate;
                   const hasData = dayRowsByDate && dayRowsByDate.has(d);
+                  // Jour en toutes lettres + JJ/MM : deux onglets de mois
+                  // différents ne se confondent plus (« le 07 de quel mois ? »).
                   const meta = buildMetaForDate(d);
-                  const label = meta?.dow3 && meta?.dayNum2 ? `${meta.dow3} ${meta.dayNum2}` : d;
+                  const label = meta?.dowFull && meta?.dayNum2 ? `${meta.dowFull} ${meta.dayNum2}/${meta.monthNum2}` : d;
 
                   return `
                     <button type="button"

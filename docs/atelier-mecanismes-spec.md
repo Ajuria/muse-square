@@ -1,4 +1,4 @@
-# Atelier des mécanismes — spec dédiée (01/08/2026, chantier SUIVANT)
+# Atelier des mécanismes — spec dédiée (01/08/2026, chantier SUIVANT) — SPEC DE TRAVAIL
 
 > **Design owner (01/08 soir)** : sur une carte d'IDENTIFICATION, l'utilisateur doit trouver le
 > mécanisme à partir des données affichées + du dialogue LLM sur la page profonde

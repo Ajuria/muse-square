@@ -1,4 +1,4 @@
-# Scan concurrentiel & positionnement — Muse Square
+# Scan concurrentiel & positionnement — Muse Square — DÉFINITIF
 Scan réalisé le 20/08/2026. Marchés : France + États-Unis.
 Méthode : lecture directe des pages d'accueil (headline verbatim) quand accessible, recherche web sinon.
 Statut de chaque ligne indiqué : **[page lue]** = homepage récupérée et citée ; **[recherche]** = reconstitué depuis des sources secondaires, à revérifier avant usage commercial.

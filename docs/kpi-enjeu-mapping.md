@@ -1,4 +1,4 @@
-# Mapping KPI / Enjeu — les sous-types de cartes d'action
+# Mapping KPI / Enjeu — les sous-types de cartes d'action — DÉFINITIF
 
 > **Statut : VALIDÉ par l'owner le 24/07/2026, avec amendements** : (a) C2 scindé — trio réputation
 > (`review_surge/drop`, `reputation_strength`, `review_solicitation`) garde le KPI K7 ; les signaux

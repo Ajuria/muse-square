@@ -1,4 +1,4 @@
-# Agir — le fil de cartes (spec du chantier, maquette validée 14/08)
+# Agir — le fil de cartes (spec du chantier, maquette validée 14/08) — SPEC DE TRAVAIL
 
 > **Statut : maquette `public/agir-proto.html` VALIDÉE owner 14/08** (itérée ~10 tours sur les
 > 13 cartes réelles du compte owner — corps générés par le VRAI `action-cards.js` exécuté au

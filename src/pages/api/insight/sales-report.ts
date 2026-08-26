@@ -189,7 +189,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const best = rows.reduce((a, r) => (r.rev > a.rev ? r : a), rows[0]);
     const worst = rows.reduce((a, r) => (r.rev < a.rev ? r : a), rows[0]);
 
-    const dowNames = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+    // Lexique règle 6 : jours en toutes lettres — jamais d'abréviation.
+    const dowNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
     const dowSum: Record<number, { sum: number; n: number }> = {};
     for (const r of rows) {
       const k = new Date(`${r.d}T00:00:00Z`).getUTCDay();

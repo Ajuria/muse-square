@@ -1,4 +1,4 @@
-# Doctrine « valeur d'action » — spec par famille (01/08/2026, AVANT tout code)
+# Doctrine « valeur d'action » — spec par famille (01/08/2026, AVANT tout code) — DÉFINITIF
 
 > **Doctrine validée par l'owner (01/08)** : le coin haut-droit d'une carte sert à **choisir quoi
 > faire** — il porte l'**impact business annualisé** de l'action que la carte propose

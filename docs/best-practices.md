@@ -1,4 +1,4 @@
-# « Vos bonnes pratiques » — base de connaissance du lieu (validé 26/07)
+# « Vos bonnes pratiques » — base de connaissance du lieu (validé 26/07) — DÉFINITIF
 
 Proto validé : `public/methode-proto.html`. Doctrine owner : le nom vend la FIN (un actif du
 lieu qui grandit), jamais le moyen ; on ne force JAMAIS une explication (pas de champ

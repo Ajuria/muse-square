@@ -45,6 +45,7 @@ type Expect = {
   usedDate?: () => string;      // porte DATE : decision_payload.used_dates[0] doit être EXACTEMENT ceci
   answerMatch?: RegExp;         // porte CONTENU : le texte visible doit matcher (fait attendu présent)
   horizonNot?: string;          // porte ROUTAGE : meta.resolved_horizon ne doit JAMAIS être ceci
+  answerHasNot?: string;        // porte CONTENU NÉGATIVE : le texte visible ne doit JAMAIS contenir ceci
 };
 // Samedi précédent STRICTEMENT avant aujourd'hui (la sémantique « samedi dernier » de R2-4).
 function prevSaturdayYmd(): string {
@@ -91,9 +92,14 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   // Détournement du détecteur d'événements (E2E 26/08) : une question de BILAN sur ses propres
   // journées (« mes journées » + noms de mois) partait en lookup_event via la branche MINIMAL
   // TEMPORAL → « Aucun événement trouvé ». La porte garde le ROUTAGE seul : jamais le chemin lookup.
-  // Le fond de la réponse (month/DAY_DIMENSION_DETAIL rend aujourd'hui le fallback « Je n'ai pas pu
-  // produire… » — ai.ok=true, output null) est un défaut DISTINCT, non gardé ici.
-  { q: "comment se sont passées mes journées de juin-juillet ?", expect: { producers: ["deterministic", "v3_claude", "v3_fallback_deterministic", "family_grounded_claude", "family_deterministic", "grounded_day_claude"], maxSeconds: 35, horizonNot: "lookup_event" } },
+  // FOND (26/08) — le défaut aval est instruit : la période est PASSÉE, et l'instrument du passé est
+  // le rapport (207668a). Le producteur attendu inclut donc `deterministic_report_nav_v1`. Le repli
+  // Le repli brut est CLOS depuis (arbitrage owner 26/08) : une dimension sur le mois bascule sur
+  // le chemin jour/famille. Le producteur rapport porte désormais son verdict chiffré (juge 2,0 → 4,3).
+  { q: "comment se sont passées mes journées de juin-juillet ?", expect: { producers: ["deterministic_report_nav_v1", "deterministic", "v3_claude", "v3_fallback_deterministic", "family_grounded_claude", "family_deterministic", "grounded_day_claude"], maxSeconds: 35, horizonNot: "lookup_event" } },
+  // Même question, un mot de plus : « meilleures » faisait basculer le biais d'année et juin-juillet
+  // résolvait en 2027 (E2E 26/08). Porte : aucune date utilisée ni citée hors de la période demandée.
+  { q: "comment se sont passées mes meilleures journées de juin-juillet ?", expect: { producers: ["deterministic_report_nav_v1", "deterministic", "v3_claude", "v3_fallback_deterministic", "family_grounded_claude", "family_deterministic", "grounded_day_claude"], maxSeconds: 35, horizonNot: "lookup_event", answerHasNot: "2027" } },
   // R8 — le cas owner 08/08 : une objection doit produire le tour de DÉSACCORD, jamais une resucée.
   {
     q: "tu ne réponds pas à ma question: pourquoi mon CA a chuté de 40 % samedi dernier?",
@@ -189,6 +195,10 @@ async function judge(q: string, answer: string): Promise<{ scores: Record<string
     if (item.expect.horizonNot) {
       const got = out?.meta?.resolved_horizon ?? null;
       if (got === item.expect.horizonNot) gates.push(`horizon=${got} (routage interdit pour cette question)`);
+    }
+    if (item.expect.answerHasNot) {
+      const full = [output.headline, typeof output.answer === "string" ? output.answer : "", ...(output.key_facts ?? [])].join("\n");
+      if (full.includes(item.expect.answerHasNot)) gates.push(`contenu interdit présent (« ${item.expect.answerHasNot} »)`);
     }
     if (item.expect.answerMatch) {
       const full = [output.headline, typeof output.answer === "string" ? output.answer : "", ...(output.key_facts ?? [])].join("\n");

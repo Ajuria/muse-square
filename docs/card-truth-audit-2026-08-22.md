@@ -1,4 +1,4 @@
-# Audit de vérité rejoué — 22/08/2026
+# Audit de vérité rejoué — 22/08/2026 — DÉFINITIF
 
 > Rejoue l'audit du 27/07 (`docs/card-truth-audit.md`) avec le moteur d'aujourd'hui : régime
 > log+médiane (01/08), métrique-dimension à 6 KPI (22/08), store reconstruit ce jour.

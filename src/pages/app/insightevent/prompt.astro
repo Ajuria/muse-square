@@ -341,7 +341,9 @@ if (!location_id) {
       .ie-prompt-card-icon svg{ width:22px; height:22px; fill:white; stroke:none; }
       .ie-prompt-card-content{ flex:1; min-width:0; }
       .ie-prompt-card-text{ font-size:16px; line-height:1.5; color: #111827; margin:0; }
-      .ie-prompt-card-arrow{ width:24px; height:24px; flex-shrink:0; opacity:0.3; }
+      /* J1.6 (owner 26/08) : le gris décoratif éteint des actions vivantes — l'affordance
+         reste visible, l'état « consulté » est dit par sa marque, jamais par une extinction. */
+      .ie-prompt-card-arrow{ width:24px; height:24px; flex-shrink:0; opacity:0.7; }
       .ie-prompt-card-arrow svg{ width:100%; height:100%; stroke: #111827; }
 
       #ie-prompt-input-wrap{
@@ -472,7 +474,6 @@ if (!location_id) {
         margin-top: 8px;
         font-size: 16px;
         line-height: 1.65;
-        opacity: 0.92;
       }
       .ie-msg-ai .ie-ai-caveats{
         margin-top: 10px;
@@ -483,9 +484,9 @@ if (!location_id) {
       .ie-msg-ai .ie-ai-cv{ margin: 6px 0; }
 
       .ie-v3-row { display:flex; gap:12px; padding:8px 0; border-top: 1px solid rgba(255,255,255,0.06); }
-      .ie-v3-rank { width: 34px; opacity: 0.8; }
+      .ie-v3-rank { width: 34px; }
       .ie-v3-label { font-weight: 600; }
-      .ie-v3-sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+      .ie-v3-sub { font-size: 12px; margin-top: 2px; }
 
       /* -------------------------------------------
         Assistant content spacing (ChatGPT-like)
@@ -2151,9 +2152,9 @@ if (!location_id) {
     </script>
 
     <script is:inline src="/ms-loader.js?v=2"></script>
-    <script is:inline src="/card-kit.js?v=48"></script>
+    <script is:inline src="/card-kit.js?v=49"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
-    <script type="module" src="/scripts/ie-prompt.js?v=41" defer></script>
+    <script type="module" src="/scripts/ie-prompt.js?v=43" defer></script>
 
   </BaseLayout>
 </Show>

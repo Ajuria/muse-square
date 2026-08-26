@@ -1,4 +1,4 @@
-# Second audit — les marts non lus, EN DONNÉES (23/08/2026)
+# Second audit — les marts non lus, EN DONNÉES (23/08/2026) — SPEC DE TRAVAIL
 
 > Suite de `audit-cartes-dbt-2026-08-23.md`. Le premier lot (PR #51, validé 6/6 sur la table) a
 > corrigé ce qui était branché de travers. Celui-ci regarde ce qui n'est branché nulle part — en

@@ -1,4 +1,4 @@
-# Menaces vs bruit — AMENDEMENT à `competition-split-spec.md` (25/08)
+# Menaces vs bruit — AMENDEMENT à `competition-split-spec.md` (25/08) — SPEC DE TRAVAIL
 
 > **Ce document a été RÉÉCRIT le 25/08 au soir.** Sa première version rouvrait une question
 > déjà tranchée : elle re-dérivait la doctrine de `docs/competition-split-spec.md` (28/07)
