@@ -2721,6 +2721,73 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         : addDaysYmd(selected_date, 29);
     const window_len_days = daysInRangeYmd(selected_date, window_end_date);
 
+    // LA FENÊTRE DU RENVOI RAPPORT — calculée UNE fois, lue à DEUX endroits : le classifieur
+    // (qui doit laisser ces questions descendre jusqu'à `case "month"` au lieu de les basculer
+    // sur le chemin jour) et la branche rapport elle-même. Les avoir forkées a produit un 400
+    // « Impossible d'identifier la date demandée » sur la question de bilan (mesuré 26/08).
+    // Non nulle = la réponse SERA le renvoi rapport, et vaut la date de fin à afficher.
+    // Un bilan ne peut pas couvrir des jours qui n'ont pas eu lieu : sur une période DITE, la
+    // fenêtre s'arrête hier. Garde `>= selected_date` : une période à venir n'est pas un bilan.
+    const _reportWindowEnd: string | null = (() => {
+      const _t = new Date().toISOString().slice(0, 10);
+      const _isReviewQ = !!period_for_window && isOwnPeriodReviewQuestion(norm(qRaw));
+      const _end = _isReviewQ && window_end_date >= _t ? addDaysYmd(_t, -1) : window_end_date;
+      return _end < _t && _end >= selected_date ? _end : null;
+    })();
+
+    // VERDICT CHIFFRÉ DE LA RÉPONSE RAPPORT (owner 26/08). Le juge de la batterie notait la
+    // réponse 2,0/5 sur R1 : « renvoie vers un document externe sans contenu exploitable ».
+    // Deux faits, ceux que la page rapport NOMME déjà (« Chiffre d'affaires », « vs période
+    // précédente », « Meilleure journée ») — aucun mot nouveau, mêmes colonnes que
+    // `insight/sales-report.ts` (mart.fct_client_daily_performance), jamais une source parallèle.
+    // AMORCÉE ICI, attendue dans la branche rapport de `case "month"` : elle part AVANT l'appel
+    // du classifieur Haiku (et donc avant le client BQ du corps, déclaré plus bas), elle ne coûte
+    // pas son aller-retour au budget 3 s. Client local — même motif que `_dispoBq`.
+    const _verdictPromise: Promise<any[]> | null = (() => {
+      if (!_reportWindowEnd) return null;
+      // La période précédente se mesure sur la fenêtre RÉELLE du rapport, pas sur
+      // `window_len_days` : quand la fenêtre est rabotée à hier (bilan d'août = 25 j au lieu
+      // de 31), la base doit l'être aussi. Mesuré : la version qui lisait `window_len_days`
+      // comparait 25 jours à 31 jours et annonçait +3,1 % là où la vérité est +23,5 %.
+      const _reportLen = daysInRangeYmd(selected_date, _reportWindowEnd);
+      const _prevEnd = addDaysYmd(selected_date, -1);
+      const _prevStart = addDaysYmd(_prevEnd, -(_reportLen - 1));
+      const _vbq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _vproj = process.env.BQ_PROJECT_ID || "muse-square-open-data";
+      return _vbq
+        .query({
+          query: `
+        WITH daily AS (
+          SELECT transaction_date AS day, SUM(daily_revenue) AS rev
+          FROM \`${_vproj}.mart.fct_client_daily_performance\`
+          WHERE location_id = @location_id
+            AND transaction_date BETWEEN DATE(@prev_start) AND DATE(@end)
+          GROUP BY 1
+        )
+        SELECT
+          (SELECT SUM(rev) FROM daily WHERE day BETWEEN DATE(@start) AND DATE(@end)) AS rev,
+          (SELECT SUM(rev) FROM daily WHERE day BETWEEN DATE(@prev_start) AND DATE(@prev_end)) AS prev_rev,
+          (SELECT AS STRUCT CAST(day AS STRING) AS day, rev
+             FROM daily WHERE day BETWEEN DATE(@start) AND DATE(@end) ORDER BY rev DESC LIMIT 1) AS best
+          `,
+          location: "EU",
+          params: {
+            location_id,
+            start: selected_date,
+            end: _reportWindowEnd,
+            prev_start: _prevStart,
+            prev_end: _prevEnd,
+          },
+        })
+        .then(([rows]: any) => (rows ?? []) as any[])
+        .catch((e: any) => {
+          // Échec soft LOGGÉ : le renvoi rapport ne doit jamais mourir de son verdict — mais un
+          // échec silencieux est le piège dateResolutionQuery (31/07), donc console.error.
+          console.error("[verdict-rapport] requête échouée:", e?.message);
+          return [] as any[];
+        });
+    })();
+
     const date =
       typeof body?.date === "string" && body.date.trim() ? body.date.trim() : null;
 
@@ -3081,7 +3148,16 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
             resolved_intent = "DAY_DIMENSION_DETAIL";
           }
         } else {
-          // Month-level dimension question — keep month but change intent
+          // Question de DIMENSION sur le MOIS — le chemin mois n'a AUCUN paquetage pour cet
+          // intent : les trois portes aval (narrative V3, repli V3, buildUiPackagingV3Month)
+          // n'acceptent que WINDOW_TOP_DAYS|WINDOW_WORST_DAYS, donc `ai.ok=true` + `output null`
+          // → repli brut « Je n'ai pas pu produire une réponse utile… » (mesuré 26/08 sur
+          // « la concurrence a-t-elle pesé sur mon mois ? »). Le chemin JOUR/FAMILLE, lui, sert
+          // déjà cette classe de question — mesuré le même jour, sur les questions sœurs que le
+          // classifieur avait mises en horizon jour : `family_grounded_claude` répond ET dit
+          // honnêtement ce qu'il ne peut pas reconstituer sur le mois. Arbitrage owner 26/08.
+          // Le basculement ne vaut que depuis le mois : un defaulted-compare garde selected_days.
+          if (resolved_horizon === "month" && !_reportWindowEnd) resolved_horizon = "day";
           resolved_intent = "DAY_DIMENSION_DETAIL";
         }
       } else if (isDefaultedCompare) {
@@ -3884,16 +3960,41 @@ Règles :
         // utile… » (mesuré E2E f10c3e58 le 26/08). Période commençant aujourd'hui
         // ou plus tard : pas de bilan possible, pipeline normal.
         {
-          const _todayM = new Date().toISOString().slice(0, 10);
-          const _isReviewQ = !!period_for_window && isOwnPeriodReviewQuestion(norm(qRaw));
-          const _reportEnd =
-            _isReviewQ && window_end_date >= _todayM ? addDaysYmd(_todayM, -1) : window_end_date;
-          if (_reportEnd < _todayM && _reportEnd >= selected_date) {
+          const _reportEnd = _reportWindowEnd;
+          if (_reportEnd) {
             const _frM = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
             const _pastUrl = `/app/insightevent/rapport?start=${encodeURIComponent(selected_date)}&end=${encodeURIComponent(_reportEnd)}&loc=${encodeURIComponent(location_id)}`;
+            // Le VERDICT ouvre la réponse (mémoire lead-with-highlighted-action) ; la ligne
+            // « Période : … » approuvée suit VERBATIM. Règle 13 du lexique : jamais un volume nu —
+            // sans période précédente comparable, le CA ne sort pas et la réponse reste celle
+            // d'avant. Règle 6 : jour de semaine en toutes lettres.
+            const _frInt = (n: number) => Math.round(n).toLocaleString("fr-FR");
+            const _JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+            let _verdict = "";
+            try {
+              const _vr = _verdictPromise ? (await _verdictPromise)[0] : null;
+              const _rev = Number(_vr?.rev);
+              const _prev = Number(_vr?.prev_rev);
+              const _bestDay = _vr?.best?.day ? String(_vr.best.day).slice(0, 10) : null;
+              const _bestRev = Number(_vr?.best?.rev);
+              if (Number.isFinite(_rev) && _rev > 0 && Number.isFinite(_prev) && _prev > 0) {
+                // MÊME arrondi que `pct` de insight/sales-report.ts (au dixième) : le chat et le
+                // document vers lequel il renvoie doivent afficher LE MÊME nombre.
+                const _pct = Math.round(((_rev - _prev) / _prev) * 1000) / 10;
+                const _pctFr = String(Math.abs(_pct)).replace(".", ",");
+                _verdict = `Vous avez fait ${_frInt(_rev)} €, ${_pct >= 0 ? "+" : "−"}${_pctFr} % vs période précédente.`;
+                if (_bestDay && Number.isFinite(_bestRev) && _bestRev > 0) {
+                  const _dow = _JOURS[new Date(_bestDay + "T00:00:00Z").getUTCDay()];
+                  _verdict += ` Votre meilleure journée a été le ${_dow} ${_frM(_bestDay)}, avec ${_frInt(_bestRev)} €.`;
+                }
+                _verdict += " ";
+              }
+            } catch (e: any) {
+              console.error("[verdict-rapport] verdict non composé:", e?.message);
+            }
             return sysDialogueResponse(
               "Rapport de ventes",
-              `Période : du ${_frM(selected_date)} au ${_frM(_reportEnd)} — le document complet, imprimable et partageable.`,
+              `${_verdict}Période : du ${_frM(selected_date)} au ${_frM(_reportEnd)} — le document complet, imprimable et partageable.`,
               "deterministic_report_nav_v1",
               { type: "redirect", url: _pastUrl, label: "Générer le rapport pour cette période →" },
             );

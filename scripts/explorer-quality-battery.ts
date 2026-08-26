@@ -94,8 +94,8 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   // TEMPORAL → « Aucun événement trouvé ». La porte garde le ROUTAGE seul : jamais le chemin lookup.
   // FOND (26/08) — le défaut aval est instruit : la période est PASSÉE, et l'instrument du passé est
   // le rapport (207668a). Le producteur attendu inclut donc `deterministic_report_nav_v1`. Le repli
-  // brut « Je n'ai pas pu produire… » (month/DAY_DIMENSION_DETAIL, ai.ok=true + output null) reste
-  // possible sur les questions de dimension SANS période dite — cas non gardé ici, arbitrage owner.
+  // Le repli brut est CLOS depuis (arbitrage owner 26/08) : une dimension sur le mois bascule sur
+  // le chemin jour/famille. Le producteur rapport porte désormais son verdict chiffré (juge 2,0 → 4,3).
   { q: "comment se sont passées mes journées de juin-juillet ?", expect: { producers: ["deterministic_report_nav_v1", "deterministic", "v3_claude", "v3_fallback_deterministic", "family_grounded_claude", "family_deterministic", "grounded_day_claude"], maxSeconds: 35, horizonNot: "lookup_event" } },
   // Même question, un mot de plus : « meilleures » faisait basculer le biais d'année et juin-juillet
   // résolvait en 2027 (E2E 26/08). Porte : aucune date utilisée ni citée hors de la période demandée.
