@@ -241,6 +241,16 @@ function genericClassConfig(class_key: string): (ClassMeta & { days_sql: string 
   };
 }
 
+// Le NOM approuvé d'une classe (noun_fr, « s'insère après vos ») — pour toute phrase qui
+// nomme le signal d'un dispositif (contre-indication du chat, P-axe 27/08). Lit les MÊMES
+// configs que l'atelier (CLASS_CONFIG + génériques) : zéro copie, un renommage de classe
+// suit partout.
+export function classNounFr(class_key: string | null | undefined): string | null {
+  if (!class_key) return null;
+  const cfg = CLASS_CONFIG[class_key] || genericClassConfig(class_key);
+  return cfg ? cfg.noun_fr : null;
+}
+
 export async function dispositifFamily(bq: any, location_id: string, class_key: string): Promise<DispositifFamilyResult> {
   const cfg = CLASS_CONFIG[class_key] || genericClassConfig(class_key);
   if (!cfg) {

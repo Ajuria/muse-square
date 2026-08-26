@@ -14,7 +14,7 @@ import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/gr
 import { FACT_ORIGIN_FR, type FactOrigin } from "../../../lib/fr/factOrigins.fr";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { buildDayPerformanceFacts } from "../../../lib/ai/facts/buildDayPerformanceFacts";
-import { buildPracticeFacts } from "../../../lib/ai/facts/buildPracticeFacts";
+import { buildPracticeFacts, practiceStateFr } from "../../../lib/ai/facts/buildPracticeFacts";
 import { buildEventFacts } from "../../../lib/ai/facts/buildEventFacts";
 import { buildUserInputFacts } from "../../../lib/ai/facts/buildUserInputFacts";
 import { listUserEvenements } from "../../../lib/insightFamilies/evenement";
@@ -2432,7 +2432,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       const _frD = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
       if (_dispoRows.length) {
         const _lines = _dispoRows.map((p) =>
-          `Documenté le ${_frD(p.created_date)} : « ${p.practice_text} » — ${p.tier === "prouvee" ? "prouvé au rejeu" : "déclaré"}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`);
+          `Documenté le ${_frD(p.created_date)} : « ${p.practice_text} » — ${practiceStateFr(p)}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`);
         return sysDialogueResponse(
           _dispoRows.length === 1 ? "Votre dispositif documenté" : "Vos dispositifs documentés",
           _lines.join("\n\n"),
