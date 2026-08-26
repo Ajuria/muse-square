@@ -16,6 +16,7 @@
 import { makeBQClient } from "../../bq";
 import { listClassDispositifs, type ClassDispositif } from "../../bestPractices";
 import { classNounFr } from "../../insightFamilies/dispositif";
+import { themeForActionType, RECO_THEME_LABEL_FR } from "../../recoThemeMap";
 
 const PROJECT = "muse-square-open-data";
 
@@ -54,13 +55,53 @@ export function practiceStateFr(p: Pick<ClassDispositif, "tier" | "effect_direct
   return "déclaré, pas encore prouvé";
 }
 
+// Contre-indication AUTONOME (27/08, owner) : un engagement resolu hors fiche, a effet
+// NEGATIF significatif — la memoire de ce qui a ete essaye et n'a pas marche. Pure,
+// testee sur fixture (le cas reel : « Corner de vente producteur », −23,2 %).
+export function autonomousCounterFactFr(r: {
+  created_date: string; practice_text: string; event_title: string | null;
+  origin_action_type: string | null; effect_residual_pct: number | null;
+}): string {
+  const pct = r.effect_residual_pct != null
+    ? `${r.effect_residual_pct >= 0 ? "+" : "-"}${String(Math.round(Math.abs(r.effect_residual_pct) * 10) / 10).replace(".", ",")} %`
+    : "";
+  const theme = themeForActionType(r.origin_action_type ?? undefined);
+  const themeLabel = theme ? RECO_THEME_LABEL_FR[theme] : null;
+  const signal = themeLabel ? `face aux signaux « ${themeLabel} », elle` : "elle";
+  const evt = r.event_title ? ` (événement « ${r.event_title} »)` : "";
+  return `Action testée par vous le ${frFullDate(r.created_date)}${evt} : « ${r.practice_text} » — ${signal} a prouvé ne pas être adaptée (${pct} vs votre résultat habituel, 1 test manqué).`;
+}
+
 export async function buildPracticeFacts(location_id: string): Promise<{ facts: PracticeFact[] }> {
   const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
-  const rows = await listClassDispositifs(bq, location_id, null, 5);
-  return {
-    facts: rows.map((p) => ({
-      fact_fr: `Dispositif documenté par vous le ${frFullDate(p.created_date)} : « ${p.practice_text} » — ${practiceStateFr(p)}${p.confirmation_test ? ` ; test prévu : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; engagement de test en cours (suivi sur Pulse)" : ""}.`,
+  const [rows, [negRows]] = await Promise.all([
+    listClassDispositifs(bq, location_id, null, 5),
+    // les negatifs AUTONOMES (source commitment, tier ecarte) — hors listClassDispositifs
+    // (declared only, son contrat) ; meme vue, meme fraicheur.
+    bq.query({
+      query: `SELECT FORMAT_TIMESTAMP('%Y-%m-%d', created_at) AS created_date, practice_text,
+                     event_title, origin_action_type, effect_residual_pct
+              FROM \`${PROJECT}.semantic.vw_insight_event_dispositifs\`
+              WHERE location_id = @location_id AND source = 'commitment' AND tier = 'ecarte'
+              ORDER BY created_at DESC LIMIT 3`,
+      params: { location_id }, location: "EU",
+    }).catch(() => [[]] as any[]),
+  ]);
+  const facts: PracticeFact[] = rows.map((p) => ({
+    fact_fr: `Dispositif documenté par vous le ${frFullDate(p.created_date)} : « ${p.practice_text} » — ${practiceStateFr(p)}${p.confirmation_test ? ` ; test prévu : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; engagement de test en cours (suivi sur Pulse)" : ""}.`,
+    claim_type: "observed" as const,
+  }));
+  for (const r of (negRows as any[]) ?? []) {
+    facts.push({
+      fact_fr: autonomousCounterFactFr({
+        created_date: String(r.created_date ?? ""),
+        practice_text: String(r.practice_text ?? ""),
+        event_title: r.event_title != null ? String(r.event_title) : null,
+        origin_action_type: r.origin_action_type != null ? String(r.origin_action_type) : null,
+        effect_residual_pct: r.effect_residual_pct != null ? Number(r.effect_residual_pct) : null,
+      }),
       claim_type: "observed" as const,
-    })),
-  };
+    });
+  }
+  return { facts };
 }

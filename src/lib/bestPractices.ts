@@ -297,7 +297,7 @@ export interface ClassDispositif {
   practice_text: string;
   confirmation_test: string | null;
   day_class_key: string | null;
-  tier: "prouvee" | "declaree";
+  tier: "prouvee" | "declaree" | "ecarte";   // ecarte = effet négatif prouvé (27/08)
   commitment_status: string | null;   // 'open' = test en cours
   commitment_verdict: string | null;
   // Axe d'EFFET (27/08, arbitrages owner) — séparé de l'axe cible. Calculé par
@@ -346,7 +346,7 @@ export async function listClassDispositifs(
       practice_text: String(r.practice_text ?? ""),
       confirmation_test: r.confirmation_test != null ? String(r.confirmation_test) : null,
       day_class_key: r.day_class_key != null ? String(r.day_class_key) : null,
-      tier: r.tier === "prouvee" ? "prouvee" : "declaree",
+      tier: r.tier === "prouvee" ? "prouvee" : r.tier === "ecarte" ? "ecarte" : "declaree",
       commitment_status: r.commitment_status != null ? String(r.commitment_status) : null,
       commitment_verdict: r.commitment_verdict != null ? String(r.commitment_verdict) : null,
       effect_direction: r.effect_direction === "positive" || r.effect_direction === "negative" || r.effect_direction === "inconclusive" ? r.effect_direction : null,

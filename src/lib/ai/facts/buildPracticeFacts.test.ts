@@ -3,7 +3,7 @@
 // vw_insight_event_dispositifs. Les cas positive+missed et negative n'existent pas encore
 // en base (vérifié 27/08) — la fixture est leur seule preuve jusqu'aux premières données.
 import { describe, it, expect } from "vitest";
-import { practiceStateFr } from "./buildPracticeFacts";
+import { practiceStateFr, autonomousCounterFactFr } from "./buildPracticeFacts";
 
 const base = {
   tier: "declaree" as const,
@@ -50,5 +50,25 @@ describe("practiceStateFr — l'état du dispositif en toutes lettres", () => {
 
   it("déclaré, pas encore prouvé — l'état d'origine, inchangé", () => {
     expect(practiceStateFr({ ...base })).toBe("déclaré, pas encore prouvé");
+  });
+});
+
+describe("autonomousCounterFactFr — la contre-indication autonome", () => {
+  it("le cas réel : action ancrée à un événement, effet −23,2 %", () => {
+    expect(autonomousCounterFactFr({
+      created_date: "2026-08-10", practice_text: "Corner de vente producteur — Le producteur est sur place",
+      event_title: "Corner de vente producteur", origin_action_type: "event_autre", effect_residual_pct: -23.2,
+    })).toBe(
+      "Action testée par vous le 10/08/2026 (événement « Corner de vente producteur ») : « Corner de vente producteur — Le producteur est sur place » — elle a prouvé ne pas être adaptée (-23,2 % vs votre résultat habituel, 1 test manqué)."
+    );
+  });
+
+  it("signal nommé quand le thème existe (libellés /profile), jamais la clé technique", () => {
+    const out = autonomousCounterFactFr({
+      created_date: "2026-07-01", practice_text: "Offre parapluie en caisse",
+      event_title: null, origin_action_type: "extended_bad_weather", effect_residual_pct: -8,
+    });
+    expect(out).toContain("face aux signaux « Météo & alertes », elle a prouvé ne pas être adaptée (-8 %");
+    expect(out).not.toContain("extended_bad_weather");
   });
 });

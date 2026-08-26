@@ -193,7 +193,7 @@ export interface DispositifFamilyResult {
     existing_dispositifs?: Array<{
       practice_text: string;
       confirmation_test: string | null;
-      tier: "prouvee" | "declaree";
+      tier: "prouvee" | "declaree" | "ecarte";   // ecarte = effet négatif prouvé (27/08)
       in_test: boolean;
       created_date: string;
     }>;
