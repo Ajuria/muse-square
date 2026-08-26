@@ -1,4 +1,4 @@
-# Module Index — Single Source of Truth
+# Module Index — Single Source of Truth — DÉFINITIF
 
 > **Purpose.** This file is the authoritative map of every server endpoint, library module, script and frontend surface in the app. It exists to stop two failure modes: (1) **building a feature that already exists**, and (2) **guessing at what a file does instead of reading it**.
 >

@@ -1,4 +1,4 @@
-# Data Model Index — Single Source of Truth (dbt + BigQuery)
+# Data Model Index — Single Source of Truth (dbt + BigQuery) — DÉFINITIF
 
 > **Purpose.** Authoritative map of the data layer that feeds the app: every dbt model (what marts/views exist, their grain, lineage, output columns) plus a pointer to the live BigQuery column catalog. It exists to stop two failure modes in data work: (1) **building a mart/view that already exists**, and (2) **guessing a column/table name** instead of verifying it.
 >
