@@ -1,4 +1,4 @@
-# Densité concurrente vs densité d'entraînement — la scission
+# Densité concurrente vs densité d'entraînement — la scission — DÉFINITIF
 
 > **Question owner (28/07/2026)** : quand la densité événementielle autour du lieu monte, est-ce
 > qu'elle **cannibalise** le trafic du point de vente ou est-ce qu'elle en **amène** ? Le plan

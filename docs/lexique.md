@@ -1,4 +1,4 @@
-# Lexique Muse Square — LE mot pour chaque concept
+# Lexique Muse Square — LE mot pour chaque concept — DÉFINITIF
 
 **Ce fichier fait loi.** Un concept = un mot, choisi par l'owner. Toute chaîne visible par
 l'utilisateur vient d'ici ou reprend une chaîne déjà en production — jamais inventée en vol

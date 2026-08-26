@@ -1,4 +1,4 @@
-# Les trois objets « événement » — définitions uniques et branchement des surfaces (26/08/2026)
+# Les trois objets « événement » — définitions et branchement — SPEC DE TRAVAIL
 
 > **Demande owner (26/08)** : reprendre la distinction faite dans Agir entre **événements
 > concurrents** (opération + recouvrement d'industrie + clientèles primaire et secondaire →
@@ -39,7 +39,7 @@ même secteur (`same_bucket`) ».
 | | **A — Opération d'un concurrent** | **B — Activité autour** | **C — Vos opérations** |
 |---|---|---|---|
 | Ce que c'est | Une opération commerciale d'un acteur qui vise le même public que vous | Les événements publics du quartier, tous secteurs | Ce que VOUS organisez |
-| Variables | `entity_is_followed` (suivis) · `*_same_bucket_count` · `industry_overlap` · `audience_overlap_pct` · `conflict_score` | `events_within_*_count` (tous secteurs) · `competition_index_local` · `analytics.location_public_events` | `analytics.evenements` (dossier d'opération) |
+| Variables | `entity_is_followed` (suivis) · `*_same_bucket_count` · `industry_overlap` · `audience_overlap_pct` · `conflict_score` | `events_within_*_count` (tous secteurs) · `competition_index_local` · `analytics.location_public_events` | `raw.saved_items` × `raw.saved_item_dates` (dossier d'opération) |
 | Candidat à | **Substituer** votre trafic | **Porter** votre trafic | — |
 | Seuil de qualification | **40 %** de recouvrement d'audience (entité ou événement) | aucun — c'est un volume | — |
 | Seuil de scission d'une JOURNÉE | **25 %** (`pct_same_bucket_5km` ≥ 0,25 → la journée est disputée) | < 25 % → public à capter | — |
