@@ -135,6 +135,61 @@ if (!root) {
   const SUGGESTION_CHIPS = [];
   let _monitorData = null;
 
+  // J1.6 (26/08, arbitrage owner) — etat « Consulte le JJ/MM » des suggestions, serveur
+  // (analytics.action_log, user x item x date, event explorer_consulted). Indication POSITIVE :
+  // la carte garde son encre, la marque s'ajoute — jamais une extinction grise.
+  var _consultedMarks = {};   // 'key|date' -> consulted_ymd
+  function _markId(key, date) { return String(key || '') + '|' + String(date || ''); }
+  function _consultedLabel(ymd) {
+    var d = String(ymd || '').slice(0, 10);
+    return '\u2713 Consulté le ' + d.slice(8, 10) + '/' + d.slice(5, 7);
+  }
+  async function fetchConsultedMarks() {
+    try {
+      var res = await fetch('/api/insight/action-log?location_id=' + encodeURIComponent(LOCATION_ID), { cache: 'no-store' });
+      var json = await res.json().catch(function () { return null; });
+      if (json && json.ok && Array.isArray(json.marks)) {
+        for (var i = 0; i < json.marks.length; i++) {
+          var m = json.marks[i];
+          _consultedMarks[_markId(m.key, m.date)] = String(m.consulted_ymd || '');
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+  function _applyConsultedMark(card, ymd) {
+    if (!card || card.querySelector('.ie-sugg-consulted')) return;
+    var content = card.querySelector('.ie-prompt-card-content');
+    if (!content) return;
+    var p = document.createElement('p');
+    p.className = 'ie-sugg-consulted';
+    p.setAttribute('style', 'font-size:12px;font-weight:600;color:#4B5563;margin:4px 0 0;line-height:1.4;');
+    p.textContent = _consultedLabel(ymd);
+    content.appendChild(p);
+  }
+  function _recordConsulted(card) {
+    var key = card.getAttribute('data-sugg-key');
+    var date = card.getAttribute('data-sugg-date');
+    if (!key || !date) return;
+    var todayYmd = new Date().toISOString().slice(0, 10);
+    _consultedMarks[_markId(key, date)] = todayYmd;
+    _applyConsultedMark(card, todayYmd);
+    try {
+      fetch('/api/insight/action-log', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          location_id: LOCATION_ID,
+          affected_date: date,
+          change_subtype: key,
+          action_key: 'explorer_consulted',
+          action_category: 'explorer',
+          event: 'explorer_consulted',
+        }),
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
   async function fetchMonitorForSuggestions() {
     try {
       var today = new Date();
@@ -206,6 +261,7 @@ if (!root) {
         text: 'Pourquoi le CA de ' + DOW_FR[ad.getDay()] + ' a-t-il ' + (up ? 'bondi' : 'décroché') + ' ?',
         sub: DOW_FR[ad.getDay()] + ' ' + dispD + ' : ' + frInt(Number(anomaly.d.daily_revenue)) + ' € · ' + frPct(pct) + ' vs votre normale — causes mesurées, événements du jour, contexte',
         q: 'Pourquoi le ' + dispD + ' ?',
+        key: 'explorer_sugg_anomaly', date: anomaly.ymd,
       });
     } else {
       // ── ÉTAT B : alerte météo active sur la fenêtre ──
@@ -224,6 +280,7 @@ if (!root) {
           text: 'Quel est l’effet de la ' + cond + ' sur mes ventes ?',
           sub: condLabel + ' ' + DOW_FR[wd.getDay()] + ' — votre réaction mesurée sur vos jours comparables',
           q: 'Quel est l’effet de la ' + cond + ' sur mes ventes ?',
+          key: 'explorer_sugg_weather', date: String(weatherDay.date).slice(0, 10),
         });
       } else {
         // ── ÉTAT C : repli — toujours mesurable, jamais 101 ──
@@ -232,6 +289,7 @@ if (!root) {
           text: 'Quel est l’effet de la météo sur mes ventes ?',
           sub: 'Chaleur, pluie, froid — l’écart mesuré de votre CA sur vos jours comparables',
           q: 'Quel est l’effet de la météo sur mes ventes ?',
+          key: 'explorer_sugg_weather', date: todayYmd,
         });
       }
     }
@@ -244,127 +302,10 @@ if (!root) {
       text: 'Générer un rapport',
       sub: MONTHS_FR[lastMonth.getMonth()].charAt(0).toUpperCase() + MONTHS_FR[lastMonth.getMonth()].slice(1) + ', une semaine, une période — le document complet, imprimable et partageable',
       q: 'Génère le rapport de ' + MONTHS_FR[lastMonth.getMonth()],
+      key: 'explorer_sugg_report',
+      date: lastMonth.getFullYear() + '-' + String(lastMonth.getMonth() + 1).padStart(2, '0') + '-01',
     });
     return slots;
-  }
-
-  function _legacyBuildDynamicSuggestions(data, compData) {
-    if (!data || !Array.isArray(data.days) || !data.days.length) return [];
-    var today = new Date();
-    var todayYmd = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
-    var days = data.days;
-    var dayMap = {};
-    for (var i = 0; i < days.length; i++) {
-      var ymd = String(days[i].date || '').slice(0, 10);
-      dayMap[ymd] = days[i];
-    }
-    var todayDay = dayMap[todayYmd] || days[0] || {};
-    var DOW_FR = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
-
-    var suggestions = [];
-
-    // 1. Best day of the week (always)
-    var bestDay = null;
-    var bestScore = -1;
-    for (var i = 0; i < days.length; i++) {
-      var s = Number(days[i].opportunity_score || 0);
-      if (s > bestScore) { bestScore = s; bestDay = days[i]; }
-    }
-    if (bestDay && bestScore > 0) {
-      var bd = new Date(String(bestDay.date).slice(0,10) + 'T00:00:00');
-      var bdLabel = DOW_FR[bd.getDay()];
-      var bdScore = Number(bestScore).toFixed(1);
-      suggestions.push({
-        svg: SVG_ICON_STAR,
-        iconBg: '#E1F5EE',
-        iconColor: '#0F6E56',
-        text: 'Meilleur jour : ' + bdLabel + ' (' + bdScore + '/10)',
-        sub: 'Pourquoi cette date est-elle la plus favorable ?',
-        q: 'Pourquoi ' + bdLabel + ' est le meilleur jour de la semaine ?',
-      });
-    }
-
-    // 2. Weather or competition alert (only if exists)
-    var weatherDay = null;
-    for (var i = 0; i < days.length; i++) {
-      if (Number(days[i].alert_level_max || 0) >= 2) { weatherDay = days[i]; break; }
-    }
-    var compDay = null;
-    for (var i = 0; i < days.length; i++) {
-      if (Number(days[i].events_within_5km_count || 0) > 2) { compDay = days[i]; break; }
-    }
-
-    if (weatherDay) {
-      var wd = new Date(String(weatherDay.date).slice(0,10) + 'T00:00:00');
-      var wdLabel = DOW_FR[wd.getDay()];
-      var tempMax = Number(weatherDay.temperature_2m_max || 0);
-      var windMax = Number(weatherDay.wind_speed_10m_max || 0);
-      var precipMax = Number(weatherDay.precipitation_probability_max_pct || 0);
-      var wLabel = tempMax >= 33 ? 'Forte chaleur (' + Math.round(tempMax) + '\u00b0C)'
-        : tempMax >= 30 ? 'Chaleur (' + Math.round(tempMax) + '\u00b0C)'
-        : precipMax >= 60 ? 'Risque pluie (' + Math.round(precipMax) + '%)'
-        : windMax >= 30 ? 'Vent fort (' + Math.round(windMax) + ' km/h)'
-        : weatherDay.weather_label_fr || 'Alerte m\u00e9t\u00e9o';
-      suggestions.push({
-        svg: SVG_ICON_CLOUD,
-        iconBg: '#FAEEDA',
-        iconColor: '#854F0B',
-        text: wLabel + ' ' + wdLabel,
-        sub: 'Quel impact sur mon activit\u00e9 ?',
-        q: (function() {
-          var l = wLabel.toLowerCase();
-          var article = l.startsWith('risque') ? 'du ' : l.startsWith('vent') ? 'du ' : l.startsWith('forte') ? 'de la ' : l.startsWith('chaleur') ? 'de la ' : 'de la ';
-          return 'Quel est l\u2019impact ' + article + l + ' ' + wdLabel + ' sur mon activit\u00e9 ?';
-        })(),
-      });
-    } else if (compDay) {
-      var cd = new Date(String(compDay.date).slice(0,10) + 'T00:00:00');
-      var cdLabel = DOW_FR[cd.getDay()];
-      var evCount = Number(compDay.events_within_5km_count || 0);
-      suggestions.push({
-        svg: SVG_ICON_USERS,
-        iconBg: '#FCEBEB',
-        iconColor: '#A32D2D',
-        text: evCount + ' \u00e9v\u00e9nements \u00e0 5 km ' + cdLabel,
-        sub: 'Quel risque pour ma fr\u00e9quentation ?',
-        q: 'Quels \u00e9v\u00e9nements concurrents sont pr\u00e9vus ' + cdLabel + ' et quel est leur impact ?',
-      });
-    }
-
-    // 3. Followed competitor activity (only if signals exist)
-    var compSignals = compData && Array.isArray(compData.signals) ? compData.signals : [];
-    var activeSignal = null;
-    for (var i = 0; i < compSignals.length; i++) {
-      if (compSignals[i].is_active || compSignals[i].is_launch) { activeSignal = compSignals[i]; break; }
-    }
-    if (activeSignal) {
-      var compName = activeSignal.competitor_name || 'Concurrent';
-      var evName = activeSignal.event_name || '';
-      var distKm = activeSignal.distance_from_location_m ? (Number(activeSignal.distance_from_location_m) / 1000).toFixed(1) : null;
-      var chipText = compName + (evName ? ' \u2014 ' + evName : '');
-      if (distKm) chipText += ' (' + distKm + ' km)';
-      suggestions.push({
-        svg: SVG_ICON_TARGET,
-        iconBg: '#FCEBEB',
-        iconColor: '#A32D2D',
-        text: chipText,
-        sub: activeSignal.is_launch ? 'Lancement d\u00e9tect\u00e9 \u2014 quel impact ?' : '\u00c9v\u00e9nement actif \u2014 quel impact ?',
-        q: 'Quel est l\u2019impact de ' + compName + (evName ? ' (' + evName + ')' : '') + ' sur mon activit\u00e9 ?',
-      });
-    } else if (compData && compData.followed_count > 0 && compSignals.length > 0) {
-      var firstComp = compSignals[0];
-      var compName = firstComp.competitor_name || 'Concurrent';
-      suggestions.push({
-        svg: SVG_ICON_TARGET,
-        iconBg: '#E6F1FB',
-        iconColor: '#185FA5',
-        text: compName + ' \u2014 activit\u00e9 cette semaine',
-        sub: 'Que pr\u00e9parent vos concurrents ?',
-        q: 'Que pr\u00e9pare ' + compName + ' cette semaine et quel est l\u2019impact ?',
-      });
-    }
-
-    return suggestions.slice(0, 3);
   }
 
   function renderDynamicSuggestions(suggestions) {
@@ -388,11 +329,12 @@ if (!root) {
     var cardHtmls = [];
     for (var i = 0; i < suggestions.length; i++) {
       var s = suggestions[i];
-      cardHtmls.push('<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '">'
+      cardHtmls.push('<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '"'
+        + (s.key ? ' data-sugg-key="' + escapeHtml(s.key) + '" data-sugg-date="' + escapeHtml(s.date || '') + '"' : '') + '>'
         + '<div class="ie-prompt-card-icon">' + s.svg + '</div>'
         + '<div class="ie-prompt-card-content">'
           + '<p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">' + escapeHtml(s.text) + '</p>'
-          + '<p style="font-size:13px;color:#6b7280;margin:0;line-height:1.4;">' + escapeHtml(s.sub) + '</p>'
+          + '<p style="font-size:13px;color:#374151;margin:0;line-height:1.4;">' + escapeHtml(s.sub) + '</p>'
         + '</div>'
         + '<div class="ie-prompt-card-arrow"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>'
       + '</a>');
@@ -412,9 +354,12 @@ if (!root) {
     }
 
     document.querySelectorAll('.ie-dynamic-suggestion').forEach(function(card) {
+      var marked = _consultedMarks[_markId(card.getAttribute('data-sugg-key'), card.getAttribute('data-sugg-date'))];
+      if (marked) _applyConsultedMark(card, marked);
       card.addEventListener('click', function(e) {
         e.preventDefault();
         var q = card.getAttribute('data-dynamic-q') || '';
+        _recordConsulted(card);
         setTextareaValue(q);
         submitQuestion(q);
       });
@@ -1151,80 +1096,22 @@ if (!root) {
     var s = q.trim().toLowerCase();
     if (s.length > 50) return true;
     if (s.endsWith('?')) return true;
-    var starters = ['quel','quelle','quels','quelles','quand','pourquoi','comment','combien','est-ce','compare','explique','analyse','montre','donne','liste','trouve'];
+    var starters = ['quel','quelle','quels','quelles','quand','pourquoi','comment','combien','est-ce','compare','explique','analyse','montre','donne','liste','trouve','génère','genere','prépare','prepare'];
     var first = s.split(/\s+/)[0] || '';
     for (var i = 0; i < starters.length; i++) { if (first === starters[i]) return true; }
-    var contains = ['impact','risque','meilleur','pire','score','opportunit','pourquoi','comment','difference','differencier','comparer','conseill','recommand','menace','audience','frequentation'];
+    var contains = ['impact','risque','meilleur','pire','score','opportunit','pourquoi','comment','difference','differencier','comparer','conseill','recommand','menace','audience','frequentation','rapport','report'];
     for (var i = 0; i < contains.length; i++) { if (s.indexOf(contains[i]) >= 0) return true; }
     return false;
   }
 
-  // ── On-demand report detection ("génère le rapport de juin", "rapport semaine dernière") ──
-  function repIso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
-  function repMonthRange(year, m0) { return [repIso(new Date(year, m0, 1)), repIso(new Date(year, m0 + 1, 0))]; }
-  var REP_MONTHS = ["janvier", "fevrier|février", "mars", "avril", "mai", "juin", "juillet", "aout|août", "septembre", "octobre", "novembre", "decembre|décembre"];
-  function parseFrPeriod(q) {
-    var s = q.toLowerCase(), now = new Date(), m;
-    if ((m = s.match(/du\s+(\d{1,2})\/(\d{1,2})\/(\d{4})\s+au\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/)))
-      return [m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0"), m[6] + "-" + m[5].padStart(2, "0") + "-" + m[4].padStart(2, "0")];
-    if ((m = s.match(/du\s+(\d{4}-\d{2}-\d{2})\s+au\s+(\d{4}-\d{2}-\d{2})/))) return [m[1], m[2]];
-    if ((m = s.match(/(\d{1,3})\s+derniers?\s+jours/))) { var e = new Date(now); e.setDate(e.getDate() - 1); var st = new Date(e); st.setDate(st.getDate() - (parseInt(m[1], 10) - 1)); return [repIso(st), repIso(e)]; }
-    if (/semaine\s+(derni[eè]re|pass[eé]e)/.test(s)) { var e2 = new Date(now); e2.setDate(e2.getDate() - 1); var s2 = new Date(e2); s2.setDate(s2.getDate() - 6); return [repIso(s2), repIso(e2)]; }
-    if (/mois\s+(derni[eè]r|pass[eé])/.test(s)) return repMonthRange(now.getFullYear(), now.getMonth() - 1);
-    if (/ce\s+mois|mois\s+en\s+cours|mois-ci/.test(s)) return [repIso(new Date(now.getFullYear(), now.getMonth(), 1)), repIso(now)];
-    for (var i = 0; i < 12; i++) { if (new RegExp("\\b(" + REP_MONTHS[i] + ")\\b").test(s)) { var ym = s.match(/\b(20\d{2})\b/); return repMonthRange(ym ? parseInt(ym[1], 10) : now.getFullYear(), i); } }
-    return null;
-  }
-  function reportPeriodFromText(q) {
-    var s = q.toLowerCase();
-    if (!/\brapports?\b|\breports?\b/.test(s)) return null;
-    var genVerb = /\b(g[eéè]n[eéè]r|cr[eé]e|produi|t[eéè]l[eéè]charg|export|sor[st]\b)/.test(s);
-    var r = parseFrPeriod(q);
-    if (!r && !genVerb) return null; // "quel rapport entre X et Y" → not a report request
-    if (!r) { var e = new Date(); e.setDate(e.getDate() - 1); var st = new Date(e); st.setDate(st.getDate() - 29); r = [repIso(st), repIso(e)]; }
-    return r;
-  }
-  function navReport(period, loc) {
-    window.location.href = "/app/insightevent/rapport?start=" + encodeURIComponent(period[0]) + "&end=" + encodeURIComponent(period[1]) + (loc ? "&loc=" + encodeURIComponent(loc) : "");
-  }
-  async function startReport(period, originalText) {
-    qs("ie-prompt-empty")?.setAttribute("hidden", "true");
-    qs("ie-thread")?.removeAttribute("hidden");
-    appendMsg("user", originalText);
-    var locs = [];
-    try { var res = await fetch("/api/import/locations"); var j = await res.json().catch(function () { return null; }); if (j && j.ok && Array.isArray(j.locations)) locs = j.locations; } catch (e) {}
-    if (locs.length > 1) {
-      var rows = locs.map(function (l) {
-        return '<label class="ie-report-loc-opt" data-loc="' + escapeHtml(l.location_id) + '" data-start="' + escapeHtml(period[0]) + '" data-end="' + escapeHtml(period[1]) + '" style="display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer;"><span class="ie-import-radio" style="width:16px;height:16px;border-radius:50%;border:1.5px solid #9ca3af;flex-shrink:0;box-sizing:border-box;"></span><span style="font-size:14px;color:#111827;">' + escapeHtml(l.label) + '</span></label>';
-      }).join("");
-      var b = appendMsg("ai", "");
-      if (b) setBubbleHtml(b, '<div class="ie-confirm-block"><div class="ie-confirm-msg">Pour quel établissement ?</div><div style="display:flex;flex-direction:column;gap:2px;">' + rows + '</div></div>');
-    } else {
-      navReport(period, locs.length === 1 ? locs[0].location_id : null);
-    }
-  }
-  document.addEventListener("click", function (e) {
-    var opt = e.target.closest(".ie-report-loc-opt");
-    if (!opt) return;
-    e.preventDefault();
-    var block = opt.closest(".ie-confirm-block");
-    if (block) {
-      block.style.pointerEvents = "none";
-      var rr = block.querySelectorAll(".ie-import-radio");
-      for (var i = 0; i < rr.length; i++) rr[i].style.border = "1.5px solid #9ca3af";
-      var rad = opt.querySelector(".ie-import-radio");
-      if (rad) rad.style.border = "5px solid #1D3BB3";
-    }
-    navReport([opt.getAttribute("data-start"), opt.getAttribute("data-end")], opt.getAttribute("data-loc"));
-  });
+  // (detection de rapport a la demande : cote SERVEUR depuis le 26/08 — intent
+  //  deterministic_report_nav_v1 dans insight/prompt.ts, periode via lib/dates/frPeriod ;
+  //  les parseurs clients dupliques ont ete supprimes.)
 
   async function submitQuestion(overrideQ, confirmedParams) {
     const ta = qs("ie-prompt-input");
     const q = overrideQ || (ta && ta.value ? ta.value : "").trim();
     if (!q) return;
-
-    var __rp = reportPeriodFromText(q);
-    if (__rp) { startReport(__rp, q); return; }
 
     // Smart routing: questions → AI prompt, keywords → competitor search
     const activeMode = document.querySelector('.ie-mode-btn.active')?.dataset?.mode ?? 'planning';
@@ -1627,7 +1514,8 @@ if (!root) {
     // Load dynamic suggestions + competitor signals
     Promise.all([
       fetchMonitorForSuggestions(),
-      fetchCompetitorSignalsForSuggestions()
+      fetchCompetitorSignalsForSuggestions(),
+      fetchConsultedMarks()
     ]).then(function(results) {
       var data = results[0];
       var compData = results[1];

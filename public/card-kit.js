@@ -9,7 +9,8 @@
   function esc(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function frInt(n) { try { return Number(n).toLocaleString('fr-FR'); } catch (e) { return String(n); } }
 
-  var WX_DOW_FR = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+  /* Lexique regle 6 : jours en toutes lettres - jamais d'abreviation. */
+  var WX_DOW_FR = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
   function wxDayLabel(iso) {
     try { var p = String(iso).split('-'); var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2]));
       return WX_DOW_FR[d.getUTCDay()] + ' ' + p[2] + '/' + p[1]; } catch (e) { return String(iso); }
