@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { filterDisabledThemes } from "../../../lib/recoThemeMap";
+import { filterDisabledThemes, themeForActionType } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 
 function requireString(v: string | undefined, name: string) {
@@ -505,7 +505,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
   try {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-    const [[daysRows], [locationContextRows], [alertsFeedRows], [actionCandidateRows], [recoRows]] = await Promise.all([
+    const [[daysRows], [locationContextRows], [alertsFeedRows], [actionCandidateRows], [recoRows], [themeRejRows]] = await Promise.all([
       bq.query({
         query: daysQuery,
         params: { location_id, selected_dates },
@@ -540,7 +540,22 @@ export const GET: APIRoute = async ({ url, locals }) => {
         `,
         params: { clerk_user_id, location_id },
       }) : Promise.resolve([[]]),
+      // P2 tri (27/08) — rejets « Pas pour moi » par type (vw card_dispositions, chaine en
+      // vues). Sert le départage FINAL du tri de pulse : à clés arbitrées égales (mesuré,
+      // horizon, montant — owner 25/08, intouchées), un thème écarté descend. Lot parallèle :
+      // coût = max, pas somme.
+      bq.query({
+        query: `SELECT action_type, n_not_done FROM \`muse-square-open-data.semantic.vw_insight_event_card_dispositions\` WHERE location_id = @location_id AND n_not_done > 0`,
+        params: { location_id },
+      }).catch(() => [[]] as any[]),
     ] as any);
+
+    // rejets agrégés par THÈME (themeForActionType) — la clé technique ne sort jamais.
+    const theme_rejections: Record<string, number> = {};
+    for (const _r of ((themeRejRows as any[]) ?? [])) {
+      const _th = themeForActionType(String(_r.action_type));
+      if (_th) theme_rejections[_th] = (theme_rejections[_th] || 0) + Number(_r.n_not_done || 0);
+    }
 
     let disabledThemes: string[] = [];
     try {
@@ -888,6 +903,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         days: days_deduped,
         alerts,
         action_candidates,
+        theme_rejections,
         competition_summary,
       }),
       {
