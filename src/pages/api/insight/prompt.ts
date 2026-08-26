@@ -41,6 +41,8 @@ import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contr
 import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { sinkTelemetry } from "../../../lib/telemetrySink";
+// addDaysYmd existe déjà en local (l.~757) — ne pas l'importer en doublon.
+import { resolveFrPeriod, daysInRangeYmd, type YearBias } from "../../../lib/dates/frPeriod";
 
 export const prerender = false;
 
@@ -517,6 +519,17 @@ const COMPARISON_MARKERS = [
   "entre",
   " vs ",
   "vs ",
+];
+
+// Marqueurs de PASSÉ exprimé (sur texte normalisé) — ils priment les marqueurs
+// de planification/évaluation pour le biais d'année de frPeriod : « quels ont
+// été mes meilleurs jours de juin ? » parle de juin passé malgré « meilleurs ».
+const PAST_TENSE_MARKERS = [
+  "ont ete", "a ete", "etait", "etaient",
+  "s'est passe", "s est passe", "s'est-il passe", "s est-il passe",
+  "j'ai vendu", "j ai vendu", "ai fait", "ai eu", "ai realise",
+  "avons vendu", "avons fait", "avons eu",
+  "a marche", "ont marche", "a rendu", "ont rendu", "a donne", "ont donne",
 ];
 
 const PLANNING_VERBS = [
@@ -2600,65 +2613,41 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       return out.slice(0, 7);
     }
 
-    function inferSelectedDateFromMonthMention(qRaw: string): string | null {
-      const qn = norm(qRaw);
-
-      const months: Record<string, number> = {
-        // FR
-        "janvier": 1,
-        "fevrier": 2, "février": 2,
-        "mars": 3,
-        "avril": 4,
-        "mai": 5,
-        "juin": 6,
-        "juillet": 7,
-        "aout": 8, "août": 8,
-        "septembre": 9,
-        "octobre": 10,
-        "novembre": 11,
-        "decembre": 12, "décembre": 12,
-
-        // EN
-        "january": 1,
-        "february": 2,
-        "march": 3,
-        "april": 4,
-        "may": 5,
-        "june": 6,
-        "july": 7,
-        "august": 8,
-        "september": 9,
-        "october": 10,
-        "november": 11,
-        "december": 12,
-      };
-
-      let m: number | null = null;
-      for (const k of Object.keys(months)) {
-        // Use word boundary check: month name must be preceded and followed by non-letter
-        const re = new RegExp(`(?:^|[^a-z])${k}(?:[^a-z]|$)`);
-        if (re.test(qn)) { m = months[k]; break; }
-      }
-      if (!m) return null;
-
-      const ym = qRaw.match(/\b(20\d{2})\b/);
-      const explicitYear = ym ? Number(ym[1]) : null;
-
-      const now = new Date();
-      const yNow = now.getUTCFullYear();
-      const mNow = now.getUTCMonth() + 1;
-
-      const y = explicitYear ?? (m < mNow ? yNow + 1 : yNow);
-
-      return new Date(Date.UTC(y, m - 1, 1)).toISOString().slice(0, 10);
-    }
+    // Résolution de PÉRIODE (lib partagée src/lib/dates/frPeriod) — remplace
+    // l'inférence mono-mois : « juin-juillet » devient un intervalle, et le
+    // biais d'année suit l'intention. Planification/évaluation (« meilleurs
+    // jours en juin ») → prochaine occurrence, comme l'historique ; sinon
+    // (résultats, rapport) → occurrence passée — « juin » demandé en août ne
+    // résout plus en juin de l'an prochain pour une question de résultats.
+    const _qnPeriod = norm(q);
+    const period_year_bias: YearBias =
+      PAST_TENSE_MARKERS.some((k) => _qnPeriod.includes(k))
+        ? "past"
+        : PLANNING_VERBS.some((k) => _qnPeriod.includes(k)) ||
+            EVALUATION_MARKERS.some((k) => _qnPeriod.includes(k))
+          ? "future"
+          : "past";
+    const parsed_period = resolveFrPeriod(q, {
+      today: new Date().toISOString().slice(0, 10),
+      yearBias: period_year_bias,
+    });
+    // Intégration limitée aux formes mois / plage de mois / du-au : les formes
+    // relatives (« semaine dernière », « ce mois ») gardent leurs chemins
+    // existants (weekday windows, temporal constraints).
+    const period_for_window =
+      parsed_period &&
+      (parsed_period.kind === "month" ||
+        parsed_period.kind === "month_range" ||
+        parsed_period.kind === "explicit_range")
+        ? parsed_period
+        : null;
 
     // selected_date precedence:
     // 1) explicit payload
-    // 2) inferred from question month (e.g. "en juin")
+    // 2) inferred from question period (e.g. "en juin", "juin-juillet")
     // 3) thread_context last selected_date
     // 4) today
-    const inferred_selected_date = inferSelectedDateFromMonthMention(q);
+    const inferred_selected_date = period_for_window?.start ?? null;
 
     // Multi-turn: after a month/top-days turn, a date-less follow-up ("Pourquoi ?")
     // inherits the #1 recommended date instead of defaulting to today.
@@ -2673,6 +2662,15 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           safeYmd10(thread_context?.last?.selected_date) ??
           _priorTopDate ??
           new Date().toISOString().slice(0, 10));
+
+    // Fenêtre du mode mois : la période parsée quand c'est elle qui a fixé la
+    // date (« juin-juillet » → 01/06..31/07), sinon la fenêtre historique de
+    // 30 jours (selected_date + 29 — ex. selected_date posté par la page days).
+    const window_end_date: string =
+      period_for_window && selected_date === period_for_window.start
+        ? period_for_window.end
+        : addDaysYmd(selected_date, 29);
+    const window_len_days = daysInRangeYmd(selected_date, window_end_date);
 
     const date =
       typeof body?.date === "string" && body.date.trim() ? body.date.trim() : null;
@@ -3168,6 +3166,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     async function bqWorstlist(params: {
       location_id: string;
       window_start_date: string; // YYYY-MM-DD
+      window_end_date: string; // YYYY-MM-DD inclus
       hard_only?: boolean;
       limit?: number; // 1..7
     }) {
@@ -3182,7 +3181,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         WITH win AS (
           SELECT
             DATE(@window_start_date) AS window_start_date,
-            DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
+            DATE(@window_end_date)   AS window_end_date
         ),
         base AS (
           SELECT
@@ -3254,6 +3253,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         params: {
           location_id: params.location_id,
           window_start_date: params.window_start_date,
+          window_end_date: params.window_end_date,
           hard_only,
           limit,
         },
@@ -3816,7 +3816,10 @@ Règles :
 
     switch (resolved_horizon) {
       case "month": {
-        month_window = await bqOne(
+        // vw_insight_event_30d_window_surface est une table de fenêtres FIGÉES
+        // de 30 jours — une période libre (« juin-juillet » = 61 j) se calcule
+        // depuis la surface jour via le repli inline ci-dessous.
+        month_window = window_len_days !== 30 ? null : await bqOne(
           `
           WITH win AS (
             SELECT
@@ -3839,7 +3842,8 @@ Règles :
             WITH win AS (
               SELECT
                 COALESCE(DATE(@selected_date), CURRENT_DATE()) AS window_start_date,
-                DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY) AS window_end_date
+                COALESCE(DATE(@window_end_date),
+                         DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY)) AS window_end_date
             ),
             base AS (
               SELECT *
@@ -3852,7 +3856,9 @@ Règles :
               ANY_VALUE(semantic_contract_version) AS semantic_contract_version,
               'month' AS display_horizon,
               CONCAT(
-                'Fenêtre 30 jours: ',
+                'Fenêtre ',
+                CAST(DATE_DIFF((SELECT window_end_date FROM win), (SELECT window_start_date FROM win), DAY) + 1 AS STRING),
+                ' jours: ',
                 FORMAT_DATE('%d/%m/%Y', (SELECT window_start_date FROM win)),
                 ' → ',
                 FORMAT_DATE('%d/%m/%Y', (SELECT window_end_date FROM win))
@@ -3884,7 +3890,7 @@ Règles :
               ) AS top_days
             FROM base
             `,
-            bqParams({ location_id, selected_date })
+            bqParams({ location_id, selected_date, window_end_date })
           );
         }
 
@@ -3907,26 +3913,22 @@ Règles :
           throw new Error("Invalid month_window.window_start_date (cannot normalize to YYYY-MM-DD)");
         }
 
-        const monthConstraintYmd = inferSelectedDateFromMonthMention(q); // YYYY-MM-01 or null
-        const monthConstraintYm = monthConstraintYmd ? monthConstraintYmd.slice(0, 7) : null;
-
+        // La contrainte mono-mois (ex-@month_constraint_ym) est subsumée : la
+        // fenêtre EST la période demandée, bornes exactes incluses — le 31 du
+        // mois n'est plus perdu par l'ancienne fenêtre start+29.
         const [shortlistResult, month_days_result, worstlistResult] = await Promise.all([
           bqAll(
             `
             WITH win AS (
               SELECT
                 DATE(@window_start_date) AS window_start_date,
-                DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
+                DATE(@window_end_date)   AS window_end_date
             )
             SELECT *
             FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
             WHERE location_id = @location_id
               AND date BETWEEN (SELECT window_start_date FROM win)
                           AND (SELECT window_end_date   FROM win)
-              AND (
-                @month_constraint_ym = ""
-                OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
-              )
               AND COALESCE(opportunity_regime, '') != 'C'
               AND COALESCE(CAST(weather_alert_level AS INT64), 0) < 3
               AND (
@@ -3947,7 +3949,7 @@ Règles :
             bqParams({
               location_id,
               window_start_date: ws,
-              month_constraint_ym: monthConstraintYm ?? "",
+              window_end_date,
               filter_weekend_only: effective_weekend_only,
               filter_weekday,
               filter_weekday_bq,
@@ -3960,23 +3962,20 @@ Règles :
                 WITH win AS (
                   SELECT
                     COALESCE(DATE(@selected_date), CURRENT_DATE()) AS window_start_date,
-                    DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY) AS window_end_date
+                    COALESCE(DATE(@window_end_date),
+                             DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY)) AS window_end_date
                 )
                 SELECT *
                 FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
                 WHERE location_id = @location_id
                   AND date BETWEEN (SELECT window_start_date FROM win)
                               AND (SELECT window_end_date   FROM win)
-                  AND (
-                    @month_constraint_ym = ""
-                    OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
-                  )
                 ORDER BY date ASC
                 `,
-                bqParams({ location_id, selected_date, month_constraint_ym: monthConstraintYm ?? "" })
+                bqParams({ location_id, selected_date, window_end_date })
               ),
           resolved_intent === "WINDOW_WORST_DAYS"
-            ? bqWorstlist({ location_id, window_start_date: ws, hard_only: false, limit: 7 })
+            ? bqWorstlist({ location_id, window_start_date: ws, window_end_date, hard_only: false, limit: 7 })
             : Promise.resolve([]),
         ]);
 
@@ -3984,14 +3983,14 @@ Règles :
         month_days = month_days_result;
         worstlist = worstlistResult;
 
-        shortlist_rows = shortlist ?? [];
-
+        // Les requêtes sont déjà bornées à la période exacte — plus de
+        // re-filtrage mono-mois côté JS. worstlist_rows est affecté ICI, avant
+        // le filtre temporel ci-dessous qui le lisait à vide (défaut d'ordre).
         const shortlist0 = Array.isArray(shortlist) ? shortlist : [];
         const worstlist0 = Array.isArray(worstlist) ? worstlist : [];
 
-        shortlist_rows = monthConstraintYm
-          ? shortlist0.filter((r: any) => ymdFromAnyDate(r?.date).slice(0, 7) === monthConstraintYm)
-          : shortlist0;
+        shortlist_rows = shortlist0;
+        worstlist_rows = worstlist0;
 
         if (resolved_intent === "WINDOW_TOP_DAYS") {
           shortlist_rows = shortlist_rows.slice(0, top_k);
@@ -4036,10 +4035,6 @@ Règles :
             v3_signals: { weather, competition, calendar },
           };
         });
-
-        worstlist_rows = monthConstraintYm
-          ? worstlist0.filter((r: any) => ymdFromAnyDate(r?.date).slice(0, 7) === monthConstraintYm)
-          : worstlist0;
 
         const source_rows =
           resolved_intent === "WINDOW_WORST_DAYS"
