@@ -294,13 +294,24 @@ const locParam = Astro.url.searchParams.get("loc") || "";
             // the card's recommended action (reco) from the motor — a real CTA
             var body = "";
             try { if (typeof spec.reco === "function") body = String(spec.reco(feedItem) || ""); } catch (e) {}
-            return { title: spec.brand_label_fr || a.action_type, body: body };
+            // the plan's WHY (owner-voiced, reco-library) — same source as the
+            // insight premium card; legacy string plans have none.
+            var why = "";
+            try {
+              if (typeof spec.recos === "function") {
+                var plans = spec.recos(feedItem);
+                var p0 = (plans && plans.length) ? plans[0] : null;
+                if (p0 && typeof p0 === "object" && p0.why) why = String(p0.why);
+              }
+            } catch (e) {}
+            return { title: spec.brand_label_fr || a.action_type, body: body, why: why };
           }).filter(Boolean);
           var actions = actionItems.length ? actionItems.map(function (a, i) {
             return '<div style="display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-top:'+(i?"1px solid #f0f0f0":"none")+';">'
               + '<span style="width:20px;height:20px;border-radius:50%;background:#1D3BB3;color:#fff;font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">'+(i+1)+'</span>'
               + '<div style="flex:1;"><div style="font-size:14px;font-weight:500;color:#111827;line-height:1.4;">'+esc(a.title)+'</div>'
               + (a.body ? '<div style="font-size:13px;color:#374151;line-height:1.5;margin-top:3px;">'+esc(a.body)+'</div>' : '')
+              + (a.why ? '<div style="font-size:12.5px;color:#6B7280;line-height:1.55;margin-top:6px;"><span style="font-weight:600;color:#4B5563;">Pourquoi </span>'+esc(a.why)+'</div>' : '')
               + '</div></div>';
           }).join("") : '<div style="font-size:13px;color:#9ca3af;">Aucun signal de vente à traiter sur la période.</div>';
 
