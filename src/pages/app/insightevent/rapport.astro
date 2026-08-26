@@ -43,7 +43,7 @@ const locParam = Astro.url.searchParams.get("loc") || "";
       }
     </style>
 
-    <script is:inline src="/card-kit.js?v=45"></script>
+    <script is:inline src="/card-kit.js?v=46"></script>
     <script is:inline src="/reco-library.js?v=12"></script>
     <script is:inline src="/action-cards.js?v=95"></script>
     <script is:inline>
@@ -131,7 +131,7 @@ const locParam = Astro.url.searchParams.get("loc") || "";
         function weekdayChart(wd) {
           var mx=Math.max.apply(null,wd.map(function(d){return d.avg;}))||1,bw=300/wd.length,h="";
           wd.forEach(function(d,i){ var bh=(d.avg/mx)*105,x=i*bw+bw*0.18,y=120-bh;
-            h+='<rect x="'+x+'" y="'+y+'" width="'+(bw*0.64)+'" height="'+bh+'" rx="2" fill="#1D3BB3" fill-opacity="'+(0.45+0.55*d.avg/mx).toFixed(2)+'"/><text x="'+(i*bw+bw/2)+'" y="135" font-size="10" fill="#6b7280" text-anchor="middle">'+esc(d.label)+'</text>'; });
+            h+='<rect x="'+x+'" y="'+y+'" width="'+(bw*0.64)+'" height="'+bh+'" rx="2" fill="#1D3BB3" fill-opacity="'+(0.45+0.55*d.avg/mx).toFixed(2)+'"/><text x="'+(i*bw+bw/2)+'" y="135" font-size="8" fill="#6b7280" text-anchor="middle">'+esc(d.label)+'</text>'; });
           return '<svg viewBox="0 0 300 150" style="width:100%;height:auto;">'+h+'</svg>';
         }
         function catBars(cats) {
