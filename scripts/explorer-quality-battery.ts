@@ -36,6 +36,7 @@ R9 — VOIX : registre professionnel d'un analyste qui parle à un exploitant �
 // « Orsay sans chiffres » (juge R3)          → R3 + règle chiffres-des-pages + cas Orsay
 // « jour inexpliqué sans contexte réel »     → cas 14/07 (porte : web_context + source https)
 // « no 101 / robotic crap » (08/08)          → R9
+// « mes journées de juin-juillet » routées lookup_event → « Aucun événement trouvé » (26/08) → cas bilan (porte : horizon ≠ lookup_event)
 // Comportements CLIENT (fil qui survit, Nouvelle conversation, 3 slots, chips) → suite séparée
 // src/client/explorer-ui.test.ts (happy-dom sur les VRAIS card-kit.js + ie-prompt.js).
 
@@ -43,6 +44,7 @@ type Expect = {
   producers: string[]; maxSeconds: number; groundedChips?: boolean; webSources?: boolean;
   usedDate?: () => string;      // porte DATE : decision_payload.used_dates[0] doit être EXACTEMENT ceci
   answerMatch?: RegExp;         // porte CONTENU : le texte visible doit matcher (fait attendu présent)
+  horizonNot?: string;          // porte ROUTAGE : meta.resolved_horizon ne doit JAMAIS être ceci
 };
 // Samedi précédent STRICTEMENT avant aujourd'hui (la sémantique « samedi dernier » de R2-4).
 function prevSaturdayYmd(): string {
@@ -86,6 +88,12 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
       last: { horizon: "day", intent: "DAY_WHY", used_dates: ["2026-07-18"] },
     },
   },
+  // Détournement du détecteur d'événements (E2E 26/08) : une question de BILAN sur ses propres
+  // journées (« mes journées » + noms de mois) partait en lookup_event via la branche MINIMAL
+  // TEMPORAL → « Aucun événement trouvé ». La porte garde le ROUTAGE seul : jamais le chemin lookup.
+  // Le fond de la réponse (month/DAY_DIMENSION_DETAIL rend aujourd'hui le fallback « Je n'ai pas pu
+  // produire… » — ai.ok=true, output null) est un défaut DISTINCT, non gardé ici.
+  { q: "comment se sont passées mes journées de juin-juillet ?", expect: { producers: ["deterministic", "v3_claude", "v3_fallback_deterministic", "family_grounded_claude", "family_deterministic", "grounded_day_claude"], maxSeconds: 35, horizonNot: "lookup_event" } },
   // R8 — le cas owner 08/08 : une objection doit produire le tour de DÉSACCORD, jamais une resucée.
   {
     q: "tu ne réponds pas à ma question: pourquoi mon CA a chuté de 40 % samedi dernier?",
@@ -177,6 +185,10 @@ async function judge(q: string, answer: string): Promise<{ scores: Record<string
       const want = item.expect.usedDate();
       const got = String(out?.decision_payload?.used_dates?.[0] ?? "").slice(0, 10);
       if (got !== want) gates.push(`date résolue ${got || "absente"} (attendu ${want})`);
+    }
+    if (item.expect.horizonNot) {
+      const got = out?.meta?.resolved_horizon ?? null;
+      if (got === item.expect.horizonNot) gates.push(`horizon=${got} (routage interdit pour cette question)`);
     }
     if (item.expect.answerMatch) {
       const full = [output.headline, typeof output.answer === "string" ? output.answer : "", ...(output.key_facts ?? [])].join("\n");

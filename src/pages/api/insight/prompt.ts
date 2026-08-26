@@ -778,6 +778,19 @@ function toBoolOrNullLocal(v: any): boolean | null {
   return toBoolOrNullStrict(v);
 }
 
+// A REVIEW question about the operator's OWN period (« comment se sont passées mes journées de
+// juin-juillet ? ») is never an entity lookup — but the month names put it on the MINIMAL TEMPORAL
+// branch below and it answered « Aucun événement trouvé » (E2E 26/08, f10c3e58). Same family as
+// IMPACT_MARKERS' possessives (mon ca, mes ventes) : possessive + a time-period noun, or a
+// « comment … s'est passé » phrasing. Matched on the normalized question (apostrophes survive norm()).
+function isOwnPeriodReviewQuestion(s: string): boolean {
+  return (
+    /comment (se sont|s['’ ]?est|ca s['’ ]?est|cela s['’ ]?est) pass/.test(s) ||
+    /\b(ma|mes|mon) (journees?|jours|semaines?|mois|saison|periodes?)\b/.test(s) ||
+    /\bbilan\b/.test(s)
+  );
+}
+
 function isEventLookupQuestion(qRaw: string): boolean {
   const s = norm(qRaw ?? "");
 
@@ -789,6 +802,7 @@ function isEventLookupQuestion(qRaw: string): boolean {
   if (COMPARISON_MARKERS.some(k => s.includes(k))) return false;
   if (PLANNING_VERBS.some(k => s.includes(k))) return false;
   if (IMPACT_MARKERS.some(k => s.includes(k))) return false;   // impact question about an entity ≠ lookup
+  if (isOwnPeriodReviewQuestion(s)) return false;              // bilan on one's own days ≠ lookup (26/08)
 
   // ----------------------------
   // POSITIVE LOOKUP SIGNALS
