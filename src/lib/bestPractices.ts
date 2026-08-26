@@ -289,21 +289,22 @@ export async function listClassDispositifs(
   limit = 3,
 ): Promise<ClassDispositif[]> {
   try {
+    // 27/08 — lit la surface semantic (vw_insight_event_dispositifs, chaine stg -> int ->
+    // fct en VUES : fraicheur identique a l'ancienne lecture analytics directe). La jointure
+    // replay et le tier sont calcules par int_location_dispositifs — la MEME semantique que
+    // l'ancienne requete inline, prouvee champ par champ avant bascule (EXCEPT DISTINCT
+    // bidirectionnel = 0 sur les 4 fiches actives). source='declared' : cette fonction n'a
+    // jamais liste les engagements prouves autonomes (c'est listMatchedPractices).
     const [rows] = await bq.query({
       query: `
-        SELECT bp.practice_id, bp.practice_text, bp.confirmation_test, bp.day_class_key,
-               IF(c.verdict = 'met', 'prouvee', 'declaree') AS tier,
-               c.status AS commitment_status, c.verdict AS commitment_verdict,
-               FORMAT_TIMESTAMP('%Y-%m-%d', bp.created_at) AS created_date
-        FROM \`${TABLE_FQN}\` bp
-        LEFT JOIN (
-          SELECT commitment_id, status, verdict,
-                 ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
-          FROM \`${COMMITMENTS_FQN}\`
-        ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
-        WHERE bp.location_id = @location_id AND bp.status = 'active'
-          AND (@day_class_key IS NULL OR bp.day_class_key = @day_class_key)
-        ORDER BY IF(c.status = 'open', 0, 1), bp.created_at DESC
+        SELECT dispositif_id AS practice_id, practice_text, confirmation_test, day_class_key,
+               tier,
+               replay_status AS commitment_status, replay_verdict AS commitment_verdict,
+               FORMAT_TIMESTAMP('%Y-%m-%d', created_at) AS created_date
+        FROM \`${BQ_PROJECT}.semantic.vw_insight_event_dispositifs\`
+        WHERE location_id = @location_id AND source = 'declared' AND status = 'active'
+          AND (@day_class_key IS NULL OR day_class_key = @day_class_key)
+        ORDER BY IF(replay_status = 'open', 0, 1), created_at DESC
         LIMIT ${Math.max(1, Math.min(limit, 6))}
       `,
       params: { location_id, day_class_key },
