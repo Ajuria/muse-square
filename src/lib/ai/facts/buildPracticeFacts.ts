@@ -14,7 +14,7 @@
 // Borné à 5 fiches (les plus récentes, tests en cours d'abord) pour ne pas gonfler le prompt.
 // =====================================================
 import { makeBQClient } from "../../bq";
-import { listClassDispositifs, type ClassDispositif } from "../../bestPractices";
+import { listClassDispositifs, dispositifStateFr, type ClassDispositif } from "../../bestPractices";
 import { classNounFr } from "../../insightFamilies/dispositif";
 import { themeForActionType, RECO_THEME_LABEL_FR } from "../../recoThemeMap";
 
@@ -27,32 +27,14 @@ const frFullDate = (iso: string) => {
   return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "";
 };
 
-// L'ÉTAT d'un dispositif en toutes lettres — axe d'EFFET séparé de l'axe CIBLE (arbitrages
+// Wrapper : LA grammaire vit dans bestPractices.dispositifStateFr (source unique, trois
+// consommateurs) ; ici on résout juste le noun depuis day_class_key. (arbitrages
 // owner 27/08, tableau lexique 8-13 montré avant implémentation). Pure, testée sur fixture.
 // Chaque % porte son référentiel (règle 2) ; « prouvé », « manqué », « non concluant » sont
 // les mots actés du lexique ; le signal de la contre-indication est nommé par classNounFr
 // (les MÊMES noun_fr que l'atelier — zéro copie).
 export function practiceStateFr(p: Pick<ClassDispositif, "tier" | "effect_direction" | "effect_residual_pct" | "commitment_verdict" | "replay_threshold_value" | "replay_threshold_basis" | "day_class_key">): string {
-  const pct = p.effect_residual_pct != null
-    ? `${p.effect_residual_pct >= 0 ? "+" : "-"}${String(Math.round(Math.abs(p.effect_residual_pct) * 10) / 10).replace(".", ",")} %`
-    : "";
-  if (p.effect_direction === "negative") {
-    const noun = classNounFr(p.day_class_key);
-    return `${noun ? `face à vos ${noun}, ` : ""}il a prouvé ne pas être adapté (${pct} vs votre résultat habituel, 1 test manqué)`;
-  }
-  if (p.effect_direction === "positive" && p.commitment_verdict === "missed") {
-    const cible = p.replay_threshold_basis === "pct" && p.replay_threshold_value != null
-      ? ` : votre cible (+${String(p.replay_threshold_value).replace(".", ",")} %) était peut-être surestimée`
-      : "";
-    return `effet positif mesuré (${pct} vs votre résultat habituel), objectif manqué${cible}`;
-  }
-  if (p.tier === "prouvee") {
-    return `prouvé au rejeu${pct ? ` (${pct} vs votre résultat habituel)` : ""}`;
-  }
-  if (p.effect_direction === "inconclusive") {
-    return "testé, non concluant (effet dans le bruit du lieu)";
-  }
-  return "déclaré, pas encore prouvé";
+  return dispositifStateFr(p, classNounFr(p.day_class_key));
 }
 
 // Contre-indication AUTONOME (27/08, owner) : un engagement resolu hors fiche, a effet

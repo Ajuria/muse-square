@@ -19,7 +19,7 @@
 //  - impact : la pilule du motif par LE chemin de politique réel (getDayClassImpacts —
 //    jamais une réimplémentation des portes).
 import { getDayClassImpacts, dayClassMembersSql, WEATHER_DAY_CLASSES, TERCILE_DAY_CLASSES, OTHER_DAY_CLASSES, type DayClassImpact } from "../dayClassRegistry";
-import { listClassDispositifs, type ClassDispositif } from "../bestPractices";
+import { listClassDispositifs, dispositifStateFr, type ClassDispositif } from "../bestPractices";
 import type { FamilyFact } from "./types";
 
 const PROJECT = "muse-square-open-data";
@@ -194,6 +194,7 @@ export interface DispositifFamilyResult {
       practice_text: string;
       confirmation_test: string | null;
       tier: "prouvee" | "declaree" | "ecarte";   // ecarte = effet négatif prouvé (27/08)
+      state_fr: string;                          // l'état en toutes lettres (dispositifStateFr — LA grammaire)
       in_test: boolean;
       created_date: string;
     }>;
@@ -444,6 +445,9 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
     practice_text: p.practice_text,
     confirmation_test: p.confirmation_test,
     tier: p.tier,
+    // L'état en toutes lettres par LA grammaire unique (bestPractices.dispositifStateFr) —
+    // le noun du motif est celui de CETTE enquête (cfg.noun_fr), le dispositif y appartient.
+    state_fr: dispositifStateFr(p, cfg.noun_fr),
     in_test: p.commitment_status === "open",
     created_date: p.created_date,
   }));
@@ -474,7 +478,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
   }
   for (const p of existingDispositifs) {
     facts.push({
-      fact_fr: `Dispositif déjà documenté chez vous le ${fd(p.created_date)} : « ${p.practice_text} » — ${p.tier === "prouvee" ? "prouvé au rejeu" : "déclaré"}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.in_test ? " ; engagement de test EN COURS (suivi sur Pulse)" : ""}.`,
+      fact_fr: `Dispositif déjà documenté chez vous le ${fd(p.created_date)} : « ${p.practice_text} » — ${p.state_fr}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.in_test ? " ; engagement de test EN COURS (suivi sur Pulse)" : ""}.`,
       claim_type: "observed",
     });
   }

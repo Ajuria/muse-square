@@ -310,6 +310,36 @@ export interface ClassDispositif {
   created_date: string;               // ISO Y-m-d (interne — l'affichage se fait en JJ/MM côté surface)
 }
 
+// L'ÉTAT d'un dispositif en toutes lettres — LA source unique (axe d'effet séparé de
+// l'axe cible, arbitrages owner 27/08). Paramétrée par le nom de classe (noun_fr) pour ne
+// dépendre d'aucun module amont : buildPracticeFacts passe classNounFr(day_class_key),
+// le provider dispositif passe son cfg.noun_fr local. Trois consommateurs, UNE grammaire :
+// chat grounded, chemin déterministe, faits d'enquête.
+export function dispositifStateFr(
+  p: Pick<ClassDispositif, "tier" | "effect_direction" | "effect_residual_pct" | "commitment_verdict" | "replay_threshold_value" | "replay_threshold_basis">,
+  class_noun_fr: string | null,
+): string {
+  const pct = p.effect_residual_pct != null
+    ? `${p.effect_residual_pct >= 0 ? "+" : "-"}${String(Math.round(Math.abs(p.effect_residual_pct) * 10) / 10).replace(".", ",")} %`
+    : "";
+  if (p.effect_direction === "negative") {
+    return `${class_noun_fr ? `face à vos ${class_noun_fr}, ` : ""}il a prouvé ne pas être adapté (${pct} vs votre résultat habituel, 1 test manqué)`;
+  }
+  if (p.effect_direction === "positive" && p.commitment_verdict === "missed") {
+    const cible = p.replay_threshold_basis === "pct" && p.replay_threshold_value != null
+      ? ` : votre cible (+${String(p.replay_threshold_value).replace(".", ",")} %) était peut-être surestimée`
+      : "";
+    return `effet positif mesuré (${pct} vs votre résultat habituel), objectif manqué${cible}`;
+  }
+  if (p.tier === "prouvee") {
+    return `prouvé au rejeu${pct ? ` (${pct} vs votre résultat habituel)` : ""}`;
+  }
+  if (p.effect_direction === "inconclusive") {
+    return "testé, non concluant (effet dans le bruit du lieu)";
+  }
+  return "déclaré, pas encore prouvé";
+}
+
 export async function listClassDispositifs(
   bq: any,
   location_id: string,
