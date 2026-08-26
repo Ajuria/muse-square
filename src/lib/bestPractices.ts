@@ -307,6 +307,7 @@ export interface ClassDispositif {
   effect_residual_z: number | null;
   replay_threshold_value: number | null;
   replay_threshold_basis: string | null;
+  replay_adjustment_move: string | null;   // poursuivre | doubler | pivoter | stop — la décision prise face au verdict
   created_date: string;               // ISO Y-m-d (interne — l'affichage se fait en JJ/MM côté surface)
 }
 
@@ -315,29 +316,41 @@ export interface ClassDispositif {
 // dépendre d'aucun module amont : buildPracticeFacts passe classNounFr(day_class_key),
 // le provider dispositif passe son cfg.noun_fr local. Trois consommateurs, UNE grammaire :
 // chat grounded, chemin déterministe, faits d'enquête.
+const MOVE_CLAUSE_FR: Record<string, string> = {
+  // les gestes du flux Ajuster (card-kit _mc + « Arrêter » -> stop), libellés commitmentCopy
+  stop: "vous aviez choisi d'arrêter ce test",
+  pivoter: "vous aviez choisi de pivoter",
+  doubler: "vous aviez choisi de doubler la mise",
+  poursuivre: "vous aviez choisi de poursuivre",
+};
+
 export function dispositifStateFr(
-  p: Pick<ClassDispositif, "tier" | "effect_direction" | "effect_residual_pct" | "commitment_verdict" | "replay_threshold_value" | "replay_threshold_basis">,
+  p: Pick<ClassDispositif, "tier" | "effect_direction" | "effect_residual_pct" | "commitment_verdict" | "replay_threshold_value" | "replay_threshold_basis"> & { replay_adjustment_move?: string | null },
   class_noun_fr: string | null,
 ): string {
+  // la décision prise FACE au verdict — l'étage au-dessus de l'axe effet/cible ; une valeur
+  // hors carte est tue (jamais une clé technique en phrase).
+  const move = p.replay_adjustment_move != null ? MOVE_CLAUSE_FR[String(p.replay_adjustment_move)] ?? null : null;
+  const withMove = (state: string) => (move ? `${state} — ${move}` : state);
   const pct = p.effect_residual_pct != null
     ? `${p.effect_residual_pct >= 0 ? "+" : "-"}${String(Math.round(Math.abs(p.effect_residual_pct) * 10) / 10).replace(".", ",")} %`
     : "";
   if (p.effect_direction === "negative") {
-    return `${class_noun_fr ? `face à vos ${class_noun_fr}, ` : ""}il a prouvé ne pas être adapté (${pct} vs votre résultat habituel, 1 test manqué)`;
+    return withMove(`${class_noun_fr ? `face à vos ${class_noun_fr}, ` : ""}il a prouvé ne pas être adapté (${pct} vs votre résultat habituel, 1 test manqué)`);
   }
   if (p.effect_direction === "positive" && p.commitment_verdict === "missed") {
     const cible = p.replay_threshold_basis === "pct" && p.replay_threshold_value != null
       ? ` : votre cible (+${String(p.replay_threshold_value).replace(".", ",")} %) était peut-être surestimée`
       : "";
-    return `effet positif mesuré (${pct} vs votre résultat habituel), objectif manqué${cible}`;
+    return withMove(`effet positif mesuré (${pct} vs votre résultat habituel), objectif manqué${cible}`);
   }
   if (p.tier === "prouvee") {
-    return `prouvé au rejeu${pct ? ` (${pct} vs votre résultat habituel)` : ""}`;
+    return withMove(`prouvé au rejeu${pct ? ` (${pct} vs votre résultat habituel)` : ""}`);
   }
   if (p.effect_direction === "inconclusive") {
-    return "testé, non concluant (effet dans le bruit du lieu)";
+    return withMove("testé, non concluant (effet dans le bruit du lieu)");
   }
-  return "déclaré, pas encore prouvé";
+  return withMove("déclaré, pas encore prouvé");
 }
 
 export async function listClassDispositifs(
@@ -359,7 +372,7 @@ export async function listClassDispositifs(
                tier,
                replay_status AS commitment_status, replay_verdict AS commitment_verdict,
                effect_direction, effect_residual_pct, effect_residual_z,
-               replay_threshold_value, replay_threshold_basis,
+               replay_threshold_value, replay_threshold_basis, replay_adjustment_move,
                FORMAT_TIMESTAMP('%Y-%m-%d', created_at) AS created_date
         FROM \`${BQ_PROJECT}.semantic.vw_insight_event_dispositifs\`
         WHERE location_id = @location_id AND source = 'declared' AND status = 'active'
@@ -384,6 +397,7 @@ export async function listClassDispositifs(
       effect_residual_z: r.effect_residual_z != null ? Number(r.effect_residual_z) : null,
       replay_threshold_value: r.replay_threshold_value != null ? Number(r.replay_threshold_value) : null,
       replay_threshold_basis: r.replay_threshold_basis != null ? String(r.replay_threshold_basis) : null,
+      replay_adjustment_move: r.replay_adjustment_move != null ? String(r.replay_adjustment_move) : null,
       created_date: String(r.created_date ?? ""),
     }));
   } catch (e) {

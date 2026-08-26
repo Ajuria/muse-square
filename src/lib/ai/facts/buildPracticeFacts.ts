@@ -33,7 +33,7 @@ const frFullDate = (iso: string) => {
 // Chaque % porte son référentiel (règle 2) ; « prouvé », « manqué », « non concluant » sont
 // les mots actés du lexique ; le signal de la contre-indication est nommé par classNounFr
 // (les MÊMES noun_fr que l'atelier — zéro copie).
-export function practiceStateFr(p: Pick<ClassDispositif, "tier" | "effect_direction" | "effect_residual_pct" | "commitment_verdict" | "replay_threshold_value" | "replay_threshold_basis" | "day_class_key">): string {
+export function practiceStateFr(p: Pick<ClassDispositif, "tier" | "effect_direction" | "effect_residual_pct" | "commitment_verdict" | "replay_threshold_value" | "replay_threshold_basis" | "day_class_key"> & { replay_adjustment_move?: string | null }): string {
   return dispositifStateFr(p, classNounFr(p.day_class_key));
 }
 

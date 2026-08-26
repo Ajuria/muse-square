@@ -72,3 +72,22 @@ describe("autonomousCounterFactFr — la contre-indication autonome", () => {
     expect(out).not.toContain("extended_bad_weather");
   });
 });
+
+describe("la clause move — la décision prise face au verdict", () => {
+  it("le cas réel : rejeu arrêté (stop) sur un déclaré", () => {
+    expect(practiceStateFr({ ...base, replay_adjustment_move: "stop" }))
+      .toBe("déclaré, pas encore prouvé — vous aviez choisi d'arrêter ce test");
+  });
+  it("pivoter après un non concluant", () => {
+    expect(practiceStateFr({ ...base, effect_direction: "inconclusive", commitment_verdict: "missed", replay_adjustment_move: "pivoter" }))
+      .toBe("testé, non concluant (effet dans le bruit du lieu) — vous aviez choisi de pivoter");
+  });
+  it("doubler la mise après un prouvé", () => {
+    expect(practiceStateFr({ ...base, tier: "prouvee", effect_direction: "positive", effect_residual_pct: 5, commitment_verdict: "met", replay_adjustment_move: "doubler" }))
+      .toBe("prouvé au rejeu (+5 % vs votre résultat habituel) — vous aviez choisi de doubler la mise");
+  });
+  it("valeur inconnue : tue, jamais une clé technique", () => {
+    expect(practiceStateFr({ ...base, replay_adjustment_move: "valeur_inconnue" }))
+      .toBe("déclaré, pas encore prouvé");
+  });
+});
