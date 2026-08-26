@@ -5790,8 +5790,17 @@ Règles :
               iso.slice(0, 10) < _todayFr && isoEnd.slice(0, 10) >= _todayFr;
             const dowEndFr = isOngoing ? DOW_LOOKUP_FR[new Date(`${isoEnd.slice(0, 10)}T00:00:00Z`).getUTCDay()] : "";
             const endDateFr = isOngoing ? frLookupDate(sorted[0]?.event_end_date) : "";
+            // Span FUTUR multi-jours (27/08, mot owner « du … au … ») : « a lieu le 05/12 »
+            // taisait la fin d'un événement courant du 05 au 08/12. Même verbe approuvé.
+            const isFutureSpan =
+              /^\d{4}-\d{2}-\d{2}/.test(iso) && /^\d{4}-\d{2}-\d{2}/.test(isoEnd) &&
+              iso.slice(0, 10) >= _todayFr && isoEnd.slice(0, 10) > iso.slice(0, 10);
+            const dowEnd2Fr = isFutureSpan ? DOW_LOOKUP_FR[new Date(`${isoEnd.slice(0, 10)}T00:00:00Z`).getUTCDay()] : "";
+            const endDate2Fr = isFutureSpan ? frLookupDate(sorted[0]?.event_end_date) : "";
             const sentence = isOngoing && endDateFr
               ? `${items[0].name} est en cours jusqu'au ${dowEndFr} ${endDateFr} — commencé le ${items[0].date}.`
+              : isFutureSpan && endDate2Fr
+              ? `${items[0].name} a lieu du ${dowFr} ${items[0].date} au ${dowEnd2Fr} ${endDate2Fr}${rel ? ` — ${rel}` : ""}.`
               : items[0].date
               ? `${items[0].name} a lieu ${dowFr ? `le ${dowFr} ` : "le "}${items[0].date}${rel ? ` — ${rel}` : ""}.`
               : `${items[0].name} est référencé, sans date précise dans notre base.`;
