@@ -287,7 +287,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                       WHERE l.rn = 1 AND l.status IN ('open','pending')),
                 ca AS (SELECT o.commitment_id, COUNT(r.date) AS jours, ROUND(SUM(r.daily_revenue), 0) AS valeur, ROUND(SUM(r.expected_revenue), 0) AS reference
                        FROM o JOIN (SELECT location_id, date, daily_revenue, expected_revenue
-                                    FROM \`${PROJECT}.mart.fct_client_day_residual\` WHERE location_id IN UNNEST(@locs)) r
+                                    FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\` WHERE location_id IN UNNEST(@locs)) r
                          ON r.location_id = o.location_id AND r.date BETWEEN o.window_start AND LEAST(o.window_end, CURRENT_DATE())
                        WHERE o.measured_metric != 'family_revenue' OR o.kpi_family IS NULL GROUP BY 1),
                 fam AS (SELECT o.commitment_id, COUNT(DISTINCT t.transaction_date) AS jours, ROUND(SUM(t.revenue), 0) AS valeur,
@@ -410,7 +410,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // CA habituel par jour de semaine (90 j) — l'unité d'impact « votre sam ≈ 1 190 € ».
       bq.query({
         query: `SELECT location_id, EXTRACT(DAYOFWEEK FROM date) AS dw, ROUND(AVG(expected_revenue), 0) AS habituel
-                FROM \`${PROJECT}.mart.fct_client_day_residual\`
+                FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\`
                 WHERE location_id IN UNNEST(@locs) AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
                 GROUP BY 1, 2`,
         params: { locs }, location: "EU",
@@ -457,7 +457,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 k1 AS (
                   SELECT c.commitment_id, AVG(r.daily_revenue) realized, AVG(r.expected_revenue) exp_base
                   FROM cm c JOIN (SELECT location_id, date, daily_revenue, expected_revenue
-                                  FROM \`${PROJECT}.mart.fct_client_day_residual\` WHERE location_id IN UNNEST(@locs)) r
+                                  FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\` WHERE location_id IN UNNEST(@locs)) r
                     ON r.location_id = c.location_id
                    AND r.date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
                   WHERE c.measured_metric IS NULL OR c.measured_metric = 'revenue_residual' GROUP BY 1),
@@ -501,7 +501,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                     WHERE location_id IN UNNEST(@locs))
                   WHERE rn = 1 AND status = 'open' AND window_end > window_start)
                 SELECT c.commitment_id, CAST(r.date AS STRING) d, r.daily_revenue v
-                FROM cm c JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+                FROM cm c JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
                   ON r.location_id = c.location_id AND r.date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
                 WHERE c.measured_metric IS NULL OR c.measured_metric = 'revenue_residual'
                 UNION ALL
@@ -665,7 +665,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       bq.query({
         query: `SELECT location_id, CAST(DATE(date) AS STRING) d,
                        ROUND(daily_revenue) ca, ROUND(expected_revenue) exp
-                FROM \`${PROJECT}.mart.fct_client_day_residual\`
+                FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\`
                 WHERE location_id IN UNNEST(@locs)
                   AND DATE(date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 365 DAY)
                   AND DATE(date) < CURRENT_DATE()
@@ -733,7 +733,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                          s.daily_visitors, s.daily_transactions,
                          r.expected_visitors, r.expected_transactions
                   FROM cm c
-                  JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+                  JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
                     ON r.location_id = c.location_id
                    AND r.date BETWEEN c.window_start AND LEAST(c.window_end, CURRENT_DATE('Europe/Paris'))
                   LEFT JOIN \`${PROJECT}.mart.fct_client_sales_signals_daily\` s

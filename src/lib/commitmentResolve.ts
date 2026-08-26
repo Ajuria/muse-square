@@ -23,7 +23,7 @@ import type { CommitmentRow } from "./actionCommitments";
 import featureRegistry from "./sensitivityFeatures.json";
 
 const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
-const RESIDUAL = `${BQ_PROJECT}.mart.fct_client_day_residual`;
+const RESIDUAL = `${BQ_PROJECT}.semantic.vw_insight_event_day_residual`;
 const CTX = `${BQ_PROJECT}.mart.fct_location_context_features_daily`;
 // window_active_factors is computed against the registry's DECLARED context_table with the SAME
 // single-source predicates the endpoint's ACTIVE_EXPR uses — so "ran under heat" (here) and "today is

@@ -73,7 +73,7 @@ export async function listUserEvenements(bq: any, location_id: string, clerk_use
     if (pastDates.length) {
       const [resRows] = await bq.query({
         query: `SELECT CAST(date AS STRING) AS d, ROUND(daily_revenue, 0) AS rev, ROUND(expected_revenue, 0) AS exp
-                FROM \`${PROJECT}.mart.fct_client_day_residual\`
+                FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\`
                 WHERE location_id = @location_id AND date IN UNNEST(ARRAY(SELECT PARSE_DATE('%F', x) FROM UNNEST(@dates) AS x))`,
         params: { location_id, dates: pastDates }, types: { dates: ["STRING"] }, location: "EU",
       });
@@ -182,7 +182,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     }) : empty,
     pastDates.length ? bq.query({
       query: `SELECT CAST(date AS STRING) AS d, ROUND(daily_revenue, 0) AS rev, ROUND(expected_revenue, 0) AS exp, ROUND(residual_pct, 1) AS rpct
-              FROM \`${PROJECT}.mart.fct_client_day_residual\`
+              FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\`
               WHERE location_id = @location_id AND date IN UNNEST(ARRAY(SELECT PARSE_DATE('%F', x) FROM UNNEST(@dates) AS x))`,
       params: { location_id, dates: pastDates }, types: { dates: ["STRING"] }, location: "EU",
     }) : empty,
@@ -211,7 +211,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
     }),
     bq.query({
       query: `SELECT EXTRACT(DAYOFWEEK FROM date) AS dw, ROUND(AVG(expected_revenue), 0) AS expected_eur
-              FROM \`${PROJECT}.mart.fct_client_day_residual\`
+              FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\`
               WHERE location_id = @location_id AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY) GROUP BY dw`,
       params: { location_id }, location: "EU",
     }),
@@ -581,7 +581,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       sources: [
         "raw.saved_items × raw.saved_item_dates (l'événement, ses occurrences)",
         "semantic.vw_insight_event_day_surface (les 5 questions des jours à venir — audience, mobilité clients/fournisseurs, voisins, météo, concurrence)",
-        "mart.fct_client_day_residual (CA vs attendu, + attendu par jour de semaine 90 j)",
+        "semantic.vw_insight_event_day_residual (CA vs attendu, + attendu par jour de semaine 90 j)",
         "mart.fct_client_sales_signals_daily (tickets, panier vs base 30 j)",
         ...(item.kpi_family ? ["raw.client_transactions (CA de la famille vs sa moyenne journalière)"] : []),
         "analytics.action_commitments (verdicts des engagements ancrés saved_item_id)",

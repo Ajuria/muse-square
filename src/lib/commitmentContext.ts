@@ -44,7 +44,7 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
     bq.query({
       query:
         `SELECT ROUND(AVG(r.residual_pct),1) AS pct, COUNT(*) AS days ` +
-        `FROM \`${PROJECT}.mart.fct_client_day_residual\` r ` +
+        `FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\` r ` +
         `JOIN \`${PROJECT}.mart.fct_location_context_features_daily\` c ` +
         `ON r.location_id=c.location_id AND r.date=c.date ` +
         `WHERE r.location_id=@loc AND c.is_school_holiday_flag AND c.date <= @asof`,
@@ -56,7 +56,7 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
         `SELECT COUNTIF(is_school_holiday_flag) AS school_days, ` +
         `COUNTIF(mobility_disruption_flag_region) AS mobility_days, ` +
         `APPROX_TOP_COUNT(tourism_status_region,1)[OFFSET(0)].value AS tourism_status ` +
-        `FROM \`${PROJECT}.mart.fct_location_context_daily\` WHERE location_id=@loc AND date BETWEEN @s AND @e`,
+        `FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` WHERE location_id=@loc AND date BETWEEN @s AND @e`,
       params: { loc, s: bq.date(s), e: bq.date(e) }, location: "EU",
     }),
     // named nearby events (5km), most present first — RELEVANCE-GATED. The raw top_events_5km
@@ -92,7 +92,7 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
         `WITH day AS (SELECT transaction_date d, SUM(daily_revenue) rev FROM \`${PROJECT}.mart.fct_client_daily_performance\` ` +
         `WHERE location_id=@loc AND transaction_date <= @asof AND transaction_date > DATE_SUB(@asof, INTERVAL 90 DAY) GROUP BY 1), ` +
         `j AS (SELECT day.rev rev, c.lvl_rain rain, c.lvl_heat heat FROM day ` +
-        `LEFT JOIN \`${PROJECT}.mart.fct_location_context_daily\` c ON c.location_id=@loc AND c.date=day.d) ` +
+        `LEFT JOIN \`${PROJECT}.semantic.vw_insight_event_location_context\` c ON c.location_id=@loc AND c.date=day.d) ` +
         `SELECT ROUND(AVG(IF(rain>=2, rev, NULL)),0) AS cool_avg, COUNTIF(rain>=2) AS cool_n, ` +
         `ROUND(AVG(IF(NOT COALESCE(rain>=2,false), rev, NULL)),0) AS mild_avg, COUNTIF(NOT COALESCE(rain>=2,false)) AS mild_n, ` +
         `ROUND(CORR(CAST(rain AS FLOAT64), rev),2) AS corr_rain FROM j`,
@@ -100,7 +100,7 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
     }),
     // provenance: how many days of history the "habituel" was learned on
     bq.query({
-      query: `SELECT COUNT(DISTINCT date) AS history_days FROM \`${PROJECT}.mart.fct_client_day_residual\` WHERE location_id=@loc AND date <= @asof`,
+      query: `SELECT COUNT(DISTINCT date) AS history_days FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\` WHERE location_id=@loc AND date <= @asof`,
       params: { loc, asof: bq.date(asOfDate) }, location: "EU",
     }),
     // Type A action_type track record — via the brain's scoped sub-accessor (the ONE outcomes read,

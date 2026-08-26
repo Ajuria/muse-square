@@ -5,8 +5,8 @@
 // interroge BigQuery en direct : AUCUN réglage dbt ne peut lui interdire de lire `mart.*`.
 // La frontière ne peut donc être tenue que du côté qui la franchit — ici.
 //
-// CE QU'IL FAIT : un CLIQUET, pas un couperet. L'état du 26/08 (183 lectures directes
-// réparties sur 43 fichiers) est figé ci-dessous. Le test échoue quand :
+// CE QU'IL FAIT : un CLIQUET, pas un couperet. L'état du 26/08 (130 lectures directes
+// réparties sur 40 fichiers) est figé ci-dessous. Le test échoue quand :
 //   - un fichier NON listé se met à lire `mart.*`        -> nouvelle dette, refusée ;
 //   - un fichier listé en lit PLUS qu'à son cliquet       -> régression, refusée ;
 //   - un fichier listé en lit MOINS                       -> progrès : le test dit le nouveau
@@ -20,33 +20,31 @@ import { join } from "node:path";
 
 // Cliquet mesuré le 26/08 sur src/ (fichier -> nombre de références `mart.fct_*`).
 const CLIQUET: Record<string, number> = {
-  "src/lib/ai/facts/buildDayPerformanceFacts.ts": 3,
+  "src/lib/ai/facts/buildDayPerformanceFacts.ts": 2,
   "src/lib/ai/find_dates/find-dates.ts": 2,
-  "src/lib/commitmentContext.ts": 8,
-  "src/lib/commitmentResolve.ts": 2,
-  "src/lib/dayClassRegistry.ts": 16,
-  "src/lib/dayContext.ts": 23,
-  "src/lib/eventLifecycleCards.ts": 1,
-  "src/lib/insightFamilies/calendar.ts": 2,
+  "src/lib/commitmentContext.ts": 4,
+  "src/lib/commitmentResolve.ts": 1,
+  "src/lib/dayClassRegistry.ts": 10,
+  "src/lib/dayContext.ts": 19,
+  "src/lib/insightFamilies/calendar.ts": 1,
   "src/lib/insightFamilies/channels.ts": 8,
-  "src/lib/insightFamilies/competitor.ts": 4,
-  "src/lib/insightFamilies/dispositif.ts": 16,
-  "src/lib/insightFamilies/evenement.ts": 7,
-  "src/lib/insightFamilies/events.ts": 5,
+  "src/lib/insightFamilies/competitor.ts": 3,
+  "src/lib/insightFamilies/dispositif.ts": 6,
+  "src/lib/insightFamilies/evenement.ts": 3,
+  "src/lib/insightFamilies/events.ts": 4,
   "src/lib/insightFamilies/footfall.ts": 1,
   "src/lib/insightFamilies/offering.ts": 1,
   "src/lib/insightFamilies/sales.ts": 3,
   "src/lib/insightFamilies/salesDecomp.ts": 1,
   "src/lib/insightFamilies/salesDiscount.ts": 1,
   "src/lib/insightFamilies/tourism.ts": 2,
-  "src/lib/insightFamilies/weather.ts": 7,
+  "src/lib/insightFamilies/weather.ts": 3,
   "src/lib/kpiRegistry.ts": 1,
   "src/lib/proposedFollows.ts": 2,
   "src/lib/trackRecordCore.ts": 1,
   "src/pages/api/analytics/admin-dashboard.ts": 1,
   "src/pages/api/analytics/party-role.ts": 1,
-  "src/pages/api/commitments/evolution.ts": 4,
-  "src/pages/api/commitments/index.ts": 1,
+  "src/pages/api/commitments/evolution.ts": 3,
   "src/pages/api/competitive/competitor-profile.ts": 1,
   "src/pages/api/competitive/competitor-signals.ts": 1,
   "src/pages/api/competitive/search-db.ts": 1,
@@ -55,13 +53,12 @@ const CLIQUET: Record<string, number> = {
   "src/pages/api/cron/digest.ts": 4,
   "src/pages/api/cron/internal-alert-sweep.ts": 1,
   "src/pages/api/insight/analogs.ts": 1,
-  "src/pages/api/insight/dashboard.ts": 21,
-  "src/pages/api/insight/evenement.ts": 1,
+  "src/pages/api/insight/dashboard.ts": 15,
   "src/pages/api/insight/monitor.ts": 1,
-  "src/pages/api/insight/prompt.ts": 3,
+  "src/pages/api/insight/prompt.ts": 1,
   "src/pages/api/insight/reactions-today.ts": 3,
-  "src/pages/api/insight/sales-report.ts": 11,
-  "src/pages/api/insight/weather-window.ts": 4,
+  "src/pages/api/insight/sales-report.ts": 9,
+  "src/pages/api/insight/weather-window.ts": 2,
   "src/pages/profile.astro": 3,
 };
 

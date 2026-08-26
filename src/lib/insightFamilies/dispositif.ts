@@ -62,8 +62,8 @@ const CLASS_CONFIG: Record<string, ClassMeta & { days_sql: string }> = {
     job_question_fr: "qu'est-ce qui fait réussir une journée de pointe chez vous — et est-ce écrit, pour que l'équipe le rejoue à chaque pic annoncé ?",
     days_sql: `
       WITH j AS (${DAY_BASE}, perf.daily_visitors AS m
-        FROM \`${PROJECT}.mart.fct_location_context_daily\` c
-        JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+        FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
+        JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
           ON r.location_id = c.location_id AND r.date = c.date
         LEFT JOIN \`${PROJECT}.mart.fct_client_daily_performance\` perf
           ON perf.location_id = c.location_id AND perf.transaction_date = c.date
@@ -94,8 +94,8 @@ const CLASS_CONFIG: Record<string, ClassMeta & { days_sql: string }> = {
         GROUP BY d
       ),
       j AS (${DAY_BASE}, COALESCE(sv.active_ct, 0) AS m
-        FROM \`${PROJECT}.mart.fct_location_context_daily\` c
-        JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+        FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
+        JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
           ON r.location_id = c.location_id AND r.date = c.date
         LEFT JOIN sv ON sv.date = c.date
         LEFT JOIN \`${PROJECT}.mart.fct_client_daily_performance\` perf
@@ -116,8 +116,8 @@ const CLASS_CONFIG: Record<string, ClassMeta & { days_sql: string }> = {
     job_question_fr: "qu'est-ce que vous faites ces jours-là pour en profiter — et est-ce écrit, pour le rejouer à chaque fenêtre calme ?",
     days_sql: `
       WITH j AS (${DAY_BASE}, f.competition_index_local AS m
-        FROM \`${PROJECT}.mart.fct_location_context_daily\` c
-        JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+        FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
+        JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
           ON r.location_id = c.location_id AND r.date = c.date
         LEFT JOIN \`${PROJECT}.mart.fct_location_context_features_daily\` f
           ON f.location_id = c.location_id AND f.date = c.date
@@ -226,8 +226,8 @@ function genericClassConfig(class_key: string): (ClassMeta & { days_sql: string 
     job_question_fr: "qu'est-ce que vous faites ces jours-là — et est-ce écrit, pour le rejouer ?",
     days_sql: `
       WITH j AS (${DAY_BASE}, 1 AS m
-        FROM \`${PROJECT}.mart.fct_location_context_daily\` c
-        JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+        FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
+        JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
           ON r.location_id = c.location_id AND r.date = c.date
         JOIN (${dayClassMembersSql()}) cd ON cd.date = c.date
         LEFT JOIN \`${PROJECT}.mart.fct_client_daily_performance\` perf
@@ -492,7 +492,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
       unexplained_days: unexplainedDays,
       existing_dispositifs: existingDispositifs,
       sources: [
-        "mart.fct_location_context_daily × mart.fct_client_day_residual × mart.fct_client_daily_performance (tercile haut des visiteurs, 730 j)",
+        "semantic.vw_insight_event_location_context × semantic.vw_insight_event_day_residual × mart.fct_client_daily_performance (tercile haut des visiteurs, 730 j)",
         "raw.client_transactions (amplitude horaire + mix produits des jours inexpliqués)",
         "analytics.day_class_impacts (pilule du motif, politique rowToImpact)",
         "analytics.best_practices × analytics.action_commitments (dispositifs déjà documentés du motif, tier à la lecture)",

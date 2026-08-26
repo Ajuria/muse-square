@@ -8,7 +8,7 @@
 //      truth-first (for a café, a heatwave is an OPPORTUNITY, +CA; for others a threat). n-gated.
 //   3) the (currently empty) playbook — what was done in past windows — lives in the shared track-record
 //      zone; honest-absence until the operator commits.
-// Sources: mart.fct_location_context_daily (lvl_* levels, incl. forecast rows), fct_location_weather_
+// Sources: semantic.vw_insight_event_location_context (lvl_* levels, incl. forecast rows), fct_location_weather_
 // forecast_daily_detail (apparent/real tmax), fct_client_sales_signals_daily (daily_revenue/transactions/avg_basket).
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
@@ -44,7 +44,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const [winRows] = await bq.query({
       query: `SELECT CAST(c.date AS STRING) AS d, c.lvl_heat, c.lvl_rain, c.lvl_cold, c.lvl_wind, c.lvl_snow,
                      f.apparent_temperature_max AS feels, f.temperature_2m_max AS tmax
-              FROM \`${PROJECT}.mart.fct_location_context_daily\` c
+              FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
               LEFT JOIN \`${PROJECT}.mart.fct_location_weather_forecast_daily_detail\` f
                 ON c.location_id = f.location_id AND c.date = f.date
               WHERE c.location_id = @location_id
@@ -72,7 +72,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const [impRows] = await bq.query({
       query: `WITH j AS (
                 SELECT c.${col} AS lvl, s.daily_revenue AS rev, s.daily_transactions AS txns, s.avg_basket AS basket
-                FROM \`${PROJECT}.mart.fct_location_context_daily\` c
+                FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
                 JOIN \`${PROJECT}.mart.fct_client_sales_signals_daily\` s
                   ON c.location_id = s.location_id AND c.date = s.transaction_date
                 WHERE c.location_id = @location_id AND c.date < DATE(@date))

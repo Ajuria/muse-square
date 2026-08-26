@@ -179,7 +179,7 @@ export const MISSING_DIMENSION_FR: Record<string, { headline: string; answer: st
 
 // Item 2 (16/07) — PREMISE CHECK on entity-impact questions. When the question embeds a checkable
 // claim about the operator's own CA (« …a-t-il fait chuter mon CA de 47 % ? »), the answer LEADS
-// with the verdict from THEIR OWN sales (mart.fct_client_day_residual: actual vs dow+trend normale)
+// with the verdict from THEIR OWN sales (semantic.vw_insight_event_day_residual: actual vs dow+trend normale)
 // before any web research. Deterministic French — DRAFT copy, owner owns the wording. Causal
 // discipline: we confirm or refute the CA MOVE, never its cause.
 const _frPct = (n: number) => `${n < 0 ? "−" : "+"}${Math.abs(Math.round(n))} %`;

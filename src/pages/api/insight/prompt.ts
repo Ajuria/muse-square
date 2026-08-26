@@ -495,7 +495,7 @@ function detectMissingDimension(qn: string): string | null {
 // Item 2 (16/07) — PREMISE CHECK parser. An entity-impact question may embed a CHECKABLE claim about
 // the operator's own CA (« …a-t-il fait chuter mon CA de 47 % ? »). High-precision: fires only when a
 // possessive revenue marker AND a direction verb are both present; the optional % is captured for the
-// met/refuted comparison. The claim is verified against mart.fct_client_day_residual (actual vs
+// met/refuted comparison. The claim is verified against semantic.vw_insight_event_day_residual (actual vs
 // dow+trend normale) BEFORE the web research — verify the premise first, research the entity second.
 // Declared-metric parsers live in lib/ai/declaredMetrics.ts (registry) since 16/07.
 
@@ -4328,11 +4328,11 @@ Règles :
               const premRows = await bqAll(
                 _premDate
                   ? `SELECT date, daily_revenue, expected_revenue, residual_pct
-                     FROM \`${semanticProjectId}.mart.fct_client_day_residual\`
+                     FROM \`${semanticProjectId}.semantic.vw_insight_event_day_residual\`
                      WHERE location_id = @location_id AND date = DATE(@prem_date)
                        AND residual_pct IS NOT NULL AND expected_revenue > 0`
                   : `SELECT date, daily_revenue, expected_revenue, residual_pct
-                     FROM \`${semanticProjectId}.mart.fct_client_day_residual\`
+                     FROM \`${semanticProjectId}.semantic.vw_insight_event_day_residual\`
                      WHERE location_id = @location_id
                        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
                        AND residual_pct IS NOT NULL AND expected_revenue > 0

@@ -48,7 +48,7 @@ async function measureCompetitorImpact(
             (SELECT COUNT(*) FROM \`${PROJECT}.semantic.vw_insight_event_competitor_signals\` s
              WHERE s.location_id = r.location_id AND s.entity_is_followed = TRUE
                AND r.date BETWEEN s.event_date AND COALESCE(s.event_date_end, s.event_date)) AS n_followed
-          FROM \`${PROJECT}.mart.fct_client_day_residual\` r
+          FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
           JOIN \`${PROJECT}.mart.fct_location_context_features_daily\` f
             ON f.location_id = r.location_id AND f.date = r.date
           WHERE r.location_id = @location_id AND r.residual_pct IS NOT NULL

@@ -15,7 +15,7 @@ import { getBestInClassPlays, leverForActionType } from "../../../lib/bestInClas
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
-const RESIDUAL = `${BQ_PROJECT}.mart.fct_client_day_residual`;
+const RESIDUAL = `${BQ_PROJECT}.semantic.vw_insight_event_day_residual`;
 const CTX = `${BQ_PROJECT}.mart.fct_location_context_features_daily`;
 
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);

@@ -16,7 +16,7 @@
 //   aux factures extrêmes (une facture portait 76 % des € de competition_high). Garde de COHÉRENCE
 //   DE SIGNE : pas de pilule si sign(t_log) ≠ sign(médiane) (cas wind Olivades : t_log +1,68,
 //   médiane −114 €/j — le test et la monétisation se contredisent, absence honnête).
-//   expected_revenue = mart.fct_client_day_residual ; ce qui reste est une ASSOCIATION
+//   expected_revenue = semantic.vw_insight_event_day_residual ; ce qui reste est une ASSOCIATION
 //   CONDITIONNELLE, jamais une causalité. discount_no_lift (classe COÛT, somme de remises) reste
 //   au régime linéaire par construction. Avant/après mesuré sur les 5 lieux : 19 pilules → 16,
 //   les 3 mortes sont les 3 fantômes des Olivades, rien ne meurt sur les 4 lieux propres.
@@ -202,8 +202,8 @@ export function catchmentHypothesisSql(singleLocation: boolean): string {
         c.location_id,
         e.events_within_1km_count  AS ev1,
         e.events_within_20km_count AS ev20
-      FROM \`${PROJECT}.mart.fct_location_context_daily\` c
-      JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+      FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
+      JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
         ON r.location_id = c.location_id AND r.date = c.date
       LEFT JOIN \`${PROJECT}.mart.fct_location_events_radius_daily\` e
         ON e.location_id = c.location_id AND e.date = c.date
@@ -365,8 +365,8 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
         COALESCE(r.is_revenue_down_residual, FALSE) AS pop_down_flag,
         COALESCE(r.is_revenue_surge_residual, FALSE) AS pop_surge_flag,
         COALESCE(sg.is_traffic_not_converting, FALSE) AS pop_traffic_nc_flag
-      FROM \`${PROJECT}.mart.fct_location_context_daily\` c
-      JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+      FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
+      JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
         ON r.location_id = c.location_id AND r.date = c.date
       LEFT JOIN \`${PROJECT}.mart.fct_location_context_features_daily\` f
         ON f.location_id = c.location_id AND f.date = c.date
@@ -505,7 +505,7 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
     -- ENGAGEMENTS, et on ne s'engage pas sur un indice qu'on ne contrôle pas.
     ftx AS (
       SELECT location_id, date, ft_day_mean
-      FROM \`${PROJECT}.mart.fct_location_context_daily\`
+      FROM \`${PROJECT}.semantic.vw_insight_event_location_context\`
       WHERE ft_day_mean IS NOT NULL AND ft_day_mean > 0
     ),
     vals AS (
@@ -777,7 +777,7 @@ async function dateResolutionQuery(bq: any, location_id: string, dates: string[]
       SELECT FORMAT_DATE('%Y-%m-%d', c.date) AS date, ${conditionCaseSql()} AS condition,
              c.is_school_holiday_flag AS school_flag, c.is_public_holiday_flag AS holiday_flag,
              dcl.client_catchment AS client_catchment
-      FROM \`${PROJECT}.mart.fct_location_context_daily\` c
+      FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
       -- Périmètre déclaré : lu sur la DIMENSION, pas sur le mart de contexte.
       -- 31/07/2026 — la version précédente lisait c.client_catchment, colonne qui N'EXISTE PAS
       -- dans fct_location_context_daily (49 colonnes, vérifié live). La requête échouait, son

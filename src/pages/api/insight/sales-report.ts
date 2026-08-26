@@ -119,7 +119,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
            COUNTIF(mobility_disruption_flag_region) AS mobility_days,
            COUNTIF(tourism_peak_flag_region) AS tourism_peak_days,
            APPROX_TOP_COUNT(tourism_status_region,1)[OFFSET(0)].value AS tourism_status
-         FROM \`${PROJECT}.mart.fct_location_context_daily\`
+         FROM \`${PROJECT}.semantic.vw_insight_event_location_context\`
          WHERE location_id=@loc AND date BETWEEN @s AND @e`,
         { loc, s: start, e: end }),
       // named nearby events (5km) + foreign visitors — shared with reactions-today via dayContext
@@ -157,7 +157,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
          j AS (
            SELECT day.rev AS rev, c.lvl_heat AS heat, e.events_within_5km_count AS ev5
            FROM day
-           LEFT JOIN \`${PROJECT}.mart.fct_location_context_daily\` c ON c.location_id=@loc AND c.date=day.d
+           LEFT JOIN \`${PROJECT}.semantic.vw_insight_event_location_context\` c ON c.location_id=@loc AND c.date=day.d
            LEFT JOIN \`${PROJECT}.mart.fct_location_events_radius_daily\` e ON e.location_id=@loc AND e.date=day.d),
          m AS (SELECT AVG(ev5) AS ev_avg FROM j)
          SELECT

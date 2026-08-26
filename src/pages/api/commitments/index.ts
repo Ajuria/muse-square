@@ -127,7 +127,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         query: `
           WITH base AS (
             SELECT date, daily_revenue, expected_revenue, residual_z
-            FROM \`${BQ_PROJECT}.mart.fct_client_day_residual\`
+            FROM \`${BQ_PROJECT}.semantic.vw_insight_event_day_residual\`
             WHERE location_id = @locationId
               AND date >= DATE_SUB(CURRENT_DATE('Europe/Paris'), INTERVAL 56 DAY)
           ),

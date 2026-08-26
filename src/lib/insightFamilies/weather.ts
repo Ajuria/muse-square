@@ -59,7 +59,7 @@ export async function weatherFamily(bq: any, location_id: string, date: string, 
   // 1) The signal day's dominant weather condition = the level column with the max value (>=1).
   const [condRows] = await bq.query({
     query: `SELECT lvl_heat, lvl_rain, lvl_cold, lvl_wind, lvl_snow
-            FROM \`${PROJECT}.mart.fct_location_context_daily\`
+            FROM \`${PROJECT}.semantic.vw_insight_event_location_context\`
             WHERE location_id = @location_id AND date = PARSE_DATE('%Y-%m-%d', @date) LIMIT 1`,
     params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
   });
@@ -94,7 +94,7 @@ export async function weatherFamily(bq: any, location_id: string, date: string, 
                      f.precipitation_probability_max_pct AS rain_prob, f.wind_speed_10m_max AS wind,
                      c.${lvlCol} AS lvl
               FROM \`${PROJECT}.mart.fct_location_weather_forecast_daily_detail\` f
-              LEFT JOIN \`${PROJECT}.mart.fct_location_context_daily\` c
+              LEFT JOIN \`${PROJECT}.semantic.vw_insight_event_location_context\` c
                 ON c.location_id = f.location_id AND c.date = f.date
               WHERE f.location_id = @location_id AND f.date >= PARSE_DATE('%Y-%m-%d', @date)
               ORDER BY f.date LIMIT ${FORECAST_DAYS}`,
@@ -105,7 +105,7 @@ export async function weatherFamily(bq: any, location_id: string, date: string, 
                 SELECT p.daily_visitors AS vis, p.daily_conversion_rate AS conv,
                        p.daily_avg_basket AS basket, p.daily_revenue AS rev, c.${lvlCol} AS lvl
                 FROM \`${PROJECT}.mart.fct_client_daily_performance\` p
-                JOIN \`${PROJECT}.mart.fct_location_context_daily\` c
+                JOIN \`${PROJECT}.semantic.vw_insight_event_location_context\` c
                   ON c.location_id = p.location_id AND c.date = p.transaction_date
                 WHERE p.location_id = @location_id
                   AND p.transaction_date <= PARSE_DATE('%Y-%m-%d', @date)
@@ -125,7 +125,7 @@ export async function weatherFamily(bq: any, location_id: string, date: string, 
                 SELECT o.item_category AS cat, o.revenue AS rev,
                        IF(c.${lvlCol} >= ${BAND}, 'cond', 'base') AS band
                 FROM \`${PROJECT}.mart.fct_client_offering_daily\` o
-                JOIN \`${PROJECT}.mart.fct_location_context_daily\` c
+                JOIN \`${PROJECT}.semantic.vw_insight_event_location_context\` c
                   ON c.location_id = o.location_id AND c.date = o.transaction_date
                 WHERE o.location_id = @location_id
                   AND o.transaction_date <= PARSE_DATE('%Y-%m-%d', @date)

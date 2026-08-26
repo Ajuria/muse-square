@@ -148,7 +148,7 @@ async function measureEventDensityImpact(
           SELECT r.residual_pct,
                  e.events_within_500m_count AS ev,
                  e.events_within_500m_same_bucket_count AS evsb
-          FROM \`${PROJECT}.mart.fct_client_day_residual\` r
+          FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
           JOIN \`${PROJECT}.mart.fct_location_events_radius_daily\` e
             ON e.location_id = r.location_id AND e.date = r.date
           WHERE r.location_id = @location_id AND r.residual_pct IS NOT NULL
