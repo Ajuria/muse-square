@@ -5779,7 +5779,20 @@ Règles :
             const iso = ymdFromAnyDate(sorted[0]?.event_start_date) ?? "";
             const rel = /^\d{4}-\d{2}-\d{2}/.test(iso) ? frRelative(iso.slice(0, 10)) : "";
             const dowFr = /^\d{4}-\d{2}-\d{2}/.test(iso) ? DOW_LOOKUP_FR[new Date(`${iso.slice(0, 10)}T00:00:00Z`).getUTCDay()] : "";
-            const sentence = items[0].date
+            // Span EN COURS (début passé, fin future — cas rendu visible par les événements des
+            // suivis, P1 27/08 : une exposition longue disait « a lieu le 08/05/2025 — il y a
+            // 16 mois »). Mot owner : « en cours jusqu'au… » ; le reste de la phrase garde la
+            // grammaire approuvée du voice floor (jour en toutes lettres, JJ/MM/AAAA).
+            const isoEnd = ymdFromAnyDate(sorted[0]?.event_end_date) ?? "";
+            const _todayFr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+            const isOngoing =
+              /^\d{4}-\d{2}-\d{2}/.test(iso) && /^\d{4}-\d{2}-\d{2}/.test(isoEnd) &&
+              iso.slice(0, 10) < _todayFr && isoEnd.slice(0, 10) >= _todayFr;
+            const dowEndFr = isOngoing ? DOW_LOOKUP_FR[new Date(`${isoEnd.slice(0, 10)}T00:00:00Z`).getUTCDay()] : "";
+            const endDateFr = isOngoing ? frLookupDate(sorted[0]?.event_end_date) : "";
+            const sentence = isOngoing && endDateFr
+              ? `${items[0].name} est en cours jusqu'au ${dowEndFr} ${endDateFr} — commencé le ${items[0].date}.`
+              : items[0].date
               ? `${items[0].name} a lieu ${dowFr ? `le ${dowFr} ` : "le "}${items[0].date}${rel ? ` — ${rel}` : ""}.`
               : `${items[0].name} est référencé, sans date précise dans notre base.`;
             lookup_blocks.push({ type: "prose", md: sentence });
