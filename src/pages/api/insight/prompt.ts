@@ -79,7 +79,7 @@ function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: Fa
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1") return null;
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -2449,6 +2449,36 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         "Vous n'avez pas encore d'événement. Créez-en un depuis Mes dates (« Nouvel événement ») : dispositif, objectif chiffré, récurrence — la mesure se crée avec lui.",
         "deterministic_evenements_v1",
       );
+    }
+
+    // ── RAPPORT À LA DEMANDE (J1.5 Explorer, 26/08) — la détection vivait côté client
+    // (ie-prompt.js reportPeriodFromText, parseurs supprimés le même jour) et navigait de force ;
+    // elle vit ICI, sur la lib de période partagée (frPeriod, biais passé — un rapport porte sur
+    // de l'écoulé). Réponse déterministe : la période résolue DITE + le CTA existant vers la page
+    // rapport (actions.primary redirect → bloc cta côté client, le fil est préservé au retour).
+    // Garde-fou nouveau : « rapport » au sens de RELATION (« par rapport à », « rapport entre »,
+    // « quel rapport ») ne déclenche jamais — le client naviguait à tort sur ces formes.
+    {
+      const _qnRep = norm(qRaw);
+      const _repRelation = /(par rapport|rapport entre|en rapport avec|quel(le)? (est le )?rapport|aucun rapport|sans rapport)/.test(_qnRep);
+      if (!_repRelation && /\brapports?\b|\breports?\b/.test(_qnRep)) {
+        const _repVerb = /(gener|cree|produi|telecharg|export|\bsors\b|\bsort\b|prepare|montre|donne|fais)/.test(_qnRep);
+        const _todayRep = new Date().toISOString().slice(0, 10);
+        const _repPeriod = resolveFrPeriod(qRaw, { today: _todayRep, yearBias: "past" });
+        if (_repPeriod || _repVerb) {
+          // Sans période exprimée : les 30 derniers jours finissant hier (le défaut historique).
+          const _repEnd = _repPeriod ? _repPeriod.end : addDaysYmd(_todayRep, -1);
+          const _repStart = _repPeriod ? _repPeriod.start : addDaysYmd(_repEnd, -29);
+          const _frR = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+          const _repUrl = `/app/insightevent/rapport?start=${encodeURIComponent(_repStart)}&end=${encodeURIComponent(_repEnd)}&loc=${encodeURIComponent(location_id)}`;
+          return sysDialogueResponse(
+            "Rapport de ventes",
+            `Période : du ${_frR(_repStart)} au ${_frR(_repEnd)} — le document complet, imprimable et partageable.`,
+            "deterministic_report_nav_v1",
+            { type: "redirect", url: _repUrl, label: "Générer le rapport pour cette période →" },
+          );
+        }
+      }
     }
 
     // Item 4 (generalized 16/07) — DECLARED-DATA capture (runs BEFORE the missing-dimension check,

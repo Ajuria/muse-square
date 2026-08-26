@@ -1151,80 +1151,22 @@ if (!root) {
     var s = q.trim().toLowerCase();
     if (s.length > 50) return true;
     if (s.endsWith('?')) return true;
-    var starters = ['quel','quelle','quels','quelles','quand','pourquoi','comment','combien','est-ce','compare','explique','analyse','montre','donne','liste','trouve'];
+    var starters = ['quel','quelle','quels','quelles','quand','pourquoi','comment','combien','est-ce','compare','explique','analyse','montre','donne','liste','trouve','génère','genere','prépare','prepare'];
     var first = s.split(/\s+/)[0] || '';
     for (var i = 0; i < starters.length; i++) { if (first === starters[i]) return true; }
-    var contains = ['impact','risque','meilleur','pire','score','opportunit','pourquoi','comment','difference','differencier','comparer','conseill','recommand','menace','audience','frequentation'];
+    var contains = ['impact','risque','meilleur','pire','score','opportunit','pourquoi','comment','difference','differencier','comparer','conseill','recommand','menace','audience','frequentation','rapport','report'];
     for (var i = 0; i < contains.length; i++) { if (s.indexOf(contains[i]) >= 0) return true; }
     return false;
   }
 
-  // ── On-demand report detection ("génère le rapport de juin", "rapport semaine dernière") ──
-  function repIso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
-  function repMonthRange(year, m0) { return [repIso(new Date(year, m0, 1)), repIso(new Date(year, m0 + 1, 0))]; }
-  var REP_MONTHS = ["janvier", "fevrier|février", "mars", "avril", "mai", "juin", "juillet", "aout|août", "septembre", "octobre", "novembre", "decembre|décembre"];
-  function parseFrPeriod(q) {
-    var s = q.toLowerCase(), now = new Date(), m;
-    if ((m = s.match(/du\s+(\d{1,2})\/(\d{1,2})\/(\d{4})\s+au\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/)))
-      return [m[3] + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0"), m[6] + "-" + m[5].padStart(2, "0") + "-" + m[4].padStart(2, "0")];
-    if ((m = s.match(/du\s+(\d{4}-\d{2}-\d{2})\s+au\s+(\d{4}-\d{2}-\d{2})/))) return [m[1], m[2]];
-    if ((m = s.match(/(\d{1,3})\s+derniers?\s+jours/))) { var e = new Date(now); e.setDate(e.getDate() - 1); var st = new Date(e); st.setDate(st.getDate() - (parseInt(m[1], 10) - 1)); return [repIso(st), repIso(e)]; }
-    if (/semaine\s+(derni[eè]re|pass[eé]e)/.test(s)) { var e2 = new Date(now); e2.setDate(e2.getDate() - 1); var s2 = new Date(e2); s2.setDate(s2.getDate() - 6); return [repIso(s2), repIso(e2)]; }
-    if (/mois\s+(derni[eè]r|pass[eé])/.test(s)) return repMonthRange(now.getFullYear(), now.getMonth() - 1);
-    if (/ce\s+mois|mois\s+en\s+cours|mois-ci/.test(s)) return [repIso(new Date(now.getFullYear(), now.getMonth(), 1)), repIso(now)];
-    for (var i = 0; i < 12; i++) { if (new RegExp("\\b(" + REP_MONTHS[i] + ")\\b").test(s)) { var ym = s.match(/\b(20\d{2})\b/); return repMonthRange(ym ? parseInt(ym[1], 10) : now.getFullYear(), i); } }
-    return null;
-  }
-  function reportPeriodFromText(q) {
-    var s = q.toLowerCase();
-    if (!/\brapports?\b|\breports?\b/.test(s)) return null;
-    var genVerb = /\b(g[eéè]n[eéè]r|cr[eé]e|produi|t[eéè]l[eéè]charg|export|sor[st]\b)/.test(s);
-    var r = parseFrPeriod(q);
-    if (!r && !genVerb) return null; // "quel rapport entre X et Y" → not a report request
-    if (!r) { var e = new Date(); e.setDate(e.getDate() - 1); var st = new Date(e); st.setDate(st.getDate() - 29); r = [repIso(st), repIso(e)]; }
-    return r;
-  }
-  function navReport(period, loc) {
-    window.location.href = "/app/insightevent/rapport?start=" + encodeURIComponent(period[0]) + "&end=" + encodeURIComponent(period[1]) + (loc ? "&loc=" + encodeURIComponent(loc) : "");
-  }
-  async function startReport(period, originalText) {
-    qs("ie-prompt-empty")?.setAttribute("hidden", "true");
-    qs("ie-thread")?.removeAttribute("hidden");
-    appendMsg("user", originalText);
-    var locs = [];
-    try { var res = await fetch("/api/import/locations"); var j = await res.json().catch(function () { return null; }); if (j && j.ok && Array.isArray(j.locations)) locs = j.locations; } catch (e) {}
-    if (locs.length > 1) {
-      var rows = locs.map(function (l) {
-        return '<label class="ie-report-loc-opt" data-loc="' + escapeHtml(l.location_id) + '" data-start="' + escapeHtml(period[0]) + '" data-end="' + escapeHtml(period[1]) + '" style="display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer;"><span class="ie-import-radio" style="width:16px;height:16px;border-radius:50%;border:1.5px solid #9ca3af;flex-shrink:0;box-sizing:border-box;"></span><span style="font-size:14px;color:#111827;">' + escapeHtml(l.label) + '</span></label>';
-      }).join("");
-      var b = appendMsg("ai", "");
-      if (b) setBubbleHtml(b, '<div class="ie-confirm-block"><div class="ie-confirm-msg">Pour quel établissement ?</div><div style="display:flex;flex-direction:column;gap:2px;">' + rows + '</div></div>');
-    } else {
-      navReport(period, locs.length === 1 ? locs[0].location_id : null);
-    }
-  }
-  document.addEventListener("click", function (e) {
-    var opt = e.target.closest(".ie-report-loc-opt");
-    if (!opt) return;
-    e.preventDefault();
-    var block = opt.closest(".ie-confirm-block");
-    if (block) {
-      block.style.pointerEvents = "none";
-      var rr = block.querySelectorAll(".ie-import-radio");
-      for (var i = 0; i < rr.length; i++) rr[i].style.border = "1.5px solid #9ca3af";
-      var rad = opt.querySelector(".ie-import-radio");
-      if (rad) rad.style.border = "5px solid #1D3BB3";
-    }
-    navReport([opt.getAttribute("data-start"), opt.getAttribute("data-end")], opt.getAttribute("data-loc"));
-  });
+  // (detection de rapport a la demande : cote SERVEUR depuis le 26/08 — intent
+  //  deterministic_report_nav_v1 dans insight/prompt.ts, periode via lib/dates/frPeriod ;
+  //  les parseurs clients dupliques ont ete supprimes.)
 
   async function submitQuestion(overrideQ, confirmedParams) {
     const ta = qs("ie-prompt-input");
     const q = overrideQ || (ta && ta.value ? ta.value : "").trim();
     if (!q) return;
-
-    var __rp = reportPeriodFromText(q);
-    if (__rp) { startReport(__rp, q); return; }
 
     // Smart routing: questions → AI prompt, keywords → competitor search
     const activeMode = document.querySelector('.ie-mode-btn.active')?.dataset?.mode ?? 'planning';
