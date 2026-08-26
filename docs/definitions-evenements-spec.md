@@ -1,4 +1,4 @@
-# Les trois objets « événement » — définitions uniques et branchement des surfaces (26/08/2026)
+# Les trois objets « événement » — définitions et branchement — SPEC DE TRAVAIL
 
 > **Demande owner (26/08)** : reprendre la distinction faite dans Agir entre **événements
 > concurrents** (opération + recouvrement d'industrie + clientèles primaire et secondaire →
