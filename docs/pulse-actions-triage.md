@@ -1,4 +1,4 @@
-# Pulse — triage des actions par site (doctrine + implémentation)
+# Pulse — triage des actions par site (doctrine + implémentation) — DÉFINITIF
 
 > **Statut : VALIDÉ owner 26/07/2026** (proto interactif `public/actions-triage-proto.html`, itéré
 > depuis sa proposition — la version « page Chantiers séparée » a été REJETÉE comme trop compliquée).

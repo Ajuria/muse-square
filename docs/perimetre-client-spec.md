@@ -1,4 +1,4 @@
-# Périmètre de clientèle — spec (30/07/2026)
+# Périmètre de clientèle — spec (30/07/2026) — DÉFINITIF
 
 > **Déclencheur owner** : « They are located in a small village → 500m radius logic doesn't apply →
 > Most customers drive there from other villages or nearby cities. Your logic is wrong and regional

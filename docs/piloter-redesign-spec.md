@@ -1,4 +1,4 @@
-# Refonte du Tableau de bord (Piloter) — spec pré-build
+# Refonte du Tableau de bord (Piloter) — spec pré-build — SPEC DE TRAVAIL
 
 _Arbitrages owner du 24/08/2026, issus de l'exploration /design (canvas « Piloter — trois
 pistes », artifact 5b4b0f26). Les MOTS font loi dans `docs/lexique.md` (tableau + gabarit de la
@@ -134,3 +134,45 @@ du mort — seul `radar-proto.html` est orphelin (zéro référence).
 3. Mémoire du dispositif : coût déclaré au bilan (→ ROI), écart à l'objectif capitalisé au
    verdict (→ « seuil suggéré » au prochain engagement), fiche dispositif persistée
    (n exécutions, € cumulé, taux d'atteinte).
+
+---
+
+# Doctrine héritée de `tableau-de-bord-spec.md` (retiré le 26/08)
+
+Ce document décrivait quatre maquettes successives (v3, V4, V6, V7) d'une page refondue depuis, toutes rédigées au présent. Ses deux sections durables — et sans autre domicile — sont reprises ici telles quelles ; le reste vit dans `git log`.
+
+## Garde-fous (non négociables)
+
+- **Aucune métrique brute sans son verdict** — critère d'admission de tout futur bloc. Pas de
+  courbe de CA « pour info » : ce serait entrer dans le segment disputé des dashboards de caisse.
+- **Jamais extrapolé** : l'Impact € = somme des écarts mesurés des fenêtres engagées jugées.
+- **Deux registres** : « jugées » = tous les verdicts mesurables du journal ; « € » = le mart
+  seulement (contrat « fait par défaut », § 5). Un verdict `confounded` est NON MESURABLE :
+  hors €, hors tenue, hors « cibles atteintes » — compté à part (« N non-mesurable hors € »).
+- **Zéro dummy content** : tout compte affiché est calculé ; toute suggestion « À activer »
+  correspond à un interrupteur réellement éteint, vérifié en base (`alerts_critical`,
+  `signal_routing`). Une ligne déjà activée disparaît.
+- **Période 30/90/12 m** : filtre l'affichage, jamais un recalcul (un prouvé ne se « déprouve »
+  pas hors fenêtre).
+- **Multi-sites par défaut** (le mono-site cachait 2 opérations sur 3) ; pastille de site par
+  ligne ; `?location_id=` = filtre optionnel.
+
+## Contrats de données adossés
+
+- **« Fait par défaut » (owner 05/08)** : la date de fin CLÔT l'opération, l'action compte menée.
+  Gestes d'exception sur la carte Pulse : « Fait » (exécution finie en avance — n'écourte JAMAIS
+  la fenêtre de mesure, garde anti p-hacking) et « Pas menée » (valeur legacy `pas_encore`,
+  exclue des €). Mart `fct_client_commitment_outcomes` :
+  `coalesce(action_done_status,'') != 'pas_encore'` (appliqué dbt Cloud IDE, CTE
+  `resolved_not_optout`).
+- **Tiebreak canonique du dernier-état** (10 sites app + 2 modèles dbt) :
+  `updated_at DESC, terminal (resolved/cancelled) DESC, verdict non-null DESC, created_at DESC` —
+  deux transitions au même timestamp rendaient un engagement « open » côté app et « resolved »
+  côté mart (c'était le « double comptage track record »).
+- **Fiches dispositifs : « Prouver · Automatiser »** — Prouver = un rejeu mesuré (POST
+  /api/commitments 7 j +10 % puis PATCH /api/best-practices `replay_commitment_id` — endpoints
+  existants) ; Automatiser = série récurrente via formulaire pré-rempli (`?titre=&dispositif=`,
+  event-form v7). Le déclenchement CONDITIONNEL (ex. « quand la canicule est annoncée ») n'est
+  PAS construit — ne jamais le promettre.
+- **« Retour »** (dossier, dispositif) = point de départ : `history.back()` si référent app,
+  repli `/tableau`.

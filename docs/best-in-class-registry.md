@@ -1,4 +1,4 @@
-# Best-in-class — registre de sources, gate de recommandabilité, doctrine (27/07/2026)
+# Best-in-class — registre de sources, gate de recommandabilité, doctrine (27/07/2026) — DÉFINITIF
 
 > **Statut : VALIDÉ owner 27/07/2026** (3 décisions successives : registre → « récupération + b » →
 > « purge + gate », après un audit déclenché par son retour « the outcome is SHIT »). Objet de ce
@@ -109,5 +109,17 @@ cartes ventes. Le crawl devient une matière première de rédaction, jamais du 
 ## Reste ouvert
 
 - Rédaction reco-library sur les 20 sous-types vivants sans plans (voix owner + variables données).
-- Déploiement : tout ce chantier vit sur `dev` (registre ce37296 → gate 2e641ce) — PAS en prod.
 - Normalisation des codes industrie sales en base (`cultural`, `Culture & Patrimoine`).
+
+## Deux règles de jugement (héritées du prompt de recherche de méthodes, retiré le 26/08)
+
+**Une case vide vaut mieux qu'un conseil douteux.** Ne jamais combler : « rien de recommandable
+trouvé » est une réponse complète, pas un échec. Un tableau qu'on remplit pour qu'il soit plein
+fabrique exactement les conseils que le gate de recommandabilité existe pour écarter.
+
+**Le test de vive voix.** Le recommanderais-tu, en le regardant dans les yeux, à un patron
+indépendant qui te fait confiance ? Si la réponse hésite, la fiche ne sort pas.
+
+**Corollaire de procédure** (né d'un malentendu réel) : chaque fiche porte sa référence et **se juge
+SEULE**. Un verdict porte sur la fiche citée, jamais sur son type entier. En cas de message ambigu,
+demander avant de retirer — une bonne fiche jetée par malentendu coûte plus cher qu'une question.
