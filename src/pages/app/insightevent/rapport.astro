@@ -111,7 +111,9 @@ const locParam = Astro.url.searchParams.get("loc") || "";
             var up = a.with_avg > a.without_avg;
             s = "<strong>Événements à proximité — </strong>vos <strong>" + a.with_n + "</strong> journées de forte activité (plus d'événements que la moyenne) tournent à <strong>" + eur(a.with_avg) + "</strong>, contre " + eur(a.without_avg) + " les " + a.without_n + " autres — " + (up ? "l'affluence à proximité profite à votre établissement, sans cannibalisation" : "cette activité ne se traduit pas dans vos ventes") + " (" + confWord(a.corr) + ").";
           } else {
-            s = "<strong>Événements à proximité — </strong>~" + c.events_avg_5km + " événements/j en moyenne dans un rayon de 5 km, sans lien mesurable avec vos ventes sur la période.";
+            // « ~1239.7 » se lisait « −1239.7 » (tilde pris pour un moins — retour owner 26/08) ;
+            // « en moyenne » dit déjà l'approximation, et le nombre passe au format français.
+            s = "<strong>Événements à proximité — </strong>" + intfr(Math.round(c.events_avg_5km)) + " événements/j en moyenne dans un rayon de 5 km, sans lien mesurable avec vos ventes sur la période.";
           }
           if (c.named_events && c.named_events.length) s += " À noter : <strong>" + esc(c.named_events.map(function (e) { return e.label; }).join(", ")) + "</strong>.";
           s += c.mobility_days > 0 ? " " + c.mobility_days + " j de perturbation de mobilité." : " Aucune perturbation de mobilité.";
