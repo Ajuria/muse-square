@@ -3846,6 +3846,27 @@ Règles :
 
     switch (resolved_horizon) {
       case "month": {
+        // FENÊTRE ENTIÈREMENT PASSÉE → RAPPORT (26/08). La surface d'opportunité
+        // ne note que l'AVENIR (mesuré sur f10c3e58 : 147/147 jours passés =
+        // régime C) — le pipeline mois rendait « Aucune donnée disponible » sur
+        // « quels ont été mes meilleurs jours de juin-juillet ? », un faux : les
+        // données existent, c'est l'instrument qui ne juge pas le passé.
+        // L'instrument des résultats passés est le rapport (meilleure journée,
+        // profil par jour, contexte) — même réponse que l'intent rapport, mêmes
+        // chaînes approuvées. Fenêtre à cheval sur aujourd'hui : pipeline normal.
+        {
+          const _todayM = new Date().toISOString().slice(0, 10);
+          if (window_end_date < _todayM) {
+            const _frM = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+            const _pastUrl = `/app/insightevent/rapport?start=${encodeURIComponent(selected_date)}&end=${encodeURIComponent(window_end_date)}&loc=${encodeURIComponent(location_id)}`;
+            return sysDialogueResponse(
+              "Rapport de ventes",
+              `Période : du ${_frM(selected_date)} au ${_frM(window_end_date)} — le document complet, imprimable et partageable.`,
+              "deterministic_report_nav_v1",
+              { type: "redirect", url: _pastUrl, label: "Générer le rapport pour cette période →" },
+            );
+          }
+        }
         // vw_insight_event_30d_window_surface est une table de fenêtres FIGÉES
         // de 30 jours — une période libre (« juin-juillet » = 61 j) se calcule
         // depuis la surface jour via le repli inline ci-dessous.
