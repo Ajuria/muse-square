@@ -527,6 +527,11 @@ const COMPARISON_MARKERS = [
 const PAST_TENSE_MARKERS = [
   "ont ete", "a ete", "etait", "etaient",
   "s'est passe", "s est passe", "s'est-il passe", "s est-il passe",
+  // Pluriel de « s'est passe » — il MANQUAIT, et c'est la forme de la question
+  // du bilan : « comment se sont passees mes meilleures journees de juin-juillet ? »
+  // n'avait aucun marqueur de passe, « meilleures » l'emportait, et juin-juillet
+  // resolvait en 2027 (mesure E2E f10c3e58 du 26/08, avant/apres ci-dessous).
+  "se sont passe",
   "j'ai vendu", "j ai vendu", "ai fait", "ai eu", "ai realise",
   "avons vendu", "avons fait", "avons eu",
   "a marche", "ont marche", "a rendu", "ont rendu", "a donne", "ont donne",
@@ -3868,14 +3873,27 @@ Règles :
         // L'instrument des résultats passés est le rapport (meilleure journée,
         // profil par jour, contexte) — même réponse que l'intent rapport, mêmes
         // chaînes approuvées. Fenêtre à cheval sur aujourd'hui : pipeline normal.
+        //
+        // FENÊTRE DU BILAN (26/08). Un bilan ne peut pas couvrir des jours qui
+        // n'ont pas eu lieu : quand la question est un bilan sur une période DITE
+        // (isOwnPeriodReviewQuestion + période résolue), la fenêtre du rapport
+        // s'arrête HIER. Sans ça, « comment se sont passées mes journées d'août ? »
+        // (fenêtre à cheval sur aujourd'hui) traversait jusqu'au pipeline mois,
+        // qui n'a AUCUN paquetage pour l'intent DAY_DIMENSION_DETAIL : ai.ok=true
+        // avec output null → repli brut « Je n'ai pas pu produire une réponse
+        // utile… » (mesuré E2E f10c3e58 le 26/08). Période commençant aujourd'hui
+        // ou plus tard : pas de bilan possible, pipeline normal.
         {
           const _todayM = new Date().toISOString().slice(0, 10);
-          if (window_end_date < _todayM) {
+          const _isReviewQ = !!period_for_window && isOwnPeriodReviewQuestion(norm(qRaw));
+          const _reportEnd =
+            _isReviewQ && window_end_date >= _todayM ? addDaysYmd(_todayM, -1) : window_end_date;
+          if (_reportEnd < _todayM && _reportEnd >= selected_date) {
             const _frM = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
-            const _pastUrl = `/app/insightevent/rapport?start=${encodeURIComponent(selected_date)}&end=${encodeURIComponent(window_end_date)}&loc=${encodeURIComponent(location_id)}`;
+            const _pastUrl = `/app/insightevent/rapport?start=${encodeURIComponent(selected_date)}&end=${encodeURIComponent(_reportEnd)}&loc=${encodeURIComponent(location_id)}`;
             return sysDialogueResponse(
               "Rapport de ventes",
-              `Période : du ${_frM(selected_date)} au ${_frM(window_end_date)} — le document complet, imprimable et partageable.`,
+              `Période : du ${_frM(selected_date)} au ${_frM(_reportEnd)} — le document complet, imprimable et partageable.`,
               "deterministic_report_nav_v1",
               { type: "redirect", url: _pastUrl, label: "Générer le rapport pour cette période →" },
             );
