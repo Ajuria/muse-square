@@ -135,6 +135,61 @@ if (!root) {
   const SUGGESTION_CHIPS = [];
   let _monitorData = null;
 
+  // J1.6 (26/08, arbitrage owner) — etat « Consulte le JJ/MM » des suggestions, serveur
+  // (analytics.action_log, user x item x date, event explorer_consulted). Indication POSITIVE :
+  // la carte garde son encre, la marque s'ajoute — jamais une extinction grise.
+  var _consultedMarks = {};   // 'key|date' -> consulted_ymd
+  function _markId(key, date) { return String(key || '') + '|' + String(date || ''); }
+  function _consultedLabel(ymd) {
+    var d = String(ymd || '').slice(0, 10);
+    return '\u2713 Consulté le ' + d.slice(8, 10) + '/' + d.slice(5, 7);
+  }
+  async function fetchConsultedMarks() {
+    try {
+      var res = await fetch('/api/insight/action-log?location_id=' + encodeURIComponent(LOCATION_ID), { cache: 'no-store' });
+      var json = await res.json().catch(function () { return null; });
+      if (json && json.ok && Array.isArray(json.marks)) {
+        for (var i = 0; i < json.marks.length; i++) {
+          var m = json.marks[i];
+          _consultedMarks[_markId(m.key, m.date)] = String(m.consulted_ymd || '');
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+  function _applyConsultedMark(card, ymd) {
+    if (!card || card.querySelector('.ie-sugg-consulted')) return;
+    var content = card.querySelector('.ie-prompt-card-content');
+    if (!content) return;
+    var p = document.createElement('p');
+    p.className = 'ie-sugg-consulted';
+    p.setAttribute('style', 'font-size:12px;font-weight:600;color:#4B5563;margin:4px 0 0;line-height:1.4;');
+    p.textContent = _consultedLabel(ymd);
+    content.appendChild(p);
+  }
+  function _recordConsulted(card) {
+    var key = card.getAttribute('data-sugg-key');
+    var date = card.getAttribute('data-sugg-date');
+    if (!key || !date) return;
+    var todayYmd = new Date().toISOString().slice(0, 10);
+    _consultedMarks[_markId(key, date)] = todayYmd;
+    _applyConsultedMark(card, todayYmd);
+    try {
+      fetch('/api/insight/action-log', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          location_id: LOCATION_ID,
+          affected_date: date,
+          change_subtype: key,
+          action_key: 'explorer_consulted',
+          action_category: 'explorer',
+          event: 'explorer_consulted',
+        }),
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
   async function fetchMonitorForSuggestions() {
     try {
       var today = new Date();
@@ -206,6 +261,7 @@ if (!root) {
         text: 'Pourquoi le CA de ' + DOW_FR[ad.getDay()] + ' a-t-il ' + (up ? 'bondi' : 'décroché') + ' ?',
         sub: DOW_FR[ad.getDay()] + ' ' + dispD + ' : ' + frInt(Number(anomaly.d.daily_revenue)) + ' € · ' + frPct(pct) + ' vs votre normale — causes mesurées, événements du jour, contexte',
         q: 'Pourquoi le ' + dispD + ' ?',
+        key: 'explorer_sugg_anomaly', date: anomaly.ymd,
       });
     } else {
       // ── ÉTAT B : alerte météo active sur la fenêtre ──
@@ -224,6 +280,7 @@ if (!root) {
           text: 'Quel est l’effet de la ' + cond + ' sur mes ventes ?',
           sub: condLabel + ' ' + DOW_FR[wd.getDay()] + ' — votre réaction mesurée sur vos jours comparables',
           q: 'Quel est l’effet de la ' + cond + ' sur mes ventes ?',
+          key: 'explorer_sugg_weather', date: String(weatherDay.date).slice(0, 10),
         });
       } else {
         // ── ÉTAT C : repli — toujours mesurable, jamais 101 ──
@@ -232,6 +289,7 @@ if (!root) {
           text: 'Quel est l’effet de la météo sur mes ventes ?',
           sub: 'Chaleur, pluie, froid — l’écart mesuré de votre CA sur vos jours comparables',
           q: 'Quel est l’effet de la météo sur mes ventes ?',
+          key: 'explorer_sugg_weather', date: todayYmd,
         });
       }
     }
@@ -244,6 +302,8 @@ if (!root) {
       text: 'Générer un rapport',
       sub: MONTHS_FR[lastMonth.getMonth()].charAt(0).toUpperCase() + MONTHS_FR[lastMonth.getMonth()].slice(1) + ', une semaine, une période — le document complet, imprimable et partageable',
       q: 'Génère le rapport de ' + MONTHS_FR[lastMonth.getMonth()],
+      key: 'explorer_sugg_report',
+      date: lastMonth.getFullYear() + '-' + String(lastMonth.getMonth() + 1).padStart(2, '0') + '-01',
     });
     return slots;
   }
@@ -388,11 +448,12 @@ if (!root) {
     var cardHtmls = [];
     for (var i = 0; i < suggestions.length; i++) {
       var s = suggestions[i];
-      cardHtmls.push('<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '">'
+      cardHtmls.push('<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '"'
+        + (s.key ? ' data-sugg-key="' + escapeHtml(s.key) + '" data-sugg-date="' + escapeHtml(s.date || '') + '"' : '') + '>'
         + '<div class="ie-prompt-card-icon">' + s.svg + '</div>'
         + '<div class="ie-prompt-card-content">'
           + '<p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">' + escapeHtml(s.text) + '</p>'
-          + '<p style="font-size:13px;color:#6b7280;margin:0;line-height:1.4;">' + escapeHtml(s.sub) + '</p>'
+          + '<p style="font-size:13px;color:#374151;margin:0;line-height:1.4;">' + escapeHtml(s.sub) + '</p>'
         + '</div>'
         + '<div class="ie-prompt-card-arrow"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>'
       + '</a>');
@@ -412,9 +473,12 @@ if (!root) {
     }
 
     document.querySelectorAll('.ie-dynamic-suggestion').forEach(function(card) {
+      var marked = _consultedMarks[_markId(card.getAttribute('data-sugg-key'), card.getAttribute('data-sugg-date'))];
+      if (marked) _applyConsultedMark(card, marked);
       card.addEventListener('click', function(e) {
         e.preventDefault();
         var q = card.getAttribute('data-dynamic-q') || '';
+        _recordConsulted(card);
         setTextareaValue(q);
         submitQuestion(q);
       });
@@ -1569,7 +1633,8 @@ if (!root) {
     // Load dynamic suggestions + competitor signals
     Promise.all([
       fetchMonitorForSuggestions(),
-      fetchCompetitorSignalsForSuggestions()
+      fetchCompetitorSignalsForSuggestions(),
+      fetchConsultedMarks()
     ]).then(function(results) {
       var data = results[0];
       var compData = results[1];

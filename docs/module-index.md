@@ -25,7 +25,7 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 
 | Route | Methods | Purpose | Data source |
 |---|---|---|---|
-| `insight/action-log.ts` | POST | Records user action-log events | `analytics.action_log` |
+| `insight/action-log.ts` | POST, GET 🆕 | Records user action-log events. **GET (26/08, J1.6 Explorer)** : marques « consulté » des suggestions Explorer — dernier événement `explorer_consulted` par (user × change_subtype × affected_date), fenêtre 60 j, ownership vérifié ; consommé par `ie-prompt.js` (mention « Consulté le JJ/MM », mot arbitré owner 26/08 ; écrit au clic par le POST existant). Même patron de lecture que `analytics/card-states.ts` | `analytics.action_log` |
 | `insight/action-request.ts` | POST | Logs user action requests + webhook notify | `insight_event.action_requests` |
 | `insight/analogs.ts` | GET | Historical similar-day revenue comparison | `mart.fct_client_day_analogs` |
 | `insight/sales-breakdown.ts` 🆕 | GET | **Card-specific** sales drill-down ("Ce qui a fait la journée") — top category MOVERS: signal-day vs same-weekday trailing median (n≥3), plus `revenue_share` (mix %) + `revenue_rank`. Reads ONLY the offering mart; **no `assembleDayContext`**; honest-absence (no category rows → `found:false`) **18/08 (journée dédiée) : WRAPPER MINCE sur le provider famille `insightFamilies/sales.ts`** — réponse superset (+ is_down/signal_types résolus du SIGNAL TIRÉ du jour, mart candidates — l'unique définition de la direction, jamais re-dérivée) | `mart.fct_client_offering_daily` |
