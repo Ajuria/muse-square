@@ -111,6 +111,25 @@ const CHAT_DECISION_THEME: Record<string, string> = {
   chat_decision_calendar: "calendrier",
 };
 
+// Libellés FRANÇAIS des thèmes — COPIES CONFORMES de window.RECO_TAXONOMY (action-cards.js,
+// buckets[].themes[].label — ce que les toggles de /profile AFFICHENT). Même dette de parité
+// que RECO_THEME_ACTION_TYPES ci-dessus : toute retouche d'un label client se répercute ICI.
+// Consommé par buildUserInputFacts (P2, 27/08) : « vous avez écarté N cartes du thème « X » ».
+export const RECO_THEME_LABEL_FR: Record<string, string> = {
+  gerer: "Gérer la journée",
+  meteo: "Météo & alertes",
+  mobilite: "Accès & mobilité",
+  fenetres: "Occasions favorables",
+  calendrier: "Calendrier & affluence",
+  tourisme: "Tourisme",
+  surveiller: "Surveiller le marché",
+  concurrence: "Concurrence",
+  tarifs: "Offres, prix & réputation",
+  mesurer: "Mesurer",
+  ventes: "Performance ventes",
+  apprentissage: "Apprentissage",
+};
+
 // the granularity a card reliably carries, so it is what a commitment stores as `origin_factor`
 // (Engine-1 A↔B bridge). Returns null for uncovered action_types.
 export function themeForActionType(actionType: string | null | undefined): string | null {

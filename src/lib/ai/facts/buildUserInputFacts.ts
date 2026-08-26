@@ -21,12 +21,14 @@
 //   - clés de bilan : le bloc « Pour mémoire » d'evenement.astro (l. 1014-1017).
 // Une clé hors de ces cartes sort TELLE QUELLE (passthrough, comme profile.astro) —
 // jamais un libellé deviné.
-// Volontairement ABSENT : la ventilation « Pas pour moi » par type de carte
-// (vw_insight_event_card_dispositions) — action_type est une clé technique sans mot
-// owner pour la nommer en phrase ; 0 clic en base au 27/08. Concept sans mot => on
-// demande LE mot avant d'écrire (décision en attente, voir priorités du chantier).
+// P2 (27/08) : la ventilation « Pas pour moi » entre — par THÈME, jamais par action_type
+// (clé technique). Le mot existait : les libellés de thème sont ceux des toggles de
+// /profile (RECO_THEME_LABEL_FR, copies conformes de RECO_TAXONOMY), « écarter » est un
+// mot du lexique, « Pas pour moi » le bouton approuvé. 0 clic en base au 27/08 : la
+// composition est prouvée par test unitaire (fixture), la requête par exécution réelle.
 // =====================================================
 import { makeBQClient } from "../../bq";
+import { themeForActionType, RECO_THEME_LABEL_FR } from "../../recoThemeMap";
 
 const PROJECT = "muse-square-open-data";
 
@@ -57,7 +59,7 @@ const frD = (iso: string) => {
 
 export async function buildUserInputFacts(location_id: string): Promise<{ facts: UserInputFact[] }> {
   const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
-  const [autoRows, bilanRows] = await Promise.all([
+  const [autoRows, bilanRows, dispoRows] = await Promise.all([
     bq.query({
       query: `SELECT signal_category, channel, recipient, require_approval
               FROM \`${PROJECT}.semantic.vw_insight_event_automation_rules\`
@@ -73,6 +75,12 @@ export async function buildUserInputFacts(location_id: string): Promise<{ facts:
                 ON e.saved_item_id = b.saved_item_id
               WHERE b.location_id = @location_id
               ORDER BY b.submitted_at DESC LIMIT 3`,
+      params: { location_id }, location: "EU",
+    }).then((r: any[]) => r[0] ?? []).catch(() => []),
+    bq.query({
+      query: `SELECT action_type, n_not_done, CAST(last_not_done_at AS STRING) AS last_not_done_at
+              FROM \`${PROJECT}.semantic.vw_insight_event_card_dispositions\`
+              WHERE location_id = @location_id AND n_not_done > 0`,
       params: { location_id }, location: "EU",
     }).then((r: any[]) => r[0] ?? []).catch(() => []),
   ]);
@@ -100,5 +108,33 @@ export async function buildUserInputFacts(location_id: string): Promise<{ facts:
       claim_type: "observed",
     });
   }
+  for (const f of composeDispositionFacts(dispoRows as any[])) facts.push(f);
   return { facts };
+}
+
+// Pure — testée sur fixture (0 clic en base au 27/08, l'E2E réel attendra les premiers
+// gestes). Agrège les rejets PAR THÈME (themeForActionType) ; un action_type sans thème
+// est ignoré plutôt que nommé par sa clé technique.
+export function composeDispositionFacts(
+  rows: Array<{ action_type: string; n_not_done: number; last_not_done_at: string | null }>
+): UserInputFact[] {
+  const byTheme = new Map<string, { n: number; last: string }>();
+  for (const r of rows) {
+    const theme = themeForActionType(r.action_type);
+    if (!theme || !RECO_THEME_LABEL_FR[theme]) continue;
+    const cur = byTheme.get(theme) ?? { n: 0, last: "" };
+    cur.n += Number(r.n_not_done) || 0;
+    const last = String(r.last_not_done_at ?? "").slice(0, 10);
+    if (last > cur.last) cur.last = last;
+    byTheme.set(theme, cur);
+  }
+  const facts: UserInputFact[] = [];
+  for (const [theme, { n, last }] of byTheme) {
+    if (n <= 0) continue;
+    facts.push({
+      fact_fr: `Vous avez écarté ${n} carte${n > 1 ? "s" : ""} du thème « ${RECO_THEME_LABEL_FR[theme]} » (« Pas pour moi »)${last ? ` — la dernière le ${frD(last)}` : ""}.`,
+      claim_type: "observed",
+    });
+  }
+  return facts;
 }
