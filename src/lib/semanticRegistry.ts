@@ -24,13 +24,13 @@ export const ENTITY_TYPES: EntityTypeDef[] = [
   {
     kind: "pole",
     mot_fr: "pôle",
-    definition_fr: "Dispositif PERMANENT du site (ex. pôle traiteur) : un périmètre de familles produit, lu en continu, sans verdict. Un responsable est un attribut — le pôle demeure jusqu'à sa fermeture.",
-    relations_fr: ["un pôle REGROUPE des familles produit", "une opération peut être RATTACHÉE à un pôle"],
+    definition_fr: "Dispositif PERMANENT du site (ex. pôle traiteur) : un périmètre de familles de produits ou de services, lu en continu, sans verdict. Un responsable est un attribut — le pôle demeure jusqu'à sa fermeture.",
+    relations_fr: ["un pôle REGROUPE des familles (produits ou services)", "une opération peut être RATTACHÉE à un pôle"],
   },
   {
     kind: "famille",
-    mot_fr: "famille produit",
-    definition_fr: "Catégorie de produits des ventes du site (item_category des transactions).",
+    mot_fr: "famille",
+    definition_fr: "Catégorie de PRODUITS OU DE SERVICES des ventes du site (item_category des transactions) — un service vendu est une famille au même titre qu'un produit.",
     relations_fr: ["une famille APPARTIENT à au plus un pôle"],
   },
   {
@@ -44,6 +44,27 @@ export const ENTITY_TYPES: EntityTypeDef[] = [
     mot_fr: "responsable",
     definition_fr: "Personne de l'équipe qui mène des opérations (Responsable(s) des engagements, roster des canaux).",
     relations_fr: ["une personne MÈNE des opérations"],
+  },
+];
+
+// ── Concepts transverses (owner 28/08 : « Dispositif is missing, KPI too ») — des concepts
+// SANS instances propres, définis parce qu'ils changent la COMPRÉHENSION d'une question.
+// La doctrine de RÉPONSE (corrélation ≠ causation, paliers causaux) ne vit pas ici : elle est
+// appliquée par le code des réponses (registre causal, groundingChecks, lie-bait) — la mettre
+// dans le résolveur ne changerait aucun routage et ferait dériver deux copies.
+export interface ConceptDef { mot_fr: string; definition_fr: string }
+export const CONCEPTS: ConceptDef[] = [
+  {
+    mot_fr: "dispositif",
+    definition_fr: "Le mot-parapluie de ce que l'exploitant met en place pour vendre : un dispositif PERMANENT est un pôle, un dispositif DATÉ ou récurrent est une opération. « Mes dispositifs » sans autre précision = le journal.",
+  },
+  {
+    mot_fr: "KPI",
+    definition_fr: "L'indicateur qu'une opération DÉCLARE et que son verdict juge : chiffre d'affaires vs résultat habituel (revenue_residual), ventes/jour (transactions), panier moyen (basket), visiteurs (footfall), taux de conversion (conversion), CA d'une famille (family_revenue), profit estimé sur marges déclarées (profit_estimated). Chaque opération a LE sien — une question sans KPI nommé n'en choisit pas un.",
+  },
+  {
+    mot_fr: "concurrent",
+    definition_fr: "Un lieu EXTÉRIEUR suivi par la veille (jamais un pôle, une famille ni une opération du site). Une question sur un concurrent, la concurrence ou les événements autour du site = intent \"autre\" (la chaîne existante la porte).",
   },
 ];
 
@@ -135,6 +156,7 @@ export function resolverSystemPrompt(site: SiteEntities, today: string): string 
     `Personnes : ${byKind("personne").join(" · ") || "(aucune)"}`,
   ].join("\n");
   const defs = ENTITY_TYPES.map((t) => `- ${t.mot_fr} (${t.kind}) : ${t.definition_fr}`).join("\n");
+  const concepts = CONCEPTS.map((c) => `- ${c.mot_fr} : ${c.definition_fr}`).join("\n");
   const intents = INTENTS.map((i) => `- ${i.intent} : ${i.definition_fr}`).join("\n");
   return `Tu es le RÉSOLVEUR d'une plateforme d'intelligence commerciale française. Tu ne réponds JAMAIS à la question : tu remplis un formulaire structuré que le système exécutera de façon déterministe.
 
@@ -142,6 +164,7 @@ Date du jour : ${today}.
 
 CONCEPTS (définitions business) :
 ${defs}
+${concepts}
 
 INTENTIONS :
 ${intents}
