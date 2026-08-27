@@ -37,3 +37,29 @@ describe("lineageFor — l'identité du dispositif et l'héritage de version", (
     expect(lineageFor(p, "c-y").inherited_metric).toBeNull();
   });
 });
+
+// ── Pôles & natures (spec 27/08) — les termes selon la nature ─────────────────────────────────
+
+import { assertTermsPresent } from "./actionCommitments";
+
+it("un dispositif PERMANENT s'écrit sans fenêtre ni objectif — levier + familles suffisent", () => {
+  expect(() => assertTermsPresent({
+    commitment_id: "p1", dispositif_nature: "permanent",
+    committed_action_text: "Pôle périssables — vendeur dédié",
+    pole_families: '["Coffee","Bakery"]',
+  } as any)).not.toThrow();
+});
+
+it("un permanent SANS familles est refusé (le périmètre est ce qui le définit)", () => {
+  expect(() => assertTermsPresent({
+    commitment_id: "p2", dispositif_nature: "permanent",
+    committed_action_text: "Pôle sans périmètre",
+  } as any)).toThrow(/pole_families/);
+});
+
+it("une opération datée garde TOUS ses termes obligatoires (la nature n'exempte qu'un permanent)", () => {
+  expect(() => assertTermsPresent({
+    commitment_id: "p3", dispositif_nature: "operation",
+    committed_action_text: "x", pole_families: null,
+  } as any)).toThrow(/window_kind/);
+});

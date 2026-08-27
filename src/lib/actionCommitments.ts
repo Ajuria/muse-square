@@ -126,6 +126,15 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["dispositif_plus", "STRING"],
   ["dispositif_why", "STRING"],
   ["dispositif_resources", "STRING"],
+  // PÔLES & NATURES (27/08, spec poles-dispositifs-permanents) — dispositif_nature :
+  // 'operation' (daté) | 'permanent' (pôle : ni fenêtre ni verdict, lecture continue) |
+  // 'serie' (récurrent). NULL legacy = operation. pole_families = JSON array des familles
+  // RÉELLES du flux de caisse (jamais du texte libre). attached_pole_id = rattachement
+  // opération→pôle (le dispositif_id du pôle) — ce n'est PAS parent_commitment_id, qui
+  // reste la filiation de versions. Deux liens, deux colonnes.
+  ["dispositif_nature", "STRING"],
+  ["pole_families", "STRING"],
+  ["attached_pole_id", "STRING"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -211,6 +220,11 @@ export interface CommitmentRow {
   dispositif_plus: string | null;
   dispositif_why: string | null;
   dispositif_resources: string | null;
+  // Pôles & natures (27/08) : 'operation' | 'permanent' | 'serie' (NULL legacy = operation) ;
+  // pole_families = JSON array (familles réelles) ; attached_pole_id = dispositif_id du pôle.
+  dispositif_nature: string | null;
+  pole_families: string | null;
+  attached_pole_id: string | null;
 }
 
 // The columns that make a commitment a commitment. Any write (create OR later
@@ -277,7 +291,14 @@ export async function readLatestSnapshot(
 
 // Loud guard — throws before any write if the carried-forward terms went missing.
 export function assertTermsPresent(row: Partial<CommitmentRow>): void {
-  const missing = TERM_COLUMNS.filter((c) => {
+  // Un dispositif PERMANENT n'a pas de terme (spec pôles, owner 27/08) : ni fenêtre ni
+  // objectif — ce qui le définit est le levier et ses familles. Le cron de résolution ne
+  // le voit jamais (window_end NULL ne passe pas `window_end < CURRENT_DATE`, prouvé par
+  // sonde le 27/08) ; sa mesure est la lecture continue, jamais un verdict.
+  const terms: (keyof CommitmentRow)[] = (row as any).dispositif_nature === "permanent"
+    ? ["committed_action_text", "pole_families"]
+    : TERM_COLUMNS;
+  const missing = terms.filter((c) => {
     const v = (row as any)[c];
     return v === null || v === undefined || v === "";
   });

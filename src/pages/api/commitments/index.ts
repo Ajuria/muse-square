@@ -199,7 +199,67 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!userId) return json({ ok: false }, 401);
 
     const body = await request.json().catch(() => null);
-    if (!body || !body.location_id || !body.origin_action_type ||
+    if (!body) return json({ ok: false, error: "Champs requis manquants" }, 400);
+
+    // ── PÔLE / DISPOSITIF PERMANENT (spec poles-dispositifs-permanents, owner 27/08) ──
+    // Une nature SANS terme : ni fenêtre, ni objectif, ni verdict — le cron de résolution ne
+    // le voit jamais (window_end NULL). Ce qui le définit : le levier (description) et ses
+    // familles RÉELLES (pole_families, jamais du texte libre). Même table, même chaîne de
+    // versions (lineageFor) ; le responsable est un ATTRIBUT — le pôle demeure jusqu'à
+    // fermeture (soft-cancel aujourd'hui, rendu « fermé » côté surface).
+    if (String(body.dispositif_nature || "").trim() === "permanent") {
+      if (!body.location_id || !body.committed_action_text) {
+        return json({ ok: false, error: "Champs requis manquants (pôle) : location_id, committed_action_text" }, 400);
+      }
+      const fams = Array.isArray(body.pole_families)
+        ? body.pole_families.map((f: any) => String(f).trim()).filter(Boolean) : [];
+      if (!fams.length && !body.parent_commitment_id) {
+        return json({ ok: false, error: "pole_families requis : les familles réelles du pôle" }, 400);
+      }
+      requireLocationOwnership(locals, body.location_id);
+      const bqP = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
+      const poleId = crypto.randomUUID();
+      const _pParentId = body.parent_commitment_id ? String(body.parent_commitment_id).trim() : null;
+      let _pParent: Awaited<ReturnType<typeof readLatestSnapshot>> = null;
+      if (_pParentId) {
+        _pParent = await readLatestSnapshot(bqP, _pParentId);
+        if (!_pParent) return json({ ok: false, error: "parent_commitment_id introuvable" }, 400);
+        if (String(_pParent.location_id) !== String(body.location_id).trim()) {
+          return json({ ok: false, error: "parent_commitment_id d'un autre site" }, 403);
+        }
+        if ((_pParent as any).dispositif_nature !== "permanent") {
+          return json({ ok: false, error: "le parent n'est pas un dispositif permanent" }, 400);
+        }
+      }
+      const _pLineage = lineageFor(_pParent, poleId);
+      const row = await readMergeWrite(bqP, {
+        commitmentId: poleId, transitionType: "created", create: true,
+        patch: {
+          user_id: userId, location_id: String(body.location_id).trim(),
+          status: "open", verdict: null, authorship: "user_authored",
+          origin_kind: "pole", origin_action_type: "pole",
+          dispositif_nature: "permanent",
+          pole_families: fams.length ? JSON.stringify(fams) : ((_pParent as any)?.pole_families ?? null),
+          committed_action_text: String(body.committed_action_text).trim(),
+          owner_person_name: body.owner_person_name != null && String(body.owner_person_name).trim()
+            ? String(body.owner_person_name).trim() : (_pParent?.owner_person_name ?? null),
+          dispositif_plus: body.dispositif_plus != null && String(body.dispositif_plus).trim()
+            ? String(body.dispositif_plus).trim() : ((_pParent as any)?.dispositif_plus ?? null),
+          dispositif_why: body.dispositif_why != null && String(body.dispositif_why).trim()
+            ? String(body.dispositif_why).trim() : ((_pParent as any)?.dispositif_why ?? null),
+          dispositif_resources: body.dispositif_resources != null && String(body.dispositif_resources).trim()
+            ? String(body.dispositif_resources).trim() : ((_pParent as any)?.dispositif_resources ?? null),
+          adjustment_move: body.adjustment_move ? String(body.adjustment_move).trim() : null,
+          adjustment_note: body.adjustment_note != null ? (String(body.adjustment_note).trim() || null) : null,
+          parent_commitment_id: _pParentId,
+          dispositif_id: _pLineage.dispositif_id,
+          version_no: _pLineage.version_no,
+        } as any,
+      } as any);
+      return json({ ok: true, commitment_id: row.commitment_id, dispositif_id: (row as any).dispositif_id, version_no: (row as any).version_no });
+    }
+
+    if (!body.location_id || !body.origin_action_type ||
         !body.window_kind || (!body.threshold_level && body.threshold_pct == null) ||
         !body.committed_action_text || !body.owner_person_name) {
       return json({ ok: false, error: "Champs requis manquants" }, 400);
@@ -292,6 +352,34 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
     const _lineage = lineageFor(_parentSnap, commitmentId);
 
+    // Rattachement opération→pôle (spec pôles, 27/08) : attached_pole_id = le dispositif_id
+    // du pôle — validé contre le site et la nature, hérité du parent si absent. Ce n'est PAS
+    // parent_commitment_id (filiation de versions). L'héritage du KPI famille depuis le pôle
+    // passe par le rail saved_items.kpi_family (measured_metric est 'family_revenue' NU) —
+    // branché avec la lecture continue, pas deviné ici.
+    let _attachedPoleId: string | null = body.attached_pole_id
+      ? String(body.attached_pole_id).trim()
+      : (((_parentSnap as any)?.attached_pole_id as string | undefined) ?? null);
+    if (body.attached_pole_id) {
+      const [prows] = await bq.query({
+        query: `SELECT 1 FROM (
+                  SELECT dispositif_nature, location_id,
+                         ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+                  FROM \`${process.env.BQ_PROJECT_ID || BQ_PROJECT}.analytics.action_commitments\`
+                  WHERE dispositif_id = @p
+                ) WHERE rn = 1 AND dispositif_nature = 'permanent' AND location_id = @loc LIMIT 1`,
+        params: { p: _attachedPoleId, loc: String(body.location_id).trim() },
+        types: { p: "STRING", loc: "STRING" }, location: "EU",
+      });
+      if (!prows || !prows.length) {
+        return json({ ok: false, error: "attached_pole_id introuvable ou pas un dispositif permanent de ce site" }, 400);
+      }
+    }
+    const _natureRaw = String(body.dispositif_nature || "").trim();
+    const _nature = _natureRaw === "serie" ? "serie"
+      : _natureRaw === "operation" ? "operation"
+      : (((_parentSnap as any)?.dispositif_nature as string | undefined) ?? "operation");
+
     const patch: Partial<CommitmentRow> = {
       user_id: userId,
       location_id: String(body.location_id).trim(),
@@ -360,6 +448,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
         ? String(body.dispositif_why).trim() : ((_parentSnap as any)?.dispositif_why ?? null),
       dispositif_resources: body.dispositif_resources != null && String(body.dispositif_resources).trim()
         ? String(body.dispositif_resources).trim() : ((_parentSnap as any)?.dispositif_resources ?? null),
+      // Pôles & natures (27/08) : nature explicite (jamais déduite de l'absence de dates),
+      // rattachement au pôle validé/hérité ci-dessus. pole_families reste NULL sur une
+      // opération datée — le périmètre appartient au pôle.
+      dispositif_nature: _nature,
+      attached_pole_id: _attachedPoleId,
+      pole_families: null,
       // Gel de l'enjeu d'origine (26/07) : les champs VERBATIM de la pill de la carte — la page
       // évolution les rend tels quels (jamais recalculés, jamais reformulés). Null si la carte
       // d'origine ne portait pas d'enjeu (absence honnête → pas de bloc sur la page).
