@@ -2350,26 +2350,15 @@ if (!location_id) {
       });
     });
 
-    // Signaler — flag card as incorrect/irrelevant
-    root.querySelectorAll("[data-agir-flag]").forEach(function(btn) {
-      btn.addEventListener("click", function(e) {
-        e.stopPropagation();
-        var cardIdx = btn.getAttribute("data-agir-flag");
-        var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
-        if (menu) menu.style.display = "none";
-        var parent = btn.closest("[data-ab-draft-sub]") || btn.closest(".ab-card");
-        var sub = parent ? parent.getAttribute("data-ab-draft-sub") || "" : "";
-        var affected = parent ? parent.getAttribute("data-ab-draft-affected") || "" : "";
-        btn.textContent = "\ud83d\udea9 Signal\u00e9 \u2713";
-        btn.style.color = "#059669";
-        setTimeout(function() { btn.textContent = "\ud83d\udea9 Signaler"; btn.style.color = "#6b7280"; }, 2000);
-        fetch("/api/analytics/confirm", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ location_id: locationId, confirmation: "dismissed", signal_type: sub, signal_ref_id: sub + "_" + affected, signal_date: affected }),
-        }).catch(function(){});
-      });
-    });
+    // « Signaler » RETIRÉ le 28/08 (dossier 1, décision owner). Le gestionnaire vivait ici
+    // sans son bouton : data-agir-flag n'était rendu NULLE PART (le menu Agir qui le portait
+    // a disparu) — personne n'a jamais pu cliquer, analytics.signal_confirmations avait 0 ligne.
+    // Et il ne reviendra pas : un signal d'open data ne peut pas être FAUX (owner) — ce qui
+    // peut l'être, c'est la CONSÉQUENCE inférée (pluie -> moins de visites), et cela se mesure
+    // (résiduel, classes de jours, sensibilité type B) ou se demande là où la mesure ne voit
+    // rien : « Un souvenir ? Notez-le · sinon, laissez » sur les jours inexpliqués.
+    // Le vote « Ce brouillon vous a-t-il été utile ? » (data-fb-vote, plus bas) RESTE : il
+    // porte sur la rédaction, pas sur le signal.
  
     // Disposition — log card_done / card_already_done / card_not_done (Profile A: status only)
     root.querySelectorAll("[data-ab-dispo-row] [data-ab-dispo-btn]").forEach(function(btn) {
