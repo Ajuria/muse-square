@@ -119,6 +119,13 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   // s'auto-désigne. Ajoutés en fin via ALTER ADD COLUMN (ordre physique respecté).
   ["dispositif_id", "STRING"],
   ["version_no", "INT64"],
+  // CONTEXTE DE LA VERSION (27/08, chantier versionning — étape 3, grain version). Trois champs
+  // descriptifs owner : « Le plus du dispositif », « Pourquoi ça va marcher », « Ressource(s) ».
+  // Chaque version porte les siens ; une V2 créée sans les fournir HÉRITE de ceux du parent
+  // (même règle que measured_metric — l'héritage est posé au POST, jamais re-dérivé en lecture).
+  ["dispositif_plus", "STRING"],
+  ["dispositif_why", "STRING"],
+  ["dispositif_resources", "STRING"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -199,6 +206,11 @@ export interface CommitmentRow {
   creation_enjeu_inherited: boolean | null;
   dispositif_id: string | null;
   version_no: number | null;
+  // Contexte de la version (étape 3, 27/08) — mots owner : « Le plus du dispositif »,
+  // « Pourquoi ça va marcher », « Ressource(s) ». Hérités du parent si absents au POST.
+  dispositif_plus: string | null;
+  dispositif_why: string | null;
+  dispositif_resources: string | null;
 }
 
 // The columns that make a commitment a commitment. Any write (create OR later

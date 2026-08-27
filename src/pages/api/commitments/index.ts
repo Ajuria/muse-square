@@ -351,6 +351,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       parent_commitment_id: body.parent_commitment_id ? String(body.parent_commitment_id) : null,
       dispositif_id: _lineage.dispositif_id,
       version_no: _lineage.version_no,
+      // Contexte de la version (étape 3, 27/08) — « Le plus du dispositif », « Pourquoi ça va
+      // marcher », « Ressource(s) ». Chaque version porte les siens ; absents au POST, une V2
+      // hérite de ceux du parent (même règle que measured_metric — posé ici, jamais re-dérivé).
+      dispositif_plus: body.dispositif_plus != null && String(body.dispositif_plus).trim()
+        ? String(body.dispositif_plus).trim() : ((_parentSnap as any)?.dispositif_plus ?? null),
+      dispositif_why: body.dispositif_why != null && String(body.dispositif_why).trim()
+        ? String(body.dispositif_why).trim() : ((_parentSnap as any)?.dispositif_why ?? null),
+      dispositif_resources: body.dispositif_resources != null && String(body.dispositif_resources).trim()
+        ? String(body.dispositif_resources).trim() : ((_parentSnap as any)?.dispositif_resources ?? null),
       // Gel de l'enjeu d'origine (26/07) : les champs VERBATIM de la pill de la carte — la page
       // évolution les rend tels quels (jamais recalculés, jamais reformulés). Null si la carte
       // d'origine ne portait pas d'enjeu (absence honnête → pas de bloc sur la page).
