@@ -234,8 +234,9 @@ Columns: **Route** · **Method(s)** · **What it does** · **Primary data source
 | `error-logger.ts` | `logCrawl`, `logApiError` | Fire-and-forget BQ error logger (never throws) | `analytics.crawl_log`, `…api_error_log` |
 | `insighteventUrl.ts` | `buildMonthUrl`, `buildDaysUrl`, `parseSelectedDatesCsv`, `serializeSelectedDates` | Insight-event deep-link URL builder/parser | none |
 | `rate-limit.ts` | `rateLimit`, `rateLimitResponse` | In-memory per-user rate limiter (per-instance) | none |
-| `requireLocationOwnership.ts` | `requireLocationOwnership` | Access guard (admin or owned location_id) | none |
-| `scope.ts` | `resolveOperationalScope` | Multi-site scope resolver (single / all) | none |
+| `profileContext.ts` 🆕 (`.js`) | `getProfileContext`, `resolvePendingMembership` | **Vue équipe inc 2 (28/08, docs/vue-equipe-slack-spec.md)** — contexte profil EXTRAIT du middleware, étendu aux membres en UNE requête (owner rows + `analytics.location_members` latest-wins **table entière, filtre APRÈS rn=1** — un tombstone owner sans clerk_user_id doit gagner, défaut attrapé au harnais). `all_location_ids` reste POSSÉDÉ seulement (sécurité : la liste de requireLocationOwnership) ; sites membres dans `member_location_ids` + `member_poles`. Résolution email→clerk_user_id à la 1re connexion : API REST Clerk (CLERK_SECRET_KEY) + INSERT DML copy-forward, tentée 1×/process. Harnais réel 22/22 + mutation : `scripts/vue-equipe-access-harness.ts` | `raw.insight_event_user_location_profile`, `analytics.location_members`, api.clerk.com |
+| `requireLocationOwnership.ts` | `requireLocationOwnership`, `requireLocationAccess` | Access guards : ownership (admin or owned location_id — les ÉCRITURES) ; access (owner OU membre du site via `locals.member_location_ids` — les lectures des pages membre, posé aux inc 3-5, vue équipe inc 2) | none |
+| `scope.ts` | `resolveOperationalScope` | Multi-site scope resolver (single / all) — pour un pur membre le middleware lui passe les sites de membership | none |
 
 ### Recommendation taxonomy
 

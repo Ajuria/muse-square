@@ -3,6 +3,7 @@ import { ADMIN_USER_IDS } from "./lib/admins";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/astro/server";
 import { BigQuery } from "@google-cloud/bigquery";
 import { resolveOperationalScope } from "./lib/scope";
+import { getProfileContext, resolvePendingMembership } from "./lib/profileContext";
 console.log("[MW] LOADED middleware.js");
 
 const isOnboardingRoute = createRouteMatcher([
@@ -95,42 +96,9 @@ function mustGetEnv(name) {
   return v;
 }
 
-async function getProfileContext(clerk_user_id) {
-  const projectId = mustGetEnv("BQ_PROJECT_ID");
-  const dataset = mustGetEnv("BQ_DATASET");
-  const table = mustGetEnv("BQ_TABLE");
-
-  const bq = getBigQueryClient(projectId);
-
-  const sql = `
-    SELECT
-      location_id,
-      first_name,
-      is_primary
-    FROM \`${projectId}.${dataset}.${table}\`
-    WHERE clerk_user_id = @clerk_user_id
-    ORDER BY is_primary DESC, company_geocode_status = 'geocoded_ok' DESC, created_at DESC
-  `;
-
-  const [rows] = await bq.query({
-    query: sql,
-    location: "EU",
-    params: { clerk_user_id },
-  });
-
-  if (!rows || rows.length === 0) {
-    return { ok: false, location_id: null, first_name: null, all_location_ids: [] };
-  }
-
-  const r = rows[0] || {};
-  const all_location_ids = rows.map(row => row.location_id).filter(Boolean);
-  return {
-    ok: true,
-    location_id: (r.location_id ?? null),
-    first_name: (r.first_name ?? null),
-    all_location_ids,
-  };
-}
+// getProfileContext vit désormais dans src/lib/profileContext.js (incrément 2, vue
+// équipe) : UNE requête couvre profil owner + memberships (analytics.location_members),
+// et la couture est testable hors Astro. Le middleware ne garde que l'orchestration.
 
 function isAssetPath(path) {
   return (
@@ -210,19 +178,34 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
   const localsHit = isLocalsRoute(context.request);
 
   if (userId && localsHit) {
-    let profile = { ok: false, location_id: null, first_name: null };
+    let profile = { ok: false, location_id: null, first_name: null, all_location_ids: [], member_location_ids: [], member_poles: {}, is_member: false };
 
     try {
-      profile = await getProfileContext(userId);
+      const bq = getBigQueryClient(mustGetEnv("BQ_PROJECT_ID"));
+      profile = await getProfileContext(bq, userId);
+      // Première connexion d'un membre invité : ni profil, ni membership résolu →
+      // tenter la résolution email→clerk_user_id (une fois par process), puis relire.
+      if (!profile.ok && !profile.is_member) {
+        const resolved = await resolvePendingMembership(bq, userId);
+        if (resolved) profile = await getProfileContext(bq, userId);
+      }
     } catch (e) {
       console.log("[MW] BigQuery check failed:", e && e.message ? e.message : e);
-      profile = { ok: false, location_id: null, first_name: null };
+      profile = { ok: false, location_id: null, first_name: null, all_location_ids: [], member_location_ids: [], member_poles: {}, is_member: false };
     }
+
+    // Rôle : un utilisateur avec au moins un site possédé est owner ; un pur membre n'a
+    // que des sites de membership. SÉCURITÉ : all_location_ids reste POSSÉDÉ seulement
+    // (la liste de requireLocationOwnership) — les sites membres vivent à part.
+    const isPureMember = !profile.ok && (profile.member_location_ids || []).length > 0;
 
     context.locals.profileRowExists = profile.ok === true;
     context.locals.location_id = profile.location_id;
     context.locals.first_name = profile.first_name;
     context.locals.all_location_ids = profile.all_location_ids || [];
+    context.locals.member_location_ids = profile.member_location_ids || [];
+    context.locals.member_poles = profile.member_poles || {};
+    context.locals.role = profile.ok ? "owner" : (isPureMember ? "member" : null);
 
     // ── Operational scope (multi-site, non destructif) ──
     // Calque ms_admin_as : lit le cookie ms_active_location, honoré UNIQUEMENT
@@ -233,9 +216,12 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
     const activeMatch = cookieHeader.match(/ms_active_location=([^;]+)/);
     const activeCookieId = activeMatch ? decodeURIComponent(activeMatch[1]) : null;
 
+    // Pour un pur membre, le périmètre opérationnel = ses sites de membership (le
+    // cookie ms_active_location est honoré sur cette liste) ; la liste POSSÉDÉE des
+    // gardes d'écriture n'est pas touchée.
     const scope = resolveOperationalScope({
-      ownedLocationIds: profile.all_location_ids || [],
-      primaryLocationId: profile.location_id,
+      ownedLocationIds: isPureMember ? profile.member_location_ids : (profile.all_location_ids || []),
+      primaryLocationId: isPureMember ? profile.member_location_ids[0] : profile.location_id,
       activeCookieId,
     });
     context.locals.scope = scope;
@@ -253,12 +239,27 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
     console.log("[MW] location_id:", profile.location_id);
     console.log("[MW] request.url:", context.request.url);
 
+    // ── Périmètre de pages membre (vue équipe, incrément 2) ──
+    // Un pur membre voit Agir (pulse) + Piloter light (tableau) + le compte (/profile,
+    // hors /app donc hors de cette garde). Toute autre page /app redirige vers Agir.
+    if (isPureMember && appHit) {
+      const memberPage =
+        path.startsWith("/app/insightevent/pulse") ||
+        path.startsWith("/app/insightevent/tableau");
+      if (!memberPage) {
+        console.log("[MW] member hors périmètre -> /app/insightevent/pulse");
+        return context.redirect("/app/insightevent/pulse", 302);
+      }
+    }
+
     // --------------------------------------------------
     // FORCE ONBOARDING if logged in & profile incomplete
+    // (jamais pour un pur membre : il n'a pas d'établissement à déclarer)
     // --------------------------------------------------
     if (
       userId &&
       !context.locals.profileRowExists &&
+      !isPureMember &&
       !isOnboardingRoute(context.request) &&
       !path.startsWith("/profile") &&
       !path.startsWith("/api/profile")
@@ -267,8 +268,8 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
       return context.redirect("/onboarding", 302);
     }
 
-    // Enforce profile only for /app/*
-    if (appHit && (!context.locals.profileRowExists || !context.locals.location_id)) {
+    // Enforce profile only for /app/* (un membre n'a pas de profil : sa page passe)
+    if (appHit && !isPureMember && (!context.locals.profileRowExists || !context.locals.location_id)) {
       console.log("[MW] -> redirect: /profile");
       return context.redirect("/profile", 302);
     }

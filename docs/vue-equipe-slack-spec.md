@@ -105,18 +105,36 @@ où l'email de session est disponible dans l'intégration Clerk v3 actuelle** �
 seule inconnue technique du chantier ; si l'email n'est pas dans les claims, la résolution
 passe par un appel Clerk backend API au premier accès.
 
-## Accès et rôle (incrément 2)
+## Accès et rôle (incrément 2 — CONSTRUIT 28/08)
 
-- La requête profil du middleware s'étend pour couvrir les membres **dans le MÊME
-  aller-retour BQ** (UNION avec `location_members` sur `clerk_user_id`, latest-wins,
-  `deleted=false`) — jamais une seconde requête séquentielle (budget perf). Elle pose
-  `locals.role` (`'owner'` | `'member'`) et, pour un membre, `locals.member_poles`
-  (les `dispositif_id` de ses pôles).
-- `requireLocationOwnership` ne bouge pas (les écritures owner restent gardées par lui).
-  S'ajoute `requireLocationAccess(locals, location_id)` qui accepte owner ET membre — posé
-  UNIQUEMENT sur les endpoints que les pages membre consomment (liste fermée à l'incrément
-  4, pas un chantier de 57 fichiers).
-- Les pages hors périmètre membre redirigent vers Agir (garde de page, pas de lien mort).
+- Le contexte profil vit dans `src/lib/profileContext.js` (extrait du middleware pour être
+  testable hors Astro) et couvre owner + membre en **UN aller-retour BQ** (UNION ; côté
+  membre, latest-wins sur la table ENTIÈRE puis filtre APRÈS `rn = 1` — un tombstone
+  écrit par l'owner, clé `member_id` sans `clerk_user_id`, doit gagner : filtrer avant le
+  `ROW_NUMBER` rendait la ligne morte encore comptée, défaut ATTRAPÉ par le harnais).
+- **`locals.all_location_ids` reste POSSÉDÉ seulement** — c'est la liste que vérifie
+  `requireLocationOwnership`, elle ne reçoit jamais un site de membership. Les sites
+  membres vivent dans `locals.member_location_ids` + `locals.member_poles` ;
+  `locals.role` = `'owner'` | `'member'` | null. Le scope opérationnel d'un pur membre se
+  résout sur ses sites de membership (cookie `ms_active_location` honoré sur cette liste).
+- `requireLocationAccess(locals, location_id)` (dans `requireLocationOwnership.ts`)
+  accepte owner ET membre du site — consommateurs posés aux incréments 3-5.
+- Résolution email→`clerk_user_id` à la première connexion (l'inconnue Clerk est LEVÉE) :
+  l'API REST backend (`api.clerk.com/v1/users/<id>`, `CLERK_SECRET_KEY`) rend l'email —
+  vérifié sur le compte owner réel. Invitations en attente par email → INSERT DML
+  copy-forward (même `member_id`, latest-wins fait le reste), tentée une fois par process,
+  n'échoue jamais un login.
+- Un pur membre : jamais forcé vers /onboarding ni /profile ; sur `/app`, seul
+  `pulse` / `tableau` passent, tout le reste redirige vers Agir.
+- **Preuves** : harnais réel `scripts/vue-equipe-access-harness.ts` (BQ + Clerk réels,
+  compte owner f10c3e58) **22/22**, dont : sorties owner byte-identiques à l'ancienne
+  requête du middleware (location_id, first_name, all_location_ids ordre compris),
+  tombstone owner-style masque le membre, résolution réelle bout en bout, listes jamais
+  fusionnées. Mutation vue tomber : fusion volontaire des listes → les 2 assertions
+  sécurité rougissent, puis retour vert 22/22. `node --check` + `tsc --noEmit` propres.
+- **Reste (E2E owner)** : le parcours navigateur complet d'un membre réel (compte Clerk
+  de test invité, login, redirection vers Agir) — à faire quand l'incrément 4 rend la
+  page consommable par un membre.
 
 ## Piloter light (incrément 3)
 
@@ -202,8 +220,9 @@ tableau de tests MONTRÉ, chaîne rendue de la surface CITÉE d'abord (règle 4)
 ## Séquencement (un incrément = un commit vérifié)
 
 1. **Modèle** (FAIT 28/08) : DDL des 2 tables + catalogue/allowlist régénérés.
-2. **Accès** : middleware (même aller-retour), `requireLocationAccess`, résolution email à
-   la première connexion (inconnue Clerk levée ici), redirections de pages.
+2. **Accès** (FAIT 28/08, harnais 22/22 + mutation) : middleware (même aller-retour),
+   `requireLocationAccess`, résolution email 1re connexion (inconnue Clerk LEVÉE),
+   redirections de pages. Reste : E2E navigateur d'un membre réel, avec l'incrément 4.
 3. **Piloter light** : `dashboard.ts` role-aware + rendu.
 4. **Agir membre** : `monitor.ts` role-aware + table des types (arbitrage owner) + balayage
    des phrases pour les niveaux absolus.
