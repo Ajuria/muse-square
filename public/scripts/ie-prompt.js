@@ -940,6 +940,14 @@ if (!root) {
       if (primary && typeof primary === "object" && primary.type === "upload_csv" && typeof primary.label === "string" && primary.label.trim()) {
         blocks.push({ type: "cta", action: "upload", label: primary.label.trim() });
       }
+      // J2.3 — rejeu d'un dispositif PROUVÉ : le CTA ouvre le formulaire d'engagement PARTAGÉ,
+      // pré-rempli depuis le plan. Même MSCommitForm, même POST que pulse et évolution — un seul
+      // flux d'engagement. Le prefill voyage hors du bloc (les blocs ne portent que du rendu).
+      if (primary && typeof primary === "object" && primary.type === "commit_prefill"
+          && primary.prefill && typeof primary.label === "string" && primary.label.trim()) {
+        _lastCommitPrefill = { prefill: primary.prefill, origin: primary.origin || null };
+        blocks.push({ type: "cta", action: "commit", label: primary.label.trim() });
+      }
       return blocks;
     }
 
@@ -1336,6 +1344,32 @@ if (!root) {
 
   // Elicit CTA — "upload" opens the chat's OWN file picker (the composer's attach flow, staged chip →
   // send). No navigation, no duplicate import path: one picker, one flow.
+  // J2.3 — le dernier prefill d'engagement proposé par le serveur (plan de rejeu). Remis à zéro
+  // par la réponse suivante : on n'ouvre jamais un formulaire sur un plan périmé.
+  var _lastCommitPrefill = null;
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest('[data-ab-cta-action="commit"]');
+    if (!btn || !_lastCommitPrefill || !window.MSCommitForm) return;
+    e.preventDefault();
+    const bubble = btn.closest(".ie-msg-ai") || btn.parentElement;
+    if (!bubble || bubble.querySelector(".ie-dl-commit-form")) return;
+    const wrap = document.createElement("div");
+    wrap.className = "ie-dl-commit-form";
+    wrap.setAttribute("style", "margin-top:10px;background:#fff;border:1px solid #E5E7EB;border-radius:10px;");
+    wrap.innerHTML = window.MSCommitForm.buildHtml({ prefill: _lastCommitPrefill.prefill });
+    bubble.appendChild(wrap);
+    window.MSCommitForm.wire(wrap, {
+      location_id: LOCATION_ID,
+      prefill: _lastCommitPrefill.prefill,
+      origin: _lastCommitPrefill.origin || {},
+      onDone: function (j) {
+        wrap.innerHTML = j && j.ok
+          ? '<div style="padding:10px 14px;font-size:12.5px;color:#0F6E56;font-weight:600;">Engagement enregistr\u00e9 \u2014 suivi dans votre page engagements.</div>'
+          : '<div style="padding:10px 14px;font-size:12.5px;color:#B91C1C;">' + window.MSCommitForm.escapeHtml((j && j.error) || "Erreur") + "</div>";
+      },
+      onCancel: function () { wrap.remove(); },
+    });
+  });
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-ab-cta-action="upload"]');
     if (!btn) return;

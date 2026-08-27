@@ -2485,9 +2485,15 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         // porte déjà les deux gestes (arrêter / ajuster), jamais un formulaire de plus.
         // CTA = un verbe + flèche, ≤ 14 caractères (lexique, règle de rédaction 1).
         const _adjId = ((_j.data as any)?.adjust_commitment_id ?? null) as string | null;
+        // Deux gestes possibles, jamais les deux à la fois. La CONTRE-INDICATION prime : si un
+        // dispositif prouvé négatif tourne encore, l'ajuster passe avant tout rejeu.
+        const _replay = _plan.find((x) => x.direction === "positive" && x.prefill) ?? null;
         const _primary = _adjId
           ? { type: "redirect", url: `/app/insightevent/engagement?id=${encodeURIComponent(_adjId)}`, label: "Ajuster" }
-          : null;
+          : _replay
+            ? { type: "commit_prefill", label: "M'engager", prefill: _replay.prefill,
+                origin: { origin_action_type: "chat_journal_replay", origin_affected_date: _replay.date } }
+            : null;
         return sysDialogueResponse("Vos engagements", _body, "deterministic_engagements_v1", _primary);
       }
       return sysDialogueResponse(

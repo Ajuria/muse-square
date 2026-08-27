@@ -57,6 +57,21 @@ export interface PlanItem {
   evidence_date_fr: string;
   running_until_fr: string | null;
   say_fr: string;
+  // J2.3 — de quoi PRÉ-REMPLIR un engagement quand le plan propose un rejeu. Le seuil n'est
+  // volontairement PAS pré-rempli : `commit-form.js` calcule son point de départ sur les données
+  // réelles du lieu (« Modeste réel »), ce qui vaut mieux qu'une cible que j'inventerais.
+  prefill: { committed_action_text: string; window_kind: "day_of" | "7d" | "14d" | "30d" } | null;
+}
+
+// La fenêtre du rejeu est celle du test PROUVÉ — on ne réinvente pas une durée. Les valeurs sont
+// celles que `public/commit-form.js` accepte (`opts.prefill.window_kind`).
+function windowKind(start: string, end: string): "day_of" | "7d" | "14d" | "30d" {
+  const a = Date.parse(start + "T00:00:00Z"), b = Date.parse(end + "T00:00:00Z");
+  const days = Number.isFinite(a) && Number.isFinite(b) ? Math.round((b - a) / 86400000) + 1 : 1;
+  if (days <= 1) return "day_of";
+  if (days <= 7) return "7d";
+  if (days <= 14) return "14d";
+  return "30d";
 }
 
 function dispositifName(s: string | null): string {
@@ -102,6 +117,7 @@ export async function journalPlan(
       pct: Number(flat(r.window_residual_pct)),
       z: Number(flat(r.window_residual_z)),
       date: ymd(r.window_start),
+      window_kind: windowKind(ymd(r.window_start), ymd(r.window_end)),
     }))
     .filter((p) => p.name && p.factors.length);
 
@@ -150,6 +166,7 @@ export async function journalPlan(
         evidence_pct: p.pct,
         evidence_date_fr: frDate(p.date),
         running_until_fr: until ? frDate(until) : null,
+        prefill: negative ? null : { committed_action_text: p.name, window_kind: p.window_kind },
         say_fr: negative
           ? `Le ${frDate(date)} réunit ${mots.join(" et ")} — les conditions où « ${p.name} » a prouvé un effet négatif (${frPct(p.pct)} vs votre résultat habituel, le ${frDate(p.date)}). Ne pas le rejouer ce jour-là.${until ? ` Or un test est en cours jusqu'au ${frDate(until)}.` : ""}`
           : `Le ${frDate(date)} réunit ${mots.join(" et ")} — les conditions où « ${p.name} » a prouvé un effet positif (${frPct(p.pct)} vs votre résultat habituel, le ${frDate(p.date)}). C'est le jour pour le rejouer.`,
