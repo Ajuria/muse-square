@@ -6,6 +6,7 @@
 // Le dossier (`?saved_item_id=`) : provider evenementFamily.
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { measureKpiCoverage } from "../../../lib/kpiRegistry";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypesFor, eventTypeLabelFr } from "../../../lib/eventTypes";
 import { evenementFamily } from "../../../lib/insightFamilies/evenement";
@@ -40,8 +41,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
 
     if (url.searchParams.get("create_context")) {
-      // Trois lectures indépendantes — un seul lot parallèle (budget perf).
-      const [[profRows], [dowRows], [famRows]] = await Promise.all([
+      // Quatre lectures indépendantes — un seul lot parallèle (budget perf).
+      const [[profRows], [dowRows], [famRows], [covRows]] = await Promise.all([
         bq.query({
           query: `SELECT company_activity_type FROM \`${PROJECT}.raw.insight_event_user_location_profile\`
                   WHERE location_id = @location_id LIMIT 1`,
@@ -66,6 +67,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   GROUP BY 1 ORDER BY 2 DESC LIMIT 12`,
           params: { location_id }, location: "EU",
         }),
+        // Couverture flux/conversion (27/08, audit menu KPI) : le menu n'offre un KPI que si le
+        // SITE porte la donnée — même mécanisme que le KPI famille (fams.length). La lecture vit
+        // dans kpiRegistry (measureKpiCoverage : foyer du mart PERF, cliquet frontière respecté).
+        // Aujourd'hui : 1 site sur 6 (ff2aeb35, capteur, 125 j couverts) — le jour où
+        // daily_visitors arrive ailleurs, les options apparaissent sans une ligne.
+        measureKpiCoverage(bq, location_id).then((r) => [[r]]),
       ]);
       const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
       const industry = profRows?.[0] ? String(flat(profRows[0].company_activity_type) ?? "") || null : null;
@@ -75,9 +82,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
         const dw0 = Number(flat(r.dw)) - 1;
         return { dow: dw0, label_fr: DOW_FR[dw0] || "", expected_eur: Number(flat(r.expected_eur) ?? 0), n_days: Number(flat(r.n) ?? 0) };
       }).sort((a, b) => a.dow - b.dow);
+      const _cov: any = covRows?.[0] ?? {};
       return json(200, {
         ok: true,
         industry_code: industry,
+        kpi_available: {
+          visitors: Number(_cov.visitors_days ?? 0) >= 30,
+          conversion: Number(_cov.conversion_days ?? 0) >= 30,
+        },
         event_types: eventTypesFor(industry),
         dow_baseline,
         families: (famRows as any[]).map((r) => ({ category: String(flat(r.item_category)), avg_day_eur: Number(flat(r.avg_day_eur) ?? 0) })),

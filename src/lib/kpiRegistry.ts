@@ -318,6 +318,31 @@ export function kpiKeyForOrigin(origin_action_type: string | null | undefined, o
   return "revenue_residual";
 }
 
+// Couverture d'un site sur les KPI à CAPTEUR (27/08, audit menu) : le menu du formulaire
+// événement n'offre flux/conversion que si le site porte la donnée — >= 30 j couverts sur les
+// `lookbackDays` derniers (la baseline du verdict est une moyenne 30 j pré-fenêtre : en dessous,
+// le verdict serait du bruit garanti). Vit ICI et pas chez l'appelant : la mesurabilité d'un KPI
+// est une affaire de registre, et PERF est déjà le foyer de lecture de ce mart.
+export async function measureKpiCoverage(
+  bq: any,
+  location_id: string,
+  lookbackDays = 90,
+): Promise<{ visitors_days: number; conversion_days: number }> {
+  const [rows] = await bq.query({
+    query: `
+      SELECT COUNTIF(daily_visitors IS NOT NULL) AS v, COUNTIF(daily_conversion_rate IS NOT NULL) AS c
+      FROM \`${PERF}\`
+      WHERE location_id = @location_id
+        AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL @d DAY)`,
+    params: { location_id, d: lookbackDays },
+    types: { location_id: "STRING", d: "INT64" },
+    location: "EU",
+  });
+  const flat = (x: any): any => (x && typeof x === "object" && "value" in x ? x.value : x);
+  const r: any = Array.isArray(rows) && rows.length ? rows[0] : {};
+  return { visitors_days: Number(flat(r.v) ?? 0), conversion_days: Number(flat(r.c) ?? 0) };
+}
+
 export function isKpiMeasurable(key: KpiKey): boolean {
   return Boolean(KPI_EXPR[key]);
 }

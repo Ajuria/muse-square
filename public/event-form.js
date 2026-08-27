@@ -60,6 +60,7 @@
   function render(mount, loc, ctx, team, opts) {
     var types = Array.isArray(ctx.event_types) ? ctx.event_types : [];
     var fams = Array.isArray(ctx.families) ? ctx.families : [];
+    var kav = ctx.kpi_available || {};
     var baseline = Array.isArray(ctx.dow_baseline) ? ctx.dow_baseline : [];
     var owners = team.map(function (m) { return (String(m.first_name || "") + (m.last_name ? " " + m.last_name : "")).trim() + (m.role ? " · " + m.role : ""); }).filter(Boolean);
 
@@ -87,6 +88,11 @@
       + (fams.length ? '<option value="family_revenue">CA d’une famille produit vs sa moyenne — mesuré</option>' : '')
       + '<option value="tickets">Tickets vs votre résultat habituel (base 30 j) — verdict plus faible</option>'
       + '<option value="basket">Panier moyen vs votre résultat habituel (base 30 j) — verdict plus faible</option>'
+      // 27/08 (audit menu KPI) : flux et conversion n'apparaissent que si le SITE porte la donnée
+      // (ctx.kpi_available, >= 30 j couverts sur 90) — même mécanisme que le KPI famille. Le
+      // mapping (visitors -> footfall, conversion -> conversion) et la mesure existaient déjà.
+      + (kav.visitors ? '<option value="visitors">Visiteurs vs votre résultat habituel (base 30 j) — verdict plus faible</option>' : '')
+      + (kav.conversion ? '<option value="conversion">Taux de conversion vs votre résultat habituel (base 30 j) — verdict plus faible</option>' : '')
       + '<option value="profit_estimated" disabled>Profit estimé — indisponible : marge non déclarée</option>'
       + '</select></div></div>'
       + '<div data-ef-famwrap style="display:none;margin-top:10px;"><label style="' + lbl + '">Famille produit</label><select data-ef="family" style="' + inp + 'cursor:pointer;">'
