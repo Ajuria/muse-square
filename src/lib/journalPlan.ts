@@ -81,10 +81,50 @@ function dispositifName(s: string | null): string {
   return (t.split(/\s+[—–-]\s+/)[0].trim() || t).slice(0, 60);
 }
 
+// Le lecteur des FACTEURS PAR JOUR — LA définition des conditions (sensitivityFeatures ×
+// fct_location_context_daily), extraite du croisement pour être partagée avec le plan de
+// période. Une plage explicite {start,end} OU l'horizon {horizonDays} depuis aujourd'hui.
+export async function listDayFactors(
+  bq: any,
+  location_id: string,
+  win: { start: string; end: string } | { horizonDays: number },
+): Promise<Array<{ date: any } & Record<string, any>>> {
+  const cols = FACTORS.map((f) => `(${f.predicate}) AS f_${f.key}`).join(",\n             ");
+  const byRange = "start" in win;
+  const [days] = await bq.query({
+    query: `
+      SELECT date, ${cols}
+      FROM \`${CTX}\`
+      WHERE location_id = @location_id
+        AND date BETWEEN ${byRange ? "GREATEST(@s, CURRENT_DATE())" : "CURRENT_DATE()"} AND ${byRange ? "@e" : "DATE_ADD(CURRENT_DATE(), INTERVAL @h DAY)"}
+      ORDER BY date`,
+    params: byRange
+      ? { location_id, s: bq.date((win as any).start), e: bq.date((win as any).end) }
+      : { location_id, h: (win as any).horizonDays },
+    types: byRange ? { location_id: "STRING" } : { location_id: "STRING", h: "INT64" },
+    location: "EU",
+  });
+  return Array.isArray(days) ? (days as any[]) : [];
+}
+
+// Les clés de facteurs actives d'une ligne listDayFactors, et leur mot exploitant.
+export function dayFactorKeys(d: any): string[] {
+  return FACTORS.filter((f) => {
+    const v = (d as any)[`f_${f.key}`];
+    return (v && typeof v === "object" && "value" in v ? v.value : v) === true;
+  }).map((f) => f.key);
+}
+export function factorFr(key: string): string | null {
+  return FACTOR_FR[key] ?? null;
+}
+
+// range (plan de période, 27/08) : borne EXPLICITE [start..end] — le plan d'une période à
+// venir croise les mêmes conditions sur SES jours. Sans range : l'horizon 14 j historique.
 export async function journalPlan(
   bq: any,
   location_id: string,
   horizonDays = 14,
+  range?: { start: string; end: string },
 ): Promise<PlanItem[]> {
   // 1) Les dispositifs dont l'effet est PROUVÉ, avec les conditions de leur test.
   const [rows] = await bq.query({
@@ -142,24 +182,13 @@ export async function journalPlan(
     if (n) runningUntil.set("name:" + n, until);
   }
 
-  // 2) Les conditions des jours À VENIR — mêmes prédicats, même table.
-  const cols = FACTORS.map((f) => `(${f.predicate}) AS f_${f.key}`).join(",\n             ");
-  const [days] = await bq.query({
-    query: `
-      SELECT date, ${cols}
-      FROM \`${CTX}\`
-      WHERE location_id = @location_id
-        AND date BETWEEN CURRENT_DATE() AND DATE_ADD(CURRENT_DATE(), INTERVAL @h DAY)
-      ORDER BY date`,
-    params: { location_id, h: horizonDays },
-    types: { location_id: "STRING", h: "INT64" },
-    location: "EU",
-  });
+  // 2) Les conditions des jours À VENIR — le lecteur partagé (mêmes prédicats, même table).
+  const days = await listDayFactors(bq, location_id, range ?? { horizonDays });
 
   // 3) Le croisement. Règle CONSERVATRICE : le jour à venir doit réunir TOUTES les conditions du
   // test prouvé — « les conditions où il a été prouvé », jamais « une condition qui s'en approche ».
   const out: PlanItem[] = [];
-  for (const d of Array.isArray(days) ? days : []) {
+  for (const d of days) {
     const dayFactors = new Set(FACTORS.filter((f) => flat((d as any)[`f_${f.key}`]) === true).map((f) => f.key));
     for (const p of proven) {
       if (!p.factors.every((f) => dayFactors.has(f))) continue;

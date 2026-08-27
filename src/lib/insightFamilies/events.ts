@@ -209,6 +209,34 @@ const frDate = (iso: string | null): string | null => {
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : null;   // JJ/MM/AAAA — never ISO to the reader
 };
 
+// Les semaines à venir × événements CIBLANT le public — LA requête de la frise, extraite pour
+// être partagée avec le plan de période (même fichier : la référence mart ne bouge pas).
+async function listCalmWeeksRaw(bq: any, location_id: string, date: string): Promise<any[]> {
+  const [rows] = await bq.query({
+    query: `SELECT DATE_TRUNC(event_date, WEEK(MONDAY)) AS wk,
+                   COUNTIF(COALESCE(threat_audience_overlap_pct, audience_overlap_score * 10) >= ${HIGH_OVERLAP}) AS n,
+                   COUNTIF(COALESCE(threat_audience_overlap_pct, audience_overlap_score * 10) >= ${HIGH_OVERLAP} AND industry_overlap) AS n_can
+            FROM \`${PROJECT}.mart.fct_competitor_events_conflicts\`
+            WHERE location_id = @location_id
+              AND event_date >= PARSE_DATE('%Y-%m-%d', @date)
+              AND event_date < DATE_ADD(PARSE_DATE('%Y-%m-%d', @date), INTERVAL ${CAL_WEEKS} WEEK)
+            GROUP BY wk ORDER BY wk`,
+    params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
+  });
+  return Array.isArray(rows) ? rows : [];
+}
+export interface CalmWeek { wk: string; label: string; count: number; state: string | null }
+export async function listCalmWeeks(bq: any, location_id: string, date: string): Promise<CalmWeek[]> {
+  const num2 = (v: any): number => Number((v && typeof v === "object" && "value" in v ? v.value : v) ?? 0) || 0;
+  const rows = await listCalmWeeksRaw(bq, location_id, date).catch(() => []);
+  return rows.map((r: any) => {
+    const w = String((r.wk && typeof r.wk === "object" && "value" in r.wk ? r.wk.value : r.wk) ?? "").slice(0, 10);
+    const p = w.split("-");
+    const n = num2(r.n), nCan = num2(r.n_can);
+    return { wk: w, label: p.length === 3 ? `${p[2]}/${p[1]}` : w, count: n, state: n === 0 ? "quiet" : (nCan >= 1 ? "busy" : null) };
+  });
+}
+
 export async function eventsFamily(bq: any, location_id: string, date: string): Promise<FamilyResult> {
   const [profRows, evRows, calRows, ceRows, impact] = await Promise.all([
     bq.query({
@@ -228,17 +256,7 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
               LIMIT ${MAX_EVENTS}`,
       params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
     }).then((r: any) => r[0]).catch(() => []),
-    bq.query({
-      query: `SELECT DATE_TRUNC(event_date, WEEK(MONDAY)) AS wk,
-                     COUNTIF(COALESCE(threat_audience_overlap_pct, audience_overlap_score * 10) >= ${HIGH_OVERLAP}) AS n,
-                     COUNTIF(COALESCE(threat_audience_overlap_pct, audience_overlap_score * 10) >= ${HIGH_OVERLAP} AND industry_overlap) AS n_can
-              FROM \`${PROJECT}.mart.fct_competitor_events_conflicts\`
-              WHERE location_id = @location_id
-                AND event_date >= PARSE_DATE('%Y-%m-%d', @date)
-                AND event_date < DATE_ADD(PARSE_DATE('%Y-%m-%d', @date), INTERVAL ${CAL_WEEKS} WEEK)
-              GROUP BY wk ORDER BY wk`,
-      params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
-    }).then((r: any) => r[0]).catch(() => []),
+    listCalmWeeksRaw(bq, location_id, date).catch(() => []),
     // The commercial temps fort active on the day (soldes, fêtes) — a footfall DRIVER, leads the card.
     bq.query({
       query: `SELECT commercial_events FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\`
