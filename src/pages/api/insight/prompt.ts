@@ -552,7 +552,13 @@ const PAST_TENSE_MARKERS = [
 
 // J2.1 — la question qui NOMME le journal (possessive ou « ce qui a marché »). Volontairement
 // étroite : « mes ventes ont-elles marché ? » n'en est pas une, elle relève des ventes.
-const JOURNAL_Q = /\b(mes|mon|nos|notre)\s+(engagements?|p[oô]les?|dispositifs?\s+test)|\bqu(?:['\u2019]est-ce qui|i)\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])|\bce\s+qui\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])/i;
+// La ligne d'une fiche dispositif documentée — UNE formulation, partagée par la branche fiches
+// et la section compacte du journal (streamline owner 27/08 : jamais deux formulations).
+const dispoFrD = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
+const dispoLineFr = (p: any): string =>
+  `Documenté le ${dispoFrD(p.created_date)} : « ${p.practice_text} » — ${practiceStateFr(p)}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`;
+
+const JOURNAL_Q = /\b(mes|mon|nos|notre)\s+(engagements?|p[oô]les?|dispositifs?)|\bqu(?:['\u2019]est-ce qui|i)\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])|\bce\s+qui\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])/i;
 
 const PLANNING_VERBS = [
   "organiser",
@@ -2443,14 +2449,15 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // tombait sur le repli mois inutile), et la liste exacte vaut mieux qu'une citation LLM.
     // Les faits « dispositifs » restent AUSSI dans la liste blanche des réponses jour
     // (buildPracticeFacts) pour les questions qui les effleurent sans les nommer.
-    if (/\b(dispositifs?|bonnes?\s+pratiques?)\b/i.test(qRaw)
-        && /\b(quels?|quelles?|qu[’']\s?est|liste|montre|rappelle|voir|mes|mon|documentés?|prévus?|enregistrés?)\b/i.test(qRaw)) {
+    // Streamline owner 27/08 : « mes dispositifs » appartient au JOURNAL (la vérité
+    // opérationnelle — pôles, opérations, mémoire) ; cette branche ne garde que les questions
+    // qui NOMMENT les fiches (« documentés », « bonnes pratiques »). Le journal absorbe les
+    // fiches en section compacte — rien ne se perd, rien ne se dit deux fois.
+    if (/\b(bonnes?\s+pratiques?|dispositifs?\s+documentés?|documentés?\s.*dispositifs?)\b/i.test(qRaw)) {
       const _bqd = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
       const _dispoRows = await listClassDispositifs(_bqd, location_id, null, 6);
-      const _frD = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
       if (_dispoRows.length) {
-        const _lines = _dispoRows.map((p) =>
-          `Documenté le ${_frD(p.created_date)} : « ${p.practice_text} » — ${practiceStateFr(p)}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`);
+        const _lines = _dispoRows.map(dispoLineFr);
         return sysDialogueResponse(
           _dispoRows.length === 1 ? "Votre dispositif documenté" : "Vos dispositifs documentés",
           _lines.join("\n\n"),
@@ -2485,6 +2492,13 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         const _planTxt = _plan.length
           ? `\n\nVos jours à venir\n\n${_plan.slice(0, 3).map((x) => x.say_fr).join("\n\n")}`
           : "";
+        // Streamline (owner 27/08) : « mes dispositifs » atterrit ICI — les fiches documentées
+        // de l'atelier s'absorbent en section compacte (mêmes lignes que la branche fiches,
+        // via dispoLineFr — jamais deux formulations), plafonnées à 3.
+        const _fiches = await listClassDispositifs(_bqj, location_id, null, 3).catch(() => []);
+        const _fichesTxt = _fiches.length
+          ? `\n\nVos dispositifs documentés\n\n${_fiches.map(dispoLineFr).join("\n\n")}`
+          : "";
         // Journal nature-aware (proto v2, owner 27/08) : les pôles et les opérations au verdict
         // imminent rendent en CARTES (construites par le provider) — leurs faits sortent de la
         // prose (card_fact_texts), sinon la réponse dirait deux fois les mêmes chiffres. Le
@@ -2495,6 +2509,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         const _datedCards = ((_j.data as any)?.dated_cards ?? []) as any[];
         const _body = _j.facts.filter((f) => !_advTexts.includes(f.fact_fr) && !_cardTexts.includes(f.fact_fr)).map((f) => f.fact_fr).join("\n\n")
           + _planTxt
+          + _fichesTxt
           + (_adv.length ? `\n\nAction conseillée : ${_adv.join(" ; ")}.` : "");
         // J2.3 — le geste, pas seulement le conseil. Un dispositif contre-indiqué a un engagement
         // OUVERT : « Ajuster » (mot du lexique l.38 pour un engagement ouvert) mène à la page qui
