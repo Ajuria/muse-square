@@ -14,6 +14,21 @@
 // CANONIQUE (updated_at desc, terminal desc, verdict non-null desc, created_at desc) — la même
 // règle que le mart et que trackRecordCore, jamais une seconde définition du « dernier état ».
 //
+// DEUX AXES SÉPARÉS — arbitrage owner 27/08, `docs/lexique.md:17`, grammaire de référence
+// `bestPractices.dispositifStateFr`. NE JAMAIS LES CONFONDRE :
+//   - axe EFFET : ce que le DISPOSITIF a fait au réel. |z| >= 1 vs le résultat habituel =>
+//     effet PROUVÉ (positif => « prouvé », négatif => « écarté », contre-indication qui ne se
+//     re-propose jamais sur son signal). |z| < 1 => « testé, non concluant », dans le bruit.
+//   - axe OBJECTIF : la cible que l'exploitant s'était fixée. Un objectif manqué est un péché
+//     d'optimisme sur la cible — il ne dit RIEN de l'effet du dispositif.
+// Un effet négatif prouvé EST une preuve, pas une absence de preuve : écrire « vous n'avez pas
+// de dispositif prouvé » sur un dispositif à −23 % est faux (défaut owner du 27/08, corrigé ici).
+//
+// DISPOSITIF ≠ ENGAGEMENT. Le dispositif est le mécanisme ; l'engagement est UN test daté avec
+// SON objectif. Un dispositif porte N engagements. Regroupement par le NOM du dispositif = le
+// texte avant le premier « — » de committed_action_text (c'est ce que l'exploitant a saisi et ce
+// qu'il lit) : heuristique assumée, faute de clé de dispositif sur action_commitments.
+//
 // PÉRIMÈTRE VOLONTAIRE : le journal DE L'EXPLOITANT (ses engagements et leur verdict). Le track
 // record d'UN type de carte reste `trackRecordCore.trackRecordFor`, consommé par la famille SALES
 // depuis le signal tiré — on ne le forke pas.
@@ -40,6 +55,33 @@ const VERDICT_FR: Record<string, string> = {
   confounded: "objectif non concluant",
 };
 
+// Seuil de PREUVE d'effet — arbitrage owner 27/08 (lexique l.17) : |z| >= 1 vs le résultat
+// habituel. En dessous, l'effet est dans le bruit du lieu et ne prouve rien, dans aucun sens.
+const PROOF_Z = 1;
+
+// Le NOM du dispositif = ce que l'exploitant a saisi avant le premier « — ». Faute de clé de
+// dispositif sur action_commitments, c'est la seule clé de regroupement lisible par lui.
+function dispositifName(s: string | null): string {
+  const t = String(s ?? "").trim().replace(/\s+/g, " ");
+  if (!t) return "";
+  const cut = t.split(/\s+[—–-]\s+/)[0].trim();
+  return (cut || t).slice(0, 60);
+}
+
+// Direction d'effet d'un dispositif sur SES tests : un seul test au-delà du seuil de preuve
+// suffit à prouver un sens ; les deux sens prouvés à la fois se disent non concluants.
+function effectDirection(rows: any[]): "negative" | "positive" | "inconclusive" {
+  let neg = false, pos = false;
+  for (const r of rows) {
+    const z = r.window_residual_z == null ? null : Number(r.window_residual_z?.value ?? r.window_residual_z);
+    if (z == null || Math.abs(z) < PROOF_Z) continue;
+    if (z < 0) neg = true; else pos = true;
+  }
+  if (neg && !pos) return "negative";
+  if (pos && !neg) return "positive";
+  return "inconclusive";
+}
+
 // Un texte d'action peut être long (il vient d'un formulaire libre) : on le cite court et entier
 // jusqu'à la première coupure propre, jamais tronqué en plein mot.
 function shortAction(s: string | null): string {
@@ -62,7 +104,7 @@ export async function engagementsFamily(
       query: `
         SELECT status, verdict, action_done_status, measured_metric,
                committed_action_text, origin_action_type,
-               window_start, window_end, window_residual_pct,
+               window_start, window_end, window_residual_pct, window_residual_z,
                threshold_value, threshold_basis, DATE(resolved_at) AS resolved_date
         FROM (
           SELECT *, ROW_NUMBER() OVER (
@@ -106,37 +148,78 @@ export async function engagementsFamily(
   const confounded = resolved.filter((r) => String(r.verdict) === "confounded").length;
 
   const facts: FamilyFact[] = [];
+  const advice: string[] = [];
+  const adviceTexts: string[] = [];
   const F = (fact_fr: string): FamilyFact => ({ fact_fr, claim_type: "observed", origin: "engagements" });
 
-  if (resolved.length) {
-    const parts = [
-      met ? `${met} avec l'objectif atteint` : "",
-      missed ? `${missed} avec l'objectif manqué` : "",
-      confounded ? `${confounded} non concluant${confounded > 1 ? "s" : ""}` : "",
-    ].filter(Boolean);
-    facts.push(F(`Vous avez ${resolved.length} engagement${resolved.length > 1 ? "s" : ""} jugé${resolved.length > 1 ? "s" : ""} : ${parts.join(", ")}.`));
+  // ── Regroupement par DISPOSITIF (le mécanisme), pas par engagement (le test daté). ──
+  const byDispositif = new Map<string, { resolved: any[]; open: any[] }>();
+  for (const r of [...resolved, ...open]) {
+    const name = dispositifName(r.committed_action_text);
+    if (!name) continue;
+    const g = byDispositif.get(name) ?? { resolved: [], open: [] };
+    (String(r.status) === "open" ? g.open : g.resolved).push(r);
+    byDispositif.set(name, g);
   }
 
-  // Un fait par engagement jugé — c'est ce que le modèle peut citer nommément.
-  for (const r of resolved.slice(0, 6)) {
-    const v = VERDICT_FR[String(r.verdict)] ?? "sans verdict";
-    const a = shortAction(r.committed_action_text);
-    const eff = num(r.window_residual_pct);
-    const ecart = eff != null ? ` — ${frPct(eff)} vs votre résultat habituel` : "";
-    const cible =
-      String(r.threshold_basis ?? "") === "pct" && num(r.threshold_value) != null
-        ? ` (votre cible : +${String(num(r.threshold_value)).replace(".", ",")} %)`
-        : "";
-    facts.push(
-      F(`Engagement « ${a} », du ${frDate(ymd(r.window_start))} au ${frDate(ymd(r.window_end))} : ${v}${cible}${ecart}.`),
-    );
-  }
+  for (const [name, g] of byDispositif) {
+    if (g.resolved.length) {
+      // Chaque test porte SON effet ET son registre de preuve — jamais une moyenne, qui
+      // mélangerait un effet prouvé et du bruit.
+      const tests = g.resolved
+        .slice()
+        .sort((a, b) => String(ymd(a.window_start) ?? "").localeCompare(String(ymd(b.window_start) ?? "")))
+        .map((r) => {
+          const pct = num(r.window_residual_pct);
+          const z = num(r.window_residual_z);
+          const reg = z == null ? "" : Math.abs(z) >= PROOF_Z ? " (effet prouvé)" : " (dans le bruit)";
+          return `${frPct(pct)} le ${frDate(ymd(r.window_start))}${reg}`;
+        })
+        .join(" et ");
+      const dir = effectDirection(g.resolved);
+      const verdictFr =
+        dir === "negative"
+          ? "il a prouvé ne pas être adapté"
+          : dir === "positive"
+            ? "effet positif prouvé"
+            : "testé, non concluant";
+      facts.push(
+        F(`Dispositif « ${name} » — ${g.resolved.length} test${g.resolved.length > 1 ? "s" : ""} : ${tests}, vs votre résultat habituel. Effet mesuré : ${verdictFr}.`),
+      );
 
-  for (const r of open.slice(0, 4)) {
-    const a = shortAction(r.committed_action_text);
-    facts.push(
-      F(`Engagement « ${a} » en cours jusqu'au ${frDate(ymd(r.window_end))} — le verdict tombe à cette date.`),
-    );
+      // L'OBJECTIF est un axe SÉPARÉ : il se dit après l'effet, et jamais comme le verdict du
+      // dispositif (une cible surestimée fabrique un faux échec).
+      const obj = g.resolved.find((r) => String(r.threshold_basis ?? "") === "pct" && num(r.threshold_value) != null);
+      if (obj) {
+        facts.push(
+          F(`Objectif que vous aviez fixé pour « ${name} » : +${String(num(obj.threshold_value)).replace(".", ",")} %. Un objectif manqué est un réglage de votre part — il ne dit rien de l'effet du dispositif.`),
+        );
+      }
+
+      // Contre-indication (lexique l.17) : un effet négatif prouvé ne se re-propose pas.
+      if (dir === "negative") {
+        const encore = g.open.length
+          ? ` Or un test de ce dispositif est en cours jusqu'au ${frDate(ymd(g.open[0].window_end))}.`
+          : "";
+        // Le FAIT porte la doctrine (citable par la composition grounded) ; l'ACTION porte le
+        // geste. `advice_texts` dit lequel des deux est de l'action, pour que la réponse
+        // déterministe ne le rende pas deux fois.
+        const contre = `Un dispositif à effet négatif prouvé ne se rejoue pas sur le même signal.${encore}`;
+        facts.push(F(contre));
+        adviceTexts.push(contre);
+        // Le rejeu EN COURS est ce qui rend le geste urgent : il vit dans l'action, pas seulement
+        // dans un fait qu'on pourrait lire distraitement.
+        advice.push(
+          g.open.length
+            ? `interrompre ou modifier le dispositif « ${name} » — un test est pourtant en cours jusqu'au ${frDate(ymd(g.open[0].window_end))}`
+            : `interrompre ou modifier le dispositif « ${name} »`,
+        );
+      }
+    } else if (g.open.length) {
+      facts.push(
+        F(`Dispositif « ${name} » — test en cours jusqu'au ${frDate(ymd(g.open[0].window_end))}, le verdict tombe à cette date.`),
+      );
+    }
   }
 
   if (optedOut.length) {
@@ -145,17 +228,12 @@ export async function engagementsFamily(
     );
   }
 
-  // L'absence de dispositif prouvé se DIT, elle ne se déduit pas d'un silence.
-  if (resolved.length && !met) {
-    facts.push(
-      F(`Aucun de vos engagements jugés n'a atteint son objectif — vous n'avez donc pas encore de dispositif prouvé sur ce site.`),
-    );
-  }
-
   return {
     found: true,
     data: {
       found: true,
+      advice,
+      advice_texts: adviceTexts,
       resolved_count: resolved.length,
       open_count: open.length,
       opted_out_count: optedOut.length,

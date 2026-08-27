@@ -37,6 +37,7 @@ import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
 import { makeBQClient } from "../../../lib/bq";
 import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
 import { listClassDispositifs } from "../../../lib/bestPractices";
+import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
 import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
@@ -541,6 +542,10 @@ const PAST_TENSE_MARKERS = [
   "avons vendu", "avons fait", "avons eu",
   "a marche", "ont marche", "a rendu", "ont rendu", "a donne", "ont donne",
 ];
+
+// J2.1 — la question qui NOMME le journal (possessive ou « ce qui a marché »). Volontairement
+// étroite : « mes ventes ont-elles marché ? » n'en est pas une, elle relève des ventes.
+const JOURNAL_Q = /\b(mes|mon|nos|notre)\s+(engagements?|dispositifs?\s+test)|\bqu(?:['\u2019]est-ce qui|i)\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])|\bce\s+qui\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])/i;
 
 const PLANNING_VERBS = [
   "organiser",
@@ -2447,6 +2452,31 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         "Aucun dispositif documenté",
         "Vous n'avez pas encore documenté de dispositif. Ouvrez « Reproduire le dispositif » depuis une carte structurelle de Pulse : la conversation vous aide à le formaliser, puis à l'engager sur un test mesuré.",
         "deterministic_dispositifs_v1",
+      );
+    }
+
+    // ── VOTRE JOURNAL (J2.1, 27/08) — une question sur ce qui a MARCHÉ répond DÉTERMINISTE,
+    // même patron que « vos dispositifs » juste au-dessus. Mesuré avant de choisir : passé au
+    // packager grounded, le modèle SUPPRIMAIT l'action conseillée (« à interrompre ou modifier »
+    // devenait « reste à surveiller » — l'inverse de la doctrine de contre-indication) et
+    // mélangeait le CA de la veille au journal. Les faits du journal SONT la réponse : ils
+    // n'ont pas besoin d'être reformulés, et le reformuler coûte la doctrine.
+    // La famille `engagements` reste enregistrée : elle sert les questions qui EFFLEURENT le
+    // journal sans le nommer (composition grounded), exactement comme buildPracticeFacts.
+    if (JOURNAL_Q.test(qRaw)) {
+      const _bqj = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _j = await engagementsFamily(_bqj, location_id, new Date().toISOString().slice(0, 10));
+      if (_j.found) {
+        const _adv = ((_j.data as any)?.advice ?? []) as string[];
+        const _advTexts = ((_j.data as any)?.advice_texts ?? []) as string[];
+        const _body = _j.facts.filter((f) => !_advTexts.includes(f.fact_fr)).map((f) => f.fact_fr).join("\n\n")
+          + (_adv.length ? `\n\nAction conseillée : ${_adv.join(" ; ")}.` : "");
+        return sysDialogueResponse("Vos engagements", _body, "deterministic_engagements_v1");
+      }
+      return sysDialogueResponse(
+        "Aucun engagement jugé pour l'instant",
+        "Vous n'avez pas encore d'engagement jugé sur ce site : je n'ai donc rien à vous dire sur ce qui a marché. Depuis une carte, « M'engager » pose l'action, l'objectif et la fenêtre — le verdict tombe seul à la fin.",
+        "deterministic_engagements_elicit_v1",
       );
     }
 
