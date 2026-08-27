@@ -291,8 +291,8 @@
     if (lm.my_types && lm.my_types.length) html += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">' + lm.my_types.map(function (t) { return '<span style="font-size:11px;background:#F3F4F6;color:#374151;padding:3px 9px;border-radius:999px;">' + esc(t) + '</span>'; }).join('') + '</div>';
     if (lm.benchmark_note) html += '<div style="font-size:11px;color:#9CA3AF;margin-top:8px;line-height:1.5;">' + esc(lm.benchmark_note) + '</div>';
     if (j.calendar && j.calendar.length) {
-      html += '<div style="font-size:13px;font-weight:700;color:#111827;margin-top:18px;">Semaines à venir — événements qui ciblent votre public</div>'
-        + '<div style="font-size:11px;color:#9CA3AF;margin:4px 0 8px;line-height:1.5;">Visez l\'activité calme autour de vous pour capter l\'attention.</div>'
+      html += '<div style="font-size:13px;font-weight:700;color:#111827;margin-top:18px;">Placez vos événements dans les semaines calmes autour de vous</div>'
+        + (j.calendar_note ? '<div style="font-size:12.5px;color:#374151;margin:4px 0 8px;line-height:1.55;">' + esc(j.calendar_note) + '</div>' : '')
         + msStrip(j.calendar.map(function (w) { return { top: w.label, mid: (w.count != null ? w.count : ''), highlight: (w.state === 'quiet' || w.state === 'busy'), tone: (w.state === 'quiet' ? 'ok' : (w.state === 'busy' ? 'warn' : 'default')) }; }));
     }
     if (j.impact) html += msImpactBlock(j.impact);
