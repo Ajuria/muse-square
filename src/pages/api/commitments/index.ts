@@ -262,6 +262,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const end = new Date(start.getTime());
     end.setUTCDate(end.getUTCDate() + (days - 1));
 
+    // Garde-fou (27/08, audit menu KPI) : un event_kpi FOURNI mais intraduisible ne retombe
+    // JAMAIS en silence sur la dérivation carte — le verdict jugerait le CA alors que
+    // l'utilisateur a déclaré un autre KPI (le défaut « KPI perdu », déjà mesuré deux fois :
+    // la V2 d'un engagement événement, puis la carte journal). Inatteignable depuis l'UI
+    // aujourd'hui (« Profit estimé » est désactivé) : défense en profondeur — refus explicite
+    // plutôt qu'un verdict silencieusement faux.
+    if (originActionType.startsWith("event_") && body.event_kpi != null && String(body.event_kpi).trim()
+        && !kpiKeyForEventKpi(body.event_kpi)) {
+      return json({ ok: false, error: "event_kpi non mesurable : " + String(body.event_kpi).trim() }, 400);
+    }
+
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const commitmentId = crypto.randomUUID();
 

@@ -106,7 +106,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     };
     const hour_start = asHour(body?.hour_start);
     const hour_end = asHour(body?.hour_end);
-    const KPI_SET = ["revenue_residual", "family_revenue", "tickets", "basket", "visitors", "profit_estimated"];
+    const KPI_SET = ["revenue_residual", "family_revenue", "tickets", "basket", "visitors", "conversion", "profit_estimated"];
     const kpi = KPI_SET.includes(String(body?.kpi)) ? String(body.kpi) : null;
     const kpi_family = kpi === "family_revenue" && typeof body?.kpi_family === "string" && body.kpi_family.trim()
       ? body.kpi_family.trim().slice(0, 120) : null;

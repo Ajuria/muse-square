@@ -247,6 +247,12 @@ const EVENT_KPI: Record<string, KpiKey> = {
   tickets: "transactions",
   basket: "basket",
   visitors: "footfall",
+  // 27/08 (audit menu KPI) : la conversion entre au mapping — la machinerie de mesure existait
+  // déjà (KPI_DAILY_COL daily_conversion_rate, baseline 30 j, kpi_noise_se), seul le mapping
+  // manquait. NB volontaire : `profit_estimated` N'EST PAS ici — aucune clé de mesure n'existe
+  // (K9 jamais fusionné) ; le POST commitments refuse désormais explicitement un event_kpi
+  // intraduisible au lieu de retomber en silence sur le CA (le piège « KPI perdu », 3e exemplaire).
+  conversion: "conversion",
 };
 export function kpiKeyForEventKpi(eventKpi: string | null | undefined): KpiKey | null {
   const k = String(eventKpi || "").trim();
