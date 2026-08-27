@@ -40,6 +40,7 @@ import { listClassDispositifs } from "../../../lib/bestPractices";
 import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
 import { loadSiteEntities, matchEntities } from "../../../lib/entityResolver";
 import { readEntityPeriod, buildEntityPeriodBlocks } from "../../../lib/entityReading";
+import { planPeriod, buildPlanBlocks } from "../../../lib/planPeriod";
 import { journalPlan } from "../../../lib/journalPlan";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
@@ -2541,6 +2542,28 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         ENGAGEMENTS_ELICIT_FR,
         "deterministic_engagements_elicit_v1",
       );
+    }
+
+    // ── PLAN DE PÉRIODE (27/08) — « planifie-moi septembre ». Verbe de plan + période à
+    // venir (frPeriod, biais FUTUR) → composition DÉTERMINISTE de quatre sources réelles
+    // (planPeriod : inventaire, fenêtres, prouvé/séries, motifs mesurés). Le plan n'invente
+    // rien ; une source vide se dit vide. CTA rejeu quand un prouvé est rejouable.
+    if (/\b(planifie[rsz]?|pr[ée]parer?|organiser?|que faire)\b/i.test(qRaw)) {
+      const _plToday = new Date().toISOString().slice(0, 10);
+      const _plPeriod = resolveFrPeriod(qRaw, { today: _plToday, yearBias: "future" });
+      if (_plPeriod && _plPeriod.end >= _plToday) {
+        const _bqp = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+        const _plan2 = await planPeriod(_bqp, location_id, _plPeriod.start, _plPeriod.end);
+        const _plb = buildPlanBlocks(_plan2);
+        const _plPrimary = _plb.replay_prefill
+          ? { type: "commit_prefill", label: "M'engager", prefill: _plb.replay_prefill.prefill,
+              origin: { origin_action_type: "chat_journal_replay", origin_affected_date: _plb.replay_prefill.date } }
+          : { type: "redirect", url: "/app/insightevent/evenement?new=1", label: "Nouvelle opération" };
+        return sysDialogueResponse(
+          _plb.headline, "", "deterministic_plan_period_v1", _plPrimary,
+          { plan_sections: _plb.sections, sources_list: _plb.sources },
+        );
+      }
     }
 
     // ── ENTITÉ × PÉRIODE LIBRE (horizons libres, 27/08) — « le pôle traiteur depuis

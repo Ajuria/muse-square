@@ -961,6 +961,25 @@ if (!root) {
     // ces champs, un producteur groundé ne les porte jamais.
     // Entité × période (27/08, « montre la donnée ») : TABLEAU serveur (format msTable) +
     // totaux en prose + sources dépliables — rendus verbatim, jamais reformulés.
+    // Plan de période (27/08) : sections serveur (titre + tableau/faits), sources dépliables,
+    // CTA (rejeu M'engager ou Nouvelle opération) — rendu verbatim.
+    if (Array.isArray(n.plan_sections) && n.plan_sections.length) {
+      if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+      n.plan_sections.forEach(function (sec) {
+        if (!sec) return;
+        if (sec.title) blocks.push({ type: "headline", text: sec.title });
+        if (sec.table && Array.isArray(sec.table.rows) && sec.table.rows.length) blocks.push({ type: "table", cols: sec.table.cols, rows: sec.table.rows });
+        if (Array.isArray(sec.facts) && sec.facts.length) blocks.push({ type: "facts", items: sec.facts });
+      });
+      if (Array.isArray(n.sources_list) && n.sources_list.length) blocks.push({ type: "sources", items: n.sources_list });
+      if (ctaBlock) blocks.push(ctaBlock);
+      else if (primary && typeof primary === "object" && primary.type === "commit_prefill"
+          && primary.prefill && typeof primary.label === "string" && primary.label.trim()) {
+        _lastCommitPrefill = { prefill: primary.prefill, origin: primary.origin || null };
+        blocks.push({ type: "cta", action: "commit", label: primary.label.trim() });
+      }
+      return blocks;
+    }
     if (n.entity_table && Array.isArray(n.entity_table.rows) && n.entity_table.rows.length) {
       if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
       blocks.push({ type: "table", cols: n.entity_table.cols, rows: n.entity_table.rows });
