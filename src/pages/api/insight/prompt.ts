@@ -38,6 +38,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
 import { listClassDispositifs } from "../../../lib/bestPractices";
 import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
+import { journalPlan } from "../../../lib/journalPlan";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
 import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
@@ -2469,7 +2470,15 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       if (_j.found) {
         const _adv = ((_j.data as any)?.advice ?? []) as string[];
         const _advTexts = ((_j.data as any)?.advice_texts ?? []) as string[];
+        // J2.2 — le croisement SIGNAL × JOURNAL s'attache à la carte du journal : quand un jour à
+        // venir réunit les conditions où un dispositif a été PROUVÉ, on le dit ici plutôt que
+        // d'inventer une route de plus (qui volerait des questions aux familles existantes).
+        const _plan = await journalPlan(_bqj, location_id, 14).catch(() => []);
+        const _planTxt = _plan.length
+          ? `\n\nVos jours à venir\n\n${_plan.slice(0, 3).map((x) => x.say_fr).join("\n\n")}`
+          : "";
         const _body = _j.facts.filter((f) => !_advTexts.includes(f.fact_fr)).map((f) => f.fact_fr).join("\n\n")
+          + _planTxt
           + (_adv.length ? `\n\nAction conseillée : ${_adv.join(" ; ")}.` : "");
         return sysDialogueResponse("Vos engagements", _body, "deterministic_engagements_v1");
       }
