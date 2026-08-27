@@ -2566,7 +2566,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
             _epBlocks.prose,
             "deterministic_entity_period_v1",
             null,
-            _epBlocks.card ? { pole_cards: [_epBlocks.card] } : null,
+            { entity_table: _epBlocks.table, sources_list: _epBlocks.sources },
           );
         }
         // D2 — l'entité nommée est introuvable : élicitation avec les LISTES RÉELLES du site,

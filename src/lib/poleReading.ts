@@ -18,6 +18,7 @@ function addDaysIso(iso: string, days: number): string {
 
 export interface PoleFamilyReading {
   family: string;
+  rev_eur: number | null;         // CA de la famille sur la fenêtre (jours vendus)
   avg30_eur_day: number | null;   // €/j sur les 30 derniers jours (jours VENDUS)
   n30: number;                    // jours vendus dans les 30 derniers jours
   base_eur_day: number | null;    // €/j sur les 90 jours précédant les 30
@@ -136,7 +137,7 @@ export async function buildPoleReading(
     const delta = n30 >= 5 && nBase >= 5 && base && base > 0 && avg30 != null
       ? Math.round(((avg30 - base) / base) * 1000) / 10
       : null;
-    return { family: f, avg30_eur_day: avg30, n30, base_eur_day: base, n_base: nBase, delta_pct: delta };
+    return { family: f, rev_eur: n30 >= 1 ? Math.round(Number(flat(r.rev30))) : null, avg30_eur_day: avg30, n30, base_eur_day: base, n_base: nBase, delta_pct: delta };
   });
 
   const operations: PoleOperationRow[] = (orows as any[]).map((r) => ({

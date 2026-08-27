@@ -959,6 +959,16 @@ if (!root) {
     // journal (deterministic_engagements_v1) ET lectures d'entité sur période
     // (deterministic_entity_period_v1) rendent par la même branche — seul le serveur écrit
     // ces champs, un producteur groundé ne les porte jamais.
+    // Entité × période (27/08, « montre la donnée ») : TABLEAU serveur (format msTable) +
+    // totaux en prose + sources dépliables — rendus verbatim, jamais reformulés.
+    if (n.entity_table && Array.isArray(n.entity_table.rows) && n.entity_table.rows.length) {
+      if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+      blocks.push({ type: "table", cols: n.entity_table.cols, rows: n.entity_table.rows });
+      if (typeof answer === "string" && answer.trim()) blocks.push({ type: "prose", md: answer });
+      if (Array.isArray(n.sources_list) && n.sources_list.length) blocks.push({ type: "sources", items: n.sources_list });
+      if (ctaBlock) blocks.push(ctaBlock);
+      return blocks;
+    }
     if ((Array.isArray(n.pole_cards) && n.pole_cards.length) || (Array.isArray(n.dated_cards) && n.dated_cards.length)) {
       if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
       if (Array.isArray(n.pole_cards) && n.pole_cards.length) {

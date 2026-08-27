@@ -1651,6 +1651,20 @@
         return h + '</div>';
       }).join('');
     },
+    // Bloc TABLE (27/08, entité×période — « montre la donnée », owner) : LE tableau du kit
+    // (msTable), jamais un second rendu de table. items = { cols, rows } au format msTable.
+    table: function (b) {
+      if (!b.cols || !b.rows || !b.rows.length) return '';
+      return '<div style="overflow-x:auto;margin:8px 0 12px;"><table style="border-collapse:collapse;font-size:13px;color:#111827;width:100%;">' + msTable(b.cols, b.rows) + '</table></div>';
+    },
+    // Bloc SOURCES dépliable (patron details du kit, comme les étapes best-in-class).
+    sources: function (b) {
+      if (!b.items || !b.items.length) return '';
+      return '<details style="margin-top:10px;"><summary style="font-size:12px;color:#6b7280;cursor:pointer;">Sources</summary>'
+        + '<ul style="margin:6px 0 0 18px;padding:0;font-size:12px;color:#6b7280;">'
+        + b.items.map(function (x) { return '<li style="margin:3px 0;">' + esc(x) + '</li>'; }).join('')
+        + '</ul></details>';
+    },
     // .ie-lookup-item/-name/-date/-desc/-notfound
     lookup: function (b) {
       if (b.empty) return '<div style="font-size:15px;color:#6b7280;">' + esc(b.empty) + '</div>';

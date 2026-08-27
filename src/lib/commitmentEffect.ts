@@ -38,5 +38,9 @@ export function commitmentEffect(row: any): CommitmentEffect {
   const val = num(row.kpi_window_value);
   const se = num(row.kpi_noise_se);
   const z = base != null && val != null && se != null && se > 0 ? (val - base) / se : null;
-  return { pct: num(row.kpi_delta_pct), z, kpi, kpi_mention_fr: `sur ${kpiLe(kpi)}` };
+  // Précision owner 27/08 : « sur le CA famille » est trop abstrait — quand la ligne porte la
+  // famille (kpi_family, jointe depuis saved_items par le lecteur), la mention la NOMME.
+  const fam = row.kpi_family != null ? String(flat(row.kpi_family) ?? "").trim() : "";
+  const mention = kpi === "family_revenue" && fam ? `sur le CA de la famille ${fam}` : `sur ${kpiLe(kpi)}`;
+  return { pct: num(row.kpi_delta_pct), z, kpi, kpi_mention_fr: mention };
 }
