@@ -8,9 +8,13 @@
 //   2. PROVEN — the EXISTING commitment loop: a resolved commitment with verdict 'met'
 //      (analytics.action_commitments, retro columns retro_worked/retro_repeat) IS a proven
 //      practice. The reader UNIONs those in — nothing is re-stored, no second write path.
-// Tier is COMPUTED AT READ TIME: a declared practice whose replay commitment (chain
-// « Ajouter + m'engager à la rejouer ») resolved 'met' reads as "prouvée" via JOIN — no
-// promotion cron, no tier column to drift.
+// Tier is COMPUTED AT READ TIME — et depuis le 27/08 (arbitrages owner) il juge l'EFFET,
+// pas la cible : « prouvée » = le rejeu a un effet positif SIGNIFICATIF (|z| >= 1, la garde
+// de commitmentResolve ; met à z NULL = base residual_z, positif par construction), que
+// l'objectif soit atteint ou non. Un effet NÉGATIF significatif exclut le dispositif des
+// suggestions (contre-indication, dite par le chat avec son n de tests). L'axe CIBLE
+// (met/manqué vs threshold) reste lisible à part — calibration d'objectif, jamais le tier.
+// int_location_dispositifs (dbt) reflète la même règle ; ce fichier reste la loi.
 //
 // Matching vocabulary is 100% existing (audit 26/07 — nothing new invented):
 //   kpi           = kpiRegistry.kpiKeyForOrigin(origin_action_type, origin_driver)
@@ -199,18 +203,35 @@ export async function listMatchedPractices(
         WITH declared AS (
           SELECT bp.practice_id, bp.practice_text, bp.author_person_name,
                  CAST(bp.origin_affected_date AS STRING) AS origin_affected_date,
-                 IF(c.verdict = 'met', 'prouvee', 'declaree') AS tier,
+                 -- tier par l'EFFET (27/08, owner) : prouvée = effet positif significatif, que
+                 -- la cible soit atteinte ou non. met à z NULL = base residual_z, positif par
+                 -- construction. Miroir de int_location_dispositifs.
+                 IF(
+                   c.verdict = 'met'
+                   OR (c.c_status = 'resolved' AND COALESCE(c.action_done_status, '') != 'pas_encore'
+                       AND c.verdict != 'confounded' AND c.w_z >= 1 AND c.w_pct > 0),
+                   'prouvee', 'declaree') AS tier,
                  'declared' AS source, bp.created_at AS ts,
                  bp.mechanism_factors, bp.confirmation_test
           FROM \`${TABLE_FQN}\` bp
           LEFT JOIN (
-            SELECT commitment_id, verdict, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+            SELECT commitment_id, verdict, status AS c_status, action_done_status,
+                   CAST(window_residual_pct AS FLOAT64) AS w_pct, CAST(window_residual_z AS FLOAT64) AS w_z,
+                   ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
             FROM \`${COMMITMENTS_FQN}\`
           ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
           WHERE bp.location_id = @location_id AND bp.status = 'active'
             AND bp.kpi = @kpi
             AND (bp.outcome_lever = @outcome_lever
                  OR (@day_class_key IS NOT NULL AND bp.day_class_key = @day_class_key))
+            -- Axe d'effet (27/08) : un dispositif dont le rejeu a un effet NÉGATIF significatif
+            -- (|z| >= 1, sous la loi d'attribution outcomes) ne se SUGGÈRE plus — il vit en
+            -- contre-indication (chat). Même règle que int_location_dispositifs, la loi ici.
+            AND NOT (
+              c.c_status = 'resolved' AND COALESCE(c.action_done_status, '') != 'pas_encore'
+              AND c.verdict != 'confounded'
+              AND c.w_z <= -1 AND c.w_pct < 0
+            )
         ),
         proven_commitments AS (
           SELECT commitment_id AS practice_id,
@@ -276,10 +297,60 @@ export interface ClassDispositif {
   practice_text: string;
   confirmation_test: string | null;
   day_class_key: string | null;
-  tier: "prouvee" | "declaree";
+  tier: "prouvee" | "declaree" | "ecarte";   // ecarte = effet négatif prouvé (27/08)
   commitment_status: string | null;   // 'open' = test en cours
   commitment_verdict: string | null;
+  // Axe d'EFFET (27/08, arbitrages owner) — séparé de l'axe cible. Calculé par
+  // int_location_dispositifs (|z| >= 1, loi d'attribution outcomes) ; jamais re-dérivé ici.
+  effect_direction: "positive" | "negative" | "inconclusive" | null;
+  effect_residual_pct: number | null;
+  effect_residual_z: number | null;
+  replay_threshold_value: number | null;
+  replay_threshold_basis: string | null;
+  replay_adjustment_move: string | null;   // poursuivre | doubler | pivoter | stop — la décision prise face au verdict
   created_date: string;               // ISO Y-m-d (interne — l'affichage se fait en JJ/MM côté surface)
+}
+
+// L'ÉTAT d'un dispositif en toutes lettres — LA source unique (axe d'effet séparé de
+// l'axe cible, arbitrages owner 27/08). Paramétrée par le nom de classe (noun_fr) pour ne
+// dépendre d'aucun module amont : buildPracticeFacts passe classNounFr(day_class_key),
+// le provider dispositif passe son cfg.noun_fr local. Trois consommateurs, UNE grammaire :
+// chat grounded, chemin déterministe, faits d'enquête.
+const MOVE_CLAUSE_FR: Record<string, string> = {
+  // les gestes du flux Ajuster (card-kit _mc + « Arrêter » -> stop), libellés commitmentCopy
+  stop: "vous aviez choisi d'arrêter ce test",
+  pivoter: "vous aviez choisi de pivoter",
+  doubler: "vous aviez choisi de doubler la mise",
+  poursuivre: "vous aviez choisi de poursuivre",
+};
+
+export function dispositifStateFr(
+  p: Pick<ClassDispositif, "tier" | "effect_direction" | "effect_residual_pct" | "commitment_verdict" | "replay_threshold_value" | "replay_threshold_basis"> & { replay_adjustment_move?: string | null },
+  class_noun_fr: string | null,
+): string {
+  // la décision prise FACE au verdict — l'étage au-dessus de l'axe effet/cible ; une valeur
+  // hors carte est tue (jamais une clé technique en phrase).
+  const move = p.replay_adjustment_move != null ? MOVE_CLAUSE_FR[String(p.replay_adjustment_move)] ?? null : null;
+  const withMove = (state: string) => (move ? `${state} — ${move}` : state);
+  const pct = p.effect_residual_pct != null
+    ? `${p.effect_residual_pct >= 0 ? "+" : "-"}${String(Math.round(Math.abs(p.effect_residual_pct) * 10) / 10).replace(".", ",")} %`
+    : "";
+  if (p.effect_direction === "negative") {
+    return withMove(`${class_noun_fr ? `face à vos ${class_noun_fr}, ` : ""}il a prouvé ne pas être adapté (${pct} vs votre résultat habituel, 1 test manqué)`);
+  }
+  if (p.effect_direction === "positive" && p.commitment_verdict === "missed") {
+    const cible = p.replay_threshold_basis === "pct" && p.replay_threshold_value != null
+      ? ` : votre cible (+${String(p.replay_threshold_value).replace(".", ",")} %) était peut-être surestimée`
+      : "";
+    return withMove(`effet positif mesuré (${pct} vs votre résultat habituel), objectif manqué${cible}`);
+  }
+  if (p.tier === "prouvee") {
+    return withMove(`prouvé au rejeu${pct ? ` (${pct} vs votre résultat habituel)` : ""}`);
+  }
+  if (p.effect_direction === "inconclusive") {
+    return withMove("testé, non concluant (effet dans le bruit du lieu)");
+  }
+  return withMove("déclaré, pas encore prouvé");
 }
 
 export async function listClassDispositifs(
@@ -289,21 +360,24 @@ export async function listClassDispositifs(
   limit = 3,
 ): Promise<ClassDispositif[]> {
   try {
+    // 27/08 — lit la surface semantic (vw_insight_event_dispositifs, chaine stg -> int ->
+    // fct en VUES : fraicheur identique a l'ancienne lecture analytics directe). La jointure
+    // replay et le tier sont calcules par int_location_dispositifs — la MEME semantique que
+    // l'ancienne requete inline, prouvee champ par champ avant bascule (EXCEPT DISTINCT
+    // bidirectionnel = 0 sur les 4 fiches actives). source='declared' : cette fonction n'a
+    // jamais liste les engagements prouves autonomes (c'est listMatchedPractices).
     const [rows] = await bq.query({
       query: `
-        SELECT bp.practice_id, bp.practice_text, bp.confirmation_test, bp.day_class_key,
-               IF(c.verdict = 'met', 'prouvee', 'declaree') AS tier,
-               c.status AS commitment_status, c.verdict AS commitment_verdict,
-               FORMAT_TIMESTAMP('%Y-%m-%d', bp.created_at) AS created_date
-        FROM \`${TABLE_FQN}\` bp
-        LEFT JOIN (
-          SELECT commitment_id, status, verdict,
-                 ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
-          FROM \`${COMMITMENTS_FQN}\`
-        ) c ON c.commitment_id = bp.replay_commitment_id AND c.rn = 1
-        WHERE bp.location_id = @location_id AND bp.status = 'active'
-          AND (@day_class_key IS NULL OR bp.day_class_key = @day_class_key)
-        ORDER BY IF(c.status = 'open', 0, 1), bp.created_at DESC
+        SELECT dispositif_id AS practice_id, practice_text, confirmation_test, day_class_key,
+               tier,
+               replay_status AS commitment_status, replay_verdict AS commitment_verdict,
+               effect_direction, effect_residual_pct, effect_residual_z,
+               replay_threshold_value, replay_threshold_basis, replay_adjustment_move,
+               FORMAT_TIMESTAMP('%Y-%m-%d', created_at) AS created_date
+        FROM \`${BQ_PROJECT}.semantic.vw_insight_event_dispositifs\`
+        WHERE location_id = @location_id AND source = 'declared' AND status = 'active'
+          AND (@day_class_key IS NULL OR day_class_key = @day_class_key)
+        ORDER BY IF(replay_status = 'open', 0, 1), created_at DESC
         LIMIT ${Math.max(1, Math.min(limit, 6))}
       `,
       params: { location_id, day_class_key },
@@ -315,9 +389,15 @@ export async function listClassDispositifs(
       practice_text: String(r.practice_text ?? ""),
       confirmation_test: r.confirmation_test != null ? String(r.confirmation_test) : null,
       day_class_key: r.day_class_key != null ? String(r.day_class_key) : null,
-      tier: r.tier === "prouvee" ? "prouvee" : "declaree",
+      tier: r.tier === "prouvee" ? "prouvee" : r.tier === "ecarte" ? "ecarte" : "declaree",
       commitment_status: r.commitment_status != null ? String(r.commitment_status) : null,
       commitment_verdict: r.commitment_verdict != null ? String(r.commitment_verdict) : null,
+      effect_direction: r.effect_direction === "positive" || r.effect_direction === "negative" || r.effect_direction === "inconclusive" ? r.effect_direction : null,
+      effect_residual_pct: r.effect_residual_pct != null ? Number(r.effect_residual_pct) : null,
+      effect_residual_z: r.effect_residual_z != null ? Number(r.effect_residual_z) : null,
+      replay_threshold_value: r.replay_threshold_value != null ? Number(r.replay_threshold_value) : null,
+      replay_threshold_basis: r.replay_threshold_basis != null ? String(r.replay_threshold_basis) : null,
+      replay_adjustment_move: r.replay_adjustment_move != null ? String(r.replay_adjustment_move) : null,
       created_date: String(r.created_date ?? ""),
     }));
   } catch (e) {

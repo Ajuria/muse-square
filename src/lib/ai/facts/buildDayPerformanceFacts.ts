@@ -19,7 +19,7 @@
 import { makeBQClient } from "../../bq";
 
 const PROJECT = "muse-square-open-data";
-const RESIDUAL = `\`${PROJECT}.mart.fct_client_day_residual\``;
+const RESIDUAL = `\`${PROJECT}.semantic.vw_insight_event_day_residual\``;
 const ANALOGS = `\`${PROJECT}.mart.fct_client_day_analogs\``;
 const SIGNALS = `\`${PROJECT}.mart.fct_client_sales_signals_daily\``;
 

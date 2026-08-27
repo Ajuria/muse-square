@@ -1,4 +1,4 @@
-# À rédiger (owner) — méthodes `weekend_vacation_low_comp` + complément `low_competition_window`
+# À rédiger (owner) — méthodes `weekend_vacation_low_comp` + complément `low_competition_window` — DÉFINITIF
 
 > **L'ACTION : écrire les textes des plans dans `public/reco-library.js` — 9 entrées pour
 > `weekend_vacation_low_comp` (gabarit prêt, décommenté en fin de fichier), 2 entrées de plus

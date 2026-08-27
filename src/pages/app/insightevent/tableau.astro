@@ -9,7 +9,8 @@
 // clés id/body distinctes). Le fetch est UNIQUE (period=365) : les périodes 30/90 se DÉRIVENT
 // côté client (impact_rows + judged_meta) — bascule instantanée, volets préservés (dérivation
 // prouvée = serveur, 09/08). GARDE-FOU : aucune métrique brute sans son verdict. Multi-sites
-// par défaut. Refonte à venir : docs/piloter-redesign-spec.md (arbitrages owner 24/08).
+// par défaut. La refonte du 24/08 est APPLIQUÉE ; l'état de la page est décrit dans
+// docs/piloter-redesign.md (deux items non appliqués y sont nommés en fin de document).
 export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
@@ -421,7 +422,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           });
 
           // ── HÉROS : 4 tuiles. ──
-          // ── Héros v11 (spec 24/08, docs/piloter-redesign-spec.md) : DEUX RANGÉES SANS
+          // ── Héros v11 (spec 24/08, docs/piloter-redesign.md) : DEUX RANGÉES SANS
           //    étiquettes — rangée 1 = santé (carte CA pleine largeur : chiffre + mini-courbe
           //    + N-1 en absence honnête datée + Générer un rapport ; UNE série `ca_daily` sur
           //    LE référentiel dow+tendance — chiffre, % et courbe ne peuvent plus diverger),

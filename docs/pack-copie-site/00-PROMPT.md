@@ -19,7 +19,7 @@ la capacité n'y est pas décrite, tu ne l'écris pas — tu signales à la plac
 suppose une capacité que je ne trouve pas dans le fichier produit ; est-ce que l'app le fait ? ».
 Une promesse inventée sur un site B2B se paie au premier rendez-vous client.
 
-**Ta deuxième contrainte : `02-scan-concurrentiel.md` dit sur quoi ne pas dépenser le titre.**
+**Ta deuxième contrainte : `../positionnement-scan-concurrentiel.md` dit sur quoi ne pas dépenser le titre.**
 Attention à l'usage : ce n'est **pas** un veto sur des mots. Dans un marché de vingt acteurs, toute
 phrase vendable a déjà été écrite par quelqu'un ; « personne ne dit ça » est plus souvent le signe
 que ça ne vend pas qu'un trophée. Le scan sert à savoir quelles revendications sont devenues des
@@ -102,7 +102,7 @@ Son critère de qualification, affiné par le scan : **existe-t-il dans la struc
 c'est le métier de regarder la fréquentation chaque semaine ?** Si non, l'outil n'aura pas
 d'utilisateur, quelle que soit la verticale.
 
-Deux avertissements dans `02-scan-concurrentiel.md` § 6 : un musée subventionné n'a pas de « CA qui
+Deux avertissements dans `../positionnement-scan-concurrentiel.md` § 6 : un musée subventionné n'a pas de « CA qui
 dépend de la fréquentation » — son indicateur est la fréquentation et la mission, donc le vocabulaire
 en euros ne s'y transpose pas tel quel. Et **Dexibit** occupe déjà cette place auprès des musées, en
 revendiquant la même catégorie.

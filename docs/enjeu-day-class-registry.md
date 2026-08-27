@@ -1,4 +1,4 @@
-# Enjeu €/an — day-class registry
+# Enjeu €/an — day-class registry — DÉFINITIF
 
 > Spec de référence de la pill « Enjeu ~X €/an · estimé/mesuré » des cartes d'action système, et du
 > registre de classes de jours qui la calcule. Code : `src/lib/dayClassRegistry.ts` (calcul + policy),

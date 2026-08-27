@@ -87,7 +87,7 @@ export async function buildEventLifecycleCards(bq: any, location_id: string, cle
       }) : empty,
       measurePairs.length ? bq.query({
         query: `SELECT CAST(date AS STRING) AS d, ROUND(daily_revenue, 0) AS rev, ROUND(expected_revenue, 0) AS exp
-                FROM \`${PROJECT}.mart.fct_client_day_residual\`
+                FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\`
                 WHERE location_id = @location_id AND date = @d0`,
         params: { location_id, d0: bq.date(yesterday) }, location: "EU",
       }) : empty,

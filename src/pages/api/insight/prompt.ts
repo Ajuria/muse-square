@@ -14,8 +14,9 @@ import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/gr
 import { FACT_ORIGIN_FR, type FactOrigin } from "../../../lib/fr/factOrigins.fr";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";
 import { buildDayPerformanceFacts } from "../../../lib/ai/facts/buildDayPerformanceFacts";
-import { buildPracticeFacts } from "../../../lib/ai/facts/buildPracticeFacts";
+import { buildPracticeFacts, practiceStateFr } from "../../../lib/ai/facts/buildPracticeFacts";
 import { buildEventFacts } from "../../../lib/ai/facts/buildEventFacts";
+import { buildUserInputFacts } from "../../../lib/ai/facts/buildUserInputFacts";
 import { listUserEvenements } from "../../../lib/insightFamilies/evenement";
 import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMetric } from "../../../lib/ai/corrections";
 import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declaredMetrics";
@@ -41,6 +42,8 @@ import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contr
 import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { sinkTelemetry } from "../../../lib/telemetrySink";
+// addDaysYmd existe déjà en local (l.~757) — ne pas l'importer en doublon.
+import { resolveFrPeriod, daysInRangeYmd, type YearBias } from "../../../lib/dates/frPeriod";
 
 export const prerender = false;
 
@@ -77,7 +80,7 @@ function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: Fa
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1") return null;
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -495,7 +498,7 @@ function detectMissingDimension(qn: string): string | null {
 // Item 2 (16/07) — PREMISE CHECK parser. An entity-impact question may embed a CHECKABLE claim about
 // the operator's own CA (« …a-t-il fait chuter mon CA de 47 % ? »). High-precision: fires only when a
 // possessive revenue marker AND a direction verb are both present; the optional % is captured for the
-// met/refuted comparison. The claim is verified against mart.fct_client_day_residual (actual vs
+// met/refuted comparison. The claim is verified against semantic.vw_insight_event_day_residual (actual vs
 // dow+trend normale) BEFORE the web research — verify the premise first, research the entity second.
 // Declared-metric parsers live in lib/ai/declaredMetrics.ts (registry) since 16/07.
 
@@ -517,6 +520,22 @@ const COMPARISON_MARKERS = [
   "entre",
   " vs ",
   "vs ",
+];
+
+// Marqueurs de PASSÉ exprimé (sur texte normalisé) — ils priment les marqueurs
+// de planification/évaluation pour le biais d'année de frPeriod : « quels ont
+// été mes meilleurs jours de juin ? » parle de juin passé malgré « meilleurs ».
+const PAST_TENSE_MARKERS = [
+  "ont ete", "a ete", "etait", "etaient",
+  "s'est passe", "s est passe", "s'est-il passe", "s est-il passe",
+  // Pluriel de « s'est passe » — il MANQUAIT, et c'est la forme de la question
+  // du bilan : « comment se sont passees mes meilleures journees de juin-juillet ? »
+  // n'avait aucun marqueur de passe, « meilleures » l'emportait, et juin-juillet
+  // resolvait en 2027 (mesure E2E f10c3e58 du 26/08, avant/apres ci-dessous).
+  "se sont passe",
+  "j'ai vendu", "j ai vendu", "ai fait", "ai eu", "ai realise",
+  "avons vendu", "avons fait", "avons eu",
+  "a marche", "ont marche", "a rendu", "ont rendu", "a donne", "ont donne",
 ];
 
 const PLANNING_VERBS = [
@@ -778,6 +797,19 @@ function toBoolOrNullLocal(v: any): boolean | null {
   return toBoolOrNullStrict(v);
 }
 
+// A REVIEW question about the operator's OWN period (« comment se sont passées mes journées de
+// juin-juillet ? ») is never an entity lookup — but the month names put it on the MINIMAL TEMPORAL
+// branch below and it answered « Aucun événement trouvé » (E2E 26/08, f10c3e58). Same family as
+// IMPACT_MARKERS' possessives (mon ca, mes ventes) : possessive + a time-period noun, or a
+// « comment … s'est passé » phrasing. Matched on the normalized question (apostrophes survive norm()).
+function isOwnPeriodReviewQuestion(s: string): boolean {
+  return (
+    /comment (se sont|s['’ ]?est|ca s['’ ]?est|cela s['’ ]?est) pass/.test(s) ||
+    /\b(ma|mes|mon) (journees?|jours|semaines?|mois|saison|periodes?)\b/.test(s) ||
+    /\bbilan\b/.test(s)
+  );
+}
+
 function isEventLookupQuestion(qRaw: string): boolean {
   const s = norm(qRaw ?? "");
 
@@ -789,6 +821,7 @@ function isEventLookupQuestion(qRaw: string): boolean {
   if (COMPARISON_MARKERS.some(k => s.includes(k))) return false;
   if (PLANNING_VERBS.some(k => s.includes(k))) return false;
   if (IMPACT_MARKERS.some(k => s.includes(k))) return false;   // impact question about an entity ≠ lookup
+  if (isOwnPeriodReviewQuestion(s)) return false;              // bilan on one's own days ≠ lookup (26/08)
 
   // ----------------------------
   // POSITIVE LOOKUP SIGNALS
@@ -2324,7 +2357,7 @@ RÈGLES DURES :
 6. LA FICHE. Quand l'explication de l'exploitant est claire, actionnable et À LUI (déclenchable par lui), propose la fiche : fact_fr = SES mots reformulés fidèlement, sans embellissement ; evidence_fr = les jours/faits des FAITS qui la montrent ; test_fr = un test daté observable (modèle : « sur les 3 prochains pics annoncés, dispositif déclenché la veille → CA au-dessus de l'attendu du jour »). Sinon fiche = null et continue l'enquête.
 7. CAUSES EXTERNES nommées et datées (marché, événement, média) : note-les comme déclarées par l'exploitant — tu ne peux pas les vérifier ici ; ne confirme jamais un fait externe de toi-même. Récurrente et datée, une telle cause pourra devenir un dispositif à part entière — dis-le sans promettre.
 8. TON : français d'exploitant, direct, 70 mots maximum par message, pas de jargon (jamais « tercile », « résiduel », « co-occurrence » sans mot simple à côté), pas de markdown.
-9. DISPOSITIFS EXISTANTS. Si les FAITS listent un dispositif déjà documenté, l'enquête CONTINUE à partir de lui : ne le re-documente jamais, ne repose pas les questions auxquelles il répond déjà. S'il est en test, dis-le (le suivi vit sur Pulse) et propose : poursuivre le test, l'ajuster, ou documenter un AUTRE dispositif. Une fiche ne se propose que pour un dispositif NOUVEAU, distinct de l'existant.
+9. DISPOSITIFS EXISTANTS. Si les FAITS listent un dispositif déjà documenté, l'enquête CONTINUE à partir de lui : ne le re-documente jamais, ne repose pas les questions auxquelles il répond déjà. S'il est en test, dis-le (le suivi vit sur Pulse) et propose : poursuivre le test, l'ajuster, ou documenter un AUTRE dispositif. Une fiche ne se propose que pour un dispositif NOUVEAU, distinct de l'existant. CONTRE-INDICATION (27/08) : un dispositif dont le fait dit « il a prouvé ne pas être adapté » a été TESTÉ sur ce motif et a échoué — ne le re-propose JAMAIS tel quel, ni reformulé. Si l'exploitant l'évoque, rappelle le résultat mesuré (l'effet et le nombre de tests, tels que le fait les porte) et oriente vers : ajuster ce qui a échoué (en nommant ce qui change), ou un dispositif différent. Un état « testé, non concluant » n'est PAS une contre-indication : il se poursuit ou se re-teste.
 
 SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": string, "evidence_fr": string, "test_fr": string } } — rien d'autre.`;
 
@@ -2399,7 +2432,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       const _frD = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
       if (_dispoRows.length) {
         const _lines = _dispoRows.map((p) =>
-          `Documenté le ${_frD(p.created_date)} : « ${p.practice_text} » — ${p.tier === "prouvee" ? "prouvé au rejeu" : "déclaré"}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`);
+          `Documenté le ${_frD(p.created_date)} : « ${p.practice_text} » — ${practiceStateFr(p)}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`);
         return sysDialogueResponse(
           _dispoRows.length === 1 ? "Votre dispositif documenté" : "Vos dispositifs documentés",
           _lines.join("\n\n"),
@@ -2436,6 +2469,36 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         "Vous n'avez pas encore d'événement. Créez-en un depuis Mes dates (« Nouvel événement ») : dispositif, objectif chiffré, récurrence — la mesure se crée avec lui.",
         "deterministic_evenements_v1",
       );
+    }
+
+    // ── RAPPORT À LA DEMANDE (J1.5 Explorer, 26/08) — la détection vivait côté client
+    // (ie-prompt.js reportPeriodFromText, parseurs supprimés le même jour) et navigait de force ;
+    // elle vit ICI, sur la lib de période partagée (frPeriod, biais passé — un rapport porte sur
+    // de l'écoulé). Réponse déterministe : la période résolue DITE + le CTA existant vers la page
+    // rapport (actions.primary redirect → bloc cta côté client, le fil est préservé au retour).
+    // Garde-fou nouveau : « rapport » au sens de RELATION (« par rapport à », « rapport entre »,
+    // « quel rapport ») ne déclenche jamais — le client naviguait à tort sur ces formes.
+    {
+      const _qnRep = norm(qRaw);
+      const _repRelation = /(par rapport|rapport entre|en rapport avec|quel(le)? (est le )?rapport|aucun rapport|sans rapport)/.test(_qnRep);
+      if (!_repRelation && /\brapports?\b|\breports?\b/.test(_qnRep)) {
+        const _repVerb = /(gener|cree|produi|telecharg|export|\bsors\b|\bsort\b|prepare|montre|donne|fais)/.test(_qnRep);
+        const _todayRep = new Date().toISOString().slice(0, 10);
+        const _repPeriod = resolveFrPeriod(qRaw, { today: _todayRep, yearBias: "past" });
+        if (_repPeriod || _repVerb) {
+          // Sans période exprimée : les 30 derniers jours finissant hier (le défaut historique).
+          const _repEnd = _repPeriod ? _repPeriod.end : addDaysYmd(_todayRep, -1);
+          const _repStart = _repPeriod ? _repPeriod.start : addDaysYmd(_repEnd, -29);
+          const _frR = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+          const _repUrl = `/app/insightevent/rapport?start=${encodeURIComponent(_repStart)}&end=${encodeURIComponent(_repEnd)}&loc=${encodeURIComponent(location_id)}`;
+          return sysDialogueResponse(
+            "Rapport de ventes",
+            `Période : du ${_frR(_repStart)} au ${_frR(_repEnd)} — le document complet, imprimable et partageable.`,
+            "deterministic_report_nav_v1",
+            { type: "redirect", url: _repUrl, label: "Générer le rapport pour cette période →" },
+          );
+        }
+      }
     }
 
     // Item 4 (generalized 16/07) — DECLARED-DATA capture (runs BEFORE the missing-dimension check,
@@ -2600,65 +2663,41 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       return out.slice(0, 7);
     }
 
-    function inferSelectedDateFromMonthMention(qRaw: string): string | null {
-      const qn = norm(qRaw);
-
-      const months: Record<string, number> = {
-        // FR
-        "janvier": 1,
-        "fevrier": 2, "février": 2,
-        "mars": 3,
-        "avril": 4,
-        "mai": 5,
-        "juin": 6,
-        "juillet": 7,
-        "aout": 8, "août": 8,
-        "septembre": 9,
-        "octobre": 10,
-        "novembre": 11,
-        "decembre": 12, "décembre": 12,
-
-        // EN
-        "january": 1,
-        "february": 2,
-        "march": 3,
-        "april": 4,
-        "may": 5,
-        "june": 6,
-        "july": 7,
-        "august": 8,
-        "september": 9,
-        "october": 10,
-        "november": 11,
-        "december": 12,
-      };
-
-      let m: number | null = null;
-      for (const k of Object.keys(months)) {
-        // Use word boundary check: month name must be preceded and followed by non-letter
-        const re = new RegExp(`(?:^|[^a-z])${k}(?:[^a-z]|$)`);
-        if (re.test(qn)) { m = months[k]; break; }
-      }
-      if (!m) return null;
-
-      const ym = qRaw.match(/\b(20\d{2})\b/);
-      const explicitYear = ym ? Number(ym[1]) : null;
-
-      const now = new Date();
-      const yNow = now.getUTCFullYear();
-      const mNow = now.getUTCMonth() + 1;
-
-      const y = explicitYear ?? (m < mNow ? yNow + 1 : yNow);
-
-      return new Date(Date.UTC(y, m - 1, 1)).toISOString().slice(0, 10);
-    }
+    // Résolution de PÉRIODE (lib partagée src/lib/dates/frPeriod) — remplace
+    // l'inférence mono-mois : « juin-juillet » devient un intervalle, et le
+    // biais d'année suit l'intention. Planification/évaluation (« meilleurs
+    // jours en juin ») → prochaine occurrence, comme l'historique ; sinon
+    // (résultats, rapport) → occurrence passée — « juin » demandé en août ne
+    // résout plus en juin de l'an prochain pour une question de résultats.
+    const _qnPeriod = norm(q);
+    const period_year_bias: YearBias =
+      PAST_TENSE_MARKERS.some((k) => _qnPeriod.includes(k))
+        ? "past"
+        : PLANNING_VERBS.some((k) => _qnPeriod.includes(k)) ||
+            EVALUATION_MARKERS.some((k) => _qnPeriod.includes(k))
+          ? "future"
+          : "past";
+    const parsed_period = resolveFrPeriod(q, {
+      today: new Date().toISOString().slice(0, 10),
+      yearBias: period_year_bias,
+    });
+    // Intégration limitée aux formes mois / plage de mois / du-au : les formes
+    // relatives (« semaine dernière », « ce mois ») gardent leurs chemins
+    // existants (weekday windows, temporal constraints).
+    const period_for_window =
+      parsed_period &&
+      (parsed_period.kind === "month" ||
+        parsed_period.kind === "month_range" ||
+        parsed_period.kind === "explicit_range")
+        ? parsed_period
+        : null;
 
     // selected_date precedence:
     // 1) explicit payload
-    // 2) inferred from question month (e.g. "en juin")
+    // 2) inferred from question period (e.g. "en juin", "juin-juillet")
     // 3) thread_context last selected_date
     // 4) today
-    const inferred_selected_date = inferSelectedDateFromMonthMention(q);
+    const inferred_selected_date = period_for_window?.start ?? null;
 
     // Multi-turn: after a month/top-days turn, a date-less follow-up ("Pourquoi ?")
     // inherits the #1 recommended date instead of defaulting to today.
@@ -2673,6 +2712,82 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           safeYmd10(thread_context?.last?.selected_date) ??
           _priorTopDate ??
           new Date().toISOString().slice(0, 10));
+
+    // Fenêtre du mode mois : la période parsée quand c'est elle qui a fixé la
+    // date (« juin-juillet » → 01/06..31/07), sinon la fenêtre historique de
+    // 30 jours (selected_date + 29 — ex. selected_date posté par la page days).
+    const window_end_date: string =
+      period_for_window && selected_date === period_for_window.start
+        ? period_for_window.end
+        : addDaysYmd(selected_date, 29);
+    const window_len_days = daysInRangeYmd(selected_date, window_end_date);
+
+    // LA FENÊTRE DU RENVOI RAPPORT — calculée UNE fois, lue à DEUX endroits : le classifieur
+    // (qui doit laisser ces questions descendre jusqu'à `case "month"` au lieu de les basculer
+    // sur le chemin jour) et la branche rapport elle-même. Les avoir forkées a produit un 400
+    // « Impossible d'identifier la date demandée » sur la question de bilan (mesuré 26/08).
+    // Non nulle = la réponse SERA le renvoi rapport, et vaut la date de fin à afficher.
+    // Un bilan ne peut pas couvrir des jours qui n'ont pas eu lieu : sur une période DITE, la
+    // fenêtre s'arrête hier. Garde `>= selected_date` : une période à venir n'est pas un bilan.
+    const _reportWindowEnd: string | null = (() => {
+      const _t = new Date().toISOString().slice(0, 10);
+      const _isReviewQ = !!period_for_window && isOwnPeriodReviewQuestion(norm(qRaw));
+      const _end = _isReviewQ && window_end_date >= _t ? addDaysYmd(_t, -1) : window_end_date;
+      return _end < _t && _end >= selected_date ? _end : null;
+    })();
+
+    // VERDICT CHIFFRÉ DE LA RÉPONSE RAPPORT (owner 26/08). Le juge de la batterie notait la
+    // réponse 2,0/5 sur R1 : « renvoie vers un document externe sans contenu exploitable ».
+    // Deux faits, ceux que la page rapport NOMME déjà (« Chiffre d'affaires », « vs période
+    // précédente », « Meilleure journée ») — aucun mot nouveau, mêmes colonnes que
+    // `insight/sales-report.ts` (mart.fct_client_daily_performance), jamais une source parallèle.
+    // AMORCÉE ICI, attendue dans la branche rapport de `case "month"` : elle part AVANT l'appel
+    // du classifieur Haiku (et donc avant le client BQ du corps, déclaré plus bas), elle ne coûte
+    // pas son aller-retour au budget 3 s. Client local — même motif que `_dispoBq`.
+    const _verdictPromise: Promise<any[]> | null = (() => {
+      if (!_reportWindowEnd) return null;
+      // La période précédente se mesure sur la fenêtre RÉELLE du rapport, pas sur
+      // `window_len_days` : quand la fenêtre est rabotée à hier (bilan d'août = 25 j au lieu
+      // de 31), la base doit l'être aussi. Mesuré : la version qui lisait `window_len_days`
+      // comparait 25 jours à 31 jours et annonçait +3,1 % là où la vérité est +23,5 %.
+      const _reportLen = daysInRangeYmd(selected_date, _reportWindowEnd);
+      const _prevEnd = addDaysYmd(selected_date, -1);
+      const _prevStart = addDaysYmd(_prevEnd, -(_reportLen - 1));
+      const _vbq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _vproj = process.env.BQ_PROJECT_ID || "muse-square-open-data";
+      return _vbq
+        .query({
+          query: `
+        WITH daily AS (
+          SELECT date AS day, SUM(daily_revenue) AS rev
+          FROM \`${_vproj}.semantic.vw_insight_event_client_performance\`
+          WHERE location_id = @location_id
+            AND date BETWEEN DATE(@prev_start) AND DATE(@end)
+          GROUP BY 1
+        )
+        SELECT
+          (SELECT SUM(rev) FROM daily WHERE day BETWEEN DATE(@start) AND DATE(@end)) AS rev,
+          (SELECT SUM(rev) FROM daily WHERE day BETWEEN DATE(@prev_start) AND DATE(@prev_end)) AS prev_rev,
+          (SELECT AS STRUCT CAST(day AS STRING) AS day, rev
+             FROM daily WHERE day BETWEEN DATE(@start) AND DATE(@end) ORDER BY rev DESC LIMIT 1) AS best
+          `,
+          location: "EU",
+          params: {
+            location_id,
+            start: selected_date,
+            end: _reportWindowEnd,
+            prev_start: _prevStart,
+            prev_end: _prevEnd,
+          },
+        })
+        .then(([rows]: any) => (rows ?? []) as any[])
+        .catch((e: any) => {
+          // Échec soft LOGGÉ : le renvoi rapport ne doit jamais mourir de son verdict — mais un
+          // échec silencieux est le piège dateResolutionQuery (31/07), donc console.error.
+          console.error("[verdict-rapport] requête échouée:", e?.message);
+          return [] as any[];
+        });
+    })();
 
     const date =
       typeof body?.date === "string" && body.date.trim() ? body.date.trim() : null;
@@ -3034,7 +3149,16 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
             resolved_intent = "DAY_DIMENSION_DETAIL";
           }
         } else {
-          // Month-level dimension question — keep month but change intent
+          // Question de DIMENSION sur le MOIS — le chemin mois n'a AUCUN paquetage pour cet
+          // intent : les trois portes aval (narrative V3, repli V3, buildUiPackagingV3Month)
+          // n'acceptent que WINDOW_TOP_DAYS|WINDOW_WORST_DAYS, donc `ai.ok=true` + `output null`
+          // → repli brut « Je n'ai pas pu produire une réponse utile… » (mesuré 26/08 sur
+          // « la concurrence a-t-elle pesé sur mon mois ? »). Le chemin JOUR/FAMILLE, lui, sert
+          // déjà cette classe de question — mesuré le même jour, sur les questions sœurs que le
+          // classifieur avait mises en horizon jour : `family_grounded_claude` répond ET dit
+          // honnêtement ce qu'il ne peut pas reconstituer sur le mois. Arbitrage owner 26/08.
+          // Le basculement ne vaut que depuis le mois : un defaulted-compare garde selected_days.
+          if (resolved_horizon === "month" && !_reportWindowEnd) resolved_horizon = "day";
           resolved_intent = "DAY_DIMENSION_DETAIL";
         }
       } else if (isDefaultedCompare) {
@@ -3165,114 +3289,10 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       return rows ?? [];
     }
 
-    async function bqShortlist(params: {
-      location_id: string;
-      window_start_date: string; // YYYY-MM-DD
-      hard_only?: boolean;
-      limit?: number; // 1..7
-    }) {
-      const hard_only = params.hard_only === false ? false : true;
-
-      const limitRaw = Number(params.limit ?? 7);
-      const limit = Number.isFinite(limitRaw)
-        ? Math.max(1, Math.min(7, Math.floor(limitRaw)))
-        : 7;
-
-      const query = `
-        WITH win AS (
-          SELECT
-            DATE(@window_start_date) AS window_start_date,
-            DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
-        ),
-        base AS (
-          SELECT
-            date,
-            location_id,
-            CAST(opportunity_score AS FLOAT64) AS opportunity_score,
-            opportunity_medal,
-            opportunity_regime,
-            weather_code,
-            weather_alert_level,
-            precipitation_probability_max_pct,
-            wind_speed_10m_max,
-            events_within_500m_count,
-            events_within_5km_count,
-            events_within_10km_count,
-            events_within_50km_count,
-            events_within_500m_same_bucket_count,
-            events_within_5km_same_bucket_count,
-            events_within_10km_same_bucket_count,
-            events_within_50km_same_bucket_count,
-            pct_same_bucket_5km,
-            competition_index_local,
-            baseline_comp_avg,
-            has_valid_baseline_flag,
-            competition_pressure_ratio,
-            is_public_holiday_fr_flag,
-            is_school_holiday_flag,
-            is_weekend,
-            commercial_events,
-            is_commercial_event_flag,
-            is_selected_day,
-            available_next_views,
-            relative_rank_bucket
-          FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
-          WHERE location_id = @location_id
-            AND date BETWEEN (SELECT window_start_date FROM win)
-                        AND (SELECT window_end_date   FROM win)
-        ),
-        filtered AS (
-          SELECT *
-          FROM base
-          WHERE
-            @hard_only = FALSE
-            OR (
-              -- hard exclusions (v1)
-              COALESCE(opportunity_regime, '') != 'C'
-              AND COALESCE(CAST(weather_alert_level AS INT64), 0) < 3
-            )
-        ),
-        dedup AS (
-          -- One row per (location_id, date). Pick the "best" candidate deterministically.
-          SELECT *
-          FROM filtered
-          QUALIFY ROW_NUMBER() OVER (
-            PARTITION BY location_id, date
-            ORDER BY
-              CAST(opportunity_score AS FLOAT64) DESC,
-              CAST(weather_alert_level AS INT64) ASC NULLS LAST,
-              events_within_10km_count ASC NULLS LAST
-          ) = 1
-        )
-        SELECT *
-        FROM dedup
-        ORDER BY
-          CAST(opportunity_score AS FLOAT64) DESC,
-          CAST(weather_alert_level AS INT64) ASC NULLS LAST,
-          CAST(precipitation_probability_max_pct AS FLOAT64) ASC NULLS LAST,
-          CAST(wind_speed_10m_max AS FLOAT64) ASC NULLS LAST,
-          CAST(events_within_10km_count AS INT64) ASC NULLS LAST,
-          date ASC
-        LIMIT @limit
-      `;
-    
-      const [rows] = await bigquery.query({
-        query,
-        location: "EU",
-        params: {
-          location_id: params.location_id,
-          window_start_date: params.window_start_date,
-          hard_only,
-          limit,
-        },
-      });
-
-      return rows ?? [];
-    }
-
     async function bqWorstlist(params: {
       location_id: string;
       window_start_date: string; // YYYY-MM-DD
+      window_end_date: string; // YYYY-MM-DD inclus
       hard_only?: boolean;
       limit?: number; // 1..7
     }) {
@@ -3287,7 +3307,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         WITH win AS (
           SELECT
             DATE(@window_start_date) AS window_start_date,
-            DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
+            DATE(@window_end_date)   AS window_end_date
         ),
         base AS (
           SELECT
@@ -3359,6 +3379,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         params: {
           location_id: params.location_id,
           window_start_date: params.window_start_date,
+          window_end_date: params.window_end_date,
           hard_only,
           limit,
         },
@@ -3921,7 +3942,69 @@ Règles :
 
     switch (resolved_horizon) {
       case "month": {
-        month_window = await bqOne(
+        // FENÊTRE ENTIÈREMENT PASSÉE → RAPPORT (26/08). La surface d'opportunité
+        // ne note que l'AVENIR (mesuré sur f10c3e58 : 147/147 jours passés =
+        // régime C) — le pipeline mois rendait « Aucune donnée disponible » sur
+        // « quels ont été mes meilleurs jours de juin-juillet ? », un faux : les
+        // données existent, c'est l'instrument qui ne juge pas le passé.
+        // L'instrument des résultats passés est le rapport (meilleure journée,
+        // profil par jour, contexte) — même réponse que l'intent rapport, mêmes
+        // chaînes approuvées. Fenêtre à cheval sur aujourd'hui : pipeline normal.
+        //
+        // FENÊTRE DU BILAN (26/08). Un bilan ne peut pas couvrir des jours qui
+        // n'ont pas eu lieu : quand la question est un bilan sur une période DITE
+        // (isOwnPeriodReviewQuestion + période résolue), la fenêtre du rapport
+        // s'arrête HIER. Sans ça, « comment se sont passées mes journées d'août ? »
+        // (fenêtre à cheval sur aujourd'hui) traversait jusqu'au pipeline mois,
+        // qui n'a AUCUN paquetage pour l'intent DAY_DIMENSION_DETAIL : ai.ok=true
+        // avec output null → repli brut « Je n'ai pas pu produire une réponse
+        // utile… » (mesuré E2E f10c3e58 le 26/08). Période commençant aujourd'hui
+        // ou plus tard : pas de bilan possible, pipeline normal.
+        {
+          const _reportEnd = _reportWindowEnd;
+          if (_reportEnd) {
+            const _frM = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+            const _pastUrl = `/app/insightevent/rapport?start=${encodeURIComponent(selected_date)}&end=${encodeURIComponent(_reportEnd)}&loc=${encodeURIComponent(location_id)}`;
+            // Le VERDICT ouvre la réponse (mémoire lead-with-highlighted-action) ; la ligne
+            // « Période : … » approuvée suit VERBATIM. Règle 13 du lexique : jamais un volume nu —
+            // sans période précédente comparable, le CA ne sort pas et la réponse reste celle
+            // d'avant. Règle 6 : jour de semaine en toutes lettres.
+            const _frInt = (n: number) => Math.round(n).toLocaleString("fr-FR");
+            const _JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+            let _verdict = "";
+            try {
+              const _vr = _verdictPromise ? (await _verdictPromise)[0] : null;
+              const _rev = Number(_vr?.rev);
+              const _prev = Number(_vr?.prev_rev);
+              const _bestDay = _vr?.best?.day ? String(_vr.best.day).slice(0, 10) : null;
+              const _bestRev = Number(_vr?.best?.rev);
+              if (Number.isFinite(_rev) && _rev > 0 && Number.isFinite(_prev) && _prev > 0) {
+                // MÊME arrondi que `pct` de insight/sales-report.ts (au dixième) : le chat et le
+                // document vers lequel il renvoie doivent afficher LE MÊME nombre.
+                const _pct = Math.round(((_rev - _prev) / _prev) * 1000) / 10;
+                const _pctFr = String(Math.abs(_pct)).replace(".", ",");
+                _verdict = `Vous avez fait ${_frInt(_rev)} €, ${_pct >= 0 ? "+" : "−"}${_pctFr} % vs période précédente.`;
+                if (_bestDay && Number.isFinite(_bestRev) && _bestRev > 0) {
+                  const _dow = _JOURS[new Date(_bestDay + "T00:00:00Z").getUTCDay()];
+                  _verdict += ` Votre meilleure journée a été le ${_dow} ${_frM(_bestDay)}, avec ${_frInt(_bestRev)} €.`;
+                }
+                _verdict += " ";
+              }
+            } catch (e: any) {
+              console.error("[verdict-rapport] verdict non composé:", e?.message);
+            }
+            return sysDialogueResponse(
+              "Rapport de ventes",
+              `${_verdict}Période : du ${_frM(selected_date)} au ${_frM(_reportEnd)} — le document complet, imprimable et partageable.`,
+              "deterministic_report_nav_v1",
+              { type: "redirect", url: _pastUrl, label: "Générer le rapport pour cette période →" },
+            );
+          }
+        }
+        // vw_insight_event_30d_window_surface est une table de fenêtres FIGÉES
+        // de 30 jours — une période libre (« juin-juillet » = 61 j) se calcule
+        // depuis la surface jour via le repli inline ci-dessous.
+        month_window = window_len_days !== 30 ? null : await bqOne(
           `
           WITH win AS (
             SELECT
@@ -3944,7 +4027,8 @@ Règles :
             WITH win AS (
               SELECT
                 COALESCE(DATE(@selected_date), CURRENT_DATE()) AS window_start_date,
-                DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY) AS window_end_date
+                COALESCE(DATE(@window_end_date),
+                         DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY)) AS window_end_date
             ),
             base AS (
               SELECT *
@@ -3957,7 +4041,9 @@ Règles :
               ANY_VALUE(semantic_contract_version) AS semantic_contract_version,
               'month' AS display_horizon,
               CONCAT(
-                'Fenêtre 30 jours: ',
+                'Fenêtre ',
+                CAST(DATE_DIFF((SELECT window_end_date FROM win), (SELECT window_start_date FROM win), DAY) + 1 AS STRING),
+                ' jours: ',
                 FORMAT_DATE('%d/%m/%Y', (SELECT window_start_date FROM win)),
                 ' → ',
                 FORMAT_DATE('%d/%m/%Y', (SELECT window_end_date FROM win))
@@ -3989,7 +4075,7 @@ Règles :
               ) AS top_days
             FROM base
             `,
-            bqParams({ location_id, selected_date })
+            bqParams({ location_id, selected_date, window_end_date })
           );
         }
 
@@ -4012,26 +4098,22 @@ Règles :
           throw new Error("Invalid month_window.window_start_date (cannot normalize to YYYY-MM-DD)");
         }
 
-        const monthConstraintYmd = inferSelectedDateFromMonthMention(q); // YYYY-MM-01 or null
-        const monthConstraintYm = monthConstraintYmd ? monthConstraintYmd.slice(0, 7) : null;
-
+        // La contrainte mono-mois (ex-@month_constraint_ym) est subsumée : la
+        // fenêtre EST la période demandée, bornes exactes incluses — le 31 du
+        // mois n'est plus perdu par l'ancienne fenêtre start+29.
         const [shortlistResult, month_days_result, worstlistResult] = await Promise.all([
           bqAll(
             `
             WITH win AS (
               SELECT
                 DATE(@window_start_date) AS window_start_date,
-                DATE_ADD(DATE(@window_start_date), INTERVAL 29 DAY) AS window_end_date
+                DATE(@window_end_date)   AS window_end_date
             )
             SELECT *
             FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
             WHERE location_id = @location_id
               AND date BETWEEN (SELECT window_start_date FROM win)
                           AND (SELECT window_end_date   FROM win)
-              AND (
-                @month_constraint_ym = ""
-                OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
-              )
               AND COALESCE(opportunity_regime, '') != 'C'
               AND COALESCE(CAST(weather_alert_level AS INT64), 0) < 3
               AND (
@@ -4052,7 +4134,7 @@ Règles :
             bqParams({
               location_id,
               window_start_date: ws,
-              month_constraint_ym: monthConstraintYm ?? "",
+              window_end_date,
               filter_weekend_only: effective_weekend_only,
               filter_weekday,
               filter_weekday_bq,
@@ -4065,23 +4147,20 @@ Règles :
                 WITH win AS (
                   SELECT
                     COALESCE(DATE(@selected_date), CURRENT_DATE()) AS window_start_date,
-                    DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY) AS window_end_date
+                    COALESCE(DATE(@window_end_date),
+                             DATE_ADD(COALESCE(DATE(@selected_date), CURRENT_DATE()), INTERVAL 29 DAY)) AS window_end_date
                 )
                 SELECT *
                 FROM \`${semanticProjectId}.semantic.vw_insight_event_30d_day_surface\`
                 WHERE location_id = @location_id
                   AND date BETWEEN (SELECT window_start_date FROM win)
                               AND (SELECT window_end_date   FROM win)
-                  AND (
-                    @month_constraint_ym = ""
-                    OR FORMAT_DATE('%Y-%m', date) = @month_constraint_ym
-                  )
                 ORDER BY date ASC
                 `,
-                bqParams({ location_id, selected_date, month_constraint_ym: monthConstraintYm ?? "" })
+                bqParams({ location_id, selected_date, window_end_date })
               ),
           resolved_intent === "WINDOW_WORST_DAYS"
-            ? bqWorstlist({ location_id, window_start_date: ws, hard_only: false, limit: 7 })
+            ? bqWorstlist({ location_id, window_start_date: ws, window_end_date, hard_only: false, limit: 7 })
             : Promise.resolve([]),
         ]);
 
@@ -4089,14 +4168,14 @@ Règles :
         month_days = month_days_result;
         worstlist = worstlistResult;
 
-        shortlist_rows = shortlist ?? [];
-
+        // Les requêtes sont déjà bornées à la période exacte — plus de
+        // re-filtrage mono-mois côté JS. worstlist_rows est affecté ICI, avant
+        // le filtre temporel ci-dessous qui le lisait à vide (défaut d'ordre).
         const shortlist0 = Array.isArray(shortlist) ? shortlist : [];
         const worstlist0 = Array.isArray(worstlist) ? worstlist : [];
 
-        shortlist_rows = monthConstraintYm
-          ? shortlist0.filter((r: any) => ymdFromAnyDate(r?.date).slice(0, 7) === monthConstraintYm)
-          : shortlist0;
+        shortlist_rows = shortlist0;
+        worstlist_rows = worstlist0;
 
         if (resolved_intent === "WINDOW_TOP_DAYS") {
           shortlist_rows = shortlist_rows.slice(0, top_k);
@@ -4141,10 +4220,6 @@ Règles :
             v3_signals: { weather, competition, calendar },
           };
         });
-
-        worstlist_rows = monthConstraintYm
-          ? worstlist0.filter((r: any) => ymdFromAnyDate(r?.date).slice(0, 7) === monthConstraintYm)
-          : worstlist0;
 
         const source_rows =
           resolved_intent === "WINDOW_WORST_DAYS"
@@ -4314,11 +4389,11 @@ Règles :
               const premRows = await bqAll(
                 _premDate
                   ? `SELECT date, daily_revenue, expected_revenue, residual_pct
-                     FROM \`${semanticProjectId}.mart.fct_client_day_residual\`
+                     FROM \`${semanticProjectId}.semantic.vw_insight_event_day_residual\`
                      WHERE location_id = @location_id AND date = DATE(@prem_date)
                        AND residual_pct IS NOT NULL AND expected_revenue > 0`
                   : `SELECT date, daily_revenue, expected_revenue, residual_pct
-                     FROM \`${semanticProjectId}.mart.fct_client_day_residual\`
+                     FROM \`${semanticProjectId}.semantic.vw_insight_event_day_residual\`
                      WHERE location_id = @location_id
                        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
                        AND residual_pct IS NOT NULL AND expected_revenue > 0
@@ -4843,6 +4918,14 @@ Règles :
           console.warn("[grounded] event facts skipped:", e);
           return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
         });
+        // Incrément app (27/08) — les ENTRÉES UTILISATEUR entrent dans la liste blanche :
+        // règles d'automatisation actives + bilans déclarés (surfaces semantic des incréments
+        // 2-3). Même lot parallèle (coût = max, pas somme) ; libellés repris des surfaces qui
+        // les affichent (profile.astro, evenement.astro) — voir l'en-tête du builder.
+        const _userInputsP = buildUserInputFacts(location_id).catch((e) => {
+          console.warn("[grounded] user-input facts skipped:", e);
+          return { facts: [] as Array<{ fact_fr: string; claim_type: any }> };
+        });
         // R2-2 (07/08) — the MEASURED impact verdicts join the day whitelist: the competitor and
         // event-density contrasts (tiered observed_difference or measured-null) measured on THIS
         // venue's own history. Without them the day answer narrates static proximity while the
@@ -4911,6 +4994,7 @@ Règles :
         const _dayPerf = await _dayPerfP;
         const _practices = await _practicesP;
         const _events = await _eventsP;
+        const _userInputs = await _userInputsP;
         const _competitorImpact = await _competitorImpactP;
         const _densityImpact = await _densityImpactP;
         const _dayLandscape = await _dayLandscapeP;
@@ -4962,11 +5046,11 @@ Règles :
               // ÉTAPE 3 : le blanking du CA remplacé par le RANG — les facts de la famille lead
               // d'abord (la dimension demandée mène), PUIS la performance du jour (une réponse météo
               // peut enfin dire ce que le jour a fait), puis les familles secondaires, puis le reste.
-              { question: qRaw, date: effective_date, extraFacts: [...tagFactOrigin(_famResult!.facts as any[], FAMILY_FACT_ORIGIN[_famKey!] ?? null), ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ..._secondaryFamFacts, ..._identityFacts, ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] },
+              { question: qRaw, date: effective_date, extraFacts: [...tagFactOrigin(_famResult!.facts as any[], FAMILY_FACT_ORIGIN[_famKey!] ?? null), ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ..._secondaryFamFacts, ..._identityFacts, ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user"), ...tagFactOrigin(_userInputs.facts as any[], "declarations")] },
             )
           // Phase 4 (amendé ÉTAPE 3) : les day-perf facts rejoignent les DEUX branches — le lead de la
           // dimension demandée est assuré par le RANG (famille d'abord), plus jamais par exclusion.
-          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._interpFacts, ..._dayClaimFacts, ..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_dayLandscape as any[], "evenements_proximite"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user")] });
+          : toGroundedDayPayload(dc_day, { question: qRaw, date: effective_date, extraFacts: [..._interpFacts, ..._dayClaimFacts, ..._identityFacts, ...tagFactOrigin(_dayPerf.facts as any[], "ventes"), ...tagFactOrigin(_dayLandscape as any[], "evenements_proximite"), ...tagFactOrigin(_competitorImpact as any[], "concurrence"), ...tagFactOrigin(_densityImpact as any[], "evenements_proximite"), ...tagFactOrigin(_practices.facts as any[], "bonnes_pratiques"), ...tagFactOrigin(_events.facts as any[], "evenements_user"), ...tagFactOrigin(_userInputs.facts as any[], "declarations")] });
         // Feedback-driven regeneration (Phase 1 #2): attempt 2 is no longer a blind identical retry — it
         // carries the validator's rejects as `validation_feedback` in the payload, so a one-edit-from-
         // passing answer gets fixed instead of re-rolled. TRUTH UNCHANGED: attempt 2 faces the identical
@@ -5486,6 +5570,10 @@ Règles :
             longDescription
           FROM \`${semanticProjectId}.semantic.vw_insight_eventcalendar_event_lookup\`
           WHERE
+            -- P1 (27/08) : les lignes competitor_event portent un location_id REEL — le
+            -- fallback global ne doit jamais servir l'evenement d'un suivi d'un AUTRE compte.
+            (location_id IS NULL OR location_id = @location_id)
+            AND (
             LOWER(event_name) LIKE CONCAT('%', @q_entity, '%')
             OR LOWER(
               REGEXP_REPLACE(
@@ -5499,6 +5587,7 @@ Règles :
             OR (
               @q_token1 != '' AND LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(event_name, r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o')) LIKE CONCAT('%', @q_token1, '%')
               AND (@q_token2 = '' OR LOWER(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(REGEXP_REPLACE(event_name, r'[éèêë]', 'e'), r'[àâä]', 'a'), r'[îï]', 'i'), r'[ôö]', 'o')) LIKE CONCAT('%', @q_token2, '%'))
+            )
             )
           ORDER BY
             CASE scope_type
@@ -5528,11 +5617,11 @@ Règles :
 
         const rows_global = await bqAll(
           lookupSqlFallback,
-          bqParams({ q_entity, q_token1, q_token2 })
+          bqParams({ q_entity, q_token1, q_token2, location_id })
         );
 
         const rows_accented = q_lookup_accented !== q_entity
-          ? await bqAll(lookupSqlFallback, bqParams({ q_entity: q_lookup_accented, q_token1, q_token2 }))
+          ? await bqAll(lookupSqlFallback, bqParams({ q_entity: q_lookup_accented, q_token1, q_token2, location_id }))
           : [];
 
         let rows = [...(rows_scoped ?? []), ...(rows_global ?? []), ...(rows_accented ?? [])];
@@ -5690,7 +5779,29 @@ Règles :
             const iso = ymdFromAnyDate(sorted[0]?.event_start_date) ?? "";
             const rel = /^\d{4}-\d{2}-\d{2}/.test(iso) ? frRelative(iso.slice(0, 10)) : "";
             const dowFr = /^\d{4}-\d{2}-\d{2}/.test(iso) ? DOW_LOOKUP_FR[new Date(`${iso.slice(0, 10)}T00:00:00Z`).getUTCDay()] : "";
-            const sentence = items[0].date
+            // Span EN COURS (début passé, fin future — cas rendu visible par les événements des
+            // suivis, P1 27/08 : une exposition longue disait « a lieu le 08/05/2025 — il y a
+            // 16 mois »). Mot owner : « en cours jusqu'au… » ; le reste de la phrase garde la
+            // grammaire approuvée du voice floor (jour en toutes lettres, JJ/MM/AAAA).
+            const isoEnd = ymdFromAnyDate(sorted[0]?.event_end_date) ?? "";
+            const _todayFr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+            const isOngoing =
+              /^\d{4}-\d{2}-\d{2}/.test(iso) && /^\d{4}-\d{2}-\d{2}/.test(isoEnd) &&
+              iso.slice(0, 10) < _todayFr && isoEnd.slice(0, 10) >= _todayFr;
+            const dowEndFr = isOngoing ? DOW_LOOKUP_FR[new Date(`${isoEnd.slice(0, 10)}T00:00:00Z`).getUTCDay()] : "";
+            const endDateFr = isOngoing ? frLookupDate(sorted[0]?.event_end_date) : "";
+            // Span FUTUR multi-jours (27/08, mot owner « du … au … ») : « a lieu le 05/12 »
+            // taisait la fin d'un événement courant du 05 au 08/12. Même verbe approuvé.
+            const isFutureSpan =
+              /^\d{4}-\d{2}-\d{2}/.test(iso) && /^\d{4}-\d{2}-\d{2}/.test(isoEnd) &&
+              iso.slice(0, 10) >= _todayFr && isoEnd.slice(0, 10) > iso.slice(0, 10);
+            const dowEnd2Fr = isFutureSpan ? DOW_LOOKUP_FR[new Date(`${isoEnd.slice(0, 10)}T00:00:00Z`).getUTCDay()] : "";
+            const endDate2Fr = isFutureSpan ? frLookupDate(sorted[0]?.event_end_date) : "";
+            const sentence = isOngoing && endDateFr
+              ? `${items[0].name} est en cours jusqu'au ${dowEndFr} ${endDateFr} — commencé le ${items[0].date}.`
+              : isFutureSpan && endDate2Fr
+              ? `${items[0].name} a lieu du ${dowFr} ${items[0].date} au ${dowEnd2Fr} ${endDate2Fr}${rel ? ` — ${rel}` : ""}.`
+              : items[0].date
               ? `${items[0].name} a lieu ${dowFr ? `le ${dowFr} ` : "le "}${items[0].date}${rel ? ` — ${rel}` : ""}.`
               : `${items[0].name} est référencé, sans date précise dans notre base.`;
             lookup_blocks.push({ type: "prose", md: sentence });

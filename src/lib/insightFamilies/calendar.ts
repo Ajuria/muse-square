@@ -62,7 +62,7 @@ export async function calendarFamily(bq: any, location_id: string, date: string)
     query: `SELECT CAST(p.transaction_date AS STRING) AS d, p.daily_revenue AS rev,
                    c.is_public_holiday_flag AS pub, c.is_school_holiday_flag AS sch
             FROM \`${PROJECT}.mart.fct_client_daily_performance\` p
-            JOIN \`${PROJECT}.mart.fct_location_context_daily\` c
+            JOIN \`${PROJECT}.semantic.vw_insight_event_location_context\` c
               ON c.location_id = p.location_id AND c.date = p.transaction_date
             WHERE p.location_id = @location_id
               AND p.transaction_date <= PARSE_DATE('%Y-%m-%d', @date)

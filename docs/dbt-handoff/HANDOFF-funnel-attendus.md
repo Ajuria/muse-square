@@ -1,3 +1,18 @@
+> **26/08 — les copies `.sql` / `.yml` de ce dossier ont été RETIRÉES. Ne les recherchez pas : le modèle dans `ms_database` fait foi.**
+>
+> Pourquoi : 4 des 9 copies avaient divergé du modèle réel, et deux étaient devenues dangereuses.
+> `fct_client_offering_signals_daily.sql` et `fct_client_item_signals_daily.sql` dataient d'AVANT le
+> bloc RÉGIME du 25/08 : les recoller aurait supprimé `typ_n`, `baseline_same_regime_n`,
+> `is_school_holiday_flag` et `regime_mismatch_flag` — quatre colonnes vérifiées PRÉSENTES en
+> production dans les deux tables. `int_competitor_offering_changes.sql` avait perdu
+> `schema = 'intermediate'` (le modèle serait parti dans le mauvais dataset), et
+> `fct_location_daily_action_candidates.yml` divergeait de 216 lignes.
+>
+> Une copie d'un modèle vieillit sans prévenir ; un chemin vers le modèle, non. Le texte de la
+> passation ci-dessous est conservé INTACT — c'est lui qui porte le raisonnement.
+>
+> Statut de CETTE passation : CONSOMMÉ — les facteurs funnel sont dans `fct_client_day_residual` sur `origin/main` (12 occurrences `expected_visitors` / `expected_transactions` / `expected_basket` / `expected_conversion`, en-tête « FUNNEL FACTORS (added 2026-08-24) »).
+
 # Handoff dbt Cloud IDE — attendus par facteur funnel (24/08)
 
 ## Contexte (trou de vérité constaté le 24/08)
@@ -9,7 +24,7 @@ ne s'affiche jamais seul — il porte sa décomposition funnel (CA = passages ×
 × panier), chaque facteur avec son verdict vs habituel, **sur LE même référentiel**.
 
 ## Fichiers à copier tels quels dans l'IDE (base = origin/main, vérifiée le 24/08)
-1. `models/ms_open_data/mart/fct_client_day_residual.sql` ← `docs/dbt-handoff/fct_client_day_residual.sql`
+1. `ms_dbt/models/ms_open_data/mart/fct_client_day_residual.sql` (depôt `ms_database` — copie locale retirée le 26/08, voir bandeau)
    - Chemin revenue INTACT (régression BQ : 550 lignes avant/après, **0 divergence, 0 perdue**,
      sur TOUTES les colonnes existantes — compilé origin/main vs compilé étendu, même run).
    - Ajouts : la même machinerie (mêmes cellules dow/météo/férié/vacances/tourisme, même λ=5,
@@ -25,7 +40,7 @@ ne s'affiche jamais seul — il porte sa décomposition funnel (CA = passages ×
    - Facteur absent (pas de flux visiteurs, ex. f10c3e58) → NULL propre, jamais un chiffre
      inventé (vérifié : 120/120 lignes NULL sur visitors/conversion, 120/120 présentes sur
      transactions/basket).
-2. `models/ms_open_data/mart/fct_client_sales_signals_daily.sql` ← `docs/dbt-handoff/fct_client_sales_signals_daily.sql`
+2. `ms_dbt/models/ms_open_data/mart/fct_client_sales_signals_daily.sql` (depôt `ms_database` — copie locale retirée le 26/08, voir bandeau)
    - **Commentaire d'en-tête SEULEMENT** (corps SQL prouvé identique au caractère près) :
      étiquette de référentiel des `*_baseline` 28 j (interne de déclenchement, jamais le
      « résultat habituel »).

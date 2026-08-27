@@ -1,4 +1,4 @@
-# Automatisation — consigne d'opération (spec, 05/08/2026 — maquette validée owner, GO cas 2)
+# Automatisation — consigne d'opération (spec, 05/08/2026 — maquette validée owner, GO cas 2) — SPEC DE TRAVAIL
 
 Chantier « améliorer l'automatisation », concept owner : **automatiser l'exécution vers les
 gens** (équipe, participants), pas le routage de signaux. Maquette validée :

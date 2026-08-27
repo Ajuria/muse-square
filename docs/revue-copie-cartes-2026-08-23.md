@@ -1,4 +1,4 @@
-# Revue de copie des cartes — 23/08/2026, données réelles
+# Revue de copie des cartes — 23/08/2026, données réelles — DÉFINITIF
 
 > Produite par `scripts/copy-review-2308.ts` : exécute `reco-library.js` puis `action-cards.js`
 > TELS QU'ILS SONT LIVRÉS, rend chaque carte avec un **payload réel** du parc et le profil réel de

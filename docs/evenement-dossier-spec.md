@@ -1,4 +1,4 @@
-# Événement → dossier mesuré — spec (03/08/2026, protos v1/v2.1 validés)
+# Événement → dossier mesuré — spec (03/08/2026, protos v1/v2.1 validés) — DÉFINITIF
 
 Chantier : remplacer l'usage « daté et limité » de monitor (un événement = un titre + des dates)
 par **l'événement-dispositif mesuré** : créé avec un objectif (KPI dominant) et une description
@@ -215,7 +215,7 @@ Portes standing : lie-bait à toute modification de grounding ; localisation FR 
   monitor.astro + events.astro SUPPRIMÉES (zéro lien entrant vérifié ; l'API insight/monitor.ts
   reste, pulse en dépend). harness-evt-0001 purgé des 4 tables (12 lignes, GO owner).
   Cron J-7 event-occurrences LIVRÉ le même jour (voir module-index).
-- **Suites du 05/08 (voir docs/tableau-de-bord-spec.md pour le détail)** : refonte nav 3 onglets
+- **Suites du 05/08 (voir docs/piloter-redesign.md pour le détail)** : refonte nav 3 onglets
   « Piloter · Agir · Explorer » (listes fermées, Agir = catch-all des vues de détail,
   month/days/map démises du menu) ; Tableau de bord = atterrissage Piloter ; contrat « fait par
   défaut » + tiebreak canonique du journal (10 sites app + 2 modèles dbt) ; grille de dates v7

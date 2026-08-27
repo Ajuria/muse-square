@@ -36,13 +36,25 @@ export function stubDom(): void {
     '<div id="ie-thread" hidden></div><textarea id="ie-prompt-input"></textarea>';
 }
 
+// J1.6 — état « consulté » des suggestions : marques servies au GET, POST capturés.
+// Un fichier de test pose ACTION_LOG.marks AVANT bootOnce ; les autres suites voient
+// simplement un compte sans marque ({ok:true, marks:[]}).
+export const ACTION_LOG = { marks: [] as any[], posts: [] as any[] };
+
 export function stubFetch(days: any[]): void {
-  (globalThis as any).fetch = (url: any) => {
+  (globalThis as any).fetch = (url: any, init?: any) => {
     const u = String(url);
     const json = (o: any) => Promise.resolve({ ok: true, headers: { get: () => "application/json" }, json: () => Promise.resolve(o) });
     if (u.includes("/api/insight/monitor")) return json({ ok: true, days });
     if (u.includes("competitor-signals")) return json({ ok: true, signals: [], followed_count: 0 });
     if (u.includes("/api/insight/corrections")) return json({ ok: true, corrections: [] });
+    if (u.includes("/api/insight/action-log")) {
+      if (init && init.method === "POST") {
+        try { ACTION_LOG.posts.push(JSON.parse(String(init.body))); } catch { ACTION_LOG.posts.push(null); }
+        return json({ ok: true });
+      }
+      return json({ ok: true, marks: ACTION_LOG.marks });
+    }
     return json({ ok: false });
   };
 }

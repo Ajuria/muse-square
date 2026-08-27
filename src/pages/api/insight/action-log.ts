@@ -1,7 +1,54 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 
 export const prerender = false;
+
+// J1.6 Explorer (26/08, arbitrage owner) — l'état « consulté » des suggestions vit dans
+// analytics.action_log (clé user × change_subtype × affected_date, event 'explorer_consulted'),
+// écrit par le POST ci-dessous, relu ICI : dernier événement par clé, fenêtre 60 j. Même patron
+// de lecture que analytics/card-states.ts (le POST et le GET partagent LE foyer action_log).
+export const GET: APIRoute = async ({ url, locals }) => {
+  try {
+    const userId = String((locals as any)?.clerk_user_id || "").trim() || null;
+    if (!userId) {
+      return new Response(JSON.stringify({ ok: false }), { status: 401, headers: { "content-type": "application/json" } });
+    }
+    const location_id = url.searchParams.get("location_id");
+    if (!location_id) {
+      return new Response(JSON.stringify({ ok: false, error: "Missing location_id" }), { status: 400, headers: { "content-type": "application/json" } });
+    }
+    requireLocationOwnership(locals, location_id);
+
+    const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+    const [rows] = await bq.query({
+      query: `
+        SELECT change_subtype AS key,
+               CAST(affected_date AS STRING) AS date,
+               CAST(DATE(created_at) AS STRING) AS consulted_ymd
+        FROM (
+          SELECT change_subtype, affected_date, created_at,
+                 ROW_NUMBER() OVER (PARTITION BY change_subtype, affected_date ORDER BY created_at DESC) AS rn
+          FROM \`muse-square-open-data.analytics.action_log\`
+          WHERE user_id = @userId
+            AND location_id = @location_id
+            AND event = 'explorer_consulted'
+            AND affected_date IS NOT NULL
+            AND created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 60 DAY)
+        )
+        WHERE rn = 1
+      `,
+      location: "EU",
+      params: { userId, location_id },
+    });
+    return new Response(JSON.stringify({ ok: true, marks: rows ?? [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  } catch {
+    return new Response(JSON.stringify({ ok: false }), { status: 500, headers: { "content-type": "application/json" } });
+  }
+};
 
 export const POST: APIRoute = async ({ request, locals }) => {
   try {

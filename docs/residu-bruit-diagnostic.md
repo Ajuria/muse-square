@@ -1,4 +1,4 @@
-# Le bruit du résidu — diagnostic mesuré (01/08/2026)
+# Le bruit du résidu — diagnostic mesuré (01/08/2026) — DÉFINITIF
 
 > **Préalable de l'objectif 1** (un € sur chaque carte) : chez Les Olivades,
 > `daily_revenue − expected_revenue` a un écart-type de 5 750 € pour un CA moyen de

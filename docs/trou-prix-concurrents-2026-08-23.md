@@ -1,4 +1,4 @@
-# Trou « prix des concurrents » — diagnostic en données (23/08/2026)
+# Trou « prix des concurrents » — diagnostic en données (23/08/2026) — SPEC DE TRAVAIL
 
 > Premier trou attaqué selon `questions-exploitant-vs-cartes-2026-08-23.md`. Cinq cartes au
 > registre (`competitor_price_drop`, `_price_increase`, `_repricing_event`, `_new_offering`,

@@ -1,4 +1,4 @@
-# Card Truth Contract v1 — Revenue/Footfall Movement Cards
+# Card Truth Contract v1 — Revenue/Footfall Movement Cards — DÉFINITIF
 
 Status: Phase 1 spec (Step 1 "truth before pivot"). No-code. Phase 2 (dbt) implements
 against this; Phase 4 (regression gate) seeds tests from the Definition of Done.

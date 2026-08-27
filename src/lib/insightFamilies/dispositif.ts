@@ -19,7 +19,7 @@
 //  - impact : la pilule du motif par LE chemin de politique réel (getDayClassImpacts —
 //    jamais une réimplémentation des portes).
 import { getDayClassImpacts, dayClassMembersSql, WEATHER_DAY_CLASSES, TERCILE_DAY_CLASSES, OTHER_DAY_CLASSES, type DayClassImpact } from "../dayClassRegistry";
-import { listClassDispositifs, type ClassDispositif } from "../bestPractices";
+import { listClassDispositifs, dispositifStateFr, type ClassDispositif } from "../bestPractices";
 import type { FamilyFact } from "./types";
 
 const PROJECT = "muse-square-open-data";
@@ -62,8 +62,8 @@ const CLASS_CONFIG: Record<string, ClassMeta & { days_sql: string }> = {
     job_question_fr: "qu'est-ce qui fait réussir une journée de pointe chez vous — et est-ce écrit, pour que l'équipe le rejoue à chaque pic annoncé ?",
     days_sql: `
       WITH j AS (${DAY_BASE}, perf.daily_visitors AS m
-        FROM \`${PROJECT}.mart.fct_location_context_daily\` c
-        JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+        FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
+        JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
           ON r.location_id = c.location_id AND r.date = c.date
         LEFT JOIN \`${PROJECT}.mart.fct_client_daily_performance\` perf
           ON perf.location_id = c.location_id AND perf.transaction_date = c.date
@@ -94,8 +94,8 @@ const CLASS_CONFIG: Record<string, ClassMeta & { days_sql: string }> = {
         GROUP BY d
       ),
       j AS (${DAY_BASE}, COALESCE(sv.active_ct, 0) AS m
-        FROM \`${PROJECT}.mart.fct_location_context_daily\` c
-        JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+        FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
+        JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
           ON r.location_id = c.location_id AND r.date = c.date
         LEFT JOIN sv ON sv.date = c.date
         LEFT JOIN \`${PROJECT}.mart.fct_client_daily_performance\` perf
@@ -116,8 +116,8 @@ const CLASS_CONFIG: Record<string, ClassMeta & { days_sql: string }> = {
     job_question_fr: "qu'est-ce que vous faites ces jours-là pour en profiter — et est-ce écrit, pour le rejouer à chaque fenêtre calme ?",
     days_sql: `
       WITH j AS (${DAY_BASE}, f.competition_index_local AS m
-        FROM \`${PROJECT}.mart.fct_location_context_daily\` c
-        JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+        FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
+        JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
           ON r.location_id = c.location_id AND r.date = c.date
         LEFT JOIN \`${PROJECT}.mart.fct_location_context_features_daily\` f
           ON f.location_id = c.location_id AND f.date = c.date
@@ -193,7 +193,8 @@ export interface DispositifFamilyResult {
     existing_dispositifs?: Array<{
       practice_text: string;
       confirmation_test: string | null;
-      tier: "prouvee" | "declaree";
+      tier: "prouvee" | "declaree" | "ecarte";   // ecarte = effet négatif prouvé (27/08)
+      state_fr: string;                          // l'état en toutes lettres (dispositifStateFr — LA grammaire)
       in_test: boolean;
       created_date: string;
     }>;
@@ -226,8 +227,8 @@ function genericClassConfig(class_key: string): (ClassMeta & { days_sql: string 
     job_question_fr: "qu'est-ce que vous faites ces jours-là — et est-ce écrit, pour le rejouer ?",
     days_sql: `
       WITH j AS (${DAY_BASE}, 1 AS m
-        FROM \`${PROJECT}.mart.fct_location_context_daily\` c
-        JOIN \`${PROJECT}.mart.fct_client_day_residual\` r
+        FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
+        JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
           ON r.location_id = c.location_id AND r.date = c.date
         JOIN (${dayClassMembersSql()}) cd ON cd.date = c.date
         LEFT JOIN \`${PROJECT}.mart.fct_client_daily_performance\` perf
@@ -239,6 +240,16 @@ function genericClassConfig(class_key: string): (ClassMeta & { days_sql: string 
       ORDER BY j.gap DESC, j.date DESC
     `,
   };
+}
+
+// Le NOM approuvé d'une classe (noun_fr, « s'insère après vos ») — pour toute phrase qui
+// nomme le signal d'un dispositif (contre-indication du chat, P-axe 27/08). Lit les MÊMES
+// configs que l'atelier (CLASS_CONFIG + génériques) : zéro copie, un renommage de classe
+// suit partout.
+export function classNounFr(class_key: string | null | undefined): string | null {
+  if (!class_key) return null;
+  const cfg = CLASS_CONFIG[class_key] || genericClassConfig(class_key);
+  return cfg ? cfg.noun_fr : null;
 }
 
 export async function dispositifFamily(bq: any, location_id: string, class_key: string): Promise<DispositifFamilyResult> {
@@ -434,6 +445,9 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
     practice_text: p.practice_text,
     confirmation_test: p.confirmation_test,
     tier: p.tier,
+    // L'état en toutes lettres par LA grammaire unique (bestPractices.dispositifStateFr) —
+    // le noun du motif est celui de CETTE enquête (cfg.noun_fr), le dispositif y appartient.
+    state_fr: dispositifStateFr(p, cfg.noun_fr),
     in_test: p.commitment_status === "open",
     created_date: p.created_date,
   }));
@@ -464,7 +478,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
   }
   for (const p of existingDispositifs) {
     facts.push({
-      fact_fr: `Dispositif déjà documenté chez vous le ${fd(p.created_date)} : « ${p.practice_text} » — ${p.tier === "prouvee" ? "prouvé au rejeu" : "déclaré"}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.in_test ? " ; engagement de test EN COURS (suivi sur Pulse)" : ""}.`,
+      fact_fr: `Dispositif déjà documenté chez vous le ${fd(p.created_date)} : « ${p.practice_text} » — ${p.state_fr}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.in_test ? " ; engagement de test EN COURS (suivi sur Pulse)" : ""}.`,
       claim_type: "observed",
     });
   }
@@ -492,7 +506,7 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
       unexplained_days: unexplainedDays,
       existing_dispositifs: existingDispositifs,
       sources: [
-        "mart.fct_location_context_daily × mart.fct_client_day_residual × mart.fct_client_daily_performance (tercile haut des visiteurs, 730 j)",
+        "semantic.vw_insight_event_location_context × semantic.vw_insight_event_day_residual × mart.fct_client_daily_performance (tercile haut des visiteurs, 730 j)",
         "raw.client_transactions (amplitude horaire + mix produits des jours inexpliqués)",
         "analytics.day_class_impacts (pilule du motif, politique rowToImpact)",
         "analytics.best_practices × analytics.action_commitments (dispositifs déjà documentés du motif, tier à la lecture)",

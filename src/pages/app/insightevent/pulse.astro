@@ -1809,6 +1809,9 @@ if (!location_id) {
         //    et « ? €/an » (périmètre) ne comptent pas : ce sont des absences, pas des mesures.
         //  · data-t-type = le type, pour regrouper les motifs identiques entre sites.
         + ' data-t-k="' + ((_amtHtml && _amtHtml.indexOf('amt-val') >= 0 && _amtHtml.indexOf('? €/an') < 0) ? '1' : '0') + '"'
+        // P2 (27/08) : 1 si le THÈME de la carte a déjà été écarté (« Pas pour moi ») sur CE
+        // site — départage FINAL du tri seulement, clés arbitrées du 25/08 intouchées.
+        + ' data-t-rej="' + (function () { var th = (typeof window._themeOfActionType === 'function') ? window._themeOfActionType(String(t._spec_action_type || '')) : null; var rej = (window._themeRejByLoc || {})[String(entry.item.location_id || '')] || {}; return (th && Number(rej[th]) > 0) ? '1' : '0'; })() + '"'
         + ' data-t-type="' + escapeHtml(String(t._spec_action_type || '')) + '"'
         + '>'
         + '<div class="ab-rgrid">'
@@ -2347,26 +2350,15 @@ if (!location_id) {
       });
     });
 
-    // Signaler — flag card as incorrect/irrelevant
-    root.querySelectorAll("[data-agir-flag]").forEach(function(btn) {
-      btn.addEventListener("click", function(e) {
-        e.stopPropagation();
-        var cardIdx = btn.getAttribute("data-agir-flag");
-        var menu = root.querySelector('[data-agir-menu="' + cardIdx + '"]');
-        if (menu) menu.style.display = "none";
-        var parent = btn.closest("[data-ab-draft-sub]") || btn.closest(".ab-card");
-        var sub = parent ? parent.getAttribute("data-ab-draft-sub") || "" : "";
-        var affected = parent ? parent.getAttribute("data-ab-draft-affected") || "" : "";
-        btn.textContent = "\ud83d\udea9 Signal\u00e9 \u2713";
-        btn.style.color = "#059669";
-        setTimeout(function() { btn.textContent = "\ud83d\udea9 Signaler"; btn.style.color = "#6b7280"; }, 2000);
-        fetch("/api/analytics/confirm", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ location_id: locationId, confirmation: "dismissed", signal_type: sub, signal_ref_id: sub + "_" + affected, signal_date: affected }),
-        }).catch(function(){});
-      });
-    });
+    // « Signaler » RETIRÉ le 27/08 (dossier 1, décision owner). Le gestionnaire vivait ici
+    // sans son bouton : data-agir-flag n'était rendu NULLE PART (le menu Agir qui le portait
+    // a disparu) — personne n'a jamais pu cliquer, analytics.signal_confirmations avait 0 ligne.
+    // Et il ne reviendra pas : un signal d'open data ne peut pas être FAUX (owner) — ce qui
+    // peut l'être, c'est la CONSÉQUENCE inférée (pluie -> moins de visites), et cela se mesure
+    // (résiduel, classes de jours, sensibilité type B) ou se demande là où la mesure ne voit
+    // rien : « Un souvenir ? Notez-le · sinon, laissez » sur les jours inexpliqués.
+    // Le vote « Ce brouillon vous a-t-il été utile ? » (data-fb-vote, plus bas) RESTE : il
+    // porte sur la rédaction, pas sur le signal.
  
     // Disposition — log card_done / card_already_done / card_not_done (Profile A: status only)
     root.querySelectorAll("[data-ab-dispo-row] [data-ab-dispo-btn]").forEach(function(btn) {
@@ -3553,7 +3545,12 @@ if (!location_id) {
     cards.sort(function(a, b) {
       if (_triageState.sortEnjeu) return Number(b.getAttribute('data-t-e')) - Number(a.getAttribute('data-t-e'));
       var d = Number(a.getAttribute('data-t-h')) - Number(b.getAttribute('data-t-h'));
-      return d !== 0 ? d : Number(b.getAttribute('data-t-e')) - Number(a.getAttribute('data-t-e'));
+      if (d !== 0) return d;
+      var e = Number(b.getAttribute('data-t-e')) - Number(a.getAttribute('data-t-e'));
+      if (e !== 0) return e;
+      // P2 (27/08) — départage FINAL : à clés arbitrées égales (owner 25/08, intouchées),
+      // le thème déjà écarté (« Pas pour moi », data-t-rej) descend. 0 rejet = tri inchangé.
+      return Number(a.getAttribute('data-t-rej') || 0) - Number(b.getAttribute('data-t-rej') || 0);
     });
     var subhead = block.querySelector('[data-t-subhead]');
     cards.forEach(function(c) {
@@ -3929,6 +3926,16 @@ if (!location_id) {
 
     const days = Array.isArray(data.days) ? data.days : [];
     window._lastActionCandidates = Array.isArray(data.action_candidates) ? data.action_candidates : [];
+    // P2 tri (27/08) : rejets « Pas pour moi » par thème et par site (servi par days.ts).
+    // Multi-site : data._themeRejByLoc est déjà posé par la fusion ; mono-site : une entrée.
+    window._themeRejByLoc = data._themeRejByLoc || (data.theme_rejections ? (function () { var m = {}; m[String((data._locations && data._locations[0] && data._locations[0].location_id) || '')] = data.theme_rejections; return m; })() : (window._themeRejByLoc || {}));
+    // action_type -> thème, dérivé UNE FOIS de window.RECO_TAXONOMY (le même vocabulaire
+    // que les toggles /profile — jamais une seconde carte à maintenir côté pulse).
+    if (!window._themeOfActionType && window.RECO_TAXONOMY && Array.isArray(window.RECO_TAXONOMY.buckets)) {
+      var _tmap = {};
+      window.RECO_TAXONOMY.buckets.forEach(function (bk) { (bk.themes || []).forEach(function (th) { (th.action_types || []).forEach(function (at) { _tmap[at] = th.id; }); }); });
+      window._themeOfActionType = function (at) { return _tmap[at] || null; };
+    }
     window._lastDayClassImpacts = Array.isArray(data.day_class_impacts) ? data.day_class_impacts : [];
     const dayMap = new Map(days.map(d => [normalizeYmd(d.date), d]));
     const currentDay = dayMap.get(selectedDate) || days[0] || null;
@@ -4836,6 +4843,7 @@ if (!location_id) {
               (data.day_class_impacts || []).map(i => ({ ...i, location_id: loc.location_id, location_label: loc.company_name || '' }))
             ),
             _locations: locs,
+            _themeRejByLoc: (function () { var m = {}; valid.forEach(function (v) { if (v.data && v.data.theme_rejections) m[String(v.loc.location_id)] = v.data.theme_rejections; }); return m; })(),
             competitor_followed_count: valid.reduce((sum, { data }) => sum + Number(data.competitor_followed_count ?? 0), 0),
             _siteData: valid.map(({ data, loc }) => ({
               location_id: loc.location_id,

@@ -224,8 +224,8 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
           `WITH cw AS (SELECT ac.commitment_id, d FROM \`${PROJECT}.analytics.action_commitments\` ac, ` +
           `UNNEST(GENERATE_DATE_ARRAY(ac.window_start, ac.window_end)) d ` +
           `WHERE ac.location_id=@loc AND ac.status='resolved' AND ac.action_done_status='fait'), ` +
-          `resid AS (SELECT r.date, r.residual_pct, c.* EXCEPT(date, location_id) FROM \`${PROJECT}.mart.fct_client_day_residual\` r ` +
-          `JOIN \`${PROJECT}.mart.fct_location_context_daily\` c USING(location_id, date) WHERE r.location_id=@loc), ` +
+          `resid AS (SELECT r.date, r.residual_pct, c.* EXCEPT(date, location_id) FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\` r ` +
+          `JOIN \`${PROJECT}.semantic.vw_insight_event_location_context\` c USING(location_id, date) WHERE r.location_id=@loc), ` +
           `rj AS (SELECT resid.*, resid.date IN (SELECT d FROM cw) AS is_action FROM resid) ` +
           `SELECT ${fitFactors.map((f, i) =>
             `AVG(IF((${f.predicate}) AND NOT is_action, residual_pct, NULL)) AS ctx_${i}, ` +
@@ -270,7 +270,7 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
     one(`SELECT tourism_status_region AS status, COALESCE(tourism_peak_flag_region,false) AS peak,
                 COALESCE(is_weekend_flag,false) AS is_weekend, COALESCE(is_public_holiday_flag,false) AS is_public_holiday,
                 COALESCE(is_school_holiday_flag,false) AS is_school_holiday
-         FROM \`${PROJECT}.mart.fct_location_context_daily\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d }),
+         FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d }),
     // venue profile — STATIC per-location "user context". Complementary, NOT a fork. Its declared
     // weather_sensitivity/seasonality are attributes, NEVER the measured Engine-2 effect (guard below).
     // The brain is the single reader of this view: the curated VenueProfile reads named fields and the row
@@ -424,7 +424,7 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
     const feats = sensRaw.filter((s) => REG.find((f) => f.key === s.feature)?.predicate);
     if (feats.length) {
       const checks = feats.map((s) => `${REG.find((f) => f.key === s.feature)!.predicate} AS f_${s.feature}`);
-      const r = await one(`SELECT ${checks.join(',')} FROM \`${PROJECT}.mart.fct_location_context_daily\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d });
+      const r = await one(`SELECT ${checks.join(',')} FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` WHERE location_id=@loc AND date=@d LIMIT 1`, { loc, d });
       activeSet = new Set(feats.filter((s) => flatVal(r[`f_${s.feature}`]) === true).map((s) => s.feature));
     }
   }

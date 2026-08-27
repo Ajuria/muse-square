@@ -1,3 +1,18 @@
+> **26/08 — les copies `.sql` / `.yml` de ce dossier ont été RETIRÉES. Ne les recherchez pas : le modèle dans `ms_database` fait foi.**
+>
+> Pourquoi : 4 des 9 copies avaient divergé du modèle réel, et deux étaient devenues dangereuses.
+> `fct_client_offering_signals_daily.sql` et `fct_client_item_signals_daily.sql` dataient d'AVANT le
+> bloc RÉGIME du 25/08 : les recoller aurait supprimé `typ_n`, `baseline_same_regime_n`,
+> `is_school_holiday_flag` et `regime_mismatch_flag` — quatre colonnes vérifiées PRÉSENTES en
+> production dans les deux tables. `int_competitor_offering_changes.sql` avait perdu
+> `schema = 'intermediate'` (le modèle serait parti dans le mauvais dataset), et
+> `fct_location_daily_action_candidates.yml` divergeait de 216 lignes.
+>
+> Une copie d'un modèle vieillit sans prévenir ; un chemin vers le modèle, non. Le texte de la
+> passation ci-dessous est conservé INTACT — c'est lui qui porte le raisonnement.
+>
+> Statut de CETTE passation : CONSOMMÉ — lot 1 livré dans `ms_database` commit `97c2abd` (7 types réalignés, 3 collisions réelles).
+
 # dbt — clés de suppression alignées sur `action_type` (25/08)
 
 _Base : `origin/main` du dépôt ms_database, fichier

@@ -105,6 +105,86 @@ export const KPI_LABEL_FR: Record<KpiKey, string> = {
   family_revenue: "CA famille/jour",
 };
 
+// ── LE nom du KPI, ET SES FORMES (27/08) ───────────────────────────────────────────────────
+// KPI_LABEL_FR ci-dessus stocke un FRAGMENT DE PHRASE (« ventes/jour »). Un fragment ne se
+// décline pas : aucune surface qui a besoin de « les ventes », « des ventes » ou « vos ventes »
+// ne peut le réutiliser. C'est pour ça — et pas par désaccord sur les mots, qui sont les mêmes
+// partout — que la même table est réécrite SIX fois :
+//   tableau.astro:666 (nue + taux) · rapport.astro:73 (définie) · salesDecomp.ts:60 (définie)
+//   dayClassRegistry.ts:1434 (génitive) · pulse.astro:1773 (possessive) · KPI_LABEL_FR (nue).
+// On stocke donc le NOM et sa grammaire, et on dérive les cinq formes que les surfaces
+// réclament déjà. Les mots eux-mêmes sont ceux arbitrés par l'owner le 23/08 (voir le
+// commentaire de KPI_LABEL_FR) — rien de nouveau n'est écrit ici, seulement fléchi.
+//
+// `parJour` distingue un FLUX (ventes, visiteurs, € remisés — « /j » a un sens) d'un RATIO ou
+// d'une MOYENNE (taux de conversion, panier moyen — « /j » n'en a pas). C'est la distinction
+// déjà faite à la main dans KPI_MINI_FR, et la forme « /j » est celle tranchée par l'owner le
+// 24/08 (« maps KPI fusionnées, formes courtes canoniques, /j »).
+type KpiGrammaire = { nom: string; genre: "m" | "f"; pluriel: boolean; parJour: boolean };
+
+export const KPI_NOM_FR: Record<KpiKey, KpiGrammaire> = {
+  revenue_residual: { nom: "chiffre d'affaires", genre: "m", pluriel: false, parJour: true },
+  footfall:         { nom: "visiteurs",          genre: "m", pluriel: true,  parJour: true },
+  conversion:       { nom: "taux de conversion", genre: "m", pluriel: false, parJour: false },
+  basket:           { nom: "panier moyen",       genre: "m", pluriel: false, parJour: false },
+  transactions:     { nom: "ventes",             genre: "f", pluriel: true,  parJour: true },
+  discount:         { nom: "\u20ac remis\u00e9s",         genre: "m", pluriel: true,  parJour: true },
+  reputation:       { nom: "note Google",        genre: "f", pluriel: false, parJour: false },
+  family_revenue:   { nom: "CA famille",         genre: "m", pluriel: false, parJour: true },
+};
+
+// Élision devant voyelle ou h muet — « le taux » mais « l'affluence ». Aucun nom du registre ne
+// commence par une voyelle aujourd'hui ; la règle est là pour que le prochain n'ait rien à faire.
+function elide(nom: string): boolean {
+  return /^[aeiouy\u00e9\u00e8\u00ea\u00e0\u00e2\u00ee\u00f4\u00fbh]/i.test(nom);
+}
+
+/** Le nom nu — menus, titres de colonne, en-têtes. « panier moyen ». */
+export function kpiNom(k: KpiKey): string {
+  return KPI_NOM_FR[k].nom;
+}
+
+/** Forme taux — « ventes/j », mais « panier moyen » (une moyenne n'est pas un flux). */
+export function kpiTaux(k: KpiKey): string {
+  const g = KPI_NOM_FR[k];
+  return g.parJour ? `${g.nom}/j` : g.nom;
+}
+
+/** Article défini — « les ventes », « le panier moyen ». Pour la prose. */
+export function kpiLe(k: KpiKey): string {
+  const g = KPI_NOM_FR[k];
+  if (g.pluriel) return `les ${g.nom}`;
+  if (elide(g.nom)) return `l\u2019${g.nom}`;
+  return `${g.genre === "f" ? "la" : "le"} ${g.nom}`;
+}
+
+/** Génitif — « des ventes », « du panier moyen ». */
+export function kpiDu(k: KpiKey): string {
+  const g = KPI_NOM_FR[k];
+  if (g.pluriel) return `des ${g.nom}`;
+  if (elide(g.nom)) return `de l\u2019${g.nom}`;
+  return `${g.genre === "f" ? "de la" : "du"} ${g.nom}`;
+}
+
+/** Possessif — « vos ventes », « votre panier moyen ». */
+export function kpiVotre(k: KpiKey): string {
+  const g = KPI_NOM_FR[k];
+  return `${g.pluriel ? "vos" : "votre"} ${g.nom}`;
+}
+
+/**
+ * Datif contracté — « aux ventes », « au panier moyen ».
+ * rapport.astro:285 concatène « tiennent surtout à » + la forme DÉFINIE et rend donc
+ * « à les ventes », « à le nombre de visiteurs » : 4 valeurs sur 5 y sont agrammaticales.
+ * La contraction ne s'improvise pas au point d'appel, elle se demande.
+ */
+export function kpiA(k: KpiKey): string {
+  const g = KPI_NOM_FR[k];
+  if (g.pluriel) return `aux ${g.nom}`;
+  if (elide(g.nom)) return `\u00e0 l\u2019${g.nom}`;
+  return `${g.genre === "f" ? "\u00e0 la" : "au"} ${g.nom}`;
+}
+
 // ── Étape funnel par TYPE DE CARTE (owner 24/08, table validée telle quelle) ──────────────
 // « Each card should be linked to a step in sales funnel » : l'étape que le GESTE de la carte
 // fait bouger — pas celle où on la mesure le mieux. Consommateur : le coin barreau 2

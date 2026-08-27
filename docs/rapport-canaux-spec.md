@@ -1,4 +1,4 @@
-# Rapport par canal — spec finale (étape 4, 08/08/2026)
+# Rapport par canal — spec finale (étape 4, 08/08/2026) — DÉFINITIF
 
 Process owner respecté : livrables spécifiés → concepts validés → prototype itéré
 (5 versions, `public/rapport-canaux-proto.html` = v5 validée) → cette spec → code.

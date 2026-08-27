@@ -625,7 +625,7 @@
       // Le câblage du 01/08 avait mis le chiffre RÉEL juste à côté, dans le même payload, et
       // personne ne le lisait : `countries_named` (« Royaume-Uni 16%, Suisse 11%… »),
       // `share_total_pct`, `profile_reference_year`. Couverture mesurée : 108 tirs sur 128,
-      // 27 sites sur 32 (les 5 sans sont la PACA, non publiée — cf. docs/foreign-tourism-cablage.md).
+      // 27 sites sur 32 (les 5 sans sont la PACA, non publiée — cf. docs/data-model-index.md (pieges regionaux, mart fct_region_foreign_country_profile)).
       //
       // La phrase n'est pas inventée : elle reprend celle que le modèle dbt écrit DÉJÀ en
       // `detail_fr` (fct_location_daily_action_candidates, CTE foreign_tourism_named), y compris

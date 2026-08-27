@@ -51,7 +51,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // référentiel que M'engager, jamais une moyenne réinventée.
         bq.query({
           query: `SELECT EXTRACT(DAYOFWEEK FROM date) AS dw, ROUND(AVG(expected_revenue), 0) AS expected_eur, COUNT(*) AS n
-                  FROM \`${PROJECT}.mart.fct_client_day_residual\`
+                  FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\`
                   WHERE location_id = @location_id AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)
                   GROUP BY dw`,
           params: { location_id }, location: "EU",
