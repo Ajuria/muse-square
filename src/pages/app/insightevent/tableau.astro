@@ -526,6 +526,28 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + '<div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-top:4px;">'
             + '<div style="flex:none;"><div style="font-size:32px;font-weight:700;line-height:1;color:#111827;letter-spacing:-0.01em;">' + (caSum ? frInt(caSum) + ' €' : '—') + '</div>'
             + '<div style="font-size:11.5px;margin-top:5px;color:' + (caPct == null ? '#9CA3AF' : caPct >= 0 ? GREEN : AMBER) + ';">' + (caPct != null ? (caPct >= 0 ? '+' : '−') + String(Math.abs(caPct)).replace('.', ',') + ' % vs votre résultat habituel' : 'pas assez de jours reçus') + '</div></div>'
+            // Profit DANS la carte argent (owner 27/08 « go » — jamais une 5e tuile) : marges
+            // FAMILLE du site filtré recomposées client (les lignes portent location_id), sinon
+            // le profit30 serveur (repli marge globale compris, compte entier seulement). Sa
+            // fenêtre est la SIENNE (30 j) et se dit — le sélecteur de période ne la pilote pas.
+            // Aucune marge déclarée → RIEN ici (règle 5) : le geste vit dans À faire.
+            + (function () {
+                var mgC = J.marges || {};
+                var profE = null, covE = null, decE = 0, famE = 0;
+                var famsC = (mgC.familles || []).filter(function (f) { return locFilter && f.location_id === locFilter; });
+                if (locFilter) {
+                  var tot3 = 0, cov3 = 0, prof3 = 0;
+                  famsC.forEach(function (f) { tot3 += f.ca30 || 0; if (f.marge_pct != null) { decE++; cov3 += f.ca30 || 0; prof3 += (f.ca30 || 0) * (f.marge_pct / 100); } });
+                  famE = famsC.length;
+                  if (cov3 > 0 && tot3 > 0) { profE = Math.round(prof3); covE = Math.min(100, Math.round(cov3 / tot3 * 100)); }
+                } else if (mgC.profit30 != null && mgC.couverture_pct != null) {
+                  profE = mgC.profit30; covE = mgC.couverture_pct; decE = mgC.n_declarees || 0; famE = mgC.n_familles || 0;
+                }
+                if (profE == null) return "";
+                return '<div style="flex:none;" title="Profit estimé sur les 30 derniers jours : CA de chaque famille produit × sa marge déclarée, sommé sur les familles déclarées (' + decE + '/' + famE + ') — jamais extrapolé au CA non couvert. Marges modifiables dans À faire.">'
+                  + '<div style="font-size:20px;font-weight:700;line-height:1;color:#111827;">≈ ' + frInt(profE) + ' €</div>'
+                  + '<div style="font-size:11.5px;margin-top:5px;color:#6b7280;">profit · 30 derniers jours · calculé sur ' + covE + ' % de votre CA</div></div>';
+              })()
             + caSpark + '</div>'
             + '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid #F3F4F6;padding-top:8px;margin-top:10px;">'
             + (function () { var s3 = splitLine(caBySite, function (v2) { return frInt(v2) + " €"; }); return s3 ? s3.replace('border-top:1px solid #F3F4F6;padding-top:6px;margin-top:auto;', '') : ""; })()
