@@ -90,3 +90,30 @@ describe("journalPlan — les portes", () => {
     expect(p).toHaveLength(0);
   });
 });
+
+describe("journalPlan — l'effet se lit sur le KPI choisi (correctif 27/08)", () => {
+  const jourChaud = { date: jourJ, f_heat: true };
+  // Le cas RÉEL du corner : résidu CA sous le seuil (−0,58) mais KPI choisi AU-DELÀ (−1,07).
+  // Avant le correctif, ce test n'était pas une preuve — la contre-indication le ratait.
+  const kpiProuve = {
+    commitment_id: "k1", committed_action_text: "Corner de vente producteur — X",
+    window_active_factors: "heat", status: "resolved",
+    window_residual_pct: -11.9, window_residual_z: -0.58,
+    measured_metric: "family_revenue",
+    kpi_delta_pct: -78.3, kpi_baseline: 64.5, kpi_window_value: 14.0, kpi_noise_se: 47.3,
+    window_start: "2026-08-22", window_end: "2026-08-22",
+  };
+
+  it("un effet prouvé sur le KPI choisi contre-indique, même si le CA est dans le bruit", async () => {
+    const p = await journalPlan(bqStub([kpiProuve], [jourChaud]) as any, "loc", 14);
+    expect(p).toHaveLength(1);
+    expect(p[0].direction).toBe("negative");
+    expect(p[0].say_fr).toContain("−78,3 % sur le CA famille");
+    expect(p[0].say_fr).not.toContain("11,9");
+  });
+
+  it("l'inverse : CA au-delà du seuil mais KPI choisi dans le bruit → PAS une preuve", async () => {
+    const caFortKpiBruit = { ...kpiProuve, window_residual_z: -1.5, kpi_delta_pct: -50.2, kpi_baseline: 56.2, kpi_window_value: 28.0, kpi_noise_se: 47.04 };
+    expect(await journalPlan(bqStub([caFortKpiBruit], [jourChaud]) as any, "loc", 14)).toHaveLength(0);
+  });
+});

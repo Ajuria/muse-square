@@ -36,6 +36,7 @@
 // Mots : `docs/lexique.md` — « engagement » (l.18), « cible/objectif : atteint · manqué · non
 // concluant » (l.21), « votre résultat habituel » (l.24), dates JJ/MM/AAAA.
 import type { FamilyProvider, FamilyResult, FamilyFact } from "./types";
+import { commitmentEffect } from "../commitmentEffect";
 
 const PROJECT = "muse-square-open-data";
 
@@ -73,7 +74,9 @@ function dispositifName(s: string | null): string {
 function effectDirection(rows: any[]): "negative" | "positive" | "inconclusive" {
   let neg = false, pos = false;
   for (const r of rows) {
-    const z = r.window_residual_z == null ? null : Number(r.window_residual_z?.value ?? r.window_residual_z);
+    // L'effet se lit sur le KPI CHOISI du test, jamais d'office sur le résidu de CA
+    // (correctif owner 27/08 — le foyer unique est commitmentEffect).
+    const z = commitmentEffect(r).z;
     if (z == null || Math.abs(z) < PROOF_Z) continue;
     if (z < 0) neg = true; else pos = true;
   }
@@ -105,6 +108,7 @@ export async function engagementsFamily(
         SELECT commitment_id, status, verdict, action_done_status, measured_metric,
                committed_action_text, origin_action_type,
                window_start, window_end, window_residual_pct, window_residual_z,
+               kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
                threshold_value, threshold_basis, DATE(resolved_at) AS resolved_date
         FROM (
           SELECT *, ROW_NUMBER() OVER (
@@ -167,18 +171,21 @@ export async function engagementsFamily(
     if (g.resolved.length) {
       // Chaque test porte SON effet ET son registre de preuve — jamais une moyenne, qui
       // mélangerait un effet prouvé et du bruit.
-      const tests = g.resolved
+      const sorted = g.resolved
         .slice()
-        .sort((a, b) => String(ymd(a.window_start) ?? "").localeCompare(String(ymd(b.window_start) ?? "")))
+        .sort((a, b) => String(ymd(a.window_start) ?? "").localeCompare(String(ymd(b.window_start) ?? "")));
+      const tests = sorted
         .map((r) => {
-          const pct = num(r.window_residual_pct);
-          const z = num(r.window_residual_z);
+          const eff = commitmentEffect(r);
           // Seul l'effet PROUVÉ se qualifie : sous le seuil, on n'affirme rien — on ne dit pas
           // non plus la mécanique (« dans le bruit » retiré sur retour owner 27/08).
-          const reg = z != null && Math.abs(z) >= PROOF_Z ? " (effet prouvé)" : "";
-          return `${frPct(pct)} le ${frDate(ymd(r.window_start))}${reg}`;
+          const reg = eff.z != null && Math.abs(eff.z) >= PROOF_Z ? " (effet prouvé)" : "";
+          return `${frPct(eff.pct)} le ${frDate(ymd(r.window_start))}${reg}`;
         })
         .join(" et ");
+      // Le RÉFÉRENTIEL du chiffre (règle 2 du lexique) : quand le test porte un KPI qui n'est
+      // pas le CA, le groupe l'annonce une fois (« 2 tests sur le CA famille : … »).
+      const kpiMention = commitmentEffect(sorted[0]).kpi_mention_fr;
       const dir = effectDirection(g.resolved);
       const verdictFr =
         dir === "negative"
@@ -187,7 +194,7 @@ export async function engagementsFamily(
             ? "effet positif prouvé"
             : "testé, non concluant";
       facts.push(
-        F(`Dispositif « ${name} » — ${g.resolved.length} test${g.resolved.length > 1 ? "s" : ""} : ${tests}, vs votre résultat habituel. Effet mesuré : ${verdictFr}.`),
+        F(`Dispositif « ${name} » — ${g.resolved.length} test${g.resolved.length > 1 ? "s" : ""}${kpiMention ? ` ${kpiMention}` : ""} : ${tests}, vs votre résultat habituel. Effet mesuré : ${verdictFr}.`),
       );
 
       // L'OBJECTIF est un axe SÉPARÉ : il se dit après l'effet, et jamais comme le verdict du

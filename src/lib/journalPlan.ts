@@ -16,6 +16,7 @@
 // sous chaleur » (au passé) et « ce jour sera sous chaleur » (à venir) sont donc la MÊME règle
 // contre la MÊME table — jamais une seconde définition.
 import featureRegistry from "./sensitivityFeatures.json";
+import { commitmentEffect } from "./commitmentEffect";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const CTX = `${PROJECT}.${(featureRegistry as any).context_table}`;
@@ -89,6 +90,7 @@ export async function journalPlan(
   const [rows] = await bq.query({
     query: `
       SELECT committed_action_text, window_active_factors, window_residual_pct, window_residual_z,
+             measured_metric, kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
              window_start, window_end, status
       FROM (
         SELECT *, ROW_NUMBER() OVER (
@@ -108,14 +110,17 @@ export async function journalPlan(
 
   const proven = all
     .filter((r: any) => {
-      const z = flat(r.window_residual_z);
-      return String(flat(r.status)) === "resolved" && z != null && Math.abs(Number(z)) >= PROOF_Z;
+      // L'effet — et donc la PREUVE — se lit sur le KPI choisi du test, jamais d'office sur le
+      // résidu de CA (correctif owner 27/08, foyer unique commitmentEffect).
+      const z = commitmentEffect(r).z;
+      return String(flat(r.status)) === "resolved" && z != null && Math.abs(z) >= PROOF_Z;
     })
     .map((r: any) => ({
       name: dispositifName(flat(r.committed_action_text)),
       factors: String(flat(r.window_active_factors) ?? "").split(",").map((x) => x.trim()).filter(Boolean),
-      pct: Number(flat(r.window_residual_pct)),
-      z: Number(flat(r.window_residual_z)),
+      pct: commitmentEffect(r).pct as number,
+      z: commitmentEffect(r).z as number,
+      kpi_mention_fr: commitmentEffect(r).kpi_mention_fr,
       date: ymd(r.window_start),
       window_kind: windowKind(ymd(r.window_start), ymd(r.window_end)),
     }))
@@ -168,8 +173,8 @@ export async function journalPlan(
         running_until_fr: until ? frDate(until) : null,
         prefill: negative ? null : { committed_action_text: p.name, window_kind: p.window_kind },
         say_fr: negative
-          ? `Le ${frDate(date)} réunit ${mots.join(" et ")} — les conditions où « ${p.name} » a prouvé un effet négatif (${frPct(p.pct)} vs votre résultat habituel, le ${frDate(p.date)}). Ne pas le rejouer ce jour-là.${until ? ` Or un test est en cours jusqu'au ${frDate(until)}.` : ""}`
-          : `Le ${frDate(date)} réunit ${mots.join(" et ")} — les conditions où « ${p.name} » a prouvé un effet positif (${frPct(p.pct)} vs votre résultat habituel, le ${frDate(p.date)}). C'est le jour pour le rejouer.`,
+          ? `Le ${frDate(date)} réunit ${mots.join(" et ")} — les conditions où « ${p.name} » a prouvé un effet négatif (${frPct(p.pct)}${p.kpi_mention_fr ? ` ${p.kpi_mention_fr}` : ""} vs votre résultat habituel, le ${frDate(p.date)}). Ne pas le rejouer ce jour-là.${until ? ` Or un test est en cours jusqu'au ${frDate(until)}.` : ""}`
+          : `Le ${frDate(date)} réunit ${mots.join(" et ")} — les conditions où « ${p.name} » a prouvé un effet positif (${frPct(p.pct)}${p.kpi_mention_fr ? ` ${p.kpi_mention_fr}` : ""} vs votre résultat habituel, le ${frDate(p.date)}). C'est le jour pour le rejouer.`,
       });
     }
   }
