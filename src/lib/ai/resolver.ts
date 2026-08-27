@@ -17,7 +17,7 @@ import { KPI_NOM_FR, type KpiKey } from "../kpiRegistry";
 export interface ResolvedPeriod { start: string; end: string; expression: string }
 
 export interface ResolvedFrame {
-  intent: "plan" | "entity_period" | "journal" | "autre";
+  intent: "plan" | "entity_period" | "journal" | "pourquoi" | "autre";
   entity_names: Array<{ nom: string; type: string }>;
   periode: ResolvedPeriod | null;
   periode_comparaison: ResolvedPeriod | null;
@@ -82,7 +82,7 @@ export async function resolveTurn(opts: {
     // Tolérance de clé (mesuré 28/08 : Haiku sans mode structuré écrivait « intention ») —
     // le schéma reste passé pour les modèles qui le supportent.
     const intent = String(out?.intent ?? out?.intention ?? "");
-    if (!["plan", "entity_period", "journal", "autre"].includes(intent)) return null;
+    if (!["plan", "entity_period", "journal", "pourquoi", "autre"].includes(intent)) return null;
     const entity_names = Array.isArray(out?.entites)
       ? out.entites.filter((e: any) => e && typeof e.nom === "string" && typeof e.type === "string").slice(0, 4)
       : [];

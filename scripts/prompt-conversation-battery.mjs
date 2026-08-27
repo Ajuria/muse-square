@@ -106,5 +106,24 @@ await dialogue("Une entité, deux périodes", [
   } },
 ]);
 
+// D7 — « POURQUOI ? » (incrément 5) : la construction du dernier résultat, cadre PRÉSERVÉ.
+await dialogue("Pourquoi, puis la conversation continue", [
+  { q: "la famille Coffee en juillet", expect: {
+    "producer = entity_period": ({ producer }) => producer === "deterministic_entity_period_v1",
+  } },
+  { q: "pourquoi ?", expect: {
+    "producer = why": ({ producer }) => producer === "deterministic_entity_why_v1",
+    "la construction est dite avec les chiffres (lignes de caisse, €/jour)": ({ j }) => {
+      const facts = (j?.ai?.output?.plan_sections ?? []).flatMap((s2) => s2.facts ?? []).join(" ");
+      return facts.includes("lignes de caisse") && facts.includes("€/jour");
+    },
+    "le cadre SURVIT au pourquoi (entité + période gardées)": ({ frame }) => frame?.intent === "entity_period" && frame?.entity_names?.some((e) => e.nom === "Coffee") && frame?.periode?.start === "2026-07-01",
+  } },
+  { q: "et en juin ?", expect: {
+    "la conversation continue sur l'entité, pas sur le pourquoi": ({ producer }) => producer === "deterministic_entity_period_v1",
+    "période = juin, Coffee gardée": ({ frame }) => frame?.periode?.start === "2026-06-01" && frame?.entity_names?.some((e) => e.nom === "Coffee"),
+  } },
+]);
+
 console.log(`\n${fails === 0 ? "BATTERIE VERTE" : fails + " ÉCHEC(S)"}`);
 process.exit(fails ? 1 : 0);

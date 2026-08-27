@@ -475,3 +475,55 @@ export function buildEntityCompareBlocks(grid: EntityPeriodReading[][]): EntityC
     ],
   };
 }
+
+// ── « POURQUOI ? » (incrément 5 du résolveur, 28/08) — la CONSTRUCTION du dernier résultat,
+// jamais une cause inventée : d'où vient chaque nombre (lignes de caisse, fenêtre, planchers,
+// KPI déclaré), avec les CHIFFRES RÉELS de la lecture re-jouée. Le registre causal reste
+// intouché — expliquer un calcul n'est pas affirmer une cause.
+export function buildEntityWhyBlocks(r: EntityPeriodReading): EntityCompareBlocks {
+  const per = periodLabelFr(r.start, r.end);
+  const label = r.entity.kind === "famille" ? `Famille ${r.entity.name}` : r.entity.name;
+  const sections: CompareSection[] = [];
+  if (r.pole) {
+    const t = r.pole.totals;
+    const facts: string[] = [];
+    if (t.rev30_eur != null && t.n30 > 0) {
+      facts.push(`Le résultat est la somme de vos lignes de caisse (${label}) ${per} : ${frEur(t.rev30_eur)} € sur ${t.n30} j vendus, soit ${frEur(Math.round(t.rev30_eur / t.n30))} €/jour.`);
+    }
+    if (t.delta_pct != null && t.avg30_eur_day != null && t.base_eur_day != null) {
+      facts.push(`La variation compare ${frEur(Math.round(t.avg30_eur_day))} €/jour (la période) à ${frEur(Math.round(t.base_eur_day))} €/jour (la même durée qui la précède) : ${frPct1(t.delta_pct)}. Plancher : 5 j vendus de chaque côté, sinon « — ».`);
+    } else if (t.delta_pct == null) {
+      facts.push(`${t.n30} j vendus sur la période — sous le plancher de 5 j de chaque côté, aucune variation ne s'affiche.`);
+    }
+    if (t.share_pct != null) facts.push(`Le poids (${String(t.share_pct).replace(".", ",")} % du CA) divise ce résultat par le CA TOTAL du site sur la même période.`);
+    sections.push({ title: "D'où viennent ces chiffres", facts });
+    if (r.entity.kind === "pole" && r.pole.families.length > 1) {
+      sections.push({
+        title: "Ce qui compose le pôle",
+        table: { cols: [{ label: "Famille", align: "left" }, { label: "Résultat" }, { label: "Variation" }], rows: r.pole.families.map((f) => ({ cells: [
+          { v: f.family, bold: true },
+          f.rev_eur != null ? { v: `${frEur(f.rev_eur)} €`, sub: `${f.n30} j vendus` } : { v: "—", color: "#9CA3AF" },
+          f.delta_pct != null ? { v: frPct1(f.delta_pct), color: f.delta_pct >= 0 ? "#0F6E56" : "#B45309", bold: true } : { v: "—", color: "#9CA3AF" },
+        ] })) },
+      });
+    }
+  }
+  if (r.serie) {
+    const s2 = r.serie;
+    const facts: string[] = [];
+    facts.push(`${s2.occurrences.length} occurrence${s2.occurrences.length > 1 ? "s" : ""} sur la période — chacune est jugée dans SON KPI déclaré (l'effet % de la ligne), jamais dans un autre.`);
+    if (s2.gap_eur_sum != null) facts.push(`L'écart CA cumulé (${s2.gap_eur_sum >= 0 ? "+" : "−"}${frEur(Math.abs(s2.gap_eur_sum))} €) ne somme que les fenêtres MESURÉES en CA : réalisé moins attendu, fenêtre par fenêtre.`);
+    if (s2.cost_sum != null) facts.push(`Les coûts (${frEur(s2.cost_sum)} €) sont ceux que vous avez saisis — jamais déduits.`);
+    sections.push({ title: "D'où viennent ces chiffres", facts });
+  }
+  if (r.funnel && r.funnel.occ_days >= 2) {
+    sections.push({ title: "Le référentiel de l'échelle de la vente", facts: [
+      `${r.funnel.occ_days} jours d'opération comparés à ${r.funnel.base_days} jours comparables : mêmes jours de semaine, hors opérations.`,
+    ] });
+  }
+  return {
+    headline: `${label} — ${per} : d'où viennent les chiffres`,
+    sections,
+    sources: r.pole ? ["Vos ventes par famille (lignes de caisse)"] : ["Vos engagements (verdicts et mesures)"],
+  };
+}

@@ -70,7 +70,7 @@ export const CONCEPTS: ConceptDef[] = [
 
 // ── Intentions routables (v1) — chaque intention nomme SON composeur et SON producer ───────
 export interface IntentDef {
-  intent: "plan" | "entity_period" | "journal" | "autre";
+  intent: "plan" | "entity_period" | "journal" | "pourquoi" | "autre";
   definition_fr: string;
   composer: string;   // le foyer déterministe qui calcule
   producer: string;   // le producer de la réponse (traçabilité)
@@ -94,6 +94,12 @@ export const INTENTS: IntentDef[] = [
     definition_fr: "Le journal des dispositifs/engagements du site sans entité précise (« mes engagements », « mes pôles », « qu'est-ce qui a marché ? »).",
     composer: "branche JOURNAL_Q (engagementsFamily/journalPlan)",
     producer: "deterministic_engagements_v1",
+  },
+  {
+    intent: "pourquoi",
+    definition_fr: "L'utilisateur demande d'où vient le DERNIER résultat (« pourquoi ? », « explique », « d'où ça sort ? », « comment tu le calcules ? », « t'es sûr ? »). Hérite TOUT le cadre — ne change aucun slot.",
+    composer: "entityReading.buildEntityWhyBlocks (re-lecture du dernier tuple)",
+    producer: "deterministic_entity_why_v1",
   },
   {
     intent: "autre",
@@ -174,7 +180,7 @@ ${lists}
 
 LE FORMULAIRE (réponds UNIQUEMENT ce JSON, exactement ces clés, sans fence markdown) :
 {
-  "intent": "plan" | "entity_period" | "journal" | "autre",
+  "intent": "plan" | "entity_period" | "journal" | "pourquoi" | "autre",
   "entites": [ { "nom": "<recopie exacte d'une entité des listes>", "type": "pole" | "famille" | "operation" | "personne" } ],
   "periode": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "expression": "<les mots de l'utilisateur>" } | null,
   "periode_comparaison": <même forme que periode> | null,
@@ -189,6 +195,7 @@ RÈGLES :
 3. Les périodes : dates ISO exactes (start/end) + l'expression d'origine. « septembre » sans année = le prochain si l'intention est plan, le plus récent passé sinon. Les saisons sont MÉTÉOROLOGIQUES (convention maison, identique au parseur frPeriod) : printemps = 01/03→31/05, été = 01/06→31/08, automne = 01/09→30/11, hiver = 01/12→28-29/02 (à cheval sur deux années).
 4. Une entité absente des listes ci-dessus ne se devine pas : ne la mets PAS dans entites (le système demandera).
 5. "changements" liste les slots que CE tour a changés par rapport au cadre (ex. ["periode"]). Aucun cadre fourni → tous les slots posés sont des changements.
-6. Le KPI seulement s'il est NOMMÉ (CA, ventes, panier, visiteurs, conversion, marge/profit, CA famille) — sinon null.
-7. Rien d'autre que le JSON du formulaire — pas de fence, pas de prose, la clé est "intent" (jamais "intention").`;
+6. "periode_comparaison" SEULEMENT si la comparaison est DEMANDÉE (« vs », « par rapport à », « contre », « versus ») — un simple changement de période (« et en juin ? ») remplace "periode" et laisse "periode_comparaison" null.
+7. Le KPI seulement s'il est NOMMÉ (CA, ventes, panier, visiteurs, conversion, marge/profit, CA famille) — sinon null.
+8. Rien d'autre que le JSON du formulaire — pas de fence, pas de prose, la clé est "intent" (jamais "intention").`;
 }

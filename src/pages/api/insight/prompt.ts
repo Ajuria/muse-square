@@ -40,7 +40,7 @@ import { listClassDispositifs } from "../../../lib/bestPractices";
 import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
 import { loadSiteEntities, matchEntities } from "../../../lib/entityResolver";
 import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
-import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks } from "../../../lib/entityReading";
+import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, buildEntityWhyBlocks } from "../../../lib/entityReading";
 import { planPeriod, buildPlanBlocks } from "../../../lib/planPeriod";
 import { journalPlan } from "../../../lib/journalPlan";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
@@ -2506,6 +2506,30 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         });
         if (_rsv) _rsvFrameOut = frameOf(_rsv);
         console.log(`[resolver] ${Date.now() - _rsvT0} ms — intent=${_rsv?.intent ?? "null"} entites=${_rsv?.entities.length ?? 0}/${_rsv?.entity_names.length ?? 0} periode=${_rsv?.periode?.expression ?? "-"} suite=${_rsv?.suite ?? "-"} chg=${(_rsv?.changements ?? []).join(",")}`);
+      }
+    }
+
+    // ── « POURQUOI ? » (incrément 5, 28/08) — la CONSTRUCTION du dernier résultat, jamais
+    // une cause inventée : le tuple PRÉCÉDENT (cadre écho-é) se re-lit, et la réponse dit
+    // d'où vient chaque nombre (lignes de caisse, fenêtres, planchers, KPI déclaré) avec les
+    // chiffres réels re-joués. Le cadre échoé reste le PRÉCÉDENT — « et en juin ? » après un
+    // pourquoi hérite toujours de l'entité, pas de l'intention pourquoi.
+    if (_rsv?.intent === "pourquoi" && thread_context?.resolved && _rsvSite) {
+      const _why = thread_context.resolved;
+      if ((_why.intent === "entity_period" || _why.intent === "autre") && _why.entity_names?.length && _why.periode) {
+        const _whyEnts = _why.entity_names
+          .map((en) => _rsvSite!.entities.find((e2) => e2.kind === en.type && e2.name === en.nom))
+          .filter((e2): e2 is NonNullable<typeof e2> => e2 != null);
+        if (_whyEnts.length) {
+          const _bqw = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+          const _whyR = await readEntityPeriod(_bqw, location_id, _whyEnts[0], _why.periode.start, _why.periode.end, new Date().toISOString().slice(0, 10));
+          const _whyB = buildEntityWhyBlocks(_whyR);
+          _rsvFrameOut = _why; // le cadre survit au pourquoi — la conversation continue sur l'entité
+          return sysDialogueResponse(
+            _whyB.headline, "", "deterministic_entity_why_v1", null,
+            { plan_sections: _whyB.sections, sources_list: _whyB.sources },
+          );
+        }
       }
     }
 
