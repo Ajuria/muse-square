@@ -531,6 +531,12 @@ const COMPARISON_MARKERS = [
 // Marqueurs de PASSÉ exprimé (sur texte normalisé) — ils priment les marqueurs
 // de planification/évaluation pour le biais d'année de frPeriod : « quels ont
 // été mes meilleurs jours de juin ? » parle de juin passé malgré « meilleurs ».
+// Élicitation du journal vide — UNE chaîne, deux points d'usage (branche déterministe JOURNAL_Q
+// + élicitation de famille). Mots du lexique : « dates de l'opération » (l.23 — « fenêtre » est
+// BANNI pour la période mesurée ; faute corrigée sur relevé owner 27/08).
+const ENGAGEMENTS_ELICIT_FR =
+  "Vous n'avez pas encore d'engagement jugé sur ce site : je n'ai donc rien à vous dire sur ce qui a marché. Depuis une carte, « M'engager » pose l'action, l'objectif et les dates de l'opération — le verdict tombe seul à la fin.";
+
 const PAST_TENSE_MARKERS = [
   "ont ete", "a ete", "etait", "etaient",
   "s'est passe", "s est passe", "s'est-il passe", "s est-il passe",
@@ -2498,7 +2504,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       }
       return sysDialogueResponse(
         "Aucun engagement jugé pour l'instant",
-        "Vous n'avez pas encore d'engagement jugé sur ce site : je n'ai donc rien à vous dire sur ce qui a marché. Depuis une carte, « M'engager » pose l'action, l'objectif et la fenêtre — le verdict tombe seul à la fin.",
+        ENGAGEMENTS_ELICIT_FR,
         "deterministic_engagements_elicit_v1",
       );
     }
@@ -5105,7 +5111,7 @@ Règles :
         if (_famKey === "engagements" && !_familyLed) {
           return sysDialogueResponse(
             "Aucun engagement jugé pour l'instant",
-            "Vous n'avez pas encore d'engagement jugé sur ce site : je n'ai donc rien à vous dire sur ce qui a marché. Depuis une carte, « M'engager » pose l'action, la cible et la fenêtre — le verdict tombe seul à la fin.",
+            ENGAGEMENTS_ELICIT_FR,
             "deterministic_engagements_elicit_v1",
           );
         }

@@ -1267,7 +1267,7 @@
         + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Historique du dispositif</div>'
         + _lin.map(function (v) {
             var line = 'Version ' + v.version_no + ' \u2014 du ' + _linFrD(v.window_start) + ' au ' + _linFrD(v.window_end);
-            if (v.status === 'open') { line += ' : en cours, verdict \u00e0 la fin de la fen\u00eatre.'; }
+            if (v.status === 'open') { line += ' : en cours, verdict d\u2019ici le ' + _linFrD(v.window_end) + '.'; }
             else {
               var vd = _linVerdict[v.verdict] || 'sans verdict';
               var eff = v.effect_pct != null ? ' \u2014 ' + _linPct(v.effect_pct) + (v.kpi_mention_fr ? ' ' + v.kpi_mention_fr : '') + ' vs votre r\u00e9sultat habituel' + (v.effect_proven ? ' (effet prouv\u00e9)' : '') : '';

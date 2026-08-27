@@ -35,7 +35,9 @@ it("chaîne >1 version : la section rend chaque version avec verdict, effet SUR 
   const html = String(kit.renderEvolution(data, {}));
   expect(html).toContain("Historique du dispositif");
   expect(html).toContain("Version 1 — du 22/08/2026 au 22/08/2026 : objectif manqué — −78,3 % sur le CA famille vs votre résultat habituel (effet prouvé).");
-  expect(html).toContain("Version 2 — du 29/08/2026 au 29/08/2026 : en cours, verdict à la fin de la fenêtre.");
+  // « fenêtre » est BANNI (lexique l.23) — la forme est celle de la carte owner du 27/08.
+  expect(html).toContain("Version 2 — du 29/08/2026 au 29/08/2026 : en cours, verdict d’ici le 29/08/2026.");
+  expect(html).not.toContain("fenêtre");
   expect(html).toContain("(ce test)");
 });
 
