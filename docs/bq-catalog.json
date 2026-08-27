@@ -7,7 +7,7 @@
 "dbt_repo_sha_at_generation": "2e538f5",
 "table_count": 485,
 "column_count": 8579,
-"last_incremental_update": "2026-08-27 (add semantic.vw_insight_event_commitment_memory, refresh staging.stg_client_commitments)"
+"last_incremental_update": "2026-08-27 (lot final mémoire : staging 78 col, vue 55 col — pôles + mémoire humaine)"
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -30639,6 +30639,98 @@
 {
 "name": "verdict_basis",
 "type": "STRING"
+},
+{
+"name": "dispositif_nature",
+"type": "STRING"
+},
+{
+"name": "pole_families",
+"type": "STRING"
+},
+{
+"name": "attached_pole_id",
+"type": "STRING"
+},
+{
+"name": "origin_kind",
+"type": "STRING"
+},
+{
+"name": "creation_residual_pct",
+"type": "FLOAT64"
+},
+{
+"name": "creation_residual_z",
+"type": "FLOAT64"
+},
+{
+"name": "creation_confidence_tier",
+"type": "STRING"
+},
+{
+"name": "retro_note",
+"type": "STRING"
+},
+{
+"name": "window_residual_z_raw",
+"type": "FLOAT64"
+},
+{
+"name": "applied_rho",
+"type": "FLOAT64"
+},
+{
+"name": "applied_vif",
+"type": "FLOAT64"
+},
+{
+"name": "window_days_resolved",
+"type": "INT64"
+},
+{
+"name": "ctx_any_school_holiday",
+"type": "BOOL"
+},
+{
+"name": "ctx_school_holiday_days",
+"type": "INT64"
+},
+{
+"name": "ctx_worst_weather_impact_pct",
+"type": "FLOAT64"
+},
+{
+"name": "ctx_max_event_count",
+"type": "INT64"
+},
+{
+"name": "ctx_max_tourism_index",
+"type": "FLOAT64"
+},
+{
+"name": "creation_enjeu_eur_year",
+"type": "FLOAT64"
+},
+{
+"name": "creation_enjeu_tier_label_fr",
+"type": "STRING"
+},
+{
+"name": "creation_enjeu_label_fr",
+"type": "STRING"
+},
+{
+"name": "creation_enjeu_class_key",
+"type": "STRING"
+},
+{
+"name": "creation_enjeu_entangled",
+"type": "BOOL"
+},
+{
+"name": "creation_enjeu_inherited",
+"type": "BOOL"
 }
 ]
 },
@@ -36854,6 +36946,18 @@
 "type": "STRING"
 },
 {
+"name": "dispositif_nature",
+"type": "STRING"
+},
+{
+"name": "pole_families",
+"type": "STRING"
+},
+{
+"name": "attached_pole_id",
+"type": "STRING"
+},
+{
 "name": "adjustment_move",
 "type": "STRING"
 },
@@ -36926,6 +37030,10 @@
 "type": "FLOAT64"
 },
 {
+"name": "origin_kind",
+"type": "STRING"
+},
+{
 "name": "origin_action_type",
 "type": "STRING"
 },
@@ -36950,6 +37058,14 @@
 "type": "STRING"
 },
 {
+"name": "creation_enjeu_eur_year",
+"type": "FLOAT64"
+},
+{
+"name": "creation_enjeu_label_fr",
+"type": "STRING"
+},
+{
 "name": "dispositif_note",
 "type": "STRING"
 },
@@ -36964,6 +37080,10 @@
 {
 "name": "retro_repeat",
 "type": "BOOL"
+},
+{
+"name": "retro_note",
+"type": "STRING"
 },
 {
 "name": "action_done_status",

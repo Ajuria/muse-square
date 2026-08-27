@@ -55,8 +55,9 @@ ces dispositifs ; ils courent en parallèle des données de vente.
 - Les champs mémoire au grain version sont en base et dans les formulaires :
   `dispositif_plus`, `dispositif_why`, `dispositif_resources`, Levier, Responsable(s).
 - La chaîne de versions (`dispositif_id`, `version_no`, héritage au POST) est livrée.
-- `semantic.vw_insight_event_commitment_memory` expose la mémoire (contrat enforced) —
-  les 3 colonnes pôles y montent par la passation dbt ci-dessous (48 → 51).
+- `semantic.vw_insight_event_commitment_memory` expose la mémoire (contrat enforced,
+  55 colonnes — pôles inclus, vérifié en base le 27/08 : un pôle se lit PAR la vue) ;
+  le staging est le passthrough COMPLET des 78 colonnes de la table.
 - Le roster (`/api/channels/team`) alimente Responsable(s).
 
 ## Ce qui est construit (27/08 — au présent)
@@ -76,8 +77,6 @@ ces dispositifs ; ils courent en parallèle des données de vente.
 
 ## Ce qui reste à faire
 
-- Remonter les 3 colonnes dans `semantic.vw_insight_event_commitment_memory`
-  (passation dbt +3 colonnes prête et prouvée — contrat 48 → 51).
 - La déclaration des pôles d'Épices et Tout comme premier cas réel (owner).
 - L'héritage du KPI famille pôle→opération (rail `saved_items.kpi_family`,
   `measured_metric` est 'family_revenue' NU — jamais un suffixe deviné).
