@@ -77,10 +77,15 @@
   `semantic`. Aucune colonne ajoutée à `action_commitments` (son passthrough staging est
   contractuel à 78 colonnes) : les nouveaux attributs vivent dans des tables dédiées.
 
-## Modèle de données (incrément 1)
+## Modèle de données (incrément 1 — CONSTRUIT 28/08)
 
-Deux tables `analytics`, patron journal streaming latest-wins (comme `automation_rules` /
-`saved_item_participants`), jamais lues par dbt :
+Deux tables `analytics`, patron journal streaming latest-wins (répliqué de
+`raw.saved_item_participants`, DDL et lecture relus dans `api/saved-items/participants.ts` :
+`ROW_NUMBER() OVER (PARTITION BY <clé> ORDER BY updated_at DESC)` puis `rn = 1 AND
+COALESCE(deleted, FALSE) = FALSE` ; suppression = ligne tombstone), jamais lues par dbt.
+**Les tables SONT en base** — sondes écrites, relues par la lecture latest-wins, masquées
+par tombstone (0 visible), puis effacées (les 2 tables sont à 0 ligne). Le catalogue et
+l'allowlist sont régénérés depuis le schéma live (`refresh-bq-catalog.sh`, 498 tables).
 
 - **`analytics.location_members`** — grain : `member_id`. Colonnes : `member_id`,
   `location_id` (clé de rattachement — un suivi appartient à un SITE, loi owner 27/08),
@@ -196,7 +201,7 @@ tableau de tests MONTRÉ, chaîne rendue de la surface CITÉE d'abord (règle 4)
 
 ## Séquencement (un incrément = un commit vérifié)
 
-1. **Modèle** : DDL des 2 tables + allowlist catalogue.
+1. **Modèle** (FAIT 28/08) : DDL des 2 tables + catalogue/allowlist régénérés.
 2. **Accès** : middleware (même aller-retour), `requireLocationAccess`, résolution email à
    la première connexion (inconnue Clerk levée ici), redirections de pages.
 3. **Piloter light** : `dashboard.ts` role-aware + rendu.
