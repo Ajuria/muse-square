@@ -172,7 +172,9 @@ export async function engagementsFamily(
         .map((r) => {
           const pct = num(r.window_residual_pct);
           const z = num(r.window_residual_z);
-          const reg = z == null ? "" : Math.abs(z) >= PROOF_Z ? " (effet prouvé)" : " (dans le bruit)";
+          // Seul l'effet PROUVÉ se qualifie : sous le seuil, on n'affirme rien — on ne dit pas
+          // non plus la mécanique (« dans le bruit » retiré sur retour owner 27/08).
+          const reg = z != null && Math.abs(z) >= PROOF_Z ? " (effet prouvé)" : "";
           return `${frPct(pct)} le ${frDate(ymd(r.window_start))}${reg}`;
         })
         .join(" et ");
@@ -192,7 +194,7 @@ export async function engagementsFamily(
       const obj = g.resolved.find((r) => String(r.threshold_basis ?? "") === "pct" && num(r.threshold_value) != null);
       if (obj) {
         facts.push(
-          F(`Objectif que vous aviez fixé pour « ${name} » : +${String(num(obj.threshold_value)).replace(".", ",")} %. Un objectif manqué est un réglage de votre part — il ne dit rien de l'effet du dispositif.`),
+          F(`Objectif de +${String(num(obj.threshold_value)).replace(".", ",")} % manqué.`),
         );
       }
 
@@ -209,10 +211,11 @@ export async function engagementsFamily(
         adviceTexts.push(contre);
         // Le rejeu EN COURS est ce qui rend le geste urgent : il vit dans l'action, pas seulement
         // dans un fait qu'on pourrait lire distraitement.
+        const missedObj = g.resolved.some((r) => String(r.verdict) === "missed");
         advice.push(
-          g.open.length
-            ? `interrompre ou modifier le dispositif « ${name} » — un test est pourtant en cours jusqu'au ${frDate(ymd(g.open[0].window_end))}`
-            : `interrompre ou modifier le dispositif « ${name} »`,
+          `interrompre ou modifier le dispositif « ${name} »`
+          + (g.open.length ? " en cours" : "")
+          + (missedObj ? " et ajuster l'objectif" : ""),
         );
       }
     } else if (g.open.length) {
