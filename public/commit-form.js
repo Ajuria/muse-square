@@ -425,5 +425,11 @@
     });
   }
 
-  window.MSCommitForm = { buildHtml: buildHtml, wire: wire, escapeHtml: escapeHtml };
+  // Roster Responsable réutilisable hors du formulaire complet (étape 4, 27/08 — le
+  // sous-formulaire « La version suivante » de la page engagement) : MÊME fetch, MÊME rendu.
+  function wireOwnerPool(container, locationId) {
+    if (!container || !locationId) return;
+    fetchTeamDefault(locationId).then(function (pool) { renderOwnerPool(container, pool, locationId); }).catch(function () {});
+  }
+  window.MSCommitForm = { buildHtml: buildHtml, wire: wire, escapeHtml: escapeHtml, wireOwnerPool: wireOwnerPool };
 })();

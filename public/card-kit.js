@@ -1272,7 +1272,8 @@
         + '<div style="display:flex;align-items:center;gap:6px;"><input data-vform-goal type="number" min="1" max="100" step="1" value="' + (propGoal != null ? propGoal : '') + '" style="width:72px;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:13px;font-weight:600;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;text-align:right;" /><span style="font-size:12px;color:#6b7280;">%</span></div>'
         + (calib ? '<div style="font-size:11.5px;color:#1D3BB3;margin-top:4px;">' + esc(calib) + '</div>' : '')
         + lab(t('vform_lever')) + '<textarea data-vform-lever style="' + inp + 'resize:none;min-height:48px;">' + esc(cm.committed_action_text || '') + '</textarea>'
-        + lab(t('vform_resp')) + '<input data-vform-resp value="' + esc(cm.owner_person_name || '') + '" style="' + inp + '" />'
+        + lab(t('vform_resp')) + '<input data-vform-resp data-cm-owner value="' + esc(cm.owner_person_name || '') + '" style="' + inp + '" />'
+        + '<div data-cm-owner-sugg style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;"></div>'
         + lab(t('vform_res')) + '<input data-vform-res value="' + esc(cm.dispositif_resources || '') + '" style="' + inp + '" />'
         + lab(t('vform_plus')) + '<textarea data-vform-plus style="' + inp + 'resize:none;min-height:48px;">' + esc(cm.dispositif_plus || '') + '</textarea>'
         + lab(t('vform_why')) + '<textarea data-vform-why style="' + inp + 'resize:none;min-height:48px;">' + esc(cm.dispositif_why || '') + '</textarea>'
