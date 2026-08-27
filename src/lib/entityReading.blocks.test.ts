@@ -38,10 +38,10 @@ describe("buildEntityPeriodBlocks — tableau", () => {
       start: "2026-08-01", end: "2026-08-31",
       serie: {
         occurrences: [
-          { commitment_id: "a", name: "Corner de vente producteur", status: "resolved", verdict: "missed", window_start: "2026-08-22", window_end: "2026-08-22", effect_pct: -78.3, effect_proven: true, kpi_mention_fr: "sur le CA de la famille Coffee", gap_eur: -400 },
-          { commitment_id: "b", name: "Vacances scolaires", status: "open", verdict: null, window_start: "2026-08-27", window_end: "2026-09-02", effect_pct: null, effect_proven: false, kpi_mention_fr: "", gap_eur: null },
+          { commitment_id: "a", name: "Corner de vente producteur", status: "resolved", verdict: "missed", window_start: "2026-08-22", window_end: "2026-08-22", effect_pct: -78.3, effect_proven: true, kpi_mention_fr: "sur le CA de la famille Coffee", gap_eur: -400, cost_eur: 120 },
+          { commitment_id: "b", name: "Vacances scolaires", status: "open", verdict: null, window_start: "2026-08-27", window_end: "2026-09-02", effect_pct: null, effect_proven: false, kpi_mention_fr: "", gap_eur: null, cost_eur: null },
         ],
-        judged: 1, kept: 0, open_count: 1, gap_eur_sum: -400,
+        judged: 1, kept: 0, open_count: 1, gap_eur_sum: -400, cost_sum: 120, net_eur: -520,
       },
     });
     const [r1, r2] = b.table!.rows;
@@ -49,7 +49,7 @@ describe("buildEntityPeriodBlocks — tableau", () => {
     expect(r1.cells[3].v).toBe("−78,3 %");
     expect(r1.cells[3].sub).toBe("sur le CA de la famille Coffee — effet prouvé");
     expect(r2.cells[2].v).toBe("en cours");
-    expect(b.prose).toBe("Sur la période : 1 verdict rendu, 0 objectif atteint, 1 en cours · écart CA cumulé des fenêtres mesurées : −400 €.");
+    expect(b.prose).toBe("Sur la période : 1 verdict rendu, 0 objectif atteint, 1 en cours · écart CA cumulé des fenêtres mesurées : −400 € · coûts saisis : 120 € · net après coûts : −520 €.");
     expect(b.prose).not.toMatch(/moyenne|manqué pour/i);
   });
 });
@@ -59,7 +59,7 @@ describe("bilan de série — échelle de la vente", () => {
     entity: { kind: "operation", id: "s1", name: "Corner de vente producteur", families: [] },
     start: "2026-06-01", end: "2026-08-31",
     serie: {
-      occurrences: [], judged, kept: 1, open_count: 0, gap_eur_sum: 480,
+      occurrences: [], judged, kept: 1, open_count: 0, gap_eur_sum: 480, cost_sum: null, net_eur: null,
     },
     funnel: {
       occ_days: 3, base_days: 18,

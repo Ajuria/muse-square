@@ -185,6 +185,7 @@ export const EVOL_COPY = {
   vform_res: "Ressource(s)",
   vform_plus: "Le plus du dispositif",
   vform_why: "Pourquoi ça va marcher",
+  vform_cost: "Coût de l'opération (€) — optionnel",
   move_stop: "Arrêter",
   move_stop_d: "Abandonner cette action — clôture, la carte revient à piloter.",
   diag_move_note_q: "Qu'avez-vous changé ?",

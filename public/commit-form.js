@@ -68,6 +68,9 @@
       + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Levier</div>'
         + suggestionsHtml(opts.suggestions)
         + '<textarea data-cm-action placeholder="' + (Array.isArray(opts.suggestions) && opts.suggestions.length ? "Choisissez une suggestion ci-dessus ou décrivez votre action" : "Ce que vous allez faire") + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:52px;box-sizing:border-box;">' + escapeHtml(action) + "</textarea></div>"
+      + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Co\u00fbt de l\u2019op\u00e9ration (\u20ac) \u2014 optionnel</div>'
+        + '<input data-cm-cost type="number" min="0" step="10" value="' + escapeHtml(pre.operation_cost_eur != null ? String(pre.operation_cost_eur) : "") + '" style="width:120px;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;text-align:right;" />'
+        + '</div>'
       + '<div style="margin-bottom:14px;">' + '<div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Ressource(s)</div>'
         + '<input data-cm-resources value="' + escapeHtml(pre.dispositif_resources != null ? String(pre.dispositif_resources) : "") + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;" />' + '</div>'
       + '<div style="margin-bottom:14px;">' + '<div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Le plus du dispositif</div>'
@@ -402,6 +405,7 @@
           dispositif_plus: (function () { var el = container.querySelector('[data-cm-plus]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),
           dispositif_why: (function () { var el = container.querySelector('[data-cm-why]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),
           dispositif_resources: (function () { var el = container.querySelector('[data-cm-resources]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),
+          operation_cost_eur: (function () { var el = container.querySelector('[data-cm-cost]'); var n = el ? parseFloat(el.value) : NaN; return isFinite(n) && n >= 0 ? n : null; })(),
           creation_residual_pct: origin.creation_residual_pct != null ? Number(origin.creation_residual_pct) : null,
           creation_residual_z: origin.creation_residual_z != null ? Number(origin.creation_residual_z) : null,
           creation_confidence_tier: origin.creation_confidence_tier || null,

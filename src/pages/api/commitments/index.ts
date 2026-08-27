@@ -254,6 +254,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           parent_commitment_id: _pParentId,
           dispositif_id: _pLineage.dispositif_id,
           version_no: _pLineage.version_no,
+          operation_cost_eur: body.operation_cost_eur != null && Number.isFinite(Number(body.operation_cost_eur)) && Number(body.operation_cost_eur) >= 0 && Number(body.operation_cost_eur) <= 1000000
+            ? Math.round(Number(body.operation_cost_eur) * 100) / 100 : null,
         } as any,
       } as any);
       return json({ ok: true, commitment_id: row.commitment_id, dispositif_id: (row as any).dispositif_id, version_no: (row as any).version_no });
@@ -454,6 +456,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       dispositif_nature: _nature,
       attached_pole_id: _attachedPoleId,
       pole_families: null,
+      // Coût de l'opération (ROI) : saisi, optionnel — jamais hérité en silence.
+      operation_cost_eur: body.operation_cost_eur != null && Number.isFinite(Number(body.operation_cost_eur)) && Number(body.operation_cost_eur) >= 0 && Number(body.operation_cost_eur) <= 1000000
+        ? Math.round(Number(body.operation_cost_eur) * 100) / 100 : null,
       // Gel de l'enjeu d'origine (26/07) : les champs VERBATIM de la pill de la carte — la page
       // évolution les rend tels quels (jamais recalculés, jamais reformulés). Null si la carte
       // d'origine ne portait pas d'enjeu (absence honnête → pas de bloc sur la page).

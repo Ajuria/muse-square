@@ -41,3 +41,10 @@ describe("commitmentEffect — l'effet se lit sur le KPI choisi", () => {
     expect(e.kpi_mention_fr).toBe("sur les ventes");
   });
 });
+
+it("un measured_metric HORS registre retombe sur le référentiel CA — jamais un crash (sonde 27/08)", () => {
+  const eff = commitmentEffect({ measured_metric: "revenue", window_residual_pct: -18.2, window_residual_z: -0.9 });
+  expect(eff.kpi).toBe("revenue_residual");
+  expect(eff.pct).toBe(-18.2);
+  expect(eff.kpi_mention_fr).toBe("");
+});

@@ -12,7 +12,7 @@
 // z = (kpi_window_value − kpi_baseline) / kpi_noise_se — kpi_noise_se est la SE journalière
 // VIF-corrigée écrite par commitmentResolve, et la porte officielle de kpiVerdict est 1×SE :
 // le seuil de preuve |z| >= 1 (lexique l.17) est donc LE MÊME dans les deux régimes.
-import { kpiLe, type KpiKey } from "./kpiRegistry";
+import { kpiLe, KPI_LABEL_FR, type KpiKey } from "./kpiRegistry";
 
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
 const num = (v: any): number | null => {
@@ -30,7 +30,11 @@ export interface CommitmentEffect {
 }
 
 export function commitmentEffect(row: any): CommitmentEffect {
-  const kpi = (String(flat(row.measured_metric) ?? "") || "revenue_residual") as KpiKey;
+  const rawKpi = String(flat(row.measured_metric) ?? "") || "revenue_residual";
+  // ROBUSTESSE (bug attrapé par sonde 27/08) : un metric HORS registre (legacy « revenue »,
+  // valeur libre) faisait crasher kpiLe — et donc toute la réponse. Inconnu → référentiel CA
+  // (window_residual_*), jamais un 500.
+  const kpi = (KPI_LABEL_FR[rawKpi as KpiKey] ? rawKpi : "revenue_residual") as KpiKey;
   if (kpi === "revenue_residual") {
     return { pct: num(row.window_residual_pct), z: num(row.window_residual_z), kpi, kpi_mention_fr: "" };
   }

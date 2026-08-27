@@ -871,6 +871,16 @@
     var received = series.filter(function (d) { return d.has_data; });
     var windowHoliday = ctx.school_days > 0 || series.some(function (d) { return d.is_school_holiday; });
 
+    // Cout de l'operation (ROI, 27/08) : ligne factuelle sous l'en-tete ; le net ne se dit que
+    // quand la fenetre est MESUREE (actual + expected presents) — jamais un net sur du vide.
+    var costLine = '';
+    if (cm.operation_cost_eur != null) {
+      var _cAct = cm.window_actual_revenue != null ? Number(cm.window_actual_revenue) : null;
+      var _cExp = cm.window_expected_revenue != null ? Number(cm.window_expected_revenue) : null;
+      var _net = (_cAct != null && _cExp != null) ? Math.round(_cAct - _cExp - Number(cm.operation_cost_eur)) : null;
+      costLine = '<div style="font-size:12px;color:#6b7280;margin-top:4px;">Co\u00fbt de l\u2019op\u00e9ration : ' + Number(cm.operation_cost_eur).toLocaleString('fr-FR') + ' \u20ac'
+        + (_net != null ? ' \u00b7 net apr\u00e8s co\u00fbt : ' + (_net >= 0 ? '+' : '\u2212') + Math.abs(_net).toLocaleString('fr-FR') + ' \u20ac' : '') + '</div>';
+    }
     var aggPct;
     if (cm.window_residual_pct != null) aggPct = Number(cm.window_residual_pct);
     else if (received.length) aggPct = received.reduce(function (s, d) { return s + d.residual_pct; }, 0) / received.length;
@@ -903,6 +913,7 @@
       + '<div style="' + (_siteNmHdSpan ? 'display:flex;align-items:baseline;' : '') + 'font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Engagement' + _siteNmHdSpan + '</div>'
       + '<div style="font-size:21px;font-weight:600;margin-top:5px;line-height:1.3;">' + esc(cm.committed_action_text || '—') + '</div>'
       + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + sub + '</div>'
+      + costLine
       + (_ownerDate ? '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + _ownerDate + '</div>' : '')
       + '</div>';
 
@@ -1337,6 +1348,7 @@
         + lab(t('vform_resp')) + '<input data-vform-resp data-cm-owner value="' + esc(cm.owner_person_name || '') + '" style="' + inp + '" />'
         + '<div data-cm-owner-sugg style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;"></div>'
         + lab(t('vform_res')) + '<input data-vform-res value="' + esc(cm.dispositif_resources || '') + '" style="' + inp + '" />'
+        + lab(t('vform_cost')) + '<div style="display:flex;align-items:center;gap:6px;"><input data-vform-cost type="number" min="0" step="10" value="' + (cm.operation_cost_eur != null ? esc(String(cm.operation_cost_eur)) : '') + '" style="width:120px;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;text-align:right;" /><span style="font-size:12px;color:#6b7280;">\u20ac</span></div>'
         + lab(t('vform_plus')) + '<textarea data-vform-plus style="' + inp + 'resize:none;min-height:48px;">' + esc(cm.dispositif_plus || '') + '</textarea>'
         + lab(t('vform_why')) + '<textarea data-vform-why style="' + inp + 'resize:none;min-height:48px;">' + esc(cm.dispositif_why || '') + '</textarea>'
         + '</div>';

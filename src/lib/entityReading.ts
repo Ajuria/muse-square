@@ -29,6 +29,7 @@ export interface OccurrenceReading {
   effect_proven: boolean;
   kpi_mention_fr: string;        // « sur le CA famille », vide pour le CA
   gap_eur: number | null;        // window_actual − window_expected (référentiel CA seulement)
+  cost_eur: number | null;       // coût saisi de l'occurrence (jamais déduit)
 }
 
 export interface SerieOrPersonReading {
@@ -37,6 +38,8 @@ export interface SerieOrPersonReading {
   kept: number;                  // objectifs atteints (isKeptVerdict)
   open_count: number;
   gap_eur_sum: number | null;    // somme des écarts € des fenêtres MESURÉES en CA ; null si aucune
+  cost_sum: number | null;       // somme des coûts SAISIS ; null si aucun
+  net_eur: number | null;        // écart CA mesuré − coûts ; null tant qu'un des deux manque
 }
 
 export interface EntityPeriodReading {
@@ -62,7 +65,7 @@ async function readOccurrences(
     query: `
       SELECT c.commitment_id, c.status, c.verdict, c.measured_metric, c.committed_action_text, c.owner_person_name,
              c.window_residual_pct, c.window_residual_z, c.kpi_baseline, c.kpi_window_value, c.kpi_delta_pct, c.kpi_noise_se,
-             c.window_actual_revenue, c.window_expected_revenue,
+             c.window_actual_revenue, c.window_expected_revenue, c.operation_cost_eur,
              CAST(c.window_start AS STRING) AS window_start, CAST(c.window_end AS STRING) AS window_end,
              si.kpi_family
       FROM (
@@ -96,16 +99,22 @@ async function readOccurrences(
       effect_proven: eff.z != null && Math.abs(eff.z) >= 1,
       kpi_mention_fr: eff.kpi_mention_fr ?? "",
       gap_eur: Number.isFinite(act) && Number.isFinite(exp) ? Math.round(act - exp) : null,
+      cost_eur: r.operation_cost_eur != null && Number.isFinite(Number(flat(r.operation_cost_eur))) ? Number(flat(r.operation_cost_eur)) : null,
     };
   });
   const judgedRows = occurrences.filter((o) => o.status === "resolved" && o.verdict && o.verdict !== "confounded");
   const gaps = occurrences.filter((o) => o.status === "resolved" && o.gap_eur != null);
+  const costs = occurrences.filter((o) => o.cost_eur != null);
   return {
     occurrences,
     judged: judgedRows.length,
     kept: judgedRows.filter((o) => isKeptVerdict(o.verdict)).length,
     open_count: occurrences.filter((o) => o.status === "open").length,
     gap_eur_sum: gaps.length ? gaps.reduce((s2, o) => s2 + (o.gap_eur as number), 0) : null,
+    cost_sum: costs.length ? Math.round(costs.reduce((s2, o) => s2 + (o.cost_eur as number), 0)) : null,
+    net_eur: gaps.length && costs.length
+      ? Math.round(gaps.reduce((s2, o) => s2 + (o.gap_eur as number), 0) - costs.reduce((s2, o) => s2 + (o.cost_eur as number), 0))
+      : null,
   };
 }
 
@@ -117,7 +126,7 @@ async function readOccurrences(
 // Planchers : ≥ 2 jours d'occurrence et ≥ 5 comparables, sinon écart null. Repeat-buy : non
 // mesurable sans grain client — jamais simulé.
 export interface FunnelStepReading {
-  step: "visitors" | "conversion" | "transactions" | "basket";
+  step: "visitors" | "conversion" | "transactions" | "basket" | "revenue";
   occ_value: number | null;    // valeur moyenne pendant l'opération
   base_value: number | null;   // votre résultat habituel (jours comparables)
   delta_pct: number | null;    // écart RELATIF en % (règle owner : % ou €, jamais autre chose)
@@ -143,7 +152,7 @@ export async function readSerieFunnel(
       ),
       perf AS (
         SELECT DATE(p.date) AS d,
-               p.daily_visitors, p.daily_conversion_rate, p.daily_transactions, p.daily_avg_basket,
+               p.daily_visitors, p.daily_conversion_rate, p.daily_transactions, p.daily_avg_basket, p.daily_revenue,
                EXTRACT(DAYOFWEEK FROM p.date) AS dow,
                DATE(p.date) IN (SELECT d FROM occ) AS is_occ
         FROM \`${PROJECT}.semantic.vw_insight_event_client_performance\` p
@@ -164,6 +173,9 @@ export async function readSerieFunnel(
         AVG(IF(is_occ, daily_avg_basket, NULL)) AS b_occ, COUNTIF(is_occ AND daily_avg_basket IS NOT NULL) AS b_occ_n,
         AVG(IF(NOT is_occ AND dow IN (SELECT dow FROM dows), daily_avg_basket, NULL)) AS b_base,
         COUNTIF(NOT is_occ AND dow IN (SELECT dow FROM dows) AND daily_avg_basket IS NOT NULL) AS b_base_n,
+        AVG(IF(is_occ, daily_revenue, NULL)) AS r_occ, COUNTIF(is_occ AND daily_revenue IS NOT NULL) AS r_occ_n,
+        AVG(IF(NOT is_occ AND dow IN (SELECT dow FROM dows), daily_revenue, NULL)) AS r_base,
+        COUNTIF(NOT is_occ AND dow IN (SELECT dow FROM dows) AND daily_revenue IS NOT NULL) AS r_base_n,
         (SELECT COUNT(*) FROM occ) AS occ_total
       FROM perf`,
     params: { loc: location_id, sid: saved_item_id, pStart: bq.date(start), pEnd: bq.date(wEnd) },
@@ -191,10 +203,11 @@ export async function readSerieFunnel(
       mk("conversion", "c_occ", "c_base"),
       mk("transactions", "t_occ", "t_base"),
       mk("basket", "b_occ", "b_base"),
+      mk("revenue", "r_occ", "r_base"),
     ],
     // Le résumé = le MAX des étapes (les étapes sans capteur comptent 0 jours).
-    occ_days: Math.max(...["v", "c", "t", "b"].map((x) => Number(flat(r0[x + "_occ_n"])) || 0)),
-    base_days: Math.max(...["v", "c", "t", "b"].map((x) => Number(flat(r0[x + "_base_n"])) || 0)),
+    occ_days: Math.max(...["v", "c", "t", "b", "r"].map((x) => Number(flat(r0[x + "_occ_n"])) || 0)),
+    base_days: Math.max(...["v", "c", "t", "b", "r"].map((x) => Number(flat(r0[x + "_base_n"])) || 0)),
   };
 }
 
@@ -309,7 +322,7 @@ export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlo
     ] };
   });
   const totals = s2.occurrences.length
-    ? `Sur la période : ${s2.judged} verdict${s2.judged > 1 ? "s" : ""} rendu${s2.judged > 1 ? "s" : ""}, ${s2.kept} objectif${s2.kept > 1 ? "s" : ""} atteint${s2.kept > 1 ? "s" : ""}${s2.open_count ? `, ${s2.open_count} en cours` : ""}${s2.gap_eur_sum != null ? ` · écart CA cumulé des fenêtres mesurées : ${s2.gap_eur_sum >= 0 ? "+" : "−"}${frEur(Math.abs(s2.gap_eur_sum))} €` : ""}.`
+    ? `Sur la période : ${s2.judged} verdict${s2.judged > 1 ? "s" : ""} rendu${s2.judged > 1 ? "s" : ""}, ${s2.kept} objectif${s2.kept > 1 ? "s" : ""} atteint${s2.kept > 1 ? "s" : ""}${s2.open_count ? `, ${s2.open_count} en cours` : ""}${s2.gap_eur_sum != null ? ` · écart CA cumulé des fenêtres mesurées : ${s2.gap_eur_sum >= 0 ? "+" : "−"}${frEur(Math.abs(s2.gap_eur_sum))} €` : ""}${s2.cost_sum != null ? ` · coûts saisis : ${frEur(s2.cost_sum)} €` : ""}${s2.net_eur != null ? ` · net après coûts : ${s2.net_eur >= 0 ? "+" : "−"}${frEur(Math.abs(s2.net_eur))} €` : ""}.`
     : `Aucune opération sur cette période.`;
   // ── Échelle de la vente (bilan de série, format owner : l'unité dans le LIBELLÉ, cellules
   // nues, écarts en % ; « — » sous les planchers). Ligne de décision factuelle à ≥ 3
@@ -319,6 +332,7 @@ export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlo
     conversion: { label: "Taux de conversion", fmt: (v) => `${String(Math.round(v * 1000) / 10).replace(".", ",")} %` },
     transactions: { label: "Ventes/jour", fmt: (v) => String(Math.round(v)) },
     basket: { label: "Panier moyen", fmt: (v) => `${String(Math.round(v * 100) / 100).replace(".", ",")} €` },
+    revenue: { label: "CA/jour", fmt: (v) => `${frEur(v)} €` },
   };
   let funnel_table: { cols: any[]; rows: any[] } | null = null;
   let decision = "";

@@ -107,7 +107,8 @@
       + '<div style="' + lbl + '">Cible — l’objectif porte sur l’ÉVÉNEMENT ; le total du jour en est la conséquence</div>'
       + '<div style="display:flex;gap:8px;align-items:center;font-size:12.5px;color:#111827;flex-wrap:wrap;">'
       + '<span data-ef-tglabel>Cible :</span><input data-ef="target" value="15" style="' + inp + 'width:80px;display:inline-block;text-align:right;padding:6px;"><span data-ef-tgunit>%</span></div>'
-      + '<div data-ef-cible style="font-size:12.5px;color:#374151;margin-top:6px;line-height:1.5;"></div></div>'
+      + '<div data-ef-cible style="font-size:12.5px;color:#374151;margin-top:6px;line-height:1.5;"></div>'
+      + '<div style="margin-top:8px;font-size:12.5px;color:#374151;">Co\u00fbt de l\u2019op\u00e9ration : <input data-ef="cost" type="number" min="0" step="10" style="' + inp + 'width:90px;display:inline-block;text-align:right;padding:6px;"> \u20ac <span style="color:#9CA3AF;">(optionnel \u2014 le bilan rendra le net)</span></div></div>'
       + '<div style="margin-top:12px;"><label style="' + lbl + '">Répéter</label>'
       + '<span data-ef-repseg style="display:inline-flex;border:1px solid #1D3BB3;border-radius:8px;overflow:hidden;">'
       + '<button type="button" data-ef-rep="none" style="' + segB + 'background:#1D3BB3;color:#fff;">Aucune</button>'
@@ -560,6 +561,7 @@
                 location_id: loc, origin_action_type: "event_" + val("type"), saved_item_id: j.saved_item_id,
                 event_kpi: kpi, kpi_family: kpi === "family_revenue" ? val("family") : null,
                 attached_pole_id: val("pole") || null,
+                operation_cost_eur: (function () { var n = parseFloat(val("cost")); return isFinite(n) && n >= 0 ? n : null; })(),
                 window_kind: "day_of", window_start_date: j.occurrences[0],
                 threshold_basis: "pct", threshold_pct: pct,
                 committed_action_text: title + " — " + dispositif,

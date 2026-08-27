@@ -135,6 +135,10 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["dispositif_nature", "STRING"],
   ["pole_families", "STRING"],
   ["attached_pole_id", "STRING"],
+  // COÛT DE L'OPÉRATION (27/08 soir, chantier ROI) — saisi par l'utilisateur au grain VERSION,
+  // optionnel, JAMAIS déduit ni hérité en silence (un coût fabriqué maquillerait le net). Le
+  // bilan rend le NET en € (écart CA mesuré − coûts), jamais un ratio.
+  ["operation_cost_eur", "FLOAT64"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -225,6 +229,7 @@ export interface CommitmentRow {
   dispositif_nature: string | null;
   pole_families: string | null;
   attached_pole_id: string | null;
+  operation_cost_eur: number | null;  // coût saisi (€) — jamais déduit
 }
 
 // The columns that make a commitment a commitment. Any write (create OR later

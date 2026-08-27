@@ -184,3 +184,15 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
     expect(html.toLowerCase()).not.toContain(banned.toLowerCase());
   }
 });
+
+it("coût de l'opération (ROI) : la ligne rend le coût, et le net SEULEMENT quand la fenêtre est mesurée", () => {
+  const data: any = baseData();
+  data.commitment.operation_cost_eur = 120;
+  const open = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(open).toContain("Coût de l’opération : 120 €");
+  expect(open).not.toContain("net après coût");
+  data.commitment.window_actual_revenue = 900;
+  data.commitment.window_expected_revenue = 1100;
+  const measured = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(measured).toContain("Coût de l’opération : 120 € · net après coût : −320 €");
+});

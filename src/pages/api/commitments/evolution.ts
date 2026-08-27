@@ -264,6 +264,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       verdict_basis: snap.verdict_basis ?? null,
       kpi_noise_se: snap.kpi_noise_se != null ? Number(flat(snap.kpi_noise_se)) : null,
       execution_quality: snap.execution_quality,  // self-reported run quality (routes the advice)
+      // Coût de l'opération (ROI, 27/08) : saisi, affiché tel quel — le net se dit sur la page.
+      operation_cost_eur: (snap as any).operation_cost_eur != null ? Number(flat((snap as any).operation_cost_eur)) : null,
       // Enjeu d'origine gelé à la création (26/07) — rendu VERBATIM par le bloc Enjeu du doc
       // (tier_label_fr tel quel : pill et page alignées par construction). Null → pas de bloc.
       creation_enjeu_eur_year: snap.creation_enjeu_eur_year != null ? Number(flat(snap.creation_enjeu_eur_year)) : null,
