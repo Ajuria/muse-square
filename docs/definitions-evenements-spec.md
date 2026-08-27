@@ -77,7 +77,7 @@ SA variable — les deux moteurs ne doivent jamais se lire comme une seule affir
 
 Chacun a été vérifié dans le fichier, pas déduit d'un nom.
 
-### D1 — `ambient_index` porte un label FAUX, contredit par sa propre phrase, côte à côte à l'écran
+### D1 — RÉSOLU le 27/08 (une autre session) — `ambient_index` portait un label FAUX
 
 `src/lib/insightFamilies/competitor.ts:82` :
 ```ts
@@ -90,7 +90,14 @@ ambient_index: "Pression locale même secteur (indice)",
 La variable est `competition_index_local` — **sans aucun filtre de secteur** (`lexique.md:48`).
 Le label dit « même secteur » : c'est faux. Il dit « pression » : mot **banni** pour cette source.
 Les deux s'affichent **l'un au-dessus de l'autre** dans `msImpactBlock` (`card-kit.js:308`) :
-l'utilisateur lit la contradiction en un coup d'œil. Sévérité maximale — c'est du B vendu comme A.
+l'utilisateur lisait la contradiction en un coup d'œil.
+
+**Corrigé le 27/08** : le label est devenu `"Activité dans votre périmètre (indice)"` — exactement
+le mot que `lexique.md:48` réserve à cette source. Cause de survie identifiée au passage :
+`insightFamilies/competitor.ts` n'était pas dans les `SURFACES` du garde-fou de copie ; il y entre.
+**Conséquence pour le trou 1 ci-dessous** : « activité dans votre périmètre » est désormais PRIS par
+l'INDICE. Le mot du grain LISTE d'événements doit donc s'en distinguer — ma proposition
+« Activité autour de vous » reste valide et le fait, mais les deux ne peuvent plus fusionner.
 
 ### D2 — Le volet « Événements publics autour de vous » est déjà filtré même-secteur
 
