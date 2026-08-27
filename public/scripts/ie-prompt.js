@@ -955,8 +955,11 @@ if (!root) {
     // des CARTES construites SERVEUR (pole_cards / dated_cards, via ai.output) : rendu verbatim
     // en datecards (pill = les résultats du pôle ; ambre = verdict imminent), la prose garde le
     // reste. Sans cartes, le chemin générique reste strictement inchangé.
-    if (producer === "deterministic_engagements_v1"
-        && ((Array.isArray(n.pole_cards) && n.pole_cards.length) || (Array.isArray(n.dated_cards) && n.dated_cards.length))) {
+    // Paramétrée sur la PRÉSENCE des cartes serveur (jamais sur un producteur codé en dur) :
+    // journal (deterministic_engagements_v1) ET lectures d'entité sur période
+    // (deterministic_entity_period_v1) rendent par la même branche — seul le serveur écrit
+    // ces champs, un producteur groundé ne les porte jamais.
+    if ((Array.isArray(n.pole_cards) && n.pole_cards.length) || (Array.isArray(n.dated_cards) && n.dated_cards.length)) {
       if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
       if (Array.isArray(n.pole_cards) && n.pole_cards.length) {
         blocks.push({ type: "headline", text: n.pole_section_title || "Vos p\u00f4les" });

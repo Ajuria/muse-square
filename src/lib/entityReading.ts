@@ -134,3 +134,67 @@ export async function readEntityPeriod(
   );
   return { entity, start, end, serie };
 }
+
+// ── Blocs de la réponse déterministe (C4) — UNE formulation période, un seul foyer. ────────────
+// Cartes pour pôle/famille (le patron datecards du journal, pill = les résultats de LA période) ;
+// prose pour série/personne (verdicts l.21, effet par occurrence dans SON KPI, sommes € CA seul).
+
+const frD = (iso: string | null): string => {
+  const d = String(iso || "").slice(0, 10);
+  return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : "";
+};
+const frEur = (v: number): string => Math.round(v).toLocaleString("fr-FR");
+const frPct1 = (v: number): string => `${v >= 0 ? "+" : "−"}${String(Math.abs(v)).replace(".", ",")} %`;
+
+export function periodLabelFr(start: string, end: string): string {
+  return `du ${frD(start)} au ${frD(end)}`;
+}
+
+export interface EntityPeriodBlocks {
+  headline: string;
+  prose: string;
+  card: any | null; // item datecards (label/pill/tip/rows) — pôle et famille seulement
+}
+
+export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlocks {
+  const per = periodLabelFr(r.start, r.end);
+  const headline = `${r.entity.kind === "famille" ? `Famille ${r.entity.name}` : r.entity.name} — ${per}`;
+  if (r.pole) {
+    const t = r.pole.totals;
+    const measurable = t.rev30_eur != null && t.share_pct != null;
+    const famLine = r.pole.families
+      .map((f) => (f.delta_pct != null ? `${f.family} ${frPct1(f.delta_pct)}` : f.family))
+      .join(" · ");
+    const openOps = r.pole.operations.filter((o) => o.status === "open");
+    const rows: any[] = [];
+    if (famLine && r.entity.kind === "pole") rows.push({ k: "Familles", v: famLine });
+    if (openOps.length) rows.push({
+      k: "Opérations en cours",
+      v: openOps.map((o) => `${String(o.committed_action_text || "").split(" — ")[0]} (${frD(o.window_start)})`).join(" · "),
+    });
+    const card: any = { label: headline, rows };
+    if (measurable) {
+      card.pill = `${frEur(t.rev30_eur!)} € (${t.n30} j vendus) · ${String(t.share_pct).replace(".", ",")} % du CA`
+        + (t.delta_pct != null ? ` · ${frPct1(t.delta_pct)} vs la même durée précédente` : "");
+    } else {
+      card.pill = "Données insuffisantes ⓘ";
+      card.tip = `${t.n30} jour${t.n30 > 1 ? "s" : ""} vendu${t.n30 > 1 ? "s" : ""} sur la période — la comparaison demande au moins 5 jours vendus de chaque côté.`;
+    }
+    return { headline, prose: "", card };
+  }
+  const s2 = r.serie!;
+  const lines = s2.occurrences.map((o) => {
+    const when = o.window_start === o.window_end ? `Le ${frD(o.window_start)}` : `Du ${frD(o.window_start)} au ${frD(o.window_end)}`;
+    if (o.status === "open") return `${when} : « ${o.name} » — en cours.`;
+    const verdictFr = o.verdict === "confounded" ? "non concluant"
+      : isKeptVerdict(o.verdict) ? "objectif atteint" : "objectif manqué";
+    const eff = o.effect_pct != null
+      ? ` ${frPct1(o.effect_pct)}${o.kpi_mention_fr ? ` ${o.kpi_mention_fr}` : ""}${o.effect_proven ? " (effet prouvé)" : ""}.`
+      : "";
+    return `${when} : « ${o.name} » — ${verdictFr}.${eff}`;
+  });
+  const totals = s2.occurrences.length
+    ? `Sur la période : ${s2.judged} verdict${s2.judged > 1 ? "s" : ""} rendu${s2.judged > 1 ? "s" : ""}, ${s2.kept} objectif${s2.kept > 1 ? "s" : ""} atteint${s2.kept > 1 ? "s" : ""}${s2.open_count ? `, ${s2.open_count} en cours` : ""}${s2.gap_eur_sum != null ? ` · écart CA cumulé des fenêtres mesurées : ${s2.gap_eur_sum >= 0 ? "+" : "−"}${frEur(Math.abs(s2.gap_eur_sum))} €` : ""}.`
+    : `Aucune opération sur cette période.`;
+  return { headline, prose: [...lines, totals].join("\n\n"), card: null };
+}

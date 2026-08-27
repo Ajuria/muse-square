@@ -38,6 +38,8 @@ import { makeBQClient } from "../../../lib/bq";
 import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
 import { listClassDispositifs } from "../../../lib/bestPractices";
 import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
+import { loadSiteEntities, matchEntities } from "../../../lib/entityResolver";
+import { readEntityPeriod, buildEntityPeriodBlocks } from "../../../lib/entityReading";
 import { journalPlan } from "../../../lib/journalPlan";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
@@ -86,7 +88,7 @@ function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: Fa
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1" || producer === "deterministic_engagements_elicit_v1") return null;
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1" || producer === "deterministic_engagements_elicit_v1" || producer === "deterministic_entity_period_elicit_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -2539,6 +2541,50 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         ENGAGEMENTS_ELICIT_FR,
         "deterministic_engagements_elicit_v1",
       );
+    }
+
+    // ── ENTITÉ × PÉRIODE LIBRE (horizons libres, 27/08) — « le pôle traiteur depuis
+    // janvier », « la famille Coffee cet été », « les opérations de Camille en août ».
+    // Conditions STRICTES : une période parsée (frPeriod, le SST) ET une entité RÉELLE du
+    // compte reconnue (entityResolver — jamais une devinette). La réponse est DÉTERMINISTE
+    // (lecture entityReading : mêmes foyers que les pages, effets dans LE KPI déclaré de
+    // chaque occurrence) ; cartes datecards pour pôle/famille, prose pour série/personne.
+    // Les branches déterministes ci-dessus (journal, fiches, événements) passent AVANT.
+    {
+      const _epToday = new Date().toISOString().slice(0, 10);
+      const _epPeriod = resolveFrPeriod(qRaw, { today: _epToday, yearBias: "past" });
+      if (_epPeriod) {
+        const _bqe = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+        const _epSite = await loadSiteEntities(_bqe, location_id, String(clerk_user_id || ""));
+        const _epMatches = matchEntities(qRaw, _epSite);
+        if (_epMatches.length) {
+          const _epEnt = _epMatches[0];
+          const _epReading = await readEntityPeriod(_bqe, location_id, _epEnt, _epPeriod.start, _epPeriod.end, _epToday);
+          const _epBlocks = buildEntityPeriodBlocks(_epReading);
+          return sysDialogueResponse(
+            _epBlocks.headline,
+            _epBlocks.prose,
+            "deterministic_entity_period_v1",
+            null,
+            _epBlocks.card ? { pole_cards: [_epBlocks.card] } : null,
+          );
+        }
+        // D2 — l'entité nommée est introuvable : élicitation avec les LISTES RÉELLES du site,
+        // jamais une devinette. Seulement quand la question NOMME un pôle ou une famille.
+        if (/\bp[oô]les?\b/i.test(qRaw) || /\bfamille\b/i.test(qRaw)) {
+          const _poleNames = _epSite.entities.filter((e) => e.kind === "pole").map((e) => e.name);
+          const _famNames = _epSite.entities.filter((e) => e.kind === "famille").map((e) => e.name).slice(0, 8);
+          const _lists = [
+            _poleNames.length ? `Vos pôles : ${_poleNames.join(", ")}.` : "Vous n'avez pas encore de pôle déclaré.",
+            _famNames.length ? `Vos familles : ${_famNames.join(", ")}.` : "",
+          ].filter(Boolean).join(" ");
+          return sysDialogueResponse(
+            "Je ne trouve pas cette entité",
+            `Je ne trouve ni pôle ni famille de ce nom sur ce site. ${_lists}`,
+            "deterministic_entity_period_elicit_v1",
+          );
+        }
+      }
     }
 
     // ── VOS ÉVÉNEMENTS (incrément 6, 04/08) — une question POSSESSIVE sur les événements de
