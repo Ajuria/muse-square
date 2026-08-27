@@ -44,7 +44,10 @@ export interface UserEvenementRow {
   n_occurrences: number; next_date: string | null;
   last_measured: { date: string; revenue: number; expected: number; gap_eur: number } | null;
 }
-export async function listUserEvenements(bq: any, location_id: string, clerk_user_id: string, limit = 6): Promise<UserEvenementRow[]> {
+// clerk_user_id NULL = lecture SITE entière (loi owner 27/08 : un suivi appartient à un site,
+// jamais à un user seul — le résolveur d'entités lit le site ; les vues « mes événements »
+// gardent leur filtre user en passant l'id).
+export async function listUserEvenements(bq: any, location_id: string, clerk_user_id: string | null, limit = 6): Promise<UserEvenementRow[]> {
   try {
     const today = ymdToday();
     const [rows] = await bq.query({
@@ -53,10 +56,12 @@ export async function listUserEvenements(bq: any, location_id: string, clerk_use
               FROM \`${PROJECT}.raw.saved_items\` si
               JOIN \`${PROJECT}.raw.saved_item_dates\` d
                 ON d.saved_item_id = si.saved_item_id AND d.location_id = si.location_id
-              WHERE si.location_id = @location_id AND si.clerk_user_id = @clerk_user_id
+              WHERE si.location_id = @location_id
+                AND (@clerk_user_id IS NULL OR si.clerk_user_id = @clerk_user_id)
               GROUP BY 1, 2, 3, 4
               LIMIT ${Math.max(1, Math.min(limit, 12))}`,
-      params: { location_id, clerk_user_id }, location: "EU",
+      params: { location_id, clerk_user_id: clerk_user_id || null },
+      types: { location_id: "STRING", clerk_user_id: "STRING" }, location: "EU",
     });
     if (!rows?.length) return [];
     const evs = (rows as any[]).map((r) => ({

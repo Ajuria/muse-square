@@ -53,3 +53,41 @@ describe("buildEntityPeriodBlocks — tableau", () => {
     expect(b.prose).not.toMatch(/moyenne|manqué pour/i);
   });
 });
+
+describe("bilan de série — échelle de la vente", () => {
+  const serieWithFunnel = (judged: number): EntityPeriodReading => ({
+    entity: { kind: "operation", id: "s1", name: "Corner de vente producteur", families: [] },
+    start: "2026-06-01", end: "2026-08-31",
+    serie: {
+      occurrences: [], judged, kept: 1, open_count: 0, gap_eur_sum: 480,
+    },
+    funnel: {
+      occ_days: 3, base_days: 18,
+      steps: [
+        { step: "visitors", occ_value: null, base_value: null, delta_pct: null, occ_days: 0, base_days: 0 },
+        { step: "conversion", occ_value: 0.081, base_value: 0.083, delta_pct: -2.4, occ_days: 3, base_days: 18 },
+        { step: "transactions", occ_value: 391, base_value: 228.7, delta_pct: 70.9, occ_days: 3, base_days: 18 },
+        { step: "basket", occ_value: 4.87, base_value: 4.86, delta_pct: 0.3, occ_days: 3, base_days: 18 },
+      ],
+    },
+  });
+  it("le tableau : unité dans le LIBELLÉ, cellules nues, étapes sans capteur absentes, « — » sous plancher", () => {
+    const b = buildEntityPeriodBlocks(serieWithFunnel(3));
+    const labels = b.funnel_table!.rows.map((r: any) => r.cells[0].v);
+    expect(labels).toEqual(["Taux de conversion", "Ventes/jour", "Panier moyen"]); // visitors sans capteur = absent
+    const conv = b.funnel_table!.rows[0];
+    expect(conv.cells[1].v).toBe("8,1 %");
+    expect(conv.cells[3].v).toBe("−2,4 %");
+    const ventes = b.funnel_table!.rows[1];
+    expect(ventes.cells[1].v).toBe("391");
+    expect(ventes.cells[3].v).toBe("+70,9 %");
+    expect(b.sources.join(" ")).toContain("3 jours d'opération vs 18 jours comparables");
+  });
+  it("la ligne de décision NOMME les étapes, chiffres à l'appui — et seulement à ≥ 3 verdicts", () => {
+    const b3 = buildEntityPeriodBlocks(serieWithFunnel(3));
+    expect(b3.prose).toContain("Ce qui bouge pendant l'opération : Ventes/jour +70,9 %, Panier moyen +0,3 % · ce qui ne suit pas : Taux de conversion −2,4 %.");
+    const b2 = buildEntityPeriodBlocks(serieWithFunnel(2));
+    expect(b2.prose).not.toContain("Ce qui bouge");
+    expect(b2.funnel_table).not.toBeNull(); // le tableau se montre dès 2 occurrences — seule la décision attend
+  });
+});

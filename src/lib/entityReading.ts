@@ -45,6 +45,7 @@ export interface EntityPeriodReading {
   end: string;
   pole?: { families: PoleFamilyReading[]; operations: PoleOperationRow[]; totals: PoleTotals };
   serie?: SerieOrPersonReading;
+  funnel?: { steps: FunnelStepReading[]; occ_days: number; base_days: number };
 }
 
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
@@ -108,6 +109,95 @@ async function readOccurrences(
   };
 }
 
+// ── Échelle du funnel d'une SÉRIE (bilan de série, D3 — 27/08) ─────────────────────────────────
+// OBSERVATIONNEL, jamais jugé : sur les jours d'occurrence de la série (raw.saved_item_dates),
+// chaque étape de la vente vs les jours COMPARABLES (mêmes jours de semaine, hors occurrences,
+// 90 j avant le début de période inclus). Source = la vue SEMANTIC vw_insight_event_client_
+// performance (même précédent que le bloc KPI de la page évolution — cliquet frontière intact).
+// Planchers : ≥ 2 jours d'occurrence et ≥ 5 comparables, sinon écart null. Repeat-buy : non
+// mesurable sans grain client — jamais simulé.
+export interface FunnelStepReading {
+  step: "visitors" | "conversion" | "transactions" | "basket";
+  occ_value: number | null;    // valeur moyenne pendant l'opération
+  base_value: number | null;   // votre résultat habituel (jours comparables)
+  delta_pct: number | null;    // écart RELATIF en % (règle owner : % ou €, jamais autre chose)
+  occ_days: number;
+  base_days: number;
+}
+
+export async function readSerieFunnel(
+  bq: any,
+  location_id: string,
+  saved_item_id: string,
+  start: string,
+  end: string,
+  todayIso: string,
+): Promise<{ steps: FunnelStepReading[]; occ_days: number; base_days: number }> {
+  const wEnd = end < todayIso ? end : todayIso;
+  const rows = await bq.query({
+    query: `
+      WITH occ AS (
+        SELECT DATE(date) AS d FROM \`${PROJECT}.raw.saved_item_dates\`
+        WHERE saved_item_id = @sid AND location_id = @loc
+          AND DATE(date) BETWEEN @pStart AND @pEnd
+      ),
+      perf AS (
+        SELECT DATE(p.date) AS d,
+               p.daily_visitors, p.daily_conversion_rate, p.daily_transactions, p.daily_avg_basket,
+               EXTRACT(DAYOFWEEK FROM p.date) AS dow,
+               DATE(p.date) IN (SELECT d FROM occ) AS is_occ
+        FROM \`${PROJECT}.semantic.vw_insight_event_client_performance\` p
+        WHERE p.location_id = @loc
+          AND p.date BETWEEN DATE_SUB(@pStart, INTERVAL 90 DAY) AND @pEnd
+      ),
+      dows AS (SELECT DISTINCT dow FROM perf WHERE is_occ)
+      SELECT
+        AVG(IF(is_occ, daily_visitors, NULL)) AS v_occ, COUNTIF(is_occ AND daily_visitors IS NOT NULL) AS v_occ_n,
+        AVG(IF(NOT is_occ AND dow IN (SELECT dow FROM dows), daily_visitors, NULL)) AS v_base,
+        COUNTIF(NOT is_occ AND dow IN (SELECT dow FROM dows) AND daily_visitors IS NOT NULL) AS v_base_n,
+        AVG(IF(is_occ, daily_conversion_rate, NULL)) AS c_occ, COUNTIF(is_occ AND daily_conversion_rate IS NOT NULL) AS c_occ_n,
+        AVG(IF(NOT is_occ AND dow IN (SELECT dow FROM dows), daily_conversion_rate, NULL)) AS c_base,
+        COUNTIF(NOT is_occ AND dow IN (SELECT dow FROM dows) AND daily_conversion_rate IS NOT NULL) AS c_base_n,
+        AVG(IF(is_occ, daily_transactions, NULL)) AS t_occ, COUNTIF(is_occ AND daily_transactions IS NOT NULL) AS t_occ_n,
+        AVG(IF(NOT is_occ AND dow IN (SELECT dow FROM dows), daily_transactions, NULL)) AS t_base,
+        COUNTIF(NOT is_occ AND dow IN (SELECT dow FROM dows) AND daily_transactions IS NOT NULL) AS t_base_n,
+        AVG(IF(is_occ, daily_avg_basket, NULL)) AS b_occ, COUNTIF(is_occ AND daily_avg_basket IS NOT NULL) AS b_occ_n,
+        AVG(IF(NOT is_occ AND dow IN (SELECT dow FROM dows), daily_avg_basket, NULL)) AS b_base,
+        COUNTIF(NOT is_occ AND dow IN (SELECT dow FROM dows) AND daily_avg_basket IS NOT NULL) AS b_base_n,
+        (SELECT COUNT(*) FROM occ) AS occ_total
+      FROM perf`,
+    params: { loc: location_id, sid: saved_item_id, pStart: bq.date(start), pEnd: bq.date(wEnd) },
+    location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const r0: any = (rows as any[])[0] ?? {};
+  const g = (k: string): number | null => {
+    const raw2 = flat(r0[k]);
+    if (raw2 == null) return null; // AVG de NULLs → null, jamais 0 (Number(null) vaudrait 0)
+    const v = Number(raw2);
+    return Number.isFinite(v) ? v : null;
+  };
+  const mk = (step: FunnelStepReading["step"], occK: string, baseK: string): FunnelStepReading => {
+    const occ_days = Number(flat(r0[occK + "_n"])) || 0;
+    const base_days = Number(flat(r0[baseK + "_n"])) || 0;
+    const occ = g(occK), base = g(baseK);
+    const delta = occ_days >= 2 && base_days >= 5 && base != null && base > 0 && occ != null
+      ? Math.round(((occ - base) / base) * 1000) / 10
+      : null;
+    return { step, occ_value: occ, base_value: base, delta_pct: delta, occ_days, base_days };
+  };
+  return {
+    steps: [
+      mk("visitors", "v_occ", "v_base"),
+      mk("conversion", "c_occ", "c_base"),
+      mk("transactions", "t_occ", "t_base"),
+      mk("basket", "b_occ", "b_base"),
+    ],
+    // Le résumé = le MAX des étapes (les étapes sans capteur comptent 0 jours).
+    occ_days: Math.max(...["v", "c", "t", "b"].map((x) => Number(flat(r0[x + "_occ_n"])) || 0)),
+    base_days: Math.max(...["v", "c", "t", "b"].map((x) => Number(flat(r0[x + "_base_n"])) || 0)),
+  };
+}
+
 export async function readEntityPeriod(
   bq: any,
   location_id: string,
@@ -123,8 +213,11 @@ export async function readEntityPeriod(
     return { entity, start, end, pole };
   }
   if (entity.kind === "operation") {
-    const serie = await readOccurrences(bq, location_id, "saved_item_id = @sid", { sid: String(entity.id) }, start, end);
-    return { entity, start, end, serie };
+    const [serie, funnel] = await Promise.all([
+      readOccurrences(bq, location_id, "saved_item_id = @sid", { sid: String(entity.id) }, start, end),
+      readSerieFunnel(bq, location_id, String(entity.id), start, end, todayIso),
+    ]);
+    return { entity, start, end, serie, funnel };
   }
   // personne — l'égalité stricte sur la valeur stockée, PLUS la clé courte partagée (le
   // roster écrit « Camille Robin · Vente », un engagement manuel peut porter « Camille »).
@@ -156,6 +249,7 @@ export interface EntityPeriodBlocks {
   headline: string;
   prose: string;            // totaux (série/personne) ou poids du CA (pôle/famille)
   table: { cols: any[]; rows: any[] } | null;   // format msTable — LE tableau du kit
+  funnel_table: { cols: any[]; rows: any[] } | null; // échelle de la vente (séries seulement)
   sources: string[];
 }
 
@@ -194,6 +288,7 @@ export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlo
       headline,
       prose: proseParts.join("\n\n"),
       table: { cols: [{ label: "Produit" }, { label: "Période" }, { label: "Résultat" }, { label: "Variation" }], rows },
+      funnel_table: null,
       sources: ["Vos ventes par famille (lignes de caisse)"],
     };
   }
@@ -216,10 +311,53 @@ export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlo
   const totals = s2.occurrences.length
     ? `Sur la période : ${s2.judged} verdict${s2.judged > 1 ? "s" : ""} rendu${s2.judged > 1 ? "s" : ""}, ${s2.kept} objectif${s2.kept > 1 ? "s" : ""} atteint${s2.kept > 1 ? "s" : ""}${s2.open_count ? `, ${s2.open_count} en cours` : ""}${s2.gap_eur_sum != null ? ` · écart CA cumulé des fenêtres mesurées : ${s2.gap_eur_sum >= 0 ? "+" : "−"}${frEur(Math.abs(s2.gap_eur_sum))} €` : ""}.`
     : `Aucune opération sur cette période.`;
+  // ── Échelle de la vente (bilan de série, format owner : l'unité dans le LIBELLÉ, cellules
+  // nues, écarts en % ; « — » sous les planchers). Ligne de décision factuelle à ≥ 3
+  // occurrences jugées — jamais Go/No-Go : elle NOMME les étapes, chiffres à l'appui.
+  const STEP_FR: Record<string, { label: string; fmt: (v: number) => string }> = {
+    visitors: { label: "Visiteurs/jour", fmt: (v) => String(Math.round(v)) },
+    conversion: { label: "Taux de conversion", fmt: (v) => `${String(Math.round(v * 1000) / 10).replace(".", ",")} %` },
+    transactions: { label: "Ventes/jour", fmt: (v) => String(Math.round(v)) },
+    basket: { label: "Panier moyen", fmt: (v) => `${String(Math.round(v * 100) / 100).replace(".", ",")} €` },
+  };
+  let funnel_table: { cols: any[]; rows: any[] } | null = null;
+  let decision = "";
+  if (r.funnel && r.funnel.occ_days >= 2) {
+    const frows = r.funnel.steps
+      .filter((st) => st.occ_value != null || st.base_value != null)
+      .map((st) => {
+        const f = STEP_FR[st.step];
+        return { cells: [
+          { v: f.label, bold: true },
+          { v: st.occ_value != null ? f.fmt(st.occ_value) : "—" },
+          { v: st.base_value != null ? f.fmt(st.base_value) : "—", color: "#6B7280" },
+          st.delta_pct != null
+            ? { v: frPct1(st.delta_pct), color: st.delta_pct >= 0 ? "#0F6E56" : "#B45309", bold: true }
+            : { v: "—", color: "#9CA3AF" },
+        ] };
+      });
+    if (frows.length) {
+      funnel_table = { cols: [{ label: "Étape de la vente", align: "left" }, { label: "Pendant l'opération" }, { label: "Votre résultat habituel" }, { label: "Écart" }], rows: frows };
+    }
+    if (s2.judged >= 3) {
+      const measured = r.funnel.steps.filter((st) => st.delta_pct != null);
+      const up = measured.filter((st) => st.delta_pct! > 0);
+      const down = measured.filter((st) => st.delta_pct! < 0);
+      const nameOf = (st: FunnelStepReading) => STEP_FR[st.step].label;
+      const parts: string[] = [];
+      if (up.length) parts.push(`Ce qui bouge pendant l'opération : ${up.map((st) => `${nameOf(st)} ${frPct1(st.delta_pct!)}`).join(", ")}`);
+      if (down.length) parts.push(`ce qui ne suit pas : ${down.map((st) => `${nameOf(st)} ${frPct1(st.delta_pct!)}`).join(", ")}`);
+      if (parts.length) decision = parts.join(" · ") + ".";
+    }
+  }
   return {
     headline,
-    prose: totals,
+    prose: [totals, decision].filter(Boolean).join("\n\n"),
     table: rows.length ? { cols: [{ label: "Opération" }, { label: "Dates" }, { label: "Verdict" }, { label: "Effet — dans son KPI" }], rows } : null,
-    sources: ["Vos engagements (verdicts et mesures)"],
+    funnel_table,
+    sources: [
+      "Vos engagements (verdicts et mesures)",
+      ...(r.funnel && r.funnel.occ_days >= 2 ? [`Échelle de la vente : ${r.funnel.occ_days} jours d'opération vs ${r.funnel.base_days} jours comparables (mêmes jours de semaine, hors opérations).`] : []),
+    ],
   };
 }

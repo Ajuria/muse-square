@@ -53,7 +53,8 @@ export async function loadSiteEntities(
   const [poles, familles, evenements, owners] = await Promise.all([
     listPoles(bq, location_id).catch(() => [] as PoleListRow[]),
     listSiteFamilies(bq, location_id, 30).catch(() => []),
-    listUserEvenements(bq, location_id, clerk_user_id, 30).catch(() => []),
+    // Le SITE entier (loi owner : un suivi appartient à un site) — user null exprès.
+    listUserEvenements(bq, location_id, null, 30).catch(() => []),
     bq.query({
       query: `SELECT DISTINCT owner_person_name FROM \`${PROJECT}.analytics.action_commitments\`
               WHERE location_id = @location_id AND owner_person_name IS NOT NULL

@@ -964,6 +964,9 @@ if (!root) {
     if (n.entity_table && Array.isArray(n.entity_table.rows) && n.entity_table.rows.length) {
       if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
       blocks.push({ type: "table", cols: n.entity_table.cols, rows: n.entity_table.rows });
+      if (n.funnel_table && Array.isArray(n.funnel_table.rows) && n.funnel_table.rows.length) {
+        blocks.push({ type: "table", cols: n.funnel_table.cols, rows: n.funnel_table.rows });
+      }
       if (typeof answer === "string" && answer.trim()) blocks.push({ type: "prose", md: answer });
       if (Array.isArray(n.sources_list) && n.sources_list.length) blocks.push({ type: "sources", items: n.sources_list });
       if (ctaBlock) blocks.push(ctaBlock);
