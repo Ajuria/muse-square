@@ -6,7 +6,7 @@ import { groundedFactStrings, type GroundedDayPayload } from "../groundedPayload
 import {
   extractNumbers, extractNumbersWithUnits, reproducibleSumDiff,
   norm, extractNamedEntities, splitSentences,
-  CAUSAL_ATTRIBUTION_PATTERNS, PREDICTED_OUTCOME_PATTERNS,
+  CAUSAL_ATTRIBUTION_PATTERNS, PREDICTED_OUTCOME_PATTERNS, verdictRegisterViolations,
 } from "./groundingChecks";
 import { TIER_TOKEN_FR } from "../../sensitivityCopy";
 
@@ -165,6 +165,17 @@ export function validate_packager_output_grounded_day(output: any, row: any): [b
   // Why per sentence: "la chaleur a fait baisser votre CA" + a tier token parked in a different sentence
   // is not a labelled causal claim, it is an unlabelled one next to a disclaimer. The operator reads the
   // sentence, so the sentence carries the register.
+  // 5) VERDICT register (J2.4, 27/08) — « prouvé / écarté / non concluant / objectif atteint
+  // ou manqué » sont des verdicts JUGÉS : la réponse ne peut les employer que si un fait CITÉ
+  // porte le même mot (voir groundingChecks.verdictRegisterViolations, limites incluses).
+  {
+    const citedFactsNorm = norm(payload.citable_facts.filter((f) => citedIdSet.has(f.id)).map((f) => f.fact_fr).join(" \n "));
+    const sentencesNorm = segments.flatMap((seg) => splitSentences(seg)).map((x) => norm(x));
+    for (const v of verdictRegisterViolations(sentencesNorm, citedFactsNorm)) {
+      errors.push(`grounded_day: verdict register "${v}" not grounded in a cited fact`);
+    }
+  }
+
   const citedCausalFacts = payload.citable_facts.filter(
     (f) => citedIdSet.has(f.id) && (f.claim_type === "measured" || f.claim_type === "observed_difference"),
   );
