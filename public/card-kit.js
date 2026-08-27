@@ -646,10 +646,10 @@
     if (t && t.any_signal) {
       var lines = [];
       (t.weekday_weekend || []).forEach(function (w) {
-        lines.push({ head: w.category, body: (w.heavier === 'weekend' ? 'plus vendu le week-end' : 'plus vendu en semaine') + ' (' + d(Math.abs(w.gap_pp)) + ' pp d\'écart).' });
+        lines.push({ head: w.category, body: (w.heavier === 'weekend' ? 'plus vendu le week-end' : 'plus vendu en semaine') + ' (part supérieure de ' + d(Math.abs(w.gap_pp)) + ' %).' });
       });
       (t.seasonal || []).forEach(function (s) {
-        lines.push({ head: s.category, body: 'sa part varie de ' + d(s.range_pp) + ' pp selon les mois.' });
+        lines.push({ head: s.category, body: 'sa part varie de ' + d(s.range_pp) + ' % selon les mois.' });
       });
       if (lines.length) out += msDecision('Le mix bouge', lines);
     } else {

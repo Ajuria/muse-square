@@ -47,8 +47,10 @@ export function finalizeContrast(a: ContrastAggregates): ImpactContrast | null {
   return { n_high, n_low, delta_pp: delta, se, t, hi, lo, tier };
 }
 
-// French pp formatting (comma decimal, explicit sign) — display only; raw numbers stay in data.
-export const frPp = (n: number) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(1).replace(".", ",")} pp`;
+// French delta formatting (comma decimal, explicit sign) — display only; raw numbers stay in data.
+// Owner 27/08 : « pp » n'existe pas pour l'utilisateur — un écart s'affiche en % (ou en €), jamais
+// en points de pourcentage. Le référentiel (vs la normale du site) reste dit dans la phrase.
+export const frDeltaPct = (n: number) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(1).replace(".", ",")} %`;
 
 // The card block both renderers consume (renderEvents / renderCompetitor « Impact mesuré sur votre CA »).
 export const IMPACT_NOTE_FR =

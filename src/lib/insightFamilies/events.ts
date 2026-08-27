@@ -37,7 +37,7 @@ const MY_TYPE_FR: Record<string, string> = {
 // feed — this venue). Binary event/no-event is useless in a dense city (f10c3e58: 1 zero-day in 80),
 // so the split is terciles of density. Gates/tier ladder/phrasing discipline = the SHARED
 // impactContrast module (also used by the competitor family).
-import { finalizeContrast, frPp, IMPACT_MIN_SIDE, IMPACT_NOTE_FR, type ImpactContrast } from "./impactContrast";
+import { finalizeContrast, frDeltaPct, IMPACT_MIN_SIDE, IMPACT_NOTE_FR, type ImpactContrast } from "./impactContrast";
 
 type DensityContrast = ImpactContrast & {
   key: "all_500m" | "same_bucket_500m";
@@ -57,17 +57,17 @@ function eventDensityImpactOutputs(impact: { days: number; contrasts: DensityCon
       if (c.tier) {
         const dir = c.delta_pp >= 0 ? "au-dessus de" : "en dessous de";
         facts.push({
-          fact_fr: `Les jours à forte densité ${c.key === "same_bucket_500m" ? "d'événements de votre secteur" : "d'événements"} à 500 m (≥ ${c.hi}), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé aux jours ${c.lo === 0 ? "sans événement de ce type" : `à faible densité (≤ ${c.lo})`} — ${detail}.`,
+          fact_fr: `Les jours à forte densité ${c.key === "same_bucket_500m" ? "d'événements de votre secteur" : "d'événements"} à 500 m (≥ ${c.hi}), votre CA se situe en moyenne ${frDeltaPct(c.delta_pp)} ${dir} sa normale, comparé aux jours ${c.lo === 0 ? "sans événement de ce type" : `à faible densité (≤ ${c.lo})`} — ${detail}.`,
           claim_type: "observed_difference",
           tier: c.tier,
         });
-        rows.push({ label: c.label_fr, verdict_fr: `${frPp(c.delta_pp)} vs votre normale`, detail_fr: detail, measurable: true });
+        rows.push({ label: c.label_fr, verdict_fr: `${frDeltaPct(c.delta_pp)} vs votre normale`, detail_fr: detail, measurable: true });
       } else {
         facts.push({
-          fact_fr: `${c.label_fr} : aucun écart mesurable de votre CA entre jours chargés (≥ ${c.hi}) et jours calmes (≤ ${c.lo}) — ${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")}, ${detail}.`,
+          fact_fr: `${c.label_fr} : aucun écart mesurable de votre CA entre jours chargés (≥ ${c.hi}) et jours calmes (≤ ${c.lo}) — ${frDeltaPct(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")}, ${detail}.`,
           claim_type: "observed_difference",
         });
-        rows.push({ label: c.label_fr, verdict_fr: "aucun écart mesurable", detail_fr: `${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")} · ${detail}`, measurable: false });
+        rows.push({ label: c.label_fr, verdict_fr: "aucun écart mesurable", detail_fr: `${frDeltaPct(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")} · ${detail}`, measurable: false });
       }
     }
   } else if (impact && impact.days > 0) {
@@ -317,8 +317,8 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
     const label = proofC.key === "same_bucket_500m" ? "événements de votre secteur" : "événements";
     const loSide = proofC.lo === 0 ? "sans événement de ce type" : `à ≤ ${proofC.lo} ${label}`;
     calendar_note = proofC.delta_pp < 0
-      ? `Les jours ${loSide} dans votre périmètre (500 m), vous gagnez en moyenne ${frPp(-proofC.delta_pp)} de CA vs votre normale, comparé aux jours chargés (≥ ${proofC.hi}) — ${proofC.n_low} jours vs ${proofC.n_high}.`
-      : `Les jours à ≥ ${proofC.hi} ${label} dans votre périmètre (500 m), vous gagnez en moyenne ${frPp(proofC.delta_pp)} de CA vs votre normale, comparé aux jours ${loSide} — ${proofC.n_high} jours vs ${proofC.n_low}.`;
+      ? `Les jours ${loSide} dans votre périmètre (500 m), vous gagnez en moyenne ${frDeltaPct(-proofC.delta_pp)} de CA vs votre résultat habituel, comparé aux jours chargés (≥ ${proofC.hi}) — ${proofC.n_low} jours vs ${proofC.n_high}.`
+      : `Les jours à ≥ ${proofC.hi} ${label} dans votre périmètre (500 m), vous gagnez en moyenne ${frDeltaPct(proofC.delta_pp)} de CA vs votre résultat habituel, comparé aux jours ${loSide} — ${proofC.n_high} jours vs ${proofC.n_low}.`;
   } else {
     // No measured contrast yet (cold start or below gates): fall back to the observed targeting fact.
     calendar_note = calmWeeks.length

@@ -13,7 +13,7 @@
 //     each with a specific rule-based response.
 // Event moves are DELIBERATELY excluded — they belong to the Events card.
 import type { FamilyResult, FamilyFact } from "./types";
-import { finalizeContrast, frPp, IMPACT_MIN_SIDE, IMPACT_NOTE_FR, type ImpactContrast } from "./impactContrast";
+import { finalizeContrast, frDeltaPct, IMPACT_MIN_SIDE, IMPACT_NOTE_FR, type ImpactContrast } from "./impactContrast";
 
 const PROJECT = "muse-square-open-data";
 const REAL_BAR = 40;   // % audience overlap at/above which a followed entity is a real competitor
@@ -129,18 +129,18 @@ function competitorImpactOutputs(impact: { days: number; contrasts: CompetitorCo
         const dir = c.delta_pp >= 0 ? "au-dessus de" : "en dessous de";
         facts.push({
           fact_fr: isIdx
-            ? `Les jours de forte activité dans votre périmètre (tous secteurs, indice quotidien pondéré par la distance), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé aux jours les moins actifs — ${detail}.`
-            : `Les jours où les concurrents que vous suivez sont les plus actifs (${hiFr}), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé à leurs jours les plus calmes (${loFr}) — ${detail}.`,
+            ? `Les jours de forte activité dans votre périmètre (tous secteurs, indice quotidien pondéré par la distance), votre CA se situe en moyenne ${frDeltaPct(c.delta_pp)} ${dir} sa normale, comparé aux jours les moins actifs — ${detail}.`
+            : `Les jours où les concurrents que vous suivez sont les plus actifs (${hiFr}), votre CA se situe en moyenne ${frDeltaPct(c.delta_pp)} ${dir} sa normale, comparé à leurs jours les plus calmes (${loFr}) — ${detail}.`,
           claim_type: "observed_difference",
           tier: c.tier,
         });
-        rows.push({ label: c.label_fr, verdict_fr: `${frPp(c.delta_pp)} vs votre normale`, detail_fr: detail, measurable: true });
+        rows.push({ label: c.label_fr, verdict_fr: `${frDeltaPct(c.delta_pp)} vs votre normale`, detail_fr: detail, measurable: true });
       } else {
         facts.push({
-          fact_fr: `${c.label_fr} : aucun écart mesurable de votre CA entre jours de forte et de faible ${isIdx ? "pression" : "activité"} — ${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")}, ${detail}.`,
+          fact_fr: `${c.label_fr} : aucun écart mesurable de votre CA entre jours de forte et de faible ${isIdx ? "pression" : "activité"} — ${frDeltaPct(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")}, ${detail}.`,
           claim_type: "observed_difference",
         });
-        rows.push({ label: c.label_fr, verdict_fr: "aucun écart mesurable", detail_fr: `${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")} · ${detail}`, measurable: false });
+        rows.push({ label: c.label_fr, verdict_fr: "aucun écart mesurable", detail_fr: `${frDeltaPct(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")} · ${detail}`, measurable: false });
       }
     }
   } else if (impact && impact.days > 0) {
