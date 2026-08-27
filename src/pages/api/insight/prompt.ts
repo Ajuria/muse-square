@@ -71,6 +71,10 @@ const FAMILY_FACT_ORIGIN: Record<string, FactOrigin | null> = {
   calendar: "calendrier",
   footfall: null,
   audience: null,
+  // J2.1 — le journal de l'exploitant. L'origine existe déjà au registre owner
+  // (factOrigins.fr.ts : « Vos engagements », approuvée 07/08) ; le provider la pose déjà
+  // sur chaque fait, cette ligne est le défaut de famille.
+  engagements: "engagements",
 };
 // Tag a fact list with an origin (never overriding one set at the construction site).
 function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: FactOrigin | null): T[] {
@@ -80,7 +84,7 @@ function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: Fa
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1") return null;
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1" || producer === "deterministic_engagements_elicit_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -5038,6 +5042,18 @@ Règles :
             "Je n'ai pas encore de ventes mesurées pour répondre à cette question (horaires, mix produit, panier moyen). Importez vos ventes ou connectez votre caisse, puis reposez-moi la question.",
             "deterministic_offering_elicit_v1",
             { type: "upload_csv", label: "Importer un fichier de ventes" },
+          );
+        }
+        // J2.1 — MÊME DOCTRINE pour le journal : une question « qu'est-ce qui a marché ? » sur un
+        // compte sans engagement jugé ne se répond pas par le CA de la veille (mesuré : c'était le
+        // comportement, le chat changeait de sujet). L'absence se DIT, et elle nomme le geste.
+        // Aucune chaîne approuvée n'existait sur cette surface pour cet état vide (vérifié) ;
+        // « M'engager » est le mot déjà en production du geste.
+        if (_famKey === "engagements" && !_familyLed) {
+          return sysDialogueResponse(
+            "Aucun engagement jugé pour l'instant",
+            "Vous n'avez pas encore d'engagement jugé sur ce site : je n'ai donc rien à vous dire sur ce qui a marché. Depuis une carte, « M'engager » pose l'action, la cible et la fenêtre — le verdict tombe seul à la fin.",
+            "deterministic_engagements_elicit_v1",
           );
         }
         const grounded_payload = _familyLed
