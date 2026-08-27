@@ -29,7 +29,10 @@ export type FrPeriodKind =
   | "last_month" // mois civil précédent
   | "this_month" // 1er du mois → aujourd'hui
   | "month" // un seul mois nommé
-  | "month_range"; // deux mois nommés (juin-juillet, de juin à juillet…)
+  | "month_range" // deux mois nommés (juin-juillet, de juin à juillet…)
+  | "since" // depuis <mois|date> → jusqu'à aujourd'hui
+  | "quarter" // trimestre civil (ce trimestre, trimestre dernier, T1-T4)
+  | "season"; // saison météorologique (été = juin-août, hiver = déc-fév à cheval)
 
 export type YearBias = "past" | "future";
 
@@ -180,6 +183,66 @@ export function resolveFrPeriod(
       months: [t.m],
       explicit_year: false,
     };
+  }
+
+  // 5bis) DEPUIS — « depuis janvier », « depuis le 15/06[/2026] » → jusqu'à AUJOURD'HUI
+  //       (la fenêtre inclut le jour en cours ; les lecteurs bornent eux-mêmes à ≤ today).
+  if ((m = q.match(new RegExp(`depuis (?:le )?(${MONTH_ALT})(?: (\\d{4}))?`)))) {
+    const mo = MONTHS_FR_EN[m[1]];
+    const y = m[2] ? Number(m[2]) : yearForMonth(mo, t.y, t.m, bias === "future" ? "past" : bias);
+    return { start: ymd(y, mo, 1), end: opts.today, kind: "since", months: [mo], explicit_year: m[2] != null };
+  }
+  if ((m = q.match(/depuis le (\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/))) {
+    const dd = Number(m[1]), mo = Number(m[2]);
+    const y = m[3] ? Number(m[3]) : yearForMonth(mo, t.y, t.m, "past");
+    if (mo >= 1 && mo <= 12 && isValidYmd(y, mo, dd)) {
+      return { start: ymd(y, mo, dd), end: opts.today, kind: "since", months: [], explicit_year: m[3] != null };
+    }
+  }
+
+  // 5ter) TRIMESTRE CIVIL — « ce trimestre / le trimestre » (en cours, 1er jour → aujourd'hui),
+  //       « trimestre dernier/passé », « T2 » / « 2e trimestre » (biais d'année comme un mois).
+  {
+    const qStartMonth = (qq: number): number => (qq - 1) * 3 + 1;
+    if (/trimestre (dernier|passe)/.test(q)) {
+      const curQ = Math.floor((t.m - 1) / 3) + 1;
+      const py = curQ === 1 ? t.y - 1 : t.y;
+      const pq = curQ === 1 ? 4 : curQ - 1;
+      const sm = qStartMonth(pq);
+      return { start: ymd(py, sm, 1), end: ymd(py, sm + 2, lastDayOfMonth(py, sm + 2)), kind: "quarter", months: [sm, sm + 1, sm + 2], explicit_year: false };
+    }
+    if (/(ce|le) trimestre|trimestre en cours/.test(q)) {
+      const curQ = Math.floor((t.m - 1) / 3) + 1;
+      const sm = qStartMonth(curQ);
+      return { start: ymd(t.y, sm, 1), end: opts.today, kind: "quarter", months: [sm, sm + 1, sm + 2], explicit_year: false };
+    }
+    if ((m = q.match(/\bt([1-4])\b|\b([1-4])(?:er|e|eme)? trimestre/))) {
+      const qq = Number(m[1] || m[2]);
+      const sm = qStartMonth(qq);
+      const y = yearForMonth(sm + 2, t.y, t.m, bias); // biais sur le mois de FIN du trimestre
+      return { start: ymd(y, sm, 1), end: ymd(y, sm + 2, lastDayOfMonth(y, sm + 2)), kind: "quarter", months: [sm, sm + 1, sm + 2], explicit_year: false };
+    }
+  }
+
+  // 5quater) SAISONS MÉTÉOROLOGIQUES (mois civils pleins) — printemps mars-mai, été juin-août,
+  //          automne sept-nov, HIVER déc-fév (à cheval : décembre de l'année précédant février).
+  //          « dernier/passé » force l'occurrence précédente ; sinon biais (passé = la plus
+  //          récente déjà commencée).
+  if ((m = q.match(/\b(printemps|ete|automne|hiver)\b( dernier| passe)?/))) {
+    const SEASON_START: Record<string, number> = { printemps: 3, ete: 6, automne: 9, hiver: 12 };
+    const sm = SEASON_START[m[1]];
+    const em = sm === 12 ? 2 : sm + 2;
+    // Biais passé : candidate = l'occurrence dont la FIN tombe l'année courante (hiver : début
+    // en décembre de l'année précédente), reculée d'un an si elle n'a pas COMMENCÉ. C'est ce
+    // qui rend « cet hiver » correct en janvier (l'hiver EN COURS, commencé en décembre) comme
+    // en août (l'hiver déc-fév déjà passé). Biais futur : la prochaine à venir.
+    let ey = t.y;
+    let sy = sm === 12 ? ey - 1 : ey;
+    if (bias === "future") {
+      if (ymd(ey, em, lastDayOfMonth(ey, em)) < opts.today) { ey += 1; sy += 1; }
+    } else if (ymd(sy, sm, 1) > opts.today) { ey -= 1; sy -= 1; }
+    if (m[2]) { ey -= 1; sy -= 1; }
+    return { start: ymd(sy, sm, 1), end: ymd(ey, em, lastDayOfMonth(ey, em)), kind: "season", months: sm === 12 ? [12, 1, 2] : [sm, sm + 1, em], explicit_year: false };
   }
 
   // 6) PLAGE DE MOIS — « juin-juillet », « de juin à juillet », « entre juin et
