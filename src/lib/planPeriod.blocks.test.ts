@@ -23,7 +23,8 @@ describe("buildPlanBlocks", () => {
     expect(b.sections.map((s) => s.title)).toEqual(["Déjà en place", "Les fenêtres", "À placer"]);
     const rain = b.sections[1].table!.rows[0];
     expect(rain.cells[2].v).toBe("−205 €/jour");
-    expect(rain.cells[2].sub).toBe("20 jours d'historique — mêlés à : pic touristique (100 % de ses jours), vacances scolaires (45 % de ses jours)");
+    expect(rain.cells[2].sub).toBe("20 j d'historique — mesure mêlée");
+    expect(rain.cells[2].tip).toBe("Mesure mêlée à d'autres facteurs présents les mêmes jours : pic touristique (100 % de ses jours), vacances scolaires (45 % de ses jours).");
     expect(b.sections[1].table!.rows[1].cells[2].v).toBe("—");
     expect(b.sections[1].facts).toContain("Semaine du 14/09 : aucun événement concurrent relevé ne vise votre public.");
   });

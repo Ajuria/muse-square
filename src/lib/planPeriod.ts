@@ -268,7 +268,10 @@ export function buildPlanBlocks(r: PlanPeriodResult): PlanBlocks {
         m.med_gap_eur != null
           ? { v: `${m.med_gap_eur >= 0 ? "+" : "−"}${frEur2(Math.abs(m.med_gap_eur))} €/jour`,
               color: m.med_gap_eur >= 0 ? "#0F6E56" : "#B45309", bold: true,
-              sub: `${m.hist_days} jours d'historique${m.entangled ? ` — mêlés à : ${m.entangled_with.length ? m.entangled_with.map((x) => `${x.mot_fr} (${x.n} % de ses jours)`).join(", ") : "autres facteurs des mêmes jours"}` : ""}` }
+              sub: `${m.hist_days} j d'historique${m.entangled ? " — mesure mêlée" : ""}`,
+              tip: m.entangled
+                ? `Mesure mêlée à d'autres facteurs présents les mêmes jours : ${m.entangled_with.length ? m.entangled_with.map((x) => `${x.mot_fr} (${x.n} % de ses jours)`).join(", ") : "co-occurrences sous le plancher"}.`
+                : undefined }
           : { v: "—", color: "#9CA3AF" },
       ] })),
     } : undefined,

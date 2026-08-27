@@ -47,9 +47,11 @@
         var cell = cells[k] || {};
         var align = cols[k] ? (cols[k].align || (k === 0 ? 'left' : 'right')) : 'left';
         var color = cell.color || (cell.bold ? '#111827' : (k === 0 ? '#111827' : '#6B7280'));
-        h += '<td style="padding:7px 0' + (k === 0 ? '' : ' 7px 14px') + ';text-align:' + align + ';color:' + color + ';' + (cell.bold ? 'font-weight:600;' : '') + '">'
+        // tip (27/08, plan de période) : le détail « kitchen » (mélanges, comptes) vit au
+        // SURVOL — la cellule reste nue (règle owner), le ⓘ signale sa présence.
+        h += '<td' + (cell.tip ? ' title="' + esc(cell.tip) + '"' : '') + ' style="padding:7px 0' + (k === 0 ? '' : ' 7px 14px') + ';text-align:' + align + ';color:' + color + ';' + (cell.bold ? 'font-weight:600;' : '') + (cell.tip ? 'cursor:help;' : '') + '">'
           + esc(cell.v == null ? '' : String(cell.v))
-          + (cell.sub ? '<div style="font-size:10.5px;color:#9CA3AF;font-weight:400;">' + esc(cell.sub) + '</div>' : '')
+          + (cell.sub ? '<div style="font-size:10.5px;color:#9CA3AF;font-weight:400;">' + esc(cell.sub) + (cell.tip ? ' \u24d8' : '') + '</div>' : (cell.tip ? '<div style="font-size:10.5px;color:#9CA3AF;font-weight:400;">\u24d8</div>' : ''))
           + '</td>';
       }
       h += '</tr>';
