@@ -253,6 +253,15 @@ function normaliseRow(r: any): CommitmentRow {
 // l'événement ancré qui porte sa famille) ; une racine s'auto-désigne V1. Le KPI hérité PRIME la
 // redérivation carte : re-tester un dispositif, c'est re-tester SUR LE MÊME ÉTAGE — une V2 jugée
 // sur un autre KPI n'est pas la version suivante d'un test, c'est un autre test (owner 27/08).
+// Règles PURES partagées tableau de bord / lectures d'entité (extraites de dashboard.ts le
+// 27/08 — un seul endroit décide ce qu'est « la même personne » et un verdict « tenu »).
+export function personKey(name: string | null | undefined): string {
+  return String(name || "—").split("·")[0].trim().split(/\s+/)[0].toLowerCase() || "—";
+}
+export function isKeptVerdict(verdict: string | null | undefined): boolean {
+  return /met|tenu|beat/i.test(String(verdict ?? ""));
+}
+
 export function lineageFor(
   parentSnap: Pick<CommitmentRow, "commitment_id" | "dispositif_id" | "version_no" | "measured_metric" | "saved_item_id"> | null,
   commitmentId: string,

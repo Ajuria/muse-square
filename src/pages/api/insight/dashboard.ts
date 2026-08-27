@@ -8,6 +8,7 @@
 // Période ?period=30|90|365 (défaut 30) : filtre l'AFFICHAGE des agrégats, jamais un recalcul.
 // Perf : UN lot Promise.all de 8 lectures légères (~1 aller-retour BQ de wall-clock).
 import type { APIRoute } from "astro";
+import { personKey, isKeptVerdict } from "../../../lib/actionCommitments";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation } from "../../../lib/dayClassRegistry";
@@ -816,15 +817,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const martGap: Record<string, number | null> = {};
     for (const r of mart365) martGap[r.commitment_id] = r.gap_eur;
     // Tenue par personne : verdicts rendus sur la période + € mesurés de LEURS fenêtres.
-    const personKey = (name: string | null): string =>
-      String(name || "—").split("·")[0].trim().split(/\s+/)[0].toLowerCase() || "—";
+    // personKey / isKeptVerdict : règles partagées (actionCommitments, extraites 27/08).
     const equipe: Record<string, { label: string; open: any[]; kept: number; judged: number; gap: number | null }> = {};
     for (const c of coms) {
       const k = personKey(c.owner);
       equipe[k] = equipe[k] || { label: String(c.owner || "—"), open: [], kept: 0, judged: 0, gap: null };
       if (String(c.owner || "").length > equipe[k].label.length) equipe[k].label = String(c.owner);
       if (c.status === "open") equipe[k].open.push({ text: c.text, saved_item_id: c.saved_item_id, site_label: c.site_label, we: c.we, days_to_end: c.days_to_end });
-      else if (c.verdict && c.verdict !== "confounded" && c.in_period) { equipe[k].judged += 1; if (/met|tenu|beat/i.test(String(c.verdict))) equipe[k].kept += 1; }
+      else if (c.verdict && c.verdict !== "confounded" && c.in_period) { equipe[k].judged += 1; if (isKeptVerdict(c.verdict)) equipe[k].kept += 1; }
     }
     for (const r of martRows) {
       const k = personKey(ownerByCommitment[r.commitment_id] || null);

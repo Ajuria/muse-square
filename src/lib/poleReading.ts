@@ -10,6 +10,12 @@
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 export interface PoleFamilyReading {
   family: string;
   avg30_eur_day: number | null;   // €/j sur les 30 derniers jours (jours VENDUS)
@@ -44,7 +50,15 @@ export async function buildPoleReading(
   dispositif_id: string,
   families: string[],
   asOfIso: string,
+  // Horizons libres (C3, 27/08) : fenêtre EXPLICITE [start..end] (bornée à asOf) avec
+  // référentiel = la période PRÉCÉDENTE DE MÊME DURÉE (D1 arbitrée). Sans opts : le
+  // comportement historique de la page pôle — 30 derniers jours vs les 90 précédents.
+  opts?: { start: string; end: string },
 ): Promise<{ families: PoleFamilyReading[]; operations: PoleOperationRow[]; totals: PoleTotals }> {
+  const wEnd = opts ? (opts.end < asOfIso ? opts.end : asOfIso) : asOfIso;
+  const wStart = opts ? opts.start : null; // null => fenêtre glissante 30 j (historique)
+  const spanDays = wStart ? Math.max(1, Math.round((Date.parse(wEnd) - Date.parse(wStart)) / 86400000) + 1) : 30;
+  const baseDays = wStart ? spanDays : 90;
   // UNE requête : lignes par famille + une ligne agrégat pôle (family NULL) + le CA TOTAL du
   // site sur la même fenêtre (site_rev30, répété — poids = pole_rev30 / site_rev30).
   const famsP = families.length
@@ -53,11 +67,11 @@ export async function buildPoleReading(
           WITH lignes AS (
             SELECT item_category, transaction_date, revenue,
                    item_category IN UNNEST(@fams) AS in_pole,
-                   transaction_date > DATE_SUB(@asOf, INTERVAL 30 DAY) AS d30
+                   transaction_date >= @winStart AS d30
             FROM \`${PROJECT}.raw.client_transactions\`
             WHERE location_id = @loc
-              AND transaction_date > DATE_SUB(@asOf, INTERVAL 120 DAY)
-              AND transaction_date <= @asOf
+              AND transaction_date >= @baseStart
+              AND transaction_date <= @winEnd
           ),
           site AS ( SELECT SUM(IF(d30, revenue, 0)) AS site_rev30 FROM lignes )
           SELECT p.family, p.rev30, p.n30, p.revBase, p.nBase, site.site_rev30
@@ -76,7 +90,12 @@ export async function buildPoleReading(
                    COUNT(DISTINCT IF(NOT d30, transaction_date, NULL))
             FROM lignes WHERE in_pole
           ) p CROSS JOIN site`,
-        params: { loc: location_id, fams: families, asOf: bq.date(asOfIso) },
+        params: {
+          loc: location_id, fams: families,
+          winEnd: bq.date(wEnd),
+          winStart: bq.date(wStart ?? addDaysIso(wEnd, -(spanDays - 1))),
+          baseStart: bq.date(addDaysIso(wStart ?? addDaysIso(wEnd, -(spanDays - 1)), -baseDays)),
+        },
         location: "EU",
       }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => [])
     : Promise.resolve([]);
