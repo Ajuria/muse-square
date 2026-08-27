@@ -2480,7 +2480,15 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         const _body = _j.facts.filter((f) => !_advTexts.includes(f.fact_fr)).map((f) => f.fact_fr).join("\n\n")
           + _planTxt
           + (_adv.length ? `\n\nAction conseillée : ${_adv.join(" ; ")}.` : "");
-        return sysDialogueResponse("Vos engagements", _body, "deterministic_engagements_v1");
+        // J2.3 — le geste, pas seulement le conseil. Un dispositif contre-indiqué a un engagement
+        // OUVERT : « Ajuster » (mot du lexique l.38 pour un engagement ouvert) mène à la page qui
+        // porte déjà les deux gestes (arrêter / ajuster), jamais un formulaire de plus.
+        // CTA = un verbe + flèche, ≤ 14 caractères (lexique, règle de rédaction 1).
+        const _adjId = ((_j.data as any)?.adjust_commitment_id ?? null) as string | null;
+        const _primary = _adjId
+          ? { type: "redirect", url: `/app/insightevent/engagement?id=${encodeURIComponent(_adjId)}`, label: "Ajuster" }
+          : null;
+        return sysDialogueResponse("Vos engagements", _body, "deterministic_engagements_v1", _primary);
       }
       return sysDialogueResponse(
         "Aucun engagement jugé pour l'instant",

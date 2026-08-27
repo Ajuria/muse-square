@@ -102,7 +102,7 @@ export async function engagementsFamily(
   try {
     const [r] = await bq.query({
       query: `
-        SELECT status, verdict, action_done_status, measured_metric,
+        SELECT commitment_id, status, verdict, action_done_status, measured_metric,
                committed_action_text, origin_action_type,
                window_start, window_end, window_residual_pct, window_residual_z,
                threshold_value, threshold_basis, DATE(resolved_at) AS resolved_date
@@ -150,6 +150,7 @@ export async function engagementsFamily(
   const facts: FamilyFact[] = [];
   const advice: string[] = [];
   const adviceTexts: string[] = [];
+  let adjustId: string | null = null;
   const F = (fact_fr: string): FamilyFact => ({ fact_fr, claim_type: "observed", origin: "engagements" });
 
   // ── Regroupement par DISPOSITIF (le mécanisme), pas par engagement (le test daté). ──
@@ -212,6 +213,10 @@ export async function engagementsFamily(
         // Le rejeu EN COURS est ce qui rend le geste urgent : il vit dans l'action, pas seulement
         // dans un fait qu'on pourrait lire distraitement.
         const missedObj = g.resolved.some((r) => String(r.verdict) === "missed");
+        // J2.3 — le geste porte sur l'engagement OUVERT de ce dispositif : c'est LUI qu'on
+        // interrompt ou qu'on ajuste. « Ajuster » est le mot du lexique (l.38) pour un
+        // engagement ouvert ; la page engagement porte déjà les deux gestes.
+        if (g.open.length && !adjustId) adjustId = String(g.open[0].commitment_id ?? "") || null;
         advice.push(
           `interrompre ou modifier le dispositif « ${name} »`
           + (g.open.length ? " en cours" : "")
@@ -237,6 +242,7 @@ export async function engagementsFamily(
       found: true,
       advice,
       advice_texts: adviceTexts,
+      adjust_commitment_id: adjustId,
       resolved_count: resolved.length,
       open_count: open.length,
       opted_out_count: optedOut.length,
