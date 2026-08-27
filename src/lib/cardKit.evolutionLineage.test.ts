@@ -153,6 +153,7 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
       dispositif_resources: "1 vendeur, vitrine réfrigérée", created_at: "2026-08-27T10:00:00Z",
     },
     pole: {
+      totals: { rev30_eur: 24965, share_pct: 51.1, avg30_eur_day: 832.18, base_eur_day: 543.93, delta_pct: 53, n30: 30 },
       families: [
         { family: "Coffee", avg30_eur_day: 412.5, n30: 26, base_eur_day: 380.2, n_base: 78, delta_pct: 8.5 },
         { family: "Bakery", avg30_eur_day: 96, n30: 3, base_eur_day: null, n_base: 0, delta_pct: null },
@@ -165,12 +166,16 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
   };
   const html = String(kit.renderEvolution(data, EVOL_COPY));
   expect(html).toContain("Pôle périssables");
-  expect(html).toContain("Dispositif permanent");
-  expect(html).toContain("Lecture continue — 30 derniers jours");
+  expect(html).toContain("Dispositif en continu");
+  expect(html).toContain("Résultats — 30 derniers jours");
+  expect(html).toMatch(/24[\s\u00a0\u202f]965 € sur 30 j · 51,1 % du CA/);
   expect(html).toContain("Coffee");
   expect(html).toContain("+8,5 %");
   // Famille sous les planchers : jamais un % — le compte réel à la place
-  expect(html).toContain("pas encore comparable (3 j vendus sur 30)");
+  expect(html).toContain("Données insuffisantes");
+  expect(html).toContain("3 jours vendus sur les 30 derniers");
+  expect(html).not.toContain("pas encore comparable");
+  expect(html.toLowerCase()).not.toContain("lecture continue");
   expect(html).toContain("Opérations sur ce pôle");
   expect(html).toContain('/app/insightevent/engagement?id=op-1');
   expect(html).toContain("14/09/2026");

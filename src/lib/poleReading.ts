@@ -19,6 +19,15 @@ export interface PoleFamilyReading {
   delta_pct: number | null;       // (avg30 − base) / base, null sous les planchers
 }
 
+export interface PoleTotals {
+  rev30_eur: number | null;       // CA du pôle sur les 30 derniers jours (jours vendus)
+  share_pct: number | null;       // poids du pôle dans le CA TOTAL du site sur la même fenêtre
+  avg30_eur_day: number | null;   // €/j agrégé du pôle
+  base_eur_day: number | null;    // €/j agrégé sur les 90 jours précédents
+  delta_pct: number | null;       // écart agrégé, null sous les planchers (n>=5 des deux côtés)
+  n30: number;
+}
+
 export interface PoleOperationRow {
   commitment_id: string;
   status: string;
@@ -35,20 +44,38 @@ export async function buildPoleReading(
   dispositif_id: string,
   families: string[],
   asOfIso: string,
-): Promise<{ families: PoleFamilyReading[]; operations: PoleOperationRow[] }> {
+): Promise<{ families: PoleFamilyReading[]; operations: PoleOperationRow[]; totals: PoleTotals }> {
+  // UNE requête : lignes par famille + une ligne agrégat pôle (family NULL) + le CA TOTAL du
+  // site sur la même fenêtre (site_rev30, répété — poids = pole_rev30 / site_rev30).
   const famsP = families.length
     ? bq.query({
         query: `
-          SELECT item_category AS family,
-                 SUM(IF(transaction_date >  DATE_SUB(@asOf, INTERVAL 30 DAY), revenue, 0)) AS rev30,
-                 COUNT(DISTINCT IF(transaction_date > DATE_SUB(@asOf, INTERVAL 30 DAY), transaction_date, NULL)) AS n30,
-                 SUM(IF(transaction_date <= DATE_SUB(@asOf, INTERVAL 30 DAY), revenue, 0)) AS revBase,
-                 COUNT(DISTINCT IF(transaction_date <= DATE_SUB(@asOf, INTERVAL 30 DAY), transaction_date, NULL)) AS nBase
-          FROM \`${PROJECT}.raw.client_transactions\`
-          WHERE location_id = @loc AND item_category IN UNNEST(@fams)
-            AND transaction_date > DATE_SUB(@asOf, INTERVAL 120 DAY)
-            AND transaction_date <= @asOf
-          GROUP BY family`,
+          WITH lignes AS (
+            SELECT item_category, transaction_date, revenue,
+                   item_category IN UNNEST(@fams) AS in_pole,
+                   transaction_date > DATE_SUB(@asOf, INTERVAL 30 DAY) AS d30
+            FROM \`${PROJECT}.raw.client_transactions\`
+            WHERE location_id = @loc
+              AND transaction_date > DATE_SUB(@asOf, INTERVAL 120 DAY)
+              AND transaction_date <= @asOf
+          ),
+          site AS ( SELECT SUM(IF(d30, revenue, 0)) AS site_rev30 FROM lignes )
+          SELECT p.family, p.rev30, p.n30, p.revBase, p.nBase, site.site_rev30
+          FROM (
+            SELECT item_category AS family,
+                   SUM(IF(d30, revenue, 0)) AS rev30,
+                   COUNT(DISTINCT IF(d30, transaction_date, NULL)) AS n30,
+                   SUM(IF(NOT d30, revenue, 0)) AS revBase,
+                   COUNT(DISTINCT IF(NOT d30, transaction_date, NULL)) AS nBase
+            FROM lignes WHERE in_pole GROUP BY family
+            UNION ALL
+            SELECT CAST(NULL AS STRING),
+                   SUM(IF(d30, revenue, 0)),
+                   COUNT(DISTINCT IF(d30, transaction_date, NULL)),
+                   SUM(IF(NOT d30, revenue, 0)),
+                   COUNT(DISTINCT IF(NOT d30, transaction_date, NULL))
+            FROM lignes WHERE in_pole
+          ) p CROSS JOIN site`,
         params: { loc: location_id, fams: families, asOf: bq.date(asOfIso) },
         location: "EU",
       }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => [])
@@ -75,7 +102,11 @@ export async function buildPoleReading(
   const [frows, orows] = await Promise.all([famsP, opsP]);
   const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
   const byFam = new Map<string, any>();
-  for (const r of frows as any[]) byFam.set(String(flat(r.family)), r);
+  let aggRow: any = null;
+  for (const r of frows as any[]) {
+    if (flat(r.family) == null) aggRow = r;
+    else byFam.set(String(flat(r.family)), r);
+  }
 
   const famReadings: PoleFamilyReading[] = families.map((f) => {
     const r = byFam.get(f);
@@ -99,5 +130,23 @@ export async function buildPoleReading(
     version_no: r.version_no != null ? Number(flat(r.version_no)) : null,
   }));
 
-  return { families: famReadings, operations };
+  const mkAgg = (): PoleTotals => {
+    if (!aggRow) return { rev30_eur: null, share_pct: null, avg30_eur_day: null, base_eur_day: null, delta_pct: null, n30: 0 };
+    const n30 = Number(flat(aggRow.n30)) || 0;
+    const nBase = Number(flat(aggRow.nBase)) || 0;
+    const rev30 = n30 >= 1 ? Math.round(Number(flat(aggRow.rev30))) : null;
+    const avg30 = n30 >= 1 ? Math.round((Number(flat(aggRow.rev30)) / n30) * 100) / 100 : null;
+    const base = nBase >= 1 ? Math.round((Number(flat(aggRow.revBase)) / nBase) * 100) / 100 : null;
+    const siteRev30 = Number(flat(aggRow.site_rev30)) || 0;
+    return {
+      rev30_eur: rev30,
+      share_pct: rev30 != null && siteRev30 > 0 ? Math.round((rev30 / siteRev30) * 1000) / 10 : null,
+      avg30_eur_day: avg30,
+      base_eur_day: base,
+      delta_pct: n30 >= 5 && nBase >= 5 && base && base > 0 && avg30 != null
+        ? Math.round(((avg30 - base) / base) * 1000) / 10 : null,
+      n30,
+    };
+  };
+  return { families: famReadings, operations, totals: mkAgg() };
 }

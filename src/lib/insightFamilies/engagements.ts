@@ -37,6 +37,7 @@
 // concluant » (l.21), « votre résultat habituel » (l.24), dates JJ/MM/AAAA.
 import type { FamilyProvider, FamilyResult, FamilyFact } from "./types";
 import { commitmentEffect } from "../commitmentEffect";
+import { buildPoleReading } from "../poleReading";
 
 const PROJECT = "muse-square-open-data";
 
@@ -106,7 +107,9 @@ export async function engagementsFamily(
     const [r] = await bq.query({
       query: `
         SELECT commitment_id, dispositif_id, version_no, status, verdict, action_done_status, measured_metric,
-               committed_action_text, origin_action_type,
+               committed_action_text, origin_action_type, adjustment_move,
+               dispositif_nature, pole_families, attached_pole_id, owner_person_name,
+               dispositif_plus, dispositif_why, dispositif_resources,
                window_start, window_end, window_residual_pct, window_residual_z,
                kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
                threshold_value, threshold_basis, DATE(resolved_at) AS resolved_date
@@ -133,6 +136,14 @@ export async function engagementsFamily(
     return { found: false, data: { found: false }, facts: [], sources: [] };
   }
 
+  // ── PÔLES / DISPOSITIFS PERMANENTS (spec 27/08) — séparés AVANT tout : un pôle est `open`
+  // par construction et polluerait les groupes datés (il n'a ni fenêtre ni verdict — sa mesure
+  // est la lecture en continu, jamais un mot de verdict). Le rendu retenu (proto v2, owner
+  // 27/08) : une CARTE par pôle, pill = les RÉSULTATS (CA 30 j · poids du CA · écart vs les
+  // 90 j précédents), « Données insuffisantes » + infobulle sous les planchers.
+  const poleRows = rows.filter((r) => String(r.dispositif_nature ?? "") === "permanent");
+  rows = rows.filter((r) => String(r.dispositif_nature ?? "") !== "permanent");
+
   // « fait par défaut » (arbitrage owner 05/08, repris du mart) : un engagement résolu compte
   // comme mené SAUF si l'exploitant a déclaré « pas menée » (valeur legacy 'pas_encore').
   const resolved = rows.filter(
@@ -143,7 +154,7 @@ export async function engagementsFamily(
   );
   const open = rows.filter((r) => String(r.status) === "open");
 
-  if (!resolved.length && !open.length && !optedOut.length) {
+  if (!resolved.length && !open.length && !optedOut.length && !poleRows.length) {
     return { found: false, data: { found: false }, facts: [], sources: [] };
   }
 
@@ -156,6 +167,73 @@ export async function engagementsFamily(
   const adviceTexts: string[] = [];
   let adjustId: string | null = null;
   const F = (fact_fr: string): FamilyFact => ({ fact_fr, claim_type: "observed", origin: "engagements" });
+
+  // ── Les cartes de pôle (rendu retenu proto v2) + leurs faits citables. Les faits rendus en
+  // carte sont listés dans cardFactTexts pour que la réponse déterministe ne les redise pas
+  // en prose (même mécanique que advice_texts).
+  const s = (v: any): string | null => (v == null ? null : String((v as any)?.value ?? v) || null);
+  const frPct1 = (v: number): string => `${v >= 0 ? "+" : "−"}${String(Math.abs(v)).replace(".", ",")} %`;
+  const frEur0 = (v: number): string => Math.round(v).toLocaleString("fr-FR");
+  const pole_cards: any[] = [];
+  const cardFactTexts: string[] = [];
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const poleReadings = await Promise.all(poleRows.map(async (r) => {
+    let fams: string[] = [];
+    try { fams = JSON.parse(String(s(r.pole_families) || "[]")); } catch { /* périmètre illisible → lecture vide */ }
+    const reading = await buildPoleReading(bq, location_id, String(s(r.dispositif_id) || s(r.commitment_id)), fams, todayIso);
+    return { r, fams, reading };
+  }));
+  for (const { r, fams, reading } of poleReadings) {
+    const parts = String(s(r.committed_action_text) || "").split(" — ");
+    const name = parts[0] || "Pôle";
+    const lever = parts.slice(1).join(" — ") || null;
+    const resp = s(r.owner_person_name);
+    const t = reading.totals;
+    const measurable = t.rev30_eur != null && t.share_pct != null;
+    const famLine = reading.families
+      .map((f) => f.delta_pct != null ? `${f.family} ${frPct1(f.delta_pct)}` : f.family)
+      .join(" · ");
+    const openOps = reading.operations.filter((o) => o.status === "open");
+    const rowsCard: any[] = [];
+    if (famLine) rowsCard.push({ k: "Familles", v: famLine });
+    if (resp) rowsCard.push({ k: "Responsable(s)", v: resp });
+    if (lever) rowsCard.push({ k: "Levier", v: lever });
+    if (openOps.length) rowsCard.push({
+      k: "Opérations en cours",
+      v: openOps.map((o) => `${String(o.committed_action_text || "").split(" — ")[0]} (${frDate(o.window_start)}, en cours)`).join(" · "),
+    });
+    const card: any = { label: name, rows: rowsCard };
+    if (measurable) {
+      card.pill = `${frEur0(t.rev30_eur!)} € sur 30 j · ${String(t.share_pct).replace(".", ",")} % du CA`
+        + (t.delta_pct != null ? ` · ${frPct1(t.delta_pct)} vs les 90 jours précédents` : "");
+    } else {
+      card.pill = "Données insuffisantes ⓘ";
+      card.tip = `${t.n30} jour${t.n30 > 1 ? "s" : ""} vendu${t.n30 > 1 ? "s" : ""} sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté.`;
+    }
+    pole_cards.push(card);
+    // Le FAIT citable (mêmes chiffres que la carte — jamais deux vérités).
+    const head = `Pôle « ${name} »${fams.length ? ` (familles ${fams.join(", ")}${resp ? ` — responsable ${resp}` : ""})` : resp ? ` (responsable ${resp})` : ""}`;
+    const factTxt = measurable
+      ? `${head} : ${frEur0(t.rev30_eur!)} € sur les 30 derniers jours vendus, soit ${String(t.share_pct).replace(".", ",")} % du CA du site${t.delta_pct != null ? `, ${frPct1(t.delta_pct)} vs les 90 jours précédents` : ""}.`
+      : `${head} : données insuffisantes pour comparer (${t.n30} jour${t.n30 > 1 ? "s" : ""} vendu${t.n30 > 1 ? "s" : ""} sur les 30 derniers).`;
+    facts.push(F(factTxt));
+    cardFactTexts.push(factTxt);
+    if (openOps.length) {
+      const opsTxt = `Sur le pôle « ${name} », ${openOps.length > 1 ? `${openOps.length} opérations en cours` : "1 opération en cours"} : ${openOps.map((o) => `${String(o.committed_action_text || "").split(" — ")[0]} (${frDate(o.window_start)})`).join(", ")}.`;
+      facts.push(F(opsTxt));
+      cardFactTexts.push(opsTxt);
+    }
+    // L2 — la mémoire du dispositif, citable telle que saisie (jamais reformulée en verdict).
+    const mem: string[] = [];
+    if (s(r.dispositif_why)) mem.push(`pourquoi ça va marcher : « ${s(r.dispositif_why)} »`);
+    if (s(r.dispositif_plus)) mem.push(`le plus du dispositif : « ${s(r.dispositif_plus)} »`);
+    if (s(r.dispositif_resources)) mem.push(`ressource(s) : « ${s(r.dispositif_resources)} »`);
+    if (mem.length) {
+      const memTxt = `Pôle « ${name} » — ${mem.join(" ; ")}.`;
+      facts.push(F(memTxt));
+      cardFactTexts.push(memTxt);
+    }
+  }
 
   // ── Regroupement par DISPOSITIF (le mécanisme), pas par engagement (le test daté). ──
   const byDispositif = new Map<string, { resolved: any[]; open: any[] }>();
@@ -237,6 +315,39 @@ export async function engagementsFamily(
         F(`Dispositif « ${name} » — test en cours${vNo > 1 ? ` (version ${vNo})` : ""} jusqu'au ${frDate(ymd(g.open[0].window_end))}, le verdict tombe à cette date.`),
       );
     }
+
+    // L2 — mémoire du dispositif daté (version la plus récente : ouverte d'abord, sinon la
+    // dernière résolue), citable telle que saisie.
+    const memRow = g.open[0] ?? g.resolved[g.resolved.length - 1];
+    if (memRow) {
+      const memD: string[] = [];
+      if (s(memRow.dispositif_why)) memD.push(`pourquoi ça va marcher : « ${s(memRow.dispositif_why)} »`);
+      if (s(memRow.dispositif_plus)) memD.push(`le plus du dispositif : « ${s(memRow.dispositif_plus)} »`);
+      if (s(memRow.dispositif_resources)) memD.push(`ressource(s) : « ${s(memRow.dispositif_resources)} »`);
+      if (s(memRow.owner_person_name)) memD.push(`responsable : ${s(memRow.owner_person_name)}`);
+      if (memD.length) facts.push(F(`Dispositif « ${name} » — ${memD.join(" ; ")}.`));
+    }
+  }
+
+  // ── Cartes ambre des opérations datées au VERDICT IMMINENT (proto v2 : ambre = verdict
+  // d'ici demain au plus). La ligne de la carte reprend le fait de groupe déjà écrit — jamais
+  // deux formulations des mêmes chiffres.
+  const dated_cards: any[] = [];
+  for (const [name, g] of byDispositif) {
+    const o = g.open[0];
+    if (!o) continue;
+    const we = ymd(o.window_end);
+    if (!we) continue;
+    const dTo = Math.round((new Date(we + "T00:00:00Z").getTime() - new Date(todayIso + "T00:00:00Z").getTime()) / 86400000);
+    if (dTo > 1) continue;
+    const vNo = Number((o.version_no as any)?.value ?? o.version_no) || 1;
+    const move = s(o.adjustment_move);
+    const histFact = facts.find((f) => f.fact_fr.startsWith(`Dispositif « ${name} » — ${g.resolved.length} test`));
+    dated_cards.push({
+      label: name, tone: "amber",
+      pill: `Version ${vNo} en cours${move ? ` (${move})` : ""} — verdict d'ici le ${frDate(we)}`,
+      rows: histFact ? [{ k: "Historique", v: histFact.fact_fr.replace(`Dispositif « ${name} » — `, "") }] : [],
+    });
   }
 
   if (optedOut.length) {
@@ -258,6 +369,13 @@ export async function engagementsFamily(
       met,
       missed,
       confounded,
+      // Journal nature-aware (27/08, proto v2) : les cartes serveur — pôles (résultats en pill)
+      // et opérations datées au verdict imminent (ambre). card_fact_texts = les faits déjà
+      // rendus en carte, que la réponse déterministe ne redit pas en prose.
+      poles_count: poleRows.length,
+      pole_cards,
+      dated_cards,
+      card_fact_texts: cardFactTexts,
     },
     facts,
     sources: ["Vos engagements"],

@@ -552,7 +552,7 @@ const PAST_TENSE_MARKERS = [
 
 // J2.1 — la question qui NOMME le journal (possessive ou « ce qui a marché »). Volontairement
 // étroite : « mes ventes ont-elles marché ? » n'en est pas une, elle relève des ventes.
-const JOURNAL_Q = /\b(mes|mon|nos|notre)\s+(engagements?|dispositifs?\s+test)|\bqu(?:['\u2019]est-ce qui|i)\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])|\bce\s+qui\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])/i;
+const JOURNAL_Q = /\b(mes|mon|nos|notre)\s+(engagements?|p[oô]les?|dispositifs?\s+test)|\bqu(?:['\u2019]est-ce qui|i)\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])|\bce\s+qui\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])/i;
 
 const PLANNING_VERBS = [
   "organiser",
@@ -2313,13 +2313,15 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
 
     // Shared envelope for the SYSTEM-DIALOGUE answers (elicit / declared capture / declared estimate):
     // deterministic French, null-register producers, same shape the client's elicit branch renders.
-    const sysDialogueResponse = (headline: string, answer: string, producer: string, primary: any = null) =>
+    // extras (27/08, journal pôles) : cartes construites SERVEUR (pole_cards/dated_cards) —
+    // fusionnées dans ai.output ; le client les rend verbatim (datecards), jamais reformulées.
+    const sysDialogueResponse = (headline: string, answer: string, producer: string, primary: any = null, extras: Record<string, any> | null = null) =>
       new Response(JSON.stringify({
         ok: true,
         meta: { location_id, resolved_horizon: "day", resolved_intent: "DAY_DIMENSION_DETAIL", producer, register: registerFor(producer), mode: request_mode },
         ai: {
           headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [],
-          output: { headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [] },
+          output: { headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [], ...(extras || {}) },
           meta: { horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [] },
           actions: { month_redirect_url: null, primary, secondary: [] },
         },
@@ -2483,7 +2485,15 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         const _planTxt = _plan.length
           ? `\n\nVos jours à venir\n\n${_plan.slice(0, 3).map((x) => x.say_fr).join("\n\n")}`
           : "";
-        const _body = _j.facts.filter((f) => !_advTexts.includes(f.fact_fr)).map((f) => f.fact_fr).join("\n\n")
+        // Journal nature-aware (proto v2, owner 27/08) : les pôles et les opérations au verdict
+        // imminent rendent en CARTES (construites par le provider) — leurs faits sortent de la
+        // prose (card_fact_texts), sinon la réponse dirait deux fois les mêmes chiffres. Le
+        // fait d'historique repris DANS une carte ambre reste en prose seulement s'il n'est
+        // pas déjà la ligne Historique de la carte.
+        const _cardTexts = ((_j.data as any)?.card_fact_texts ?? []) as string[];
+        const _poleCards = ((_j.data as any)?.pole_cards ?? []) as any[];
+        const _datedCards = ((_j.data as any)?.dated_cards ?? []) as any[];
+        const _body = _j.facts.filter((f) => !_advTexts.includes(f.fact_fr) && !_cardTexts.includes(f.fact_fr)).map((f) => f.fact_fr).join("\n\n")
           + _planTxt
           + (_adv.length ? `\n\nAction conseillée : ${_adv.join(" ; ")}.` : "");
         // J2.3 — le geste, pas seulement le conseil. Un dispositif contre-indiqué a un engagement
@@ -2500,7 +2510,14 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
             ? { type: "commit_prefill", label: "M'engager", prefill: _replay.prefill,
                 origin: { origin_action_type: "chat_journal_replay", origin_affected_date: _replay.date } }
             : null;
-        return sysDialogueResponse("Vos engagements", _body, "deterministic_engagements_v1", _primary);
+        return sysDialogueResponse(
+          _poleCards.length ? "Vos dispositifs" : "Vos engagements",
+          _body, "deterministic_engagements_v1", _primary,
+          (_poleCards.length || _datedCards.length)
+            ? { pole_cards: _poleCards, dated_cards: _datedCards,
+                pole_section_title: "Vos pôles", dated_section_title: "Vos opérations datées" }
+            : null,
+        );
       }
       return sysDialogueResponse(
         "Aucun engagement jugé pour l'instant",

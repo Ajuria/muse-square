@@ -951,6 +951,31 @@ if (!root) {
       return blocks;
     }
 
+    // ── JOURNAL PÔLES (proto v2, owner 27/08) — le producteur déterministe du journal porte
+    // des CARTES construites SERVEUR (pole_cards / dated_cards, via ai.output) : rendu verbatim
+    // en datecards (pill = les résultats du pôle ; ambre = verdict imminent), la prose garde le
+    // reste. Sans cartes, le chemin générique reste strictement inchangé.
+    if (producer === "deterministic_engagements_v1"
+        && ((Array.isArray(n.pole_cards) && n.pole_cards.length) || (Array.isArray(n.dated_cards) && n.dated_cards.length))) {
+      if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+      if (Array.isArray(n.pole_cards) && n.pole_cards.length) {
+        blocks.push({ type: "headline", text: n.pole_section_title || "Vos p\u00f4les" });
+        blocks.push({ type: "datecards", items: n.pole_cards });
+      }
+      if ((Array.isArray(n.dated_cards) && n.dated_cards.length) || (typeof answer === "string" && answer.trim())) {
+        blocks.push({ type: "headline", text: n.dated_section_title || "Vos op\u00e9rations dat\u00e9es" });
+        if (Array.isArray(n.dated_cards) && n.dated_cards.length) blocks.push({ type: "datecards", items: n.dated_cards });
+        if (typeof answer === "string" && answer.trim()) blocks.push({ type: "prose", md: answer });
+      }
+      if (ctaBlock) blocks.push(ctaBlock);
+      else if (primary && typeof primary === "object" && primary.type === "commit_prefill"
+          && primary.prefill && typeof primary.label === "string" && primary.label.trim()) {
+        _lastCommitPrefill = { prefill: primary.prefill, origin: primary.origin || null };
+        blocks.push({ type: "cta", action: "commit", label: primary.label.trim() });
+      }
+      return blocks;
+    }
+
     if (isLookup) {
       if (!answer && !keyFacts.length) {
         blocks.push({ type: "lookup", empty: "Cet événement n'est pas référencé dans notre base de données. Essayez avec le nom exact de l'événement ou une autre formulation." });

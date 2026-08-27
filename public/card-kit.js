@@ -828,12 +828,21 @@
         + '</div>';
       h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_fams_title')) + '</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + pFams.map(function (f) { return '<span style="font-size:12px;background:#F3F4F6;color:#374151;padding:4px 11px;border-radius:999px;">' + esc(f) + '</span>'; }).join('') + '</div></div>';
+      var pt = pr.totals || {};
+      var ptLine = '';
+      if (pt.rev30_eur != null) {
+        ptLine = '<div style="font-size:14px;font-weight:600;color:#111827;margin-bottom:8px;">'
+          + esc(t2('pole_totals_row', { rev: Number(pt.rev30_eur).toLocaleString('fr-FR'), share: pt.share_pct != null ? String(pt.share_pct).replace('.', ',') : '\u2014' }))
+          + (pt.delta_pct != null ? ' \u00b7 <span style="color:' + (pt.delta_pct >= 0 ? '#0F6E56' : '#B45309') + ';">' + pPct(pt.delta_pct) + ' vs les 90 jours pr\u00e9c\u00e9dents</span>' : '')
+          + '</div>';
+      }
       h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_reading_title')) + '</div>'
+        + ptLine
         + '<div style="font-size:11px;color:#9CA3AF;margin-bottom:8px;">' + esc(t2('pole_reading_caption')) + '</div>'
         + (pr.families || []).map(function (fr2) {
             var right = fr2.delta_pct != null
               ? '<span style="font-size:13px;font-weight:600;color:' + (fr2.delta_pct >= 0 ? '#0F6E56' : '#B45309') + ';">' + pPct(fr2.delta_pct) + '</span>'
-              : '<span style="font-size:11px;color:#9CA3AF;">' + esc(t2('pole_reading_thin', { n30: fr2.n30 })) + '</span>';
+              : '<span title="' + esc(t2('pole_reading_thin_tip', { n30: fr2.n30 })) + '" style="font-size:11px;color:#9CA3AF;cursor:help;">' + esc(t2('pole_reading_thin')) + ' \u24d8</span>';
             return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5e7eb;padding:10px 14px;margin-bottom:6px;">'
               + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(fr2.family) + '</span>'
               + '<span style="font-size:12px;color:#6b7280;">' + pEurJ(fr2.avg30_eur_day) + (fr2.base_eur_day != null ? ' · ' + esc(t2('pole_reading_row', { n30: fr2.n30, base: Number(fr2.base_eur_day).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) })) : '') + '</span>'
@@ -1633,7 +1642,9 @@
         var pillBg = amber ? '#FAEEDA' : '#E6F1FB', pillFg = amber ? '#633806' : '#0C447C';
         var h = '<div style="border:0.5px solid ' + border + ';border-left:3px solid ' + rail + ';border-radius:0 8px 8px 0;padding:10px 12px;margin-bottom:8px;background:#fff;">'
           + '<div style="font-size:15px;font-weight:500;margin-bottom:6px;color:#111827;">' + esc(d.label || '') + '</div>';
-        if (d.pill) h += '<div style="display:inline-block;background:' + pillBg + ';color:' + pillFg + ';font-size:14px;font-weight:500;padding:4px 10px;border-radius:8px;margin-bottom:6px;">' + mdInlineKit(esc(d.pill)) + '</div>';
+        // tip (27/08, journal pôles) : le détail « kitchen » vit en infobulle, jamais dans la pill
+        // (« Données insuffisantes ⓘ » + title porte le compte de jours — règle owner).
+        if (d.pill) h += '<div' + (d.tip ? ' title="' + esc(d.tip) + '"' : '') + ' style="display:inline-block;background:' + pillBg + ';color:' + pillFg + ';font-size:14px;font-weight:500;padding:4px 10px;border-radius:8px;margin-bottom:6px;' + (d.tip ? 'cursor:help;' : '') + '">' + mdInlineKit(esc(d.pill)) + '</div>';
         h += (d.rows || []).map(function (r) {
           return '<div style="font-size:13px;color:#111827;margin-bottom:3px;">' + (r.k ? '<strong style="font-weight:500;">' + esc(r.k) + '</strong> ' : '') + mdInlineKit(esc(r.v || '')) + '</div>';
         }).join('');

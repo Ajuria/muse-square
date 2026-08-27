@@ -160,13 +160,18 @@ export const EVOL_COPY = {
   // Le plus du dispositif · Pourquoi ça va marcher.
   // Pôle / dispositif permanent (P3, 27/08) — la page d'un pôle : lecture continue, jamais
   // un mot de verdict (un permanent n'a pas de terme).
-  pole_chip: "Dispositif permanent",
+  // Mots owner 27/08 (proto v2) : « lecture continue » ne se dit pas à l'utilisateur —
+  // « Dispositif en continu » (nature) et « Résultats » (la mesure) ; le détail « kitchen »
+  // (comptes de jours) vit en infobulle, jamais dans la pill (« Données insuffisantes »).
+  pole_chip: "Dispositif en continu",
   pole_resp: "Responsable(s)",
   pole_fams_title: "Familles du pôle",
-  pole_reading_title: "Lecture continue — 30 derniers jours",
+  pole_reading_title: "Résultats — 30 derniers jours",
   pole_reading_caption: "€/j des jours vendus, comparé aux 90 jours précédents.",
   pole_reading_row: "{n30} j vendus · habituel {base} €/j",
-  pole_reading_thin: "pas encore comparable ({n30} j vendus sur 30)",
+  pole_reading_thin: "Données insuffisantes",
+  pole_reading_thin_tip: "{n30} jours vendus sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté.",
+  pole_totals_row: "{rev} € sur 30 j · {share} % du CA",
   pole_ops_title: "Opérations sur ce pôle",
   pole_ops_none: "Aucune opération rattachée pour l'instant.",
   pole_op_open: "en cours",
