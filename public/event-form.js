@@ -88,7 +88,7 @@
         : '<input data-ef="owner" placeholder="Prénom Nom" style="' + inp + '">')
       + '</div><div style="flex:1;"><label style="' + lbl + '">Objectif — le KPI que le verdict jugera</label><select data-ef="kpi" style="' + inp + 'cursor:pointer;">'
       + '<option value="revenue_residual">CA du jour vs votre résultat habituel — mesuré, verdict fort</option>'
-      + (fams.length ? '<option value="family_revenue">CA d’une famille produit vs sa moyenne — mesuré</option>' : '')
+      + (fams.length ? '<option value="family_revenue">CA d’une famille produits & services vs sa moyenne — mesuré</option>' : '')
       + '<option value="tickets">Tickets vs votre résultat habituel (base 30 j) — verdict plus faible</option>'
       + '<option value="basket">Panier moyen vs votre résultat habituel (base 30 j) — verdict plus faible</option>'
       // 27/08 (audit menu KPI) : flux et conversion n'apparaissent que si le SITE porte la donnée
@@ -100,7 +100,7 @@
         ? '<option value="profit_estimated">Profit estimé vs votre résultat habituel (base 30 j) — sur vos marges déclarées</option>'
         : '<option value="profit_estimated" disabled>Profit estimé — indisponible : marge non déclarée</option>')
       + '</select></div></div>'
-      + '<div data-ef-famwrap style="display:none;margin-top:10px;"><label style="' + lbl + '">Famille produit</label><select data-ef="family" style="' + inp + 'cursor:pointer;">'
+      + '<div data-ef-famwrap style="display:none;margin-top:10px;"><label style="' + lbl + '">Famille produits & services</label><select data-ef="family" style="' + inp + 'cursor:pointer;">'
       + fams.map(function (f) { return '<option value="' + esc(f.category) + '" data-avg="' + Number(f.avg_day_eur) + '">' + esc(f.category) + ' — ' + frInt(f.avg_day_eur) + ' €/j en moyenne</option>'; }).join("") + '</select></div>'
       + ((Array.isArray(ctx.poles) && ctx.poles.length)
         ? '<div style="margin-top:10px;"><label style="' + lbl + '">Rattacher \u00e0 un p\u00f4le \u2014 l\u2019op\u00e9ration se mesure sur ses familles</label><select data-ef="pole" style="' + inp + 'cursor:pointer;">'

@@ -57,7 +57,9 @@ const CLIQUET: Record<string, number> = {
   // CURRENT_DATE() — la voie semantic (vw_insight_event_client_offering) est NON bornée en haut
   // (int_client_offering_profile : >= -30 j seul) et la graine porte des dates futures : la
   // « fenêtre 30 j » y compte 68 jours (mesuré 24/08). dbt gelé — pas de vue corrigée possible.
-  "src/pages/api/insight/dashboard.ts": 16,
+  // 16 → 17 (28/08, vue-equipe inc 3 — commit 8849137, instruit après coup) : le bandeau KPI
+  // membre lit fct_client_daily_performance (volume/affluence/conversion en %, jamais un €).
+  "src/pages/api/insight/dashboard.ts": 17,
   "src/pages/api/insight/monitor.ts": 1,
   // 1 → 2 (27/08, fusion K9 marges) : la réponse marge PAR FAMILLE lit fct_client_offering_daily
   // borné à CURRENT_DATE() — même justification que dashboard.ts ci-dessus (vue semantic non

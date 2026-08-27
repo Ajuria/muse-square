@@ -84,5 +84,27 @@ await dialogue("Entité inconnue → élicitation", [
   } },
 ]);
 
+// D5 — MULTI-ENTITÉS (incrément 4) : deux familles côte à côte, puis suite de période.
+await dialogue("Deux entités côte à côte, suite de période", [
+  { q: "la famille Coffee vs la famille Tea en juillet", expect: {
+    "producer = compare": ({ producer }) => producer === "deterministic_entity_compare_v1",
+    "cadre : Coffee ET Tea, juillet": ({ frame }) => frame?.entity_names?.length === 2 && frame?.periode?.start === "2026-07-01" && frame?.periode?.end === "2026-07-31",
+    "headline « vs »": ({ headline }) => /Coffee/.test(headline) && /Tea/.test(headline) && /vs/i.test(headline),
+  } },
+  { q: "et en juin ?", expect: {
+    "producer = compare (2 entités héritées)": ({ producer }) => producer === "deterministic_entity_compare_v1",
+    "période = juin, entités gardées": ({ frame }) => frame?.periode?.start === "2026-06-01" && frame?.entity_names?.length === 2,
+  } },
+]);
+
+// D6 — DEUX PÉRIODES (incrément 4) : une entité, « par rapport à ».
+await dialogue("Une entité, deux périodes", [
+  { q: "la famille Coffee en juillet par rapport à juin", expect: {
+    "producer = compare": ({ producer }) => producer === "deterministic_entity_compare_v1",
+    "période = juillet, comparaison = juin": ({ frame }) => frame?.periode?.start === "2026-07-01" && frame?.periode_comparaison?.start === "2026-06-01",
+    "headline porte les deux fenêtres": ({ headline }) => /01\/07\/2026/.test(headline) && /01\/06\/2026/.test(headline),
+  } },
+]);
+
 console.log(`\n${fails === 0 ? "BATTERIE VERTE" : fails + " ÉCHEC(S)"}`);
 process.exit(fails ? 1 : 0);

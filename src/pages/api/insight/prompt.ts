@@ -40,7 +40,7 @@ import { listClassDispositifs } from "../../../lib/bestPractices";
 import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
 import { loadSiteEntities, matchEntities } from "../../../lib/entityResolver";
 import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
-import { readEntityPeriod, buildEntityPeriodBlocks } from "../../../lib/entityReading";
+import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks } from "../../../lib/entityReading";
 import { planPeriod, buildPlanBlocks } from "../../../lib/planPeriod";
 import { journalPlan } from "../../../lib/journalPlan";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
@@ -2624,6 +2624,19 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         const _bqe = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
         const _epSite = _rsvSite ?? await loadSiteEntities(_bqe, location_id, String(clerk_user_id || ""));
         const _epMatches = (_rsv?.entities.length ? _rsv.entities : matchEntities(qRaw, _epSite));
+        // ── COMPARAISONS (incrément 4, 28/08) — N entités et/ou 2 périodes : mise en table
+        // de lectures unitaires (readEntitiesCompared), cellules nues, jamais un verdict
+        // fabriqué entre entités. Une seule entité, une seule période → le chemin historique.
+        const _epCompare = _rsv?.periode_comparaison ?? null;
+        if (_epMatches.length >= 2 || (_epMatches.length >= 1 && _epCompare)) {
+          const _cmpPeriods = [{ start: _epPeriod.start, end: _epPeriod.end }, ...(_epCompare ? [{ start: _epCompare.start, end: _epCompare.end }] : [])];
+          const _cmpGrid = await readEntitiesCompared(_bqe, location_id, _epMatches, _cmpPeriods, _epToday);
+          const _cmpB = buildEntityCompareBlocks(_cmpGrid);
+          return sysDialogueResponse(
+            _cmpB.headline, "", "deterministic_entity_compare_v1", null,
+            { plan_sections: _cmpB.sections, sources_list: _cmpB.sources },
+          );
+        }
         if (_epMatches.length) {
           const _epEnt = _epMatches[0];
           const _epReading = await readEntityPeriod(_bqe, location_id, _epEnt, _epPeriod.start, _epPeriod.end, _epToday);

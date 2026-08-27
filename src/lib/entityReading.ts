@@ -375,3 +375,103 @@ export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlo
     ],
   };
 }
+
+// ── COMPARAISONS (incrément 4 du résolveur, owner go 28/08) — N entités côte à côte et/ou
+// deux périodes. Toujours les MÊMES lectures (readEntityPeriod, foyer par foyer), jamais un
+// moteur nouveau : le comparatif est une MISE EN TABLE de lectures unitaires — cellules nues,
+// « — » sous les planchers, aucun verdict fabriqué entre entités. Le seul chiffre composé est
+// l'écart €/jour d'UNE entité CA entre SES deux périodes (division de sommes mesurées).
+export interface CompareSection { title: string; table?: { cols: any[]; rows: any[] }; facts?: string[] }
+export interface EntityCompareBlocks { headline: string; sections: CompareSection[]; sources: string[] }
+
+export async function readEntitiesCompared(
+  bq: any,
+  location_id: string,
+  entities: SiteEntity[],
+  periods: Array<{ start: string; end: string }>,   // 1 ou 2 (la comparaison)
+  todayIso: string,
+): Promise<EntityPeriodReading[][]> {
+  const ents = entities.slice(0, 3);
+  return Promise.all(ents.map((e) =>
+    Promise.all(periods.map((p) => readEntityPeriod(bq, location_id, e, p.start, p.end, todayIso))),
+  ));
+}
+
+export function buildEntityCompareBlocks(grid: EntityPeriodReading[][]): EntityCompareBlocks {
+  const grey = "#9CA3AF";
+  const entLabel = (e: SiteEntity) => (e.kind === "famille" ? `Famille ${e.name}` : e.name);
+  const periods = grid[0].map((r) => ({ start: r.start, end: r.end }));
+  const perLabels = periods.map((p) => periodLabelFr(p.start, p.end));
+  const caRows: any[] = [];
+  const opRows: any[] = [];
+  for (const line of grid) {
+    for (let k = 0; k < line.length; k++) {
+      const r = line[k];
+      if (r.pole) {
+        const t = r.pole.totals;
+        const eurDay = t.rev30_eur != null && t.n30 > 0 ? Math.round(t.rev30_eur / t.n30) : null;
+        caRows.push({ cells: [
+          { v: entLabel(r.entity), bold: true },
+          { v: perLabels[k], color: "#6B7280" },
+          t.rev30_eur != null ? { v: `${frEur(t.rev30_eur)} €`, sub: `${t.n30} j vendus` } : { v: "—", color: grey },
+          eurDay != null ? { v: `${frEur(eurDay)} €/jour` } : { v: "—", color: grey },
+          t.delta_pct != null
+            ? { v: frPct1(t.delta_pct), color: t.delta_pct >= 0 ? "#0F6E56" : "#B45309", bold: true, sub: "vs la même durée précédente" }
+            : { v: "—", color: grey, sub: `${t.n30} j vendus — plancher 5 j de chaque côté` },
+        ] });
+      } else if (r.serie) {
+        const s2 = r.serie;
+        opRows.push({ cells: [
+          { v: entLabel(r.entity), bold: true },
+          { v: perLabels[k], color: "#6B7280" },
+          { v: String(s2.occurrences.length) },
+          { v: s2.judged ? `${s2.kept}/${s2.judged} objectifs atteints${s2.open_count ? ` · ${s2.open_count} en cours` : ""}` : (s2.open_count ? `${s2.open_count} en cours` : "—"), color: s2.judged || s2.open_count ? undefined : grey },
+          s2.gap_eur_sum != null
+            ? { v: `${s2.gap_eur_sum >= 0 ? "+" : "−"}${frEur(Math.abs(s2.gap_eur_sum))} €`, color: s2.gap_eur_sum >= 0 ? "#0F6E56" : "#B45309", bold: true, sub: "écart CA des fenêtres mesurées" }
+            : { v: "—", color: grey },
+        ] });
+      }
+    }
+  }
+  const sections: CompareSection[] = [];
+  if (caRows.length) {
+    // L'écart entre les DEUX périodes d'une même entité CA — division de sommes mesurées.
+    const facts: string[] = [];
+    if (periods.length === 2) {
+      for (const line of grid) {
+        const [a, b] = line;
+        if (!a.pole || !b.pole) continue;
+        const dA = a.pole.totals.rev30_eur != null && a.pole.totals.n30 > 0 ? a.pole.totals.rev30_eur / a.pole.totals.n30 : null;
+        const dB = b.pole.totals.rev30_eur != null && b.pole.totals.n30 > 0 ? b.pole.totals.rev30_eur / b.pole.totals.n30 : null;
+        if (dA != null && dB != null && dB > 0 && a.pole.totals.n30 >= 5 && b.pole.totals.n30 >= 5) {
+          const d = Math.round(((dA - dB) / dB) * 1000) / 10;
+          facts.push(`${entLabel(a.entity)} : ${frEur(Math.round(dA))} €/jour (${perLabels[0]}) vs ${frEur(Math.round(dB))} €/jour (${perLabels[1]}) — ${frPct1(d)}.`);
+        }
+      }
+    }
+    sections.push({
+      title: "Côte à côte",
+      table: { cols: [{ label: "Entité", align: "left" }, { label: "Période", align: "left" }, { label: "Résultat" }, { label: "CA/jour" }, { label: "Variation" }], rows: caRows },
+      facts: facts.length ? facts : undefined,
+    });
+  }
+  if (opRows.length) {
+    sections.push({
+      title: caRows.length ? "Les opérations" : "Côte à côte",
+      table: { cols: [{ label: "Entité", align: "left" }, { label: "Période", align: "left" }, { label: "Occurrences" }, { label: "Verdicts" }, { label: "Écart CA" }], rows: opRows },
+    });
+  }
+  const ents = grid.map((line) => entLabel(line[0].entity));
+  const headline = periods.length === 2 && grid.length === 1
+    ? `${ents[0]} — ${perLabels[0]} vs ${perLabels[1]}`
+    : `${ents.join(" vs ")} — ${perLabels[0]}`;
+  return {
+    headline,
+    sections,
+    sources: [
+      ...(caRows.length ? ["Vos ventes par famille (lignes de caisse)"] : []),
+      ...(opRows.length ? ["Vos engagements (verdicts et mesures)"] : []),
+      "Variation : chaque période se compare à la même durée qui la précède.",
+    ],
+  };
+}

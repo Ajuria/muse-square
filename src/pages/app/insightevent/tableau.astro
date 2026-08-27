@@ -610,7 +610,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   profE = mgC.profit30; covE = mgC.couverture_pct; decE = mgC.n_declarees || 0; famE = mgC.n_familles || 0;
                 }
                 if (profE == null) return "";
-                return '<div style="flex:none;" title="Profit estimé sur les 30 derniers jours : CA de chaque famille produit × sa marge déclarée, sommé sur les familles déclarées (' + decE + '/' + famE + ') — jamais extrapolé au CA non couvert. Marges modifiables dans À faire.">'
+                return '<div style="flex:none;" title="Profit estimé sur les 30 derniers jours : CA de chaque famille produits & services × sa marge déclarée, sommé sur les familles déclarées (' + decE + '/' + famE + ') — jamais extrapolé au CA non couvert. Marges modifiables dans À faire.">'
                   + '<div style="font-size:20px;font-weight:700;line-height:1;color:#111827;">≈ ' + frInt(profE) + ' €</div>'
                   + '<div style="font-size:11.5px;margin-top:5px;color:#6b7280;">profit · 30 derniers jours · calculé sur ' + covE + ' % de votre CA</div></div>';
               })()

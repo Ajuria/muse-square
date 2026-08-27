@@ -375,7 +375,7 @@ export function buildPlanBlocks(r: PlanPeriodResult): PlanBlocks {
           : { v: "Données insuffisantes", color: grey, tip: `${p.n_win} j vendus sur la fenêtre — plancher : 5 des deux côtés.` },
         p.margin_eur != null
           ? { v: `≈ ${frEur2(p.margin_eur)} €`, sub: p.margin_cov_pct != null && p.margin_cov_pct < 100 ? `sur ${p.margin_cov_pct} % du CA du pôle` : undefined }
-          : { v: "—", color: grey, tip: "Se débloque en déclarant vos marges par famille produit — le geste est dans Piloter › À faire." },
+          : { v: "—", color: grey, tip: "Se débloque en déclarant vos marges par famille produits & services — le geste est dans Piloter › À faire." },
       ] })),
     } : undefined,
     facts: r.poles.length ? undefined : ["Aucun pôle déclaré sur ce site."],

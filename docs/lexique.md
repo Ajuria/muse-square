@@ -89,6 +89,11 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
   Opérations en cours · Dispositifs prouvés** — « Signaux traités » assumé (même concept de
   signal partout, arbitrage owner) ; « Dispositifs validés » écarté (« validé » reste banni).
 
+- **« Famille produits & services »** (owner 28/08) : LE mot des familles à l'interface —
+  les services vendus sont des familles au même titre que les produits (item_category).
+  Remplace « famille produit » sur les 4 chaînes visibles (formulaire opération ×2, infobulle
+  profit du héros, infobulle marge du plan). Le registre sémantique porte la même définition.
+
 - Plan de période — diagnostic (owner 27/08) : « quick wins » = **« À portée de main »**
   (mot owner). Titre du point santé : **« La santé de l'entreprise »** (proposition appliquée
   depuis le mot du cadrage owner « santé de l'entreprise » — à confirmer). Les autres titres
