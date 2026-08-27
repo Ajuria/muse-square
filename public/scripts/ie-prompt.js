@@ -23,6 +23,9 @@ if (!root) {
     location_id: LOCATION_ID,
     turn: 0,
     last: null, // { horizon, intent, used_dates[], top_dates[], month_redirect_url, selected_date }
+    // Le tuple du RESOLVEUR (28/08) : metadonnees de routage strictes (intention, noms
+    // d'entites, dates, KPI) — jamais un fait ni un chiffre. Echo-e tel quel a chaque tour.
+    resolved: null,
   };
 
   // Conversation history for multi-turn memory
@@ -130,6 +133,11 @@ if (!root) {
         ? out.debug.thread_context_out.selected_date
         : null,
     };
+    // Cadre du resolveur : le serveur le renvoie quand il a tourne ; un tour sans cadre
+    // (chemin legacy) CONSERVE le precedent — la suite d'apres peut encore en heriter.
+    if (out?.meta?.resolved_frame && typeof out.meta.resolved_frame === "object") {
+      THREAD_CONTEXT.resolved = out.meta.resolved_frame;
+    }
   }
 
   const SUGGESTION_CHIPS = [];

@@ -39,6 +39,7 @@ import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
 import { listClassDispositifs } from "../../../lib/bestPractices";
 import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
 import { loadSiteEntities, matchEntities } from "../../../lib/entityResolver";
+import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
 import { readEntityPeriod, buildEntityPeriodBlocks } from "../../../lib/entityReading";
 import { planPeriod, buildPlanBlocks } from "../../../lib/planPeriod";
 import { journalPlan } from "../../../lib/journalPlan";
@@ -233,6 +234,9 @@ type ThreadContextV1 = {
     // or numbers from an answer — inheriting the frame re-routes, it cannot re-assert a stale claim.
     family?: string | null; // insight-family key when the last answer was family-led (meta.resolved_family)
   };
+  // Le tuple du RÉSOLVEUR (28/08) — métadonnées de routage STRICTES (intention, noms d'entités,
+  // dates, KPI) échoées par le client à chaque tour. Jamais un fait ni un chiffre de réponse.
+  resolved?: ResolvedFrame | null;
 };
 
 // ----------------------------
@@ -2320,6 +2324,10 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
         ? (body.thread_context as ThreadContextV1)
         : null;
 
+    // Le cadre résolu du TOUR (posé par le bloc résolveur plus bas quand il a tourné) — voyage
+    // dans meta.resolved_frame de toute réponse sysDialogue ; le client l'écho-e au tour suivant.
+    let _rsvFrameOut: ResolvedFrame | null = null;
+
     // Shared envelope for the SYSTEM-DIALOGUE answers (elicit / declared capture / declared estimate):
     // deterministic French, null-register producers, same shape the client's elicit branch renders.
     // extras (27/08, journal pôles) : cartes construites SERVEUR (pole_cards/dated_cards) —
@@ -2327,7 +2335,7 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
     const sysDialogueResponse = (headline: string, answer: string, producer: string, primary: any = null, extras: Record<string, any> | null = null) =>
       new Response(JSON.stringify({
         ok: true,
-        meta: { location_id, resolved_horizon: "day", resolved_intent: "DAY_DIMENSION_DETAIL", producer, register: registerFor(producer), mode: request_mode },
+        meta: { location_id, resolved_horizon: "day", resolved_intent: "DAY_DIMENSION_DETAIL", producer, register: registerFor(producer), mode: request_mode, ...(_rsvFrameOut ? { resolved_frame: _rsvFrameOut } : {}) },
         ai: {
           headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [],
           output: { headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [], ...(extras || {}) },
@@ -2474,6 +2482,33 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       );
     }
 
+    // ── LE RÉSOLVEUR (porte d'entrée conversationnelle, owner go 28/08) — « le LLM comprend,
+    // le code calcule ». Il remplit le tuple {intention, entités, période, KPI} depuis la
+    // question + le CADRE écho-é (thread_context.resolved) + l'historique : les suites
+    // (« et octobre ? »), contestations (« non, le corner ») et questions multi-variables
+    // cessent de dépendre des regex. Les branches ci-dessous consomment son résultat via
+    // leurs portes AUGMENTÉES — les regex restent le repli complet (résolveur null = legacy).
+    // Chaque entité est validée contre les listes RÉELLES du site (semanticRegistry) ; le
+    // cadre ne porte jamais un fait. Coût mesuré au harnais : ~0,3 s (listes) + ~1 s (appel).
+    let _rsv: ResolvedTurn | null = null;
+    let _rsvSite: Awaited<ReturnType<typeof loadSiteEntities>> | null = null;
+    {
+      const _rsvT0 = Date.now();
+      const _bqr = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      _rsvSite = await loadSiteEntities(_bqr, location_id, String(clerk_user_id || "")).catch(() => null);
+      if (_rsvSite && _rsvSite.entities.length) {
+        _rsv = await resolveTurn({
+          qRaw,
+          site: _rsvSite,
+          today: new Date().toISOString().slice(0, 10),
+          frame: thread_context?.resolved ?? null,
+          history: conversation_history,
+        });
+        if (_rsv) _rsvFrameOut = frameOf(_rsv);
+        console.log(`[resolver] ${Date.now() - _rsvT0} ms — intent=${_rsv?.intent ?? "null"} entites=${_rsv?.entities.length ?? 0}/${_rsv?.entity_names.length ?? 0} periode=${_rsv?.periode?.expression ?? "-"} suite=${_rsv?.suite ?? "-"} chg=${(_rsv?.changements ?? []).join(",")}`);
+      }
+    }
+
     // ── VOTRE JOURNAL (J2.1, 27/08) — une question sur ce qui a MARCHÉ répond DÉTERMINISTE,
     // même patron que « vos dispositifs » juste au-dessus. Mesuré avant de choisir : passé au
     // packager grounded, le modèle SUPPRIMAIT l'action conseillée (« à interrompre ou modifier »
@@ -2482,7 +2517,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // n'ont pas besoin d'être reformulés, et le reformuler coûte la doctrine.
     // La famille `engagements` reste enregistrée : elle sert les questions qui EFFLEURENT le
     // journal sans le nommer (composition grounded), exactement comme buildPracticeFacts.
-    if (JOURNAL_Q.test(qRaw)) {
+    if (JOURNAL_Q.test(qRaw) || _rsv?.intent === "journal") {
       const _bqj = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
       const _j = await engagementsFamily(_bqj, location_id, new Date().toISOString().slice(0, 10));
       if (_j.found) {
@@ -2548,9 +2583,13 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // venir (frPeriod, biais FUTUR) → composition DÉTERMINISTE de quatre sources réelles
     // (planPeriod : inventaire, fenêtres, prouvé/séries, motifs mesurés). Le plan n'invente
     // rien ; une source vide se dit vide. CTA rejeu quand un prouvé est rejouable.
-    if (/\b(planifie[rsz]?|pr[ée]parer?|organiser?|que faire)\b/i.test(qRaw)) {
+    if (/\b(planifie[rsz]?|pr[ée]parer?|organiser?|que faire)\b/i.test(qRaw) || _rsv?.intent === "plan") {
       const _plToday = new Date().toISOString().slice(0, 10);
-      const _plPeriod = resolveFrPeriod(qRaw, { today: _plToday, yearBias: "future" });
+      // Le résolveur d'abord (il porte les suites : « et octobre ? » hérite l'intention plan,
+      // change la période) ; frPeriod reste le repli quand il n'a pas tourné.
+      const _plPeriod = (_rsv?.intent === "plan" && _rsv.periode)
+        ? { start: _rsv.periode.start, end: _rsv.periode.end }
+        : resolveFrPeriod(qRaw, { today: _plToday, yearBias: "future" });
       if (_plPeriod && _plPeriod.end >= _plToday) {
         const _bqp = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
         // clerk_user_id ouvre le roster équipe (colonne « Qui » du plan) — même clé que /api/channels/team.
@@ -2576,11 +2615,15 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // Les branches déterministes ci-dessus (journal, fiches, événements) passent AVANT.
     {
       const _epToday = new Date().toISOString().slice(0, 10);
-      const _epPeriod = resolveFrPeriod(qRaw, { today: _epToday, yearBias: "past" });
+      // Résolveur d'abord (suites « et pour Poeiti ? » : entité changée, période héritée du
+      // cadre) ; les parseurs legacy restent le repli complet.
+      const _epPeriod = (_rsv && (_rsv.intent === "entity_period" || _rsv.entities.length) && _rsv.periode)
+        ? { start: _rsv.periode.start, end: _rsv.periode.end }
+        : resolveFrPeriod(qRaw, { today: _epToday, yearBias: "past" });
       if (_epPeriod) {
         const _bqe = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-        const _epSite = await loadSiteEntities(_bqe, location_id, String(clerk_user_id || ""));
-        const _epMatches = matchEntities(qRaw, _epSite);
+        const _epSite = _rsvSite ?? await loadSiteEntities(_bqe, location_id, String(clerk_user_id || ""));
+        const _epMatches = (_rsv?.entities.length ? _rsv.entities : matchEntities(qRaw, _epSite));
         if (_epMatches.length) {
           const _epEnt = _epMatches[0];
           const _epReading = await readEntityPeriod(_bqe, location_id, _epEnt, _epPeriod.start, _epPeriod.end, _epToday);
@@ -2595,7 +2638,8 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         }
         // D2 — l'entité nommée est introuvable : élicitation avec les LISTES RÉELLES du site,
         // jamais une devinette. Seulement quand la question NOMME un pôle ou une famille.
-        if (/\bp[oô]les?\b/i.test(qRaw) || /\bfamille\b/i.test(qRaw)) {
+        if (/\bp[oô]les?\b/i.test(qRaw) || /\bfamille\b/i.test(qRaw)
+            || (_rsv?.intent === "entity_period" && _rsv.entity_names.length > 0 && !_rsv.entities.length)) {
           const _poleNames = _epSite.entities.filter((e) => e.kind === "pole").map((e) => e.name);
           const _famNames = _epSite.entities.filter((e) => e.kind === "famille").map((e) => e.name).slice(0, 8);
           const _lists = [
