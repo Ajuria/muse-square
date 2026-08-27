@@ -170,30 +170,41 @@ tomber : branche membre neutralisée → 8 assertions rougissent (le membre rece
 restauration verte. Le harnais a attrapé en route la projection manquante de la CTE
 (`Unrecognized name: dispositif_id`).
 
-## Agir membre (incrément 4)
+## Agir membre (incrément 4 — CONSTRUIT 28/08, serveur ; UI gestes = inc 5)
 
-- `monitor.ts` devient role-aware. Filtre de périmètre à l'assemblage, par la table des
-  types (ci-dessous) : les cartes `site` passent pour tous les membres ; les cartes
-  `famille` passent si l'intersection entre leurs familles (lues dans `data_payload`, à
-  vérifier type par type via bq-verify au build) et l'union des `pole_families` des pôles
-  du membre est non vide ; les familles sans pôle ne sortent que pour l'owner.
-- Les chiffres suivent l'arbitrage 3 : colonne €, enjeux, écarts et chips restent tels
-  quels. UNE vérification au build : balayer les phrases générées (`action-cards.js`,
-  sowhat) pour confirmer qu'aucune ne cite un NIVEAU absolu (CA du jour, marge) — si une
-  le fait, c'est cette phrase qu'on traite, pas la copie entière.
-- Les blocs owner de la page (config canaux, automatisation, suppression) sont gardés par
-  le rôle.
-
-### La table des types (à faire arbitrer PENDANT l'incrément 4)
-
-UNE table de classification par `action_type`, trois colonnes, proposée en tableau à
-l'owner avec les tests du lexique montrés :
-
-| `action_type` | portée (`site` \| `famille`) | chiffre déclaré (`volume` \| `panier` \| `%` seul) |
-
-C'est le même objet qui porte deux arbitrages restants : le filtre de périmètre ET la
-règle « panier moyen OU volume, jamais les deux sur la même carte ». Elle vit en constante
-applicative versionnée (pas en base) : elle change avec le code des cartes.
+- `monitor.ts` est role-aware : garde `requireLocationAccess` (owner byte-compatible —
+  pas de champ `role` chez lui, prouvé), FORBIDDEN → 403. Pour un membre :
+  `applyMemberPolicy` filtre les candidates par PORTÉE de type (`lib/memberCardPolicy.ts`)
+  et expurge chaque `data_payload` (`redactPayloadForMember`) ; `sales_summary` (8 j de
+  CA/transactions/panier absolus) part à null. Les familles des pôles du membre se lisent
+  par une requête AMORCÉE tôt (version courante du pôle = dernière ligne journal de son
+  `dispositif_id`, pôle fermé exclu).
+- **La table des types s'est SIMPLIFIÉE au build** (l'audit des payloads réels a tranché) :
+  - **Portée** — défaut `site` ; `famille` = {item_share_move, offering_mix_shift} (clé
+    payload `item_category`, vérifiée) ; `owner` = {client_dormant (identité + CA cumulé
+    d'un client B2B), weekly_briefing, weekly_sales_spike/hole, monthly_sales_spike/hole
+    (synthèses de période = totaux d'état du business ; conservateur v1)}.
+  - **Chiffre** — la colonne volume/panier par type est DEVENUE INUTILE : le retrait des
+    clés « niveau » (revenue/basket hors formes relatives `_pct/_share/_z/_rank`, +
+    `avg_30d` ; écarts `delta_eur`/`day_gap_eur` gardés) supprime mécaniquement tout
+    panier absolu ET éteint la décomposition panier+ventes (elle exige ses niveaux et
+    rend null) — « jamais PM et volume ensemble » est tenu par construction. Les % passent
+    toujours.
+- **Le balayage des phrases est FAIT par preuve de rendu**, pas par grep : les sowhat
+  portent des null-guards et dégradent sur leurs replis approuvés existants. Témoin réel
+  (sales_revenue_down_wow, f10c3e58) : plein = « CA 1169 € le 07/08 — … −892 € (2061 €). » ;
+  membre = « journée en retrait, sous votre vendredi habituel. Deux facteurs : ventes
+  −13 %, panier −3 %. » Note : l'écart € du jour disparaît AUSSI quand il se calcule
+  depuis des niveaux — plus strict que l'arbitrage (écarts permis) ; à desserrer type par
+  type si l'owner le veut.
+- **Preuves** : `scripts/vue-equipe-agir-harness.ts` **20/20** — politique pure sur
+  payloads réels, endpoint réel owner (byte-compat) + membre, **balayage récursif du
+  payload membre entier : zéro clé de niveau** (days et all_feed inclus), 403 hors
+  périmètre, rendu sowhat plein vs expurgé via le vrai `renderActionCandidates` en vm.
+  Mutation vue tomber : politique neutralisée → cartes famille visibles + fuites de
+  niveaux nommées, 2 rouges ; restauré 20/20.
+- **Reporté à l'inc 5 (gestes)** : le gating client des gestes owner sur pulse.astro
+  (M'engager, config, suppression…) — il se décide avec la liste des gestes membres.
 
 ## Gestes membres v1 (incrément 5)
 
@@ -249,8 +260,9 @@ tableau de tests MONTRÉ, chaîne rendue de la surface CITÉE d'abord (règle 4)
    redirections de pages. Reste : E2E navigateur d'un membre réel, avec l'incrément 4.
 3. **Piloter light** (FAIT 28/08, harnais 32/32 + rendu vm 7/7 + mutation) :
    `dashboard.ts` role-aware + `renderMemberView`.
-4. **Agir membre** : `monitor.ts` role-aware + table des types (arbitrage owner) + balayage
-   des phrases pour les niveaux absolus.
+4. **Agir membre** (FAIT 28/08 serveur, harnais 20/20 + mutation) : `monitor.ts`
+   role-aware + memberCardPolicy (la table chiffre est devenue inutile — retrait des
+   niveaux) + balayage par preuve de rendu. Gating UI des gestes owner → inc 5.
 5. **Gestes v1** : les 3 écritures ouvertes, périmètre vérifié, auteur porté.
 6. **Routage Slack** : `dispositif_channels` branché — faire suivre, consignes, fiche.
 

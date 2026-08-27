@@ -1,7 +1,8 @@
 // src/pages/api/insight/monitor.ts
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
-import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
+import { memberCanSeeCard, redactPayloadForMember } from "../../../lib/memberCardPolicy";
 import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
@@ -82,7 +83,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const _t0 = Date.now();
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
     const location_id = requireString(url.searchParams.get("location_id"), "location_id");
-    requireLocationOwnership(locals, location_id);
+    // Vue équipe inc 4 : lecture ouverte au membre du site (owner inchangé — la garde
+    // access couvre les deux) ; le périmètre membre s'applique plus bas (memberCardPolicy).
+    requireLocationAccess(locals, location_id);
+    const memberView = String((locals as any)?.role || "") === "member";
+    const memberPoleIds: string[] = memberView ? (((locals as any)?.member_poles || {})[location_id] || []) : [];
     const selected_dates_raw = requireString(url.searchParams.get("selected_dates"), "selected_dates");
 
     const selected_dates = selected_dates_raw
@@ -94,6 +99,27 @@ export const GET: APIRoute = async ({ url, locals }) => {
     if (!selected_dates.length) {
       throw new Error("No valid dates provided.");
     }
+
+    // Familles des pôles du membre — AMORCÉE tôt (jamais un aller-retour séquentiel de
+    // plus sur le chemin chaud), attendue au moment du filtre. Version courante d'un pôle
+    // = dernière ligne journal de son dispositif_id ; un pôle fermé (cancelled) ne donne
+    // plus son périmètre.
+    const poleFamiliesPromise: Promise<any> = memberView && memberPoleIds.length
+      ? makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data").query({
+          query: `
+            SELECT pole_families FROM (
+              SELECT dispositif_id, pole_families, status,
+                     ROW_NUMBER() OVER (PARTITION BY dispositif_id ORDER BY updated_at DESC) AS rn
+              FROM \`muse-square-open-data.analytics.action_commitments\`
+              WHERE location_id = @location_id AND dispositif_id IN UNNEST(@poles)
+            )
+            WHERE rn = 1 AND status != 'cancelled'
+          `,
+          params: { location_id, poles: memberPoleIds },
+          types: { poles: ["STRING"] },
+          location: "EU",
+        }).catch(() => [[]])
+      : Promise.resolve([[]]);
 
     // `light=1` (pulse) → the primary day uses the 'brief' slice instead of 'context', skipping the
     // heaviest reads (delta_att estimation) that pulse never renders (~3.4s -> ~2s for that day).
@@ -948,8 +974,20 @@ export const GET: APIRoute = async ({ url, locals }) => {
     console.log(`[monitor] TOTAL: ${_t4 - _t0}ms`);
 
     // (activeSuppressionKeys is computed above, before the feed merge — it filters both rails.)
+    // Vue équipe inc 4 — politique membre appliquée AU SERVEUR : périmètre par portée de
+    // type (site/famille/owner, memberCardPolicy) + retrait des niveaux du payload.
+    const [pfRows] = await poleFamiliesPromise;
+    const poleFamilies = new Set<string>();
+    for (const r of ((pfRows as any[]) || [])) {
+      try { for (const f of JSON.parse(String((r as any).pole_families || "[]"))) if (f) poleFamilies.add(String(f)); } catch { /* familles illisibles → pôle sans périmètre */ }
+    }
+    const applyMemberPolicy = (arr: any[]) => memberView
+      ? arr.filter((c) => memberCanSeeCard(c, poleFamilies)).map((c) => ({ ...c, data_payload: redactPayloadForMember(c.data_payload) }))
+      : arr;
+
     return json(200, {
       ok: true,
+      ...(memberView ? { role: "member" } : {}),
       profile: profile
         ? {
             location_type: profile.location_type ?? null,
@@ -994,7 +1032,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         : null,
       // Enjeu policy (tiers, négatif-only, résolution de condition) vit dans lib/dayClassRegistry —
       // monitor est un simple lecteur : enjeu = {eur_year, tier, label_fr, n_days, span_months} | null.
-      action_candidates: filterDisabledThemes([...actionCandidateRows, ...(eventLifecycleRows as any[])], disabledThemes)
+      action_candidates: applyMemberPolicy(filterDisabledThemes([...actionCandidateRows, ...(eventLifecycleRows as any[])], disabledThemes)
         .filter((r: any) => !(r?.suppression_key && activeSuppressionKeys.has(String(r.suppression_key))))
         // MATÉRIALITÉ (29/07) : une carte dont la classe est MESURÉE et négligeable ne sort pas.
         // Décision owner : « ni carte ni chantier ». Le garde-fou retirait la pastille mais
@@ -1031,10 +1069,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         data_payload:    r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null,
         suppression_key: r?.suppression_key ?? null,
         expires_at:      (r?.expires_at?.value ?? r?.expires_at ?? null),
-      })),
+      }))),
       active_goal: activeGoal,
       activity: activity,
-      sales_summary: salesSummary,
+      // Membre : 8 jours de CA/transactions/panier absolus = état du business — bloc coupé.
+      sales_summary: memberView ? null : salesSummary,
       event_status: eventStatus,
       worst_day_count: worstDayCount,
       total_day_count: days.length,
@@ -1073,7 +1112,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         .sort((a: any, b: any) => Math.abs(b.eur_year) - Math.abs(a.eur_year))),
     });
   } catch (err: any) {
-    return json(400, {
+    // FORBIDDEN → 403 (aligné sur les autres endpoints ; le 400 historique reste pour le reste).
+    return json(/FORBIDDEN/.test(String(err?.message || "")) ? 403 : 400, {
       ok: false,
       error: err?.message || "Unknown error",
       profile: null,
