@@ -2,8 +2,8 @@
 
 Cadrage arbitré par l'owner le 27/08/2026, dans la foulée de l'étape 3 du versionning
 (contexte de la version) et de la vue `semantic.vw_insight_event_commitment_memory`.
-RIEN de cette spec n'est construit. Le build vient APRÈS l'étape 4 (lecture du jour,
-Créer une opération, renommage de la section des moves).
+Le socle est CONSTRUIT le 27/08 (P1 colonnes/API, P2 création, P3 lecture continue —
+voir « Ce qui est construit ») ; les restes sont nommés en fin de document.
 
 ## Les mots (owner 27/08)
 
@@ -22,9 +22,8 @@ entité : c'est le site lui-même, vu comme l'ensemble de ses pôles.
    avec l'identité de chaîne existante (`dispositif_id`, `version_no`) : changer
    l'organisation d'un pôle EST une version suivante. Aucun registre séparé — la
    mémoire opérationnelle reste une.
-2. **Une nature explicite.** Il reste à poser un marqueur de nature
-   (permanent / opération datée / série) — colonne à ajouter au build, jamais déduite
-   de l'absence de dates.
+2. **Une nature explicite.** `dispositif_nature` est en base ('operation' | 'permanent'
+   | 'serie', NULL legacy = operation) — jamais déduite de l'absence de dates.
 3. **Un pôle n'a ni fenêtre ni verdict.** Sa mesure est la lecture continue : le CA de
    SES familles vs son résultat habituel. On ne force jamais un « atteint / manqué »
    sur ce qui n'a pas de terme.
@@ -56,20 +55,40 @@ ces dispositifs ; ils courent en parallèle des données de vente.
 - Les champs mémoire au grain version sont en base et dans les formulaires :
   `dispositif_plus`, `dispositif_why`, `dispositif_resources`, Levier, Responsable(s).
 - La chaîne de versions (`dispositif_id`, `version_no`, héritage au POST) est livrée.
-- `semantic.vw_insight_event_commitment_memory` expose la mémoire (48 colonnes,
-  contrat enforced) — les pôles y apparaîtront par la même table.
+- `semantic.vw_insight_event_commitment_memory` expose la mémoire (contrat enforced) —
+  les 3 colonnes pôles y montent par la passation dbt ci-dessous (48 → 51).
 - Le roster (`/api/channels/team`) alimente Responsable(s).
 
-## Ce qui reste à faire (le build, après l'étape 4)
+## Ce qui est construit (27/08 — au présent)
 
-- Colonnes : nature du dispositif ; familles du pôle ; clé de rattachement
-  opération→pôle. Toujours par `ALTER ADD COLUMN` + sonde écrite-relue-effacée.
-- « Créer une opération » (C2 de l'étape 4) : construit daté-seulement mais avec la
-  nature comme dimension explicite, pour que « pôle permanent » soit un ajout.
-- La surface de lecture continue d'un pôle (familles vs habituel, opérations en cours).
-- La déclaration des pôles d'Épices et Tout comme premier cas réel.
+- Les colonnes SONT en base : `dispositif_nature` ('operation'|'permanent'|'serie',
+  NULL legacy = operation), `pole_families` (JSON array), `attached_pole_id` — sondes
+  écrites-relues-effacées. `assertTermsPresent` est nature-aware (un permanent s'écrit
+  sans fenêtre ni objectif) et la SÉLECTION EXACTE du cron de résolution ne voit pas
+  un permanent (window_end NULL, prouvé par sonde).
+- POST `/api/commitments` porte la branche pôle (familles obligatoires, chaîne
+  lineageFor, héritage) et le flux daté valide/hérite `attached_pole_id`.
+- « Nouvelle opération » (`evenement.astro?new=1`) porte la bascule de nature :
+  le panneau pôle choisit les familles RÉELLES en chips (avec leur €/j), POST direct.
+- La page engagement REND un pôle : lecture continue (`lib/poleReading` — 30 derniers
+  jours vendus vs les 90 précédents, planchers n≥5, jours futurs exclus), mémoire,
+  opérations rattachées, chaîne de versions — sans un mot de verdict.
 
-## Décisions owner encore ouvertes
+## Ce qui reste à faire
 
-- L'emplacement du bouton « Créer une opération » (reco : Piloter, à côté du tableau).
-- Le nom de la section des moves (C3 — « Régler le dispositif » proposé).
+- Remonter les 3 colonnes dans `semantic.vw_insight_event_commitment_memory`
+  (passation dbt +3 colonnes prête et prouvée — contrat 48 → 51).
+- La déclaration des pôles d'Épices et Tout comme premier cas réel (owner).
+- L'héritage du KPI famille pôle→opération (rail `saved_items.kpi_family`,
+  `measured_metric` est 'family_revenue' NU — jamais un suffixe deviné).
+- La fermeture d'un pôle : aujourd'hui soft-cancel (rendu « fermé » sur la page) ;
+  un état propre se décidera si le besoin le prouve.
+- L'ajustement d'un pôle (V2 = réorganisation) depuis sa page — le panneau
+  « Ajuster le dispositif » est volontairement absent du rendu pôle pour l'instant.
+
+## Décisions tranchées en route (27/08)
+
+- La création vit sur la page EXISTANTE « Nouvelle opération » (`evenement.astro?new=1`)
+  — aucun bouton nouveau (relevé owner : ne jamais dupliquer un point d'entrée).
+- La section des moves s'appelle « Ajuster le dispositif » (mot owner, aligné sur le
+  CTA amont « Ajuster » du journal).
