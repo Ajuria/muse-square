@@ -158,6 +158,19 @@ export const EVOL_COPY = {
   // Contexte de la version (étape 3, 27/08) — le sous-formulaire de la version suivante.
   // Mots owner verbatim : Levier · Étape de la vente · Ressource(s) · Responsable(s) ·
   // Le plus du dispositif · Pourquoi ça va marcher.
+  // Pôle / dispositif permanent (P3, 27/08) — la page d'un pôle : lecture continue, jamais
+  // un mot de verdict (un permanent n'a pas de terme).
+  pole_chip: "Dispositif permanent",
+  pole_resp: "Responsable(s)",
+  pole_fams_title: "Familles du pôle",
+  pole_reading_title: "Lecture continue — 30 derniers jours",
+  pole_reading_caption: "€/j des jours vendus, comparé aux 90 jours précédents.",
+  pole_reading_row: "{n30} j vendus · habituel {base} €/j",
+  pole_reading_thin: "pas encore comparable ({n30} j vendus sur 30)",
+  pole_ops_title: "Opérations sur ce pôle",
+  pole_ops_none: "Aucune opération rattachée pour l'instant.",
+  pole_op_open: "en cours",
+  pole_op_done: "terminée",
   vform_title: "La version suivante",
   vform_stage: "Étape de la vente",
   vform_goal: "Objectif de cette version",

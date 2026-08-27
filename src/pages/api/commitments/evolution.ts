@@ -10,6 +10,7 @@ import { KPI_LABEL_FR } from "../../../lib/kpiRegistry";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { readLatestSnapshot } from "../../../lib/actionCommitments";
+import { buildPoleReading } from "../../../lib/poleReading";
 import { commitmentEffect } from "../../../lib/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
 import { getBestInClassPlays, leverForActionType } from "../../../lib/bestInClassStore";
@@ -120,6 +121,52 @@ async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], 
   return { metric, label_fr: KPI_LABEL[metric] || metric, family, day_of: dayOf, baseline, realized, goal, goal_pct, daily, peers };
 }
 
+// Chaîne de versions du dispositif (étape 2, 27/08) — partagée entre le flux daté et le rendu
+// PÔLE (P3) : même requête canonique, jamais dupliquée. < 2 versions → [] (une racine seule
+// n'a pas d'historique à raconter).
+async function buildLineage(bq: any, snap: any): Promise<any[]> {
+  let lineage: any[] = [];
+  if ((snap as any).dispositif_id) {
+    const [lrows] = await bq.query({
+
+      query: `SELECT commitment_id, version_no, status, verdict, measured_metric,
+                     window_residual_pct, window_residual_z,
+                     kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
+                     CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end
+              FROM (
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC,
+                  CASE WHEN status IN ('resolved','cancelled') THEN 1 ELSE 0 END DESC,
+                  (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                FROM \`${BQ_PROJECT}.analytics.action_commitments\`
+                WHERE dispositif_id = @d AND location_id = @loc
+              )
+              WHERE rn = 1 AND status != 'cancelled'
+              ORDER BY version_no`,
+      params: { d: String((snap as any).dispositif_id), loc: String(snap.location_id) },
+      types: { d: "STRING", loc: "STRING" },
+      location: "EU",
+    });
+    const flatv = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+    lineage = (Array.isArray(lrows) ? lrows : []).map((r: any) => {
+      const eff = commitmentEffect(r);
+      return {
+        commitment_id: String(flatv(r.commitment_id)),
+        version_no: Number(flatv(r.version_no)) || 1,
+        status: String(flatv(r.status)),
+        verdict: r.verdict != null ? String(flatv(r.verdict)) : null,
+        window_start: String(flatv(r.window_start) ?? ""),
+        window_end: String(flatv(r.window_end) ?? ""),
+        effect_pct: eff.pct,
+        effect_proven: eff.z != null && Math.abs(eff.z) >= 1,
+        kpi_mention_fr: eff.kpi_mention_fr,
+        is_current: String(flatv(r.commitment_id)) === String(snap.commitment_id),
+      };
+    });
+    if (lineage.length < 2) lineage = [];
+    }
+  return lineage;
+}
+
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const userId = String((locals as any)?.clerk_user_id || "").trim() || null;
@@ -131,6 +178,29 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const snap = await readLatestSnapshot(bq, commitmentId);
     if (!snap) return json({ ok: false, error: "Engagement introuvable" }, 404);
     requireLocationOwnership(locals, snap.location_id);
+
+    // ── PÔLE / DISPOSITIF PERMANENT (spec pôles, 27/08) : ni fenêtre ni verdict — la page
+    // rend la LECTURE CONTINUE (familles vs habituel) + les opérations rattachées + la chaîne
+    // de versions. Toute la machinerie datée (série, KPI fenêtré, moves) est hors sujet ici.
+    if ((snap as any).dispositif_nature === "permanent") {
+      let _famList: string[] = [];
+      try { _famList = JSON.parse(String((snap as any).pole_families || "[]")); } catch { /* périmètre illisible → lecture vide, jamais un crash */ }
+      const asOfP = new Date().toISOString().slice(0, 10);
+      const pole = await buildPoleReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), _famList, asOfP);
+      const commitment = {
+        commitment_id: snap.commitment_id, location_id: snap.location_id, status: snap.status,
+        dispositif_nature: "permanent",
+        committed_action_text: snap.committed_action_text, owner_person_name: snap.owner_person_name,
+        pole_families: (snap as any).pole_families ?? null,
+        dispositif_plus: (snap as any).dispositif_plus ?? null,
+        dispositif_why: (snap as any).dispositif_why ?? null,
+        dispositif_resources: (snap as any).dispositif_resources ?? null,
+        created_at: flat(snap.created_at),
+        dispositif_id: (snap as any).dispositif_id ?? null, version_no: (snap as any).version_no ?? null,
+      };
+      const lineage = await buildLineage(bq, snap);
+      return json({ ok: true, commitment, pole, lineage, site_name: null });
+    }
 
     // Same window-date logic as the cron (day_of → Paris business day of creation).
     const dates = snap.window_kind === "day_of"
@@ -257,44 +327,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // celui-ci : chaque version avec SON verdict et SON effet sur SON KPI (commitmentEffect, le
     // foyer — jamais le résidu de CA d'office). Rendu par renderEvolution seulement quand la
     // chaîne compte plus d'une version : une V1 seule n'a pas d'historique à raconter.
-    let lineage: any[] = [];
-    if ((snap as any).dispositif_id) {
-      const [lrows] = await bq.query({
-        query: `SELECT commitment_id, version_no, status, verdict, measured_metric,
-                       window_residual_pct, window_residual_z,
-                       kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
-                       CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end
-                FROM (
-                  SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC,
-                    CASE WHEN status IN ('resolved','cancelled') THEN 1 ELSE 0 END DESC,
-                    (verdict IS NOT NULL) DESC, created_at DESC) AS rn
-                  FROM \`${BQ_PROJECT}.analytics.action_commitments\`
-                  WHERE dispositif_id = @d AND location_id = @loc
-                )
-                WHERE rn = 1 AND status != 'cancelled'
-                ORDER BY version_no`,
-        params: { d: String((snap as any).dispositif_id), loc: String(snap.location_id) },
-        types: { d: "STRING", loc: "STRING" },
-        location: "EU",
-      });
-      const flatv = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
-      lineage = (Array.isArray(lrows) ? lrows : []).map((r: any) => {
-        const eff = commitmentEffect(r);
-        return {
-          commitment_id: String(flatv(r.commitment_id)),
-          version_no: Number(flatv(r.version_no)) || 1,
-          status: String(flatv(r.status)),
-          verdict: r.verdict != null ? String(flatv(r.verdict)) : null,
-          window_start: String(flatv(r.window_start) ?? ""),
-          window_end: String(flatv(r.window_end) ?? ""),
-          effect_pct: eff.pct,
-          effect_proven: eff.z != null && Math.abs(eff.z) >= 1,
-          kpi_mention_fr: eff.kpi_mention_fr,
-          is_current: String(flatv(r.commitment_id)) === String(snap.commitment_id),
-        };
-      });
-      if (lineage.length < 2) lineage = [];
-    }
+    const lineage = await buildLineage(bq, snap);
 
     return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, ...extras });
   } catch (err: any) {

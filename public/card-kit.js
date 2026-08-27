@@ -806,6 +806,59 @@
     var cm = data.commitment, series = data.series || [], ctx = data.context || {};
     var hn = data.holiday_norm, prov = data.provenance || {}, advice = data.advice || [];
     var open = cm.status === 'open';
+
+    // ── POLE / DISPOSITIF PERMANENT (P3, spec 27/08) — un document propre : lecture continue
+    // (familles vs habituel), memoire, operations rattachees. AUCUN mot de verdict : un
+    // permanent n'a pas de terme, sa mesure ne se juge pas, elle se lit.
+    if (cm.dispositif_nature === 'permanent') {
+      var t2 = function (key, vars) { var s2 = (COPY && COPY[key]) || ''; if (vars) for (var kk in vars) if (vars.hasOwnProperty(kk)) s2 = s2.split('{' + kk + '}').join(vars[kk]); return s2; };
+      var pEurJ = function (v) { return v == null ? '—' : Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €/j'; };
+      var pPct = function (v) { return (v >= 0 ? '+' : '−') + String(Math.abs(v)).replace('.', ',') + ' %'; };
+      var pFams = []; try { pFams = JSON.parse(cm.pole_families || '[]'); } catch (e2) { pFams = []; }
+      var pr = data.pole || { families: [], operations: [] };
+      var nameParts = String(cm.committed_action_text || '').split(' — ');
+      var pName = nameParts[0] || 'Pôle';
+      var pLever = nameParts.slice(1).join(' — ');
+      var h = '<div style="border-bottom:2px solid #111827;padding-bottom:14px;margin-bottom:20px;">'
+        + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:19px;font-weight:700;color:#111827;">' + esc(pName) + '</span>'
+        + '<span style="font-size:11px;font-weight:600;color:#0F6E56;background:#E6F6F0;padding:3px 10px;border-radius:999px;">' + esc(t2('pole_chip')) + '</span>'
+        + (cm.status !== 'open' ? '<span style="font-size:11px;color:#6b7280;background:#F3F4F6;padding:3px 10px;border-radius:999px;">fermé</span>' : '') + '</div>'
+        + (pLever ? '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">' + esc(pLever) + '</div>' : '')
+        + (cm.owner_person_name ? '<div style="font-size:12px;color:#6b7280;margin-top:4px;">' + esc(t2('pole_resp')) + ' : ' + esc(cm.owner_person_name) + '</div>' : '')
+        + '</div>';
+      h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_fams_title')) + '</div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + pFams.map(function (f) { return '<span style="font-size:12px;background:#F3F4F6;color:#374151;padding:4px 11px;border-radius:999px;">' + esc(f) + '</span>'; }).join('') + '</div></div>';
+      h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_reading_title')) + '</div>'
+        + '<div style="font-size:11px;color:#9CA3AF;margin-bottom:8px;">' + esc(t2('pole_reading_caption')) + '</div>'
+        + (pr.families || []).map(function (fr2) {
+            var right = fr2.delta_pct != null
+              ? '<span style="font-size:13px;font-weight:600;color:' + (fr2.delta_pct >= 0 ? '#0F6E56' : '#B45309') + ';">' + pPct(fr2.delta_pct) + '</span>'
+              : '<span style="font-size:11px;color:#9CA3AF;">' + esc(t2('pole_reading_thin', { n30: fr2.n30 })) + '</span>';
+            return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5e7eb;padding:10px 14px;margin-bottom:6px;">'
+              + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(fr2.family) + '</span>'
+              + '<span style="font-size:12px;color:#6b7280;">' + pEurJ(fr2.avg30_eur_day) + (fr2.base_eur_day != null ? ' · ' + esc(t2('pole_reading_row', { n30: fr2.n30, base: Number(fr2.base_eur_day).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) })) : '') + '</span>'
+              + right + '</div>';
+          }).join('')
+        + '</div>';
+      var mem = '';
+      if (cm.dispositif_plus) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_plus')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_plus) + '</div></div>';
+      if (cm.dispositif_why) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_why')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_why) + '</div></div>';
+      if (cm.dispositif_resources) mem += '<div><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_res')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_resources) + '</div></div>';
+      if (mem) h += '<div class="eg-sec">' + mem + '</div>';
+      h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_ops_title')) + '</div>'
+        + ((pr.operations || []).length
+          ? pr.operations.map(function (o) {
+              var when = (o.window_start ? msDateFr(o.window_start) : '') + (o.window_end && o.window_end !== o.window_start ? ' → ' + msDateFr(o.window_end) : '');
+              var st = o.status === 'open' ? t2('pole_op_open') : t2('pole_op_done');
+              return '<a href="/app/insightevent/engagement?id=' + encodeURIComponent(o.commitment_id) + '" style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5e7eb;padding:10px 14px;margin-bottom:6px;text-decoration:none;">'
+                + '<span style="font-size:13px;color:#111827;">' + esc(o.committed_action_text || '') + '</span>'
+                + '<span style="font-size:11.5px;color:#6b7280;white-space:nowrap;">' + esc(when) + ' · ' + esc(st) + '</span></a>';
+            }).join('')
+          : '<div style="font-size:12.5px;color:#9CA3AF;">' + esc(t2('pole_ops_none')) + '</div>')
+        + '</div>';
+      return h;
+    }
+
     var received = series.filter(function (d) { return d.has_data; });
     var windowHoliday = ctx.school_days > 0 || series.some(function (d) { return d.is_school_holiday; });
 

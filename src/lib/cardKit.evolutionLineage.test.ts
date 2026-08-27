@@ -140,3 +140,42 @@ it("C3 : la section porte le mot owner « Ajuster le dispositif », jamais l'anc
   expect(html).toContain("Ajuster le dispositif");
   expect(html).not.toContain("Votre prochaine action");
 });
+
+// ── Pôle / dispositif permanent (P3, 27/08) — le document du pôle ──────────────────────────────
+
+it("un pôle rend la lecture continue et les opérations rattachées — sans UN SEUL mot de verdict", () => {
+  const data: any = {
+    commitment: {
+      commitment_id: "pole-1", status: "open", dispositif_nature: "permanent",
+      committed_action_text: "Pôle périssables — vendeur dédié, réassort quotidien",
+      owner_person_name: "Camille Robin", pole_families: '["Coffee","Bakery"]',
+      dispositif_plus: "Fraîcheur visible en vitrine", dispositif_why: "Le public vacances achète le matin",
+      dispositif_resources: "1 vendeur, vitrine réfrigérée", created_at: "2026-08-27T10:00:00Z",
+    },
+    pole: {
+      families: [
+        { family: "Coffee", avg30_eur_day: 412.5, n30: 26, base_eur_day: 380.2, n_base: 78, delta_pct: 8.5 },
+        { family: "Bakery", avg30_eur_day: 96, n30: 3, base_eur_day: null, n_base: 0, delta_pct: null },
+      ],
+      operations: [
+        { commitment_id: "op-1", status: "open", verdict: null, committed_action_text: "Producteur invité — fromages", window_start: "2026-09-14", window_end: "2026-09-14", version_no: 1 },
+      ],
+    },
+    lineage: [],
+  };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("Pôle périssables");
+  expect(html).toContain("Dispositif permanent");
+  expect(html).toContain("Lecture continue — 30 derniers jours");
+  expect(html).toContain("Coffee");
+  expect(html).toContain("+8,5 %");
+  // Famille sous les planchers : jamais un % — le compte réel à la place
+  expect(html).toContain("pas encore comparable (3 j vendus sur 30)");
+  expect(html).toContain("Opérations sur ce pôle");
+  expect(html).toContain('/app/insightevent/engagement?id=op-1');
+  expect(html).toContain("14/09/2026");
+  // Aucun registre de verdict, aucune machinerie datée
+  for (const banned of ["objectif", "verdict", "Ajuster le dispositif", "La version suivante"]) {
+    expect(html.toLowerCase()).not.toContain(banned.toLowerCase());
+  }
+});
