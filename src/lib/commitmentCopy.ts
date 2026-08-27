@@ -138,7 +138,15 @@ export const EVOL_COPY = {
   diag_lever_body: "Si le contexte était neutre et l'exécution complète, c'est le plan lui-même à ajuster.",
   diag_lever_exec: "Exécution incomplète repérée — commencez par là avant de changer de levier.",
   diag_todo_title: "Quoi faire",
-  move_title: "Votre prochaine action",
+  // C3 (owner 27/08) : « Ajuster » est le bouton amont (journal) — la section qui reçoit
+  // porte le même mot : « Ajuster le dispositif » remplace « Votre prochaine action ».
+  move_title: "Ajuster le dispositif",
+  // Lecture du jour (étape 4, 27/08) — l'état daté de la version ouverte, sur le KPI choisi.
+  // Les propositions n'apparaissent qu'après au moins 3 bilans jour ; la route négative
+  // exige au moins 3 journées négatives (owner : jamais sur 1 signal).
+  lecture_line: "Lecture du {date} — {n} {jours} : objectif {etat} à ce jour.",
+  lecture_up: "Le résultat dépasse l'objectif et sort du bruit de votre lieu — relevez l'objectif de la version suivante.",
+  lecture_down: "{n} journées sous votre résultat habituel — modifiez le dispositif ou l'opération sans attendre la fin.",
   diag_move_intro: "Choisissez votre prochaine action :",
   move_intro_ontrack: "Ça marche. À vous de décider la suite — poussez l'avantage ou sécurisez le résultat :",
   move_poursuivre: "Poursuivre",

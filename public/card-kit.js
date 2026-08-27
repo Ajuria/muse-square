@@ -1179,6 +1179,38 @@
     // intermediaire, etape 4). Dispositif ecarte (effet negatif prouve) => pivoter recommande.
     var _lastRes = (data.lineage || []).filter(function (v) { return v.status === 'resolved' && v.effect_pct != null; }).pop() || null;
     if (open && _lastRes && _lastRes.effect_proven && _lastRes.effect_pct < 0) _recMove = 'pivoter';
+    // Lecture du jour (etape 4, 27/08) — l'etat DATE de la version ouverte, sur LE KPI choisi
+    // quand il est actif (K.daily), sinon sur le residu CA (received). Le routage passe par le
+    // badge « recommande » des puces EXISTANTES — jamais un bouton de plus — et seulement apres
+    // au moins 3 bilans jour ; la route negative exige au moins 3 journees negatives (owner
+    // 27/08 : jamais sur 1 signal). Les jours recus de la version courante priment l'ecarte.
+    var _lect = null;
+    if (open) {
+      var _lPts = (_kpiActive && K.daily && K.daily.length) ? K.daily.filter(function (p) { return p.v != null; }) : null;
+      if (_lPts && _lPts.length) {
+        var _lAvg = _lPts.reduce(function (s, p) { return s + p.v; }, 0) / _lPts.length;
+        var _lNeg = K.baseline != null ? _lPts.filter(function (p) { return p.v < K.baseline; }).length : 0;
+        var _lMet = K.goal != null ? _lAvg >= K.goal : (K.baseline != null ? _lAvg >= K.baseline : false);
+        var _lSig = (cm.kpi_noise_se != null && K.baseline != null) ? Math.abs(_lAvg - K.baseline) >= Number(cm.kpi_noise_se) : false;
+        _lect = { date: _lPts[_lPts.length - 1].date, n: _lPts.length, met: _lMet, nNeg: _lNeg, sigUp: _lMet && _lSig && _lAvg > K.baseline };
+      } else if (received.length) {
+        var _lNegR = received.filter(function (d) { return d.residual_pct != null && d.residual_pct < 0; }).length;
+        _lect = { date: received[received.length - 1].date, n: received.length, met: _dBase >= _dGoal, nNeg: _lNegR, sigUp: _dBase >= _dGoal };
+      }
+    }
+    if (_lect && _lect.n >= 3) {
+      if (!_lect.met && _lect.nNeg >= 3) _recMove = 'pivoter';
+      else if (_lect.sigUp) _recMove = 'doubler';
+    }
+    var _lectHtml = '';
+    if (_lect) {
+      _lectHtml = '<div style="margin-bottom:12px;"><div style="font-size:12.5px;font-weight:600;color:#111827;">'
+        + esc(t('lecture_line', { date: msDateFr(_lect.date), n: _lect.n, jours: _lect.n > 1 ? 'jours reçus' : 'jour reçu', etat: _lect.met ? 'atteint' : 'pas atteint' })) + '</div>'
+        + (_lect.n >= 3 && !_lect.met && _lect.nNeg >= 3
+          ? '<div style="font-size:12.5px;color:#B45309;margin-top:3px;">' + esc(t('lecture_down', { n: _lect.nNeg })) + '</div>'
+          : (_lect.n >= 3 && _lect.sigUp ? '<div style="font-size:12.5px;color:#0F6E56;margin-top:3px;">' + esc(t('lecture_up')) + '</div>' : ''))
+        + '</div>';
+    }
     
     var _mc = function (m, title, desc) {
       var st = _mh[m];
@@ -1253,6 +1285,7 @@
     if (open) {
       moveForm = '<div class="eg-sec">'
         + '<div class="eg-uc">' + esc(t('move_title')) + '</div>'
+        + _lectHtml
         // « Ça marche » ne se dit qu'avec des journées reçues — à J1 (zéro donnée), intro
         // neutre (bug attrapé par la harness J1 26/07 : verdict fabriqué sans données).
         + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:12px;">' + esc((_under || !received.length) ? t('diag_move_intro') : t('move_intro_ontrack')) + '</div>'

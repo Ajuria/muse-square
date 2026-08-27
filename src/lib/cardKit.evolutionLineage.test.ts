@@ -95,3 +95,48 @@ it("dispositif écarté (dernier effet résolu négatif prouvé) : « pivoter »
   expect(html).not.toContain("objectif proposé");
   expect(html).toContain('data-vform-goal type="number" min="1" max="100" step="1" value="11"');
 });
+
+// ── Lecture du jour (étape 4, 27/08) ───────────────────────────────────────────────────────────
+
+const kpiData = (daily: Array<{ date: string; v: number }>) => {
+  const data: any = baseData();
+  data.commitment.status = "open";
+  data.commitment.kpi_noise_se = 2;
+  data.kpi = { metric: "transactions", label_fr: "Transactions", baseline: 10, goal: 12, realized: null, daily };
+  return data;
+};
+
+it("lecture du jour : au-dessus de l'objectif et hors bruit sur ≥3 jours → « atteint à ce jour » + doubler recommandé", () => {
+  const html = String(kit.renderEvolution(kpiData([
+    { date: "2026-08-24", v: 14 }, { date: "2026-08-25", v: 15 }, { date: "2026-08-26", v: 13 },
+  ]), EVOL_COPY));
+  expect(html).toContain("Lecture du 26/08/2026 — 3 jours reçus : objectif atteint à ce jour.");
+  expect(html).toContain("relevez l'objectif de la version suivante");
+  const iDb = html.indexOf('data-move="doubler"');
+  expect(html.slice(iDb, html.indexOf("</button>", iDb)).toLowerCase()).toContain("recommand");
+});
+
+it("lecture du jour : ≥3 journées négatives → « pas atteint à ce jour » + modifier + pivoter recommandé", () => {
+  const html = String(kit.renderEvolution(kpiData([
+    { date: "2026-08-24", v: 8 }, { date: "2026-08-25", v: 7 }, { date: "2026-08-26", v: 9 }, { date: "2026-08-27", v: 8 },
+  ]), EVOL_COPY));
+  expect(html).toContain("Lecture du 27/08/2026 — 4 jours reçus : objectif pas atteint à ce jour.");
+  expect(html).toContain("4 journées sous votre résultat habituel — modifiez le dispositif ou l'opération sans attendre la fin.");
+  const iPv = html.indexOf('data-move="pivoter"');
+  expect(html.slice(iPv, html.indexOf("</button>", iPv)).toLowerCase()).toContain("recommand");
+});
+
+it("porte des 3 bilans : à 2 jours la lecture s'affiche SANS proposition, même très au-dessus ou très en dessous", () => {
+  const up = String(kit.renderEvolution(kpiData([{ date: "2026-08-24", v: 20 }, { date: "2026-08-25", v: 22 }]), EVOL_COPY));
+  expect(up).toContain("Lecture du 25/08/2026 — 2 jours reçus : objectif atteint à ce jour.");
+  expect(up).not.toContain("relevez l'objectif");
+  const down = String(kit.renderEvolution(kpiData([{ date: "2026-08-24", v: 2 }, { date: "2026-08-25", v: 1 }]), EVOL_COPY));
+  expect(down).toContain("objectif pas atteint à ce jour.");
+  expect(down).not.toContain("modifiez le dispositif");
+});
+
+it("C3 : la section porte le mot owner « Ajuster le dispositif », jamais l'ancien titre", () => {
+  const html = String(kit.renderEvolution(kpiData([{ date: "2026-08-24", v: 14 }]), EVOL_COPY));
+  expect(html).toContain("Ajuster le dispositif");
+  expect(html).not.toContain("Votre prochaine action");
+});
