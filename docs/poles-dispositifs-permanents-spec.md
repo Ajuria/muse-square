@@ -71,6 +71,9 @@ ces dispositifs ; ils courent en parallèle des données de vente.
   lineageFor, héritage) et le flux daté valide/hérite `attached_pole_id`.
 - « Nouvelle opération » (`evenement.astro?new=1`) porte la bascule de nature :
   le panneau pôle choisit les familles RÉELLES en chips (avec leur €/j), POST direct.
+- L'héritage KPI pôle→opération EST branché (27/08 soir) : « Nouvelle opération » porte
+  « Rattacher à un pôle » — KPI CA famille + familles restreintes au périmètre du pôle,
+  `attached_pole_id` posé ; la mesure passe par le rail existant `saved_items.kpi_family`.
 - La page engagement REND un pôle : lecture continue (`lib/poleReading` — 30 derniers
   jours vendus vs les 90 précédents, planchers n≥5, jours futurs exclus), mémoire,
   opérations rattachées, chaîne de versions — sans un mot de verdict.
@@ -78,8 +81,6 @@ ces dispositifs ; ils courent en parallèle des données de vente.
 ## Ce qui reste à faire
 
 - La déclaration des pôles d'Épices et Tout comme premier cas réel (owner).
-- L'héritage du KPI famille pôle→opération (rail `saved_items.kpi_family`,
-  `measured_metric` est 'family_revenue' NU — jamais un suffixe deviné).
 - La fermeture d'un pôle : aujourd'hui soft-cancel (rendu « fermé » sur la page) ;
   un état propre se décidera si le besoin le prouve.
 - L'ajustement d'un pôle (V2 = réorganisation) depuis sa page — le panneau
