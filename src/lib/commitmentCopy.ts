@@ -147,6 +147,18 @@ export const EVOL_COPY = {
   move_doubler_d: "Plus de ce qui marche.",
   move_pivoter: "Pivoter",
   move_pivoter_d: "Changer l'approche, puis remesurer sur de nouvelles dates.",
+  // Contexte de la version (étape 3, 27/08) — le sous-formulaire de la version suivante.
+  // Mots owner verbatim : Levier · Étape de la vente · Ressource(s) · Responsable(s) ·
+  // Le plus du dispositif · Pourquoi ça va marcher.
+  vform_title: "La version suivante",
+  vform_stage: "Étape de la vente",
+  vform_goal: "Objectif de cette version",
+  vform_goal_calib: "La version {n} a mesuré {pct} — objectif proposé : {goal} %.",
+  vform_lever: "Levier",
+  vform_resp: "Responsable(s)",
+  vform_res: "Ressource(s)",
+  vform_plus: "Le plus du dispositif",
+  vform_why: "Pourquoi ça va marcher",
   move_stop: "Arrêter",
   move_stop_d: "Abandonner cette action — clôture, la carte revient à piloter.",
   diag_move_note_q: "Qu'avez-vous changé ?",

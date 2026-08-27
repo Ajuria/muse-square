@@ -1174,6 +1174,12 @@
       else if (_under) _recMove = _execQ ? (_execQ === 'complete' ? (_notable ? 'poursuivre' : 'pivoter') : 'poursuivre') : null;
       else _recMove = 'poursuivre';
     }
+    // Contexte de la version (etape 3, 27/08) — la calibration lit la derniere version RESOLUE
+    // de la chaine (jamais l'effet partiel de la version ouverte : ce serait la lecture
+    // intermediaire, etape 4). Dispositif ecarte (effet negatif prouve) => pivoter recommande.
+    var _lastRes = (data.lineage || []).filter(function (v) { return v.status === 'resolved' && v.effect_pct != null; }).pop() || null;
+    if (open && _lastRes && _lastRes.effect_proven && _lastRes.effect_pct < 0) _recMove = 'pivoter';
+    
     var _mc = function (m, title, desc) {
       var st = _mh[m];
       var track = (st && st.attempts >= 2) ? '<div style="font-size:11.5px;color:#1D3BB3;margin-top:5px;">' + esc(t('move_track', { hits: st.hits, attempts: st.attempts })) + '</div>' : '';
@@ -1213,6 +1219,34 @@
       + '</div>';
     }
 
+    // ── « La version suivante » (etape 3, 27/08) — le sous-formulaire du re-commit : la V(n+1)
+    // n'herite plus en silence. Objectif recalibre depuis la derniere version RESOLUE ; champs
+    // owner : Levier, Etape de la vente (derivee du KPI), Ressource(s), Responsable(s),
+    // Le plus du dispositif, Pourquoi ca va marcher. Masque quand le move choisi est stop.
+    var _vformHtml = function () {
+      var stage = ({ visitors: 'Flux', conversion: 'Conversion', transactions: 'Transaction', avg_basket: 'Panier' })[String(cm.measured_metric || '').split(':')[0]] || null;
+      var curGoal = (cm.threshold_basis === 'pct' && cm.threshold_value != null) ? Number(cm.threshold_value) : null;
+      var propGoal = curGoal, calib = '';
+      if (_lastRes && _lastRes.effect_pct > 0) {
+        propGoal = Math.max(1, Math.ceil(_lastRes.effect_pct));
+        calib = t('vform_goal_calib', { n: _lastRes.version_no, pct: '+' + String(Math.round(_lastRes.effect_pct * 10) / 10).replace('.', ',') + ' %', goal: propGoal });
+      }
+      var inp = 'width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12.5px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;';
+      var lab = function (txt) { return '<div style="font-size:12.5px;font-weight:500;color:#374151;margin:12px 0 4px;">' + esc(txt) + '</div>'; };
+      return '<div data-vform style="margin-top:16px;border-top:1px solid #eef1f6;padding-top:14px;">'
+        + '<div style="font-size:13px;font-weight:600;color:#111827;">' + esc(t('vform_title'))
+        + (stage ? ' <span style="font-size:11px;color:#374151;background:#f1efe8;padding:2px 8px;margin-left:6px;">' + esc(t('vform_stage')) + ' : ' + stage + '</span>' : '') + '</div>'
+        + lab(t('vform_goal'))
+        + '<div style="display:flex;align-items:center;gap:6px;"><input data-vform-goal type="number" min="1" max="100" step="1" value="' + (propGoal != null ? propGoal : '') + '" style="width:72px;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:13px;font-weight:600;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;text-align:right;" /><span style="font-size:12px;color:#6b7280;">%</span></div>'
+        + (calib ? '<div style="font-size:11.5px;color:#1D3BB3;margin-top:4px;">' + esc(calib) + '</div>' : '')
+        + lab(t('vform_lever')) + '<textarea data-vform-lever style="' + inp + 'resize:none;min-height:48px;">' + esc(cm.committed_action_text || '') + '</textarea>'
+        + lab(t('vform_resp')) + '<input data-vform-resp value="' + esc(cm.owner_person_name || '') + '" style="' + inp + '" />'
+        + lab(t('vform_res')) + '<input data-vform-res value="' + esc(cm.dispositif_resources || '') + '" style="' + inp + '" />'
+        + lab(t('vform_plus')) + '<textarea data-vform-plus style="' + inp + 'resize:none;min-height:48px;">' + esc(cm.dispositif_plus || '') + '</textarea>'
+        + lab(t('vform_why')) + '<textarea data-vform-why style="' + inp + 'resize:none;min-height:48px;">' + esc(cm.dispositif_why || '') + '</textarea>'
+        + '</div>';
+    };
+
     // ── Your next move — UNIVERSAL for open commitments: the owner authors their OWN strategy in every
     // state (below/aligned/above), never only consuming best-practices. Diagnosis explains, this decides.
     var moveForm = '';
@@ -1229,6 +1263,7 @@
         + '<div style="font-size:13px;font-weight:500;color:#374151;margin:14px 0 6px;" data-adjust-noteq>' + esc(t('diag_move_note_q')) + '</div>'
         + '<textarea data-adjust-note placeholder="' + esc(_moveHint(cm.origin_action_type)) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:9px 11px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:60px;box-sizing:border-box;"></textarea>'
         + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('diag_move_hint_caption')) + '</div>'
+        + _vformHtml()
         + '<div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:14px;"><span data-adjust-msg style="font-size:12px;color:#b91c1c;"></span><button type="button" data-adjust-submit style="font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;border:none;padding:9px 16px;cursor:pointer;font-family:inherit;">' + esc(t('diag_move_cta')) + '</button></div>'
         + '<div data-diag-form style="margin-top:10px;"></div>'
         + '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;font-weight:500;margin-bottom:4px;">' + esc(t('diag_capitalise_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.55;">' + esc(t('diag_capitalise_body')) + '</div></div>'

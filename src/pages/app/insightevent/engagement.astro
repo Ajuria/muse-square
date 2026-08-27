@@ -40,7 +40,7 @@ const id = Astro.url.searchParams.get("id") || "";
 
     <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/commit-form.js?v=11"></script>
-    <script is:inline src="/card-kit.js?v=54"></script>
+    <script is:inline src="/card-kit.js?v=55"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -90,6 +90,9 @@ const id = Astro.url.searchParams.get("id") || "";
               moveBtns.forEach(function (x) { x.setAttribute("style", moveStyle(x === b)); });
               var q = docEl.querySelector("[data-adjust-noteq]");
               if (q) q.textContent = (move.v === "stop") ? t("diag_move_note_stop_q") : t("diag_move_note_q");
+              // « La version suivante » ne concerne que les re-commits — masqué sur stop.
+              var vf = docEl.querySelector("[data-vform]");
+              if (vf) vf.style.display = (move.v === "stop") ? "none" : "";
             });
           });
           var submit = docEl.querySelector("[data-adjust-submit]");
@@ -107,14 +110,24 @@ const id = Astro.url.searchParams.get("id") || "";
               return;
             }
             // re-commit: child on a fresh window, then supersede (soft-cancel) the parent.
+            // Contexte de la version (étape 3, 27/08) : la V(n+1) n'hérite plus en silence — le
+            // sous-formulaire « La version suivante » porte l'objectif (recalibré ou parent), le
+            // Levier, Responsable(s), Ressource(s) et les deux descriptions. Champ vide → null →
+            // l'API hérite du parent (même règle que measured_metric).
+            var vread = function (sel) { var el = docEl.querySelector(sel); var v = el && el.value != null ? String(el.value).trim() : ""; return v || null; };
+            var vGoal = (function () { var el = docEl.querySelector("[data-vform-goal]"); var n = el ? parseInt(el.value, 10) : NaN; return (isFinite(n) && n >= 1 && n <= 100) ? n : null; })();
             // Objectif libre (18/07) : un parent en base 'pct' transmet SON % à l'enfant
             // (threshold_level 'custom' n'existe pas côté legacy — l'envoyer ferait un 400).
-            var thrPayload = (cm.threshold_basis === "pct" && cm.threshold_value != null)
-              ? { threshold_basis: "pct", threshold_pct: Number(cm.threshold_value) }
-              : { threshold_level: cm.threshold_level || "net" };
+            var thrPayload = vGoal != null
+              ? { threshold_basis: "pct", threshold_pct: vGoal }
+              : (cm.threshold_basis === "pct" && cm.threshold_value != null)
+                ? { threshold_basis: "pct", threshold_pct: Number(cm.threshold_value) }
+                : { threshold_level: cm.threshold_level || "net" };
             fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Object.assign({
               location_id: cm.location_id, origin_action_type: cm.origin_action_type, window_kind: cm.window_kind || "7d",
-              committed_action_text: cm.committed_action_text, owner_person_name: cm.owner_person_name,
+              committed_action_text: vread("[data-vform-lever]") || cm.committed_action_text,
+              owner_person_name: vread("[data-vform-resp]") || cm.owner_person_name,
+              dispositif_plus: vread("[data-vform-plus]"), dispositif_why: vread("[data-vform-why]"), dispositif_resources: vread("[data-vform-res]"),
               origin_suppression_key: cm.origin_suppression_key || null, adjustment_move: move.v, adjustment_note: note, parent_commitment_id: cm.commitment_id
             }, thrPayload)) }).then(function (r) { return r.json(); }).then(function (j) {
               if (!j || !j.ok) { fail(j); return; }

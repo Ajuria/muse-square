@@ -202,6 +202,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
       creation_enjeu_class_key: snap.creation_enjeu_class_key ?? null,
       creation_enjeu_entangled: snap.creation_enjeu_entangled === true,
       creation_enjeu_inherited: snap.creation_enjeu_inherited === true,
+      // Contexte de la version (étape 3, 27/08) — le sous-formulaire « La version suivante »
+      // pré-remplit depuis la version courante ; measured_metric dérive l'étape de la vente.
+      measured_metric: snap.measured_metric ?? null,
+      dispositif_plus: (snap as any).dispositif_plus ?? null,
+      dispositif_why: (snap as any).dispositif_why ?? null,
+      dispositif_resources: (snap as any).dispositif_resources ?? null,
     };
 
     // §2d holiday-norm + ② named context + provenance + ③ advice (z-free, keys only)
