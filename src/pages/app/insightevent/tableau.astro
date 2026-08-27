@@ -286,8 +286,69 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + '</div>';
         }
 
+        // ═══ Vue équipe inc 3 — rendu MEMBRE (docs/vue-equipe-slack-spec.md). Le serveur
+        // n'envoie que la liste blanche (bandeau, À faire, opérations du périmètre pôles) ;
+        // cette vue rend CES blocs dans la grammaire existante de la page (tb-hero2/tb-t2,
+        // tb-eb/tb-card, « habituel », « Rien à faire — vos opérations suivent leur
+        // cours. ») — libellés KPI repris de KPI_MINI_FR (chaînes déjà rendues de la page),
+        // aucun €, aucun agrégat d'ensemble.
+        function renderMemberView(j) {
+          var nb = document.getElementById("tb-new"); if (nb) nb.style.display = "none";
+          var html = "";
+          var A = { days: 0, tx: 0, vis: 0 }, B = { days: 0, tx: 0, vis: 0 };
+          (j.bandeau || []).forEach(function (r) {
+            var t = r.w === "a" ? A : B;
+            t.days += (r.n_days || 0); t.tx += (r.tx || 0); t.vis += (r.vis || 0);
+          });
+          // Plancher n ≥ 5 jours vendus par fenêtre (convention poleReading) — sinon « — ».
+          // Visiteurs : un compte sans capteur d'affluence porte 0 partout — afficher
+          // « 0 visiteurs/jour » serait un mensonge, la tuile dit « — » (absence honnête).
+          function perDay(t, f) { return t.days >= 5 && !(f === "vis" && t.vis <= 0) ? t[f] / t.days : null; }
+          function conv(t) { return t.days >= 5 && t.vis > 0 ? t.tx / t.vis : null; }
+          function pcFr(n) { return n == null ? "—" : (n * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %"; }
+          function nFr(n) { return n == null ? "—" : Math.round(n).toLocaleString("fr-FR"); }
+          function tile(label, val, hab, tip) {
+            return '<div class="tb-t2" title="' + esc(tip) + '"><p class="tb-eb">' + label + '</p>'
+              + '<div class="n2" style="color:#111827;">' + val + '</div>'
+              + '<div class="s2">' + (hab != null ? 'habituel ' + hab : '30 derniers jours') + '</div></div>';
+          }
+          var tipBase = "30 derniers jours vendus · habituel = les 90 jours précédents — jours futurs exclus.";
+          html += '<div class="tb-hero2" style="grid-template-columns:repeat(3,1fr);">'
+            + tile("ventes/jour", nFr(perDay(A, "tx")), perDay(B, "tx") == null ? null : nFr(perDay(B, "tx")), tipBase)
+            + tile("nombre de visiteurs/jour", nFr(perDay(A, "vis")), perDay(B, "vis") == null ? null : nFr(perDay(B, "vis")), tipBase)
+            + tile("taux de conversion", pcFr(conv(A)), conv(B) == null ? null : pcFr(conv(B)), tipBase)
+            + '</div>';
+
+          var openComs = j.open_commitments || [];
+          html += '<div style="display:flex;align-items:baseline;gap:10px;margin:2px 2px 6px;"><p class="tb-eb">À faire</p>'
+            + '<span style="font-size:12px;font-weight:600;color:' + (openComs.length ? '#1D3BB3' : '#9CA3AF') + ';">' + openComs.length + ' en attente</span></div>'
+            + '<div class="tb-card" style="padding:10px 16px 14px;">';
+          if (!openComs.length) html += '<div style="font-size:12.5px;color:#9CA3AF;margin-top:4px;">Rien à faire — vos opérations suivent leur cours.</div>';
+          openComs.forEach(function (c) {
+            html += '<div class="tb-occrow"><span style="font-size:13px;color:#111827;">' + esc(c.text) + '</span>'
+              + siteChip(c.site_label)
+              + (c.we ? '<span style="font-size:12px;color:#6b7280;margin-left:auto;">' + frD(c.we) + '</span>' : '')
+              + '</div>';
+          });
+          html += '</div>';
+
+          var ops = j.operations || [];
+          if (ops.length) {
+            html += '<p class="tb-eb" id="tb-ops-sec" style="margin:2px 0 8px;">Opérations en cours</p><div class="tb-card" style="padding:10px 16px 14px;">';
+            ops.forEach(function (o) {
+              html += '<div class="tb-occrow"><span style="font-size:13px;color:#111827;">' + esc(o.title) + '</span>'
+                + siteChip((j.sites || []).filter(function (s) { return s.location_id === o.location_id; }).map(function (s) { return s.label; })[0])
+                + (o.occ_date ? '<span style="font-size:12px;color:#6b7280;margin-left:auto;">' + frD(o.occ_date) + '</span>' : '')
+                + '</div>';
+            });
+            html += '</div>';
+          }
+          body.innerHTML = html;
+        }
+
         function render() {
           var j = J;
+          if (j && j.role === "member") { renderMemberView(j); return; }
           var html = "";
           var im = impactFor(period);
           var db = j.debloquer || {};

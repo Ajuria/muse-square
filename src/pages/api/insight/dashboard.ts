@@ -10,7 +10,7 @@
 import type { APIRoute } from "astro";
 import { personKey, isKeptVerdict } from "../../../lib/actionCommitments";
 import { makeBQClient } from "../../../lib/bq";
-import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation } from "../../../lib/dayClassRegistry";
 // KPI -> colonne journalière : LU au registre, jamais retapé (les deux CASE ci-dessous en
 // étaient des copies ; un mart qui renomme une colonne cassait alors 3 surfaces sur 4).
@@ -31,9 +31,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // l'activité vit sur plusieurs sites (constat réel : 3 opérations sur 3 sites, le mono-site
     // en cachait 2). ?location_id= reste un filtre optionnel.
     const allLocs: string[] = Array.isArray((locals as any)?.all_location_ids) ? (locals as any).all_location_ids : [];
+    // Vue équipe inc 3 (docs/vue-equipe-slack-spec.md) : un membre lit ce tableau en
+    // version light — ses sites viennent de member_location_ids (jamais fusionnés dans
+    // all_location_ids), la garde de lecture est requireLocationAccess (owner inchangé).
+    const role: "owner" | "member" = String((locals as any)?.role || "") === "member" ? "member" : "owner";
+    const memberLocs: string[] = Array.isArray((locals as any)?.member_location_ids) ? (locals as any).member_location_ids : [];
+    const memberPoles: Record<string, string[]> = (locals as any)?.member_poles || {};
     const locFilter = String(url.searchParams.get("location_id") || "").trim();
-    if (locFilter) requireLocationOwnership(locals, locFilter);
-    const locs = locFilter ? [locFilter] : allLocs;
+    if (locFilter) requireLocationAccess(locals, locFilter);
+    const locs = locFilter ? [locFilter] : (role === "member" ? memberLocs : allLocs);
     if (!locs.length) return json(400, { ok: false, error: "aucun site" });
     const uid = String((locals as any)?.clerk_user_id || "").trim();
     const period = [30, 90, 365].includes(Number(url.searchParams.get("period"))) ? Number(url.searchParams.get("period")) : 30;
@@ -45,7 +51,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       : bq0) as typeof bq0;
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows], [famCaRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows], [famCaRows], [bandeauRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         // Perf 25/08 : les 5 sous-requêtes corrélées (2,6-4,7 s de plan, 1 Mo scanné — coupable
@@ -107,12 +113,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
         query: `WITH latest AS (
                   SELECT commitment_id, location_id, status, verdict, owner_person_name, committed_action_text,
                          measured_metric, threshold_basis, threshold_value, saved_item_id, window_start, window_end,
-                         origin_action_type, action_done_status, created_at,
+                         origin_action_type, action_done_status, created_at, dispositif_id, attached_pole_id,
                          ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                   FROM \`${PROJECT}.analytics.action_commitments\` WHERE location_id IN UNNEST(@locs)
                 )
                 SELECT commitment_id, location_id, status, verdict, owner_person_name, committed_action_text,
                        measured_metric, threshold_basis, threshold_value, saved_item_id,
+                       dispositif_id, attached_pole_id,
                        CAST(window_start AS STRING) AS ws, CAST(window_end AS STRING) AS we,
                        origin_action_type, action_done_status,
                        CAST(DATE(created_at) AS STRING) AS created_d,
@@ -772,6 +779,25 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 GROUP BY 1, 2 ORDER BY 3 DESC`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
+      // Bandeau membre (vue équipe inc 3 — membre SEUL, l'owner ne paie pas la requête) :
+      // volume d'achats + affluence + conversion, 30 derniers jours vs les 90 précédents
+      // (convention poleReading). Borne haute STRICTE < CURRENT_DATE() : la graine porte des
+      // dates FUTURES (revérifié 28/08 : max 2026-09-30 chez f10c3e58). Grain du mart =
+      // location × date × source_type → agrégats par fenêtre (la conversion se recalcule
+      // Σtx/Σvisiteurs, jamais une moyenne de taux). Aucun CA, aucun champ €.
+      role === "member" ? bq.query({
+        query: `SELECT location_id,
+                       CASE WHEN transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) THEN 'a' ELSE 'b' END AS w,
+                       COUNT(DISTINCT transaction_date) AS n_days,
+                       SUM(daily_transactions) AS tx,
+                       SUM(daily_visitors) AS vis
+                FROM \`${PROJECT}.mart.fct_client_daily_performance\`
+                WHERE location_id IN UNNEST(@locs)
+                  AND transaction_date < CURRENT_DATE()
+                  AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 120 DAY)
+                GROUP BY 1, 2`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]) : Promise.resolve([[]]),
     ]);
 
     const opsValue = (opsValRows as any[]).map((r) => ({ saved_item_id: str(r.saved_item_id), avg_gap: num(r.avg_gap), n: num(r.n) ?? 0 }));
@@ -813,6 +839,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       origin: str(r.origin_action_type), days_to_end: num(r.days_to_end),
       created_d: str(r.created_d),
       in_period: flat(r.in_period) === true,
+      // Vue équipe inc 3 : le lien pôle (filtre de périmètre membre) — dispositif_id
+      // identifie le pôle lui-même, attached_pole_id une opération rattachée.
+      dispositif_id: str(r.dispositif_id), attached_pole_id: str(r.attached_pole_id),
     }));
     const todayYmd = new Date().toISOString().slice(0, 10);
     const open = coms.filter((c) => c.status === "open");
@@ -1040,6 +1069,34 @@ export const GET: APIRoute = async ({ url, locals }) => {
           in_test: test ? { end: test.we } : null,
         };
       });
+
+    // ═══ Vue équipe inc 3 — réponse MEMBRE : liste blanche de blocs, jamais un masquage
+    // client (docs/vue-equipe-slack-spec.md, arbitrage chiffres 28/08 : occasions d'agir
+    // oui, état du business jamais). Les blocs impact/€ cumulés/marges/CA quotidien/équipe/
+    // prouvés/veille/débloquer/automatisations NE SONT PAS ENVOYÉS. Périmètre : les pôles
+    // du membre — le pôle lui-même (dispositif_id) et les opérations rattachées
+    // (attached_pole_id) ; une occurrence passe si un engagement de son saved_item passe.
+    if (role === "member") {
+      const comPasses = (c: any) => {
+        const poles = new Set((memberPoles[String(c.location_id)] || []).map(String));
+        return (c.dispositif_id != null && poles.has(String(c.dispositif_id)))
+            || (c.attached_pole_id != null && poles.has(String(c.attached_pole_id)));
+      };
+      const memberSavedItems = new Set(coms.filter(comPasses).map((c) => c.saved_item_id).filter(Boolean).map(String));
+      return json(200, {
+        ok: true,
+        role: "member",
+        period_days: period,
+        multi_site: locs.length > 1,
+        sites: locs.map((l) => ({ location_id: l, label: siteLabel[l] || "" })),
+        operations: (operations as any[]).filter((o) => o.saved_item_id != null && memberSavedItems.has(String(o.saved_item_id))),
+        open_commitments: open.filter(comPasses).map((c) => ({ commitment_id: c.commitment_id, text: c.text, owner: c.owner, location_id: c.location_id, site_label: c.site_label, ws: c.ws, we: c.we, metric: c.metric, threshold_value: c.threshold_value, saved_item_id: c.saved_item_id, days_to_end: c.days_to_end, is_event: /^event_/.test(String(c.origin || "")) })),
+        bandeau: (bandeauRows as any[]).map((r) => ({
+          location_id: str(r.location_id), w: str(r.w),
+          n_days: Number(num(r.n_days) ?? 0), tx: Number(num(r.tx) ?? 0), vis: Number(num(r.vis) ?? 0),
+        })),
+      });
+    }
 
     return json(200, {
       ok: true,

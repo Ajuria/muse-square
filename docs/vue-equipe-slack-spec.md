@@ -136,15 +136,39 @@ passe par un appel Clerk backend API au premier accès.
   de test invité, login, redirection vers Agir) — à faire quand l'incrément 4 rend la
   page consommable par un membre.
 
-## Piloter light (incrément 3)
+## Piloter light (incrément 3 — CONSTRUIT 28/08)
 
-`dashboard.ts` devient role-aware : pour `role='member'`, la réponse ne contient QUE les
-blocs du périmètre (« À faire », opérations/dispositifs en cours — filtrés aux pôles du
-membre et aux opérations rattachées à ses pôles) + le bandeau membre (volume d'achats,
-affluence, conversion, évolutions en %). Les blocs `impact`, prouvés, `equipe`,
-`debloquer`, veille, automatisations **ne sont pas envoyés** — c'est la coupe la moins
-chère et la seule sûre (masquer au client = envoyer quand même). `tableau.astro` rend ce
-qu'il reçoit ; les blocs absents ne s'affichent pas.
+`dashboard.ts` est role-aware : garde `requireLocationAccess` (owner inchangé) ; pour
+`role='member'` la réponse est une LISTE BLANCHE — {ok, role, period_days, multi_site,
+sites, operations, open_commitments, bandeau}. Impact, € cumulés, marges, `ca_daily`,
+équipe, prouvés, veille, débloquer, automatisations **ne sont pas envoyés**. Périmètre =
+pôles du membre : `dispositif_id` (le pôle) / `attached_pole_id` (opération rattachée),
+ajoutés à la CTE `latest` ET au SELECT du feed engagements ; une occurrence passe si un
+engagement de son `saved_item` passe. `gap_eur` reste autorisé sous
+`operations[].prev_occ` (bilan d'une opération du pôle = occasion d'agir).
+
+Le `bandeau` est une requête membre-seule (l'owner ne la paie pas) sur
+`mart.fct_client_daily_performance` (modèle LU : grain location × date × source_type →
+agrégats par fenêtre, conversion recalculée Σtx/Σvis jamais moyenne de taux ; borne
+STRICTE `< CURRENT_DATE()` — la graine porte des dates futures, revérifié : max
+2026-09-30) : 30 derniers jours vs les 90 précédents (convention poleReading), volume
+d'achats + visiteurs, AUCUN champ €.
+
+Rendu : `renderMemberView` dans `tableau.astro` (early-exit de `render()`) — grammaire
+existante de la page (tb-hero2/tb-t2, tb-eb/tb-card, « habituel », « Rien à faire — vos
+opérations suivent leur cours. »), libellés KPI repris de `KPI_MINI_FR` (chaînes déjà
+rendues de la page : « ventes/jour », « nombre de visiteurs/jour », « taux de
+conversion ») ; plancher n ≥ 5 j ; un compte sans capteur d'affluence rend « — », jamais
+« 0 » ; « Nouvelle opération » masqué (geste owner).
+
+**Preuves** : harnais réel `scripts/vue-equipe-dashboard-harness.ts` (handler réel, BQ
+réel, f10c3e58) **32/32** — owner byte-compatible (tous ses blocs, pas de champ role),
+clés membre exactes, filtre pôle positif ET négatif sur les 2 engagements ouverts réels,
+5 occurrences Corner filtrées, 403 hors périmètre — + **rendu vm 7/7** (renderMemberView
+byte-exact sur le payload réel : 3 tuiles, visiteurs « — », aucun €). Mutation vue
+tomber : branche membre neutralisée → 8 assertions rougissent (le membre recevait tout),
+restauration verte. Le harnais a attrapé en route la projection manquante de la CTE
+(`Unrecognized name: dispositif_id`).
 
 ## Agir membre (incrément 4)
 
@@ -223,7 +247,8 @@ tableau de tests MONTRÉ, chaîne rendue de la surface CITÉE d'abord (règle 4)
 2. **Accès** (FAIT 28/08, harnais 22/22 + mutation) : middleware (même aller-retour),
    `requireLocationAccess`, résolution email 1re connexion (inconnue Clerk LEVÉE),
    redirections de pages. Reste : E2E navigateur d'un membre réel, avec l'incrément 4.
-3. **Piloter light** : `dashboard.ts` role-aware + rendu.
+3. **Piloter light** (FAIT 28/08, harnais 32/32 + rendu vm 7/7 + mutation) :
+   `dashboard.ts` role-aware + `renderMemberView`.
 4. **Agir membre** : `monitor.ts` role-aware + table des types (arbitrage owner) + balayage
    des phrases pour les niveaux absolus.
 5. **Gestes v1** : les 3 écritures ouvertes, périmètre vérifié, auteur porté.
