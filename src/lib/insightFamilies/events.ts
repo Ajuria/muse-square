@@ -225,7 +225,9 @@ async function listCalmWeeksRaw(bq: any, location_id: string, date: string): Pro
   });
   return Array.isArray(rows) ? rows : [];
 }
-export interface CalmWeek { wk: string; label: string; count: number; state: string | null }
+// `count_overlap` (27/08, plan diagnostic) : les événements qui VISENT le public (n_can — le
+// même compte qui décide busy) — additif, aucun consommateur existant ne change.
+export interface CalmWeek { wk: string; label: string; count: number; count_overlap: number; state: string | null }
 export async function listCalmWeeks(bq: any, location_id: string, date: string): Promise<CalmWeek[]> {
   const num2 = (v: any): number => Number((v && typeof v === "object" && "value" in v ? v.value : v) ?? 0) || 0;
   const rows = await listCalmWeeksRaw(bq, location_id, date).catch(() => []);
@@ -233,7 +235,7 @@ export async function listCalmWeeks(bq: any, location_id: string, date: string):
     const w = String((r.wk && typeof r.wk === "object" && "value" in r.wk ? r.wk.value : r.wk) ?? "").slice(0, 10);
     const p = w.split("-");
     const n = num2(r.n), nCan = num2(r.n_can);
-    return { wk: w, label: p.length === 3 ? `${p[2]}/${p[1]}` : w, count: n, state: n === 0 ? "quiet" : (nCan >= 1 ? "busy" : null) };
+    return { wk: w, label: p.length === 3 ? `${p[2]}/${p[1]}` : w, count: n, count_overlap: nCan, state: n === 0 ? "quiet" : (nCan >= 1 ? "busy" : null) };
   });
 }
 

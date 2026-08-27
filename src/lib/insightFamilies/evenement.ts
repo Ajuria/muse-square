@@ -45,6 +45,7 @@ export interface UserEvenementRow {
   saved_item_id: string; title: string; type_label_fr: string; recurring: boolean;
   n_occurrences: number; next_date: string | null;
   dates: string[];   // les occurrences datées (plan de période, 27/08 — additive)
+  author: string | null;  // author_person_name (plan « qui » — additive)
   last_measured: { date: string; revenue: number; expected: number; gap_eur: number } | null;
 }
 // clerk_user_id NULL = lecture SITE entière (loi owner 27/08 : un suivi appartient à un site,
@@ -55,6 +56,7 @@ export async function listUserEvenements(bq: any, location_id: string, clerk_use
     const today = ymdToday();
     const [rows] = await bq.query({
       query: `SELECT si.saved_item_id, si.title, si.event_type, si.recurrence,
+                     ANY_VALUE(si.author_person_name) AS author_person_name,
                      ARRAY_AGG(CAST(d.date AS STRING) ORDER BY d.date) AS dates
               FROM \`${PROJECT}.raw.saved_items\` si
               JOIN \`${PROJECT}.raw.saved_item_dates\` d
@@ -72,6 +74,7 @@ export async function listUserEvenements(bq: any, location_id: string, clerk_use
       title: String(flat(r.title) ?? ""),
       type_label_fr: eventTypeLabelFr(flat(r.event_type) as any),
       recurring: String(flat(r.recurrence) ?? "none") !== "none",
+      author: flat(r.author_person_name) != null ? String(flat(r.author_person_name)) : null,
       dates: ((r.dates ?? []) as any[]).map((d) => String(flat(d))),
     }));
     // Dernière occurrence PASSÉE de chaque événement → une lecture residual, jointure en JS
@@ -95,6 +98,7 @@ export async function listUserEvenements(bq: any, location_id: string, clerk_use
         title: e.title,
         type_label_fr: e.type_label_fr,
         recurring: e.recurring,
+        author: e.author,
         n_occurrences: e.dates.length,
         dates: e.dates,
         next_date: e.dates.find((d) => d >= today) ?? null,

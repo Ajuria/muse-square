@@ -2553,7 +2553,8 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       const _plPeriod = resolveFrPeriod(qRaw, { today: _plToday, yearBias: "future" });
       if (_plPeriod && _plPeriod.end >= _plToday) {
         const _bqp = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-        const _plan2 = await planPeriod(_bqp, location_id, _plPeriod.start, _plPeriod.end);
+        // clerk_user_id ouvre le roster équipe (colonne « Qui » du plan) — même clé que /api/channels/team.
+        const _plan2 = await planPeriod(_bqp, location_id, _plPeriod.start, _plPeriod.end, { userId: clerk_user_id });
         const _plb = buildPlanBlocks(_plan2);
         const _plPrimary = _plb.replay_prefill
           ? { type: "commit_prefill", label: "M'engager", prefill: _plb.replay_prefill.prefill,
