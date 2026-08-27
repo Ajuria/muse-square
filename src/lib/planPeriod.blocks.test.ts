@@ -9,10 +9,10 @@ const base = (over: Partial<PlanPeriodResult> = {}): PlanPeriodResult => ({
   open_count: 1,
   calm_weeks: [{ wk: "2026-09-14", label: "14/09", count: 0, state: "quiet" }],
   motifs: [
-    { key: "rain", mot_fr: "pluie", n_days: 4, dates: [], med_gap_eur: -205, hist_days: 20, entangled: true },
-    { key: "tourism_peak", mot_fr: "pic touristique", n_days: 30, dates: [], med_gap_eur: null, hist_days: null, entangled: false },
+    { key: "rain", mot_fr: "pluie", n_days: 4, dates: [], med_gap_eur: -205, hist_days: 20, entangled: true, entangled_with: [{ mot_fr: "pic touristique", n: 100 }, { mot_fr: "vacances scolaires", n: 45 }] },
+    { key: "tourism_peak", mot_fr: "pic touristique", n_days: 30, dates: [], med_gap_eur: null, hist_days: null, entangled: false, entangled_with: [] },
   ],
-  replay: [], series_due: [],
+  replay: [], series_due: [], web_plays: [],
   ...over,
 });
 
@@ -23,7 +23,7 @@ describe("buildPlanBlocks", () => {
     expect(b.sections.map((s) => s.title)).toEqual(["Déjà en place", "Les fenêtres", "À placer"]);
     const rain = b.sections[1].table!.rows[0];
     expect(rain.cells[2].v).toBe("−205 €/jour");
-    expect(rain.cells[2].sub).toBe("20 jours d'historique — estimé, facteurs mêlés");
+    expect(rain.cells[2].sub).toBe("20 jours d'historique — mêlés à : pic touristique (100 % de ses jours), vacances scolaires (45 % de ses jours)");
     expect(b.sections[1].table!.rows[1].cells[2].v).toBe("—");
     expect(b.sections[1].facts).toContain("Semaine du 14/09 : aucun événement concurrent relevé ne vise votre public.");
   });
@@ -31,7 +31,21 @@ describe("buildPlanBlocks", () => {
     const b = buildPlanBlocks(base({ inventory: [], open_count: 0, calm_weeks: [], motifs: [], replay: [], series_due: [] }));
     expect(b.sections[0].facts).toContain("Rien de daté sur la période.");
     expect(b.sections[1].facts!.join(" ")).toContain("s'arrêtent à ~6 semaines");
-    expect(b.sections[2].facts!.join(" ")).toContain("le plan n'invente pas");
+    expect(b.sections[2].facts!.join(" ")).toContain("Aucun dispositif prouvé n'est rejouable");
+  });
+  it("rien à placer + références crawlées → la section WEB porte les plays, registre marqué", () => {
+    const b = buildPlanBlocks(base({ replay: [], series_due: [], web_plays: [
+      { play_id: "p", industry_code: "live_event", lever: "yield", intent: "pivot",
+        title: "Tarification dynamique du soir", context: "salle 400 places",
+        move: "Prix modulés selon le remplissage à J-3.", outcome: "+12 % de recettes sur 2 mois",
+        steps: [], source_name: "EventBiz", source_url: "https://x", published_at: "2026-05",
+        confidence: "moyenne", venue_named: true, source_tier: 1 } as any,
+    ] }));
+    const web = b.sections.find((s2) => s2.register === "web")!;
+    expect(web.title).toBe("Des lieux comparables ont fait");
+    expect(web.facts![0]).toContain("Tarification dynamique du soir");
+    expect(web.facts![0]).toContain("(EventBiz, 2026-05)");
+    expect(b.sources.join(" ")).toContain("Références web");
   });
   it("une série à cadence non tenue se nomme ; un rejeu positif porte le prefill prioritaire", () => {
     const b = buildPlanBlocks(base({

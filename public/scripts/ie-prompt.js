@@ -969,7 +969,12 @@ if (!root) {
         if (!sec) return;
         if (sec.title) blocks.push({ type: "headline", text: sec.title });
         if (sec.table && Array.isArray(sec.table.rows) && sec.table.rows.length) blocks.push({ type: "table", cols: sec.table.cols, rows: sec.table.rows });
-        if (Array.isArray(sec.facts) && sec.facts.length) blocks.push({ type: "facts", items: sec.facts });
+        if (Array.isArray(sec.facts) && sec.facts.length) {
+          // Registre WEB : chaque référence crawlée rend en SEGMENT ambre « Web — non vérifié »
+          // (la provenance ne monte jamais en silence) ; le vérifié reste en puces.
+          if (sec.register === "web") sec.facts.forEach(function (f) { blocks.push({ type: "segment", register: "web", md: f }); });
+          else blocks.push({ type: "facts", items: sec.facts });
+        }
       });
       if (Array.isArray(n.sources_list) && n.sources_list.length) blocks.push({ type: "sources", items: n.sources_list });
       if (ctaBlock) blocks.push(ctaBlock);

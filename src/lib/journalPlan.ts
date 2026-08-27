@@ -96,7 +96,7 @@ export async function listDayFactors(
       SELECT date, ${cols}
       FROM \`${CTX}\`
       WHERE location_id = @location_id
-        AND date BETWEEN ${byRange ? "GREATEST(@s, CURRENT_DATE())" : "CURRENT_DATE()"} AND ${byRange ? "@e" : "DATE_ADD(CURRENT_DATE(), INTERVAL @h DAY)"}
+        AND date BETWEEN ${byRange ? "@s" : "CURRENT_DATE()"} AND ${byRange ? "@e" : "DATE_ADD(CURRENT_DATE(), INTERVAL @h DAY)"}
       ORDER BY date`,
     params: byRange
       ? { location_id, s: bq.date((win as any).start), e: bq.date((win as any).end) }
@@ -183,7 +183,10 @@ export async function journalPlan(
   }
 
   // 2) Les conditions des jours À VENIR — le lecteur partagé (mêmes prédicats, même table).
-  const days = await listDayFactors(bq, location_id, range ?? { horizonDays });
+  // Le croisement ne propose que des jours À VENIR : la plage est bornée à aujourd'hui ICI
+  // (listDayFactors reste fidèle — une lecture passée est légitime ailleurs).
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const days = await listDayFactors(bq, location_id, range ? { start: range.start > todayIso ? range.start : todayIso, end: range.end } : { horizonDays });
 
   // 3) Le croisement. Règle CONSERVATRICE : le jour à venir doit réunir TOUTES les conditions du
   // test prouvé — « les conditions où il a été prouvé », jamais « une condition qui s'en approche ».

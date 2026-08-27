@@ -177,6 +177,51 @@ export function leverForActionType(actionType?: string | null, driver?: string |
 
 // Read vetted plays for a venue's vertical + lever, best-first (confidence, then a named source).
 // `limit` defaults to 2 — the advice slot shows one analog, occasionally two.
+// La ligne du magasin → un play typé — UNE conversion, partagée par les deux lecteurs.
+function rowToPlay(r: any): BestInClassPlay {
+  return {
+    play_id: flat(r.play_id),
+    industry_code: flat(r.industry_code),
+    lever: flat(r.lever),
+    intent: flat(r.intent),
+    title: flat(r.title),
+    context: flat(r.context),
+    move: flat(r.move),
+    outcome: flat(r.outcome),
+    steps: Array.isArray(r.steps) ? r.steps.map(flat) : [],
+    source_name: flat(r.source_name),
+    source_url: flat(r.source_url),
+    published_at: flat(r.published_at),
+    confidence: (flat(r.confidence) || "faible") as Confidence,
+    venue_named: flat(r.venue_named) === true,
+    source_tier: Number(flat(r.source_tier)) || 3, // legacy pré-registre → dernier rang
+  };
+}
+
+// Les meilleures références d'une INDUSTRIE, tous leviers (plan de période, 27/08) — le
+// même magasin, même contrat : des PREUVES crawlées (« X a fait Y »), jamais des plans.
+// Tri : meilleure source d'abord (source_tier), puis la plus récente.
+export async function listIndustryPlays(
+  bq: any,
+  industryCode: string,
+  limit = 3,
+): Promise<BestInClassPlay[]> {
+  if (!industryCode) return [];
+  let rows: any[] = [];
+  try {
+    [rows] = await bq.query({
+      query:
+        `SELECT play_id, industry_code, lever, intent, title, context, move, outcome, steps, ` +
+        `source_name, source_url, published_at, confidence, venue_named, source_tier ` +
+        `FROM \`${STORE_TABLE}\` WHERE industry_code=@ind ` +
+        `ORDER BY source_tier, published_at DESC LIMIT ${Math.max(1, Math.min(6, limit))}`,
+      params: { ind: industryCode },
+      location: "EU",
+    });
+  } catch { return []; }
+  return (rows || []).map(rowToPlay);
+}
+
 export async function getBestInClassPlays(
   bq: any,
   industryCode: string,
@@ -202,23 +247,7 @@ export async function getBestInClassPlays(
     return []; // store absent / not yet crawled — slot falls back to its placeholder
   }
   return rows
-    .map((r) => ({
-      play_id: flat(r.play_id),
-      industry_code: flat(r.industry_code),
-      lever: flat(r.lever),
-      intent: flat(r.intent),
-      title: flat(r.title),
-      context: flat(r.context),
-      move: flat(r.move),
-      outcome: flat(r.outcome),
-      steps: Array.isArray(r.steps) ? r.steps.map(flat) : [],
-      source_name: flat(r.source_name),
-      source_url: flat(r.source_url),
-      published_at: flat(r.published_at),
-      confidence: (flat(r.confidence) || "faible") as Confidence,
-      venue_named: flat(r.venue_named) === true,
-      source_tier: Number(flat(r.source_tier)) || 3, // legacy pré-registre → dernier rang
-    }))
+    .map(rowToPlay)
     .sort((a, b) => a.source_tier - b.source_tier || (CONF_RANK[b.confidence] || 0) - (CONF_RANK[a.confidence] || 0) || (b.venue_named ? 1 : 0) - (a.venue_named ? 1 : 0))
     .slice(0, limit);
 }
