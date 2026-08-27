@@ -10,6 +10,7 @@ import { KPI_LABEL_FR } from "../../../lib/kpiRegistry";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { readLatestSnapshot } from "../../../lib/actionCommitments";
+import { commitmentEffect } from "../../../lib/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
 import { getBestInClassPlays, leverForActionType } from "../../../lib/bestInClassStore";
 
@@ -246,7 +247,50 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }
     } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
 
-    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, ...extras });
+    // LA CHAÎNE LUE (27/08, chantier versionning) — l'historique du dispositif, du premier test à
+    // celui-ci : chaque version avec SON verdict et SON effet sur SON KPI (commitmentEffect, le
+    // foyer — jamais le résidu de CA d'office). Rendu par renderEvolution seulement quand la
+    // chaîne compte plus d'une version : une V1 seule n'a pas d'historique à raconter.
+    let lineage: any[] = [];
+    if ((snap as any).dispositif_id) {
+      const [lrows] = await bq.query({
+        query: `SELECT commitment_id, version_no, status, verdict, measured_metric,
+                       window_residual_pct, window_residual_z,
+                       kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
+                       CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end
+                FROM (
+                  SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC,
+                    CASE WHEN status IN ('resolved','cancelled') THEN 1 ELSE 0 END DESC,
+                    (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                  FROM \`${BQ_PROJECT}.analytics.action_commitments\`
+                  WHERE dispositif_id = @d AND location_id = @loc
+                )
+                WHERE rn = 1 AND status != 'cancelled'
+                ORDER BY version_no`,
+        params: { d: String((snap as any).dispositif_id), loc: String(snap.location_id) },
+        types: { d: "STRING", loc: "STRING" },
+        location: "EU",
+      });
+      const flatv = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+      lineage = (Array.isArray(lrows) ? lrows : []).map((r: any) => {
+        const eff = commitmentEffect(r);
+        return {
+          commitment_id: String(flatv(r.commitment_id)),
+          version_no: Number(flatv(r.version_no)) || 1,
+          status: String(flatv(r.status)),
+          verdict: r.verdict != null ? String(flatv(r.verdict)) : null,
+          window_start: String(flatv(r.window_start) ?? ""),
+          window_end: String(flatv(r.window_end) ?? ""),
+          effect_pct: eff.pct,
+          effect_proven: eff.z != null && Math.abs(eff.z) >= 1,
+          kpi_mention_fr: eff.kpi_mention_fr,
+          is_current: String(flatv(r.commitment_id)) === String(snap.commitment_id),
+        };
+      });
+      if (lineage.length < 2) lineage = [];
+    }
+
+    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);

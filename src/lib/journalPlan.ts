@@ -89,7 +89,7 @@ export async function journalPlan(
   // 1) Les dispositifs dont l'effet est PROUVÉ, avec les conditions de leur test.
   const [rows] = await bq.query({
     query: `
-      SELECT committed_action_text, window_active_factors, window_residual_pct, window_residual_z,
+      SELECT committed_action_text, dispositif_id, window_active_factors, window_residual_pct, window_residual_z,
              measured_metric, kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
              window_start, window_end, status
       FROM (
@@ -117,6 +117,7 @@ export async function journalPlan(
     })
     .map((r: any) => ({
       name: dispositifName(flat(r.committed_action_text)),
+      chain: String(flat(r.dispositif_id) ?? "") || null,
       factors: String(flat(r.window_active_factors) ?? "").split(",").map((x) => x.trim()).filter(Boolean),
       pct: commitmentEffect(r).pct as number,
       z: commitmentEffect(r).z as number,
@@ -129,11 +130,16 @@ export async function journalPlan(
   if (!proven.length) return [];
 
   // Un test EN COURS du même dispositif : c'est ce qui rend la contre-indication urgente.
+  // Clé = la CHAÎNE (dispositif_id) d'abord — deux dispositifs homonymes ne se contaminent
+  // plus ; repli sur le nom pour l'historique sans chaîne.
   const runningUntil = new Map<string, string>();
   for (const r of all) {
     if (String(flat(r.status)) !== "open") continue;
+    const until = ymd(r.window_end ?? r.window_start);
+    const chain = String(flat(r.dispositif_id) ?? "");
+    if (chain) runningUntil.set(chain, until);
     const n = dispositifName(flat(r.committed_action_text));
-    if (n) runningUntil.set(n, ymd(r.window_end ?? r.window_start));
+    if (n) runningUntil.set("name:" + n, until);
   }
 
   // 2) Les conditions des jours À VENIR — mêmes prédicats, même table.
@@ -160,7 +166,7 @@ export async function journalPlan(
       const mots = p.factors.map((f) => FACTOR_FR[f]).filter(Boolean);
       if (!mots.length) continue;     // conditions sans mot : on se tait plutôt que d'afficher une clé
       const negative = p.z < 0;
-      const until = runningUntil.get(p.name) ?? null;
+      const until = (p.chain ? runningUntil.get(p.chain) : null) ?? runningUntil.get("name:" + p.name) ?? null;
       const date = ymd(d.date);
       out.push({
         date,

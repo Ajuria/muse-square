@@ -1254,7 +1254,30 @@
 
     // Diagnosis explains (under only) → the owner DECIDES (moveForm, universal for open) → best-in-class
     // is the reference beneath. Resolved commitments skip moveForm (q4 = Documenter is the mechanism).
-    return head + q1 + diagWhy + (_under ? '' : q3) + moveForm + bicRef + q4 + sources;
+    // LA CHAINE LUE (27/08, chantier versionning) : l'historique du dispositif, une ligne par
+    // version, chacune avec SON verdict (mots arbitres : objectif atteint / manque / non
+    // concluant) et SON effet sur SON KPI. Rendu seulement si la chaine compte >1 version.
+    var lineageB = '';
+    var _lin = Array.isArray(data.lineage) ? data.lineage : [];
+    if (_lin.length > 1) {
+      var _linVerdict = { met: 'objectif atteint', missed: 'objectif manqu\u00e9', confounded: 'objectif non concluant' };
+      var _linFrD = function (iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : ''; };
+      var _linPct = function (n) { if (n == null) return ''; var v = Math.round(Math.abs(Number(n)) * 10) / 10; return (Number(n) >= 0 ? '+' : '\u2212') + String(v).replace('.', ',') + ' %'; };
+      lineageB = '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;">'
+        + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Historique du dispositif</div>'
+        + _lin.map(function (v) {
+            var line = 'Version ' + v.version_no + ' \u2014 du ' + _linFrD(v.window_start) + ' au ' + _linFrD(v.window_end);
+            if (v.status === 'open') { line += ' : en cours, verdict \u00e0 la fin de la fen\u00eatre.'; }
+            else {
+              var vd = _linVerdict[v.verdict] || 'sans verdict';
+              var eff = v.effect_pct != null ? ' \u2014 ' + _linPct(v.effect_pct) + (v.kpi_mention_fr ? ' ' + v.kpi_mention_fr : '') + ' vs votre r\u00e9sultat habituel' + (v.effect_proven ? ' (effet prouv\u00e9)' : '') : '';
+              line += ' : ' + vd + eff + '.';
+            }
+            return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + esc(line) + (v.is_current ? ' <span style="color:#6B7280;font-weight:500;">(ce test)</span>' : '') + '</div>';
+          }).join('')
+        + '</div>';
+    }
+    return head + q1 + lineageB + diagWhy + (_under ? '' : q3) + moveForm + bicRef + q4 + sources;
   }
 
 
