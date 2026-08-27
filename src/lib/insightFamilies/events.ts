@@ -210,7 +210,7 @@ const frDate = (iso: string | null): string | null => {
 };
 
 export async function eventsFamily(bq: any, location_id: string, date: string): Promise<FamilyResult> {
-  const [profRows, evRows, calRows, assoRows, ceRows, impact] = await Promise.all([
+  const [profRows, evRows, calRows, ceRows, impact] = await Promise.all([
     bq.query({
       query: `SELECT event_type_1, event_type_2, event_type_3, main_event_objective, auto_enriched_description
               FROM \`${PROJECT}.semantic.vw_insight_event_ai_location_context\`
@@ -230,34 +230,13 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
     }).then((r: any) => r[0]).catch(() => []),
     bq.query({
       query: `SELECT DATE_TRUNC(event_date, WEEK(MONDAY)) AS wk,
-                     COUNTIF(event_date >= PARSE_DATE('%Y-%m-%d', @date)
-                             AND COALESCE(threat_audience_overlap_pct, audience_overlap_score * 10) >= ${HIGH_OVERLAP}) AS n,
-                     COUNTIF(event_date >= PARSE_DATE('%Y-%m-%d', @date)
-                             AND COALESCE(threat_audience_overlap_pct, audience_overlap_score * 10) >= ${HIGH_OVERLAP}
-                             AND industry_overlap) AS n_can,
-                     COUNTIF(event_date >= PARSE_DATE('%Y-%m-%d', @date)) AS n_fwd,
-                     COUNTIF(event_date < PARSE_DATE('%Y-%m-%d', @date)) AS n_past
+                     COUNTIF(COALESCE(threat_audience_overlap_pct, audience_overlap_score * 10) >= ${HIGH_OVERLAP}) AS n,
+                     COUNTIF(COALESCE(threat_audience_overlap_pct, audience_overlap_score * 10) >= ${HIGH_OVERLAP} AND industry_overlap) AS n_can
               FROM \`${PROJECT}.mart.fct_competitor_events_conflicts\`
               WHERE location_id = @location_id
-                AND event_date >= DATE_SUB(PARSE_DATE('%Y-%m-%d', @date), INTERVAL 26 WEEK)
+                AND event_date >= PARSE_DATE('%Y-%m-%d', @date)
                 AND event_date < DATE_ADD(PARSE_DATE('%Y-%m-%d', @date), INTERVAL ${CAL_WEEKS} WEEK)
               GROUP BY wk ORDER BY wk`,
-      params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
-    }).then((r: any) => r[0]).catch(() => []),
-    // Weekly deseasonalized revenue ratio (semantic only — the event side of the association
-    // rides the calendar query above via n_past, keeping the warehouse ratchet at its cliquet).
-    // Complete weeks only (7 days), bounded to yesterday.
-    bq.query({
-      query: `WITH jours AS (
-                SELECT DATE_TRUNC(date, WEEK(MONDAY)) wk,
-                       SAFE_DIVIDE(daily_revenue, NULLIF(revenue_30d_avg, 0)) ratio
-                FROM \`${PROJECT}.semantic.vw_insight_event_client_performance\`
-                WHERE location_id = @location_id
-                  AND date BETWEEN DATE_SUB(PARSE_DATE('%Y-%m-%d', @date), INTERVAL 26 WEEK)
-                                AND DATE_SUB(PARSE_DATE('%Y-%m-%d', @date), INTERVAL 1 DAY)
-              )
-              SELECT wk, AVG(ratio) AS ratio_sem
-              FROM jours WHERE ratio IS NOT NULL GROUP BY wk HAVING COUNT(*) = 7`,
       params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
     }).then((r: any) => r[0]).catch(() => []),
     // The commercial temps fort active on the day (soldes, fêtes) — a footfall DRIVER, leads the card.
@@ -312,8 +291,7 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
   // (overlap >= HIGH_OVERLAP), n_can = the same-category subset. quiet = none targets it
   // (activité calme autour de vous); busy = at least one cannibalises. A week absent from the
   // strip had no crawled event — and absence of crawl is not absence of events (see header).
-  const allCalRows = Array.isArray(calRows) ? calRows : [];
-  const calendar = allCalRows.filter((r: any) => (num(r.n_fwd) ?? 0) > 0).map((r: any) => {
+  const calendar = (Array.isArray(calRows) ? calRows : []).map((r: any) => {
     const n = num(r.n) ?? 0;
     const nCanWk = num(r.n_can) ?? 0;
     const w = ymd(r.wk) || "";
@@ -321,46 +299,32 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
     return { label: p.length === 3 ? `${p[2]}/${p[1]}` : w, count: n, state: n === 0 ? "quiet" : (nCanWk >= 1 ? "busy" : null) };
   });
 
-  // Constat of the strip (owner template 27/08): « Activité calme autour de vous (x événements
-  // concurrents dans votre zone), généralement ça vous profite (+x % de CA) » — the proof clause
-  // renders ONLY when measured past the floors; a % below them would be fabricated (quality bar).
-  // Classes on TOTAL crawled density (≤1 vs ≥2/week, n_past from the calendar query): the
-  // targeting overlap scores only exist since ~08/2026 (measured 27/08: Apr–Jul = 95 events
-  // ALL at overlap 0.0), so a historical class on targeting would be a coverage cliff, not
-  // behavior. Revisit once ~3 months of scored history exist. Floors: n>=5 both sides, |diff|>=1SE.
-  let assoClause = "";
-  {
-    const nPastByWk = new Map<string, number>();
-    for (const r of allCalRows) { const w = ymd(r.wk); if (w) nPastByWk.set(w, num(r.n_past) ?? 0); }
-    const calm: number[] = [], busy: number[] = [];
-    for (const r of (Array.isArray(assoRows) ? assoRows : [])) {
-      const w = ymd(r.wk); const ratio = num(r.ratio_sem);
-      if (!w || ratio == null) continue;
-      ((nPastByWk.get(w) ?? 0) <= 1 ? calm : busy).push(ratio);
-    }
-    const mean = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length;
-    const sd = (a: number[], m: number) => Math.sqrt(a.reduce((s, x) => s + (x - m) * (x - m), 0) / (a.length - 1));
-    if (calm.length >= 5 && busy.length >= 5) {
-      const mc = mean(calm), mb = mean(busy);
-      const diff = mc - mb;
-      const se = Math.sqrt(Math.pow(sd(calm, mc), 2) / calm.length + Math.pow(sd(busy, mb), 2) / busy.length);
-      if (se > 0 && Math.abs(diff) >= se) {
-        const pct = Math.round(Math.abs(diff) * 100);
-        assoClause = diff > 0
-          ? ` — généralement ça vous profite (+${pct} % de CA vs votre résultat habituel)`
-          : ` — généralement ces semaines vous coûtent (−${pct} % de CA vs votre résultat habituel)`;
-      }
-    }
-  }
   const calmWeeks = calendar.filter((c: any) => c.state === "quiet");
   const totalUpcoming = calendar.reduce((s: number, c: any) => s + (c.count || 0), 0);
   // Section title (owner 27/08): dated and actionable when a calm week exists, plain otherwise.
   const calendar_title = calmWeeks.length
     ? `Testez une opération la semaine du ${calmWeeks[0].label}, qui est calme autour de vous`
     : "Programmez une opération";
-  const calendar_note = calmWeeks.length
-    ? `Activité calme autour de vous ${calmWeeks.length > 1 ? "les semaines" : "la semaine"} du ${calmWeeks.map((c: any) => c.label).join(", du ")} : aucun événement concurrent n'y vise votre public${assoClause}.`
-    : `Pas de semaine calme autour de vous sur les ${CAL_WEEKS} prochaines : ${totalUpcoming} événement(s) concurrent(s) visent votre public dans votre zone${assoClause}.`;
+  // Constat under the title = the PROOF of the proposed action, never a restatement (owner 27/08:
+  // « Les jours où il y a moins de x événements concurrents dans votre périmètre, vous gagnez en
+  // moyenne x »). Source: the measured density contrasts already fetched above (residual vs the
+  // venue's own dow+trend normale, tier gates from the shared impactContrast module — no new query,
+  // no re-derivation). Sector contrast preferred; measured direction rendered whichever it is.
+  let calendar_note: string;
+  const proofC = (impact?.contrasts || []).find((c: any) => c.key === "same_bucket_500m" && c.tier)
+    || (impact?.contrasts || []).find((c: any) => c.tier);
+  if (proofC) {
+    const label = proofC.key === "same_bucket_500m" ? "événements de votre secteur" : "événements";
+    const loSide = proofC.lo === 0 ? "sans événement de ce type" : `à ≤ ${proofC.lo} ${label}`;
+    calendar_note = proofC.delta_pp < 0
+      ? `Les jours ${loSide} dans votre périmètre (500 m), vous gagnez en moyenne ${frPp(-proofC.delta_pp)} de CA vs votre normale, comparé aux jours chargés (≥ ${proofC.hi}) — ${proofC.n_low} jours vs ${proofC.n_high}.`
+      : `Les jours à ≥ ${proofC.hi} ${label} dans votre périmètre (500 m), vous gagnez en moyenne ${frPp(proofC.delta_pp)} de CA vs votre normale, comparé aux jours ${loSide} — ${proofC.n_high} jours vs ${proofC.n_low}.`;
+  } else {
+    // No measured contrast yet (cold start or below gates): fall back to the observed targeting fact.
+    calendar_note = calmWeeks.length
+      ? `Activité calme autour de vous ${calmWeeks.length > 1 ? "les semaines" : "la semaine"} du ${calmWeeks.map((c: any) => c.label).join(", du ")} : aucun événement concurrent n'y vise votre public.`
+      : `Pas de semaine calme autour de vous sur les ${CAL_WEEKS} prochaines : ${totalUpcoming} événement(s) concurrent(s) visent votre public dans votre zone.`;
+  }
 
   // like_mine: any nearby event in MY category? (industry_overlap) -> else whitespace (honest).
   const sameCatEvents = competitors.filter((c: any) => c.tag === "cannibalise");
