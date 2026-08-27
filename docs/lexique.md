@@ -99,7 +99,9 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
   même devenu par-famille — « Déclarer vos marges » écarté. Mots de couverture actés :
   **« Profit — à débloquer »** (verrouillé) et **« calculé sur X % de votre CA »** — la tuile
   Profit du bandeau v10 n'existe plus (héros v11, direction A 24/08) ; les mots suivent le
-  profit là où il s'affiche.
+  profit là où il s'affiche. 27/08 : « **Appliquer à tous les produits ci-dessous** » (mots
+  owner, ligne 1 du panneau marges) ; état déclaré : « → Déclarer votre marge — **modifiable à
+  tout moment** » (fragment approuvé du formulaire événement), bouton « Modifier ».
 
 ## Le gabarit de la zone explication des cartes d'opération (owner 24/08)
 

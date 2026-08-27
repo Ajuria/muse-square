@@ -260,13 +260,18 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           // complet — toutes les familles déclarées (ou la marge globale du flux historique).
           // NOTE copie : « Déclarer votre marge » (singulier) = slot EN ATTENTE d'arbitrage
           // owner — la chaîne approuvée existante est conservée, jamais paraphrasée en vol.
+          // 27/08 soir : la ligne ne DISPARAÎT plus quand tout est déclaré (elle était la
+          // seule entrée d'édition — l'infobulle Profit promet « modifiables dans À faire ») ;
+          // déclarée → elle passe à l'état d'entretien, « modifiable à tout moment »
+          // (fragment approuvé du formulaire événement).
           var mg0 = j.marges || {};
           var allFamDeclared = (mg0.n_familles || 0) > 0 && mg0.n_declarees === mg0.n_familles;
-          if (!db.margin_declared && !allFamDeclared) goals.push({
+          var margeDone = db.margin_declared || allFamDeclared;
+          goals.push({
             kind: "marge",
-            aline: "→ Déclarer votre marge — débloque le KPI profit",
-            sub: "un chiffre, ici même — rien d’autre",
-            link_fr: "Déclarer",
+            aline: margeDone ? "→ Déclarer votre marge — modifiable à tout moment" : "→ Déclarer votre marge — débloque le KPI profit",
+            sub: margeDone ? (mg0.n_declarees ? mg0.n_declarees + " famille" + (mg0.n_declarees > 1 ? "s" : "") + " déclarée" + (mg0.n_declarees > 1 ? "s" : "") : "marge globale déclarée") : "un chiffre, ici même — rien d’autre",
+            link_fr: margeDone ? "Modifier" : "Déclarer",
             inline: "marge",
           });
           return goals;
@@ -1665,19 +1670,31 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               if (fams.length) {
                 pan.style.cssText = "margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;";
                 pan.innerHTML = fams.map(function (f, i) {
-                  return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 130px;gap:8px;align-items:center;padding:4px 0;' + (i ? 'border-top:1px solid #F3F4F6;' : '') + '">'
+                  // Ligne 1 : « Appliquer à tous les produits ci-dessous » (mots owner 27/08,
+                  // même mécanique que les horaires d'ouverture) — remplit les champs dessous
+                  // avec la valeur de la ligne 1 ; Enregistrer reste le seul geste qui écrit.
+                  return '<div style="display:grid;grid-template-columns:minmax(0,1fr) ' + (i ? '130px' : 'auto') + ';gap:8px;align-items:center;padding:4px 0;' + (i ? 'border-top:1px solid #F3F4F6;' : '') + '">'
                     + '<span style="font-size:12.5px;color:#374151;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(f.famille)
                       + (f.part_pct != null ? ' <span style="color:#9CA3AF;">· ' + f.part_pct + ' % de votre CA</span>' : '') + '</span>'
                     + '<span style="white-space:nowrap;"><input type="number" min="1" max="90" step="0.5" data-tb-marge-fam="' + esc(f.famille) + '"'
                       + (f.marge_pct != null ? ' value="' + String(f.marge_pct).replace(',', '.') + '"' : ' placeholder="ex. 60"')
-                      + ' style="width:70px;padding:5px 8px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;"> <span style="font-size:13px;color:#374151;">%</span></span>'
-                    + '</div>';
+                      + ' style="width:70px;padding:5px 8px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;"> <span style="font-size:13px;color:#374151;">%</span>'
+                    + (i === 0 && fams.length > 1 ? ' <button type="button" data-tb-marge-all style="background:none;border:none;padding:0;margin-left:8px;font-family:inherit;font-size:12px;color:#1D3BB3;cursor:pointer;text-decoration:underline;">Appliquer à tous les produits ci-dessous</button>' : '')
+                    + '</span></div>';
                 }).join("")
                   + '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;">'
                   + '<button type="button" data-tb-marge-save style="font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border:none;border-radius:8px;padding:6px 13px;cursor:pointer;font-family:inherit;">Enregistrer</button>'
                   + '<span data-tb-marge-msg style="font-size:12px;color:#B45309;"></span></div>';
                 row.parentNode.insertBefore(pan, row.nextSibling);
                 var first = pan.querySelector("input"); if (first) first.focus();
+                var applyAll = pan.querySelector("[data-tb-marge-all]");
+                if (applyAll) applyAll.addEventListener("click", function () {
+                  var msg0 = pan.querySelector("[data-tb-marge-msg]");
+                  var v0 = String((first && first.value) || "").trim();
+                  if (!v0) { msg0.style.color = "#B45309"; msg0.textContent = "Entrez un chiffre."; return; }
+                  pan.querySelectorAll("[data-tb-marge-fam]").forEach(function (inp3) { inp3.value = v0; });
+                  msg0.style.color = "#6B7280"; msg0.textContent = "Appliqué — Enregistrer pour écrire.";
+                });
                 pan.querySelector("[data-tb-marge-save]").addEventListener("click", function () {
                   var msg = pan.querySelector("[data-tb-marge-msg]");
                   var todo = [];
