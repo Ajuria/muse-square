@@ -105,7 +105,7 @@ export async function engagementsFamily(
   try {
     const [r] = await bq.query({
       query: `
-        SELECT commitment_id, status, verdict, action_done_status, measured_metric,
+        SELECT commitment_id, dispositif_id, version_no, status, verdict, action_done_status, measured_metric,
                committed_action_text, origin_action_type,
                window_start, window_end, window_residual_pct, window_residual_z,
                kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
@@ -208,8 +208,9 @@ export async function engagementsFamily(
 
       // Contre-indication (lexique l.17) : un effet négatif prouvé ne se re-propose pas.
       if (dir === "negative") {
+        const _openV = g.open.length ? Number((g.open[0].version_no as any)?.value ?? g.open[0].version_no) || 1 : 1;
         const encore = g.open.length
-          ? ` Or un test de ce dispositif est en cours jusqu'au ${frDate(ymd(g.open[0].window_end))}.`
+          ? ` Or un test de ce dispositif${_openV > 1 ? ` (version ${_openV})` : ""} est en cours jusqu'au ${frDate(ymd(g.open[0].window_end))}.`
           : "";
         // Le FAIT porte la doctrine (citable par la composition grounded) ; l'ACTION porte le
         // geste. `advice_texts` dit lequel des deux est de l'action, pour que la réponse
@@ -231,8 +232,9 @@ export async function engagementsFamily(
         );
       }
     } else if (g.open.length) {
+      const vNo = Number((g.open[0].version_no as any)?.value ?? g.open[0].version_no) || 1;
       facts.push(
-        F(`Dispositif « ${name} » — test en cours jusqu'au ${frDate(ymd(g.open[0].window_end))}, le verdict tombe à cette date.`),
+        F(`Dispositif « ${name} » — test en cours${vNo > 1 ? ` (version ${vNo})` : ""} jusqu'au ${frDate(ymd(g.open[0].window_end))}, le verdict tombe à cette date.`),
       );
     }
   }

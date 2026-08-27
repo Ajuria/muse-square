@@ -8,7 +8,7 @@ import { requireLocationOwnership } from "../../../lib/requireLocationOwnership"
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
 import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline } from "../../../lib/kpiRegistry";
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
-import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/actionCommitments";
+import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/actionCommitments";
 import { themeForActionType } from "../../../lib/recoThemeMap";
 import { vif } from "../../../lib/commitmentResolve";
 import { RHO_FLOOR } from "../../../lib/commitmentConstants";
@@ -276,6 +276,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const commitmentId = crypto.randomUUID();
 
+    // LIGNÉE (27/08, point identité) — une V2 hérite de son parent : l'identité du dispositif,
+    // le numéro de version, LE KPI (re-tester = re-tester sur le même étage — un KPI redérivé
+    // faisait juger la V2 sur le CA, défaut mesuré) et l'événement ancré qui porte la famille.
+    // Règle pure : lineageFor (actionCommitments, testée). Le parent doit appartenir au même
+    // site — un parent d'un autre lieu est refusé, jamais hérité en silence.
+    const _parentId = body.parent_commitment_id ? String(body.parent_commitment_id).trim() : null;
+    let _parentSnap: Awaited<ReturnType<typeof readLatestSnapshot>> = null;
+    if (_parentId) {
+      _parentSnap = await readLatestSnapshot(bq, _parentId);
+      if (!_parentSnap) return json({ ok: false, error: "parent_commitment_id introuvable" }, 400);
+      if (String(_parentSnap.location_id) !== String(body.location_id).trim()) {
+        return json({ ok: false, error: "parent_commitment_id d'un autre site" }, 403);
+      }
+    }
+    const _lineage = lineageFor(_parentSnap, commitmentId);
+
     const patch: Partial<CommitmentRow> = {
       user_id: userId,
       location_id: String(body.location_id).trim(),
@@ -294,14 +310,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       origin_suppression_key: body.origin_suppression_key ? String(body.origin_suppression_key) : null,
       origin_card_instance_id: body.origin_card_instance_id ? String(body.origin_card_instance_id) : null,
       origin_affected_date: body.origin_affected_date ? String(body.origin_affected_date) : null,
-      saved_item_id: body.saved_item_id ? String(body.saved_item_id).trim() : null,
+      saved_item_id: body.saved_item_id ? String(body.saved_item_id).trim() : _lineage.inherited_saved_item_id,
       // Étape 3 (26/07) : measured_metric = kpi de la CARTE (type + driver), plus jamais codé en
       // dur — kpiKeyForOrigin (lib/kpiRegistry). 'revenue_residual' reste le défaut et garde toute
       // sa machinerie ; les KPIs non-K1 sont mesurés en colonnes kpi_* (baseline ci-dessous,
       // window/delta à la résolution).
       // Événements (03/08) : le KPI DÉCLARÉ sur l'événement prime — mapping registre (foyer
       // unique kpiKeyForEventKpi) ; hors événement, la dérivation carte+driver inchangée.
-      measured_metric: (originActionType.startsWith("event_") && kpiKeyForEventKpi(body.event_kpi))
+      measured_metric: (_lineage.inherited_metric as any)
+        || (originActionType.startsWith("event_") && kpiKeyForEventKpi(body.event_kpi))
         || kpiKeyForOrigin(
           originActionType,
           DRIVER_SET.has(String(body.origin_driver || "").trim().toLowerCase())
@@ -332,6 +349,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       adjustment_move: body.adjustment_move ? String(body.adjustment_move).trim() : null,
       adjustment_note: body.adjustment_note != null ? (String(body.adjustment_note).trim() || null) : null,
       parent_commitment_id: body.parent_commitment_id ? String(body.parent_commitment_id) : null,
+      dispositif_id: _lineage.dispositif_id,
+      version_no: _lineage.version_no,
       // Gel de l'enjeu d'origine (26/07) : les champs VERBATIM de la pill de la carte — la page
       // évolution les rend tels quels (jamais recalculés, jamais reformulés). Null si la carte
       // d'origine ne portait pas d'enjeu (absence honnête → pas de bloc sur la page).
@@ -349,7 +368,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // K8 : baseline famille (30 j pré-fenêtre) — la famille arrive du client à la création
       // (body.kpi_family) ; la résolution la relira sur l'événement ancré. Échec soft → null.
       try {
-        const _fam = String(body.kpi_family || "").trim();
+        // V2 héritée : la famille ne voyage pas dans le body — on la relit sur l'événement
+        // ancré (raw.saved_items.kpi_family), la MÊME source que la résolution. Sinon la
+        // baseline de la V2 partait à null en silence.
+        let _fam = String(body.kpi_family || "").trim();
+        if (!_fam && patch.saved_item_id) {
+          const [fr] = await bq.query({
+            query: `SELECT kpi_family FROM \`${process.env.BQ_PROJECT_ID || BQ_PROJECT}.raw.saved_items\` WHERE saved_item_id = @sid LIMIT 1`,
+            params: { sid: String(patch.saved_item_id) }, types: { sid: "STRING" }, location: "EU",
+          });
+          const v = fr?.[0]?.kpi_family;
+          _fam = v != null ? String((v as any)?.value ?? v).trim() : "";
+        }
         patch.kpi_baseline = _fam ? await measureFamilyBaseline(bq, String(patch.location_id), _fam, String(patch.window_start)) : null;
       } catch { patch.kpi_baseline = null; }
     } else if (patch.measured_metric && patch.measured_metric !== "revenue_residual") {

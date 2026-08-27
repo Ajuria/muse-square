@@ -113,6 +113,12 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["creation_enjeu_class_key", "STRING"],
   ["creation_enjeu_entangled", "BOOL"],
   ["creation_enjeu_inherited", "BOOL"],
+  // IDENTITÉ DU DISPOSITIF (27/08, chantier versionning/fine-tuning — point identité).
+  // dispositif_id = la RACINE de la chaîne (le commitment_id de la V1) ; version_no = 1, 2, …
+  // Posés par lineageFor() au POST : un enfant HÉRITE (id du parent + version+1), une racine
+  // s'auto-désigne. Ajoutés en fin via ALTER ADD COLUMN (ordre physique respecté).
+  ["dispositif_id", "STRING"],
+  ["version_no", "INT64"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -191,6 +197,8 @@ export interface CommitmentRow {
   creation_enjeu_class_key: string | null;
   creation_enjeu_entangled: boolean | null;
   creation_enjeu_inherited: boolean | null;
+  dispositif_id: string | null;
+  version_no: number | null;
 }
 
 // The columns that make a commitment a commitment. Any write (create OR later
@@ -212,6 +220,26 @@ function normaliseRow(r: any): CommitmentRow {
   const out: any = {};
   for (const k of Object.keys(r)) out[k] = flatten(r[k]);
   return out as CommitmentRow;
+}
+
+// LIGNÉE (27/08, point identité du chantier versionning) — la règle en UN endroit, PURE et
+// testée : une V2 HÉRITE de son parent (l'identité du dispositif, le numéro suivant, LE KPI et
+// l'événement ancré qui porte sa famille) ; une racine s'auto-désigne V1. Le KPI hérité PRIME la
+// redérivation carte : re-tester un dispositif, c'est re-tester SUR LE MÊME ÉTAGE — une V2 jugée
+// sur un autre KPI n'est pas la version suivante d'un test, c'est un autre test (owner 27/08).
+export function lineageFor(
+  parentSnap: Pick<CommitmentRow, "commitment_id" | "dispositif_id" | "version_no" | "measured_metric" | "saved_item_id"> | null,
+  commitmentId: string,
+): { dispositif_id: string; version_no: number; inherited_metric: string | null; inherited_saved_item_id: string | null } {
+  if (!parentSnap) {
+    return { dispositif_id: commitmentId, version_no: 1, inherited_metric: null, inherited_saved_item_id: null };
+  }
+  return {
+    dispositif_id: (parentSnap.dispositif_id && String(parentSnap.dispositif_id)) || String(parentSnap.commitment_id),
+    version_no: (Number(parentSnap.version_no) || 1) + 1,
+    inherited_metric: parentSnap.measured_metric != null ? String(parentSnap.measured_metric) : null,
+    inherited_saved_item_id: parentSnap.saved_item_id != null ? String(parentSnap.saved_item_id) : null,
+  };
 }
 
 export async function readLatestSnapshot(
