@@ -40,15 +40,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     await bq.query({
       query: `
-        UPDATE \`${projectId}.raw.competitor_tracking\`
+        -- Un suivi appartient a un SITE, pas a un compte (loi owner 27/08) : la porte
+        -- anti-doublon d'add-competitor.ts:445 ecrit deja par (concurrent, user, site).
+        -- Le desuivi se scopait, lui, sur (user, concurrent) : un compte multi-sites qui
+        -- suit le meme concurrent sur deux sites perdait les DEUX en un clic. Le site
+        -- fait foi est celui de la ligne watched_competitors desuivie juste au-dessus,
+        -- pas le site courant de l'appelant : les deux tables restent alignees ligne a ligne.
+        UPDATE \`${projectId}.raw.competitor_tracking\` AS ct
         SET deleted_at = CURRENT_TIMESTAMP()
-        WHERE clerk_user_id = @clerk_user_id
-          AND competitor_id = (
-            SELECT competitor_id FROM \`${projectId}.raw.watched_competitors\`
-            WHERE watched_competitor_id = @id
-            LIMIT 1
+        WHERE ct.clerk_user_id = @clerk_user_id
+          AND ct.deleted_at IS NULL
+          AND EXISTS (
+            SELECT 1 FROM \`${projectId}.raw.watched_competitors\` w
+            WHERE w.watched_competitor_id = @id
+              AND w.competitor_id = ct.competitor_id
+              AND w.location_id   = ct.location_id
           )
-          AND deleted_at IS NULL
       `,
       params: { id, clerk_user_id },
       types: { id: "STRING", clerk_user_id: "STRING" },
