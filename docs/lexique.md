@@ -89,6 +89,12 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
   Opérations en cours · Dispositifs prouvés** — « Signaux traités » assumé (même concept de
   signal partout, arbitrage owner) ; « Dispositifs validés » écarté (« validé » reste banni).
 
+- Marges par famille (owner 24/08) : le geste garde **« Déclarer votre marge »** (singulier),
+  même devenu par-famille — « Déclarer vos marges » écarté. Mots de couverture actés :
+  **« Profit — à débloquer »** (verrouillé) et **« calculé sur X % de votre CA »** — la tuile
+  Profit du bandeau v10 n'existe plus (héros v11, direction A 24/08) ; les mots suivent le
+  profit là où il s'affiche.
+
 ## Le gabarit de la zone explication des cartes d'opération (owner 24/08)
 
 Toute carte d'opération du tableau suit UNE grammaire : (1) titre + chips d'état · (2) le(s)

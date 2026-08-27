@@ -73,6 +73,9 @@ const ACTION_LEVER: Record<string, Lever> = {
   competitor_review_drop: "fidelisation",
   competitor_reputation_strength: "fidelisation",
   review_solicitation: "fidelisation",
+  // C1 (27/08, test levier instruit — rouge depuis le 07/08) : relancer un client dormant
+  // est un geste de fidélisation, pas de conversion.
+  client_dormant: "fidelisation",
   competitor_content_spike: "fidelisation",
   competitor_content_silent: "fidelisation",
   sales_competition_cannibalization: "fidelisation",

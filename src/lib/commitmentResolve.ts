@@ -18,7 +18,7 @@
 //     that day, it goes pending — it NEVER resolves against an adjacent/wrong day.
 
 import { GRACE_DAYS, MATERIAL_SHARE, RHO_FLOOR, WINDOW_FACTOR_SHARE } from "./commitmentConstants";
-import { isKpiMeasurable, measureKpiWindow, measureFamilyRevenueMean, measureKpiDailySd, measureFamilyDailySd, kpiDeltaPct as kpiDeltaPctFn, kpiVerdict } from "./kpiRegistry";
+import { isKpiMeasurable, measureKpiWindow, measureFamilyRevenueMean, measureKpiDailySd, measureFamilyDailySd, measureProfitEstimatedStats, kpiDeltaPct as kpiDeltaPctFn, kpiVerdict } from "./kpiRegistry";
 import type { CommitmentRow } from "./actionCommitments";
 import featureRegistry from "./sensitivityFeatures.json";
 
@@ -225,6 +225,20 @@ export async function resolveCommitment(
         kpiDailySd = await measureFamilyDailySd(bq, String(snap.location_id), famName, String(snap.window_start)).catch(() => null);
       }
     } catch { kpiWindowValue = null; kpiDeltaPct = null; }
+  } else if (kpiKey === "profit_estimated") {
+    // K9 (24/08) : profit estimé journalier — marges déclarées lues au moment de la mesure
+    // (baseline créée au même barème seulement si les marges n'ont pas bougé ; sinon le delta
+    // reste honnête : les deux côtés sont des estimations déclarées). Sd = 30 j pré-fenêtre,
+    // même convention que K8. Aucune marge déclarée → mesure NULL, verdict CA conservé.
+    try {
+      const win = await measureProfitEstimatedStats(bq, String(snap.location_id), String(snap.window_start), String(snap.window_end));
+      kpiWindowValue = win ? win.mean : null;
+      kpiDeltaPct = kpiDeltaPctFn(snap.kpi_baseline ?? null, kpiWindowValue);
+      const preEnd = new Date(String(snap.window_start) + "T00:00:00Z"); preEnd.setUTCDate(preEnd.getUTCDate() - 1);
+      const preStart = new Date(preEnd); preStart.setUTCDate(preStart.getUTCDate() - 29);
+      const pre = await measureProfitEstimatedStats(bq, String(snap.location_id), preStart.toISOString().slice(0, 10), preEnd.toISOString().slice(0, 10)).catch(() => null);
+      kpiDailySd = pre && pre.n_days >= 5 ? pre.sd : null;
+    } catch { kpiWindowValue = null; kpiDeltaPct = null; kpiDailySd = null; }
   } else if (kpiKey !== "revenue_residual" && isKpiMeasurable(kpiKey)) {
     try {
       kpiWindowValue = await measureKpiWindow(bq, String(snap.location_id), kpiKey, String(snap.window_start), String(snap.window_end));

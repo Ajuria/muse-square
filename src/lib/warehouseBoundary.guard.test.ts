@@ -53,9 +53,16 @@ const CLIQUET: Record<string, number> = {
   "src/pages/api/cron/digest.ts": 4,
   "src/pages/api/cron/internal-alert-sweep.ts": 1,
   "src/pages/api/insight/analogs.ts": 1,
-  "src/pages/api/insight/dashboard.ts": 15,
+  // 15 → 16 (27/08, fusion K9 marges) : famCa lit fct_client_offering_daily BORNÉ à
+  // CURRENT_DATE() — la voie semantic (vw_insight_event_client_offering) est NON bornée en haut
+  // (int_client_offering_profile : >= -30 j seul) et la graine porte des dates futures : la
+  // « fenêtre 30 j » y compte 68 jours (mesuré 24/08). dbt gelé — pas de vue corrigée possible.
+  "src/pages/api/insight/dashboard.ts": 16,
   "src/pages/api/insight/monitor.ts": 1,
-  "src/pages/api/insight/prompt.ts": 1,
+  // 1 → 2 (27/08, fusion K9 marges) : la réponse marge PAR FAMILLE lit fct_client_offering_daily
+  // borné à CURRENT_DATE() — même justification que dashboard.ts ci-dessus (vue semantic non
+  // bornée en haut + graine à dates futures ; dbt gelé).
+  "src/pages/api/insight/prompt.ts": 2,
   "src/pages/api/insight/reactions-today.ts": 3,
   "src/pages/api/insight/sales-report.ts": 9,
   "src/pages/api/insight/weather-window.ts": 2,

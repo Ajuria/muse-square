@@ -1945,8 +1945,13 @@ if (!root) {
       const list = (j && j.ok && Array.isArray(j.corrections)) ? j.corrections : [];
       if (!list.length) { panel.hidden = true; items.innerHTML = ""; return; }
       items.innerHTML = list.map(function (c) {
-        const label = MEMORY_LABELS[c.correction_type] || MEMORY_LABELS.other;
-        const value = c.correction_text + (MEMORY_VALUE_SUFFIX[c.correction_type] || '');
+        // Marges par famille (24/08) : type `declared_margin_pct__<slug>` — le libellé exact de
+        // la famille voyage dans raw_turn ; « Oublier » renvoie le type complet (accepté au clear).
+        const isFamMargin = String(c.correction_type).indexOf("declared_margin_pct__") === 0;
+        const label = isFamMargin
+          ? "Marge déclarée" + (c.raw_turn ? " · " + c.raw_turn : "")
+          : (MEMORY_LABELS[c.correction_type] || MEMORY_LABELS.other);
+        const value = c.correction_text + (isFamMargin ? " %" : (MEMORY_VALUE_SUFFIX[c.correction_type] || ''));
         // WHO + WHEN, when recorded (declarant from the Destinataires roster; date from the event log).
         const meta = (c.declarant_name ? ' — par ' + c.declarant_name : '')
           + (c.corrected_at ? ' (' + c.corrected_at.slice(8, 10) + '/' + c.corrected_at.slice(5, 7) + ')' : '');

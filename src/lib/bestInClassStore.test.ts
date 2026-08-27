@@ -14,6 +14,13 @@ const DRIVER_DECIDED = new Set([
   "footfall_vs_basket_decomposition",
   "chat_decision_salesdecomp",
   "weekly_briefing", // digest hebdo — pas un levier propre, conversion assumé
+  // 27/08 — test instruit (rouge depuis le 07/08, hors du jeu de portes habituel) : les verdicts
+  // hebdo/mensuels C2-C3 sont des cartes VENTES — le levier dépend du driver, comme sales_surge.
+  "weekly_sales_hole",
+  "weekly_sales_spike",
+  "monthly_sales_hole",
+  "monthly_sales_spike",
+  "onboarding_first_test", // geste d'onboarding, pas une carte — conversion assumé
 ]);
 
 describe("leverForActionType — couverture du registre des origins", () => {

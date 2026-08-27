@@ -65,9 +65,9 @@ describe("le féminin est porté, pas deviné", () => {
 });
 
 describe("chaque KPI du registre a sa grammaire — aucun trou", () => {
-  it("les 8 clés sont couvertes et rendent une chaîne non vide dans les 5 formes", () => {
+  it("les 9 clés sont couvertes et rendent une chaîne non vide dans les 5 formes", () => {
     const keys = Object.keys(KPI_NOM_FR) as KpiKey[];
-    expect(keys).toHaveLength(8);
+    expect(keys).toHaveLength(9); // 8 + profit_estimated (K9 fusionné 27/08)
     for (const k of keys) {
       for (const f of [kpiNom, kpiTaux, kpiLe, kpiDu, kpiVotre, kpiA]) {
         expect(f(k).trim().length).toBeGreaterThan(0);

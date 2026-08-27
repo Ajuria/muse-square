@@ -6,7 +6,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
-import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline } from "../../../lib/kpiRegistry";
+import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline, measureProfitBaseline } from "../../../lib/kpiRegistry";
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/actionCommitments";
 import { themeForActionType } from "../../../lib/recoThemeMap";
@@ -489,6 +489,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
           _fam = v != null ? String((v as any)?.value ?? v).trim() : "";
         }
         patch.kpi_baseline = _fam ? await measureFamilyBaseline(bq, String(patch.location_id), _fam, String(patch.window_start)) : null;
+      } catch { patch.kpi_baseline = null; }
+    } else if (patch.measured_metric === "profit_estimated") {
+      // K9 (24/08) : baseline profit estimé (30 j pré-fenêtre, marges déclarées lues au moment
+      // de la mesure). Aucune marge déclarée → null — jamais un chiffre inventé. Échec soft.
+      try {
+        patch.kpi_baseline = await measureProfitBaseline(bq, String(patch.location_id), String(patch.window_start));
       } catch { patch.kpi_baseline = null; }
     } else if (patch.measured_metric && patch.measured_metric !== "revenue_residual") {
       try {

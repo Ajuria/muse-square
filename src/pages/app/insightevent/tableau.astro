@@ -256,7 +256,13 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             link_fr: "Régler",
             href: "/notifications",
           });
-          if (!db.margin_declared) goals.push({
+          // Marges par famille (owner 24/08) : le geste reste tant que le profit n'est pas
+          // complet — toutes les familles déclarées (ou la marge globale du flux historique).
+          // NOTE copie : « Déclarer votre marge » (singulier) = slot EN ATTENTE d'arbitrage
+          // owner — la chaîne approuvée existante est conservée, jamais paraphrasée en vol.
+          var mg0 = j.marges || {};
+          var allFamDeclared = (mg0.n_familles || 0) > 0 && mg0.n_declarees === mg0.n_familles;
+          if (!db.margin_declared && !allFamDeclared) goals.push({
             kind: "marge",
             aline: "→ Déclarer votre marge — débloque le KPI profit",
             sub: "un chiffre, ici même — rien d’autre",
@@ -664,7 +670,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           //    fenêtre multi-jours (Jour k/n + mini-courbe) / série (frise d'occurrences).
           //    Tricolore POSITION partout ; CTA = Ajuster → (engagement) ou Dossier → (série).
           var mesures = (g.mesures || []);
-          var KPI_MINI_FR = { revenue_residual: "chiffre d\u2019affaires/j", conversion: "taux de conversion", transactions: "ventes/jour", footfall: "nombre de visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/j" };
+          var KPI_MINI_FR = { revenue_residual: "chiffre d\u2019affaires/j", conversion: "taux de conversion", transactions: "ventes/jour", footfall: "nombre de visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/j", profit_estimated: "profit estim\u00e9/j" };
           function opFmt(v, metric) {
             if (v == null) return "\u2014";
             if (metric === "conversion") return (v * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %";
@@ -1628,6 +1634,55 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               if (ex && ex.getAttribute && ex.getAttribute("data-tb-marge-panel") != null) { ex.remove(); return; }
               var pan = document.createElement("div");
               pan.setAttribute("data-tb-marge-panel", "");
+              // Marges par famille (owner 24/08) : quand le site a des familles produit
+              // (J.marges), le panneau devient une mini-table triée par poids de CA — une marge
+              // 1-90 % par ligne, POST {family, value} par famille modifiée, puis load() : la
+              // tuile Profit, la rangée et le panneau se re-rendent depuis la base. Sans famille
+              // (ventes non catégorisées), le mono-champ historique reste tel quel.
+              var fams = ((J.marges || {}).familles || []).filter(function (f) { return f.location_id === loc; });
+              if (fams.length) {
+                pan.style.cssText = "margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;";
+                pan.innerHTML = fams.map(function (f, i) {
+                  return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 130px;gap:8px;align-items:center;padding:4px 0;' + (i ? 'border-top:1px solid #F3F4F6;' : '') + '">'
+                    + '<span style="font-size:12.5px;color:#374151;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(f.famille)
+                      + (f.part_pct != null ? ' <span style="color:#9CA3AF;">· ' + f.part_pct + ' % de votre CA</span>' : '') + '</span>'
+                    + '<span style="white-space:nowrap;"><input type="number" min="1" max="90" step="0.5" data-tb-marge-fam="' + esc(f.famille) + '"'
+                      + (f.marge_pct != null ? ' value="' + String(f.marge_pct).replace(',', '.') + '"' : ' placeholder="ex. 60"')
+                      + ' style="width:70px;padding:5px 8px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;"> <span style="font-size:13px;color:#374151;">%</span></span>'
+                    + '</div>';
+                }).join("")
+                  + '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;">'
+                  + '<button type="button" data-tb-marge-save style="font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border:none;border-radius:8px;padding:6px 13px;cursor:pointer;font-family:inherit;">Enregistrer</button>'
+                  + '<span data-tb-marge-msg style="font-size:12px;color:#B45309;"></span></div>';
+                row.parentNode.insertBefore(pan, row.nextSibling);
+                var first = pan.querySelector("input"); if (first) first.focus();
+                pan.querySelector("[data-tb-marge-save]").addEventListener("click", function () {
+                  var msg = pan.querySelector("[data-tb-marge-msg]");
+                  var todo = [];
+                  pan.querySelectorAll("[data-tb-marge-fam]").forEach(function (inp2) {
+                    var v = String(inp2.value || "").trim();
+                    if (!v) return;
+                    var fam = inp2.getAttribute("data-tb-marge-fam");
+                    var cur = null;
+                    fams.forEach(function (f) { if (f.famille === fam) cur = f.marge_pct; });
+                    if (cur != null && Number(v.replace(",", ".")) === Number(cur)) return;
+                    todo.push({ family: fam, value: v });
+                  });
+                  if (!todo.length) { msg.style.color = "#B45309"; msg.textContent = "Entrez un chiffre."; return; }
+                  msg.style.color = "#6B7280"; msg.textContent = "Enregistrement…";
+                  Promise.all(todo.map(function (t) {
+                    return fetch("/api/insight/corrections", {
+                      method: "POST", headers: { "content-type": "application/json" },
+                      body: JSON.stringify({ location_id: loc, correction_type: "declared_margin_pct", family: t.family, value: t.value }),
+                    }).then(function (r2) { return r2.json(); });
+                  })).then(function (rs) {
+                    var ko = rs.filter(function (r3) { return !(r3 && r3.ok); });
+                    if (ko.length) { msg.style.color = "#B45309"; msg.textContent = (ko[0] && ko[0].error) || "Réessayez."; return; }
+                    load();
+                  }).catch(function () { msg.style.color = "#B45309"; msg.textContent = "Réessayez."; });
+                });
+                return;
+              }
               pan.style.cssText = "margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;display:flex;align-items:center;gap:10px;flex-wrap:wrap;";
               pan.innerHTML = '<span style="font-size:12.5px;color:#374151;">Votre marge moyenne :</span>'
                 + '<input type="number" min="1" max="90" step="0.5" placeholder="ex. 60" style="width:80px;padding:6px 9px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;"> <span style="font-size:13px;color:#374151;">%</span>'
