@@ -261,6 +261,21 @@ export function kpiKeyForEventKpi(eventKpi: string | null | undefined): KpiKey |
 
 // K8 — CA journalier moyen d'une famille produit sur une période (même référentiel que les
 // movers : lignes raw.client_transactions). NULL-safe ; < 1 jour de ventes → null.
+// Les familles RÉELLES du site avec leur €/j moyen — LE foyer (extrait de create_context le
+// 27/08, consommé par le formulaire ET le résolveur d'entités ; jamais recopié).
+export async function listSiteFamilies(bq: any, location_id: string, limit = 12): Promise<Array<{ category: string; avg_day_eur: number }>> {
+  const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  const rows = await bq.query({
+    query: `WITH td AS (SELECT COUNT(DISTINCT transaction_date) AS n FROM \`${PROJECT}.raw.client_transactions\` WHERE location_id = @location_id)
+            SELECT item_category, ROUND(SUM(revenue) / (SELECT n FROM td), 0) AS avg_day_eur
+            FROM \`${PROJECT}.raw.client_transactions\`
+            WHERE location_id = @location_id AND item_category IS NOT NULL
+            GROUP BY 1 ORDER BY 2 DESC LIMIT ${Math.max(1, Math.min(50, limit))}`,
+    params: { location_id }, location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  return (rows as any[]).map((r) => ({ category: String(flat(r.item_category)), avg_day_eur: Number(flat(r.avg_day_eur) ?? 0) }));
+}
+
 export async function measureFamilyRevenueMean(bq: any, location_id: string, family: string, start: string, end: string): Promise<{ value: number; n_days: number } | null> {
   const rows = await bq.query({
     query: `

@@ -150,3 +150,27 @@ export async function buildPoleReading(
   };
   return { families: famReadings, operations, totals: mkAgg() };
 }
+
+// Les pôles OUVERTS du site — LE foyer de la liste (extrait de create_context le 27/08,
+// consommé par le formulaire, le résolveur d'entités et toute surface à venir).
+export interface PoleListRow { dispositif_id: string; name: string; families: string[] }
+export async function listPoles(bq: any, location_id: string, limit = 12): Promise<PoleListRow[]> {
+  const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  const rows = await bq.query({
+    query: `SELECT dispositif_id, committed_action_text, pole_families FROM (
+              SELECT dispositif_id, committed_action_text, pole_families, status, verdict,
+                     ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC,
+                       CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC,
+                       (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+              FROM \`${PROJECT}.analytics.action_commitments\`
+              WHERE location_id = @location_id AND dispositif_nature = 'permanent'
+            ) WHERE rn = 1 AND status = 'open'
+            ORDER BY committed_action_text LIMIT ${Math.max(1, Math.min(50, limit))}`,
+    params: { location_id }, location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  return (rows as any[]).map((r) => {
+    let fams: string[] = [];
+    try { fams = JSON.parse(String(flat(r.pole_families) || "[]")); } catch { /* périmètre illisible */ }
+    return { dispositif_id: String(flat(r.dispositif_id)), name: String(flat(r.committed_action_text) || "").split(" — ")[0], families: fams };
+  });
+}

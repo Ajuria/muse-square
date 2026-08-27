@@ -6,7 +6,8 @@
 // Le dossier (`?saved_item_id=`) : provider evenementFamily.
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
-import { measureKpiCoverage } from "../../../lib/kpiRegistry";
+import { measureKpiCoverage, listSiteFamilies } from "../../../lib/kpiRegistry";
+import { listPoles } from "../../../lib/poleReading";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypesFor, eventTypeLabelFr } from "../../../lib/eventTypes";
 import { evenementFamily } from "../../../lib/insightFamilies/evenement";
@@ -57,36 +58,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   GROUP BY dw`,
           params: { location_id }, location: "EU",
         }),
-        // Familles produits (KPI famille) : même référentiel que les movers — CA total de la
-        // famille / jours de vente du lieu.
-        bq.query({
-          query: `WITH td AS (SELECT COUNT(DISTINCT transaction_date) AS n FROM \`${PROJECT}.raw.client_transactions\` WHERE location_id = @location_id)
-                  SELECT item_category, ROUND(SUM(revenue) / (SELECT n FROM td), 0) AS avg_day_eur
-                  FROM \`${PROJECT}.raw.client_transactions\`
-                  WHERE location_id = @location_id AND item_category IS NOT NULL
-                  GROUP BY 1 ORDER BY 2 DESC LIMIT 12`,
-          params: { location_id }, location: "EU",
-        }),
+        // Familles produits (KPI famille) : LE foyer kpiRegistry.listSiteFamilies (extrait le
+        // 27/08 — même lecture que le résolveur d'entités, jamais recopiée).
+        listSiteFamilies(bq, location_id).then((f) => [f] as any),
         // Couverture flux/conversion (27/08, audit menu KPI) : le menu n'offre un KPI que si le
         // SITE porte la donnée — même mécanisme que le KPI famille (fams.length). La lecture vit
         // dans kpiRegistry (measureKpiCoverage : foyer du mart PERF, cliquet frontière respecté).
         // Aujourd'hui : 1 site sur 6 (ff2aeb35, capteur, 125 j couverts) — le jour où
         // daily_visitors arrive ailleurs, les options apparaissent sans une ligne.
         measureKpiCoverage(bq, location_id).then((r) => [[r]]),
-        // Pôles du site (héritage KPI pôle→opération, spec pôles) : l'opération rattachée se
-        // mesure par défaut sur les familles DU pôle — le formulaire restreint le KPI famille.
-        bq.query({
-          query: `SELECT dispositif_id, committed_action_text, pole_families FROM (
-                    SELECT dispositif_id, committed_action_text, pole_families, status,
-                           ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC,
-                             CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC,
-                             (verdict IS NOT NULL) DESC, created_at DESC) AS rn
-                    FROM \`${PROJECT}.analytics.action_commitments\`
-                    WHERE location_id = @location_id AND dispositif_nature = 'permanent'
-                  ) WHERE rn = 1 AND status = 'open'
-                  ORDER BY committed_action_text LIMIT 12`,
-          params: { location_id }, location: "EU",
-        }),
+        // Pôles du site (héritage KPI pôle→opération) : LE foyer poleReading.listPoles.
+        listPoles(bq, location_id).then((pl) => [pl] as any),
       ]);
       const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
       const industry = profRows?.[0] ? String(flat(profRows[0].company_activity_type) ?? "") || null : null;
@@ -106,12 +88,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         },
         event_types: eventTypesFor(industry),
         dow_baseline,
-        families: (famRows as any[]).map((r) => ({ category: String(flat(r.item_category)), avg_day_eur: Number(flat(r.avg_day_eur) ?? 0) })),
-        poles: (poleRows as any[]).map((r) => {
-          let fams: string[] = [];
-          try { fams = JSON.parse(String(flat(r.pole_families) || "[]")); } catch { /* périmètre illisible */ }
-          return { dispositif_id: String(flat(r.dispositif_id)), name: String(flat(r.committed_action_text) || "").split(" — ")[0], families: fams };
-        }),
+        families: famRows as any[],
+        poles: poleRows as any[],
       });
     }
 
