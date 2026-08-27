@@ -538,7 +538,7 @@ async function assembleDayContextUncached(bq: any, loc: string, date: string, op
       ...sensitivities.filter((s) => s.active_today).map((s) => ({ fact_fr: envTodayLine(s), claim_type: 'measured' as const, tier: s.confidence_tier, origin: 'ventes' as const })),
       ...decomposition.map((d) => ({ fact_fr: d.cite_fr, claim_type: 'observed_difference' as const, tier: d.tier as Tier, origin: 'ventes' as const })),
       ...competitors.map((c) => ({ fact_fr: fillContextFallback('concurrence_competitor', { distance: frKmFmt(c.distance_km), nom: c.name }) ?? c.name, claim_type: 'observed_proximity' as const, origin: 'concurrence' as const })),
-      ...commercial_events.map((n) => ({ fact_fr: fillContextFallback('commercial_event', { nom: n }) ?? n, claim_type: 'observed_presence' as const, origin: 'calendrier' as const })),
+      ...commercial_events.map((n) => ({ fact_fr: fillContextFallback('commercial_event', { nom: n }) ?? n, claim_type: 'observed_presence' as const, origin: 'temps_fort' as const })),
       ...(weather_alert ? [{ fact_fr: formatWeatherAlert(weather_alert), claim_type: 'observed_acute' as const, origin: 'meteo' as const }] : []),
       ...(foreignUnion.length ? [{ fact_fr: fillContextFallback('foreign_origins', { pays: foreignUnion.join(', ') }) ?? foreignUnion.join(', '), claim_type: 'observed_presence' as const, origin: 'tourisme' as const }] : []),
       // R3-3 — quantified regional foreign profile (seasonal reference; window in-sentence).
