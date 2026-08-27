@@ -137,6 +137,36 @@
       + '<div data-ef-err style="display:none;color:#B91C1C;font-size:12px;margin-top:10px;"></div>'
       + '<div style="display:flex;margin-top:12px;"><span style="margin-left:auto;"><button type="button" data-ef-submit style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;">Créer l’événement — l’engagement de mesure se crée avec</button></span></div>';
 
+    // ── Pôle / dispositif permanent (spec poles-dispositifs-permanents, owner 27/08) ──
+    // Un commutateur de nature en tête : « Opération datée » = TOUT l'existant, intact ;
+    // « Pôle — dispositif permanent » = panneau propre (familles réelles en chips, responsable,
+    // levier + mémoire), POST direct /api/commitments — sans terme, jamais jugé par le cron.
+    var famChip = function (cat, avg) {
+      return '<span data-ef-polefam="' + esc(cat) + '" style="font-size:12px;padding:5px 11px;border:1px solid #e5e7eb;border-radius:999px;cursor:pointer;background:#fff;color:#374151;">' + esc(cat) + ' \u00b7 ' + frInt(avg) + ' \u20ac/j</span>';
+    };
+    var poleTa = 'width:100%;box-sizing:border-box;font-size:12.5px;color:#111827;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;font-family:inherit;resize:none;min-height:48px;';
+    var polePanel = '<div data-ef-pole-panel style="display:none;">'
+      + '<div style="display:flex;gap:12px;"><div style="flex:1;"><label style="' + lbl + '">Nom du p\u00f4le</label><input data-ef="polename" style="' + inp + '" maxlength="120"></div>'
+      + '<div style="flex:1;"><label style="' + lbl + '">Responsable(s)</label>'
+      + (owners.length ? '<select data-ef="poleowner" style="' + inp + 'cursor:pointer;">' + owners.map(function (o) { return '<option>' + esc(o) + '</option>'; }).join('') + '</select>' : '<input data-ef="poleowner" style="' + inp + '" placeholder="Une personne de l\u2019\u00e9quipe">')
+      + '</div></div>'
+      + '<div style="margin-top:10px;"><label style="' + lbl + '">Familles du p\u00f4le \u2014 depuis vos ventes</label>'
+      + (fams.length ? '<div data-ef-polefams style="display:flex;gap:6px;flex-wrap:wrap;">' + fams.map(function (f) { return famChip(f.category, f.avg_day_eur); }).join('') + '</div>'
+        : '<div style="font-size:12px;color:#9CA3AF;">Aucune famille dans vos ventes pour l\u2019instant \u2014 le p\u00f4le a besoin d\u2019un p\u00e9rim\u00e8tre mesurable.</div>')
+      + '<div style="font-size:11px;color:#9CA3AF;margin-top:5px;">Sans terme : lecture continue de ses familles vs votre r\u00e9sultat habituel \u2014 pas de verdict.</div></div>'
+      + '<div style="margin-top:10px;"><label style="' + lbl + '">Levier</label><textarea data-ef="polelever" style="' + poleTa + '" placeholder="Ce que le p\u00f4le fait au quotidien"></textarea></div>'
+      + '<div style="margin-top:10px;"><label style="' + lbl + '">Ressource(s)</label><input data-ef="poleres" style="' + inp + '"></div>'
+      + '<div style="display:flex;gap:12px;margin-top:10px;"><div style="flex:1;"><label style="' + lbl + '">Le plus du dispositif</label><textarea data-ef="poleplus" style="' + poleTa + '"></textarea></div>'
+      + '<div style="flex:1;"><label style="' + lbl + '">Pourquoi \u00e7a va marcher</label><textarea data-ef="polewhy" style="' + poleTa + '"></textarea></div></div>'
+      + '<div data-ef-pole-err style="display:none;color:#B91C1C;font-size:12px;margin-top:10px;"></div>'
+      + '<div style="display:flex;margin-top:12px;"><span style="margin-left:auto;"><button type="button" data-ef-pole-submit style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;">Cr\u00e9er le p\u00f4le \u2192</button></span></div>'
+      + '</div>';
+    var natureSwitch = '<div style="margin-bottom:12px;"><label style="' + lbl + '">Nature</label>'
+      + '<span style="display:inline-flex;border:1px solid #1D3BB3;border-radius:8px;overflow:hidden;">'
+      + '<button type="button" data-ef-mode="dated" style="' + segB + 'background:#1D3BB3;color:#fff;">Op\u00e9ration dat\u00e9e</button>'
+      + '<button type="button" data-ef-mode="pole" style="' + segB + '">P\u00f4le \u2014 dispositif permanent</button></span></div>';
+    html = natureSwitch + '<div data-ef-dated-panel>' + html + '</div>' + polePanel;
+
     mount.innerHTML = html;
     var q = function (sel) { return mount.querySelector(sel); };
     // Préremplissage depuis une fiche dispositif (CTA « Automatiser » du tableau, 05/08) :
@@ -144,6 +174,59 @@
     if (opts.titre) { var _t = q('[data-ef="title"]'); if (_t && !_t.value) _t.value = String(opts.titre).slice(0, 120); }
     if (opts.dispositif) { var _d = q('[data-ef="dispositif"]'); if (_d && !_d.value) _d.value = String(opts.dispositif).slice(0, 240); }
     var val = function (name) { var el = q('[data-ef="' + name + '"]'); return el ? String(el.value || "").trim() : ""; };
+    // Bascule de nature + chips familles + soumission du pôle.
+    (function () {
+      var poleSel = {};
+      var modeBtns = mount.querySelectorAll('[data-ef-mode]');
+      modeBtns.forEach(function (b) {
+        b.addEventListener('click', function () {
+          var mode = b.getAttribute('data-ef-mode');
+          modeBtns.forEach(function (x) {
+            var on = x === b;
+            x.style.background = on ? '#1D3BB3' : '#fff';
+            x.style.color = on ? '#fff' : '#1D3BB3';
+          });
+          q('[data-ef-dated-panel]').style.display = mode === 'pole' ? 'none' : '';
+          q('[data-ef-pole-panel]').style.display = mode === 'pole' ? '' : 'none';
+        });
+      });
+      mount.querySelectorAll('[data-ef-polefam]').forEach(function (c) {
+        c.addEventListener('click', function () {
+          var cat = c.getAttribute('data-ef-polefam');
+          poleSel[cat] = !poleSel[cat];
+          c.style.background = poleSel[cat] ? '#F5F8FF' : '#fff';
+          c.style.borderColor = poleSel[cat] ? '#1D3BB3' : '#e5e7eb';
+          c.style.color = poleSel[cat] ? '#1D3BB3' : '#374151';
+        });
+      });
+      var pbtn = q('[data-ef-pole-submit]');
+      if (pbtn) pbtn.addEventListener('click', function () {
+        var perr = q('[data-ef-pole-err]');
+        var showErr = function (m) { if (perr) { perr.textContent = m; perr.style.display = ''; } };
+        var name = val('polename');
+        var famsSel = Object.keys(poleSel).filter(function (k) { return poleSel[k]; });
+        if (!name) { showErr('Il manque le nom du p\u00f4le.'); return; }
+        if (!famsSel.length) { showErr('Choisissez au moins une famille \u2014 le p\u00e9rim\u00e8tre du p\u00f4le.'); return; }
+        if (perr) perr.style.display = 'none';
+        pbtn.disabled = true; pbtn.textContent = 'Cr\u00e9ation\u2026';
+        var lever = val('polelever');
+        fetch('/api/commitments', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            location_id: loc, dispositif_nature: 'permanent',
+            committed_action_text: name + (lever ? ' \u2014 ' + lever : ''),
+            pole_families: famsSel,
+            owner_person_name: val('poleowner') || null,
+            dispositif_plus: val('poleplus') || null,
+            dispositif_why: val('polewhy') || null,
+            dispositif_resources: val('poleres') || null,
+          }),
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (!j || !j.ok) { pbtn.disabled = false; pbtn.textContent = 'Cr\u00e9er le p\u00f4le \u2192'; showErr('Erreur : ' + ((j && j.error) || 'r\u00e9essayez')); return; }
+          mount.innerHTML = '<div style="font-size:13px;color:#166534;background:#E6F6F0;border-radius:8px;padding:12px 14px;line-height:1.6;">P\u00f4le cr\u00e9\u00e9 \u2014 lecture continue de ses familles d\u00e8s vos prochaines ventes. <a href="/app/insightevent/engagement?id=' + encodeURIComponent(j.commitment_id) + '" style="color:#1D3BB3;font-weight:600;">Ouvrir le p\u00f4le \u2192</a></div>';
+        }).catch(function () { pbtn.disabled = false; pbtn.textContent = 'Cr\u00e9er le p\u00f4le \u2192'; showErr('Erreur, r\u00e9essayez.'); });
+      });
+    })();
     var todayIso = new Date().toISOString().slice(0, 10);
     var state = {
       nature: "outdoor", recurrence: "none",
