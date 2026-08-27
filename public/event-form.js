@@ -97,6 +97,12 @@
       + '</select></div></div>'
       + '<div data-ef-famwrap style="display:none;margin-top:10px;"><label style="' + lbl + '">Famille produit</label><select data-ef="family" style="' + inp + 'cursor:pointer;">'
       + fams.map(function (f) { return '<option value="' + esc(f.category) + '" data-avg="' + Number(f.avg_day_eur) + '">' + esc(f.category) + ' — ' + frInt(f.avg_day_eur) + ' €/j en moyenne</option>'; }).join("") + '</select></div>'
+      + ((Array.isArray(ctx.poles) && ctx.poles.length)
+        ? '<div style="margin-top:10px;"><label style="' + lbl + '">Rattacher \u00e0 un p\u00f4le \u2014 l\u2019op\u00e9ration se mesure sur ses familles</label><select data-ef="pole" style="' + inp + 'cursor:pointer;">'
+          + '<option value="">Aucun</option>'
+          + ctx.poles.map(function (pp) { return '<option value="' + esc(pp.dispositif_id) + '" data-fams="' + esc(JSON.stringify(pp.families || [])) + '">' + esc(pp.name) + (pp.families && pp.families.length ? ' \u2014 ' + esc(pp.families.join(', ')) : '') + '</option>'; }).join('')
+          + '</select></div>'
+        : '')
       + '<div style="border:1px solid rgba(29,59,179,0.25);border-radius:8px;padding:10px 12px;background:#FAFBFF;margin-top:10px;">'
       + '<div style="' + lbl + '">Cible — l’objectif porte sur l’ÉVÉNEMENT ; le total du jour en est la conséquence</div>'
       + '<div style="display:flex;gap:8px;align-items:center;font-size:12.5px;color:#111827;flex-wrap:wrap;">'
@@ -462,6 +468,30 @@
         refreshCible();
       });
     });
+    // Héritage KPI pôle→opération (spec pôles) : rattacher un pôle bascule le KPI sur le CA
+    // famille et RESTREINT la liste aux familles DU pôle (mono-famille = présélectionnée) ;
+    // « Aucun » restaure la liste complète. Le KPI reste modifiable — un choix explicite prime.
+    var _famAllHtml = (function () { var el = q('[data-ef="family"]'); return el ? el.innerHTML : ''; })();
+    var poleEl = q('[data-ef="pole"]');
+    if (poleEl) poleEl.addEventListener('change', function () {
+      var famEl = q('[data-ef="family"]'); var kpiEl = q('[data-ef="kpi"]');
+      if (!famEl || !kpiEl) return;
+      var opt = poleEl.selectedOptions && poleEl.selectedOptions[0];
+      var famsPole = [];
+      try { famsPole = JSON.parse((opt && opt.getAttribute('data-fams')) || '[]'); } catch (e) { famsPole = []; }
+      if (poleEl.value && famsPole.length) {
+        famEl.innerHTML = '';
+        var kept = 0;
+        var tmp = document.createElement('select'); tmp.innerHTML = _famAllHtml;
+        Array.prototype.forEach.call(tmp.options, function (o) {
+          if (famsPole.indexOf(o.value) >= 0) { famEl.appendChild(o.cloneNode(true)); kept++; }
+        });
+        if (kept) { kpiEl.value = 'family_revenue'; famEl.selectedIndex = 0; }
+      } else {
+        famEl.innerHTML = _famAllHtml;
+      }
+      refreshCible();
+    });
     ["kpi", "family", "target", "dow"].forEach(function (n) {
       var el = q('[data-ef="' + n + '"]'); if (el) { el.addEventListener("change", refreshCible); el.addEventListener("input", refreshCible); }
     });
@@ -529,6 +559,7 @@
               body: JSON.stringify({
                 location_id: loc, origin_action_type: "event_" + val("type"), saved_item_id: j.saved_item_id,
                 event_kpi: kpi, kpi_family: kpi === "family_revenue" ? val("family") : null,
+                attached_pole_id: val("pole") || null,
                 window_kind: "day_of", window_start_date: j.occurrences[0],
                 threshold_basis: "pct", threshold_pct: pct,
                 committed_action_text: title + " — " + dispositif,

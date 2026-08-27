@@ -70,3 +70,40 @@ it("sans famille choisie, le pôle ne part pas — le périmètre est obligatoir
   expect(posted).toBeNull();
   expect(mount.innerHTML).toContain("Choisissez au moins une famille");
 });
+
+it("héritage KPI : rattacher un pôle bascule sur CA famille et restreint aux familles DU pôle ; « Aucun » restaure", async () => {
+  stubFetch(); posted = null;
+  (globalThis as any).fetch = ((orig) => (url: any, init?: any) => {
+    const u = String(url);
+    if (u.includes("create_context")) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({
+        ok: true, industry_code: "cafe", event_types: [{ code: "autre", label_fr: "Autre" }],
+        dow_baseline: [], kpi_available: {},
+        families: [{ category: "Coffee", avg_day_eur: 412 }, { category: "Bakery", avg_day_eur: 236 }, { category: "Kitchen", avg_day_eur: 158 }],
+        poles: [{ dispositif_id: "pole-1", name: "Pôle périssables", families: ["Coffee", "Bakery"] }],
+      }) });
+    }
+    return (orig as any)(url, init);
+  })((globalThis as any).fetch);
+  const mount = document.createElement("div");
+  document.body.appendChild(mount);
+  (window as any).MSEventForm.open(mount, { location_id: "loc-test" });
+  await new Promise((r) => setTimeout(r, 120));
+
+  const pole = mount.querySelector('[data-ef="pole"]') as HTMLSelectElement;
+  const kpi = mount.querySelector('[data-ef="kpi"]') as HTMLSelectElement;
+  const fam = mount.querySelector('[data-ef="family"]') as HTMLSelectElement;
+  expect(pole).toBeTruthy();
+  expect(pole.innerHTML).toContain("Pôle périssables — Coffee, Bakery");
+
+  pole.value = "pole-1";
+  pole.dispatchEvent(new Event("change"));
+  expect(kpi.value).toBe("family_revenue");
+  const opts = Array.from(fam.options).map((o) => o.value);
+  expect(opts).toEqual(["Coffee", "Bakery"]);   // Kitchen exclu — le périmètre est celui du pôle
+  expect(fam.value).toBe("Coffee");
+
+  pole.value = "";
+  pole.dispatchEvent(new Event("change"));
+  expect(Array.from(fam.options).map((o) => o.value)).toEqual(["Coffee", "Bakery", "Kitchen"]);
+});

@@ -42,7 +42,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     if (url.searchParams.get("create_context")) {
       // Quatre lectures indépendantes — un seul lot parallèle (budget perf).
-      const [[profRows], [dowRows], [famRows], [covRows]] = await Promise.all([
+      const [[profRows], [dowRows], [famRows], [covRows], [poleRows]] = await Promise.all([
         bq.query({
           query: `SELECT company_activity_type FROM \`${PROJECT}.raw.insight_event_user_location_profile\`
                   WHERE location_id = @location_id LIMIT 1`,
@@ -73,6 +73,20 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // Aujourd'hui : 1 site sur 6 (ff2aeb35, capteur, 125 j couverts) — le jour où
         // daily_visitors arrive ailleurs, les options apparaissent sans une ligne.
         measureKpiCoverage(bq, location_id).then((r) => [[r]]),
+        // Pôles du site (héritage KPI pôle→opération, spec pôles) : l'opération rattachée se
+        // mesure par défaut sur les familles DU pôle — le formulaire restreint le KPI famille.
+        bq.query({
+          query: `SELECT dispositif_id, committed_action_text, pole_families FROM (
+                    SELECT dispositif_id, committed_action_text, pole_families, status,
+                           ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC,
+                             CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC,
+                             (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                    FROM \`${PROJECT}.analytics.action_commitments\`
+                    WHERE location_id = @location_id AND dispositif_nature = 'permanent'
+                  ) WHERE rn = 1 AND status = 'open'
+                  ORDER BY committed_action_text LIMIT 12`,
+          params: { location_id }, location: "EU",
+        }),
       ]);
       const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
       const industry = profRows?.[0] ? String(flat(profRows[0].company_activity_type) ?? "") || null : null;
@@ -93,6 +107,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         event_types: eventTypesFor(industry),
         dow_baseline,
         families: (famRows as any[]).map((r) => ({ category: String(flat(r.item_category)), avg_day_eur: Number(flat(r.avg_day_eur) ?? 0) })),
+        poles: (poleRows as any[]).map((r) => {
+          let fams: string[] = [];
+          try { fams = JSON.parse(String(flat(r.pole_families) || "[]")); } catch { /* périmètre illisible */ }
+          return { dispositif_id: String(flat(r.dispositif_id)), name: String(flat(r.committed_action_text) || "").split(" — ")[0], families: fams };
+        }),
       });
     }
 
