@@ -661,7 +661,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // cohérents : le chiffre (Σ période), le % (vs Σ attendu) et la mini-courbe — l'ancienne
       // tuile « CA multi-site » sommait seulement les jours ayant ≥ 3 pairs même-jour (21
       // site-jours retenus → 36 440 € étiquetés « 30 jours ») : chiffre partiel, référentiel
-      // divergent, incompatible avec une courbe. Élucidé + remplacé, cf. piloter-redesign-spec.
+      // divergent, incompatible avec une courbe. Élucidé + remplacé, cf. docs/piloter-redesign.md.
       bq.query({
         query: `SELECT location_id, CAST(DATE(date) AS STRING) d,
                        ROUND(daily_revenue) ca, ROUND(expected_revenue) exp

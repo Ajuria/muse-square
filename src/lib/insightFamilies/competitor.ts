@@ -79,7 +79,13 @@ async function measureCompetitorImpact(
     const days = Number(arr[0]?.days ?? 0);
     const LABEL: Record<string, string> = {
       followed_activity: "Activité des concurrents que vous suivez",
-      ambient_index: "Pression locale même secteur (indice)",
+      // 27/08 — LE mot du lexique pour competition_index_local (owner 25/08, « il faut dire
+      // la vérité, c'est le contrat de confiance minimal ») : l'indice vaut
+      // 0,7 × (4×événements 500 m + 3×5 km + 2×10 km + 1×50 km) SANS AUCUN filtre de secteur.
+      // L'ancien libellé « Pression locale même secteur » disait donc deux choses fausses :
+      // un mot banni (« pression ») et une restriction sectorielle qui n'existe pas.
+      // Forme calquée sur la chaîne sœur déjà rendue ici, « Activité des concurrents que vous suivez ».
+      ambient_index: "Activité dans votre périmètre (indice)",
     };
     const contrasts: CompetitorContrast[] = [];
     for (const r of arr) {
@@ -169,10 +175,13 @@ function moveWhat(item: string | null, category: string | null, pct: number | nu
 }
 
 // Actionable overlap+differentiation (not a % dump): where you compete, your edge, their strength.
-// NOTE: these two maps are the endpoint's own wording ("clientèle locale"), which differs from
-// profileLabels.AUDIENCE_FR ("résidents locaux"). Kept VERBATIM so the deep page stays byte-identical —
-// reconciling the two registers is an owner copy decision, not a silent side effect of this extraction.
-const AUD_FR: Record<string, string> = { local: "clientèle locale", professionals: "professionnels", tourists: "touristes", students: "étudiants", mixed: "clientèle mixte" };
+// 27/08 — la décision attendue par la note ci-dessous EST tombée : owner 24/08 au soir,
+// « résidents locaux » / « public mixte » PARTOUT, registres du chat compris, et MOTS_BANNIS
+// mord (docs/lexique.md, doublons inter-pages tranchés). Les deux registres sont donc réconciliés
+// ici : ce n'est pas un effet de bord silencieux, c'est l'arbitrage appliqué. Ancienne note :
+// « Kept VERBATIM so the deep page stays byte-identical — reconciling the two registers is an
+// owner copy decision ». Elle est antérieure à l'arbitrage.
+const AUD_FR: Record<string, string> = { local: "résidents locaux", professionals: "professionnels", tourists: "touristes", students: "étudiants", mixed: "public mixte" };
 const TYPE_FR: Record<string, string> = { corporate: "événements corporate", product_launch: "lancements produit", store_opening: "ouvertures", exhibition: "expositions", conference: "colloques" };
 
 function buildPositioning(prof: any, dir: any): any {

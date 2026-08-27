@@ -132,6 +132,19 @@ export const MOTS_BANNIS: Record<string, string> = {
   // Les formes légitimes ne matchent pas (« votre résultat habituel », « votre jeudi habituel »,
   // « votre CA habituel » : un mot s'intercale toujours entre « votre » et « habituel »).
   "votre habituel": "votre résultat habituel (forme jour : « votre jeudi habituel »)",
+  // Owner 25/08 (lexique, `competition_index_local`) : cet indice est de l'agenda local,
+  // SANS filtre de secteur. Le décrire en « pression » le fait passer pour de la concurrence.
+  // On bannit les PHRASES fausses, pas « concurrence » ni « même secteur » nus : ces deux-là
+  // sont LÉGITIMES dès que la source est un suivi (competitor_tracking) ou same_bucket.
+  "pression locale": "activité dans votre périmètre",
+  "jours disputés": "jours à forte activité dans votre périmètre",
+  // « pression concurrentielle » et « cannibalisation » NE SONT PAS bannis ici, et c'est
+  // délibéré : la règle du lexique est CONDITIONNELLE À LA SOURCE (« dès lors que la source
+  // est cet indice »). Sur un suivi (competitor_tracking) ou sur same_bucket, les deux mots
+  // sont légitimes — le tooltip « score de cannibalisation : audience commune + même secteur »
+  // de tableau.astro décrit bien un score filtré secteur. Un garde-fou textuel ne sait pas
+  // lire la source. Les bannir aveuglément rougit 6 fichiers et ~25 chaînes, dont des
+  // légitimes. Le lot est SIGNALÉ à l'owner, pas corrigé en passant.
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.

@@ -16,6 +16,9 @@ import { MOTS_BANNIS, EVT_FR } from "./evenement.fr";
 // ses valeurs sont couvertes par le test « le lexique lui-même » ci-dessous.
 const SURFACES = [
   "src/lib/insightFamilies/evenement.ts",
+  // 27/08 : la famille concurrent n'était PAS balayée — c'est ce qui a laissé vivre
+  // « Pression locale même secteur » (mot banni + restriction sectorielle inexistante).
+  "src/lib/insightFamilies/competitor.ts",
   "src/pages/app/insightevent/evenement.astro",
   "src/pages/app/insightevent/tableau.astro",
   "src/pages/app/insightevent/pulse.astro",
