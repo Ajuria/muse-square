@@ -1049,7 +1049,7 @@
       function jourFr2(iso) { return ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][new Date(iso + 'T00:00:00Z').getUTCDay()]; }
       var cap = k.day_of
         ? 'vos ' + pts.length + ' derniers ' + jourFr2(k.daily && k.daily.length ? k.daily[0].date : (k.peers[k.peers.length - 1] || {}).date || '') + 's \u00b7 gros point = le jour mesur\u00e9'
-        : 'les ' + pts.length + ' journ\u00e9es de la fen\u00eatre \u00b7 la jauge = leur moyenne';
+        : 'les ' + pts.length + ' journ\u00e9es de l\u2019op\u00e9ration \u00b7 la jauge = leur moyenne';
       var vals = pts.map(function (p2) { return p2.v; });
       if (k.realized != null && k.day_of) vals.push(k.realized);
       if (k.goal != null) vals.push(k.goal);

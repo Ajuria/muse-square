@@ -6171,14 +6171,14 @@ Règles :
           ai: {
             headline: "Aucune donnée disponible",
             verdict: "",
-            answer: "Aucune donnée disponible pour cette période. Vérifiez que la fenêtre demandée est dans le futur ou contient des dates avec des données.",
+            answer: "Aucune donnée disponible pour cette période. Vérifiez que la période demandée est dans le futur ou contient des dates avec des données.",
             key_facts: [],
             reasons: [],
             caveats: [],
             output: {
               headline: "Aucune donnée disponible",
               verdict: "",
-              answer: "Aucune donnée disponible pour cette période. Vérifiez que la fenêtre demandée est dans le futur ou contient des dates avec des données.",
+              answer: "Aucune donnée disponible pour cette période. Vérifiez que la période demandée est dans le futur ou contient des dates avec des données.",
               key_facts: [],
               reasons: [],
               caveats: [],
