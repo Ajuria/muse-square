@@ -344,10 +344,10 @@ export function buildPlanBlocks(r: PlanPeriodResult): PlanBlocks {
   const grey = "#9CA3AF";
   const pctFr = (v: number): string => `${v >= 0 ? "+" : "−"}${Math.abs(v).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`;
 
-  // 1) Où en est l'entreprise — CA/jour 30 derniers jours vs les 90 précédents.
+  // 1) La santé de l'entreprise (mot owner du cadrage 27/08) — CA/jour 30 derniers jours vs les 90 précédents.
   const h = r.health;
   sections.push({
-    title: "Où en est l'entreprise",
+    title: "La santé de l'entreprise",
     table: {
       cols: [{ label: "KPI", align: "left" }, { label: "30 derniers jours" }, { label: "Les 90 précédents" }, { label: "Écart" }],
       rows: [{ cells: [
@@ -417,14 +417,14 @@ export function buildPlanBlocks(r: PlanPeriodResult): PlanBlocks {
   if (!threatFacts.length) threatFacts.push("Aucun événement concurrent relevé ne vise votre public sur les semaines couvertes, et vos séries sont à jour.");
   sections.push({ title: "Menaces", facts: threatFacts });
 
-  // 5) À gagner vite — la semaine calme + les rejeux PROUVÉS. Vide → dit vide.
+  // 5) À portée de main (mot owner 27/08) — la semaine calme + les rejeux PROUVÉS. Vide → dit vide.
   const quickFacts: string[] = [];
   for (const w of r.calm_weeks.filter((x) => x.state === "quiet")) {
     quickFacts.push(`Semaine du ${w.label} : aucun événement concurrent relevé ne vise votre public.`);
   }
   for (const p of r.replay.slice(0, 4)) quickFacts.push(p.say_fr);
   if (!r.replay.length) quickFacts.push("Aucun dispositif prouvé n'est rejouable sur les conditions de la période.");
-  sections.push({ title: "À gagner vite", facts: quickFacts });
+  sections.push({ title: "À portée de main", facts: quickFacts });
 
   // 6) Chantiers de fond — pôles en retrait mesuré ; les références crawlées suivent (registre WEB).
   const deepFacts: string[] = [];

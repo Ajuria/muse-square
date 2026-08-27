@@ -22,8 +22,8 @@ const base = (over: Partial<PlanPeriodResult> = {}): PlanPeriodResult => ({
 });
 
 const TITLES = [
-  "Où en est l'entreprise", "Vos pôles", "Ce que la période va vous coûter",
-  "Menaces", "À gagner vite", "Chantiers de fond", "Le plan, semaine par semaine",
+  "La santé de l'entreprise", "Vos pôles", "Ce que la période va vous coûter",
+  "Menaces", "À portée de main", "Chantiers de fond", "Le plan, semaine par semaine",
 ];
 
 describe("buildPlanBlocks — diagnostic d'abord, plan ensuite", () => {

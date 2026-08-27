@@ -89,6 +89,12 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
   Opérations en cours · Dispositifs prouvés** — « Signaux traités » assumé (même concept de
   signal partout, arbitrage owner) ; « Dispositifs validés » écarté (« validé » reste banni).
 
+- Plan de période — diagnostic (owner 27/08) : « quick wins » = **« À portée de main »**
+  (mot owner). Titre du point santé : **« La santé de l'entreprise »** (proposition appliquée
+  depuis le mot du cadrage owner « santé de l'entreprise » — à confirmer). Les autres titres
+  du plan viennent de la maquette validée : « Vos pôles », « Ce que la période va vous
+  coûter », « Menaces », « Chantiers de fond », « Le plan, semaine par semaine ».
+
 - Marges par famille (owner 24/08) : le geste garde **« Déclarer votre marge »** (singulier),
   même devenu par-famille — « Déclarer vos marges » écarté. Mots de couverture actés :
   **« Profit — à débloquer »** (verrouillé) et **« calculé sur X % de votre CA »** — la tuile
