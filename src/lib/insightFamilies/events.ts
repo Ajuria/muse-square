@@ -354,6 +354,10 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
   }
   const calmWeeks = calendar.filter((c: any) => c.state === "quiet");
   const totalUpcoming = calendar.reduce((s: number, c: any) => s + (c.count || 0), 0);
+  // Section title (owner 27/08): dated and actionable when a calm week exists, plain otherwise.
+  const calendar_title = calmWeeks.length
+    ? `Testez une opération la semaine du ${calmWeeks[0].label}, qui est calme autour de vous`
+    : "Programmez une opération";
   const calendar_note = calmWeeks.length
     ? `Activité calme autour de vous ${calmWeeks.length > 1 ? "les semaines" : "la semaine"} du ${calmWeeks.map((c: any) => c.label).join(", du ")} : aucun événement concurrent n'y vise votre public${assoClause}.`
     : `Pas de semaine calme autour de vous sur les ${CAL_WEEKS} prochaines : ${totalUpcoming} événement(s) concurrent(s) visent votre public dans votre zone${assoClause}.`;
@@ -446,7 +450,7 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
 
   return {
     found: true,
-    data: { found: true, date, commercial_event, contest_lead, competitors, like_mine, calendar, calendar_note, impact: impactBlock, decision_lines },
+    data: { found: true, date, commercial_event, contest_lead, competitors, like_mine, calendar, calendar_title, calendar_note, impact: impactBlock, decision_lines },
     facts,
     sources,
   };
