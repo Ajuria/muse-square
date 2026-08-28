@@ -40,7 +40,13 @@ export interface ShapeFamily {
   products_total: number;           // produits vendus dans la famille (jour + référence)
   products_hidden_eur: number;      // écart porté par les produits NON listés (jamais tu)
 }
-export interface ShapeVolumePoint { date: string; tx: number; basket_eur: number }
+export interface ShapeVolumePoint { date: string; tx: number; units: number; basket_eur: number }
+// D'OÙ VIENT LA FLUCTUATION (owner 28/08) — la question se décompose EXACTEMENT en trois
+// facteurs observés, dont le produit vaut la variation du CA : combien de gens ont acheté,
+// combien d'articles chacun a pris, et à quel prix moyen l'article est parti.
+//   CA = achats × (articles / achat) × (€ / article)
+// Le troisième étage manquait (« la composition du panier moyen — nombre et types de
+// produits achetés ») : le NOMBRE d'articles vit ici, les TYPES dans la carte des familles.
 export interface ShapeVolume {
   // RIEN QUE DE L'OBSERVÉ (owner 28/08). La version précédente décomposait l'écart de
   // l'en-tête en « contribution des achats » et « contribution du panier » sous une
@@ -50,10 +56,15 @@ export interface ShapeVolume {
   // affiché comme un fait est un mensonge : la décomposition est SUPPRIMÉE.
   ref: ShapeVolumePoint[];          // jours comparables, chronologiques
   days: ShapeVolumePoint[];         // jours mesurés de l'opération
-  tx_avg: number; ref_tx_avg: number;
-  basket_avg: number; ref_basket_avg: number;
-  tx_pct: number | null;            // écart des achats vs jours comparables
-  basket_pct: number | null;        // écart du panier vs jours comparables
+  tx_avg: number; ref_tx_avg: number;                 // achats par jour
+  basket_avg: number; ref_basket_avg: number;         // panier moyen (€ par achat)
+  items_avg: number; ref_items_avg: number;           // articles par achat
+  price_avg: number; ref_price_avg: number;           // € par article
+  tx_pct: number | null;                              // écarts vs jours comparables
+  basket_pct: number | null;
+  items_pct: number | null;
+  price_pct: number | null;
+  total_pct: number | null;         // variation du CA — produit exact des trois facteurs
 }
 export interface WindowShape {
   ref_days: number;                 // jours comparables réellement trouvés
@@ -136,8 +147,8 @@ export async function buildWindowShape(
     // 3. Achats + CA (mart.fct_client_daily_performance) — le panier se recompose CA/achats,
     //    jamais une moyenne de moyennes.
     q(`SELECT ${setCase("transaction_date")} AS s, CAST(transaction_date AS STRING) AS d,
-              SUM(daily_transactions) AS tx, SUM(daily_revenue) AS rev
-        FROM \`${PROJECT}.mart.fct_client_daily_performance\`
+              SUM(transactions) AS tx, SUM(units) AS units, SUM(revenue) AS rev
+        FROM \`${PROJECT}.mart.fct_client_hourly_sales\`
         WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
           AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))
         GROUP BY 1, 2`),
@@ -219,28 +230,43 @@ export async function buildWindowShape(
   const actual_eur = d0.actual != null ? Math.round(num(d0.actual)) : null;
   const expected_eur = d0.expected != null ? Math.round(num(d0.expected)) : null;
 
-  // ── Achats / panier : les deux séries OBSERVÉES, rien d'autre. ──
+  // ── D'où vient la fluctuation : trois facteurs observés dont le produit EST la
+  //    variation du CA (CA = achats × articles/achat × €/article). ──
   let volume: ShapeVolume | null = null;
   const pts = (side: "w" | "r"): ShapeVolumePoint[] => (vRows as any[])
     .filter((r) => String(flat(r.s)) === side && num(r.tx) > 0)
-    .map((r) => ({ date: String(flat(r.d)), tx: Math.round(num(r.tx)), basket_eur: r2(num(r.rev) / num(r.tx)) }))
+    .map((r) => ({
+      date: String(flat(r.d)), tx: Math.round(num(r.tx)), units: Math.round(num(r.units)),
+      basket_eur: r2(num(r.rev) / num(r.tx)),
+    }))
     .sort((a, b) => (a.date < b.date ? -1 : 1));
   const vDays = pts("w"), vRef = pts("r");
   if (vDays.length && vRef.length) {
-    const moy = (xs: ShapeVolumePoint[], f: (p: ShapeVolumePoint) => number) => xs.reduce((s2, p) => s2 + f(p), 0) / xs.length;
-    // Panier moyen d'un ensemble = CA total ÷ achats totaux (jamais une moyenne de moyennes).
-    const basketOf = (xs: ShapeVolumePoint[]) => {
-      const tx = xs.reduce((s2, p) => s2 + p.tx, 0);
-      return tx > 0 ? xs.reduce((s2, p) => s2 + p.tx * p.basket_eur, 0) / tx : 0;
+    // Les moyennes d'un ensemble se recomposent sur les TOTAUX (jamais une moyenne de
+    // moyennes) : c'est ce qui garantit que les trois facteurs se multiplient exactement.
+    const agr = (xs: ShapeVolumePoint[]) => {
+      const tx = xs.reduce((a, p) => a + p.tx, 0);
+      const units = xs.reduce((a, p) => a + p.units, 0);
+      const rev = xs.reduce((a, p) => a + p.tx * p.basket_eur, 0);
+      return {
+        tx_j: tx / xs.length,                       // achats par jour
+        basket: tx > 0 ? rev / tx : 0,              // € par achat
+        items: tx > 0 ? units / tx : 0,             // articles par achat
+        price: units > 0 ? rev / units : 0,         // € par article
+      };
     };
-    const txAvg = moy(vDays, (p) => p.tx), refTxAvg = moy(vRef, (p) => p.tx);
-    const bAvg = basketOf(vDays), refBAvg = basketOf(vRef);
+    const A = agr(vDays), R = agr(vRef);
+    const pct = (a: number, b: number): number | null => (b > 0 ? r1(((a - b) / b) * 100) : null);
     volume = {
       ref: vRef, days: vDays,
-      tx_avg: Math.round(txAvg), ref_tx_avg: Math.round(refTxAvg),
-      basket_avg: r2(bAvg), ref_basket_avg: r2(refBAvg),
-      tx_pct: refTxAvg > 0 ? r1(((txAvg - refTxAvg) / refTxAvg) * 100) : null,
-      basket_pct: refBAvg > 0 ? r1(((bAvg - refBAvg) / refBAvg) * 100) : null,
+      tx_avg: Math.round(A.tx_j), ref_tx_avg: Math.round(R.tx_j),
+      basket_avg: r2(A.basket), ref_basket_avg: r2(R.basket),
+      items_avg: r2(A.items), ref_items_avg: r2(R.items),
+      price_avg: r2(A.price), ref_price_avg: r2(R.price),
+      tx_pct: pct(A.tx_j, R.tx_j), basket_pct: pct(A.basket, R.basket),
+      items_pct: pct(A.items, R.items), price_pct: pct(A.price, R.price),
+      // La variation du CA par jour — le produit des trois facteurs, à l'arrondi près.
+      total_pct: pct(A.tx_j * A.basket, R.tx_j * R.basket),
     };
   }
 

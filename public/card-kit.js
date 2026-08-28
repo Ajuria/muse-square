@@ -844,7 +844,8 @@
         return empty ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('shape_title')) + '</div>' + empty + '</div>' : '';
       }
       var card = 'background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:13px 15px;margin-bottom:10px;';
-      var cardTitle = function (txt) { return '<div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;margin-bottom:8px;">' + esc(txt) + '</div>'; };
+      // Titres de carte en ENCRE, comme les sections (owner 28/08 : pas de gris pour titrer).
+      var cardTitle = function (txt) { return '<div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#111827;margin-bottom:8px;">' + esc(txt) + '</div>'; };
       var lead = function (txt) { return '<div style="font-size:13.5px;font-weight:600;color:#111827;line-height:1.5;">' + esc(txt) + '</div>'; };
       var body = function (txt) { return '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:4px;">' + esc(txt) + '</div>'; };
       var note = function (txt) { return '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(txt) + '</div>'; };
@@ -911,40 +912,47 @@
       // d'explication. Plusieurs journées : les moyennes des deux côtés. Aucun nombre
       // qui ne soit une somme de la caisse (owner 28/08).
       var v = shape.volume;
-      if (!membre) h += '<div style="' + card + '">' + cardTitle(t('shape_vol_title'));
-      if (membre) { /* panier = niveau : bloc retiré au serveur, aucune promesse à l'écran */ }
-      else if (v && v.days.length && v.ref.length) {
-        var jourDe = function (iso) { return WX_DOW_FR[new Date(String(iso) + 'T00:00:00Z').getUTCDay()] || ''; };
-        if (v.days.length === 1) {
-          var jr = jourDe(v.days[0].date);
-          var listTx = v.ref.map(function (p2) { return intfr(p2.tx); })
-            .concat([t('shape_vol_serie_last', { v: intfr(v.days[0].tx), jour: jr })]).join(', ');
-          var euro2 = function (n) { return (Math.round(Number(n) * 100) / 100).toFixed(2).replace('.', ',') + ' €'; };
-          var listBk = v.ref.map(function (p2) { return euro2(p2.basket_eur); })
-            .concat([t('shape_vol_serie_last', { v: euro2(v.days[0].basket_eur), jour: jr })]).join(', ');
-          h += lead(t('shape_vol_serie_tx', { list: listTx }))
-            + body(t('shape_vol_serie_basket', { list: listBk }));
+      if (!membre) {
+        h += '<div style="' + card + '">' + cardTitle(t('shape_vol_title'));
+        if (v && v.days.length && v.ref.length) {
+          var jourRef = WX_DOW_FR[new Date(String(v.ref[v.ref.length - 1].date) + 'T00:00:00Z').getUTCDay()] || 'jours';
+          var pc = function (p2) { return p2 == null ? '—' : (p2 >= 0 ? '+' : '−') + fr(Math.abs(p2)) + ' %'; };
+          var nb2 = function (n2) { return (Math.round(Number(n2) * 100) / 100).toString().replace('.', ','); };
+          var eu2 = function (n2) { return (Math.round(Number(n2) * 100) / 100).toFixed(2).replace('.', ',') + ' €'; };
+          // La phrase d'abord : QUEL facteur porte la fluctuation (le ou les deux plus forts).
+          var fs = [
+            { key: 'tx', p: Math.abs(v.tx_pct || 0), lib: t('shape_vol_f_tx') },
+            { key: 'items', p: Math.abs(v.items_pct || 0), lib: t('shape_vol_f_items') },
+            { key: 'price', p: Math.abs(v.price_pct || 0), lib: t('shape_vol_f_price') },
+          ].sort(function (a, b) { return b.p - a.p; });
+          h += lead(fs[1].p >= fs[0].p * 0.5
+            ? t('shape_vol_lead_2', { f1: fs[0].lib, f2: fs[1].lib })
+            : t('shape_vol_lead_1', { f: fs[0].lib }));
+          // Puis les trois lignes, chacune avec sa valeur, sa référence et son écart.
+          var ligne = function (lab, val, ref, pct2) {
+            return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #f5f6f8;font-size:13px;">'
+              + '<span style="min-width:0;"><span style="font-weight:600;color:#111827;">' + esc(lab) + '</span>'
+              + '<span style="display:block;color:#6b7280;font-size:11.5px;margin-top:1px;">' + esc(t('shape_vol_val', { v: val, ref: ref })) + '</span></span>'
+              + '<span style="font-weight:600;white-space:nowrap;color:' + (pct2 != null && pct2 < 0 ? '#B45309' : '#0F6E56') + ';">' + pc(pct2) + '</span></div>';
+          };
+          h += '<div style="margin-top:10px;">'
+            + ligne(t('shape_vol_l_tx'), intfr(v.tx_avg), intfr(v.ref_tx_avg), v.tx_pct)
+            + ligne(t('shape_vol_l_items'), nb2(v.items_avg), nb2(v.ref_items_avg), v.items_pct)
+            + ligne(t('shape_vol_l_price'), eu2(v.price_avg), eu2(v.ref_price_avg), v.price_pct)
+            + '</div>'
+            + '<div style="font-size:12.5px;color:#111827;margin-top:10px;font-weight:600;">' + esc(t('shape_vol_total', { pct: pc(v.total_pct) })) + '</div>'
+            + note(t('shape_vol_caption', { n: v.ref.length, jour: jourRef }))
+            + note(t('shape_vol_types'));
         } else {
-          h += lead(t('shape_vol_moyennes', {
-            n: v.days.length, tx: intfr(v.tx_avg), b: (Math.round(v.basket_avg * 100) / 100).toFixed(2).replace('.', ','),
-            rtx: intfr(v.ref_tx_avg), rb: (Math.round(v.ref_basket_avg * 100) / 100).toFixed(2).replace('.', ','),
-          }));
+          h += body(t('shape_vol_none'));
         }
-        // Le verdict se lit sur les deux écarts observés — jamais sur une contribution calculée.
-        var up1 = v.tx_pct != null && v.tx_pct > 0, up2 = v.basket_pct != null && v.basket_pct > 0;
-        var verdictKey = (up1 && up2) ? 'shape_vol_deux_hausses'
-          : (!up1 && !up2) ? 'shape_vol_deux_baisses'
-          : (up1 ? 'shape_vol_tx_seul' : 'shape_vol_basket_seul');
-        h += body(t(verdictKey));
-      } else {
-        h += body(t('shape_vol_none'));
+        h += '</div>';
       }
-      if (!membre) h += '</div>';
       // ④ Contexte externe — le même bloc qu'avant, rapatrié ici (il répond à la même question).
       if (ctxHtml) {
         h += '<div style="' + card + 'margin-bottom:0;">'
           + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
-          + '<span style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;">' + esc(t('shape_ctx_title')) + '</span>'
+          + '<span style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#111827;">' + esc(t('shape_ctx_title')) + '</span>'
           + '<span style="font-size:10.5px;color:#5f5e5a;background:#f1efe8;padding:2px 7px;border-radius:3px;">' + esc(t('diag_ext_chip_obs')) + '</span></div>'
           + ctxHtml + '</div>';
       }
@@ -1097,6 +1105,20 @@
     var _datesLine = (_wStartIso && _wEndIso && _wStartIso !== _wEndIso)
       ? '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + esc(t('state_dates', { start: msDateFr(_wStartIso), end: msDateFr(_wEndIso) })) + '</div>'
       : '';
+    // LE PORTEUR SE VOIT (owner 28/08 : « tu invisibilises l'intrapreneur ! ») : initiales,
+    // nom en encre, date en second — au lieu d'une ligne grise de bas de bloc.
+    var _porteurHtml = '';
+    if (cm.owner_person_name) {
+      var _nom = String(cm.owner_person_name).split(' · ')[0];
+      var _ini = _nom.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join('');
+      var _quand = cm.created_at ? msDateFr(String(cm.created_at).slice(0, 10)) : null;
+      _porteurHtml = '<div style="display:flex;align-items:center;gap:9px;margin-top:12px;">'
+        + '<span style="width:28px;height:28px;border-radius:50%;background:#1D3BB3;color:#fff;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none;">' + esc(_ini) + '</span>'
+        + '<span><span style="display:block;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#1D3BB3;font-weight:700;">' + esc(t('owner_badge')) + '</span>'
+        + '<span style="display:block;font-size:14px;font-weight:600;color:#111827;">' + esc(cm.owner_person_name) + '</span></span>'
+        + (_quand ? '<span style="margin-left:auto;font-size:12px;color:#6b7280;white-space:nowrap;">depuis le ' + esc(_quand) + (cm.action_done_at && cm.action_done_status === 'fait' ? ' · action menée' : '') + '</span>' : '')
+        + '</div>';
+    }
     var head = '<div style="border-bottom:2px solid ' + (open ? '#1D3BB3' : '#111827') + ';padding-bottom:14px;margin-bottom:22px;">'
       + '<div style="' + (_siteNmHdSpan ? 'display:flex;align-items:baseline;' : '') + 'font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Engagement' + _siteNmHdSpan + '</div>'
       + '<div style="font-size:21px;font-weight:600;margin-top:5px;line-height:1.3;">' + esc(cm.committed_action_text || '—') + '</div>'
@@ -1104,7 +1126,7 @@
       + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + sub + '</div>'
       + costLine
       + _datesLine
-      + (_ownerDate ? '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + _ownerDate + '</div>' : '')
+      + _porteurHtml
       + '</div>';
 
     // Bloc KPI-vrai : décidé AVANT le headline — la barre % ne s'émet pas quand la jauge est là.
@@ -1182,20 +1204,38 @@
           ? ' title="' + esc('Verdict rendu sur votre KPI d\u00e9clar\u00e9 (' + ((K && K.label_fr) || 'KPI') + ')' + (cm.kpi_noise_se != null ? ', bande de bruit \u00b1' + cm.kpi_noise_se : '') + '. Un objectif d\u00e9pass\u00e9 de moins que le bruit du lieu reste \u00ab non concluant \u00bb.') + '"'
           : ' title="' + esc('Verdict rendu sur le CA vs normale (machinerie historique).') + '"';
       }
-      headline = '<div' + _vbTip + ' style="font-size:16px;font-weight:600;color:' + _stCol + ';' + (_vbTip ? 'cursor:help;' : '') + '">' + esc(_stTxt) + '</div>'
-        + (_kpiActive ? '' : _bar)
-        + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:14px;">' + esc(_attrib) + '</div>'
-        + '<div style="font-size:12px;color:#9ca3af;margin-top:6px;">' + esc(t('q1_days_measured', { up: daysUp, n: received.length })) + '</div>';
+      // LE RÉSULTAT EN UNE LIGNE (owner 28/08) : « +1,8 % de ventes » en gros et en gras,
+      // le verdict à sa droite, et TOUT le détail (vacances, effet de l'action, jours
+      // mesurés) dans l'infobulle du ⓘ. Avant : quatre lignes de décomposition empilées,
+      // dont une en ambre — « trop compliqué », « ne pas utiliser d'ambre pour le résultat ».
+      var _resPct = (_basePct >= 0 ? '+' : '−') + fr(Math.abs(_basePct)) + ' %';
+      var _verdictTxt = (!open && cm.verdict === 'met') ? t('q1_objectif_met')
+        : (!open && cm.verdict === 'missed') ? t('q1_objectif_missed')
+        : (!open && cm.verdict === 'confounded') ? t('q1_objectif_confounded')
+        : (_basePct >= _goalPct ? t('q1_ontrack') : t('q1_below'));
+      var _tip = (_ctxPct !== 0)
+        ? t('q1_tip_split', { sit: (_basePct >= 0 ? '+' : '−') + fr(Math.abs(_basePct)), hol: (_ctxPct >= 0 ? '+' : '') + fr(_ctxPct), act: (_actionPct >= 0 ? '+' : '') + fr(_actionPct), n: received.length, jours: received.length > 1 ? 'journées mesurées' : 'journée mesurée' })
+        : t('q1_tip_plain', { n: received.length, jours: received.length > 1 ? 'journées mesurées' : 'journée mesurée', goal: '+' + fr(_goalPct) + ' %' });
+      if (!open && cm.verdict && _vbTip) _tip += ' ' + String(_vbTip).replace(/^ title="|"$/g, '');
+      headline = '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">'
+        + '<span style="font-size:26px;font-weight:700;color:#111827;line-height:1.2;">' + esc(t('q1_result', { pct: _resPct })) + '</span>'
+        + '<span title="' + esc(_tip) + '" style="font-size:12px;color:#6b7280;cursor:help;border:1px solid #e5e7eb;border-radius:50%;width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;">i</span>'
+        + '<span style="margin-left:auto;font-size:14px;color:#111827;">' + esc(_verdictTxt) + '</span>'
+        + '</div>'
+        + (_kpiActive ? '' : _bar);
     }
     var holidayNote = '';
     // Jour 0 (03/08) : fenêtre ouverte SANS aucun jour mesuré → pas de note de partage vacances
     // (elle lirait received[-1] — le crash « Consulter l'évolution » du jour de création).
     if (windowHoliday && hn && hn.pct != null && (received.length || !open)) {
       var _sitPct = open ? received[received.length - 1].residual_pct : (aggPct != null ? aggPct : 0);
-      holidayNote = '<div style="margin-top:10px;font-size:12.5px;color:#92610a;background:#FFF8EC;border:1px solid #FBE8C3;border-radius:8px;padding:9px 12px;">'
-        + esc(t('q1_split_inputs', { sit: (_sitPct >= 0 ? '+' : '') + fr(_sitPct), hol: (hn.pct >= 0 ? '+' : '') + fr(hn.pct) }));
-      if (cm.ctx_material_confound) holidayNote += '<div style="margin-top:6px;"><strong>' + esc(t('to_confirm_label')) + '.</strong> ' + esc(t('to_confirm_holiday')) + '</div>';
-      holidayNote += '</div>';
+      // Le partage « situation / vacances » vit maintenant dans l'infobulle du résultat
+      // (owner 28/08 : « trop compliqué sinon »). Ne reste à l'écran que l'avertissement
+      // de NON-ISOLABILITÉ, qui n'est pas un détail de calcul mais une limite du verdict.
+      if (cm.ctx_material_confound) {
+        holidayNote = '<div style="margin-top:12px;font-size:12.5px;color:#111827;background:#F8FAFC;border:1px solid #E5E7EB;border-radius:8px;padding:9px 12px;">'
+          + '<strong>' + esc(t('to_confirm_label')) + '.</strong> ' + esc(t('to_confirm_holiday')) + '</div>';
+      }
     }
     // ── Bloc Enjeu (proto evolution-j1-proto.html, validé 26/07) ─────────────────────────
     // L'enjeu de la carte d'ORIGINE, gelé à la création (creation_enjeu_*) et rendu VERBATIM :

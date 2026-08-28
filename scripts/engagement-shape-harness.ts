@@ -63,8 +63,9 @@ function measuredDatesOf(bq: any, snap: any): Promise<string[]> {
     ok("familles : somme des écarts ≈ 0", Math.abs(fSum) <= Math.max(2, shape.families.length), fSum);
 
     // INVARIANT 2 — CHAQUE CHIFFRE AFFICHÉ EXISTE DANS LA CAISSE (owner 28/08 : « 403 achats
-    // au lieu de 467 » — 467 ne venait d'aucune vente, c'était 2 204 € ÷ 4,71 €). Chaque
-    // point rendu est donc re-interrogé en base, un par un.
+    // au lieu de 467 » — 467 ne venait d'aucune vente). Les points sont re-interrogés en
+    // base, et sur une AUTRE table que celle qui les produit (mart jour vs mart horaire) :
+    // si les deux sources divergent, la lecture est fausse quelque part.
     if (shape.volume) {
       const v = shape.volume;
       const rows: any[] = await bq.query({
@@ -80,12 +81,23 @@ function measuredDatesOf(bq: any, snap: any): Promise<string[]> {
         const tx = Number(r.tx?.value ?? r.tx), b = Number(r.b?.value ?? r.b);
         return Math.round(tx) !== p.tx || Math.abs(b - p.basket_eur) > 0.02;
       });
-      ok("chaque achat/panier affiché est une ligne de caisse", faux.length === 0, faux);
+      ok("chaque achat/panier affiché est une ligne de caisse (2 sources d'accord)", faux.length === 0, faux);
       ok("aucun nombre contrefactuel dans la charge utile",
         !("ref_tx" in v) && !("contrib_tx_eur" in v) && !("contrib_basket_eur" in v), Object.keys(v));
-      // Le panier d'un ensemble = CA total / achats totaux, jamais une moyenne de moyennes.
-      const brut = v.ref.reduce((s2: number, p: any) => s2 + p.tx * p.basket_eur, 0) / v.ref.reduce((s2: number, p: any) => s2 + p.tx, 0);
-      ok("panier de référence recomposé correctement", Math.abs(brut - v.ref_basket_avg) < 0.02, { brut, rendu: v.ref_basket_avg });
+      // LE contrat de la décomposition : les trois facteurs se MULTIPLIENT pour donner la
+      // variation du CA. Si ça ne tombe pas, la carte raconte une histoire fausse.
+      const f = (p: number | null) => 1 + (p ?? 0) / 100;
+      const produit = (f(v.tx_pct) * f(v.items_pct) * f(v.price_pct) - 1) * 100;
+      ok("achats × articles/achat × €/article = variation du CA",
+        v.total_pct != null && Math.abs(produit - v.total_pct) <= 0.6,
+        { produit: Math.round(produit * 10) / 10, total: v.total_pct,
+          facteurs: { achats: v.tx_pct, articles: v.items_pct, prix: v.price_pct } });
+      // Le panier moyen n'est pas un 4e facteur indépendant : c'est articles × prix.
+      ok("panier moyen = articles par achat × € par article",
+        Math.abs(v.items_avg * v.price_avg - v.basket_avg) <= 0.03,
+        { items: v.items_avg, price: v.price_avg, basket: v.basket_avg });
+      ok("articles par achat >= 1 (un achat contient au moins un article)",
+        v.items_avg >= 1 && v.ref_items_avg >= 1, { a: v.items_avg, r: v.ref_items_avg });
     } else ok("achats/panier : absence honnête assumée", shape.volume === null, shape.volume);
 
     // INVARIANT 3 — la tranche horaire sort des données, jamais d'une heure en dur.

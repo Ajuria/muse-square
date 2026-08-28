@@ -105,7 +105,11 @@ async function payload(id: string): Promise<any> {
     ok("familles dépliables sur leurs produits",
       /<details[^>]*><summary[^>]*>[\s\S]{0,400}?border-left:2px solid #eef1f6/.test(out) && out.includes("· habituel "));
     ok("aucun câblage JS pour le dépliage", !/data-fam-toggle|data-prod-/.test(out));
-    ok("« Achats ou panier ? » présent", out.includes("Achats ou panier"));
+    ok("carte « D'où vient la fluctuation ? » présente", out.includes("D\u2019où vient la fluctuation"));
+    // Les trois facteurs sont NOMMÉS : la question owner (« achats, panier, composition du
+    // panier ») n'a de réponse que si le nombre d'articles par achat est là.
+    ok("les trois facteurs sont nommés",
+      out.includes("Nombre d\u2019achats") && out.includes("Articles par achat") && out.includes("Prix moyen d\u2019un article"));
     ok("contexte externe rendu dans la lecture", out.includes("Contexte externe"));
     ok("chip « observé » sur le contexte (proto validé)", out.includes("observé"));
     // Français de machine (owner 28/08) : ni pluriel entre parenthèses dans une phrase, ni
@@ -132,6 +136,18 @@ async function payload(id: string): Promise<any> {
       out.includes("Terminée · " + String(data.commitment.window_end).slice(8, 10) + "/" + String(data.commitment.window_end).slice(5, 7)),
       { we: data.commitment.window_end, ra: data.commitment.resolved_at });
     ok("mots bannis absents (l'attendu / la normale)", !/l’attendu|l'attendu/.test(out));
+    // Lisibilité (owner 28/08) : pas de gris pour titrer, pas d'ambre sur le résultat,
+    // le résultat en UNE ligne avec son infobulle, et le porteur mis en avant.
+    ok("le résultat tient en une ligne chiffrée", /font-size:26px;font-weight:700;color:#111827[^>]*>[^<]*% de ventes/.test(out));
+    ok("le détail vit dans l'infobulle, pas à l'écran", /title="[^"]*Situation|title="[^"]*Écart à votre résultat habituel/.test(out));
+    ok("aucun ambre sur le résultat", !/font-size:26px[^>]*#B45309/.test(out));
+    ok("aucun bandeau ambre sous le résultat", !/background:#FFF8EC/.test(out));
+    // Le partage vacances doit vivre dans l'INFOBULLE : on retire les title="…" avant de
+    // chercher, sinon l'assertion attrape sa propre infobulle (faux rouge, 28/08).
+    ok("le partage vacances vit dans l'infobulle, pas dans le texte visible",
+      !/Situation [+−]?[0-9]/.test(out.replace(/title="[^"]*"/g, "")) && /title="[^"]*Situation [+−][0-9]/.test(out));
+    ok("titres de carte en encre", !/text-transform:uppercase;color:#6b7280/.test(out));
+    ok("le porteur est mis en avant (initiales + nom)", out.includes("Porté par") && /border-radius:50%;background:#1D3BB3/.test(out));
     ok("jours d'axe en toutes lettres (règle 6)", !/>\s*(lun|mar|mer|jeu|ven|sam|dim)\s\d{2}\//.test(out));
 
     if (c.open) {

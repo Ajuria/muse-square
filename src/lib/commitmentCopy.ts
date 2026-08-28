@@ -27,7 +27,10 @@ export const EVOL_COPY = {
   subtitle: "Objectif : +{pct} % de CA vs votre résultat habituel · sous {window}",
   // Variante KPI-vrai (owner 15/08) : le sous-titre nomme le KPI DÉCLARÉ, jamais « CA » en dur.
   subtitle_kpi: "Objectif : +{pct} % de {kpi} vs votre résultat habituel · sous {window}",
+  // L'INTRAPRENEUR SE VOIT (owner 28/08 : « tu invisibilises l'intrapreneur ») : son nom
+  // porte l'opération, il n'est pas une mention de bas de page en gris.
   owner_line: "Engagé par {name} · le {date}",
+  owner_badge: "Porté par",
   done_suffix: " · action menée le {date}",
 
   // ── ① Au-dessus / en-dessous de l'objectif ? ──
@@ -68,8 +71,13 @@ export const EVOL_COPY = {
   q1_objectif_missed: "Objectif non atteint",
   q1_objectif_confounded: "Objectif non concluant (vacances)",
   // Lead hierarchy (goal-first): primary status + progress-to-goal bar + attribution.
-  q1_ontrack: "Sur la bonne voie",
-  q1_below: "En-dessous de l'objectif",
+  // LE RÉSULTAT EN UNE LIGNE (owner 28/08) : le chiffre en gros, le verdict à sa droite,
+  // le détail dans l'infobulle. « en-deçà de votre objectif » = mots owner.
+  q1_result: "{pct} de ventes",
+  q1_ontrack: "au-delà de votre objectif",
+  q1_below: "en-deçà de votre objectif",
+  q1_tip_split: "Situation {sit} % · dont vacances {hol} % sans action · effet de votre action {act} %. Mesuré sur {n} {jours}.",
+  q1_tip_plain: "Écart à votre résultat habituel sur {n} {jours}. Objectif : {goal}.",
   q1_bar_goal: "objectif +{pct} %",
   q1_attrib_split: "Dont {action} % attribuable à votre action, hors effet vacances ({ctx} %).",
   q1_attrib_solo: "Votre action : {action} % au-dessus du CA habituel.",
@@ -251,20 +259,22 @@ export const EVOL_COPY = {
   // Le cran produit : une famille se déplie sur ses articles, même lecture en part.
   shape_prod_ref: "{eur} € · habituel {ref} €",
   shape_prod_rest: "{n} autres produits de la famille : {eur} € au total.",
-  shape_vol_title: "Achats ou panier ?",
-  // RIEN QUE DES CHIFFRES DE CAISSE (owner 28/08). L'ancienne version affichait « 403
-  // achats au lieu de 467 » et « le panier fait +343 € » : deux nombres issus d'un calcul,
-  // aucun des deux dans la caisse. Ici, la série des jours comparables puis le jour mesuré.
-  shape_vol_serie_tx: "Achats : {list}.",
-  shape_vol_serie_basket: "Panier : {list}.",
-  shape_vol_serie_last: "{v} ce {jour}",
-  // Fenêtre à plusieurs jours : les moyennes des deux côtés, jamais une série illisible.
-  shape_vol_moyennes: "Sur {n} jours mesurés : {tx} achats par jour, panier {b} €. Vos jours comparables : {rtx} achats, panier {rb} €.",
-  shape_vol_deux_hausses: "Les deux montent.",
-  shape_vol_deux_baisses: "Les deux baissent.",
-  shape_vol_tx_seul: "Plus de monde en caisse, panier plus faible.",
-  shape_vol_basket_seul: "Moins de monde en caisse, mais un panier plus élevé.",
-  shape_vol_none: "Dès qu’une journée s’écartera nettement de votre résultat habituel, la réponse s’affichera ici.",
+  // « D'où vient la fluctuation » (mots owner 28/08) — trois facteurs, dont le produit est
+  // la variation du CA. Chaque ligne porte son référentiel ; aucune n'est un calcul déguisé.
+  shape_vol_title: "D’où vient la fluctuation ?",
+  shape_vol_caption: "Comparé à vos {n} {jour}s précédents. Les trois se multiplient : c’est la variation du chiffre.",
+  shape_vol_l_tx: "Nombre d’achats",
+  shape_vol_l_items: "Articles par achat",
+  shape_vol_l_price: "Prix moyen d’un article",
+  shape_vol_val: "{v} contre {ref}",
+  shape_vol_total: "Chiffre du jour : {pct} vs ces jours-là.",
+  shape_vol_lead_1: "La fluctuation vient surtout {f}.",
+  shape_vol_lead_2: "La fluctuation vient surtout {f1} et {f2}.",
+  shape_vol_f_tx: "du nombre d’achats",
+  shape_vol_f_items: "du nombre d’articles par achat",
+  shape_vol_f_price: "du prix moyen des articles",
+  shape_vol_types: "Quels articles : ouvrez une famille ci-dessus.",
+  shape_vol_none: "Une seule journée mesurée ne suffit pas encore à décomposer la fluctuation.",
   shape_ctx_title: "Contexte externe",
   shape_none: "Pas encore de journée mesurée — la lecture s’ouvre dès la première.",
 
