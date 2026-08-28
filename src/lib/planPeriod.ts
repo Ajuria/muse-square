@@ -511,3 +511,60 @@ export function buildPlanBlocks(r: PlanPeriodResult): PlanBlocks {
     replay_prefill: r.replay.find((p) => p.direction === "positive" && p.prefill) ?? null,
   };
 }
+
+// ── « POURQUOI ? » du PLAN (incrément 5bis, owner go 28/08) — la CONSTRUCTION de chaque
+// section du diagnostic, chiffres réels re-joués : d'où vient la santé (somme ÷ jours vendus),
+// d'où vient chaque motif (médiane sur SES jours d'historique, mélanges NOMMÉS en clair — plus
+// une infobulle), d'où vient la semaine calme (le compte de veille). Jamais une cause inventée.
+export interface PlanWhySection { title: string; table?: { cols: any[]; rows: any[] }; facts?: string[] }
+export interface PlanWhyBlocks { headline: string; sections: PlanWhySection[]; sources: string[] }
+
+export function buildPlanWhyBlocks(r: PlanPeriodResult): PlanWhyBlocks {
+  const sections: PlanWhySection[] = [];
+  const h = r.health;
+  const santeFacts: string[] = [];
+  if (h.eur_day_win != null) {
+    santeFacts.push(`Le CA/jour est la somme de vos lignes de caisse divisée par les jours vendus : ${frEur2(h.eur_day_win)} €/jour sur les 30 derniers jours (${h.n_win} j vendus)${h.eur_day_base != null ? ` vs ${frEur2(h.eur_day_base)} €/jour sur les 90 précédents (${h.n_base} j)` : ""}.`);
+  }
+  if (h.delta_pct == null) santeFacts.push(`Sous 5 j vendus d'un côté ou de l'autre, aucun écart ne s'affiche — « Données insuffisantes ».`);
+  if (santeFacts.length) sections.push({ title: "D'où vient la santé", facts: santeFacts });
+
+  const measured = r.motifs.filter((m) => m.med_gap_eur != null);
+  if (measured.length) {
+    const facts: string[] = [];
+    for (const m of measured) {
+      const mel = m.entangled
+        ? ` Mesure mêlée : ${m.entangled_with.length ? m.entangled_with.map((x) => `${x.mot_fr} (${x.n} % de ses jours)`).join(", ") : "co-occurrences sous le plancher"}.`
+        : "";
+      facts.push(`${m.mot_fr} : ${m.med_gap_eur! >= 0 ? "+" : "−"}${frEur2(Math.abs(m.med_gap_eur!))} €/jour = la médiane de vos écarts vs votre résultat habituel sur ${m.hist_days} j de ${m.mot_fr} dans votre historique.${mel}`);
+    }
+    const neg = measured.filter((m) => (m.med_gap_eur as number) < 0);
+    if (neg.length) {
+      facts.push(`Le coût projeté multiplie chaque mesure par les jours prévus du motif : ${neg.map((m) => `${m.mot_fr} −${frEur2(Math.abs(m.med_gap_eur as number))} €/j × ${m.n_days} j = −${frEur2(Math.abs((m.med_gap_eur as number) * m.n_days))} €`).join(" · ")} — si la période ressemble à votre historique.`);
+    }
+    sections.push({ title: "D'où viennent les motifs", facts });
+  }
+
+  const calmFacts: string[] = [];
+  for (const w of r.calm_weeks) {
+    if (w.state === "quiet") calmFacts.push(`Semaine du ${w.label} : 0 événement concurrent visant votre public dans les scores de veille (couverture ~6 semaines devant).`);
+    if (w.state === "busy") calmFacts.push(`Semaine du ${w.label} : ${w.count_overlap} événement${w.count_overlap > 1 ? "s" : ""} concurrent${w.count_overlap > 1 ? "s" : ""} visant votre public — le recouvrement d'audience décide, pas la simple proximité.`);
+  }
+  if (calmFacts.length) sections.push({ title: "D'où viennent les semaines", facts: calmFacts });
+
+  if (r.poles.length) {
+    sections.push({ title: "D'où viennent les pôles", facts: [
+      `Chaque pôle somme les lignes de caisse de SES familles (30 derniers jours) ; l'écart compare son CA/jour aux 90 jours précédents ; la marge estimée multiplie le CA de chaque famille DÉCLARÉE par sa marge — la couverture est toujours dite.`,
+    ] });
+  }
+
+  return {
+    headline: `Votre plan ${`du ${frD2(r.start)} au ${frD2(r.end)}`} : d'où viennent les chiffres`,
+    sections,
+    sources: [
+      "Vos ventes (lignes de caisse)",
+      "Motifs mesurés sur votre historique (classes de jours, médiane vs résultat habituel)",
+      "Veille concurrence (recouvrement d'audience, scores ~6 semaines devant)",
+    ],
+  };
+}

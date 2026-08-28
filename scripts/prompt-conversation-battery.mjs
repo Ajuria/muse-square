@@ -125,5 +125,44 @@ await dialogue("Pourquoi, puis la conversation continue", [
   } },
 ]);
 
+// D8 — POURQUOI DU PLAN (5bis) : la construction du diagnostic, cadre préservé.
+await dialogue("Pourquoi du plan, puis la conversation continue", [
+  { q: "planifie-moi septembre", expect: {
+    "producer = plan": ({ producer }) => producer === "deterministic_plan_period_v1",
+  } },
+  { q: "pourquoi ?", expect: {
+    "producer = plan_why": ({ producer }) => producer === "deterministic_plan_why_v1",
+    "la médiane et les mélanges sont dits en clair": ({ j }) => {
+      const facts = (j?.ai?.output?.plan_sections ?? []).flatMap((s2) => s2.facts ?? []).join(" ");
+      return facts.includes("médiane") && facts.includes("Mesure mêlée");
+    },
+    "le coût projeté est décomposé": ({ j }) => {
+      const facts = (j?.ai?.output?.plan_sections ?? []).flatMap((s2) => s2.facts ?? []).join(" ");
+      return /coût projeté/.test(facts) && /× 4 j/.test(facts);
+    },
+    "le cadre survit (plan, septembre)": ({ frame }) => frame?.intent === "plan" && frame?.periode?.start === "2026-09-01",
+  } },
+  { q: "et octobre ?", expect: {
+    "la conversation continue sur le plan": ({ producer }) => producer === "deterministic_plan_period_v1",
+    "période = octobre": ({ frame }) => frame?.periode?.start === "2026-10-01",
+  } },
+]);
+
+// D9 — LE KPI PILOTE LES LECTURES : panier moyen × période, puis comparaison demandée.
+await dialogue("KPI sans entité, puis comparaison demandée", [
+  { q: "mon panier moyen en juillet", expect: {
+    "producer = kpi_period": ({ producer }) => producer === "deterministic_kpi_period_v1",
+    "cadre : kpi=basket, juillet, aucune entité": ({ frame }) => frame?.kpi === "basket" && frame?.periode?.start === "2026-07-01" && !(frame?.entity_names?.length),
+    "le résultat est un € avec son référentiel": ({ j }) => {
+      const rows = (j?.ai?.output?.plan_sections ?? []).flatMap((s2) => s2.table?.rows ?? []);
+      return rows.length >= 1 && /€/.test(String(rows[0]?.cells?.[2]?.v));
+    },
+  } },
+  { q: "et par rapport à juin ?", expect: {
+    "producer = kpi_period (comparaison demandée)": ({ producer }) => producer === "deterministic_kpi_period_v1",
+    "2 périodes : juillet + juin en comparaison": ({ frame }) => frame?.periode?.start === "2026-07-01" && frame?.periode_comparaison?.start === "2026-06-01",
+  } },
+]);
+
 console.log(`\n${fails === 0 ? "BATTERIE VERTE" : fails + " ÉCHEC(S)"}`);
 process.exit(fails ? 1 : 0);

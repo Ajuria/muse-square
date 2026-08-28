@@ -527,3 +527,78 @@ export function buildEntityWhyBlocks(r: EntityPeriodReading): EntityCompareBlock
     sources: r.pole ? ["Vos ventes par famille (lignes de caisse)"] : ["Vos engagements (verdicts et mesures)"],
   };
 }
+
+// ── LE KPI PILOTE LES LECTURES (owner go 28/08) — « mon panier moyen en juillet » : une
+// question KPI × période SANS entité lit LE foyer kpiRegistry (measureKpiMean — la même
+// moyenne que les verdicts, jamais recopiée) sur la période ET la même durée précédente ;
+// profit estimé via measureProfitEstimatedStats (marges déclarées, jamais un profit inventé).
+// KPI non mesurables sur le site (visiteurs/conversion sans capteur) → « — » avec le compte.
+import { measureKpiMean, measureProfitEstimatedStats, KPI_NOM_FR, isKpiMeasurable, type KpiKey } from "./kpiRegistry";
+
+const kpiFmt = (key: KpiKey, v: number): string => {
+  if (key === "conversion") return `${(Math.round(v * 1000) / 10).toLocaleString("fr-FR")} %`;
+  // Un panier moyen se dit avec ses centimes — « 5 € » cacherait la vraie valeur (5,43 €).
+  if (key === "basket") return `${v.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  if (key === "discount" || key === "profit_estimated") return `${frEur(v)} €`;
+  return Math.round(v).toLocaleString("fr-FR");
+};
+
+export async function readKpiPeriod(
+  bq: any,
+  location_id: string,
+  kpi: KpiKey,
+  periods: Array<{ start: string; end: string }>,
+): Promise<EntityCompareBlocks | null> {
+  const label = KPI_NOM_FR[kpi]?.nom ?? kpi;
+  const spanDays = (p: { start: string; end: string }) => Math.max(1, Math.round((Date.parse(p.end) - Date.parse(p.start)) / 86400000) + 1);
+  const prevOf = (p: { start: string; end: string }) => {
+    const n = spanDays(p);
+    const end = new Date(Date.parse(p.start) - 86400000).toISOString().slice(0, 10);
+    const start = new Date(Date.parse(end) - (n - 1) * 86400000).toISOString().slice(0, 10);
+    return { start, end };
+  };
+  const read = async (p: { start: string; end: string }) => {
+    if (kpi === "profit_estimated") {
+      const st = await measureProfitEstimatedStats(bq, location_id, p.start, p.end).catch(() => null);
+      return st ? { value: st.mean, n_days: st.n_days } : null;
+    }
+    if (!isKpiMeasurable(kpi)) return null;
+    return measureKpiMean(bq, location_id, kpi, p.start, p.end).catch(() => null);
+  };
+  const rows: any[] = [];
+  const facts: string[] = [];
+  const grey = "#9CA3AF";
+  const readings = await Promise.all(periods.map(async (p) => ({
+    p, cur: await read(p), prev: await read(prevOf(p)),
+  })));
+  if (readings.every((x) => !x.cur)) return null;   // rien de mesurable → la chaîne legacy répond
+  for (const { p, cur, prev } of readings) {
+    const delta = cur && prev && cur.n_days >= 5 && prev.n_days >= 5 && prev.value > 0
+      ? Math.round(((cur.value - prev.value) / prev.value) * 1000) / 10 : null;
+    rows.push({ cells: [
+      { v: label, bold: true },
+      { v: periodLabelFr(p.start, p.end), color: "#6B7280" },
+      cur ? { v: kpiFmt(kpi, cur.value), sub: `moyenne/jour · ${cur.n_days} j` } : { v: "—", color: grey },
+      delta != null
+        ? { v: frPct1(delta), color: delta >= 0 ? "#0F6E56" : "#B45309", bold: true, sub: "vs la même durée précédente" }
+        : { v: "—", color: grey, sub: cur ? "plancher 5 j de chaque côté" : undefined },
+    ] });
+  }
+  if (periods.length === 2) {
+    const [a, b] = readings;
+    if (a.cur && b.cur && a.cur.n_days >= 5 && b.cur.n_days >= 5 && b.cur.value > 0) {
+      const d = Math.round(((a.cur.value - b.cur.value) / b.cur.value) * 1000) / 10;
+      facts.push(`${label} : ${kpiFmt(kpi, a.cur.value)} (${periodLabelFr(a.p.start, a.p.end)}) vs ${kpiFmt(kpi, b.cur.value)} (${periodLabelFr(b.p.start, b.p.end)}) — ${frPct1(d)}.`);
+    }
+  }
+  return {
+    headline: periods.length === 2
+      ? `${label.charAt(0).toUpperCase() + label.slice(1)} — ${periodLabelFr(periods[0].start, periods[0].end)} vs ${periodLabelFr(periods[1].start, periods[1].end)}`
+      : `${label.charAt(0).toUpperCase() + label.slice(1)} — ${periodLabelFr(periods[0].start, periods[0].end)}`,
+    sections: [{ title: "Côte à côte", table: { cols: [{ label: "KPI", align: "left" }, { label: "Période", align: "left" }, { label: "Résultat" }, { label: "Variation" }], rows }, facts: facts.length ? facts : undefined }],
+    sources: [
+      kpi === "profit_estimated" ? "Vos ventes × vos marges déclarées (profit estimé)" : "Vos ventes quotidiennes (mesures par jour)",
+      "Variation : chaque période se compare à la même durée qui la précède.",
+    ],
+  };
+}

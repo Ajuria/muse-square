@@ -443,6 +443,12 @@ export function isKpiMeasurable(key: KpiKey): boolean {
   return Boolean(KPI_EXPR[key]);
 }
 
+// Exporté (28/08, « le KPI pilote les lectures ») : la lecture KPI × période du chat a besoin
+// du n_days pour tenir les planchers — même moyenne que measureKpiWindow, jamais recopiée.
+export async function measureKpiMean(bq: any, location_id: string, key: KpiKey, start: string, end: string): Promise<{ value: number; n_days: number } | null> {
+  return kpiMean(bq, location_id, key, start, end);
+}
+
 async function kpiMean(bq: any, location_id: string, key: KpiKey, start: string, end: string): Promise<{ value: number; n_days: number } | null> {
   const expr = KPI_EXPR[key];
   if (!expr) return null;

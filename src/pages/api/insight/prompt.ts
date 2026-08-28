@@ -40,8 +40,8 @@ import { listClassDispositifs } from "../../../lib/bestPractices";
 import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
 import { loadSiteEntities, matchEntities } from "../../../lib/entityResolver";
 import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
-import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, buildEntityWhyBlocks } from "../../../lib/entityReading";
-import { planPeriod, buildPlanBlocks } from "../../../lib/planPeriod";
+import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, buildEntityWhyBlocks, readKpiPeriod } from "../../../lib/entityReading";
+import { planPeriod, buildPlanBlocks, buildPlanWhyBlocks } from "../../../lib/planPeriod";
 import { journalPlan } from "../../../lib/journalPlan";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
@@ -2516,6 +2516,18 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // pourquoi hérite toujours de l'entité, pas de l'intention pourquoi.
     if (_rsv?.intent === "pourquoi" && thread_context?.resolved && _rsvSite) {
       const _why = thread_context.resolved;
+      // Le pourquoi d'un PLAN (5bis) : re-composer le diagnostic et dire la construction de
+      // chaque section (santé, motifs avec mélanges NOMMÉS en clair, semaines, pôles).
+      if (_why.intent === "plan" && _why.periode) {
+        const _bqpw = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+        const _pw = await planPeriod(_bqpw, location_id, _why.periode.start, _why.periode.end);
+        const _pwB = buildPlanWhyBlocks(_pw);
+        _rsvFrameOut = _why; // la conversation continue sur le plan
+        return sysDialogueResponse(
+          _pwB.headline, "", "deterministic_plan_why_v1", null,
+          { plan_sections: _pwB.sections, sources_list: _pwB.sources },
+        );
+      }
       if ((_why.intent === "entity_period" || _why.intent === "autre") && _why.entity_names?.length && _why.periode) {
         const _whyEnts = _why.entity_names
           .map((en) => _rsvSite!.entities.find((e2) => e2.kind === en.type && e2.name === en.nom))
@@ -2530,6 +2542,23 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
             { plan_sections: _whyB.sections, sources_list: _whyB.sources },
           );
         }
+      }
+    }
+
+    // ── LE KPI PILOTE LES LECTURES (28/08, owner go) — « mon panier moyen en juillet » :
+    // KPI nommé + période, AUCUNE entité → lecture kpiRegistry (measureKpiMean, la même
+    // moyenne que les verdicts) sur la période et la même durée précédente ; « par rapport
+    // à » ajoute la seconde période. Rien de mesurable → la chaîne legacy répond.
+    if (_rsv?.intent === "entity_period" && !_rsv.entities.length && !_rsv.entity_names.length && _rsv.kpi && _rsv.periode) {
+      const _bqk = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _kpiB = await readKpiPeriod(_bqk, location_id, _rsv.kpi,
+        [{ start: _rsv.periode.start, end: _rsv.periode.end },
+         ...(_rsv.periode_comparaison ? [{ start: _rsv.periode_comparaison.start, end: _rsv.periode_comparaison.end }] : [])]);
+      if (_kpiB) {
+        return sysDialogueResponse(
+          _kpiB.headline, "", "deterministic_kpi_period_v1", null,
+          { plan_sections: _kpiB.sections, sources_list: _kpiB.sources },
+        );
       }
     }
 
