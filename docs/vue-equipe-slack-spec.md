@@ -429,6 +429,61 @@ RESTES inc 8 : ajouter `/api/cron/underperf-watch` à cron-job.org (geste owner)
 quand même ou Ajuster seul, v1 = Ajuster seul) · « Pas pour moi » désengagement d'une
 tâche ASSIGNÉE (owner : « peut-être ») · G3/G4 constatés sur une résolution réelle.
 
+## Compte : onglet Pôles + gestion équipe (incrément 9 — MAQUETTE VALIDÉE 28/08, build à lancer)
+
+Proto : `public/vue-equipe-admin-proto.html` (grammaire réelle de profile.astro, ajouts
+encadrés). **Menu Compte arbitré owner** : Profil · Sites · **Pôles** (nouvel onglet) ·
+Communication (**absorbe Alertes** ; le bloc « Destinataires supplémentaires » — 3 emails
+à part — se résorbe dans le roster) · **Opérations confiées** (ex-Recommandations) ·
+**Établissements suivis** (ex-Suivis). « Familles de produits & services » (libellé) ;
+recomposition produit→famille = v2 au dégel dbt (portée par poles-dispositifs-permanents-spec).
+
+Plan de build (à partir de l'existant — zéro duplication, ménage derrière soi) :
+1. **9a Menu & onglets** : tabs `ms-tab` existants de profile.astro (+ onglet poles) ;
+   renommages dans le menu Compte du header ; la carte Alertes MIGRE dans l'onglet
+   Communication (mêmes endpoints /api/notifications/*), puis `notifications.astro`
+   devient une redirection (dead code retiré, module-index tenu).
+2. **9b API membres** : `location_members` n'a pas d'API — un endpoint CRUD
+   (invitation email, pôles, slack_user_id ; owner-gated), + un petit
+   `GET /api/channels/slack-directory` (canaux où le bot est membre + humains du
+   workspace, via le bot token) qui nourrit LES DEUX sélecteurs.
+3. **9c Onglet Pôles** : liste = GET /api/commitments (nature permanent, existant) ;
+   canal = PUT forward existant ; création = le panneau pôle d'event-form.js EXTRAIT en
+   module partagé (utilisé par les deux surfaces — jamais copié) ; garde « une famille =
+   un pôle » au formulaire.
+4. **9d Destinataires** : les 3 champs par membre branchés sur l'API 9b ; l'email
+   d'invitation passe par le rail internalSend — SA COPIE sera proposée avec tests
+   lexique avant envoi (chaîne visible nouvelle).
+Chaque lot : un commit, son harnais, module-index dans le même commit.
+
+**9a-9c CONSTRUITS 28/08** (harnais `scripts/vue-equipe-admin-harness.ts` 18/18 + mutation
+copy-forward vue tomber) : menu Compte réordonné (Nav.astro, desktop+mobile) ; onglet
+Pôles dans profile.astro (liste + canal par pôle branché sur PUT/GET forward + membres +
+création via MSPoleForm) ; `pole-form.js` = module PARTAGÉ extrait d'event-form.js
+(event-form délègue, sa copie est supprimée — evenement.astro charge pole-form v1,
+event-form v14) ; carte Alertes MIGRÉE dans Communication (formulaire + script + endpoints
+inchangés, `notifications.astro` = redirection 302, dead code retiré) ; APIs 9b :
+`channels/members` (accès app, copy-forward), `channels/slack-directory` (annuaire réel —
+canaux publics OK ; PRIVÉS = scope `groups:read` À AJOUTER par l'owner, erreur remontée),
+GET `channels/forward` (adresses posées). **9d CONSTRUIT 28/08** (harnais admin étendu, tout vert, dont UN email d'invitation RÉEL
+envoyé à l'owner) : renommages actés (onglet « Signaux », « Description du dispositif »
+sur le pôle) ; fiche Destinataires = LES DEUX registres par le même member_id (ligne
+Accès app : aucun/en attente/actif — états neutres proposés, veto possible — + pôles +
+identité Slack en vue ; édition = chips pôles + sélecteur Slack, copy-forward côté API) ;
+« Inviter → » crée la fiche d'accès (email = contact du roster) puis envoie l'email
+(copie owner verbatim, élision de/d', PUT members, reply-to = email du compte).
+**Marqueur owner-only CONSTRUIT 28/08** (owner : « distinguer les owner only ») : chaque
+candidate du fil owner porte `owner_only` (portée calculée au MÊME foyer memberCardPolicy
+que le filtre membre) ; pulse rend un cadenas discret gris à la méta de rangée, infobulle
+« Visible par vous seul — jamais montrée à l'équipe » (veto owner possible sur mot et
+pictogramme). Harnais agir étendu (owner_only booléen + cohérent cardScope sur les 34
+candidates réelles).
+
+RESTES du chantier (tout le code est livré — constats owner « à la fin ») : E2E
+navigateur (onglet Pôles, fiche Destinataires, marqueur owner-only, vue membre réelle) ·
+canaux privés visibles au 1er setup (groups:read posé) · G3/G4 constatés à la prochaine
+résolution réelle · merge prod final.
+
 ## Setup Slack Épices et Tout (opérationnel, hors code)
 
 - Workspace connecté par le flux existant (`slack-connect`), bot invité canal par canal.

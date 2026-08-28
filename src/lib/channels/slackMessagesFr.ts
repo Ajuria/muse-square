@@ -29,6 +29,17 @@ export function engagementUrl(commitmentId: string, locationId: string): string 
   return APP_ORIGIN + "/app/insightevent/engagement?id=" + encodeURIComponent(commitmentId) + "&location_id=" + encodeURIComponent(locationId);
 }
 
+// ── Email d'invitation d'un membre (9d — copie owner 28/08, verbatim ; élision de/d'
+// selon l'initiale du nom d'entreprise, « intrapreneuriat » en orthographe normalisée) ──
+export function invitationEmailFr(a: { senderName: string; companyName: string }): { subject: string; body: string } {
+  const de = /^[aeiouyàâäéèêëîïôöùûühœ]/i.test(String(a.companyName || "").trim()) ? "d'" : "de ";
+  const entreprise = de + String(a.companyName || "").trim();
+  const subject = a.senderName + " vous invite à rejoindre Muse Square";
+  const body = a.senderName + " " + entreprise + " vous invite à rejoindre Muse Square, la plateforme de l'intrapreneuriat commercial.\n\n"
+    + "Pour rejoindre un des pôles " + entreprise + ", créez votre compte ici : " + APP_ORIGIN;
+  return { subject, body };
+}
+
 // ── G2 — assignation d'une tâche (owner 28/08 : « Fait » serait trop tôt ici) ─────────
 export function assignmentMessageFr(a: {
   senderName?: string | null; actionText: string;

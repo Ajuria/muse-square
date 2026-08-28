@@ -2,7 +2,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { memberCanSeeCard, redactPayloadForMember } from "../../../lib/memberCardPolicy";
+import { cardScope, memberCanSeeCard, redactPayloadForMember } from "../../../lib/memberCardPolicy";
 import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
@@ -1065,6 +1065,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
         date:            (r?.date?.value ?? r?.date ?? null),
         location_id:     r?.location_id ?? null,
         action_type:     r?.action_type ?? null,
+        // Inc 9 fin (owner 28/08 « distinguer les owner only ») : la portée du type,
+        // calculée au MÊME foyer que le filtre membre — le fil owner marque ces cartes.
+        owner_only:      cardScope(String(r?.action_type ?? "")) === "owner",
         card_instance_id: r?.card_instance_id ?? null,
         action_priority: r?.action_priority ?? null,
         action_category: r?.action_category ?? null,

@@ -17,6 +17,10 @@ import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation
 import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpiRegistry";
 // Marges par famille (24/08) : le slug et le préfixe viennent du propriétaire du log — jamais retapés.
 import { familySlug, MARGIN_FAMILY_PREFIX } from "../../../lib/ai/corrections";
+// Pôles (build 28/08, protos validés) : lecture = LE foyer poleReading (mêmes chiffres que
+// journal/plan/fiche — jamais un 3e calcul) ; Historique = poleActivity (1er lecteur des traces).
+import { listPoles, buildPoleReading } from "../../../lib/poleReading";
+import { buildPoleActivity, resolveMemberNames } from "../../../lib/poleActivity";
 
 const PROJECT = "muse-square-open-data";
 const json = (status: number, body: unknown) =>
@@ -51,7 +55,39 @@ export const GET: APIRoute = async ({ url, locals }) => {
       : bq0) as typeof bq0;
     const P = { locs, period };
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows], [famCaRows], [bandeauRows]] = await Promise.all([
+    // ═══ Pipeline PÔLES (28/08) — AMORCÉ ici, attendu APRÈS le grand lot : ses 2 étages
+    // séquentiels (liste, puis lectures 30 j + semaine passée + Historique + noms, tout en
+    // parallèle) courent PENDANT le lot — le wall-clock de la page ne bouge pas. Pour un
+    // membre, la liste est restreinte à SES pôles (member_poles) avant toute lecture.
+    const polesPipelineP = (async () => {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const lists = await Promise.all(locs.map((l) =>
+        listPoles(bq, l).then((rows) => rows.map((p) => ({ ...p, location_id: l }))).catch(() => [])));
+      let poleList = lists.flat();
+      if (role === "member") {
+        poleList = poleList.filter((p) => (memberPoles[p.location_id] || []).map(String).includes(p.dispositif_id));
+      }
+      if (!poleList.length) return { poleList: [], readings: [], weeks: [], activity: {} as Record<string, any[]>, names: {} as Record<string, string> };
+      // Semaine passée COMPLÈTE (lundi → dimanche strictement avant aujourd'hui) — la lecture
+      // hebdo actée au proto (une lecture datée, jamais un verdict : un permanent n'est pas jugé).
+      const t = new Date(todayIso + "T12:00:00Z");
+      const backToSunday = ((t.getUTCDay() + 7) - 0) % 7 || 7;   // dimanche précédent strict
+      const sun = new Date(t.getTime() - backToSunday * 86_400_000);
+      const mon = new Date(sun.getTime() - 6 * 86_400_000);
+      const wkStart = mon.toISOString().slice(0, 10), wkEnd = sun.toISOString().slice(0, 10);
+      const locsOfPoles = [...new Set(poleList.map((p) => p.location_id))];
+      const [readings, weeks, activityByLoc, namesByLoc] = await Promise.all([
+        Promise.all(poleList.map((p) => buildPoleReading(bq, p.location_id, p.dispositif_id, p.families, todayIso))),
+        Promise.all(poleList.map((p) => buildPoleReading(bq, p.location_id, p.dispositif_id, p.families, todayIso, { start: wkStart, end: wkEnd }))),
+        Promise.all(locsOfPoles.map((l) => buildPoleActivity(bq, l, poleList.filter((p) => p.location_id === l).map((p) => p.dispositif_id)))),
+        Promise.all(locsOfPoles.map((l) => resolveMemberNames(bq, l))),
+      ]);
+      const activity: Record<string, any[]> = Object.assign({}, ...activityByLoc);
+      const names: Record<string, string> = Object.assign({}, ...namesByLoc);
+      return { poleList, readings, weeks, activity, names, week_window: { ws: wkStart, we: wkEnd } } as any;
+    })();
+
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows], [famCaRows], [bandeauRows], [poleUnitsRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         // Perf 25/08 : les 5 sous-requêtes corrélées (2,6-4,7 s de plan, 1 Mo scanné — coupable
@@ -114,12 +150,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   SELECT commitment_id, location_id, status, verdict, owner_person_name, committed_action_text,
                          measured_metric, threshold_basis, threshold_value, saved_item_id, window_start, window_end,
                          origin_action_type, action_done_status, created_at, dispositif_id, attached_pole_id,
+                         kpi_baseline, kpi_window_value, dispositif_nature,
                          ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                   FROM \`${PROJECT}.analytics.action_commitments\` WHERE location_id IN UNNEST(@locs)
                 )
                 SELECT commitment_id, location_id, status, verdict, owner_person_name, committed_action_text,
                        measured_metric, threshold_basis, threshold_value, saved_item_id,
                        dispositif_id, attached_pole_id,
+                       kpi_baseline, kpi_window_value, dispositif_nature,
                        CAST(window_start AS STRING) AS ws, CAST(window_end AS STRING) AS we,
                        origin_action_type, action_done_status,
                        CAST(DATE(created_at) AS STRING) AS created_d,
@@ -459,11 +497,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   SELECT * EXCEPT(rn) FROM (
                     SELECT commitment_id, location_id, status, measured_metric, threshold_basis, threshold_value,
                            threshold_level, window_start, window_end, window_days_expected, kpi_baseline,
-                           saved_item_id, committed_action_text,
+                           saved_item_id, committed_action_text, dispositif_nature,
                            ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
                     FROM \`${PROJECT}.analytics.action_commitments\`
                     WHERE location_id IN UNNEST(@locs))
-                  WHERE rn = 1 AND status = 'open'),
+                  -- Un dispositif PERMANENT n'a ni fenêtre ni verdict (spec pôles 27/08) : il ne
+                  -- devient jamais une carte d'opération — même exclusion que le cron de résolution.
+                  -- (Attrapé au dump réel 28/08 : le pôle sortait en carte « Occurrence du — ».)
+                  WHERE rn = 1 AND status = 'open' AND COALESCE(dispositif_nature, 'operation') != 'permanent'),
                 -- Perf 25/08 : filtre @locs DANS des tables dérivées — posé en WHERE de jointure il
                 -- n'était pas poussé au scan (mesuré : 199 738 lignes lues → 149 116 shufflées ;
                 -- le même filtre en sous-requête scanne 199 738 → 7 374 dans le b de tendRows).
@@ -798,6 +839,18 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 GROUP BY 1, 2`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]) : Promise.resolve([[]]),
+      // KPI pôle membre (build 28/08, membre SEUL) : unités vendues par famille et par JOUR
+      // (grain fin — les jours vendus d'un pôle sont l'UNION des jours de ses familles, un
+      // group-by famille les perdrait). Même fenêtre/bornes que le bandeau. Aucun champ €.
+      role === "member" ? bq.query({
+        query: `SELECT location_id, CAST(transaction_date AS STRING) AS d, item_category, SUM(units) AS units
+                FROM \`${PROJECT}.mart.fct_client_offering_daily\`
+                WHERE location_id IN UNNEST(@locs)
+                  AND transaction_date < CURRENT_DATE()
+                  AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 120 DAY)
+                GROUP BY 1, 2, 3`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]) : Promise.resolve([[]]),
     ]);
 
     const opsValue = (opsValRows as any[]).map((r) => ({ saved_item_id: str(r.saved_item_id), avg_gap: num(r.avg_gap), n: num(r.n) ?? 0 }));
@@ -842,9 +895,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Vue équipe inc 3 : le lien pôle (filtre de périmètre membre) — dispositif_id
       // identifie le pôle lui-même, attached_pole_id une opération rattachée.
       dispositif_id: str(r.dispositif_id), attached_pole_id: str(r.attached_pole_id),
+      // Pôles 28/08 : l'impact d'une opération à métrique FAMILLE se calcule sur SON KPI
+      // ((réalisé − habituel) × jours) — le gap du mart est au CA SITE, faux au périmètre
+      // du pôle. Ces deux champs ne sortent JAMAIS vers un membre (kpi_baseline = niveau).
+      kpi_baseline: num(r.kpi_baseline), kpi_window_value: num(r.kpi_window_value),
+      nature: str(r.dispositif_nature),
     }));
     const todayYmd = new Date().toISOString().slice(0, 10);
-    const open = coms.filter((c) => c.status === "open");
+    // Un PERMANENT (pôle) n'est jamais une tâche d'« À faire » ni une rangée d'équipe : il
+    // sort de `open` (sa lecture vit dans le bloc pôles) — spec pôles 27/08, comme le cron.
+    const open = coms.filter((c) => c.status === "open" && String((c as any).nature || "operation") !== "permanent");
     // DEUX registres (owner 05/08) : « jugées » = TOUS les verdicts rendus (journal) ;
     // « € » = le mart seulement (contrat : non déclarée pas-menée — fait par défaut).
     // « Jugées » = verdicts MESURABLES (met/missed) — un confounded n'est ni tenu ni manqué,
@@ -869,7 +929,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       const k = personKey(c.owner);
       equipe[k] = equipe[k] || { label: String(c.owner || "—"), open: [], kept: 0, judged: 0, gap: null };
       if (String(c.owner || "").length > equipe[k].label.length) equipe[k].label = String(c.owner);
-      if (c.status === "open") equipe[k].open.push({ text: c.text, saved_item_id: c.saved_item_id, site_label: c.site_label, we: c.we, days_to_end: c.days_to_end });
+      // Le pôle (permanent) ne devient pas une « opération en cours » de la rangée équipe.
+      if (c.status === "open" && String((c as any).nature || "operation") !== "permanent") equipe[k].open.push({ text: c.text, saved_item_id: c.saved_item_id, site_label: c.site_label, we: c.we, days_to_end: c.days_to_end });
       else if (c.verdict && c.verdict !== "confounded" && c.in_period) { equipe[k].judged += 1; if (isKeptVerdict(c.verdict)) equipe[k].kept += 1; }
     }
     for (const r of martRows) {
@@ -1074,6 +1135,69 @@ export const GET: APIRoute = async ({ url, locals }) => {
         };
       });
 
+    // ═══ Bloc PÔLES (build 28/08, protos validés) — assemblage POST-lot : le pipeline amorcé
+    // en tête a couru pendant le lot ; on y joint ce que le lot possède (coms, mart, practices).
+    // Chiffres = foyer poleReading. Historique = poleActivity, auteurs résolus en NOMS (jamais
+    // un id à l'écran). Impact d'une opération à métrique famille = (réalisé − habituel) × jours
+    // sur SON KPI — le gap du mart est au CA SITE, faux au périmètre du pôle.
+    const polesRaw: any = await polesPipelineP;
+    const poleOfReplay: Record<string, string> = {};
+    for (const c of coms) if (c.commitment_id && c.attached_pole_id) poleOfReplay[String(c.commitment_id)] = String(c.attached_pole_id);
+    const daysOfWin = (ws: string | null, we: string | null): number =>
+      ws && we ? Math.max(1, Math.round((Date.parse(we) - Date.parse(ws)) / 86_400_000) + 1) : 1;
+    const poles = (polesRaw.poleList as any[]).map((p: any, i: number) => {
+      const reading = polesRaw.readings[i];
+      const week = polesRaw.weeks[i];
+      const attached = coms.filter((c) => String(c.attached_pole_id || "") === p.dispositif_id);
+      const resolved = attached.filter((c) => c.status === "resolved" && c.verdict && c.verdict !== "confounded");
+      let gap = 0, nWin = 0;
+      for (const c of resolved) {
+        const g = c.metric === "family_revenue" && (c as any).kpi_window_value != null && (c as any).kpi_baseline != null
+          ? ((c as any).kpi_window_value - (c as any).kpi_baseline) * daysOfWin(c.ws, c.we)
+          : martGap[String(c.commitment_id)] ?? null;
+        if (g == null) continue;
+        gap += g; nWin++;
+      }
+      const nextOp = attached
+        .filter((c) => c.status === "open" && c.we && String(c.we) >= todayYmd)
+        .sort((a, b) => String(a.we).localeCompare(String(b.we)))[0] || null;
+      const chains = new Set(attached.map((c) => c.dispositif_id).filter(Boolean).map(String));
+      const prouves = practices.filter((x: any) => x.tier === "prouvee" && x.replay_commitment_id && poleOfReplay[String(x.replay_commitment_id)] === p.dispositif_id).length;
+      const histo = (polesRaw.activity[p.dispositif_id] || []).slice(0, 8).map((h: any) => ({
+        d: h.d, kind: h.kind, text: h.text, verdict: h.verdict ?? null, delta_pct: h.delta_pct ?? null,
+        version_no: h.version_no ?? null, gesture: h.gesture ?? null, note: h.note ?? null,
+        forward_kind: h.forward_kind ?? null,
+        author: h.author_id ? polesRaw.names[h.author_id] ?? null : null,
+      }));
+      return {
+        dispositif_id: p.dispositif_id, location_id: p.location_id,
+        site_label: siteLabel[p.location_id] || null,
+        // La cible des CTA Ajuster/Documenter du volet : la fiche de la version courante.
+        commitment_id: p.commitment_id,
+        name: p.name, lever: p.lever, families: p.families, responsable: p.responsable,
+        // Les opérations rattachées pour la liste du volet (poleReading, attached_pole_id).
+        operations: reading.operations.map((op: any) => ({
+          commitment_id: op.commitment_id, text: op.committed_action_text,
+          ws: op.window_start, we: op.window_end, status: op.status, verdict: op.verdict,
+        })),
+        reading: {
+          rev30_eur: reading.totals.rev30_eur, share_pct: reading.totals.share_pct,
+          delta_pct: reading.totals.delta_pct, n30: reading.totals.n30,
+          families: reading.families.map((f: any) => ({ family: f.family, avg30_eur_day: f.avg30_eur_day, n30: f.n30, base_eur_day: f.base_eur_day, delta_pct: f.delta_pct })),
+        },
+        // Lecture hebdo (actée au proto) : semaine passée complète vs la semaine PRÉCÉDENTE
+        // (référentiel D1 de poleReading : même durée) — une lecture datée, jamais un verdict.
+        week: week.totals.delta_pct != null && polesRaw.week_window
+          ? { ws: polesRaw.week_window.ws, we: polesRaw.week_window.we, delta_pct: week.totals.delta_pct } : null,
+        ops_open: reading.operations.filter((o: any) => o.status === "open").length,
+        ops_total: reading.operations.length,
+        impact: nWin ? { gap_eur: Math.round(gap), eur_windows: nWin } : null,
+        next: nextOp ? { we: nextOp.we, text: nextOp.text } : null,
+        connaissances: { prouves, en_test: Math.max(0, chains.size - prouves) },
+        historique: histo,
+      };
+    });
+
     // ═══ Vue équipe inc 3 — réponse MEMBRE : liste blanche de blocs, jamais un masquage
     // client (docs/vue-equipe-slack-spec.md, arbitrage chiffres 28/08 : occasions d'agir
     // oui, état du business jamais). Les blocs impact/€ cumulés/marges/CA quotidien/équipe/
@@ -1087,6 +1211,27 @@ export const GET: APIRoute = async ({ url, locals }) => {
             || (c.attached_pole_id != null && poles.has(String(c.attached_pole_id)));
       };
       const memberSavedItems = new Set(coms.filter(comPasses).map((c) => c.saved_item_id).filter(Boolean).map(String));
+      // KPI pôle membre (proto v3 validé 28/08) : le pôle se lit en % + unités/jour — AUCUN
+      // niveau de CA (rev30/€-j jamais projetés). L'impact € est le CUMUL BORNÉ AU PÔLE
+      // (arbitrage owner 28/08 : écarts d'opérations du périmètre = montrable ; les cumuls
+      // d'état du business restent interdits). Unités/jour sur les jours VENDUS du pôle
+      // (union des jours de ses familles), planchers n ≥ 5 des deux côtés.
+      const unitRows = (poleUnitsRows as any[]).map((r) => ({ l: String(str(r.location_id)), d: String(str(r.d)), cat: String(str(r.item_category)), units: Number(num(r.units) ?? 0) }));
+      const cut30 = new Date(Date.parse(todayYmd + "T12:00:00Z") - 30 * 86_400_000).toISOString().slice(0, 10);
+      const memberPolesOut = poles.map((p: any) => {
+        const mine = unitRows.filter((r) => r.l === p.location_id && p.families.includes(r.cat));
+        const A = { u: 0, days: new Set<string>() }, B = { u: 0, days: new Set<string>() };
+        for (const r of mine) { const t = r.d >= cut30 ? A : B; t.u += r.units; t.days.add(r.d); }
+        return {
+          dispositif_id: p.dispositif_id, location_id: p.location_id, name: p.name,
+          families: p.reading.families.map((f: any) => ({ family: f.family, delta_pct: f.delta_pct })),
+          delta_pct: p.reading.delta_pct, share_pct: p.reading.share_pct,
+          week: p.week, ops_open: p.ops_open,
+          units30_day: A.days.size >= 5 ? Math.round(A.u / A.days.size) : null,
+          units_base_day: B.days.size >= 5 ? Math.round(B.u / B.days.size) : null,
+          impact: p.impact, next: p.next, connaissances: p.connaissances,
+        };
+      });
       return json(200, {
         ok: true,
         role: "member",
@@ -1099,12 +1244,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
           location_id: str(r.location_id), w: str(r.w),
           n_days: Number(num(r.n_days) ?? 0), tx: Number(num(r.tx) ?? 0), vis: Number(num(r.vis) ?? 0),
         })),
+        poles: memberPolesOut,
       });
     }
 
     return json(200, {
       ok: true,
       period_days: period,
+      // Bloc pôles (28/08) — section « Vos pôles » du tableau (grille + volet, Historique).
+      poles,
       impact: {
         gap_eur: gapSum,
         eur_windows: martRows.length,

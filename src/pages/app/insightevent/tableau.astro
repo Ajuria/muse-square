@@ -313,11 +313,57 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               + '<div class="s2">' + (hab != null ? 'habituel ' + hab : '30 derniers jours') + '</div></div>';
           }
           var tipBase = "30 derniers jours vendus · habituel = les 90 jours précédents — jours futurs exclus.";
-          html += '<div class="tb-hero2" style="grid-template-columns:repeat(3,1fr);">'
-            + tile("ventes/jour", nFr(perDay(A, "tx")), perDay(B, "tx") == null ? null : nFr(perDay(B, "tx")), tipBase)
-            + tile("nombre de visiteurs/jour", nFr(perDay(A, "vis")), perDay(B, "vis") == null ? null : nFr(perDay(B, "vis")), tipBase)
-            + tile("taux de conversion", pcFr(conv(A)), conv(B) == null ? null : pcFr(conv(B)), tipBase)
-            + '</div>';
+          // ═══ KPI PÔLE (proto v3 validé owner 28/08 — structure admin préservée à l'échelle
+          // du pôle) : rangée 1 = santé du pôle (CA en % SEULEMENT — jamais un niveau —,
+          // unités/jour, poids du CA) ; rangée 2 = actions en cours du pôle (Impact borné au
+          // pôle, Prochain verdict, Signaux, Connaissances). Sans pôle : le bandeau site
+          // existant reste tel quel.
+          var mPoles = j.poles || [];
+          function mDelta(v) { return (v >= 0 ? "+" : "−") + String(Math.abs(v)).replace(".", ",") + " %"; }
+          if (mPoles.length) {
+            mPoles.forEach(function (p) {
+              html += '<p class="tb-eb" style="margin:2px 2px 8px;">Pôle · ' + esc(p.name) + '</p>'
+                + '<div class="tb-hero2" style="grid-template-columns:repeat(3,1fr);margin-bottom:8px;">'
+                + '<div class="tb-t2" title="€/j des jours vendus, comparé aux 90 jours précédents."><p class="tb-eb">CA du pôle</p>'
+                + '<div class="n2" style="color:' + (p.delta_pct == null ? '#111827' : p.delta_pct >= 0 ? '#059669' : '#B45309') + ';">' + (p.delta_pct == null ? '—' : mDelta(p.delta_pct)) + '</div>'
+                + '<div class="s2">vs les 90 jours précédents</div></div>'
+                + tile("ventes/jour", p.units30_day == null ? "—" : nFr(p.units30_day), p.units_base_day == null ? null : nFr(p.units_base_day), "Unités vendues des familles du pôle, par jour vendu — " + tipBase)
+                + '<div class="tb-t2" title="Part du pôle dans le CA du site sur les 30 derniers jours vendus."><p class="tb-eb">poids du CA</p>'
+                + '<div class="n2" style="color:#111827;">' + (p.share_pct == null ? '—' : String(p.share_pct).replace(".", ",") + ' %') + '</div>'
+                + '<div class="s2">du CA du site · 30 derniers jours</div></div>'
+                + '</div>';
+              if ((p.families || []).length) {
+                html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 2px 8px;">'
+                  + p.families.map(function (f) {
+                      return '<span class="tb-chip" style="background:#F3F4F6;color:#374151;">' + esc(f.family)
+                        + (f.delta_pct != null ? ' <b style="color:' + (f.delta_pct >= 0 ? '#059669' : '#B45309') + ';">' + mDelta(f.delta_pct) + '</b>' : '') + '</span>';
+                    }).join("") + '</div>';
+              }
+              var imp = p.impact || null;
+              var nx = p.next || null;
+              var djx = nx && nx.we ? daysTo(nx.we) : null;
+              var kn = p.connaissances || null;
+              html += '<div class="tb-hero2" style="margin-bottom:10px;">'
+                + '<div class="tb-t2" title="Somme des écarts mesurés des fenêtres engagées jugées sur ce pôle — jamais extrapolé."><p class="tb-eb">Impact de vos opérations</p>'
+                + '<div class="n2" style="color:' + (imp == null ? '#111827' : imp.gap_eur >= 0 ? '#059669' : '#B45309') + ';">' + (imp == null ? '— €' : signEur(imp.gap_eur)) + '</div>'
+                + '<div class="s2">vs votre résultat habituel · sur ' + (imp ? imp.eur_windows : 0) + ' fenêtre' + (imp && imp.eur_windows > 1 ? 's' : '') + ' mesurée' + (imp && imp.eur_windows > 1 ? 's' : '') + '</div></div>'
+                + '<div class="tb-t2"><p class="tb-eb">Prochain verdict</p>'
+                + '<div class="n2" style="color:#111827;">' + (nx ? (djx === 0 ? "aujourd’hui" : djx > 0 ? "J-" + djx : frD(nx.we)) : '—') + '</div>'
+                + '<div class="s2">' + (nx ? dowFull(nx.we) + ' ' + frD(nx.we) + ' · ' + esc(trunc(String(nx.text || '').split(' — ')[0], 34)) : 'aucun verdict programmé') + '</div></div>'
+                + '<div class="tb-t2" title="Part de l’enjeu annualisé identifié sur les familles de ce pôle, couverte par un dispositif actif."><p class="tb-eb">Signaux traités</p>'
+                + '<div class="n2" style="color:#111827;">—</div><div class="s2">aucun motif chiffré encore</div></div>'
+                + '<div class="tb-t2" title="Mesuré sur VOS ventes, chez vous — pas des moyennes de secteur."><p class="tb-eb">Connaissances créées</p>'
+                + '<div class="n2" style="color:#111827;">—</div>'
+                + '<div class="s2">' + (kn ? kn.prouves + ' prouvé' + (kn.prouves > 1 ? 's' : '') + ' · ' + kn.en_test + ' en test' : '—') + '</div></div>'
+                + '</div>';
+            });
+          } else {
+            html += '<div class="tb-hero2" style="grid-template-columns:repeat(3,1fr);">'
+              + tile("ventes/jour", nFr(perDay(A, "tx")), perDay(B, "tx") == null ? null : nFr(perDay(B, "tx")), tipBase)
+              + tile("nombre de visiteurs/jour", nFr(perDay(A, "vis")), perDay(B, "vis") == null ? null : nFr(perDay(B, "vis")), tipBase)
+              + tile("taux de conversion", pcFr(conv(A)), conv(B) == null ? null : pcFr(conv(B)), tipBase)
+              + '</div>';
+          }
 
           var openComs = j.open_commitments || [];
           html += '<div style="display:flex;align-items:baseline;gap:10px;margin:2px 2px 6px;"><p class="tb-eb">À faire</p>'
@@ -845,6 +891,37 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             .forEach(function (c) { restCount++; if (!restLast || c.we > restLast) restLast = c.we; });
           if (restCount) html += '<a href="/app/insightevent/evenement" title="' + restCount + ' échéances à venir — chacune s’arme seule à J-7" style="display:block;font-size:11.5px;color:#6b7280;margin-top:10px;text-decoration:none;">Et ensuite : ' + restCount + ' (→ ' + frD(restLast) + ') <span style="color:#1D3BB3;font-weight:600;">›</span></a>';
           html += '</div>';
+
+          // ═══ VOS PÔLES (build 28/08, protos validés — mémoire piloter-poles-protos) :
+          // grille de cartes + volet partagé (#tb-pole-panel). Rien ne se rend sans pôle
+          // déclaré ; la création vit sur « Nouvelle opération », jamais un bouton neuf ici.
+          // Chiffres = payload j.poles (foyer serveur poleReading — les mêmes que la fiche).
+          var polesJ = j.poles || [];
+          function pDeltaFr(v) { return (v >= 0 ? "+" : "−") + String(Math.abs(v)).replace(".", ",") + " %"; }
+          if (polesJ.length) {
+            html += '<p class="tb-eb" style="margin:2px 0 8px;">Vos pôles</p><div class="tb-rbgrid" style="margin-bottom:10px;">';
+            polesJ.forEach(function (p) {
+              var rd = p.reading || {};
+              var dot = rd.delta_pct == null ? GREY : rd.delta_pct >= 0 ? GREEN : AMBER;
+              // « Fait » ne se dit QUE sur une disposition au préfixe 'fait' (la trace note
+              // porte « fait · … » / « pas_encore · … ») — jamais sur un geste inconnu.
+              var lastFait = (p.historique || []).filter(function (h) { return h.kind === "geste" && String(h.note || "").indexOf("fait") === 0 && h.author; })[0];
+              var rs = [];
+              if (J.multi_site && p.site_label) rs.push(esc(p.site_label));
+              if (rd.share_pct != null) rs.push(String(rd.share_pct).replace(".", ",") + " % du CA");
+              if (p.responsable) rs.push("Responsable(s) " + esc(p.responsable));
+              rs.push(p.ops_open ? p.ops_open + " opération" + (p.ops_open > 1 ? "s" : "") : "aucune opération rattachée");
+              if (lastFait) rs.push("Fait le " + frD(lastFait.d) + " — " + esc(lastFait.author));
+              html += '<button type="button" class="tb-rb" data-tb-pole="' + esc(p.dispositif_id) + '">'
+                + '<span class="hd"><span style="width:7px;height:7px;border-radius:50%;background:' + dot + ';flex:none;display:inline-block;"></span>' + esc(p.name) + '<span class="cv">▾</span></span>'
+                + '<div class="num">' + (rd.rev30_eur != null ? frInt(rd.rev30_eur) + ' €' : '—') + '<span class="u">sur 30 j</span></div>'
+                + (rd.delta_pct != null
+                  ? '<div style="font-size:11px;font-weight:600;color:' + dot + ';margin-top:3px;">' + pDeltaFr(rd.delta_pct) + ' vs les 90 jours précédents</div>'
+                  : '<div style="font-size:11px;font-weight:600;color:#9CA3AF;margin-top:3px;cursor:help;" title="' + (rd.n30 || 0) + ' jour' + ((rd.n30 || 0) > 1 ? 's' : '') + ' vendu' + ((rd.n30 || 0) > 1 ? 's' : '') + ' sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté.">Données insuffisantes ⓘ</div>')
+                + '<div class="rs2">' + rs.join(" · ") + '</div></button>';
+            });
+            html += '</div><div id="tb-pole-panel" class="tb-card" style="display:none;padding:14px 16px;margin-bottom:12px;"></div>';
+          }
 
           // € COMMUN de toute carte d'opération (spec 24/08) : CA + attendu de la fenêtre,
           // lus sur la MÊME série ca_daily que le héros — un seul référentiel à l'écran.
@@ -1699,6 +1776,115 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               } else openVolet(k, true);
             });
           });
+          // ── Vos pôles : la carte ouvre SON volet dans le panneau partagé sous la grille
+          //    (proto v2 validé owner 28/08 — kicker PÔLE, personne en affordance Équipe,
+          //    CTA Ajuster/Documenter vers la fiche, Historique, Connaissances de ce pôle). ──
+          (function () {
+            var pan = document.getElementById("tb-pole-panel");
+            if (!pan) return;
+            var GOLD_T = "#92671E";
+            var HV_FR = { met: "atteint", missed: "manqué", beat: "dépassé", confounded: "non concluant" };
+            var HV_COL = { met: "#059669", missed: "#B45309", beat: GOLD_T, confounded: "#6b7280" };
+            function pRow(left, mid, right) {
+              return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5e7eb;padding:10px 14px;margin-bottom:6px;">' + left + mid + right + '</div>';
+            }
+            function histRow(d, bodyHtml) {
+              return '<div style="display:grid;grid-template-columns:44px minmax(0,1fr);gap:0 10px;align-items:baseline;padding:5px 0;font-size:13px;">'
+                + '<span style="font-size:12px;color:#6b7280;white-space:nowrap;">' + frD(d) + '</span><span style="min-width:0;">' + bodyHtml + '</span></div>';
+            }
+            function noteTail(note) {
+              var i = String(note || "").indexOf("·");
+              var tail = i >= 0 ? String(note).slice(i + 1).trim() : "";
+              return tail ? ' · note : « ' + esc(tail) + ' »' : "";
+            }
+            function poleVoletHtml(p) {
+              var rd = p.reading || {};
+              var fiche = p.commitment_id ? "/app/insightevent/engagement?id=" + encodeURIComponent(p.commitment_id) : null;
+              var h = '<p class="tb-eb" style="margin:0 0 3px;">Pôle</p>'
+                + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">'
+                + '<span style="font-size:16px;font-weight:700;color:#111827;">' + esc(p.name) + '</span>'
+                + '<span style="font-size:11px;font-weight:600;color:#059669;background:#E6F6F0;padding:3px 10px;border-radius:999px;">Dispositif en continu</span>'
+                + (p.responsable
+                  ? '<span style="display:inline-flex;align-items:center;gap:8px;"><span style="width:26px;height:26px;border-radius:50%;background:#EEF2FF;color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:none;">' + esc(initials(p.responsable)) + '</span>'
+                  + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(String(p.responsable).split("·")[0].trim()) + '</span></span>' : "")
+                + '<span style="flex:1;"></span>'
+                + (fiche ? '<a class="tb-link" href="' + fiche + '">Ajuster →</a><a class="tb-link" style="margin-left:12px;" href="' + fiche + '">Documenter →</a>' : "")
+                + '</div>';
+              // Résultats — chaînes de la fiche pôle (commitmentCopy), jamais réécrites.
+              h += '<p class="tb-eb" style="margin:0 0 6px;">Résultats — 30 derniers jours</p>';
+              if (rd.rev30_eur != null) {
+                h += '<div style="font-size:14px;font-weight:600;color:#111827;margin-bottom:8px;">' + frInt(rd.rev30_eur) + ' € sur 30 j'
+                  + (rd.share_pct != null ? ' · ' + String(rd.share_pct).replace(".", ",") + ' % du CA' : '')
+                  + (rd.delta_pct != null ? ' · <span style="color:' + (rd.delta_pct >= 0 ? '#059669' : '#B45309') + ';">' + pDeltaFr(rd.delta_pct) + ' vs les 90 jours précédents</span>' : '')
+                  + '</div>';
+              }
+              h += '<div style="font-size:11px;color:#9CA3AF;margin-bottom:8px;">€/j des jours vendus, comparé aux 90 jours précédents.</div>';
+              (rd.families || []).forEach(function (f) {
+                var right = f.delta_pct != null
+                  ? '<span style="font-size:13px;font-weight:600;color:' + (f.delta_pct >= 0 ? '#059669' : '#B45309') + ';">' + pDeltaFr(f.delta_pct) + '</span>'
+                  : '<span title="' + (f.n30 || 0) + ' jours vendus sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté." style="font-size:11px;color:#9CA3AF;cursor:help;">Données insuffisantes ⓘ</span>';
+                h += pRow('<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(f.family) + '</span>',
+                  '<span style="font-size:12px;color:#6b7280;">' + (f.avg30_eur_day != null ? frInt(f.avg30_eur_day) + ' €/j' : '—')
+                  + (f.base_eur_day != null ? ' · ' + (f.n30 || 0) + ' j vendus · habituel ' + frInt(f.base_eur_day) + ' €/j' : '') + '</span>', right);
+              });
+              // Opérations sur ce pôle (chaînes fiche pôle : en cours / terminée + verdict).
+              h += '<div style="height:6px;"></div><p class="tb-eb" style="margin:0 0 6px;">Opérations sur ce pôle</p>';
+              if ((p.operations || []).length) {
+                p.operations.forEach(function (op) {
+                  var st = op.status === "open" ? "en cours" : "terminée";
+                  var v = op.verdict && HV_FR[op.verdict] ? ' · <b style="color:' + HV_COL[op.verdict] + ';">objectif ' + HV_FR[op.verdict] + '</b>' : '';
+                  h += '<a href="/app/insightevent/engagement?id=' + encodeURIComponent(op.commitment_id) + '" style="text-decoration:none;display:block;">'
+                    + pRow('<span style="font-size:13px;color:#111827;">' + esc(String(op.text || "").split(" — ")[0]) + '</span>', '',
+                      '<span style="font-size:11.5px;color:#6b7280;white-space:nowrap;">' + (op.we ? frD(op.we) + ' · ' : '') + st + v + '</span>') + '</a>';
+                });
+              } else h += '<div style="font-size:12.5px;color:#9CA3AF;margin-bottom:6px;">Aucune opération rattachée pour l’instant.</div>';
+              // Historique — le fil fusionné (mot owner 28/08) : lecture hebdo + verdicts +
+              // gestes (« Fait » seulement sur préfixe 'fait') + envois + ajustements.
+              h += '<div style="height:6px;"></div><p class="tb-eb" style="margin:0 0 6px;">Historique</p>';
+              if (p.week && p.week.delta_pct != null) {
+                h += histRow(p.week.we, '<span style="color:#374151;">semaine du ' + frD(p.week.ws) + ' au ' + frD(p.week.we) + ' : <b style="color:' + (p.week.delta_pct >= 0 ? '#059669' : '#B45309') + ';">' + pDeltaFr(p.week.delta_pct) + '</b> vs la semaine précédente</span>');
+              }
+              (p.historique || []).forEach(function (hh) {
+                if (hh.kind === "verdict") {
+                  h += histRow(hh.d, '<b style="color:' + (HV_COL[hh.verdict] || '#6b7280') + ';">objectif ' + (HV_FR[hh.verdict] || esc(hh.verdict || '')) + '</b> — ' + esc(String(hh.text || '').split(' — ')[0])
+                    + (hh.delta_pct != null ? ' (' + pDeltaFr(hh.delta_pct) + ' vs votre résultat habituel)' : ''));
+                } else if (hh.kind === "geste") {
+                  var who = hh.author ? esc(hh.author) + ' — ' : '';
+                  var n0 = String(hh.note || "");
+                  var lab = hh.gesture === "retro" ? '<b style="color:#374151;">Documenter</b>'
+                    : n0.indexOf("fait") === 0 ? '<b style="color:#059669;">Fait</b>'
+                    : n0.indexOf("pas_encore") === 0 ? '<b style="color:#6b7280;">Pas encore</b>'
+                    : '<b style="color:#374151;">' + esc(hh.gesture || '') + '</b>';
+                  h += histRow(hh.d, who + lab + noteTail(hh.gesture === "retro" ? "· " + n0 : n0));
+                } else if (hh.kind === "version") {
+                  h += histRow(hh.d, '<b style="color:#374151;">Ajusté</b> (V' + hh.version_no + ') — ' + esc(String(hh.text || '').split(' — ')[0]));
+                } else if (hh.kind === "envoi") {
+                  h += histRow(hh.d, '<b style="color:#374151;">Envoyée</b> — Slack');
+                }
+              });
+              if (!(p.historique || []).length && !(p.week && p.week.delta_pct != null)) {
+                h += '<div style="font-size:12.5px;color:#9CA3AF;">Rien pour l’instant.</div>';
+              }
+              // Connaissances de ce pôle — la projection des dispositifs sur son périmètre.
+              h += '<div style="height:6px;"></div><p class="tb-eb" style="margin:0 0 6px;">Connaissances de ce pôle</p>'
+                + '<div style="font-size:12.5px;color:#374151;">' + (p.connaissances ? p.connaissances.prouves + ' prouvé' + (p.connaissances.prouves > 1 ? 's' : '') + ' · ' + p.connaissances.en_test + ' en test' : '—') + '</div>';
+              return h;
+            }
+            body.querySelectorAll("[data-tb-pole]").forEach(function (b) {
+              b.addEventListener("click", function () {
+                var id = b.getAttribute("data-tb-pole");
+                var p = (J.poles || []).filter(function (x) { return x.dispositif_id === id; })[0];
+                if (!p) return;
+                var isOpen = pan.style.display !== "none" && pan.getAttribute("data-pole") === id;
+                body.querySelectorAll("[data-tb-pole]").forEach(function (c2) { c2.classList.remove("on"); });
+                if (isOpen) { pan.style.display = "none"; pan.removeAttribute("data-pole"); return; }
+                pan.setAttribute("data-pole", id);
+                pan.innerHTML = poleVoletHtml(p);
+                pan.style.display = "block";
+                b.classList.add("on");
+              });
+            });
+          })();
           body.querySelectorAll("[data-tb-open]").forEach(function (a) {
             a.addEventListener("click", function (ev) {
               openVolet(a.getAttribute("data-tb-open"), false);
