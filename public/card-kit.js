@@ -860,6 +860,51 @@
         + '<div style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:12px;">'
         + esc(t(received === 1 ? 'shape_intro' : 'shape_intro_pl', { n: received, total: total })) + ' ' + esc(refTxt) + '</div>';
 
+      // ③ Achats ou panier — LES DEUX SÉRIES OBSERVÉES. Une seule journée mesurée : la
+      // suite des jours comparables puis le jour, qui montre la tendance sans un mot
+      // d'explication. Plusieurs journées : les moyennes des deux côtés. Aucun nombre
+      // qui ne soit une somme de la caisse (owner 28/08).
+      var v = shape.volume;
+      if (!membre) {
+        h += '<div style="' + card + '">' + cardTitle(t('shape_vol_title'));
+        if (v && v.days.length && v.ref.length) {
+          var jourRef = WX_DOW_FR[new Date(String(v.ref[v.ref.length - 1].date) + 'T00:00:00Z').getUTCDay()] || 'jours';
+          var pc = function (p2) { return p2 == null ? '—' : (p2 >= 0 ? '+' : '−') + fr(Math.abs(p2)) + ' %'; };
+          var nb2 = function (n2) { return (Math.round(Number(n2) * 100) / 100).toString().replace('.', ','); };
+          var eu2 = function (n2) { return (Math.round(Number(n2) * 100) / 100).toFixed(2).replace('.', ',') + ' €'; };
+          // La phrase d'abord : QUEL facteur porte la fluctuation (le ou les deux plus forts).
+          var fs = [
+            { key: 'tx', p: Math.abs(v.tx_pct || 0), lib: t('shape_vol_f_tx') },
+            { key: 'items', p: Math.abs(v.items_pct || 0), lib: t('shape_vol_f_items') },
+            { key: 'price', p: Math.abs(v.price_pct || 0), lib: t('shape_vol_f_price') },
+          ].sort(function (a, b) { return b.p - a.p; });
+          h += lead(fs[1].p >= fs[0].p * 0.5
+            ? t('shape_vol_lead_2', { f1: fs[0].lib, f2: fs[1].lib })
+            : t('shape_vol_lead_1', { f: fs[0].lib }));
+          // Puis les trois lignes, chacune avec sa valeur, sa référence et son écart.
+          var ligne = function (lab, val, ref, pct2) {
+            return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #f5f6f8;font-size:13px;">'
+              + '<span style="min-width:0;"><span style="font-weight:600;color:#111827;">' + esc(lab) + '</span>'
+              + '<span style="display:block;color:#6b7280;font-size:11.5px;margin-top:1px;">' + esc(t('shape_vol_val', { v: val, ref: ref })) + '</span></span>'
+              + '<span style="font-weight:600;white-space:nowrap;color:' + (pct2 != null && pct2 < 0 ? '#B45309' : '#0F6E56') + ';">' + pc(pct2) + '</span></div>';
+          };
+          h += '<div style="margin-top:10px;">'
+            + ligne(t('shape_vol_l_tx'), intfr(v.tx_avg), intfr(v.ref_tx_avg), v.tx_pct)
+            + ligne(t('shape_vol_l_items'), nb2(v.items_avg), nb2(v.ref_items_avg), v.items_pct)
+            + ligne(t('shape_vol_l_price'), eu2(v.price_avg), eu2(v.ref_price_avg), v.price_pct)
+            + '</div>'
+            + '<div style="font-size:12.5px;color:#111827;margin-top:10px;font-weight:600;">' + esc(t('shape_vol_total', { pct: pc(v.total_pct) })) + '</div>'
+            + '<div style="font-size:11px;color:#6b7280;margin-top:6px;">' + esc(t('shape_vol_caption'))
+              + ' <span title="' + esc(t('shape_vol_caption_tip', {
+                  n: v.ref.length, jour: jourRef,
+                  dates: v.ref.map(function (p2) { return msDateFr(p2.date); }).join(', '),
+                })) + '" style="cursor:help;border:1px solid #e5e7eb;border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;">i</span></div>'
+            + note(t('shape_vol_types'));
+        } else {
+          h += body(t('shape_vol_none'));
+        }
+        h += '</div>';
+      }
       // ① Quels moments — la tranche vient des données (aucune heure en dur côté serveur).
       if (shape.best_run && shape.hours && shape.hours.length > 1) {
         var r = shape.best_run;
@@ -906,47 +951,6 @@
                     : '')
                 + '</div></details>';
             }).join('') + '</div>';
-      }
-      // ③ Achats ou panier — LES DEUX SÉRIES OBSERVÉES. Une seule journée mesurée : la
-      // suite des jours comparables puis le jour, qui montre la tendance sans un mot
-      // d'explication. Plusieurs journées : les moyennes des deux côtés. Aucun nombre
-      // qui ne soit une somme de la caisse (owner 28/08).
-      var v = shape.volume;
-      if (!membre) {
-        h += '<div style="' + card + '">' + cardTitle(t('shape_vol_title'));
-        if (v && v.days.length && v.ref.length) {
-          var jourRef = WX_DOW_FR[new Date(String(v.ref[v.ref.length - 1].date) + 'T00:00:00Z').getUTCDay()] || 'jours';
-          var pc = function (p2) { return p2 == null ? '—' : (p2 >= 0 ? '+' : '−') + fr(Math.abs(p2)) + ' %'; };
-          var nb2 = function (n2) { return (Math.round(Number(n2) * 100) / 100).toString().replace('.', ','); };
-          var eu2 = function (n2) { return (Math.round(Number(n2) * 100) / 100).toFixed(2).replace('.', ',') + ' €'; };
-          // La phrase d'abord : QUEL facteur porte la fluctuation (le ou les deux plus forts).
-          var fs = [
-            { key: 'tx', p: Math.abs(v.tx_pct || 0), lib: t('shape_vol_f_tx') },
-            { key: 'items', p: Math.abs(v.items_pct || 0), lib: t('shape_vol_f_items') },
-            { key: 'price', p: Math.abs(v.price_pct || 0), lib: t('shape_vol_f_price') },
-          ].sort(function (a, b) { return b.p - a.p; });
-          h += lead(fs[1].p >= fs[0].p * 0.5
-            ? t('shape_vol_lead_2', { f1: fs[0].lib, f2: fs[1].lib })
-            : t('shape_vol_lead_1', { f: fs[0].lib }));
-          // Puis les trois lignes, chacune avec sa valeur, sa référence et son écart.
-          var ligne = function (lab, val, ref, pct2) {
-            return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #f5f6f8;font-size:13px;">'
-              + '<span style="min-width:0;"><span style="font-weight:600;color:#111827;">' + esc(lab) + '</span>'
-              + '<span style="display:block;color:#6b7280;font-size:11.5px;margin-top:1px;">' + esc(t('shape_vol_val', { v: val, ref: ref })) + '</span></span>'
-              + '<span style="font-weight:600;white-space:nowrap;color:' + (pct2 != null && pct2 < 0 ? '#B45309' : '#0F6E56') + ';">' + pc(pct2) + '</span></div>';
-          };
-          h += '<div style="margin-top:10px;">'
-            + ligne(t('shape_vol_l_tx'), intfr(v.tx_avg), intfr(v.ref_tx_avg), v.tx_pct)
-            + ligne(t('shape_vol_l_items'), nb2(v.items_avg), nb2(v.ref_items_avg), v.items_pct)
-            + ligne(t('shape_vol_l_price'), eu2(v.price_avg), eu2(v.ref_price_avg), v.price_pct)
-            + '</div>'
-            + '<div style="font-size:12.5px;color:#111827;margin-top:10px;font-weight:600;">' + esc(t('shape_vol_total', { pct: pc(v.total_pct) })) + '</div>'
-            + note(t('shape_vol_caption', { n: v.ref.length, jour: jourRef }))
-            + note(t('shape_vol_types'));
-        } else {
-          h += body(t('shape_vol_none'));
-        }
-        h += '</div>';
       }
       // ④ Contexte externe — le même bloc qu'avant, rapatrié ici (il répond à la même question).
       if (ctxHtml) {
@@ -1627,8 +1631,21 @@
     // TERMINÉE — la page CONCLUT : le verdict → d'où il vient → ce qui a été fait →
     //   Documenter → la suite (conseils, historique, dispositifs comparables).
     var shapeB = shapeBlock(data.shape || null, ctxCard, received.length, series.length, received.length ? received[0].date : null, data.role === 'member');
-    if (open) return head + dispoBlock(cm, true) + q1 + shapeB + moveForm + bicRef + lineageB + sources;
-    return head + q1 + shapeB + dispoBlock(cm, false) + q4 + q3 + lineageB + bicRef + sources;
+    // LES DEUX TEMPS DE LA PAGE (owner 28/08) — on comprend, PUIS on décide. Rien ne change
+    // de place : une frontière nommée sépare les deux, sinon tous les blocs se ressemblent.
+    var partie = function (titre) {
+      return '<div style="display:flex;align-items:center;gap:12px;margin:34px 0 20px;">'
+        + '<span style="font-size:15px;font-weight:700;color:#111827;white-space:nowrap;">' + esc(titre) + '</span>'
+        + '<span style="flex:1;height:2px;background:#111827;opacity:.12;"></span></div>';
+    };
+    if (open) {
+      return head + dispoBlock(cm, true)
+        + partie(t('part_comprendre')) + q1 + shapeB
+        + partie(t('part_decider')) + moveForm + bicRef + lineageB + sources;
+    }
+    return head
+      + partie(t('part_comprendre')) + q1 + shapeB + dispoBlock(cm, false)
+      + partie(t('part_conclure')) + q4 + q3 + lineageB + bicRef + sources;
   }
 
 

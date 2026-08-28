@@ -67,7 +67,13 @@ export interface ShapeVolume {
   price_pct: number | null;
   total_pct: number | null;         // variation du CA — produit exact des trois facteurs
 }
+// Le facteur le plus faible des trois — la clé d'aiguillage des conseils (owner 28/08 :
+// « la bonne méthode, c'est de vendre des produits annexes qui coûtent plus cher, ou de
+// travailler un produit phare »). C'est le module qui NOMME le facteur ; le choix du levier
+// reste dans bestInClassStore, seul foyer des leviers.
+export type ShapeWeakFactor = "tx" | "items" | "price";
 export interface WindowShape {
+  weak_factor: ShapeWeakFactor | null;
   ref_days: number;                 // jours comparables réellement trouvés
   measured_days: number;            // jours de l'opération avec des ventes
   notable_days: number;             // jours qui sortent de la variation ordinaire du lieu
@@ -279,7 +285,18 @@ export async function buildWindowShape(
     };
   }
 
+  // Le plus faible des trois écarts : là où il reste de la marge.
+  let weak_factor: ShapeWeakFactor | null = null;
+  if (volume && volume.tx_pct != null && volume.items_pct != null && volume.price_pct != null) {
+    const trio: [ShapeWeakFactor, number][] = [
+      ["tx", volume.tx_pct], ["items", volume.items_pct], ["price", volume.price_pct],
+    ];
+    trio.sort((a, b) => a[1] - b[1]);
+    weak_factor = trio[0][0];
+  }
+
   return {
+    weak_factor,
     ref_days: refs.length, measured_days, notable_days: num(d0.notable),
     actual_eur, expected_eur, hours, best_run, worst_run, families, volume,
   };

@@ -168,6 +168,20 @@ const DRIVER_LEVER: Record<string, Lever> = {
   footfall: "frequentation",
   transactions: "frequentation", // transactions folds into footfall (même règle que reco-library)
 };
+// Aiguillage par le facteur MESURÉ le plus faible (owner 28/08) : quand la décomposition
+// des ventes dit où il reste de la marge, elle prime sur le type de la carte d'origine —
+// une carte « vacances scolaires » renvoyait toujours vers la fréquentation, même quand ce
+// qui manquait était la valeur de l'article. Le foyer des leviers reste ici.
+const FACTEUR_LEVER: Record<string, Lever> = {
+  tx: "frequentation",   // peu d'achats -> faire venir
+  items: "panier",       // peu d'articles par achat -> vente additionnelle, formules
+  price: "yield",        // article peu cher -> montée en gamme, valeur perçue
+};
+export function leverForWeakFactor(weak?: string | null): Lever | null {
+  const k = String(weak || "");
+  return FACTEUR_LEVER[k] ?? null;
+}
+
 export function leverForActionType(actionType?: string | null, driver?: string | null): Lever {
   const at = String(actionType || "").toLowerCase();
   if (ACTION_LEVER[at]) return ACTION_LEVER[at];

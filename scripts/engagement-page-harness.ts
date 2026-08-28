@@ -12,6 +12,7 @@ import { EVOL_COPY } from "../src/lib/commitmentCopy";
 import { makeBQClient } from "../src/lib/bq";
 import { readLatestSnapshot } from "../src/lib/actionCommitments";
 import { resolveCommitment } from "../src/lib/commitmentResolve";
+import { leverForWeakFactor, leverForActionType, getBestInClassPlays } from "../src/lib/bestInClassStore";
 
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const OPEN_ID = "2d99694a-17fa-4486-92e1-548ce588e1f5";   // vacances scolaires — EN COURS
@@ -64,6 +65,32 @@ async function payload(id: string): Promise<any> {
     ok("bloc shape servi", data.shape != null, Object.keys(data));
     if (data.shape) {
       ok("jours comparables", data.shape.ref_days >= 2, data.shape.ref_days);
+      // AIGUILLAGE PAR LA MESURE (owner 28/08) : le facteur le plus faible choisit le levier
+      // des conseils — la carte d'origine ne décide plus seule.
+      if (data.shape.weak_factor) {
+        const attendu = leverForWeakFactor(data.shape.weak_factor);
+        ok("le facteur le plus faible est nommé", ["tx", "items", "price"].includes(data.shape.weak_factor), data.shape.weak_factor);
+        ok("il donne un levier de conseils", attendu != null, { f: data.shape.weak_factor, levier: attendu });
+        const levierCarte = leverForActionType(data.commitment.origin_action_type);
+        if (attendu && attendu !== levierCarte) {
+          // Le test ne se contente pas de la table de correspondance : il vérifie que les
+          // dispositifs SERVIS sont bien ceux du levier aiguillé, pas ceux de la carte.
+          // (Sans ça, débrancher l'aiguillage passait inaperçu — mutation vue le 28/08.)
+          const bqL: any = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+          const [ir] = await bqL.query({
+            query: `SELECT client_industry_code FROM \`muse-square-open-data.semantic.vw_insight_event_ai_location_context\` WHERE location_id=@l LIMIT 1`,
+            params: { l: LOC }, location: "EU",
+          });
+          const industrie = String(ir?.[0]?.client_industry_code?.value ?? ir?.[0]?.client_industry_code ?? "");
+          const titres = (x: any[]) => x.map((p: any) => p.title).sort().join("|");
+          const parFacteur = await getBestInClassPlays(bqL, industrie, attendu, { limit: 9 });
+          const parCarte = await getBestInClassPlays(bqL, industrie, levierCarte, { limit: 9 });
+          const servis = titres(data.best_in_class || []);
+          ok(`dispositifs servis = levier du facteur (${attendu}), pas celui de la carte (${levierCarte})`,
+            servis === titres(parFacteur) && servis !== titres(parCarte),
+            { servis: servis.slice(0, 60), facteur: titres(parFacteur).slice(0, 60) });
+        }
+      }
       // UN SEUL RÉFÉRENTIEL (owner 28/08) : les familles se comparent au RÉSULTAT HABITUEL,
       // comme l'en-tête — la somme de leurs écarts vaut donc l'écart de l'en-tête, pas zéro.
       const fSum = data.shape.families.reduce((s: number, f: any) => s + f.delta, 0);
@@ -109,7 +136,28 @@ async function payload(id: string): Promise<any> {
     ok("familles dépliables sur leurs produits",
       /<details[^>]*><summary[^>]*>[\s\S]{0,400}?border-left:2px solid #eef1f6/.test(out) && out.includes("· habituel "));
     ok("aucun câblage JS pour le dépliage", !/data-fam-toggle|data-prod-/.test(out));
-    ok("carte « D'où vient la fluctuation ? » présente", out.includes("D\u2019où vient la fluctuation"));
+    // Titre NEUTRE (owner 28/08 : « D'où vient la fluctuation » présuppose qu'il y en a une).
+    ok("carte « Décomposition des ventes » présente", out.includes("Décomposition des ventes"));
+    // Le référentiel de CE bloc est nommé avec LE mot du lexique, et ses dates sont dans l'ⓘ
+    // (4 occurrences ne font pas une habitude — owner 28/08).
+    ok("référentiel nommé « vos jours comparables »", out.includes("vs vos jours comparables"));
+    ok("les dates exactes vivent dans l'infobulle", /title="Vos \d+ derniers [a-zé]+s : \d{2}\/\d{2}\/\d{4}/.test(out));
+    ok("aucun « habituel » dans le bloc des trois facteurs",
+      !/Nombre d\u2019achats[\s\S]{0,900}?habituel/.test(out));
+    // Général puis particulier : la décomposition précède les forages (heures, familles).
+    // Deux temps nommés : on comprend, puis on décide (ou on conclut, si l'opération est finie).
+    ok("la page est coupée en deux temps",
+      out.includes(">Comprendre<") && out.includes(c.open ? ">Décider<" : ">Conclure<"));
+    ok("la lecture précède la décision",
+      out.indexOf(">Comprendre<") < out.indexOf(c.open ? ">Décider<" : ">Conclure<"));
+    // Les renvois internes suivent l'ordre réel des cartes (les familles sont passées SOUS
+    // la décomposition le 28/08 : « ci-dessus » serait faux).
+    ok("aucun renvoi vers le haut pour les familles", !/ouvrez une famille ci-dessus/.test(out));
+    // La section ne re-nomme plus de référentiel : le sien est celui de l'en-tête.
+    ok("la section ne redit pas un référentiel", !/Comparé à vos \d+ derniers/.test(out));
+    ok("décomposition avant les forages",
+      out.indexOf("Décomposition des ventes") < out.indexOf("Quels moments")
+      && out.indexOf("Décomposition des ventes") < out.indexOf("Familles de produits"));
     // Les trois facteurs sont NOMMÉS : la question owner (« achats, panier, composition du
     // panier ») n'a de réponse que si le nombre d'articles par achat est là.
     ok("les trois facteurs sont nommés",

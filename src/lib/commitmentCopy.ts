@@ -242,12 +242,17 @@ export const EVOL_COPY = {
   // (celui de l'en-tête) : heures et familles se lisent en PART de la journée, achats/panier
   // se décompose contre le résultat habituel et somme exactement à son écart.
   shape_title: "Comprendre le résultat",
+  // LES DEUX TEMPS DE LA PAGE (owner 28/08) : on comprend, puis on décide. La coupure est
+  // structurelle — même blocs, frontière lisible.
+  part_comprendre: "Comprendre",
+  part_decider: "Décider",
+  part_conclure: "Conclure",
   shape_intro: "{n} jour mesuré sur {total}.",
   shape_intro_pl: "{n} jours mesurés sur {total}.",
   // Un seul jour mesuré : on NOMME le jour de semaine (« vos quatre derniers jeudis »),
   // comme l'exploitant le dit. Plusieurs jours : chaque journée a sa propre référence.
-  shape_ref_jour: "Comparé à vos {n} derniers {jour}s.",
-  shape_ref_multi: "Chaque journée est comparée aux {n} semaines précédentes.",
+  shape_ref_jour: "",
+  shape_ref_multi: "",
   shape_hours_title: "Quels moments",
   shape_hours_lead: "Votre meilleur créneau : {from} h–{to} h, {share} % du chiffre du jour contre {ref} % d’habitude.",
   // « autant en moins sur le reste » n'est plus vrai depuis que la référence est le
@@ -263,19 +268,22 @@ export const EVOL_COPY = {
   shape_prod_rest: "{n} autres produits de la famille : {eur} € au total.",
   // « D'où vient la fluctuation » (mots owner 28/08) — trois facteurs, dont le produit est
   // la variation du CA. Chaque ligne porte son référentiel ; aucune n'est un calcul déguisé.
-  shape_vol_title: "D’où vient la fluctuation ?",
-  shape_vol_caption: "Comparé à vos {n} {jour}s précédents. Les trois se multiplient : c’est la variation du chiffre.",
+  shape_vol_title: "Décomposition des ventes",
+  // LE mot du lexique pour ce référentiel (docs/lexique.md) : « vos jours comparables ».
+  // « habituel » est réservé au résultat appris sur des mois — 4 occurrences n’en font pas un.
+  shape_vol_caption: "vs vos jours comparables",
+  shape_vol_caption_tip: "Vos {n} derniers {jour}s : {dates}. Les trois facteurs se multiplient : leur produit est la variation du chiffre.",
   shape_vol_l_tx: "Nombre d’achats",
   shape_vol_l_items: "Articles par achat",
   shape_vol_l_price: "Prix moyen d’un article",
   shape_vol_val: "{v} contre {ref}",
-  shape_vol_total: "Chiffre du jour : {pct} vs ces jours-là.",
-  shape_vol_lead_1: "La fluctuation vient surtout {f}.",
-  shape_vol_lead_2: "La fluctuation vient surtout {f1} et {f2}.",
-  shape_vol_f_tx: "du nombre d’achats",
-  shape_vol_f_items: "du nombre d’articles par achat",
-  shape_vol_f_price: "du prix moyen des articles",
-  shape_vol_types: "Quels articles : ouvrez une famille ci-dessus.",
+  shape_vol_total: "Chiffre du jour : {pct} vs vos jours comparables.",
+  shape_vol_lead_1: "Ce qui bouge : {f}.",
+  shape_vol_lead_2: "Ce qui bouge : {f1}, puis {f2}.",
+  shape_vol_f_tx: "le nombre d’achats",
+  shape_vol_f_items: "le nombre d’articles par achat",
+  shape_vol_f_price: "le prix moyen des articles",
+  shape_vol_types: "Quels articles : ouvrez une famille plus bas.",
   shape_vol_none: "Une seule journée mesurée ne suffit pas encore à décomposer la fluctuation.",
   shape_ctx_title: "Contexte externe",
   shape_none: "Pas encore de journée mesurée — la lecture s’ouvre dès la première.",

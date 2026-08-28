@@ -15,7 +15,7 @@ import { buildPoleReading } from "../../../lib/poleReading";
 import { commitmentEffect } from "../../../lib/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
 import { buildWindowShape } from "../../../lib/commitmentShape";
-import { getBestInClassPlays, leverForActionType } from "../../../lib/bestInClassStore";
+import { getBestInClassPlays, leverForActionType, leverForWeakFactor } from "../../../lib/bestInClassStore";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -366,8 +366,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
       site_name = irows.length ? String(flat(irows[0].site_name) || "") || null : null;
       const industry = irows.length ? String(flat(irows[0].client_industry_code) || "") : "";
       if (industry) {
+        // LEVIER AIGUILLÉ PAR LA MESURE (owner 28/08) : quand la décomposition des ventes dit
+        // quel facteur est le plus faible, il prime sur le type de la carte d'origine — une
+        // carte « vacances scolaires » renvoyait toujours vers la fréquentation, même quand
+        // ce qui manquait était la valeur de l'article. Repli : le type de la carte.
+        // shapeP est déjà amorcée : l'attendre ici ne coûte aucun aller-retour de plus.
+        const _shapePourLevier = await shapeP;
+        const levier = leverForWeakFactor(_shapePourLevier?.weak_factor)
+          ?? leverForActionType(snap.origin_action_type, snap.origin_driver);
         // All intents (pivot/reinforce/scale) — card-kit filters to the one that fits the verdict.
-        best_in_class = await getBestInClassPlays(bq, industry, leverForActionType(snap.origin_action_type, snap.origin_driver), { limit: 9 });
+        best_in_class = await getBestInClassPlays(bq, industry, levier, { limit: 9 });
       }
     } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
 
