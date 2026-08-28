@@ -134,6 +134,15 @@ notifications ENTIÈREMENT arbitré par l'owner selon l'étape du cycle de la ca
   owner, ligne 1 du panneau marges) ; état déclaré : « → Déclarer votre marge — **modifiable à
   tout moment** » (fragment approuvé du formulaire événement), bouton « Modifier ».
 
+- Pôles au tableau (owner 28/08, protos `piloter-poles-proto`/`piloter-membre-proto` validés) :
+  section « **Vos pôles** » (titre repris du journal) ; volet = kicker « **Pôle** », fil
+  « **Historique** » (mot owner — fusion verdicts / gestes / envois / ajustements + lecture
+  hebdo « vs la semaine précédente », une lecture datée JAMAIS un verdict), « Connaissances
+  de ce pôle » (titre proposé, à confirmer), CTA « Ajuster → · Documenter → » (mêmes mots
+  que la carte, cibles = la fiche du pôle) ; vue membre : tuiles « CA du pôle » (en % —
+  jamais le montant), « poids du CA », kicker « Pôle · <nom> ». « **Fait** » ne s'affiche
+  que sur une disposition au préfixe 'fait' de la trace — jamais sur un geste inconnu.
+
 ## Le gabarit de la zone explication des cartes d'opération (owner 24/08)
 
 Toute carte d'opération du tableau suit UNE grammaire : (1) titre + chips d'état · (2) le(s)
