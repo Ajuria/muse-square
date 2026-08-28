@@ -679,51 +679,14 @@
     function fr(n) { var r = Math.round((Number(n) || 0) * 10) / 10; return (Number.isInteger(r) ? String(r) : r.toFixed(1)).replace('.', ','); }
     function intfr(n) { return (Number(n) || 0).toLocaleString('fr-FR'); }
     function dnum(iso) { return parseInt(String(iso).slice(8, 10), 10); }
+    // Étiquette d'axe : jour de semaine EN TOUTES LETTRES + JJ/MM (lexique règle 6, contrat
+    // déjà porté par le kit — aucune abréviation). WX_DOW_FR = le foyer des jours.
+    function msDayAxisFr(iso) {
+      var d = new Date(String(iso) + 'T00:00:00Z');
+      return (WX_DOW_FR[d.getUTCDay()] || '') + ' ' + String(iso).slice(8, 10) + '/' + String(iso).slice(5, 7);
+    }
     function t(key, vars) { var s = COPY[key] || ''; if (vars) for (var k in vars) if (vars.hasOwnProperty(k)) s = s.split('{' + k + '}').join(vars[k]); return s; }
 
-    // dual-line chart: CA réalisé (solid+area) vs CA habituel (dashed)
-    function chart(series, goalPct) {
-      var pts = series.filter(function (d) { return d.has_data; });
-      if (pts.length < 2) return '<div style="font-size:13px;color:#9ca3af;padding:8px 0;">Pas encore assez de journées reçues pour tracer la courbe.</div>';
-      var W = 760, H = 200, padL = 46, padT = 10, padB = 26, plotW = W - padL - 8, plotH = H - padT - padB;
-      // Ligne d'objectif (owner 15/08) : l'habituel du jour +X % — le « suis-je au-dessus de
-      // mon objectif ? » se lit sur la courbe, plus seulement dans l'en-tête.
-      var goalOf = (goalPct != null) ? function (d) { return d.expected_revenue * (1 + goalPct / 100); } : null;
-      var all = []; pts.forEach(function (d) { all.push(d.daily_revenue, d.expected_revenue); if (goalOf) all.push(goalOf(d)); });
-      var mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
-      var span = (mx - mn) || 1; mn = Math.max(0, mn - span * 0.12); mx = mx + span * 0.12;
-      var n = series.length;
-      var xOf = function (i) { return padL + (n === 1 ? plotW / 2 : i * plotW / (n - 1)); };
-      var yOf = function (v) { return padT + plotH - (v - mn) / ((mx - mn) || 1) * plotH; };
-      var grid = '', ticks = 4;
-      for (var g = 0; g <= ticks; g++) { var val = mn + (mx - mn) * g / ticks, y = yOf(val); grid += '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - 8) + '" y2="' + y.toFixed(1) + '" stroke="#eef1f6" stroke-width="1"/><text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" font-size="9" fill="#9ca3af" text-anchor="end">' + Math.round(val).toLocaleString('fr-FR') + '</text>'; }
-      var expSeg = [], realSeg = [];
-      series.forEach(function (d, i) { if (d.has_data) { expSeg.push(xOf(i).toFixed(1) + ',' + yOf(d.expected_revenue).toFixed(1)); realSeg.push(xOf(i).toFixed(1) + ',' + yOf(d.daily_revenue).toFixed(1)); } });
-      var realLine = realSeg.join(' ');
-      var area = 'M' + realSeg[0].split(',')[0] + ',' + (padT + plotH) + ' L' + realSeg.join(' L') + ' L' + realSeg[realSeg.length - 1].split(',')[0] + ',' + (padT + plotH) + ' Z';
-      var bi = -1, wi = -1;
-      series.forEach(function (d, i) { if (!d.has_data) return; if (bi < 0 || d.residual_pct > series[bi].residual_pct) bi = i; if (wi < 0 || d.residual_pct < series[wi].residual_pct) wi = i; });
-      var lbl = '', step = Math.ceil(n / 8);
-      for (var i = 0; i < n; i += step) lbl += '<text x="' + xOf(i).toFixed(1) + '" y="' + (H - 8) + '" font-size="9" fill="#9ca3af" text-anchor="middle">' + dnum(series[i].date) + '</text>';
-      var gaps = '';
-      series.forEach(function (d, i) { if (!d.has_data) gaps += '<line x1="' + xOf(i).toFixed(1) + '" y1="' + padT + '" x2="' + xOf(i).toFixed(1) + '" y2="' + (padT + plotH) + '" stroke="#f0f2f5" stroke-width="1" stroke-dasharray="2,3"/>'; });
-      var dots = '';
-      if (bi >= 0) dots += '<circle cx="' + xOf(bi).toFixed(1) + '" cy="' + yOf(series[bi].daily_revenue).toFixed(1) + '" r="3.5" fill="#059669"/>';
-      if (wi >= 0 && wi !== bi) dots += '<circle cx="' + xOf(wi).toFixed(1) + '" cy="' + yOf(series[wi].daily_revenue).toFixed(1) + '" r="3.5" fill="#b91c1c"/>';
-      var goalSeg = [];
-      if (goalOf) series.forEach(function (d, i) { if (d.has_data) goalSeg.push(xOf(i).toFixed(1) + ',' + yOf(goalOf(d)).toFixed(1)); });
-      var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">' + grid + gaps
-        + '<path d="' + area + '" fill="#1D3BB3" fill-opacity="0.07"/>'
-        + '<polyline points="' + expSeg.join(' ') + '" fill="none" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/>'
-        + (goalSeg.length ? '<polyline points="' + goalSeg.join(' ') + '" fill="none" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="3,4" opacity="0.85"/>' : '')
-        + '<polyline points="' + realLine + '" fill="none" stroke="#1D3BB3" stroke-width="2.2"/>' + dots + lbl + '</svg>';
-      var legend = '<div style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:#374151;">'
-        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="2.2"/></svg>' + esc(t('chart_realized')) + '</span>'
-        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/></svg>' + esc(t('chart_habituel')) + '</span>'
-        + (goalSeg.length ? '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="3,4"/></svg>objectif</span>' : '') + '</div>'
-        + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('chart_note')) + '</div>';
-      return svg + legend;
-    }
 
     // advice -> items with optional M'engager CTA (wiring attached page-side)
     var ADVICE = {
@@ -758,23 +721,13 @@
     }
     // Read/edit mode (remark #2): once saved, render read-only with an "Éditer" toggle. Editing RIGHTS
     // are deferred — this is the view-mode UI only. hasData default = read; empty = edit.
-    function captureHtml(cm, open) {
+    // Documenter — le retour structuré. N'EXISTE QUE SUR UNE OPÉRATION TERMINÉE (owner
+    // 28/08) : c'était déjà la règle du rail (le rétro est refusé avant résolution), la page
+    // la reflète enfin. L'ancienne branche « Action menée ? » a disparu de la page — le geste
+    // vit dans le message Slack, et la Description du dispositif dans le bloc Votre dispositif.
+    function captureHtml(cm) {
       var inner, title, hasData, readInner;
-      if (open) {
-        title = t('q4_title');
-        var st = cm.action_done_status;
-        hasData = (st != null);
-        inner = '<div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">' + esc(t('done_question')) + '</div>'
-          + '<div style="display:flex;gap:8px;margin-bottom:12px;">'
-          + '<button type="button" data-done="fait" style="' + doneBtnStyle(st === 'fait') + '">' + esc(t('done_yes')) + '</button>'
-          + '<button type="button" data-done="pas_encore" style="' + doneBtnStyle(st === 'pas_encore') + '">' + esc(t('done_no')) + '</button></div>'
-          + '<div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:6px;">' + esc(t('dispositif_label')) + '</div>'
-          + '<textarea data-dispositif placeholder="' + esc(t('dispositif_ph')) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;">' + esc(cm.dispositif_note || '') + '</textarea>';
-        readInner = roRow(t('done_question'), st === 'fait' ? t('done_yes') : st === 'pas_encore' ? t('done_no') : '—')
-          + roRow(t('dispositif_label'), cm.dispositif_note || t('not_dispositioned'));
-      } else {
-        // Documenter — structured retro (Spec 2): worked / would-change / repeat oui-non. The
-        // reusable knowledge-base entry that seeds Spec 1's "Plan à reprendre".
+      {
         title = t('q4_title_doc');
         hasData = (cm.retro_worked != null || cm.retro_change != null || cm.retro_repeat != null);
         var taStyle = 'width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;margin-bottom:14px;';
@@ -803,6 +756,161 @@
         + (hasData ? '<button type="button" data-cap-cancel style="' + cancelBtn + '">' + esc(t('cancel')) + '</button>' : '')
         + '<span data-cap-msg style="font-size:12px;color:#166534;"></span></div></div>';
       return '<div class="eg-sec"><div class="eg-uc">' + esc(title) + '</div>' + readView + editView + '</div>';
+    }
+
+    // ── LES DEUX ÉTATS (owner 28/08) ────────────────────────────────────────────────────
+    // Le jour par jour en BARRES : l'écart au CA habituel se lit AU-DESSUS de chaque barre
+    // (le % signé, demandé par l'owner), le contexte se lit SOUS le jour concerné, en toutes
+    // lettres. Remplace la double courbe : sur 7 points, deux polylignes se lisaient mal et
+    // n'écrivaient l'écart nulle part.
+    function dayBars(series, goalPct) {
+      var W = 760, H = 232, padL = 8, padT = 40, padB = 50, plotW = W - padL - 8, plotH = H - padT - padB;
+      var n = series.length, slot = plotW / n, bw = Math.min(54, slot * 0.52);
+      var mx = 0;
+      series.forEach(function (d) { if (d.has_data) { mx = Math.max(mx, d.daily_revenue, d.expected_revenue, d.expected_revenue * (1 + (goalPct || 0) / 100)); } });
+      if (!(mx > 0)) return '';
+      mx = mx * 1.12;
+      var y = function (v) { return padT + plotH - (v / mx) * plotH; };
+      var s = '';
+      series.forEach(function (d, i) {
+        var cx = padL + slot * i + slot / 2;
+        if (d.has_data) {
+          var yv = y(d.daily_revenue), yh = y(d.expected_revenue);
+          var dp = d.residual_pct != null ? d.residual_pct : (d.expected_revenue ? (d.daily_revenue - d.expected_revenue) / d.expected_revenue * 100 : 0);
+          s += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + yv.toFixed(1) + '" width="' + bw + '" height="' + (padT + plotH - yv).toFixed(1) + '" rx="4" fill="#1D3BB3" fill-opacity="0.85"/>'
+            + '<line x1="' + (cx - bw / 2 - 5).toFixed(1) + '" y1="' + yh.toFixed(1) + '" x2="' + (cx + bw / 2 + 5).toFixed(1) + '" y2="' + yh.toFixed(1) + '" stroke="#111827" stroke-width="2"/>';
+          if (goalPct != null) {
+            var yg = y(d.expected_revenue * (1 + goalPct / 100));
+            s += '<line x1="' + (cx - bw / 2 - 5).toFixed(1) + '" y1="' + yg.toFixed(1) + '" x2="' + (cx + bw / 2 + 5).toFixed(1) + '" y2="' + yg.toFixed(1) + '" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="4,3"/>';
+          }
+          s += '<text x="' + cx.toFixed(1) + '" y="' + (yv - 20).toFixed(1) + '" font-size="13" font-weight="700" fill="' + (dp >= 0 ? '#0F6E56' : '#B45309') + '" text-anchor="middle">' + (dp >= 0 ? '+' : '−') + fr(Math.abs(dp)) + ' %</text>'
+            + '<text x="' + cx.toFixed(1) + '" y="' + (yv - 6).toFixed(1) + '" font-size="10" fill="#6b7280" text-anchor="middle">' + intfr(Math.round(d.daily_revenue)) + ' €</text>';
+        } else {
+          s += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + y(mx * 0.55).toFixed(1) + '" width="' + bw + '" height="' + (padT + plotH - y(mx * 0.55)).toFixed(1) + '" rx="4" fill="none" stroke="#e5e7eb" stroke-width="1.4" stroke-dasharray="4,4"/>';
+        }
+        s += '<text x="' + cx.toFixed(1) + '" y="' + (H - 30) + '" font-size="10.5" fill="' + (d.has_data ? '#374151' : '#c2c7cf') + '" text-anchor="middle">' + esc(msDayAxisFr(d.date)) + '</text>';
+        var marks = [];
+        if (d.is_school_holiday) marks.push('vacances');
+        if (d.impact_weather_pct != null && d.impact_weather_pct <= -5) marks.push('météo');
+        if (marks.length) s += '<text x="' + cx.toFixed(1) + '" y="' + (H - 12) + '" font-size="11" font-weight="600" fill="#92610a" text-anchor="middle">' + marks.join(' · ') + '</text>';
+      });
+      var legend = '<div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:#374151;flex-wrap:wrap;">'
+        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="10"><rect width="14" height="10" rx="2" fill="#1D3BB3" fill-opacity="0.85"/></svg>' + esc(t('chart_realized')) + '</span>'
+        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#111827" stroke-width="2"/></svg>' + esc(t('chart_habituel')) + '</span>'
+        + (goalPct != null ? '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="4,3"/></svg>objectif +' + fr(goalPct) + ' %</span>' : '')
+        + '</div>';
+      return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">' + s + '</svg>' + legend
+        + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('chart_note')) + '</div>';
+    }
+
+    // Le DISPOSITIF — ce que l'opération est, avant ce qu'elle donne. Les champs existaient
+    // en base (dispositif_note/plus/why/resources) sans surface : la page ne les montrait pas.
+    function dispoBlock(cm, open) {
+      var row = function (lab, val) {
+        return '<div><div style="font-size:12px;font-weight:600;color:#6b7280;">' + esc(lab) + '</div>'
+          + '<div style="font-size:13px;line-height:1.5;margin-top:3px;white-space:pre-wrap;color:' + (val ? '#111827' : '#9ca3af') + ';">' + esc(val || t('dispo_none')) + '</div></div>';
+      };
+      var pairs = [];
+      if (cm.dispositif_plus) pairs.push(row(t('vform_plus'), cm.dispositif_plus));
+      if (cm.dispositif_why) pairs.push(row(t('vform_why'), cm.dispositif_why));
+      if (cm.owner_person_name) pairs.push(row(t('vform_resp'), cm.owner_person_name));
+      if (cm.dispositif_resources) pairs.push(row(t('vform_res'), cm.dispositif_resources));
+      // La description est ÉDITABLE tant que l'opération court (POST /disposition, note seule).
+      var note = cm.dispositif_note || '';
+      var noteBlock = '<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:600;color:#6b7280;">' + esc(t('dispo_note_label')) + '</div>'
+        + '<div data-dispo-read style="font-size:13px;line-height:1.5;margin-top:3px;white-space:pre-wrap;color:' + (note ? '#111827' : '#9ca3af') + ';">' + esc(note || t('dispo_none'))
+        + (open ? ' <button type="button" data-dispo-edit style="font-size:11.5px;font-weight:600;color:#1D3BB3;background:none;border:none;cursor:pointer;font-family:inherit;padding:0;">' + esc(t('edit')) + '</button>' : '') + '</div>'
+        + (open ? '<div data-dispo-form style="display:none;margin-top:6px;">'
+            + '<textarea data-dispo-note placeholder="' + esc(t('dispo_note_ph')) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;">' + esc(note) + '</textarea>'
+            + '<div style="margin-top:8px;display:flex;align-items:center;gap:10px;">'
+            + '<button type="button" data-dispo-save style="background:#1D3BB3;color:#fff;border:none;border-radius:6px;padding:7px 14px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;">' + esc(t('save')) + '</button>'
+            + '<button type="button" data-dispo-cancel style="background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;border-radius:6px;padding:7px 14px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;">' + esc(t('cancel')) + '</button>'
+            + '<span data-dispo-msg style="font-size:12px;color:#166534;"></span></div></div>' : '')
+        + '</div>';
+      return '<div class="eg-sec"><div class="eg-uc">' + esc(t('dispo_title')) + '</div>' + noteBlock
+        + (pairs.length ? '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;">' + pairs.join('') + '</div>' : '')
+        + '</div>';
+    }
+
+    // « COMPRENDRE LE RÉSULTAT » — d'où vient l'écart. UN SEUL référentiel de niveau : celui
+    // de l'en-tête. Heures et familles se lisent en PART de la journée (les écarts se
+    // compensent) ; achats/panier se décompose CONTRE le résultat habituel et somme
+    // exactement à son écart (server: commitmentShape). Aucun chiffre n'est recalculé ici.
+    function shapeBlock(shape, ctxHtml, received, total) {
+      if (!shape) return ctxHtml ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('shape_title')) + '</div>' + ctxHtml + '</div>' : '';
+      var card = 'background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:13px 15px;margin-bottom:10px;';
+      var cardTitle = function (txt) { return '<div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;margin-bottom:8px;">' + esc(txt) + '</div>'; };
+      var lead = function (txt) { return '<div style="font-size:13.5px;font-weight:600;color:#111827;line-height:1.5;">' + esc(txt) + '</div>'; };
+      var body = function (txt) { return '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:4px;">' + esc(txt) + '</div>'; };
+      var note = function (txt) { return '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(txt) + '</div>'; };
+      var h = '<div class="eg-sec"><div class="eg-uc">' + esc(t('shape_title')) + '</div>'
+        + '<div style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:12px;">'
+        + esc(t('shape_intro', { n: received, total: total })) + ' ' + esc(t('shape_ref_note', { n: shape.ref_days })) + '</div>';
+
+      // ① Quels moments — la tranche vient des données (aucune heure en dur côté serveur).
+      if (shape.best_run && shape.hours && shape.hours.length > 1) {
+        var r = shape.best_run;
+        h += '<div style="' + card + '">' + cardTitle(t('shape_hours_title'))
+          + lead(t('shape_hours_lead', { from: r.from_hour, to: r.to_hour, share: fr(r.share_pct), ref: fr(r.ref_share_pct) }))
+          + body(t('shape_hours_shift', { eur: intfr(Math.abs(r.shift_eur)) }))
+          + '<div style="margin-top:10px;">' + hourBars(shape.hours) + '</div>'
+          + note(t('shape_hours_note')) + '</div>';
+      }
+      // ② Performance des produits vendus — toutes les familles, triées par écart.
+      if (shape.families && shape.families.length) {
+        h += '<div style="' + card + '">' + cardTitle(t('shape_fams_title'))
+          + note(t('shape_fams_note', { n: shape.families.length })).replace('margin-top:5px', 'margin:0 0 8px')
+          + shape.families.map(function (f) {
+              var col = f.delta > 0 ? '#0F6E56' : (f.delta < 0 ? '#B45309' : '#9ca3af');
+              return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #f5f6f8;font-size:13px;">'
+                + '<span style="min-width:0;"><span style="font-weight:600;color:#111827;">' + esc(f.family) + '</span>'
+                + '<span style="display:block;color:#9ca3af;font-size:11.5px;margin-top:1px;">' + esc(t('shape_fams_ref', { eur: intfr(f.rev), ref: intfr(f.ref) })) + '</span></span>'
+                + '<span style="font-weight:600;white-space:nowrap;color:' + col + ';">' + (f.delta > 0 ? '+' : (f.delta < 0 ? '−' : '')) + intfr(Math.abs(f.delta)) + ' €</span></div>';
+            }).join('') + '</div>';
+      }
+      // ③ Achats ou panier — la décomposition de l'écart de l'en-tête.
+      h += '<div style="' + card + '">' + cardTitle(t('shape_vol_title'));
+      var v = shape.volume;
+      if (v && shape.actual_eur != null && shape.expected_eur != null) {
+        var gapEur = shape.actual_eur - shape.expected_eur;
+        var txTxt = t('shape_vol_tx', { tx: intfr(v.tx), ref: intfr(v.ref_tx) });
+        var fr2 = function (n) { return (Math.round(Number(n) * 100) / 100).toFixed(2).replace('.', ','); };
+        var bkTxt = t('shape_vol_basket', { b: fr2(v.basket_eur), ref: fr2(v.ref_basket_eur) });
+        var up = v.contrib_tx_eur >= 0 ? txTxt : bkTxt;
+        var down = v.contrib_tx_eur >= 0 ? bkTxt : txTxt;
+        var gapTxt = (gapEur >= 0 ? '+' : '−') + intfr(Math.abs(gapEur)) + ' €';
+        h += lead(v.opposed
+          ? t('shape_vol_opposed', { up: up.charAt(0).toUpperCase() + up.slice(1), down: down, gap: gapTxt })
+          : t('shape_vol_same', { first: txTxt.charAt(0).toUpperCase() + txTxt.slice(1), second: bkTxt }));
+        h += body(v.driver === 'tx'
+          ? t('shape_vol_driver_tx', { eur: (v.contrib_tx_eur >= 0 ? '+' : '−') + intfr(Math.abs(v.contrib_tx_eur)) })
+          : t('shape_vol_driver_basket', { eur: (v.contrib_basket_eur >= 0 ? '+' : '−') + intfr(Math.abs(v.contrib_basket_eur)) }));
+      } else {
+        h += body(t('shape_vol_none'));
+      }
+      h += '</div>';
+      // ④ Contexte externe — le même bloc qu'avant, rapatrié ici (il répond à la même question).
+      if (ctxHtml) h += '<div style="' + card + 'margin-bottom:0;">' + cardTitle(t('shape_ctx_title')) + ctxHtml + '</div>';
+      return h + '</div>';
+    }
+
+    // Mini-barres horaires — le trait est la MÊME journée répartie comme les jours comparables
+    // (le serveur l'a déjà remise à l'échelle) : les écarts se compensent, jamais un niveau
+    // qui contredirait l'en-tête.
+    function hourBars(hours) {
+      var W = 760, H = 132, padT = 8, padB = 26, plotH = H - padT - padB, slot = W / hours.length, bw = Math.min(30, slot * 0.45);
+      var mx = 0; hours.forEach(function (x) { mx = Math.max(mx, x.rev, x.ref); });
+      if (!(mx > 0)) return '';
+      mx = mx * 1.1;
+      var y = function (v) { return padT + plotH - (v / mx) * plotH; };
+      var s = '';
+      hours.forEach(function (x, i) {
+        var cx = slot * i + slot / 2;
+        s += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + y(x.rev).toFixed(1) + '" width="' + bw + '" height="' + (padT + plotH - y(x.rev)).toFixed(1) + '" rx="3" fill="' + (x.rev >= x.ref ? '#1D3BB3' : '#E0873A') + '" fill-opacity="0.8"/>'
+          + '<line x1="' + (cx - bw / 2 - 4).toFixed(1) + '" y1="' + y(x.ref).toFixed(1) + '" x2="' + (cx + bw / 2 + 4).toFixed(1) + '" y2="' + y(x.ref).toFixed(1) + '" stroke="#111827" stroke-width="1.6"/>'
+          + '<text x="' + cx.toFixed(1) + '" y="' + (H - 8) + '" font-size="10" fill="#6b7280" text-anchor="middle">' + x.h + ' h</text>';
+      });
+      return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">' + s + '</svg>';
     }
 
     var cm = data.commitment, series = data.series || [], ctx = data.context || {};
@@ -905,7 +1013,10 @@
     if (cm.owner_person_name || cm.created_at) {
       var _cd = cm.created_at ? msDateFr(String(cm.created_at).slice(0, 10)) : '—';
       _ownerDate = t('owner_line', { name: esc(cm.owner_person_name || '—'), date: esc(_cd) });
-      if (cm.action_done_at) _ownerDate += t('done_suffix', { date: esc(msDateFr(String(cm.action_done_at).slice(0, 10))) });
+      // « action menée le … » suit le STATUT, pas l'horodatage : action_done_at est écrit à
+      // CHAQUE bascule du geste, « Pas encore » compris — l'en-tête annonçait donc une action
+      // menée sur une action qui ne l'était pas (relevé au harnais 28/08, compte réel).
+      if (cm.action_done_at && cm.action_done_status === 'fait') _ownerDate += t('done_suffix', { date: esc(msDateFr(String(cm.action_done_at).slice(0, 10))) });
     }
     // Nom de l'établissement (owner 19/07, proto v3) : à droite du kicker « Engagement »,
     // première ligne du HEADER du document (13px gris) — pas sur une ligne-label de section.
@@ -1034,7 +1145,7 @@
     // ── État J1 (< 2 journées reçues) : frise de fenêtre + consigne de retour ───────────
     // Remplace la courbe tant qu'elle n'est pas traçable. Zéro donnée inventée : dates réelles
     // de la fenêtre, habituel = window_expected_revenue/jours (déjà stocké), objectif = le %
-    // fixé par l'utilisateur. Dès 2 journées reçues, chart(series) reprend, inchangé.
+    // fixé par l'utilisateur. Dès la première journée reçue, dayBars(series) prend le relais.
     function j1Block() {
       function addDays(iso, n) { var d = new Date(String(iso) + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
       var days = Number(cm.window_days_expected) || 7;
@@ -1182,12 +1293,12 @@
     var chartArea;
     if (K && K.day_of) chartArea = (open && !received.length) ? j1Block() : '';
     else if (K && K.metric !== 'revenue_residual' && (K.daily || []).length >= 2) chartArea = kpiChart(K);
-    else chartArea = (received.length < 2 ? j1Block() : chart(series, K && K.goal_pct != null ? K.goal_pct : null));
+    else chartArea = (received.length ? dayBars(series, K && K.goal_pct != null ? K.goal_pct : null) : j1Block());
     var q1 = '<div class="eg-sec"><div class="eg-uc">' + esc(t('q1_title_decision')) + '</div>' + headline + kBlock + holidayNote + enjeuBlock()
       + (chartArea ? '<div style="margin-top:16px;">' + chartArea + '</div>' : '') + '</div>';
 
     var q3 = advice.length ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('q3_title')) + '</div>' + adviceHtml(advice) + '</div>' : '';
-    var q4 = captureHtml(cm, open);
+    var q4 = captureHtml(cm);
 
     // ── Diagnostic + advice — shown only when UNDER-performing (open below goal, or resolved missed).
     // Contexte externe = surfaced from the per-day series + measured weather assoc (confidence via n);
@@ -1294,36 +1405,30 @@
       return '<button type="button" data-move="' + m + '" style="display:block;width:100%;text-align:left;box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;"><div style="font-size:14px;font-weight:500;color:#111827;">' + esc(title) + rec + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.5;margin-top:2px;">' + esc(desc) + '</div>' + track + '</button>';
     };
 
-    // ── Diagnosis "pourquoi" — ONLY when under objectif (explains the shortfall) ──
-    var _cs = 'background:#fff;border:1px solid #e5e7eb;padding:14px 16px;margin-bottom:10px;';
-    var _hd = function (n, txt, chip) { return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span style="font-size:14px;font-weight:500;color:#111827;">' + n + ' · ' + esc(txt) + '</span>' + (chip ? '<span style="font-size:11px;color:#5f5e5a;background:#f1efe8;padding:2px 8px;">' + esc(chip) + '</span>' : '') + '</div>'; };
-    var diagWhy = '';
-    if (_under) {
+    // ── Contexte externe — le MÊME contenu que l'ancienne carte « 1 · Contexte externe » du
+    // panneau « Pourquoi en-dessous ? », désormais rendu dans « Comprendre le résultat » (il
+    // répond à la même question) et dans LES DEUX états : le contexte explique un bon jour
+    // autant qu'un mauvais. Rien n'est perdu — seule sa place change (owner 28/08).
+    var ctxCard = '';
+    if (received.length) {
       var _wa = ctx && ctx.weather_assoc;
       var _wm = _wa && _wa.cool_n >= 5 && _wa.mild_n >= 5 && _wa.cool_avg != null && _wa.mild_avg != null;
-      diagWhy = '<div class="eg-sec">'
-        + '<div class="eg-uc">' + esc(t('diag_title')) + '</div>'
-        + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:16px;">' + esc(t('diag_intro', { action: (_dAction >= 0 ? '+' : '') + fr(_dAction), goal: _dGoal })) + '</div>'
-        + '<div style="border-left:3px solid #1D3BB3;' + _cs + '">'
-          + _hd('1', t('diag_ext_title'), t('diag_ext_chip_obs'))
-          + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">' + (_notable ? esc(_bits.join(' · ') + '.') : esc(t('diag_ext_none'))) + '</div>'
-          + (_wm ? '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-top:6px;">' + esc(t('diag_ext_weather_meas', { cool: intfr(Math.round(_wa.cool_avg)), mild: intfr(Math.round(_wa.mild_avg)) })) + ' <span style="font-size:11px;color:#1D3BB3;">' + esc(t('diag_ext_chip_meas')) + '</span></div>' : '')
-          + '<div style="font-size:12.5px;line-height:1.5;margin-top:6px;color:' + (_notable ? '#92610a' : '#059669') + ';">' + esc(_notable ? t('diag_ext_partial') : t('diag_ext_calm')) + '</div>'
-        + '</div>'
-        + '<div style="border-left:3px solid #92610a;' + _cs + '">'
-          + _hd('2', t('diag_exec_title'), '')
-          + '<div style="font-size:13px;color:#374151;line-height:1.55;margin:8px 0 10px;">' + esc(t('diag_exec_q')) + '</div>'
-          + '<div style="display:flex;gap:8px;">'
-            + '<button type="button" data-exec="complete" style="' + doneBtnStyle(_execQ === 'complete') + '">' + esc(t('diag_exec_yes')) + '</button>'
-            + '<button type="button" data-exec="partial" style="' + doneBtnStyle(_execQ === 'partial') + '">' + esc(t('diag_exec_partial')) + '</button>'
-            + '<button type="button" data-exec="none" style="' + doneBtnStyle(_execQ === 'none') + '">' + esc(t('diag_exec_no')) + '</button>'
-          + '</div>'
-        + '</div>'
-        + '<div style="border-left:3px solid #6B7280;' + _cs + 'margin-bottom:0;">'
-          + _hd('3', t('diag_lever_title'), '')
-          + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">' + esc(t('diag_lever_body')) + '</div>'
-        + '</div>'
-      + '</div>';
+      ctxCard = '<div style="font-size:13px;color:#374151;line-height:1.55;">' + (_notable ? esc(_bits.join(' · ') + '.') : esc(t('diag_ext_none'))) + '</div>'
+        + (_wm ? '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-top:6px;">' + esc(t('diag_ext_weather_meas', { cool: intfr(Math.round(_wa.cool_avg)), mild: intfr(Math.round(_wa.mild_avg)) })) + ' <span style="font-size:11px;color:#1D3BB3;">' + esc(t('diag_ext_chip_meas')) + '</span></div>' : '')
+        + '<div style="font-size:12.5px;line-height:1.5;margin-top:6px;color:' + (_notable ? '#92610a' : '#059669') + ';">' + esc(_notable ? t('diag_ext_partial') : t('diag_ext_calm')) + '</div>';
+    }
+    // Exécution — le même auto-diagnostic (data-exec, câblage inchangé), rapatrié DANS
+    // « Ajuster le dispositif » : il ne décrit pas le résultat, il route le move recommandé.
+    var execCard = '';
+    if (open && _under) {
+      execCard = '<div style="background:#fff;border:1px solid #e5e7eb;border-left:3px solid #92610a;padding:14px 16px;margin-bottom:12px;">'
+        + '<div style="font-size:14px;font-weight:500;color:#111827;">' + esc(t('diag_exec_title')) + '</div>'
+        + '<div style="font-size:13px;color:#374151;line-height:1.55;margin:8px 0 10px;">' + esc(t('diag_exec_q')) + '</div>'
+        + '<div style="display:flex;gap:8px;">'
+          + '<button type="button" data-exec="complete" style="' + doneBtnStyle(_execQ === 'complete') + '">' + esc(t('diag_exec_yes')) + '</button>'
+          + '<button type="button" data-exec="partial" style="' + doneBtnStyle(_execQ === 'partial') + '">' + esc(t('diag_exec_partial')) + '</button>'
+          + '<button type="button" data-exec="none" style="' + doneBtnStyle(_execQ === 'none') + '">' + esc(t('diag_exec_no')) + '</button>'
+        + '</div></div>';
     }
 
     // ── « La version suivante » (etape 3, 27/08) — le sous-formulaire du re-commit : la V(n+1)
@@ -1340,7 +1445,10 @@
       }
       var inp = 'width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12.5px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;';
       var lab = function (txt) { return '<div style="font-size:12.5px;font-weight:500;color:#374151;margin:12px 0 4px;">' + esc(txt) + '</div>'; };
-      return '<div data-vform style="margin-top:16px;border-top:1px solid #eef1f6;padding-top:14px;">'
+      // REPLIÉ tant qu'aucun move n'est choisi (owner 28/08) : déplié, ce formulaire de dix
+      // champs occupait la moitié de la page avant même qu'on ait décidé quoi que ce soit.
+      // La page le montre au clic sur un move (wireDiag) — le formulaire lui-même est intact.
+      return '<div data-vform style="display:none;margin-top:16px;border-top:1px solid #eef1f6;padding-top:14px;">'
         + '<div style="font-size:13px;font-weight:600;color:#111827;">' + esc(t('vform_title'))
         + (stage ? ' <span style="font-size:11px;color:#374151;background:#f1efe8;padding:2px 8px;margin-left:6px;">' + esc(t('vform_stage')) + ' : ' + stage + '</span>' : '') + '</div>'
         + lab(t('vform_goal'))
@@ -1366,6 +1474,7 @@
         // « Ça marche » ne se dit qu'avec des journées reçues — à J1 (zéro donnée), intro
         // neutre (bug attrapé par la harness J1 26/07 : verdict fabriqué sans données).
         + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:12px;">' + esc((_under || !received.length) ? t('diag_move_intro') : t('move_intro_ontrack')) + '</div>'
+        + execCard
         + _mc('poursuivre', t('move_poursuivre'), t('move_poursuivre_d'))
         + _mc('doubler', t('move_doubler'), t('move_doubler_d'))
         + _mc('pivoter', t('move_pivoter'), t('move_pivoter_d'))
@@ -1422,7 +1531,15 @@
           }).join('')
         + '</div>';
     }
-    return head + q1 + lineageB + diagWhy + (_under ? '' : q3) + moveForm + bicRef + q4 + sources;
+    // ── LES DEUX ÉTATS (owner 28/08) ────────────────────────────────────────────────────
+    // EN COURS — la page PILOTE : ce que le dispositif est → où il en est → d'où vient
+    //   l'écart → quoi ajuster. Aucun feedback ici (le rail refuse déjà le rétro avant
+    //   résolution : la page dit enfin la même chose que la mécanique).
+    // TERMINÉE — la page CONCLUT : le verdict → d'où il vient → ce qui a été fait →
+    //   Documenter → la suite (conseils, historique, dispositifs comparables).
+    var shapeB = shapeBlock(data.shape || null, ctxCard, received.length, series.length);
+    if (open) return head + dispoBlock(cm, true) + q1 + shapeB + moveForm + bicRef + lineageB + sources;
+    return head + q1 + shapeB + dispoBlock(cm, false) + q4 + q3 + lineageB + bicRef + sources;
   }
 
 

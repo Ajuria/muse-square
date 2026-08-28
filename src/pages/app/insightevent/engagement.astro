@@ -40,7 +40,7 @@ const id = Astro.url.searchParams.get("id") || "";
 
     <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/commit-form.js?v=14"></script>
-    <script is:inline src="/card-kit.js?v=62"></script>
+    <script is:inline src="/card-kit.js?v=66"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -65,7 +65,32 @@ const id = Astro.url.searchParams.get("id") || "";
           var cm = data.commitment, open = cm.status === "open", advice = data.advice || [];
           wireAdvice(cm, advice);
           wireCapture(cm, open);
+          wireDispo(cm);
           wireDiag(cm);
+        }
+
+        // Description du dispositif (deux états, owner 28/08) — éditable tant que l'opération
+        // court. MÊME endpoint que le reste du dispositif (POST /disposition), note seule.
+        function wireDispo(cm) {
+          var form = docEl.querySelector("[data-dispo-form]"), read = docEl.querySelector("[data-dispo-read]");
+          var edit = docEl.querySelector("[data-dispo-edit]"), cancel = docEl.querySelector("[data-dispo-cancel]");
+          var save = docEl.querySelector("[data-dispo-save]");
+          if (!form || !save) return;
+          var show = function (on) { form.style.display = on ? "block" : "none"; if (read) read.style.display = on ? "none" : "block"; };
+          if (edit) edit.addEventListener("click", function () { show(true); });
+          if (cancel) cancel.addEventListener("click", function () { show(false); });
+          save.addEventListener("click", function () {
+            var msg = docEl.querySelector("[data-dispo-msg]"), ta = docEl.querySelector("[data-dispo-note]");
+            save.disabled = true; save.textContent = "…";
+            fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, dispositif_note: (ta && ta.value) || "" }) })
+              .then(function (r) { return r.json(); })
+              .then(function (j) {
+                save.disabled = false; save.textContent = t("save");
+                if (j && j.ok) { if (msg) { msg.style.color = "#166534"; msg.textContent = t("saved"); } setTimeout(load, 400); }
+                else if (msg) { msg.style.color = "#b91c1c"; msg.textContent = "Erreur"; }
+              })
+              .catch(function () { save.disabled = false; save.textContent = t("save"); if (msg) { msg.style.color = "#b91c1c"; msg.textContent = "Erreur"; } });
+          });
         }
 
         // Diagnostic panel — execution self-check (ephemeral highlight) + "Ajuster / Renforcer" which
@@ -143,14 +168,11 @@ const id = Astro.url.searchParams.get("id") || "";
           });
         }
 
+        // Documenter — ne se câble QUE sur une opération terminée (owner 28/08 : le feedback
+        // n'existe pas avant la fin). Le bloc « Action menée ? » a quitté la page avec son
+        // câblage : plus de doneState ici, l'endpoint /disposition garde le geste (Slack).
         function wireCapture(cm, open) {
-          var doneState = { v: cm.action_done_status || null };
-          docEl.querySelectorAll("[data-done]").forEach(function (b) {
-            b.addEventListener("click", function () {
-              doneState.v = b.getAttribute("data-done");
-              docEl.querySelectorAll("[data-done]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x === b)); });
-            });
-          });
+          if (open) return;
           // Documenter (Spec 2) — "À reproduire ?" oui/non toggle (resolved state).
           var repeatState = { v: cm.retro_repeat === true ? "oui" : cm.retro_repeat === false ? "non" : null };
           docEl.querySelectorAll("[data-retro-repeat]").forEach(function (b) {
@@ -169,19 +191,12 @@ const id = Astro.url.searchParams.get("id") || "";
             var msg = docEl.querySelector("[data-cap-msg]"); save.disabled = true; save.textContent = "…";
             // On success, reload → the page re-renders in read mode with the saved values.
             var done = function (ok) { save.disabled = false; save.textContent = t("save"); if (msg) { msg.textContent = ok ? t("saved") : "Erreur"; msg.style.color = ok ? "#166534" : "#b91c1c"; } if (ok) setTimeout(load, 400); };
-            if (open) {
-              var disp = (docEl.querySelector("[data-dispositif]") || {}).value || "";
-              if (!doneState.v) { done(false); return; }
-              fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, action_done_status: doneState.v, dispositif_note: disp }) })
-                .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
-            } else {
-              var worked = (docEl.querySelector("[data-retro-worked]") || {}).value || "";
-              var change = (docEl.querySelector("[data-retro-change]") || {}).value || "";
-              var payload = { commitment_id: cm.commitment_id, location_id: cm.location_id, retro_worked: worked, retro_change: change };
-              if (repeatState.v) payload.retro_repeat = (repeatState.v === "oui");
-              fetch("/api/commitments/retro", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
-                .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
-            }
+            var worked = (docEl.querySelector("[data-retro-worked]") || {}).value || "";
+            var change = (docEl.querySelector("[data-retro-change]") || {}).value || "";
+            var payload = { commitment_id: cm.commitment_id, location_id: cm.location_id, retro_worked: worked, retro_change: change };
+            if (repeatState.v) payload.retro_repeat = (repeatState.v === "oui");
+            fetch("/api/commitments/retro", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
+              .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
           });
         }
 

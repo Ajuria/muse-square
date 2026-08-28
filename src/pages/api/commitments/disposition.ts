@@ -30,8 +30,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
     const hasDone = body.action_done_status != null;
     const hasExec = body.execution_quality != null;
-    if (!hasDone && !hasExec) {
-      return json({ ok: false, error: "Champ requis : action_done_status ou execution_quality" }, 400);
+    // La Description du dispositif s'enregistre SEULE depuis la page Opération (owner 28/08) :
+    // elle décrit le dispositif, pas son exécution — l'exiger avec un statut la rendrait
+    // insaisissable tant que l'action n'est pas menée.
+    const hasNote = body.dispositif_note != null;
+    if (!hasDone && !hasExec && !hasNote) {
+      return json({ ok: false, error: "Champ requis : action_done_status, execution_quality ou dispositif_note" }, 400);
     }
     const doneStatus = hasDone ? String(body.action_done_status).trim() : null;
     if (hasDone && !DONE_STATUSES.has(doneStatus!)) {

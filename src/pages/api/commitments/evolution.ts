@@ -13,6 +13,7 @@ import { readLatestSnapshot } from "../../../lib/actionCommitments";
 import { buildPoleReading } from "../../../lib/poleReading";
 import { commitmentEffect } from "../../../lib/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
+import { buildWindowShape } from "../../../lib/commitmentShape";
 import { getBestInClassPlays, leverForActionType } from "../../../lib/bestInClassStore";
 
 export const prerender = false;
@@ -226,6 +227,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
              `FROM \`${RESIDUAL}\` WHERE location_id=@loc AND date BETWEEN @minD AND @maxD`,
       params: { loc: snap.location_id, minD: bq.date(minD), maxD: bq.date(maxD) }, location: "EU",
     });
+    // « Comprendre le résultat » (owner 28/08) — AMORCÉE ici, ATTENDUE au retour : la lecture
+    // part des jours RÉELLEMENT mesurés (rrows) et tourne en parallèle des vagues suivantes,
+    // donc n'ajoute rien au chemin séquentiel (budget 3 s).
+    const shapeP = buildWindowShape(bq, {
+      location_id: String(snap.location_id),
+      measured_dates: (rrows as any[]).map((r) => String(flat(r.date))),
+      window_start: minD,
+    }).catch(() => null);
+
     const [crows] = await bq.query({
       query: `SELECT CAST(date AS STRING) AS date, is_school_holiday_flag, impact_weather_pct, event_count_region, tourism_index_region ` +
              `FROM \`${CTX}\` WHERE location_id=@loc AND date BETWEEN @minD AND @maxD`,
@@ -344,7 +354,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // chaîne compte plus d'une version : une V1 seule n'a pas d'historique à raconter.
     const lineage = await buildLineage(bq, snap);
 
-    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, ...extras });
+    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, shape: await shapeP, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);

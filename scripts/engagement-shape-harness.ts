@@ -1,0 +1,91 @@
+// scripts/engagement-shape-harness.ts — harnais du module « Comprendre le résultat ».
+// Tire les VRAIS engagements du compte owner (f10c3e58) et vérifie les invariants qui
+// font la valeur de la lecture. Le premier est le contrat de non-dissonance relevé par
+// l'owner : la somme des écarts de forme vaut ZÉRO, la somme des contributions
+// achats/panier vaut EXACTEMENT le gap de l'en-tête.
+//   npx tsx scripts/engagement-shape-harness.ts
+import { makeBQClient } from "../src/lib/bq";
+import { readLatestSnapshot } from "../src/lib/actionCommitments";
+import { buildWindowShape, comparableDates } from "../src/lib/commitmentShape";
+
+const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
+const OPEN_ID = "2d99694a-17fa-4486-92e1-548ce588e1f5";   // vacances scolaires, 7 j ouverts
+const DONE_ID = "49a325dd-b06f-4cbc-982f-7ab71af70b12";   // Corner producteur, jour même résolu
+
+let pass = 0, fail = 0;
+function ok(label: string, cond: boolean, detail?: unknown) {
+  if (cond) { pass++; console.log(`  ✓ ${label}`); }
+  else { fail++; console.log(`  ✗ ${label}`, detail !== undefined ? JSON.stringify(detail) : ""); }
+}
+
+function measuredDatesOf(bq: any, snap: any): Promise<string[]> {
+  const ws = String((snap.window_start as any)?.value ?? snap.window_start).slice(0, 10);
+  const we = String((snap.window_end as any)?.value ?? snap.window_end).slice(0, 10);
+  return bq.query({
+    query: `SELECT CAST(date AS STRING) d FROM \`muse-square-open-data.semantic.vw_insight_event_day_residual\`
+            WHERE location_id=@l AND date BETWEEN @a AND @b ORDER BY 1`,
+    params: { l: snap.location_id, a: bq.date(ws), b: bq.date(we) }, location: "EU",
+  }).then((r: any) => (r[0] || []).map((x: any) => String(x.d?.value ?? x.d)));
+}
+
+(async () => {
+  const bq: any = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+
+  console.log("\n— Phase 1 : jours comparables (pur, sans BQ) —");
+  const cmp = comparableDates(["2026-08-27"], "2026-08-27");
+  ok("4 jeudis précédents", cmp.length === 4, cmp);
+  ok("tous strictement avant l'opération", cmp.every((d) => d < "2026-08-27"), cmp);
+  ok("tous un jeudi", cmp.every((d) => new Date(d + "T00:00:00Z").getUTCDay() === 4), cmp);
+  ok("aucun jour de l'opération dans sa référence", !cmp.includes("2026-08-27"));
+
+  for (const [label, id] of [["OUVERTE (vacances scolaires)", OPEN_ID], ["TERMINÉE (Corner producteur)", DONE_ID]] as const) {
+    console.log(`\n— Phase 2 : ${label} —`);
+    const snap: any = await readLatestSnapshot(bq, id);
+    if (!snap) { ok("snapshot lu", false, id); continue; }
+    const ws = String(snap.window_start?.value ?? snap.window_start).slice(0, 10);
+    const measured = await measuredDatesOf(bq, snap);
+    const shape = await buildWindowShape(bq, { location_id: LOC, measured_dates: measured, window_start: ws });
+    if (!shape) { ok("lecture rendue", false, { measured }); continue; }
+    console.log("   " + JSON.stringify({
+      ref_days: shape.ref_days, measured_days: shape.measured_days, notable_days: shape.notable_days,
+      actual: shape.actual_eur, expected: shape.expected_eur,
+      best_run: shape.best_run, worst_run: shape.worst_run,
+      families: shape.families.length, volume: shape.volume,
+    }));
+
+    ok("jours comparables trouvés", shape.ref_days >= 2, shape.ref_days);
+    ok("jours mesurés = jours de la série", shape.measured_days === measured.length, { s: shape.measured_days, m: measured.length });
+
+    // INVARIANT 1 — forme : les écarts se compensent (aucun niveau ne peut contredire l'en-tête).
+    const hSum = shape.hours.reduce((s, x) => s + (x.rev - x.ref), 0);
+    ok("heures : somme des écarts ≈ 0", Math.abs(hSum) <= Math.max(2, shape.hours.length), hSum);
+    const fSum = shape.families.reduce((s, x) => s + x.delta, 0);
+    ok("familles : somme des écarts ≈ 0", Math.abs(fSum) <= Math.max(2, shape.families.length), fSum);
+
+    // INVARIANT 2 — achats/panier : la somme des contributions EST le gap de l'en-tête.
+    if (shape.volume && shape.actual_eur != null && shape.expected_eur != null) {
+      const gap = shape.actual_eur - shape.expected_eur;
+      const sum = shape.volume.contrib_tx_eur + shape.volume.contrib_basket_eur;
+      ok("achats + panier = écart de l'en-tête", Math.abs(sum - gap) <= 3, { sum, gap });
+      ok("moteur = la plus grosse contribution",
+        (Math.abs(shape.volume.contrib_tx_eur) >= Math.abs(shape.volume.contrib_basket_eur)) === (shape.volume.driver === "tx"),
+        shape.volume);
+    } else ok("achats/panier : absence honnête assumée", shape.volume === null, shape.volume);
+
+    // INVARIANT 3 — la tranche horaire sort des données, jamais d'une heure en dur.
+    if (shape.best_run) {
+      ok("tranche haute contiguë et positive", shape.best_run.from_hour <= shape.best_run.to_hour && shape.best_run.shift_eur > 0, shape.best_run);
+      ok("part de la tranche entre 0 et 100 %", shape.best_run.share_pct > 0 && shape.best_run.share_pct <= 100, shape.best_run);
+    }
+    ok("aucune famille vide", shape.families.every((f) => f.family.trim().length > 0));
+  }
+
+  console.log(`\n— Phase 3 : absence honnête —`);
+  const noRef = await buildWindowShape(bq, { location_id: LOC, measured_dates: ["2026-08-27"], window_start: "1900-01-01" });
+  ok("aucun jour comparable → null", noRef === null, noRef);
+  const noDay = await buildWindowShape(bq, { location_id: LOC, measured_dates: [], window_start: "2026-08-27" });
+  ok("aucun jour mesuré → null", noDay === null, noDay);
+
+  console.log(`\n${pass} vert · ${fail} rouge`);
+  process.exit(fail ? 1 : 0);
+})();

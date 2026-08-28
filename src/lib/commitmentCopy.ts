@@ -212,6 +212,42 @@ export const EVOL_COPY = {
   diag_capitalise_title: "Capitaliser",
   diag_capitalise_body: "Ce que vous ajustez — et son résultat — rejoint votre Bilan. La mémoire du lieu, réutilisable la prochaine fois.",
 
+  // ── Les DEUX états de la page (owner 28/08) — « Opération en cours » pilote, « Opération
+  // terminée » conclut. Le feedback (Documenter) n'existe que dans le second : c'est déjà la
+  // règle du rail (le rétro est refusé avant résolution), la page la reflète enfin.
+  state_open: "En cours · verdict d’ici le {date}",
+  state_done: "Terminée · {date}",
+  state_dates: "Dates de l’opération : du {start} au {end}",
+  dispo_title: "Votre dispositif",
+  dispo_note_label: "Description du dispositif",
+  dispo_note_ph: "Ce que l’opération fait au quotidien",
+  dispo_none: "Pas encore renseigné.",
+
+  // ── « Comprendre le résultat » (owner 28/08) — la lecture qui manquait : d'où vient
+  // l'écart, pour pouvoir pivoter au lieu de subir le verdict. UN SEUL référentiel de niveau
+  // (celui de l'en-tête) : heures et familles se lisent en PART de la journée, achats/panier
+  // se décompose contre le résultat habituel et somme exactement à son écart.
+  shape_title: "Comprendre le résultat",
+  shape_intro: "{n} sur {total} jours mesurés — le niveau se lit en haut, ici se lit ce qui a bougé dans la journée.",
+  shape_ref_note: "Comparaison à vos {n} mêmes jours de semaine précédents.",
+  shape_hours_title: "Quels moments",
+  shape_hours_lead: "La tranche {from} h–{to} h prend plus de place : {share} % du CA, contre {ref} % d’habitude.",
+  shape_hours_shift: "Soit {eur} € déplacés vers ce créneau — le reste de la journée en fait autant de moins.",
+  shape_hours_note: "Barres : le CA par heure · trait : la même journée répartie comme vos jours comparables.",
+  shape_fams_title: "Performance des produits vendus",
+  shape_fams_note: "Les {n} familles de votre caisse. Les écarts se compensent : c’est la part de chaque famille qui bouge.",
+  shape_fams_ref: "{eur} € · sa part habituelle : {ref} €",
+  shape_vol_title: "Achats ou panier ?",
+  shape_vol_tx: "{tx} achats, contre {ref} pour ce résultat habituel",
+  shape_vol_basket: "panier moyen {b} €, contre {ref} €",
+  shape_vol_opposed: "{up} — {down}. Les deux se compensent : c’est ce qui tient l’écart du jour à {gap}.",
+  shape_vol_same: "{first}, et {second} : les deux vont dans le même sens.",
+  shape_vol_driver_tx: "Le nombre d’achats pèse le plus ({eur} €).",
+  shape_vol_driver_basket: "Le panier moyen pèse le plus ({eur} €).",
+  shape_vol_none: "Dès qu’une journée s’écartera nettement de votre résultat habituel, la réponse s’affichera ici.",
+  shape_ctx_title: "Contexte externe",
+  shape_none: "Pas encore de journée mesurée — la lecture s’ouvre dès la première.",
+
   // ── ④ Action menée & retour ──
   q4_title: "Action menée & retour",
   done_question: "Action menée ?",
