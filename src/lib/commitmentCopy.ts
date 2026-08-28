@@ -263,6 +263,7 @@ export const EVOL_COPY = {
   // Le sous-titre ne décrit plus l'ordre de tri (« blabla ») : il dit ce qu'on peut faire.
   shape_fams_note: "Ouvrez une famille pour voir les produits qui la font bouger.",
   shape_fams_ref: "{eur} € · sa part habituelle : {ref} €",
+  shape_fams_ref_tip: "Ce que cette famille pèse un jour ordinaire : sa part de vos ventes, appliquée à votre résultat habituel du jour.",
   // Le cran produit : une famille se déplie sur ses articles, même lecture en part.
   shape_prod_ref: "{eur} € · habituel {ref} €",
   shape_prod_rest: "{n} autres produits de la famille : {eur} € au total.",

@@ -134,7 +134,8 @@ async function payload(id: string): Promise<any> {
     // (le simple motif <details><summary> matchait le « Comment faire ? » des dispositifs
     // comparables — faux vert attrapé à la mutation, assertion resserrée).
     ok("familles dépliables sur leurs produits",
-      /<details[^>]*><summary[^>]*>[\s\S]{0,400}?border-left:2px solid #eef1f6/.test(out) && out.includes("· habituel "));
+      /<details[^>]*><summary[^>]*>[\s\S]{0,1200}?border-left:2px solid #eef1f6/.test(out)
+      && /border-left:2px solid #eef1f6[\s\S]{0,600}?· habituel /.test(out));
     ok("aucun câblage JS pour le dépliage", !/data-fam-toggle|data-prod-/.test(out));
     // Titre NEUTRE (owner 28/08 : « D'où vient la fluctuation » présuppose qu'il y en a une).
     ok("carte « Décomposition des ventes » présente", out.includes("Décomposition des ventes"));
@@ -202,6 +203,12 @@ async function payload(id: string): Promise<any> {
     ok("le partage vacances vit dans l'infobulle, pas dans le texte visible",
       !/Situation [+−]?[0-9]/.test(out.replace(/title="[^"]*"/g, "")) && /title="[^"]*Situation [+−][0-9]/.test(out));
     ok("titres de carte en encre", !/text-transform:uppercase;color:#6b7280/.test(out));
+    // Lisibilité (owner 28/08, deux relances) : plus de gris clair dans cette page.
+    ok("aucun gris clair (#9ca3af) dans le rendu", !/#9ca3af|#9CA3AF/.test(out),
+      (out.match(/color:#9ca3af;[^"]*">[^<]{0,40}/g) || []).slice(0, 3));
+    // Chaque comparaison porte son ⓘ : le référentiel se dit sur la ligne, le détail au survol.
+    ok("ⓘ sur les lignes de la décomposition", /Nombre d\u2019achats[\s\S]{0,300}?title="Vos \d+ derniers/.test(out));
+    ok("ⓘ sur les lignes de familles", /sa part habituelle[\s\S]{0,120}?title="Ce que cette famille/.test(out));
     ok("le porteur est mis en avant (initiales + nom)", out.includes("Porté par") && /border-radius:50%;background:#1D3BB3/.test(out));
     ok("jours d'axe en toutes lettres (règle 6)", !/>\s*(lun|mar|mer|jeu|ven|sam|dim)\s\d{2}\//.test(out));
 

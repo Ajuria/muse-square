@@ -733,7 +733,7 @@
         var taStyle = 'width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;margin-bottom:14px;';
         var qStyle = 'font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;';
         var rep = cm.retro_repeat;
-        inner = '<div style="font-size:12px;color:#9ca3af;margin-bottom:14px;line-height:1.5;">' + esc(t('doc_hint')) + '</div>'
+        inner = '<div style="font-size:12px;color:#374151;margin-bottom:14px;line-height:1.5;">' + esc(t('doc_hint')) + '</div>'
           + '<div style="' + qStyle + '">' + esc(t('retro_worked_q')) + '</div>'
           + '<textarea data-retro-worked placeholder="' + esc(t('retro_worked_ph')) + '" style="' + taStyle + '">' + esc(cm.retro_worked || '') + '</textarea>'
           + '<div style="' + qStyle + '">' + esc(t('retro_change_q')) + '</div>'
@@ -800,7 +800,7 @@
         + (goalPct != null ? '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="4,3"/></svg>objectif +' + fr(goalPct) + ' %</span>' : '')
         + '</div>';
       return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">' + s + '</svg>' + legend
-        + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('chart_note')) + '</div>';
+        + '<div style="font-size:11px;color:#374151;margin-top:5px;">' + esc(t('chart_note')) + '</div>';
     }
 
     // Le DISPOSITIF — ce que l'opération est, avant ce qu'elle donne. Les champs existaient
@@ -808,7 +808,7 @@
     function dispoBlock(cm, open) {
       var row = function (lab, val) {
         return '<div><div style="font-size:12px;font-weight:600;color:#6b7280;">' + esc(lab) + '</div>'
-          + '<div style="font-size:13px;line-height:1.5;margin-top:3px;white-space:pre-wrap;color:' + (val ? '#111827' : '#9ca3af') + ';">' + esc(val || t('dispo_none')) + '</div></div>';
+          + '<div style="font-size:13px;line-height:1.5;margin-top:3px;white-space:pre-wrap;color:' + (val ? '#111827' : '#374151') + ';">' + esc(val || t('dispo_none')) + '</div></div>';
       };
       var pairs = [];
       if (cm.dispositif_plus) pairs.push(row(t('vform_plus'), cm.dispositif_plus));
@@ -818,7 +818,7 @@
       // La description est ÉDITABLE tant que l'opération court (POST /disposition, note seule).
       var note = cm.dispositif_note || '';
       var noteBlock = '<div style="margin-bottom:14px;"><div style="font-size:12px;font-weight:600;color:#6b7280;">' + esc(t('dispo_note_label')) + '</div>'
-        + '<div data-dispo-read style="font-size:13px;line-height:1.5;margin-top:3px;white-space:pre-wrap;color:' + (note ? '#111827' : '#9ca3af') + ';">' + esc(note || t('dispo_none'))
+        + '<div data-dispo-read style="font-size:13px;line-height:1.5;margin-top:3px;white-space:pre-wrap;color:' + (note ? '#111827' : '#374151') + ';">' + esc(note || t('dispo_none'))
         + (open ? ' <button type="button" data-dispo-edit style="font-size:11.5px;font-weight:600;color:#1D3BB3;background:none;border:none;cursor:pointer;font-family:inherit;padding:0;">' + esc(t('edit')) + '</button>' : '') + '</div>'
         + (open ? '<div data-dispo-form style="display:none;margin-top:6px;">'
             + '<textarea data-dispo-note placeholder="' + esc(t('dispo_note_ph')) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;">' + esc(note) + '</textarea>'
@@ -848,7 +848,11 @@
       var cardTitle = function (txt) { return '<div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#111827;margin-bottom:8px;">' + esc(txt) + '</div>'; };
       var lead = function (txt) { return '<div style="font-size:13.5px;font-weight:600;color:#111827;line-height:1.5;">' + esc(txt) + '</div>'; };
       var body = function (txt) { return '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:4px;">' + esc(txt) + '</div>'; };
-      var note = function (txt) { return '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(txt) + '</div>'; };
+      var note = function (txt) { return '<div style="font-size:11.5px;color:#374151;margin-top:5px;">' + esc(txt) + '</div>'; };
+      // Le ⓘ de ligne : chaque comparaison porte son référentiel et son détail au survol.
+      var info = function (tip) {
+        return ' <span title="' + esc(tip) + '" style="cursor:help;border:1px solid #d1d5db;color:#374151;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;vertical-align:middle;">i</span>';
+      };
       // Une seule journée mesurée : la référence se dit avec le NOM du jour (« vos quatre
       // derniers jeudis »), comme l'exploitant le dit. Plusieurs journées : chacune a sa
       // propre référence, on annonce les semaines.
@@ -882,10 +886,14 @@
             ? t('shape_vol_lead_2', { f1: fs[0].lib, f2: fs[1].lib })
             : t('shape_vol_lead_1', { f: fs[0].lib }));
           // Puis les trois lignes, chacune avec sa valeur, sa référence et son écart.
+          var tipRef = t('shape_vol_caption_tip', {
+            n: v.ref.length, jour: jourRef,
+            dates: v.ref.map(function (p2) { return msDateFr(p2.date); }).join(', '),
+          });
           var ligne = function (lab, val, ref, pct2) {
             return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #f5f6f8;font-size:13px;">'
               + '<span style="min-width:0;"><span style="font-weight:600;color:#111827;">' + esc(lab) + '</span>'
-              + '<span style="display:block;color:#6b7280;font-size:11.5px;margin-top:1px;">' + esc(t('shape_vol_val', { v: val, ref: ref })) + '</span></span>'
+              + '<span style="display:block;color:#374151;font-size:11.5px;margin-top:1px;">' + esc(t('shape_vol_val', { v: val, ref: ref })) + info(tipRef) + '</span></span>'
               + '<span style="font-weight:600;white-space:nowrap;color:' + (pct2 != null && pct2 < 0 ? '#B45309' : '#0F6E56') + ';">' + pc(pct2) + '</span></div>';
           };
           h += '<div style="margin-top:10px;">'
@@ -894,11 +902,6 @@
             + ligne(t('shape_vol_l_price'), eu2(v.price_avg), eu2(v.ref_price_avg), v.price_pct)
             + '</div>'
             + '<div style="font-size:12.5px;color:#111827;margin-top:10px;font-weight:600;">' + esc(t('shape_vol_total', { pct: pc(v.total_pct) })) + '</div>'
-            + '<div style="font-size:11px;color:#6b7280;margin-top:6px;">' + esc(t('shape_vol_caption'))
-              + ' <span title="' + esc(t('shape_vol_caption_tip', {
-                  n: v.ref.length, jour: jourRef,
-                  dates: v.ref.map(function (p2) { return msDateFr(p2.date); }).join(', '),
-                })) + '" style="cursor:help;border:1px solid #e5e7eb;border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;">i</span></div>'
             + note(t('shape_vol_types'));
         } else {
           h += body(t('shape_vol_none'));
@@ -921,12 +924,12 @@
         var eurSigned = function (v, colr) {
           return '<span style="font-weight:600;white-space:nowrap;color:' + colr + ';">' + (v > 0 ? '+' : (v < 0 ? '−' : '')) + intfr(Math.abs(v)) + ' €</span>';
         };
-        var deltaCol = function (v) { return v > 0 ? '#0F6E56' : (v < 0 ? '#B45309' : '#9ca3af'); };
+        var deltaCol = function (v) { return v > 0 ? '#0F6E56' : (v < 0 ? '#B45309' : '#374151'); };
         h += '<div style="' + card + '">' + cardTitle(t('shape_fams_title'))
           + note(t('shape_fams_note', { n: shape.families.length })).replace('margin-top:5px', 'margin:0 0 8px')
           + shape.families.map(function (f) {
               var refLigne = (f.rev == null || f.ref == null) ? ''
-                : '<span style="display:block;color:#9ca3af;font-size:11.5px;margin-top:1px;">' + esc(t('shape_fams_ref', { eur: intfr(f.rev), ref: intfr(f.ref) })) + '</span>';
+                : '<span style="display:block;color:#374151;font-size:11.5px;margin-top:1px;">' + esc(t('shape_fams_ref', { eur: intfr(f.rev), ref: intfr(f.ref) })) + info(t('shape_fams_ref_tip')) + '</span>';
               var rowInner = '<span style="min-width:0;"><span style="font-weight:600;color:#111827;">' + esc(f.family) + '</span>'
                 + refLigne + '</span>'
                 + eurSigned(f.delta, deltaCol(f.delta));
@@ -938,13 +941,13 @@
                 + '<div style="padding:2px 0 10px 14px;border-left:2px solid #eef1f6;margin:0 0 4px 2px;">'
                 + prods.map(function (p2) {
                     var pRef = (p2.rev == null || p2.ref == null) ? ''
-                      : '<span style="color:#9ca3af;font-size:11px;"> · ' + esc(t('shape_prod_ref', { eur: intfr(p2.rev), ref: intfr(p2.ref) })) + '</span>';
+                      : '<span style="color:#374151;font-size:11px;"> · ' + esc(t('shape_prod_ref', { eur: intfr(p2.rev), ref: intfr(p2.ref) })) + '</span>';
                     return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:4px 0;font-size:12.5px;">'
                       + '<span style="min-width:0;color:#374151;">' + esc(p2.name) + pRef + '</span>'
                       + eurSigned(p2.delta, deltaCol(p2.delta)) + '</div>';
                   }).join('')
                 + (f.products_total > prods.length
-                    ? '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('shape_prod_rest', {
+                    ? '<div style="font-size:11.5px;color:#374151;margin-top:5px;">' + esc(t('shape_prod_rest', {
                         n: f.products_total - prods.length,
                         eur: (f.products_hidden_eur >= 0 ? '+' : '−') + intfr(Math.abs(f.products_hidden_eur)),
                       })) + '</div>'
@@ -1017,11 +1020,11 @@
       }
       h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_reading_title')) + '</div>'
         + ptLine
-        + '<div style="font-size:11px;color:#9CA3AF;margin-bottom:8px;">' + esc(t2('pole_reading_caption')) + '</div>'
+        + '<div style="font-size:11px;color:#374151;margin-bottom:8px;">' + esc(t2('pole_reading_caption')) + '</div>'
         + (pr.families || []).map(function (fr2) {
             var right = fr2.delta_pct != null
               ? '<span style="font-size:13px;font-weight:600;color:' + (fr2.delta_pct >= 0 ? '#0F6E56' : '#B45309') + ';">' + pPct(fr2.delta_pct) + '</span>'
-              : '<span title="' + esc(t2('pole_reading_thin_tip', { n30: fr2.n30 })) + '" style="font-size:11px;color:#9CA3AF;cursor:help;">' + esc(t2('pole_reading_thin')) + ' \u24d8</span>';
+              : '<span title="' + esc(t2('pole_reading_thin_tip', { n30: fr2.n30 })) + '" style="font-size:11px;color:#374151;cursor:help;">' + esc(t2('pole_reading_thin')) + ' \u24d8</span>';
             return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5e7eb;padding:10px 14px;margin-bottom:6px;">'
               + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(fr2.family) + '</span>'
               + '<span style="font-size:12px;color:#6b7280;">' + pEurJ(fr2.avg30_eur_day) + (fr2.base_eur_day != null ? ' · ' + esc(t2('pole_reading_row', { n30: fr2.n30, base: Number(fr2.base_eur_day).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) })) : '') + '</span>'
@@ -1042,7 +1045,7 @@
                 + '<span style="font-size:13px;color:#111827;">' + esc(o.committed_action_text || '') + '</span>'
                 + '<span style="font-size:11.5px;color:#6b7280;white-space:nowrap;">' + esc(when) + ' · ' + esc(st) + '</span></a>';
             }).join('')
-          : '<div style="font-size:12.5px;color:#9CA3AF;">' + esc(t2('pole_ops_none')) + '</div>')
+          : '<div style="font-size:12.5px;color:#374151;">' + esc(t2('pole_ops_none')) + '</div>')
         + '</div>';
       return h;
     }
@@ -1107,7 +1110,7 @@
     // Les dates de l'opération (mot du lexique) — seulement quand la fenêtre couvre plusieurs
     // jours : sur un jour même, le chip d'état les dit déjà.
     var _datesLine = (_wStartIso && _wEndIso && _wStartIso !== _wEndIso)
-      ? '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + esc(t('state_dates', { start: msDateFr(_wStartIso), end: msDateFr(_wEndIso) })) + '</div>'
+      ? '<div style="font-size:12px;color:#374151;margin-top:4px;">' + esc(t('state_dates', { start: msDateFr(_wStartIso), end: msDateFr(_wEndIso) })) + '</div>'
       : '';
     // LE PORTEUR SE VOIT (owner 28/08 : « tu invisibilises l'intrapreneur ! ») : initiales,
     // nom en encre, date en second — au lieu d'une ligne grise de bas de bloc.
@@ -1192,7 +1195,7 @@
         + '<div style="position:relative;height:10px;background:#f0f2f5;">' + _segs
           + '<div style="position:absolute;left:' + _goalM.toFixed(1) + '%;top:-3px;height:16px;width:2px;background:#111827;transform:translateX(-1px);"></div>'
         + '</div>'
-        + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#9ca3af;">'
+        + '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#374151;">'
           + '<span>habituel</span>'
           + '<span><strong style="color:#111827;font-weight:600;">' + (_basePct >= 0 ? '+' : '') + fr(_basePct) + ' %</strong> vs votre résultat habituel</span>'
         + '</div></div>';
@@ -1271,7 +1274,7 @@
       function addDays(iso, n) { var d = new Date(String(iso) + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
       var days = Number(cm.window_days_expected) || 7;
       var startIso = String(cm.window_start || '').slice(0, 10);
-      if (!startIso) return '<div style="font-size:13px;color:#9ca3af;padding:8px 0;">Pas encore assez de journées reçues pour tracer la courbe.</div>';
+      if (!startIso) return '<div style="font-size:13px;color:#374151;padding:8px 0;">Pas encore assez de journées reçues pour tracer la courbe.</div>';
       var dates = []; for (var di = 0; di < days; di++) dates.push(addDays(startIso, di));
       var got = {}; received.forEach(function (d) { got[String(d.date).slice(0, 10)] = true; });
       var n = dates.length, padL = 46, plotW = 706;
@@ -1284,7 +1287,7 @@
         else if (last) svg += '<circle cx="' + x + '" cy="22" r="5" fill="#fff" stroke="#1D3BB3" stroke-width="1.8"/>';
         else svg += '<circle cx="' + x + '" cy="22" r="4" fill="#fff" stroke="#e5e7eb" stroke-width="1.5"/>';
         var lbl = (i === 0 || last) ? dates[i].slice(8, 10) + '/' + dates[i].slice(5, 7) : String(parseInt(dates[i].slice(8, 10), 10));
-        svg += '<text x="' + x + '" y="48" font-size="9" fill="#9ca3af" text-anchor="' + (last ? 'end' : (i === 0 ? 'start' : 'middle')) + '">' + lbl + '</text>';
+        svg += '<text x="' + x + '" y="48" font-size="9" fill="#374151" text-anchor="' + (last ? 'end' : (i === 0 ? 'start' : 'middle')) + '">' + lbl + '</text>';
       }
       svg += '<text x="' + xOf(0).toFixed(1) + '" y="10" font-size="9" fill="#1D3BB3" font-weight="600" text-anchor="start">J1</text>'
         + '<text x="748" y="10" font-size="9" fill="#1D3BB3" font-weight="600" text-anchor="end">verdict</text></svg>';
@@ -1295,7 +1298,7 @@
         + 'votre objectif' + (goalPct != null ? ' (+' + goalPct + ' %)' : '') + '. Verdict le ' + msDateFr(String(cm.window_end || '').slice(0, 10)) + '.';
       return svg
         + '<div style="margin-top:10px;padding:12px 14px;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:10px;font-size:13px;color:#1D3BB3;font-weight:600;line-height:1.5;">' + consigne + '</div>'
-        + '<div style="font-size:11px;color:#9ca3af;margin-top:6px;">Suivi aussi depuis la carte engagement de votre page Pulse → « Consulter l’évolution ».</div>';
+        + '<div style="font-size:11px;color:#374151;margin-top:6px;">Suivi aussi depuis la carte engagement de votre page Pulse → « Consulter l’évolution ».</div>';
     }
     // ── Mesure KPI-vrai (owner 15/08, proto engagement-kpi-proto validé) : jauge demi-cercle
     // tricolore (< habituel rouge · [habituel, objectif[ orange · >= objectif vert) + points
@@ -1307,7 +1310,7 @@
       return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: v < 100 ? 1 : 0, maximumFractionDigits: v < 100 ? 1 : 0 }) + ' \u20ac';
     }
     function kBand(k) {
-      if (k.realized == null) return '#9CA3AF';
+      if (k.realized == null) return '#374151';
       if (k.baseline != null && k.realized < k.baseline) return '#b91c1c';
       if (k.goal != null) return k.realized >= k.goal ? '#059669' : '#B45309';
       return '#059669';
@@ -1339,7 +1342,7 @@
           + (k.baseline != null ? lab(k.baseline, 'habituel ' + kFmt(k.baseline, k.metric), '#6b7280', false) : '')
           + (k.goal != null ? lab(k.goal, 'cible ' + kFmt(k.goal, k.metric), '#1D3BB3', false) : '')
         + '</div>'
-        + '<div style="font-size:11px;color:#9ca3af;margin-top:22px;">' + esc(famLbl2) + '</div></div>';
+        + '<div style="font-size:11px;color:#374151;margin-top:22px;">' + esc(famLbl2) + '</div></div>';
     }
     function kpiChart(k) {
       var pts = k.daily || [];
@@ -1358,20 +1361,20 @@
       for (var g2 = 0; g2 <= ticks; g2++) {
         var val = mn + (mx - mn) * g2 / ticks, y = yOf(val);
         var tick = isPct ? (val * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' %' : Math.round(val).toLocaleString('fr-FR');
-        grid += '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - 8) + '" y2="' + y.toFixed(1) + '" stroke="#eef1f6" stroke-width="1"/><text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" font-size="9" fill="#9ca3af" text-anchor="end">' + tick + '</text>';
+        grid += '<line x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - 8) + '" y2="' + y.toFixed(1) + '" stroke="#eef1f6" stroke-width="1"/><text x="' + (padL - 6) + '" y="' + (y + 3).toFixed(1) + '" font-size="9" fill="#374151" text-anchor="end">' + tick + '</text>';
       }
       var seg = pts.map(function (p2, i) { return xOf(i).toFixed(1) + ',' + yOf(p2.v).toFixed(1); });
       var lbl = '', step = Math.ceil(n / 8);
-      for (var i2 = 0; i2 < n; i2 += step) lbl += '<text x="' + xOf(i2).toFixed(1) + '" y="' + (H - 8) + '" font-size="9" fill="#9ca3af" text-anchor="middle">' + parseInt(String(pts[i2].date).slice(8, 10), 10) + '</text>';
+      for (var i2 = 0; i2 < n; i2 += step) lbl += '<text x="' + xOf(i2).toFixed(1) + '" y="' + (H - 8) + '" font-size="9" fill="#374151" text-anchor="middle">' + parseInt(String(pts[i2].date).slice(8, 10), 10) + '</text>';
       function flat2(v, colr, dash, o) { var y2 = yOf(v).toFixed(1); return '<line x1="' + padL + '" y1="' + y2 + '" x2="' + (W - 8) + '" y2="' + y2 + '" stroke="' + colr + '" stroke-width="1.6" stroke-dasharray="' + dash + '"' + (o ? ' opacity="' + o + '"' : '') + '/>'; }
       var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">' + grid
-        + (k.baseline != null ? flat2(k.baseline, '#9ca3af', '5,4') : '')
+        + (k.baseline != null ? flat2(k.baseline, '#374151', '5,4') : '')
         + (k.goal != null ? flat2(k.goal, '#1D3BB3', '3,4', '0.85') : '')
         + '<polyline points="' + seg.join(' ') + '" fill="none" stroke="#1D3BB3" stroke-width="2.2"/>' + lbl + '</svg>';
       var famLbl2 = k.metric === 'family_revenue' && k.family ? 'CA famille \u00ab ' + k.family + ' \u00bb' : k.label_fr;
       return svg + '<div style="display:flex;gap:16px;margin-top:6px;font-size:12px;color:#374151;flex-wrap:wrap;">'
         + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="2.2"/></svg>' + esc(famLbl2) + '</span>'
-        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/></svg>habituel</span>'
+        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#374151" stroke-width="1.6" stroke-dasharray="5,4"/></svg>habituel</span>'
         + (k.goal != null ? '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="3,4"/></svg>objectif</span>' : '') + '</div>';
     }
     // Le KPI ne prend une place visuelle QUE s'il dit autre chose que les barres jour :
@@ -1415,7 +1418,7 @@
       if (!plays.length) return '';
       return '<div style="margin-top:16px;">'
         + '<div class="eg-uc">' + esc(t('diag_bic_title')) + '</div>'
-        + '<div style="font-size:11.5px;color:#9ca3af;margin-bottom:10px;">' + esc(t('diag_bic_caption_' + intent) || t('diag_bic_caption')) + '</div>'
+        + '<div style="font-size:11.5px;color:#374151;margin-bottom:10px;">' + esc(t('diag_bic_caption_' + intent) || t('diag_bic_caption')) + '</div>'
         + plays.map(function (p) {
             var conf = t('diag_bic_conf_' + (p.confidence || 'faible')) || '';
             var steps = (p.steps || []).filter(Boolean);
@@ -1423,7 +1426,7 @@
             var src = p.source_url ? '<a href="' + esc(p.source_url) + '" target="_blank" rel="noopener" style="font-size:11.5px;color:#6b7280;text-decoration:underline;">' + esc(t('diag_bic_source')) + ' : ' + esc(p.source_name) + (p.published_at ? ' (' + esc(p.published_at) + ')' : '') + '</a>' : '';
             return '<div style="background:#fff;border:1px solid #e5e7eb;padding:13px 15px;margin-bottom:10px;">'
               + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><span style="font-size:13.5px;font-weight:600;color:#111827;">' + esc(p.title) + '</span>' + (conf ? '<span style="font-size:10.5px;color:#5f5e5a;background:#f1efe8;padding:2px 7px;white-space:nowrap;">' + esc(conf) + '</span>' : '') + '</div>'
-              + (p.context ? '<div style="font-size:12px;color:#9ca3af;line-height:1.5;margin-top:3px;">' + esc(p.context) + '</div>' : '')
+              + (p.context ? '<div style="font-size:12px;color:#374151;line-height:1.5;margin-top:3px;">' + esc(p.context) + '</div>' : '')
               + '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:8px;">' + esc(p.move) + '</div>'
               + '<div style="font-size:13px;color:#0F6E56;line-height:1.55;margin-top:6px;"><strong>' + esc(t('diag_bic_result')) + '</strong> : ' + esc(p.outcome) + '</div>'
               + stepsHtml
@@ -1574,11 +1577,11 @@
         + _mc('stop', t('move_stop'), t('move_stop_d'))
         + '<div style="font-size:13px;font-weight:500;color:#374151;margin:14px 0 6px;" data-adjust-noteq>' + esc(t('diag_move_note_q')) + '</div>'
         + '<textarea data-adjust-note placeholder="' + esc(_moveHint(cm.origin_action_type)) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:9px 11px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:60px;box-sizing:border-box;"></textarea>'
-        + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('diag_move_hint_caption')) + '</div>'
+        + '<div style="font-size:11px;color:#374151;margin-top:5px;">' + esc(t('diag_move_hint_caption')) + '</div>'
         + _vformHtml()
         + '<div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:14px;"><span data-adjust-msg style="font-size:12px;color:#b91c1c;"></span><button type="button" data-adjust-submit style="font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;border:none;padding:9px 16px;cursor:pointer;font-family:inherit;">' + esc(t('diag_move_cta')) + '</button></div>'
         + '<div data-diag-form style="margin-top:10px;"></div>'
-        + '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;font-weight:500;margin-bottom:4px;">' + esc(t('diag_capitalise_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.55;">' + esc(t('diag_capitalise_body')) + '</div></div>'
+        + '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#374151;font-weight:500;margin-bottom:4px;">' + esc(t('diag_capitalise_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.55;">' + esc(t('diag_capitalise_body')) + '</div></div>'
       + '</div>';
     }
 
@@ -1588,7 +1591,7 @@
     if (_refIntent) {
       var _bicBody = _bicBlock(_refIntent);
       if (_bicBody) bicRef = '<div class="eg-sec">' + _bicBody + '</div>';
-      else if (_under) bicRef = '<div class="eg-sec"><div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bic_title')) + ' <span style="font-size:11px;color:#9ca3af;">— ' + esc(t('diag_soon')) + '</span></div></div>';
+      else if (_under) bicRef = '<div class="eg-sec"><div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bic_title')) + ' <span style="font-size:11px;color:#374151;">— ' + esc(t('diag_soon')) + '</span></div></div>';
     }
 
     var srcRows = [t('src_caisse'), t('src_learning', { days: prov.history_days || 0 }), t('src_weather'), t('src_events'), t('src_tourism')];
