@@ -50,6 +50,62 @@ const LEVEL_NAME = /revenue|basket/i;
 const RELATIVE_SUFFIX = /(_pct|_share|_z|_rank)$/i;
 const EXTRA_LEVEL_KEYS = new Set(["avg_30d"]);
 
+// ── Gestes membres (inc 5) ────────────────────────────────────────────────────────────
+
+// Un engagement est dans le périmètre du membre si c'est un de SES pôles (dispositif_id)
+// ou une opération rattachée à un de ses pôles (attached_pole_id). Owner/admin : toujours.
+export function memberCommitmentInPerimeter(
+  locals: any,
+  location_id: string,
+  row: { dispositif_id?: any; attached_pole_id?: any } | null,
+): boolean {
+  if (String(locals?.role || "") !== "member") return true;
+  if (!row) return false;
+  const poles = new Set((((locals?.member_poles || {})[String(location_id)]) || []).map(String));
+  return (row.dispositif_id != null && poles.has(String(row.dispositif_id)))
+      || (row.attached_pole_id != null && poles.has(String(row.attached_pole_id)));
+}
+
+// Liste blanche des champs d'un engagement rendus au rôle membre — la CIBLE (threshold)
+// passe (occasion d'agir), le kpi_baseline (CA habituel = niveau) et le reste du journal
+// ne passent pas. Ajouter un champ ici = décision de la règle des chiffres.
+const MEMBER_COMMITMENT_FIELDS = [
+  "commitment_id", "location_id", "saved_item_id", "dispositif_id", "attached_pole_id",
+  "dispositif_nature", "pole_families", "status", "verdict", "committed_action_text",
+  "owner_person_name", "measured_metric", "threshold_basis", "threshold_value",
+  "window_start", "window_end", "window_kind", "action_done_status", "execution_quality",
+  "dispositif_note", "kpi_family", "origin_action_type", "created_at", "updated_at",
+] as const;
+
+export function memberCommitmentProjection(row: any): any {
+  const out: any = {};
+  for (const k of MEMBER_COMMITMENT_FIELDS) if (k in (row || {})) out[k] = row[k];
+  return out;
+}
+
+// Trace d'auteur d'un geste membre — le journal des engagements garde le user_id du
+// COMPTE (clé de toutes les lectures) ; l'auteur réel du geste s'écrit dans action_log.
+// INSERT DML (visible immédiatement, nettoyable) ; non bloquant : un échec de trace ne
+// fait jamais échouer le geste.
+export async function logMemberGesture(
+  bq: any,
+  args: { clerk_user_id: string; location_id: string; gesture: string; commitment_id: string; note?: string | null },
+): Promise<void> {
+  try {
+    await bq.query({
+      query: `
+        INSERT INTO \`muse-square-open-data.analytics.action_log\`
+          (log_id, user_id, location_id, action_key, action_text, event, created_at)
+        VALUES (GENERATE_UUID(), @u, @l, @k, @t, 'member_gesture', CURRENT_TIMESTAMP())
+      `,
+      params: { u: args.clerk_user_id, l: args.location_id, k: args.gesture + ":" + args.commitment_id, t: args.note || "" },
+      location: "EU",
+    });
+  } catch (e: any) {
+    console.log("[memberCardPolicy] logMemberGesture failed:", e?.message || e);
+  }
+}
+
 export function redactPayloadForMember(payload: any): any {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
   const out: any = {};

@@ -206,18 +206,38 @@ restauration verte. Le harnais a attrapé en route la projection manquante de la
 - **Reporté à l'inc 5 (gestes)** : le gating client des gestes owner sur pulse.astro
   (M'engager, config, suppression…) — il se décide avec la liste des gestes membres.
 
-## Gestes membres v1 (incrément 5)
+## Gestes membres v1 (incrément 5 — CONSTRUIT 28/08)
 
-Ouvrir aux membres, par `requireLocationAccess` + vérification que l'objet touché est dans
-leur périmètre (l'engagement/le dispositif appartient à un de leurs pôles) :
-
-1. `POST api/commitments/disposition` — « Action menée ? Oui · Pas encore ».
-2. Le feedback de fin de dispositif (rail existant de la fiche).
-3. La note déclarée — signée (nom du membre depuis `location_members`), datée, statut
-   « déclaré » : jamais un fait tant qu'un dispositif ne l'a pas validée.
-
-Tout le reste (créer/modifier/supprimer un dispositif, config, automatisation) reste
-owner. Chaque geste écrit porte l'auteur.
+- **Disposition** (`POST api/commitments/disposition`, « Action menée ? Oui · Pas
+  encore » + `dispositif_note`) et **feedback de fin de dispositif**
+  (`POST api/commitments/retro`, « Documenter », 409 avant résolution inchangé) sont
+  ouverts au membre : `requireLocationAccess` + `memberCommitmentInPerimeter` (le pôle —
+  `dispositif_id` — ou une opération rattachée — `attached_pole_id` ; sinon 403).
+- **La note membre** passe par deux rails existants : `dispositif_note` sur la
+  disposition (périmètre vérifié) et `api/analytics/track` (déjà ouvert à toute session,
+  auteur = `user_id`). Le devenir des notes est le chantier « Notez ce qui a changé »
+  (ouvert) — rien de nouveau inventé ici.
+- **Auteur** : le journal des engagements garde le `user_id` du COMPTE (c'est la clé de
+  toutes les lectures — ne jamais y mettre le clerk id du membre) ; l'auteur réel d'un
+  geste membre se trace dans `analytics.action_log` (`event='member_gesture'`,
+  `action_key='disposition:<id>'`, INSERT DML non bloquant — `logMemberGesture`).
+- **La LISTE s'ouvre aussi** (`GET api/commitments`) — nécessaire pour voir ses
+  engagements : filtrée au périmètre + PROJECTION liste blanche
+  (`memberCommitmentProjection` : la cible passe, `kpi_baseline` — un CA habituel, un
+  niveau — et le reste du journal non) ; `?goal_context` (M'engager) refusé 403.
+- **Gating client** : `window._msMemberView` (posé par pulse depuis `monitor.role`,
+  chemins fetch ET cache sessionStorage) → la rangée d'actions des cartes
+  (action-cards.js `?v=96`) ne garde que « Consulter » ; Communiquer / Sauvegarder /
+  Signaler / M'engager restent owner. Le reste du gating fin de pulse se constate à
+  l'E2E navigateur membre (voir Vérification).
+- **Preuves** : `scripts/vue-equipe-gestes-harness.ts` **17/17** sur les VRAIS endpoints
+  — sonde engagement DML (termes complets, nettoyée), liste membre filtrée + projetée,
+  goal_context 403, disposition/retro dans le périmètre (journal + auteur action_log
+  vérifiés en base), refus hors périmètre testé sur une SECONDE sonde (jamais un
+  engagement réel — une mutation ne peut pas écrire sur du réel), owner byte-compatible,
+  rangée d'actions vm owner vs membre. Mutation vue tomber : périmètre neutralisé → le
+  membre voit tout + écrit hors pôle (2 rouges, sur sondes), restauré 17/17. Deux défauts
+  de SONDE attrapés en route par le rail lui-même (assertTermsPresent, timestamps ns).
 
 ## Routage Slack (incrément 6)
 
@@ -263,7 +283,8 @@ tableau de tests MONTRÉ, chaîne rendue de la surface CITÉE d'abord (règle 4)
 4. **Agir membre** (FAIT 28/08 serveur, harnais 20/20 + mutation) : `monitor.ts`
    role-aware + memberCardPolicy (la table chiffre est devenue inutile — retrait des
    niveaux) + balayage par preuve de rendu. Gating UI des gestes owner → inc 5.
-5. **Gestes v1** : les 3 écritures ouvertes, périmètre vérifié, auteur porté.
+5. **Gestes v1** (FAIT 28/08, harnais 17/17 + mutation) : disposition + retro + liste
+   ouverts au périmètre membre, auteur tracé action_log, rangée d'actions membre.
 6. **Routage Slack** : `dispositif_channels` branché — faire suivre, consignes, fiche.
 
 Vérification à chaque incrément : compte réel owner (`f10c3e58…`) + **un compte membre de

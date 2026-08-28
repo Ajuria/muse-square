@@ -4,7 +4,8 @@
 // src/pages/api/channels/internal-alert.ts (Clerk session, requireLocationOwnership).
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
-import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
+import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
 import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline, measureProfitBaseline } from "../../../lib/kpiRegistry";
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
@@ -111,7 +112,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // engagements" client filter; visibility stays team-per-location.
     const locationId = url.searchParams.get("location_id");
     if (!locationId) return json({ ok: false, error: "Missing location_id" }, 400);
-    requireLocationOwnership(locals, locationId);
+    // Vue équipe inc 5 : la LISTE s'ouvre au membre du site (filtrée à son périmètre plus
+    // bas) ; goal_context (formulaire M'engager, geste owner) reste owner-only.
+    requireLocationAccess(locals, locationId);
+    const isMemberRole = String((locals as any)?.role || "") === "member";
+    if (isMemberRole && url.searchParams.get("goal_context")) {
+      return json({ ok: false, error: "FORBIDDEN: geste owner" }, 403);
+    }
 
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
 
@@ -186,6 +193,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
     });
     // user_id (creator) + owner_person_id ride along in each row → client can
     // build a "mes engagements" filter on top of the team-shared list.
+    // Membre : périmètre de pôles + PROJECTION liste blanche (la cible passe, le
+    // kpi_baseline — un CA habituel, donc un niveau — et le reste du journal non).
+    if (isMemberRole) {
+      const memberItems = (rows || [])
+        .filter((r: any) => memberCommitmentInPerimeter(locals, String(locationId), r))
+        .map(memberCommitmentProjection);
+      return json({ ok: true, role: "member", items: memberItems });
+    }
     return json({ ok: true, items: rows || [] });
   } catch (err: any) {
     return json({ ok: false, error: err?.message || "Unknown error" }, errStatus(err));
