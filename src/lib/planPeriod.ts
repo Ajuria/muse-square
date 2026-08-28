@@ -17,6 +17,7 @@ import { listUserEvenements } from "./insightFamilies/evenement";
 import { listIndustryPlays, type BestInClassPlay } from "./bestInClassStore";
 import { listPoles, buildPoleReading } from "./poleReading";
 import { getDeclaredFamilyMargins, familySlug } from "./ai/corrections";
+import { corrIndexFr } from "./dayClassRegistry";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
@@ -57,6 +58,7 @@ export interface PlanMotif {
   hist_days: number | null;    // taille d'historique de la mesure
   entangled: boolean;          // base marginale — le rendu NOMME les facteurs mêlés
   entangled_with: Array<{ mot_fr: string; n: number }>;  // co-occurrences RÉELLES sur l'historique de la mesure
+  corr_r: number | null;       // indice de corrélation (r point-bisériel du store) — mots owner 28/08
 }
 
 export interface PlanPeriodResult {
@@ -118,7 +120,7 @@ export async function planPeriod(
     }).then((r: any) => Number(flat((r?.[0]?.[0] as any)?.n)) || 0).catch(() => 0),
     // 4) Les impacts mesurés par classe (store des motifs structurels).
     bq.query({
-      query: `SELECT class_key, basis, med_gap_eur, n_days, span_days FROM \`${PROJECT}.analytics.day_class_impacts\`
+      query: `SELECT class_key, basis, med_gap_eur, n_days, span_days, corr_r FROM \`${PROJECT}.analytics.day_class_impacts\`
               WHERE location_id = @loc AND metric = 'revenue_residual' AND basis IN ('pure', 'marginal')`,
       params: { loc: location_id }, location: "EU",
     }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
@@ -215,10 +217,10 @@ export async function planPeriod(
   // Regle du registre (dayClassRegistry) : la base PURE prime quand son n tient le plancher ;
   // sinon la MARGINALE (facteurs meles) passe, MARQUEE entangled — le rendu dira « estime,
   // facteurs meles », jamais un chiffre pur fabrique.
-  const impactByClass = new Map<string, { med: number; n: number; span: number; entangled: boolean }>();
+  const impactByClass = new Map<string, { med: number; n: number; span: number; entangled: boolean; corr_r: number | null }>();
   for (const r of impactRows as any[]) {
     const ckey = String(flat(r.class_key));
-    const cand = { med: Number(flat(r.med_gap_eur)), n: Number(flat(r.n_days)) || 0, span: Number(flat(r.span_days)) || 180, entangled: String(flat(r.basis)) === "marginal" };
+    const cand = { med: Number(flat(r.med_gap_eur)), n: Number(flat(r.n_days)) || 0, span: Number(flat(r.span_days)) || 180, entangled: String(flat(r.basis)) === "marginal", corr_r: Number.isFinite(Number(flat(r.corr_r))) ? Number(flat(r.corr_r)) : null };
     if (cand.n < 5) continue;
     const cur = impactByClass.get(ckey);
     if (!cur || (cur.entangled && !cand.entangled)) impactByClass.set(ckey, cand);
@@ -239,6 +241,7 @@ export async function planPeriod(
         key, mot_fr: mot, n_days: dates.length, dates,
         med_gap_eur: cls ? Math.round(cls.med) : null,
         hist_days: cls ? cls.n : null,
+        corr_r: cls ? cls.corr_r : null,
         entangled: cls ? cls.entangled : false,
         entangled_with: [],
         _span: cls ? cls.span : 0,
@@ -494,6 +497,17 @@ export function buildPlanBlocks(r: PlanPeriodResult): PlanBlocks {
     facts: planFacts.length ? planFacts : undefined,
   });
 
+  // Indices de corrélation (mots owner 28/08) — en bas, une ligne PAR relation utilisée,
+  // jamais un chiffre orphelin de sa relation. Seuls les motifs MESURÉS en portent un.
+  const corrFacts = r.motifs
+    .filter((m) => m.med_gap_eur != null)
+    .map((m) => {
+      const idx = corrIndexFr(m.corr_r, m.hist_days);
+      return idx ? `${m.mot_fr} ↔ CA : ${idx.charAt(0).toLowerCase() + idx.slice(1)} · ${m.hist_days} j d'historique.` : null;
+    })
+    .filter((x): x is string => x != null);
+  if (corrFacts.length) sections.push({ title: "Indices de corrélation", facts: corrFacts });
+
   return {
     headline: `Votre plan — ${per}`,
     sections,
@@ -521,45 +535,51 @@ export interface PlanWhyBlocks { headline: string; sections: PlanWhySection[]; s
 
 export function buildPlanWhyBlocks(r: PlanPeriodResult): PlanWhyBlocks {
   const sections: PlanWhySection[] = [];
-  const h = r.health;
-  const santeFacts: string[] = [];
-  if (h.eur_day_win != null) {
-    santeFacts.push(`Le CA/jour est la somme de vos lignes de caisse divisée par les jours vendus : ${frEur2(h.eur_day_win)} €/jour sur les 30 derniers jours (${h.n_win} j vendus)${h.eur_day_base != null ? ` vs ${frEur2(h.eur_day_base)} €/jour sur les 90 précédents (${h.n_base} j)` : ""}.`);
-  }
-  if (h.delta_pct == null) santeFacts.push(`Sous 5 j vendus d'un côté ou de l'autre, aucun écart ne s'affiche — « Données insuffisantes ».`);
-  if (santeFacts.length) sections.push({ title: "D'où vient la santé", facts: santeFacts });
 
-  const measured = r.motifs.filter((m) => m.med_gap_eur != null);
+  // 1) Les motifs : leur VALEUR (médiane, historique) et leur LIEN mesuré (indice de
+  // corrélation) — mélanges NOMMÉS en clair. Triés par contribution absolue projetée.
+  const measured = [...r.motifs.filter((m) => m.med_gap_eur != null)]
+    .sort((a, b) => Math.abs((b.med_gap_eur as number) * b.n_days) - Math.abs((a.med_gap_eur as number) * a.n_days))
+    .slice(0, 3);
   if (measured.length) {
     const facts: string[] = [];
     for (const m of measured) {
+      const idx = corrIndexFr(m.corr_r, m.hist_days);
       const mel = m.entangled
         ? ` Mesure mêlée : ${m.entangled_with.length ? m.entangled_with.map((x) => `${x.mot_fr} (${x.n} % de ses jours)`).join(", ") : "co-occurrences sous le plancher"}.`
         : "";
-      facts.push(`${m.mot_fr} : ${m.med_gap_eur! >= 0 ? "+" : "−"}${frEur2(Math.abs(m.med_gap_eur!))} €/jour = la médiane de vos écarts vs votre résultat habituel sur ${m.hist_days} j de ${m.mot_fr} dans votre historique.${mel}`);
+      facts.push(`${m.mot_fr} : ${(m.med_gap_eur as number) >= 0 ? "+" : "−"}${frEur2(Math.abs(m.med_gap_eur as number))} €/jour (médiane, ${m.hist_days} j d'historique) × ${m.n_days} j prévus = ${(m.med_gap_eur as number) >= 0 ? "+" : "−"}${frEur2(Math.abs((m.med_gap_eur as number) * m.n_days))} € en jeu.${idx ? ` ${idx}.` : ""}${mel}`);
     }
-    const neg = measured.filter((m) => (m.med_gap_eur as number) < 0);
-    if (neg.length) {
-      facts.push(`Le coût projeté multiplie chaque mesure par les jours prévus du motif : ${neg.map((m) => `${m.mot_fr} −${frEur2(Math.abs(m.med_gap_eur as number))} €/j × ${m.n_days} j = −${frEur2(Math.abs((m.med_gap_eur as number) * m.n_days))} €`).join(" · ")} — si la période ressemble à votre historique.`);
-    }
-    sections.push({ title: "D'où viennent les motifs", facts });
+    sections.push({ title: "Ce qui pèse sur la période", facts });
   }
 
+  // 2) Les semaines : le fait de veille qui les classe (recouvrement d'audience).
   const calmFacts: string[] = [];
   for (const w of r.calm_weeks) {
-    if (w.state === "quiet") calmFacts.push(`Semaine du ${w.label} : 0 événement concurrent visant votre public dans les scores de veille (couverture ~6 semaines devant).`);
-    if (w.state === "busy") calmFacts.push(`Semaine du ${w.label} : ${w.count_overlap} événement${w.count_overlap > 1 ? "s" : ""} concurrent${w.count_overlap > 1 ? "s" : ""} visant votre public — le recouvrement d'audience décide, pas la simple proximité.`);
+    if (w.state === "quiet") calmFacts.push(`Semaine du ${w.label} : 0 événement concurrent visant votre public.`);
+    if (w.state === "busy") calmFacts.push(`Semaine du ${w.label} : ${w.count_overlap} événement${w.count_overlap > 1 ? "s" : ""} concurrent${w.count_overlap > 1 ? "s" : ""} visant votre public.`);
   }
-  if (calmFacts.length) sections.push({ title: "D'où viennent les semaines", facts: calmFacts });
+  if (calmFacts.length) sections.push({ title: "Les semaines", facts: calmFacts });
 
-  if (r.poles.length) {
-    sections.push({ title: "D'où viennent les pôles", facts: [
-      `Chaque pôle somme les lignes de caisse de SES familles (30 derniers jours) ; l'écart compare son CA/jour aux 90 jours précédents ; la marge estimée multiplie le CA de chaque famille DÉCLARÉE par sa marge — la couverture est toujours dite.`,
-    ] });
+  // 3) Les pôles en mouvement (diagnostic — seulement s'ils bougent).
+  const movers = r.poles.filter((p) => p.delta_pct != null && Math.abs(p.delta_pct as number) >= 10);
+  if (movers.length) {
+    sections.push({ title: "Les pôles qui bougent", facts: movers.map((p) =>
+      `Pôle ${p.name} : ${(p.delta_pct as number) >= 0 ? "+" : "−"}${String(Math.abs(p.delta_pct as number)).replace(".", ",")} % (30 j vs les 90 précédents)${p.rev_eur != null ? ` · ${frEur2(p.rev_eur)} € sur la fenêtre` : ""}.`) });
   }
+
+  // Pied : les indices de corrélation des relations utilisées (mots owner 28/08).
+  const corrFacts = r.motifs
+    .filter((m) => m.med_gap_eur != null)
+    .map((m) => {
+      const idx = corrIndexFr(m.corr_r, m.hist_days);
+      return idx ? `${m.mot_fr} ↔ CA : ${idx.charAt(0).toLowerCase() + idx.slice(1)} · ${m.hist_days} j d'historique.` : null;
+    })
+    .filter((x): x is string => x != null);
+  if (corrFacts.length) sections.push({ title: "Indices de corrélation", facts: corrFacts });
 
   return {
-    headline: `Votre plan ${`du ${frD2(r.start)} au ${frD2(r.end)}`} : d'où viennent les chiffres`,
+    headline: `Votre plan ${`du ${frD2(r.start)} au ${frD2(r.end)}`} : ce qui l'explique`,
     sections,
     sources: [
       "Vos ventes (lignes de caisse)",

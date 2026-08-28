@@ -11,8 +11,8 @@ const base = (over: Partial<PlanPeriodResult> = {}): PlanPeriodResult => ({
   open_count: 1,
   calm_weeks: [{ wk: "2026-09-14", label: "14/09", count: 0, count_overlap: 0, state: "quiet" }],
   motifs: [
-    { key: "rain", mot_fr: "pluie", n_days: 4, dates: ["2026-09-02", "2026-09-03", "2026-09-16", "2026-09-17"], med_gap_eur: -205, hist_days: 20, entangled: true, entangled_with: [{ mot_fr: "pic touristique", n: 100 }, { mot_fr: "vacances scolaires", n: 45 }] },
-    { key: "tourism_peak", mot_fr: "pic touristique", n_days: 30, dates: [], med_gap_eur: null, hist_days: null, entangled: false, entangled_with: [] },
+    { key: "rain", mot_fr: "pluie", n_days: 4, dates: ["2026-09-02", "2026-09-03", "2026-09-16", "2026-09-17"], med_gap_eur: -205, hist_days: 20, corr_r: -0.2, entangled: true, entangled_with: [{ mot_fr: "pic touristique", n: 100 }, { mot_fr: "vacances scolaires", n: 45 }] },
+    { key: "tourism_peak", mot_fr: "pic touristique", n_days: 30, dates: [], med_gap_eur: null, hist_days: null, corr_r: null, entangled: false, entangled_with: [] },
   ],
   replay: [], series_due: [], web_plays: [],
   health: { eur_day_win: 1979, eur_day_base: 1304, delta_pct: 51.7, n_win: 26, n_base: 77 },
@@ -24,6 +24,9 @@ const base = (over: Partial<PlanPeriodResult> = {}): PlanPeriodResult => ({
 const TITLES = [
   "La santé de l'entreprise", "Vos pôles", "Ce que la période va vous coûter",
   "Menaces", "À portée de main", "Chantiers de fond", "Le plan, semaine par semaine",
+  // Pied (owner 28/08) : une ligne par relation MESURÉE utilisée — présent quand un motif
+  // porte un indice (la fixture pluie a corr_r = −0,2).
+  "Indices de corrélation",
 ];
 
 describe("buildPlanBlocks — diagnostic d'abord, plan ensuite", () => {

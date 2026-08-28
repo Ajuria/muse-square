@@ -132,13 +132,16 @@ await dialogue("Pourquoi du plan, puis la conversation continue", [
   } },
   { q: "pourquoi ?", expect: {
     "producer = plan_why": ({ producer }) => producer === "deterministic_plan_why_v1",
-    "la médiane et les mélanges sont dits en clair": ({ j }) => {
+    "la valeur et les mélanges — jamais le mode de calcul": ({ j }) => {
       const facts = (j?.ai?.output?.plan_sections ?? []).flatMap((s2) => s2.facts ?? []).join(" ");
-      return facts.includes("médiane") && facts.includes("Mesure mêlée");
+      return facts.includes("médiane") && facts.includes("Mesure mêlée") && /€ en jeu/.test(facts)
+        && !/somme de vos lignes de caisse divisée/.test(facts);
     },
-    "le coût projeté est décomposé": ({ j }) => {
-      const facts = (j?.ai?.output?.plan_sections ?? []).flatMap((s2) => s2.facts ?? []).join(" ");
-      return /coût projeté/.test(facts) && /× 4 j/.test(facts);
+    "chaque relation porte son indice de corrélation": ({ j }) => {
+      const secs = j?.ai?.output?.plan_sections ?? [];
+      const facts = secs.flatMap((s2) => s2.facts ?? []).join(" ");
+      return /[Ii]ndice de corrélation (faible|moyen|fort) \(r = /.test(facts)
+        && secs.some((s2) => s2.title === "Indices de corrélation");
     },
     "le cadre survit (plan, septembre)": ({ frame }) => frame?.intent === "plan" && frame?.periode?.start === "2026-09-01",
   } },

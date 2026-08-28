@@ -69,7 +69,7 @@ export async function resolveTurn(opts: {
       model: modelFor("classifier"),
       maxTokens: 500,
       temperature: 0,
-      timeoutMs: opts.timeoutMs ?? 4000,
+      timeoutMs: opts.timeoutMs ?? 8000, // p95 mesurée ~3 s (batterie 28/08) — 4 s coupait de vrais tours
       cacheSystem: true,
       conversationHistory: (opts.history ?? []).slice(-8),
       userText: `${opts.qRaw}${frameLine}`,
