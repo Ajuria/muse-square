@@ -113,9 +113,20 @@ await dialogue("Pourquoi, puis la conversation continue", [
   } },
   { q: "pourquoi ?", expect: {
     "producer = why": ({ producer }) => producer === "deterministic_entity_why_v1",
-    "la construction est dite avec les chiffres (lignes de caisse, €/jour)": ({ j }) => {
-      const facts = (j?.ai?.output?.plan_sections ?? []).flatMap((s2) => s2.facts ?? []).join(" ");
-      return facts.includes("lignes de caisse") && facts.includes("€/jour");
+    "3 étages : composition + phénomènes triés, jamais du mode de calcul": ({ j }) => {
+      const secs = j?.ai?.output?.plan_sections ?? [];
+      const titles = secs.map((s2) => s2.title);
+      const facts = secs.flatMap((s2) => s2.facts ?? []).join(" ");
+      return titles[0] === "Ce qui compose l'écart" && /meilleurs jours|sur la période/.test(facts)
+        && !/somme de vos lignes de caisse/.test(facts);
+    },
+    "les phénomènes portent avec/sans + prior + indice (si présents)": ({ j }) => {
+      const secs = j?.ai?.output?.plan_sections ?? [];
+      const phen = secs.find((s2) => s2.title === "Les phénomènes extérieurs");
+      if (!phen) return true;   // pas de facteur >= 3 j sur la période : l'étage ne se dit pas
+      const f0 = String(phen.facts?.[0] ?? "");
+      return /jours de .+ sur la période : .+ €\/jour · vos \d+ jours sans/.test(f0)
+        && f0.includes("Historique du site") && /Indice de corrélation/.test(f0);
     },
     "le cadre SURVIT au pourquoi (entité + période gardées)": ({ frame }) => frame?.intent === "entity_period" && frame?.entity_names?.some((e) => e.nom === "Coffee") && frame?.periode?.start === "2026-07-01",
   } },
@@ -134,7 +145,7 @@ await dialogue("Pourquoi du plan, puis la conversation continue", [
     "producer = plan_why": ({ producer }) => producer === "deterministic_plan_why_v1",
     "la valeur et les mélanges — jamais le mode de calcul": ({ j }) => {
       const facts = (j?.ai?.output?.plan_sections ?? []).flatMap((s2) => s2.facts ?? []).join(" ");
-      return facts.includes("médiane") && facts.includes("Mesure mêlée") && /€ en jeu/.test(facts)
+      return facts.includes("médiane") && facts.includes("Facteurs multiples") && /Enjeu : −[\d\u202f ]+ € sur la période/.test(facts)
         && !/somme de vos lignes de caisse divisée/.test(facts);
     },
     "chaque relation porte son indice de corrélation": ({ j }) => {
@@ -164,6 +175,32 @@ await dialogue("KPI sans entité, puis comparaison demandée", [
   { q: "et par rapport à juin ?", expect: {
     "producer = kpi_period (comparaison demandée)": ({ producer }) => producer === "deterministic_kpi_period_v1",
     "2 périodes : juillet + juin en comparaison": ({ frame }) => frame?.periode?.start === "2026-07-01" && frame?.periode_comparaison?.start === "2026-06-01",
+  } },
+]);
+
+// D10 — L'IDÉE SOUMISE : placement + analogues + mise en test, puis la condition se conteste.
+await dialogue("Idée soumise, puis changement de condition", [
+  { q: "et si je faisais une dégustation gratuite les jours de pluie ?", expect: {
+    "producer = idee": ({ producer }) => producer === "deterministic_idee_v1",
+    "cadre : intent idee, condition rain": ({ frame }) => frame?.intent === "idee" && frame?.idee?.condition === "rain",
+    "placement réel : jours/mesure de pluie OU absence dite": ({ j }) => {
+      const secs = j?.ai?.output?.plan_sections ?? [];
+      const place = secs.find((s2) => s2.title === "Où la placer");
+      return !!place && place.facts.some((f) => /pluie/.test(f));
+    },
+    "la mise en test cadre le geste": ({ j }) => {
+      const secs = j?.ai?.output?.plan_sections ?? [];
+      return secs.some((s2) => s2.title === "Mettre en test") ;
+    },
+    "le CTA M'engager porte les mots de l'utilisateur": ({ j }) => {
+      const p2 = j?.actions?.primary;
+      return p2?.type === "commit_prefill" && /dégustation gratuite/.test(String(p2?.prefill?.committed_action_text || ""))
+        && p2?.origin?.origin_action_type === "chat_idea_test";
+    },
+  } },
+  { q: "et plutôt les jours de canicule ?", expect: {
+    "producer = idee (suite)": ({ producer }) => producer === "deterministic_idee_v1",
+    "condition remplacée : heat": ({ frame }) => frame?.idee?.condition === "heat",
   } },
 ]);
 

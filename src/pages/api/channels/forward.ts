@@ -51,7 +51,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
 
     const text = String(body.body).trim() + (body.link ? "\n\nOuvrir : " + String(body.link).trim() : "");
-    const res = await sendSlack(cfg, { title: String(body.title).trim(), body: text, recipient: channel });
+    // Inc 8 (G1, mots owner 28/08) : le partage d'une CARTE porte le gabarit arbitré —
+    // « {Prénom} a partagé cette priorité avec vous. » + titre/corps (version équipe) +
+    // action proposée + la consigne d'échange, boutons M'engager (lien app) · Pas pour moi
+    // (même événement que le bouton de l'app, traité par slack-interact). Une fiche
+    // (kind='fiche') reste en texte simple.
+    const sharer = String((locals as any)?.first_name || "").trim();
+    const blocks = kind === "card" ? [
+      ...(sharer ? [{ type: "section", text: { type: "mrkdwn", text: sharer + " a partagé cette priorité avec vous." } }] : []),
+      { type: "section", text: { type: "mrkdwn", text: "*" + String(body.title).trim() + "*\n" + String(body.body).trim() } },
+      ...(body.action ? [{ type: "section", text: { type: "mrkdwn", text: "Action proposée : " + String(body.action).trim() } }] : []),
+      { type: "section", text: { type: "mrkdwn", text: "Cliquez sur « M'engager » ou « Pas pour moi »" + (sharer ? " — et au besoin, échangez avec " + sharer + " dans ce fil sur le dispositif à mettre en place." : ".") } },
+      { type: "actions", elements: [
+        ...(body.link ? [{ type: "button", action_id: "ms_card_engage", text: { type: "plain_text", text: "M'engager" }, style: "primary", url: String(body.link).trim() }] : []),
+        { type: "button", action_id: "ms_card_not_for_me", text: { type: "plain_text", text: "Pas pour moi" }, value: JSON.stringify({ l: locationId, t: body.action_type ? String(body.action_type) : "", d: body.affected_date ? String(body.affected_date) : "", i: body.card_instance_id ? String(body.card_instance_id) : "", cat: body.action_category ? String(body.action_category) : "" }) },
+      ] },
+    ] : undefined;
+    const res = await sendSlack(cfg, { title: String(body.title).trim(), body: text, recipient: channel, blocks });
     await traceForward(bq, {
       location_id: locationId, user_id: userId, kind,
       action_type: body.action_type ? String(body.action_type).trim() : null,

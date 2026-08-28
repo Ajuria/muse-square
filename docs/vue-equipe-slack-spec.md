@@ -323,6 +323,112 @@ conversation libre (événements/parsing = déconseillé, hors périmètre).
 5. **Porte de vérification** : un clic réel « Pas encore » sur une notification
    d'assignation, vérifié en base (journal + action_log) — c'est l'E2E de l'incrément.
 
+## Messages par étape du cycle (incrément 8 — CADRÉ 28/08, owner ; À CONSTRUIRE)
+
+Retour owner sur le premier message réel (28/08) : la notification d'assignation mélangeait
+deux moments du cycle (boutons de SUIVI sur un message de PARTAGE), et sa copie ne disait
+pas ce qui est attendu du destinataire. Architecture arbitrée : **un message par étape du
+cycle de la carte**, chacun avec ses mots et ses boutons, mappés sur les gestes RÉELS de
+l'interface — jamais des libellés inventés pour Slack.
+
+| Étape | Message | Boutons | Rail |
+|---|---|---|---|
+| 1. Carte système PARTAGÉE | « X a partagé cette priorité avec vous. Cliquez sur M'engager ou Pas pour moi, et au besoin échangez avec lui concernant le dispositif à mettre en place » + titre / description / action proposée (proposition owner 28/08, base de la copie) | **M'engager · Pas pour moi** | M'engager = lien profond vers le formulaire de l'app (définition dispositif/KPI/échelle = trop riche pour Slack) ; « Pas pour moi » = NOUVEAU rail (refus enregistré + retour à l'expéditeur) |
+| 2. Carte user EN COURS (suivi au responsable) | rappel calibré | **Fait · Pas pour moi · Piloter** | Fait = disposition existante ; Piloter = lien vers la fiche ; « Pas pour moi » ici = se désengager — NOUVEAU rail (rien ne « rend » une carte aujourd'hui). « Pas encore » MEURT dans Slack (le silence dit pareil). |
+| 3. Verdict / fin de dispositif | bilan | **Feedback (Documenter) · Ajuster · Terminer** | retro + moves existants |
+| 4. TROISIÈME résultat négatif | notification proactive (owner : « important ») | — | NOUVEAU détecteur : la chaîne de verdicts est en base, personne ne la surveille — 3 manqués consécutifs sur la chaîne d'un dispositif → notifier owner + responsable |
+
+**Mots à trancher AVANT le build** (concepts sans mot arbitré — jamais improvisés) :
+- **« Piloter » est déjà l'onglet principal de l'app** — le même mot pour le bouton de
+  carte = deux gestes sous un mot. Owner tranche : assumer le doublon ou renommer l'un.
+- **« priorité »** (message de partage) : mot absent du lexique (Agir dit « actions ») —
+  s'il devient le mot du partage, l'acter au lexique.
+- **« Pas pour moi »** : mot owner 28/08 — à acter au lexique avec ses deux sens (refus
+  d'un partage / désengagement d'une carte prise).
+- Cycle complet de référence (owner 28/08) : carte système → Je m'engage → carte user
+  (définition dispositif, KPI, échelle de temps du verdict) → ajuster ou arrêter (nouveau
+  cycle) → fin du dispositif OU notification au 3e résultat négatif → feedback + Ajuster /
+  Terminer.
+
+**Renommage de l'app Slack** (owner, fait/à faire 28/08) : « Muse Square insight » →
+« Muse Square » — api.slack.com → Basic Information → App name, + App Home → Display Name.
+
+**Jusqu'au build de cet incrément, AUCUN message Slack de carte ne part chez un client** :
+le rail technique (inc 7) est prouvé, la copie ne l'est pas.
+
+### E2E CONSTATÉ (28/08, 11:33)
+
+Config owner FAITE (signing secret Vercel, Interactivity URL avec `www`, scopes
+users:read(.email) + réinstallation, canal renommé `#muse_square_app` — l'ID C0B360KSWDC
+n'a pas bougé, le contact roster de Poeiti a été rebasculé sur l'ID). **Clic réel owner
+« Pas encore » sur un message-sonde à boutons → vérifié en base** : `action_done_status =
+pas_encore`, transition `disposition`, 11:33:56 — signature prod, identité par email
+Slack, garde, écriture. Le « Operation timed out » Slack est apparu comme documenté
+(traitement synchrone > 3 s) : cosmétique, le geste s'écrit — correctif ack-immédiat
+rangé dans l'incrément 8. Sondes nettoyées.
+
+## Messages par étape du cycle (incrément 8 — CADRÉ 28/08, retour owner sur le message réel)
+
+Verdict owner sur le premier message reçu : il CONFOND le partage et le suivi, et ses
+boutons ne mappent pas les gestes réels de l'interface. **Architecture actée : un message
+par étape du cycle de la carte**, chacun avec ses mots et ses boutons.
+
+| Étape | Message | Boutons | Rail |
+|---|---|---|---|
+| Carte système PARTAGÉE | « X a partagé cette priorité avec vous… » + titre/description/action proposée | M'engager · Pas pour moi | M'engager = lien vers le formulaire app (dispositif/KPI/échelle = trop riche pour Slack) ; « Pas pour moi » = NOUVEAU rail (refus enregistré + retour à l'expéditeur) |
+| Carte user EN COURS (suivi au responsable) | rappel calibré | Fait · Pas pour moi · Piloter* | Fait = disposition ; Piloter = lien fiche ; « Pas pour moi » = désengagement, NOUVEAU rail |
+| Verdict / fin de dispositif | bilan | Feedback (Documenter) · Ajuster · Terminer | retro + moves existants |
+| **3e résultat négatif** | notification proactive (owner : important) | — | NOUVEAU détecteur sur la chaîne de verdicts (elle existe en base, personne ne la surveille) |
+
+Acté aussi : « Pas encore » disparaît (le silence le dit) ; l'échange humain vit dans le
+fil Slack, pas dans un bouton ; l'app Slack est renommée « Muse Square » (geste owner).
+
+**Mots TRANCHÉS (owner 28/08)** : le bouton reste **« Ajuster »** (« Piloter » retiré
+par l'owner — collision avec l'onglet) ; **« priorité »** entre au lexique dans un
+registre « interactions humaines » distinct des surfaces app (section ajoutée à
+`lexique.md`). **Le texte de CHAQUE notification est arbitré par l'owner** (« rien à ma
+discrétion ») — gabarits proposés au fil du 28/08, GO owner requis avant tout envoi réel ;
+mot restant à trancher : le geste de fin (« Terminer » — mot du feedback owner — vs
+« Arrêter », le move existant de l'app).
+
+### CONSTRUIT 28/08 (harnais `scripts/vue-equipe-cycle-harness.ts` 22/22 + mutation)
+
+- **Ack-immédiat** : les boutons de `slack-interact` répondent 200 tout de suite (mesuré :
+  3 ms) et le travail court dans `waitUntil` (4,6 s derrière — le « Operation timed out »
+  est mort) ; confirmation par response_url ; le modal RESTE synchrone (ses erreurs
+  s'affichent dedans, le 409 du rail compris).
+- **Copie au foyer unique `lib/channels/slackMessagesFr.ts`** — mots owner 28/08, mots
+  bannis scannés au harnais (mutation : « vs attendu » réintroduit → 2 rouges) :
+  G1 partage (« {Prénom} a partagé cette priorité avec vous » + titre/corps équipe +
+  action proposée + consigne d'échange ; M'engager = lien app · Pas pour moi) — branché
+  sur « Faire suivre » (forward.ts, kind='card') ; G2 assignation (« {Prénom} vous a
+  assigné une tâche » + action + « Objectif : … (CA vs votre résultat habituel) … —
+  verdict le JJ/MM/AAAA » ; Consulter · Ajuster, jamais Fait — corrige le « CA vs
+  attendu » banni qui vivait en prod) ; G3 verdict (« Votre opération « … » vient d'être
+  évaluée. Verdict : résultat opérationnel ±x € sur la période (du … au …), objectif
+  atteint/manqué/dépassé/non concluant » — € = réel − résultat habituel de la fenêtre,
+  clause omise si non mesurable ; Documenter · Ajuster) — greffé sur
+  `cron/commitment-resolve` (canal du dispositif sinon default_channel sinon rien, dit
+  au résultat) ; G4 sous-performance (« … a sous-performé pour la 3ᵉ fois cette
+  semaine. Trois journées … nettement sous votre résultat habituel : d1, d2, d3. » + −€
+  des trois journées ; Ajuster seul).
+- **« Pas pour moi » (partage)** : bouton Slack → MÊME événement que le bouton de l'app
+  (`action_log` `card_not_done` — l'état s'affiche dans le fil Agir) ; `user_id` = le
+  COMPTE (card-states lit par lui), auteur réel dans `reason`, `method='slack'` ; le
+  refus se dit à l'expéditeur en réponse de fil (« {prénom} a répondu « Pas pour moi ». »).
+- **Détecteur G4** : `api/cron/underperf-watch.ts` (Bearer CRON_SECRET, quotidien) — v1 :
+  opérations OUVERTES à métrique `revenue_residual` ; mauvaise journée = `residual_z <=
+  -1` (vw_insight_event_day_residual, le seuil de l'app) ; semaine lundi→hier, jamais le
+  jour en cours ; ≥ 3 → un envoi, idempotence par trace `card_forwards` kind='underperf3'.
+  Les métriques FAMILLE sont exclues v1 : pas de bande de bruit par famille et par jour —
+  on n'invente pas un seuil.
+
+RESTES inc 8 : ajouter `/api/cron/underperf-watch` à cron-job.org (geste owner) · le slot
+« Preuve » de G2 (relier la carte d'origine à l'engagement au moment de l'envoi) ·
+« Documenter » sur G4 (refusé avant résolution par le rail — arbitrage owner : l'ouvrir
+quand même ou Ajuster seul, v1 = Ajuster seul) · « Pas pour moi » désengagement d'une
+tâche ASSIGNÉE (owner : « peut-être ») · G3/G4 constatés sur une résolution réelle.
+
 ## Setup Slack Épices et Tout (opérationnel, hors code)
 
 - Workspace connecté par le flux existant (`slack-connect`), bot invité canal par canal.

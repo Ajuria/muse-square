@@ -70,7 +70,7 @@ export const CONCEPTS: ConceptDef[] = [
 
 // ── Intentions routables (v1) — chaque intention nomme SON composeur et SON producer ───────
 export interface IntentDef {
-  intent: "plan" | "entity_period" | "journal" | "pourquoi" | "autre";
+  intent: "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "autre";
   definition_fr: string;
   composer: string;   // le foyer déterministe qui calcule
   producer: string;   // le producer de la réponse (traçabilité)
@@ -100,6 +100,12 @@ export const INTENTS: IntentDef[] = [
     definition_fr: "L'utilisateur demande d'où vient le DERNIER résultat (« pourquoi ? », « explique », « d'où ça sort ? », « comment tu le calcules ? », « t'es sûr ? »). Hérite TOUT le cadre — ne change aucun slot.",
     composer: "entityReading.buildEntityWhyBlocks (re-lecture du dernier tuple)",
     producer: "deterministic_entity_why_v1",
+  },
+  {
+    intent: "idee",
+    definition_fr: "L'utilisateur SOUMET UNE IDÉE d'opération ou de dispositif et demande si/quand/comment la faire (« et si je faisais un marché nocturne ? », « je pense à un atelier dégustation, ça marcherait ? », « devrais-je proposer un menu du soir ? »). L'idée se place (fenêtres, conditions), s'entoure d'analogues mesurés, et se cadre en mise en test.",
+    composer: "ideaPlacement.readIdeaPlacement + buildIdeaBlocks",
+    producer: "deterministic_idee_v1",
   },
   {
     intent: "autre",
@@ -144,6 +150,15 @@ export function resolverSchema(): Record<string, any> {
       periode: period,
       periode_comparaison: period,
       kpi: { type: ["string", "null"], enum: [...(Object.keys(KPI_NOM_FR) as KpiKey[]), null] },
+      idee: {
+        type: ["object", "null"],
+        properties: {
+          levier: { type: "string", enum: ["frequentation", "conversion", "panier", "yield", "fidelisation"] },
+          condition: { type: "string", enum: ["rain", "heat", "school_holiday", "public_holiday", "tourism_peak", "calme", "aucune"] },
+        },
+        required: ["levier", "condition"],
+        additionalProperties: false,
+      },
       suite: { type: "boolean" },
       changements: { type: "array", items: { type: "string" }, maxItems: 6 },
     },
@@ -180,11 +195,12 @@ ${lists}
 
 LE FORMULAIRE (réponds UNIQUEMENT ce JSON, exactement ces clés, sans fence markdown) :
 {
-  "intent": "plan" | "entity_period" | "journal" | "pourquoi" | "autre",
+  "intent": "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "autre",
   "entites": [ { "nom": "<recopie exacte d'une entité des listes>", "type": "pole" | "famille" | "operation" | "personne" } ],
   "periode": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "expression": "<les mots de l'utilisateur>" } | null,
   "periode_comparaison": <même forme que periode> | null,
   "kpi": "revenue_residual" | "transactions" | "basket" | "footfall" | "conversion" | "family_revenue" | "profit_estimated" | null,
+  "idee": null | { "levier": "frequentation" | "conversion" | "panier" | "yield" | "fidelisation", "condition": "rain" | "heat" | "school_holiday" | "public_holiday" | "tourism_peak" | "calme" | "aucune" },
   "suite": true | false,
   "changements": [ "<slots changés par ce tour>" ]
 }
@@ -195,7 +211,8 @@ RÈGLES :
 3. Les périodes : dates ISO exactes (start/end) + l'expression d'origine. « septembre » sans année = le prochain si l'intention est plan, le plus récent passé sinon. Les saisons sont MÉTÉOROLOGIQUES (convention maison, identique au parseur frPeriod) : printemps = 01/03→31/05, été = 01/06→31/08, automne = 01/09→30/11, hiver = 01/12→28-29/02 (à cheval sur deux années).
 4. Une entité absente des listes ci-dessus ne se devine pas : ne la mets PAS dans entites (le système demandera).
 5. "changements" liste les slots que CE tour a changés par rapport au cadre (ex. ["periode"]). Aucun cadre fourni → tous les slots posés sont des changements.
-6. "periode_comparaison" SEULEMENT si la comparaison est DEMANDÉE (« vs », « par rapport à », « contre », « versus ») — un simple changement de période (« et en juin ? ») remplace "periode" et laisse "periode_comparaison" null.
-7. Le KPI seulement s'il est NOMMÉ (CA, ventes, panier, visiteurs, conversion, marge/profit, CA famille) — sinon null.
-8. Rien d'autre que le JSON du formulaire — pas de fence, pas de prose, la clé est "intent" (jamais "intention").`;
+6. "idee" SEULEMENT quand intent = "idee" : "levier" = ce que l'idée cherche à bouger (attirer du passage = frequentation ; faire acheter ceux qui passent = conversion ; augmenter le ticket = panier ; prix/remises = yield ; faire revenir = fidelisation) ; "condition" = la condition de jours que l'idée VISE si elle en nomme une (jours de pluie → rain, canicule → heat, vacances → school_holiday, féries → public_holiday, saison touristique → tourism_peak, périodes calmes → calme), sinon "aucune".
+7. "periode_comparaison" SEULEMENT si la comparaison est DEMANDÉE (« vs », « par rapport à », « contre », « versus ») — un simple changement de période (« et en juin ? ») remplace "periode" et laisse "periode_comparaison" null.
+8. Le KPI seulement s'il est NOMMÉ (CA, ventes, panier, visiteurs, conversion, marge/profit, CA famille) — sinon null.
+9. Rien d'autre que le JSON du formulaire — pas de fence, pas de prose, la clé est "intent" (jamais "intention").`;
 }

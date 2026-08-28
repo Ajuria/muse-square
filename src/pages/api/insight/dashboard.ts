@@ -11,7 +11,7 @@ import type { APIRoute } from "astro";
 import { personKey, isKeptVerdict } from "../../../lib/actionCommitments";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation } from "../../../lib/dayClassRegistry";
+import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation, corrIndexFr } from "../../../lib/dayClassRegistry";
 // KPI -> colonne journalière : LU au registre, jamais retapé (les deux CASE ci-dessous en
 // étaient des copies ; un mart qui renomme une colonne cassait alors 3 surfaces sur 4).
 import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpiRegistry";
@@ -1065,6 +1065,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
           class_key: r.class_key, label_fr: r.label_fr, family: r.family, location_id: r.location_id,
           site_label: siteLabel[r.location_id] || null, n_days: r.n_days, span_months: r.span_months,
           avg_gap_eur: r.avg_gap_eur, eur_year: r.eur_year, tier_label_fr: r.tier_label_fr,
+          // Indice de corrélation (owner 28/08) : préformaté SERVEUR ; a_confirmer = porte de
+          // concordance — le client retire la ligne des surfaces d'action, jamais de la lecture.
+          corr_index_fr: corrIndexFr((r as any).corr_r, r.n_days),
+          a_confirmer: Boolean((r as any).a_confirmer),
           covered: practices.some((p) => p.location_id === r.location_id && p.status === "active" && p.origin_action_type === "structural_" + r.class_key),
           in_test: test ? { end: test.we } : null,
         };

@@ -11,8 +11,8 @@ const base = (over: Partial<PlanPeriodResult> = {}): PlanPeriodResult => ({
   open_count: 1,
   calm_weeks: [{ wk: "2026-09-14", label: "14/09", count: 0, count_overlap: 0, state: "quiet" }],
   motifs: [
-    { key: "rain", mot_fr: "pluie", n_days: 4, dates: ["2026-09-02", "2026-09-03", "2026-09-16", "2026-09-17"], med_gap_eur: -205, hist_days: 20, corr_r: -0.2, entangled: true, entangled_with: [{ mot_fr: "pic touristique", n: 100 }, { mot_fr: "vacances scolaires", n: 45 }] },
-    { key: "tourism_peak", mot_fr: "pic touristique", n_days: 30, dates: [], med_gap_eur: null, hist_days: null, corr_r: null, entangled: false, entangled_with: [] },
+    { key: "rain", mot_fr: "pluie", n_days: 4, dates: ["2026-09-02", "2026-09-03", "2026-09-16", "2026-09-17"], med_gap_eur: -205, hist_days: 20, corr_r: -0.2, a_confirmer: false, entangled: true, entangled_with: [{ mot_fr: "pic touristique", n: 100 }, { mot_fr: "vacances scolaires", n: 45 }] },
+    { key: "tourism_peak", mot_fr: "pic touristique", n_days: 30, dates: [], med_gap_eur: null, hist_days: null, corr_r: null, a_confirmer: false, entangled: false, entangled_with: [] },
   ],
   replay: [], series_due: [], web_plays: [],
   health: { eur_day_win: 1979, eur_day_base: 1304, delta_pct: 51.7, n_win: 26, n_base: 77 },
@@ -49,8 +49,8 @@ describe("buildPlanBlocks — diagnostic d'abord, plan ensuite", () => {
     const cost = b.sections[2];
     const rain = cost.table!.rows[0];
     expect(rain.cells[2].v).toBe("−205 €/jour");
-    expect(rain.cells[2].sub).toBe("20 j d'historique — mesure mêlée");
-    expect(rain.cells[2].tip).toBe("Mesure mêlée à d'autres facteurs présents les mêmes jours : pic touristique (100 % de ses jours), vacances scolaires (45 % de ses jours).");
+    expect(rain.cells[2].sub).toBe("20 j d'historique — facteurs multiples");
+    expect(rain.cells[2].tip).toBe("Facteurs multiples présents les mêmes jours : pic touristique (100 % de ses jours), vacances scolaires (45 % de ses jours).");
     expect(cost.table!.rows[1].cells[2].v).toBe("—");
     expect(cost.facts![0]).toBe("Si la période ressemble à votre historique : ≈ −820 € sur les 4 jours à motif négatif mesuré.");
   });
@@ -109,6 +109,24 @@ describe("buildPlanBlocks — diagnostic d'abord, plan ensuite", () => {
     expect(calmRow.cells[2].v).toContain("Testez une opération — calme autour de vous");
     expect(calmRow.cells[3].v).toBe("à confier : Julen · Camille");
     expect(plan.facts).toContain("1 engagement en cours sur la période.");
+  });
+  it("porte de concordance : « Signal à confirmer » — lisible, hors coût projeté, hors À faire, pied suffixé", () => {
+    const b = buildPlanBlocks(base({ motifs: [
+      { key: "rain", mot_fr: "pluie", n_days: 4, dates: ["2026-09-02", "2026-09-03"], med_gap_eur: -154, hist_days: 20, corr_r: 0.07, a_confirmer: true, entangled: true, entangled_with: [] },
+      { key: "heat", mot_fr: "forte chaleur", n_days: 5, dates: ["2026-09-08"], med_gap_eur: -143, hist_days: 32, corr_r: -0.34, a_confirmer: false, entangled: true, entangled_with: [] },
+    ] }));
+    const cost = b.sections[2];
+    expect(cost.table!.rows[0].cells[2].v).toBe("Signal à confirmer");
+    expect(String(cost.table!.rows[0].cells[2].tip)).toContain("pointent en sens opposés");
+    // le coût projeté n'inclut QUE la chaleur (143 × 5 = 715) — jamais le signal à confirmer
+    expect(cost.facts![0]).toContain("−715 €");
+    expect(cost.facts![0]).toContain("5 jours");
+    // la colonne « À faire » de la semaine du 31/08 (pluie le 02-03/09) ne pousse plus la pluie
+    const plan = b.sections.find((s2) => s2.title === "Le plan, semaine par semaine")!;
+    expect(String(plan.table!.rows[0].cells[2].v)).not.toContain("pluie");
+    // le pied garde la relation, suffixée
+    const pied = b.sections.find((s2) => s2.title === "Indices de corrélation")!;
+    expect(pied.facts!.join(" ")).toContain("pluie ↔ CA : indice de corrélation faible (r = 0,07) · 20 j d'historique — signal à confirmer.");
   });
   it("un rejeu positif porte le prefill prioritaire", () => {
     const b = buildPlanBlocks(base({

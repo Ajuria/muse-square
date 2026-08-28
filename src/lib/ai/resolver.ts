@@ -16,12 +16,15 @@ import { KPI_NOM_FR, type KpiKey } from "../kpiRegistry";
 
 export interface ResolvedPeriod { start: string; end: string; expression: string }
 
+export interface ResolvedIdea { levier: "frequentation" | "conversion" | "panier" | "yield" | "fidelisation"; condition: "rain" | "heat" | "school_holiday" | "public_holiday" | "tourism_peak" | "calme" | "aucune" }
+
 export interface ResolvedFrame {
-  intent: "plan" | "entity_period" | "journal" | "pourquoi" | "autre";
+  intent: "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "autre";
   entity_names: Array<{ nom: string; type: string }>;
   periode: ResolvedPeriod | null;
   periode_comparaison: ResolvedPeriod | null;
   kpi: KpiKey | null;
+  idee?: ResolvedIdea | null;
 }
 
 export interface ResolvedTurn extends ResolvedFrame {
@@ -82,7 +85,7 @@ export async function resolveTurn(opts: {
     // Tolérance de clé (mesuré 28/08 : Haiku sans mode structuré écrivait « intention ») —
     // le schéma reste passé pour les modèles qui le supportent.
     const intent = String(out?.intent ?? out?.intention ?? "");
-    if (!["plan", "entity_period", "journal", "pourquoi", "autre"].includes(intent)) return null;
+    if (!["plan", "entity_period", "journal", "pourquoi", "idee", "autre"].includes(intent)) return null;
     const entity_names = Array.isArray(out?.entites)
       ? out.entites.filter((e: any) => e && typeof e.nom === "string" && typeof e.type === "string").slice(0, 4)
       : [];
@@ -92,6 +95,12 @@ export async function resolveTurn(opts: {
       .map((e: any) => matchName(e.nom, e.type, opts.site))
       .filter((e: SiteEntity | null): e is SiteEntity => e != null);
     const kpiRawV = out?.kpi != null ? String(out.kpi) : null;
+    const LEVIERS = ["frequentation", "conversion", "panier", "yield", "fidelisation"];
+    const CONDS = ["rain", "heat", "school_holiday", "public_holiday", "tourism_peak", "calme", "aucune"];
+    const idee = out?.idee && typeof out.idee === "object"
+      && LEVIERS.includes(String(out.idee.levier)) && CONDS.includes(String(out.idee.condition))
+      ? { levier: String(out.idee.levier), condition: String(out.idee.condition) } as ResolvedIdea
+      : null;
     return {
       intent: intent as ResolvedTurn["intent"],
       entity_names,
@@ -99,6 +108,7 @@ export async function resolveTurn(opts: {
       periode: okPeriod(out?.periode),
       periode_comparaison: okPeriod(out?.periode_comparaison),
       kpi: kpiRawV && kpiRawV in KPI_NOM_FR ? (kpiRawV as KpiKey) : null,
+      idee,
       suite: Boolean(out?.suite),
       changements: Array.isArray(out?.changements) ? out.changements.map(String).slice(0, 6) : [],
     };
@@ -118,5 +128,6 @@ export function frameOf(r: ResolvedTurn): ResolvedFrame {
     periode: r.periode,
     periode_comparaison: r.periode_comparaison,
     kpi: r.kpi,
+    idee: r.idee ?? null,
   };
 }

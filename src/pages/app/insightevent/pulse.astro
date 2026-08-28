@@ -387,7 +387,7 @@ if (!location_id) {
     <script is:inline src="/reco-library.js?v=12"></script>
     <script is:inline src="/commit-form.js?v=14"></script>
     <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=97"></script>
+    <script is:inline src="/action-cards.js?v=98"></script>
     <script is:inline src="/draft-workspace.js?v=5"></script>
   
 
@@ -1709,7 +1709,10 @@ if (!location_id) {
         // coin — plus jamais dans la ligne d'explication de la carte.
         var _aTip = [(_enj.n_days ? 'Mesuré sur ' + _enj.n_days + ' j / ' + _enj.span_months + ' mois — ' : 'Enjeu ') + String(_enj.tier_label_fr || _enj.tier || '') + '.'];
         if (_enj.inherited && _aCause) _aTip.push('Motif de fond de la journée : ' + _aCause + '.');
-        if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : plusieurs facteurs se mêlent sur ces jours.');
+        if (String(_enj.tier_label_fr || '') !== String(_enj.tier || '')) _aTip.push('Estimation prudente : facteurs multiples sur ces jours.');
+        // Indice de corrélation (owner 28/08) : toujours en infobulle sur une carte — préformaté serveur.
+        if (_enj.corr_index_fr) _aTip.push(String(_enj.corr_index_fr) + '.');
+        if (_enj.a_confirmer) _aTip.push('Signal à confirmer : l’effet et le lien brut pointent en sens opposés.');
         _aTip.push(_aPos ? '€ encaissés en plus sur ces jours — à gagner en les amplifiant.' : '€ perdus sur ce motif — à réduire.');
         _amtHtml = '<div class="amt ' + (_aPos ? 'gain' : 'defend') + '" title="' + escapeHtml(_aTip.join(' ')) + '">'
           + '<span style="display:inline-flex;align-items:center;gap:5px;"><span class="amt-i">i</span><div class="amt-val" style="color:' + _aFg + ';">' + (_aPos ? '+' : '−') + _aVal + ' €/an</div></span>'
@@ -2213,7 +2216,9 @@ if (!location_id) {
           location_id: cand.location_id, kind: "card", action_type: cand.action_type,
           affected_date: String(cand.date || "").slice(0, 10),
           item_category: (cand.data_payload && cand.data_payload.item_category) || null,
-          title: txt.title, body: txt.body,
+          card_instance_id: cand.card_instance_id || null,
+          action_category: cand.action_category || null,
+          title: txt.title, body: txt.body, action: txt.action || null,
           link: window.location.origin + "/app/insightevent/pulse",
         }) }).then(function (r) { return r.json(); }).then(function (j) {
           if (j && j.ok) { btn.textContent = "Envoyée"; }
@@ -3318,8 +3323,10 @@ if (!location_id) {
       ? '<button type="button" class="pls-cta-sec" data-struct-follow="1" style="white-space:nowrap;">Voir l’engagement</button>'
       // Inc D : « Pas pour moi » aussi sur la rangée compacte — jamais sur un motif ENGAGÉ
       // (l'engagement se clôt, il ne s'écarte pas).
+      // Porte de concordance (owner go 28/08, spec indice-correlation) : un « Signal à
+      // confirmer » reste lisible et écartable, mais ne POUSSE plus — M'engager ne se rend pas.
       : '<button type="button" data-struct-dispo="' + key + '" class="pls-cta-sec" style="white-space:nowrap;">Pas pour moi</button>'
-        + '<button type="button" class="pls-cta-pri" data-struct-commit="' + key + '" style="white-space:nowrap;">M’engager</button>';
+        + (imp.a_confirmer ? '' : '<button type="button" class="pls-cta-pri" data-struct-commit="' + key + '" style="white-space:nowrap;">M’engager</button>');
     // MÊME GRILLE QUE TOUTES LES AUTRES RANGÉES (owner 25/08, 3e demande : « règle placement
     // de Muse Square aligné sur la droite + texte mal placé dans le bandeau des cartes
     // structurelles »). CAUSE RACINE, enfin traitée : cette rangée était la SEULE du fil en
@@ -3364,7 +3371,9 @@ if (!location_id) {
           + '<span class="ab-bnd-line">'
             + (coinPorte
                 ? '<span style="font-size:11px;color:#9CA3AF;white-space:nowrap;" title="Le montant de ce motif est port\u00e9 aujourd\u2019hui par la carte du jour de la m\u00eame classe \u2014 il ne s\u2019affiche jamais deux fois (r\u00e8gle 5, doctrine valeur).">port\u00e9 par la carte du jour</span>'
-                : '<span class="ab-pill-eur" style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;white-space:nowrap;" title="' + escapeHtml('Mesur\u00e9 sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois \u2014 ' + String(imp.tier_label_fr || '') + '. ' + (pos ? '\u20ac encaiss\u00e9s en plus sur ces jours \u2014 \u00e0 gagner en les amplifiant.' : '\u20ac perdus sur ce motif \u2014 \u00e0 r\u00e9duire.')) + '">' + (pos ? '+' : '\u2212') + amount + ' \u20ac/an</span>')
+                : imp.a_confirmer
+                  ? '<span style="font-size:11.5px;font-weight:600;color:#6B7280;background:#F3F4F6;border-radius:8px;padding:3px 8px;white-space:nowrap;" title="' + escapeHtml('L\u2019effet mesur\u00e9 (' + (pos ? '+' : '\u2212') + amount + ' \u20ac/an) et le lien brut (' + String(imp.corr_index_fr || 'r non mesur\u00e9') + ') pointent en sens oppos\u00e9s \u2014 mis \u00e0 l\u2019\u00e9cart des gestes tant qu\u2019un test ne l\u2019a pas confirm\u00e9.') + '">Signal \u00e0 confirmer</span>'
+                  : '<span class="ab-pill-eur" style="font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:' + pillFg + ';background:' + pillBg + ';border-radius:8px;white-space:nowrap;" title="' + escapeHtml('Mesur\u00e9 sur ' + imp.n_days + ' j / ' + imp.span_months + ' mois \u2014 ' + String(imp.tier_label_fr || '') + '. ' + (pos ? '\u20ac encaiss\u00e9s en plus sur ces jours \u2014 \u00e0 gagner en les amplifiant.' : '\u20ac perdus sur ce motif \u2014 \u00e0 r\u00e9duire.') + (imp.corr_index_fr ? ' ' + String(imp.corr_index_fr) + '.' : '')) + '">' + (pos ? '+' : '\u2212') + amount + ' \u20ac/an</span>')
             + btn
           + '</span>'
         + '</div>'

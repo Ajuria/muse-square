@@ -159,7 +159,10 @@ test("chat_decision_* sont les SEULS types de l'allowlist absents du registre SP
   // 06/08 (constaté 07/08, rouge depuis le P2 96fc52f) : onboarding_first_test est un origin
   // de GESTE (aline du tableau « Engagez votre premier test mesuré »), pas une carte — aucun
   // SPECS possible, même nature que chat_decision_*. Exclusion vérifiée, pas supposée.
-  const GESTE_ORIGINS = new Set(["onboarding_first_test"]);
+  // 28/08 (branche idée) : chat_journal_replay et chat_idea_test sont des origins de CHAT —
+  // le CTA M'engager d'une réponse (rejeu prouvé / idée soumise), pas une carte : aucun SPECS
+  // possible, même nature que chat_decision_*. Exclusion vérifiée, pas supposée.
+  const GESTE_ORIGINS = new Set(["onboarding_first_test", "chat_journal_replay", "chat_idea_test"]);
   expect(absents.every((t) => t.startsWith("chat_decision_") || GESTE_ORIGINS.has(t))).toBe(true);
 });
 
