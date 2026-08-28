@@ -7,7 +7,7 @@ import { filterDisabledThemes } from "../../../lib/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/contextCopy";
-import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured, structuralFunnelLineFr } from "../../../lib/dayClassRegistry";
+import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured, structuralFunnelLineFr, corrIndexFr } from "../../../lib/dayClassRegistry";
 import { buildEventLifecycleCards } from "../../../lib/eventLifecycleCards";
 
 function json(status: number, body: unknown) {
@@ -1047,7 +1047,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
         .filter((r: any) => !classNeverMeasured(dayClassResult as any, r))
         .map((r: any) => ({
         ...((er) => ({
-          enjeu: er.enjeu, enjeu_reason_fr: er.reason_fr, needs_catchment: er.needs_catchment === true,
+          // Indice de corrélation (owner 28/08) : préformaté serveur sur l'enjeu du coin —
+          // l'infobulle du « i » le rend, le client ne formate jamais.
+          enjeu: er.enjeu ? { ...er.enjeu, corr_index_fr: corrIndexFr((er.enjeu as any).corr_r, er.enjeu.n_days) } : er.enjeu,
+          enjeu_reason_fr: er.reason_fr, needs_catchment: er.needs_catchment === true,
           // Doctrine 01/08 : motif du jour en CONTEXTE (ligne de texte) + mode « € ce jour »
           // quand la population de la carte n'a pas encore la récurrence (amendement 6).
           context_motif: er.context_motif ?? null,
@@ -1108,6 +1111,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
           ...i,
           ...structuralCardCopyFr(i),
           funnel_fr: structuralFunnelLineFr((dayClassResult as any)?.funnelRows ?? [], i.class_key, Number(i.eur_year)),
+          // Indice de corrélation (owner 28/08) : préformaté SERVEUR (corrIndexFr, un foyer) —
+          // le client l'ajoute aux infobulles, jamais ne le formate. a_confirmer voyage déjà.
+          corr_index_fr: corrIndexFr(i.corr_r, i.n_days),
         }))
         .sort((a: any, b: any) => Math.abs(b.eur_year) - Math.abs(a.eur_year))),
     });

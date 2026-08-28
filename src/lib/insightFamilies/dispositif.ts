@@ -469,6 +469,15 @@ export async function dispositifFamily(bq: any, location_id: string, class_key: 
       claim_type: "measured",
       tier: imp.tier,
     });
+    // Porte de concordance (owner go 28/08, spec indice-correlation) : l'accès direct à
+    // l'atelier reste ouvert (documenter un dispositif EXISTANT est légitime), mais le fait
+    // entre dans la liste blanche — l'enquête le dit, jamais ne propose de créer sur ce motif.
+    if (imp.a_confirmer) {
+      facts.push({
+        fact_fr: `Signal à confirmer : l'effet mesuré de ce motif et son lien brut avec le CA pointent en sens opposés — un test mesuré doit trancher avant d'y bâtir un dispositif nouveau.`,
+        claim_type: "measured",
+      });
+    }
   }
   for (const d of days.slice(0, 3)) {
     facts.push({

@@ -559,7 +559,7 @@ export function buildPlanWhyBlocks(r: PlanPeriodResult): PlanWhyBlocks {
       const mel = m.entangled
         ? ` Facteurs multiples : ${m.entangled_with.length ? m.entangled_with.map((x) => `${x.mot_fr} (${x.n} % de ses jours)`).join(", ") : "co-occurrences sous le plancher"}.`
         : "";
-      facts.push(`${m.mot_fr} : ${(m.med_gap_eur as number) >= 0 ? "+" : "−"}${frEur2(Math.abs(m.med_gap_eur as number))} €/jour (médiane, ${m.hist_days} j d'historique) × ${m.n_days} j prévus = ${(m.med_gap_eur as number) >= 0 ? "+" : "−"}${frEur2(Math.abs((m.med_gap_eur as number) * m.n_days))} € en jeu.${idx ? ` ${idx}.` : ""}${mel}`);
+      facts.push(`${m.mot_fr} : ${(m.med_gap_eur as number) >= 0 ? "+" : "−"}${frEur2(Math.abs(m.med_gap_eur as number))} €/jour (médiane, ${m.hist_days} j d'historique) × ${m.n_days} j prévus — Enjeu : ${(m.med_gap_eur as number) >= 0 ? "+" : "−"}${frEur2(Math.abs((m.med_gap_eur as number) * m.n_days))} € sur la période.${idx ? ` ${idx}.` : ""}${mel}`);
     }
     sections.push({ title: "Ce qui pèse sur la période", facts });
   }

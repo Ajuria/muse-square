@@ -12,9 +12,11 @@
   n < 5 ou r absent : rien — on ne qualifie pas un lien qu'on n'a pas mesuré.
 - **« Facteurs multiples »** — remplace « Mesure mêlée » dans les rendus (base marginale).
 - **« Signal à confirmer »** — l'étiquette de la porte de concordance (§ ci-dessous).
-- EN ATTENTE owner : les deux mots de NATURE du lien (« pilote structurel » / « levier
-  épisodique » proposés, non tranchés) ; « en jeu » après le € (gardé ou non) ; le pied
-  « Indices de corrélation » quand l'indice est déjà sous chaque motif.
+- Tranchés le 28/08 (2e passe) : PAS d'étiquette de nature (« pilote structurel » rejeté —
+  grandiloquent ; le palier + une phrase simple en infobulle suffisent) ; le € projeté
+  s'écrit **« Enjeu : −880 € sur la période »** (préfixe Enjeu + unité de temps toujours) ;
+  sur une CARTE l'indice vit TOUJOURS en infobulle du ⓘ (trop petit pour l'inline), et il
+  est LISTÉ partout où une section Sources existe.
 
 ## La mesure (appliquée)
 
@@ -68,16 +70,22 @@ boucle d'apprentissage les élimine.
 - Réponses du prompt : pied **« Indices de corrélation »** — une ligne PAR relation
   utilisée (« pluie ↔ CA : indice de corrélation faible (r = −0,2) »), en plus des sources.
   APPLIQUÉ : plan + pourquoi du plan.
-- ⓘ de TOUTES les cartes (comptes owner ET membres) : r + palier + n + statut
-  pur/facteurs multiples/à confirmer. **À FAIRE** (chantier transverse card-kit + providers).
+- ⓘ des cartes (comptes owner ET membres) : APPLIQUÉ 28/08 — coin des cartes contextuelles
+  d'Agir (enjeu, 22/22 au payload réel), rangées structurelles d'Agir (pill €/an), cartes
+  « Connaissances créées » du Tableau — `corr_index_fr` préformaté SERVEUR (monitor +
+  dashboard), le client ne formate jamais.
+
+## Appliqué le 28/08 (2e passe)
+
+- Porte de concordance branchée : rangée structurelle d'Agir (« Signal à confirmer » à la
+  place du ±€/an, M'engager non rendu, « Pas pour moi » gardé — prouvé au harnais vm sur
+  rangée discordante injectée), cartes Connaissances du Tableau (chip, geste non rendu),
+  atelier dispositif (le fait entre dans la liste blanche de l'enquête — documenter un
+  dispositif EXISTANT reste ouvert, jamais une proposition de création sur ce motif).
+- « Facteurs multiples » propagé : tier_label_fr (UN foyer → tous les rendus), plan,
+  infobulle du coin d'Agir.
 
 ## Reste à faire
 
-1. Porte de concordance branchée sur monitor/pulse (les cartes structurelles et l'atelier
-   dispositif — exclusion des surfaces d'action, étiquette « Signal à confirmer »).
-2. ⓘ indice de corrélation sur toutes les cartes (card-kit + providers).
-3. Le pourquoi des ENTITÉS aux 3 étages (décomposition par contribution, phénomènes
+1. Le pourquoi des ENTITÉS aux 3 étages (décomposition par contribution, phénomènes
    extérieurs triés par |r|, profil de jour) — le pourquoi du plan est déjà réécrit.
-4. Les 3 arbitrages de mots en attente (§ Les mots).
-5. « Facteurs multiples » à propager sur les rendus existants qui disent encore
-   « mesure mêlée » (plan : table des motifs, infobulles).

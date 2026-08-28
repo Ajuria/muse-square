@@ -134,7 +134,7 @@ await dialogue("Pourquoi du plan, puis la conversation continue", [
     "producer = plan_why": ({ producer }) => producer === "deterministic_plan_why_v1",
     "la valeur et les mélanges — jamais le mode de calcul": ({ j }) => {
       const facts = (j?.ai?.output?.plan_sections ?? []).flatMap((s2) => s2.facts ?? []).join(" ");
-      return facts.includes("médiane") && facts.includes("Facteurs multiples") && /€ en jeu/.test(facts)
+      return facts.includes("médiane") && facts.includes("Facteurs multiples") && /Enjeu : −[\d\u202f ]+ € sur la période/.test(facts)
         && !/somme de vos lignes de caisse divisée/.test(facts);
     },
     "chaque relation porte son indice de corrélation": ({ j }) => {

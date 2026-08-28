@@ -1204,10 +1204,15 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var gain = Number(r.avg_gap_eur) > 0;
             var tip = "Médiane mesurée vs votre CA habituel sur " + r.n_days + " " + r.label_fr + (r.span_months ? " (" + r.span_months + " mois d’historique)" : "")
               + (r.eur_year != null ? " — ≈ " + signEur(r.eur_year) + "/an (" + (r.tier_label_fr || "estimé") + ")" : "")
-              + ". Registre enjeu de l’app — jamais extrapolé.";
+              // Indice de corrélation (owner 28/08) : toujours en infobulle sur une carte — préformaté serveur.
+              + (r.corr_index_fr ? " " + r.corr_index_fr + "." : "")
+              + (r.a_confirmer ? " Signal à confirmer : l’effet et le lien brut pointent en sens opposés." : "")
+              + " Registre enjeu de l’app — jamais extrapolé.";
             var action;
             if (r.covered) action = '<span class="tb-chip" style="background:#E6F6F0;color:#059669;">couvert — dispositif en place</span>';
             else if (r.in_test) action = '<span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;">en test — verdict le ' + frD(r.in_test.end) + '</span>';
+            // Porte de concordance (owner go 28/08) : la ligne reste lisible, le geste ne se rend pas.
+            else if (r.a_confirmer) action = '<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">Signal à confirmer</span>';
             else if (gain) action = '<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;">à défendre</span>';
             else action = '<a class="tb-link" href="#" data-tb-engage="' + li + '" style="font-size:12px;white-space:nowrap;">M’engager →</a>';
             capHtml += occRow(
@@ -1216,7 +1221,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               '<span style="font-weight:600;">' + (gain ? "gagnés" : "perdus") + '</span> les ' + esc(r.label_fr) + (siteChip(r.site_label) ? " " + siteChip(r.site_label) : ""),
               r.n_days + " jours mesurés chez vous",
               action);
-            if (!r.covered && !r.in_test && !gain) capHtml += '<div data-tb-engage-panel="' + li + '" style="display:none;margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;"></div>';
+            if (!r.covered && !r.in_test && !gain && !r.a_confirmer) capHtml += '<div data-tb-engage-panel="' + li + '" style="display:none;margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;"></div>';
           });
           if (j.met_recipe) {
             capHtml += occRow(

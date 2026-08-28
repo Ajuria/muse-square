@@ -747,7 +747,7 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
     // mêlés » — celui que l'auteur de ce fichier emploie deux fois pour expliquer la base
     // marginale (lignes 431 et 452), donc ni inventé ni traduit. Le concept « niveau de
     // preuve d'une mesure » n'a PAS d'entrée au lexique : mot à confirmer par l'owner.
-    tier_label_fr: entangled ? "estimé, facteurs mêlés" : tier,
+    tier_label_fr: entangled ? "estimé, facteurs multiples" : tier,   // mot owner 28/08
     entangled,
     n_days: n,
     span_months: Math.round(spanDays / 30.44),
