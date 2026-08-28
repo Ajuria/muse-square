@@ -32,7 +32,7 @@
       + (fams.length ? '<div data-ef-polefams style="display:flex;gap:6px;flex-wrap:wrap;">' + fams.map(function (f) { return famChip(f.category, f.avg_day_eur); }).join('') + '</div>'
         : '<div style="font-size:12px;color:#9CA3AF;">Aucune famille dans vos ventes pour l’instant — le pôle a besoin d’un périmètre mesurable.</div>')
       + '<div style="font-size:11px;color:#9CA3AF;margin-top:5px;">Sans terme : lecture continue de ses familles vs votre résultat habituel — pas de verdict.</div></div>'
-      + '<div style="margin-top:10px;"><label style="' + lbl + '">Levier</label><textarea data-ef="polelever" style="' + poleTa + '" placeholder="Ce que le pôle fait au quotidien"></textarea></div>'
+      + '<div style="margin-top:10px;"><label style="' + lbl + '">Description du dispositif</label><textarea data-ef="polelever" style="' + poleTa + '" placeholder="Ce que le pôle fait au quotidien"></textarea></div>'
       + '<div style="margin-top:10px;"><label style="' + lbl + '">Ressource(s)</label><input data-ef="poleres" style="' + inp + '"></div>'
       + '<div style="display:flex;gap:12px;margin-top:10px;"><div style="flex:1;"><label style="' + lbl + '">Le plus du dispositif</label><textarea data-ef="poleplus" style="' + poleTa + '"></textarea></div>'
       + '<div style="flex:1;"><label style="' + lbl + '">Pourquoi ça va marcher</label><textarea data-ef="polewhy" style="' + poleTa + '"></textarea></div></div>'

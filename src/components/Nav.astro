@@ -115,13 +115,13 @@ const isAppShell = isApp;
                 </button>
                 <div id="compte-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:160px;background:#fff;border:1px solid #e5e7eb;border-radius:0;padding:4px 0;z-index:100;">
                   <!-- Ordre arbitré owner 28/08 (vue équipe inc 9a) : Profil · Sites · Pôles ·
-                       Communication (absorbe Alertes) · Opérations confiées (ex-Recommandations) ·
+                       Communication (absorbe Alertes) · Signaux (ex-Recommandations, owner 28/08) ·
                        Établissements suivis (ex-Suivis). -->
                   <a href="/profile?tab=profil" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Profil</a>
                   <a href="/profile?tab=sites" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Sites</a>
                   <a href="/profile?tab=poles" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Pôles</a>
                   <a href="/profile?tab=comm" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Communication</a>
-                  <a href="/profile?tab=reco" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Opérations confiées</a>
+                  <a href="/profile?tab=reco" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Signaux</a>
                   <div style="border-top:1px solid #e5e7eb;margin:4px 0;"></div>
                   <a href="/app/insightevent/suivis" class="block px-4 py-2 text-sm font-medium uppercase tracking-wide hover:bg-gray-50 text-gray-500 whitespace-nowrap">Établissements suivis</a>
                   {isAdmin && (
@@ -202,7 +202,7 @@ const isAppShell = isApp;
             <a href="/profile?tab=comm" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Communication</a>
           </li>
           <li>
-            <a href="/profile?tab=reco" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Opérations confiées</a>
+            <a href="/profile?tab=reco" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Signaux</a>
           </li>
           <li>
             <a href="/app/insightevent/suivis" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Établissements suivis</a>

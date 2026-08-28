@@ -10,6 +10,8 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
+import { invitationEmailFr } from "../../../lib/channels/slackMessagesFr";
 
 export const prerender = false;
 const PROJECT = "muse-square-open-data";
@@ -98,6 +100,44 @@ export const POST: APIRoute = async ({ request, locals }) => {
       location: "EU",
     });
     return json({ ok: true, member_id: memberId });
+  } catch (err: any) {
+    return json({ ok: false, error: err?.message || "Unknown error" }, /FORBIDDEN/.test(String(err?.message)) ? 403 : 500);
+  }
+};
+
+// PUT = ENVOYER l'email d'invitation (9d — copie owner 28/08, foyer slackMessagesFr).
+// {location_id, member_id} → email au member_email de la fiche, expéditeur = prénom de la
+// session, entreprise = le nom du site (profil). Réponses vers l'email du compte (P3.1-c).
+export const PUT: APIRoute = async ({ request, locals }) => {
+  try {
+    const userId = uid(locals);
+    if (!userId) return json({ ok: false }, 401);
+    const body = await request.json().catch(() => null);
+    if (!body || !body.location_id || !body.member_id) return json({ ok: false, error: "Champs requis : location_id, member_id" }, 400);
+    requireLocationOwnership(locals, body.location_id);
+    const locationId = String(body.location_id).trim();
+    const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
+
+    const members = await latestMembers(bq, locationId);
+    const member = members.find((m) => m.member_id === String(body.member_id));
+    if (!member) return json({ ok: false, error: "Membre introuvable" }, 404);
+    if (!member.member_email || !member.member_email.includes("@")) {
+      return json({ ok: false, error: "Aucun email sur la fiche — renseignez-le d'abord." }, 400);
+    }
+    const [prof] = await bq.query({
+      query: `SELECT site_name, company_name, email FROM \`${PROJECT}.raw.insight_event_user_location_profile\` WHERE location_id = @l LIMIT 1`,
+      params: { l: locationId }, location: "EU",
+    });
+    const companyName = String(prof?.[0]?.site_name || prof?.[0]?.company_name || "").trim();
+    const senderName = String((locals as any)?.first_name || "").trim() || "Votre responsable";
+    const msg = invitationEmailFr({ senderName, companyName: companyName || "votre établissement" });
+    const cfg = await loadChannelConfig(bq, userId, locationId, "email");
+    const r = await sendEmail(cfg, {
+      title: msg.subject, body: msg.body, recipient: member.member_email,
+      reply_to: String(prof?.[0]?.email || "") || undefined,
+    });
+    if (!r.ok) return json({ ok: false, error: r.error || "Envoi impossible" }, 502);
+    return json({ ok: true, sent_to: member.member_email });
   } catch (err: any) {
     return json({ ok: false, error: err?.message || "Unknown error" }, /FORBIDDEN/.test(String(err?.message)) ? 403 : 500);
   }

@@ -784,13 +784,13 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
   </div>
 
   <div class="ms-tabs" id="ms-tabs">
-    <!-- Ordre arbitré owner 28/08 (vue équipe inc 9a) — « Opérations confiées » remplace
+    <!-- Ordre arbitré owner 28/08 (vue équipe inc 9a) — « Signaux » remplace (owner 28/08)
          « Recommandations » (même onglet, même contenu), Pôles est nouveau. -->
     <button type="button" class={`ms-tab-btn${activeTab === "profil" ? " active" : ""}`} data-tab-btn="profil">Profil</button>
     <button type="button" class={`ms-tab-btn${activeTab === "sites" ? " active" : ""}`} data-tab-btn="sites">Sites</button>
     <button type="button" class={`ms-tab-btn${activeTab === "poles" ? " active" : ""}`} data-tab-btn="poles">Pôles</button>
     <button type="button" class={`ms-tab-btn${activeTab === "comm" ? " active" : ""}`} data-tab-btn="comm">Communication</button>
-    {recoLocationId && (<button type="button" class={`ms-tab-btn${activeTab === "reco" ? " active" : ""}`} data-tab-btn="reco">Opérations confiées</button>)}
+    {recoLocationId && (<button type="button" class={`ms-tab-btn${activeTab === "reco" ? " active" : ""}`} data-tab-btn="reco">Signaux</button>)}
   </div>
 
   <div class="ms-tab" data-tab="profil" hidden={activeTab !== "profil"}>
@@ -3137,6 +3137,63 @@ window.toggleAutomationCard = function() {
     var SIGNAL_LABELS = {competition:"Concurrence",weather:"M\u00e9t\u00e9o",mobility:"Mobilit\u00e9",calendar:"Calendrier",opportunity:"Opportunit\u00e9s"};
     var CHANNEL_LABELS = {slack:"Slack",email:"Email",sms:"SMS",whatsapp:"WhatsApp",phone:"T\u00e9l\u00e9phone"};
 
+    // ── Vue équipe 9d : accès app (location_members), annuaire Slack, pôles — la fiche
+    // Destinataires écrit LES DEUX registres (même member_id), jamais deux formulaires. ──
+    var _accessByMember = {};
+    var _slackDir = { users: [], channels: [] };
+    var _polesById = {};
+    var _adminLoaded = false;
+    function loadAccessData() {
+      if (_adminLoaded) return Promise.resolve();
+      _adminLoaded = true;
+      return Promise.all([
+        fetch('/api/channels/members?location_id=' + encodeURIComponent(locId)).then(function (r) { return r.json(); }).catch(function () { return {}; }),
+        fetch('/api/channels/slack-directory?location_id=' + encodeURIComponent(locId)).then(function (r) { return r.json(); }).catch(function () { return {}; }),
+        fetch('/api/insight/evenement?location_id=' + encodeURIComponent(locId) + '&create_context=1').then(function (r) { return r.json(); }).catch(function () { return {}; }),
+      ]).then(function (res) {
+        _accessByMember = {};
+        (res[0].items || []).forEach(function (m) { _accessByMember[m.member_id] = m; });
+        if (res[1] && res[1].ok) _slackDir = { users: res[1].users || [], channels: res[1].channels || [] };
+        _polesById = {};
+        (res[2].poles || []).forEach(function (pp) { _polesById[pp.dispositif_id] = pp; });
+      });
+    }
+    // Ligne d'accès sous la rangée membre : état neutre (aucun / en attente / actif).
+    function accessLineHtml(mid) {
+      var a2 = _accessByMember[mid];
+      var slackName = '';
+      if (a2 && a2.slack_user_id) {
+        var u = _slackDir.users.filter(function (x) { return x.id === a2.slack_user_id; })[0];
+        slackName = u ? u.name : a2.slack_user_id;
+      }
+      var poleNames = a2 ? (a2.pole_dispositif_ids || []).map(function (id) { return _polesById[id] ? _polesById[id].name : null; }).filter(Boolean) : [];
+      var acc = !a2
+        ? '<span style="color:#9ca3af;">Accès app : aucun</span> <button type="button" data-invite-member="' + mid + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;cursor:pointer;font-family:inherit;padding:0;">Inviter →</button>'
+        : (a2.connected
+          ? '<span style="color:#059669;">Accès app : actif' + (a2.member_email ? ' · ' + a2.member_email : '') + '</span>'
+          : '<span style="color:#B45309;">Accès app : en attente' + (a2.member_email ? ' · ' + a2.member_email : '') + '</span> <button type="button" data-invite-member="' + mid + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;cursor:pointer;font-family:inherit;padding:0;">Inviter →</button>');
+      var extra = [];
+      if (poleNames.length) extra.push('Pôles : ' + poleNames.join(', '));
+      if (slackName) extra.push('Slack : ' + slackName);
+      return '<div style="font-size:11px;margin-top:4px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">' + acc
+        + (extra.length ? '<span style="color:#6b7280;">' + extra.join(' · ') + '</span>' : '') + '</div>';
+    }
+    function poleChipsEdit(mid) {
+      var a2 = _accessByMember[mid] || { pole_dispositif_ids: [] };
+      var ids = Object.keys(_polesById);
+      if (!ids.length) return '<span style="font-size:11px;color:#9ca3af;">Aucun pôle — créez-en dans l\'onglet Pôles</span>';
+      return ids.map(function (id) {
+        var on = (a2.pole_dispositif_ids || []).indexOf(id) >= 0;
+        return '<span data-ed-pole-chip="' + id + '" data-on="' + (on ? '1' : '0') + '" style="font-size:11px;padding:3px 10px;border-radius:20px;cursor:pointer;border:1px solid ' + (on ? '#1D3BB3' : '#e5e7eb') + ';background:' + (on ? '#EFF6FF' : '#fff') + ';color:' + (on ? '#1D3BB3' : '#6b7280') + ';">' + _polesById[id].name + '</span>';
+      }).join('');
+    }
+    function slackOptionsEdit(mid) {
+      var a2 = _accessByMember[mid] || {};
+      var opts = '<option value="">— non relié —</option>';
+      _slackDir.users.forEach(function (u) { opts += '<option value="' + u.id + '"' + (a2.slack_user_id === u.id ? ' selected' : '') + '>' + u.name + '</option>'; });
+      return opts;
+    }
+
     function renderTeamList(items) {
       var list = document.getElementById('team-members-list');
       var summary = document.getElementById('team-header-summary');
@@ -3156,6 +3213,7 @@ window.toggleAutomationCard = function() {
               + '<div style="font-weight:600;font-size:13px;color:#111827;">' + fullName + (m.role ? ' <span style="font-weight:400;color:#9ca3af;">\u00b7 ' + m.role + '</span>' : '') + '</div>'
               + (chBadges.length > 0 ? '<div style="display:flex;gap:4px;margin-top:4px;">' + chBadges.map(function(k) { return '<span style="width:20px;height:20px;border-radius:4px;background:' + (CH_BADGE_COLORS[k] || '#9ca3af') + ';display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700;">' + (CH_BADGE_ICONS[k] || k[0].toUpperCase()) + '</span>'; }).join('') + '</div>' : '')
               + (routingTags.length > 0 ? '<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">' + routingTags.map(function(t) { return '<span style="font-size:9px;padding:2px 6px;border-radius:3px;background:#EFF6FF;color:#1D3BB3;font-weight:600;">' + t + '</span>'; }).join('') + '</div>' : '')
+              + accessLineHtml(m.member_id)
             + '</div>'
             + '<div style="display:flex;gap:8px;align-items:center;">'
               + '<button type="button" data-edit-member="' + m.member_id + '" style="background:none;border:none;color:#1D3BB3;font-size:11px;cursor:pointer;font-family:inherit;">Modifier</button>'
@@ -3168,6 +3226,8 @@ window.toggleAutomationCard = function() {
               + '<input data-ed-ln="' + m.member_id + '" value="' + (m.last_name || '') + '" placeholder="Nom" style="border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" />'
             + '</div>'
             + '<input data-ed-role="' + m.member_id + '" value="' + (m.role || '') + '" placeholder="R\u00f4le" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;margin-top:8px;box-sizing:border-box;" />'
+            + '<div style="margin-top:8px;"><span style="font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;">Pôles</span><div data-ed-poles="' + m.member_id + '" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">' + poleChipsEdit(m.member_id) + '</div></div>'
+            + '<div style="margin-top:8px;"><span style="font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;">Identité Slack</span><select data-ed-slack="' + m.member_id + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;margin-top:4px;box-sizing:border-box;background:#fff;">' + slackOptionsEdit(m.member_id) + '</select></div>' 
             + '<div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">'
               + '<div style="display:flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:4px;background:#4A154B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">SL</span><input data-ed-ch-slack="' + m.member_id + '" value="' + (chContacts.slack || '') + '" placeholder="#canal ou @nom" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" /></div>'
               + '<div style="display:flex;align-items:center;gap:8px;"><span style="width:24px;height:24px;border-radius:4px;background:#6B7280;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;flex-shrink:0;">@</span><input data-ed-ch-email="' + m.member_id + '" value="' + (chContacts.email || '') + '" placeholder="email@domaine.com" style="flex:1;border:1px solid #e5e7eb;border-radius:6px;padding:6px 10px;font-size:12px;color:#111827;outline:none;font-family:inherit;" /></div>'
@@ -3199,6 +3259,36 @@ window.toggleAutomationCard = function() {
           var editEl = list.querySelector('[data-member-edit="' + mid + '"]');
           if (viewEl) viewEl.style.display = 'flex';
           if (editEl) editEl.style.display = 'none';
+        });
+      });
+      // 9d : bascule des chips pôle en édition
+      list.querySelectorAll('[data-ed-pole-chip]').forEach(function (c2) {
+        c2.addEventListener('click', function () {
+          var on = c2.getAttribute('data-on') === '1' ? '0' : '1';
+          c2.setAttribute('data-on', on);
+          c2.style.borderColor = on === '1' ? '#1D3BB3' : '#e5e7eb';
+          c2.style.background = on === '1' ? '#EFF6FF' : '#fff';
+          c2.style.color = on === '1' ? '#1D3BB3' : '#6b7280';
+        });
+      });
+      // 9d : Inviter — crée la fiche d'accès si besoin (email = contact du roster,
+      // une fiche = les deux registres) puis ENVOIE l'email (copie owner, PUT members).
+      list.querySelectorAll('[data-invite-member]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          var mid = btn.getAttribute('data-invite-member');
+          var tm = _teamCache.filter(function (m2) { return m2.member_id === mid; })[0];
+          var em = tm && tm.channels_contact ? (tm.channels_contact.email || '') : '';
+          if (!_accessByMember[mid] && !em) { btn.textContent = 'Email manquant — renseignez le contact'; return; }
+          btn.disabled = true; btn.textContent = 'Envoi…';
+          try {
+            if (!_accessByMember[mid]) {
+              await fetch('/api/channels/members', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ location_id: locId, member_id: mid, member_email: em }) });
+            }
+            var r2 = await fetch('/api/channels/members', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ location_id: locId, member_id: mid }) });
+            var j2 = await r2.json();
+            if (j2 && j2.ok) { _adminLoaded = false; await loadAccessData(); renderTeamList(_teamCache); }
+            else { btn.disabled = false; btn.textContent = 'Inviter →'; alert('Envoi impossible : ' + ((j2 && j2.error) || 'réessayez')); }
+          } catch (e2) { btn.disabled = false; btn.textContent = 'Inviter →'; }
         });
       });
       // Wire save edit
@@ -3235,6 +3325,19 @@ window.toggleAutomationCard = function() {
               }),
             });
             var json = await res.json();
+            // 9d : la même fiche écrit le registre d'accès (pôles + identité Slack) —
+            // copy-forward côté API : un champ absent est conservé.
+            try {
+              var polesSel = Array.prototype.slice.call(list.querySelectorAll('[data-member-edit="' + mid + '"] [data-ed-pole-chip][data-on="1"]')).map(function (c3) { return c3.getAttribute('data-ed-pole-chip'); });
+              var slackSel = (list.querySelector('[data-ed-slack="' + mid + '"]') || {}).value || '';
+              var em3 = ch.email || (oldMember && oldMember.channels_contact ? oldMember.channels_contact.email : '') || '';
+              if (_accessByMember[mid] || polesSel.length || slackSel) {
+                var mbody = { location_id: locId, member_id: mid, pole_dispositif_ids: polesSel, slack_user_id: slackSel || null };
+                if (!_accessByMember[mid]) { if (!em3) throw new Error('no-email'); mbody.member_email = em3; }
+                await fetch('/api/channels/members', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(mbody) });
+                _adminLoaded = false; await loadAccessData();
+              }
+            } catch (e3) {}
             if (json && json.ok) {
               var res2 = await fetch('/api/channels/team?location_id=' + encodeURIComponent(locId));
               var json2 = await res2.json();
@@ -3270,6 +3373,8 @@ window.toggleAutomationCard = function() {
         renderTeamList(_teamCache);
       }
     } catch(e) {}
+    // 9d : sources d'accès en parallèle, re-rendu à l'arrivée (jamais bloquant).
+    loadAccessData().then(function () { if (_teamCache.length) renderTeamList(_teamCache); });
 
     document.getElementById('team-add-btn')?.addEventListener('click', async function() {
       var fnEl = document.getElementById('team-new-firstname');

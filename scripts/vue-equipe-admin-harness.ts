@@ -85,4 +85,39 @@ async function main() {
   assert("sondes nettoyées", Number((cnt as any[])[0].n) === 0, (cnt as any[])[0]);
 }
 
-main().catch((e) => { console.error("HARNESS FAILED:", e); process.exit(1); });
+main().then(() => phase9d()).catch((e) => { console.error("HARNESS FAILED:", e); process.exit(1); });
+
+// ── Phase 9d : copie d'invitation (mots owner, élision) + envoi RÉEL à l'owner ──
+export async function phase9d() {
+  const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  const bq = rawKey ? new BigQuery({ projectId: P, credentials: JSON.parse(rawKey) }) : new BigQuery({ projectId: P });
+  const ownerLocals = { clerk_user_id: OWNER, real_clerk_user_id: OWNER, first_name: "Julen", all_location_ids: [LOC, OTHER_LOC], member_location_ids: [], member_poles: {}, role: "owner" };
+  const { invitationEmailFr } = await import("../src/lib/channels/slackMessagesFr");
+
+  const inv1 = invitationEmailFr({ senderName: "Julen", companyName: "Épices et Tout" });
+  assert("invitation : élision d'Épices et Tout", inv1.subject === "Julen vous invite à rejoindre Muse Square"
+    && inv1.body.startsWith("Julen d'Épices et Tout vous invite à rejoindre Muse Square, la plateforme de l'intrapreneuriat commercial.")
+    && inv1.body.includes("Pour rejoindre un des pôles d'Épices et Tout, créez votre compte ici : https://"), { body: inv1.body });
+  const inv2 = invitationEmailFr({ senderName: "Julen", companyName: "Muse Square" });
+  assert("invitation : « de Muse Square » (pas d'élision)", inv2.body.includes("Julen de Muse Square vous invite") && inv2.body.includes("pôles de Muse Square"), { body: inv2.body });
+  assert("invitation : aucun mot banni", !/attendu|la normale/i.test(inv1.body + inv2.body));
+
+  const memMod = await import("../src/pages/api/channels/members");
+  async function send(fn: any, locals: any, body: any, method = "POST") {
+    const r: Response = await fn({ request: new Request("http://localhost/x", { method, body: JSON.stringify(body), headers: { "content-type": "application/json" } }), locals });
+    return { status: r.status, body: await r.json() };
+  }
+  // Sans email sur la fiche → 400 honnête.
+  await send(memMod.POST, ownerLocals, { location_id: LOC, member_id: "probe-inc9d-noemail", member_email: "x@y.z" });
+  await bq.query({ query: `UPDATE \`${P}.analytics.location_members\` SET member_email = NULL WHERE member_id = 'probe-inc9d-noemail'`, location: "EU" });
+  const ko = await send(memMod.PUT, ownerLocals, { location_id: LOC, member_id: "probe-inc9d-noemail" }, "PUT");
+  assert("invitation sans email → 400", ko.status === 400, ko.body);
+  // Envoi RÉEL : fiche-sonde avec l'email de l'owner — l'email d'invitation part vraiment.
+  await send(memMod.POST, ownerLocals, { location_id: LOC, member_id: "probe-inc9d-real", member_email: "julen@musesquare.com" });
+  const okSend = await send(memMod.PUT, ownerLocals, { location_id: LOC, member_id: "probe-inc9d-real" }, "PUT");
+  assert("invitation ENVOYÉE (réel, à l'owner)", okSend.status === 200 && okSend.body.sent_to === "julen@musesquare.com", okSend.body);
+
+  await bq.query({ query: `DELETE FROM \`${P}.analytics.location_members\` WHERE member_id LIKE 'probe-inc9d-%'`, location: "EU" });
+  const [cnt] = await bq.query({ query: `SELECT COUNT(*) n FROM \`${P}.analytics.location_members\` WHERE member_id LIKE 'probe-inc9d-%'`, location: "EU" });
+  assert("sondes 9d nettoyées", Number((cnt as any[])[0].n) === 0);
+}

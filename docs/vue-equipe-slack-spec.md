@@ -465,9 +465,15 @@ event-form v14) ; carte Alertes MIGRÉE dans Communication (formulaire + script 
 inchangés, `notifications.astro` = redirection 302, dead code retiré) ; APIs 9b :
 `channels/members` (accès app, copy-forward), `channels/slack-directory` (annuaire réel —
 canaux publics OK ; PRIVÉS = scope `groups:read` À AJOUTER par l'owner, erreur remontée),
-GET `channels/forward` (adresses posées). RESTES 9 : 9d (3 champs par membre dans
-Destinataires + email d'invitation, copie owner) · scope groups:read (owner) · E2E
-navigateur owner sur l'onglet Pôles.
+GET `channels/forward` (adresses posées). **9d CONSTRUIT 28/08** (harnais admin étendu, tout vert, dont UN email d'invitation RÉEL
+envoyé à l'owner) : renommages actés (onglet « Signaux », « Description du dispositif »
+sur le pôle) ; fiche Destinataires = LES DEUX registres par le même member_id (ligne
+Accès app : aucun/en attente/actif — états neutres proposés, veto possible — + pôles +
+identité Slack en vue ; édition = chips pôles + sélecteur Slack, copy-forward côté API) ;
+« Inviter → » crée la fiche d'accès (email = contact du roster) puis envoie l'email
+(copie owner verbatim, élision de/d', PUT members, reply-to = email du compte).
+RESTES 9 : E2E navigateur owner (onglet Pôles + fiche Destinataires) · groups:read posé
+(fait owner 28/08) — vérifier que les canaux privés apparaissent au premier setup.
 
 ## Setup Slack Épices et Tout (opérationnel, hors code)
 

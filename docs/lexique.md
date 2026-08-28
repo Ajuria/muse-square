@@ -80,6 +80,17 @@ notifications ENTIÈREMENT arbitré par l'owner selon l'étape du cycle de la ca
 | L'objectif au-delà de la cible (verdict `beat`) | **dépassé** (owner 28/08 — le 3ᵉ état existait en donnée sans mot français) | beat |
 | Un dispositif qui décroche (3 mauvaises journées la même semaine) | **a sous-performé** (owner 28/08 — gabarit G4 ; « mauvaise journée » = nettement sous votre résultat habituel, hors bande de bruit) | sous l'attendu |
 
+## Onglets du Compte & fiche membre (owner 28/08, vue équipe inc 9)
+
+| Concept | LE mot | Notes |
+|---|---|---|
+| L'onglet des familles d'actions reçues (ex-Recommandations) | **Signaux** | « Opérations confiées » essayé puis retiré ; « Signaux traités » resté à la tuile Piloter |
+| L'onglet des concurrents suivis (ex-Suivis) | **Établissements suivis** | |
+| Le champ description d'un pôle | **Description du dispositif** (placeholder « Ce que le pôle fait au quotidien ») | Levier (sur un pôle — reste le mot des opérations datées) ; Périmètre d'activité (collision « votre périmètre ») |
+| Le libellé familles du pôle | **Familles de produits & services** | Familles du pôle |
+| États d'accès app d'un membre (fiche Destinataires) | **aucun · en attente · actif** (neutres — proposés au build, veto owner possible) | Connectée/Invitée (genre inconnaissable) |
+| L'email d'invitation | copie owner 28/08 VERBATIM au foyer `slackMessagesFr.invitationEmailFr` (élision de/d', « intrapreneuriat » normalisé) | |
+
 ## Règles de rédaction (héritées des décisions owner)
 
 1. **CTA = un verbe + flèche (≤ 14 caractères)** — l'objet vit dans le titre de la rangée.
