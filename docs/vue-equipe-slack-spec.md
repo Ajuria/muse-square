@@ -472,8 +472,17 @@ Accès app : aucun/en attente/actif — états neutres proposés, veto possible 
 identité Slack en vue ; édition = chips pôles + sélecteur Slack, copy-forward côté API) ;
 « Inviter → » crée la fiche d'accès (email = contact du roster) puis envoie l'email
 (copie owner verbatim, élision de/d', PUT members, reply-to = email du compte).
-RESTES 9 : E2E navigateur owner (onglet Pôles + fiche Destinataires) · groups:read posé
-(fait owner 28/08) — vérifier que les canaux privés apparaissent au premier setup.
+**Marqueur owner-only CONSTRUIT 28/08** (owner : « distinguer les owner only ») : chaque
+candidate du fil owner porte `owner_only` (portée calculée au MÊME foyer memberCardPolicy
+que le filtre membre) ; pulse rend un cadenas discret gris à la méta de rangée, infobulle
+« Visible par vous seul — jamais montrée à l'équipe » (veto owner possible sur mot et
+pictogramme). Harnais agir étendu (owner_only booléen + cohérent cardScope sur les 34
+candidates réelles).
+
+RESTES du chantier (tout le code est livré — constats owner « à la fin ») : E2E
+navigateur (onglet Pôles, fiche Destinataires, marqueur owner-only, vue membre réelle) ·
+canaux privés visibles au 1er setup (groups:read posé) · G3/G4 constatés à la prochaine
+résolution réelle · merge prod final.
 
 ## Setup Slack Épices et Tout (opérationnel, hors code)
 

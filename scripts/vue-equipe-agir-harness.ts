@@ -116,4 +116,22 @@ async function main() {
   assert("phrase expurgée : aucun niveau « CA N EUR »", !levelEur.test(swRed), { sample: (swRed.match(levelEur) || [])[0] });
 }
 
-main().catch((e) => { console.error("HARNESS FAILED:", e); process.exit(1); });
+main().then(() => markerPhase()).catch((e) => { console.error("HARNESS FAILED:", e); process.exit(1); });
+
+// ── Fin de chantier : marqueur owner-only (owner 28/08 « distinguer les owner only ») ──
+export async function markerPhase() {
+  const { GET } = await import("../src/pages/api/insight/monitor");
+  const { cardScope } = await import("../src/lib/memberCardPolicy");
+  const today = new Date().toISOString().slice(0, 10);
+  const ownerLocals = { clerk_user_id: OWNER, real_clerk_user_id: OWNER, all_location_ids: [LOC], member_location_ids: [], member_poles: {}, role: "owner" };
+  const res: Response = await (GET as any)({ url: new URL("http://localhost/x?location_id=" + LOC + "&selected_dates=" + today + "&light=1"), locals: ownerLocals });
+  const body = await res.json();
+  const cands = body.action_candidates || [];
+  assert("owner_only : booléen sur chaque candidate", cands.length > 0 && cands.every((c: any) => typeof c.owner_only === "boolean"), { n: cands.length });
+  assert("owner_only : cohérent avec cardScope", cands.every((c: any) => c.owner_only === (cardScope(String(c.action_type)) === "owner")));
+
+  const src2 = readFileSync("public/action-cards.js", "utf8");
+  assert("action-cards : owner_only copié sur item", src2.includes("owner_only: ac.owner_only === true"));
+  const pulse = readFileSync("src/pages/app/insightevent/pulse.astro", "utf8");
+  assert("pulse : marqueur cadenas + infobulle « Visible par vous seul »", pulse.includes("Visible par vous seul — jamais montrée à l’équipe") && pulse.includes("entry.item.owner_only === true"));
+}
