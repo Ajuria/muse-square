@@ -11,6 +11,7 @@
 // Sans SLACK_SIGNING_SECRET en env → 503 honnête (rien ne se traite non signé).
 import type { APIRoute } from "astro";
 import crypto from "node:crypto";
+import { waitUntil } from "@vercel/functions";
 import { makeBQClient } from "../../../lib/bq";
 import { localsFromSlackUser } from "../../../lib/profileContext";
 import { POST as DISPO } from "../commitments/disposition";
@@ -24,6 +25,30 @@ function ok(body?: unknown): Response {
   return new Response(body == null ? "" : JSON.stringify(body), {
     status: 200, headers: { "content-type": "application/json" },
   });
+}
+
+// Inc 8a — accusé IMMÉDIAT : Slack exige une réponse < 3 s, nos écritures BQ en prennent
+// 2-4. Les boutons répondent 200 tout de suite ; le travail court dans waitUntil (Vercel
+// le laisse finir après la réponse) et la confirmation arrive par response_url. Hors
+// Vercel (harnais), waitUntil peut jeter — la promesse court quand même, et le harnais
+// l'attend par __lastInteractTask. Le modal (view_submission) RESTE synchrone : sa
+// réponse pilote l'affichage des erreurs dans le modal (le 409 du rail s'y montre).
+export let __lastInteractTask: Promise<void> | null = null;
+function runAsync(task: () => Promise<void>): void {
+  const p = task().catch((e) => console.error("[slack-interact][async]", e?.message || e));
+  __lastInteractTask = p;
+  try { waitUntil(p); } catch { /* hors runtime Vercel */ }
+}
+
+// Le compte propriétaire d'un site — la ligne action_log d'un geste Slack porte le
+// user_id du COMPTE (card-states lit par lui : l'état doit s'afficher dans l'app) ;
+// l'auteur réel du clic va dans `reason`, method='slack'.
+async function accountOwnerFor(bq: any, location_id: string): Promise<string | null> {
+  const [rows] = await bq.query({
+    query: `SELECT clerk_user_id FROM \`${PROJECT}.raw.insight_event_user_location_profile\` WHERE location_id = @l LIMIT 1`,
+    params: { l: location_id }, location: "EU",
+  });
+  return rows?.[0]?.clerk_user_id ? String(rows[0].clerk_user_id) : null;
 }
 
 function verifySlackSignature(rawBody: string, headers: Headers): boolean {
@@ -94,21 +119,65 @@ export const POST: APIRoute = async ({ request }) => {
       try { value = JSON.parse(String(action.value || "{}")); } catch {}
 
       if (actionId === "ms_dispo_fait" || actionId === "ms_dispo_pas_encore") {
-        const botToken = await teamBotToken(bq, teamId);
-        const locals = await localsFromSlackUser(bq, slackUserId, botToken);
-        if (!locals) {
-          if (responseUrl) await ephemeral(responseUrl, "Votre compte Slack n'est pas encore relié — demandez au responsable de le relier dans l'app.");
-          return ok();
-        }
-        const res = await dispatch(DISPO, locals, {
-          commitment_id: value.c, location_id: value.l,
-          action_done_status: actionId === "ms_dispo_fait" ? "fait" : "pas_encore",
+        runAsync(async () => {
+          const botToken = await teamBotToken(bq, teamId);
+          const locals = await localsFromSlackUser(bq, slackUserId, botToken);
+          if (!locals) {
+            if (responseUrl) await ephemeral(responseUrl, "Votre compte Slack n'est pas encore relié — demandez au responsable de le relier dans l'app.");
+            return;
+          }
+          const res = await dispatch(DISPO, locals, {
+            commitment_id: value.c, location_id: value.l,
+            action_done_status: actionId === "ms_dispo_fait" ? "fait" : "pas_encore",
+          });
+          if (responseUrl) {
+            await ephemeral(responseUrl, res.status === 200
+              ? COMMIT_COPY.saved + " — " + (actionId === "ms_dispo_fait" ? "action menée." : "pas encore.")
+              : String(res.body?.error || "Le geste n'a pas pu être enregistré."));
+          }
         });
-        if (responseUrl) {
-          await ephemeral(responseUrl, res.status === 200
-            ? COMMIT_COPY.saved + " — " + (actionId === "ms_dispo_fait" ? "action menée." : "pas encore.")
-            : String(res.body?.error || "Le geste n'a pas pu être enregistré."));
-        }
+        return ok();
+      }
+
+      // Inc 8 (G1) : « Pas pour moi » sur une carte système partagée — MÊME événement que
+      // le bouton de l'app (action_log card_not_done : la carte s'affichera « Pas pour
+      // moi » dans le fil Agir), user_id = le COMPTE, auteur réel dans reason. Puis le
+      // refus est dit à l'expéditeur : réponse dans le fil du message partagé.
+      if (actionId === "ms_card_not_for_me") {
+        runAsync(async () => {
+          const botToken = await teamBotToken(bq, teamId);
+          const locals = await localsFromSlackUser(bq, slackUserId, botToken);
+          if (!locals) {
+            if (responseUrl) await ephemeral(responseUrl, "Votre compte Slack n'est pas encore relié — demandez au responsable de le relier dans l'app.");
+            return;
+          }
+          const accountOwner = await accountOwnerFor(bq, String(value.l || ""));
+          if (!accountOwner) return;
+          await bq.query({
+            query: `
+              INSERT INTO \`${PROJECT}.analytics.action_log\`
+                (log_id, user_id, location_id, event, change_subtype, action_type, action_category, card_instance_id, affected_date, method, reason, created_at)
+              VALUES (GENERATE_UUID(), @u, @l, 'card_not_done', @t, @t, @cat, @i, ${value.d ? "DATE(@d)" : "NULL"}, 'slack', @who, CURRENT_TIMESTAMP())
+            `,
+            params: {
+              u: accountOwner, l: String(value.l), t: String(value.t || ""), cat: String(value.cat || ""),
+              i: String(value.i || ""), who: String(locals.clerk_user_id || ""),
+              ...(value.d ? { d: String(value.d) } : {}),
+            },
+            location: "EU",
+          });
+          // Réponse dans le fil — l'expéditeur voit le refus là où il a partagé.
+          const ch = String(payload?.channel?.id || "");
+          const ts = String(payload?.message?.ts || "");
+          const who = String(payload?.user?.name || payload?.user?.username || "").trim();
+          if (botToken && ch && ts) {
+            await fetch("https://slack.com/api/chat.postMessage", {
+              method: "POST",
+              headers: { "content-type": "application/json", authorization: "Bearer " + botToken },
+              body: JSON.stringify({ channel: ch, thread_ts: ts, text: (who ? who + " a répondu " : "") + "« Pas pour moi »." }),
+            }).catch(() => null);
+          }
+        });
         return ok();
       }
 

@@ -391,9 +391,43 @@ discrétion ») — gabarits proposés au fil du 28/08, GO owner requis avant to
 mot restant à trancher : le geste de fin (« Terminer » — mot du feedback owner — vs
 « Arrêter », le move existant de l'app).
 
-À construire (ordre proposé) : ack-immédiat de slack-interact (waitUntil + response_url) ·
-rails « Pas pour moi » (partage et désengagement) · détecteur 3-négatifs · gabarits de
-message par étape (copie owner-vetoée) · branchement du partage sur « Faire suivre ».
+### CONSTRUIT 28/08 (harnais `scripts/vue-equipe-cycle-harness.ts` 22/22 + mutation)
+
+- **Ack-immédiat** : les boutons de `slack-interact` répondent 200 tout de suite (mesuré :
+  3 ms) et le travail court dans `waitUntil` (4,6 s derrière — le « Operation timed out »
+  est mort) ; confirmation par response_url ; le modal RESTE synchrone (ses erreurs
+  s'affichent dedans, le 409 du rail compris).
+- **Copie au foyer unique `lib/channels/slackMessagesFr.ts`** — mots owner 28/08, mots
+  bannis scannés au harnais (mutation : « vs attendu » réintroduit → 2 rouges) :
+  G1 partage (« {Prénom} a partagé cette priorité avec vous » + titre/corps équipe +
+  action proposée + consigne d'échange ; M'engager = lien app · Pas pour moi) — branché
+  sur « Faire suivre » (forward.ts, kind='card') ; G2 assignation (« {Prénom} vous a
+  assigné une tâche » + action + « Objectif : … (CA vs votre résultat habituel) … —
+  verdict le JJ/MM/AAAA » ; Consulter · Ajuster, jamais Fait — corrige le « CA vs
+  attendu » banni qui vivait en prod) ; G3 verdict (« Votre opération « … » vient d'être
+  évaluée. Verdict : résultat opérationnel ±x € sur la période (du … au …), objectif
+  atteint/manqué/dépassé/non concluant » — € = réel − résultat habituel de la fenêtre,
+  clause omise si non mesurable ; Documenter · Ajuster) — greffé sur
+  `cron/commitment-resolve` (canal du dispositif sinon default_channel sinon rien, dit
+  au résultat) ; G4 sous-performance (« … a sous-performé pour la 3ᵉ fois cette
+  semaine. Trois journées … nettement sous votre résultat habituel : d1, d2, d3. » + −€
+  des trois journées ; Ajuster seul).
+- **« Pas pour moi » (partage)** : bouton Slack → MÊME événement que le bouton de l'app
+  (`action_log` `card_not_done` — l'état s'affiche dans le fil Agir) ; `user_id` = le
+  COMPTE (card-states lit par lui), auteur réel dans `reason`, `method='slack'` ; le
+  refus se dit à l'expéditeur en réponse de fil (« {prénom} a répondu « Pas pour moi ». »).
+- **Détecteur G4** : `api/cron/underperf-watch.ts` (Bearer CRON_SECRET, quotidien) — v1 :
+  opérations OUVERTES à métrique `revenue_residual` ; mauvaise journée = `residual_z <=
+  -1` (vw_insight_event_day_residual, le seuil de l'app) ; semaine lundi→hier, jamais le
+  jour en cours ; ≥ 3 → un envoi, idempotence par trace `card_forwards` kind='underperf3'.
+  Les métriques FAMILLE sont exclues v1 : pas de bande de bruit par famille et par jour —
+  on n'invente pas un seuil.
+
+RESTES inc 8 : ajouter `/api/cron/underperf-watch` à cron-job.org (geste owner) · le slot
+« Preuve » de G2 (relier la carte d'origine à l'engagement au moment de l'envoi) ·
+« Documenter » sur G4 (refusé avant résolution par le rail — arbitrage owner : l'ouvrir
+quand même ou Ajuster seul, v1 = Ajuster seul) · « Pas pour moi » désengagement d'une
+tâche ASSIGNÉE (owner : « peut-être ») · G3/G4 constatés sur une résolution réelle.
 
 ## Setup Slack Épices et Tout (opérationnel, hors code)
 

@@ -75,6 +75,10 @@ notifications ENTIÈREMENT arbitré par l'owner selon l'étape du cycle de la ca
 | Ouvrir la fiche du dispositif depuis un message Slack | **Ajuster** (owner 28/08 — « Piloter » proposé puis RETIRÉ par l'owner : collision avec l'onglet Piloter) | Piloter (comme bouton de carte) |
 | Marquer l'action réalisée (bouton Slack) | **Fait** (miroir du geste app) | Action menée ? Oui (formulation app, pas Slack) ; **Pas encore** (supprimé des messages Slack — le silence le dit, owner 28/08) |
 | Envoyer une carte vers le canal Slack (geste owner sur la carte) | **Faire suivre** (mot du brief owner 27/08 — bouton livré inc 6, veto possible) | |
+| Une carte assignée à une personne (message d'assignation) | **tâche** (owner 28/08 — « {Prénom} vous a assigné une tâche ») | engagement (dans CE message — le mot app reste engagement sur les surfaces app) |
+| Le fait mesuré de la carte, montré à l'assigné | **Preuve** (owner 28/08 — slot du gabarit G2, EN ATTENTE de données : la carte d'origine n'est pas encore reliée à l'engagement au moment de l'envoi) | |
+| L'objectif au-delà de la cible (verdict `beat`) | **dépassé** (owner 28/08 — le 3ᵉ état existait en donnée sans mot français) | beat |
+| Un dispositif qui décroche (3 mauvaises journées la même semaine) | **a sous-performé** (owner 28/08 — gabarit G4 ; « mauvaise journée » = nettement sous votre résultat habituel, hors bande de bruit) | sous l'attendu |
 
 ## Règles de rédaction (héritées des décisions owner)
 

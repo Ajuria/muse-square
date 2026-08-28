@@ -2882,7 +2882,8 @@
     red.data_payload = msRedactPayloadForMember(candidate.data_payload);
     var entries = window.renderActionCandidates([red], prof || {}, null, String(red.date || ''), 'pulse', null, today) || [];
     if (!entries.length) return null;
-    return { title: msUnescapeHtml(entries[0].tmpl.what), body: String(entries[0].tmpl.sowhat || '') };
+    // Inc 8 (G1) : la ligne d'action de la carte voyage avec — « Action proposée : … ».
+    return { title: msUnescapeHtml(entries[0].tmpl.what), body: String(entries[0].tmpl.sowhat || ''), action: String(entries[0].tmpl.action || '') };
   };
 
   window.renderActionCandidates = function(candidates, prof, currentDay, selectedDate, mode, channelConfig, today) {
