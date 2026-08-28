@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Proto — Destinataires & pôles (incrément 9, vue équipe)</title>
+<style>
+  /* CSS RÉEL de profile.astro (copié verbatim — jamais approximé) */
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fafafa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #111827; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 16px 80px; }
+  .field-group { margin-top: 16px; }
+  .field-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #6b7280; margin-bottom: 6px; }
+  .field-req { color: #ef4444; margin-left: 2px; }
+  .field-input { width: 100%; padding: 10px 0; background: transparent; border: 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #111827; outline: none; }
+  .field-select-wrap { position: relative; }
+  .field-select-wrap::after { content: ''; position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #9ca3af; pointer-events: none; }
+  .field-select { width: 100%; padding: 10px 0; background: transparent; border: 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #111827; outline: none; appearance: none; cursor: pointer; }
+  .field-hint { font-size: 11px; color: #9ca3af; margin-top: 5px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .pill { display: inline-flex; align-items: center; padding: 5px 12px; font-size: 12px; border-radius: 20px; border: 1px solid #e5e7eb; cursor: pointer; user-select: none; color: #6b7280; background: #fff; }
+  .pill.pill-active { background: #0b37e5; color: #fff; border-color: #0b37e5; }
+  .loc-card { border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 10px; overflow: hidden; background: #fff; }
+  .loc-header { display: flex; align-items: flex-start; gap: 10px; padding: 13px 16px; cursor: pointer; user-select: none; }
+  .loc-chevron { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; color: #9ca3af; transform: rotate(90deg); }
+  .loc-meta { flex: 1; min-width: 0; }
+  .loc-name-row { display: flex; align-items: center; gap: 7px; margin-bottom: 2px; flex-wrap: wrap; }
+  .loc-name { font-size: 14px; font-weight: 500; color: #111827; }
+  .loc-status { font-size: 11px; white-space: nowrap; }
+  .loc-body { padding: 0 16px 20px; border-top: 1px solid #f3f4f6; }
+  .loc-btn-save { padding: 10px 22px; font-size: 13px; font-weight: 500; background: transparent; color: #111827; border: 1px solid #111827; border-radius: 0; cursor: pointer; }
+  /* Convention proto : tout AJOUT est encadré — la grammaire validée n'est jamais réécrite */
+  .ajout { border: 1px dashed #B45309; border-radius: 8px; padding: 10px 12px; margin-top: 10px; position: relative; background: #fffbf5; }
+  .ajout-tag { position: absolute; top: -8px; left: 10px; background: #B45309; color: #fff; font-size: 9px; font-weight: 700; letter-spacing: .05em; padding: 1px 7px; border-radius: 3px; text-transform: uppercase; }
+  .proto-note { font-size: 12px; color: #6b7280; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px; line-height: 1.6; }
+  .mot { background: #FEF3E2; padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="proto-note">
+    <b>Prototype — incrément 9 (vue équipe) · page Compte, section existante « Destinataires ».</b><br/>
+    La grammaire validée est rendue telle quelle (rangées membres, badges, Modifier/Supprimer).
+    Tout ce qui est <span style="color:#B45309;font-weight:700;">encadré pointillé ambre</span> est un AJOUT à valider.
+    Les <span class="mot">mots surlignés</span> sont des libellés à arbitrer (tableau en bas de page).
+    Données réelles du compte ; pôles = le cas de référence Épices et Tout (à déclarer).
+  </div>
+
+  <div class="proto-note">
+    <b>Où ça vit — le menu Compte réel, avec l'insertion :</b>
+    <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;padding:4px 10px;">Profil</span>
+      <span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;padding:4px 10px;">Sites</span>
+      <span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:#B45309;border-radius:4px;padding:4px 10px;font-weight:700;">Pôles ← nouveau</span>
+      <span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#111827;padding:4px 10px;border-bottom:2px solid #111827;">Communication <span style="text-transform:none;color:#B45309;font-weight:700;">(+ Alertes fondue ici)</span></span>
+      <span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;padding:4px 10px;border:1px dashed #B45309;border-radius:4px;">Opérations confiées <span style="text-transform:none;color:#B45309;font-weight:700;">(ex-Recommandations)</span></span>
+      <span style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;padding:4px 10px;border:1px dashed #B45309;border-radius:4px;">Établissements suivis <span style="text-transform:none;color:#B45309;font-weight:700;">(ex-Suivis)</span></span>
+    </div>
+    <div style="margin-top:8px;">
+      Ordre arbitré : <b>Profil · Sites · Pôles · Communication · Opérations confiées · Établissements suivis</b>.<br/>
+      <b>Pôles</b> (nouveau) = la réflexion à part entière : créer un pôle (même module de formulaire que la
+      bascule de « Nouvelle opération », réutilisé — l'entrée existante reste) + le relier (canal Slack, membres).<br/>
+      <b>Communication</b> garde Canaux + Destinataires, <b>absorbe Alertes</b> (préférences d'alerte au même
+      endroit que canaux et destinataires ; son bloc « Destinataires supplémentaires » — 3 emails à part —
+      se résorbe dans le roster : un destinataire = une fiche).<br/>
+      <b>Opérations confiées</b> (ex-Recommandations) : les familles d'actions que l'app vous confie —
+      activer/désactiver. Retenu parmi tes trois : « Opérations en cours » est déjà le bloc de Piloter,
+      « Opérations pilotées » frôle l'onglet Piloter (un mot = un concept).
+    </div>
+  </div>
+
+  <!-- ═══ CARTE EXISTANTE « Destinataires » — grammaire intacte + ajouts par rangée ═══ -->
+  <div class="loc-card">
+    <div class="loc-header">
+      <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="loc-meta"><div class="loc-name-row">
+        <span class="loc-name">Destinataires</span>
+        <span class="loc-status" style="margin-left:auto;color:#059669;">2 membres</span>
+      </div></div>
+    </div>
+    <div class="loc-body" style="padding:20px;">
+
+      <!-- Rangée membre RÉELLE (grammaire existante) -->
+      <div style="padding:12px 0;border-bottom:1px solid #f3f4f6;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#111827;">Poeiti Barnier</div>
+            <div style="display:flex;gap:4px;margin-top:4px;">
+              <span style="width:20px;height:20px;border-radius:4px;background:#4A154B;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700;">SL</span>
+              <span style="width:20px;height:20px;border-radius:4px;background:#6B7280;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700;">@</span>
+              <span style="width:20px;height:20px;border-radius:4px;background:#059669;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700;">SM</span>
+              <span style="width:20px;height:20px;border-radius:4px;background:#25D366;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700;">WA</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button type="button" style="background:none;border:none;color:#1D3BB3;font-size:11px;cursor:pointer;font-family:inherit;">Modifier</button>
+            <button type="button" style="background:none;border:none;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit;">Supprimer</button>
+          </div>
+        </div>
+        <!-- AJOUT par membre : accès app · pôles · identité Slack -->
+        <div class="ajout">
+          <span class="ajout-tag">Ajout</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+            <div>
+              <span class="field-label" style="margin-bottom:4px;"><span class="mot">Accès app</span></span>
+              <span style="font-size:12px;color:#059669;font-weight:600;">&#10003; <span class="mot">Connectée</span></span>
+              <div class="field-hint" style="margin-top:2px;">perle.bernier@gmail.com</div>
+            </div>
+            <div>
+              <span class="field-label" style="margin-bottom:4px;">Pôles</span>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                <span class="pill pill-active" style="padding:3px 10px;font-size:11px;">périssables</span>
+                <span class="pill" style="padding:3px 10px;font-size:11px;">+</span>
+              </div>
+            </div>
+            <div>
+              <span class="field-label" style="margin-bottom:4px;"><span class="mot">Identité Slack</span></span>
+              <div class="field-select-wrap"><select class="field-select" style="padding:4px 0;font-size:12px;">
+                <option>Poeiti (U04Q…)</option><option>— choisir dans le workspace —</option>
+              </select></div>
+              <div class="field-hint" style="margin-top:2px;">liste réelle du workspace — plus d'identifiant à copier</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rangée membre 2 : le cas « pas encore d'accès app » -->
+      <div style="padding:12px 0;border-bottom:1px solid #f3f4f6;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#111827;">Julen de Ajuriaguerra</div>
+            <div style="display:flex;gap:4px;margin-top:4px;">
+              <span style="width:20px;height:20px;border-radius:4px;background:#6B7280;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:8px;font-weight:700;">@</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button type="button" style="background:none;border:none;color:#1D3BB3;font-size:11px;cursor:pointer;font-family:inherit;">Modifier</button>
+            <button type="button" style="background:none;border:none;color:#ef4444;font-size:11px;cursor:pointer;font-family:inherit;">Supprimer</button>
+          </div>
+        </div>
+        <div class="ajout">
+          <span class="ajout-tag">Ajout</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+            <div>
+              <span class="field-label" style="margin-bottom:4px;"><span class="mot">Accès app</span></span>
+              <span style="font-size:12px;color:#9ca3af;">Aucun</span>
+              <button type="button" style="background:none;border:none;color:#1D3BB3;font-size:11px;cursor:pointer;font-family:inherit;display:block;padding:0;margin-top:2px;"><span class="mot">Inviter</span> →</button>
+            </div>
+            <div>
+              <span class="field-label" style="margin-bottom:4px;">Pôles</span>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                <span class="pill" style="padding:3px 10px;font-size:11px;">+</span>
+              </div>
+            </div>
+            <div>
+              <span class="field-label" style="margin-bottom:4px;"><span class="mot">Identité Slack</span></span>
+              <div class="field-select-wrap"><select class="field-select" style="padding:4px 0;font-size:12px;">
+                <option>— choisir dans le workspace —</option><option>Julen (U03H…)</option>
+              </select></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bloc « Ajouter un membre » existant + ses 3 ajouts -->
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #f3f4f6;">
+        <div style="font-weight:600;font-size:13px;color:#111827;margin-bottom:12px;">Ajouter un membre</div>
+        <div class="field-row">
+          <div class="field-group" style="margin-top:0"><label class="field-label">Prénom <span class="field-req">*</span></label><input class="field-input" placeholder="Marie" /></div>
+          <div class="field-group" style="margin-top:0"><label class="field-label">Nom</label><input class="field-input" placeholder="Dupont" /></div>
+        </div>
+        <div class="ajout">
+          <span class="ajout-tag">Ajout</span>
+          <div class="field-row">
+            <div class="field-group" style="margin-top:0">
+              <label class="field-label"><span class="mot">Email d'invitation (accès app)</span></label>
+              <input class="field-input" placeholder="marie@epicesettout.fr" />
+              <p class="field-hint">Une seule fiche : contact ET accès — jamais deux saisies pour une même personne.</p>
+            </div>
+            <div class="field-group" style="margin-top:0">
+              <label class="field-label">Pôles</label>
+              <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;">
+                <span class="pill" style="font-size:11px;">périssables</span>
+                <span class="pill" style="font-size:11px;">traiteur libanais</span>
+                <span class="pill" style="font-size:11px;">art de vivre</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px;"><button type="button" class="loc-btn-save" style="padding:8px 18px;">Ajouter</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ NOUVELLE CARTE « Pôles » — entièrement un ajout ═══ -->
+  <div class="ajout" style="padding:0;background:transparent;border-radius:10px;">
+    <span class="ajout-tag">Ajout — nouvelle carte</span>
+    <div class="loc-card" style="margin-bottom:0;">
+      <div class="loc-header">
+        <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="loc-meta"><div class="loc-name-row">
+          <span class="loc-name">Pôles</span>
+          <span class="loc-status" style="margin-left:auto;color:#9ca3af;">3 pôles · 1 canal relié</span>
+        </div></div>
+      </div>
+      <div class="loc-body" style="padding:20px;">
+        <!-- Une rangée par pôle : même grammaire de rangée que les membres -->
+        <div style="padding:12px 0;border-bottom:1px solid #f3f4f6;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;align-items:start;">
+          <div>
+            <div style="font-weight:600;font-size:13px;color:#111827;">périssables</div>
+            <div class="field-hint" style="margin-top:2px;">familles à déclarer (cas de référence Épices et Tout)</div>
+          </div>
+          <div>
+            <span class="field-label" style="margin-bottom:4px;"><span class="mot">Canal Slack</span></span>
+            <div class="field-select-wrap"><select class="field-select" style="padding:4px 0;font-size:12px;">
+              <option>#muse_square_app</option><option>— créer/choisir un canal —</option>
+            </select></div>
+            <div class="field-hint" style="margin-top:2px;">canaux où le bot est membre</div>
+          </div>
+          <div>
+            <span class="field-label" style="margin-bottom:4px;">Membres</span>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;"><span class="pill pill-active" style="padding:3px 10px;font-size:11px;">Poeiti</span><span class="pill" style="padding:3px 10px;font-size:11px;">+</span></div>
+          </div>
+        </div>
+        <div style="padding:12px 0;border-bottom:1px solid #f3f4f6;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;align-items:start;">
+          <div><div style="font-weight:600;font-size:13px;color:#111827;">traiteur libanais</div><div class="field-hint" style="margin-top:2px;">familles à déclarer (cas de référence Épices et Tout)</div></div>
+          <div><span class="field-label" style="margin-bottom:4px;"><span class="mot">Canal Slack</span></span>
+            <div class="field-select-wrap"><select class="field-select" style="padding:4px 0;font-size:12px;"><option>— créer/choisir un canal —</option></select></div></div>
+          <div><span class="field-label" style="margin-bottom:4px;">Membres</span><div style="display:flex;gap:4px;flex-wrap:wrap;"><span class="pill" style="padding:3px 10px;font-size:11px;">+</span></div></div>
+        </div>
+        <div style="padding:12px 0;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;align-items:start;">
+          <div><div style="font-weight:600;font-size:13px;color:#111827;">art de vivre</div><div class="field-hint" style="margin-top:2px;">familles à déclarer (cas de référence Épices et Tout)</div></div>
+          <div><span class="field-label" style="margin-bottom:4px;"><span class="mot">Canal Slack</span></span>
+            <div class="field-select-wrap"><select class="field-select" style="padding:4px 0;font-size:12px;"><option>— créer/choisir un canal —</option></select></div></div>
+          <div><span class="field-label" style="margin-bottom:4px;">Membres</span><div style="display:flex;gap:4px;flex-wrap:wrap;"><span class="pill" style="padding:3px 10px;font-size:11px;">+</span></div></div>
+        </div>
+        <!-- CRÉER UN PÔLE — les champs RÉELS du formulaire existant (event-form.js, panneau
+             « Pôle — dispositif permanent »), réutilisé tel quel — libellés verbatim. -->
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid #f3f4f6;">
+          <div style="font-weight:600;font-size:13px;color:#111827;margin-bottom:12px;">Créer un pôle</div>
+          <div class="field-row">
+            <div class="field-group" style="margin-top:0"><label class="field-label">Nom du pôle</label><input class="field-input" placeholder="périssables" /></div>
+            <div class="field-group" style="margin-top:0"><label class="field-label">Responsable(s)</label>
+              <div class="field-select-wrap"><select class="field-select"><option>Poeiti Barnier</option><option>Julen de Ajuriaguerra</option></select></div>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Familles du pôle</label>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;">
+              <span class="pill pill-active" style="font-size:11px;">Coffee · 655 €/j</span>
+              <span class="pill" style="font-size:11px;">Tea · 475 €/j</span>
+              <span class="pill" style="font-size:11px;">Bakery · 207 €/j</span>
+              <span class="pill" style="font-size:11px;">Drinking Chocolate · 167 €/j</span>
+            </div>
+            <p class="field-hint">Sans terme : lecture continue de ses familles vs votre résultat habituel — pas de verdict.</p>
+          </div>
+          <div class="field-group"><label class="field-label">Levier</label><input class="field-input" placeholder="Ce que le pôle fait au quotidien" /></div>
+          <div style="margin-top:14px;"><button type="button" class="loc-btn-save" style="padding:8px 18px;">Créer le pôle</button></div>
+          <p class="field-hint" style="margin-top:8px;">Même formulaire que la bascule « Pôle — dispositif permanent » de Nouvelle opération (module partagé) ; Ressource(s), Le plus, Pourquoi ça va marcher = dans le pli « Mémoire du dispositif », comme sur l'existant. L'entrée de Nouvelle opération reste.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ AJOUT dans la config Slack existante : canal par défaut ═══ -->
+  <div class="ajout" style="background:#fff;">
+    <span class="ajout-tag">Ajout — dans la carte Communication (config Slack)</span>
+    <div class="field-group" style="margin-top:0;">
+      <label class="field-label"><span class="mot">Canal par défaut</span></label>
+      <div class="field-select-wrap"><select class="field-select" style="font-size:13px;"><option>#muse_square_app</option><option>— aucun —</option></select></div>
+      <p class="field-hint">Le repli des envois sans pôle (« Faire suivre » d'une carte de site entier, verdicts sans canal de dispositif). Vide aujourd'hui sur votre compte.</p>
+    </div>
+  </div>
+
+  <!-- ═══ Mots à arbitrer ═══ -->
+  <div class="proto-note" style="margin-top:18px;">
+    <b>Libellés — arbitrés le 28/08 :</b> onglets <b>Pôles</b> · <b>Opérations confiées</b> (retenu parmi tes trois — veto possible) ·
+<b>Établissements suivis</b> · Alertes fondue dans Communication. <b>Restent à valider (surlignés dans la page) :</b><br/>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;">
+      <tr style="text-align:left;color:#6b7280;"><th style="padding:4px 8px 4px 0;">Concept</th><th style="padding:4px 8px;">Libellé proposé</th><th style="padding:4px 8px;">Note</th></tr>
+      <tr><td style="padding:4px 8px 4px 0;border-top:1px solid #f3f4f6;">La personne a une session dans l'app</td><td style="padding:4px 8px;border-top:1px solid #f3f4f6;"><span class="mot">Accès app</span> · états <span class="mot">Connectée</span>/<span class="mot">Invitée</span>/Aucun</td><td style="padding:4px 8px;border-top:1px solid #f3f4f6;">« membre » évité : déjà le mot des rangées Destinataires</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;border-top:1px solid #f3f4f6;">Envoyer l'email d'invitation</td><td style="padding:4px 8px;border-top:1px solid #f3f4f6;"><span class="mot">Inviter</span></td><td style="padding:4px 8px;border-top:1px solid #f3f4f6;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;border-top:1px solid #f3f4f6;">Le compte Slack de la personne (pour les clics)</td><td style="padding:4px 8px;border-top:1px solid #f3f4f6;"><span class="mot">Identité Slack</span></td><td style="padding:4px 8px;border-top:1px solid #f3f4f6;">sélecteur alimenté par le workspace réel</td></tr>
+      <tr><td style="padding:4px 8px 4px 0;border-top:1px solid #f3f4f6;">L'adresse Slack d'un pôle/dispositif</td><td style="padding:4px 8px;border-top:1px solid #f3f4f6;"><span class="mot">Canal Slack</span></td><td style="padding:4px 8px;border-top:1px solid #f3f4f6;"></td></tr>
+      <tr><td style="padding:4px 8px 4px 0;border-top:1px solid #f3f4f6;">Le repli des envois sans pôle</td><td style="padding:4px 8px;border-top:1px solid #f3f4f6;"><span class="mot">Canal par défaut</span></td><td style="padding:4px 8px;border-top:1px solid #f3f4f6;"></td></tr>
+    </table>
+    <div style="margin-top:10px;">Notes de fond : une fiche = les DEUX registres écrits (contact + accès), liés — jamais deux formulaires ·
+    la création d'un pôle reste sur « Nouvelle opération » (pas de doublon de point d'entrée) ·
+    les sélecteurs (canaux, identités) lisent le workspace réel via le bot — plus aucun identifiant à copier.</div>
+  </div>
+
+</div>
+</body>
+</html>
