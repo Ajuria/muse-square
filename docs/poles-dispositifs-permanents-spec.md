@@ -78,6 +78,22 @@ ces dispositifs ; ils courent en parallèle des données de vente.
   jours vendus vs les 90 précédents, planchers n≥5, jours futurs exclus), mémoire,
   opérations rattachées, chaîne de versions — sans un mot de verdict.
 
+## Familles de produits & services — recomposition (owner 28/08, différé au dégel dbt)
+
+Le libellé est « **Familles de produits & services** » (les pôles couvrent produits ET
+services — un service encaissé comme ligne de caisse se mesure comme un produit ; un
+service jamais encaissé donne un pôle à lecture continue VIDE, dit honnêtement).
+
+La hiérarchie : produits (lignes de caisse, après ingestion) → familles (ensembles de
+produits) → pôles (ensembles de familles — `pole_families` est déjà une liste). v1 : la
+famille EST la catégorie de la caisse (doctrine 27/08 — jamais du texte libre ; le point
+de contrôle est l'ingestion/le mapping d'import). v2 (owner 28/08) : un ÉDITEUR de
+recomposition produit→famille (cocher des produits, les associer, renommer, fusionner
+deux catégories caisse), patron `party_directory` (annuaire app-write). **Différé au
+dégel dbt** : les mesures par famille vivent dans la chaîne dbt — une recomposition
+appliquée seulement côté app créerait deux vérités. À l'ouverture : appliquer dans le
+staging pour que mesure, marges, périmètres membres et routage Slack suivent d'un coup.
+
 ## Ce qui reste à faire
 
 - La déclaration des pôles d'Épices et Tout comme premier cas réel (owner).
