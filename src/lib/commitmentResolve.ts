@@ -75,10 +75,16 @@ export async function resolveCommitment(
   const nowDate = parisDate(nowIso);
   const expectedCount = Number(snap.window_days_expected);
 
-  // Resolution dates. day_of -> the Paris business day of creation (grain-safe);
-  // 7d/14d -> the stored window range (UTC-anchored; boundary dilutes into the sum).
+  // Dates de résolution. `day_of` -> LE JOUR DE L'OPÉRATION (window_start stocké), pas le
+  // jour de création : un « jour même » ancré sur un événement se crée d'avance (corner
+  // producteur : créé le 15/08, opéré le 22/08), et la convention historique mesurait donc
+  // une journée sans rapport avec l'opération. 7 des 8 « jour même » du compte owner sont
+  // dans ce cas (mesuré le 28/08). Repli sur le jour de création pour les très vieilles
+  // lignes sans window_start. `buildKpiBlock` avait déjà tranché ce point le 15/08 ; le
+  // verdict revenu, lui, était resté sur la mauvaise date.
+  const _wsStored = String(flat(snap.window_start) ?? "").slice(0, 10);
   const dates = snap.window_kind === "day_of"
-    ? [parisDate(snap.created_at)]
+    ? [_wsStored || parisDate(snap.created_at)]
     : dateArray(String(snap.window_start), String(snap.window_end));
   const minDate = dates[0], maxDate = dates[dates.length - 1];
 

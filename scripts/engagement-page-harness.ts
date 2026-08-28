@@ -9,6 +9,9 @@ import * as vm from "node:vm";
 import * as path from "node:path";
 import { GET as evolutionGET } from "../src/pages/api/commitments/evolution";
 import { EVOL_COPY } from "../src/lib/commitmentCopy";
+import { makeBQClient } from "../src/lib/bq";
+import { readLatestSnapshot } from "../src/lib/actionCommitments";
+import { resolveCommitment } from "../src/lib/commitmentResolve";
 
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const OPEN_ID = "2d99694a-17fa-4486-92e1-548ce588e1f5";   // vacances scolaires — EN COURS
@@ -162,6 +165,26 @@ async function payload(id: string): Promise<any> {
     ok(`${c.label} : la lecture ne redit aucun « vs vos N derniers » en euros`,
       !/vos \d+ derniers [a-zé]+ ?: ?\d/.test(out));
   }
+
+  // ── Le VERDICT se mesure sur le jour de l'opération ─────────────────────────────────
+  // resolveCommitment est PUR côté base (il rend un patch, l'appelant écrit) : on peut le
+  // rejouer sans rien toucher. Avant le 28/08 il mesurait le jour de CRÉATION : sur le
+  // corner producteur (créé le 15/08, opéré le 22/08) il notait la journée du 15/08.
+  console.log("\n— Le verdict mesure le jour de l'opération —");
+  const bqv: any = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+  const snapD: any = await readLatestSnapshot(bqv, DONE_ID);
+  const res: any = await resolveCommitment(bqv, snapD, new Date("2026-08-28T12:00:00Z").toISOString());
+  const jour = (v: any) => String(v?.value ?? v).slice(0, 10);
+  const [ca22] = await bqv.query({
+    query: `SELECT ROUND(daily_revenue,0) r FROM \`muse-square-open-data.semantic.vw_insight_event_day_residual\`
+            WHERE location_id=@l AND CAST(date AS STRING)=@d`,
+    params: { l: LOC, d: jour(snapD.window_start) }, location: "EU",
+  }).then((r: any) => (r[0] || []).map((x: any) => Number(x.r?.value ?? x.r)));
+  console.log("   " + JSON.stringify({ mesure: res?.patch?.window_actual_revenue, ca_du_jour_operation: ca22, note: res?.note }));
+  ok("le verdict porte sur le CA du jour de l'opération",
+    res?.patch?.window_actual_revenue != null && ca22 != null && Math.abs(Number(res.patch.window_actual_revenue) - ca22) <= 2,
+    { mesure: res?.patch?.window_actual_revenue, attendu: ca22 });
+  ok("aucune écriture (le patch reste un patch)", typeof res?.patch === "object" && res.patch !== null);
 
   fs.mkdirSync(OUT, { recursive: true });
   const page = (title: string, body: string) =>

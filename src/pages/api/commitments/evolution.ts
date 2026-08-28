@@ -216,9 +216,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
       return json({ ok: true, commitment, pole, lineage, site_name: null });
     }
 
-    // Same window-date logic as the cron (day_of → Paris business day of creation).
+    // MÊME règle que le cron : un « jour même » se lit sur LE JOUR DE L'OPÉRATION
+    // (window_start stocké), jamais sur le jour de création — la courbe du corner producteur
+    // traçait le 15/08 sous un en-tête daté du 22/08 (28/08). Repli création si pas de
+    // fenêtre stockée (vieilles lignes).
+    const _wsStored0 = String(flat(snap.window_start) ?? "").slice(0, 10);
     const dates = snap.window_kind === "day_of"
-      ? [parisDate(String(snap.created_at))]
+      ? [_wsStored0 || parisDate(String(snap.created_at))]
       : dateArray(String(snap.window_start), String(snap.window_end));
     const minD = dates[0], maxD = dates[dates.length - 1];
 
@@ -238,7 +242,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const _weSnap = String(flat(snap.window_end) || "").slice(0, 10);
     const _shapeDates = (snap.window_kind === "day_of" && _weSnap)
       ? [_weSnap]
-      : (rrows as any[]).map((r) => String(flat(r.date)));
+      : (rrows as any[]).map((r) => String(flat(r.date)));   // (series et shape sont alignées)
     const shapeP = buildWindowShape(bq, {
       location_id: String(snap.location_id),
       measured_dates: _shapeDates,
