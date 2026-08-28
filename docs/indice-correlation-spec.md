@@ -1,4 +1,4 @@
-# Indice de corrélation & porte de concordance — SPEC DE TRAVAIL
+# Indice de corrélation & porte de concordance — DÉFINITIF
 
 > Arbitrages owner du 28/08/2026 (fil résolveur/plan). Ce document est la mémoire de ce qui
 > est ACTÉ : ce qui est déjà appliqué s'écrit au présent ; ce qui reste à faire est listé en
@@ -85,7 +85,19 @@ boucle d'apprentissage les élimine.
 - « Facteurs multiples » propagé : tier_label_fr (UN foyer → tous les rendus), plan,
   infobulle du coin d'Agir.
 
+## Le pourquoi des entités aux 3 étages (appliqué 28/08, 3e passe)
+
+`readEntityWhy` (entityReading) — famille/pôle : 1) « Ce qui compose l'écart » (pôle : les
+familles par contribution ; famille : les meilleurs/pires jours, concentration mesurée) ·
+2) « Les phénomènes extérieurs » (jours de la période AVEC vs SANS le facteur — arithmétique
+de sommes mesurées —, prior HISTORIQUE DU SITE en médiane, indice de corrélation ; tri par
+|r|, plafond 3, plancher 3 j de chaque côté) · 3) « Le profil de jour » (week-end vs semaine,
+contraste ≥ 15 % exigé) · pied « Indices de corrélation ». Opération/personne gardent la
+forme verdicts+funnel. Un étage qui n'isole rien ne s'affiche pas ; l'absence totale se dit.
+Constructeur PUR testé (5 cas, mutation tri-|r| vue tomber) ; E2E réel : Coffee juillet
+montre des jours de pluie MEILLEURS que les jours sans face à un prior site négatif — les
+deux chiffres cohabitent en clair, jamais lissés.
+
 ## Reste à faire
 
-1. Le pourquoi des ENTITÉS aux 3 étages (décomposition par contribution, phénomènes
-   extérieurs triés par |r|, profil de jour) — le pourquoi du plan est déjà réécrit.
+(rien — le chantier indice de corrélation est complet ; les évolutions futures s'ajoutent ici)

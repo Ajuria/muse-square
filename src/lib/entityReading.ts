@@ -602,3 +602,182 @@ export async function readKpiPeriod(
     ],
   };
 }
+
+// ── « POURQUOI ? » AUX 3 ÉTAGES (owner 28/08 — « la valeur des éléments, le lien avec des
+// phénomènes extérieurs, le profil de jour ; jamais tout balancer sans hiérarchie ») :
+//   1. Ce qui compose l'écart — pôle : les familles triées par contribution ; famille : les
+//      jours qui ont porté/plombé la période (concentration mesurée).
+//   2. Les phénomènes extérieurs — les jours de la période croisés avec les facteurs
+//      (journalPlan, mêmes prédicats que les verdicts) : €/jour AVEC vs SANS le facteur
+//      (arithmétique de sommes mesurées, dans la période), l'historique du SITE en prior
+//      (day_class_impacts, médiane), l'indice de corrélation — triés par |r|, plafond 3.
+//   3. Le profil de jour — week-end vs semaine, seulement si le contraste passe les planchers.
+// Règle anti-bruit : un étage qui n'isole rien ne s'affiche pas. Les relations utilisées se
+// listent au pied « Indices de corrélation » (une section Sources existe → il se liste).
+import { listDayFactors, dayFactorKeys, factorFr } from "./journalPlan";
+import { corrIndexFr, signalAConfirmer } from "./dayClassRegistry";
+
+export interface WhyFactorInput {
+  key: string; mot_fr: string;
+  med_hist_eur: number | null;   // médiane historique SITE (day_class_impacts)
+  corr_r: number | null;
+  a_confirmer: boolean;
+  hist_days: number | null;
+}
+export interface EntityWhyInputs {
+  reading: EntityPeriodReading;                       // totaux (contexte du headline)
+  daily: Array<{ date: string; eur: number }>;        // CA/jour de L'ENTITÉ sur la période (jours vendus)
+  factorsByDate: Map<string, string[]>;               // date → clés de facteurs (journalPlan)
+  factors: WhyFactorInput[];                          // les facteurs MESURÉS du site
+}
+
+export function buildEntityWhy3Blocks(inp: EntityWhyInputs): EntityCompareBlocks {
+  const r = inp.reading;
+  const per = periodLabelFr(r.start, r.end);
+  const label = r.entity.kind === "famille" ? `Famille ${r.entity.name}` : r.entity.name;
+  const sections: CompareSection[] = [];
+  const frD3 = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  const days = [...inp.daily].filter((d) => Number.isFinite(d.eur));
+  const total = days.reduce((a, d) => a + d.eur, 0);
+
+  // ── 1. Ce qui compose l'écart ──
+  if (r.pole && r.entity.kind === "pole" && r.pole.families.length > 1) {
+    const fams = [...r.pole.families]
+      .filter((f) => f.rev_eur != null)
+      .sort((a, b) => Math.abs((b.delta_pct ?? 0) * (b.rev_eur ?? 0)) - Math.abs((a.delta_pct ?? 0) * (a.rev_eur ?? 0)))
+      .slice(0, 3);
+    if (fams.length) {
+      sections.push({ title: "Ce qui compose l'écart", facts: fams.map((f) =>
+        `${f.family} : ${frEur(f.rev_eur as number)} € sur la période${f.delta_pct != null ? ` — ${frPct1(f.delta_pct)} vs la même durée précédente` : ""}.`) });
+    }
+  } else if (days.length >= 6 && total > 0) {
+    const sorted = [...days].sort((a, b) => b.eur - a.eur);
+    const top3 = sorted.slice(0, 3);
+    const topShare = Math.round((top3.reduce((a, d) => a + d.eur, 0) / total) * 100);
+    const bot = sorted[sorted.length - 1];
+    const facts = [
+      `Vos 3 meilleurs jours (${top3.map((d) => frD3(d.date)).join(", ")}) portent ${topShare} % du CA de la période (${top3.map((d) => `${frEur(d.eur)} €`).join(" · ")}).`,
+      `Le jour le plus bas : ${frD3(bot.date)}, ${frEur(bot.eur)} €.`,
+    ];
+    sections.push({ title: "Ce qui compose l'écart", facts });
+  }
+
+  // ── 2. Les phénomènes extérieurs — AVEC vs SANS, dans la période ; prior site ; tri par |r| ──
+  const corrFoot: string[] = [];
+  {
+    const facts: string[] = [];
+    const cand = inp.factors
+      .filter((f) => f.med_hist_eur != null && f.corr_r != null)
+      .sort((a, b) => Math.abs(b.corr_r as number) - Math.abs(a.corr_r as number));
+    for (const f of cand) {
+      const withD = days.filter((d) => (inp.factorsByDate.get(d.date) ?? []).includes(f.key));
+      const without = days.filter((d) => !(inp.factorsByDate.get(d.date) ?? []).includes(f.key));
+      if (withD.length < 3 || without.length < 3) continue;   // plancher : un contraste se mesure
+      if (facts.length >= 3) break;                           // plafond anti-bruit
+      const mWith = withD.reduce((a, d) => a + d.eur, 0) / withD.length;
+      const mWithout = without.reduce((a, d) => a + d.eur, 0) / without.length;
+      const idx = corrIndexFr(f.corr_r, f.hist_days);
+      facts.push(
+        `Vos ${withD.length} jours de ${f.mot_fr} sur la période : ${frEur(Math.round(mWith))} €/jour · vos ${without.length} jours sans : ${frEur(Math.round(mWithout))} €/jour. Historique du site : ${(f.med_hist_eur as number) >= 0 ? "+" : "−"}${frEur(Math.abs(f.med_hist_eur as number))} €/jour (médiane).${idx ? ` ${idx}.` : ""}${f.a_confirmer ? " Signal à confirmer." : ""}`,
+      );
+      if (idx) corrFoot.push(`${f.mot_fr} ↔ CA : ${idx.charAt(0).toLowerCase() + idx.slice(1)}${f.a_confirmer ? " — signal à confirmer" : ""}.`);
+    }
+    if (facts.length) sections.push({ title: "Les phénomènes extérieurs", facts });
+  }
+
+  // ── 3. Le profil de jour — week-end vs semaine, planchers tenus, contraste exigé ──
+  {
+    const isWe = (iso: string) => { const dw = new Date(iso + "T12:00:00Z").getUTCDay(); return dw === 0 || dw === 6; };
+    const we = days.filter((d) => isWe(d.date));
+    const wk = days.filter((d) => !isWe(d.date));
+    if (we.length >= 3 && wk.length >= 3) {
+      const mWe = we.reduce((a, d) => a + d.eur, 0) / we.length;
+      const mWk = wk.reduce((a, d) => a + d.eur, 0) / wk.length;
+      const base = Math.min(mWe, mWk);
+      if (base > 0 && Math.abs(mWe - mWk) / base >= 0.15) {
+        sections.push({ title: "Le profil de jour", facts: [
+          `Vos week-ends : ${frEur(Math.round(mWe))} €/jour (${we.length} j) · vos jours de semaine : ${frEur(Math.round(mWk))} €/jour (${wk.length} j).`,
+        ] });
+      }
+    }
+  }
+
+  if (corrFoot.length) sections.push({ title: "Indices de corrélation", facts: corrFoot });
+  if (!sections.length) sections.push({ title: "Ce qui compose l'écart", facts: ["Pas assez de jours vendus sur la période pour isoler quoi que ce soit — les totaux de la lecture restent la seule matière."] });
+  return {
+    headline: `${label} — ${per} : ce qui l'explique`,
+    sections,
+    sources: [
+      "Vos ventes par jour (lignes de caisse de la période)",
+      "Facteurs par jour (mêmes prédicats que les verdicts)",
+      "Motifs mesurés sur votre historique (classes de jours, médiane vs résultat habituel)",
+    ],
+  };
+}
+
+// Le lecteur du pourquoi 3 étages : 4 lectures en parallèle, composition PURE ensuite.
+// Le CA/jour est celui de L'ENTITÉ (famille ou pôle = ses familles) ; fin bornée à hier
+// (un jour futur n'a pas de ventes). opération/personne gardent buildEntityWhyBlocks.
+const FACTOR_TO_CLASSES_WHY: Record<string, string[]> = {
+  rain: ["rain"], heat: ["heat_28_plus", "heat_25_27"],
+  school_holiday: ["school_holiday"], public_holiday: ["public_holiday"], tourism_peak: ["tourism_peak"],
+};
+
+export async function readEntityWhy(
+  bq: any,
+  location_id: string,
+  entity: SiteEntity,
+  start: string,
+  end: string,
+  todayIso: string,
+): Promise<EntityCompareBlocks> {
+  if (entity.kind === "operation" || entity.kind === "personne") {
+    const r = await readEntityPeriod(bq, location_id, entity, start, end, todayIso);
+    return buildEntityWhyBlocks(r);
+  }
+  const endB = end < todayIso ? end : new Date(Date.parse(todayIso) - 86400000).toISOString().slice(0, 10);
+  const [reading, dailyRows, factorRows, impactRows] = await Promise.all([
+    readEntityPeriod(bq, location_id, entity, start, end, todayIso),
+    bq.query({
+      query: `SELECT CAST(transaction_date AS STRING) AS d, ROUND(SUM(revenue), 0) AS eur
+              FROM \`${PROJECT}.raw.client_transactions\`
+              WHERE location_id = @loc AND item_category IN UNNEST(@fams)
+                AND transaction_date BETWEEN @s AND @e
+              GROUP BY 1 ORDER BY 1`,
+      params: { loc: location_id, fams: entity.families, s: bq.date(start), e: bq.date(endB) },
+      location: "EU",
+    }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+    listDayFactors(bq, location_id, { start, end: endB }).catch(() => []),
+    bq.query({
+      query: `SELECT class_key, basis, med_gap_eur, n_days, corr_r, avg_log, sd_log, n_log
+              FROM \`${PROJECT}.analytics.day_class_impacts\`
+              WHERE location_id = @loc AND metric = 'revenue_residual' AND basis IN ('pure', 'marginal')`,
+      params: { loc: location_id }, location: "EU",
+    }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+  ]);
+  const daily = (dailyRows as any[]).map((r) => ({ date: String(flat(r.d)), eur: Number(flat(r.eur)) || 0 }));
+  const factorsByDate = new Map<string, string[]>();
+  for (const d of factorRows as any[]) factorsByDate.set(String(flat(d.date) ?? "").slice(0, 10), dayFactorKeys(d));
+  // Le pont facteur → classe mesurée : pure d'abord (n>=5), marginale sinon — même règle que le plan.
+  const byClass = new Map<string, any>();
+  for (const row of impactRows as any[]) {
+    const k = String(flat(row.class_key));
+    const cand = row;
+    const cur = byClass.get(k);
+    if (Number(flat(cand.n_days)) < 5) continue;
+    if (!cur || (String(flat(cur.basis)) === "marginal" && String(flat(cand.basis)) === "pure")) byClass.set(k, cand);
+  }
+  const factors: WhyFactorInput[] = Object.entries(FACTOR_TO_CLASSES_WHY)
+    .map(([key, classes]) => {
+      const mot = factorFr(key);
+      const row = classes.map((c) => byClass.get(c)).find((x) => x != null);
+      if (!mot || !row) return null;
+      const med = Number(flat(row.med_gap_eur));
+      const rv = Number.isFinite(Number(flat(row.corr_r))) ? Number(flat(row.corr_r)) : null;
+      const al = Number(flat(row.avg_log)), sl = Number(flat(row.sd_log)), nl = Number(flat(row.n_log));
+      const t = Number.isFinite(al) && Number.isFinite(sl) && sl > 0 && nl >= 2 ? Math.abs(al) / (sl / Math.sqrt(nl)) : 0;
+      return { key, mot_fr: mot, med_hist_eur: Number.isFinite(med) ? Math.round(med) : null, corr_r: rv, a_confirmer: signalAConfirmer(med, rv, t), hist_days: Number(flat(row.n_days)) || null } as WhyFactorInput;
+    })
+    .filter((f): f is WhyFactorInput => f != null);
+  return buildEntityWhy3Blocks({ reading, daily, factorsByDate, factors });
+}

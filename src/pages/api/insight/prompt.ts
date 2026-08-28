@@ -40,7 +40,7 @@ import { listClassDispositifs } from "../../../lib/bestPractices";
 import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
 import { loadSiteEntities, matchEntities } from "../../../lib/entityResolver";
 import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
-import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, buildEntityWhyBlocks, readKpiPeriod } from "../../../lib/entityReading";
+import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, readEntityWhy, readKpiPeriod } from "../../../lib/entityReading";
 import { planPeriod, buildPlanBlocks, buildPlanWhyBlocks } from "../../../lib/planPeriod";
 import { journalPlan } from "../../../lib/journalPlan";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
@@ -2533,9 +2533,10 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           .map((en) => _rsvSite!.entities.find((e2) => e2.kind === en.type && e2.name === en.nom))
           .filter((e2): e2 is NonNullable<typeof e2> => e2 != null);
         if (_whyEnts.length) {
+          // 3 étages (owner 28/08) : composition de l'écart, phénomènes extérieurs (tri |r|),
+          // profil de jour — readEntityWhy ; opération/personne gardent la forme verdicts+funnel.
           const _bqw = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-          const _whyR = await readEntityPeriod(_bqw, location_id, _whyEnts[0], _why.periode.start, _why.periode.end, new Date().toISOString().slice(0, 10));
-          const _whyB = buildEntityWhyBlocks(_whyR);
+          const _whyB = await readEntityWhy(_bqw, location_id, _whyEnts[0], _why.periode.start, _why.periode.end, new Date().toISOString().slice(0, 10));
           _rsvFrameOut = _why; // le cadre survit au pourquoi — la conversation continue sur l'entité
           return sysDialogueResponse(
             _whyB.headline, "", "deterministic_entity_why_v1", null,

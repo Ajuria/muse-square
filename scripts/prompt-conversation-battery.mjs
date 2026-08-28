@@ -113,9 +113,20 @@ await dialogue("Pourquoi, puis la conversation continue", [
   } },
   { q: "pourquoi ?", expect: {
     "producer = why": ({ producer }) => producer === "deterministic_entity_why_v1",
-    "la construction est dite avec les chiffres (lignes de caisse, €/jour)": ({ j }) => {
-      const facts = (j?.ai?.output?.plan_sections ?? []).flatMap((s2) => s2.facts ?? []).join(" ");
-      return facts.includes("lignes de caisse") && facts.includes("€/jour");
+    "3 étages : composition + phénomènes triés, jamais du mode de calcul": ({ j }) => {
+      const secs = j?.ai?.output?.plan_sections ?? [];
+      const titles = secs.map((s2) => s2.title);
+      const facts = secs.flatMap((s2) => s2.facts ?? []).join(" ");
+      return titles[0] === "Ce qui compose l'écart" && /meilleurs jours|sur la période/.test(facts)
+        && !/somme de vos lignes de caisse/.test(facts);
+    },
+    "les phénomènes portent avec/sans + prior + indice (si présents)": ({ j }) => {
+      const secs = j?.ai?.output?.plan_sections ?? [];
+      const phen = secs.find((s2) => s2.title === "Les phénomènes extérieurs");
+      if (!phen) return true;   // pas de facteur >= 3 j sur la période : l'étage ne se dit pas
+      const f0 = String(phen.facts?.[0] ?? "");
+      return /jours de .+ sur la période : .+ €\/jour · vos \d+ jours sans/.test(f0)
+        && f0.includes("Historique du site") && /Indice de corrélation/.test(f0);
     },
     "le cadre SURVIT au pourquoi (entité + période gardées)": ({ frame }) => frame?.intent === "entity_period" && frame?.entity_names?.some((e) => e.nom === "Coffee") && frame?.periode?.start === "2026-07-01",
   } },
