@@ -123,10 +123,21 @@ export async function renderPhase() {
   const src = readFileSync("src/pages/app/insightevent/tableau.astro", "utf8");
   const fnMatch = src.match(/function renderMemberView\(j\) \{[\s\S]*?\n        \}/);
   if (!fnMatch) { assert("renderMemberView extrait", false); return; }
+  // Helpers RÉELS de la page (byte-exacts) — la branche pôles (28/08) en consomme plus :
+  // signEur/daysTo/dowFull/trunc + leurs dépendances (DOWF, TODAY, pad2).
   const helpers = [
     src.match(/function esc\(s\).*$/m)![0],
     src.match(/function frD\(iso\).*$/m)![0],
     src.match(/function siteChip\(label\).*$/m)![0],
+    src.match(/function frInt\(n\).*$/m)![0],
+    src.match(/function signEur\(n\).*$/m)![0],
+    src.match(/function pad2\(n\).*$/m)![0],
+    src.match(/var now = new Date\(\);/m)![0],
+    src.match(/var TODAY = .*$/m)![0],
+    src.match(/function daysTo\(iso\).*$/m)![0],
+    src.match(/var DOWF = .*$/m)![0],
+    src.match(/function dowFull\(iso\).*$/m)![0],
+    src.match(/function trunc\(s, n\) \{[\s\S]*?\n        \}/m)![0],
   ].join("\n");
   const ctx: any = {
     J: payload,
@@ -144,4 +155,34 @@ export async function renderPhase() {
   assert("rendu: l'engagement du pôle est là", html.includes("Corner") || html.includes(esc0(payload.open_commitments[0].text.slice(0, 20))));
   assert("rendu: aucun € affiché", !html.includes("€"));
   function esc0(s: string) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+  // ── Phase 2b (28/08, proto v3 validé) : rendu membre AVEC pôles — payload injecté (aucun
+  // pôle réel en base), le chemin neuf s'exécute vraiment : 2 rangées KPI pôle, bandeau
+  // SITE absent, % seulement + impact borné au pôle. ──
+  const payload2 = {
+    ...payload,
+    poles: [{
+      dispositif_id: "p1", location_id: LOC, name: "Pôle test",
+      families: [{ family: "FamX", delta_pct: 5.5 }],
+      delta_pct: 12.3, share_pct: 8.1, week: null, ops_open: 1,
+      units30_day: 44, units_base_day: 28,
+      impact: { gap_eur: -28, eur_windows: 1 },
+      next: { we: "2099-09-05", text: "Op test — détail" },
+      connaissances: { prouves: 0, en_test: 1 },
+    }],
+  };
+  const ctx2: any = { J: payload2, body: { innerHTML: "" }, document: { getElementById: () => ({ style: {} }) } };
+  vm.createContext(ctx2);
+  vm.runInContext(helpers + "\n" + fnMatch[0] + "\nrenderMemberView(J);", ctx2);
+  const html2 = String(ctx2.body.innerHTML);
+  assert("rendu pôles: kicker Pôle · nom", html2.includes("Pôle · Pôle test"));
+  assert("rendu pôles: CA du pôle en % (+12,3 %)", html2.includes("CA du pôle") && html2.includes("+12,3 %".replace(" ", " ")) || html2.includes("+12,3 %"));
+  assert("rendu pôles: ventes/jour 44 · habituel 28", /ventes\/jour<\/p><div class="n2"[^>]*>44</.test(html2) && html2.includes("habituel 28"));
+  assert("rendu pôles: poids du CA 8,1 %", html2.includes("poids du CA") && html2.includes("8,1 %"));
+  assert("rendu pôles: impact borné au pôle (−28 €)", html2.includes("Impact de vos opérations") && html2.includes("−28 €"));
+  assert("rendu pôles: bandeau SITE absent (remplacé par le pôle)", !html2.includes("nombre de visiteurs/jour"));
+  assert("rendu pôles: absence honnête des signaux", html2.includes("aucun motif chiffré encore"));
+  // Seuls les MONTANTS comptent (chiffre + €) — le « €/j » de l'infobulle du référentiel
+  // est une unité, pas un niveau affiché.
+  assert("rendu pôles: aucun niveau € (le seul montant est l'impact)", (html2.match(/\d\s?€/g) || []).length === 1, html2.match(/\d\s?€/g));
 }

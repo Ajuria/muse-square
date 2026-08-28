@@ -177,16 +177,18 @@ export interface PoleListRow {
   dispositif_id: string;
   name: string;
   families: string[];
-  // Additifs (build Piloter pôles 28/08) — le bloc pôles du tableau a besoin du responsable
-  // et du levier sans re-requêter le journal ; les consommateurs existants les ignorent.
+  // Additifs (build Piloter pôles 28/08) — le bloc pôles du tableau a besoin du responsable,
+  // du levier et du commitment_id de la VERSION COURANTE (cible des CTA Ajuster/Documenter
+  // vers la fiche) sans re-requêter le journal ; les consommateurs existants les ignorent.
   lever: string | null;
   responsable: string | null;
+  commitment_id: string | null;
 }
 export async function listPoles(bq: any, location_id: string, limit = 12): Promise<PoleListRow[]> {
   const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
   const rows = await bq.query({
-    query: `SELECT dispositif_id, committed_action_text, pole_families, owner_person_name FROM (
-              SELECT dispositif_id, committed_action_text, pole_families, owner_person_name, status, verdict,
+    query: `SELECT commitment_id, dispositif_id, committed_action_text, pole_families, owner_person_name FROM (
+              SELECT commitment_id, dispositif_id, committed_action_text, pole_families, owner_person_name, status, verdict,
                      ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC,
                        CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC,
                        (verdict IS NOT NULL) DESC, created_at DESC) AS rn
@@ -206,6 +208,7 @@ export async function listPoles(bq: any, location_id: string, limit = 12): Promi
       families: fams,
       lever: parts.slice(1).join(" — ") || null,
       responsable: r.owner_person_name != null ? String(flat(r.owner_person_name)) || null : null,
+      commitment_id: r.commitment_id != null ? String(flat(r.commitment_id)) : null,
     };
   });
 }

@@ -115,6 +115,10 @@ async function main() {
   assert("owner : impact famille = (28,0 − 56,2) × 1 j = −28 € sur 1 fenêtre", !!pole && !!pole.impact && pole.impact.gap_eur === -28 && pole.impact.eur_windows === 1, pole && pole.impact);
   assert("owner : prochain verdict = l'op à venir", !!pole && !!pole.next && pole.next.text === "Op probe à venir", pole && pole.next);
   assert("owner : connaissances = 0 prouvé · 2 en test (2 chaînes rattachées)", !!pole && pole.connaissances.prouves === 0 && pole.connaissances.en_test === 2, pole && pole.connaissances);
+  assert("owner : commitment_id de la version courante (cible des CTA du volet)", !!pole && pole.commitment_id === C_POLE, pole && pole.commitment_id);
+  assert("owner : opérations du volet (2 rattachées, la jugée porte son verdict)", !!pole && Array.isArray(pole.operations) && pole.operations.length === 2
+    && pole.operations.some((x: any) => x.commitment_id === C_RES && x.verdict === "missed" && x.text === "Op probe jugée")
+    && pole.operations.some((x: any) => x.commitment_id === C_OPEN && x.status === "open"), pole && pole.operations);
   const hVerdict = pole && pole.historique.find((h: any) => h.kind === "verdict");
   const hGeste = pole && pole.historique.find((h: any) => h.kind === "geste");
   assert("owner Historique : verdict (missed −50,2) + texte", !!hVerdict && hVerdict.verdict === "missed" && hVerdict.delta_pct === -50.2 && hVerdict.text === "Op probe jugée", hVerdict);
@@ -129,6 +133,10 @@ async function main() {
   assert("membre : unités/jour honnêtes (famille sonde sans vente → null)", !!mp && mp.units30_day == null && mp.units_base_day == null, mp && { a: mp.units30_day, b: mp.units_base_day });
   assert("membre : familles en % seulement", !!mp && Array.isArray(mp.families) && mp.families.every((f: any) => Object.keys(f).sort().join(",") === "delta_pct,family"), mp && mp.families);
   assert("membre : l'op à venir passe dans À faire (périmètre existant)", (m.open_commitments || []).some((c: any) => c.commitment_id === C_OPEN));
+  assert("membre : le PÔLE lui-même n'est PAS une tâche d'À faire", !(m.open_commitments || []).some((c: any) => c.commitment_id === C_POLE));
+  // Owner : le pôle ne devient jamais une carte d'opération (attrapé au dump réel 28/08 —
+  // la sélection mesures est nature-aware, comme le cron de résolution).
+  assert("owner : le pôle n'est pas une carte « Opérations en cours »", !((o.glance || {}).mesures || []).some((x: any) => x.commitment_id === C_POLE));
 
   // ── 5. Nettoyage chirurgical + preuve. ──
   await cleanup(bq);

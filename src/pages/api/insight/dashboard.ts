@@ -150,14 +150,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   SELECT commitment_id, location_id, status, verdict, owner_person_name, committed_action_text,
                          measured_metric, threshold_basis, threshold_value, saved_item_id, window_start, window_end,
                          origin_action_type, action_done_status, created_at, dispositif_id, attached_pole_id,
-                         kpi_baseline, kpi_window_value,
+                         kpi_baseline, kpi_window_value, dispositif_nature,
                          ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                   FROM \`${PROJECT}.analytics.action_commitments\` WHERE location_id IN UNNEST(@locs)
                 )
                 SELECT commitment_id, location_id, status, verdict, owner_person_name, committed_action_text,
                        measured_metric, threshold_basis, threshold_value, saved_item_id,
                        dispositif_id, attached_pole_id,
-                       kpi_baseline, kpi_window_value,
+                       kpi_baseline, kpi_window_value, dispositif_nature,
                        CAST(window_start AS STRING) AS ws, CAST(window_end AS STRING) AS we,
                        origin_action_type, action_done_status,
                        CAST(DATE(created_at) AS STRING) AS created_d,
@@ -497,11 +497,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
                   SELECT * EXCEPT(rn) FROM (
                     SELECT commitment_id, location_id, status, measured_metric, threshold_basis, threshold_value,
                            threshold_level, window_start, window_end, window_days_expected, kpi_baseline,
-                           saved_item_id, committed_action_text,
+                           saved_item_id, committed_action_text, dispositif_nature,
                            ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) rn
                     FROM \`${PROJECT}.analytics.action_commitments\`
                     WHERE location_id IN UNNEST(@locs))
-                  WHERE rn = 1 AND status = 'open'),
+                  -- Un dispositif PERMANENT n'a ni fenêtre ni verdict (spec pôles 27/08) : il ne
+                  -- devient jamais une carte d'opération — même exclusion que le cron de résolution.
+                  -- (Attrapé au dump réel 28/08 : le pôle sortait en carte « Occurrence du — ».)
+                  WHERE rn = 1 AND status = 'open' AND COALESCE(dispositif_nature, 'operation') != 'permanent'),
                 -- Perf 25/08 : filtre @locs DANS des tables dérivées — posé en WHERE de jointure il
                 -- n'était pas poussé au scan (mesuré : 199 738 lignes lues → 149 116 shufflées ;
                 -- le même filtre en sous-requête scanne 199 738 → 7 374 dans le b de tendRows).
@@ -896,9 +899,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // ((réalisé − habituel) × jours) — le gap du mart est au CA SITE, faux au périmètre
       // du pôle. Ces deux champs ne sortent JAMAIS vers un membre (kpi_baseline = niveau).
       kpi_baseline: num(r.kpi_baseline), kpi_window_value: num(r.kpi_window_value),
+      nature: str(r.dispositif_nature),
     }));
     const todayYmd = new Date().toISOString().slice(0, 10);
-    const open = coms.filter((c) => c.status === "open");
+    // Un PERMANENT (pôle) n'est jamais une tâche d'« À faire » ni une rangée d'équipe : il
+    // sort de `open` (sa lecture vit dans le bloc pôles) — spec pôles 27/08, comme le cron.
+    const open = coms.filter((c) => c.status === "open" && String((c as any).nature || "operation") !== "permanent");
     // DEUX registres (owner 05/08) : « jugées » = TOUS les verdicts rendus (journal) ;
     // « € » = le mart seulement (contrat : non déclarée pas-menée — fait par défaut).
     // « Jugées » = verdicts MESURABLES (met/missed) — un confounded n'est ni tenu ni manqué,
@@ -923,7 +929,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       const k = personKey(c.owner);
       equipe[k] = equipe[k] || { label: String(c.owner || "—"), open: [], kept: 0, judged: 0, gap: null };
       if (String(c.owner || "").length > equipe[k].label.length) equipe[k].label = String(c.owner);
-      if (c.status === "open") equipe[k].open.push({ text: c.text, saved_item_id: c.saved_item_id, site_label: c.site_label, we: c.we, days_to_end: c.days_to_end });
+      // Le pôle (permanent) ne devient pas une « opération en cours » de la rangée équipe.
+      if (c.status === "open" && String((c as any).nature || "operation") !== "permanent") equipe[k].open.push({ text: c.text, saved_item_id: c.saved_item_id, site_label: c.site_label, we: c.we, days_to_end: c.days_to_end });
       else if (c.verdict && c.verdict !== "confounded" && c.in_period) { equipe[k].judged += 1; if (isKeptVerdict(c.verdict)) equipe[k].kept += 1; }
     }
     for (const r of martRows) {
@@ -1165,7 +1172,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
       return {
         dispositif_id: p.dispositif_id, location_id: p.location_id,
         site_label: siteLabel[p.location_id] || null,
+        // La cible des CTA Ajuster/Documenter du volet : la fiche de la version courante.
+        commitment_id: p.commitment_id,
         name: p.name, lever: p.lever, families: p.families, responsable: p.responsable,
+        // Les opérations rattachées pour la liste du volet (poleReading, attached_pole_id).
+        operations: reading.operations.map((op: any) => ({
+          commitment_id: op.commitment_id, text: op.committed_action_text,
+          ws: op.window_start, we: op.window_end, status: op.status, verdict: op.verdict,
+        })),
         reading: {
           rev30_eur: reading.totals.rev30_eur, share_pct: reading.totals.share_pct,
           delta_pct: reading.totals.delta_pct, n30: reading.totals.n30,
