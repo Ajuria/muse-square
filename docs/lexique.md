@@ -61,6 +61,21 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Caisse dont le connecteur n'existe pas encore | **Connexion directe prévue — en attendant, export CSV…** (consigne `export_note_fr` de `analytics.pos_systems`, jamais réécrite en dur) | bientôt disponible, coming soon |
 | Suivi posé par le système à l'ouverture du compte (P3.1-f) | **suivi proposé — ajustez** (chip sur la fiche ; l'infobulle dit le critère : recouvrement mesuré) | suivi automatique, suggestion, recommandé pour vous |
 
+## Les mots des interactions humaines (Slack — registre distinct, owner 28/08)
+
+Registre ouvert le 28/08 (chantier vue équipe) : les messages Slack entre personnes
+suivent une AUTRE logique que les surfaces applicatives — mots arbitrés à part, texte des
+notifications ENTIÈREMENT arbitré par l'owner selon l'étape du cycle de la carte (« rien
+à la discrétion » — les gabarits vivent dans `vue-equipe-slack-spec.md` § incrément 8).
+
+| Concept | LE mot | Interdits / notes |
+|---|---|---|
+| Une carte partagée à une personne (message de partage) | **priorité** (owner 28/08 — registre interactions humaines SEULEMENT ; sur les surfaces app, la carte reste une « action ») | |
+| Refuser une carte partagée / rendre une carte dont on est responsable | **Pas pour moi** (owner 28/08) | |
+| Ouvrir la fiche du dispositif depuis un message Slack | **Ajuster** (owner 28/08 — « Piloter » proposé puis RETIRÉ par l'owner : collision avec l'onglet Piloter) | Piloter (comme bouton de carte) |
+| Marquer l'action réalisée (bouton Slack) | **Fait** (miroir du geste app) | Action menée ? Oui (formulation app, pas Slack) ; **Pas encore** (supprimé des messages Slack — le silence le dit, owner 28/08) |
+| Envoyer une carte vers le canal Slack (geste owner sur la carte) | **Faire suivre** (mot du brief owner 27/08 — bouton livré inc 6, veto possible) | |
+
 ## Règles de rédaction (héritées des décisions owner)
 
 1. **CTA = un verbe + flèche (≤ 14 caractères)** — l'objet vit dans le titre de la rangée.

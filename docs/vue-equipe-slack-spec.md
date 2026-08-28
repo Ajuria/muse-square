@@ -383,10 +383,13 @@ par étape du cycle de la carte**, chacun avec ses mots et ses boutons.
 Acté aussi : « Pas encore » disparaît (le silence le dit) ; l'échange humain vit dans le
 fil Slack, pas dans un bouton ; l'app Slack est renommée « Muse Square » (geste owner).
 
-**Mots EN ATTENTE d'arbitrage owner** : *« Piloter » comme bouton de carte ENTRE EN
-COLLISION avec l'onglet Piloter de l'app (un mot = un concept — assumer le doublon ou
-renommer l'un des deux) ; « priorité » (message de partage) n'est pas au lexique. Aucune
-copie de ces messages ne part chez un client avant ces mots + tests lexique montrés.
+**Mots TRANCHÉS (owner 28/08)** : le bouton reste **« Ajuster »** (« Piloter » retiré
+par l'owner — collision avec l'onglet) ; **« priorité »** entre au lexique dans un
+registre « interactions humaines » distinct des surfaces app (section ajoutée à
+`lexique.md`). **Le texte de CHAQUE notification est arbitré par l'owner** (« rien à ma
+discrétion ») — gabarits proposés au fil du 28/08, GO owner requis avant tout envoi réel ;
+mot restant à trancher : le geste de fin (« Terminer » — mot du feedback owner — vs
+« Arrêter », le move existant de l'app).
 
 À construire (ordre proposé) : ack-immédiat de slack-interact (waitUntil + response_url) ·
 rails « Pas pour moi » (partage et désengagement) · détecteur 3-négatifs · gabarits de
