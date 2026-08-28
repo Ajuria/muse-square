@@ -237,6 +237,9 @@ export const EVOL_COPY = {
   shape_fams_title: "Performance des produits vendus",
   shape_fams_note: "Les {n} familles de votre caisse. Les écarts se compensent : c’est la part de chaque famille qui bouge.",
   shape_fams_ref: "{eur} € · sa part habituelle : {ref} €",
+  // Le cran produit : une famille se déplie sur ses articles, même lecture en part.
+  shape_prod_ref: "{eur} € · habituel {ref} €",
+  shape_prod_rest: "{n} autres produits de la famille : {eur} € au total.",
   shape_vol_title: "Achats ou panier ?",
   shape_vol_tx: "{tx} achats, contre {ref} pour ce résultat habituel",
   shape_vol_basket: "panier moyen {b} €, contre {ref} €",

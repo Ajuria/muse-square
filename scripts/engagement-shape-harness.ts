@@ -78,6 +78,23 @@ function measuredDatesOf(bq: any, snap: any): Promise<string[]> {
       ok("part de la tranche entre 0 et 100 %", shape.best_run.share_pct > 0 && shape.best_run.share_pct <= 100, shape.best_run);
     }
     ok("aucune famille vide", shape.families.every((f) => f.family.trim().length > 0));
+
+    // ── Le cran PRODUIT : même lecture en part, et rien de tu ──
+    const withProd = shape.families.filter((f) => f.products.length);
+    ok("des familles portent leurs produits", withProd.length > 0, shape.families.map((f) => [f.family, f.products.length]));
+    ok("au plus 6 produits listés par famille", shape.families.every((f) => f.products.length <= 6),
+      shape.families.map((f) => f.products.length));
+    ok("aucun produit sans libellé", shape.families.every((f) => f.products.every((p) => p.name.trim().length > 0)));
+    // L'invariant qui empêche la troncature muette : produits listés + reste caché = la famille.
+    ok("produits listés + reste = écart de la famille",
+      shape.families.every((f) => {
+        if (!f.products.length) return true;
+        const sum = f.products.reduce((s, p) => s + p.delta, 0) + f.products_hidden_eur;
+        return Math.abs(sum - f.delta) <= Math.max(2, f.products_total);
+      }),
+      shape.families.map((f) => ({ f: f.family, d: f.delta, s: f.products.reduce((s, p) => s + p.delta, 0) + f.products_hidden_eur })));
+    ok("produits triés par écart décroissant",
+      shape.families.every((f) => f.products.every((p, i) => i === 0 || f.products[i - 1].delta >= p.delta)));
   }
 
   console.log(`\n— Phase 3 : absence honnête —`);

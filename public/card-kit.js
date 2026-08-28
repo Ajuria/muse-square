@@ -863,14 +863,37 @@
       }
       // ② Performance des produits vendus — toutes les familles, triées par écart.
       if (shape.families && shape.families.length) {
+        // Une famille se DÉPLIE sur ses produits (owner 28/08) : même lecture d'un cran plus
+        // bas, en <details> natif — la page ne gagne pas une ligne de JavaScript pour ça.
+        var eurSigned = function (v, colr) {
+          return '<span style="font-weight:600;white-space:nowrap;color:' + colr + ';">' + (v > 0 ? '+' : (v < 0 ? '−' : '')) + intfr(Math.abs(v)) + ' €</span>';
+        };
+        var deltaCol = function (v) { return v > 0 ? '#0F6E56' : (v < 0 ? '#B45309' : '#9ca3af'); };
         h += '<div style="' + card + '">' + cardTitle(t('shape_fams_title'))
           + note(t('shape_fams_note', { n: shape.families.length })).replace('margin-top:5px', 'margin:0 0 8px')
           + shape.families.map(function (f) {
-              var col = f.delta > 0 ? '#0F6E56' : (f.delta < 0 ? '#B45309' : '#9ca3af');
-              return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #f5f6f8;font-size:13px;">'
-                + '<span style="min-width:0;"><span style="font-weight:600;color:#111827;">' + esc(f.family) + '</span>'
+              var rowInner = '<span style="min-width:0;"><span style="font-weight:600;color:#111827;">' + esc(f.family) + '</span>'
                 + '<span style="display:block;color:#9ca3af;font-size:11.5px;margin-top:1px;">' + esc(t('shape_fams_ref', { eur: intfr(f.rev), ref: intfr(f.ref) })) + '</span></span>'
-                + '<span style="font-weight:600;white-space:nowrap;color:' + col + ';">' + (f.delta > 0 ? '+' : (f.delta < 0 ? '−' : '')) + intfr(Math.abs(f.delta)) + ' €</span></div>';
+                + eurSigned(f.delta, deltaCol(f.delta));
+              var rowStyle = 'display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #f5f6f8;font-size:13px;';
+              var prods = f.products || [];
+              if (!prods.length) return '<div style="' + rowStyle + '">' + rowInner + '</div>';
+              return '<details style="border-top:1px solid #f5f6f8;">'
+                + '<summary style="' + rowStyle + 'border-top:none;cursor:pointer;list-style:none;">' + rowInner + '</summary>'
+                + '<div style="padding:2px 0 10px 14px;border-left:2px solid #eef1f6;margin:0 0 4px 2px;">'
+                + prods.map(function (p2) {
+                    return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:4px 0;font-size:12.5px;">'
+                      + '<span style="min-width:0;color:#374151;">' + esc(p2.name)
+                      + '<span style="color:#9ca3af;font-size:11px;"> · ' + esc(t('shape_prod_ref', { eur: intfr(p2.rev), ref: intfr(p2.ref) })) + '</span></span>'
+                      + eurSigned(p2.delta, deltaCol(p2.delta)) + '</div>';
+                  }).join('')
+                + (f.products_total > prods.length
+                    ? '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('shape_prod_rest', {
+                        n: f.products_total - prods.length,
+                        eur: (f.products_hidden_eur >= 0 ? '+' : '−') + intfr(Math.abs(f.products_hidden_eur)),
+                      })) + '</div>'
+                    : '')
+                + '</div></details>';
             }).join('') + '</div>';
       }
       // ③ Achats ou panier — la décomposition de l'écart de l'en-tête.

@@ -31,7 +31,15 @@ const r2 = (n: number): number => Math.round(n * 100) / 100;
 
 export interface ShapeHour { h: number; rev: number; ref: number }
 export interface ShapeRun { from_hour: number; to_hour: number; shift_eur: number; share_pct: number; ref_share_pct: number }
-export interface ShapeFamily { family: string; rev: number; ref: number; delta: number }
+export interface ShapeProduct { name: string; rev: number; ref: number; delta: number }
+export interface ShapeFamily {
+  family: string; rev: number; ref: number; delta: number;
+  // Le cran en dessous (owner 28/08) : les produits de la famille, MÊME lecture en part
+  // (référence remise à la même échelle) — la somme de leurs écarts vaut celui de la famille.
+  products: ShapeProduct[];
+  products_total: number;           // produits vendus dans la famille (jour + référence)
+  products_hidden_eur: number;      // écart porté par les produits NON listés (jamais tu)
+}
 export interface ShapeVolume {
   // Décomposition du GAP de l'en-tête : contrib_tx + contrib_basket = actual − expected.
   tx: number; ref_tx: number; contrib_tx_eur: number;
@@ -100,20 +108,23 @@ export async function buildWindowShape(
       .then((r: any) => (Array.isArray(r?.[0]) ? r[0] : []))
       .catch(() => []);
 
-  const [hRows, fRows, vRows, dRows] = await Promise.all([
+  const [hRows, fpRows, vRows, dRows] = await Promise.all([
     // 1. Grain horaire (mart.fct_client_hourly_sales — colonnes vérifiées 28/08).
     q(`SELECT ${setCase("transaction_date")} AS s, transaction_hour AS h, SUM(revenue) AS rev
         FROM \`${PROJECT}.mart.fct_client_hourly_sales\`
         WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
           AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))
         GROUP BY 1, 2`),
-    // 2. Familles de la caisse (raw.client_transactions.item_category — le MÊME champ que
-    //    le KPI family_revenue et que la lecture des pôles : jamais un second vocabulaire).
-    q(`SELECT ${setCase("transaction_date")} AS s, item_category AS f, SUM(revenue) AS rev
+    // 2. Familles ET produits en UNE lecture (raw.client_transactions — `item_category` est le
+    //    MÊME champ que le KPI family_revenue et que la lecture des pôles ; `item_description`
+    //    est le cran en dessous). La famille est la SOMME de ses lignes : un produit sans
+    //    libellé compte dans sa famille sans jamais s'afficher comme produit.
+    q(`SELECT ${setCase("transaction_date")} AS s, item_category AS f,
+              COALESCE(item_description, '') AS p, SUM(revenue) AS rev
         FROM \`${PROJECT}.raw.client_transactions\`
         WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
           AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))
-        GROUP BY 1, 2`),
+        GROUP BY 1, 2, 3`),
     // 3. Achats + CA (mart.fct_client_daily_performance) — le panier se recompose CA/achats,
     //    jamais une moyenne de moyennes.
     q(`SELECT ${setCase("transaction_date")} AS s, SUM(daily_transactions) AS tx, SUM(daily_revenue) AS rev,
@@ -156,20 +167,41 @@ export async function buildWindowShape(
   const best_run = mkRun(bestRun(hours, 1));
   const worst_run = mkRun(bestRun(hours, -1));
 
-  // ── Familles : même remise à l'échelle — la part de chacune dans la journée. ──
+  // ── Familles et produits : même remise à l'échelle — la part de chacun dans la journée. ──
   const fDay = new Map<string, number>(), fRef = new Map<string, number>();
-  for (const r of fRows as any[]) {
+  const pDay = new Map<string, Map<string, number>>(), pRef = new Map<string, Map<string, number>>();
+  for (const r of fpRows as any[]) {
     const f = String(flat(r.f) ?? "").trim(); if (!f) continue;
-    const m = String(flat(r.s)) === "w" ? fDay : fRef;
-    m.set(f, (m.get(f) ?? 0) + num(r.rev));
+    const rev = num(r.rev);
+    const isDay = String(flat(r.s)) === "w";
+    const fm = isDay ? fDay : fRef;
+    fm.set(f, (fm.get(f) ?? 0) + rev);
+    const name = String(flat(r.p) ?? "").trim(); if (!name) continue;
+    const pm = isDay ? pDay : pRef;
+    if (!pm.has(f)) pm.set(f, new Map());
+    const inner = pm.get(f) as Map<string, number>;
+    inner.set(name, (inner.get(name) ?? 0) + rev);
   }
   const fTotDay = [...fDay.values()].reduce((s, v) => s + v, 0);
   const fTotRef = [...fRef.values()].reduce((s, v) => s + v, 0);
   const fScale = fTotRef > 0 ? fTotDay / fTotRef : 0;
+  // Au plus 6 produits listés par famille — les autres ne disparaissent pas : leur écart
+  // cumulé est rendu dans products_hidden_eur, que la page DIT (jamais de troncature muette).
+  const PRODUCTS_PER_FAMILY = 6;
   const families: ShapeFamily[] = fScale > 0
     ? [...new Set([...fDay.keys(), ...fRef.keys()])].map((f) => {
         const rev = Math.round(fDay.get(f) ?? 0), ref = Math.round((fRef.get(f) ?? 0) * fScale);
-        return { family: f, rev, ref, delta: rev - ref };
+        const dm = pDay.get(f) ?? new Map<string, number>(), rm = pRef.get(f) ?? new Map<string, number>();
+        const all: ShapeProduct[] = [...new Set([...dm.keys(), ...rm.keys()])].map((name) => {
+          const pr = Math.round(dm.get(name) ?? 0), pf = Math.round((rm.get(name) ?? 0) * fScale);
+          return { name, rev: pr, ref: pf, delta: pr - pf };
+        }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+        const shown = all.slice(0, PRODUCTS_PER_FAMILY).sort((a, b) => b.delta - a.delta);
+        const hidden = all.slice(PRODUCTS_PER_FAMILY).reduce((s, p) => s + p.delta, 0);
+        return {
+          family: f, rev, ref, delta: rev - ref,
+          products: shown, products_total: all.length, products_hidden_eur: Math.round(hidden),
+        };
       }).sort((a, b) => b.delta - a.delta)
     : [];
 

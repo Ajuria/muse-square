@@ -81,6 +81,13 @@ async function payload(id: string): Promise<any> {
     ok("« Description du dispositif » présente", out.includes("Description du dispositif"));
     ok("bloc « Comprendre le résultat » présent", out.includes("Comprendre le résultat"));
     ok("« Performance des produits vendus » présente", out.includes("Performance des produits vendus"));
+    // Le cran produit se déplie en <details> natif — zéro JavaScript ajouté à la page.
+    // Marqueur PROPRE au dépliage famille : le <details> qui contient la liste produits
+    // (le simple motif <details><summary> matchait le « Comment faire ? » des dispositifs
+    // comparables — faux vert attrapé à la mutation, assertion resserrée).
+    ok("familles dépliables sur leurs produits",
+      /<details[^>]*><summary[^>]*>[\s\S]{0,400}?border-left:2px solid #eef1f6/.test(out) && out.includes("· habituel "));
+    ok("aucun câblage JS pour le dépliage", !/data-fam-toggle|data-prod-/.test(out));
     ok("« Achats ou panier ? » présent", out.includes("Achats ou panier"));
     ok("contexte externe rendu dans la lecture", out.includes("Contexte externe"));
     ok("chip « observé » sur le contexte (proto validé)", out.includes("observé"));
