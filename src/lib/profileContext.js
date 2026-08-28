@@ -111,6 +111,94 @@ export async function getProfileContext(bq, clerk_user_id) {
 // garde, chacune paierait l'appel Clerk + la recherche BQ.
 const _resolutionAttempted = new Set();
 
+// ── Identité Slack → locals (vue équipe inc 7 — endpoint d'interactivité) ─────────────
+// Un clic Slack n'est pas une session Clerk : on reconstruit des locals SYNTHÉTIQUES pour
+// rejouer les MÊMES gardes (requireLocationAccess + périmètre) que l'app.
+// Primaire : slack_user_id STOCKÉ sur location_members (posé au setup — aucune dépendance
+// de scope Slack). Repli : users.info (email) si le bot a le scope users:read.email —
+// membre par member_email, sinon owner par l'email du profil. Introuvable → null.
+// Un membre jamais connecté à l'app (clerk_user_id NULL) agit sous l'identité traçable
+// 'slack:<id>' — l'auteur reste vrai dans action_log.
+export async function localsFromSlackUser(bq, slack_user_id, botToken) {
+  const projectId = mustGetEnv("BQ_PROJECT_ID");
+  const [rows] = await bq.query({
+    query: `
+      SELECT location_id, clerk_user_id, pole_dispositif_ids FROM (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY updated_at DESC) AS rn
+        FROM \`${projectId}.analytics.location_members\`
+      )
+      WHERE rn = 1 AND COALESCE(deleted, FALSE) = FALSE AND slack_user_id = @sid
+    `,
+    location: "EU",
+    params: { sid: slack_user_id },
+  });
+  const memberRows = rows || [];
+
+  let email = null;
+  if (!memberRows.length && botToken) {
+    try {
+      const res = await fetch("https://slack.com/api/users.info?user=" + encodeURIComponent(slack_user_id), {
+        headers: { authorization: "Bearer " + botToken },
+      });
+      const j = await res.json().catch(() => null);
+      email = String(j?.user?.profile?.email || "").trim().toLowerCase() || null;
+    } catch { email = null; }
+  }
+
+  let emailRows = [];
+  if (!memberRows.length && email) {
+    const [er] = await bq.query({
+      query: `
+        SELECT location_id, clerk_user_id, pole_dispositif_ids FROM (
+          SELECT *, ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY updated_at DESC) AS rn
+          FROM \`${projectId}.analytics.location_members\`
+        )
+        WHERE rn = 1 AND COALESCE(deleted, FALSE) = FALSE AND LOWER(member_email) = @em
+      `,
+      location: "EU",
+      params: { em: email },
+    });
+    emailRows = er || [];
+    if (!emailRows.length) {
+      // Owner par l'email du profil — locals owner complets.
+      const [pr] = await bq.query({
+        query: `SELECT clerk_user_id, location_id FROM \`${projectId}.${mustGetEnv("BQ_DATASET")}.${mustGetEnv("BQ_TABLE")}\` WHERE LOWER(email) = @em`,
+        location: "EU",
+        params: { em: email },
+      });
+      if (pr && pr.length) {
+        const cid = String(pr[0].clerk_user_id);
+        return {
+          clerk_user_id: cid, real_clerk_user_id: cid, role: "owner",
+          all_location_ids: pr.map((r) => r.location_id).filter(Boolean),
+          member_location_ids: [], member_poles: {},
+        };
+      }
+    }
+  }
+
+  const finalRows = memberRows.length ? memberRows : emailRows;
+  if (!finalRows.length) return null;
+  const member_poles = {};
+  let clerk = null;
+  for (const r of finalRows) {
+    if (!r.location_id) continue;
+    if (!clerk && r.clerk_user_id) clerk = String(r.clerk_user_id);
+    let poles = [];
+    try { poles = JSON.parse(r.pole_dispositif_ids || "[]"); } catch {}
+    if (!Array.isArray(poles)) poles = [];
+    const prev = member_poles[r.location_id] || [];
+    member_poles[r.location_id] = Array.from(new Set(prev.concat(poles.filter(Boolean))));
+  }
+  const uid = clerk || ("slack:" + slack_user_id);
+  return {
+    clerk_user_id: uid, real_clerk_user_id: uid, role: "member",
+    all_location_ids: [],
+    member_location_ids: Object.keys(member_poles),
+    member_poles,
+  };
+}
+
 export async function resolvePendingMembership(bq, clerk_user_id) {
   if (_resolutionAttempted.has(clerk_user_id)) return false;
   _resolutionAttempted.add(clerk_user_id);
@@ -149,9 +237,9 @@ export async function resolvePendingMembership(bq, clerk_user_id) {
       query: `
         INSERT INTO \`${projectId}.analytics.location_members\`
           (member_id, location_id, member_email, clerk_user_id, role, pole_dispositif_ids,
-           deleted, created_at, updated_at)
+           slack_user_id, deleted, created_at, updated_at)
         SELECT member_id, location_id, member_email, @clerk_user_id, role,
-               pole_dispositif_ids, FALSE, created_at, CURRENT_TIMESTAMP()
+               pole_dispositif_ids, slack_user_id, FALSE, created_at, CURRENT_TIMESTAMP()
         FROM (
           SELECT *, ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY updated_at DESC) AS rn
           FROM \`${projectId}.analytics.location_members\`

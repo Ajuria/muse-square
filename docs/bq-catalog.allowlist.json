@@ -676,7 +676,8 @@
    "pole_dispositif_ids",
    "deleted",
    "created_at",
-   "updated_at"
+   "updated_at",
+   "slack_user_id"
   ],
   "analytics.location_public_events": [
    "location_id",

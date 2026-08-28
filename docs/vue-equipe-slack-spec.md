@@ -275,6 +275,54 @@ dans Slack (boutons + modal) est ACTÉ comme incrément 7, après constat d'usag
   niveau, sondes nettoyées. Mutation vue tomber : résolution famille neutralisée → 4
   rouges, restauré 15/15.
 
+## Le dialogique (incrément 7 — CONSTRUIT 28/08 ; activation = config Slack owner)
+
+Arbitrage owner 28/08 : répondre là où on lit — boutons + modal dans Slack, pas de
+conversation libre (événements/parsing = déconseillé, hors périmètre).
+
+- **`POST /api/channels/slack-interact`** — endpoint PUBLIC appelé par Slack, SANS session
+  Clerk : l'authenticité est la SIGNATURE Slack (HMAC v0 du corps brut,
+  `SLACK_SIGNING_SECRET`, fenêtre anti-rejeu 5 min, comparaison à temps constant) ; sans
+  secret en env → 503, rien ne se traite. L'identité du cliqueur = mappage
+  `location_members.slack_user_id` (colonne AJOUTÉE 28/08, allowlist et copy-forward de la
+  résolution email mis à jour — sans quoi le mappage se perdait à la première connexion) ;
+  repli email `users.info` si le bot a le scope (`missing_scope` constaté aujourd'hui —
+  voir setup). Les gestes sont DISPATCHÉS EN INTERNE aux handlers disposition/retro avec
+  des locals synthétiques (`localsFromSlackUser`) : mêmes gardes, même périmètre de pôles,
+  même trace d'auteur — un membre jamais connecté à l'app agit sous `slack:<id>`,
+  traçable. Rien n'est réécrit.
+- **Boutons** sur la notification d'assignation Slack (`notifyAssignment`) : « Action
+  menée ? Oui » / « Pas encore » / « Documenter » — mots du geste app. `sendSlack` accepte
+  désormais des blocs (additif ; le texte reste, l'email les ignore).
+- **Modal « Documenter »** : libellés VERBATIM de `commitmentCopy` (« Qu'est-ce qui a
+  marché ? », « Qu'est-ce que je changerais ? », « À reproduire ? » Oui/Non,
+  Enregistrer/Annuler) — zéro chaîne inventée, un seul foyer de copie. Soumission →
+  handler retro ; ses règles répondent dans le modal (409 « après résolution » affiché).
+- **Réponses** : confirmation éphémère au cliqueur (« Enregistré — action menée. ») ;
+  compte non relié → phrase d'orientation, aucune écriture.
+- **Preuves** : `scripts/vue-equipe-interact-harness.ts` **13/13** — 401 sans/fausse
+  signature + anti-rejeu, mappage pur (locals `slack:<id>`), bouton Fait → journal +
+  auteur tracés en base, hors périmètre AUCUNE écriture, non mappé AUCUNE écriture, modal
+  → retro écrit, modal sur engagement ouvert → erreurs du rail. Mutation vue tomber :
+  vérification de signature neutralisée → les 3 assertions 401 rougissent, restauré 13/13.
+- **Limite connue** : l'ack Slack veut < 3 s ; le traitement est synchrone (~2-3 s BQ) —
+  un avertissement Slack peut apparaître à froid, le geste est quand même écrit. À
+  observer à l'usage.
+
+### Activation (gestes OWNER, hors de ma portée — api.slack.com + Vercel)
+
+1. **`SLACK_SIGNING_SECRET`** : api.slack.com/apps → l'app Muse Square → Basic
+   Information → App Credentials → Signing Secret → le poser dans les env Vercel (prod)
+   ET `.env` local. Sans lui l'endpoint répond 503.
+2. **Interactivity & Shortcuts** → activer → Request URL =
+   `https://<domaine-prod>/api/channels/slack-interact`.
+3. *(Repli email, optionnel)* OAuth & Permissions → ajouter `users:read` +
+   `users:read.email` → réinstaller l'app dans le workspace.
+4. **Mappage des membres** : poser `slack_user_id` sur leurs lignes `location_members`
+   (setup owner-assisté — pas encore d'UI).
+5. **Porte de vérification** : un clic réel « Pas encore » sur une notification
+   d'assignation, vérifié en base (journal + action_log) — c'est l'E2E de l'incrément.
+
 ## Setup Slack Épices et Tout (opérationnel, hors code)
 
 - Workspace connecté par le flux existant (`slack-connect`), bot invité canal par canal.
@@ -310,6 +358,9 @@ tableau de tests MONTRÉ, chaîne rendue de la surface CITÉE d'abord (règle 4)
    ouverts au périmètre membre, auteur tracé action_log, rangée d'actions membre.
 6. **Routage Slack** (FAIT 28/08, harnais 15/15 + envoi réel délivré + mutation) :
    forward.ts POST/PUT, slackRouting, greffe consignes, bouton Faire suivre.
+7. **Dialogique** (FAIT 28/08 côté code, harnais 13/13 + mutation signature ; ACTIVATION
+   = config app Slack owner, spec § Activation) : slack-interact signé, boutons
+   disposition + modal Documenter, mappage slack_user_id.
 
 Vérification à chaque incrément : compte réel owner (`f10c3e58…`) + **un compte membre de
 test créé dès l'incrément 2** (le « works for me » owner ne prouve rien du rendu membre) —

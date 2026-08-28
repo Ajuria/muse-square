@@ -52,7 +52,7 @@ async function notifyAssignment(
   bq: any,
   userId: string,
   locationId: string,
-  args: { ownerName: string; actionText: string; thresholdBasis: string; thresholdValue: number; thresholdLevel: string; windowKind: string; windowEnd: string },
+  args: { ownerName: string; actionText: string; thresholdBasis: string; thresholdValue: number; thresholdLevel: string; windowKind: string; windowEnd: string; commitmentId?: string },
 ): Promise<{ channel: string; ok: boolean; error?: string } | null> {
   // Membre du roster par nom — même résolution compte que /api/channels/team (site d'abord).
   const [rows] = await bq.query({
@@ -94,7 +94,19 @@ async function notifyAssignment(
   }
   if (contact && typeof contact.slack === "string" && contact.slack.trim()) {
     const config = await loadChannelConfig(bq, userId, locationId, "slack");
-    const r = await sendSlack(config, { title, body, recipient: contact.slack });
+    // Vue équipe inc 7 : boutons de disposition sur la notification (« Action menée ?
+    // Oui · Pas encore » — les mots du geste app) + « Documenter » (modal feedback).
+    // Traités par /api/channels/slack-interact (signature vérifiée, périmètre rejoué).
+    // Sans commitment_id (appelant historique) → message texte inchangé.
+    const blocks = args.commitmentId ? [
+      { type: "section", text: { type: "mrkdwn", text: "*" + title + "*\n" + body } },
+      { type: "actions", elements: [
+        { type: "button", action_id: "ms_dispo_fait", text: { type: "plain_text", text: "Action menée ? Oui" }, style: "primary", value: JSON.stringify({ c: args.commitmentId, l: locationId, s: "fait" }) },
+        { type: "button", action_id: "ms_dispo_pas_encore", text: { type: "plain_text", text: "Pas encore" }, value: JSON.stringify({ c: args.commitmentId, l: locationId, s: "pas_encore" }) },
+        { type: "button", action_id: "ms_retro_open", text: { type: "plain_text", text: "Documenter" }, value: JSON.stringify({ c: args.commitmentId, l: locationId }) },
+      ] },
+    ] : undefined;
+    const r = await sendSlack(config, { title, body, recipient: contact.slack, blocks });
     return { channel: "slack", ok: r.ok, error: r.error };
   }
   return null; // pas de contact → rien à envoyer (le responsable voit la carte dans l'app)
@@ -529,6 +541,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         thresholdBasis, thresholdValue, thresholdLevel,
         windowKind,
         windowEnd: String(patch.window_end),
+        commitmentId,
       });
     } catch { notified = null; }
     return json({

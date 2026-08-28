@@ -19,6 +19,10 @@ export interface InternalMessage {
   // P3.1-c : les réponses de l'invité doivent atterrir chez la personne qui invite,
   // pas sur noreply@. Optionnel — absent, comportement inchangé.
   reply_to?: string;
+  // Vue équipe inc 7 : blocs Block Kit optionnels (boutons disposition sur les messages
+  // Slack). Absents → comportement historique inchangé ; `text` reste toujours envoyé
+  // (repli notification). Slack seulement — l'email les ignore.
+  blocks?: any[];
 }
 
 // ── Slack (chat.postMessage) — mirror of publish.ts handleSlack ──
@@ -41,7 +45,7 @@ export async function sendSlack(
       "content-type": "application/json",
       "authorization": "Bearer " + token,
     },
-    body: JSON.stringify({ channel: channel, text: text }),
+    body: JSON.stringify({ channel: channel, text: text, ...(Array.isArray(msg.blocks) && msg.blocks.length ? { blocks: msg.blocks } : {}) }),
   });
   const json = await res.json().catch(function () { return null; });
   if (!json || !json.ok) {
