@@ -836,7 +836,7 @@
     // de l'en-tête. Heures et familles se lisent en PART de la journée (les écarts se
     // compensent) ; achats/panier se décompose CONTRE le résultat habituel et somme
     // exactement à son écart (server: commitmentShape). Aucun chiffre n'est recalculé ici.
-    function shapeBlock(shape, ctxHtml, received, total, firstDate) {
+    function shapeBlock(shape, ctxHtml, received, total, firstDate, membre) {
       if (!shape) {
         // Aucune journée mesurée (J1) : la section s'annonce, elle ne s'efface pas — une
         // section vide laisserait croire que la page n'a rien à dire (règle 7 du lexique).
@@ -879,8 +879,10 @@
         h += '<div style="' + card + '">' + cardTitle(t('shape_fams_title'))
           + note(t('shape_fams_note', { n: shape.families.length })).replace('margin-top:5px', 'margin:0 0 8px')
           + shape.families.map(function (f) {
+              var refLigne = (f.rev == null || f.ref == null) ? ''
+                : '<span style="display:block;color:#9ca3af;font-size:11.5px;margin-top:1px;">' + esc(t('shape_fams_ref', { eur: intfr(f.rev), ref: intfr(f.ref) })) + '</span>';
               var rowInner = '<span style="min-width:0;"><span style="font-weight:600;color:#111827;">' + esc(f.family) + '</span>'
-                + '<span style="display:block;color:#9ca3af;font-size:11.5px;margin-top:1px;">' + esc(t('shape_fams_ref', { eur: intfr(f.rev), ref: intfr(f.ref) })) + '</span></span>'
+                + refLigne + '</span>'
                 + eurSigned(f.delta, deltaCol(f.delta));
               var rowStyle = 'display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #f5f6f8;font-size:13px;';
               var prods = f.products || [];
@@ -889,9 +891,10 @@
                 + '<summary style="' + rowStyle + 'border-top:none;cursor:pointer;list-style:none;">' + rowInner + '</summary>'
                 + '<div style="padding:2px 0 10px 14px;border-left:2px solid #eef1f6;margin:0 0 4px 2px;">'
                 + prods.map(function (p2) {
+                    var pRef = (p2.rev == null || p2.ref == null) ? ''
+                      : '<span style="color:#9ca3af;font-size:11px;"> · ' + esc(t('shape_prod_ref', { eur: intfr(p2.rev), ref: intfr(p2.ref) })) + '</span>';
                     return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:4px 0;font-size:12.5px;">'
-                      + '<span style="min-width:0;color:#374151;">' + esc(p2.name)
-                      + '<span style="color:#9ca3af;font-size:11px;"> · ' + esc(t('shape_prod_ref', { eur: intfr(p2.rev), ref: intfr(p2.ref) })) + '</span></span>'
+                      + '<span style="min-width:0;color:#374151;">' + esc(p2.name) + pRef + '</span>'
                       + eurSigned(p2.delta, deltaCol(p2.delta)) + '</div>';
                   }).join('')
                 + (f.products_total > prods.length
@@ -907,9 +910,10 @@
       // suite des jours comparables puis le jour, qui montre la tendance sans un mot
       // d'explication. Plusieurs journées : les moyennes des deux côtés. Aucun nombre
       // qui ne soit une somme de la caisse (owner 28/08).
-      h += '<div style="' + card + '">' + cardTitle(t('shape_vol_title'));
       var v = shape.volume;
-      if (v && v.days.length && v.ref.length) {
+      if (!membre) h += '<div style="' + card + '">' + cardTitle(t('shape_vol_title'));
+      if (membre) { /* panier = niveau : bloc retiré au serveur, aucune promesse à l'écran */ }
+      else if (v && v.days.length && v.ref.length) {
         var jourDe = function (iso) { return WX_DOW_FR[new Date(String(iso) + 'T00:00:00Z').getUTCDay()] || ''; };
         if (v.days.length === 1) {
           var jr = jourDe(v.days[0].date);
@@ -935,7 +939,7 @@
       } else {
         h += body(t('shape_vol_none'));
       }
-      h += '</div>';
+      if (!membre) h += '</div>';
       // ④ Contexte externe — le même bloc qu'avant, rapatrié ici (il répond à la même question).
       if (ctxHtml) {
         h += '<div style="' + card + 'margin-bottom:0;">'
@@ -1582,7 +1586,7 @@
     //   résolution : la page dit enfin la même chose que la mécanique).
     // TERMINÉE — la page CONCLUT : le verdict → d'où il vient → ce qui a été fait →
     //   Documenter → la suite (conseils, historique, dispositifs comparables).
-    var shapeB = shapeBlock(data.shape || null, ctxCard, received.length, series.length, received.length ? received[0].date : null);
+    var shapeB = shapeBlock(data.shape || null, ctxCard, received.length, series.length, received.length ? received[0].date : null, data.role === 'member');
     if (open) return head + dispoBlock(cm, true) + q1 + shapeB + moveForm + bicRef + lineageB + sources;
     return head + q1 + shapeB + dispoBlock(cm, false) + q4 + q3 + lineageB + bicRef + sources;
   }

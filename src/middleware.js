@@ -245,7 +245,12 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
     if (isPureMember && appHit) {
       const memberPage =
         path.startsWith("/app/insightevent/pulse") ||
-        path.startsWith("/app/insightevent/tableau");
+        path.startsWith("/app/insightevent/tableau") ||
+        // La page d'une opération (28/08) : c'est la cible du bouton « Ajuster » des
+        // messages Slack — un membre y était renvoyé vers Agir, le bouton ne menait donc
+        // nulle part. L'endpoint qui la nourrit garde le périmètre (pôles du membre) et
+        // la règle des chiffres ; la garde de page ne fait qu'ouvrir l'adresse.
+        path.startsWith("/app/insightevent/engagement");
       if (!memberPage) {
         console.log("[MW] member hors périmètre -> /app/insightevent/pulse");
         return context.redirect("/app/insightevent/pulse", 302);

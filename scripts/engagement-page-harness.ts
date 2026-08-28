@@ -158,6 +158,32 @@ async function payload(id: string): Promise<any> {
     }
   }
 
+  // ── VUE MEMBRE (28/08) : la page est la cible du bouton « Ajuster » de Slack. Elle doit
+  //    s'ouvrir à un membre SUR SON PÉRIMÈTRE, sous la règle des chiffres déjà arbitrée
+  //    (« occasion d'agir oui, état du business jamais ») — et ne jamais fabriquer un zéro
+  //    à la place d'un niveau retiré, ni promettre une réponse qui ne viendra pas.
+  console.log("\n— Vue membre —");
+  const POLE_DE_L_OP = "eb02f192-08c6-408b-b748-038500b5a7af";
+  const localsMembre = (poles: string[]) => ({
+    clerk_user_id: "harness-membre", all_location_ids: [], member_location_ids: [LOC],
+    role: "member", member_poles: { [LOC]: poles },
+  });
+  const rDans: any = await evolutionGET({ url: new URL(`http://local/api?commitment_id=${OPEN_ID}`), locals: localsMembre([POLE_DE_L_OP]) } as any);
+  const dans = await rDans.json();
+  const rHors: any = await evolutionGET({ url: new URL(`http://local/api?commitment_id=${OPEN_ID}`), locals: localsMembre(["un-autre-pole"]) } as any);
+  ok("membre dans son périmètre : la page s'ouvre", rDans.status === 200 && dans?.role === "member", { s: rDans.status, r: dans?.role });
+  ok("membre hors périmètre : 403", rHors.status === 403, rHors.status);
+  const brut = JSON.stringify(dans);
+  ok("aucun niveau de CA dans la série", !/daily_revenue|expected_revenue/.test(brut));
+  ok("bloc KPI (niveaux) retiré", dans.kpi === null, dans.kpi);
+  ok("panier absolu retiré", dans.shape?.volume === null, dans.shape?.volume);
+  ok("écarts € gardés (occasion d'agir)", (dans.shape?.families || []).some((f: any) => Number.isFinite(f.delta)));
+  const htmlM = kit.renderEvolution(dans, EVOL_COPY);
+  ok("aucun « 0 € » fabriqué à la place d'un niveau retiré",
+    !/0 € · sa part habituelle|· 0 € · habituel/.test(htmlM));
+  ok("aucune promesse trompeuse (« s'affichera ici »)", !/s’affichera ici/.test(htmlM));
+  ok("le membre garde le geste Ajuster", htmlM.includes("Ajuster le dispositif"));
+
   // ── NON-DISSONANCE : le seul niveau affiché est celui de l'en-tête ──
   console.log("\n— Non-dissonance —");
   for (const c of cases) {

@@ -8,7 +8,8 @@
 import type { APIRoute } from "astro";
 import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpiRegistry";
 import { makeBQClient } from "../../../lib/bq";
-import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
+import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
 import { readLatestSnapshot } from "../../../lib/actionCommitments";
 import { buildPoleReading } from "../../../lib/poleReading";
 import { commitmentEffect } from "../../../lib/commitmentEffect";
@@ -191,7 +192,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const snap = await readLatestSnapshot(bq, commitmentId);
     if (!snap) return json({ ok: false, error: "Engagement introuvable" }, 404);
-    requireLocationOwnership(locals, snap.location_id);
+    // Vue équipe (28/08) : la page est la cible du bouton « Ajuster » des messages Slack —
+    // elle doit donc s'ouvrir à un MEMBRE, sur SON périmètre, avec la règle des chiffres
+    // déjà arbitrée (« occasion d'agir oui, état du business jamais »). Mêmes briques que
+    // les autres endpoints membres : requireLocationAccess + memberCommitmentInPerimeter +
+    // memberCommitmentProjection. Aucune règle nouvelle ici.
+    requireLocationAccess(locals, snap.location_id);
+    const estMembre = String((locals as any)?.role || "") === "member";
+    if (estMembre && !memberCommitmentInPerimeter(locals, String(snap.location_id), snap as any)) {
+      return json({ ok: false, error: "FORBIDDEN: hors du périmètre de vos pôles" }, 403);
+    }
 
     // ── PÔLE / DISPOSITIF PERMANENT (spec pôles, 27/08) : ni fenêtre ni verdict — la page
     // rend la LECTURE CONTINUE (familles vs habituel) + les opérations rattachées + la chaîne
@@ -367,7 +377,38 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // chaîne compte plus d'une version : une V1 seule n'a pas d'historique à raconter.
     const lineage = await buildLineage(bq, snap);
 
-    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, shape: await shapeP, ...extras });
+    const shape = await shapeP;
+    // ── RÈGLE DES CHIFFRES POUR UN MEMBRE (arbitrage owner 27-28/08, déjà appliquée aux
+    // cartes et au tableau) : « occasion d'agir oui, état du business jamais ». Les NIVEAUX
+    // sortent (CA du jour, CA habituel, panier, cible en €, enjeu) ; les ÉCARTS €, les %,
+    // les parts et les comptes restent. Le retrait se fait ICI, côté serveur, par blocs
+    // entiers — jamais un masquage au rendu.
+    if (estMembre) {
+      const serieMembre = series.map((d) => ({
+        date: d.date, has_data: d.has_data, residual_pct: d.residual_pct,
+        is_school_holiday: d.is_school_holiday, impact_weather_pct: d.impact_weather_pct,
+        event_count: d.event_count, tourism_index: d.tourism_index,
+      }));
+      // Le bloc KPI est fait de niveaux (habituel, réalisé, cible dans l'unité du KPI) :
+      // il ne se redacte pas champ par champ, il ne part pas.
+      const shapeMembre = shape ? {
+        ref_days: shape.ref_days, measured_days: shape.measured_days, notable_days: shape.notable_days,
+        actual_eur: null, expected_eur: null,
+        hours: [],                                   // niveaux horaires : dehors
+        best_run: shape.best_run, worst_run: shape.worst_run,   // parts (%) + écart € : gardés
+        families: shape.families.map((f) => ({ family: f.family, delta: f.delta,
+          products: f.products.map((pr) => ({ name: pr.name, delta: pr.delta })),
+          products_total: f.products_total, products_hidden_eur: f.products_hidden_eur })),
+        volume: null,                                // panier absolu : dehors
+      } : null;
+      return json({
+        ok: true, role: "member",
+        commitment: memberCommitmentProjection(commitment),
+        series: serieMembre, kpi: null, move_stats, best_in_class, site_name, lineage,
+        shape: shapeMembre, ...extras,
+      });
+    }
+    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, shape, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);
