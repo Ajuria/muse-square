@@ -438,7 +438,7 @@ function isIncomplete(loc: LocationRow): boolean {
   return !loc.company_activity_type || !loc.location_type || !loc.primary_audience_1 || !loc.event_type_1 || !loc.website_url;
 }
 
-const recoValidTabs = ["profil", "sites", "reco", "comm"];
+const recoValidTabs = ["profil", "sites", "poles", "reco", "comm"];
 const recoTabParam = (Astro.url.searchParams.get("tab") || "").trim();
 
 // ---- RECOMMANDATIONS: per-site gating + saved preferences ----
@@ -665,6 +665,9 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
   .loc-body { padding: 0 16px 20px; border-top: 1px solid #f3f4f6; }
   .loc-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; padding-top: 16px; border-top: 1px solid #f3f4f6; }
   .loc-btn-save { padding: 10px 22px; font-size: 13px; font-weight: 500; background: transparent; color: #111827; border: 1px solid #111827; border-radius: 0; cursor: pointer; }
+  /* Toggles de la carte Alertes (migrés de /notifications, inc 9a) */
+  #alerts-card input[type="checkbox"]:checked ~ .tog-track { background: #111827; border-color: #111827; }
+  #alerts-card input[type="checkbox"]:checked ~ .tog-thumb { transform: translateX(18px); }
   .loc-btn-save:hover { background: #f9fafb; }
   .loc-btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
   .loc-btn-outline { padding: 9px 14px; font-size: 12px; color: #374151; background: transparent; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; }
@@ -781,10 +784,13 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
   </div>
 
   <div class="ms-tabs" id="ms-tabs">
+    <!-- Ordre arbitré owner 28/08 (vue équipe inc 9a) — « Opérations confiées » remplace
+         « Recommandations » (même onglet, même contenu), Pôles est nouveau. -->
     <button type="button" class={`ms-tab-btn${activeTab === "profil" ? " active" : ""}`} data-tab-btn="profil">Profil</button>
     <button type="button" class={`ms-tab-btn${activeTab === "sites" ? " active" : ""}`} data-tab-btn="sites">Sites</button>
-    {recoLocationId && (<button type="button" class={`ms-tab-btn${activeTab === "reco" ? " active" : ""}`} data-tab-btn="reco">Recommandations</button>)}
+    <button type="button" class={`ms-tab-btn${activeTab === "poles" ? " active" : ""}`} data-tab-btn="poles">Pôles</button>
     <button type="button" class={`ms-tab-btn${activeTab === "comm" ? " active" : ""}`} data-tab-btn="comm">Communication</button>
+    {recoLocationId && (<button type="button" class={`ms-tab-btn${activeTab === "reco" ? " active" : ""}`} data-tab-btn="reco">Opérations confiées</button>)}
   </div>
 
   <div class="ms-tab" data-tab="profil" hidden={activeTab !== "profil"}>
@@ -1203,6 +1209,29 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
   </div>
 
   {recoLocationId && (
+  <!-- ── Onglet Pôles (vue équipe inc 9c) — la réflexion à part entière : liste + liaisons
+       (canal Slack, membres) + création via le MODULE PARTAGÉ MSPoleForm (pole-form.js,
+       le même formulaire que la bascule de Nouvelle opération). ── -->
+  <div class="ms-tab" data-tab="poles" hidden={activeTab !== "poles"}>
+    <div class="loc-card loc-expanded" id="poles-card">
+      <div class="loc-header" style="cursor:default;">
+        <div class="loc-meta">
+          <div class="loc-name-row">
+            <span class="loc-name">Pôles</span>
+            <span class="loc-status" id="poles-header-summary" style="margin-left:auto;font-size:11px;color:#9ca3af;">Chargement…</span>
+          </div>
+        </div>
+      </div>
+      <div class="loc-body" style="padding:20px;">
+        <div id="poles-list"><div style="font-size:12px;color:#9ca3af;padding:8px 0;">Chargement…</div></div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid #f3f4f6;">
+          <div style="font-weight:600;font-size:13px;color:#111827;margin-bottom:12px;">Créer un pôle</div>
+          <div id="pole-create-mount"><div style="font-size:12px;color:#9ca3af;">Chargement…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="ms-tab" data-tab="reco" hidden={activeTab !== "reco"}>
     <div class="reco-root">
       <div class="section-title">Recommandations</div>
@@ -1492,6 +1521,116 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
       <strong style="color:#6b7280;">Validation</strong> = brouillon pr&#xE9;par&#xE9;, vous validez avant envoi.<br>
       <strong style="color:#6b7280;">Auto</strong> = publication imm&#xE9;diate d&#xE8;s qu'un signal correspond.
     </div>
+  </div>
+</div>
+
+<!-- ── Alertes — MIGRÉE de /notifications (vue équipe inc 9a, owner 28/08 : Alertes vit
+     dans Communication ; la page /notifications redirige ici). Formulaire et endpoints
+     inchangés (/api/notifications/get + /save). ── -->
+<div class="loc-card" id="alerts-card" style="margin-top:10px;">
+  <div class="loc-header" onclick="(function(){var b=document.getElementById('alerts-body');var c=document.getElementById('alerts-card');var open=b.style.display==='none';b.style.display=open?'block':'none';c.classList.toggle('loc-expanded',open);})()">
+    <svg class="loc-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M6 4l4 4-4 4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="loc-meta">
+      <div class="loc-name-row">
+        <span class="loc-name">Alertes</span>
+        <span class="loc-status" style="margin-left:auto;font-size:11px;color:#9ca3af;">Quand et comment être alerté</span>
+      </div>
+    </div>
+  </div>
+  <div class="loc-body" id="alerts-body" style="display:none;padding:20px;">
+    <form id="notifForm">
+      <div class="space-y-[15px]">
+        <section class="space-y-6">
+          <h2 class="text-base font-medium text-black uppercase tracking-wider">Alertes quotidiennes</h2>
+          <div class="flex items-start justify-between gap-6 border-b border-gray-100 pb-6">
+            <div class="flex-1">
+              <p class="text-sm text-gray-800 font-medium mb-1">Résumé de la semaine</p>
+              <p class="text-sm text-gray-500">Un email chaque semaine avec l'état de vos dates : scores, alertes, météo à 7 jours.</p>
+              <div id="weekly-options" class="mt-4 hidden space-y-4">
+                <div>
+                  <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Jour d'envoi</p>
+                  <div class="flex gap-2">
+                    <button type="button" class="day-chip active px-3 py-1.5 text-xs font-medium border border-black bg-black text-white" data-group="weekly" data-value="1">Lundi</button>
+                    <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly" data-value="3">Mercredi</button>
+                    <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly" data-value="5">Vendredi</button>
+                  </div>
+                  <input type="hidden" name="digest_weekly_day" id="digest_weekly_day" value="1" />
+                </div>
+                <div>
+                  <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Heure d'envoi</p>
+                  <div class="flex gap-2">
+                    <button type="button" class="day-chip active px-3 py-1.5 text-xs font-medium border border-black bg-black text-white" data-group="weekly-hour" data-value="7">7h00</button>
+                    <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly-hour" data-value="8">8h00</button>
+                    <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="weekly-hour" data-value="9">9h00</button>
+                  </div>
+                  <input type="hidden" name="digest_weekly_hour" id="digest_weekly_hour" value="7" />
+                </div>
+              </div>
+            </div>
+            <label class="relative flex-shrink-0 mt-1" style="width:40px;height:22px;">
+              <input type="checkbox" name="digest_weekly" id="tog-weekly" class="sr-only" />
+              <div class="tog-track absolute inset-0 rounded-full border border-gray-300 bg-gray-100 cursor-pointer transition-colors"></div>
+              <div class="tog-thumb absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white transition-transform" style="box-shadow:0 1px 2px rgba(0,0,0,0.15);"></div>
+            </label>
+          </div>
+        </section>
+        <section class="space-y-6">
+          <h2 class="text-base font-medium text-black uppercase tracking-wider">Alertes événements</h2>
+          <div class="flex items-start justify-between gap-6 border-b border-gray-100 pb-6">
+            <div class="flex-1">
+              <p class="text-sm text-gray-800 font-medium mb-1">Alerte niveau 3 ou 4</p>
+              <p class="text-sm text-gray-500">Email immédiat dès qu'une alerte forte est détectée sur vos dates enregistrées — concurrence directe, météo sévère, mobilité bloquée.</p>
+            </div>
+            <label class="relative flex-shrink-0 mt-1" style="width:40px;height:22px;">
+              <input type="checkbox" name="alerts_critical" id="tog-alerts" class="sr-only" checked />
+              <div class="tog-track absolute inset-0 rounded-full border border-gray-300 bg-gray-100 cursor-pointer transition-colors"></div>
+              <div class="tog-thumb absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white transition-transform" style="box-shadow:0 1px 2px rgba(0,0,0,0.15);"></div>
+            </label>
+          </div>
+          <div class="flex items-start justify-between gap-6 pb-6">
+            <div class="flex-1">
+              <p class="text-sm text-gray-800 font-medium mb-1">Email quotidien avant votre date</p>
+              <p class="text-sm text-gray-500">À partir de 7 jours avant votre date choisie, un email quotidien avec les prévisions météo, mobilité et concurrence en temps réel.</p>
+              <div id="daily-options" class="mt-4 hidden">
+                <p class="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Heure d'envoi</p>
+                <div class="flex gap-2">
+                  <button type="button" class="day-chip active px-3 py-1.5 text-xs font-medium border border-black bg-black text-white" data-group="daily" data-value="7">7h00</button>
+                  <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="daily" data-value="8">8h00</button>
+                  <button type="button" class="day-chip px-3 py-1.5 text-xs font-medium border border-gray-300 text-gray-500" data-group="daily" data-value="9">9h00</button>
+                </div>
+                <input type="hidden" name="daily_j7_hour" id="daily_j7_hour" value="7" />
+              </div>
+            </div>
+            <label class="relative flex-shrink-0 mt-1" style="width:40px;height:22px;">
+              <input type="checkbox" name="daily_j7" id="tog-daily" class="sr-only" />
+              <div class="tog-track absolute inset-0 rounded-full border border-gray-300 bg-gray-100 cursor-pointer transition-colors"></div>
+              <div class="tog-thumb absolute top-[3px] left-[3px] w-4 h-4 rounded-full bg-white transition-transform" style="box-shadow:0 1px 2px rgba(0,0,0,0.15);"></div>
+            </label>
+          </div>
+        </section>
+        <section class="space-y-6">
+          <h2 class="text-base font-medium text-black uppercase tracking-wider">Destinataires supplémentaires</h2>
+          <div class="flex items-start justify-between gap-6 pb-6">
+            <div class="flex-1">
+              <p class="text-sm text-gray-800 font-medium mb-1">Inclure d'autres personnes</p>
+              <p class="text-sm text-gray-500">Ces adresses recevront les mêmes alertes que vous.</p>
+              <div class="mt-4 space-y-3">
+                <input type="email" name="additional_email_1" id="additional_email_1" placeholder="colleague@company.com" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all" />
+                <input type="email" name="additional_email_2" id="additional_email_2" placeholder="manager@company.com" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all" />
+                <input type="email" name="additional_email_3" id="additional_email_3" placeholder="director@company.com" class="w-full px-6 py-4 bg-gray-50 border-0 rounded-2xl text-base focus:ring-2 focus:ring-black focus:bg-white transition-all" />
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div class="pt-4 flex items-center justify-between gap-4">
+        <p class="text-xs text-gray-400">Chaque email contient un lien de désinscription conforme RGPD.</p>
+        <button type="submit" class="loc-btn-save" style="padding:8px 18px;">Enregistrer</button>
+      </div>
+      <div id="notifStatus" class="mt-4 text-sm" role="status" aria-live="polite"></div>
+    </form>
   </div>
 </div>
 </div>
@@ -3376,6 +3515,206 @@ window.toggleAutomationCard = function() {
     }
   });
 })();
+</script>
+
+<!-- ── Onglet Pôles (inc 9c) : le module partagé + le câblage liste/liaisons. ── -->
+<script is:inline src="/pole-form.js?v=1"></script>
+<script is:inline>
+  (function () {
+    var locCard = document.querySelector('.loc-card[data-location-id]');
+    var locId = locCard ? locCard.getAttribute('data-location-id') : null;
+    if (!locId) return;
+    var loaded = false;
+    var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+
+    async function loadPoles() {
+      if (loaded) return; loaded = true;
+      var list = document.getElementById('poles-list');
+      var summary = document.getElementById('poles-header-summary');
+      var mount = document.getElementById('pole-create-mount');
+      try {
+        var results = await Promise.all([
+          fetch('/api/insight/evenement?location_id=' + encodeURIComponent(locId) + '&create_context=1').then(function (r) { return r.json(); }),
+          fetch('/api/channels/forward?location_id=' + encodeURIComponent(locId)).then(function (r) { return r.json(); }),
+          fetch('/api/channels/slack-directory?location_id=' + encodeURIComponent(locId)).then(function (r) { return r.json(); }).catch(function () { return { ok: false }; }),
+          fetch('/api/channels/members?location_id=' + encodeURIComponent(locId)).then(function (r) { return r.json(); }),
+          fetch('/api/channels/team?location_id=' + encodeURIComponent(locId)).then(function (r) { return r.json(); }),
+        ]);
+        var ctx = results[0] || {}; var fwd = results[1] || {}; var dir = results[2] || {}; var mem = results[3] || {}; var team = results[4] || {};
+        var poles = Array.isArray(ctx.poles) ? ctx.poles : [];
+        var chanById = {}; var channels = Array.isArray(dir.channels) ? dir.channels : [];
+        channels.forEach(function (c) { chanById[c.id] = c.name; });
+        var curChan = {}; (Array.isArray(fwd.items) ? fwd.items : []).forEach(function (i) { curChan[i.dispositif_id] = i.slack_channel_id; });
+        var members = Array.isArray(mem.items) ? mem.items : [];
+        var owners = (Array.isArray(team.items) ? team.items : []).map(function (m) { return (String(m.first_name || '') + (m.last_name ? ' ' + m.last_name : '')).trim(); }).filter(Boolean);
+
+        if (summary) { summary.textContent = poles.length ? poles.length + ' pôle' + (poles.length > 1 ? 's' : '') : 'Aucun pôle'; summary.style.color = poles.length ? '#059669' : '#9ca3af'; }
+        if (!poles.length) {
+          list.innerHTML = '<div style="font-size:12px;color:#9ca3af;padding:8px 0;">Aucun pôle — créez le premier ci-dessous.</div>';
+        } else {
+          list.innerHTML = poles.map(function (p) {
+            var famTxt = (p.families || []).join(', ');
+            var cur = curChan[p.dispositif_id] || '';
+            var chanOpts = '<option value="">— aucun canal —</option>' + channels.map(function (c) {
+              return '<option value="' + esc(c.id) + '"' + (c.id === cur ? ' selected' : '') + '>#' + esc(c.name) + '</option>';
+            }).join('');
+            if (cur && !chanById[cur]) chanOpts += '<option value="' + esc(cur) + '" selected>' + esc(cur) + '</option>';
+            var poleMembers = members.filter(function (m) { return (m.pole_dispositif_ids || []).indexOf(p.dispositif_id) >= 0; });
+            var memTxt = poleMembers.length
+              ? poleMembers.map(function (m) { return '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#EFF6FF;color:#1D3BB3;font-weight:600;">' + esc(m.member_email || m.member_id) + '</span>'; }).join(' ')
+              : '<span style="font-size:11px;color:#9ca3af;">Aucun membre — rattachez-les dans Destinataires</span>';
+            return '<div style="padding:12px 0;border-bottom:1px solid #f3f4f6;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;align-items:start;">'
+              + '<div><div style="font-weight:600;font-size:13px;color:#111827;">' + esc(p.name) + '</div>'
+              + (famTxt ? '<div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + esc(famTxt) + '</div>' : '') + '</div>'
+              + '<div><label style="display:block;font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Canal Slack</label>'
+              + '<select data-pole-chan="' + esc(p.dispositif_id) + '" style="width:100%;font-size:12px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-family:inherit;color:#111827;background:#fff;">' + chanOpts + '</select></div>'
+              + '<div><span style="display:block;font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Membres</span>'
+              + '<div style="display:flex;gap:4px;flex-wrap:wrap;">' + memTxt + '</div></div>'
+              + '</div>';
+          }).join('');
+          list.querySelectorAll('[data-pole-chan]').forEach(function (sel) {
+            sel.addEventListener('change', function () {
+              var did = sel.getAttribute('data-pole-chan');
+              sel.disabled = true;
+              fetch('/api/channels/forward', { method: 'PUT', headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ location_id: locId, dispositif_id: did, slack_channel_id: sel.value || null }) })
+                .then(function (r) { return r.json(); })
+                .then(function (j) { sel.disabled = false; if (!j || !j.ok) alert('Enregistrement impossible : ' + ((j && j.error) || 'réessayez')); })
+                .catch(function () { sel.disabled = false; });
+            });
+          });
+        }
+
+        if (mount && window.MSPoleForm) {
+          var taken = {};
+          poles.forEach(function (p) { (p.families || []).forEach(function (f) { taken[f] = p.name; }); });
+          window.MSPoleForm.render(mount, {
+            location_id: locId,
+            families: Array.isArray(ctx.families) ? ctx.families : [],
+            owners: owners, takenFamilies: taken,
+            onCreated: function () { loaded = false; loadPoles(); },
+          });
+        }
+      } catch (e) {
+        if (list) list.innerHTML = '<div style="font-size:12px;color:#B91C1C;">Erreur de chargement — rechargez la page.</div>';
+      }
+    }
+
+    var polesBtn = document.querySelector('[data-tab-btn="poles"]');
+    if (polesBtn) polesBtn.addEventListener('click', loadPoles);
+    if (new URLSearchParams(location.search).get('tab') === 'poles') loadPoles();
+  })();
+</script>
+
+<!-- ── Carte Alertes (inc 9a) : script MIGRÉ tel quel de /notifications — mêmes endpoints. ── -->
+<script is:inline>
+  (async function () {
+    try {
+      const res = await fetch('/api/notifications/get', { headers: { 'Accept': 'application/json' } });
+      const out = await res.json().catch(() => null);
+      if (res.ok && out?.ok && out?.prefs) {
+        const p = out.prefs;
+        const togAlerts = document.getElementById('tog-alerts');
+        const togWeekly = document.getElementById('tog-weekly');
+        const togDaily = document.getElementById('tog-daily');
+        const weeklyDay = document.getElementById('digest_weekly_day');
+        const dailyHour = document.getElementById('daily_j7_hour');
+        if (togAlerts) togAlerts.checked = p.alerts_critical;
+        if (togWeekly) { togWeekly.checked = p.digest_weekly; if (p.digest_weekly) document.getElementById('weekly-options')?.classList.remove('hidden'); }
+        if (togDaily) { togDaily.checked = p.daily_j7; if (p.daily_j7) document.getElementById('daily-options')?.classList.remove('hidden'); }
+        if (weeklyDay) weeklyDay.value = String(p.digest_weekly_day);
+        if (dailyHour) dailyHour.value = String(p.daily_j7_hour);
+        if (Array.isArray(p.additional_emails)) {
+          ['additional_email_1', 'additional_email_2', 'additional_email_3'].forEach(function (id, i) {
+            var el = document.getElementById(id);
+            if (el) el.value = p.additional_emails[i] || '';
+          });
+        }
+        ['weekly', 'daily'].forEach(function (group) {
+          var v = group === 'weekly' ? p.digest_weekly_day : p.daily_j7_hour;
+          document.querySelectorAll('.day-chip[data-group="' + group + '"]').forEach(function (b) {
+            const active = b.getAttribute('data-value') === String(v);
+            b.classList.toggle('active', active);
+            b.classList.toggle('border-black', active); b.classList.toggle('bg-black', active); b.classList.toggle('text-white', active);
+            b.classList.toggle('border-gray-300', !active); b.classList.toggle('text-gray-500', !active);
+          });
+        });
+      }
+    } catch (_) {}
+
+    function syncToggle(checkboxId, optionsId) {
+      var cb = document.getElementById(checkboxId);
+      var opts = document.getElementById(optionsId);
+      if (!cb || !opts) return;
+      cb.addEventListener('change', function () { opts.classList.toggle('hidden', !cb.checked); });
+    }
+    syncToggle('tog-weekly', 'weekly-options');
+    syncToggle('tog-daily', 'daily-options');
+
+    document.querySelectorAll('.day-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var group = btn.getAttribute('data-group');
+        var val = btn.getAttribute('data-value');
+        document.querySelectorAll('.day-chip[data-group="' + group + '"]').forEach(function (b) {
+          b.classList.remove('active', 'border-black', 'bg-black', 'text-white');
+          b.classList.add('border-gray-300', 'text-gray-500');
+        });
+        btn.classList.add('active', 'border-black', 'bg-black', 'text-white');
+        btn.classList.remove('border-gray-300', 'text-gray-500');
+        var hidden = document.getElementById(group === 'weekly' ? 'digest_weekly_day' : group === 'weekly-hour' ? 'digest_weekly_hour' : 'daily_j7_hour');
+        if (hidden) hidden.value = val;
+      });
+    });
+
+    var form = document.getElementById('notifForm');
+    var status = document.getElementById('notifStatus');
+    form && form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      if (form.dataset.saving === '1') return;
+      form.dataset.saving = '1';
+      var btn = form.querySelector('button[type="submit"]');
+      if (btn) { btn.disabled = true; btn.textContent = 'Enregistrement...'; }
+      if (status) { status.textContent = ''; status.className = 'mt-4 text-sm'; }
+      var additionalEmails = [
+        document.getElementById('additional_email_1')?.value.trim() || '',
+        document.getElementById('additional_email_2')?.value.trim() || '',
+        document.getElementById('additional_email_3')?.value.trim() || '',
+      ].filter(function (e2) { return e2.length > 0; });
+      var payload = {
+        alerts_critical: document.getElementById('tog-alerts').checked,
+        digest_weekly: document.getElementById('tog-weekly').checked,
+        digest_weekly_day: parseInt(document.getElementById('digest_weekly_day').value, 10),
+        digest_weekly_hour: parseInt(document.getElementById('digest_weekly_hour').value, 10),
+        daily_j7: document.getElementById('tog-daily').checked,
+        daily_j7_hour: parseInt(document.getElementById('daily_j7_hour').value, 10),
+        additional_emails: additionalEmails,
+      };
+      try {
+        var res = await fetch('/api/notifications/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        var out = null;
+        try { out = await res.json(); } catch (_) {}
+        if (!res.ok || !out?.ok) {
+          status.textContent = (out && out.error) ? out.error : 'Erreur lors de l\'enregistrement.';
+          status.className = 'mt-4 text-sm text-red-600';
+          if (btn) { btn.disabled = false; btn.textContent = 'Réessayer'; }
+        } else {
+          status.textContent = 'Préférences enregistrées.';
+          status.className = 'mt-4 text-sm text-emerald-600';
+          if (btn) { btn.textContent = '✓ Enregistré'; setTimeout(function () { btn.disabled = false; btn.textContent = 'Enregistrer'; }, 2000); }
+        }
+      } catch (_) {
+        status.textContent = 'Erreur réseau. Veuillez réessayer.';
+        status.className = 'mt-4 text-sm text-red-600';
+        if (btn) { btn.disabled = false; btn.textContent = 'Réessayer'; }
+      } finally {
+        form.dataset.saving = '0';
+      }
+    });
+  })();
 </script>
 
 </BaseLayout>

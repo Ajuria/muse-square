@@ -456,6 +456,19 @@ Plan de build (à partir de l'existant — zéro duplication, ménage derrière 
    lexique avant envoi (chaîne visible nouvelle).
 Chaque lot : un commit, son harnais, module-index dans le même commit.
 
+**9a-9c CONSTRUITS 28/08** (harnais `scripts/vue-equipe-admin-harness.ts` 18/18 + mutation
+copy-forward vue tomber) : menu Compte réordonné (Nav.astro, desktop+mobile) ; onglet
+Pôles dans profile.astro (liste + canal par pôle branché sur PUT/GET forward + membres +
+création via MSPoleForm) ; `pole-form.js` = module PARTAGÉ extrait d'event-form.js
+(event-form délègue, sa copie est supprimée — evenement.astro charge pole-form v1,
+event-form v14) ; carte Alertes MIGRÉE dans Communication (formulaire + script + endpoints
+inchangés, `notifications.astro` = redirection 302, dead code retiré) ; APIs 9b :
+`channels/members` (accès app, copy-forward), `channels/slack-directory` (annuaire réel —
+canaux publics OK ; PRIVÉS = scope `groups:read` À AJOUTER par l'owner, erreur remontée),
+GET `channels/forward` (adresses posées). RESTES 9 : 9d (3 champs par membre dans
+Destinataires + email d'invitation, copie owner) · scope groups:read (owner) · E2E
+navigateur owner sur l'onglet Pôles.
+
 ## Setup Slack Épices et Tout (opérationnel, hors code)
 
 - Workspace connecté par le flux existant (`slack-connect`), bot invité canal par canal.

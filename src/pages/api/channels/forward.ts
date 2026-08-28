@@ -82,6 +82,39 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 };
 
+// Inc 9b : lecture des adresses de canal posées (onglet Pôles du Compte).
+// GET ?location_id= → { items: [{dispositif_id, slack_channel_id}], default_channel }.
+export const GET: APIRoute = async ({ url, locals }) => {
+  try {
+    const userId = uid(locals);
+    if (!userId) return json({ ok: false }, 401);
+    const locationId = String(url.searchParams.get("location_id") || "").trim();
+    if (!locationId) return json({ ok: false, error: "Missing location_id" }, 400);
+    requireLocationOwnership(locals, locationId);
+    const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+    const [rows] = await bq.query({
+      query: `
+        SELECT dispositif_id, slack_channel_id FROM (
+          SELECT *, ROW_NUMBER() OVER (PARTITION BY location_id, dispositif_id ORDER BY updated_at DESC) AS rn
+          FROM \`muse-square-open-data.analytics.dispositif_channels\`
+          WHERE location_id = @l
+        )
+        WHERE rn = 1 AND COALESCE(deleted, FALSE) = FALSE AND slack_channel_id != ''
+      `,
+      params: { l: locationId }, location: "EU",
+    });
+    const cfg: any = await loadChannelConfig(bq, userId, locationId, "slack");
+    return json({
+      ok: true,
+      items: (rows || []).map((r: any) => ({ dispositif_id: String(r.dispositif_id), slack_channel_id: String(r.slack_channel_id) })),
+      default_channel: String(cfg?.default_channel || "") || null,
+    });
+  } catch (err: any) {
+    const forbidden = /FORBIDDEN/.test(String(err?.message || ""));
+    return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);
+  }
+};
+
 export const PUT: APIRoute = async ({ request, locals }) => {
   try {
     const userId = uid(locals);
