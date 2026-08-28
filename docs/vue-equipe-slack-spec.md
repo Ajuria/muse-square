@@ -356,6 +356,42 @@ l'interface — jamais des libellés inventés pour Slack.
 **Jusqu'au build de cet incrément, AUCUN message Slack de carte ne part chez un client** :
 le rail technique (inc 7) est prouvé, la copie ne l'est pas.
 
+### E2E CONSTATÉ (28/08, 11:33)
+
+Config owner FAITE (signing secret Vercel, Interactivity URL avec `www`, scopes
+users:read(.email) + réinstallation, canal renommé `#muse_square_app` — l'ID C0B360KSWDC
+n'a pas bougé, le contact roster de Poeiti a été rebasculé sur l'ID). **Clic réel owner
+« Pas encore » sur un message-sonde à boutons → vérifié en base** : `action_done_status =
+pas_encore`, transition `disposition`, 11:33:56 — signature prod, identité par email
+Slack, garde, écriture. Le « Operation timed out » Slack est apparu comme documenté
+(traitement synchrone > 3 s) : cosmétique, le geste s'écrit — correctif ack-immédiat
+rangé dans l'incrément 8. Sondes nettoyées.
+
+## Messages par étape du cycle (incrément 8 — CADRÉ 28/08, retour owner sur le message réel)
+
+Verdict owner sur le premier message reçu : il CONFOND le partage et le suivi, et ses
+boutons ne mappent pas les gestes réels de l'interface. **Architecture actée : un message
+par étape du cycle de la carte**, chacun avec ses mots et ses boutons.
+
+| Étape | Message | Boutons | Rail |
+|---|---|---|---|
+| Carte système PARTAGÉE | « X a partagé cette priorité avec vous… » + titre/description/action proposée | M'engager · Pas pour moi | M'engager = lien vers le formulaire app (dispositif/KPI/échelle = trop riche pour Slack) ; « Pas pour moi » = NOUVEAU rail (refus enregistré + retour à l'expéditeur) |
+| Carte user EN COURS (suivi au responsable) | rappel calibré | Fait · Pas pour moi · Piloter* | Fait = disposition ; Piloter = lien fiche ; « Pas pour moi » = désengagement, NOUVEAU rail |
+| Verdict / fin de dispositif | bilan | Feedback (Documenter) · Ajuster · Terminer | retro + moves existants |
+| **3e résultat négatif** | notification proactive (owner : important) | — | NOUVEAU détecteur sur la chaîne de verdicts (elle existe en base, personne ne la surveille) |
+
+Acté aussi : « Pas encore » disparaît (le silence le dit) ; l'échange humain vit dans le
+fil Slack, pas dans un bouton ; l'app Slack est renommée « Muse Square » (geste owner).
+
+**Mots EN ATTENTE d'arbitrage owner** : *« Piloter » comme bouton de carte ENTRE EN
+COLLISION avec l'onglet Piloter de l'app (un mot = un concept — assumer le doublon ou
+renommer l'un des deux) ; « priorité » (message de partage) n'est pas au lexique. Aucune
+copie de ces messages ne part chez un client avant ces mots + tests lexique montrés.
+
+À construire (ordre proposé) : ack-immédiat de slack-interact (waitUntil + response_url) ·
+rails « Pas pour moi » (partage et désengagement) · détecteur 3-négatifs · gabarits de
+message par étape (copie owner-vetoée) · branchement du partage sur « Faire suivre ».
+
 ## Setup Slack Épices et Tout (opérationnel, hors code)
 
 - Workspace connecté par le flux existant (`slack-connect`), bot invité canal par canal.
