@@ -239,18 +239,41 @@ restauration verte. Le harnais a attrapé en route la projection manquante de la
   membre voit tout + écrit hors pôle (2 rouges, sur sondes), restauré 17/17. Deux défauts
   de SONDE attrapés en route par le rail lui-même (assertTermsPresent, timestamps ns).
 
-## Routage Slack (incrément 6)
+## Routage Slack (incrément 6 — CONSTRUIT 28/08)
 
-- « Faire suivre » une carte : geste owner sur la carte → `sendSlack` vers le canal du
-  pôle concerné (résolu par la table des types → familles → pôle → `dispositif_channels`),
-  repli canal général. Trace append-only (patron `consigne_sends`). Le message porte le
-  lien profond vers la carte — la session Clerk du membre fait le reste.
-- Les consignes d'opération (cas 1 et 2, déjà livrées) apprennent UNE chose : si le
-  dispositif a un canal dans `dispositif_channels`, la consigne part AUSSI dans ce canal
-  (en plus des destinataires actuels). Rien d'autre ne bouge dans l'automatisation.
-- La fiche du dispositif (description `best_practices`) est postable dans son canal
-  (« Publier la fiche dans Slack », geste owner) — c'est la doc opérationnelle partagée
-  (dispositif pluie, chaleur, corners) accessible aux externes du canal.
+Arbitrages owner 28/08 avant build : **le contenu de la carte vit DANS le message** (pas
+un simple lien), le geste se fait dans l'app par lien profond ; le feedback DIALOGIQUE
+dans Slack (boutons + modal) est ACTÉ comme incrément 7, après constat d'usage.
+
+- **`POST /api/channels/forward`** (« Faire suivre », geste OWNER) : la page envoie le
+  RENDU MEMBRE de la carte (`msMemberForwardText` d'action-cards.js — payload expurgé par
+  `msRedactPayloadForMember`, JUMEAU CLIENT assumé de `memberCardPolicy` : un canal
+  d'équipe n'a pas plus de droits qu'une session membre) ; le serveur résout le canal
+  (`lib/channels/slackRouting.resolveForwardChannel` : dispositif explicite → pôle par
+  famille (`pole_families` de la version courante, pôle fermé exclu) → `default_channel`
+  de la config Slack), envoie par `sendSlack`, trace TOUT envoi (échec compris) dans
+  `analytics.card_forwards` (DDL 28/08). Sans canal → 400 clair. Le message se termine
+  par « Ouvrir : <lien> » vers **Agir (pulse)** — pas la page engagement : l'ouvrir au
+  membre exigerait la rédaction des séries CA d'`evolution` (reste nommé ci-dessous).
+- **`PUT /api/channels/forward`** : poser/retirer l'adresse du canal d'un pôle /
+  dispositif / série (`analytics.dispositif_channels` — la colonne `dispositif_id`
+  accepte un `saved_item_id` pour une série ; tombstone si null). L'UI de saisie du canal
+  n'existe pas encore — setup Épices et Tout owner-assisté par ce PUT.
+- **Bouton « Faire suivre »** sur la rangée de pied des cartes du fil Agir (pulse, owner
+  seul — jamais rendu en vue membre) : états « Envoi… » → « Envoyée » / retour arrière
+  sur échec avec l'erreur en infobulle.
+- **Greffe consignes** (cron `event-occurrences`) : si la série porte un canal déclaré,
+  la consigne part AUSSI dans ce canal — additif, non bloquant, trace `consigne_sends`
+  ligne `channel='slack'`. Se constate à la première consigne réelle (série Corner).
+- **La fiche dispositif postable** passe par le MÊME POST (`kind:'fiche'`, titre + corps
+  depuis la fiche) — l'entrée UI sur la fiche viendra avec l'E2E.
+- **Preuves** : `scripts/vue-equipe-forward-harness.ts` **15/15** — routage pur
+  (écrit/relu/tombstone, famille→pôle→canal sur pôle-sonde), 403 membre (POST et PUT),
+  502 canal-sonde avec l'erreur DE SLACK (token vivant, résolution pôle prouvée dans la
+  réponse), 400 sans canal, **UN envoi réel DÉLIVRÉ** dans le workspace owner (routé par
+  le pôle-sonde), traces échec ET succès relues en base, `msMemberForwardText` réel sans
+  niveau, sondes nettoyées. Mutation vue tomber : résolution famille neutralisée → 4
+  rouges, restauré 15/15.
 
 ## Setup Slack Épices et Tout (opérationnel, hors code)
 
@@ -285,7 +308,8 @@ tableau de tests MONTRÉ, chaîne rendue de la surface CITÉE d'abord (règle 4)
    niveaux) + balayage par preuve de rendu. Gating UI des gestes owner → inc 5.
 5. **Gestes v1** (FAIT 28/08, harnais 17/17 + mutation) : disposition + retro + liste
    ouverts au périmètre membre, auteur tracé action_log, rangée d'actions membre.
-6. **Routage Slack** : `dispositif_channels` branché — faire suivre, consignes, fiche.
+6. **Routage Slack** (FAIT 28/08, harnais 15/15 + envoi réel délivré + mutation) :
+   forward.ts POST/PUT, slackRouting, greffe consignes, bouton Faire suivre.
 
 Vérification à chaque incrément : compte réel owner (`f10c3e58…`) + **un compte membre de
 test créé dès l'incrément 2** (le « works for me » owner ne prouve rien du rendu membre) —
