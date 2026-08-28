@@ -151,6 +151,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                          measured_metric, threshold_basis, threshold_value, saved_item_id, window_start, window_end,
                          origin_action_type, action_done_status, created_at, dispositif_id, attached_pole_id,
                          kpi_baseline, kpi_window_value, dispositif_nature,
+                         window_actual_revenue, window_expected_revenue,
                          ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
                   FROM \`${PROJECT}.analytics.action_commitments\` WHERE location_id IN UNNEST(@locs)
                 )
@@ -158,6 +159,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                        measured_metric, threshold_basis, threshold_value, saved_item_id,
                        dispositif_id, attached_pole_id,
                        kpi_baseline, kpi_window_value, dispositif_nature,
+                       ROUND(window_actual_revenue - window_expected_revenue, 0) AS gap_journal,
                        CAST(window_start AS STRING) AS ws, CAST(window_end AS STRING) AS we,
                        origin_action_type, action_done_status,
                        CAST(DATE(created_at) AS STRING) AS created_d,
@@ -900,6 +902,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // du pôle. Ces deux champs ne sortent JAMAIS vers un membre (kpi_baseline = niveau).
       kpi_baseline: num(r.kpi_baseline), kpi_window_value: num(r.kpi_window_value),
       nature: str(r.dispositif_nature),
+      // € mesuré de la fenêtre, LU DANS LE JOURNAL — repli du mart des outcomes, qui n'est
+      // plus construit depuis le 05/08 (voir gapDe plus bas).
+      gap_journal: num(r.gap_journal),
     }));
     const todayYmd = new Date().toISOString().slice(0, 10);
     // Un PERMANENT (pôle) n'est jamais une tâche d'« À faire » ni une rangée d'équipe : il
@@ -917,11 +922,36 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const mart365 = (outRows as any[]).map((r) => ({ commitment_id: String(str(r.commitment_id)), beat: flat(r.beat) === true, verdict: str(r.verdict), resolved_date: str(r.resolved_date), gap_eur: num(r.gap_eur), location_id: str(r.location_id) }));
     const periodCut = new Date(Date.parse(todayYmd + "T12:00:00Z") - period * 86_400_000).toISOString().slice(0, 10);
     const martAll = mart365.filter((r) => String(r.resolved_date || "") >= periodCut);
-    const martRows = martAll.filter((r) => r.verdict !== "confounded");
-    const confoundedCount = martAll.length - martRows.length;
+    // Les fenêtres jugées de la période viennent du MART quand il les a, du JOURNAL sinon
+    // (owner 28/08, option b) : le mart n'est plus construit depuis le 05/08, et la tuile
+    // « € mesurés » restait donc vide alors que des verdicts tombaient. Le journal porte les
+    // mêmes colonnes et la même règle (verdict rendu, confounded exclu des €).
+    // PRÉALABLE FAIT le 28/08 : les 2 « jour même » mesurés le jour de création ont été
+    // re-résolus (scripts/reresolve-day-of.ts) — la somme porte donc les bonnes journées.
+    const dansMart = new Set(martAll.map((r) => r.commitment_id));
+    const duJournal = coms
+      .filter((c) => c.status === "resolved" && c.verdict && c.commitment_id && !dansMart.has(c.commitment_id)
+        && c.in_period && (c as any).gap_journal != null)
+      .map((c) => ({ commitment_id: c.commitment_id!, verdict: c.verdict, gap_eur: Number((c as any).gap_journal) }));
+    const jugeesPeriode = [...martAll, ...duJournal];
+    const martRows = jugeesPeriode.filter((r) => r.verdict !== "confounded");
+    const confoundedCount = jugeesPeriode.length - martRows.length;
     const gapSum = martRows.length ? martRows.reduce((a, r) => a + (r.gap_eur ?? 0), 0) : null;
     const martGap: Record<string, number | null> = {};
     for (const r of mart365) martGap[r.commitment_id] = r.gap_eur;
+    // REPLI SUR LE JOURNAL (28/08) : `mart.fct_client_commitment_outcomes` n'a pas été
+    // reconstruit depuis le 05/08 (dernier CREATE_TABLE_AS_SELECT vérifié dans JOBS_BY_PROJECT ;
+    // dbt gelé côté owner depuis le 27/08). Tout engagement résolu depuis en est absent, donc
+    // son € mesuré s'affichait vide. Ce n'est pas un second calcul : c'est la MÊME formule
+    // (window_actual − window_expected) sur la MÊME source (le journal), que cette requête
+    // charge déjà — le mart n'en est qu'une projection. À retirer au dégel dbt.
+    const gapDuJournal: Record<string, number | null> = {};
+    for (const c of coms) {
+      const g = (c as any).gap_journal;
+      if (c.commitment_id && g != null && Number.isFinite(Number(g))) gapDuJournal[c.commitment_id] = Number(g);
+    }
+    const gapDe = (id: string | null | undefined): number | null =>
+      (id ? (martGap[id] ?? gapDuJournal[id] ?? null) : null);
     // Tenue par personne : verdicts rendus sur la période + € mesurés de LEURS fenêtres.
     // personKey / isKeptVerdict : règles partagées (actionCommitments, extraites 27/08).
     const equipe: Record<string, { label: string; open: any[]; kept: number; judged: number; gap: number | null }> = {};
@@ -1045,16 +1075,21 @@ export const GET: APIRoute = async ({ url, locals }) => {
       if (Number(o.n_total) > 1 && o.saved_item_id) {
         const prevs = coms.filter((c) => c.saved_item_id === o.saved_item_id && c.status !== "cancelled" && c.ws && c.ws < todayYmd)
           .sort((a, b) => String(b.ws).localeCompare(String(a.ws)));
-        if (prevs[0]) o.prev_occ = { verdict: prevs[0].verdict, gap_eur: prevs[0].commitment_id ? martGap[prevs[0].commitment_id] ?? null : null };
+        // La dernière occurrence JUGÉE, pas la dernière tout court (28/08) : une occurrence
+        // en attente de mesure (statut `pending`, ventes pas encore ingérées) porte un
+        // verdict null et masquait les verdicts réels — le corner producteur affichait
+        // « aucun verdict » alors que ses deux occurrences précédentes étaient manquées.
+        const juge = prevs.find((c) => c.verdict) || null;
+        if (juge) o.prev_occ = { verdict: juge.verdict, gap_eur: gapDe(juge.commitment_id) };
       }
     }
     // Dernier verdict rendu (récence) + dernière recette PROUVÉE (verdict tenu).
     const resolvedV = coms.filter((c) => c.status === "resolved" && c.verdict)
       .sort((a, b) => String(b.we || "").localeCompare(String(a.we || "")));
     const lv = resolvedV[0] || null;
-    const lastVerdict = lv ? { text: lv.text, verdict: lv.verdict, we: lv.we, gap_eur: lv.commitment_id ? martGap[lv.commitment_id] ?? null : null } : null;
+    const lastVerdict = lv ? { text: lv.text, verdict: lv.verdict, we: lv.we, gap_eur: gapDe(lv.commitment_id) } : null;
     const mr = resolvedV.filter((c) => c.verdict === "met")[0] || null;
-    const metRecipe = mr ? { text: mr.text, ws: mr.ws, we: mr.we, gap_eur: mr.commitment_id ? martGap[mr.commitment_id] ?? null : null } : null;
+    const metRecipe = mr ? { text: mr.text, ws: mr.ws, we: mr.we, gap_eur: gapDe(mr.commitment_id) } : null;
     // Impacts de classes au REGISTRE CANONIQUE : lignes store par site → pipeline
     // rowsToImpactsWithImmaterial (médiane €/j, eur_year annualisé, tier estimé/mesuré).
     const annualRevBySite: Record<string, number | null> = {};

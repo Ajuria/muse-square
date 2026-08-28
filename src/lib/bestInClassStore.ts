@@ -168,6 +168,95 @@ const DRIVER_LEVER: Record<string, Lever> = {
   footfall: "frequentation",
   transactions: "frequentation", // transactions folds into footfall (même règle que reco-library)
 };
+// ── RATTACHER LES CAS AU SUJET DE L'OPÉRATION (owner 28/08) ───────────────────────────
+// Relevé owner : « les dispositifs qui ont fonctionné ailleurs sont complètement
+// déconnectés du dispositif de l'utilisateur ». La sélection ne connaissait que
+// secteur + levier + intention : le SUJET de l'opération (« vacances scolaires centrées
+// sur les retraités qui restent à Houdan ») n'entrait nulle part. Deux règles ici :
+//   1. RATTACHEMENT — un cas ne sort que s'il partage assez de mots de fond avec le
+//      dispositif de l'utilisateur. SOUS LE PLANCHER, ON N'AFFICHE RIEN : mieux vaut une
+//      section vide qu'un théâtre de pantomime sous une opération vacances scolaires.
+//   2. DÉDOUBLONNAGE — deux cas qui disent le même geste ne sortent jamais ensemble
+//      (le magasin en contenait deux d'early bird, servis côte à côte).
+// Le rapprochement est LEXICAL et volontairement bête : il ne prétend pas comprendre, il
+// mesure un recouvrement de mots. C'est un filtre de pertinence, jamais une promesse.
+
+const MOTS_VIDES = new Set([
+  "avec", "pour", "dans", "depuis", "leur", "leurs", "votre", "notre", "cette", "celle",
+  "celui", "ceux", "elle", "elles", "sont", "etre", "avoir", "plus", "moins", "tout",
+  "tous", "toute", "toutes", "chaque", "entre", "apres", "avant", "sans", "sous", "chez",
+  "quand", "comme", "meme", "aussi", "encore", "deja", "vers", "faire", "fait", "peut",
+  "doit", "afin", "donc", "mais", "alors", "ainsi", "cela", "dont", "quoi", "grace",
+  "partir", "place", "mise", "mettre", "nouveau", "nouvelle", "permet", "permettre",
+]);
+
+/** Mots de fond d'un texte : sans accents, ≥ 5 lettres, hors mots vides. */
+function motsDeFond(texte: string): Set<string> {
+  const nu = String(texte || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const out = new Set<string>();
+  for (const m of nu.split(/[^a-z]+/)) {
+    if (m.length >= 5 && !MOTS_VIDES.has(m)) out.add(m);
+  }
+  return out;
+}
+
+function communs(a: Set<string>, b: Set<string>): number {
+  let n = 0;
+  for (const m of a) if (b.has(m)) n++;
+  return n;
+}
+
+export interface PlaySubject {
+  /** Ce que l'utilisateur a écrit de SON dispositif — levier, pourquoi, le plus. */
+  texte: string;
+  /** Mots de fond minimaux partagés pour qu'un cas soit rattaché (défaut 2). */
+  plancher?: number;
+}
+
+/**
+ * Garde les cas RATTACHÉS au sujet, dédoublonnés par geste, meilleurs d'abord.
+ * Rend [] quand rien n'atteint le plancher — c'est le comportement voulu.
+ */
+export function playsRattachesAuSujet<T extends { title?: string | null; context?: string | null; move?: string | null; confidence?: string | null }>(
+  plays: T[], sujet: PlaySubject,
+): T[] {
+  const motsSujet = motsDeFond(sujet.texte);
+  if (!motsSujet.size) return [];
+  const plancher = sujet.plancher ?? 2;
+  const rang: Record<string, number> = { eleve: 3, moyen: 2, faible: 1 };
+  const notes = (plays || []).map((p) => {
+    const motsCas = motsDeFond([p.title, p.context, p.move].filter(Boolean).join(" "));
+    return { p, score: communs(motsSujet, motsCas), motsCas };
+  }).filter((x) => x.score >= plancher)
+    .sort((a, b) => (b.score - a.score) || ((rang[String(b.p.confidence)] ?? 0) - (rang[String(a.p.confidence)] ?? 0)));
+
+  // Dédoublonnage : deux cas dont les gestes se recouvrent à moitié disent la même chose.
+  const gardes: typeof notes = [];
+  for (const n of notes) {
+    const jumeau = gardes.some((g) => {
+      const inter = communs(g.motsCas, n.motsCas);
+      const petit = Math.min(g.motsCas.size, n.motsCas.size) || 1;
+      return inter / petit >= 0.5;
+    });
+    if (!jumeau) gardes.push(n);
+  }
+  return gardes.map((x) => x.p);
+}
+
+// Aiguillage par le facteur MESURÉ le plus faible (owner 28/08) : quand la décomposition
+// des ventes dit où il reste de la marge, elle prime sur le type de la carte d'origine —
+// une carte « vacances scolaires » renvoyait toujours vers la fréquentation, même quand ce
+// qui manquait était la valeur de l'article. Le foyer des leviers reste ici.
+const FACTEUR_LEVER: Record<string, Lever> = {
+  tx: "frequentation",   // peu d'achats -> faire venir
+  items: "panier",       // peu d'articles par achat -> vente additionnelle, formules
+  price: "yield",        // article peu cher -> montée en gamme, valeur perçue
+};
+export function leverForWeakFactor(weak?: string | null): Lever | null {
+  const k = String(weak || "");
+  return FACTEUR_LEVER[k] ?? null;
+}
+
 export function leverForActionType(actionType?: string | null, driver?: string | null): Lever {
   const at = String(actionType || "").toLowerCase();
   if (ACTION_LEVER[at]) return ACTION_LEVER[at];

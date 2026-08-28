@@ -27,7 +27,10 @@ export const EVOL_COPY = {
   subtitle: "Objectif : +{pct} % de CA vs votre résultat habituel · sous {window}",
   // Variante KPI-vrai (owner 15/08) : le sous-titre nomme le KPI DÉCLARÉ, jamais « CA » en dur.
   subtitle_kpi: "Objectif : +{pct} % de {kpi} vs votre résultat habituel · sous {window}",
+  // L'INTRAPRENEUR SE VOIT (owner 28/08 : « tu invisibilises l'intrapreneur ») : son nom
+  // porte l'opération, il n'est pas une mention de bas de page en gris.
   owner_line: "Engagé par {name} · le {date}",
+  owner_badge: "Porté par",
   done_suffix: " · action menée le {date}",
 
   // ── ① Au-dessus / en-dessous de l'objectif ? ──
@@ -68,8 +71,13 @@ export const EVOL_COPY = {
   q1_objectif_missed: "Objectif non atteint",
   q1_objectif_confounded: "Objectif non concluant (vacances)",
   // Lead hierarchy (goal-first): primary status + progress-to-goal bar + attribution.
-  q1_ontrack: "Sur la bonne voie",
-  q1_below: "En-dessous de l'objectif",
+  // LE RÉSULTAT EN UNE LIGNE (owner 28/08) : le chiffre en gros, le verdict à sa droite,
+  // le détail dans l'infobulle. « en-deçà de votre objectif » = mots owner.
+  q1_result: "{pct} de ventes",
+  q1_ontrack: "au-delà de votre objectif",
+  q1_below: "en-deçà de votre objectif",
+  q1_tip_split: "Situation {sit} % · dont vacances {hol} % sans action · effet de votre action {act} %. Mesuré sur {n} {jours}.",
+  q1_tip_plain: "Écart à votre résultat habituel sur {n} {jours}. Objectif : {goal}.",
   q1_bar_goal: "objectif +{pct} %",
   q1_attrib_split: "Dont {action} % attribuable à votre action, hors effet vacances ({ctx} %).",
   q1_attrib_solo: "Votre action : {action} % au-dessus du CA habituel.",
@@ -123,12 +131,18 @@ export const EVOL_COPY = {
   diag_ext_chip_obs: "observé",
   diag_ext_chip_meas: "mesuré",
   diag_ext_none: "Rien de notable observé sur les dates de l'opération.",
-  diag_ext_weather: "{n} j de temps perturbé",
-  diag_ext_events: "{n} événement(s) à proximité",
-  diag_ext_holiday: "{n} j de vacances",
+  // Accord écrit, jamais « (s) » : une parenthèse de pluriel est une signature de machine.
+  diag_ext_weather: "{n} journée de temps perturbé",
+  diag_ext_weather_pl: "{n} journées de temps perturbé",
+  diag_ext_events: "{n} événement à proximité",
+  diag_ext_events_pl: "{n} événements à proximité",
+  diag_ext_holiday: "{n} jour de vacances scolaires",
+  diag_ext_holiday_pl: "{n} jours de vacances scolaires",
   diag_ext_calm: "Le contexte était plutôt calme — il n'explique pas l'écart.",
   diag_ext_partial: "Le contexte a pu jouer — à garder en tête avant d'ajuster.",
-  diag_ext_weather_meas: "Vos jours frais : {cool} € en moyenne vs {mild} € par temps doux.",
+  // La météo mesurée ne se dit QUE si l'opération en a connu — sinon c'est une statistique
+  // orpheline au milieu du résultat du jour (« énigme », owner 28/08).
+  diag_ext_weather_meas: "Ces jours-là, vous faites {cool} € en moyenne, contre {mild} € par temps doux.",
   diag_exec_title: "Exécution",
   diag_exec_q: "L'action a-t-elle été menée comme prévu, chaque jour concerné ?",
   diag_exec_yes: "Oui",
@@ -211,6 +225,69 @@ export const EVOL_COPY = {
   diag_bic_conf_faible: "indicatif",
   diag_capitalise_title: "Capitaliser",
   diag_capitalise_body: "Ce que vous ajustez — et son résultat — rejoint votre Bilan. La mémoire du lieu, réutilisable la prochaine fois.",
+
+  // ── Les DEUX états de la page (owner 28/08) — « Opération en cours » pilote, « Opération
+  // terminée » conclut. Le feedback (Documenter) n'existe que dans le second : c'est déjà la
+  // règle du rail (le rétro est refusé avant résolution), la page la reflète enfin.
+  state_open: "En cours · verdict d’ici le {date}",
+  state_done: "Terminée · {date}",
+  state_dates: "Dates de l’opération : du {start} au {end}",
+  dispo_title: "Votre dispositif",
+  dispo_note_label: "Description du dispositif",
+  dispo_note_ph: "Ce que l’opération fait au quotidien",
+  dispo_none: "Pas encore renseigné.",
+
+  // ── « Comprendre le résultat » (owner 28/08) — la lecture qui manquait : d'où vient
+  // l'écart, pour pouvoir pivoter au lieu de subir le verdict. UN SEUL référentiel de niveau
+  // (celui de l'en-tête) : heures et familles se lisent en PART de la journée, achats/panier
+  // se décompose contre le résultat habituel et somme exactement à son écart.
+  shape_title: "Comprendre le résultat",
+  // LES DEUX TEMPS DE LA PAGE (owner 28/08) : on comprend, puis on décide. La coupure est
+  // structurelle — même blocs, frontière lisible.
+  part_comprendre: "Comprendre",
+  part_decider: "Décider",
+  part_conclure: "Conclure",
+  shape_intro: "{n} jour mesuré sur {total}.",
+  shape_intro_pl: "{n} jours mesurés sur {total}.",
+  // Un seul jour mesuré : on NOMME le jour de semaine (« vos quatre derniers jeudis »),
+  // comme l'exploitant le dit. Plusieurs jours : chaque journée a sa propre référence.
+  shape_ref_jour: "",
+  shape_ref_multi: "",
+  shape_hours_title: "Quels moments",
+  shape_hours_lead: "Votre meilleur créneau : {from} h–{to} h, {share} % du chiffre du jour contre {ref} % d’habitude.",
+  // « autant en moins sur le reste » n'est plus vrai depuis que la référence est le
+  // résultat habituel : les écarts ne s'annulent plus, ils somment à l'écart du jour.
+  shape_hours_shift: "{eur} € de plus que d’habitude sur ce créneau.",
+  shape_hours_note: "Barres : le CA par heure · trait : votre résultat habituel, réparti comme un jour ordinaire.",
+  shape_fams_title: "Familles de produits",
+  // Le sous-titre ne décrit plus l'ordre de tri (« blabla ») : il dit ce qu'on peut faire.
+  shape_fams_note: "Ouvrez une famille pour voir les produits qui la font bouger.",
+  shape_fams_ref: "{eur} € · sa part habituelle : {ref} €",
+  shape_fams_ref_tip: "Ce que cette famille pèse un jour ordinaire : sa part de vos ventes, appliquée à votre résultat habituel du jour.",
+  // Le cran produit : une famille se déplie sur ses articles, même lecture en part.
+  shape_prod_ref: "{eur} € · habituel {ref} €",
+  shape_prod_rest: "{n} autres produits de la famille : {eur} € au total.",
+  // « D'où vient la fluctuation » (mots owner 28/08) — trois facteurs, dont le produit est
+  // la variation du CA. Chaque ligne porte son référentiel ; aucune n'est un calcul déguisé.
+  shape_vol_title: "Décomposition des ventes",
+  // LE mot du lexique pour ce référentiel (docs/lexique.md) : « vos jours comparables ».
+  // « habituel » est réservé au résultat appris sur des mois — 4 occurrences n’en font pas un.
+  shape_vol_caption: "vs vos jours comparables",
+  shape_vol_caption_tip: "Vos {n} derniers {jour}s : {dates}. Les trois facteurs se multiplient : leur produit est la variation du chiffre.",
+  shape_vol_l_tx: "Nombre d’achats",
+  shape_vol_l_items: "Articles par achat",
+  shape_vol_l_price: "Prix moyen d’un article",
+  shape_vol_val: "{v} contre {ref}",
+  shape_vol_total: "Chiffre du jour : {pct} vs vos jours comparables.",
+  shape_vol_lead_1: "Ce qui bouge : {f}.",
+  shape_vol_lead_2: "Ce qui bouge : {f1}, puis {f2}.",
+  shape_vol_f_tx: "le nombre d’achats",
+  shape_vol_f_items: "le nombre d’articles par achat",
+  shape_vol_f_price: "le prix moyen des articles",
+  shape_vol_types: "Quels articles : ouvrez une famille plus bas.",
+  shape_vol_none: "Une seule journée mesurée ne suffit pas encore à décomposer la fluctuation.",
+  shape_ctx_title: "Contexte externe",
+  shape_none: "Pas encore de journée mesurée — la lecture s’ouvre dès la première.",
 
   // ── ④ Action menée & retour ──
   q4_title: "Action menée & retour",

@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — page Opération (2 états)</title>
+<style>
+  :root { --blue:#1D3BB3; --ink:#111827; --grey:#6b7280; --lgrey:#9ca3af; --line:#e5e7eb; --amber:#B45309; --green:#0F6E56; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#f6f7f9; font-family:system-ui,-apple-system,sans-serif; color:var(--ink); }
+  .wrap { max-width:820px; margin:0 auto; padding:16px; }
+  .proto-banner { background:#fff8ec; border:1px solid #fbe8c3; border-radius:8px; padding:10px 14px; font-size:12.5px; color:#92610a; margin-bottom:14px; }
+  .toggle { display:flex; gap:8px; margin-bottom:14px; }
+  .toggle button { font-family:inherit; font-size:13px; font-weight:600; padding:8px 16px; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--grey); cursor:pointer; }
+  .toggle button.on { background:var(--blue); border-color:var(--blue); color:#fff; }
+  .doc { background:#fff; border:1px solid rgba(0,0,0,.10); border-radius:10px; padding:26px 28px; }
+  .kicker { display:flex; align-items:baseline; font-size:12px; letter-spacing:.10em; text-transform:uppercase; color:var(--blue); font-weight:600; }
+  .kicker .site { margin-left:auto; font-size:13px; font-weight:500; letter-spacing:normal; text-transform:none; color:var(--grey); white-space:nowrap; }
+  .title { font-size:21px; font-weight:600; margin-top:5px; line-height:1.3; }
+  .chip { display:inline-block; font-size:11.5px; font-weight:600; padding:3px 10px; border-radius:999px; margin-top:8px; }
+  .chip.open { color:var(--blue); background:#e6ecff; }
+  .chip.done { color:#374151; background:#f3f4f6; }
+  .sub { font-size:13px; color:var(--grey); margin-top:8px; }
+  .meta { font-size:12px; color:var(--lgrey); margin-top:4px; }
+  .head { border-bottom:2px solid var(--blue); padding-bottom:14px; margin-bottom:22px; }
+  .uc { font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--lgrey); font-weight:600; margin-bottom:10px; }
+  .sec { margin-bottom:26px; }
+  .dispo-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px 24px; }
+  @media (max-width:640px){ .dispo-grid { grid-template-columns:1fr; } }
+  .dispo-item .lab { font-size:12px; font-weight:600; color:var(--grey); }
+  .dispo-item .val { font-size:13px; color:var(--ink); line-height:1.5; margin-top:3px; }
+  .done-row { display:flex; align-items:center; gap:10px; margin-top:16px; padding-top:14px; border-top:1px solid #f0f2f5; flex-wrap:wrap; }
+  .done-row .q { font-size:13px; font-weight:600; color:#374151; }
+  .btn-tog { font-size:12px; padding:6px 14px; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:600; background:#f3f4f6; color:var(--grey); border:1px solid var(--line); }
+  .btn-tog.sel { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .ajout { border:1px dashed #c7d2fe; border-radius:8px; padding:10px 12px; margin-top:14px; font-size:12.5px; color:var(--grey); }
+  .ajout .tag { font-size:10px; font-weight:700; letter-spacing:.06em; color:var(--blue); background:#eef2ff; padding:2px 7px; border-radius:4px; margin-right:8px; }
+  .headline { font-size:16px; font-weight:600; }
+  .headline.amber { color:var(--amber); } .headline.green { color:#059669; } .headline.red { color:#b91c1c; }
+  .facts { font-size:13px; color:#374151; line-height:1.6; margin-top:8px; }
+  .facts .dim { color:var(--lgrey); font-size:12px; }
+  .legend { display:flex; gap:16px; margin-top:8px; font-size:12px; color:#374151; flex-wrap:wrap; }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .chart-note { font-size:11px; color:var(--lgrey); margin-top:5px; }
+  .comp-card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:13px 15px; margin-bottom:10px; }
+  .comp-card .cc-title { font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--grey); margin-bottom:8px; }
+  .comp-card .cc-lead { font-size:13.5px; font-weight:600; color:var(--ink); line-height:1.5; }
+  .comp-card .cc-body { font-size:13px; color:#374151; line-height:1.55; margin-top:4px; }
+  .fam-row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:6px 0; border-top:1px solid #f5f6f8; font-size:13px; }
+  .fam-row:first-of-type { border-top:none; }
+  .fam-row .f-name { font-weight:600; color:var(--ink); }
+  .fam-row .f-ref { color:var(--lgrey); font-size:12px; }
+  .fam-row .f-delta { font-weight:600; white-space:nowrap; }
+  .up { color:var(--green); } .downc { color:var(--amber); }
+  .ctx-line { font-size:13px; color:#374151; line-height:1.6; }
+  .move-btn { display:block; width:100%; text-align:left; box-sizing:border-box; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:8px; cursor:pointer; font-family:inherit; }
+  .move-btn .m-t { font-size:14px; font-weight:500; color:var(--ink); }
+  .move-btn .m-d { font-size:12.5px; color:var(--grey); line-height:1.5; margin-top:2px; }
+  .rec { font-size:11px; font-weight:600; color:var(--blue); background:#E6ECFF; padding:2px 8px; margin-left:6px; border-radius:4px; }
+  .fold-note { font-size:12px; color:var(--lgrey); margin-top:6px; }
+  .kpi-scale { position:relative; height:12px; background:#f0f2f5; border-radius:6px; margin:26px 0 6px; }
+  .kpi-fill { position:absolute; left:0; top:0; height:12px; border-radius:6px 0 0 6px; background:var(--amber); }
+  .kpi-marker { position:absolute; top:-5px; height:22px; width:2px; background:var(--ink); }
+  .kpi-lab { position:absolute; font-size:11px; color:var(--grey); white-space:nowrap; transform:translateX(-50%); }
+  .doc-q { font-size:13px; font-weight:600; color:#374151; margin:14px 0 6px; }
+  .doc-q:first-of-type { margin-top:0; }
+  textarea.ta { width:100%; border:1px solid var(--line); border-radius:6px; padding:8px 10px; font-size:13px; color:var(--ink); background:#f9fafb; font-family:inherit; resize:none; min-height:52px; }
+  .save-btn { background:var(--blue); color:#fff; border:none; border-radius:6px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; margin-top:12px; }
+  .cta-blue { font-size:12px; font-weight:600; color:var(--blue); background:#F5F7FF; border:1px solid #DBEAFE; border-radius:6px; padding:6px 12px; cursor:pointer; font-family:inherit; }
+  .hist { background:#fafbfd; border:1px solid #eef1f6; border-radius:8px; padding:12px 16px; }
+  .hist .h-row { font-size:13px; color:#374151; line-height:1.7; }
+  .src { font-size:12.5px; color:var(--grey); line-height:1.9; }
+  svg text { font-family:system-ui,-apple-system,sans-serif; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="proto-banner"><strong>PROTO</strong> — maquette de la page Opération refaite en deux états. Données réelles du compte Muse Square : opération « Dispositif vacances scolaires » (en cours, J1) et « Corner de vente producteur » du 22/08 (terminée). Rien n'est câblé.</div>
+  <div class="toggle">
+    <button id="tab-open" class="on" type="button">Opération en cours</button>
+    <button id="tab-done" type="button">Opération terminée</button>
+  </div>
+  <div class="doc" id="view-open"></div>
+  <div class="doc" id="view-done" style="display:none;"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+  function frInt(n){ return Number(n).toLocaleString("fr-FR"); }
+  function fr1(n){ var r=Math.round(Number(n)*10)/10; return (Number.isInteger(r)?String(r):r.toFixed(1)).replace(".",","); }
+  function eur(n){ return frInt(Math.round(n)) + " €"; }
+
+  /* ============ DONNEES REELLES (BigQuery, tirées le 28/08/2026) ============ */
+  var OPEN = {
+    site: "Muse Square",
+    title: "Dispositif vacances scolaires centré sur les retraités et les personnes agées qui restent à Houdan",
+    verdict_due: "02/09",
+    dates_fr: "du jeudi 27/08 au mercredi 02/09/2026",
+    goal_pct: 20,
+    owner: "Julen de Ajuriaguerra",
+    created: "27/08/2026",
+    dispositif: {
+      note: null,
+      plus: "Une sélection de produits",
+      why: "On cible la clientèle la plus présente à ces dates",
+      res: "Magalie",
+      resp: "Julen de Ajuriaguerra"
+    },
+    days: [
+      { d:"jeu 27/08", rev:2243, hab:2204, pct:1.8, holiday:true },
+      { d:"ven 28/08", holiday:true, weather:true },
+      { d:"sam 29/08", holiday:true },
+      { d:"dim 30/08", holiday:true },
+      { d:"lun 31/08" },
+      { d:"mar 01/09" },
+      { d:"mer 02/09" }
+    ],
+    hourly: [
+      { h:7, rev:374, hab:219 }, { h:8, rev:223, hab:191 }, { h:9, rev:306, hab:171 },
+      { h:10, rev:403, hab:182 }, { h:11, rev:55, hab:95 }, { h:12, rev:135, hab:102 },
+      { h:13, rev:88, hab:101 }, { h:14, rev:116, hab:95 }, { h:15, rev:207, hab:110 },
+      { h:16, rev:163, hab:114 }, { h:17, rev:145, hab:112 }, { h:18, rev:28, hab:47 }
+    ],
+    famsAll: [
+      { f:"Coffee", rev:811, hab:612 }, { f:"Tea", rev:662, hab:431 },
+      { f:"Bakery", rev:243, hab:233 }, { f:"Drinking Chocolate", rev:212, hab:151 },
+      { f:"Coffee beans", rev:185, hab:42 }, { f:"Branded", rev:54, hab:20 },
+      { f:"Loose Tea", rev:36, hab:19 }, { f:"Flavours", rev:34, hab:23 },
+      { f:"Packaged Chocolate", rev:6, hab:7 }
+    ]
+  };
+
+  var DONE = {
+    site: "Muse Square",
+    title: "Corner de vente producteur — Le producteur est sur place et fait la présentation produit et la vente en direct.",
+    date_fr: "samedi 22/08/2026",
+    goal_pct: 11,
+    kpi_label: "CA famille « Branded »",
+    kpi_realized: 14, kpi_hab: 64.53, kpi_goal: 71.62, kpi_delta: -78.3,
+    owner: "Julen de Ajuriaguerra · CEO",
+    day_rev: 2257, day_pct: -0.3, day_tx: 407, day_tx_hab: 348,
+    prev: { date:"samedi 08/08", realized:28, hab:56.21, delta:-50.2 }
+  };
+
+  /* ============ Courbe jour par jour (état en cours) ============ */
+  function dailyChart(days, goalPct){
+    var W=760, H=232, padL=8, padT=40, padB=50, plotW=W-padL-8, plotH=H-padT-padB;
+    var slot = plotW/days.length, bw = Math.min(54, slot*0.52);
+    var mx = 0;
+    days.forEach(function(d){ if(d.rev!=null){ mx=Math.max(mx,d.rev,d.hab,d.hab*(1+goalPct/100)); } });
+    if(!mx) mx=1;
+    mx = mx*1.12;
+    var y = function(v){ return padT + plotH - (v/mx)*plotH; };
+    var s = "";
+    days.forEach(function(d,i){
+      var cx = padL + slot*i + slot/2;
+      if(d.rev!=null){
+        var yv=y(d.rev), yh=y(d.hab), yg=y(d.hab*(1+goalPct/100));
+        var dpct = (d.rev-d.hab)/d.hab*100;
+        var pctCol = dpct>=0 ? "#0F6E56" : "#B45309";
+        s += '<rect x="'+(cx-bw/2).toFixed(1)+'" y="'+yv.toFixed(1)+'" width="'+bw+'" height="'+(padT+plotH-yv).toFixed(1)+'" rx="4" fill="#1D3BB3" fill-opacity="0.85"/>';
+        s += '<line x1="'+(cx-bw/2-5).toFixed(1)+'" y1="'+yh.toFixed(1)+'" x2="'+(cx+bw/2+5).toFixed(1)+'" y2="'+yh.toFixed(1)+'" stroke="#111827" stroke-width="2"/>';
+        s += '<line x1="'+(cx-bw/2-5).toFixed(1)+'" y1="'+yg.toFixed(1)+'" x2="'+(cx+bw/2+5).toFixed(1)+'" y2="'+yg.toFixed(1)+'" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="4,3"/>';
+        s += '<text x="'+cx.toFixed(1)+'" y="'+(yv-20).toFixed(1)+'" font-size="13" font-weight="700" fill="'+pctCol+'" text-anchor="middle">'+(dpct>=0?"+":"−")+fr1(Math.abs(dpct))+' %</text>';
+        s += '<text x="'+cx.toFixed(1)+'" y="'+(yv-6).toFixed(1)+'" font-size="10" fill="#6b7280" text-anchor="middle">'+frInt(d.rev)+' €</text>';
+      } else {
+        s += '<rect x="'+(cx-bw/2).toFixed(1)+'" y="'+y(mx*0.55).toFixed(1)+'" width="'+bw+'" height="'+(padT+plotH-y(mx*0.55)).toFixed(1)+'" rx="4" fill="none" stroke="#e5e7eb" stroke-width="1.4" stroke-dasharray="4,4"/>';
+      }
+      s += '<text x="'+cx.toFixed(1)+'" y="'+(H-30)+'" font-size="11.5" fill="'+(d.rev!=null?"#374151":"#c2c7cf")+'" text-anchor="middle">'+esc(d.d)+'</text>';
+      var marks = [];
+      if(d.holiday) marks.push("vacances");
+      if(d.weather) marks.push("météo");
+      if(marks.length) s += '<text x="'+cx.toFixed(1)+'" y="'+(H-12)+'" font-size="11" font-weight="600" fill="#92610a" text-anchor="middle">'+marks.join(" · ")+'</text>';
+    });
+    return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;">'+s+'</svg>';
+  }
+
+  /* ============ Mini-courbe horaire (Comprendre le résultat) ============
+     Le trait n'est PAS le CA habituel brut : c'est LA MEME JOURNEE (son total)
+     répartie comme les 4 derniers jeudis — un seul référentiel, les écarts
+     barre-vs-trait se compensent et redonnent exactement le total du jour. */
+  function hourlyChart(hours){
+    var W=760, H=132, padT=8, padB=26, plotH=H-padT-padB, slot=W/hours.length, bw=Math.min(30, slot*0.45);
+    var dayTot=0, habTot=0;
+    hours.forEach(function(x){ dayTot+=x.rev; habTot+=x.hab; });
+    var scale = habTot>0 ? dayTot/habTot : 1;
+    var mx=0; hours.forEach(function(x){ mx=Math.max(mx,x.rev,x.hab*scale); }); mx=mx*1.1;
+    var y=function(v){ return padT+plotH-(v/mx)*plotH; };
+    var s="";
+    hours.forEach(function(x,i){
+      var cx=slot*i+slot/2, ref=x.hab*scale, up = x.rev>=ref;
+      s += '<rect x="'+(cx-bw/2).toFixed(1)+'" y="'+y(x.rev).toFixed(1)+'" width="'+bw+'" height="'+(padT+plotH-y(x.rev)).toFixed(1)+'" rx="3" fill="'+(up?"#1D3BB3":"#E0873A")+'" fill-opacity="0.8"/>';
+      s += '<line x1="'+(cx-bw/2-4).toFixed(1)+'" y1="'+y(ref).toFixed(1)+'" x2="'+(cx+bw/2+4).toFixed(1)+'" y2="'+y(ref).toFixed(1)+'" stroke="#111827" stroke-width="1.6"/>';
+      s += '<text x="'+cx.toFixed(1)+'" y="'+(H-8)+'" font-size="10" fill="#6b7280" text-anchor="middle">'+x.h+' h</text>';
+    });
+    return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;">'+s+'</svg>';
+  }
+
+  /* ============ ETAT 1 — OPERATION EN COURS ============ */
+  function renderOpen(){
+    var o = OPEN;
+    var h = '';
+    h += '<div class="head">';
+    h += '<div class="kicker">Opération<span class="site">'+esc(o.site)+'</span></div>';
+    h += '<div class="title">'+esc(o.title)+'</div>';
+    h += '<div><span class="chip open">En cours · verdict d’ici le '+o.verdict_due+'</span></div>';
+    h += '<div class="sub">Objectif : +'+o.goal_pct+' % de CA vs votre résultat habituel · sous 7 jours</div>';
+    h += '<div class="meta">Dates de l’opération : '+esc(o.dates_fr)+' · Engagé par '+esc(o.owner)+' · le '+o.created+'</div>';
+    h += '</div>';
+
+    /* -- 1. Votre dispositif -- */
+    h += '<div class="sec"><div class="uc">Votre dispositif</div>';
+    h += '<div class="dispo-item" style="margin-bottom:14px;"><div class="lab">Description du dispositif</div>';
+    h += '<div class="val"'+(o.dispositif.note?'':' style="color:#9ca3af;"')+'>'+esc(o.dispositif.note||"Pas encore renseigné.")+' <button type="button" style="font-size:11.5px;font-weight:600;color:#1D3BB3;background:none;border:none;cursor:pointer;font-family:inherit;padding:0;">Éditer</button></div></div>';
+    h += '<div class="dispo-grid">';
+    h += '<div class="dispo-item"><div class="lab">Le plus du dispositif</div><div class="val">'+esc(o.dispositif.plus)+'</div></div>';
+    h += '<div class="dispo-item"><div class="lab">Pourquoi ça va marcher</div><div class="val">'+esc(o.dispositif.why)+'</div></div>';
+    h += '<div class="dispo-item"><div class="lab">Responsable(s)</div><div class="val">'+esc(o.dispositif.resp)+'</div></div>';
+    h += '<div class="dispo-item"><div class="lab">Ressource(s)</div><div class="val">'+esc(o.dispositif.res)+'</div></div>';
+    h += '</div>';
+    h += '<div class="ajout"><span class="tag">AJOUT</span>Aucun pôle rattaché à cette opération — le pôle apporte l’équipe et le canal Slack. <em>(bloc équipe/canal à arbitrer)</em></div>';
+    h += '</div>';
+
+    /* -- 2. Votre action paie-t-elle ? -- */
+    h += '<div class="sec"><div class="uc">Votre action paie-t-elle ?</div>';
+    h += '<div class="headline amber">+1,8 % vs votre résultat habituel — à confirmer sur plus de jours</div>';
+    h += '<div class="facts">1 / 1 jours reçus au-dessus · Objectif : +20 % vs votre résultat habituel</div>';
+    h += '<div style="margin-top:14px;">'+dailyChart(o.days, o.goal_pct)+'</div>';
+    h += '<div class="legend">';
+    h += '<span><svg width="14" height="10"><rect width="14" height="10" rx="2" fill="#1D3BB3" fill-opacity="0.85"/></svg>CA réalisé</span>';
+    h += '<span><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#111827" stroke-width="2"/></svg>CA habituel</span>';
+    h += '<span><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="4,3"/></svg>objectif +20 %</span>';
+    h += '<span style="color:#92610a;font-weight:600;">vacances = vacances scolaires · météo = temps perturbé</span>';
+    h += '</div>';
+    h += '<div class="chart-note">CA réalisé vs CA habituel (journée comparable) — le % au-dessus de chaque barre est cet écart. Jours vides : en attente de données.</div>';
+    h += '</div>';
+
+    /* -- 3. Comprendre le resultat -- */
+    /* UN SEUL referentiel de niveau : le CA habituel du modele (+1,8 %). Les cartes
+       ci-dessous ne re-comparent jamais un niveau a un autre habituel : elles lisent
+       la FORME de la journee (parts d'heures, parts de familles) - des ecarts qui se
+       compensent, donc jamais dissonants avec le % d'en-tete. */
+    var dayTot=0, habTot=0;
+    o.hourly.forEach(function(x){ dayTot+=x.rev; habTot+=x.hab; });
+    var famDayTot=0, famHabTot=0;
+    o.famsAll.forEach(function(f){ famDayTot+=f.rev; famHabTot+=f.hab; });
+    var mornDay=0, mornHab=0;
+    o.hourly.forEach(function(x){ if(x.h<=10){ mornDay+=x.rev; mornHab+=x.hab; } });
+    var mornSharePct = Math.round(mornDay/dayTot*100);
+    var mornShareHabPct = Math.round(mornHab/habTot*100);
+    var mornShift = Math.round(mornDay - mornHab*(dayTot/habTot));
+
+    h += '<div class="sec"><div class="uc">Comprendre le résultat</div>';
+    h += '<div class="facts" style="margin:0 0 12px;">1 jour mesuré sur 7 — jeudi 27/08. Comparé à vos 4 derniers jeudis.</div>';
+
+    h += '<div class="comp-card"><div class="cc-title">Quels moments</div>';
+    h += '<div class="cc-lead">Votre meilleur créneau : avant 11 h, '+mornSharePct+' % du chiffre du jour contre '+mornShareHabPct+' % d’habitude.</div>';
+    h += '<div class="cc-body">'+frInt(mornShift)+' € de plus que d’habitude le matin, autant en moins l’après-midi.</div>';
+    h += '<div style="margin-top:10px;">'+hourlyChart(o.hourly)+'</div>';
+    h += '<div class="chart-note">Barres : CA du jeudi 27/08 par heure · trait : la même journée répartie comme vos 4 derniers jeudis.</div></div>';
+
+    h += '<div class="comp-card"><div class="cc-title">Performance des produits vendus</div>';
+    h += '<div class="chart-note" style="margin:0 0 8px;">Vos 9 familles, de la plus forte hausse à la plus forte baisse.</div>';
+    var famScale = famDayTot/famHabTot;
+    var famRows = o.famsAll.map(function(f){
+      return { f:f.f, rev:f.rev, ref:Math.round(f.hab*famScale), d:Math.round(f.rev - f.hab*famScale) };
+    }).sort(function(a,b){ return b.d - a.d; });
+    famRows.forEach(function(f){
+      var cls = f.d>0 ? "up" : (f.d<0 ? "downc" : "");
+      var sty = f.d===0 ? ' style="color:#9ca3af;"' : '';
+      h += '<div class="fam-row"><span class="f-name">'+esc(f.f)+'</span>';
+      h += '<span class="f-ref">'+eur(f.rev)+' · sa part habituelle du jour : '+eur(f.ref)+'</span>';
+      h += '<span class="f-delta '+cls+'"'+sty+'>'+(f.d>0?"+":(f.d<0?"−":""))+frInt(Math.abs(f.d))+' €</span></div>';
+    });
+    h += '</div>';
+
+    h += '<div class="comp-card"><div class="cc-title">Achats ou panier ?</div>';
+    h += '<div class="cc-body" style="margin-top:0;">Jour à +1,8 % vs votre résultat habituel — trop peu d’écart pour dire s’il vient du nombre d’achats ou du panier moyen. Dès qu’une journée s’écartera nettement de votre résultat habituel, la réponse s’affichera ici.</div></div>';
+
+    h += '<div class="comp-card"><div class="cc-title">Contexte externe <span style="font-size:10px;color:#5f5e5a;background:#f1efe8;padding:2px 7px;border-radius:3px;letter-spacing:0;">observé</span></div>';
+    h += '<div class="ctx-line">Vacances scolaires — 4 jours sur les dates de l’opération (jusqu’au dimanche 30/08).</div>';
+    h += '<div class="ctx-line">1 j de temps perturbé (vendredi 28/08).</div>';
+    h += '<div class="ctx-line" style="color:#92610a;">Le contexte a pu jouer — à garder en tête avant d’ajuster.</div></div>';
+    h += '</div>';
+
+    /* -- 4. Ajuster le dispositif (replié) -- */
+    h += '<div class="sec"><div class="uc">Ajuster le dispositif</div>';
+    h += '<div class="facts" style="margin:0 0 10px;">Lecture du 27/08 — 1 jour reçu : objectif pas atteint à ce jour.</div>';
+    var moves = [
+      ["Poursuivre","Garder le plan, mieux le tenir.", true],
+      ["Doubler la mise","Plus de ce qui marche.", false],
+      ["Pivoter","Changer l’approche, puis remesurer sur de nouvelles dates.", false],
+      ["Arrêter","Abandonner cette action — clôture, la carte revient à piloter.", false]
+    ];
+    moves.forEach(function(m){
+      h += '<button type="button" class="move-btn"><div class="m-t">'+m[0]+(m[2]?'<span class="rec">recommandé</span>':'')+'</div><div class="m-d">'+m[1]+'</div></button>';
+    });
+    h += '<div class="fold-note">Le formulaire « La version suivante » (objectif, levier, responsable…) se déplie au choix d’un move — il n’occupe plus la page.</div>';
+    h += '</div>';
+
+    /* -- 5. Sources -- */
+    h += '<div class="sec" style="margin-bottom:0;"><div class="uc">Sources &amp; fiabilité</div><div class="src">';
+    h += '<div>· Votre caisse — CA quotidien</div>';
+    h += '<div>· Vos données — CA habituel appris sur vos 90 derniers jours</div>';
+    h += '<div>· Météo-France — météo &amp; alertes vigilance · INSEE &amp; OpenHolidays — tourisme &amp; vacances scolaires</div>';
+    h += '</div></div>';
+
+    return h;
+  }
+
+  /* ============ ETAT 2 — OPERATION TERMINEE ============ */
+  function renderDone(){
+    var o = DONE;
+    var h = '';
+    h += '<div class="head" style="border-bottom-color:#111827;">';
+    h += '<div class="kicker" style="color:#374151;">Opération<span class="site">'+esc(o.site)+'</span></div>';
+    h += '<div class="title">'+esc(o.title)+'</div>';
+    h += '<div><span class="chip done">Terminée · '+esc(o.date_fr)+'</span></div>';
+    h += '<div class="sub">Objectif : +'+o.goal_pct+' % de '+esc(o.kpi_label)+' vs votre résultat habituel · sous Jour même</div>';
+    h += '<div class="meta">Engagé par '+esc(o.owner)+'</div>';
+    h += '</div>';
+
+    /* -- 1. Verdict -- */
+    h += '<div class="sec"><div class="uc">Votre action paie-t-elle ?</div>';
+    h += '<div class="headline red" title="Verdict rendu sur votre KPI déclaré (CA famille Branded).">Objectif non atteint</div>';
+    h += '<div class="facts">'+esc(o.kpi_label)+' : 14 € le samedi 22/08, contre 64,53 € votre samedi habituel (−78 %).</div>';
+    var mx = o.kpi_goal*1.15;
+    var pos = function(v){ return (v/mx*100).toFixed(1); };
+    h += '<div class="kpi-scale">';
+    h += '<div class="kpi-fill" style="width:'+pos(o.kpi_realized)+'%;"></div>';
+    h += '<div class="kpi-marker" style="left:'+pos(o.kpi_hab)+'%;"></div>';
+    h += '<div class="kpi-marker" style="left:'+pos(o.kpi_goal)+'%;background:#1D3BB3;"></div>';
+    h += '<div class="kpi-lab" style="left:'+pos(o.kpi_realized)+'%;top:16px;color:#B45309;font-weight:600;">14 € réalisés</div>';
+    h += '<div class="kpi-lab" style="left:'+pos(o.kpi_hab)+'%;top:16px;">habituel 64,53 €</div>';
+    h += '<div class="kpi-lab" style="left:'+pos(o.kpi_goal)+'%;top:-22px;color:#1D3BB3;">cible 71,62 €</div>';
+    h += '</div>';
+    h += '</div>';
+
+    /* -- 2. Comprendre le résultat -- */
+    h += '<div class="sec"><div class="uc">Comprendre le résultat</div>';
+    h += '<div class="comp-card"><div class="cc-title">Le flux ou l’offre ?</div>';
+    h += '<div class="cc-lead">407 achats en caisse, 1 au dispositif : le flux n’a pas manqué, la conversion du dispositif a manqué.</div>';
+    h += '<div class="cc-body">La journée du magasin était ordinaire : 2 257 € (−0,3 % vs votre résultat habituel), 407 achats — au-dessus de vos 4 samedis précédents (348).</div></div>';
+    h += '<div class="comp-card"><div class="cc-title">L’occurrence précédente</div>';
+    h += '<div class="cc-lead">Samedi 08/08, même opération : 28 € sur Branded, contre 56,21 € votre samedi habituel (−50 %).</div>';
+    h += '<div class="cc-body">Deux occurrences, même lecture.</div></div>';
+    h += '<div class="comp-card"><div class="cc-title">Contexte externe <span style="font-size:10px;color:#5f5e5a;background:#f1efe8;padding:2px 7px;border-radius:3px;letter-spacing:0;">observé</span></div>';
+    h += '<div class="ctx-line">Journée de vacances scolaires, météo neutre — le contexte n’explique pas l’écart.</div></div>';
+    h += '</div>';
+
+    /* -- 3. Votre dispositif (mémoire) -- */
+    h += '<div class="sec"><div class="uc">Votre dispositif</div>';
+    h += '<div class="dispo-grid">';
+    h += '<div class="dispo-item"><div class="lab">Responsable(s)</div><div class="val">'+esc(o.owner)+'</div></div>';
+    h += '<div class="dispo-item"><div class="lab">Le plus du dispositif</div><div class="val" style="color:#9ca3af;">Pas encore renseigné.</div></div>';
+    h += '</div></div>';
+
+    /* -- 4. Documenter (seulement ici) -- */
+    h += '<div class="sec"><div class="uc">Documenter</div>';
+    h += '<div style="font-size:12px;color:#9ca3af;margin-bottom:12px;line-height:1.5;">Ce retour reste attaché à l’action — repère pour la prochaine fois et pour l’équipe.</div>';
+    h += '<div class="doc-q">Qu’est-ce qui a marché ?</div><textarea class="ta" placeholder="Ce qui a porté le résultat"></textarea>';
+    h += '<div class="doc-q">Qu’est-ce que je changerais ?</div><textarea class="ta" placeholder="Ce que vous ajusteriez la prochaine fois"></textarea>';
+    h += '<div class="doc-q">À reproduire ?</div>';
+    h += '<div style="display:flex;gap:8px;"><button type="button" class="btn-tog">Oui</button><button type="button" class="btn-tog">Non</button></div>';
+    h += '<button type="button" class="save-btn">Enregistrer</button>';
+    h += '</div>';
+
+    /* -- 5. La suite -- */
+    h += '<div class="sec"><div class="uc">La suite</div>';
+    h += '<div class="hist" style="margin-bottom:12px;">';
+    h += '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Historique du dispositif</div>';
+    h += '<div class="h-row">Samedi 08/08 : objectif non atteint — −50,2 % sur '+esc(o.kpi_label)+' vs votre résultat habituel.</div>';
+    h += '<div class="h-row" style="font-weight:600;">Samedi 22/08 : objectif non atteint — −78,3 % sur '+esc(o.kpi_label)+' vs votre résultat habituel. <span style="color:#6B7280;font-weight:500;">(ce test)</span></div>';
+    h += '</div>';
+    h += '<button type="button" class="cta-blue">M’engager sur cette action →</button>';
+    h += '</div>';
+
+    return h;
+  }
+
+  document.getElementById("view-open").innerHTML = renderOpen();
+  document.getElementById("view-done").innerHTML = renderDone();
+  var tOpen = document.getElementById("tab-open"), tDone = document.getElementById("tab-done");
+  function show(which){
+    document.getElementById("view-open").style.display = which==="open" ? "block" : "none";
+    document.getElementById("view-done").style.display = which==="done" ? "block" : "none";
+    tOpen.className = which==="open" ? "on" : ""; tDone.className = which==="done" ? "on" : "";
+  }
+  tOpen.addEventListener("click", function(){ show("open"); });
+  tDone.addEventListener("click", function(){ show("done"); });
+})();
+</script>
+</body>
+</html>

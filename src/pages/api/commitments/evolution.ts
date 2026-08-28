@@ -8,12 +8,14 @@
 import type { APIRoute } from "astro";
 import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpiRegistry";
 import { makeBQClient } from "../../../lib/bq";
-import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
+import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
 import { readLatestSnapshot } from "../../../lib/actionCommitments";
 import { buildPoleReading } from "../../../lib/poleReading";
 import { commitmentEffect } from "../../../lib/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
-import { getBestInClassPlays, leverForActionType } from "../../../lib/bestInClassStore";
+import { buildWindowShape } from "../../../lib/commitmentShape";
+import { getBestInClassPlays, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClassStore";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -190,7 +192,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const snap = await readLatestSnapshot(bq, commitmentId);
     if (!snap) return json({ ok: false, error: "Engagement introuvable" }, 404);
-    requireLocationOwnership(locals, snap.location_id);
+    // Vue équipe (28/08) : la page est la cible du bouton « Ajuster » des messages Slack —
+    // elle doit donc s'ouvrir à un MEMBRE, sur SON périmètre, avec la règle des chiffres
+    // déjà arbitrée (« occasion d'agir oui, état du business jamais »). Mêmes briques que
+    // les autres endpoints membres : requireLocationAccess + memberCommitmentInPerimeter +
+    // memberCommitmentProjection. Aucune règle nouvelle ici.
+    requireLocationAccess(locals, snap.location_id);
+    const estMembre = String((locals as any)?.role || "") === "member";
+    if (estMembre && !memberCommitmentInPerimeter(locals, String(snap.location_id), snap as any)) {
+      return json({ ok: false, error: "FORBIDDEN: hors du périmètre de vos pôles" }, 403);
+    }
 
     // ── PÔLE / DISPOSITIF PERMANENT (spec pôles, 27/08) : ni fenêtre ni verdict — la page
     // rend la LECTURE CONTINUE (familles vs habituel) + les opérations rattachées + la chaîne
@@ -215,9 +226,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
       return json({ ok: true, commitment, pole, lineage, site_name: null });
     }
 
-    // Same window-date logic as the cron (day_of → Paris business day of creation).
+    // MÊME règle que le cron : un « jour même » se lit sur LE JOUR DE L'OPÉRATION
+    // (window_start stocké), jamais sur le jour de création — la courbe du corner producteur
+    // traçait le 15/08 sous un en-tête daté du 22/08 (28/08). Repli création si pas de
+    // fenêtre stockée (vieilles lignes).
+    const _wsStored0 = String(flat(snap.window_start) ?? "").slice(0, 10);
     const dates = snap.window_kind === "day_of"
-      ? [parisDate(String(snap.created_at))]
+      ? [_wsStored0 || parisDate(String(snap.created_at))]
       : dateArray(String(snap.window_start), String(snap.window_end));
     const minD = dates[0], maxD = dates[dates.length - 1];
 
@@ -226,6 +241,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
              `FROM \`${RESIDUAL}\` WHERE location_id=@loc AND date BETWEEN @minD AND @maxD`,
       params: { loc: snap.location_id, minD: bq.date(minD), maxD: bq.date(maxD) }, location: "EU",
     });
+    // « Comprendre le résultat » (owner 28/08) — AMORCÉE ici, ATTENDUE au retour : la lecture
+    // part des jours RÉELLEMENT mesurés (rrows) et tourne en parallèle des vagues suivantes,
+    // donc n'ajoute rien au chemin séquentiel (budget 3 s).
+    // FENÊTRE STOCKÉE pour un « jour même », jamais la convention legacy du bloc `series`
+    // (dates = jour de CRÉATION). Sur le corner producteur — créé le 15/08, opération le
+    // 22/08 — la lecture parlait du 15/08 sous un en-tête daté du 22/08 (relevé au rendu,
+    // 28/08). Même règle que buildKpiBlock, qui avait déjà tranché ce point.
+    const _wsSnap = String(flat(snap.window_start) || "").slice(0, 10);
+    const _weSnap = String(flat(snap.window_end) || "").slice(0, 10);
+    const _shapeDates = (snap.window_kind === "day_of" && _weSnap)
+      ? [_weSnap]
+      : (rrows as any[]).map((r) => String(flat(r.date)));   // (series et shape sont alignées)
+    const shapeP = buildWindowShape(bq, {
+      location_id: String(snap.location_id),
+      measured_dates: _shapeDates,
+      window_start: _wsSnap || minD,
+    }).catch(() => null);
+
     const [crows] = await bq.query({
       query: `SELECT CAST(date AS STRING) AS date, is_school_holiday_flag, impact_weather_pct, event_count_region, tourism_index_region ` +
              `FROM \`${CTX}\` WHERE location_id=@loc AND date BETWEEN @minD AND @maxD`,
@@ -333,8 +366,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
       site_name = irows.length ? String(flat(irows[0].site_name) || "") || null : null;
       const industry = irows.length ? String(flat(irows[0].client_industry_code) || "") : "";
       if (industry) {
+        // LEVIER AIGUILLÉ PAR LA MESURE (owner 28/08) : quand la décomposition des ventes dit
+        // quel facteur est le plus faible, il prime sur le type de la carte d'origine — une
+        // carte « vacances scolaires » renvoyait toujours vers la fréquentation, même quand
+        // ce qui manquait était la valeur de l'article. Repli : le type de la carte.
+        // shapeP est déjà amorcée : l'attendre ici ne coûte aucun aller-retour de plus.
+        const _shapePourLevier = await shapeP;
+        const levier = leverForWeakFactor(_shapePourLevier?.weak_factor)
+          ?? leverForActionType(snap.origin_action_type, snap.origin_driver);
         // All intents (pivot/reinforce/scale) — card-kit filters to the one that fits the verdict.
-        best_in_class = await getBestInClassPlays(bq, industry, leverForActionType(snap.origin_action_type, snap.origin_driver), { limit: 9 });
+        const _tousLesCas = await getBestInClassPlays(bq, industry, levier, { limit: 9 });
+        // RATTACHEMENT AU SUJET (owner 28/08 : « complètement déconnectés du dispositif de
+        // l'utilisateur ») : un cas ne sort que s'il partage assez de mots de fond avec CE
+        // dispositif, et deux cas qui disent le même geste ne sortent jamais ensemble.
+        // Rien au-dessus du plancher → section vide, jamais un cas hors sujet.
+        best_in_class = playsRattachesAuSujet(_tousLesCas, {
+          texte: [snap.committed_action_text, (snap as any).dispositif_why, (snap as any).dispositif_plus]
+            .filter(Boolean).join(" . "),
+        });
       }
     } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
 
@@ -344,7 +393,38 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // chaîne compte plus d'une version : une V1 seule n'a pas d'historique à raconter.
     const lineage = await buildLineage(bq, snap);
 
-    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, ...extras });
+    const shape = await shapeP;
+    // ── RÈGLE DES CHIFFRES POUR UN MEMBRE (arbitrage owner 27-28/08, déjà appliquée aux
+    // cartes et au tableau) : « occasion d'agir oui, état du business jamais ». Les NIVEAUX
+    // sortent (CA du jour, CA habituel, panier, cible en €, enjeu) ; les ÉCARTS €, les %,
+    // les parts et les comptes restent. Le retrait se fait ICI, côté serveur, par blocs
+    // entiers — jamais un masquage au rendu.
+    if (estMembre) {
+      const serieMembre = series.map((d) => ({
+        date: d.date, has_data: d.has_data, residual_pct: d.residual_pct,
+        is_school_holiday: d.is_school_holiday, impact_weather_pct: d.impact_weather_pct,
+        event_count: d.event_count, tourism_index: d.tourism_index,
+      }));
+      // Le bloc KPI est fait de niveaux (habituel, réalisé, cible dans l'unité du KPI) :
+      // il ne se redacte pas champ par champ, il ne part pas.
+      const shapeMembre = shape ? {
+        ref_days: shape.ref_days, measured_days: shape.measured_days, notable_days: shape.notable_days,
+        actual_eur: null, expected_eur: null,
+        hours: [],                                   // niveaux horaires : dehors
+        best_run: shape.best_run, worst_run: shape.worst_run,   // parts (%) + écart € : gardés
+        families: shape.families.map((f) => ({ family: f.family, delta: f.delta,
+          products: f.products.map((pr) => ({ name: pr.name, delta: pr.delta })),
+          products_total: f.products_total, products_hidden_eur: f.products_hidden_eur })),
+        volume: null,                                // panier absolu : dehors
+      } : null;
+      return json({
+        ok: true, role: "member",
+        commitment: memberCommitmentProjection(commitment),
+        series: serieMembre, kpi: null, move_stats, best_in_class, site_name, lineage,
+        shape: shapeMembre, ...extras,
+      });
+    }
+    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, shape, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);

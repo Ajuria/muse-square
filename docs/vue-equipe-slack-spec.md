@@ -124,8 +124,21 @@ passe par un appel Clerk backend API au premier accès.
   vérifié sur le compte owner réel. Invitations en attente par email → INSERT DML
   copy-forward (même `member_id`, latest-wins fait le reste), tentée une fois par process,
   n'échoue jamais un login.
-- Un pur membre : jamais forcé vers /onboarding ni /profile ; sur `/app`, seul
-  `pulse` / `tableau` passent, tout le reste redirige vers Agir.
+- Un pur membre : jamais forcé vers /onboarding ni /profile ; sur `/app`, seuls
+  `pulse`, `tableau` et **`engagement`** passent, tout le reste redirige vers Agir.
+  **`engagement` ajouté le 28/08 (correction de bug)** : c'est la cible du bouton
+  « Ajuster » des messages Slack (G2/G3/G4) — un membre y était renvoyé vers Agir et
+  l'endpoint lui répondait 403 : le bouton ne menait nulle part. La page s'ouvre
+  désormais sur SON périmètre (`memberCommitmentInPerimeter`, 403 sinon) et
+  `commitments/evolution` applique la règle des chiffres DÉJÀ arbitrée, par blocs
+  entiers côté serveur : projection `memberCommitmentProjection` du snapshot, série sans
+  `daily_revenue`/`expected_revenue` (le % de l'écart reste), bloc KPI retiré (il n'est
+  fait que de niveaux), `shape` sans heures ni panier — les ÉCARTS € par famille et par
+  produit, les parts (%) et la tranche horaire restent. Deux mensonges de rendu corrigés
+  au passage : un niveau retiré s'affichait « 0 € » (garde-fou : la ligne de référence
+  disparaît, l'écart reste), et la carte achats/panier promettait au membre une réponse
+  qui ne viendrait jamais (carte retirée pour lui). Prouvé : `engagement-page-harness`
+  80/80, mutation « redaction désactivée » vue rouge (5).
 - **Preuves** : harnais réel `scripts/vue-equipe-access-harness.ts` (BQ + Clerk réels,
   compte owner f10c3e58) **22/22**, dont : sorties owner byte-identiques à l'ancienne
   requête du middleware (location_id, first_name, all_location_ids ordre compris),
