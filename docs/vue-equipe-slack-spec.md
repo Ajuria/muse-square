@@ -323,6 +323,39 @@ conversation libre (événements/parsing = déconseillé, hors périmètre).
 5. **Porte de vérification** : un clic réel « Pas encore » sur une notification
    d'assignation, vérifié en base (journal + action_log) — c'est l'E2E de l'incrément.
 
+## Messages par étape du cycle (incrément 8 — CADRÉ 28/08, owner ; À CONSTRUIRE)
+
+Retour owner sur le premier message réel (28/08) : la notification d'assignation mélangeait
+deux moments du cycle (boutons de SUIVI sur un message de PARTAGE), et sa copie ne disait
+pas ce qui est attendu du destinataire. Architecture arbitrée : **un message par étape du
+cycle de la carte**, chacun avec ses mots et ses boutons, mappés sur les gestes RÉELS de
+l'interface — jamais des libellés inventés pour Slack.
+
+| Étape | Message | Boutons | Rail |
+|---|---|---|---|
+| 1. Carte système PARTAGÉE | « X a partagé cette priorité avec vous. Cliquez sur M'engager ou Pas pour moi, et au besoin échangez avec lui concernant le dispositif à mettre en place » + titre / description / action proposée (proposition owner 28/08, base de la copie) | **M'engager · Pas pour moi** | M'engager = lien profond vers le formulaire de l'app (définition dispositif/KPI/échelle = trop riche pour Slack) ; « Pas pour moi » = NOUVEAU rail (refus enregistré + retour à l'expéditeur) |
+| 2. Carte user EN COURS (suivi au responsable) | rappel calibré | **Fait · Pas pour moi · Piloter** | Fait = disposition existante ; Piloter = lien vers la fiche ; « Pas pour moi » ici = se désengager — NOUVEAU rail (rien ne « rend » une carte aujourd'hui). « Pas encore » MEURT dans Slack (le silence dit pareil). |
+| 3. Verdict / fin de dispositif | bilan | **Feedback (Documenter) · Ajuster · Terminer** | retro + moves existants |
+| 4. TROISIÈME résultat négatif | notification proactive (owner : « important ») | — | NOUVEAU détecteur : la chaîne de verdicts est en base, personne ne la surveille — 3 manqués consécutifs sur la chaîne d'un dispositif → notifier owner + responsable |
+
+**Mots à trancher AVANT le build** (concepts sans mot arbitré — jamais improvisés) :
+- **« Piloter » est déjà l'onglet principal de l'app** — le même mot pour le bouton de
+  carte = deux gestes sous un mot. Owner tranche : assumer le doublon ou renommer l'un.
+- **« priorité »** (message de partage) : mot absent du lexique (Agir dit « actions ») —
+  s'il devient le mot du partage, l'acter au lexique.
+- **« Pas pour moi »** : mot owner 28/08 — à acter au lexique avec ses deux sens (refus
+  d'un partage / désengagement d'une carte prise).
+- Cycle complet de référence (owner 28/08) : carte système → Je m'engage → carte user
+  (définition dispositif, KPI, échelle de temps du verdict) → ajuster ou arrêter (nouveau
+  cycle) → fin du dispositif OU notification au 3e résultat négatif → feedback + Ajuster /
+  Terminer.
+
+**Renommage de l'app Slack** (owner, fait/à faire 28/08) : « Muse Square insight » →
+« Muse Square » — api.slack.com → Basic Information → App name, + App Home → Display Name.
+
+**Jusqu'au build de cet incrément, AUCUN message Slack de carte ne part chez un client** :
+le rail technique (inc 7) est prouvé, la copie ne l'est pas.
+
 ## Setup Slack Épices et Tout (opérationnel, hors code)
 
 - Workspace connecté par le flux existant (`slack-connect`), bot invité canal par canal.
