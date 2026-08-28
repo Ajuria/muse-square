@@ -378,7 +378,10 @@ check("À surveiller : zéro « Voir » générique vers /pulse", rawHtml.indexO
 if ((g.cartes || []).length) check("À surveiller : liens profonds insight?type=", rawHtml.indexOf("/app/insightevent/insight?type=") >= 0);
 const trousWithKey = (g.trous || []).filter((t) => t.place_id);
 if (trousWithKey.length) check("Suivre = bouton un-clic (clé présente)", rawHtml.indexOf("data-tb-follow=") >= 0);
-if ((g.trous || []).some((t) => !t.place_id)) check("Suivre sans clé : repli chat conservé", rawHtml.indexOf("Suivre le concurrent") >= 0);
+// INSTRUIT 28/08 : le href du repli est encodeURIComponent — « Suivre le concurrent » en
+// clair ne peut JAMAIS matcher (check latent, jamais exécuté avant : aucun trou sans clé
+// dans la donnée jusqu'au 28/08). On cherche la forme RENDUE.
+if ((g.trous || []).some((t) => !t.place_id)) check("Suivre sans clé : repli chat conservé", rawHtml.indexOf("prompt?q=Suivre%20le%20concurrent") >= 0);
 if (payload.debloquer && payload.debloquer.declared_no_replay) check("Prouver cible SON dispositif (data-tb-goto)", rawHtml.indexOf("data-tb-goto=") >= 0);
 check("rangées dispositifs marquées par la clé", (payload.practices || []).some((pp) => pp.tier !== "archivee") ? rawHtml.indexOf("data-tb-prid=") >= 0 : true);
 if ((g.mesures || []).length) {
