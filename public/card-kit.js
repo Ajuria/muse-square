@@ -836,7 +836,7 @@
     // de l'en-tête. Heures et familles se lisent en PART de la journée (les écarts se
     // compensent) ; achats/panier se décompose CONTRE le résultat habituel et somme
     // exactement à son écart (server: commitmentShape). Aucun chiffre n'est recalculé ici.
-    function shapeBlock(shape, ctxHtml, received, total) {
+    function shapeBlock(shape, ctxHtml, received, total, firstDate) {
       if (!shape) {
         // Aucune journée mesurée (J1) : la section s'annonce, elle ne s'efface pas — une
         // section vide laisserait croire que la page n'a rien à dire (règle 7 du lexique).
@@ -848,9 +848,16 @@
       var lead = function (txt) { return '<div style="font-size:13.5px;font-weight:600;color:#111827;line-height:1.5;">' + esc(txt) + '</div>'; };
       var body = function (txt) { return '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:4px;">' + esc(txt) + '</div>'; };
       var note = function (txt) { return '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(txt) + '</div>'; };
+      // Une seule journée mesurée : la référence se dit avec le NOM du jour (« vos quatre
+      // derniers jeudis »), comme l'exploitant le dit. Plusieurs journées : chacune a sa
+      // propre référence, on annonce les semaines.
+      var semaines = Math.max(1, Math.round(shape.ref_days / Math.max(1, shape.measured_days)));
+      var refTxt = (received === 1 && firstDate)
+        ? t('shape_ref_jour', { n: semaines, jour: WX_DOW_FR[new Date(String(firstDate) + 'T00:00:00Z').getUTCDay()] })
+        : t('shape_ref_multi', { n: semaines });
       var h = '<div class="eg-sec"><div class="eg-uc">' + esc(t('shape_title')) + '</div>'
         + '<div style="font-size:13px;color:#374151;line-height:1.6;margin-bottom:12px;">'
-        + esc(t('shape_intro', { n: received, total: total })) + ' ' + esc(t('shape_ref_note', { n: shape.ref_days })) + '</div>';
+        + esc(t(received === 1 ? 'shape_intro' : 'shape_intro_pl', { n: received, total: total })) + ' ' + esc(refTxt) + '</div>';
 
       // ① Quels moments — la tranche vient des données (aucune heure en dur côté serveur).
       if (shape.best_run && shape.hours && shape.hours.length > 1) {
@@ -900,16 +907,15 @@
       h += '<div style="' + card + '">' + cardTitle(t('shape_vol_title'));
       var v = shape.volume;
       if (v && shape.actual_eur != null && shape.expected_eur != null) {
-        var gapEur = shape.actual_eur - shape.expected_eur;
         var txTxt = t('shape_vol_tx', { tx: intfr(v.tx), ref: intfr(v.ref_tx) });
         var fr2 = function (n) { return (Math.round(Number(n) * 100) / 100).toFixed(2).replace('.', ','); };
         var bkTxt = t('shape_vol_basket', { b: fr2(v.basket_eur), ref: fr2(v.ref_basket_eur) });
-        var up = v.contrib_tx_eur >= 0 ? txTxt : bkTxt;
-        var down = v.contrib_tx_eur >= 0 ? bkTxt : txTxt;
-        var gapTxt = (gapEur >= 0 ? '+' : '−') + intfr(Math.abs(gapEur)) + ' €';
+        var up = v.contrib_tx_eur >= 0 ? txTxt : bkTxt;      // la composante qui tire vers le haut
+        var down = v.contrib_tx_eur >= 0 ? bkTxt : txTxt;    // celle qui tire vers le bas
+        var maj = function (x) { return x.charAt(0).toUpperCase() + x.slice(1); };
         h += lead(v.opposed
-          ? t('shape_vol_opposed', { up: up.charAt(0).toUpperCase() + up.slice(1), down: down, gap: gapTxt })
-          : t('shape_vol_same', { first: txTxt.charAt(0).toUpperCase() + txTxt.slice(1), second: bkTxt }));
+          ? t('shape_vol_opposed', { down: maj(down), up: up })
+          : t('shape_vol_same', { first: maj(txTxt), second: bkTxt }));
         h += body(v.driver === 'tx'
           ? t('shape_vol_driver_tx', { eur: (v.contrib_tx_eur >= 0 ? '+' : '−') + intfr(Math.abs(v.contrib_tx_eur)) })
           : t('shape_vol_driver_basket', { eur: (v.contrib_basket_eur >= 0 ? '+' : '−') + intfr(Math.abs(v.contrib_basket_eur)) }));
@@ -1371,10 +1377,12 @@
     var _pW = series.filter(function (d) { return d.has_data && d.impact_weather_pct != null && d.impact_weather_pct < 0; }).length;
     var _pE = series.filter(function (d) { return d.has_data && d.event_count != null && d.event_count > 0; }).length;
     var _pH = (ctx && ctx.school_days) ? ctx.school_days : series.filter(function (d) { return d.is_school_holiday; }).length;
+    // Accord écrit (owner 28/08) : « 1 événement(s) » est une signature de machine.
+    var _pl = function (key, n) { return t(n > 1 ? key + '_pl' : key, { n: n }); };
     var _bits = [];
-    if (_pW) _bits.push(t('diag_ext_weather', { n: _pW }));
-    if (_pE) _bits.push(t('diag_ext_events', { n: _pE }));
-    if (_pH) _bits.push(t('diag_ext_holiday', { n: _pH }));
+    if (_pW) _bits.push(_pl('diag_ext_weather', _pW));
+    if (_pE) _bits.push(_pl('diag_ext_events', _pE));
+    if (_pH) _bits.push(_pl('diag_ext_holiday', _pH));
     var _notable = _bits.length > 0;
     // Recommended move by state: above → Doubler (it's working, push it); below run-clean+calm → Pivoter
     // (the plan is the suspect); below not-fully-run → Poursuivre (run it); aligned → Poursuivre.
@@ -1436,7 +1444,7 @@
     var ctxCard = '';
     if (received.length) {
       var _wa = ctx && ctx.weather_assoc;
-      var _wm = _wa && _wa.cool_n >= 5 && _wa.mild_n >= 5 && _wa.cool_avg != null && _wa.mild_avg != null;
+      var _wm = _pW > 0 && _wa && _wa.cool_n >= 5 && _wa.mild_n >= 5 && _wa.cool_avg != null && _wa.mild_avg != null;
       ctxCard = '<div style="font-size:13px;color:#374151;line-height:1.55;">' + (_notable ? esc(_bits.join(' · ') + '.') : esc(t('diag_ext_none'))) + '</div>'
         + (_wm ? '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-top:6px;">' + esc(t('diag_ext_weather_meas', { cool: intfr(Math.round(_wa.cool_avg)), mild: intfr(Math.round(_wa.mild_avg)) })) + ' <span style="font-size:11px;color:#1D3BB3;">' + esc(t('diag_ext_chip_meas')) + '</span></div>' : '')
         + '<div style="font-size:12.5px;line-height:1.5;margin-top:6px;color:' + (_notable ? '#92610a' : '#059669') + ';">' + esc(_notable ? t('diag_ext_partial') : t('diag_ext_calm')) + '</div>';
@@ -1561,7 +1569,7 @@
     //   résolution : la page dit enfin la même chose que la mécanique).
     // TERMINÉE — la page CONCLUT : le verdict → d'où il vient → ce qui a été fait →
     //   Documenter → la suite (conseils, historique, dispositifs comparables).
-    var shapeB = shapeBlock(data.shape || null, ctxCard, received.length, series.length);
+    var shapeB = shapeBlock(data.shape || null, ctxCard, received.length, series.length, received.length ? received[0].date : null);
     if (open) return head + dispoBlock(cm, true) + q1 + shapeB + moveForm + bicRef + lineageB + sources;
     return head + q1 + shapeB + dispoBlock(cm, false) + q4 + q3 + lineageB + bicRef + sources;
   }

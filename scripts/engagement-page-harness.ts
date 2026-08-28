@@ -91,6 +91,11 @@ async function payload(id: string): Promise<any> {
     ok("« Achats ou panier ? » présent", out.includes("Achats ou panier"));
     ok("contexte externe rendu dans la lecture", out.includes("Contexte externe"));
     ok("chip « observé » sur le contexte (proto validé)", out.includes("observé"));
+    // Français de machine (owner 28/08) : ni pluriel entre parenthèses dans une phrase, ni
+    // statistique météo orpheline quand l'opération n'a pas connu de jour perturbé.
+    ok("aucun pluriel « (s) » dans une phrase de contexte", !/(événement|jour|journée)\(s\)/.test(out));
+    ok("météo mesurée seulement si l'opération a eu un jour perturbé",
+      !out.includes("contre") || !/Ces jours-là, vous faites/.test(out) || /journée[s]? de temps perturbé/.test(out));
     // Le proto ne portait PAS de jauge demi-cercle : la page ne doit pas en réintroduire une,
     // et le KPI ne prend une réglette que s'il dit autre chose que les barres jour.
     ok("aucune jauge demi-cercle (retirée le 28/08)", !/viewBox="0 0 320 160"/.test(out));

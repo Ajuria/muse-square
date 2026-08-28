@@ -91,6 +91,31 @@ notifications ENTIÈREMENT arbitré par l'owner selon l'étape du cycle de la ca
 | États d'accès app d'un membre (fiche Destinataires) | **aucun · en attente · actif** (neutres — proposés au build, veto owner possible) | Connectée/Invitée (genre inconnaissable) |
 | L'email d'invitation | copie owner 28/08 VERBATIM au foyer `slackMessagesFr.invitationEmailFr` (élision de/d', « intrapreneuriat » normalisé) | |
 
+## Les tournures de machine (owner 28/08) — GARDE-FOU MÉCANIQUE
+
+Verdict owner du 28/08 : « le langage est toujours celui d'une llm qui parle mal le
+français… ce problème est récurrent ! C'est sans fin ». Six chaînes refusées le même jour,
+aucune ne contenant de mot banni — parce que la faute n'est pas un MOT, c'est une
+CONSTRUCTION, et toujours la même : **la phrase parle de la page ou du calcul au lieu de
+parler du commerce.**
+
+| Refusé (28/08) | Ce qui cloche | Écrit maintenant |
+|---|---|---|
+| « le niveau se lit en haut, ici se lit ce qui a bougé » | la page explique sa propre mise en page | « 1 jour mesuré sur 7. » |
+| « Comparaison à vos 4 mêmes jours de semaine précédents » | tournure qui n'existe pas en français | « Comparé à vos 4 derniers jeudis. » |
+| « La tranche 9 h–10 h prend plus de place » | euphémisme au lieu du fait | « Votre meilleur créneau : 9 h–10 h » |
+| « Les écarts se compensent : c'est la part de chaque famille qui bouge » | narration de calcul | « Vos 9 familles, de la plus forte hausse à la plus forte baisse. » |
+| « 403 achats, contre 467 pour ce résultat habituel » | référentiel collé au mauvais endroit | « 403 achats au lieu de 467 » |
+| « Les deux se compensent : c'est ce qui tient l'écart du jour à +39 € » | démonstration mathématique | « …, mais un panier de 5,57 € au lieu de 4,71 €. » |
+| « 1 événement(s) · 4 j de vacances » | pluriel entre parenthèses, abréviation | « 1 événement à proximité · 4 jours de vacances scolaires » |
+| « Vos jours frais : 1 166 € vs 1 346 € » posé sans lien avec la journée | statistique orpheline (« énigme ») | ne s'affiche QUE si l'opération a connu un jour perturbé |
+
+**Ces tournures sont désormais MÉCANIQUES** : `src/lib/fr/tournures.fr.ts` les porte avec
+la phrase refusée qui les a fait naître, et `tournures.fr.guard.test.ts` échoue si l'une
+d'elles réapparaît dans une chaîne visible. Les règles 8-13 ci-dessous restent à la
+relecture ; celles-ci n'y sont plus. **Ajouter une ligne à la table est le geste normal
+quand l'owner refuse une phrase** ; en retirer une demande son accord.
+
 ## Règles de rédaction (héritées des décisions owner)
 
 1. **CTA = un verbe + flèche (≤ 14 caractères)** — l'objet vit dans le titre de la rangée.

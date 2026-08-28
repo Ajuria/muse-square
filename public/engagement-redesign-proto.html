@@ -253,16 +253,16 @@
     var mornShift = Math.round(mornDay - mornHab*(dayTot/habTot));
 
     h += '<div class="sec"><div class="uc">Comprendre le résultat</div>';
-    h += '<div class="facts" style="margin:0 0 12px;">1/7 jours mesurés — lecture du jeudi 27/08. Journée dans votre résultat habituel (+1,8 %) : le niveau ne bouge pas, la forme de la journée bouge.</div>';
+    h += '<div class="facts" style="margin:0 0 12px;">1 jour mesuré sur 7 — jeudi 27/08. Comparé à vos 4 derniers jeudis.</div>';
 
     h += '<div class="comp-card"><div class="cc-title">Quels moments</div>';
-    h += '<div class="cc-lead">La matinée prend plus de place : '+mornSharePct+' % du CA avant 11 h, contre '+mornShareHabPct+' % vos 4 derniers jeudis.</div>';
-    h += '<div class="cc-body">Soit +'+frInt(mornShift)+' € déplacés vers le matin — l’après-midi en fait autant de moins.</div>';
+    h += '<div class="cc-lead">Votre meilleur créneau : avant 11 h, '+mornSharePct+' % du chiffre du jour contre '+mornShareHabPct+' % d’habitude.</div>';
+    h += '<div class="cc-body">'+frInt(mornShift)+' € de plus que d’habitude le matin, autant en moins l’après-midi.</div>';
     h += '<div style="margin-top:10px;">'+hourlyChart(o.hourly)+'</div>';
     h += '<div class="chart-note">Barres : CA du jeudi 27/08 par heure · trait : la même journée répartie comme vos 4 derniers jeudis.</div></div>';
 
     h += '<div class="comp-card"><div class="cc-title">Performance des produits vendus</div>';
-    h += '<div class="chart-note" style="margin:0 0 8px;">Les 9 familles de votre caisse. Les écarts se compensent : c’est la part de chaque famille dans la journée qui bouge.</div>';
+    h += '<div class="chart-note" style="margin:0 0 8px;">Vos 9 familles, de la plus forte hausse à la plus forte baisse.</div>';
     var famScale = famDayTot/famHabTot;
     var famRows = o.famsAll.map(function(f){
       return { f:f.f, rev:f.rev, ref:Math.round(f.hab*famScale), d:Math.round(f.rev - f.hab*famScale) };
