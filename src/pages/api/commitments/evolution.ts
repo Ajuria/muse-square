@@ -15,7 +15,7 @@ import { buildPoleReading } from "../../../lib/poleReading";
 import { commitmentEffect } from "../../../lib/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
 import { buildWindowShape } from "../../../lib/commitmentShape";
-import { getBestInClassPlays, leverForActionType, leverForWeakFactor } from "../../../lib/bestInClassStore";
+import { getBestInClassPlays, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClassStore";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -375,7 +375,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
         const levier = leverForWeakFactor(_shapePourLevier?.weak_factor)
           ?? leverForActionType(snap.origin_action_type, snap.origin_driver);
         // All intents (pivot/reinforce/scale) — card-kit filters to the one that fits the verdict.
-        best_in_class = await getBestInClassPlays(bq, industry, levier, { limit: 9 });
+        const _tousLesCas = await getBestInClassPlays(bq, industry, levier, { limit: 9 });
+        // RATTACHEMENT AU SUJET (owner 28/08 : « complètement déconnectés du dispositif de
+        // l'utilisateur ») : un cas ne sort que s'il partage assez de mots de fond avec CE
+        // dispositif, et deux cas qui disent le même geste ne sortent jamais ensemble.
+        // Rien au-dessus du plancher → section vide, jamais un cas hors sujet.
+        best_in_class = playsRattachesAuSujet(_tousLesCas, {
+          texte: [snap.committed_action_text, (snap as any).dispositif_why, (snap as any).dispositif_plus]
+            .filter(Boolean).join(" . "),
+        });
       }
     } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
 

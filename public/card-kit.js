@@ -1590,8 +1590,10 @@
     var bicRef = '';
     if (_refIntent) {
       var _bicBody = _bicBlock(_refIntent);
+      // Aucun cas rattaché au sujet -> la section ne s'affiche PAS (owner 28/08). L'ancien
+      // encart « bientôt » promettait des cas à venir : ils existent, ils ne parlent
+      // simplement pas de ce dispositif. Une promesse fausse vaut moins que rien.
       if (_bicBody) bicRef = '<div class="eg-sec">' + _bicBody + '</div>';
-      else if (_under) bicRef = '<div class="eg-sec"><div style="background:#fff;border:1px dashed #d7ddea;padding:12px 16px;opacity:.85;font-size:13px;color:#6b7280;">' + esc(t('diag_bic_title')) + ' <span style="font-size:11px;color:#374151;">— ' + esc(t('diag_soon')) + '</span></div></div>';
     }
 
     var srcRows = [t('src_caisse'), t('src_learning', { days: prov.history_days || 0 }), t('src_weather'), t('src_events'), t('src_tourism')];

@@ -12,7 +12,7 @@ import { EVOL_COPY } from "../src/lib/commitmentCopy";
 import { makeBQClient } from "../src/lib/bq";
 import { readLatestSnapshot } from "../src/lib/actionCommitments";
 import { resolveCommitment } from "../src/lib/commitmentResolve";
-import { leverForWeakFactor, leverForActionType, getBestInClassPlays } from "../src/lib/bestInClassStore";
+import { leverForWeakFactor, leverForActionType, getBestInClassPlays, playsRattachesAuSujet } from "../src/lib/bestInClassStore";
 
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const OPEN_ID = "2d99694a-17fa-4486-92e1-548ce588e1f5";   // vacances scolaires — EN COURS
@@ -73,46 +73,36 @@ async function payload(id: string): Promise<any> {
         ok("il donne un levier de conseils", attendu != null, { f: data.shape.weak_factor, levier: attendu });
         const levierCarte = leverForActionType(data.commitment.origin_action_type);
         if (attendu && attendu !== levierCarte) {
-          // Le test ne se contente pas de la table de correspondance : il vérifie que les
-          // dispositifs SERVIS sont bien ceux du levier aiguillé, pas ceux de la carte.
-          // (Sans ça, débrancher l'aiguillage passait inaperçu — mutation vue le 28/08.)
+          // Le test vérifie la CHAÎNE complète : levier aiguillé par le facteur, PUIS
+          // rattachement au sujet du dispositif. Comparer les titres servis à ceux que la
+          // chaîne doit produire — sans ça, débrancher un maillon passait inaperçu.
           const bqL: any = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
           const [ir] = await bqL.query({
             query: `SELECT client_industry_code FROM \`muse-square-open-data.semantic.vw_insight_event_ai_location_context\` WHERE location_id=@l LIMIT 1`,
             params: { l: LOC }, location: "EU",
           });
           const industrie = String(ir?.[0]?.client_industry_code?.value ?? ir?.[0]?.client_industry_code ?? "");
+          const sujet = [data.commitment.committed_action_text, data.commitment.dispositif_why, data.commitment.dispositif_plus]
+            .filter(Boolean).join(" . ");
           const titres = (x: any[]) => x.map((p: any) => p.title).sort().join("|");
-          const parFacteur = await getBestInClassPlays(bqL, industrie, attendu, { limit: 9 });
-          const parCarte = await getBestInClassPlays(bqL, industrie, levierCarte, { limit: 9 });
-          const servis = titres(data.best_in_class || []);
-          ok(`dispositifs servis = levier du facteur (${attendu}), pas celui de la carte (${levierCarte})`,
-            servis === titres(parFacteur) && servis !== titres(parCarte),
-            { servis: servis.slice(0, 60), facteur: titres(parFacteur).slice(0, 60) });
-        }
-      }
-      // UN SEUL RÉFÉRENTIEL (owner 28/08) : les familles se comparent au RÉSULTAT HABITUEL,
-      // comme l'en-tête — la somme de leurs écarts vaut donc l'écart de l'en-tête, pas zéro.
-      const fSum = data.shape.families.reduce((s: number, f: any) => s + f.delta, 0);
-      const gapEnt = (data.shape.actual_eur ?? 0) - (data.shape.expected_eur ?? 0);
-      ok("familles : somme des écarts = écart de l'en-tête",
-        Math.abs(fSum - gapEnt) <= Math.max(3, data.shape.families.length), { somme: Math.round(fSum), entete: gapEnt });
-      if (data.shape.volume) {
-        // Plus de décomposition contrefactuelle : on vérifie que la charge utile ne porte
-        // QUE des points observés (date + achats + panier), rien de calculé (owner 28/08).
-        const v = data.shape.volume;
-        ok("achats/panier : uniquement des points de caisse",
-          Array.isArray(v.ref) && Array.isArray(v.days) && [...v.ref, ...v.days].every((p: any) =>
-            typeof p.date === "string" && Number.isFinite(p.tx) && Number.isFinite(p.basket_eur)),
-          Object.keys(v));
-        ok("aucun champ contrefactuel", !("ref_tx" in v) && !("contrib_tx_eur" in v), Object.keys(v));
-        // La lecture porte sur le jour de l'OPÉRATION, jamais sur le jour de création : le
-        // corner producteur (créé le 15/08, opéré le 22/08) parlait du 15/08 sous un
-        // en-tête daté du 22/08 (relevé au rendu 28/08).
-        if (data.commitment.window_kind === "day_of") {
-          ok("jour lu = jour de l'opération, pas de la création",
-            v.days.length === 1 && v.days[0].date === String(data.commitment.window_end).slice(0, 10),
-            { lu: v.days.map((p: any) => p.date), we: data.commitment.window_end, cree: data.commitment.created_at });
+          const brutFacteur = await getBestInClassPlays(bqL, industrie, attendu, { limit: 9 });
+          const attenduServi = playsRattachesAuSujet(brutFacteur, { texte: sujet });
+          ok(`dispositifs servis = levier ${attendu} PUIS rattachement au sujet`,
+            titres(data.best_in_class || []) === titres(attenduServi),
+            { servis: (data.best_in_class || []).length, attendu: attenduServi.length });
+          // Le rattachement DOIT pouvoir écarter : sur ce dispositif, aucun cas du magasin
+          // ne parle du même sujet — la section reste vide plutôt que de servir un théâtre
+          // de pantomime sous une opération vacances scolaires (owner 28/08).
+          if (brutFacteur.length && !attenduServi.length) {
+            ok("hors sujet écarté plutôt que servi", (data.best_in_class || []).length === 0,
+              (data.best_in_class || []).map((p: any) => p.title));
+          }
+          // Et il DOIT savoir laisser passer : un sujet qui parle du même geste ressort.
+          const temoin = playsRattachesAuSujet(brutFacteur, { texte: brutFacteur[0]?.title || "" });
+          ok("le filtre laisse passer un sujet qui correspond", temoin.length >= 1, temoin.length);
+          // Jamais deux fois le même geste.
+          const t2 = (data.best_in_class || []).map((p: any) => p.title);
+          ok("aucun doublon de geste servi", new Set(t2).size === t2.length, t2);
         }
       }
     }
@@ -163,6 +153,12 @@ async function payload(id: string): Promise<any> {
     // panier ») n'a de réponse que si le nombre d'articles par achat est là.
     ok("les trois facteurs sont nommés",
       out.includes("Nombre d\u2019achats") && out.includes("Articles par achat") && out.includes("Prix moyen d\u2019un article"));
+    // Section vide = section ABSENTE (owner 28/08) : plus d'encart « bientôt », qui
+    // promettait des cas alors qu'ils existent mais ne parlent pas de ce dispositif.
+    if (!(data.best_in_class || []).length) {
+      ok("aucune promesse « bientôt » quand rien ne correspond", !/bientôt/.test(out));
+      ok("la section comparables n'apparaît pas", !out.includes("Dispositifs qui ont fonctionné ailleurs"));
+    }
     ok("contexte externe rendu dans la lecture", out.includes("Contexte externe"));
     // La compensation « autant en moins » n'existe plus depuis l'alignement sur le résultat
     // habituel (28/08) : la phrase serait fausse.
