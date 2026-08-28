@@ -76,6 +76,10 @@ const ACTION_LEVER: Record<string, Lever> = {
   // C1 (27/08, test levier instruit — rouge depuis le 07/08) : relancer un client dormant
   // est un geste de fidélisation, pas de conversion.
   client_dormant: "fidelisation",
+  // Chat (28/08) : rejeu d'un prouvé et idée soumise — le levier RÉEL varie par idée/dispositif ;
+  // conversion assumée (même précédent que weekly_briefing), le vrai levier vit sur le dispositif.
+  chat_journal_replay: "conversion",
+  chat_idea_test: "conversion",
   competitor_content_spike: "fidelisation",
   competitor_content_silent: "fidelisation",
   sales_competition_cannibalization: "fidelisation",

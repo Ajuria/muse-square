@@ -41,6 +41,7 @@ import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
 import { loadSiteEntities, matchEntities } from "../../../lib/entityResolver";
 import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
 import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, readEntityWhy, readKpiPeriod } from "../../../lib/entityReading";
+import { readIdeaPlacement } from "../../../lib/ideaPlacement";
 import { planPeriod, buildPlanBlocks, buildPlanWhyBlocks } from "../../../lib/planPeriod";
 import { journalPlan } from "../../../lib/journalPlan";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
@@ -2544,6 +2545,24 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           );
         }
       }
+    }
+
+    // ── L'IDÉE SOUMISE (28/08, owner go — roadmap v1) : l'utilisateur propose une idée ;
+    // le résolveur l'a comprise (levier + condition visée), le composeur la PLACE (fenêtres
+    // réelles), l'entoure d'analogues MESURÉS (ses prouvés du levier, références web) et la
+    // cadre en MISE EN TEST — le CTA reprend SES MOTS (qRaw), jamais une reformulation.
+    if (_rsv?.intent === "idee" && _rsv.idee) {
+      const _bqi = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _idB = await readIdeaPlacement(_bqi, location_id, _rsv.idee, new Date().toISOString().slice(0, 10));
+      const _idPrimary = {
+        type: "commit_prefill", label: "M'engager",
+        prefill: { committed_action_text: qRaw.trim().slice(0, 200), window_kind: "day_of" },
+        origin: { origin_action_type: "chat_idea_test", origin_affected_date: _idB.test_date },
+      };
+      return sysDialogueResponse(
+        _idB.headline, "", "deterministic_idee_v1", _idPrimary,
+        { plan_sections: _idB.sections, sources_list: _idB.sources },
+      );
     }
 
     // ── LE KPI PILOTE LES LECTURES (28/08, owner go) — « mon panier moyen en juillet » :

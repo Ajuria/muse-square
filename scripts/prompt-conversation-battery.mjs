@@ -178,5 +178,31 @@ await dialogue("KPI sans entité, puis comparaison demandée", [
   } },
 ]);
 
+// D10 — L'IDÉE SOUMISE : placement + analogues + mise en test, puis la condition se conteste.
+await dialogue("Idée soumise, puis changement de condition", [
+  { q: "et si je faisais une dégustation gratuite les jours de pluie ?", expect: {
+    "producer = idee": ({ producer }) => producer === "deterministic_idee_v1",
+    "cadre : intent idee, condition rain": ({ frame }) => frame?.intent === "idee" && frame?.idee?.condition === "rain",
+    "placement réel : jours/mesure de pluie OU absence dite": ({ j }) => {
+      const secs = j?.ai?.output?.plan_sections ?? [];
+      const place = secs.find((s2) => s2.title === "Où la placer");
+      return !!place && place.facts.some((f) => /pluie/.test(f));
+    },
+    "la mise en test cadre le geste": ({ j }) => {
+      const secs = j?.ai?.output?.plan_sections ?? [];
+      return secs.some((s2) => s2.title === "Mettre en test") ;
+    },
+    "le CTA M'engager porte les mots de l'utilisateur": ({ j }) => {
+      const p2 = j?.actions?.primary;
+      return p2?.type === "commit_prefill" && /dégustation gratuite/.test(String(p2?.prefill?.committed_action_text || ""))
+        && p2?.origin?.origin_action_type === "chat_idea_test";
+    },
+  } },
+  { q: "et plutôt les jours de canicule ?", expect: {
+    "producer = idee (suite)": ({ producer }) => producer === "deterministic_idee_v1",
+    "condition remplacée : heat": ({ frame }) => frame?.idee?.condition === "heat",
+  } },
+]);
+
 console.log(`\n${fails === 0 ? "BATTERIE VERTE" : fails + " ÉCHEC(S)"}`);
 process.exit(fails ? 1 : 0);

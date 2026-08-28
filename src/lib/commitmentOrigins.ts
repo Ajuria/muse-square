@@ -142,6 +142,14 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   // Onboarding P2 (05/08) : le PREMIER test mesuré d'un compte neuf — geste du tableau
   // « Engagez votre premier test mesuré » (MSCommitForm, fenêtre à venir, verdict auto).
   "onboarding_first_test",
+
+  // Chat Explorer (28/08) : le REJEU d'un dispositif prouvé proposé par le journal/plan —
+  // l'origine manquait au registre depuis sa création : le POST refusait le CTA en 400
+  // (attrapé en câblant l'idée soumise, jamais tiré en prod).
+  "chat_journal_replay",
+  // Idée SOUMISE par l'utilisateur au chat (28/08, branche idée) : l'idée devient une mise
+  // en test mesurée — le texte de l'engagement est celui de l'utilisateur, jamais reformulé.
+  "chat_idea_test",
 ]);
 
 export function isCommitmentOrigin(actionType: unknown): boolean {

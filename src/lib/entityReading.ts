@@ -381,7 +381,7 @@ export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlo
 // moteur nouveau : le comparatif est une MISE EN TABLE de lectures unitaires — cellules nues,
 // « — » sous les planchers, aucun verdict fabriqué entre entités. Le seul chiffre composé est
 // l'écart €/jour d'UNE entité CA entre SES deux périodes (division de sommes mesurées).
-export interface CompareSection { title: string; table?: { cols: any[]; rows: any[] }; facts?: string[] }
+export interface CompareSection { title: string; table?: { cols: any[]; rows: any[] }; facts?: string[]; register?: "web" }
 export interface EntityCompareBlocks { headline: string; sections: CompareSection[]; sources: string[] }
 
 export async function readEntitiesCompared(
