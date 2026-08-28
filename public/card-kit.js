@@ -1222,64 +1222,34 @@
       if (k.goal != null) return k.realized >= k.goal ? '#059669' : '#B45309';
       return '#059669';
     }
-    function kGauge(k) {
+    // Échelle KPI — LA forme du proto validé (28/08) : une réglette, trois repères (réalisé,
+    // habituel, cible). Remplace la jauge demi-cercle + la frise de points du 15/08, qui
+    // faisaient deux visuels de plus au-dessus des barres jour pour dire la même chose
+    // (« tu recompliques les choses », owner 28/08). Rendue SEULEMENT quand le KPI déclaré
+    // n'est pas le CA : sur une opération en CA, les barres jour le disent déjà.
+    function kScale(k) {
+      if (k.realized == null && k.goal == null) return '';
       var col = kBand(k);
-      var mx = Math.max(k.goal || 0, k.realized || 0, k.baseline || 0) * 1.12 || 1;
-      function ang(v) { return Math.PI * (1 - Math.max(0, Math.min(1, v / mx))); }
-      function gx(a2, r) { return (160 + r * Math.cos(a2)).toFixed(1); }
-      function gy(a2, r) { return (150 - r * Math.sin(a2)).toFixed(1); }
-      var R = 106, g = '<path d="M 54 150 A 106 106 0 0 1 266 150" fill="none" stroke="#F3F4F6" stroke-width="20" stroke-linecap="round"/>';
-      if (k.realized != null && k.realized > 0) g += '<path d="M 54 150 A 106 106 0 0 1 ' + gx(ang(k.realized), R) + ' ' + gy(ang(k.realized), R) + '" fill="none" stroke="' + col + '" stroke-width="20" stroke-linecap="round"/>';
-      if (k.baseline != null) {
-        var aB = ang(k.baseline);
-        g += '<line x1="' + gx(aB, R - 13) + '" y1="' + gy(aB, R - 13) + '" x2="' + gx(aB, R + 13) + '" y2="' + gy(aB, R + 13) + '" stroke="#9CA3AF" stroke-width="2"/>'
-          + '<text x="' + gx(aB, R + 24) + '" y="' + gy(aB, R + 24) + '" font-size="9" fill="#9CA3AF" text-anchor="middle">habituel</text>';
-      }
-      if (k.goal != null) {
-        var aG = ang(k.goal);
-        g += '<line x1="' + gx(aG, R - 14) + '" y1="' + gy(aG, R - 14) + '" x2="' + gx(aG, R + 14) + '" y2="' + gy(aG, R + 14) + '" stroke="#1D3BB3" stroke-width="3"/>'
-          + '<text x="' + gx(aG, R + 26) + '" y="' + gy(aG, R + 26) + '" font-size="9.5" font-weight="650" fill="#1D3BB3" text-anchor="middle">objectif</text>';
-      }
-      var center, subCtr;
-      if (k.realized == null) {
-        center = '<text x="160" y="116" font-size="21" font-weight="700" fill="#9CA3AF" text-anchor="middle">\u2014</text>';
-        subCtr = k.goal != null ? 'cible ' + kFmt(k.goal, k.metric) : 'mesure \u00e0 venir';
-      } else {
-        center = '<text x="160" y="116" font-size="22" font-weight="700" fill="' + col + '" text-anchor="middle" style="font-variant-numeric:tabular-nums;">' + esc(kFmt(k.realized, k.metric)) + '</text>';
-        if (k.goal != null) {
-          var dlt = k.realized - k.goal;
-          var dv = Math.abs(k.metric === 'conversion' ? dlt * 100 : dlt);
-          subCtr = (dlt >= 0 ? '+' : '\u2212') + dv.toLocaleString('fr-FR', { maximumFractionDigits: dv < 10 ? 1 : 0 })
-            + (k.metric === 'conversion' ? ' pt' : (k.metric === 'transactions' || k.metric === 'footfall') ? '' : ' \u20ac')
-            + (dlt >= 0 ? ' au-dessus de' : ' sous') + ' l\u2019objectif';
-        } else { subCtr = 'sans objectif d\u00e9clar\u00e9 (ancien format)'; }
-      }
-      var famLbl = k.metric === 'family_revenue' && k.family ? 'CA famille \u00ab ' + k.family + ' \u00bb \u00b7 \u20ac par jour' : k.label_fr;
-      return '<svg viewBox="0 0 320 160" style="width:290px;height:auto;flex:none;">' + g + center
-        + '<text x="160" y="134" font-size="10.5" fill="#374151" text-anchor="middle">' + esc(subCtr) + '</text>'
-        + '<text x="160" y="150" font-size="9.5" fill="#9ca3af" text-anchor="middle">' + esc(famLbl) + '</text></svg>';
-    }
-    function kDots(k) {
-      var col = kBand(k);
-      var pts = k.day_of ? (k.peers || []) : (k.daily || []);
-      if (!pts.length) return '';
-      function jourFr2(iso) { return ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][new Date(iso + 'T00:00:00Z').getUTCDay()]; }
-      var cap = k.day_of
-        ? 'vos ' + pts.length + ' derniers ' + jourFr2(k.daily && k.daily.length ? k.daily[0].date : (k.peers[k.peers.length - 1] || {}).date || '') + 's \u00b7 gros point = le jour mesur\u00e9'
-        : 'les ' + pts.length + ' journ\u00e9es de l\u2019op\u00e9ration \u00b7 la jauge = leur moyenne';
-      var vals = pts.map(function (p2) { return p2.v; });
-      if (k.realized != null && k.day_of) vals.push(k.realized);
-      if (k.goal != null) vals.push(k.goal);
-      if (k.baseline != null) vals.push(k.baseline);
-      var mn = Math.min.apply(null, vals), mxv = Math.max.apply(null, vals);
-      var span = (mxv - mn) || 1; mn -= span * 0.07; mxv += span * 0.07; span = mxv - mn;
-      function X(v) { return (16 + (v - mn) / span * 388).toFixed(1); }
-      var g = '<line x1="12" y1="26" x2="408" y2="26" stroke="#E5E7EB" stroke-width="2"/>';
-      pts.forEach(function (p2) { g += '<circle cx="' + X(p2.v) + '" cy="26" r="3.4" fill="#D1D5DB"><title>' + esc(msDateFr(p2.date) + ' \u00b7 ' + kFmt(p2.v, k.metric)) + '</title></circle>'; });
-      if (k.baseline != null) g += '<line x1="' + X(k.baseline) + '" y1="16" x2="' + X(k.baseline) + '" y2="36" stroke="#9CA3AF" stroke-width="1.6"/><text x="' + X(k.baseline) + '" y="10" font-size="8.5" fill="#9CA3AF" text-anchor="middle">habituel</text>';
-      if (k.goal != null) g += '<line x1="' + X(k.goal) + '" y1="14" x2="' + X(k.goal) + '" y2="38" stroke="#1D3BB3" stroke-width="2.4"/><text x="' + X(k.goal) + '" y="50" font-size="9" font-weight="650" fill="#1D3BB3" text-anchor="middle">objectif</text>';
-      if (k.realized != null && k.day_of) g += '<circle cx="' + X(k.realized) + '" cy="26" r="6.5" fill="' + col + '"><title>' + esc('le jour mesur\u00e9 \u00b7 ' + kFmt(k.realized, k.metric)) + '</title></circle>';
-      return '<div style="flex:1;min-width:280px;"><svg viewBox="0 0 420 54" style="width:100%;height:auto;">' + g + '</svg><div style="font-size:10.5px;color:#9CA3AF;margin-top:4px;">' + esc(cap) + '</div></div>';
+      var mx = Math.max(k.goal || 0, k.realized || 0, k.baseline || 0) * 1.15 || 1;
+      var pos = function (v) { return Math.max(0, Math.min(100, (v / mx) * 100)); };
+      var lab = function (v, txt, color, below) {
+        return '<div style="position:absolute;left:' + pos(v).toFixed(1) + '%;transform:translateX(-50%);'
+          + (below ? 'top:18px;' : 'bottom:18px;') + 'white-space:nowrap;font-size:11px;color:' + color + ';">' + esc(txt) + '</div>';
+      };
+      var mark = function (v, color) {
+        return '<div style="position:absolute;left:' + pos(v).toFixed(1) + '%;top:-4px;height:20px;width:2px;background:' + color + ';"></div>';
+      };
+      var famLbl2 = k.metric === 'family_revenue' && k.family ? 'CA famille « ' + k.family + ' »' : k.label_fr;
+      return '<div style="margin:30px 0 34px;">'
+        + '<div style="position:relative;height:12px;background:#f0f2f5;border-radius:6px;">'
+          + (k.realized != null ? '<div style="position:absolute;left:0;top:0;height:12px;width:' + pos(k.realized).toFixed(1) + '%;background:' + col + ';border-radius:6px 0 0 6px;"></div>' : '')
+          + (k.baseline != null ? mark(k.baseline, '#111827') : '')
+          + (k.goal != null ? mark(k.goal, '#1D3BB3') : '')
+          + (k.realized != null ? lab(k.realized, kFmt(k.realized, k.metric) + ' réalisé', col, true) : '')
+          + (k.baseline != null ? lab(k.baseline, 'habituel ' + kFmt(k.baseline, k.metric), '#6b7280', false) : '')
+          + (k.goal != null ? lab(k.goal, 'cible ' + kFmt(k.goal, k.metric), '#1D3BB3', false) : '')
+        + '</div>'
+        + '<div style="font-size:11px;color:#9ca3af;margin-top:22px;">' + esc(famLbl2) + '</div></div>';
     }
     function kpiChart(k) {
       var pts = k.daily || [];
@@ -1314,9 +1284,9 @@
         + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="5,4"/></svg>habituel</span>'
         + (k.goal != null ? '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="3,4"/></svg>objectif</span>' : '') + '</div>';
     }
-    var kBlock = _kpiActive
-      ? '<div style="display:flex;gap:26px;align-items:center;flex-wrap:wrap;margin-top:14px;">' + kGauge(K) + kDots(K) + '</div>'
-      : '';
+    // Le KPI ne prend une place visuelle QUE s'il dit autre chose que les barres jour :
+    // sur une opération mesurée en CA, la réglette répéterait la courbe (owner 28/08).
+    var kBlock = (_kpiActive && K.metric !== 'revenue_residual') ? kScale(K) : '';
 
     // La jauge remplace la barre % (même travail, bon référentiel) — la barre reste le repli
     // quand le bloc KPI est absent. Courbe : non-K1 multi-jours → unité KPI ; K1 → courbe CA

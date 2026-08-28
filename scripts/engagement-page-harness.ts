@@ -84,6 +84,16 @@ async function payload(id: string): Promise<any> {
     ok("« Achats ou panier ? » présent", out.includes("Achats ou panier"));
     ok("contexte externe rendu dans la lecture", out.includes("Contexte externe"));
     ok("chip « observé » sur le contexte (proto validé)", out.includes("observé"));
+    // Le proto ne portait PAS de jauge demi-cercle : la page ne doit pas en réintroduire une,
+    // et le KPI ne prend une réglette que s'il dit autre chose que les barres jour.
+    ok("aucune jauge demi-cercle (retirée le 28/08)", !/viewBox="0 0 320 160"/.test(out));
+    ok("aucune frise de points KPI", !/la jauge = leur moyenne|gros point = le jour mesuré/.test(out));
+    ok(data.commitment.measured_metric === "revenue_residual"
+        ? "opération en CA : pas de réglette KPI (les barres le disent)"
+        : "opération à KPI déclaré : réglette rendue",
+      (function () { var hasScale = out.includes("height:12px;background:#f0f2f5;border-radius:6px");
+        return data.commitment.measured_metric === "revenue_residual" ? !hasScale : hasScale; })(),
+      data.commitment.measured_metric);
     // L'ÉTAT se lit dès l'en-tête — c'est ce qui rend les deux pages distinguables.
     ok(c.open ? "chip « En cours · verdict d'ici le … »" : "chip « Terminée · … »",
       out.includes(c.open ? "En cours · verdict d\u2019ici le" : "Terminée ·"),
