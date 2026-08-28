@@ -83,6 +83,15 @@ async function payload(id: string): Promise<any> {
     ok("« Performance des produits vendus » présente", out.includes("Performance des produits vendus"));
     ok("« Achats ou panier ? » présent", out.includes("Achats ou panier"));
     ok("contexte externe rendu dans la lecture", out.includes("Contexte externe"));
+    ok("chip « observé » sur le contexte (proto validé)", out.includes("observé"));
+    // L'ÉTAT se lit dès l'en-tête — c'est ce qui rend les deux pages distinguables.
+    ok(c.open ? "chip « En cours · verdict d'ici le … »" : "chip « Terminée · … »",
+      out.includes(c.open ? "En cours · verdict d\u2019ici le" : "Terminée ·"),
+      out.slice(out.indexOf("border-radius:999px"), out.indexOf("border-radius:999px") + 160));
+    // La date du chip est celle de l'OPÉRATION, pas celle du cron (resolved_at = lendemain).
+    if (!c.open) ok("chip terminé daté de l'opération, pas de la résolution",
+      out.includes("Terminée · " + String(data.commitment.window_end).slice(8, 10) + "/" + String(data.commitment.window_end).slice(5, 7)),
+      { we: data.commitment.window_end, ra: data.commitment.resolved_at });
     ok("mots bannis absents (l'attendu / la normale)", !/l’attendu|l'attendu/.test(out));
     ok("jours d'axe en toutes lettres (règle 6)", !/>\s*(lun|mar|mer|jeu|ven|sam|dim)\s\d{2}\//.test(out));
 

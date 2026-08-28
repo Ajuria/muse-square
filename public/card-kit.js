@@ -837,7 +837,12 @@
     // compensent) ; achats/panier se décompose CONTRE le résultat habituel et somme
     // exactement à son écart (server: commitmentShape). Aucun chiffre n'est recalculé ici.
     function shapeBlock(shape, ctxHtml, received, total) {
-      if (!shape) return ctxHtml ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('shape_title')) + '</div>' + ctxHtml + '</div>' : '';
+      if (!shape) {
+        // Aucune journée mesurée (J1) : la section s'annonce, elle ne s'efface pas — une
+        // section vide laisserait croire que la page n'a rien à dire (règle 7 du lexique).
+        var empty = received ? ctxHtml : '<div style="font-size:13px;color:#6b7280;line-height:1.6;">' + esc(t('shape_none')) + '</div>';
+        return empty ? '<div class="eg-sec"><div class="eg-uc">' + esc(t('shape_title')) + '</div>' + empty + '</div>' : '';
+      }
       var card = 'background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:13px 15px;margin-bottom:10px;';
       var cardTitle = function (txt) { return '<div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;margin-bottom:8px;">' + esc(txt) + '</div>'; };
       var lead = function (txt) { return '<div style="font-size:13.5px;font-weight:600;color:#111827;line-height:1.5;">' + esc(txt) + '</div>'; };
@@ -890,7 +895,13 @@
       }
       h += '</div>';
       // ④ Contexte externe — le même bloc qu'avant, rapatrié ici (il répond à la même question).
-      if (ctxHtml) h += '<div style="' + card + 'margin-bottom:0;">' + cardTitle(t('shape_ctx_title')) + ctxHtml + '</div>';
+      if (ctxHtml) {
+        h += '<div style="' + card + 'margin-bottom:0;">'
+          + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">'
+          + '<span style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6b7280;">' + esc(t('shape_ctx_title')) + '</span>'
+          + '<span style="font-size:10.5px;color:#5f5e5a;background:#f1efe8;padding:2px 7px;border-radius:3px;">' + esc(t('diag_ext_chip_obs')) + '</span></div>'
+          + ctxHtml + '</div>';
+      }
       return h + '</div>';
     }
 
@@ -1022,11 +1033,31 @@
     // première ligne du HEADER du document (13px gris) — pas sur une ligne-label de section.
     var _siteNmHd = String(data.site_name || '');
     var _siteNmHdSpan = _siteNmHd ? '<span style="margin-left:auto;font-size:13px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(_siteNmHd) + '</span>' : '';
-    var head = '<div style="border-bottom:2px solid #1D3BB3;padding-bottom:14px;margin-bottom:22px;">'
+    // L'ÉTAT, dit dès l'en-tête (owner 28/08) : en cours avec sa date de verdict, ou terminée
+    // avec sa date. C'est ce qui rend les deux pages lisibles d'un coup d'œil — et ce qui
+    // explique pourquoi Documenter n'apparaît que sur l'une des deux.
+    var _wEndIso = String(cm.window_end || '').slice(0, 10);
+    var _wStartIso = String(cm.window_start || '').slice(0, 10);
+    var _stateChip = open
+      ? (_wEndIso ? t('state_open', { date: msDateFr(_wEndIso) }) : '')
+      // La date d'une opération terminée est celle de l'OPÉRATION (son dernier jour), jamais
+      // resolved_at : le cron résout au lendemain — le chip datait la machinerie, pas le fait.
+      : t('state_done', { date: msDateFr(_wEndIso || String(cm.resolved_at || '').slice(0, 10)) });
+    var _chipHtml = _stateChip
+      ? '<div style="margin-top:8px;"><span style="display:inline-block;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:999px;' + (open ? 'color:#1D3BB3;background:#e6ecff;' : 'color:#374151;background:#f3f4f6;') + '">' + esc(_stateChip) + '</span></div>'
+      : '';
+    // Les dates de l'opération (mot du lexique) — seulement quand la fenêtre couvre plusieurs
+    // jours : sur un jour même, le chip d'état les dit déjà.
+    var _datesLine = (_wStartIso && _wEndIso && _wStartIso !== _wEndIso)
+      ? '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + esc(t('state_dates', { start: msDateFr(_wStartIso), end: msDateFr(_wEndIso) })) + '</div>'
+      : '';
+    var head = '<div style="border-bottom:2px solid ' + (open ? '#1D3BB3' : '#111827') + ';padding-bottom:14px;margin-bottom:22px;">'
       + '<div style="' + (_siteNmHdSpan ? 'display:flex;align-items:baseline;' : '') + 'font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Engagement' + _siteNmHdSpan + '</div>'
       + '<div style="font-size:21px;font-weight:600;margin-top:5px;line-height:1.3;">' + esc(cm.committed_action_text || '—') + '</div>'
+      + _chipHtml
       + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + sub + '</div>'
       + costLine
+      + _datesLine
       + (_ownerDate ? '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + _ownerDate + '</div>' : '')
       + '</div>';
 
