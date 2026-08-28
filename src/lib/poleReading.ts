@@ -173,12 +173,20 @@ export async function buildPoleReading(
 
 // Les pôles OUVERTS du site — LE foyer de la liste (extrait de create_context le 27/08,
 // consommé par le formulaire, le résolveur d'entités et toute surface à venir).
-export interface PoleListRow { dispositif_id: string; name: string; families: string[] }
+export interface PoleListRow {
+  dispositif_id: string;
+  name: string;
+  families: string[];
+  // Additifs (build Piloter pôles 28/08) — le bloc pôles du tableau a besoin du responsable
+  // et du levier sans re-requêter le journal ; les consommateurs existants les ignorent.
+  lever: string | null;
+  responsable: string | null;
+}
 export async function listPoles(bq: any, location_id: string, limit = 12): Promise<PoleListRow[]> {
   const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
   const rows = await bq.query({
-    query: `SELECT dispositif_id, committed_action_text, pole_families FROM (
-              SELECT dispositif_id, committed_action_text, pole_families, status, verdict,
+    query: `SELECT dispositif_id, committed_action_text, pole_families, owner_person_name FROM (
+              SELECT dispositif_id, committed_action_text, pole_families, owner_person_name, status, verdict,
                      ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC,
                        CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC,
                        (verdict IS NOT NULL) DESC, created_at DESC) AS rn
@@ -191,6 +199,13 @@ export async function listPoles(bq: any, location_id: string, limit = 12): Promi
   return (rows as any[]).map((r) => {
     let fams: string[] = [];
     try { fams = JSON.parse(String(flat(r.pole_families) || "[]")); } catch { /* périmètre illisible */ }
-    return { dispositif_id: String(flat(r.dispositif_id)), name: String(flat(r.committed_action_text) || "").split(" — ")[0], families: fams };
+    const parts = String(flat(r.committed_action_text) || "").split(" — ");
+    return {
+      dispositif_id: String(flat(r.dispositif_id)),
+      name: parts[0],
+      families: fams,
+      lever: parts.slice(1).join(" — ") || null,
+      responsable: r.owner_person_name != null ? String(flat(r.owner_person_name)) || null : null,
+    };
   });
 }

@@ -4,16 +4,30 @@
 // liste blanche EXACTE de clés, filtre pôle sur les engagements ET les occurrences, bandeau
 // sans le moindre champ €, 403 hors périmètre.
 import "dotenv/config";
+import { BigQuery } from "@google-cloud/bigquery";
 import { GET } from "../src/pages/api/insight/dashboard";
 
 const OWNER = "user_38OwkmwUq0Ldj5FwB9AJ8HmziWo"; // copié de la sortie bq (inc 2)
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const OTHER_LOC = "ff2aeb35-084f-4bbf-915c-94faf7be8785"; // possédé owner, PAS membre
-// Engagement ouvert réel (sortie bq 28/08) : dispositif 49a325dd…, saved_item 56f47021… (série Corner)
+// Le périmètre membre du harnais = le dispositif Corner réel (saved_item 56f47021…).
 const POLE_ID = "49a325dd-b06f-4cbc-982f-7ab71af70b12";
-const IN_COMMIT = "610d7c02-abf2-40fe-9c60-4d733b363dcb";
+// INSTRUIT 28/08 : le test POSITIF du filtre tournait sur un id réel (610d7c02…) qui est
+// passé open→pending dans la journée — un id réel d'ENGAGEMENT OUVERT est périssable par
+// nature. Le positif tourne désormais sur une SONDE ouverte rattachée au périmètre
+// (attached_pole_id), insérée et nettoyée ici ; le négatif garde son id réel (stable).
+const IN_COMMIT = "probe-vqd-open";
 const OUT_COMMIT = "2d99694a-17fa-4486-92e1-548ce588e1f5"; // dispositif eb02f192… hors pôles membre
 const SAVED_ITEM = "56f47021-e0c2-42cc-a9ac-f1b04a9742f6";
+const BQP = "muse-square-open-data";
+
+function bqc(): BigQuery {
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  return raw ? new BigQuery({ projectId: BQP, credentials: JSON.parse(raw) }) : new BigQuery({ projectId: BQP });
+}
+async function probeCleanup(bq: BigQuery) {
+  await bq.query({ query: `DELETE FROM \`${BQP}.analytics.action_commitments\` WHERE commitment_id = '${IN_COMMIT}'`, location: "EU" });
+}
 
 function assert(name: string, cond: boolean, detail?: any) {
   console.log((cond ? "✅" : "❌") + " " + name + (detail !== undefined ? " — " + JSON.stringify(detail) : ""));
@@ -29,6 +43,19 @@ async function main() {
   const ownerLocals = { clerk_user_id: OWNER, real_clerk_user_id: OWNER, all_location_ids: [LOC, OTHER_LOC], member_location_ids: [], member_poles: {}, role: "owner" };
   const memberLocals = { clerk_user_id: "user_member_harness", real_clerk_user_id: "user_member_harness", all_location_ids: [], member_location_ids: [LOC], member_poles: { [LOC]: [POLE_ID] }, role: "member" };
 
+  // Sonde du test positif (voir note IN_COMMIT) — ouverte, rattachée au périmètre membre.
+  const bq = bqc();
+  await probeCleanup(bq);
+  await bq.query({
+    query: `INSERT INTO \`${BQP}.analytics.action_commitments\`
+      (commitment_id, user_id, location_id, status, authorship, created_at, updated_at, transition_type,
+       dispositif_id, version_no, attached_pole_id, committed_action_text, measured_metric, window_start, window_end)
+      VALUES ('${IN_COMMIT}', @u, @l, 'open', 'user', TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), MILLISECOND), TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), MILLISECOND), 'create',
+              '${IN_COMMIT}', 1, '${POLE_ID}', 'Probe VQD — op du pôle', 'revenue_residual',
+              DATE_ADD(CURRENT_DATE(), INTERVAL 3 DAY), DATE_ADD(CURRENT_DATE(), INTERVAL 3 DAY))`,
+    params: { u: OWNER, l: LOC }, location: "EU",
+  });
+
   // ── Owner : comportement intact ──
   const own = await call(ownerLocals, "?period=365&location_id=" + LOC);
   assert("owner 200 ok", own.status === 200 && own.body.ok === true);
@@ -42,16 +69,21 @@ async function main() {
   const mem = await call(memberLocals, "?period=365");
   assert("membre 200 ok", mem.status === 200 && mem.body.ok === true && mem.body.role === "member");
   const keys = Object.keys(mem.body).sort();
-  const expected = ["bandeau", "multi_site", "ok", "open_commitments", "operations", "period_days", "role", "sites"].sort();
+  // INSTRUIT 28/08 (build pôles, proto v3 validé) : « poles » entre dans la liste blanche —
+  // rangée 1 KPI pôle (%, unités/jour) + rangée 2 actions en cours du pôle (impact borné).
+  const expected = ["bandeau", "multi_site", "ok", "open_commitments", "operations", "period_days", "poles", "role", "sites"].sort();
   assert("membre clés EXACTES", JSON.stringify(keys) === JSON.stringify(expected), { keys });
-  const raw = JSON.stringify(mem.body);
+  // « impact » est LÉGITIME sous poles[] (cumul borné au pôle, arbitrage 28/08) — le scan
+  // des blocs interdits se fait donc HORS poles, sinon il mord dès qu'un vrai pôle existe.
+  const raw = JSON.stringify({ ...mem.body, poles: null });
   for (const forbidden of ["marges", "ca_daily", "daily_revenue", "impact", "debloquer", "glance", "equipe", "practices"]) {
-    assert("membre payload sans « " + forbidden + " »", !raw.includes('"' + forbidden + '"'));
+    assert("membre payload (hors poles) sans « " + forbidden + " »", !raw.includes('"' + forbidden + '"'));
   }
   // gap_eur est AUTORISÉ sous operations[].prev_occ (bilan d'une opération du pôle =
-  // occasion d'agir, arbitrage 28/08) — interdit partout ailleurs.
-  const rawSansOps = JSON.stringify({ ...mem.body, operations: null });
-  assert("membre gap_eur nulle part hors operations", !rawSansOps.includes('"gap_eur"'));
+  // occasion d'agir, arbitrage 28/08) ET sous poles[].impact (cumul BORNÉ AU PÔLE,
+  // arbitrage owner 28/08 au proto v3) — interdit partout ailleurs.
+  const rawSansOps = JSON.stringify({ ...mem.body, operations: null, poles: null });
+  assert("membre gap_eur nulle part hors operations/poles", !rawSansOps.includes('"gap_eur"'));
 
   // ── Filtre pôle ──
   const ids = (mem.body.open_commitments || []).map((c: any) => c.commitment_id);
@@ -74,7 +106,10 @@ async function main() {
   assert("owner multi-site 200 + blocs", own2.status === 200 && "glance" in own2.body && !("role" in own2.body));
 }
 
-main().then(() => renderPhase()).catch((e) => { console.error("HARNESS FAILED:", e); process.exit(1); });
+main()
+  .then(() => renderPhase())
+  .then(async () => { await probeCleanup(bqc()); console.log("✅ sonde probe-vqd nettoyée"); })
+  .catch(async (e) => { console.error("HARNESS FAILED:", e); try { await probeCleanup(bqc()); } catch { /* nettoyage best-effort */ } process.exit(1); });
 
 // ── Phase 2 : rendu membre — le renderMemberView RÉEL (byte-exact depuis tableau.astro),
 // exécuté sur le payload API réel dans un contexte vm avec DOM minimal. ──
