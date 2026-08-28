@@ -922,8 +922,20 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const mart365 = (outRows as any[]).map((r) => ({ commitment_id: String(str(r.commitment_id)), beat: flat(r.beat) === true, verdict: str(r.verdict), resolved_date: str(r.resolved_date), gap_eur: num(r.gap_eur), location_id: str(r.location_id) }));
     const periodCut = new Date(Date.parse(todayYmd + "T12:00:00Z") - period * 86_400_000).toISOString().slice(0, 10);
     const martAll = mart365.filter((r) => String(r.resolved_date || "") >= periodCut);
-    const martRows = martAll.filter((r) => r.verdict !== "confounded");
-    const confoundedCount = martAll.length - martRows.length;
+    // Les fenêtres jugées de la période viennent du MART quand il les a, du JOURNAL sinon
+    // (owner 28/08, option b) : le mart n'est plus construit depuis le 05/08, et la tuile
+    // « € mesurés » restait donc vide alors que des verdicts tombaient. Le journal porte les
+    // mêmes colonnes et la même règle (verdict rendu, confounded exclu des €).
+    // PRÉALABLE FAIT le 28/08 : les 2 « jour même » mesurés le jour de création ont été
+    // re-résolus (scripts/reresolve-day-of.ts) — la somme porte donc les bonnes journées.
+    const dansMart = new Set(martAll.map((r) => r.commitment_id));
+    const duJournal = coms
+      .filter((c) => c.status === "resolved" && c.verdict && c.commitment_id && !dansMart.has(c.commitment_id)
+        && c.in_period && (c as any).gap_journal != null)
+      .map((c) => ({ commitment_id: c.commitment_id!, verdict: c.verdict, gap_eur: Number((c as any).gap_journal) }));
+    const jugeesPeriode = [...martAll, ...duJournal];
+    const martRows = jugeesPeriode.filter((r) => r.verdict !== "confounded");
+    const confoundedCount = jugeesPeriode.length - martRows.length;
     const gapSum = martRows.length ? martRows.reduce((a, r) => a + (r.gap_eur ?? 0), 0) : null;
     const martGap: Record<string, number | null> = {};
     for (const r of mart365) martGap[r.commitment_id] = r.gap_eur;
