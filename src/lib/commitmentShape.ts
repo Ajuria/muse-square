@@ -2,18 +2,19 @@
 // « Comprendre le résultat » (page Opération, owner 28/08) — la lecture qui manquait :
 // d'où vient l'écart, pour que l'utilisateur puisse pivoter au lieu de subir le verdict.
 //
-// LA RÈGLE DE CONCEPTION, née du défaut relevé par l'owner sur le proto v1 : la page a UN
-// SEUL référentiel de NIVEAU, celui de l'en-tête (expected_revenue du modèle = « votre
-// résultat habituel »). Une carte qui comparait un niveau à un AUTRE habituel (les 4 derniers
-// jeudis bruts) produisait « +543 € le matin » sous un en-tête à « +1,8 % » — dissonant, donc
-// faux à la lecture. Ici :
-//   • heures et familles sont lues en FORME : la référence (jours comparables) est REMISE À
-//     L'ÉCHELLE du total réalisé, donc les écarts se compensent à zéro — c'est la répartition
-//     qui bouge, jamais le niveau. Aucune contradiction possible avec le % d'en-tête.
-//   • achats/panier est lu en NIVEAU, mais contre LE référentiel de l'en-tête : la somme des
-//     deux contributions vaut EXACTEMENT (CA réalisé − CA habituel). Hypothèse explicite et
-//     dite à l'écran : le panier « habituel » est celui des jours comparables ; le nombre
-//     d'achats habituel s'en déduit (habituel € ÷ panier habituel).
+// LA RÈGLE DE CONCEPTION (owner 28/08) : la page tient UN SEUL référentiel, celui de sa
+// carte d'origine — « votre résultat habituel » (expected_revenue du modèle jour de semaine
+// + tendance), le même que l'en-tête, le verdict, l'objectif et `dayClassRegistry`
+// (daily_revenue − expected_revenue).
+//   • heures et familles/produits : les jours comparables sont répartis sur le RÉSULTAT
+//     HABITUEL du jour — chaque famille, chaque heure se compare donc à ce qu'elle fait un
+//     jour ordinaire, et la somme de leurs écarts vaut EXACTEMENT l'écart de l'en-tête.
+//   • décomposition en trois facteurs (achats × articles par achat × € par article) : le
+//     modèle ne produit qu'un montant en euros — il n'existe aucun « nombre d'achats
+//     habituel » à comparer. Ce bloc compare donc à des jours RÉELS (les 4 mêmes jours de
+//     semaine précédents) : c'est le seul endroit de la page où le référentiel diffère, et
+//     il le dit. Toute tentative de fabriquer un attendu par facteur a déjà produit un
+//     mensonge (« 403 achats au lieu de 467 » = 2 204 € ÷ 4,71 €, aucune caisse).
 //
 // Jours comparables = les 4 mêmes jours de semaine qui précèdent l'opération (jeudi → les 4
 // jeudis d'avant), strictement avant window_start : jamais un jour de l'opération dans sa
@@ -160,6 +161,18 @@ export async function buildWindowShape(
           AND CAST(date AS STRING) IN UNNEST(@days)`),
   ]);
 
+  // ── Le référentiel de l'en-tête. ──
+  const d0 = (dRows as any[])[0] || {};
+  const measured_days = num(d0.n);
+  const actual_eur = d0.actual != null ? Math.round(num(d0.actual)) : null;
+  const expected_eur = d0.expected != null ? Math.round(num(d0.expected)) : null;
+
+  // ── UN SEUL RÉFÉRENTIEL DANS LA PAGE (owner 28/08) — heures et familles se comparent
+  //    à VOTRE RÉSULTAT HABITUEL, comme l'en-tête, le verdict, l'objectif et la carte
+  //    d'origine (`dayClassRegistry` : daily_revenue − expected_revenue). Concrètement, les
+  //    jours de référence sont répartis sur le résultat habituel du jour, plus sur son CA
+  //    réalisé : chaque famille (chaque heure) se compare donc à ce qu'elle fait un jour
+  //    ORDINAIRE, et la somme de leurs écarts vaut EXACTEMENT l'écart de l'en-tête.
   // ── Heures : la référence est REMISE À L'ÉCHELLE du total réalisé (lecture en forme). ──
   const hDay = new Map<number, number>(), hRef = new Map<number, number>();
   for (const r of hRows as any[]) {
@@ -169,7 +182,8 @@ export async function buildWindowShape(
   }
   const hTotDay = [...hDay.values()].reduce((s, v) => s + v, 0);
   const hTotRef = [...hRef.values()].reduce((s, v) => s + v, 0);
-  const hScale = hTotRef > 0 ? hTotDay / hTotRef : 0;
+  const hCible = expected_eur != null ? expected_eur : hTotDay;   // repli : le réalisé
+  const hScale = hTotRef > 0 ? hCible / hTotRef : 0;
   const hours: ShapeHour[] = hScale > 0
     ? [...new Set([...hDay.keys(), ...hRef.keys()])].sort((a, b) => a - b)
         .map((h) => ({ h, rev: Math.round(hDay.get(h) ?? 0), ref: Math.round((hRef.get(h) ?? 0) * hScale) }))
@@ -203,7 +217,8 @@ export async function buildWindowShape(
   }
   const fTotDay = [...fDay.values()].reduce((s, v) => s + v, 0);
   const fTotRef = [...fRef.values()].reduce((s, v) => s + v, 0);
-  const fScale = fTotRef > 0 ? fTotDay / fTotRef : 0;
+  const fCible = expected_eur != null ? expected_eur : fTotDay;   // repli : le réalisé
+  const fScale = fTotRef > 0 ? fCible / fTotRef : 0;
   // Au plus 6 produits listés par famille — les autres ne disparaissent pas : leur écart
   // cumulé est rendu dans products_hidden_eur, que la page DIT (jamais de troncature muette).
   const PRODUCTS_PER_FAMILY = 6;
@@ -223,12 +238,6 @@ export async function buildWindowShape(
         };
       }).sort((a, b) => b.delta - a.delta)
     : [];
-
-  // ── Le référentiel de l'en-tête. ──
-  const d0 = (dRows as any[])[0] || {};
-  const measured_days = num(d0.n);
-  const actual_eur = d0.actual != null ? Math.round(num(d0.actual)) : null;
-  const expected_eur = d0.expected != null ? Math.round(num(d0.expected)) : null;
 
   // ── D'où vient la fluctuation : trois facteurs observés dont le produit EST la
   //    variation du CA (CA = achats × articles/achat × €/article). ──

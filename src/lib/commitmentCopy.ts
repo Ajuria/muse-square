@@ -250,8 +250,10 @@ export const EVOL_COPY = {
   shape_ref_multi: "Chaque journée est comparée aux {n} semaines précédentes.",
   shape_hours_title: "Quels moments",
   shape_hours_lead: "Votre meilleur créneau : {from} h–{to} h, {share} % du chiffre du jour contre {ref} % d’habitude.",
-  shape_hours_shift: "{eur} € de plus que d’habitude sur ce créneau, autant en moins sur le reste de la journée.",
-  shape_hours_note: "Barres : le CA par heure · trait : la même journée répartie comme vos jours comparables.",
+  // « autant en moins sur le reste » n'est plus vrai depuis que la référence est le
+  // résultat habituel : les écarts ne s'annulent plus, ils somment à l'écart du jour.
+  shape_hours_shift: "{eur} € de plus que d’habitude sur ce créneau.",
+  shape_hours_note: "Barres : le CA par heure · trait : votre résultat habituel, réparti comme un jour ordinaire.",
   shape_fams_title: "Familles de produits",
   // Le sous-titre ne décrit plus l'ordre de tri (« blabla ») : il dit ce qu'on peut faire.
   shape_fams_note: "Ouvrez une famille pour voir les produits qui la font bouger.",

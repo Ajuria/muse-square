@@ -64,8 +64,12 @@ async function payload(id: string): Promise<any> {
     ok("bloc shape servi", data.shape != null, Object.keys(data));
     if (data.shape) {
       ok("jours comparables", data.shape.ref_days >= 2, data.shape.ref_days);
+      // UN SEUL RÉFÉRENTIEL (owner 28/08) : les familles se comparent au RÉSULTAT HABITUEL,
+      // comme l'en-tête — la somme de leurs écarts vaut donc l'écart de l'en-tête, pas zéro.
       const fSum = data.shape.families.reduce((s: number, f: any) => s + f.delta, 0);
-      ok("familles : écarts compensés (aucun niveau concurrent)", Math.abs(fSum) <= Math.max(2, data.shape.families.length), fSum);
+      const gapEnt = (data.shape.actual_eur ?? 0) - (data.shape.expected_eur ?? 0);
+      ok("familles : somme des écarts = écart de l'en-tête",
+        Math.abs(fSum - gapEnt) <= Math.max(3, data.shape.families.length), { somme: Math.round(fSum), entete: gapEnt });
       if (data.shape.volume) {
         // Plus de décomposition contrefactuelle : on vérifie que la charge utile ne porte
         // QUE des points observés (date + achats + panier), rien de calculé (owner 28/08).
@@ -111,6 +115,9 @@ async function payload(id: string): Promise<any> {
     ok("les trois facteurs sont nommés",
       out.includes("Nombre d\u2019achats") && out.includes("Articles par achat") && out.includes("Prix moyen d\u2019un article"));
     ok("contexte externe rendu dans la lecture", out.includes("Contexte externe"));
+    // La compensation « autant en moins » n'existe plus depuis l'alignement sur le résultat
+    // habituel (28/08) : la phrase serait fausse.
+    ok("aucune compensation promise sur les heures", !/autant en moins/.test(out));
     ok("chip « observé » sur le contexte (proto validé)", out.includes("observé"));
     // Français de machine (owner 28/08) : ni pluriel entre parenthèses dans une phrase, ni
     // statistique météo orpheline quand l'opération n'a pas connu de jour perturbé.

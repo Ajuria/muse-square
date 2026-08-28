@@ -56,11 +56,17 @@ function measuredDatesOf(bq: any, snap: any): Promise<string[]> {
     ok("jours comparables trouvés", shape.ref_days >= 2, shape.ref_days);
     ok("jours mesurés = jours de la série", shape.measured_days === measured.length, { s: shape.measured_days, m: measured.length });
 
-    // INVARIANT 1 — forme : les écarts se compensent (aucun niveau ne peut contredire l'en-tête).
+    // INVARIANT 1 — UN SEUL RÉFÉRENTIEL DANS LA PAGE (owner 28/08) : heures et familles se
+    // comparent au RÉSULTAT HABITUEL, comme l'en-tête et le verdict. La somme de leurs
+    // écarts vaut donc EXACTEMENT l'écart de l'en-tête (réalisé − habituel) — c'est ce qui
+    // rend la page arithmétiquement cohérente de haut en bas.
+    const gapEntete = (shape.actual_eur ?? 0) - (shape.expected_eur ?? 0);
     const hSum = shape.hours.reduce((s, x) => s + (x.rev - x.ref), 0);
-    ok("heures : somme des écarts ≈ 0", Math.abs(hSum) <= Math.max(2, shape.hours.length), hSum);
+    ok("heures : somme des écarts = écart de l'en-tête",
+      Math.abs(hSum - gapEntete) <= Math.max(3, shape.hours.length), { somme: Math.round(hSum), entete: gapEntete });
     const fSum = shape.families.reduce((s, x) => s + x.delta, 0);
-    ok("familles : somme des écarts ≈ 0", Math.abs(fSum) <= Math.max(2, shape.families.length), fSum);
+    ok("familles : somme des écarts = écart de l'en-tête",
+      Math.abs(fSum - gapEntete) <= Math.max(3, shape.families.length), { somme: Math.round(fSum), entete: gapEntete });
 
     // INVARIANT 2 — CHAQUE CHIFFRE AFFICHÉ EXISTE DANS LA CAISSE (owner 28/08 : « 403 achats
     // au lieu de 467 » — 467 ne venait d'aucune vente). Les points sont re-interrogés en
