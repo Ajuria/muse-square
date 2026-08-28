@@ -913,7 +913,9 @@ async function annualRevenueQuery(bq: any, location_id: string): Promise<number 
 // Les appelants existants (dashboard) gardent le défaut au caractère près.
 export async function readDayClassStore(bq: any, location_ids: string[], metric: string | null = "revenue_residual"): Promise<any[]> {
   if (!location_ids.length) return [];
-  const cols = "location_id, class_key, family, basis, metric, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days";
+  // corr_r (28/08) : l'indice de corrélation voyage avec les lignes — les lecteurs qui ne le
+  // consomment pas l'ignorent.
+  const cols = "location_id, class_key, family, basis, metric, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days, corr_r";
   return await bq.query({
     query: `SELECT ${cols} FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id IN UNNEST(@locs)${metric != null ? " AND metric = @metric" : ""}`,
     params: metric != null ? { locs: location_ids, metric } : { locs: location_ids }, location: "EU",
