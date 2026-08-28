@@ -903,22 +903,35 @@
                 + '</div></details>';
             }).join('') + '</div>';
       }
-      // ③ Achats ou panier — la décomposition de l'écart de l'en-tête.
+      // ③ Achats ou panier — LES DEUX SÉRIES OBSERVÉES. Une seule journée mesurée : la
+      // suite des jours comparables puis le jour, qui montre la tendance sans un mot
+      // d'explication. Plusieurs journées : les moyennes des deux côtés. Aucun nombre
+      // qui ne soit une somme de la caisse (owner 28/08).
       h += '<div style="' + card + '">' + cardTitle(t('shape_vol_title'));
       var v = shape.volume;
-      if (v && shape.actual_eur != null && shape.expected_eur != null) {
-        var txTxt = t('shape_vol_tx', { tx: intfr(v.tx), ref: intfr(v.ref_tx) });
-        var fr2 = function (n) { return (Math.round(Number(n) * 100) / 100).toFixed(2).replace('.', ','); };
-        var bkTxt = t('shape_vol_basket', { b: fr2(v.basket_eur), ref: fr2(v.ref_basket_eur) });
-        var up = v.contrib_tx_eur >= 0 ? txTxt : bkTxt;      // la composante qui tire vers le haut
-        var down = v.contrib_tx_eur >= 0 ? bkTxt : txTxt;    // celle qui tire vers le bas
-        var maj = function (x) { return x.charAt(0).toUpperCase() + x.slice(1); };
-        h += lead(v.opposed
-          ? t('shape_vol_opposed', { down: maj(down), up: up })
-          : t('shape_vol_same', { first: maj(txTxt), second: bkTxt }));
-        h += body(v.driver === 'tx'
-          ? t('shape_vol_driver_tx', { eur: (v.contrib_tx_eur >= 0 ? '+' : '−') + intfr(Math.abs(v.contrib_tx_eur)) })
-          : t('shape_vol_driver_basket', { eur: (v.contrib_basket_eur >= 0 ? '+' : '−') + intfr(Math.abs(v.contrib_basket_eur)) }));
+      if (v && v.days.length && v.ref.length) {
+        var jourDe = function (iso) { return WX_DOW_FR[new Date(String(iso) + 'T00:00:00Z').getUTCDay()] || ''; };
+        if (v.days.length === 1) {
+          var jr = jourDe(v.days[0].date);
+          var listTx = v.ref.map(function (p2) { return intfr(p2.tx); })
+            .concat([t('shape_vol_serie_last', { v: intfr(v.days[0].tx), jour: jr })]).join(', ');
+          var euro2 = function (n) { return (Math.round(Number(n) * 100) / 100).toFixed(2).replace('.', ',') + ' €'; };
+          var listBk = v.ref.map(function (p2) { return euro2(p2.basket_eur); })
+            .concat([t('shape_vol_serie_last', { v: euro2(v.days[0].basket_eur), jour: jr })]).join(', ');
+          h += lead(t('shape_vol_serie_tx', { list: listTx }))
+            + body(t('shape_vol_serie_basket', { list: listBk }));
+        } else {
+          h += lead(t('shape_vol_moyennes', {
+            n: v.days.length, tx: intfr(v.tx_avg), b: (Math.round(v.basket_avg * 100) / 100).toFixed(2).replace('.', ','),
+            rtx: intfr(v.ref_tx_avg), rb: (Math.round(v.ref_basket_avg * 100) / 100).toFixed(2).replace('.', ','),
+          }));
+        }
+        // Le verdict se lit sur les deux écarts observés — jamais sur une contribution calculée.
+        var up1 = v.tx_pct != null && v.tx_pct > 0, up2 = v.basket_pct != null && v.basket_pct > 0;
+        var verdictKey = (up1 && up2) ? 'shape_vol_deux_hausses'
+          : (!up1 && !up2) ? 'shape_vol_deux_baisses'
+          : (up1 ? 'shape_vol_tx_seul' : 'shape_vol_basket_seul');
+        h += body(t(verdictKey));
       } else {
         h += body(t('shape_vol_none'));
       }

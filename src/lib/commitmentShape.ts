@@ -40,12 +40,20 @@ export interface ShapeFamily {
   products_total: number;           // produits vendus dans la famille (jour + référence)
   products_hidden_eur: number;      // écart porté par les produits NON listés (jamais tu)
 }
+export interface ShapeVolumePoint { date: string; tx: number; basket_eur: number }
 export interface ShapeVolume {
-  // Décomposition du GAP de l'en-tête : contrib_tx + contrib_basket = actual − expected.
-  tx: number; ref_tx: number; contrib_tx_eur: number;
-  basket_eur: number; ref_basket_eur: number; contrib_basket_eur: number;
-  driver: "tx" | "basket";          // la composante qui pèse le plus (en valeur absolue)
-  opposed: boolean;                 // les deux composantes jouent en sens contraire
+  // RIEN QUE DE L'OBSERVÉ (owner 28/08). La version précédente décomposait l'écart de
+  // l'en-tête en « contribution des achats » et « contribution du panier » sous une
+  // hypothèse de panier constant : elle produisait « 403 achats au lieu de 467 » et
+  // « le panier fait +343 € » — deux nombres qui n'existent dans AUCUNE caisse (467 =
+  // 2 204 € ÷ 4,71 €) pendant que la journée valait +39 €. Un intermédiaire de calcul
+  // affiché comme un fait est un mensonge : la décomposition est SUPPRIMÉE.
+  ref: ShapeVolumePoint[];          // jours comparables, chronologiques
+  days: ShapeVolumePoint[];         // jours mesurés de l'opération
+  tx_avg: number; ref_tx_avg: number;
+  basket_avg: number; ref_basket_avg: number;
+  tx_pct: number | null;            // écart des achats vs jours comparables
+  basket_pct: number | null;        // écart du panier vs jours comparables
 }
 export interface WindowShape {
   ref_days: number;                 // jours comparables réellement trouvés
@@ -127,12 +135,12 @@ export async function buildWindowShape(
         GROUP BY 1, 2, 3`),
     // 3. Achats + CA (mart.fct_client_daily_performance) — le panier se recompose CA/achats,
     //    jamais une moyenne de moyennes.
-    q(`SELECT ${setCase("transaction_date")} AS s, SUM(daily_transactions) AS tx, SUM(daily_revenue) AS rev,
-              COUNT(DISTINCT transaction_date) AS n
+    q(`SELECT ${setCase("transaction_date")} AS s, CAST(transaction_date AS STRING) AS d,
+              SUM(daily_transactions) AS tx, SUM(daily_revenue) AS rev
         FROM \`${PROJECT}.mart.fct_client_daily_performance\`
         WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
           AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))
-        GROUP BY 1`),
+        GROUP BY 1, 2`),
     // 4. Le référentiel de l'en-tête + les jours qui sortent de la variation ordinaire.
     q(`SELECT SUM(daily_revenue) AS actual, SUM(expected_revenue) AS expected,
               COUNT(*) AS n, COUNTIF(ABS(residual_z) >= 1) AS notable
@@ -211,26 +219,29 @@ export async function buildWindowShape(
   const actual_eur = d0.actual != null ? Math.round(num(d0.actual)) : null;
   const expected_eur = d0.expected != null ? Math.round(num(d0.expected)) : null;
 
-  // ── Achats / panier : la décomposition du gap de l'en-tête. Somme des deux = actual − expected. ──
+  // ── Achats / panier : les deux séries OBSERVÉES, rien d'autre. ──
   let volume: ShapeVolume | null = null;
-  const vDay = (vRows as any[]).find((r) => String(flat(r.s)) === "w");
-  const vRef = (vRows as any[]).find((r) => String(flat(r.s)) === "r");
-  if (vDay && vRef && actual_eur != null && expected_eur != null) {
-    const txDay = num(vDay.tx), revDay = num(vDay.rev);
-    const txRef = num(vRef.tx), revRef = num(vRef.rev);
-    if (txDay > 0 && txRef > 0 && revRef > 0 && expected_eur > 0) {
-      const basketDay = revDay / txDay;
-      const basketRef = revRef / txRef;                 // panier des jours comparables
-      const txExpected = expected_eur / basketRef;      // achats qu'il aurait fallu à ce panier
-      const contribTx = (txDay - txExpected) * basketRef;
-      const contribBasket = (basketDay - basketRef) * txDay;
-      volume = {
-        tx: Math.round(txDay), ref_tx: Math.round(txExpected), contrib_tx_eur: Math.round(contribTx),
-        basket_eur: r2(basketDay), ref_basket_eur: r2(basketRef), contrib_basket_eur: Math.round(contribBasket),
-        driver: Math.abs(contribTx) >= Math.abs(contribBasket) ? "tx" : "basket",
-        opposed: contribTx * contribBasket < 0,
-      };
-    }
+  const pts = (side: "w" | "r"): ShapeVolumePoint[] => (vRows as any[])
+    .filter((r) => String(flat(r.s)) === side && num(r.tx) > 0)
+    .map((r) => ({ date: String(flat(r.d)), tx: Math.round(num(r.tx)), basket_eur: r2(num(r.rev) / num(r.tx)) }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  const vDays = pts("w"), vRef = pts("r");
+  if (vDays.length && vRef.length) {
+    const moy = (xs: ShapeVolumePoint[], f: (p: ShapeVolumePoint) => number) => xs.reduce((s2, p) => s2 + f(p), 0) / xs.length;
+    // Panier moyen d'un ensemble = CA total ÷ achats totaux (jamais une moyenne de moyennes).
+    const basketOf = (xs: ShapeVolumePoint[]) => {
+      const tx = xs.reduce((s2, p) => s2 + p.tx, 0);
+      return tx > 0 ? xs.reduce((s2, p) => s2 + p.tx * p.basket_eur, 0) / tx : 0;
+    };
+    const txAvg = moy(vDays, (p) => p.tx), refTxAvg = moy(vRef, (p) => p.tx);
+    const bAvg = basketOf(vDays), refBAvg = basketOf(vRef);
+    volume = {
+      ref: vRef, days: vDays,
+      tx_avg: Math.round(txAvg), ref_tx_avg: Math.round(refTxAvg),
+      basket_avg: r2(bAvg), ref_basket_avg: r2(refBAvg),
+      tx_pct: refTxAvg > 0 ? r1(((txAvg - refTxAvg) / refTxAvg) * 100) : null,
+      basket_pct: refBAvg > 0 ? r1(((bAvg - refBAvg) / refBAvg) * 100) : null,
+    };
   }
 
   return {

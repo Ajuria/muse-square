@@ -64,9 +64,22 @@ async function payload(id: string): Promise<any> {
       const fSum = data.shape.families.reduce((s: number, f: any) => s + f.delta, 0);
       ok("familles : écarts compensés (aucun niveau concurrent)", Math.abs(fSum) <= Math.max(2, data.shape.families.length), fSum);
       if (data.shape.volume) {
-        const gap = data.shape.actual_eur - data.shape.expected_eur;
-        const sum = data.shape.volume.contrib_tx_eur + data.shape.volume.contrib_basket_eur;
-        ok("achats + panier = écart de l'en-tête", Math.abs(sum - gap) <= 3, { sum, gap });
+        // Plus de décomposition contrefactuelle : on vérifie que la charge utile ne porte
+        // QUE des points observés (date + achats + panier), rien de calculé (owner 28/08).
+        const v = data.shape.volume;
+        ok("achats/panier : uniquement des points de caisse",
+          Array.isArray(v.ref) && Array.isArray(v.days) && [...v.ref, ...v.days].every((p: any) =>
+            typeof p.date === "string" && Number.isFinite(p.tx) && Number.isFinite(p.basket_eur)),
+          Object.keys(v));
+        ok("aucun champ contrefactuel", !("ref_tx" in v) && !("contrib_tx_eur" in v), Object.keys(v));
+        // La lecture porte sur le jour de l'OPÉRATION, jamais sur le jour de création : le
+        // corner producteur (créé le 15/08, opéré le 22/08) parlait du 15/08 sous un
+        // en-tête daté du 22/08 (relevé au rendu 28/08).
+        if (data.commitment.window_kind === "day_of") {
+          ok("jour lu = jour de l'opération, pas de la création",
+            v.days.length === 1 && v.days[0].date === String(data.commitment.window_end).slice(0, 10),
+            { lu: v.days.map((p: any) => p.date), we: data.commitment.window_end, cree: data.commitment.created_at });
+        }
       }
     }
     // z-HIDDEN AT THE BOUNDARY — le contrat de l'endpoint vaut aussi pour le nouveau bloc.
@@ -80,7 +93,8 @@ async function payload(id: string): Promise<any> {
     ok("bloc « Votre dispositif » présent", out.includes("Votre dispositif"));
     ok("« Description du dispositif » présente", out.includes("Description du dispositif"));
     ok("bloc « Comprendre le résultat » présent", out.includes("Comprendre le résultat"));
-    ok("« Performance des produits vendus » présente", out.includes("Performance des produits vendus"));
+    // La carte porte le niveau qu'elle montre : des FAMILLES (les produits sont dedans).
+    ok("carte « Familles de produits »", out.includes("Familles de produits") && !out.includes("Performance des produits vendus"));
     // Le cran produit se déplie en <details> natif — zéro JavaScript ajouté à la page.
     // Marqueur PROPRE au dépliage famille : le <details> qui contient la liste produits
     // (le simple motif <details><summary> matchait le « Comment faire ? » des dispositifs

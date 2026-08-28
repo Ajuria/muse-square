@@ -62,14 +62,30 @@ function measuredDatesOf(bq: any, snap: any): Promise<string[]> {
     const fSum = shape.families.reduce((s, x) => s + x.delta, 0);
     ok("familles : somme des écarts ≈ 0", Math.abs(fSum) <= Math.max(2, shape.families.length), fSum);
 
-    // INVARIANT 2 — achats/panier : la somme des contributions EST le gap de l'en-tête.
-    if (shape.volume && shape.actual_eur != null && shape.expected_eur != null) {
-      const gap = shape.actual_eur - shape.expected_eur;
-      const sum = shape.volume.contrib_tx_eur + shape.volume.contrib_basket_eur;
-      ok("achats + panier = écart de l'en-tête", Math.abs(sum - gap) <= 3, { sum, gap });
-      ok("moteur = la plus grosse contribution",
-        (Math.abs(shape.volume.contrib_tx_eur) >= Math.abs(shape.volume.contrib_basket_eur)) === (shape.volume.driver === "tx"),
-        shape.volume);
+    // INVARIANT 2 — CHAQUE CHIFFRE AFFICHÉ EXISTE DANS LA CAISSE (owner 28/08 : « 403 achats
+    // au lieu de 467 » — 467 ne venait d'aucune vente, c'était 2 204 € ÷ 4,71 €). Chaque
+    // point rendu est donc re-interrogé en base, un par un.
+    if (shape.volume) {
+      const v = shape.volume;
+      const rows: any[] = await bq.query({
+        query: `SELECT CAST(transaction_date AS STRING) d, daily_transactions tx, daily_avg_basket b
+                FROM \`muse-square-open-data.mart.fct_client_daily_performance\`
+                WHERE location_id=@l AND CAST(transaction_date AS STRING) IN UNNEST(@ds)`,
+        params: { l: LOC, ds: [...v.ref, ...v.days].map((p) => p.date) }, location: "EU",
+      }).then((r: any) => r[0] || []);
+      const enBase = new Map(rows.map((r: any) => [String(r.d?.value ?? r.d), r]));
+      const faux = [...v.ref, ...v.days].filter((p) => {
+        const r: any = enBase.get(p.date);
+        if (!r) return true;
+        const tx = Number(r.tx?.value ?? r.tx), b = Number(r.b?.value ?? r.b);
+        return Math.round(tx) !== p.tx || Math.abs(b - p.basket_eur) > 0.02;
+      });
+      ok("chaque achat/panier affiché est une ligne de caisse", faux.length === 0, faux);
+      ok("aucun nombre contrefactuel dans la charge utile",
+        !("ref_tx" in v) && !("contrib_tx_eur" in v) && !("contrib_basket_eur" in v), Object.keys(v));
+      // Le panier d'un ensemble = CA total / achats totaux, jamais une moyenne de moyennes.
+      const brut = v.ref.reduce((s2: number, p: any) => s2 + p.tx * p.basket_eur, 0) / v.ref.reduce((s2: number, p: any) => s2 + p.tx, 0);
+      ok("panier de référence recomposé correctement", Math.abs(brut - v.ref_basket_avg) < 0.02, { brut, rendu: v.ref_basket_avg });
     } else ok("achats/panier : absence honnête assumée", shape.volume === null, shape.volume);
 
     // INVARIANT 3 — la tranche horaire sort des données, jamais d'une heure en dur.

@@ -230,10 +230,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // « Comprendre le résultat » (owner 28/08) — AMORCÉE ici, ATTENDUE au retour : la lecture
     // part des jours RÉELLEMENT mesurés (rrows) et tourne en parallèle des vagues suivantes,
     // donc n'ajoute rien au chemin séquentiel (budget 3 s).
+    // FENÊTRE STOCKÉE pour un « jour même », jamais la convention legacy du bloc `series`
+    // (dates = jour de CRÉATION). Sur le corner producteur — créé le 15/08, opération le
+    // 22/08 — la lecture parlait du 15/08 sous un en-tête daté du 22/08 (relevé au rendu,
+    // 28/08). Même règle que buildKpiBlock, qui avait déjà tranché ce point.
+    const _wsSnap = String(flat(snap.window_start) || "").slice(0, 10);
+    const _weSnap = String(flat(snap.window_end) || "").slice(0, 10);
+    const _shapeDates = (snap.window_kind === "day_of" && _weSnap)
+      ? [_weSnap]
+      : (rrows as any[]).map((r) => String(flat(r.date)));
     const shapeP = buildWindowShape(bq, {
       location_id: String(snap.location_id),
-      measured_dates: (rrows as any[]).map((r) => String(flat(r.date))),
-      window_start: minD,
+      measured_dates: _shapeDates,
+      window_start: _wsSnap || minD,
     }).catch(() => null);
 
     const [crows] = await bq.query({
