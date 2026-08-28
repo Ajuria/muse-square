@@ -55,6 +55,11 @@ export type DayClassImpact = {
   inherited?: boolean;    // « Motif de fond » (validé 26/07) : pill héritée de la classe du JOUR de la
                           // carte (météo/calendrier de la date) — jamais l'anomalie annualisée. Le
                           // client rend « Motif de fond ~X €/an · <classe> » au lieu d'« Enjeu ».
+  corr_r?: number | null; // indice de corrélation (r point-bisériel du store) — mots owner 28/08
+  a_confirmer?: boolean;  // porte de concordance (owner go 28/08) : effet ajusté et lien brut de
+                          // signes OPPOSÉS (|r| >= 0,05, |t| < 3) → « Signal à confirmer » — la
+                          // carte reste lisible mais quitte les surfaces qui poussent à l'action
+                          // (spec docs/indice-correlation-spec.md ; modélisé : 4/25 cartes du parc).
 };
 
 export type DayClassResult = {
@@ -645,6 +650,21 @@ export function corrIndexFr(r: number | null | undefined, n_days?: number | null
   return `Indice de corrélation ${palier} (r = ${rFr})`;
 }
 
+// ── PORTE DE CONCORDANCE (owner go 28/08, « Signal à confirmer ») — LE foyer de la règle,
+// consommé par rowToImpact ET par planPeriod (jamais recopiée). Discordance = l'effet retenu
+// (médiane ajustée) et le lien brut (corr_r) pointent en sens OPPOSÉS : pas forcément faux
+// (l'ajustement peut retourner un signe que la saison masque), mais le profil exact du
+// « signal faible déguisé » — la carte reste lisible, quitte les surfaces d'action.
+// Seuils modélisés sur le parc 28/08 (4/25 cartes touchées, 0 supprimée) : |r| >= 0,05 pour
+// qu'un signe soit affirmable, |t| < 3 pour qu'un effet massif ne soit pas rétrogradé par un
+// r dilué (rareté).
+export function signalAConfirmer(effetEur: number, corr_r: number | null | undefined, tAbs: number): boolean {
+  if (corr_r == null || !Number.isFinite(corr_r) || Math.abs(corr_r) < 0.05) return false;
+  if (!Number.isFinite(effetEur) || effetEur === 0) return false;
+  if (tAbs >= 3) return false;
+  return Math.sign(effetEur) !== Math.sign(corr_r);
+}
+
 // THE policy — gates, tier, €/an, basis preference — applied at READ time on raw rows. Single
 // home; a gate change here is instantly effective on store rows without re-batching.
 // Étape 2.5 : la lecture PRÉFÈRE la base 'pure' (classes séparées) ; si elle ne passe pas les
@@ -734,6 +754,8 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
     // En régime log+médiane, le « €/j » exposé EST la médiane — cohérent avec eur_year.
     avg_gap_eur: Math.round(dailyEur * 10) / 10,
     t_stat: Math.round(t * 100) / 100,
+    corr_r: Number.isFinite(Number(row?.corr_r)) ? Number(row.corr_r) : null,
+    a_confirmer: signalAConfirmer(dailyEur, Number.isFinite(Number(row?.corr_r)) ? Number(row.corr_r) : null, t),
   };
 }
 

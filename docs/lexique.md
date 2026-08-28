@@ -94,6 +94,13 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
   Remplace « famille produit » sur les 4 chaînes visibles (formulaire opération ×2, infobulle
   profit du héros, infobulle marge du plan). Le registre sémantique porte la même définition.
 
+- Indice de corrélation (owner 28/08) : **« Indice de corrélation »** — palier + chiffre
+  (« Indice de corrélation fort (r = 0,42) », paliers faible < 0,3 / moyen / fort ≥ 0,5) ;
+  **« Facteurs multiples »** remplace « mesure mêlée » dans les rendus ; **« Signal à
+  confirmer »** = l'étiquette de la porte de concordance (spec
+  `docs/indice-correlation-spec.md`). En attente : les mots de NATURE du lien (« pilote
+  structurel » / « levier épisodique » proposés), « en jeu » après le €.
+
 - Plan de période — diagnostic (owner 27/08) : « quick wins » = **« À portée de main »**
   (mot owner). Titre du point santé : **« La santé de l'entreprise »** (proposition appliquée
   depuis le mot du cadrage owner « santé de l'entreprise » — à confirmer). Les autres titres

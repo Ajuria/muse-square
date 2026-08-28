@@ -17,7 +17,7 @@ import { listUserEvenements } from "./insightFamilies/evenement";
 import { listIndustryPlays, type BestInClassPlay } from "./bestInClassStore";
 import { listPoles, buildPoleReading } from "./poleReading";
 import { getDeclaredFamilyMargins, familySlug } from "./ai/corrections";
-import { corrIndexFr } from "./dayClassRegistry";
+import { corrIndexFr, signalAConfirmer } from "./dayClassRegistry";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
@@ -59,6 +59,7 @@ export interface PlanMotif {
   entangled: boolean;          // base marginale — le rendu NOMME les facteurs mêlés
   entangled_with: Array<{ mot_fr: string; n: number }>;  // co-occurrences RÉELLES sur l'historique de la mesure
   corr_r: number | null;       // indice de corrélation (r point-bisériel du store) — mots owner 28/08
+  a_confirmer: boolean;        // porte de concordance (owner go 28/08) : hors surfaces d'action
 }
 
 export interface PlanPeriodResult {
@@ -120,7 +121,7 @@ export async function planPeriod(
     }).then((r: any) => Number(flat((r?.[0]?.[0] as any)?.n)) || 0).catch(() => 0),
     // 4) Les impacts mesurés par classe (store des motifs structurels).
     bq.query({
-      query: `SELECT class_key, basis, med_gap_eur, n_days, span_days, corr_r FROM \`${PROJECT}.analytics.day_class_impacts\`
+      query: `SELECT class_key, basis, med_gap_eur, n_days, span_days, corr_r, avg_log, sd_log, n_log FROM \`${PROJECT}.analytics.day_class_impacts\`
               WHERE location_id = @loc AND metric = 'revenue_residual' AND basis IN ('pure', 'marginal')`,
       params: { loc: location_id }, location: "EU",
     }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
@@ -217,10 +218,13 @@ export async function planPeriod(
   // Regle du registre (dayClassRegistry) : la base PURE prime quand son n tient le plancher ;
   // sinon la MARGINALE (facteurs meles) passe, MARQUEE entangled — le rendu dira « estime,
   // facteurs meles », jamais un chiffre pur fabrique.
-  const impactByClass = new Map<string, { med: number; n: number; span: number; entangled: boolean; corr_r: number | null }>();
+  const impactByClass = new Map<string, { med: number; n: number; span: number; entangled: boolean; corr_r: number | null; a_confirmer: boolean }>();
   for (const r of impactRows as any[]) {
     const ckey = String(flat(r.class_key));
-    const cand = { med: Number(flat(r.med_gap_eur)), n: Number(flat(r.n_days)) || 0, span: Number(flat(r.span_days)) || 180, entangled: String(flat(r.basis)) === "marginal", corr_r: Number.isFinite(Number(flat(r.corr_r))) ? Number(flat(r.corr_r)) : null };
+    const _rv = Number.isFinite(Number(flat(r.corr_r))) ? Number(flat(r.corr_r)) : null;
+    const _al = Number(flat(r.avg_log)), _sl = Number(flat(r.sd_log)), _nl = Number(flat(r.n_log));
+    const _t = Number.isFinite(_al) && Number.isFinite(_sl) && _sl > 0 && _nl >= 2 ? Math.abs(_al) / (_sl / Math.sqrt(_nl)) : 0;
+    const cand = { med: Number(flat(r.med_gap_eur)), n: Number(flat(r.n_days)) || 0, span: Number(flat(r.span_days)) || 180, entangled: String(flat(r.basis)) === "marginal", corr_r: _rv, a_confirmer: signalAConfirmer(Number(flat(r.med_gap_eur)), _rv, _t) };
     if (cand.n < 5) continue;
     const cur = impactByClass.get(ckey);
     if (!cur || (cur.entangled && !cand.entangled)) impactByClass.set(ckey, cand);
@@ -242,6 +246,7 @@ export async function planPeriod(
         med_gap_eur: cls ? Math.round(cls.med) : null,
         hist_days: cls ? cls.n : null,
         corr_r: cls ? cls.corr_r : null,
+        a_confirmer: cls ? cls.a_confirmer : false,
         entangled: cls ? cls.entangled : false,
         entangled_with: [],
         _span: cls ? cls.span : 0,
@@ -385,7 +390,9 @@ export function buildPlanBlocks(r: PlanPeriodResult): PlanBlocks {
   });
 
   // 3) Ce que la période va vous coûter — motifs mesurés × jours prévus, total honnête.
-  const negMotifs = r.motifs.filter((m) => m.med_gap_eur != null && m.med_gap_eur < 0);
+  // Porte de concordance (owner 28/08) : un motif « Signal à confirmer » reste LISIBLE dans la
+  // table mais sort de tout ce qui pousse à l'action — coût projeté, colonne « À faire ».
+  const negMotifs = r.motifs.filter((m) => m.med_gap_eur != null && m.med_gap_eur < 0 && !m.a_confirmer);
   const costTotal = negMotifs.reduce((a, m) => a + (m.med_gap_eur as number) * m.n_days, 0);
   const costDays = negMotifs.reduce((a, m) => a + m.n_days, 0);
   sections.push({
@@ -396,12 +403,16 @@ export function buildPlanBlocks(r: PlanPeriodResult): PlanBlocks {
         { v: m.mot_fr, bold: true },
         { v: String(m.n_days) },
         m.med_gap_eur != null
-          ? { v: `${m.med_gap_eur >= 0 ? "+" : "−"}${frEur2(Math.abs(m.med_gap_eur))} €/jour`,
+          ? (m.a_confirmer
+            ? { v: "Signal à confirmer", color: grey,
+                sub: `${m.hist_days} j d'historique`,
+                tip: `L'effet mesuré (${m.med_gap_eur >= 0 ? "+" : "−"}${frEur2(Math.abs(m.med_gap_eur))} €/jour) et le lien brut (${corrIndexFr(m.corr_r, m.hist_days) ?? "r non mesuré"}) pointent en sens opposés — mis à l'écart des surfaces d'action tant qu'un test ne l'a pas confirmé.` }
+            : { v: `${m.med_gap_eur >= 0 ? "+" : "−"}${frEur2(Math.abs(m.med_gap_eur))} €/jour`,
               color: m.med_gap_eur >= 0 ? "#0F6E56" : "#B45309", bold: true,
-              sub: `${m.hist_days} j d'historique${m.entangled ? " — mesure mêlée" : ""}`,
+              sub: `${m.hist_days} j d'historique${m.entangled ? " — facteurs multiples" : ""}`,
               tip: m.entangled
-                ? `Mesure mêlée à d'autres facteurs présents les mêmes jours : ${m.entangled_with.length ? m.entangled_with.map((x) => `${x.mot_fr} (${x.n} % de ses jours)`).join(", ") : "co-occurrences sous le plancher"}.`
-                : undefined }
+                ? `Facteurs multiples présents les mêmes jours : ${m.entangled_with.length ? m.entangled_with.map((x) => `${x.mot_fr} (${x.n} % de ses jours)`).join(", ") : "co-occurrences sous le plancher"}.`
+                : undefined })
           : { v: "—", color: grey },
       ] })),
     } : undefined,
@@ -503,7 +514,7 @@ export function buildPlanBlocks(r: PlanPeriodResult): PlanBlocks {
     .filter((m) => m.med_gap_eur != null)
     .map((m) => {
       const idx = corrIndexFr(m.corr_r, m.hist_days);
-      return idx ? `${m.mot_fr} ↔ CA : ${idx.charAt(0).toLowerCase() + idx.slice(1)} · ${m.hist_days} j d'historique.` : null;
+      return idx ? `${m.mot_fr} ↔ CA : ${idx.charAt(0).toLowerCase() + idx.slice(1)} · ${m.hist_days} j d'historique${m.a_confirmer ? " — signal à confirmer" : ""}.` : null;
     })
     .filter((x): x is string => x != null);
   if (corrFacts.length) sections.push({ title: "Indices de corrélation", facts: corrFacts });
@@ -538,7 +549,7 @@ export function buildPlanWhyBlocks(r: PlanPeriodResult): PlanWhyBlocks {
 
   // 1) Les motifs : leur VALEUR (médiane, historique) et leur LIEN mesuré (indice de
   // corrélation) — mélanges NOMMÉS en clair. Triés par contribution absolue projetée.
-  const measured = [...r.motifs.filter((m) => m.med_gap_eur != null)]
+  const measured = [...r.motifs.filter((m) => m.med_gap_eur != null && !m.a_confirmer)]
     .sort((a, b) => Math.abs((b.med_gap_eur as number) * b.n_days) - Math.abs((a.med_gap_eur as number) * a.n_days))
     .slice(0, 3);
   if (measured.length) {
@@ -546,7 +557,7 @@ export function buildPlanWhyBlocks(r: PlanPeriodResult): PlanWhyBlocks {
     for (const m of measured) {
       const idx = corrIndexFr(m.corr_r, m.hist_days);
       const mel = m.entangled
-        ? ` Mesure mêlée : ${m.entangled_with.length ? m.entangled_with.map((x) => `${x.mot_fr} (${x.n} % de ses jours)`).join(", ") : "co-occurrences sous le plancher"}.`
+        ? ` Facteurs multiples : ${m.entangled_with.length ? m.entangled_with.map((x) => `${x.mot_fr} (${x.n} % de ses jours)`).join(", ") : "co-occurrences sous le plancher"}.`
         : "";
       facts.push(`${m.mot_fr} : ${(m.med_gap_eur as number) >= 0 ? "+" : "−"}${frEur2(Math.abs(m.med_gap_eur as number))} €/jour (médiane, ${m.hist_days} j d'historique) × ${m.n_days} j prévus = ${(m.med_gap_eur as number) >= 0 ? "+" : "−"}${frEur2(Math.abs((m.med_gap_eur as number) * m.n_days))} € en jeu.${idx ? ` ${idx}.` : ""}${mel}`);
     }
@@ -573,7 +584,7 @@ export function buildPlanWhyBlocks(r: PlanPeriodResult): PlanWhyBlocks {
     .filter((m) => m.med_gap_eur != null)
     .map((m) => {
       const idx = corrIndexFr(m.corr_r, m.hist_days);
-      return idx ? `${m.mot_fr} ↔ CA : ${idx.charAt(0).toLowerCase() + idx.slice(1)} · ${m.hist_days} j d'historique.` : null;
+      return idx ? `${m.mot_fr} ↔ CA : ${idx.charAt(0).toLowerCase() + idx.slice(1)} · ${m.hist_days} j d'historique${m.a_confirmer ? " — signal à confirmer" : ""}.` : null;
     })
     .filter((x): x is string => x != null);
   if (corrFacts.length) sections.push({ title: "Indices de corrélation", facts: corrFacts });
