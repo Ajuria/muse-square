@@ -113,6 +113,32 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["creation_enjeu_class_key", "STRING"],
   ["creation_enjeu_entangled", "BOOL"],
   ["creation_enjeu_inherited", "BOOL"],
+  // IDENTITÉ DU DISPOSITIF (27/08, chantier versionning/fine-tuning — point identité).
+  // dispositif_id = la RACINE de la chaîne (le commitment_id de la V1) ; version_no = 1, 2, …
+  // Posés par lineageFor() au POST : un enfant HÉRITE (id du parent + version+1), une racine
+  // s'auto-désigne. Ajoutés en fin via ALTER ADD COLUMN (ordre physique respecté).
+  ["dispositif_id", "STRING"],
+  ["version_no", "INT64"],
+  // CONTEXTE DE LA VERSION (27/08, chantier versionning — étape 3, grain version). Trois champs
+  // descriptifs owner : « Le plus du dispositif », « Pourquoi ça va marcher », « Ressource(s) ».
+  // Chaque version porte les siens ; une V2 créée sans les fournir HÉRITE de ceux du parent
+  // (même règle que measured_metric — l'héritage est posé au POST, jamais re-dérivé en lecture).
+  ["dispositif_plus", "STRING"],
+  ["dispositif_why", "STRING"],
+  ["dispositif_resources", "STRING"],
+  // PÔLES & NATURES (27/08, spec poles-dispositifs-permanents) — dispositif_nature :
+  // 'operation' (daté) | 'permanent' (pôle : ni fenêtre ni verdict, lecture continue) |
+  // 'serie' (récurrent). NULL legacy = operation. pole_families = JSON array des familles
+  // RÉELLES du flux de caisse (jamais du texte libre). attached_pole_id = rattachement
+  // opération→pôle (le dispositif_id du pôle) — ce n'est PAS parent_commitment_id, qui
+  // reste la filiation de versions. Deux liens, deux colonnes.
+  ["dispositif_nature", "STRING"],
+  ["pole_families", "STRING"],
+  ["attached_pole_id", "STRING"],
+  // COÛT DE L'OPÉRATION (27/08 soir, chantier ROI) — saisi par l'utilisateur au grain VERSION,
+  // optionnel, JAMAIS déduit ni hérité en silence (un coût fabriqué maquillerait le net). Le
+  // bilan rend le NET en € (écart CA mesuré − coûts), jamais un ratio.
+  ["operation_cost_eur", "FLOAT64"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -191,6 +217,19 @@ export interface CommitmentRow {
   creation_enjeu_class_key: string | null;
   creation_enjeu_entangled: boolean | null;
   creation_enjeu_inherited: boolean | null;
+  dispositif_id: string | null;
+  version_no: number | null;
+  // Contexte de la version (étape 3, 27/08) — mots owner : « Le plus du dispositif »,
+  // « Pourquoi ça va marcher », « Ressource(s) ». Hérités du parent si absents au POST.
+  dispositif_plus: string | null;
+  dispositif_why: string | null;
+  dispositif_resources: string | null;
+  // Pôles & natures (27/08) : 'operation' | 'permanent' | 'serie' (NULL legacy = operation) ;
+  // pole_families = JSON array (familles réelles) ; attached_pole_id = dispositif_id du pôle.
+  dispositif_nature: string | null;
+  pole_families: string | null;
+  attached_pole_id: string | null;
+  operation_cost_eur: number | null;  // coût saisi (€) — jamais déduit
 }
 
 // The columns that make a commitment a commitment. Any write (create OR later
@@ -212,6 +251,35 @@ function normaliseRow(r: any): CommitmentRow {
   const out: any = {};
   for (const k of Object.keys(r)) out[k] = flatten(r[k]);
   return out as CommitmentRow;
+}
+
+// LIGNÉE (27/08, point identité du chantier versionning) — la règle en UN endroit, PURE et
+// testée : une V2 HÉRITE de son parent (l'identité du dispositif, le numéro suivant, LE KPI et
+// l'événement ancré qui porte sa famille) ; une racine s'auto-désigne V1. Le KPI hérité PRIME la
+// redérivation carte : re-tester un dispositif, c'est re-tester SUR LE MÊME ÉTAGE — une V2 jugée
+// sur un autre KPI n'est pas la version suivante d'un test, c'est un autre test (owner 27/08).
+// Règles PURES partagées tableau de bord / lectures d'entité (extraites de dashboard.ts le
+// 27/08 — un seul endroit décide ce qu'est « la même personne » et un verdict « tenu »).
+export function personKey(name: string | null | undefined): string {
+  return String(name || "—").split("·")[0].trim().split(/\s+/)[0].toLowerCase() || "—";
+}
+export function isKeptVerdict(verdict: string | null | undefined): boolean {
+  return /met|tenu|beat/i.test(String(verdict ?? ""));
+}
+
+export function lineageFor(
+  parentSnap: Pick<CommitmentRow, "commitment_id" | "dispositif_id" | "version_no" | "measured_metric" | "saved_item_id"> | null,
+  commitmentId: string,
+): { dispositif_id: string; version_no: number; inherited_metric: string | null; inherited_saved_item_id: string | null } {
+  if (!parentSnap) {
+    return { dispositif_id: commitmentId, version_no: 1, inherited_metric: null, inherited_saved_item_id: null };
+  }
+  return {
+    dispositif_id: (parentSnap.dispositif_id && String(parentSnap.dispositif_id)) || String(parentSnap.commitment_id),
+    version_no: (Number(parentSnap.version_no) || 1) + 1,
+    inherited_metric: parentSnap.measured_metric != null ? String(parentSnap.measured_metric) : null,
+    inherited_saved_item_id: parentSnap.saved_item_id != null ? String(parentSnap.saved_item_id) : null,
+  };
 }
 
 export async function readLatestSnapshot(
@@ -237,7 +305,14 @@ export async function readLatestSnapshot(
 
 // Loud guard — throws before any write if the carried-forward terms went missing.
 export function assertTermsPresent(row: Partial<CommitmentRow>): void {
-  const missing = TERM_COLUMNS.filter((c) => {
+  // Un dispositif PERMANENT n'a pas de terme (spec pôles, owner 27/08) : ni fenêtre ni
+  // objectif — ce qui le définit est le levier et ses familles. Le cron de résolution ne
+  // le voit jamais (window_end NULL ne passe pas `window_end < CURRENT_DATE`, prouvé par
+  // sonde le 27/08) ; sa mesure est la lecture continue, jamais un verdict.
+  const terms: (keyof CommitmentRow)[] = (row as any).dispositif_nature === "permanent"
+    ? ["committed_action_text", "pole_families"]
+    : TERM_COLUMNS;
+  const missing = terms.filter((c) => {
     const v = (row as any)[c];
     return v === null || v === undefined || v === "";
   });

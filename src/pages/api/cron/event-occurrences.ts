@@ -19,7 +19,8 @@ import crypto from "node:crypto";
 import { makeBQClient } from "../../../lib/bq";
 import { readMergeWrite, type CommitmentRow } from "../../../lib/actionCommitments";
 import { kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline, isKpiMeasurable } from "../../../lib/kpiRegistry";
-import { sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
+import { sendEmail, sendSlack, loadChannelConfig } from "../../../lib/channels/internalSend";
+import { readDispositifChannel } from "../../../lib/channels/slackRouting";
 
 const PROJECT = "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
@@ -329,6 +330,29 @@ export const GET: APIRoute = async ({ request }) => {
             }]);
             consignes += 1;
             details.push(`consigne ${sid.slice(0, 8)}@${occ}: envoyée à ${sent.length} destinataire(s)`);
+            // ── Greffe canal (vue équipe inc 6) : si la série porte un canal Slack déclaré
+            // (analytics.dispositif_channels, clé = saved_item_id), la consigne part AUSSI
+            // dans ce canal — additif, jamais bloquant, tracé sur une ligne dédiée. ──
+            try {
+              const ch = await readDispositifChannel(bq, loc, sid);
+              if (ch) {
+                const scfg = await loadChannelConfig(bq, uid, loc, "slack").catch(() => ({}));
+                const sres = await sendSlack(scfg, { title: subject, body, recipient: ch }).catch((e: any) => ({ ok: false, error: String(e?.message || e) }));
+                if (sres.ok) {
+                  await bq.dataset("analytics").table("consigne_sends").insert([{
+                    send_id: crypto.randomUUID(), saved_item_id: sid, location_id: loc,
+                    occurrence_date: occ, send_offset: off, channel: "slack",
+                    recipients: JSON.stringify([ch]), n_recipients: 1,
+                    sent_at: new Date().toISOString(),
+                  }]);
+                  details.push(`consigne ${sid.slice(0, 8)}@${occ}: postée dans le canal Slack`);
+                } else {
+                  details.push(`consigne ${sid.slice(0, 8)}@${occ}: canal Slack en échec: ${String((sres as any).error || "").slice(0, 80)}`);
+                }
+              }
+            } catch (e: any) {
+              details.push(`consigne ${sid.slice(0, 8)}@${occ}: greffe canal en erreur: ${String(e?.message || e).slice(0, 80)}`);
+            }
           }
         }
       }

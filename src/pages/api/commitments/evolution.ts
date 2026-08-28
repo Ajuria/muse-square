@@ -6,10 +6,12 @@
 // field (window_residual_z, _raw, applied_rho/vif, threshold_value, creation_residual_z)
 // and the per-day series returns residual_pct only — so the render cannot leak z.
 import type { APIRoute } from "astro";
-import { KPI_LABEL_FR } from "../../../lib/kpiRegistry";
+import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpiRegistry";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { readLatestSnapshot } from "../../../lib/actionCommitments";
+import { buildPoleReading } from "../../../lib/poleReading";
+import { commitmentEffect } from "../../../lib/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
 import { getBestInClassPlays, leverForActionType } from "../../../lib/bestInClassStore";
 
@@ -76,6 +78,19 @@ async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], 
         params: { l: loc, f: family, a: bq.date(ws), t: bq.date(today) }, location: "EU" });
       peers = (pr as any[]).map((x) => ({ date: String(flat(x.d)), v: Number(flat(x.v)) })).reverse();
     }
+  } else if (metric === "profit_estimated") {
+    // K9 (24/08) : série journalière du profit estimé (marges déclarées lues à la mesure).
+    // Aucune marge déclarée → pas de bloc (absence honnête, même règle que famille sans famille).
+    const dr = await profitEstimatedDaily(bq, loc, ws, we);
+    if (!dr) return null;
+    daily = dr;
+    if (dayOf) {
+      const preStart = new Date(ws + "T00:00:00Z"); preStart.setUTCDate(preStart.getUTCDate() - 70);
+      const preEnd = new Date(ws + "T00:00:00Z"); preEnd.setUTCDate(preEnd.getUTCDate() - 1);
+      const pd = await profitEstimatedDaily(bq, loc, preStart.toISOString().slice(0, 10), preEnd.toISOString().slice(0, 10)).catch(() => null);
+      const dowWs = new Date(ws + "T00:00:00Z").getUTCDay();
+      peers = (pd || []).filter((x) => x.date <= today && new Date(x.date + "T00:00:00Z").getUTCDay() === dowWs).slice(-8);
+    }
   } else if (KPI_DAY_COL[metric]) {
     const col = KPI_DAY_COL[metric];
     const [dr] = await bq.query({ query: `SELECT CAST(transaction_date AS STRING) d, ${col} v FROM \`${PERF_TABLE}\` WHERE location_id=@l AND transaction_date BETWEEN @a AND @b AND ${col} IS NOT NULL ORDER BY 1`,
@@ -119,6 +134,52 @@ async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], 
   return { metric, label_fr: KPI_LABEL[metric] || metric, family, day_of: dayOf, baseline, realized, goal, goal_pct, daily, peers };
 }
 
+// Chaîne de versions du dispositif (étape 2, 27/08) — partagée entre le flux daté et le rendu
+// PÔLE (P3) : même requête canonique, jamais dupliquée. < 2 versions → [] (une racine seule
+// n'a pas d'historique à raconter).
+async function buildLineage(bq: any, snap: any): Promise<any[]> {
+  let lineage: any[] = [];
+  if ((snap as any).dispositif_id) {
+    const [lrows] = await bq.query({
+
+      query: `SELECT commitment_id, version_no, status, verdict, measured_metric,
+                     window_residual_pct, window_residual_z,
+                     kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
+                     CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end
+              FROM (
+                SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC,
+                  CASE WHEN status IN ('resolved','cancelled') THEN 1 ELSE 0 END DESC,
+                  (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                FROM \`${BQ_PROJECT}.analytics.action_commitments\`
+                WHERE dispositif_id = @d AND location_id = @loc
+              )
+              WHERE rn = 1 AND status != 'cancelled'
+              ORDER BY version_no`,
+      params: { d: String((snap as any).dispositif_id), loc: String(snap.location_id) },
+      types: { d: "STRING", loc: "STRING" },
+      location: "EU",
+    });
+    const flatv = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+    lineage = (Array.isArray(lrows) ? lrows : []).map((r: any) => {
+      const eff = commitmentEffect(r);
+      return {
+        commitment_id: String(flatv(r.commitment_id)),
+        version_no: Number(flatv(r.version_no)) || 1,
+        status: String(flatv(r.status)),
+        verdict: r.verdict != null ? String(flatv(r.verdict)) : null,
+        window_start: String(flatv(r.window_start) ?? ""),
+        window_end: String(flatv(r.window_end) ?? ""),
+        effect_pct: eff.pct,
+        effect_proven: eff.z != null && Math.abs(eff.z) >= 1,
+        kpi_mention_fr: eff.kpi_mention_fr,
+        is_current: String(flatv(r.commitment_id)) === String(snap.commitment_id),
+      };
+    });
+    if (lineage.length < 2) lineage = [];
+    }
+  return lineage;
+}
+
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const userId = String((locals as any)?.clerk_user_id || "").trim() || null;
@@ -130,6 +191,29 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const snap = await readLatestSnapshot(bq, commitmentId);
     if (!snap) return json({ ok: false, error: "Engagement introuvable" }, 404);
     requireLocationOwnership(locals, snap.location_id);
+
+    // ── PÔLE / DISPOSITIF PERMANENT (spec pôles, 27/08) : ni fenêtre ni verdict — la page
+    // rend la LECTURE CONTINUE (familles vs habituel) + les opérations rattachées + la chaîne
+    // de versions. Toute la machinerie datée (série, KPI fenêtré, moves) est hors sujet ici.
+    if ((snap as any).dispositif_nature === "permanent") {
+      let _famList: string[] = [];
+      try { _famList = JSON.parse(String((snap as any).pole_families || "[]")); } catch { /* périmètre illisible → lecture vide, jamais un crash */ }
+      const asOfP = new Date().toISOString().slice(0, 10);
+      const pole = await buildPoleReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), _famList, asOfP);
+      const commitment = {
+        commitment_id: snap.commitment_id, location_id: snap.location_id, status: snap.status,
+        dispositif_nature: "permanent",
+        committed_action_text: snap.committed_action_text, owner_person_name: snap.owner_person_name,
+        pole_families: (snap as any).pole_families ?? null,
+        dispositif_plus: (snap as any).dispositif_plus ?? null,
+        dispositif_why: (snap as any).dispositif_why ?? null,
+        dispositif_resources: (snap as any).dispositif_resources ?? null,
+        created_at: flat(snap.created_at),
+        dispositif_id: (snap as any).dispositif_id ?? null, version_no: (snap as any).version_no ?? null,
+      };
+      const lineage = await buildLineage(bq, snap);
+      return json({ ok: true, commitment, pole, lineage, site_name: null });
+    }
 
     // Same window-date logic as the cron (day_of → Paris business day of creation).
     const dates = snap.window_kind === "day_of"
@@ -193,6 +277,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       verdict_basis: snap.verdict_basis ?? null,
       kpi_noise_se: snap.kpi_noise_se != null ? Number(flat(snap.kpi_noise_se)) : null,
       execution_quality: snap.execution_quality,  // self-reported run quality (routes the advice)
+      // Coût de l'opération (ROI, 27/08) : saisi, affiché tel quel — le net se dit sur la page.
+      operation_cost_eur: (snap as any).operation_cost_eur != null ? Number(flat((snap as any).operation_cost_eur)) : null,
       // Enjeu d'origine gelé à la création (26/07) — rendu VERBATIM par le bloc Enjeu du doc
       // (tier_label_fr tel quel : pill et page alignées par construction). Null → pas de bloc.
       creation_enjeu_eur_year: snap.creation_enjeu_eur_year != null ? Number(flat(snap.creation_enjeu_eur_year)) : null,
@@ -201,6 +287,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
       creation_enjeu_class_key: snap.creation_enjeu_class_key ?? null,
       creation_enjeu_entangled: snap.creation_enjeu_entangled === true,
       creation_enjeu_inherited: snap.creation_enjeu_inherited === true,
+      // Contexte de la version (étape 3, 27/08) — le sous-formulaire « La version suivante »
+      // pré-remplit depuis la version courante ; measured_metric dérive l'étape de la vente.
+      measured_metric: snap.measured_metric ?? null,
+      dispositif_plus: (snap as any).dispositif_plus ?? null,
+      dispositif_why: (snap as any).dispositif_why ?? null,
+      dispositif_resources: (snap as any).dispositif_resources ?? null,
     };
 
     // §2d holiday-norm + ② named context + provenance + ③ advice (z-free, keys only)
@@ -246,7 +338,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }
     } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
 
-    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, ...extras });
+    // LA CHAÎNE LUE (27/08, chantier versionning) — l'historique du dispositif, du premier test à
+    // celui-ci : chaque version avec SON verdict et SON effet sur SON KPI (commitmentEffect, le
+    // foyer — jamais le résidu de CA d'office). Rendu par renderEvolution seulement quand la
+    // chaîne compte plus d'une version : une V1 seule n'a pas d'historique à raconter.
+    const lineage = await buildLineage(bq, snap);
+
+    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);

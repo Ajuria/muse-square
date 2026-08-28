@@ -589,6 +589,19 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
     span AS (
       SELECT location_id, DATE_DIFF(MAX(date), MIN(date), DAY) + 1 AS span_days
       FROM joined GROUP BY location_id
+    ),
+    -- INDICE DE CORRÉLATION (owner 28/08) : r de point-bisériel — présence de la classe ×
+    -- valeur BRUTE de la métrique, sur TOUS les jours du site. Association pré-ajustement
+    -- (la même pour les deux bases) ; les populations de cartes (family 'card') et
+    -- discount_no_lift n'en portent pas (le tir EST l'appartenance — une corrélation avec
+    -- soi-même mentirait).
+    metric_stats AS (
+      SELECT location_id, metric, AVG(v) AS all_avg, STDDEV_SAMP(v) AS all_sd, COUNT(*) AS all_n
+      FROM vals GROUP BY location_id, metric
+    ),
+    raw_class AS (
+      SELECT location_id, class_key, metric, AVG(gap_eur) AS raw_avg, COUNT(*) AS raw_n
+      FROM class_metric GROUP BY location_id, class_key, metric
     )
     SELECT
       cl.location_id,
@@ -605,11 +618,31 @@ export function dayClassAggregateSql(singleLocation: boolean): string {
       AVG(cl.gap_log) AS avg_log,
       STDDEV_SAMP(cl.gap_log) AS sd_log,
       s.span_days,
+      -- r_pb = (M1 − M0)/SD_tous × √(p·q) — chaque terme est une somme/moyenne mesurée.
+      MAX(CASE WHEN ms.all_sd > 0 AND rc.raw_n > 0 AND ms.all_n > rc.raw_n THEN
+        SAFE_DIVIDE(rc.raw_avg - SAFE_DIVIDE(ms.all_avg * ms.all_n - rc.raw_avg * rc.raw_n, ms.all_n - rc.raw_n), ms.all_sd)
+        * SQRT(SAFE_DIVIDE(rc.raw_n, ms.all_n) * (1 - SAFE_DIVIDE(rc.raw_n, ms.all_n)))
+      END) AS corr_r,
       CURRENT_TIMESTAMP() AS computed_at
     FROM classed cl
     JOIN span s ON s.location_id = cl.location_id
+    LEFT JOIN metric_stats ms ON ms.location_id = cl.location_id AND ms.metric = cl.metric
+    LEFT JOIN raw_class rc ON rc.location_id = cl.location_id AND rc.class_key = cl.class_key AND rc.metric = cl.metric
     GROUP BY cl.location_id, cl.class_key, cl.family, cl.basis, cl.metric, s.span_days
   `;
+}
+
+// ── INDICE DE CORRÉLATION (mots owner 28/08 : « Indice de corrélation fort (r = 0,42) ») ──
+// Paliers de Cohen (convention établie) : |r| < 0,3 faible · 0,3–0,5 moyen · ≥ 0,5 fort.
+// Le signe s'affiche (il porte la direction du lien). Sous n < 5 ou r absent → null : on ne
+// qualifie pas un lien qu'on n'a pas mesuré.
+export function corrIndexFr(r: number | null | undefined, n_days?: number | null): string | null {
+  if (r == null || !Number.isFinite(r)) return null;
+  if (n_days != null && n_days < 5) return null;
+  const a = Math.abs(r);
+  const palier = a >= 0.5 ? "fort" : a >= 0.3 ? "moyen" : "faible";
+  const rFr = `${r < 0 ? "−" : ""}${(Math.round(a * 100) / 100).toLocaleString("fr-FR")}`;
+  return `Indice de corrélation ${palier} (r = ${rFr})`;
 }
 
 // THE policy — gates, tier, €/an, basis preference — applied at READ time on raw rows. Single

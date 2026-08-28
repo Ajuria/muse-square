@@ -106,7 +106,7 @@ export function analyzeTemporal(ww: WWStat[], monthly: MonthShare[]): { facts: F
       const when = gap > 0 ? "le week-end" : "en semaine";
       const pp = Math.round(Math.abs(gap) * 10) / 10;
       facts.push({
-        fact_fr: `Votre mix bascule ${when} : ${c.category} y pèse ${pp.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} pp de plus (${Math.round(gap > 0 ? c.we_mean : c.wd_mean)} % vs ${Math.round(gap > 0 ? c.wd_mean : c.we_mean)} %).`,
+        fact_fr: `Votre mix bascule ${when} : la part de ${c.category} passe de ${Math.round(gap > 0 ? c.wd_mean : c.we_mean)} % à ${Math.round(gap > 0 ? c.we_mean : c.wd_mean)} %.`,
         claim_type: "observed",
       });
       ww_signals.push({ category: c.category, gap_pp: Math.round(gap * 10) / 10, heavier: gap > 0 ? "weekend" : "weekday" });
@@ -122,7 +122,7 @@ export function analyzeTemporal(ww: WWStat[], monthly: MonthShare[]): { facts: F
     const range = Math.max(...arr) - Math.min(...arr);
     if (range >= SEASON_MIN_RANGE_PP) {
       facts.push({
-        fact_fr: `La part de ${cat} varie de ${Math.round(range)} pp selon les mois (de ${Math.round(Math.min(...arr))} % à ${Math.round(Math.max(...arr))} %).`,
+        fact_fr: `La part de ${cat} varie selon les mois, de ${Math.round(Math.min(...arr))} % à ${Math.round(Math.max(...arr))} %.`,
         claim_type: "observed",
       });
       season_signals.push({ category: cat, range_pp: Math.round(range * 10) / 10 });

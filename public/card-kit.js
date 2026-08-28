@@ -47,9 +47,11 @@
         var cell = cells[k] || {};
         var align = cols[k] ? (cols[k].align || (k === 0 ? 'left' : 'right')) : 'left';
         var color = cell.color || (cell.bold ? '#111827' : (k === 0 ? '#111827' : '#6B7280'));
-        h += '<td style="padding:7px 0' + (k === 0 ? '' : ' 7px 14px') + ';text-align:' + align + ';color:' + color + ';' + (cell.bold ? 'font-weight:600;' : '') + '">'
+        // tip (27/08, plan de période) : le détail « kitchen » (mélanges, comptes) vit au
+        // SURVOL — la cellule reste nue (règle owner), le ⓘ signale sa présence.
+        h += '<td' + (cell.tip ? ' title="' + esc(cell.tip) + '"' : '') + ' style="padding:7px 0' + (k === 0 ? '' : ' 7px 14px') + ';text-align:' + align + ';color:' + color + ';' + (cell.bold ? 'font-weight:600;' : '') + (cell.tip ? 'cursor:help;' : '') + '">'
           + esc(cell.v == null ? '' : String(cell.v))
-          + (cell.sub ? '<div style="font-size:10.5px;color:#9CA3AF;font-weight:400;">' + esc(cell.sub) + '</div>' : '')
+          + (cell.sub ? '<div style="font-size:10.5px;color:#9CA3AF;font-weight:400;">' + esc(cell.sub) + (cell.tip ? ' \u24d8' : '') + '</div>' : (cell.tip ? '<div style="font-size:10.5px;color:#9CA3AF;font-weight:400;">\u24d8</div>' : ''))
           + '</td>';
       }
       h += '</tr>';
@@ -291,8 +293,8 @@
     if (lm.my_types && lm.my_types.length) html += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">' + lm.my_types.map(function (t) { return '<span style="font-size:11px;background:#F3F4F6;color:#374151;padding:3px 9px;border-radius:999px;">' + esc(t) + '</span>'; }).join('') + '</div>';
     if (lm.benchmark_note) html += '<div style="font-size:11px;color:#9CA3AF;margin-top:8px;line-height:1.5;">' + esc(lm.benchmark_note) + '</div>';
     if (j.calendar && j.calendar.length) {
-      html += '<div style="font-size:13px;font-weight:700;color:#111827;margin-top:18px;">Fenêtres de calendrier</div>'
-        + '<div style="font-size:11px;color:#9CA3AF;margin:4px 0 8px;line-height:1.5;">Densité d\'événements concurrents — visez les fenêtres calmes pour capter l\'attention.</div>'
+      html += '<div style="font-size:13px;font-weight:700;color:#111827;margin-top:18px;">' + esc(j.calendar_title || 'Programmez une opération') + '</div>'
+        + (j.calendar_note ? '<div style="font-size:12.5px;color:#374151;margin:4px 0 8px;line-height:1.55;">' + esc(j.calendar_note) + '</div>' : '')
         + msStrip(j.calendar.map(function (w) { return { top: w.label, mid: (w.count != null ? w.count : ''), highlight: (w.state === 'quiet' || w.state === 'busy'), tone: (w.state === 'quiet' ? 'ok' : (w.state === 'busy' ? 'warn' : 'default')) }; }));
     }
     if (j.impact) html += msImpactBlock(j.impact);
@@ -646,10 +648,10 @@
     if (t && t.any_signal) {
       var lines = [];
       (t.weekday_weekend || []).forEach(function (w) {
-        lines.push({ head: w.category, body: (w.heavier === 'weekend' ? 'plus vendu le week-end' : 'plus vendu en semaine') + ' (' + d(Math.abs(w.gap_pp)) + ' pp d\'écart).' });
+        lines.push({ head: w.category, body: (w.heavier === 'weekend' ? 'plus vendu le week-end' : 'plus vendu en semaine') + ' (part supérieure de ' + d(Math.abs(w.gap_pp)) + ' %).' });
       });
       (t.seasonal || []).forEach(function (s) {
-        lines.push({ head: s.category, body: 'sa part varie de ' + d(s.range_pp) + ' pp selon les mois.' });
+        lines.push({ head: s.category, body: 'sa part varie de ' + d(s.range_pp) + ' % selon les mois.' });
       });
       if (lines.length) out += msDecision('Le mix bouge', lines);
     } else {
@@ -806,9 +808,81 @@
     var cm = data.commitment, series = data.series || [], ctx = data.context || {};
     var hn = data.holiday_norm, prov = data.provenance || {}, advice = data.advice || [];
     var open = cm.status === 'open';
+
+    // ── POLE / DISPOSITIF PERMANENT (P3, spec 27/08) — un document propre : lecture continue
+    // (familles vs habituel), memoire, operations rattachees. AUCUN mot de verdict : un
+    // permanent n'a pas de terme, sa mesure ne se juge pas, elle se lit.
+    if (cm.dispositif_nature === 'permanent') {
+      var t2 = function (key, vars) { var s2 = (COPY && COPY[key]) || ''; if (vars) for (var kk in vars) if (vars.hasOwnProperty(kk)) s2 = s2.split('{' + kk + '}').join(vars[kk]); return s2; };
+      var pEurJ = function (v) { return v == null ? '—' : Number(v).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' €/j'; };
+      var pPct = function (v) { return (v >= 0 ? '+' : '−') + String(Math.abs(v)).replace('.', ',') + ' %'; };
+      var pFams = []; try { pFams = JSON.parse(cm.pole_families || '[]'); } catch (e2) { pFams = []; }
+      var pr = data.pole || { families: [], operations: [] };
+      var nameParts = String(cm.committed_action_text || '').split(' — ');
+      var pName = nameParts[0] || 'Pôle';
+      var pLever = nameParts.slice(1).join(' — ');
+      var h = '<div style="border-bottom:2px solid #111827;padding-bottom:14px;margin-bottom:20px;">'
+        + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:19px;font-weight:700;color:#111827;">' + esc(pName) + '</span>'
+        + '<span style="font-size:11px;font-weight:600;color:#0F6E56;background:#E6F6F0;padding:3px 10px;border-radius:999px;">' + esc(t2('pole_chip')) + '</span>'
+        + (cm.status !== 'open' ? '<span style="font-size:11px;color:#6b7280;background:#F3F4F6;padding:3px 10px;border-radius:999px;">fermé</span>' : '') + '</div>'
+        + (pLever ? '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">' + esc(pLever) + '</div>' : '')
+        + (cm.owner_person_name ? '<div style="font-size:12px;color:#6b7280;margin-top:4px;">' + esc(t2('pole_resp')) + ' : ' + esc(cm.owner_person_name) + '</div>' : '')
+        + '</div>';
+      h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_fams_title')) + '</div>'
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + pFams.map(function (f) { return '<span style="font-size:12px;background:#F3F4F6;color:#374151;padding:4px 11px;border-radius:999px;">' + esc(f) + '</span>'; }).join('') + '</div></div>';
+      var pt = pr.totals || {};
+      var ptLine = '';
+      if (pt.rev30_eur != null) {
+        ptLine = '<div style="font-size:14px;font-weight:600;color:#111827;margin-bottom:8px;">'
+          + esc(t2('pole_totals_row', { rev: Number(pt.rev30_eur).toLocaleString('fr-FR'), share: pt.share_pct != null ? String(pt.share_pct).replace('.', ',') : '\u2014' }))
+          + (pt.delta_pct != null ? ' \u00b7 <span style="color:' + (pt.delta_pct >= 0 ? '#0F6E56' : '#B45309') + ';">' + pPct(pt.delta_pct) + ' vs les 90 jours pr\u00e9c\u00e9dents</span>' : '')
+          + '</div>';
+      }
+      h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_reading_title')) + '</div>'
+        + ptLine
+        + '<div style="font-size:11px;color:#9CA3AF;margin-bottom:8px;">' + esc(t2('pole_reading_caption')) + '</div>'
+        + (pr.families || []).map(function (fr2) {
+            var right = fr2.delta_pct != null
+              ? '<span style="font-size:13px;font-weight:600;color:' + (fr2.delta_pct >= 0 ? '#0F6E56' : '#B45309') + ';">' + pPct(fr2.delta_pct) + '</span>'
+              : '<span title="' + esc(t2('pole_reading_thin_tip', { n30: fr2.n30 })) + '" style="font-size:11px;color:#9CA3AF;cursor:help;">' + esc(t2('pole_reading_thin')) + ' \u24d8</span>';
+            return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5e7eb;padding:10px 14px;margin-bottom:6px;">'
+              + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(fr2.family) + '</span>'
+              + '<span style="font-size:12px;color:#6b7280;">' + pEurJ(fr2.avg30_eur_day) + (fr2.base_eur_day != null ? ' · ' + esc(t2('pole_reading_row', { n30: fr2.n30, base: Number(fr2.base_eur_day).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) })) : '') + '</span>'
+              + right + '</div>';
+          }).join('')
+        + '</div>';
+      var mem = '';
+      if (cm.dispositif_plus) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_plus')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_plus) + '</div></div>';
+      if (cm.dispositif_why) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_why')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_why) + '</div></div>';
+      if (cm.dispositif_resources) mem += '<div><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_res')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_resources) + '</div></div>';
+      if (mem) h += '<div class="eg-sec">' + mem + '</div>';
+      h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_ops_title')) + '</div>'
+        + ((pr.operations || []).length
+          ? pr.operations.map(function (o) {
+              var when = (o.window_start ? msDateFr(o.window_start) : '') + (o.window_end && o.window_end !== o.window_start ? ' → ' + msDateFr(o.window_end) : '');
+              var st = o.status === 'open' ? t2('pole_op_open') : t2('pole_op_done');
+              return '<a href="/app/insightevent/engagement?id=' + encodeURIComponent(o.commitment_id) + '" style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5e7eb;padding:10px 14px;margin-bottom:6px;text-decoration:none;">'
+                + '<span style="font-size:13px;color:#111827;">' + esc(o.committed_action_text || '') + '</span>'
+                + '<span style="font-size:11.5px;color:#6b7280;white-space:nowrap;">' + esc(when) + ' · ' + esc(st) + '</span></a>';
+            }).join('')
+          : '<div style="font-size:12.5px;color:#9CA3AF;">' + esc(t2('pole_ops_none')) + '</div>')
+        + '</div>';
+      return h;
+    }
+
     var received = series.filter(function (d) { return d.has_data; });
     var windowHoliday = ctx.school_days > 0 || series.some(function (d) { return d.is_school_holiday; });
 
+    // Cout de l'operation (ROI, 27/08) : ligne factuelle sous l'en-tete ; le net ne se dit que
+    // quand la fenetre est MESUREE (actual + expected presents) — jamais un net sur du vide.
+    var costLine = '';
+    if (cm.operation_cost_eur != null) {
+      var _cAct = cm.window_actual_revenue != null ? Number(cm.window_actual_revenue) : null;
+      var _cExp = cm.window_expected_revenue != null ? Number(cm.window_expected_revenue) : null;
+      var _net = (_cAct != null && _cExp != null) ? Math.round(_cAct - _cExp - Number(cm.operation_cost_eur)) : null;
+      costLine = '<div style="font-size:12px;color:#6b7280;margin-top:4px;">Co\u00fbt de l\u2019op\u00e9ration : ' + Number(cm.operation_cost_eur).toLocaleString('fr-FR') + ' \u20ac'
+        + (_net != null ? ' \u00b7 net apr\u00e8s co\u00fbt : ' + (_net >= 0 ? '+' : '\u2212') + Math.abs(_net).toLocaleString('fr-FR') + ' \u20ac' : '') + '</div>';
+    }
     var aggPct;
     if (cm.window_residual_pct != null) aggPct = Number(cm.window_residual_pct);
     else if (received.length) aggPct = received.reduce(function (s, d) { return s + d.residual_pct; }, 0) / received.length;
@@ -841,6 +915,7 @@
       + '<div style="' + (_siteNmHdSpan ? 'display:flex;align-items:baseline;' : '') + 'font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;font-weight:600;">Engagement' + _siteNmHdSpan + '</div>'
       + '<div style="font-size:21px;font-weight:600;margin-top:5px;line-height:1.3;">' + esc(cm.committed_action_text || '—') + '</div>'
       + '<div style="font-size:13px;color:#6b7280;margin-top:6px;">' + sub + '</div>'
+      + costLine
       + (_ownerDate ? '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + _ownerDate + '</div>' : '')
       + '</div>';
 
@@ -1049,7 +1124,7 @@
       function jourFr2(iso) { return ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][new Date(iso + 'T00:00:00Z').getUTCDay()]; }
       var cap = k.day_of
         ? 'vos ' + pts.length + ' derniers ' + jourFr2(k.daily && k.daily.length ? k.daily[0].date : (k.peers[k.peers.length - 1] || {}).date || '') + 's \u00b7 gros point = le jour mesur\u00e9'
-        : 'les ' + pts.length + ' journ\u00e9es de la fen\u00eatre \u00b7 la jauge = leur moyenne';
+        : 'les ' + pts.length + ' journ\u00e9es de l\u2019op\u00e9ration \u00b7 la jauge = leur moyenne';
       var vals = pts.map(function (p2) { return p2.v; });
       if (k.realized != null && k.day_of) vals.push(k.realized);
       if (k.goal != null) vals.push(k.goal);
@@ -1174,6 +1249,44 @@
       else if (_under) _recMove = _execQ ? (_execQ === 'complete' ? (_notable ? 'poursuivre' : 'pivoter') : 'poursuivre') : null;
       else _recMove = 'poursuivre';
     }
+    // Contexte de la version (etape 3, 27/08) — la calibration lit la derniere version RESOLUE
+    // de la chaine (jamais l'effet partiel de la version ouverte : ce serait la lecture
+    // intermediaire, etape 4). Dispositif ecarte (effet negatif prouve) => pivoter recommande.
+    var _lastRes = (data.lineage || []).filter(function (v) { return v.status === 'resolved' && v.effect_pct != null; }).pop() || null;
+    if (open && _lastRes && _lastRes.effect_proven && _lastRes.effect_pct < 0) _recMove = 'pivoter';
+    // Lecture du jour (etape 4, 27/08) — l'etat DATE de la version ouverte, sur LE KPI choisi
+    // quand il est actif (K.daily), sinon sur le residu CA (received). Le routage passe par le
+    // badge « recommande » des puces EXISTANTES — jamais un bouton de plus — et seulement apres
+    // au moins 3 bilans jour ; la route negative exige au moins 3 journees negatives (owner
+    // 27/08 : jamais sur 1 signal). Les jours recus de la version courante priment l'ecarte.
+    var _lect = null;
+    if (open) {
+      var _lPts = (_kpiActive && K.daily && K.daily.length) ? K.daily.filter(function (p) { return p.v != null; }) : null;
+      if (_lPts && _lPts.length) {
+        var _lAvg = _lPts.reduce(function (s, p) { return s + p.v; }, 0) / _lPts.length;
+        var _lNeg = K.baseline != null ? _lPts.filter(function (p) { return p.v < K.baseline; }).length : 0;
+        var _lMet = K.goal != null ? _lAvg >= K.goal : (K.baseline != null ? _lAvg >= K.baseline : false);
+        var _lSig = (cm.kpi_noise_se != null && K.baseline != null) ? Math.abs(_lAvg - K.baseline) >= Number(cm.kpi_noise_se) : false;
+        _lect = { date: _lPts[_lPts.length - 1].date, n: _lPts.length, met: _lMet, nNeg: _lNeg, sigUp: _lMet && _lSig && _lAvg > K.baseline };
+      } else if (received.length) {
+        var _lNegR = received.filter(function (d) { return d.residual_pct != null && d.residual_pct < 0; }).length;
+        _lect = { date: received[received.length - 1].date, n: received.length, met: _dBase >= _dGoal, nNeg: _lNegR, sigUp: _dBase >= _dGoal };
+      }
+    }
+    if (_lect && _lect.n >= 3) {
+      if (!_lect.met && _lect.nNeg >= 3) _recMove = 'pivoter';
+      else if (_lect.sigUp) _recMove = 'doubler';
+    }
+    var _lectHtml = '';
+    if (_lect) {
+      _lectHtml = '<div style="margin-bottom:12px;"><div style="font-size:12.5px;font-weight:600;color:#111827;">'
+        + esc(t('lecture_line', { date: msDateFr(_lect.date), n: _lect.n, jours: _lect.n > 1 ? 'jours reçus' : 'jour reçu', etat: _lect.met ? 'atteint' : 'pas atteint' })) + '</div>'
+        + (_lect.n >= 3 && !_lect.met && _lect.nNeg >= 3
+          ? '<div style="font-size:12.5px;color:#B45309;margin-top:3px;">' + esc(t('lecture_down', { n: _lect.nNeg })) + '</div>'
+          : (_lect.n >= 3 && _lect.sigUp ? '<div style="font-size:12.5px;color:#0F6E56;margin-top:3px;">' + esc(t('lecture_up')) + '</div>' : ''))
+        + '</div>';
+    }
+    
     var _mc = function (m, title, desc) {
       var st = _mh[m];
       var track = (st && st.attempts >= 2) ? '<div style="font-size:11.5px;color:#1D3BB3;margin-top:5px;">' + esc(t('move_track', { hits: st.hits, attempts: st.attempts })) + '</div>' : '';
@@ -1213,12 +1326,43 @@
       + '</div>';
     }
 
+    // ── « La version suivante » (etape 3, 27/08) — le sous-formulaire du re-commit : la V(n+1)
+    // n'herite plus en silence. Objectif recalibre depuis la derniere version RESOLUE ; champs
+    // owner : Levier, Etape de la vente (derivee du KPI), Ressource(s), Responsable(s),
+    // Le plus du dispositif, Pourquoi ca va marcher. Masque quand le move choisi est stop.
+    var _vformHtml = function () {
+      var stage = ({ visitors: 'Flux', conversion: 'Conversion', transactions: 'Transaction', avg_basket: 'Panier' })[String(cm.measured_metric || '').split(':')[0]] || null;
+      var curGoal = (cm.threshold_basis === 'pct' && cm.threshold_value != null) ? Number(cm.threshold_value) : null;
+      var propGoal = curGoal, calib = '';
+      if (_lastRes && _lastRes.effect_pct > 0) {
+        propGoal = Math.max(1, Math.ceil(_lastRes.effect_pct));
+        calib = t('vform_goal_calib', { n: _lastRes.version_no, pct: '+' + String(Math.round(_lastRes.effect_pct * 10) / 10).replace('.', ',') + ' %', goal: propGoal });
+      }
+      var inp = 'width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12.5px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;';
+      var lab = function (txt) { return '<div style="font-size:12.5px;font-weight:500;color:#374151;margin:12px 0 4px;">' + esc(txt) + '</div>'; };
+      return '<div data-vform style="margin-top:16px;border-top:1px solid #eef1f6;padding-top:14px;">'
+        + '<div style="font-size:13px;font-weight:600;color:#111827;">' + esc(t('vform_title'))
+        + (stage ? ' <span style="font-size:11px;color:#374151;background:#f1efe8;padding:2px 8px;margin-left:6px;">' + esc(t('vform_stage')) + ' : ' + stage + '</span>' : '') + '</div>'
+        + lab(t('vform_goal'))
+        + '<div style="display:flex;align-items:center;gap:6px;"><input data-vform-goal type="number" min="1" max="100" step="1" value="' + (propGoal != null ? propGoal : '') + '" style="width:72px;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:13px;font-weight:600;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;text-align:right;" /><span style="font-size:12px;color:#6b7280;">%</span></div>'
+        + (calib ? '<div style="font-size:11.5px;color:#1D3BB3;margin-top:4px;">' + esc(calib) + '</div>' : '')
+        + lab(t('vform_lever')) + '<textarea data-vform-lever style="' + inp + 'resize:none;min-height:48px;">' + esc(cm.committed_action_text || '') + '</textarea>'
+        + lab(t('vform_resp')) + '<input data-vform-resp data-cm-owner value="' + esc(cm.owner_person_name || '') + '" style="' + inp + '" />'
+        + '<div data-cm-owner-sugg style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;"></div>'
+        + lab(t('vform_res')) + '<input data-vform-res value="' + esc(cm.dispositif_resources || '') + '" style="' + inp + '" />'
+        + lab(t('vform_cost')) + '<div style="display:flex;align-items:center;gap:6px;"><input data-vform-cost type="number" min="0" step="10" value="' + (cm.operation_cost_eur != null ? esc(String(cm.operation_cost_eur)) : '') + '" style="width:120px;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;text-align:right;" /><span style="font-size:12px;color:#6b7280;">\u20ac</span></div>'
+        + lab(t('vform_plus')) + '<textarea data-vform-plus style="' + inp + 'resize:none;min-height:48px;">' + esc(cm.dispositif_plus || '') + '</textarea>'
+        + lab(t('vform_why')) + '<textarea data-vform-why style="' + inp + 'resize:none;min-height:48px;">' + esc(cm.dispositif_why || '') + '</textarea>'
+        + '</div>';
+    };
+
     // ── Your next move — UNIVERSAL for open commitments: the owner authors their OWN strategy in every
     // state (below/aligned/above), never only consuming best-practices. Diagnosis explains, this decides.
     var moveForm = '';
     if (open) {
       moveForm = '<div class="eg-sec">'
         + '<div class="eg-uc">' + esc(t('move_title')) + '</div>'
+        + _lectHtml
         // « Ça marche » ne se dit qu'avec des journées reçues — à J1 (zéro donnée), intro
         // neutre (bug attrapé par la harness J1 26/07 : verdict fabriqué sans données).
         + '<div style="font-size:13px;color:#6b7280;line-height:1.55;margin-bottom:12px;">' + esc((_under || !received.length) ? t('diag_move_intro') : t('move_intro_ontrack')) + '</div>'
@@ -1229,6 +1373,7 @@
         + '<div style="font-size:13px;font-weight:500;color:#374151;margin:14px 0 6px;" data-adjust-noteq>' + esc(t('diag_move_note_q')) + '</div>'
         + '<textarea data-adjust-note placeholder="' + esc(_moveHint(cm.origin_action_type)) + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:9px 11px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:60px;box-sizing:border-box;"></textarea>'
         + '<div style="font-size:11px;color:#9ca3af;margin-top:5px;">' + esc(t('diag_move_hint_caption')) + '</div>'
+        + _vformHtml()
         + '<div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:14px;"><span data-adjust-msg style="font-size:12px;color:#b91c1c;"></span><button type="button" data-adjust-submit style="font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;border:none;padding:9px 16px;cursor:pointer;font-family:inherit;">' + esc(t('diag_move_cta')) + '</button></div>'
         + '<div data-diag-form style="margin-top:10px;"></div>'
         + '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;"><div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;font-weight:500;margin-bottom:4px;">' + esc(t('diag_capitalise_title')) + '</div><div style="font-size:12.5px;color:#6b7280;line-height:1.55;">' + esc(t('diag_capitalise_body')) + '</div></div>'
@@ -1254,7 +1399,30 @@
 
     // Diagnosis explains (under only) → the owner DECIDES (moveForm, universal for open) → best-in-class
     // is the reference beneath. Resolved commitments skip moveForm (q4 = Documenter is the mechanism).
-    return head + q1 + diagWhy + (_under ? '' : q3) + moveForm + bicRef + q4 + sources;
+    // LA CHAINE LUE (27/08, chantier versionning) : l'historique du dispositif, une ligne par
+    // version, chacune avec SON verdict (mots arbitres : objectif atteint / manque / non
+    // concluant) et SON effet sur SON KPI. Rendu seulement si la chaine compte >1 version.
+    var lineageB = '';
+    var _lin = Array.isArray(data.lineage) ? data.lineage : [];
+    if (_lin.length > 1) {
+      var _linVerdict = { met: 'objectif atteint', missed: 'objectif manqu\u00e9', confounded: 'objectif non concluant' };
+      var _linFrD = function (iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : ''; };
+      var _linPct = function (n) { if (n == null) return ''; var v = Math.round(Math.abs(Number(n)) * 10) / 10; return (Number(n) >= 0 ? '+' : '\u2212') + String(v).replace('.', ',') + ' %'; };
+      lineageB = '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;">'
+        + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Historique du dispositif</div>'
+        + _lin.map(function (v) {
+            var line = 'Version ' + v.version_no + ' \u2014 du ' + _linFrD(v.window_start) + ' au ' + _linFrD(v.window_end);
+            if (v.status === 'open') { line += ' : en cours, verdict d\u2019ici le ' + _linFrD(v.window_end) + '.'; }
+            else {
+              var vd = _linVerdict[v.verdict] || 'sans verdict';
+              var eff = v.effect_pct != null ? ' \u2014 ' + _linPct(v.effect_pct) + (v.kpi_mention_fr ? ' ' + v.kpi_mention_fr : '') + ' vs votre r\u00e9sultat habituel' + (v.effect_proven ? ' (effet prouv\u00e9)' : '') : '';
+              line += ' : ' + vd + eff + '.';
+            }
+            return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + esc(line) + (v.is_current ? ' <span style="color:#6B7280;font-weight:500;">(ce test)</span>' : '') + '</div>';
+          }).join('')
+        + '</div>';
+    }
+    return head + q1 + lineageB + diagWhy + (_under ? '' : q3) + moveForm + bicRef + q4 + sources;
   }
 
 
@@ -1488,12 +1656,28 @@
         var pillBg = amber ? '#FAEEDA' : '#E6F1FB', pillFg = amber ? '#633806' : '#0C447C';
         var h = '<div style="border:0.5px solid ' + border + ';border-left:3px solid ' + rail + ';border-radius:0 8px 8px 0;padding:10px 12px;margin-bottom:8px;background:#fff;">'
           + '<div style="font-size:15px;font-weight:500;margin-bottom:6px;color:#111827;">' + esc(d.label || '') + '</div>';
-        if (d.pill) h += '<div style="display:inline-block;background:' + pillBg + ';color:' + pillFg + ';font-size:14px;font-weight:500;padding:4px 10px;border-radius:8px;margin-bottom:6px;">' + mdInlineKit(esc(d.pill)) + '</div>';
+        // tip (27/08, journal pôles) : le détail « kitchen » vit en infobulle, jamais dans la pill
+        // (« Données insuffisantes ⓘ » + title porte le compte de jours — règle owner).
+        if (d.pill) h += '<div' + (d.tip ? ' title="' + esc(d.tip) + '"' : '') + ' style="display:inline-block;background:' + pillBg + ';color:' + pillFg + ';font-size:14px;font-weight:500;padding:4px 10px;border-radius:8px;margin-bottom:6px;' + (d.tip ? 'cursor:help;' : '') + '">' + mdInlineKit(esc(d.pill)) + '</div>';
         h += (d.rows || []).map(function (r) {
           return '<div style="font-size:13px;color:#111827;margin-bottom:3px;">' + (r.k ? '<strong style="font-weight:500;">' + esc(r.k) + '</strong> ' : '') + mdInlineKit(esc(r.v || '')) + '</div>';
         }).join('');
         return h + '</div>';
       }).join('');
+    },
+    // Bloc TABLE (27/08, entité×période — « montre la donnée », owner) : LE tableau du kit
+    // (msTable), jamais un second rendu de table. items = { cols, rows } au format msTable.
+    table: function (b) {
+      if (!b.cols || !b.rows || !b.rows.length) return '';
+      return '<div style="overflow-x:auto;margin:8px 0 12px;"><table style="border-collapse:collapse;font-size:13px;color:#111827;width:100%;">' + msTable(b.cols, b.rows) + '</table></div>';
+    },
+    // Bloc SOURCES dépliable (patron details du kit, comme les étapes best-in-class).
+    sources: function (b) {
+      if (!b.items || !b.items.length) return '';
+      return '<details style="margin-top:10px;"><summary style="font-size:12px;color:#6b7280;cursor:pointer;">Sources</summary>'
+        + '<ul style="margin:6px 0 0 18px;padding:0;font-size:12px;color:#6b7280;">'
+        + b.items.map(function (x) { return '<li style="margin:3px 0;">' + esc(x) + '</li>'; }).join('')
+        + '</ul></details>';
     },
     // .ie-lookup-item/-name/-date/-desc/-notfound
     lookup: function (b) {

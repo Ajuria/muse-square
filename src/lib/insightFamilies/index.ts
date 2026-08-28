@@ -25,6 +25,7 @@ import { salesDecompFamily } from "./salesDecomp";
 import { salesFamily } from "./sales";
 import { calendarFamily } from "./calendar";
 import { channelsProvider } from "./channels";
+import { engagementsProvider } from "./engagements";
 
 export const FAMILIES: Record<string, FamilyProvider> = {
   // WEATHER / what the venue's OWN weather actually moves ("la pluie fait-elle baisser mon CA ?").
@@ -240,6 +241,11 @@ export const FAMILIES: Record<string, FamilyProvider> = {
   // canal) ou de compte client explicite — il ne doit rien voler aux familles ventes/
   // fréquentation qui matchent plus tôt. Périmètre : agrégats par canal + comptes nommés.
   channels: channelsProvider,
+  // ENGAGEMENTS — « qu'est-ce qui a marché chez moi ? » (J2.1). TOUT DERNIER : ses motifs sont
+  // possessifs (« mes engagements », « ce qui a marché ») et ne doivent rien voler aux familles
+  // ventes/fréquentation. Lit analytics.action_commitments EN DIRECT — les deux marts
+  // commitment sont figés au 04/08 et dbt est gelé : voir l'en-tête du provider.
+  engagements: engagementsProvider,
 };
 
 // Accent-strip + lowercase so matchers are robust to "A quel moment" (no accent, as typed) vs "À".

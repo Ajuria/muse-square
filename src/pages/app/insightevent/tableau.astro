@@ -34,7 +34,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
     </div>
 
 
-    <script is:inline src="/commit-form.js?v=11"></script>
+    <script is:inline src="/commit-form.js?v=14"></script>
     <style is:global>
       #tb-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 90px; color: #111827; }
       .tb-card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; box-shadow: 0 1px 3px rgba(16,24,40,0.06), 0 1px 2px rgba(16,24,40,0.04); margin-bottom: 12px; }
@@ -256,11 +256,22 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             link_fr: "Régler",
             href: "/notifications",
           });
-          if (!db.margin_declared) goals.push({
+          // Marges par famille (owner 24/08) : le geste reste tant que le profit n'est pas
+          // complet — toutes les familles déclarées (ou la marge globale du flux historique).
+          // NOTE copie : « Déclarer votre marge » (singulier) = slot EN ATTENTE d'arbitrage
+          // owner — la chaîne approuvée existante est conservée, jamais paraphrasée en vol.
+          // 27/08 soir : la ligne ne DISPARAÎT plus quand tout est déclaré (elle était la
+          // seule entrée d'édition — l'infobulle Profit promet « modifiables dans À faire ») ;
+          // déclarée → elle passe à l'état d'entretien, « modifiable à tout moment »
+          // (fragment approuvé du formulaire événement).
+          var mg0 = j.marges || {};
+          var allFamDeclared = (mg0.n_familles || 0) > 0 && mg0.n_declarees === mg0.n_familles;
+          var margeDone = db.margin_declared || allFamDeclared;
+          goals.push({
             kind: "marge",
-            aline: "→ Déclarer votre marge — débloque le KPI profit",
-            sub: "un chiffre, ici même — rien d’autre",
-            link_fr: "Déclarer",
+            aline: margeDone ? "→ Déclarer votre marge — modifiable à tout moment" : "→ Déclarer votre marge — débloque le KPI profit",
+            sub: margeDone ? (mg0.n_declarees ? mg0.n_declarees + " famille" + (mg0.n_declarees > 1 ? "s" : "") + " déclarée" + (mg0.n_declarees > 1 ? "s" : "") : "marge globale déclarée") : "un chiffre, ici même — rien d’autre",
+            link_fr: margeDone ? "Modifier" : "Déclarer",
             inline: "marge",
           });
           return goals;
@@ -275,8 +286,69 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + '</div>';
         }
 
+        // ═══ Vue équipe inc 3 — rendu MEMBRE (docs/vue-equipe-slack-spec.md). Le serveur
+        // n'envoie que la liste blanche (bandeau, À faire, opérations du périmètre pôles) ;
+        // cette vue rend CES blocs dans la grammaire existante de la page (tb-hero2/tb-t2,
+        // tb-eb/tb-card, « habituel », « Rien à faire — vos opérations suivent leur
+        // cours. ») — libellés KPI repris de KPI_MINI_FR (chaînes déjà rendues de la page),
+        // aucun €, aucun agrégat d'ensemble.
+        function renderMemberView(j) {
+          var nb = document.getElementById("tb-new"); if (nb) nb.style.display = "none";
+          var html = "";
+          var A = { days: 0, tx: 0, vis: 0 }, B = { days: 0, tx: 0, vis: 0 };
+          (j.bandeau || []).forEach(function (r) {
+            var t = r.w === "a" ? A : B;
+            t.days += (r.n_days || 0); t.tx += (r.tx || 0); t.vis += (r.vis || 0);
+          });
+          // Plancher n ≥ 5 jours vendus par fenêtre (convention poleReading) — sinon « — ».
+          // Visiteurs : un compte sans capteur d'affluence porte 0 partout — afficher
+          // « 0 visiteurs/jour » serait un mensonge, la tuile dit « — » (absence honnête).
+          function perDay(t, f) { return t.days >= 5 && !(f === "vis" && t.vis <= 0) ? t[f] / t.days : null; }
+          function conv(t) { return t.days >= 5 && t.vis > 0 ? t.tx / t.vis : null; }
+          function pcFr(n) { return n == null ? "—" : (n * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %"; }
+          function nFr(n) { return n == null ? "—" : Math.round(n).toLocaleString("fr-FR"); }
+          function tile(label, val, hab, tip) {
+            return '<div class="tb-t2" title="' + esc(tip) + '"><p class="tb-eb">' + label + '</p>'
+              + '<div class="n2" style="color:#111827;">' + val + '</div>'
+              + '<div class="s2">' + (hab != null ? 'habituel ' + hab : '30 derniers jours') + '</div></div>';
+          }
+          var tipBase = "30 derniers jours vendus · habituel = les 90 jours précédents — jours futurs exclus.";
+          html += '<div class="tb-hero2" style="grid-template-columns:repeat(3,1fr);">'
+            + tile("ventes/jour", nFr(perDay(A, "tx")), perDay(B, "tx") == null ? null : nFr(perDay(B, "tx")), tipBase)
+            + tile("nombre de visiteurs/jour", nFr(perDay(A, "vis")), perDay(B, "vis") == null ? null : nFr(perDay(B, "vis")), tipBase)
+            + tile("taux de conversion", pcFr(conv(A)), conv(B) == null ? null : pcFr(conv(B)), tipBase)
+            + '</div>';
+
+          var openComs = j.open_commitments || [];
+          html += '<div style="display:flex;align-items:baseline;gap:10px;margin:2px 2px 6px;"><p class="tb-eb">À faire</p>'
+            + '<span style="font-size:12px;font-weight:600;color:' + (openComs.length ? '#1D3BB3' : '#9CA3AF') + ';">' + openComs.length + ' en attente</span></div>'
+            + '<div class="tb-card" style="padding:10px 16px 14px;">';
+          if (!openComs.length) html += '<div style="font-size:12.5px;color:#9CA3AF;margin-top:4px;">Rien à faire — vos opérations suivent leur cours.</div>';
+          openComs.forEach(function (c) {
+            html += '<div class="tb-occrow"><span style="font-size:13px;color:#111827;">' + esc(c.text) + '</span>'
+              + siteChip(c.site_label)
+              + (c.we ? '<span style="font-size:12px;color:#6b7280;margin-left:auto;">' + frD(c.we) + '</span>' : '')
+              + '</div>';
+          });
+          html += '</div>';
+
+          var ops = j.operations || [];
+          if (ops.length) {
+            html += '<p class="tb-eb" id="tb-ops-sec" style="margin:2px 0 8px;">Opérations en cours</p><div class="tb-card" style="padding:10px 16px 14px;">';
+            ops.forEach(function (o) {
+              html += '<div class="tb-occrow"><span style="font-size:13px;color:#111827;">' + esc(o.title) + '</span>'
+                + siteChip((j.sites || []).filter(function (s) { return s.location_id === o.location_id; }).map(function (s) { return s.label; })[0])
+                + (o.occ_date ? '<span style="font-size:12px;color:#6b7280;margin-left:auto;">' + frD(o.occ_date) + '</span>' : '')
+                + '</div>';
+            });
+            html += '</div>';
+          }
+          body.innerHTML = html;
+        }
+
         function render() {
           var j = J;
+          if (j && j.role === "member") { renderMemberView(j); return; }
           var html = "";
           var im = impactFor(period);
           var db = j.debloquer || {};
@@ -520,6 +592,28 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             + '<div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-top:4px;">'
             + '<div style="flex:none;"><div style="font-size:32px;font-weight:700;line-height:1;color:#111827;letter-spacing:-0.01em;">' + (caSum ? frInt(caSum) + ' €' : '—') + '</div>'
             + '<div style="font-size:11.5px;margin-top:5px;color:' + (caPct == null ? '#9CA3AF' : caPct >= 0 ? GREEN : AMBER) + ';">' + (caPct != null ? (caPct >= 0 ? '+' : '−') + String(Math.abs(caPct)).replace('.', ',') + ' % vs votre résultat habituel' : 'pas assez de jours reçus') + '</div></div>'
+            // Profit DANS la carte argent (owner 27/08 « go » — jamais une 5e tuile) : marges
+            // FAMILLE du site filtré recomposées client (les lignes portent location_id), sinon
+            // le profit30 serveur (repli marge globale compris, compte entier seulement). Sa
+            // fenêtre est la SIENNE (30 j) et se dit — le sélecteur de période ne la pilote pas.
+            // Aucune marge déclarée → RIEN ici (règle 5) : le geste vit dans À faire.
+            + (function () {
+                var mgC = J.marges || {};
+                var profE = null, covE = null, decE = 0, famE = 0;
+                var famsC = (mgC.familles || []).filter(function (f) { return locFilter && f.location_id === locFilter; });
+                if (locFilter) {
+                  var tot3 = 0, cov3 = 0, prof3 = 0;
+                  famsC.forEach(function (f) { tot3 += f.ca30 || 0; if (f.marge_pct != null) { decE++; cov3 += f.ca30 || 0; prof3 += (f.ca30 || 0) * (f.marge_pct / 100); } });
+                  famE = famsC.length;
+                  if (cov3 > 0 && tot3 > 0) { profE = Math.round(prof3); covE = Math.min(100, Math.round(cov3 / tot3 * 100)); }
+                } else if (mgC.profit30 != null && mgC.couverture_pct != null) {
+                  profE = mgC.profit30; covE = mgC.couverture_pct; decE = mgC.n_declarees || 0; famE = mgC.n_familles || 0;
+                }
+                if (profE == null) return "";
+                return '<div style="flex:none;" title="Profit estimé sur les 30 derniers jours : CA de chaque famille produits & services × sa marge déclarée, sommé sur les familles déclarées (' + decE + '/' + famE + ') — jamais extrapolé au CA non couvert. Marges modifiables dans À faire.">'
+                  + '<div style="font-size:20px;font-weight:700;line-height:1;color:#111827;">≈ ' + frInt(profE) + ' €</div>'
+                  + '<div style="font-size:11.5px;margin-top:5px;color:#6b7280;">profit · 30 derniers jours · calculé sur ' + covE + ' % de votre CA</div></div>';
+              })()
             + caSpark + '</div>'
             + '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-top:1px solid #F3F4F6;padding-top:8px;margin-top:10px;">'
             + (function () { var s3 = splitLine(caBySite, function (v2) { return frInt(v2) + " €"; }); return s3 ? s3.replace('border-top:1px solid #F3F4F6;padding-top:6px;margin-top:auto;', '') : ""; })()
@@ -664,7 +758,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           //    fenêtre multi-jours (Jour k/n + mini-courbe) / série (frise d'occurrences).
           //    Tricolore POSITION partout ; CTA = Ajuster → (engagement) ou Dossier → (série).
           var mesures = (g.mesures || []);
-          var KPI_MINI_FR = { revenue_residual: "chiffre d\u2019affaires/j", conversion: "taux de conversion", transactions: "ventes/jour", footfall: "nombre de visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/j" };
+          var KPI_MINI_FR = { revenue_residual: "chiffre d\u2019affaires/j", conversion: "taux de conversion", transactions: "ventes/jour", footfall: "nombre de visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/j", profit_estimated: "profit estim\u00e9/j" };
           function opFmt(v, metric) {
             if (v == null) return "\u2014";
             if (metric === "conversion") return (v * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %";
@@ -1628,6 +1722,67 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               if (ex && ex.getAttribute && ex.getAttribute("data-tb-marge-panel") != null) { ex.remove(); return; }
               var pan = document.createElement("div");
               pan.setAttribute("data-tb-marge-panel", "");
+              // Marges par famille (owner 24/08) : quand le site a des familles produit
+              // (J.marges), le panneau devient une mini-table triée par poids de CA — une marge
+              // 1-90 % par ligne, POST {family, value} par famille modifiée, puis load() : la
+              // tuile Profit, la rangée et le panneau se re-rendent depuis la base. Sans famille
+              // (ventes non catégorisées), le mono-champ historique reste tel quel.
+              var fams = ((J.marges || {}).familles || []).filter(function (f) { return f.location_id === loc; });
+              if (fams.length) {
+                pan.style.cssText = "margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;";
+                pan.innerHTML = fams.map(function (f, i) {
+                  // Ligne 1 : « Appliquer à tous les produits ci-dessous » (mots owner 27/08,
+                  // même mécanique que les horaires d'ouverture) — remplit les champs dessous
+                  // avec la valeur de la ligne 1 ; Enregistrer reste le seul geste qui écrit.
+                  return '<div style="display:grid;grid-template-columns:minmax(0,1fr) ' + (i ? '130px' : 'auto') + ';gap:8px;align-items:center;padding:4px 0;' + (i ? 'border-top:1px solid #F3F4F6;' : '') + '">'
+                    + '<span style="font-size:12.5px;color:#374151;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(f.famille)
+                      + (f.part_pct != null ? ' <span style="color:#9CA3AF;">· ' + f.part_pct + ' % de votre CA</span>' : '') + '</span>'
+                    + '<span style="white-space:nowrap;"><input type="number" min="1" max="90" step="0.5" data-tb-marge-fam="' + esc(f.famille) + '"'
+                      + (f.marge_pct != null ? ' value="' + String(f.marge_pct).replace(',', '.') + '"' : ' placeholder="ex. 60"')
+                      + ' style="width:70px;padding:5px 8px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;"> <span style="font-size:13px;color:#374151;">%</span>'
+                    + (i === 0 && fams.length > 1 ? ' <button type="button" data-tb-marge-all style="background:none;border:none;padding:0;margin-left:8px;font-family:inherit;font-size:12px;color:#1D3BB3;cursor:pointer;text-decoration:underline;">Appliquer à tous les produits ci-dessous</button>' : '')
+                    + '</span></div>';
+                }).join("")
+                  + '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;">'
+                  + '<button type="button" data-tb-marge-save style="font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border:none;border-radius:8px;padding:6px 13px;cursor:pointer;font-family:inherit;">Enregistrer</button>'
+                  + '<span data-tb-marge-msg style="font-size:12px;color:#B45309;"></span></div>';
+                row.parentNode.insertBefore(pan, row.nextSibling);
+                var first = pan.querySelector("input"); if (first) first.focus();
+                var applyAll = pan.querySelector("[data-tb-marge-all]");
+                if (applyAll) applyAll.addEventListener("click", function () {
+                  var msg0 = pan.querySelector("[data-tb-marge-msg]");
+                  var v0 = String((first && first.value) || "").trim();
+                  if (!v0) { msg0.style.color = "#B45309"; msg0.textContent = "Entrez un chiffre."; return; }
+                  pan.querySelectorAll("[data-tb-marge-fam]").forEach(function (inp3) { inp3.value = v0; });
+                  msg0.style.color = "#6B7280"; msg0.textContent = "Appliqué — Enregistrer pour écrire.";
+                });
+                pan.querySelector("[data-tb-marge-save]").addEventListener("click", function () {
+                  var msg = pan.querySelector("[data-tb-marge-msg]");
+                  var todo = [];
+                  pan.querySelectorAll("[data-tb-marge-fam]").forEach(function (inp2) {
+                    var v = String(inp2.value || "").trim();
+                    if (!v) return;
+                    var fam = inp2.getAttribute("data-tb-marge-fam");
+                    var cur = null;
+                    fams.forEach(function (f) { if (f.famille === fam) cur = f.marge_pct; });
+                    if (cur != null && Number(v.replace(",", ".")) === Number(cur)) return;
+                    todo.push({ family: fam, value: v });
+                  });
+                  if (!todo.length) { msg.style.color = "#B45309"; msg.textContent = "Entrez un chiffre."; return; }
+                  msg.style.color = "#6B7280"; msg.textContent = "Enregistrement…";
+                  Promise.all(todo.map(function (t) {
+                    return fetch("/api/insight/corrections", {
+                      method: "POST", headers: { "content-type": "application/json" },
+                      body: JSON.stringify({ location_id: loc, correction_type: "declared_margin_pct", family: t.family, value: t.value }),
+                    }).then(function (r2) { return r2.json(); });
+                  })).then(function (rs) {
+                    var ko = rs.filter(function (r3) { return !(r3 && r3.ok); });
+                    if (ko.length) { msg.style.color = "#B45309"; msg.textContent = (ko[0] && ko[0].error) || "Réessayez."; return; }
+                    load();
+                  }).catch(function () { msg.style.color = "#B45309"; msg.textContent = "Réessayez."; });
+                });
+                return;
+              }
               pan.style.cssText = "margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;display:flex;align-items:center;gap:10px;flex-wrap:wrap;";
               pan.innerHTML = '<span style="font-size:12.5px;color:#374151;">Votre marge moyenne :</span>'
                 + '<input type="number" min="1" max="90" step="0.5" placeholder="ex. 60" style="width:80px;padding:6px 9px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;"> <span style="font-size:13px;color:#374151;">%</span>'

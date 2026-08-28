@@ -30,6 +30,10 @@ export const MOTS_BANNIS: Record<string, string> = {
   // (docs/lexique.md, « Le jugement automatique sur la cible »). tableau.astro en portait une
   // SECONDE série pour les MÊMES verdicts : trois concepts, six mots, sur deux pages que rien
   // ne reliait. Le garde-fou scanne déjà les deux fichiers — il ne connaissait pas ces mots.
+  // 27/08 — « pp » (points de pourcentage) n'existe pas pour l'utilisateur (owner) : un
+  // écart s'affiche en % ou en €, jamais en pp. Attrapé sur le constat de la frise événements
+  // (« +12,9 pp de CA ») ; le foyer est frDeltaPct (impactContrast) + offering/card-kit.
+  "pp": "% (ou €)",
   "cible tenue": "objectif atteint",
   // 24/08 — le pluriel avait survécu au garde-fou (« 0/2 cibles tenues » sur tableau.astro) :
   // une entrée par nombre, la recherche est une sous-chaîne à frontière de mot.

@@ -9,11 +9,16 @@
 // re-derivation, no direct table access here.
 import type { APIRoute } from "astro";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { getActiveCorrections, appendCorrectionEvent, type CorrectionType } from "../../../lib/ai/corrections";
+import { getActiveCorrections, appendCorrectionEvent, familySlug, MARGIN_FAMILY_PREFIX, type CorrectionType } from "../../../lib/ai/corrections";
 
 export const prerender = false;
 
 const VALID_TYPES: CorrectionType[] = ["activity", "zone", "nouveau_meaning", "other", "declared_margin_pct", "declared_client_count"];
+// Marges par famille (owner 24/08) : un type par famille — `declared_margin_pct__<slug>`.
+// Valide en écriture (body.family sur declared_margin_pct) comme en clear (le panneau mémoire
+// renvoie le type complet). Le slug est TOUJOURS re-dérivé serveur, jamais accepté brut.
+const isFamilyMarginType = (t: string): boolean =>
+  t.startsWith(MARGIN_FAMILY_PREFIX) && /^[a-z0-9_]{1,40}$/.test(t.slice(MARGIN_FAMILY_PREFIX.length));
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -44,19 +49,29 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const body = await request.json().catch(() => ({}));
     const location_id = requireString(body?.location_id, "location_id");
     requireLocationOwnership(locals, location_id);
-    const correction_type = requireString(body?.correction_type, "correction_type") as CorrectionType;
-    if (!VALID_TYPES.includes(correction_type)) return json(400, { ok: false, error: "correction_type invalide" });
+    const baseType = requireString(body?.correction_type, "correction_type") as CorrectionType;
+    if (!VALID_TYPES.includes(baseType) && !isFamilyMarginType(String(baseType))) {
+      return json(400, { ok: false, error: "correction_type invalide" });
+    }
+    // Marge par famille (owner 24/08) : body.family (libellé item_category exact) sur
+    // declared_margin_pct → type dérivé `declared_margin_pct__<slug>` ; le libellé exact
+    // voyage dans raw_turn (provenance — le slug seul ne le reconstitue pas).
+    const familyLabel = baseType === "declared_margin_pct" && typeof body?.family === "string" && body.family.trim()
+      ? body.family.trim().slice(0, 120) : null;
+    const familyType = familyLabel ? (`${MARGIN_FAMILY_PREFIX}${familySlug(familyLabel)}` as CorrectionType) : null;
+    if (familyLabel && !familySlug(familyLabel)) return json(400, { ok: false, error: "famille invalide" });
+    const correction_type = familyType ?? baseType;
 
     // Déclaration DIRECTE (champ inline Piloter, 16/08) : body.value numérique → même
     // écriture que le chemin chat (assert/supersede + prior_value), bornes par métrique.
     if (body?.value != null) {
-      if (correction_type !== "declared_margin_pct" && correction_type !== "declared_client_count") {
+      if (baseType !== "declared_margin_pct" && baseType !== "declared_client_count") {
         return json(400, { ok: false, error: "value non supporté pour ce type" });
       }
       const v = Number(String(body.value).replace(",", "."));
       if (!Number.isFinite(v)) return json(400, { ok: false, error: "Valeur invalide" });
-      if (correction_type === "declared_margin_pct" && (v < 1 || v > 90)) return json(400, { ok: false, error: "Marge attendue entre 1 et 90 %" });
-      if (correction_type === "declared_client_count" && (v < 1 || v > 100000)) return json(400, { ok: false, error: "Valeur hors bornes" });
+      if (baseType === "declared_margin_pct" && (v < 1 || v > 90)) return json(400, { ok: false, error: "Marge attendue entre 1 et 90 %" });
+      if (baseType === "declared_client_count" && (v < 1 || v > 100000)) return json(400, { ok: false, error: "Valeur hors bornes" });
       const prior = (await getActiveCorrections(location_id)).find((c) => c.correction_type === correction_type);
       await appendCorrectionEvent({
         location_id,
@@ -64,10 +79,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
         correction_type,
         correction_text: String(v),
         prior_value: prior ? prior.correction_text : null,
+        raw_turn: familyLabel,
         source: "piloter_inline",
         declarant_name: typeof body?.declared_by === "string" && body.declared_by.trim() ? body.declared_by.trim().slice(0, 80) : null,
       });
-      return json(200, { ok: true, declared: true, value: v });
+      return json(200, { ok: true, declared: true, value: v, family: familyLabel });
     }
 
     // Clearing is an EVENT, not a delete — the history (the learning corpus) stays intact.

@@ -2856,6 +2856,35 @@
     return s.slice(0, 10);
   }
 
+  // Vue equipe inc 6 — texte MEMBRE d'une carte pour le forward Slack.
+  // msRedactPayloadForMember est le JUMEAU CLIENT de src/lib/memberCardPolicy.ts
+  // (redactPayloadForMember) : meme regle, documentee des deux cotes — toute cle
+  // revenue/basket hors formes relatives (_pct/_share/_z/_rank), plus avg_30d.
+  // Un canal Slack d'equipe n'a pas plus de droits qu'une session membre.
+  function msRedactPayloadForMember(payload) {
+    if (!payload || typeof payload !== 'object') return payload;
+    var out = {};
+    for (var k in payload) {
+      if (!Object.prototype.hasOwnProperty.call(payload, k)) continue;
+      if (k === 'avg_30d') continue;
+      if (/revenue|basket/i.test(k) && !/(_pct|_share|_z|_rank)$/i.test(k)) continue;
+      out[k] = payload[k];
+    }
+    return out;
+  }
+  function msUnescapeHtml(s) {
+    return String(s == null ? '' : s).replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  }
+  window.msMemberForwardText = function (candidate, prof, today) {
+    if (!candidate) return null;
+    var red = {};
+    for (var k in candidate) { if (Object.prototype.hasOwnProperty.call(candidate, k)) red[k] = candidate[k]; }
+    red.data_payload = msRedactPayloadForMember(candidate.data_payload);
+    var entries = window.renderActionCandidates([red], prof || {}, null, String(red.date || ''), 'pulse', null, today) || [];
+    if (!entries.length) return null;
+    return { title: msUnescapeHtml(entries[0].tmpl.what), body: String(entries[0].tmpl.sowhat || '') };
+  };
+
   window.renderActionCandidates = function(candidates, prof, currentDay, selectedDate, mode, channelConfig, today) {
     if (!Array.isArray(candidates) || candidates.length === 0) return [];
     var target = normalizeDate(selectedDate);
@@ -3020,10 +3049,17 @@
       var typePill = { label: (brandIcon ? brandIcon + ' ' : '') + brandLabel, style: 'background:' + brandColor + '18;color:' + brandColor + ';' };
       var channels = getAvailableChannels(actionType, prof, channelConfig);
       var actions = [];
-      if (cardType === 'action' && channels.length > 0) { actions.push({ text: 'Communiquer', meta: catLabel, key: 'communicate', channel: channels[0] ? channels[0].key : 'note_interne', channels: channels }); }
-      actions.push({ text: 'Consulter', meta: catLabel, key: 'consult', channel: 'internal' });
-      actions.push({ text: 'Sauvegarder', meta: '', key: 'save', channel: '' });
-      actions.push({ text: 'Signaler', meta: '', key: 'flag', channel: '' });
+      if (window._msMemberView) {
+        // Vue equipe inc 5 : role membre — Communiquer/Sauvegarder/Signaler sont des gestes
+        // owner ; la rangee ne garde que la lecture. Drapeau pose par la page depuis la
+        // reponse monitor (role === 'member'), jamais decide ici.
+        actions.push({ text: 'Consulter', meta: catLabel, key: 'consult', channel: 'internal' });
+      } else {
+        if (cardType === 'action' && channels.length > 0) { actions.push({ text: 'Communiquer', meta: catLabel, key: 'communicate', channel: channels[0] ? channels[0].key : 'note_interne', channels: channels }); }
+        actions.push({ text: 'Consulter', meta: catLabel, key: 'consult', channel: 'internal' });
+        actions.push({ text: 'Sauvegarder', meta: '', key: 'save', channel: '' });
+        actions.push({ text: 'Signaler', meta: '', key: 'flag', channel: '' });
+      }
       // location_label : le chip site du builder (pulse chip-n) existe déjà — il n'était jamais
       // alimenté pour les candidates. Source = la map multi-sites de pulse (_engLocLabels,
       // remplie depuis data._locations uniquement si multi-sites) via le location_id de LA

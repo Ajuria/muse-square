@@ -15,6 +15,8 @@
 //  - l'Après lit le mesuré (residual + signals + famille) et le verdict de l'ENGAGEMENT ancré
 //    (saved_item_id) — jamais un verdict recalculé ici.
 import { eventTypeLabelFr } from "../eventTypes";
+// K9 (24/08) : profit estimé journalier — marges déclarées lues au moment de la mesure.
+import { profitEstimatedDaily, measureProfitEstimatedStats } from "../kpiRegistry";
 
 const PROJECT = "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
@@ -42,21 +44,29 @@ export interface EvenementFamilyResult {
 export interface UserEvenementRow {
   saved_item_id: string; title: string; type_label_fr: string; recurring: boolean;
   n_occurrences: number; next_date: string | null;
+  dates: string[];   // les occurrences datées (plan de période, 27/08 — additive)
+  author: string | null;  // author_person_name (plan « qui » — additive)
   last_measured: { date: string; revenue: number; expected: number; gap_eur: number } | null;
 }
-export async function listUserEvenements(bq: any, location_id: string, clerk_user_id: string, limit = 6): Promise<UserEvenementRow[]> {
+// clerk_user_id NULL = lecture SITE entière (loi owner 27/08 : un suivi appartient à un site,
+// jamais à un user seul — le résolveur d'entités lit le site ; les vues « mes événements »
+// gardent leur filtre user en passant l'id).
+export async function listUserEvenements(bq: any, location_id: string, clerk_user_id: string | null, limit = 6): Promise<UserEvenementRow[]> {
   try {
     const today = ymdToday();
     const [rows] = await bq.query({
       query: `SELECT si.saved_item_id, si.title, si.event_type, si.recurrence,
+                     ANY_VALUE(si.author_person_name) AS author_person_name,
                      ARRAY_AGG(CAST(d.date AS STRING) ORDER BY d.date) AS dates
               FROM \`${PROJECT}.raw.saved_items\` si
               JOIN \`${PROJECT}.raw.saved_item_dates\` d
                 ON d.saved_item_id = si.saved_item_id AND d.location_id = si.location_id
-              WHERE si.location_id = @location_id AND si.clerk_user_id = @clerk_user_id
+              WHERE si.location_id = @location_id
+                AND (@clerk_user_id IS NULL OR si.clerk_user_id = @clerk_user_id)
               GROUP BY 1, 2, 3, 4
               LIMIT ${Math.max(1, Math.min(limit, 12))}`,
-      params: { location_id, clerk_user_id }, location: "EU",
+      params: { location_id, clerk_user_id: clerk_user_id || null },
+      types: { location_id: "STRING", clerk_user_id: "STRING" }, location: "EU",
     });
     if (!rows?.length) return [];
     const evs = (rows as any[]).map((r) => ({
@@ -64,6 +74,7 @@ export async function listUserEvenements(bq: any, location_id: string, clerk_use
       title: String(flat(r.title) ?? ""),
       type_label_fr: eventTypeLabelFr(flat(r.event_type) as any),
       recurring: String(flat(r.recurrence) ?? "none") !== "none",
+      author: flat(r.author_person_name) != null ? String(flat(r.author_person_name)) : null,
       dates: ((r.dates ?? []) as any[]).map((d) => String(flat(d))),
     }));
     // Dernière occurrence PASSÉE de chaque événement → une lecture residual, jointure en JS
@@ -87,7 +98,9 @@ export async function listUserEvenements(bq: any, location_id: string, clerk_use
         title: e.title,
         type_label_fr: e.type_label_fr,
         recurring: e.recurring,
+        author: e.author,
         n_occurrences: e.dates.length,
+        dates: e.dates,
         next_date: e.dates.find((d) => d >= today) ?? null,
         last_measured: re ? { date: lastMeasuredDate as string, revenue: Number(flat(re.rev)), expected: Number(flat(re.exp)), gap_eur: Number(flat(re.rev)) - Number(flat(re.exp)) } : null,
       };
@@ -168,7 +181,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   // ── 3. Lot parallèle unique : surface des jours futurs + mesuré des jours passés +
   //       engagements ancrés + attendu par jour de semaine + moyenne famille ──
   const empty = Promise.resolve([[] as any[]]);
-  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows], [sendRows], [mobRows], [forRows], [docRows], [dowSalesRows], [declaredRows]] = await Promise.all([
+  const [[surfRows], [resRows], [sigRows], [famRows], [comRows], [dowRows], [famAvgRows], [sendRows], [mobRows], [forRows], [docRows], [dowSalesRows], [declaredRows], profitDailyRes, profitStatsRes] = await Promise.all([
     futureDates.length ? bq.query({
       query: `SELECT CAST(date AS STRING) AS d, opportunity_score_final_local AS opportunity_score, lvl_rain, lvl_wind, lvl_snow, lvl_heat, lvl_cold,
                      weather_label_fr, holiday_name, vacation_name, audience_availability_label,
@@ -300,11 +313,26 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
               QUALIFY ROW_NUMBER() OVER (PARTITION BY selected_date ORDER BY submitted_at DESC) = 1`,
       params: { sid: saved_item_id }, location: "EU",
     }).catch(() => [[]]) : empty,
+    // K9 : profit estimé des occurrences passées (série journalière sur [min, max] des dates,
+    // filtrée aux occurrences ensuite) + sa moyenne 90 j BORNÉE à aujourd'hui (le référentiel —
+    // la graine porte des dates futures). null si aucune marge déclarée : jamais inventé.
+    (pastDates.length && String(item.kpi || "") === "profit_estimated")
+      ? profitEstimatedDaily(bq, location_id, [...pastDates].sort()[0], [...pastDates].sort()[pastDates.length - 1]).catch(() => null)
+      : Promise.resolve(null),
+    (String(item.kpi || "") === "profit_estimated")
+      ? (() => {
+          const d0 = new Date(today + "T00:00:00Z"); d0.setUTCDate(d0.getUTCDate() - 90);
+          return measureProfitEstimatedStats(bq, location_id, d0.toISOString().slice(0, 10), today).catch(() => null);
+        })()
+      : Promise.resolve(null),
   ]);
 
   const dowExpected = new Map<number, number>();
   for (const r of dowRows as any[]) dowExpected.set(Number(flat(r.dw)) - 1, Number(flat(r.expected_eur) ?? 0));
   const famAvg = famAvgRows?.length ? Number(flat((famAvgRows as any[])[0].avg_day) ?? 0) : null;
+  // K9 : moyenne journalière du profit estimé (90 j bornés) + valeurs par occurrence.
+  const profitAvg = profitStatsRes && (profitStatsRes as any).n_days >= 5 ? Number((profitStatsRes as any).mean) : null;
+  const profitBy = new Map<string, number>(((profitDailyRes as Array<{ date: string; v: number }> | null) || []).map((x) => [x.date, x.v]));
 
   // Objectif (apport PROPRE) pour une date : pct → attendu×pct ; € famille → cible − moyenne famille.
   const objectifFor = (date: string) => {
@@ -461,6 +489,11 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       })() : null,
       family_rev: fa ? Number(flat(fa.fam_rev)) : null,
       family_avg: famAvg,
+      // K9 : profit estimé du jour + son écart % à sa moyenne 90 j (le référentiel de la cible).
+      profit_day: profitBy.has(d) ? (profitBy.get(d) as number) : null,
+      profit_avg: profitAvg,
+      profit_delta_pct: profitBy.has(d) && profitAvg != null && Math.abs(profitAvg) > 1e-9
+        ? Math.round((((profitBy.get(d) as number) - profitAvg) / Math.abs(profitAvg)) * 1000) / 10 : null,
       verdict: co && flat(co.verdict) != null ? String(flat(co.verdict)) : null,
       commitment_status: co && flat(co.status) != null ? String(flat(co.status)) : null,
       commitment_id: co && flat(co.commitment_id) != null ? String(flat(co.commitment_id)) : null,
@@ -475,6 +508,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
       if (item.kpi === "revenue_residual") return r.residual_pct != null && item.kpi_target_pct != null ? r.residual_pct >= item.kpi_target_pct : null;
       if (item.kpi === "tickets") return r.tickets_delta_pct != null && item.kpi_target_pct != null ? r.tickets_delta_pct >= item.kpi_target_pct : null;
       if (item.kpi === "basket") return r.basket_delta_pct != null && item.kpi_target_pct != null ? r.basket_delta_pct >= item.kpi_target_pct : null;
+      if (item.kpi === "profit_estimated") return r.profit_delta_pct != null && item.kpi_target_pct != null ? r.profit_delta_pct >= item.kpi_target_pct : null;
       return null;
     })(),
   }));
@@ -484,13 +518,14 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   // panier — l'utilisateur choisit et pose sa cible). Avant : agrégée sur gap_eur (CA) quel que
   // soit le KPI → « 1/1 au-dessus de l'attendu » s'affichait SOUS « Cible manquée » sur le même
   // jour (cas réel Corner : famille 28 € vs cible 150 €, CA +90 €). Chaque valeur porte son unité.
-  const KPI_UNIT: Record<string, "eur" | "pct"> = { family_revenue: "eur", revenue_residual: "pct", tickets: "pct", basket: "pct" };
+  const KPI_UNIT: Record<string, "eur" | "pct"> = { family_revenue: "eur", revenue_residual: "pct", tickets: "pct", basket: "pct", profit_estimated: "pct" };
   const kpiKeyItem = String(item.kpi || "revenue_residual");
   const kpiValueOf = (r: any): number | null => {
     if (kpiKeyItem === "family_revenue") return r.family_rev != null ? Number(r.family_rev) : null;
     if (kpiKeyItem === "revenue_residual") return r.residual_pct != null ? Number(r.residual_pct) : null;
     if (kpiKeyItem === "tickets") return r.tickets_delta_pct != null ? Number(r.tickets_delta_pct) : null;
     if (kpiKeyItem === "basket") return r.basket_delta_pct != null ? Number(r.basket_delta_pct) : null;
+    if (kpiKeyItem === "profit_estimated") return r.profit_delta_pct != null ? Number(r.profit_delta_pct) : null;
     return null;
   };
   const kpiTarget = kpiKeyItem === "family_revenue" ? item.kpi_target_eur : item.kpi_target_pct;
@@ -544,7 +579,7 @@ export async function evenementFamily(bq: any, location_id: string, saved_item_i
   });
   for (const r of measured) {
     facts.push({
-      fact_fr: `Occurrence du ${r.dow_fr} ${fd(r.date)} : CA ${r.revenue} € contre ${r.expected} € votre ${r.dow_fr} habituel (écart ${(r.gap_eur as number) >= 0 ? "+" : "-"}${Math.abs(r.gap_eur as number)} €)${r.family_rev != null && item.kpi_family ? ` ; famille ${item.kpi_family} ${r.family_rev} €${famAvg != null ? ` contre ${famAvg} € sa moyenne journalière` : ""}` : ""}${r.verdict ? ` ; verdict de l'engagement : ${r.verdict}` : ""}.`,
+      fact_fr: `Occurrence du ${r.dow_fr} ${fd(r.date)} : CA ${r.revenue} € contre ${r.expected} € votre ${r.dow_fr} habituel (écart ${(r.gap_eur as number) >= 0 ? "+" : "-"}${Math.abs(r.gap_eur as number)} €)${r.family_rev != null && item.kpi_family ? ` ; famille ${item.kpi_family} ${r.family_rev} €${famAvg != null ? ` contre ${famAvg} € sa moyenne journalière` : ""}` : ""}${r.profit_day != null ? ` ; profit estimé ${Math.round(r.profit_day)} €${r.profit_avg != null ? ` contre ${Math.round(r.profit_avg)} € sa moyenne (90 j, vos marges déclarées)` : " (vos marges déclarées)"}` : ""}${r.verdict ? ` ; verdict de l'engagement : ${r.verdict}` : ""}.`,
       claim_type: "measured",
     });
   }

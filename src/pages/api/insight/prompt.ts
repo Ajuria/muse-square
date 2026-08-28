@@ -1,6 +1,6 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
-import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredClientCountAnswerFr } from "../../../lib/contextCopy";
+import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredFamilyMarginAnswerFr, declaredClientCountAnswerFr } from "../../../lib/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
@@ -18,7 +18,7 @@ import { buildPracticeFacts, practiceStateFr } from "../../../lib/ai/facts/build
 import { buildEventFacts } from "../../../lib/ai/facts/buildEventFacts";
 import { buildUserInputFacts } from "../../../lib/ai/facts/buildUserInputFacts";
 import { listUserEvenements } from "../../../lib/insightFamilies/evenement";
-import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMetric } from "../../../lib/ai/corrections";
+import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMetric, getDeclaredFamilyMargins, familySlug } from "../../../lib/ai/corrections";
 import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declaredMetrics";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
@@ -37,6 +37,12 @@ import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
 import { makeBQClient } from "../../../lib/bq";
 import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
 import { listClassDispositifs } from "../../../lib/bestPractices";
+import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
+import { loadSiteEntities, matchEntities } from "../../../lib/entityResolver";
+import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
+import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, buildEntityWhyBlocks, readKpiPeriod } from "../../../lib/entityReading";
+import { planPeriod, buildPlanBlocks, buildPlanWhyBlocks } from "../../../lib/planPeriod";
+import { journalPlan } from "../../../lib/journalPlan";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
 import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
@@ -71,6 +77,10 @@ const FAMILY_FACT_ORIGIN: Record<string, FactOrigin | null> = {
   calendar: "calendrier",
   footfall: null,
   audience: null,
+  // J2.1 — le journal de l'exploitant. L'origine existe déjà au registre owner
+  // (factOrigins.fr.ts : « Vos engagements », approuvée 07/08) ; le provider la pose déjà
+  // sur chaque fait, cette ligne est le défaut de famille.
+  engagements: "engagements",
 };
 // Tag a fact list with an origin (never overriding one set at the construction site).
 function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: FactOrigin | null): T[] {
@@ -80,7 +90,7 @@ function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: Fa
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1") return null;
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1" || producer === "deterministic_engagements_elicit_v1" || producer === "deterministic_entity_period_elicit_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -224,6 +234,9 @@ type ThreadContextV1 = {
     // or numbers from an answer — inheriting the frame re-routes, it cannot re-assert a stale claim.
     family?: string | null; // insight-family key when the last answer was family-led (meta.resolved_family)
   };
+  // Le tuple du RÉSOLVEUR (28/08) — métadonnées de routage STRICTES (intention, noms d'entités,
+  // dates, KPI) échoées par le client à chaque tour. Jamais un fait ni un chiffre de réponse.
+  resolved?: ResolvedFrame | null;
 };
 
 // ----------------------------
@@ -525,6 +538,12 @@ const COMPARISON_MARKERS = [
 // Marqueurs de PASSÉ exprimé (sur texte normalisé) — ils priment les marqueurs
 // de planification/évaluation pour le biais d'année de frPeriod : « quels ont
 // été mes meilleurs jours de juin ? » parle de juin passé malgré « meilleurs ».
+// Élicitation du journal vide — UNE chaîne, deux points d'usage (branche déterministe JOURNAL_Q
+// + élicitation de famille). Mots du lexique : « dates de l'opération » (l.23 — « fenêtre » est
+// BANNI pour la période mesurée ; faute corrigée sur relevé owner 27/08).
+const ENGAGEMENTS_ELICIT_FR =
+  "Vous n'avez pas encore d'engagement jugé sur ce site : je n'ai donc rien à vous dire sur ce qui a marché. Depuis une carte, « M'engager » pose l'action, l'objectif et les dates de l'opération — le verdict tombe seul à la fin.";
+
 const PAST_TENSE_MARKERS = [
   "ont ete", "a ete", "etait", "etaient",
   "s'est passe", "s est passe", "s'est-il passe", "s est-il passe",
@@ -537,6 +556,16 @@ const PAST_TENSE_MARKERS = [
   "avons vendu", "avons fait", "avons eu",
   "a marche", "ont marche", "a rendu", "ont rendu", "a donne", "ont donne",
 ];
+
+// J2.1 — la question qui NOMME le journal (possessive ou « ce qui a marché »). Volontairement
+// étroite : « mes ventes ont-elles marché ? » n'en est pas une, elle relève des ventes.
+// La ligne d'une fiche dispositif documentée — UNE formulation, partagée par la branche fiches
+// et la section compacte du journal (streamline owner 27/08 : jamais deux formulations).
+const dispoFrD = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
+const dispoLineFr = (p: any): string =>
+  `Documenté le ${dispoFrD(p.created_date)} : « ${p.practice_text} » — ${practiceStateFr(p)}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`;
+
+const JOURNAL_Q = /\b(mes|mon|nos|notre)\s+(engagements?|p[oô]les?|dispositifs?)|\bqu(?:['\u2019]est-ce qui|i)\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])|\bce\s+qui\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])/i;
 
 const PLANNING_VERBS = [
   "organiser",
@@ -2295,15 +2324,21 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
         ? (body.thread_context as ThreadContextV1)
         : null;
 
+    // Le cadre résolu du TOUR (posé par le bloc résolveur plus bas quand il a tourné) — voyage
+    // dans meta.resolved_frame de toute réponse sysDialogue ; le client l'écho-e au tour suivant.
+    let _rsvFrameOut: ResolvedFrame | null = null;
+
     // Shared envelope for the SYSTEM-DIALOGUE answers (elicit / declared capture / declared estimate):
     // deterministic French, null-register producers, same shape the client's elicit branch renders.
-    const sysDialogueResponse = (headline: string, answer: string, producer: string, primary: any = null) =>
+    // extras (27/08, journal pôles) : cartes construites SERVEUR (pole_cards/dated_cards) —
+    // fusionnées dans ai.output ; le client les rend verbatim (datecards), jamais reformulées.
+    const sysDialogueResponse = (headline: string, answer: string, producer: string, primary: any = null, extras: Record<string, any> | null = null) =>
       new Response(JSON.stringify({
         ok: true,
-        meta: { location_id, resolved_horizon: "day", resolved_intent: "DAY_DIMENSION_DETAIL", producer, register: registerFor(producer), mode: request_mode },
+        meta: { location_id, resolved_horizon: "day", resolved_intent: "DAY_DIMENSION_DETAIL", producer, register: registerFor(producer), mode: request_mode, ...(_rsvFrameOut ? { resolved_frame: _rsvFrameOut } : {}) },
         ai: {
           headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [],
-          output: { headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [] },
+          output: { headline, verdict: "", answer, key_facts: [], reasons: [], caveats: [], ...(extras || {}) },
           meta: { horizon: "day", intent: "DAY_DIMENSION_DETAIL", used_dates: [] },
           actions: { month_redirect_url: null, primary, secondary: [] },
         },
@@ -2425,14 +2460,15 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // tombait sur le repli mois inutile), et la liste exacte vaut mieux qu'une citation LLM.
     // Les faits « dispositifs » restent AUSSI dans la liste blanche des réponses jour
     // (buildPracticeFacts) pour les questions qui les effleurent sans les nommer.
-    if (/\b(dispositifs?|bonnes?\s+pratiques?)\b/i.test(qRaw)
-        && /\b(quels?|quelles?|qu[’']\s?est|liste|montre|rappelle|voir|mes|mon|documentés?|prévus?|enregistrés?)\b/i.test(qRaw)) {
+    // Streamline owner 27/08 : « mes dispositifs » appartient au JOURNAL (la vérité
+    // opérationnelle — pôles, opérations, mémoire) ; cette branche ne garde que les questions
+    // qui NOMMENT les fiches (« documentés », « bonnes pratiques »). Le journal absorbe les
+    // fiches en section compacte — rien ne se perd, rien ne se dit deux fois.
+    if (/\b(bonnes?\s+pratiques?|dispositifs?\s+documentés?|documentés?\s.*dispositifs?)\b/i.test(qRaw)) {
       const _bqd = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
       const _dispoRows = await listClassDispositifs(_bqd, location_id, null, 6);
-      const _frD = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
       if (_dispoRows.length) {
-        const _lines = _dispoRows.map((p) =>
-          `Documenté le ${_frD(p.created_date)} : « ${p.practice_text} » — ${practiceStateFr(p)}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`);
+        const _lines = _dispoRows.map(dispoLineFr);
         return sysDialogueResponse(
           _dispoRows.length === 1 ? "Votre dispositif documenté" : "Vos dispositifs documentés",
           _lines.join("\n\n"),
@@ -2444,6 +2480,245 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         "Vous n'avez pas encore documenté de dispositif. Ouvrez « Reproduire le dispositif » depuis une carte structurelle de Pulse : la conversation vous aide à le formaliser, puis à l'engager sur un test mesuré.",
         "deterministic_dispositifs_v1",
       );
+    }
+
+    // ── LE RÉSOLVEUR (porte d'entrée conversationnelle, owner go 28/08) — « le LLM comprend,
+    // le code calcule ». Il remplit le tuple {intention, entités, période, KPI} depuis la
+    // question + le CADRE écho-é (thread_context.resolved) + l'historique : les suites
+    // (« et octobre ? »), contestations (« non, le corner ») et questions multi-variables
+    // cessent de dépendre des regex. Les branches ci-dessous consomment son résultat via
+    // leurs portes AUGMENTÉES — les regex restent le repli complet (résolveur null = legacy).
+    // Chaque entité est validée contre les listes RÉELLES du site (semanticRegistry) ; le
+    // cadre ne porte jamais un fait. Coût mesuré au harnais : ~0,3 s (listes) + ~1 s (appel).
+    let _rsv: ResolvedTurn | null = null;
+    let _rsvSite: Awaited<ReturnType<typeof loadSiteEntities>> | null = null;
+    {
+      const _rsvT0 = Date.now();
+      const _bqr = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      _rsvSite = await loadSiteEntities(_bqr, location_id, String(clerk_user_id || "")).catch(() => null);
+      if (_rsvSite && _rsvSite.entities.length) {
+        _rsv = await resolveTurn({
+          qRaw,
+          site: _rsvSite,
+          today: new Date().toISOString().slice(0, 10),
+          frame: thread_context?.resolved ?? null,
+          history: conversation_history,
+        });
+        if (_rsv) _rsvFrameOut = frameOf(_rsv);
+        console.log(`[resolver] ${Date.now() - _rsvT0} ms — intent=${_rsv?.intent ?? "null"} entites=${_rsv?.entities.length ?? 0}/${_rsv?.entity_names.length ?? 0} periode=${_rsv?.periode?.expression ?? "-"} suite=${_rsv?.suite ?? "-"} chg=${(_rsv?.changements ?? []).join(",")}`);
+      }
+    }
+
+    // ── « POURQUOI ? » (incrément 5, 28/08) — la CONSTRUCTION du dernier résultat, jamais
+    // une cause inventée : le tuple PRÉCÉDENT (cadre écho-é) se re-lit, et la réponse dit
+    // d'où vient chaque nombre (lignes de caisse, fenêtres, planchers, KPI déclaré) avec les
+    // chiffres réels re-joués. Le cadre échoé reste le PRÉCÉDENT — « et en juin ? » après un
+    // pourquoi hérite toujours de l'entité, pas de l'intention pourquoi.
+    if (_rsv?.intent === "pourquoi" && thread_context?.resolved && _rsvSite) {
+      const _why = thread_context.resolved;
+      // Le pourquoi d'un PLAN (5bis) : re-composer le diagnostic et dire la construction de
+      // chaque section (santé, motifs avec mélanges NOMMÉS en clair, semaines, pôles).
+      if (_why.intent === "plan" && _why.periode) {
+        const _bqpw = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+        const _pw = await planPeriod(_bqpw, location_id, _why.periode.start, _why.periode.end);
+        const _pwB = buildPlanWhyBlocks(_pw);
+        _rsvFrameOut = _why; // la conversation continue sur le plan
+        return sysDialogueResponse(
+          _pwB.headline, "", "deterministic_plan_why_v1", null,
+          { plan_sections: _pwB.sections, sources_list: _pwB.sources },
+        );
+      }
+      if ((_why.intent === "entity_period" || _why.intent === "autre") && _why.entity_names?.length && _why.periode) {
+        const _whyEnts = _why.entity_names
+          .map((en) => _rsvSite!.entities.find((e2) => e2.kind === en.type && e2.name === en.nom))
+          .filter((e2): e2 is NonNullable<typeof e2> => e2 != null);
+        if (_whyEnts.length) {
+          const _bqw = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+          const _whyR = await readEntityPeriod(_bqw, location_id, _whyEnts[0], _why.periode.start, _why.periode.end, new Date().toISOString().slice(0, 10));
+          const _whyB = buildEntityWhyBlocks(_whyR);
+          _rsvFrameOut = _why; // le cadre survit au pourquoi — la conversation continue sur l'entité
+          return sysDialogueResponse(
+            _whyB.headline, "", "deterministic_entity_why_v1", null,
+            { plan_sections: _whyB.sections, sources_list: _whyB.sources },
+          );
+        }
+      }
+    }
+
+    // ── LE KPI PILOTE LES LECTURES (28/08, owner go) — « mon panier moyen en juillet » :
+    // KPI nommé + période, AUCUNE entité → lecture kpiRegistry (measureKpiMean, la même
+    // moyenne que les verdicts) sur la période et la même durée précédente ; « par rapport
+    // à » ajoute la seconde période. Rien de mesurable → la chaîne legacy répond.
+    if (_rsv?.intent === "entity_period" && !_rsv.entities.length && !_rsv.entity_names.length && _rsv.kpi && _rsv.periode) {
+      const _bqk = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _kpiB = await readKpiPeriod(_bqk, location_id, _rsv.kpi,
+        [{ start: _rsv.periode.start, end: _rsv.periode.end },
+         ...(_rsv.periode_comparaison ? [{ start: _rsv.periode_comparaison.start, end: _rsv.periode_comparaison.end }] : [])]);
+      if (_kpiB) {
+        return sysDialogueResponse(
+          _kpiB.headline, "", "deterministic_kpi_period_v1", null,
+          { plan_sections: _kpiB.sections, sources_list: _kpiB.sources },
+        );
+      }
+    }
+
+    // ── VOTRE JOURNAL (J2.1, 27/08) — une question sur ce qui a MARCHÉ répond DÉTERMINISTE,
+    // même patron que « vos dispositifs » juste au-dessus. Mesuré avant de choisir : passé au
+    // packager grounded, le modèle SUPPRIMAIT l'action conseillée (« à interrompre ou modifier »
+    // devenait « reste à surveiller » — l'inverse de la doctrine de contre-indication) et
+    // mélangeait le CA de la veille au journal. Les faits du journal SONT la réponse : ils
+    // n'ont pas besoin d'être reformulés, et le reformuler coûte la doctrine.
+    // La famille `engagements` reste enregistrée : elle sert les questions qui EFFLEURENT le
+    // journal sans le nommer (composition grounded), exactement comme buildPracticeFacts.
+    if (JOURNAL_Q.test(qRaw) || _rsv?.intent === "journal") {
+      const _bqj = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _j = await engagementsFamily(_bqj, location_id, new Date().toISOString().slice(0, 10));
+      if (_j.found) {
+        const _adv = ((_j.data as any)?.advice ?? []) as string[];
+        const _advTexts = ((_j.data as any)?.advice_texts ?? []) as string[];
+        // J2.2 — le croisement SIGNAL × JOURNAL s'attache à la carte du journal : quand un jour à
+        // venir réunit les conditions où un dispositif a été PROUVÉ, on le dit ici plutôt que
+        // d'inventer une route de plus (qui volerait des questions aux familles existantes).
+        const _plan = await journalPlan(_bqj, location_id, 14).catch(() => []);
+        const _planTxt = _plan.length
+          ? `\n\nVos jours à venir\n\n${_plan.slice(0, 3).map((x) => x.say_fr).join("\n\n")}`
+          : "";
+        // Streamline (owner 27/08) : « mes dispositifs » atterrit ICI — les fiches documentées
+        // de l'atelier s'absorbent en section compacte (mêmes lignes que la branche fiches,
+        // via dispoLineFr — jamais deux formulations), plafonnées à 3.
+        const _fiches = await listClassDispositifs(_bqj, location_id, null, 3).catch(() => []);
+        const _fichesTxt = _fiches.length
+          ? `\n\nVos dispositifs documentés\n\n${_fiches.map(dispoLineFr).join("\n\n")}`
+          : "";
+        // Journal nature-aware (proto v2, owner 27/08) : les pôles et les opérations au verdict
+        // imminent rendent en CARTES (construites par le provider) — leurs faits sortent de la
+        // prose (card_fact_texts), sinon la réponse dirait deux fois les mêmes chiffres. Le
+        // fait d'historique repris DANS une carte ambre reste en prose seulement s'il n'est
+        // pas déjà la ligne Historique de la carte.
+        const _cardTexts = ((_j.data as any)?.card_fact_texts ?? []) as string[];
+        const _poleCards = ((_j.data as any)?.pole_cards ?? []) as any[];
+        const _datedCards = ((_j.data as any)?.dated_cards ?? []) as any[];
+        const _body = _j.facts.filter((f) => !_advTexts.includes(f.fact_fr) && !_cardTexts.includes(f.fact_fr)).map((f) => f.fact_fr).join("\n\n")
+          + _planTxt
+          + _fichesTxt
+          + (_adv.length ? `\n\nAction conseillée : ${_adv.join(" ; ")}.` : "");
+        // J2.3 — le geste, pas seulement le conseil. Un dispositif contre-indiqué a un engagement
+        // OUVERT : « Ajuster » (mot du lexique l.38 pour un engagement ouvert) mène à la page qui
+        // porte déjà les deux gestes (arrêter / ajuster), jamais un formulaire de plus.
+        // CTA = un verbe + flèche, ≤ 14 caractères (lexique, règle de rédaction 1).
+        const _adjId = ((_j.data as any)?.adjust_commitment_id ?? null) as string | null;
+        // Deux gestes possibles, jamais les deux à la fois. La CONTRE-INDICATION prime : si un
+        // dispositif prouvé négatif tourne encore, l'ajuster passe avant tout rejeu.
+        const _replay = _plan.find((x) => x.direction === "positive" && x.prefill) ?? null;
+        const _primary = _adjId
+          ? { type: "redirect", url: `/app/insightevent/engagement?id=${encodeURIComponent(_adjId)}`, label: "Ajuster" }
+          : _replay
+            ? { type: "commit_prefill", label: "M'engager", prefill: _replay.prefill,
+                origin: { origin_action_type: "chat_journal_replay", origin_affected_date: _replay.date } }
+            : null;
+        return sysDialogueResponse(
+          _poleCards.length ? "Vos dispositifs" : "Vos engagements",
+          _body, "deterministic_engagements_v1", _primary,
+          (_poleCards.length || _datedCards.length)
+            ? { pole_cards: _poleCards, dated_cards: _datedCards,
+                pole_section_title: "Vos pôles", dated_section_title: "Vos opérations datées" }
+            : null,
+        );
+      }
+      return sysDialogueResponse(
+        "Aucun engagement jugé pour l'instant",
+        ENGAGEMENTS_ELICIT_FR,
+        "deterministic_engagements_elicit_v1",
+      );
+    }
+
+    // ── PLAN DE PÉRIODE (27/08) — « planifie-moi septembre ». Verbe de plan + période à
+    // venir (frPeriod, biais FUTUR) → composition DÉTERMINISTE de quatre sources réelles
+    // (planPeriod : inventaire, fenêtres, prouvé/séries, motifs mesurés). Le plan n'invente
+    // rien ; une source vide se dit vide. CTA rejeu quand un prouvé est rejouable.
+    if (/\b(planifie[rsz]?|pr[ée]parer?|organiser?|que faire)\b/i.test(qRaw) || _rsv?.intent === "plan") {
+      const _plToday = new Date().toISOString().slice(0, 10);
+      // Le résolveur d'abord (il porte les suites : « et octobre ? » hérite l'intention plan,
+      // change la période) ; frPeriod reste le repli quand il n'a pas tourné.
+      const _plPeriod = (_rsv?.intent === "plan" && _rsv.periode)
+        ? { start: _rsv.periode.start, end: _rsv.periode.end }
+        : resolveFrPeriod(qRaw, { today: _plToday, yearBias: "future" });
+      if (_plPeriod && _plPeriod.end >= _plToday) {
+        const _bqp = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+        // clerk_user_id ouvre le roster équipe (colonne « Qui » du plan) — même clé que /api/channels/team.
+        const _plan2 = await planPeriod(_bqp, location_id, _plPeriod.start, _plPeriod.end, { userId: clerk_user_id });
+        const _plb = buildPlanBlocks(_plan2);
+        const _plPrimary = _plb.replay_prefill
+          ? { type: "commit_prefill", label: "M'engager", prefill: _plb.replay_prefill.prefill,
+              origin: { origin_action_type: "chat_journal_replay", origin_affected_date: _plb.replay_prefill.date } }
+          : { type: "redirect", url: "/app/insightevent/evenement?new=1", label: "Nouvelle opération" };
+        return sysDialogueResponse(
+          _plb.headline, "", "deterministic_plan_period_v1", _plPrimary,
+          { plan_sections: _plb.sections, sources_list: _plb.sources },
+        );
+      }
+    }
+
+    // ── ENTITÉ × PÉRIODE LIBRE (horizons libres, 27/08) — « le pôle traiteur depuis
+    // janvier », « la famille Coffee cet été », « les opérations de Camille en août ».
+    // Conditions STRICTES : une période parsée (frPeriod, le SST) ET une entité RÉELLE du
+    // compte reconnue (entityResolver — jamais une devinette). La réponse est DÉTERMINISTE
+    // (lecture entityReading : mêmes foyers que les pages, effets dans LE KPI déclaré de
+    // chaque occurrence) ; cartes datecards pour pôle/famille, prose pour série/personne.
+    // Les branches déterministes ci-dessus (journal, fiches, événements) passent AVANT.
+    {
+      const _epToday = new Date().toISOString().slice(0, 10);
+      // Résolveur d'abord (suites « et pour Poeiti ? » : entité changée, période héritée du
+      // cadre) ; les parseurs legacy restent le repli complet.
+      const _epPeriod = (_rsv && (_rsv.intent === "entity_period" || _rsv.entities.length) && _rsv.periode)
+        ? { start: _rsv.periode.start, end: _rsv.periode.end }
+        : resolveFrPeriod(qRaw, { today: _epToday, yearBias: "past" });
+      if (_epPeriod) {
+        const _bqe = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+        const _epSite = _rsvSite ?? await loadSiteEntities(_bqe, location_id, String(clerk_user_id || ""));
+        const _epMatches = (_rsv?.entities.length ? _rsv.entities : matchEntities(qRaw, _epSite));
+        // ── COMPARAISONS (incrément 4, 28/08) — N entités et/ou 2 périodes : mise en table
+        // de lectures unitaires (readEntitiesCompared), cellules nues, jamais un verdict
+        // fabriqué entre entités. Une seule entité, une seule période → le chemin historique.
+        const _epCompare = _rsv?.periode_comparaison ?? null;
+        if (_epMatches.length >= 2 || (_epMatches.length >= 1 && _epCompare)) {
+          const _cmpPeriods = [{ start: _epPeriod.start, end: _epPeriod.end }, ...(_epCompare ? [{ start: _epCompare.start, end: _epCompare.end }] : [])];
+          const _cmpGrid = await readEntitiesCompared(_bqe, location_id, _epMatches, _cmpPeriods, _epToday);
+          const _cmpB = buildEntityCompareBlocks(_cmpGrid);
+          return sysDialogueResponse(
+            _cmpB.headline, "", "deterministic_entity_compare_v1", null,
+            { plan_sections: _cmpB.sections, sources_list: _cmpB.sources },
+          );
+        }
+        if (_epMatches.length) {
+          const _epEnt = _epMatches[0];
+          const _epReading = await readEntityPeriod(_bqe, location_id, _epEnt, _epPeriod.start, _epPeriod.end, _epToday);
+          const _epBlocks = buildEntityPeriodBlocks(_epReading);
+          return sysDialogueResponse(
+            _epBlocks.headline,
+            _epBlocks.prose,
+            "deterministic_entity_period_v1",
+            null,
+            { entity_table: _epBlocks.table, funnel_table: _epBlocks.funnel_table, sources_list: _epBlocks.sources },
+          );
+        }
+        // D2 — l'entité nommée est introuvable : élicitation avec les LISTES RÉELLES du site,
+        // jamais une devinette. Seulement quand la question NOMME un pôle ou une famille.
+        if (/\bp[oô]les?\b/i.test(qRaw) || /\bfamille\b/i.test(qRaw)
+            || (_rsv?.intent === "entity_period" && _rsv.entity_names.length > 0 && !_rsv.entities.length)) {
+          const _poleNames = _epSite.entities.filter((e) => e.kind === "pole").map((e) => e.name);
+          const _famNames = _epSite.entities.filter((e) => e.kind === "famille").map((e) => e.name).slice(0, 8);
+          const _lists = [
+            _poleNames.length ? `Vos pôles : ${_poleNames.join(", ")}.` : "Vous n'avez pas encore de pôle déclaré.",
+            _famNames.length ? `Vos familles : ${_famNames.join(", ")}.` : "",
+          ].filter(Boolean).join(" ");
+          return sysDialogueResponse(
+            "Je ne trouve pas cette entité",
+            `Je ne trouve ni pôle ni famille de ce nom sur ce site. ${_lists}`,
+            "deterministic_entity_period_elicit_v1",
+          );
+        }
+      }
     }
 
     // ── VOS ÉVÉNEMENTS (incrément 6, 04/08) — une question POSSESSIVE sur les événements de
@@ -2605,6 +2880,43 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       const _missingDim = detectMissingDimension(q);
       if (_missingDim && MISSING_DIMENSION_FR[_missingDim]) {
         const _metric = metricForMissingDim(_missingDim);
+        // Marges par famille (24/08) : quand des marges FAMILLE sont déclarées, la réponse marge
+        // se calcule famille par famille (couverture dite) — AVANT le chemin global. Une marge
+        // globale déclarée DANS CE TOUR garde la priorité (fraîcheur, comme avant).
+        if (_missingDim === "marge" && !(_justDeclared && _justDeclared.correction_type === "declared_margin_pct")) {
+          try {
+            const famMargins = await getDeclaredFamilyMargins(location_id);
+            if (famMargins.length) {
+              const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+              // Fenêtre BORNÉE à CURRENT_DATE : la graine porte des dates futures (vérifié 24/08).
+              const [famRows] = await _bq.query({
+                query: `SELECT item_category, ROUND(SUM(revenue), 0) AS ca
+                        FROM \`muse-square-open-data.mart.fct_client_offering_daily\`
+                        WHERE location_id = @location_id
+                          AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()
+                        GROUP BY 1 ORDER BY 2 DESC`,
+                params: { location_id }, types: { location_id: "STRING" }, location: "EU",
+              });
+              const pctBySlug: Record<string, number> = {};
+              for (const m of famMargins) pctBySlug[m.slug] = m.pct;
+              let caTotal = 0;
+              const lines: Array<{ famille: string; ca_eur: number; pct: number }> = [];
+              for (const r of (famRows as any[]) ?? []) {
+                const cat = String((r as any).item_category?.value ?? (r as any).item_category ?? "");
+                const ca = Number((r as any).ca?.value ?? (r as any).ca ?? 0);
+                if (!cat || !Number.isFinite(ca) || ca <= 0) continue;
+                caTotal += ca;
+                const pct = pctBySlug[familySlug(cat)];
+                if (pct != null) lines.push({ famille: cat, ca_eur: ca, pct });
+              }
+              if (lines.length && caTotal > 0) {
+                sinkTelemetry(location_id, "declared-answer", { type: "declared_margin_pct_families", n: lines.length });
+                const ans = declaredFamilyMarginAnswerFr({ lines, ca_total_eur: caTotal, window_fr: "vos 30 derniers jours" });
+                return sysDialogueResponse(ans.headline, ans.answer, "deterministic_declared_margin_v1");
+              }
+            }
+          } catch (e) { console.warn("[declared-metric] family margins read failed:", e); }
+        }
         if (_metric) {
           try {
             // A value declared THIS turn (mixed declare-and-ask) is used directly — fresher than any
@@ -2615,10 +2927,12 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
             if (decl != null) {
               const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
               const [rows] = await _bq.query({
+                // Borne haute ajoutée 24/08 : la graine porte des dates FUTURES — sans elle,
+                // « vos 30 derniers jours » sommait jusqu'à 68 jours (vérifié sur f10c3e58).
                 query: `SELECT SUM(daily_revenue) AS ca
                         FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
                         WHERE location_id = @location_id
-                          AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)`,
+                          AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()`,
                 params: { location_id }, types: { location_id: "STRING" }, location: "EU",
               });
               const ca = Number(rows?.[0]?.ca);
@@ -5040,6 +5354,18 @@ Règles :
             { type: "upload_csv", label: "Importer un fichier de ventes" },
           );
         }
+        // J2.1 — MÊME DOCTRINE pour le journal : une question « qu'est-ce qui a marché ? » sur un
+        // compte sans engagement jugé ne se répond pas par le CA de la veille (mesuré : c'était le
+        // comportement, le chat changeait de sujet). L'absence se DIT, et elle nomme le geste.
+        // Aucune chaîne approuvée n'existait sur cette surface pour cet état vide (vérifié) ;
+        // « M'engager » est le mot déjà en production du geste.
+        if (_famKey === "engagements" && !_familyLed) {
+          return sysDialogueResponse(
+            "Aucun engagement jugé pour l'instant",
+            ENGAGEMENTS_ELICIT_FR,
+            "deterministic_engagements_elicit_v1",
+          );
+        }
         const grounded_payload = _familyLed
           ? toGroundedDayPayload(
               { ...dc_day, llm: { ...(dc_day.llm ?? {}), citable_facts: [] } } as any,
@@ -6096,14 +6422,14 @@ Règles :
           ai: {
             headline: "Aucune donnée disponible",
             verdict: "",
-            answer: "Aucune donnée disponible pour cette période. Vérifiez que la fenêtre demandée est dans le futur ou contient des dates avec des données.",
+            answer: "Aucune donnée disponible pour cette période. Vérifiez que la période demandée est dans le futur ou contient des dates avec des données.",
             key_facts: [],
             reasons: [],
             caveats: [],
             output: {
               headline: "Aucune donnée disponible",
               verdict: "",
-              answer: "Aucune donnée disponible pour cette période. Vérifiez que la fenêtre demandée est dans le futur ou contient des dates avec des données.",
+              answer: "Aucune donnée disponible pour cette période. Vérifiez que la période demandée est dans le futur ou contient des dates avec des données.",
               key_facts: [],
               reasons: [],
               caveats: [],

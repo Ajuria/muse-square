@@ -83,7 +83,9 @@ describe("lexique FR du dossier d'événement", () => {
       const fautes: string[] = [];
       for (const s of visibleStrings(src)) {
         if (TECHNIQUE.test(s) || estUneCle(s)) continue;
-        const low = s.toLowerCase();
+        // Les interpolations `${…}` sont du CODE, pas du texte visible : `${c.delta_pp}` ne doit
+        // pas faire matcher « pp » (faux positifs mesurés le 27/08 en ajoutant pp au lexique).
+        const low = s.replace(/\$\{[^}]*\}/g, " ").toLowerCase();
         for (const mot of Object.keys(MOTS_BANNIS)) {
           // Frontière de mot : « attendu » ne doit pas matcher « attendue » deux fois, ni un
           // identifiant collé. On cherche le mot entouré de non-lettres.

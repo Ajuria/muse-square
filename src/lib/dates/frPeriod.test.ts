@@ -174,3 +174,67 @@ describe("helpers de dates", () => {
     expect(daysInRangeYmd("2026-06-01", "2026-07-31")).toBe(61);
   });
 });
+
+// ── Horizons libres × entités (27/08) : depuis / trimestre / saisons ───────────────────────────
+
+describe("depuis", () => {
+  it("« depuis janvier » → 1er janvier de l'année en cours jusqu'à aujourd'hui", () => {
+    expect(resolveFrPeriod("le pôle traiteur depuis janvier", { today: "2026-08-27" }))
+      .toEqual({ start: "2026-01-01", end: "2026-08-27", kind: "since", months: [1], explicit_year: false });
+  });
+  it("« depuis novembre » (mois pas encore passé cette année) → novembre PRÉCÉDENT", () => {
+    expect(resolveFrPeriod("depuis novembre", { today: "2026-08-27" })!.start).toBe("2025-11-01");
+  });
+  it("« depuis le 15/06 » → date française, fin aujourd'hui", () => {
+    expect(resolveFrPeriod("les ventes depuis le 15/06", { today: "2026-08-27" }))
+      .toEqual({ start: "2026-06-15", end: "2026-08-27", kind: "since", months: [], explicit_year: false });
+  });
+});
+
+describe("trimestre", () => {
+  it("« ce trimestre » → T3 en cours, 01/07 → aujourd'hui", () => {
+    expect(resolveFrPeriod("le bilan de ce trimestre", { today: "2026-08-27" }))
+      .toEqual({ start: "2026-07-01", end: "2026-08-27", kind: "quarter", months: [7, 8, 9], explicit_year: false });
+  });
+  it("« trimestre dernier » → T2 civil complet", () => {
+    expect(resolveFrPeriod("le trimestre dernier", { today: "2026-08-27" }))
+      .toEqual({ start: "2026-04-01", end: "2026-06-30", kind: "quarter", months: [4, 5, 6], explicit_year: false });
+  });
+  it("« T2 » → deuxième trimestre, biais passé", () => {
+    expect(resolveFrPeriod("les producteurs invités sur T2", { today: "2026-08-27" })!.start).toBe("2026-04-01");
+  });
+  it("« trimestre dernier » depuis janvier → T4 de l'année PRÉCÉDENTE", () => {
+    expect(resolveFrPeriod("trimestre passé", { today: "2026-02-10" }))
+      .toEqual({ start: "2025-10-01", end: "2025-12-31", kind: "quarter", months: [10, 11, 12], explicit_year: false });
+  });
+});
+
+describe("saisons météorologiques", () => {
+  it("« cet été » → juin-août de l'année en cours", () => {
+    expect(resolveFrPeriod("la famille Coffee cet été", { today: "2026-08-27" }))
+      .toEqual({ start: "2026-06-01", end: "2026-08-31", kind: "season", months: [6, 7, 8], explicit_year: false });
+  });
+  it("« l'été dernier » → l'occurrence précédente", () => {
+    expect(resolveFrPeriod("l'été dernier", { today: "2026-08-27" })!.start).toBe("2025-06-01");
+  });
+  it("« cet hiver » en août (pas commencé) → l'hiver DÉC 2025-FÉV 2026, à cheval", () => {
+    expect(resolveFrPeriod("cet hiver", { today: "2026-08-27" }))
+      .toEqual({ start: "2025-12-01", end: "2026-02-28", kind: "season", months: [12, 1, 2], explicit_year: false });
+  });
+  it("« l'automne » en février → l'automne déjà passé (sept-nov précédents)", () => {
+    expect(resolveFrPeriod("l'automne", { today: "2026-02-10" })!.start).toBe("2025-09-01");
+  });
+});
+
+describe("saisons — les cas qui ont fait tomber la première version", () => {
+  it("« cet hiver » en JANVIER → l'hiver EN COURS (commencé en décembre), pas celui d'avant", () => {
+    expect(resolveFrPeriod("cet hiver", { today: "2026-01-15" }))
+      .toEqual({ start: "2025-12-01", end: "2026-02-28", kind: "season", months: [12, 1, 2], explicit_year: false });
+  });
+  it("« cet été » en MAI (pas commencé) → l'été précédent sous biais passé", () => {
+    expect(resolveFrPeriod("cet été", { today: "2026-05-10" })!.start).toBe("2025-06-01");
+  });
+  it("« cet été » en MAI sous biais FUTUR → l'été à venir", () => {
+    expect(resolveFrPeriod("cet été", { today: "2026-05-10", yearBias: "future" })!.start).toBe("2026-06-01");
+  });
+});

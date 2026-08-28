@@ -62,12 +62,21 @@
         + '<div data-cm-goal-presets style="display:none;gap:6px;margin-top:9px;align-items:center;flex-wrap:wrap;"></div>'
         + '<div data-cm-goal-recap style="background:#F5F7FF;border:1px solid #DBEAFE;border-radius:6px;padding:8px 10px;font-size:12px;color:#1D3BB3;font-weight:600;line-height:1.5;margin-top:10px;"></div>'
       + '</div>'
-      + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Responsable</div>'
+      + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Responsable(s)</div>'
         + '<input data-cm-owner placeholder="Une personne de l\'équipe" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;" />'
         + '<div data-cm-owner-sugg style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;"></div></div>'
-      + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Mon action</div>'
+      + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Levier</div>'
         + suggestionsHtml(opts.suggestions)
         + '<textarea data-cm-action placeholder="' + (Array.isArray(opts.suggestions) && opts.suggestions.length ? "Choisissez une suggestion ci-dessus ou décrivez votre action" : "Ce que vous allez faire") + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:52px;box-sizing:border-box;">' + escapeHtml(action) + "</textarea></div>"
+      + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Co\u00fbt de l\u2019op\u00e9ration (\u20ac) \u2014 optionnel</div>'
+        + '<input data-cm-cost type="number" min="0" step="10" value="' + escapeHtml(pre.operation_cost_eur != null ? String(pre.operation_cost_eur) : "") + '" style="width:120px;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;text-align:right;" />'
+        + '</div>'
+      + '<div style="margin-bottom:14px;">' + '<div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Ressource(s)</div>'
+        + '<input data-cm-resources value="' + escapeHtml(pre.dispositif_resources != null ? String(pre.dispositif_resources) : "") + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;" />' + '</div>'
+      + '<div style="margin-bottom:14px;">' + '<div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Le plus du dispositif</div>'
+        + '<textarea data-cm-plus style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;resize:none;min-height:44px;">' + escapeHtml(pre.dispositif_plus != null ? String(pre.dispositif_plus) : "") + '</textarea>' + '</div>'
+      + '<div style="margin-bottom:14px;">' + '<div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Pourquoi ça va marcher</div>'
+        + '<textarea data-cm-why style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;resize:none;min-height:44px;">' + escapeHtml(pre.dispositif_why != null ? String(pre.dispositif_why) : "") + '</textarea>' + '</div>'
       + '<div style="display:flex;gap:8px;"><button type="button" data-cm-submit style="padding:7px 14px;border-radius:6px;background:#1D3BB3;color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">M\'engager →</button>'
         + '<button type="button" data-cm-cancel style="padding:7px 14px;border-radius:6px;background:#f9fafb;color:#374151;border:1px solid #e5e7eb;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;">Annuler</button></div>'
       + "</div>";
@@ -392,6 +401,11 @@
           // Objectif libre : base 'pct' — le verdict comparera le % réalisé à CE chiffre.
           window_kind: state.window, threshold_basis: "pct", threshold_pct: goalPct,
           committed_action_text: action, owner_person_name: owner,
+          // Contexte de la version (étape 3, 27/08) — vide -> null (une V2 hérite du parent côté API)
+          dispositif_plus: (function () { var el = container.querySelector('[data-cm-plus]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),
+          dispositif_why: (function () { var el = container.querySelector('[data-cm-why]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),
+          dispositif_resources: (function () { var el = container.querySelector('[data-cm-resources]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),
+          operation_cost_eur: (function () { var el = container.querySelector('[data-cm-cost]'); var n = el ? parseFloat(el.value) : NaN; return isFinite(n) && n >= 0 ? n : null; })(),
           creation_residual_pct: origin.creation_residual_pct != null ? Number(origin.creation_residual_pct) : null,
           creation_residual_z: origin.creation_residual_z != null ? Number(origin.creation_residual_z) : null,
           creation_confidence_tier: origin.creation_confidence_tier || null,
@@ -415,5 +429,11 @@
     });
   }
 
-  window.MSCommitForm = { buildHtml: buildHtml, wire: wire, escapeHtml: escapeHtml };
+  // Roster Responsable réutilisable hors du formulaire complet (étape 4, 27/08 — le
+  // sous-formulaire « La version suivante » de la page engagement) : MÊME fetch, MÊME rendu.
+  function wireOwnerPool(container, locationId) {
+    if (!container || !locationId) return;
+    fetchTeamDefault(locationId).then(function (pool) { renderOwnerPool(container, pool, locationId); }).catch(function () {});
+  }
+  window.MSCommitForm = { buildHtml: buildHtml, wire: wire, escapeHtml: escapeHtml, wireOwnerPool: wireOwnerPool };
 })();

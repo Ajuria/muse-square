@@ -37,7 +37,7 @@ const MY_TYPE_FR: Record<string, string> = {
 // feed — this venue). Binary event/no-event is useless in a dense city (f10c3e58: 1 zero-day in 80),
 // so the split is terciles of density. Gates/tier ladder/phrasing discipline = the SHARED
 // impactContrast module (also used by the competitor family).
-import { finalizeContrast, frPp, IMPACT_MIN_SIDE, IMPACT_NOTE_FR, type ImpactContrast } from "./impactContrast";
+import { finalizeContrast, frDeltaPct, IMPACT_MIN_SIDE, IMPACT_NOTE_FR, type ImpactContrast } from "./impactContrast";
 
 type DensityContrast = ImpactContrast & {
   key: "all_500m" | "same_bucket_500m";
@@ -57,17 +57,17 @@ function eventDensityImpactOutputs(impact: { days: number; contrasts: DensityCon
       if (c.tier) {
         const dir = c.delta_pp >= 0 ? "au-dessus de" : "en dessous de";
         facts.push({
-          fact_fr: `Les jours à forte densité ${c.key === "same_bucket_500m" ? "d'événements de votre secteur" : "d'événements"} à 500 m (≥ ${c.hi}), votre CA se situe en moyenne ${frPp(c.delta_pp)} ${dir} sa normale, comparé aux jours ${c.lo === 0 ? "sans événement de ce type" : `à faible densité (≤ ${c.lo})`} — ${detail}.`,
+          fact_fr: `Les jours à forte densité ${c.key === "same_bucket_500m" ? "d'événements de votre secteur" : "d'événements"} à 500 m (≥ ${c.hi}), votre CA se situe en moyenne ${frDeltaPct(c.delta_pp)} ${dir} sa normale, comparé aux jours ${c.lo === 0 ? "sans événement de ce type" : `à faible densité (≤ ${c.lo})`} — ${detail}.`,
           claim_type: "observed_difference",
           tier: c.tier,
         });
-        rows.push({ label: c.label_fr, verdict_fr: `${frPp(c.delta_pp)} vs votre normale`, detail_fr: detail, measurable: true });
+        rows.push({ label: c.label_fr, verdict_fr: `${frDeltaPct(c.delta_pp)} vs votre normale`, detail_fr: detail, measurable: true });
       } else {
         facts.push({
-          fact_fr: `${c.label_fr} : aucun écart mesurable de votre CA entre jours chargés (≥ ${c.hi}) et jours calmes (≤ ${c.lo}) — ${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")}, ${detail}.`,
+          fact_fr: `${c.label_fr} : aucun écart mesurable de votre CA entre jours chargés (≥ ${c.hi}) et jours calmes (≤ ${c.lo}) — ${frDeltaPct(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")}, ${detail}.`,
           claim_type: "observed_difference",
         });
-        rows.push({ label: c.label_fr, verdict_fr: "aucun écart mesurable", detail_fr: `${frPp(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")} · ${detail}`, measurable: false });
+        rows.push({ label: c.label_fr, verdict_fr: "aucun écart mesurable", detail_fr: `${frDeltaPct(c.delta_pp)} ± ${c.se.toFixed(1).replace(".", ",")} · ${detail}`, measurable: false });
       }
     }
   } else if (impact && impact.days > 0) {
@@ -209,6 +209,36 @@ const frDate = (iso: string | null): string | null => {
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : null;   // JJ/MM/AAAA — never ISO to the reader
 };
 
+// Les semaines à venir × événements CIBLANT le public — LA requête de la frise, extraite pour
+// être partagée avec le plan de période (même fichier : la référence mart ne bouge pas).
+async function listCalmWeeksRaw(bq: any, location_id: string, date: string): Promise<any[]> {
+  const [rows] = await bq.query({
+    query: `SELECT DATE_TRUNC(event_date, WEEK(MONDAY)) AS wk,
+                   COUNTIF(COALESCE(threat_audience_overlap_pct, audience_overlap_score * 10) >= ${HIGH_OVERLAP}) AS n,
+                   COUNTIF(COALESCE(threat_audience_overlap_pct, audience_overlap_score * 10) >= ${HIGH_OVERLAP} AND industry_overlap) AS n_can
+            FROM \`${PROJECT}.mart.fct_competitor_events_conflicts\`
+            WHERE location_id = @location_id
+              AND event_date >= PARSE_DATE('%Y-%m-%d', @date)
+              AND event_date < DATE_ADD(PARSE_DATE('%Y-%m-%d', @date), INTERVAL ${CAL_WEEKS} WEEK)
+            GROUP BY wk ORDER BY wk`,
+    params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
+  });
+  return Array.isArray(rows) ? rows : [];
+}
+// `count_overlap` (27/08, plan diagnostic) : les événements qui VISENT le public (n_can — le
+// même compte qui décide busy) — additif, aucun consommateur existant ne change.
+export interface CalmWeek { wk: string; label: string; count: number; count_overlap: number; state: string | null }
+export async function listCalmWeeks(bq: any, location_id: string, date: string): Promise<CalmWeek[]> {
+  const num2 = (v: any): number => Number((v && typeof v === "object" && "value" in v ? v.value : v) ?? 0) || 0;
+  const rows = await listCalmWeeksRaw(bq, location_id, date).catch(() => []);
+  return rows.map((r: any) => {
+    const w = String((r.wk && typeof r.wk === "object" && "value" in r.wk ? r.wk.value : r.wk) ?? "").slice(0, 10);
+    const p = w.split("-");
+    const n = num2(r.n), nCan = num2(r.n_can);
+    return { wk: w, label: p.length === 3 ? `${p[2]}/${p[1]}` : w, count: n, count_overlap: nCan, state: n === 0 ? "quiet" : (nCan >= 1 ? "busy" : null) };
+  });
+}
+
 export async function eventsFamily(bq: any, location_id: string, date: string): Promise<FamilyResult> {
   const [profRows, evRows, calRows, ceRows, impact] = await Promise.all([
     bq.query({
@@ -228,15 +258,7 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
               LIMIT ${MAX_EVENTS}`,
       params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
     }).then((r: any) => r[0]).catch(() => []),
-    bq.query({
-      query: `SELECT DATE_TRUNC(event_date, WEEK(MONDAY)) AS wk, COUNT(*) AS n
-              FROM \`${PROJECT}.mart.fct_competitor_events_conflicts\`
-              WHERE location_id = @location_id
-                AND event_date >= PARSE_DATE('%Y-%m-%d', @date)
-                AND event_date < DATE_ADD(PARSE_DATE('%Y-%m-%d', @date), INTERVAL ${CAL_WEEKS} WEEK)
-              GROUP BY wk ORDER BY wk`,
-      params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
-    }).then((r: any) => r[0]).catch(() => []),
+    listCalmWeeksRaw(bq, location_id, date).catch(() => []),
     // The commercial temps fort active on the day (soldes, fêtes) — a footfall DRIVER, leads the card.
     bq.query({
       query: `SELECT commercial_events FROM \`${PROJECT}.semantic.vw_insight_event_day_surface\`
@@ -285,13 +307,44 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
   const nCap = competitors.filter((c: any) => c.tag === "capitaliser").length;
   const nCan = competitors.filter((c: any) => c.tag === "cannibalise").length;
 
-  // Calendar density: quiet (<=1) = open window, busy (>=4) = crowded.
+  // Calendar strip (weeks with an upcoming crawled event): n = events that TARGET my public
+  // (overlap >= HIGH_OVERLAP), n_can = the same-category subset. quiet = none targets it
+  // (activité calme autour de vous); busy = at least one cannibalises. A week absent from the
+  // strip had no crawled event — and absence of crawl is not absence of events (see header).
   const calendar = (Array.isArray(calRows) ? calRows : []).map((r: any) => {
     const n = num(r.n) ?? 0;
+    const nCanWk = num(r.n_can) ?? 0;
     const w = ymd(r.wk) || "";
     const p = w.split("-");
-    return { label: p.length === 3 ? `${p[2]}/${p[1]}` : w, count: n, state: n <= 1 ? "quiet" : (n >= 4 ? "busy" : null) };
+    return { label: p.length === 3 ? `${p[2]}/${p[1]}` : w, count: n, state: n === 0 ? "quiet" : (nCanWk >= 1 ? "busy" : null) };
   });
+
+  const calmWeeks = calendar.filter((c: any) => c.state === "quiet");
+  const totalUpcoming = calendar.reduce((s: number, c: any) => s + (c.count || 0), 0);
+  // Section title (owner 27/08): dated and actionable when a calm week exists, plain otherwise.
+  const calendar_title = calmWeeks.length
+    ? `Testez une opération la semaine du ${calmWeeks[0].label}, qui est calme autour de vous`
+    : "Programmez une opération";
+  // Constat under the title = the PROOF of the proposed action, never a restatement (owner 27/08:
+  // « Les jours où il y a moins de x événements concurrents dans votre périmètre, vous gagnez en
+  // moyenne x »). Source: the measured density contrasts already fetched above (residual vs the
+  // venue's own dow+trend normale, tier gates from the shared impactContrast module — no new query,
+  // no re-derivation). Sector contrast preferred; measured direction rendered whichever it is.
+  let calendar_note: string;
+  const proofC = (impact?.contrasts || []).find((c: any) => c.key === "same_bucket_500m" && c.tier)
+    || (impact?.contrasts || []).find((c: any) => c.tier);
+  if (proofC) {
+    const label = proofC.key === "same_bucket_500m" ? "événements de votre secteur" : "événements";
+    const loSide = proofC.lo === 0 ? "sans événement de ce type" : `à ≤ ${proofC.lo} ${label}`;
+    calendar_note = proofC.delta_pp < 0
+      ? `Les jours ${loSide} dans votre périmètre (500 m), vous gagnez en moyenne ${frDeltaPct(-proofC.delta_pp)} de CA vs votre résultat habituel, comparé aux jours chargés (≥ ${proofC.hi}) — ${proofC.n_low} jours vs ${proofC.n_high}.`
+      : `Les jours à ≥ ${proofC.hi} ${label} dans votre périmètre (500 m), vous gagnez en moyenne ${frDeltaPct(proofC.delta_pp)} de CA vs votre résultat habituel, comparé aux jours ${loSide} — ${proofC.n_high} jours vs ${proofC.n_low}.`;
+  } else {
+    // No measured contrast yet (cold start or below gates): fall back to the observed targeting fact.
+    calendar_note = calmWeeks.length
+      ? `Activité calme autour de vous ${calmWeeks.length > 1 ? "les semaines" : "la semaine"} du ${calmWeeks.map((c: any) => c.label).join(", du ")} : aucun événement concurrent n'y vise votre public.`
+      : `Pas de semaine calme autour de vous sur les ${CAL_WEEKS} prochaines : ${totalUpcoming} événement(s) concurrent(s) visent votre public dans votre zone.`;
+  }
 
   // like_mine: any nearby event in MY category? (industry_overlap) -> else whitespace (honest).
   const sameCatEvents = competitors.filter((c: any) => c.tag === "cannibalise");
@@ -318,10 +371,10 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
   if (cap1) decision_lines.push({ head: `Capitalisez sur ${cap1.name}`, body: `Public proche du vôtre (${cap1.overlap_pct} %) — programmez en marge et ciblez son audience.` });
   if (can1) decision_lines.push({ head: `Défendez-vous face à ${can1.name}`, body: `Même catégorie et public (${can1.overlap_pct} %) — différenciez fortement ou décalez votre date.` });
   const quiet = calendar.find((c: any) => c.state === "quiet");
-  if (quiet) decision_lines.push({ head: `Fenêtre calme : semaine du ${quiet.label}`, body: "Faible concurrence — testez un événement pour capter l'attention sans dispersion." });
+  if (quiet) decision_lines.push({ head: `Placez votre prochain événement — semaine du ${quiet.label}`, body: "Activité calme autour de vous : aucun événement concurrent ne vise votre public cette semaine-là." });
   if (!decision_lines.length) {
     if (competitors.length) decision_lines.push({ head: "Public non ciblé localement", body: "Les événements du secteur visent une autre audience — peu de risque de dispersion; concentrez-vous sur vos propres canaux." });
-    else decision_lines.push({ head: "Territoire dégagé", body: "Aucun concurrent direct à venir — fenêtre ouverte pour maximiser l'attention sur vos dates." });
+    else decision_lines.push({ head: "Placez vos dates librement", body: "Aucun concurrent direct à venir — l'activité est calme autour de vous, vos dates ne risquent pas la dispersion." });
   }
   // The commercial temps fort is the primary action when present — prepend it.
   if (commercial_event) decision_lines.unshift({ head: `Activez pendant ${commercial_event.name}`, body: "Le flux d'acheteurs est là — misez sur une offre signature ou une expérience, pas une remise (elle érode la marge sans gagner de visiteurs)." });
@@ -356,7 +409,7 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
   }
 
   if (quiet) {
-    facts.push({ fact_fr: `La semaine du ${quiet.label} est la plus calme des ${CAL_WEEKS} prochaines : ${quiet.count} événement(s) concurrent(s) relevé(s).`, claim_type: "observed" });
+    facts.push({ fact_fr: `Semaine du ${quiet.label} : activité calme autour de vous — aucun des événements relevés sur les ${CAL_WEEKS} prochaines semaines ne vise votre public cette semaine-là.`, claim_type: "observed" });
   }
   if (my_types.length) {
     facts.push({ fact_fr: `Vous organisez : ${my_types.join(", ")}.`, claim_type: "observed" });
@@ -381,7 +434,7 @@ export async function eventsFamily(bq: any, location_id: string, date: string): 
 
   return {
     found: true,
-    data: { found: true, date, commercial_event, contest_lead, competitors, like_mine, calendar, impact: impactBlock, decision_lines },
+    data: { found: true, date, commercial_event, contest_lead, competitors, like_mine, calendar, calendar_title, calendar_note, impact: impactBlock, decision_lines },
     facts,
     sources,
   };

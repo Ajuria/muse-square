@@ -16,6 +16,8 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Un dispositif dont les règles ont été prouvées | **dispositif prouvé** (owner 22/08 — corrige la ligne du 17/08, qui définissait « dispositif » par son seul état final : « une pratique qui marche » EST un dispositif prouvé, pas un dispositif en soi) | dispositif (employé seul pour dire « prouvé »), recette |
 | Statuts d'un dispositif | **en test · prouvé · écarté** (owner 17/08 : « déclaré » fusionné dans « en test » ; mot déjà en prod). **Redéfini par les arbitrages du 27/08 — l'axe d'EFFET est séparé de l'axe CIBLE** : « écarté » = **effet négatif prouvé** (le test a bougé le réel dans le mauvais sens, |z| ≥ 1 vs votre résultat habituel) — il se dit en contre-indication et ne se re-propose jamais sur son signal ; « prouvé » = effet positif prouvé, **que la cible soit atteinte ou non** — le cas cible manquée se dit « effet positif, objectif manqué » (mots owner) avec la calibration de cible ; un test dont l'effet reste dans le bruit du lieu = « testé, non concluant » — ce n'est PAS un écarté, il se poursuit ou se re-teste. L'ancienne définition (« écarté » = cible manquée) confondait les deux axes : une cible surestimée fabriquait un faux échec. La grammaire de référence : `bestPractices.dispositifStateFr` | déclaré, validé, certifié, écarté (au sens « cible manquée » seule) |
 | Ce que l'utilisateur promet de faire et mesurer | **engagement** | commitment, pari |
+| Un sous-ensemble permanent du dispositif de vente d'un site (familles produits + responsable + ressources) | **pôle** (owner 27/08 — cas de référence Épices et Tout : périssables, traiteur libanais, art de vivre ; spec `poles-dispositifs-permanents-spec.md`) | corner, stand, rayon ; rattacher le pôle à une personne (le responsable est un attribut — le pôle demeure jusqu'à fermeture) |
+| La nature sans terme d'un dispositif | **dispositif permanent** (owner 27/08 — pas de dates ; mesure = lecture continue de ses familles vs résultat habituel) | tout verdict « atteint/manqué » sur un permanent (pas de terme → pas de verdict) |
 | Une date d'une série mesurée | **occurrence** | instance, itération |
 | Événement récurrent | **série** | campagne |
 | Le jugement automatique sur la cible | **cible/objectif : atteint · manqué · non concluant** | score, résultat final |
@@ -23,6 +25,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | La période mesurée | **date / dates de l'opération** (owner 17/08) | fenêtre de mesure, période de test |
 | La référence de comparaison | **votre résultat habituel** (forme jour : « votre jeudi habituel ») | l'attendu, la normale (sauf « CA vs normale » legacy K1), « votre habituel » nu (owner 24/08 — la référence porte son nom entier ; « votre CA habituel » reste correct) |
 | Ce que vaut un motif à l'année | **enjeu annualisé** (infobulle seulement) | potentiel, opportunité € |
+| Un écart de pourcentage affiché | **% (ou €)** (owner 27/08 — « pp » n'existe pas pour l'utilisateur ; un chiffre affiché est idiot-proof : des euros ou des pour cent, le référentiel dit dans la phrase) | pp, points de pourcentage |
 | Surveillance des concurrents | **veille** / **vos suivis** | couverture, tracking, crawl |
 | Fraîcheur de la veille | **lus cette nuit** | dernier passage, visités, crawlés |
 | Un concurrent surveillé | **suivi** | tracké, monitored |
@@ -85,6 +88,25 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 - Bandeau Piloter v10 (owner 18/08) : **Impact 30 jours · CA 7 jours · Signaux traités ·
   Opérations en cours · Dispositifs prouvés** — « Signaux traités » assumé (même concept de
   signal partout, arbitrage owner) ; « Dispositifs validés » écarté (« validé » reste banni).
+
+- **« Famille produits & services »** (owner 28/08) : LE mot des familles à l'interface —
+  les services vendus sont des familles au même titre que les produits (item_category).
+  Remplace « famille produit » sur les 4 chaînes visibles (formulaire opération ×2, infobulle
+  profit du héros, infobulle marge du plan). Le registre sémantique porte la même définition.
+
+- Plan de période — diagnostic (owner 27/08) : « quick wins » = **« À portée de main »**
+  (mot owner). Titre du point santé : **« La santé de l'entreprise »** (proposition appliquée
+  depuis le mot du cadrage owner « santé de l'entreprise » — à confirmer). Les autres titres
+  du plan viennent de la maquette validée : « Vos pôles », « Ce que la période va vous
+  coûter », « Menaces », « Chantiers de fond », « Le plan, semaine par semaine ».
+
+- Marges par famille (owner 24/08) : le geste garde **« Déclarer votre marge »** (singulier),
+  même devenu par-famille — « Déclarer vos marges » écarté. Mots de couverture actés :
+  **« Profit — à débloquer »** (verrouillé) et **« calculé sur X % de votre CA »** — la tuile
+  Profit du bandeau v10 n'existe plus (héros v11, direction A 24/08) ; les mots suivent le
+  profit là où il s'affiche. 27/08 : « **Appliquer à tous les produits ci-dessous** » (mots
+  owner, ligne 1 du panneau marges) ; état déclaré : « → Déclarer votre marge — **modifiable à
+  tout moment** » (fragment approuvé du formulaire événement), bouton « Modifier ».
 
 ## Le gabarit de la zone explication des cartes d'opération (owner 24/08)
 

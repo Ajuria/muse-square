@@ -4,11 +4,12 @@
 // src/pages/api/channels/internal-alert.ts (Clerk session, requireLocationOwnership).
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
-import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
+import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
-import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline } from "../../../lib/kpiRegistry";
+import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline, measureProfitBaseline } from "../../../lib/kpiRegistry";
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
-import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/actionCommitments";
+import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/actionCommitments";
 import { themeForActionType } from "../../../lib/recoThemeMap";
 import { vif } from "../../../lib/commitmentResolve";
 import { RHO_FLOOR } from "../../../lib/commitmentConstants";
@@ -51,7 +52,7 @@ async function notifyAssignment(
   bq: any,
   userId: string,
   locationId: string,
-  args: { ownerName: string; actionText: string; thresholdBasis: string; thresholdValue: number; thresholdLevel: string; windowKind: string; windowEnd: string },
+  args: { ownerName: string; actionText: string; thresholdBasis: string; thresholdValue: number; thresholdLevel: string; windowKind: string; windowEnd: string; commitmentId?: string },
 ): Promise<{ channel: string; ok: boolean; error?: string } | null> {
   // Membre du roster par nom — même résolution compte que /api/channels/team (site d'abord).
   const [rows] = await bq.query({
@@ -93,7 +94,19 @@ async function notifyAssignment(
   }
   if (contact && typeof contact.slack === "string" && contact.slack.trim()) {
     const config = await loadChannelConfig(bq, userId, locationId, "slack");
-    const r = await sendSlack(config, { title, body, recipient: contact.slack });
+    // Vue équipe inc 7 : boutons de disposition sur la notification (« Action menée ?
+    // Oui · Pas encore » — les mots du geste app) + « Documenter » (modal feedback).
+    // Traités par /api/channels/slack-interact (signature vérifiée, périmètre rejoué).
+    // Sans commitment_id (appelant historique) → message texte inchangé.
+    const blocks = args.commitmentId ? [
+      { type: "section", text: { type: "mrkdwn", text: "*" + title + "*\n" + body } },
+      { type: "actions", elements: [
+        { type: "button", action_id: "ms_dispo_fait", text: { type: "plain_text", text: "Action menée ? Oui" }, style: "primary", value: JSON.stringify({ c: args.commitmentId, l: locationId, s: "fait" }) },
+        { type: "button", action_id: "ms_dispo_pas_encore", text: { type: "plain_text", text: "Pas encore" }, value: JSON.stringify({ c: args.commitmentId, l: locationId, s: "pas_encore" }) },
+        { type: "button", action_id: "ms_retro_open", text: { type: "plain_text", text: "Documenter" }, value: JSON.stringify({ c: args.commitmentId, l: locationId }) },
+      ] },
+    ] : undefined;
+    const r = await sendSlack(config, { title, body, recipient: contact.slack, blocks });
     return { channel: "slack", ok: r.ok, error: r.error };
   }
   return null; // pas de contact → rien à envoyer (le responsable voit la carte dans l'app)
@@ -111,7 +124,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // engagements" client filter; visibility stays team-per-location.
     const locationId = url.searchParams.get("location_id");
     if (!locationId) return json({ ok: false, error: "Missing location_id" }, 400);
-    requireLocationOwnership(locals, locationId);
+    // Vue équipe inc 5 : la LISTE s'ouvre au membre du site (filtrée à son périmètre plus
+    // bas) ; goal_context (formulaire M'engager, geste owner) reste owner-only.
+    requireLocationAccess(locals, locationId);
+    const isMemberRole = String((locals as any)?.role || "") === "member";
+    if (isMemberRole && url.searchParams.get("goal_context")) {
+      return json({ ok: false, error: "FORBIDDEN: geste owner" }, 403);
+    }
 
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
 
@@ -186,6 +205,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
     });
     // user_id (creator) + owner_person_id ride along in each row → client can
     // build a "mes engagements" filter on top of the team-shared list.
+    // Membre : périmètre de pôles + PROJECTION liste blanche (la cible passe, le
+    // kpi_baseline — un CA habituel, donc un niveau — et le reste du journal non).
+    if (isMemberRole) {
+      const memberItems = (rows || [])
+        .filter((r: any) => memberCommitmentInPerimeter(locals, String(locationId), r))
+        .map(memberCommitmentProjection);
+      return json({ ok: true, role: "member", items: memberItems });
+    }
     return json({ ok: true, items: rows || [] });
   } catch (err: any) {
     return json({ ok: false, error: err?.message || "Unknown error" }, errStatus(err));
@@ -199,7 +226,69 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!userId) return json({ ok: false }, 401);
 
     const body = await request.json().catch(() => null);
-    if (!body || !body.location_id || !body.origin_action_type ||
+    if (!body) return json({ ok: false, error: "Champs requis manquants" }, 400);
+
+    // ── PÔLE / DISPOSITIF PERMANENT (spec poles-dispositifs-permanents, owner 27/08) ──
+    // Une nature SANS terme : ni fenêtre, ni objectif, ni verdict — le cron de résolution ne
+    // le voit jamais (window_end NULL). Ce qui le définit : le levier (description) et ses
+    // familles RÉELLES (pole_families, jamais du texte libre). Même table, même chaîne de
+    // versions (lineageFor) ; le responsable est un ATTRIBUT — le pôle demeure jusqu'à
+    // fermeture (soft-cancel aujourd'hui, rendu « fermé » côté surface).
+    if (String(body.dispositif_nature || "").trim() === "permanent") {
+      if (!body.location_id || !body.committed_action_text) {
+        return json({ ok: false, error: "Champs requis manquants (pôle) : location_id, committed_action_text" }, 400);
+      }
+      const fams = Array.isArray(body.pole_families)
+        ? body.pole_families.map((f: any) => String(f).trim()).filter(Boolean) : [];
+      if (!fams.length && !body.parent_commitment_id) {
+        return json({ ok: false, error: "pole_families requis : les familles réelles du pôle" }, 400);
+      }
+      requireLocationOwnership(locals, body.location_id);
+      const bqP = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
+      const poleId = crypto.randomUUID();
+      const _pParentId = body.parent_commitment_id ? String(body.parent_commitment_id).trim() : null;
+      let _pParent: Awaited<ReturnType<typeof readLatestSnapshot>> = null;
+      if (_pParentId) {
+        _pParent = await readLatestSnapshot(bqP, _pParentId);
+        if (!_pParent) return json({ ok: false, error: "parent_commitment_id introuvable" }, 400);
+        if (String(_pParent.location_id) !== String(body.location_id).trim()) {
+          return json({ ok: false, error: "parent_commitment_id d'un autre site" }, 403);
+        }
+        if ((_pParent as any).dispositif_nature !== "permanent") {
+          return json({ ok: false, error: "le parent n'est pas un dispositif permanent" }, 400);
+        }
+      }
+      const _pLineage = lineageFor(_pParent, poleId);
+      const row = await readMergeWrite(bqP, {
+        commitmentId: poleId, transitionType: "created", create: true,
+        patch: {
+          user_id: userId, location_id: String(body.location_id).trim(),
+          status: "open", verdict: null, authorship: "user_authored",
+          origin_kind: "pole", origin_action_type: "pole",
+          dispositif_nature: "permanent",
+          pole_families: fams.length ? JSON.stringify(fams) : ((_pParent as any)?.pole_families ?? null),
+          committed_action_text: String(body.committed_action_text).trim(),
+          owner_person_name: body.owner_person_name != null && String(body.owner_person_name).trim()
+            ? String(body.owner_person_name).trim() : (_pParent?.owner_person_name ?? null),
+          dispositif_plus: body.dispositif_plus != null && String(body.dispositif_plus).trim()
+            ? String(body.dispositif_plus).trim() : ((_pParent as any)?.dispositif_plus ?? null),
+          dispositif_why: body.dispositif_why != null && String(body.dispositif_why).trim()
+            ? String(body.dispositif_why).trim() : ((_pParent as any)?.dispositif_why ?? null),
+          dispositif_resources: body.dispositif_resources != null && String(body.dispositif_resources).trim()
+            ? String(body.dispositif_resources).trim() : ((_pParent as any)?.dispositif_resources ?? null),
+          adjustment_move: body.adjustment_move ? String(body.adjustment_move).trim() : null,
+          adjustment_note: body.adjustment_note != null ? (String(body.adjustment_note).trim() || null) : null,
+          parent_commitment_id: _pParentId,
+          dispositif_id: _pLineage.dispositif_id,
+          version_no: _pLineage.version_no,
+          operation_cost_eur: body.operation_cost_eur != null && Number.isFinite(Number(body.operation_cost_eur)) && Number(body.operation_cost_eur) >= 0 && Number(body.operation_cost_eur) <= 1000000
+            ? Math.round(Number(body.operation_cost_eur) * 100) / 100 : null,
+        } as any,
+      } as any);
+      return json({ ok: true, commitment_id: row.commitment_id, dispositif_id: (row as any).dispositif_id, version_no: (row as any).version_no });
+    }
+
+    if (!body.location_id || !body.origin_action_type ||
         !body.window_kind || (!body.threshold_level && body.threshold_pct == null) ||
         !body.committed_action_text || !body.owner_person_name) {
       return json({ ok: false, error: "Champs requis manquants" }, 400);
@@ -262,8 +351,63 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const end = new Date(start.getTime());
     end.setUTCDate(end.getUTCDate() + (days - 1));
 
+    // Garde-fou (27/08, audit menu KPI) : un event_kpi FOURNI mais intraduisible ne retombe
+    // JAMAIS en silence sur la dérivation carte — le verdict jugerait le CA alors que
+    // l'utilisateur a déclaré un autre KPI (le défaut « KPI perdu », déjà mesuré deux fois :
+    // la V2 d'un engagement événement, puis la carte journal). Inatteignable depuis l'UI
+    // aujourd'hui (« Profit estimé » est désactivé) : défense en profondeur — refus explicite
+    // plutôt qu'un verdict silencieusement faux.
+    if (originActionType.startsWith("event_") && body.event_kpi != null && String(body.event_kpi).trim()
+        && !kpiKeyForEventKpi(body.event_kpi)) {
+      return json({ ok: false, error: "event_kpi non mesurable : " + String(body.event_kpi).trim() }, 400);
+    }
+
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const commitmentId = crypto.randomUUID();
+
+    // LIGNÉE (27/08, point identité) — une V2 hérite de son parent : l'identité du dispositif,
+    // le numéro de version, LE KPI (re-tester = re-tester sur le même étage — un KPI redérivé
+    // faisait juger la V2 sur le CA, défaut mesuré) et l'événement ancré qui porte la famille.
+    // Règle pure : lineageFor (actionCommitments, testée). Le parent doit appartenir au même
+    // site — un parent d'un autre lieu est refusé, jamais hérité en silence.
+    const _parentId = body.parent_commitment_id ? String(body.parent_commitment_id).trim() : null;
+    let _parentSnap: Awaited<ReturnType<typeof readLatestSnapshot>> = null;
+    if (_parentId) {
+      _parentSnap = await readLatestSnapshot(bq, _parentId);
+      if (!_parentSnap) return json({ ok: false, error: "parent_commitment_id introuvable" }, 400);
+      if (String(_parentSnap.location_id) !== String(body.location_id).trim()) {
+        return json({ ok: false, error: "parent_commitment_id d'un autre site" }, 403);
+      }
+    }
+    const _lineage = lineageFor(_parentSnap, commitmentId);
+
+    // Rattachement opération→pôle (spec pôles, 27/08) : attached_pole_id = le dispositif_id
+    // du pôle — validé contre le site et la nature, hérité du parent si absent. Ce n'est PAS
+    // parent_commitment_id (filiation de versions). L'héritage du KPI famille depuis le pôle
+    // passe par le rail saved_items.kpi_family (measured_metric est 'family_revenue' NU) —
+    // branché avec la lecture continue, pas deviné ici.
+    let _attachedPoleId: string | null = body.attached_pole_id
+      ? String(body.attached_pole_id).trim()
+      : (((_parentSnap as any)?.attached_pole_id as string | undefined) ?? null);
+    if (body.attached_pole_id) {
+      const [prows] = await bq.query({
+        query: `SELECT 1 FROM (
+                  SELECT dispositif_nature, location_id,
+                         ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC) AS rn
+                  FROM \`${process.env.BQ_PROJECT_ID || BQ_PROJECT}.analytics.action_commitments\`
+                  WHERE dispositif_id = @p
+                ) WHERE rn = 1 AND dispositif_nature = 'permanent' AND location_id = @loc LIMIT 1`,
+        params: { p: _attachedPoleId, loc: String(body.location_id).trim() },
+        types: { p: "STRING", loc: "STRING" }, location: "EU",
+      });
+      if (!prows || !prows.length) {
+        return json({ ok: false, error: "attached_pole_id introuvable ou pas un dispositif permanent de ce site" }, 400);
+      }
+    }
+    const _natureRaw = String(body.dispositif_nature || "").trim();
+    const _nature = _natureRaw === "serie" ? "serie"
+      : _natureRaw === "operation" ? "operation"
+      : (((_parentSnap as any)?.dispositif_nature as string | undefined) ?? "operation");
 
     const patch: Partial<CommitmentRow> = {
       user_id: userId,
@@ -283,14 +427,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       origin_suppression_key: body.origin_suppression_key ? String(body.origin_suppression_key) : null,
       origin_card_instance_id: body.origin_card_instance_id ? String(body.origin_card_instance_id) : null,
       origin_affected_date: body.origin_affected_date ? String(body.origin_affected_date) : null,
-      saved_item_id: body.saved_item_id ? String(body.saved_item_id).trim() : null,
+      saved_item_id: body.saved_item_id ? String(body.saved_item_id).trim() : _lineage.inherited_saved_item_id,
       // Étape 3 (26/07) : measured_metric = kpi de la CARTE (type + driver), plus jamais codé en
       // dur — kpiKeyForOrigin (lib/kpiRegistry). 'revenue_residual' reste le défaut et garde toute
       // sa machinerie ; les KPIs non-K1 sont mesurés en colonnes kpi_* (baseline ci-dessous,
       // window/delta à la résolution).
       // Événements (03/08) : le KPI DÉCLARÉ sur l'événement prime — mapping registre (foyer
       // unique kpiKeyForEventKpi) ; hors événement, la dérivation carte+driver inchangée.
-      measured_metric: (originActionType.startsWith("event_") && kpiKeyForEventKpi(body.event_kpi))
+      measured_metric: (_lineage.inherited_metric as any)
+        || (originActionType.startsWith("event_") && kpiKeyForEventKpi(body.event_kpi))
         || kpiKeyForOrigin(
           originActionType,
           DRIVER_SET.has(String(body.origin_driver || "").trim().toLowerCase())
@@ -321,6 +466,26 @@ export const POST: APIRoute = async ({ request, locals }) => {
       adjustment_move: body.adjustment_move ? String(body.adjustment_move).trim() : null,
       adjustment_note: body.adjustment_note != null ? (String(body.adjustment_note).trim() || null) : null,
       parent_commitment_id: body.parent_commitment_id ? String(body.parent_commitment_id) : null,
+      dispositif_id: _lineage.dispositif_id,
+      version_no: _lineage.version_no,
+      // Contexte de la version (étape 3, 27/08) — « Le plus du dispositif », « Pourquoi ça va
+      // marcher », « Ressource(s) ». Chaque version porte les siens ; absents au POST, une V2
+      // hérite de ceux du parent (même règle que measured_metric — posé ici, jamais re-dérivé).
+      dispositif_plus: body.dispositif_plus != null && String(body.dispositif_plus).trim()
+        ? String(body.dispositif_plus).trim() : ((_parentSnap as any)?.dispositif_plus ?? null),
+      dispositif_why: body.dispositif_why != null && String(body.dispositif_why).trim()
+        ? String(body.dispositif_why).trim() : ((_parentSnap as any)?.dispositif_why ?? null),
+      dispositif_resources: body.dispositif_resources != null && String(body.dispositif_resources).trim()
+        ? String(body.dispositif_resources).trim() : ((_parentSnap as any)?.dispositif_resources ?? null),
+      // Pôles & natures (27/08) : nature explicite (jamais déduite de l'absence de dates),
+      // rattachement au pôle validé/hérité ci-dessus. pole_families reste NULL sur une
+      // opération datée — le périmètre appartient au pôle.
+      dispositif_nature: _nature,
+      attached_pole_id: _attachedPoleId,
+      pole_families: null,
+      // Coût de l'opération (ROI) : saisi, optionnel — jamais hérité en silence.
+      operation_cost_eur: body.operation_cost_eur != null && Number.isFinite(Number(body.operation_cost_eur)) && Number(body.operation_cost_eur) >= 0 && Number(body.operation_cost_eur) <= 1000000
+        ? Math.round(Number(body.operation_cost_eur) * 100) / 100 : null,
       // Gel de l'enjeu d'origine (26/07) : les champs VERBATIM de la pill de la carte — la page
       // évolution les rend tels quels (jamais recalculés, jamais reformulés). Null si la carte
       // d'origine ne portait pas d'enjeu (absence honnête → pas de bloc sur la page).
@@ -338,8 +503,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // K8 : baseline famille (30 j pré-fenêtre) — la famille arrive du client à la création
       // (body.kpi_family) ; la résolution la relira sur l'événement ancré. Échec soft → null.
       try {
-        const _fam = String(body.kpi_family || "").trim();
+        // V2 héritée : la famille ne voyage pas dans le body — on la relit sur l'événement
+        // ancré (raw.saved_items.kpi_family), la MÊME source que la résolution. Sinon la
+        // baseline de la V2 partait à null en silence.
+        let _fam = String(body.kpi_family || "").trim();
+        if (!_fam && patch.saved_item_id) {
+          const [fr] = await bq.query({
+            query: `SELECT kpi_family FROM \`${process.env.BQ_PROJECT_ID || BQ_PROJECT}.raw.saved_items\` WHERE saved_item_id = @sid LIMIT 1`,
+            params: { sid: String(patch.saved_item_id) }, types: { sid: "STRING" }, location: "EU",
+          });
+          const v = fr?.[0]?.kpi_family;
+          _fam = v != null ? String((v as any)?.value ?? v).trim() : "";
+        }
         patch.kpi_baseline = _fam ? await measureFamilyBaseline(bq, String(patch.location_id), _fam, String(patch.window_start)) : null;
+      } catch { patch.kpi_baseline = null; }
+    } else if (patch.measured_metric === "profit_estimated") {
+      // K9 (24/08) : baseline profit estimé (30 j pré-fenêtre, marges déclarées lues au moment
+      // de la mesure). Aucune marge déclarée → null — jamais un chiffre inventé. Échec soft.
+      try {
+        patch.kpi_baseline = await measureProfitBaseline(bq, String(patch.location_id), String(patch.window_start));
       } catch { patch.kpi_baseline = null; }
     } else if (patch.measured_metric && patch.measured_metric !== "revenue_residual") {
       try {
@@ -359,6 +541,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         thresholdBasis, thresholdValue, thresholdLevel,
         windowKind,
         windowEnd: String(patch.window_end),
+        commitmentId,
       });
     } catch { notified = null; }
     return json({

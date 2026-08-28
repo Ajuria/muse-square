@@ -23,6 +23,9 @@ if (!root) {
     location_id: LOCATION_ID,
     turn: 0,
     last: null, // { horizon, intent, used_dates[], top_dates[], month_redirect_url, selected_date }
+    // Le tuple du RESOLVEUR (28/08) : metadonnees de routage strictes (intention, noms
+    // d'entites, dates, KPI) — jamais un fait ni un chiffre. Echo-e tel quel a chaque tour.
+    resolved: null,
   };
 
   // Conversation history for multi-turn memory
@@ -130,6 +133,11 @@ if (!root) {
         ? out.debug.thread_context_out.selected_date
         : null,
     };
+    // Cadre du resolveur : le serveur le renvoie quand il a tourne ; un tour sans cadre
+    // (chemin legacy) CONSERVE le precedent — la suite d'apres peut encore en heriter.
+    if (out?.meta?.resolved_frame && typeof out.meta.resolved_frame === "object") {
+      THREAD_CONTEXT.resolved = out.meta.resolved_frame;
+    }
   }
 
   const SUGGESTION_CHIPS = [];
@@ -940,6 +948,79 @@ if (!root) {
       if (primary && typeof primary === "object" && primary.type === "upload_csv" && typeof primary.label === "string" && primary.label.trim()) {
         blocks.push({ type: "cta", action: "upload", label: primary.label.trim() });
       }
+      // J2.3 — rejeu d'un dispositif PROUVÉ : le CTA ouvre le formulaire d'engagement PARTAGÉ,
+      // pré-rempli depuis le plan. Même MSCommitForm, même POST que pulse et évolution — un seul
+      // flux d'engagement. Le prefill voyage hors du bloc (les blocs ne portent que du rendu).
+      if (primary && typeof primary === "object" && primary.type === "commit_prefill"
+          && primary.prefill && typeof primary.label === "string" && primary.label.trim()) {
+        _lastCommitPrefill = { prefill: primary.prefill, origin: primary.origin || null };
+        blocks.push({ type: "cta", action: "commit", label: primary.label.trim() });
+      }
+      return blocks;
+    }
+
+    // ── JOURNAL PÔLES (proto v2, owner 27/08) — le producteur déterministe du journal porte
+    // des CARTES construites SERVEUR (pole_cards / dated_cards, via ai.output) : rendu verbatim
+    // en datecards (pill = les résultats du pôle ; ambre = verdict imminent), la prose garde le
+    // reste. Sans cartes, le chemin générique reste strictement inchangé.
+    // Paramétrée sur la PRÉSENCE des cartes serveur (jamais sur un producteur codé en dur) :
+    // journal (deterministic_engagements_v1) ET lectures d'entité sur période
+    // (deterministic_entity_period_v1) rendent par la même branche — seul le serveur écrit
+    // ces champs, un producteur groundé ne les porte jamais.
+    // Entité × période (27/08, « montre la donnée ») : TABLEAU serveur (format msTable) +
+    // totaux en prose + sources dépliables — rendus verbatim, jamais reformulés.
+    // Plan de période (27/08) : sections serveur (titre + tableau/faits), sources dépliables,
+    // CTA (rejeu M'engager ou Nouvelle opération) — rendu verbatim.
+    if (Array.isArray(n.plan_sections) && n.plan_sections.length) {
+      if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+      n.plan_sections.forEach(function (sec) {
+        if (!sec) return;
+        if (sec.title) blocks.push({ type: "headline", text: sec.title });
+        if (sec.table && Array.isArray(sec.table.rows) && sec.table.rows.length) blocks.push({ type: "table", cols: sec.table.cols, rows: sec.table.rows });
+        if (Array.isArray(sec.facts) && sec.facts.length) {
+          // Registre WEB : chaque référence crawlée rend en SEGMENT ambre « Web — non vérifié »
+          // (la provenance ne monte jamais en silence) ; le vérifié reste en puces.
+          if (sec.register === "web") sec.facts.forEach(function (f) { blocks.push({ type: "segment", register: "web", md: f }); });
+          else blocks.push({ type: "facts", items: sec.facts });
+        }
+      });
+      if (Array.isArray(n.sources_list) && n.sources_list.length) blocks.push({ type: "sources", items: n.sources_list });
+      if (ctaBlock) blocks.push(ctaBlock);
+      else if (primary && typeof primary === "object" && primary.type === "commit_prefill"
+          && primary.prefill && typeof primary.label === "string" && primary.label.trim()) {
+        _lastCommitPrefill = { prefill: primary.prefill, origin: primary.origin || null };
+        blocks.push({ type: "cta", action: "commit", label: primary.label.trim() });
+      }
+      return blocks;
+    }
+    if (n.entity_table && Array.isArray(n.entity_table.rows) && n.entity_table.rows.length) {
+      if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+      blocks.push({ type: "table", cols: n.entity_table.cols, rows: n.entity_table.rows });
+      if (n.funnel_table && Array.isArray(n.funnel_table.rows) && n.funnel_table.rows.length) {
+        blocks.push({ type: "table", cols: n.funnel_table.cols, rows: n.funnel_table.rows });
+      }
+      if (typeof answer === "string" && answer.trim()) blocks.push({ type: "prose", md: answer });
+      if (Array.isArray(n.sources_list) && n.sources_list.length) blocks.push({ type: "sources", items: n.sources_list });
+      if (ctaBlock) blocks.push(ctaBlock);
+      return blocks;
+    }
+    if ((Array.isArray(n.pole_cards) && n.pole_cards.length) || (Array.isArray(n.dated_cards) && n.dated_cards.length)) {
+      if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+      if (Array.isArray(n.pole_cards) && n.pole_cards.length) {
+        blocks.push({ type: "headline", text: n.pole_section_title || "Vos p\u00f4les" });
+        blocks.push({ type: "datecards", items: n.pole_cards });
+      }
+      if ((Array.isArray(n.dated_cards) && n.dated_cards.length) || (typeof answer === "string" && answer.trim())) {
+        blocks.push({ type: "headline", text: n.dated_section_title || "Vos op\u00e9rations dat\u00e9es" });
+        if (Array.isArray(n.dated_cards) && n.dated_cards.length) blocks.push({ type: "datecards", items: n.dated_cards });
+        if (typeof answer === "string" && answer.trim()) blocks.push({ type: "prose", md: answer });
+      }
+      if (ctaBlock) blocks.push(ctaBlock);
+      else if (primary && typeof primary === "object" && primary.type === "commit_prefill"
+          && primary.prefill && typeof primary.label === "string" && primary.label.trim()) {
+        _lastCommitPrefill = { prefill: primary.prefill, origin: primary.origin || null };
+        blocks.push({ type: "cta", action: "commit", label: primary.label.trim() });
+      }
       return blocks;
     }
 
@@ -1336,6 +1417,32 @@ if (!root) {
 
   // Elicit CTA — "upload" opens the chat's OWN file picker (the composer's attach flow, staged chip →
   // send). No navigation, no duplicate import path: one picker, one flow.
+  // J2.3 — le dernier prefill d'engagement proposé par le serveur (plan de rejeu). Remis à zéro
+  // par la réponse suivante : on n'ouvre jamais un formulaire sur un plan périmé.
+  var _lastCommitPrefill = null;
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest('[data-ab-cta-action="commit"]');
+    if (!btn || !_lastCommitPrefill || !window.MSCommitForm) return;
+    e.preventDefault();
+    const bubble = btn.closest(".ie-msg-ai") || btn.parentElement;
+    if (!bubble || bubble.querySelector(".ie-dl-commit-form")) return;
+    const wrap = document.createElement("div");
+    wrap.className = "ie-dl-commit-form";
+    wrap.setAttribute("style", "margin-top:10px;background:#fff;border:1px solid #E5E7EB;border-radius:10px;");
+    wrap.innerHTML = window.MSCommitForm.buildHtml({ prefill: _lastCommitPrefill.prefill });
+    bubble.appendChild(wrap);
+    window.MSCommitForm.wire(wrap, {
+      location_id: LOCATION_ID,
+      prefill: _lastCommitPrefill.prefill,
+      origin: _lastCommitPrefill.origin || {},
+      onDone: function (j) {
+        wrap.innerHTML = j && j.ok
+          ? '<div style="padding:10px 14px;font-size:12.5px;color:#0F6E56;font-weight:600;">Engagement enregistr\u00e9 \u2014 suivi dans votre page engagements.</div>'
+          : '<div style="padding:10px 14px;font-size:12.5px;color:#B91C1C;">' + window.MSCommitForm.escapeHtml((j && j.error) || "Erreur") + "</div>";
+      },
+      onCancel: function () { wrap.remove(); },
+    });
+  });
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-ab-cta-action="upload"]');
     if (!btn) return;
@@ -1846,8 +1953,13 @@ if (!root) {
       const list = (j && j.ok && Array.isArray(j.corrections)) ? j.corrections : [];
       if (!list.length) { panel.hidden = true; items.innerHTML = ""; return; }
       items.innerHTML = list.map(function (c) {
-        const label = MEMORY_LABELS[c.correction_type] || MEMORY_LABELS.other;
-        const value = c.correction_text + (MEMORY_VALUE_SUFFIX[c.correction_type] || '');
+        // Marges par famille (24/08) : type `declared_margin_pct__<slug>` — le libellé exact de
+        // la famille voyage dans raw_turn ; « Oublier » renvoie le type complet (accepté au clear).
+        const isFamMargin = String(c.correction_type).indexOf("declared_margin_pct__") === 0;
+        const label = isFamMargin
+          ? "Marge déclarée" + (c.raw_turn ? " · " + c.raw_turn : "")
+          : (MEMORY_LABELS[c.correction_type] || MEMORY_LABELS.other);
+        const value = c.correction_text + (isFamMargin ? " %" : (MEMORY_VALUE_SUFFIX[c.correction_type] || ''));
         // WHO + WHEN, when recorded (declarant from the Destinataires roster; date from the event log).
         const meta = (c.declarant_name ? ' — par ' + c.declarant_name : '')
           + (c.corrected_at ? ' (' + c.corrected_at.slice(8, 10) + '/' + c.corrected_at.slice(5, 7) + ')' : '');

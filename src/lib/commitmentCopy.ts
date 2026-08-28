@@ -138,7 +138,15 @@ export const EVOL_COPY = {
   diag_lever_body: "Si le contexte était neutre et l'exécution complète, c'est le plan lui-même à ajuster.",
   diag_lever_exec: "Exécution incomplète repérée — commencez par là avant de changer de levier.",
   diag_todo_title: "Quoi faire",
-  move_title: "Votre prochaine action",
+  // C3 (owner 27/08) : « Ajuster » est le bouton amont (journal) — la section qui reçoit
+  // porte le même mot : « Ajuster le dispositif » remplace « Votre prochaine action ».
+  move_title: "Ajuster le dispositif",
+  // Lecture du jour (étape 4, 27/08) — l'état daté de la version ouverte, sur le KPI choisi.
+  // Les propositions n'apparaissent qu'après au moins 3 bilans jour ; la route négative
+  // exige au moins 3 journées négatives (owner : jamais sur 1 signal).
+  lecture_line: "Lecture du {date} — {n} {jours} : objectif {etat} à ce jour.",
+  lecture_up: "Le résultat dépasse l'objectif et sort du bruit de votre lieu — relevez l'objectif de la version suivante.",
+  lecture_down: "{n} journées sous votre résultat habituel — modifiez le dispositif ou l'opération sans attendre la fin.",
   diag_move_intro: "Choisissez votre prochaine action :",
   move_intro_ontrack: "Ça marche. À vous de décider la suite — poussez l'avantage ou sécurisez le résultat :",
   move_poursuivre: "Poursuivre",
@@ -147,6 +155,37 @@ export const EVOL_COPY = {
   move_doubler_d: "Plus de ce qui marche.",
   move_pivoter: "Pivoter",
   move_pivoter_d: "Changer l'approche, puis remesurer sur de nouvelles dates.",
+  // Contexte de la version (étape 3, 27/08) — le sous-formulaire de la version suivante.
+  // Mots owner verbatim : Levier · Étape de la vente · Ressource(s) · Responsable(s) ·
+  // Le plus du dispositif · Pourquoi ça va marcher.
+  // Pôle / dispositif permanent (P3, 27/08) — la page d'un pôle : lecture continue, jamais
+  // un mot de verdict (un permanent n'a pas de terme).
+  // Mots owner 27/08 (proto v2) : « lecture continue » ne se dit pas à l'utilisateur —
+  // « Dispositif en continu » (nature) et « Résultats » (la mesure) ; le détail « kitchen »
+  // (comptes de jours) vit en infobulle, jamais dans la pill (« Données insuffisantes »).
+  pole_chip: "Dispositif en continu",
+  pole_resp: "Responsable(s)",
+  pole_fams_title: "Familles du pôle",
+  pole_reading_title: "Résultats — 30 derniers jours",
+  pole_reading_caption: "€/j des jours vendus, comparé aux 90 jours précédents.",
+  pole_reading_row: "{n30} j vendus · habituel {base} €/j",
+  pole_reading_thin: "Données insuffisantes",
+  pole_reading_thin_tip: "{n30} jours vendus sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté.",
+  pole_totals_row: "{rev} € sur 30 j · {share} % du CA",
+  pole_ops_title: "Opérations sur ce pôle",
+  pole_ops_none: "Aucune opération rattachée pour l'instant.",
+  pole_op_open: "en cours",
+  pole_op_done: "terminée",
+  vform_title: "La version suivante",
+  vform_stage: "Étape de la vente",
+  vform_goal: "Objectif de cette version",
+  vform_goal_calib: "La version {n} a mesuré {pct} — objectif proposé : {goal} %.",
+  vform_lever: "Levier",
+  vform_resp: "Responsable(s)",
+  vform_res: "Ressource(s)",
+  vform_plus: "Le plus du dispositif",
+  vform_why: "Pourquoi ça va marcher",
+  vform_cost: "Coût de l'opération (€) — optionnel",
   move_stop: "Arrêter",
   move_stop_d: "Abandonner cette action — clôture, la carte revient à piloter.",
   diag_move_note_q: "Qu'avez-vous changé ?",

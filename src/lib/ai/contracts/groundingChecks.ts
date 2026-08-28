@@ -138,6 +138,29 @@ export function splitSentences(text: string): string[] {
 }
 
 // Extra fabricated-outcome phrases specific to DRAFT copy about external entities/attendance.
+// ── Registre de verdict des engagements (J2.4, 27/08) ─────────────────────────────────────────
+// « prouvé », « écarté », « non concluant », « objectif atteint / manqué » sont des mots de
+// VERDICT JUGÉ (lexique l.17 / l.21) : une réponse ne peut les employer que si un fait cité
+// porte le MÊME mot. Fabriquer un « effet prouvé » est le mensonge exact qui tuerait la
+// confiance dans la mémoire opérationnelle des dispositifs. atteint/manqué ne sont gardés que
+// dans une phrase qui parle d'objectif/cible (sinon « il manque 3 jours » serait rejeté).
+// Limite assumée : contrôle au niveau du MOT — citer un fait « prouvé » du dispositif A ne
+// protège pas d'un abus sur le dispositif B dans la même réponse.
+export function verdictRegisterViolations(sentencesNorm: string[], citedFactsNorm: string): string[] {
+  const out: string[] = [];
+  const missing = (stem: string) => !citedFactsNorm.includes(stem);
+  for (const s of sentencesNorm) {
+    if (/\bprouv/.test(s) && missing("prouv")) out.push("prouvé");
+    if (/\becarte(e|s|es)?\b/.test(s) && missing("ecarte")) out.push("écarté");
+    if (/\bnon concluant/.test(s) && missing("non concluant")) out.push("non concluant");
+    if (/\b(objectif|cible)s?\b/.test(s)) {
+      if (/\batteint/.test(s) && missing("atteint")) out.push("objectif atteint");
+      if (/\bmanqu/.test(s) && missing("manqu")) out.push("objectif manqué");
+    }
+  }
+  return [...new Set(out)];
+}
+
 export const DRAFT_OUTCOME_PATTERNS = [
   "a guichets fermes", "affiche complet", "affichera complet", "complet depuis", "sold out",
   "des milliers de", "record d'affluence", "record de frequentation", "jamais vu",

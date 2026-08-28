@@ -3,7 +3,8 @@
 //        dispositif_note? }.  Reuses readMergeWrite() (create:false).
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
-import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
+import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
+import { memberCommitmentInPerimeter, logMemberGesture } from "../../../lib/memberCardPolicy";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/actionCommitments";
 
 export const prerender = false;
@@ -40,12 +41,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (hasExec && !EXEC_QUALITIES.has(execQ!)) {
       return json({ ok: false, error: "execution_quality invalide : " + execQ }, 400);
     }
-    requireLocationOwnership(locals, body.location_id);
+    // Vue équipe inc 5 : geste membre v1 « Action menée ? » — lecture/écriture ouverte au
+    // membre du site, SUR SON PÉRIMÈTRE seulement (pôle ou opération rattachée).
+    requireLocationAccess(locals, body.location_id);
 
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
     const prior = await readLatestSnapshot(bq, String(body.commitment_id));
     if (!prior || prior.location_id !== String(body.location_id).trim()) {
       return json({ ok: false, error: "Engagement introuvable" }, 404);
+    }
+    if (!memberCommitmentInPerimeter(locals, String(body.location_id), prior as any)) {
+      return json({ ok: false, error: "FORBIDDEN: hors du périmètre de vos pôles" }, 403);
     }
 
     const patch: Partial<CommitmentRow> = {};
@@ -65,6 +71,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
       transitionType: "disposition",
       patch,
     });
+    // Auteur du geste : le journal des engagements garde le user_id du COMPTE — l'auteur
+    // membre se trace dans action_log (non bloquant).
+    if (String((locals as any)?.role || "") === "member") {
+      await logMemberGesture(bq, {
+        clerk_user_id: userId, location_id: String(body.location_id),
+        gesture: "disposition", commitment_id: String(body.commitment_id),
+        note: (hasDone ? String(doneStatus) : "") + (body.dispositif_note != null ? " · " + String(body.dispositif_note).trim() : ""),
+      });
+    }
     return json({ ok: true });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
