@@ -193,6 +193,25 @@ async function payload(id: string): Promise<any> {
     if ((data.best_in_class || []).length && data.shape?.weak_factor) {
       ok("la mesure est nommée au-dessus des cas", /Ce que la mesure désigne/.test(out));
       ok("elle précède les cas", out.indexOf("Ce que la mesure désigne") < out.indexOf("pas un résultat promis"));
+      // L'ÉCHELLE DE PRIX (owner 29/08) : la montée en gamme devient un écart CHEZ LUI.
+      if (data.price_ladder) {
+        const pl = data.price_ladder;
+        ok("l'échelle de prix n'est servie que sur le facteur prix", data.shape.weak_factor === "price", data.shape.weak_factor);
+        ok("le plafond dépasse le prix moyen", pl.top_price > pl.avg_price, pl);
+        ok("l'échelle est rendue à l'écran", out.includes("Vous vendez déjà à"));
+        // Fenêtre ancrée sur une journée MESURÉE : un seed porte des ventes au-delà
+        // d'aujourd'hui, la fin de fenêtre gonflait le compte (12 unités au lieu de 9).
+        const [ctrl] = await makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data").query({
+          query: `SELECT SUM(quantity) q FROM \`muse-square-open-data.raw.client_transactions\`
+                  WHERE location_id=@l AND item_description=@n
+                    AND transaction_date BETWEEN DATE_SUB(DATE(@d), INTERVAL 29 DAY) AND DATE(@d)`,
+          params: { l: LOC, n: pl.top_name, d: String(data.commitment.window_kind === "day_of" ? data.commitment.window_end : data.series.filter((x: any) => x.has_data).slice(-1)[0]?.date) },
+          location: "EU",
+        });
+        ok("les unités du plafond sont celles de la caisse sur la fenêtre lue",
+          Math.round(Number(ctrl?.[0]?.q?.value ?? ctrl?.[0]?.q ?? -1)) === pl.top_units,
+          { rendu: pl.top_units, base: ctrl?.[0]?.q });
+      }
     }
     // Français de machine (owner 28/08) : ni pluriel entre parenthèses dans une phrase, ni
     // statistique météo orpheline quand l'opération n'a pas connu de jour perturbé.

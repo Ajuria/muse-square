@@ -14,7 +14,7 @@ import { readLatestSnapshot } from "../../../lib/actionCommitments";
 import { buildPoleReading } from "../../../lib/poleReading";
 import { commitmentEffect } from "../../../lib/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
-import { buildWindowShape } from "../../../lib/commitmentShape";
+import { buildWindowShape, buildPriceLadder } from "../../../lib/commitmentShape";
 import { playsAvecVoisin, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClassStore";
 
 export const prerender = false;
@@ -405,6 +405,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const lineage = await buildLineage(bq, snap);
 
     const shape = await shapeP;
+    // L'ÉCHELLE DE PRIX (owner 29/08) — seulement quand la mesure désigne la valeur de
+    // l'article : c'est la seule faiblesse que ce chiffre éclaire. Amorcée ici, après le
+    // shape dont elle dépend ; une requête, sur la dernière journée mesurée.
+    const price_ladder = (shape?.weak_factor === "price" && shape.actual_eur != null)
+      // Fenêtre ancrée sur la dernière journée MESURÉE, jamais sur la fin de fenêtre :
+      // celle-ci est dans le futur pour une opération en cours (12 unités au lieu de 9,
+      // relevé au rendu 29/08 — le seed porte des ventes au-delà d'aujourd'hui).
+      ? await buildPriceLadder(bq, String(snap.location_id), _shapeDates[_shapeDates.length - 1] || maxD).catch(() => null)
+      : null;
     // ── RÈGLE DES CHIFFRES POUR UN MEMBRE (arbitrage owner 27-28/08, déjà appliquée aux
     // cartes et au tableau) : « occasion d'agir oui, état du business jamais ». Les NIVEAUX
     // sortent (CA du jour, CA habituel, panier, cible en €, enjeu) ; les ÉCARTS €, les %,
@@ -432,10 +441,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         ok: true, role: "member",
         commitment: memberCommitmentProjection(commitment),
         series: serieMembre, kpi: null, move_stats, best_in_class, site_name, lineage,
-        shape: shapeMembre, ...extras,
+        shape: shapeMembre, price_ladder: null,   // prix d'un article = niveau : jamais au membre
+        ...extras,
       });
     }
-    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, shape, ...extras });
+    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, shape, price_ladder, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);

@@ -220,6 +220,10 @@ export const EVOL_COPY = {
   bic_mesure_tx: "Ce que la mesure désigne : le nombre d’achats.",
   bic_mesure_items: "Ce que la mesure désigne : le nombre d’articles par achat.",
   bic_mesure_price: "Ce que la mesure désigne : la valeur de chaque article vendu.",
+  // L'échelle de prix DU LIEU (owner 29/08) : la montée en gamme cesse d'être une idée —
+  // le plafond existe déjà dans sa carte, et on dit ce qu'il pèse.
+  ladder_top: "Vous vendez déjà à {top} € ({nom}, {units} vendus sur {days} jours). Votre article moyen est à {avg} €.",
+  ladder_share: "Vos {n} références au-dessus de ce moyen font {share} % de votre chiffre.",
   diag_bic_caption_pivot: "Une autre approche à tester — pas un résultat promis.",
   diag_bic_caption_reinforce: "Comment des lieux comparables ont amplifié ce type d'action.",
   diag_bic_caption_scale: "Comment d'autres ont pérennisé ce type de résultat.",

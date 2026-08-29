@@ -1421,6 +1421,19 @@
       // illustre un levier que le chiffre a désigné, et reste un cas d'ailleurs.
       var _mes = (data.shape || {}).weak_factor;
       var _mesLigne = _mes ? '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">' + esc(t('bic_mesure_' + _mes)) + '</div>' : '';
+      // L'échelle de prix DU LIEU : le plafond qu'il atteint déjà, et ce qu'il pèse. Rendue
+      // seulement quand la mesure désigne la valeur de l'article (owner 29/08).
+      var _pl = data.price_ladder;
+      if (_pl) {
+        // Un prix rond s'écrit rond : « 45 € », pas « 45,00 € ».
+        var _prix = function (n2) {
+          var v = Math.round(Number(n2) * 100) / 100;
+          return Number.isInteger(v) ? intfr(v) : v.toFixed(2).replace('.', ',');
+        };
+        _mesLigne += '<div style="font-size:13px;color:#374151;line-height:1.55;margin-bottom:8px;">'
+          + esc(t('ladder_top', { top: _prix(_pl.top_price), nom: _pl.top_name, units: intfr(_pl.top_units), days: _pl.days, avg: _prix(_pl.avg_price) }))
+          + ' ' + esc(t('ladder_share', { n: intfr(_pl.above_refs), share: fr(_pl.above_share_pct) })) + '</div>';
+      }
       return '<div style="margin-top:16px;">'
         + '<div class="eg-uc">' + esc(t('diag_bic_title')) + '</div>'
         + _mesLigne
