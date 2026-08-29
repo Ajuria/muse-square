@@ -1416,8 +1416,14 @@
     function _bicBlock(intent) {
       var plays = (data.best_in_class || []).filter(function (p) { return p.intent === intent; }).slice(0, 2);
       if (!plays.length) return '';
+      // Ce que la MESURE désigne (owner 29/08) : sans cette ligne, un cas se lit comme une
+      // consigne — « ajouter une référence haut de gamme » sous un café. Avec elle, le cas
+      // illustre un levier que le chiffre a désigné, et reste un cas d'ailleurs.
+      var _mes = (data.shape || {}).weak_factor;
+      var _mesLigne = _mes ? '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">' + esc(t('bic_mesure_' + _mes)) + '</div>' : '';
       return '<div style="margin-top:16px;">'
         + '<div class="eg-uc">' + esc(t('diag_bic_title')) + '</div>'
+        + _mesLigne
         + '<div style="font-size:11.5px;color:#374151;margin-bottom:10px;">' + esc(t('diag_bic_caption_' + intent) || t('diag_bic_caption')) + '</div>'
         + plays.map(function (p) {
             var conf = t('diag_bic_conf_' + (p.confidence || 'faible')) || '';

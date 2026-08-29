@@ -214,6 +214,12 @@ export const EVOL_COPY = {
   // One title (reuses the app's "dispositif" vocabulary — cf. "Votre dispositif"); the verdict→intent
   // nuance lives in the subline: pivot (en-dessous) · reinforce (aligné) · scale (au-dessus).
   diag_bic_title: "Dispositifs qui ont fonctionné ailleurs",
+  // Ce que la MESURE désigne (owner 29/08) : la ligne qui transforme les cas en
+  // illustrations d'un levier, au lieu de consignes à appliquer. Elle nomme le facteur
+  // sorti de la caisse — donc inécrivable sans ouvrir le compte, et datée.
+  bic_mesure_tx: "Ce que la mesure désigne : le nombre d’achats.",
+  bic_mesure_items: "Ce que la mesure désigne : le nombre d’articles par achat.",
+  bic_mesure_price: "Ce que la mesure désigne : la valeur de chaque article vendu.",
   diag_bic_caption_pivot: "Une autre approche à tester — pas un résultat promis.",
   diag_bic_caption_reinforce: "Comment des lieux comparables ont amplifié ce type d'action.",
   diag_bic_caption_scale: "Comment d'autres ont pérennisé ce type de résultat.",

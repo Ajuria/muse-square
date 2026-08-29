@@ -188,6 +188,12 @@ async function payload(id: string): Promise<any> {
     // habituel (28/08) : la phrase serait fausse.
     ok("aucune compensation promise sur les heures", !/autant en moins/.test(out));
     ok("chip « observé » sur le contexte (proto validé)", out.includes("observé"));
+    // Les cas d'ailleurs sont des ILLUSTRATIONS du levier mesuré, pas des consignes : la
+    // ligne « Ce que la mesure désigne » les précède (owner 29/08).
+    if ((data.best_in_class || []).length && data.shape?.weak_factor) {
+      ok("la mesure est nommée au-dessus des cas", /Ce que la mesure désigne/.test(out));
+      ok("elle précède les cas", out.indexOf("Ce que la mesure désigne") < out.indexOf("pas un résultat promis"));
+    }
     // Français de machine (owner 28/08) : ni pluriel entre parenthèses dans une phrase, ni
     // statistique météo orpheline quand l'opération n'a pas connu de jour perturbé.
     ok("aucun pluriel « (s) » dans une phrase de contexte", !/(événement|jour|journée)\(s\)/.test(out));
