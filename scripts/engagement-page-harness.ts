@@ -12,7 +12,7 @@ import { EVOL_COPY } from "../src/lib/commitmentCopy";
 import { makeBQClient } from "../src/lib/bq";
 import { readLatestSnapshot } from "../src/lib/actionCommitments";
 import { resolveCommitment } from "../src/lib/commitmentResolve";
-import { leverForWeakFactor, leverForActionType, getBestInClassPlays, playsRattachesAuSujet } from "../src/lib/bestInClassStore";
+import { leverForWeakFactor, leverForActionType, getBestInClassPlays, playsAvecVoisin, playsRattachesAuSujet } from "../src/lib/bestInClassStore";
 
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const OPEN_ID = "2d99694a-17fa-4486-92e1-548ce588e1f5";   // vacances scolaires — EN COURS
@@ -85,11 +85,26 @@ async function payload(id: string): Promise<any> {
           const sujet = [data.commitment.committed_action_text, data.commitment.dispositif_why, data.commitment.dispositif_plus]
             .filter(Boolean).join(" . ");
           const titres = (x: any[]) => x.map((p: any) => p.title).sort().join("|");
-          const brutFacteur = await getBestInClassPlays(bqL, industrie, attendu, { limit: 9 });
-          const attenduServi = playsRattachesAuSujet(brutFacteur, { texte: sujet });
-          ok(`dispositifs servis = levier ${attendu} PUIS rattachement au sujet`,
+          // La chaîne complète : levier aiguillé par la mesure -> rayon voisin si le levier
+          // exact est vide -> rattachement au sujet, qui ORDONNE (plancher 0) quand le levier
+          // vient de la mesure et FERME (plancher 2) quand il vient du type de la carte.
+          const brutFacteur = await playsAvecVoisin(bqL, industrie, attendu, { limit: 9 });
+          const attenduServi = playsRattachesAuSujet(brutFacteur, { texte: sujet, plancher: 0 });
+          ok(`dispositifs servis = levier ${attendu} (+ voisin) PUIS ordre par sujet`,
             titres(data.best_in_class || []) === titres(attenduServi),
             { servis: (data.best_in_class || []).length, attendu: attenduServi.length });
+          // Le levier de la MESURE fait remonter des cas que le levier de la carte n'aurait
+          // jamais servis — c'est tout l'intérêt de l'aiguillage (owner 28-29/08).
+          const parCarte = await playsAvecVoisin(bqL, industrie, levierCarte, { limit: 9 });
+          // La porte du SUJET reste fermée quand aucune mesure n'a désigné le levier :
+          // ce chemin n'est pas exercé par ces deux engagements (ils ont tous deux une
+          // mesure), on le vérifie donc directement sur la fonction.
+          ok("sans mesure, un cas hors sujet reste écarté",
+            playsRattachesAuSujet(brutFacteur, { texte: "vacances scolaires retraités Houdan" }).length === 0);
+          ok("avec un sujet qui correspond, il passe même au plancher normal",
+            playsRattachesAuSujet(brutFacteur, { texte: brutFacteur[0]?.title || "" }).length >= 1);
+          ok("l'aiguillage change bien les cas servis",
+            titres(brutFacteur) !== titres(parCarte), { facteur: brutFacteur.length, carte: parCarte.length });
           // Le rattachement DOIT pouvoir écarter : sur ce dispositif, aucun cas du magasin
           // ne parle du même sujet — la section reste vide plutôt que de servir un théâtre
           // de pantomime sous une opération vacances scolaires (owner 28/08).

@@ -15,7 +15,7 @@ import { buildPoleReading } from "../../../lib/poleReading";
 import { commitmentEffect } from "../../../lib/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
 import { buildWindowShape } from "../../../lib/commitmentShape";
-import { getBestInClassPlays, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClassStore";
+import { playsAvecVoisin, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClassStore";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -372,17 +372,28 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // ce qui manquait était la valeur de l'article. Repli : le type de la carte.
         // shapeP est déjà amorcée : l'attendre ici ne coûte aucun aller-retour de plus.
         const _shapePourLevier = await shapeP;
-        const levier = leverForWeakFactor(_shapePourLevier?.weak_factor)
-          ?? leverForActionType(snap.origin_action_type, snap.origin_driver);
+        const _levierMesure = leverForWeakFactor(_shapePourLevier?.weak_factor);
+        const levier = _levierMesure ?? leverForActionType(snap.origin_action_type, snap.origin_driver);
         // All intents (pivot/reinforce/scale) — card-kit filters to the one that fits the verdict.
-        const _tousLesCas = await getBestInClassPlays(bq, industry, levier, { limit: 9 });
+        // Levier voisin si le rayon du levier exact est vide (owner 29/08).
+        const _tousLesCas = await playsAvecVoisin(bq, industry, levier, { limit: 9 });
         // RATTACHEMENT AU SUJET (owner 28/08 : « complètement déconnectés du dispositif de
         // l'utilisateur ») : un cas ne sort que s'il partage assez de mots de fond avec CE
         // dispositif, et deux cas qui disent le même geste ne sortent jamais ensemble.
         // Rien au-dessus du plancher → section vide, jamais un cas hors sujet.
+        // QUI ÉTABLIT LE LIEN ? (owner 29/08)
+        //   · levier venu de la MESURE (facteur le plus faible) : le lien est déjà fait par
+        //     le chiffre — un cas qui travaille ce levier RÉPOND au diagnostic, même s'il ne
+        //     partage aucun mot avec le texte du dispositif. Le rattachement au sujet ne
+        //     ferme plus la porte, il ORDONNE (plancher 0) ; le dédoublonnage reste.
+        //     Sans ça, « prix moyen d'article faible » n'aurait jamais fait remonter
+        //     « proposer systématiquement desserts et boissons » — le conseil attendu.
+        //   · levier venu du TYPE DE LA CARTE (aucune mesure) : rien ne relie encore le cas
+        //     à cette opération, la porte reste fermée au plancher normal.
         best_in_class = playsRattachesAuSujet(_tousLesCas, {
           texte: [snap.committed_action_text, (snap as any).dispositif_why, (snap as any).dispositif_plus]
             .filter(Boolean).join(" . "),
+          plancher: _levierMesure ? 0 : 2,
         });
       }
     } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
