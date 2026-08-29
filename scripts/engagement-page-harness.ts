@@ -98,8 +98,17 @@ async function payload(id: string): Promise<any> {
               (data.best_in_class || []).map((p: any) => p.title));
           }
           // Et il DOIT savoir laisser passer : un sujet qui parle du même geste ressort.
-          const temoin = playsRattachesAuSujet(brutFacteur, { texte: brutFacteur[0]?.title || "" });
-          ok("le filtre laisse passer un sujet qui correspond", temoin.length >= 1, temoin.length);
+          // Le témoin se prend sur un rayon NON VIDE du secteur — le levier servi peut ne
+          // porter aucun cas (le magasin `commercial` n'a pas de « yield »), et un témoin
+          // vide prouverait seulement que rien n'entre, pas que le filtre trie.
+          let rayon = brutFacteur;
+          for (const l of ["panier", "conversion", "frequentation", "fidelisation", "yield"] as const) {
+            if (rayon.length) break;
+            rayon = await getBestInClassPlays(bqL, industrie, l, { limit: 9 });
+          }
+          const temoin = rayon.length ? playsRattachesAuSujet(rayon, { texte: rayon[0].title }) : [];
+          ok("le filtre laisse passer un sujet qui correspond", rayon.length === 0 || temoin.length >= 1,
+            { rayon: rayon.length, laisses: temoin.length });
           // Jamais deux fois le même geste.
           const t2 = (data.best_in_class || []).map((p: any) => p.title);
           ok("aucun doublon de geste servi", new Set(t2).size === t2.length, t2);
