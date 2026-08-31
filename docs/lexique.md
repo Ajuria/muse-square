@@ -148,6 +148,12 @@ quand l'owner refuse une phrase** ; en retirer une demande son accord.
   les services vendus sont des familles au même titre que les produits (item_category).
   Remplace « famille produit » sur les 4 chaînes visibles (formulaire opération ×2, infobulle
   profit du héros, infobulle marge du plan). Le registre sémantique porte la même définition.
+  **ÉTENDU EN PROD le 31/08 (owner : « partout y compris en prod »)** : le KPI famille aussi —
+  `kpiRegistry` (nom + label/jour), le pli de lecture et le bandeau du tableau disent désormais
+  « CA famille produits & services ». La forme NOMMÉE ne l'empile pas : quand la famille est
+  connue, la règle owner du 27/08 s'applique (« CA de la famille « Branded » »). Piège mesuré :
+  le `&` est ÉCHAPPÉ au rendu (`&amp;`) — un test qui asserte la source échoue, il faut asserter
+  la forme RENDUE ; contrôlé sur le rendu réel, aucun double-échappement.
 
 - Indice de corrélation (owner 28/08) : **« Indice de corrélation »** — palier + chiffre
   (« Indice de corrélation fort (r = 0,42) », paliers faible < 0,3 / moyen / fort ≥ 0,5) ;
