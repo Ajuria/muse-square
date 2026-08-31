@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — hero « mémoire » : le tableau recadré sur les résultats</title>
+<style>
+  /* ── Valeurs TIRÉES de tableau.astro, aucune inventée ─────────────────────
+     .tb-card  #fff · 1px rgba(0,0,0,.08) · radius 10 · ombre 0 1px 3px rgba(16,24,40,.06)
+     .tb-t2    fond #F8FAFC · 1px rgba(0,0,0,.06) · radius 10 · padding 12/14
+     .tb-t2 .n2  22px / 700 / 1.15 / -0.01em      .tb-t2 .s2  10.5px #6B7280
+     .tb-eb    11px · .07em · majuscules · rgba(17,24,39,.45) · 500
+     .tb-occrow grid auto/1fr/auto · gap 0 10px · 13px
+     .tb-link  #1D3BB3 · 600 · 12.5px
+     Impact : vert #059669 si écart ≥ 0, ambre #B45309 sinon (tableau.astro:348)
+     Sous-titres repris verbatim : « vs votre résultat habituel · sur N fenêtres mesurées »,
+     « N prouvés · N en test ».  global.css : .ms-h1 40px · .ms-lead 18px · container 1140
+  ─────────────────────────────────────────────────────────────────────────── */
+  :root{
+    --font-family:'Avenir Next',Avenir,'Nunito Sans','Helvetica Neue',Helvetica,Arial,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    --data-blue:#1D3BB3; --green:#059669; --amber:#B45309;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font-family);background:#f5f6f8;color:#111827}
+  .protobar{font-size:12px;color:#6b7280;padding:10px 16px;background:#fff;
+    border-bottom:1px solid rgba(0,0,0,.08);line-height:1.5}
+
+  .hero{position:relative;background:#111827;overflow:hidden}
+  .hero::after{content:"";position:absolute;inset:0;
+    background:radial-gradient(1200px 420px at 78% 45%, rgba(11,55,229,.28) 0%, rgba(17,24,39,0) 65%);
+    pointer-events:none}
+  .ms-container{max-width:1140px;margin:0 auto;padding:0 24px}
+  .hero-grid{position:relative;z-index:1;display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,480px);gap:48px;align-items:center;
+    min-height:520px;padding:56px 0}
+  .ms-h1{font-size:40px;line-height:1.15;font-weight:500;color:#fff;margin:0;letter-spacing:-.01em}
+  .ms-lead{font-size:18px;line-height:1.55;color:rgba(255,255,255,.92);margin:16px 0 0;max-width:560px}
+  .cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+  .msq-btn{height:44px;display:inline-flex;align-items:center;padding:0 18px;border-radius:10px;
+    font-size:15px;font-weight:500;text-decoration:none;border:1px solid}
+  .btn-solid{background:#fff;color:#111827;border-color:#fff}
+  .btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}
+
+  /* ── LE TABLEAU RECADRÉ ────────────────────────────────────────────────── */
+  .tb-card{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;
+    box-shadow:0 18px 40px rgba(16,24,40,.28),0 1px 3px rgba(16,24,40,.06);padding:18px 18px 14px}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .tb-t2{background:#F8FAFC;border:1px solid rgba(0,0,0,.06);border-radius:10px;padding:12px 14px;min-width:0}
+  .tb-eb{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:rgba(17,24,39,.45);
+    font-weight:500;margin:0}
+  .n2{font-size:22px;font-weight:700;line-height:1.15;letter-spacing:-.01em;white-space:nowrap;margin-top:4px}
+  .s2{font-size:10.5px;color:#6B7280;margin-top:3px;line-height:1.4}
+  /* la tuile Impact est le point d'accroche : même composant, échelle du hero */
+  .tb-t2.lead-tile{grid-column:1 / -1;background:#fff;border-color:rgba(0,0,0,.08)}
+  .tb-t2.lead-tile .n2{font-size:40px}
+
+  .ops{margin-top:14px;border-top:1px solid rgba(0,0,0,.08);padding-top:10px}
+  .ops-h{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:rgba(17,24,39,.45);
+    font-weight:500;margin:0 0 6px}
+  .tb-occrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:0 10px;
+    align-items:center;padding:6px 0;font-size:13px}
+  .tb-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;
+    border-radius:20px;white-space:nowrap;font-weight:600}
+  .c-att{background:#E6F6F0;color:#0F6E56}
+  .c-man{background:#FEF3E2;color:var(--amber)}
+  .c-nc{background:#F3F4F6;color:#6b7280}
+  .op-name{color:#111827;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .op-num{font-weight:700;white-space:nowrap}
+  .tb-link{color:var(--data-blue);font-weight:600;font-size:12.5px;text-decoration:none;
+    display:inline-block;margin-top:8px}
+
+  @media (max-width:900px){
+    .hero-grid{grid-template-columns:1fr;gap:32px;min-height:0;padding:40px 0}
+    .ms-h1{font-size:32px}
+    .tb-t2.lead-tile .n2{font-size:32px}
+  }
+</style>
+</head>
+<body>
+
+<div class="protobar">
+  Proto hero — le tableau recadré sur ce qui a été mesuré et appris. Composants et sous-titres
+  repris de <code>tableau.astro</code> (<code>.tb-card</code>, <code>.tb-t2</code>,
+  <code>.n2</code>, <code>.tb-occrow</code>). La tuile Impact est agrandie à l'échelle du hero
+  pour donner le point d'accroche. <strong>Chiffres et noms = gabarit</strong>, à remplacer par
+  une capture du compte réel.
+</div>
+
+<section class="hero">
+  <div class="ms-container">
+    <div class="hero-grid">
+
+      <div>
+        <h1 class="ms-h1">La mémoire commerciale de votre organisation</h1>
+        <p class="ms-lead">
+          Muse Square vous prévient de ce qui impacte votre activité, mesure l'impact réel de vos
+          dispositifs de vente, et facilite l'application et le partage de vos bonnes pratiques.
+        </p>
+        <div class="cta-row">
+          <a class="msq-btn btn-solid" href="#">Découvrir la plateforme</a>
+          <a class="msq-btn btn-ghost" href="#">Nous contacter</a>
+        </div>
+      </div>
+
+      <div>
+        <div class="tb-card">
+          <div class="tiles">
+
+            <div class="tb-t2 lead-tile">
+              <p class="tb-eb">Impact mesuré</p>
+              <div class="n2" style="color:#059669">+ 4 820 €</div>
+              <div class="s2">vs votre résultat habituel · sur 7 fenêtres mesurées</div>
+            </div>
+
+            <div class="tb-t2">
+              <p class="tb-eb">Connaissances créées</p>
+              <div class="n2" style="color:#111827">12</div>
+              <div class="s2">8 prouvés · 4 en test</div>
+            </div>
+
+            <div class="tb-t2">
+              <p class="tb-eb">Prochain verdict</p>
+              <div class="n2" style="color:#111827">J-3</div>
+              <div class="s2">jeudi 04/09 · Nocturne d'été</div>
+            </div>
+
+          </div>
+
+          <div class="ops">
+            <p class="ops-h">Opérations jugées</p>
+
+            <div class="tb-occrow">
+              <span class="tb-chip c-att">atteint</span>
+              <span class="op-name">Nocturne d'été</span>
+              <span class="op-num" style="color:#059669">+ 2 140 €</span>
+            </div>
+            <div class="tb-occrow">
+              <span class="tb-chip c-att">atteint</span>
+              <span class="op-name">Portes ouvertes</span>
+              <span class="op-num" style="color:#059669">+ 860 €</span>
+            </div>
+            <div class="tb-occrow">
+              <span class="tb-chip c-nc">non concluant</span>
+              <span class="op-name">Atelier famille</span>
+              <span class="op-num" style="color:#6B7280">—</span>
+            </div>
+            <div class="tb-occrow">
+              <span class="tb-chip c-man">manqué</span>
+              <span class="op-name">Remise fin de journée</span>
+              <span class="op-num" style="color:#B45309">− 520 €</span>
+            </div>
+
+            <a class="tb-link" href="#">Consulter la source →</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

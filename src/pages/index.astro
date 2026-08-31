@@ -11,49 +11,57 @@ const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdaDoRrjhcEauybMeFNQS
   title="Muse Square — Copilote opérationnel"
   description="Muse Square est le copilote opérationnel des entreprises dont le chiffre d'affaires dépend de la fréquentation."
 >
-<!-- Full-bleed decorative hero banner with text overlay -->
-<section
-class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] aspect-[1440/500]"
->
-<picture class="absolute inset-0" aria-hidden="true">
-<!-- Desktop PNG -->
-<source
-<source
-srcset="/images/home-hero-1440x500.webp"
-media="(min-width: 768px)"
-type="image/webp" />
-<source
-srcset="/images/home-hero-1440x500.webp"
-media="(max-width: 767px)"
-type="image/webp" />
-<!-- Fallback -->
-<img
-src="/images/home-hero-1440x500.webp"
-alt=""
-width="1440" height="500"
-class="w-full h-full object-cover"
-loading="eager" decoding="async" />
-</picture>
-<!-- Dark gradient overlay for text readability -->
-<div class="absolute inset-0" style="background:linear-gradient(90deg,rgba(17,24,39,.82) 0%,rgba(17,24,39,.65) 35%,rgba(17,24,39,.20) 100%)"></div>
-<!-- Overlay content (inside banner) -->
-<div class="absolute inset-0">
-<div class="ms-container h-full flex items-center">
-<div>
-<h1 class="ms-h1 text-white">
-L'intelligence décisionnelle pour optimiser la fréquentation</h1>
-<p class="mt-[16px] ms-lead text-[20px]" style="color:rgba(255,255,255,.92);max-width:560px">
-Identifiez ce qui va peser sur votre activité, priorisez vos décisions selon leur enjeu, mesurez ce que vos opérations ont donné et gardez celles qui ont fonctionné.
-</p>
-<div class="mt-[16px] flex flex-wrap gap-3">
-<a href="/offres" class="msq-btn-ghost" style="background:#fff;color:#111827;border-color:#fff" data-kpi="cta_view_offres">Découvrir la plateforme</a>
-<a href="/contact" class="msq-btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4)" data-kpi="cta_contact">Nous contacter</a>
-</div>
-</div>
-</div>
-</div>
+<!-- Hero typographique (proto validé 31/08 : public/hero-proto-lieu.html, variante B).
+     L'image occupe la moitié droite et se fond vers le blanc — le texte reste le sujet. -->
+<section class="ms-hero-b relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-hidden">
+  <div class="ms-hero-b-photo" aria-hidden="true"></div>
+  <div class="ms-container relative z-[2]">
+    <div class="ms-hero-b-in">
+      <p class="ms-hero-b-kicker">Muse Square</p>
+      <h1 class="ms-hero-b-title">La mémoire commerciale<br />de votre <span>organisation</span>.</h1>
+      <p class="ms-hero-b-sub">
+        Transformez votre expérience en actif opérationnel :<br />
+        sachez ce qui impacte votre activité, mesurez vos dispositifs de vente et réutilisez ce qui a marché.
+      </p>
+      <div class="mt-[30px] flex flex-wrap gap-3">
+        <a href="/offres" class="msq-btn-ghost" style="background:#111827;color:#fff;border-color:#111827" data-kpi="cta_view_offres">Découvrir la plateforme</a>
+        <a href="/contact" class="msq-btn-ghost" style="color:#111827;border-color:rgba(0,0,0,.18)" data-kpi="cta_contact">Nous contacter</a>
+      </div>
+    </div>
+  </div>
 </section>
-</section>
+
+<style>
+  .ms-hero-b { background: #fff; }
+  .ms-hero-b-photo {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 56%;
+    background-image: url('/images/banner-services-300k.webp');
+    background-size: cover; background-position: right center;
+    -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.42) 38%, rgba(0,0,0,.95) 100%);
+    mask-image: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.42) 38%, rgba(0,0,0,.95) 100%);
+  }
+  .ms-hero-b-in { padding: 88px 0 72px; max-width: 620px; }
+  .ms-hero-b-kicker {
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--color-brand-blue); font-weight: 700; margin: 0 0 18px;
+  }
+  .ms-hero-b-title {
+    font-size: 60px; line-height: 1.06; font-weight: 500; letter-spacing: -.025em;
+    margin: 0; color: var(--color-text-primary);
+  }
+  .ms-hero-b-title span { color: var(--color-brand-blue); }
+  .ms-hero-b-sub {
+    font-size: 19px; line-height: 1.55; color: #374151; margin: 22px 0 0;
+  }
+  @media (max-width: 900px) {
+    .ms-hero-b-photo { width: 100%; opacity: .22;
+      -webkit-mask-image: none; mask-image: none; }
+    .ms-hero-b-in { padding: 56px 0 48px; max-width: none; }
+    .ms-hero-b-title { font-size: 34px; }
+    .ms-hero-b-sub { font-size: 17px; }
+  }
+</style>
+
 <!-- Rest of the home page -->
 <MiniOffers />
 <Proofs />

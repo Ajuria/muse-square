@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — hero landing avec carte d'opération jugée</title>
+<style>
+  /* ── Valeurs TIRÉES du code, aucune couleur inventée ──────────────────────
+     design-tokens.css : --color-bg-card #ffffff · --color-border rgba(0,0,0,0.08)
+       --color-text-primary #111827 · --color-text-secondary #6b7280
+       --color-brand-blue #0b37e5 · --color-pill-green-bg #E6F6F0 · -text #059669
+       --color-pill-source-low-bg #F3F4F6 · -text #6b7280
+     pulse.astro : .ab-card (radius 10px, ombre 0 1px 3px rgba(16,24,40,.06))
+       .ab-summary padding 18px 20px 8px · .ab-pill 9px/700/uppercase
+       .ab-what 15.5px/650 · .chip-n 12px, padding 3px 9px, radius 20px
+       .aline #1D3BB3 13px/600
+     entityReading.ts:317 : verdict gardé #0F6E56 · sinon #B45309 · ouvert #6B7280
+     global.css : .ms-h1 40px/1.15 · .ms-lead 18px/1.55 · .ms-container 1140px
+  ─────────────────────────────────────────────────────────────────────────── */
+  :root{
+    --color-bg-card:#ffffff; --color-border:rgba(0,0,0,0.08);
+    --color-text-primary:#111827; --color-text-secondary:#6b7280;
+    --color-brand-blue:#0b37e5;
+    --color-pill-green-bg:#E6F6F0; --color-pill-green-text:#059669;
+    --color-pill-source-low-bg:#F3F4F6; --color-pill-source-low-text:#6b7280;
+    --data-blue:#1D3BB3;
+    --font-family:'Avenir Next',Avenir,'Nunito Sans','Helvetica Neue',Helvetica,Arial,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font-family);background:#f5f6f8;color:var(--color-text-primary)}
+  .protobar{font-size:12px;color:#6b7280;padding:10px 16px;background:#fff;border-bottom:1px solid var(--color-border)}
+
+  /* ── HERO ─────────────────────────────────────────────────────────────── */
+  .hero{position:relative;background:#111827;overflow:hidden}
+  .hero::after{content:"";position:absolute;inset:0;
+    background:radial-gradient(1200px 400px at 78% 45%, rgba(11,55,229,.28) 0%, rgba(17,24,39,0) 65%);
+    pointer-events:none}
+  .ms-container{max-width:1140px;margin:0 auto;padding:0 24px}
+  .hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,440px);
+    gap:48px;align-items:center;min-height:500px;padding:56px 0}
+  .ms-h1{font-size:40px;line-height:1.15;font-weight:500;color:#fff;margin:0;letter-spacing:-.01em}
+  .ms-lead{font-size:18px;line-height:1.55;color:rgba(255,255,255,.92);margin:16px 0 0;max-width:560px}
+  .cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+  .msq-btn{height:44px;display:inline-flex;align-items:center;padding:0 18px;border-radius:10px;
+    font-size:15px;font-weight:500;text-decoration:none;border:1px solid}
+  .btn-solid{background:#fff;color:#111827;border-color:#fff}
+  .btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}
+
+  /* ── CARTE D'OPÉRATION JUGÉE (valeurs .ab-card / .ab-summary) ─────────── */
+  .card-wrap{display:flex;justify-content:flex-end}
+  .ab-card{width:100%;max-width:440px;background:var(--color-bg-card);
+    border:1px solid var(--color-border);border-radius:10px;
+    box-shadow:0 18px 40px rgba(16,24,40,.28),0 1px 3px rgba(16,24,40,.06)}
+  .ab-summary{padding:18px 20px 8px}
+  .ab-pills{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px}
+  .ab-pill{font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;
+    text-transform:uppercase;letter-spacing:.03em;
+    background:var(--color-pill-source-low-bg);color:var(--color-pill-source-low-text)}
+  .ab-what{font-size:15.5px;font-weight:650;color:#111827;line-height:1.35;
+    margin:0 0 7px;letter-spacing:-.01em}
+  .chip-n{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:3px 9px;
+    border-radius:20px;background:var(--color-pill-source-low-bg);
+    color:var(--color-pill-source-low-text);white-space:nowrap}
+  .chip-verdict-atteint{background:var(--color-pill-green-bg);color:#0F6E56;font-weight:600}
+  .chip-verdict-manque{background:#FEF3E2;color:#B45309;font-weight:600}
+  .num{font-size:28px;font-weight:700;letter-spacing:-.02em;margin:10px 0 2px;color:#0F6E56}
+  .num.neg{color:#B45309}
+  .ref{font-size:12px;color:var(--color-text-secondary);margin:0 0 10px}
+  .ab-sowhat{font-size:13px;line-height:1.5;color:#374151;margin:0 0 4px}
+  .aline{color:var(--data-blue);font-size:13px;font-weight:600;line-height:1.5;margin:8px 0 0}
+  .disc{display:flex;align-items:center;justify-content:flex-end;gap:8px;
+    padding:8px 16px 12px;border-top:1px solid var(--color-border);margin-top:10px}
+  .agir-btn{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;
+    color:var(--data-blue);border:1px solid var(--data-blue);border-radius:10px;
+    padding:6px 12px;background:transparent;font-family:inherit}
+
+  .variants{max-width:1140px;margin:0 auto;padding:32px 24px 56px}
+  .variants h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;
+    font-weight:700;margin:0 0 4px}
+  .variants p{font-size:13px;color:#6b7280;margin:0 0 18px;max-width:760px;line-height:1.55}
+  .vrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px}
+  .vrow .ab-card{box-shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);max-width:none}
+
+  @media (max-width:900px){
+    .hero-grid{grid-template-columns:1fr;gap:32px;min-height:0;padding:40px 0}
+    .ms-h1{font-size:32px}
+    .card-wrap{justify-content:flex-start}
+  }
+</style>
+</head>
+<body>
+
+<div class="protobar">
+  Proto hero — texte du deck (couverture + page 2) à gauche, carte d'opération jugée à droite.
+  Toutes les valeurs graphiques viennent de <code>design-tokens.css</code>, <code>pulse.astro</code>
+  et <code>entityReading.ts</code>. Chiffres = l'exemple réel documenté dans <code>docs/lexique.md</code>.
+</div>
+
+<section class="hero">
+  <div class="ms-container">
+    <div class="hero-grid">
+
+      <div>
+        <h1 class="ms-h1">La mémoire commerciale de votre organisation</h1>
+        <p class="ms-lead">
+          Muse Square vous prévient de ce qui impacte votre activité, mesure l'impact réel de vos
+          dispositifs de vente, et facilite l'application et le partage de vos bonnes pratiques.
+        </p>
+        <div class="cta-row">
+          <a class="msq-btn btn-solid" href="#">Découvrir la plateforme</a>
+          <a class="msq-btn btn-ghost" href="#">Nous contacter</a>
+        </div>
+      </div>
+
+      <div class="card-wrap">
+        <div class="ab-card">
+          <div class="ab-summary">
+            <div class="ab-pills"><span class="ab-pill">Opération jugée</span></div>
+            <div class="ab-what">Coupon café glacé</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <span class="chip-n">03 → 09/08</span>
+              <span class="chip-n chip-verdict-manque">Objectif manqué</span>
+            </div>
+            <div class="num neg">− 1 275 €</div>
+            <p class="ref">vs votre résultat habituel · CA de la période : 11 521 €</p>
+            <p class="ab-sowhat">
+              Votre conversion a tenu (45,7 % · habituel 43 %) — le manque vient du passage
+              ou du panier.
+            </p>
+            <p class="aline">Action conseillée : rejouer le coupon sur un jour à fort passage.</p>
+          </div>
+          <div class="disc"><span class="agir-btn">Consulter la source →</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="variants">
+  <h2>Variante — verdict positif</h2>
+  <p>
+    Même carte, verdict atteint. Les chiffres ci-dessous sont un GABARIT : à remplacer par une
+    opération réelle de votre compte avant mise en ligne — c'est un changement de données, pas de
+    design. La carte du hero ci-dessus utilise, elle, l'exemple réel documenté au lexique.
+  </p>
+  <div class="vrow">
+    <div class="ab-card">
+      <div class="ab-summary">
+        <div class="ab-pills"><span class="ab-pill">Opération jugée</span></div>
+        <div class="ab-what">[Nom de l'opération]</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="chip-n">[JJ/MM → JJ/MM]</span>
+          <span class="chip-n chip-verdict-atteint">Objectif atteint</span>
+        </div>
+        <div class="num">+ [montant] €</div>
+        <p class="ref">vs votre résultat habituel · CA de la période : [montant] €</p>
+        <p class="ab-sowhat">[La ligne d'explication rendue par la carte.]</p>
+        <p class="aline">Action conseillée : [la ligne réelle de la carte].</p>
+      </div>
+      <div class="disc"><span class="agir-btn">Consulter la source →</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
