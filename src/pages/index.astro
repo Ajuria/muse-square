@@ -15,6 +15,7 @@ const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdaDoRrjhcEauybMeFNQS
      L'image occupe la moitié droite et se fond vers le blanc — le texte reste le sujet. -->
 <section class="ms-hero-b relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-hidden">
   <div class="ms-hero-b-photo" aria-hidden="true"></div>
+  <div class="ms-hero-b-veil" aria-hidden="true"></div>
   <div class="ms-container relative z-[2]">
     <div class="ms-hero-b-in">
       <p class="ms-hero-b-kicker">Muse Square</p>
@@ -53,9 +54,21 @@ const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdaDoRrjhcEauybMeFNQS
   .ms-hero-b-sub {
     font-size: 19px; line-height: 1.55; color: #374151; margin: 22px 0 0;
   }
+  /* Voile blanc entre l'image et le texte : dense en haut, où vivent le titre et
+     le sous-texte ; transparent en bas, où l'image reprend sa place. Desktop non
+     concerné — le masque latéral y suffit. */
+  .ms-hero-b-veil { display: none; }
   @media (max-width: 900px) {
-    .ms-hero-b-photo { width: 100%; opacity: .22;
+    .ms-hero-b-photo { width: 100%; opacity: .55; background-position: center;
       -webkit-mask-image: none; mask-image: none; }
+    .ms-hero-b-veil {
+      display: block; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(180deg,
+        rgba(255,255,255,.94) 0%,
+        rgba(255,255,255,.90) 42%,
+        rgba(255,255,255,.62) 74%,
+        rgba(255,255,255,.30) 100%);
+    }
     .ms-hero-b-in { padding: 56px 0 48px; max-width: none; }
     .ms-hero-b-title { font-size: 34px; }
     .ms-hero-b-sub { font-size: 17px; }
