@@ -108,7 +108,7 @@ describe("journalPlan — l'effet se lit sur le KPI choisi (correctif 27/08)", (
     const p = await journalPlan(bqStub([kpiProuve], [jourChaud]) as any, "loc", 14);
     expect(p).toHaveLength(1);
     expect(p[0].direction).toBe("negative");
-    expect(p[0].say_fr).toContain("−78,3 % sur le CA famille");
+    expect(p[0].say_fr).toContain("−78,3 % sur le CA famille produits & services");
     expect(p[0].say_fr).not.toContain("11,9");
   });
 

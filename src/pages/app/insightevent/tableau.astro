@@ -468,7 +468,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               cle: demarre ? [daysTo(c.ws), 0, 0] : [t ? t.ecart_pct : 999, c.days_to_end, 0],
               titre: (demarre ? "Préparez " + dowFr(c.ws) + " " + frD(c.ws) + " — " : "Ajustez — ") + titreOp,
               sub: demarre ? "la mesure s’arme seule le jour J" + (c.threshold_value != null ? " · seuil +" + c.threshold_value + " %" : "")
-                : t ? "en cours : " + (t.metric === "famille" ? "CA famille" : "CA") + " " + (t.ecart_pct >= 0 ? "+" : "−") + String(Math.abs(t.ecart_pct)).replace(".", ",") + " % vs son rythme habituel sur " + t.jours + " j"
+                : t ? "en cours : " + (t.metric === "famille" ? "CA famille produits & services" : "CA") + " " + (t.ecart_pct >= 0 ? "+" : "−") + String(Math.abs(t.ecart_pct)).replace(".", ",") + " % vs son rythme habituel sur " + t.jours + " j"
                 : "en cours — aucun jour mesuré pour l’instant",
               who: c.owner, site: c.site_label,
               geste: c.commitment_id ? '<a class="tb-link" href="/app/insightevent/engagement?id=' + encodeURIComponent(c.commitment_id) + '">Ajuster →</a>' : "" });
@@ -804,7 +804,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           //    fenêtre multi-jours (Jour k/n + mini-courbe) / série (frise d'occurrences).
           //    Tricolore POSITION partout ; CTA = Ajuster → (engagement) ou Dossier → (série).
           var mesures = (g.mesures || []);
-          var KPI_MINI_FR = { revenue_residual: "chiffre d\u2019affaires/j", conversion: "taux de conversion", transactions: "ventes/jour", footfall: "nombre de visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille/j", profit_estimated: "profit estim\u00e9/j" };
+          var KPI_MINI_FR = { revenue_residual: "chiffre d\u2019affaires/j", conversion: "taux de conversion", transactions: "ventes/jour", footfall: "nombre de visiteurs/jour", basket: "panier moyen", discount: "\u20ac remis\u00e9s/j", family_revenue: "CA famille produits & services/j", profit_estimated: "profit estim\u00e9/j" };
           function opFmt(v, metric) {
             if (v == null) return "\u2014";
             if (metric === "conversion") return (v * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %";
@@ -937,7 +937,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             html += '<p class="tb-eb" id="tb-ops-sec" style="margin:2px 0 8px;">Opérations en cours</p><div class="tb-opsgrid">';
             mesures.forEach(function (m) {
               var goal = opGoal(m);
-              var kpiLbl = m.metric === "family_revenue" && m.famille ? "CA famille \u00ab " + esc(m.famille) + " \u00bb" : m.metric === "revenue_residual" ? KPI_MINI_FR.revenue_residual + " vs votre r\u00e9sultat habituel" : (KPI_MINI_FR[m.metric] || m.metric);
+              var kpiLbl = m.metric === "family_revenue" && m.famille ? "CA de la famille \u00ab " + esc(m.famille) + " \u00bb" : m.metric === "revenue_residual" ? KPI_MINI_FR.revenue_residual + " vs votre r\u00e9sultat habituel" : (KPI_MINI_FR[m.metric] || m.metric);
               var siteChp = m.site && J.multi_site ? opChip(esc(m.site), "#F3F4F6", "#6b7280") : "";
               var inner = "", wide = false, cta;
               if (m.kind === "serie") {

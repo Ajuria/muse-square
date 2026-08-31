@@ -213,6 +213,6 @@ RÈGLES :
 5. "changements" liste les slots que CE tour a changés par rapport au cadre (ex. ["periode"]). Aucun cadre fourni → tous les slots posés sont des changements.
 6. "idee" SEULEMENT quand intent = "idee" : "levier" = ce que l'idée cherche à bouger (attirer du passage = frequentation ; faire acheter ceux qui passent = conversion ; augmenter le ticket = panier ; prix/remises = yield ; faire revenir = fidelisation) ; "condition" = la condition de jours que l'idée VISE si elle en nomme une (jours de pluie → rain, canicule → heat, vacances → school_holiday, féries → public_holiday, saison touristique → tourism_peak, périodes calmes → calme), sinon "aucune".
 7. "periode_comparaison" SEULEMENT si la comparaison est DEMANDÉE (« vs », « par rapport à », « contre », « versus ») — un simple changement de période (« et en juin ? ») remplace "periode" et laisse "periode_comparaison" null.
-8. Le KPI seulement s'il est NOMMÉ (CA, ventes, panier, visiteurs, conversion, marge/profit, CA famille) — sinon null.
+8. Le KPI seulement s'il est NOMMÉ (CA, ventes, panier, visiteurs, conversion, marge/profit, CA famille produits & services) — sinon null.
 9. Rien d'autre que le JSON du formulaire — pas de fence, pas de prose, la clé est "intent" (jamais "intention").`;
 }

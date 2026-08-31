@@ -23,7 +23,7 @@ describe("commitmentEffect — l'effet se lit sur le KPI choisi", () => {
     });
     expect(e.pct).toBe(-78.3);
     expect(e.z).toBeCloseTo(-1.07, 2);
-    expect(e.kpi_mention_fr).toBe("sur le CA famille");
+    expect(e.kpi_mention_fr).toBe("sur le CA famille produits & services");
   });
 
   it("SE nul ou absent : z null — on n'affirme rien, jamais un z inventé", () => {

@@ -28,14 +28,16 @@ it("chaîne >1 version : la section rend chaque version avec verdict, effet SUR 
   data.lineage = [
     { commitment_id: "c-v1", version_no: 1, status: "resolved", verdict: "missed",
       window_start: "2026-08-22", window_end: "2026-08-22",
-      effect_pct: -78.3, effect_proven: true, kpi_mention_fr: "sur le CA famille", is_current: false },
+      effect_pct: -78.3, effect_proven: true, kpi_mention_fr: "sur le CA famille produits & services", is_current: false },
     { commitment_id: "c-v2", version_no: 2, status: "open", verdict: null,
       window_start: "2026-08-29", window_end: "2026-08-29",
       effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: true },
   ];
   const html = String(kit.renderEvolution(data, EVOL_COPY));
   expect(html).toContain("Historique du dispositif");
-  expect(html).toContain("Version 1 — du 22/08/2026 au 22/08/2026 : objectif manqué — −78,3 % sur le CA famille vs votre résultat habituel (effet prouvé).");
+  // « produits & services » (owner 31/08) : le rendu ÉCHAPPE le & en &amp; — on asserte la
+  // forme RENDUE, jamais la source (même piège que les href, harnais 15/08).
+  expect(html).toContain("Version 1 — du 22/08/2026 au 22/08/2026 : objectif manqué — −78,3 % sur le CA famille produits &amp; services vs votre résultat habituel (effet prouvé).");
   // « fenêtre » est BANNI (lexique l.23) — la forme est celle de la carte owner du 27/08.
   expect(html).toContain("Version 2 — du 29/08/2026 au 29/08/2026 : en cours, verdict d’ici le 29/08/2026.");
   expect(html).not.toContain("fenêtre");
@@ -80,7 +82,7 @@ it("dispositif écarté (dernier effet résolu négatif prouvé) : « pivoter »
   data.lineage = [
     { commitment_id: "c-v1", version_no: 1, status: "resolved", verdict: "missed",
       window_start: "2026-08-22", window_end: "2026-08-22",
-      effect_pct: -78.3, effect_proven: true, kpi_mention_fr: "sur le CA famille", is_current: false },
+      effect_pct: -78.3, effect_proven: true, kpi_mention_fr: "sur le CA famille produits & services", is_current: false },
     { commitment_id: "c-v2", version_no: 2, status: "open", verdict: null,
       window_start: "2026-08-29", window_end: "2026-08-29",
       effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: true },
