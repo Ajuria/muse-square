@@ -45,7 +45,7 @@ const handleSlack: ChannelHandler = async (config, payload) => {
   if (!json || !json.ok) {
     var err = json?.error || "Erreur Slack " + res.status;
     if (err === "not_in_channel" || err === "channel_not_found") {
-      return { ok: false, error: "Le bot Muse Square n'a pas acc\u00e8s \u00e0 ce canal. Tapez /invite @Muse Square dans le canal Slack concern\u00e9, puis r\u00e9essayez." };
+      return { ok: false, error: "Le bot Muse Square n'a pas acc\u00e8s \u00e0 ce canal. Tapez /invite @muse_square dans le canal Slack concern\u00e9, puis r\u00e9essayez." };
     }
     return { ok: false, error: err };
   }
