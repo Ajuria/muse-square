@@ -20,10 +20,22 @@ Le CRM est le système de référence de la relation client ; Muse Square est ce
 commerciaux et de leur verdict. Personne n'occupe cette place sous le Fortune 500 (Cloverpop
 l'occupe au-dessus, hors donnée d'exploitation — scan §1.E).
 
-**Ligne de couverture du deck** [owner 30/08] :
-> Muse Square, la mémoire commerciale de votre entreprise
+**Ligne de couverture du deck** [owner 30/08, adjectif révisé le 01/09] :
+> Muse Square, la mémoire opérationnelle de votre organisation
 
 Objectif à terme : que « mémoire » suffise, sans adjectif — comme « CRM » s'est imposé.
+
+**L'adjectif est passé de « commerciale » à « opérationnelle » le 01/09** [owner], après
+vérification : « mémoire commerciale » n'est pas libre — la formule circule comme surnom du
+CRM (« Le CRM est la mémoire commerciale de votre entreprise ») et désigne la mémoire du
+CLIENT (coordonnées, échanges, pipeline), pas celle de ce qu'on a fait. Elle rangeait donc le
+produit dans la catégorie dont il se distingue. « Mémoire opérationnelle » a un sens gestion
+établi — l'ensemble des processus, procédures et **bonnes pratiques** qui assurent le
+fonctionnement au quotidien — qui recouvre les dispositifs et les bonnes pratiques du produit.
+Son autre sens, cognitif (mémoire de travail, en psychologie et ergonomie), est académique et
+ne parasite pas un lecteur d'entreprise. **Appliqué sur le site le 01/09** (11 occurrences :
+H1, title, meta, description par défaut de BaseLayout, JSON-LD, 3ᵉ bloc de l'accueil, protos)
+et sur le deck.
 
 **Appui de marque [vérifié]** : dans la mythologie grecque, les Muses sont les filles de
 Mnémosyne, Titanide de la Mémoire. Le nom et la place partagent la même racine.
@@ -37,7 +49,7 @@ Mnémosyne, Titanide de la Mémoire. Le nom et la place partagent la même racin
 | « votre RevOps automatisé » | RevOps 2026 = PME **B2B**, alignement marketing/ventes/CS autour d'un pipeline ; un camping ou un musée n'a ni pipeline ni le mot [vérifié 30/08] |
 | « ERM — Environment Relationship Management » | ERM = Enterprise Risk Management, catégorie logicielle vendue en France ; « environnement » se lit écologie/RSE en français ; et le nom désigne l'ENTRÉE (le contexte, banalisé) au lieu de ce qui est stocké [vérifié 30/08] |
 | créer un sigle à trois lettres | l'espace commercial en *M est saturé (CDM = Decision Management IBM/ACTICO ; CAM = Corporate Actions + CAO industrielle) ; imposer une catégorie coûte des années de budget |
-| « mémoire opérationnelle » | sur-promet : « opérations » englobe planning, achats, stock — hors produit |
+| « mémoire **commerciale** » | surnom courant du CRM en France — la formule désigne la mémoire du client (coordonnées, échanges, pipeline), pas celle des opérations menées ; elle range le produit dans la catégorie dont il se distingue [vérifié 01/09] |
 
 **Piège français permanent** : ne jamais employer « gestion commerciale » — catégorie massive et
 occupée (Sage, EBP : facturation, devis, stocks). Le prospect entend « compta ».
@@ -48,9 +60,11 @@ occupée (Sage, EBP : facturation, devis, stocks). Le prospect entend « compta 
    s'y appelle « Connaissances créées » (tuile) et « Mes dispositifs » (section). Le mot ne
    deviendra « mémoire tout court » que si le PRODUIT le dit aussi : arbitrer le mot au lexique,
    puis décider si « Connaissances créées » s'aligne ou reste distinct. [à instruire]
-2. **Variante « publics »** : « commerciale » et « entreprise » ne se transposent pas à un musée
-   subventionné ni à une régie publique — cibles que le critère de qualification retient. Une
-   variante fréquentation/publics est nécessaire, titre compris. [à instruire]
+2. **Variante « publics »** : le vocabulaire € ne se transpose pas à un musée subventionné ni à
+   une régie publique — cibles que le critère de qualification retient. Une variante
+   fréquentation/publics reste nécessaire. Le passage à « organisation » (au lieu d'« entreprise »)
+   et à « opérationnelle » (au lieu de « commerciale ») lève une partie du problème : les deux
+   mots couvrent le public comme le privé. [à instruire]
 
 ---
 
@@ -70,7 +84,7 @@ sans chargé de développement des publics).
 
 ## 3. L'échelle d'offre
 
-À chaque palier, le client achète **sa** mémoire commerciale. Les paliers ne diffèrent que par
+À chaque palier, le client achète **sa** mémoire opérationnelle. Les paliers ne diffèrent que par
 **où elle vit** et **combien de sites elle couvre** — jamais par une liste de fonctionnalités.
 
 | Palier | Cible | Ce qui est vendu | État |
