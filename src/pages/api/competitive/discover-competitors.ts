@@ -24,7 +24,7 @@ export const prerender = false;
 
 const PROJECT = (process.env.BQ_PROJECT_ID || "muse-square-open-data").trim();
 
-const SYSTEM_PROMPT = `Tu es un agent de veille concurrentielle pour Muse Square Insight, une plateforme pour professionnels de l'événementiel, du commerce et de la culture en France.
+const SYSTEM_PROMPT = `Tu es un agent de veille concurrentielle pour Muse Square, une plateforme pour professionnels de l'événementiel, du commerce et de la culture en France.
 
 Ta mission : à partir de la description d'un établissement (nom, adresse, métier), identifier ses CONCURRENTS DIRECTS — des organisations du même métier, qui s'adressent au même public, dans le même périmètre géographique.
 

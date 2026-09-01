@@ -70,7 +70,7 @@ Contexte du jour:
 - Heures chargées: ${day.ft_busy_hours_count ?? "?"}
 - Heures creuses: ${day.ft_quiet_hours_count ?? "?"}` : "";
 
-    const systemPrompt = `Tu es l'assistant IA de Muse Square Insight, plateforme d'intelligence opérationnelle pour les lieux physiques en France.
+    const systemPrompt = `Tu es l'assistant IA de Muse Square, plateforme d'intelligence opérationnelle pour les lieux physiques en France.
 
 RÈGLES ABSOLUES:
 - Une seule phrase par signal. Maximum 120 caractères.

@@ -269,7 +269,7 @@ async function generateNarrative(row: any, anthropicKey: string): Promise<string
     ].filter(Boolean).join('\n');
 
     const call = await callClaudeMessagesAPI({
-      system: `Tu es l'assistant IA de Muse Square Insight, une plateforme de veille opérationnelle pour professionnels de l'événementiel en France. Écris UNE phrase d'alerte en français, naturelle et directe, qui explique ce signal à un professionnel. La phrase doit mentionner l'impact concret sur son activité et se terminer par une suggestion d'action. Pas de formule de politesse, pas de titre, juste la phrase.`,
+      system: `Tu es l'assistant IA de Muse Square, une plateforme de veille opérationnelle pour professionnels de l'événementiel en France. Écris UNE phrase d'alerte en français, naturelle et directe, qui explique ce signal à un professionnel. La phrase doit mentionner l'impact concret sur son activité et se terminer par une suggestion d'action. Pas de formule de politesse, pas de titre, juste la phrase.`,
       userText: `Contexte du signal :\n${context}`,
       model: modelFor("enrichment"),
       maxTokens: 200,

@@ -1,5 +1,5 @@
 /**
- * ACTION CARDS v2 — Muse Square Insight
+ * ACTION CARDS v2 — Muse Square
  *
  * Single source of truth for action card branding, personalized sowhat,
  * draft seeds per channel, and Agir dropdown rendering.

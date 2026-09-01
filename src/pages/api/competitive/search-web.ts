@@ -18,7 +18,7 @@ import {
 
 export const prerender = false;
 
-const SYSTEM_PROMPT = `Tu es un agent de veille concurrentielle pour Muse Square Insight, une plateforme pour professionnels de l'événementiel en France.
+const SYSTEM_PROMPT = `Tu es un agent de veille concurrentielle pour Muse Square, une plateforme pour professionnels de l'événementiel en France.
 
 Ta mission : rechercher sur le web des événements, lieux ou marques correspondant à la requête de l'utilisateur. Une zone géographique de référence est fournie : c'est une préférence de tri (le plus proche d'abord), JAMAIS un filtre d'exclusion.
 
