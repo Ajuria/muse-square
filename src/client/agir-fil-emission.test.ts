@@ -48,7 +48,14 @@ describe("fil Agir — invariants de la maquette (14/08)", () => {
     expect(src.includes(">Déjà fait</button>")).toBe(false);
     expect(src.includes(">Pas pour moi</button>")).toBe(true);
     // Geste bleu = dernier du pied (Pas pour moi avant le geste).
-    expect(src.indexOf("_dispoHtml\n                + _commitEntry")).toBeGreaterThan(-1);
+    // 02/09 — l'assertion matchait l'ADJACENCE littérale (« _dispoHtml\n + _commitEntry »),
+    // indentation comprise. Elle est tombée quand « Faire suivre » (vue équipe inc 6) s'est
+    // légitimement intercalé entre les deux, alors que l'invariant gardé — le geste bleu FERME
+    // le pied — tenait toujours. Rouge muet depuis, donc plus un test. On teste l'ORDRE.
+    const iDispo = src.indexOf("+ _dispoHtml");
+    const iCommit = src.indexOf("+ _commitEntry", iDispo);
+    expect(iDispo).toBeGreaterThan(-1);
+    expect(iCommit).toBeGreaterThan(iDispo);
   });
   it("possession : conteneur engagements bleu pâle + liseré", () => {
     expect(src.includes("#pls-engagement-cards:not(:empty) { background:#F7F9FF")).toBe(true);
