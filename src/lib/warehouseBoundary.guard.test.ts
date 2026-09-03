@@ -24,6 +24,13 @@ const CLIQUET: Record<string, number> = {
   "src/lib/ai/find_dates/find-dates.ts": 2,
   "src/lib/commitmentContext.ts": 4,
   "src/lib/commitmentResolve.ts": 1,
+  // 0 → 2 (28/08, page Opération « Comprendre le résultat », commit 01c66b3 — instruit après
+  // coup le 03/09, le garde était resté rouge 6 jours) : le grain HEURE × JOUR de
+  // fct_client_hourly_sales (heures d'une opération et de ses 4 jours comparables). La seule
+  // surface semantic horaire est vw_insight_event_client_hourly_profile — un PROFIL moyen par
+  // jour de semaine × heure, pas des jours datés : aucune vue équivalente. Le même fichier lit
+  // aussi raw.client_transactions (familles × produits) — hors de ce garde, dette notée.
+  "src/lib/commitmentShape.ts": 2,
   "src/lib/dayClassRegistry.ts": 10,
   "src/lib/dayContext.ts": 19,
   "src/lib/insightFamilies/calendar.ts": 1,
@@ -59,7 +66,11 @@ const CLIQUET: Record<string, number> = {
   // « fenêtre 30 j » y compte 68 jours (mesuré 24/08). dbt gelé — pas de vue corrigée possible.
   // 16 → 17 (28/08, vue-equipe inc 3 — commit 8849137, instruit après coup) : le bandeau KPI
   // membre lit fct_client_daily_performance (volume/affluence/conversion en %, jamais un €).
-  "src/pages/api/insight/dashboard.ts": 17,
+  // 17 → 18 (28/08, pôles inc 2 — commit 79e2123, instruit après coup le 03/09) : la lecture
+  // continue d'un pôle lit fct_client_offering_daily au grain JOUR × famille (30 j vendus vs
+  // 90 précédents, bornés à today). vw_insight_event_client_offering est le profil 30 j par
+  // article, sans grain jour : aucune vue équivalente tant que dbt n'en porte pas une.
+  "src/pages/api/insight/dashboard.ts": 18,
   "src/pages/api/insight/monitor.ts": 1,
   // 1 → 2 (27/08, fusion K9 marges) : la réponse marge PAR FAMILLE lit fct_client_offering_daily
   // borné à CURRENT_DATE() — même justification que dashboard.ts ci-dessus (vue semantic non
