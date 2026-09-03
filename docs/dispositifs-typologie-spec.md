@@ -84,6 +84,23 @@ blocs, liste, prompt, mart), effacée ensuite.
 lisait déjà, et l'engagement part avec son pôle. Le KPI de l'engagement reste celui de la carte :
 le rattachement inscrit l'opération dans la mémoire du pôle, il ne change pas sa mesure.
 
+**Les photos des composants existent, de bout en bout** (03/09, étape 4 incrément 1). Le bucket
+privé `ms-dispositif-photo` (Europe) reçoit l'image ; l'application la sert elle-même, rien n'est
+public ni signé. La table `analytics.dispositif_photos` garde une ligne par photo lue (clés de la
+check-list du registre, codes d'articles de la liste du site, prix lus, couverture, modèle et
+version de consigne). Sur le document d'un pôle, chaque composant porte « Documenter → » : le
+navigateur réduit la photo à 1600 px, l'API l'écrit, la fait lire par le modèle avec une consigne
+et un schéma générés depuis le registre, passe la réponse à la porte (toute clé hors registre ou
+tout code hors liste = refus et image effacée) et rend la photo lue : réponses question par
+question, articles reconnus par leur désignation. **Déviation acceptée par l'owner le 03/09** :
+la détection d'une personne se fait par la lecture elle-même, côté serveur, et non sur le
+téléphone ; quand une personne est visible, l'image est effacée aussitôt et aucune ligne n'est
+écrite. Vérifié le 03/09 sur Muse Square avec une image de rayon synthétique portant trois de ses
+articles et un intrus : lecture en 7,6 s, huit réponses, les trois articles reconnus (l'un à
+confiance moyenne — l'appariement reste une proposition), l'intrus ignoré, ligne et image relues,
+sondes effacées. Reste de l'étape 4 : l'étape d'onboarding qui appelle ce dépôt (D6), la
+confirmation des articles par l'exploitant (`items_confirmed`), la marche filmée.
+
 **On sait quel produit est sur chaque ligne de vente.** Chaque ligne importée de la caisse
 contient le code de l'article, sa désignation, sa famille, le numéro de ticket ou de facture, et
 l'heure. À partir de ces lignes, trois tables sont calculées : le profil de chaque article sur
@@ -333,9 +350,11 @@ photos fixes et les envoie avec l'heure de chacune ; la vidéo ne quitte jamais 
 le serveur ne traite aucune vidéo. La marche n'apporte qu'une chose de plus que les photos
 déposées : l'ordre de passage, donc le plan du magasin (§ 7).
 
-Dans les deux cas, toute image où apparaît une personne est écartée sur le téléphone, avant
-envoi. Une photo de composant avec un visage devient une donnée personnelle. La règle est
-automatique ; on ne compte pas sur la mémoire de l'exploitant.
+Toute image où apparaît une personne est écartée : la lecture elle-même le détecte et l'API
+efface l'image aussitôt, sans écrire de ligne (déviation acceptée par l'owner le 03/09 — un
+navigateur n'a pas de détecteur de personne fiable ; le contrôle est côté serveur, avant tout
+enregistrement). Une photo de composant avec un visage devient une donnée personnelle. La règle
+est automatique ; on ne compte pas sur la mémoire de l'exploitant.
 
 Écarté : le scan LiDAR (réservé aux iPhone Pro, exige une application native, donne des murs
 sans produits, et aucune lecture n'a besoin de mètres) ; toute captation des clients.
@@ -483,7 +502,7 @@ présente comme telle.
 | D4 | Re-semer Muse Square avec des tickets à plusieurs lignes (remplacer les ventes de démonstration du compte de test par un jeu où un ticket contient plusieurs articles) | Oui, mais plus tard. Aucune spec du parcours avant. |
 | D5 | Photographier les vitrines des concurrents | Écartée : personne ne photographie un concurrent pour nous. Retirée du document. |
 | D6 | Quand demande-t-on des photos à l'exploitant ? | À la création du compte : les photos des composants font partie de l'onboarding. Ensuite, l'application demande des précisions quand elle en a besoin (un composant sans photo, une version déclarée sans nouvelle photo, une lecture qui ne peut pas conclure). Pas de rappel mensuel. |
-| D7 | Les images chez nous ou chez le client ? | Chez nous : Cloud Storage, Europe, avec les trois règles de propriété, suppression et absence de personnes (5.2). |
+| D7 | Les images chez nous ou chez le client ? | Chez nous : bucket `ms-dispositif-photo` (Cloud Storage, EU, privé — créé le 03/09), avec les trois règles de propriété, suppression et absence de personnes (5.2). |
 | D8 | Le parcours idéal-type reconstitué depuis le ticket entre-t-il dans la première spec du parcours ? | Oui. |
 
 ## 9. Ce qui reste à faire, dans cet ordre
@@ -496,11 +515,9 @@ présente comme telle.
    leur mot arbitré.
 3b. (fait le 03/09 : chaîne semantic en base — PR #93 — et lecteurs Explorer / Piloter /
    Compte / document du pôle basculés sur la vue et le mart, § 1.)
-4. Créer l'espace de stockage et les tables (5.2, D7) ; compléter l'appel au modèle pour les
-   images ; écrire la lecture des photos et son contrôle (5.3), avec le test qui prouve que le
-   contrôle attrape une invention, dans le même commit.
-5. Construire le dépôt de photos (dispositif, composant, rejet des images avec personne) sur le
-   bouton « Documenter », puis l'étape d'onboarding qui l'appelle pour chaque composant (D6).
+4. (fait le 03/09 : bucket, table, transport image, lecture + porte avec lie-bait — § 1.)
+5. (fait le 03/09 pour le dépôt sur le document du pôle — § 1.) Reste l'étape d'onboarding qui
+   l'appelle pour chaque composant (D6), et la confirmation des articles reconnus.
 6. Livrer les résultats 1 et 2 sur Muse Square (80 articles, photos d'Épices et Tout), vérifiés
    par le harnais et non à l'œil.
 7. Ajouter le type et le rôle au crawl (5.4) ; livrer le résultat 3.

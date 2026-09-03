@@ -70,6 +70,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Ce que le client fait pour acheter : où il va, ce qu'il combine, ce qu'il doit marcher ou demander | **parcours d'achat** (owner 03/09) | customer journey |
 | Le trajet le plus court qui permet d'acheter ce qu'un ticket contient | **parcours idéal-type** (owner 03/09 — s'affiche toujours comme un minimum : on ne sait pas si le client a hésité ou fait des allers-retours) | parcours réel, trajet |
 | Ce qu'un composant contient et comment le client le choisit | **rôle** — clé interne (`dispositif_role`) ; valeurs courant · expert · impulsion · promo = **libellés PROVISOIRES, non arbitrés** (registre `dispositifTypes.ts`, marqués `provisoire`) | — |
+| L'image d'un composant, pièce de la mémoire d'une version | **photo** (mot employé par l'owner le 03/09 — D6 « les photos des composants font partie de l'onboarding » ; le CTA qui y mène reste **Documenter →**) | image, cliché, visuel |
 | Trois types de composant et quatre sous-types de médiation sans mot arbitré | table ou îlot · caisse · espace dégustation / atelier · panneau de salle · signalétique — **libellés PROVISOIRES** dans le registre, marqués `provisoire` ; demander le mot avant tout rendu | — |
 
 ## Les mots des interactions humaines (Slack — registre distinct, owner 28/08)

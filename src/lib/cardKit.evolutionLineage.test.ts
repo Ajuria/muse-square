@@ -188,6 +188,13 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
   expect(html).toContain("Linéaire · Produits d&#39;expert".replace("&#39;", "'"));
   expect(html).toContain(">Vitrine<");
   expect(html).not.toContain("Aucun composant");
+  // Photos (étape 4) : un emplacement par composant, le CTA « Documenter → » sur un pôle ouvert,
+  // l'absence dite ; la section porte le dispositif et la version pour la page.
+  expect(html).toContain('data-eg-photo="c1"');
+  expect(html).toContain('data-eg-photo-add="c2"');
+  expect(html).toContain("Documenter →");
+  expect(html).toContain("Aucune photo pour l'instant.");
+  expect(html).toContain('data-eg-dispositif=""');
   expect(html).toContain("Opérations sur ce pôle");
   expect(html).toContain('/app/insightevent/engagement?id=op-1');
   expect(html).toContain("14/09/2026");
@@ -218,4 +225,19 @@ it("un pôle SANS composant dit l'absence (lexique règle 7), jamais une section
   const html = String(kit.renderEvolution(data, EVOL_COPY));
   expect(html).toContain("Composants");
   expect(html).toContain("Aucun composant déclaré pour l'instant.");
+});
+
+it("renderComponentPhoto : vignette servie par l'API, date, comptes, question → réponse, articles par désignation", () => {
+  const html = String(kit.renderComponentPhoto({
+    url: "/api/dispositifs/photos?dispositif_id=d&file=p", created_at: "2026-09-03T10:00:00Z",
+    checklist: { ls_moyen_essai: "non", ls_prix_par_article: "oui", ls_facing_vide: "non_visible" },
+    questions: [{ key: "ls_moyen_essai", question_fr: "Y a-t-il un moyen d'essayer : sentir, goûter, toucher, un échantillon ?" }, { key: "ls_prix_par_article", question_fr: "Chaque article porte-t-il son prix ?" }, { key: "ls_facing_vide", question_fr: "Un emplacement est-il vide au moment de la photo ?" }],
+    items_matched: [{ item_code: "CF-1", confidence: "haute", item_description: "Ethiopia" }],
+  }, EVOL_COPY));
+  expect(html).toContain('src="/api/dispositifs/photos?dispositif_id=d&amp;file=p"');
+  expect(html).toContain("03/09/2026 · 1 oui · 1 non · 1 non visible");
+  expect(html).toContain("Y a-t-il un moyen d'essayer");
+  expect(html).toContain("Articles reconnus : Ethiopia");
+  expect(html).not.toContain("CF-1");
+  expect(String(kit.renderComponentPhoto(null, EVOL_COPY))).toBe("Aucune photo pour l'instant.");
 });

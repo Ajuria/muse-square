@@ -183,6 +183,17 @@ export const EVOL_COPY = {
   // Composants (03/09, mot owner « composant » — lexique) : les unités physiques du dispositif.
   pole_components_title: "Composants",
   pole_components_none: "Aucun composant déclaré pour l'instant.",
+  // Photos des composants (étape 4, 03/09). « Documenter » = le CTA owner qui mène ici ; « photo »
+  // = le mot employé par l'owner (D6, 03/09). Les réponses sont celles du formulaire de lecture.
+  pole_photo_cta: "Documenter →",
+  pole_photo_none: "Aucune photo pour l'instant.",
+  pole_photo_yes: "oui",
+  pole_photo_no: "non",
+  pole_photo_nv: "non visible",
+  pole_photo_items: "Articles reconnus :",
+  pole_photo_person: "Une personne est visible sur la photo — elle n'est pas conservée.",
+  pole_photo_failed: "La lecture de la photo a échoué — réessayez.",
+  pole_photo_reading: "Lecture en cours…",
   pole_reading_title: "Résultats — 30 derniers jours",
   pole_reading_caption: "€/j des jours vendus, comparé aux 90 jours précédents.",
   pole_reading_row: "{n30} j vendus · habituel {base} €/j",

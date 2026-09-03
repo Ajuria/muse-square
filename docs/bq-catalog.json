@@ -5,8 +5,8 @@
 "project": "muse-square-open-data",
 "region": "EU",
 "dbt_repo_sha_at_generation": "08d0cc9",
-"table_count": 505,
-"column_count": 9132
+"table_count": 506,
+"column_count": 9153
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -2149,6 +2149,95 @@
 },
 {
 "name": "updated_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"analytics.dispositif_photos": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "photo_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "walk_id",
+"type": "STRING"
+},
+{
+"name": "seq",
+"type": "INT64"
+},
+{
+"name": "t_offset_s",
+"type": "FLOAT64"
+},
+{
+"name": "gcs_uri",
+"type": "STRING"
+},
+{
+"name": "dispositif_type",
+"type": "STRING"
+},
+{
+"name": "dispositif_role",
+"type": "STRING"
+},
+{
+"name": "status",
+"type": "STRING"
+},
+{
+"name": "checklist",
+"type": "STRING"
+},
+{
+"name": "items_matched",
+"type": "STRING"
+},
+{
+"name": "items_confirmed",
+"type": "STRING"
+},
+{
+"name": "prices_seen",
+"type": "STRING"
+},
+{
+"name": "coverage_flag",
+"type": "STRING"
+},
+{
+"name": "model",
+"type": "STRING"
+},
+{
+"name": "prompt_version",
+"type": "STRING"
+},
+{
+"name": "created_by",
+"type": "STRING"
+},
+{
+"name": "created_at",
 "type": "TIMESTAMP"
 }
 ]

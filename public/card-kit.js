@@ -1014,13 +1014,21 @@
       // (lineaire, gondole, vitrine...) libellees par le serveur (registre dispositifTypes).
       // Absence dite (lexique regle 7), jamais une section vide.
       var pComps = Array.isArray(cm.components) ? cm.components : [];
-      h += '<div class="eg-sec" data-eg-components><div class="eg-uc">' + esc(t2('pole_components_title')) + '</div>'
+      // Photos (etape 4, 03/09) : une rangee par composant porte un emplacement [data-eg-photo]
+      // que la page remplit (GET /api/dispositifs/photos) et un CTA « Documenter » (mot owner)
+      // qui ouvre le depot d'une photo — le cablage vit dans engagement.astro, le kit ne rend.
+      h += '<div class="eg-sec" data-eg-components data-eg-dispositif="' + esc(cm.dispositif_id || '') + '" data-eg-version="' + esc(cm.version_no != null ? String(cm.version_no) : '') + '"><div class="eg-uc">' + esc(t2('pole_components_title')) + '</div>'
         + (pComps.length
           ? pComps.map(function (c) {
               var meta = [c.type_label_fr, c.role_label_fr].filter(function (x) { return !!x; }).join(' \u00b7 ');
-              return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5e7eb;padding:8px 14px;margin-bottom:6px;">'
+              return '<div data-eg-component="' + esc(c.key || '') + '" style="background:#fff;border:1px solid #e5e7eb;padding:8px 14px;margin-bottom:6px;">'
+                + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;">'
                 + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(c.label || c.type_label_fr || '') + '</span>'
-                + '<span style="font-size:12px;color:#6b7280;">' + esc(meta) + '</span></div>';
+                + '<span style="display:inline-flex;align-items:center;gap:10px;"><span style="font-size:12px;color:#6b7280;">' + esc(meta) + '</span>'
+                + (cm.status === 'open' ? '<button type="button" data-eg-photo-add="' + esc(c.key || '') + '" style="font-size:12px;font-weight:500;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit;">' + esc(t2('pole_photo_cta')) + '</button>' : '')
+                + '</span></div>'
+                + '<div data-eg-photo="' + esc(c.key || '') + '" style="margin-top:6px;font-size:12px;color:#6b7280;">' + esc(t2('pole_photo_none')) + '</div>'
+                + '</div>';
             }).join('')
           : '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_components_none')) + '</div>')
         + '</div>';
@@ -2050,7 +2058,30 @@
     return html;
   }
 
-  window.MSCardKit = {
+  // Etape 4 (03/09) : le rendu d'une photo LUE d'un composant — vignette servie par l'API,
+  // date, compte des reponses, puis la liste question → reponse (les questions sont celles du
+  // registre, servies par l'API). Aucune phrase de conseil : des faits lus sur l'image.
+  function renderComponentPhoto(photo, copy) {
+    var t = function (k) { return (copy && copy[k]) || ''; };
+    if (!photo) return esc(t('pole_photo_none'));
+    var cl = photo.checklist || {}; var keys = Object.keys(cl);
+    var n = { oui: 0, non: 0, non_visible: 0 }; keys.forEach(function (k) { if (n[cl[k]] != null) n[cl[k]]++; });
+    var d = String(photo.created_at || '').slice(0, 10); var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+    var qs = Array.isArray(photo.questions) ? photo.questions : [];
+    var ans = { oui: t('pole_photo_yes'), non: t('pole_photo_no'), non_visible: t('pole_photo_nv') };
+    return '<div style="display:flex;gap:12px;align-items:flex-start;">'
+      + '<img src="' + esc(photo.url) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;flex:none;">'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-size:12px;color:#374151;">' + esc(dfr) + (keys.length ? ' \u00b7 ' + n.oui + ' ' + esc(ans.oui) + ' \u00b7 ' + n.non + ' ' + esc(ans.non) + ' \u00b7 ' + n.non_visible + ' ' + esc(ans.non_visible) : '') + '</div>'
+      + (qs.length ? '<div style="margin-top:4px;">' + qs.map(function (q) {
+          var v = cl[q.key]; var col = v === 'oui' ? '#0F6E56' : v === 'non' ? '#B45309' : '#9CA3AF';
+          return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;border-bottom:1px solid #F3F4F6;"><span style="color:#374151;">' + esc(q.question_fr) + '</span><span style="color:' + col + ';font-weight:600;white-space:nowrap;">' + esc(ans[v] || '') + '</span></div>';
+        }).join('') + '</div>' : '')
+      + (Array.isArray(photo.items_matched) && photo.items_matched.length ? '<div style="margin-top:4px;font-size:12px;color:#374151;">' + esc(t('pole_photo_items')) + ' ' + photo.items_matched.map(function (it) { return esc(it.item_description || it.item_code); }).join(', ') + '</div>' : '')
+      + '</div></div>';
+  }
+
+  window.MSCardKit = { renderComponentPhoto: renderComponentPhoto,
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
     msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
