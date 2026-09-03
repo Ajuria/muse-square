@@ -103,6 +103,18 @@ lue, une case cochée par article et « Confirmer → » ; la confirmation est u
 la même photo, la dernière gagne, et les articles confirmés priment partout sur les reconnus.
 Reste de l'étape 4 : l'étape d'onboarding qui appelle ce dépôt (D6), la marche filmée.
 
+**Le premier livrable du chantier existe : ce qui est exposé et ne se vend pas** (03/09, livrable 2
+du § 6). La couche semantic porte désormais la photo courante de chaque composant et les signaux
+quotidiens par article (lot dbt 2, appliqué le 03/09). Sur le document d'un pôle, une section
+« Articles des photos — 30 derniers jours » lit les articles vus sur les photos courantes, confirmés
+par l'exploitant sinon reconnus, face à leurs ventes des trente derniers jours comparées à votre
+résultat habituel par article : ceux en retrait (au moins cinq jours vendus, écart d'au moins dix
+pour cent sous l'habituel), les autres, et les articles des familles du pôle vendus sans être vus
+sur aucune photo. Dans Explorer, la lecture d'un composant nomme les articles de sa photo et ceux
+en retrait. Tout vient des vues semantic. Vérifié le 03/09 sur Muse Square avec une photo sonde
+confirmée sur deux articles : lecture en 0,9 s, deux vus avec leurs chiffres, dix-neuf non vus,
+sondes effacées.
+
 **On sait quel produit est sur chaque ligne de vente.** Chaque ligne importée de la caisse
 contient le code de l'article, sa désignation, sa famille, le numéro de ticket ou de facture, et
 l'heure. À partir de ces lignes, trois tables sont calculées : le profil de chaque article sur
@@ -446,7 +458,7 @@ nécessaire dans cette première version.
 | # | Ce qu'il obtient | Ce qui existe | Ce qui manque | Passe-t-il la barre (vrai · invisible seul · actionnable) ? |
 |---|---|---|---|---|
 | 1 | La version d'un dispositif avec les photos de ses composants, dans sa lecture continue | la chaîne de versions, la lecture de pôle, la page engagement | le stockage (5.2) | oui : la photo dit à quoi ressemblait ce que la mesure juge |
-| 2 | Les articles exposés qui ne se vendent pas ; les articles vendus qu'on ne voit sur aucune photo | le signal quotidien par article | la lecture des photos (5.3) et l'indicateur de couverture | oui : invisible seul ; l'absence est relative aux photos prises |
+| 2 | Les articles exposés qui ne se vendent pas ; les articles vendus qu'on ne voit sur aucune photo | **FAIT 03/09** : vues semantic photos + signaux article, section du document du pôle, prose du composant dans Explorer | — | oui : invisible seul ; l'absence est relative aux photos prises |
 | 3 | Une question à « non », un écart mesuré et une source, réunis en un dispositif à mettre en test | l'idée soumise, les leviers, le filtre des références, les versions | la typologie (§ 4), 5.3, 5.4 | oui, seulement avec les trois pièces |
 | 4 | Ce qui a changé entre deux photos d'un même composant, proposé comme nouvelle version | les versions | la comparaison entre deux lectures | oui : c'est la réponse au chantier « Notez ce qui a changé » |
 | 5 | Le parcours d'achat | le numéro de ticket, l'heure des ventes | des paniers, un plan des zones (§ 7) | **bloqué par les données** |

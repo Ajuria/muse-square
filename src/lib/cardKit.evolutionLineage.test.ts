@@ -182,6 +182,9 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
   expect(html).toContain("3 jours vendus sur les 30 derniers");
   expect(html).not.toContain("pas encore comparable");
   expect(html.toLowerCase()).not.toContain("lecture continue");
+  // Articles des photos (livrable 2) : sans photo, l'absence est dite
+  expect(html).toContain("Articles des photos — 30 derniers jours");
+  expect(html).toContain("Aucune photo lue pour l'instant.");
   // Composants (03/09) : le libellé libre, sinon le type ; type · rôle en méta ; section présente
   expect(html).toContain("Composants");
   expect(html).toContain("Linéaire poivres");
@@ -249,4 +252,29 @@ it("renderComponentPhoto : vignette servie par l'API, date, comptes, question �
   const none = String(kit.renderComponentPhoto({ photo_id: "p1", url: "/x", created_at: "2026-09-03T10:00:00Z", checklist: {}, questions: [], items_matched: [], items_confirmed: [] }, EVOL_COPY));
   expect(none).toContain("Articles confirmés : —");
   expect(String(kit.renderComponentPhoto(null, EVOL_COPY))).toBe("Aucune photo pour l'instant.");
+});
+
+it("articles des photos : l'article en retrait porte ses chiffres et son signe, les autres se listent, les non vus se nomment", () => {
+  const data: any = {
+    commitment: { commitment_id: "pole-3", status: "open", dispositif_nature: "permanent", committed_action_text: "Pôle épices", pole_families: '["Coffee"]', created_at: "2026-08-27T10:00:00Z", components: [] },
+    pole: { totals: {}, families: [], operations: [], items: { n_photos: 1,
+      seen: [
+        { item_code: "A", item_description: "Ethiopia", item_category: "Coffee", component_keys: ["c1"], confirmed: true, rev30_eur: 700, expected30_eur: 1000, n30: 20, delta_pct: -30, en_retrait: true, days_since_last_sale: null },
+        { item_code: "B", item_description: "Latte", item_category: "Coffee", component_keys: ["c1"], confirmed: false, rev30_eur: 1050, expected30_eur: 1000, n30: 25, delta_pct: 5, en_retrait: false, days_since_last_sale: null },
+        { item_code: "C", item_description: "Scone", item_category: "Coffee", component_keys: ["c1"], confirmed: false, rev30_eur: 60, expected30_eur: 100, n30: 3, delta_pct: -40, en_retrait: false, days_since_last_sale: 4 },
+      ],
+      unseen: [{ item_code: "D", item_description: "Croissant", item_category: "Coffee", rev30_eur: 400, n30: 28 }] } },
+    lineage: [],
+  };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("En retrait sur votre résultat habituel");
+  expect(html).toContain("Ethiopia <span");
+  expect(html).toContain("confirmé");
+  expect(html).toMatch(/700 € sur 20 j vendus · habituel 1[\s\u00a0\u202f]000 €/);
+  expect(html).toContain("−30 %");
+  expect(html).toContain("Latte +5 %");
+  expect(html).toContain("Scone — Données insuffisantes");
+  expect(html).toContain("Vendus sans être vus sur une photo");
+  expect(html).toContain("Croissant (400 €)");
+  expect(html).not.toContain("Aucune photo lue");
 });

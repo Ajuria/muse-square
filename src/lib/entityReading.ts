@@ -11,7 +11,7 @@
 // Règle maison : jamais une moyenne de % entre occurrences — la somme des écarts € mesurés
 // et le compte des verdicts (isKeptVerdict partagé), occurrence par occurrence.
 
-import { buildPoleReading, type PoleTotals, type PoleFamilyReading, type PoleOperationRow } from "./poleReading";
+import { buildPoleReading, buildPoleItemsReading, type PoleTotals, type PoleFamilyReading, type PoleOperationRow } from "./poleReading";
 import { commitmentEffect } from "./commitmentEffect";
 import { personKey, isKeptVerdict } from "./actionCommitments";
 import type { SiteEntity } from "./entityResolver";
@@ -52,6 +52,8 @@ export interface ComposantReading {
   pole_name: string;
   version_no: number | null;
   since: string | null;              // ISO date — la version courante existe depuis
+  // Articles vus sur SA photo courante (livrable 2, 03/09) — depuis la couche semantic ; null = aucune photo.
+  items?: { seen: string[]; retrait: string[]; confirmed: boolean } | null;
 }
 
 export interface EntityPeriodReading {
@@ -259,7 +261,14 @@ export async function readEntityPeriod(
       version_no: c.version_no != null ? Number(flat(c.version_no)) : null,
       since: c.created_at != null ? String(flat(c.created_at)).slice(0, 10) : null,
     };
-    const pole = await buildPoleReading(bq, location_id, String(entity.pole_id ?? ""), fams, todayIso, { start, end });
+    const [pole, items] = await Promise.all([
+      buildPoleReading(bq, location_id, String(entity.pole_id ?? ""), fams, todayIso, { start, end }),
+      buildPoleItemsReading(bq, location_id, String(entity.pole_id ?? ""), composant.version_no, fams, todayIso).catch(() => null),
+    ]);
+    if (items && items.n_photos) {
+      const mine = items.seen.filter((x) => x.component_keys.includes(String(entity.component_key ?? "")));
+      composant.items = mine.length ? { seen: mine.map((x) => x.item_description), retrait: mine.filter((x) => x.en_retrait).map((x) => x.item_description), confirmed: mine.every((x) => x.confirmed) } : null;
+    }
     return { entity, start, end, composant, pole };
   }
   if (entity.kind === "operation") {
@@ -312,6 +321,10 @@ export function composantProse(c: ComposantReading): string {
   const nature = [c.type_label_fr, c.role_label_fr].filter(Boolean).join(" · ");
   const head = `Composant du pôle ${c.pole_name}${nature ? ` — ${nature}` : ""}.`;
   const version = c.version_no != null && c.since ? ` Version ${c.version_no} depuis le ${frD(c.since)}.` : "";
+  if (c.items && c.items.seen.length) {
+    const retrait = c.items.retrait.length ? ` En retrait sur votre résultat habituel (30 derniers jours) : ${c.items.retrait.join(", ")}.` : " Aucun en retrait sur les 30 derniers jours.";
+    return `${head}${version} Articles ${c.items.confirmed ? "confirmés" : "reconnus"} sur la photo : ${c.items.seen.join(", ")}.${retrait}`;
+  }
   return `${head}${version} Articles reconnus : aucun pour l'instant · les chiffres ci-dessous sont ceux du pôle.`;
 }
 

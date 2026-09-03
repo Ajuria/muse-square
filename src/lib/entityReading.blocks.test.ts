@@ -116,3 +116,12 @@ describe("buildEntityPeriodBlocks — composant (03/09, § 5.5)", () => {
     expect(b2.prose).toContain("— Linéaire · Produits d'expert.");
   });
 });
+
+it("composant avec photo : la prose nomme les articles vus et ceux en retrait — plus d'absence", () => {
+  const base = pole({ rev30_eur: 59703, share_pct: 50.7, avg30_eur_day: 678, base_eur_day: 447, delta_pct: 51.7, n30: 88 });
+  const r: EntityPeriodReading = { ...base, entity: { kind: "composant", id: "p1:c-lin", name: "Linéaire poivres", families: ["Coffee"], pole_id: "p1", component_key: "c-lin" },
+    composant: { label: "Linéaire poivres", type_label_fr: "Linéaire", role_label_fr: null, pole_name: "Pôle périssables", version_no: 1, since: "2026-09-03", items: { seen: ["Ethiopia", "Latte"], retrait: ["Ethiopia"], confirmed: true } } };
+  const b = buildEntityPeriodBlocks(r);
+  expect(b.prose).toContain("Articles confirmés sur la photo : Ethiopia, Latte. En retrait sur votre résultat habituel (30 derniers jours) : Ethiopia.");
+  expect(b.prose).not.toContain("aucun pour l'instant");
+});

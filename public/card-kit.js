@@ -1032,6 +1032,34 @@
             }).join('')
           : '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_components_none')) + '</div>')
         + '</div>';
+      // Articles des photos face aux ventes (livrable 2, 03/09) : ce qui est expose et ne se vend
+      // pas, ce qui se vend sans etre vu. Absence dite a chaque niveau, jamais une section vide.
+      var pi = pr.items || null;
+      h += '<div class="eg-sec" data-eg-items><div class="eg-uc">' + esc(t2('pole_items_title')) + '</div>';
+      if (!pi || !pi.n_photos) {
+        h += '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_no_photos')) + '</div>';
+      } else {
+        h += '<div style="font-size:11px;color:#374151;margin-bottom:8px;">' + esc(t2('pole_items_caption')) + '</div>';
+        var retrait = (pi.seen || []).filter(function (x) { return x.en_retrait; });
+        h += '<div style="font-size:12px;font-weight:600;color:#374151;margin:6px 0 4px;">' + esc(t2('pole_items_retrait_title')) + '</div>';
+        if (!retrait.length) h += '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_no_retrait')) + '</div>';
+        retrait.forEach(function (x) {
+          h += '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5e7eb;padding:8px 14px;margin-bottom:6px;">'
+            + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(x.item_description) + ' <span style="font-size:11px;font-weight:500;color:#6b7280;">' + esc(t2(x.confirmed ? 'pole_items_confirmed' : 'pole_items_recognised')) + '</span></span>'
+            + '<span style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_row', { rev: Number(x.rev30_eur).toLocaleString('fr-FR'), n: x.n30, exp: Number(x.expected30_eur).toLocaleString('fr-FR') })) + '</span>'
+            + '<span style="font-size:13px;font-weight:600;color:#B45309;">' + pPct(x.delta_pct) + '</span></div>';
+        });
+        var others = (pi.seen || []).filter(function (x) { return !x.en_retrait; });
+        if (others.length) {
+          h += '<div style="font-size:12px;color:#374151;margin:6px 0 8px;">' + others.map(function (x) {
+            return esc(x.item_description) + (x.delta_pct != null && x.n30 >= 5 ? ' ' + pPct(x.delta_pct) : ' \u2014 ' + esc(t2('pole_items_thin')));
+          }).join(' \u00b7 ') + '</div>';
+        }
+        h += '<div style="font-size:12px;font-weight:600;color:#374151;margin:6px 0 4px;">' + esc(t2('pole_items_unseen_title')) + '</div>';
+        if (!(pi.unseen || []).length) h += '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_all_seen')) + '</div>';
+        else h += '<div style="font-size:12px;color:#374151;">' + pi.unseen.map(function (x) { return esc(x.item_description) + ' (' + Number(x.rev30_eur).toLocaleString('fr-FR') + ' \u20ac)'; }).join(' \u00b7 ') + '</div>';
+      }
+      h += '</div>';
       var pt = pr.totals || {};
       var ptLine = '';
       if (pt.rev30_eur != null) {

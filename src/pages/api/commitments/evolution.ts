@@ -12,7 +12,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
 import { readLatestSnapshot } from "../../../lib/actionCommitments";
-import { buildPoleReading } from "../../../lib/poleReading";
+import { buildPoleReading, buildPoleItemsReading } from "../../../lib/poleReading";
 import { commitmentEffect } from "../../../lib/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
 import { buildWindowShape, buildPriceLadder } from "../../../lib/commitmentShape";
@@ -220,8 +220,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 WHERE commitment_id = @id LIMIT 1`,
         params: { id: String(snap.commitment_id) }, location: "EU",
       }).then((r: any) => readComponents(flat((Array.isArray(r?.[0]) ? r[0] : [])[0]?.components))).catch(() => [] as ReturnType<typeof readComponents>);
+      // Articles des photos (livrable 2, 03/09) — amorcé en parallèle de la lecture continue.
+      const _itemsP = buildPoleItemsReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), (snap as any).version_no != null ? Number((snap as any).version_no) : null, _famList, asOfP).catch(() => null);
       const pole = await buildPoleReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), _famList, asOfP);
       const _comps = await _compsP;
+      (pole as any).items = await _itemsP;
       const commitment = {
         commitment_id: snap.commitment_id, location_id: snap.location_id, status: snap.status,
         dispositif_nature: "permanent",

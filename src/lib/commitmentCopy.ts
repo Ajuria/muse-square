@@ -198,6 +198,19 @@ export const EVOL_COPY = {
   // déjà le mot des retours de signal (positive/negative/confirmed).
   pole_photo_confirm: "Confirmer →",
   pole_photo_confirmed: "Articles confirmés :",
+  // Articles des photos face aux ventes (livrable 2, 03/09) — miroir des chaînes de la lecture du
+  // pôle (« Résultats — 30 derniers jours », « {n30} j vendus · habituel {base} €/j »).
+  pole_items_title: "Articles des photos — 30 derniers jours",
+  pole_items_caption: "Ventes de chaque article vu sur une photo, comparées à votre résultat habituel sur les mêmes jours.",
+  pole_items_retrait_title: "En retrait sur votre résultat habituel",
+  pole_items_unseen_title: "Vendus sans être vus sur une photo",
+  pole_items_row: "{rev} € sur {n} j vendus · habituel {exp} €",
+  pole_items_thin: "Données insuffisantes",
+  pole_items_no_photos: "Aucune photo lue pour l'instant.",
+  pole_items_no_retrait: "Aucun article vu sur les photos n'est en retrait.",
+  pole_items_all_seen: "Tous les articles vendus des familles du pôle sont vus sur une photo.",
+  pole_items_confirmed: "confirmé",
+  pole_items_recognised: "reconnu",
   pole_reading_title: "Résultats — 30 derniers jours",
   pole_reading_caption: "€/j des jours vendus, comparé aux 90 jours précédents.",
   pole_reading_row: "{n30} j vendus · habituel {base} €/j",
