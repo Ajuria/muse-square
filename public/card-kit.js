@@ -2061,6 +2061,23 @@
   // Etape 4 (03/09) : le rendu d'une photo LUE d'un composant — vignette servie par l'API,
   // date, compte des reponses, puis la liste question → reponse (les questions sont celles du
   // registre, servies par l'API). Aucune phrase de conseil : des faits lus sur l'image.
+  // Articles : CONFIRMÉS s'ils le sont (le mot de l'exploitant prime) ; sinon les reconnus, chacun
+  // avec une case cochée, et « Confirmer → » — la page POSTe les cases cochées.
+  function itemsBlock(photo, t) {
+    if (Array.isArray(photo.items_confirmed)) {
+      return '<div data-eg-items-confirmed style="margin-top:4px;font-size:12px;color:#374151;">' + esc(t('pole_photo_confirmed')) + ' '
+        + (photo.items_confirmed.length ? photo.items_confirmed.map(function (it) { return esc(it.item_description || it.item_code); }).join(', ') : '\u2014') + '</div>';
+    }
+    if (!Array.isArray(photo.items_matched) || !photo.items_matched.length) return '';
+    return '<div data-eg-items-confirm="' + esc(photo.photo_id || '') + '" style="margin-top:6px;font-size:12px;color:#374151;">'
+      + '<div>' + esc(t('pole_photo_items')) + '</div>'
+      + photo.items_matched.map(function (it) {
+          return '<label style="display:inline-flex;align-items:center;gap:5px;margin:3px 10px 3px 0;cursor:pointer;"><input type="checkbox" data-eg-item="' + esc(it.item_code) + '" checked> ' + esc(it.item_description || it.item_code) + '</label>';
+        }).join('')
+      + '<div style="margin-top:4px;"><button type="button" data-eg-items-submit style="font-size:12px;font-weight:500;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit;">' + esc(t('pole_photo_confirm')) + '</button></div>'
+      + '</div>';
+  }
+
   function renderComponentPhoto(photo, copy) {
     var t = function (k) { return (copy && copy[k]) || ''; };
     if (!photo) return esc(t('pole_photo_none'));
@@ -2077,7 +2094,7 @@
           var v = cl[q.key]; var col = v === 'oui' ? '#0F6E56' : v === 'non' ? '#B45309' : '#9CA3AF';
           return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;border-bottom:1px solid #F3F4F6;"><span style="color:#374151;">' + esc(q.question_fr) + '</span><span style="color:' + col + ';font-weight:600;white-space:nowrap;">' + esc(ans[v] || '') + '</span></div>';
         }).join('') + '</div>' : '')
-      + (Array.isArray(photo.items_matched) && photo.items_matched.length ? '<div style="margin-top:4px;font-size:12px;color:#374151;">' + esc(t('pole_photo_items')) + ' ' + photo.items_matched.map(function (it) { return esc(it.item_description || it.item_code); }).join(', ') + '</div>' : '')
+      + itemsBlock(photo, t)
       + '</div></div>';
   }
 

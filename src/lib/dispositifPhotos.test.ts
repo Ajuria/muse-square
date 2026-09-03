@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { latestPerComponent, photoObjectPath, photoGcsUri, type PhotoRow } from "./dispositifPhotos";
+import { latestPerComponent, photoObjectPath, photoGcsUri, withConfirmedItems, type PhotoRow } from "./dispositifPhotos";
 const row = (o: Partial<PhotoRow>): PhotoRow => ({ photo_id: "p", location_id: "l", dispositif_id: "d", version_no: 1, component_key: "c", walk_id: null, seq: null, t_offset_s: null, gcs_uri: "gs://x", dispositif_type: null, dispositif_role: null, status: "read", checklist: null, items_matched: null, items_confirmed: null, prices_seen: null, coverage_flag: null, model: null, prompt_version: null, created_by: null, created_at: "2026-09-03T10:00:00Z", ...o });
 describe("dispositifPhotos — pur", () => {
   it("latestPerComponent garde la plus récente par (version, composant), quel que soit l'ordre d'entrée", () => {
@@ -9,5 +9,19 @@ describe("dispositifPhotos — pur", () => {
   it("le chemin objet et l'URI gs:// sont déterministes", () => {
     expect(photoObjectPath("loc", "disp", "ph")).toBe("loc/disp/ph.jpg");
     expect(photoGcsUri("loc/disp/ph.jpg")).toBe("gs://ms-dispositif-photo/loc/disp/ph.jpg");
+  });
+});
+
+describe("withConfirmedItems — la confirmation de l'exploitant", () => {
+  it("garde les codes de la liste du site, dédoublonne, écarte l'inconnu, date la ligne — et la dernière ligne gagne", () => {
+    const base = row({ items_matched: [{ item_code: "A", confidence: "haute" }, { item_code: "B", confidence: "faible" }] });
+    const c = withConfirmedItems(base, ["A", "A", "C", "ZZ", " "], ["A", "B", "C"], "2026-09-04T09:00:00Z");
+    expect(c.items_confirmed).toEqual([{ item_code: "A" }, { item_code: "C" }]);
+    expect(c.photo_id).toBe(base.photo_id);
+    expect(c.items_matched).toEqual(base.items_matched);
+    expect(latestPerComponent([base, c])[0].items_confirmed).toEqual([{ item_code: "A" }, { item_code: "C" }]);
+  });
+  it("une confirmation vide est une confirmation : aucun article", () => {
+    expect(withConfirmedItems(row({}), [], ["A"], "2026-09-04T09:00:00Z").items_confirmed).toEqual([]);
   });
 });

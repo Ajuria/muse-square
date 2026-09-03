@@ -194,6 +194,10 @@ export const EVOL_COPY = {
   pole_photo_person: "Une personne est visible sur la photo — elle n'est pas conservée.",
   pole_photo_failed: "La lecture de la photo a échoué — réessayez.",
   pole_photo_reading: "Lecture en cours…",
+  // Confirmation des articles (03/09) : « Confirmer → » = CTA verbe + flèche ; « confirmé » est
+  // déjà le mot des retours de signal (positive/negative/confirmed).
+  pole_photo_confirm: "Confirmer →",
+  pole_photo_confirmed: "Articles confirmés :",
   pole_reading_title: "Résultats — 30 derniers jours",
   pole_reading_caption: "€/j des jours vendus, comparé aux 90 jours précédents.",
   pole_reading_row: "{n30} j vendus · habituel {base} €/j",

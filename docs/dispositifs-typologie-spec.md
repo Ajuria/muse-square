@@ -98,8 +98,10 @@ téléphone ; quand une personne est visible, l'image est effacée aussitôt et 
 écrite. Vérifié le 03/09 sur Muse Square avec une image de rayon synthétique portant trois de ses
 articles et un intrus : lecture en 7,6 s, huit réponses, les trois articles reconnus (l'un à
 confiance moyenne — l'appariement reste une proposition), l'intrus ignoré, ligne et image relues,
-sondes effacées. Reste de l'étape 4 : l'étape d'onboarding qui appelle ce dépôt (D6), la
-confirmation des articles par l'exploitant (`items_confirmed`), la marche filmée.
+sondes effacées. L'exploitant confirme ou corrige les articles reconnus (03/09, incrément 2a) : sur la photo
+lue, une case cochée par article et « Confirmer → » ; la confirmation est une nouvelle ligne de
+la même photo, la dernière gagne, et les articles confirmés priment partout sur les reconnus.
+Reste de l'étape 4 : l'étape d'onboarding qui appelle ce dépôt (D6), la marche filmée.
 
 **On sait quel produit est sur chaque ligne de vente.** Chaque ligne importée de la caisse
 contient le code de l'article, sa désignation, sa famille, le numéro de ticket ou de facture, et
@@ -520,8 +522,8 @@ présente comme telle.
 3b. (fait le 03/09 : chaîne semantic en base — PR #93 — et lecteurs Explorer / Piloter /
    Compte / document du pôle basculés sur la vue et le mart, § 1.)
 4. (fait le 03/09 : bucket, table, transport image, lecture + porte avec lie-bait — § 1.)
-5. (fait le 03/09 pour le dépôt sur le document du pôle — § 1.) Reste l'étape d'onboarding qui
-   l'appelle pour chaque composant (D6), et la confirmation des articles reconnus.
+5. (fait le 03/09 : dépôt sur le document du pôle et confirmation des articles — § 1.) Reste
+   l'étape d'onboarding qui l'appelle pour chaque composant (D6).
 6. Livrer les résultats 1 et 2 sur Muse Square (80 articles, photos d'Épices et Tout), vérifiés
    par le harnais et non à l'œil.
 7. Ajouter le type et le rôle au crawl (5.4) ; livrer le résultat 3.

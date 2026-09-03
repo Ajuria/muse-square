@@ -4,6 +4,9 @@
 //   GET  ?dispositif_id=&version_no=   → la dernière photo lue par composant (+ url de l'image)
 //   GET  ?dispositif_id=&file=<photo_id> → l'image elle-même (proxy authentifié — le bucket est privé,
 //                                       rien n'est signé ni public)
+//   POST {action: "confirm", dispositif_id, photo_id, items_confirmed: [item_code]}
+//        → une NOUVELLE ligne de la même photo avec les articles confirmés (append-only, la
+//          dernière gagne) ; codes hors liste du site écartés. items_confirmed prime partout.
 //   POST {dispositif_id, version_no, component_key, image_base64, content_type}
 //        → écrit l'objet, LIT la photo (une consigne + un schéma générés depuis le registre,
 //          une porte qui rejette toute clé hors registre et tout code hors liste), écrit la ligne.
@@ -18,7 +21,7 @@ import { requireLocationOwnership, requireLocationAccess } from "../../../lib/re
 import { readComponents, dispositifTypeLabelFr, checklistFor } from "../../../lib/dispositifTypes";
 import {
   PHOTO_MAX_BYTES, makeStorageClient, photoObjectPath, photoGcsUri, putPhotoObject, getPhotoObject, deletePhotoObject,
-  insertPhotoRow, listPhotoRows, latestPerComponent, listSiteItems, type PhotoRow,
+  insertPhotoRow, listPhotoRows, latestPerComponent, listSiteItems, withConfirmedItems, type PhotoRow,
 } from "../../../lib/dispositifPhotos";
 import { PHOTO_PROMPT_VERSION, photoQuestions, photoExtractionSchema, photoExtractionSystem } from "../../../lib/ai/photoExtraction";
 import { validatePhotoExtraction } from "../../../lib/ai/contracts/photoExtractionChecks";
@@ -61,7 +64,8 @@ function publicRow(r: PhotoRow, itemsByCode: Record<string, string>) {
     url: photoUrl(r.dispositif_id, r.photo_id), status: r.status, checklist: r.checklist,
     questions: r.dispositif_type ? checklistFor(r.dispositif_type, r.dispositif_role).map((q) => ({ key: q.key, question_fr: q.question_fr })) : [],
     items_matched: (r.items_matched ?? []).map((it) => ({ ...it, item_description: itemsByCode[it.item_code] ?? null })),
-    items_confirmed: r.items_confirmed, prices_seen: r.prices_seen, coverage_flag: r.coverage_flag, created_at: r.created_at,
+    items_confirmed: r.items_confirmed ? r.items_confirmed.map((it) => ({ ...it, item_description: itemsByCode[it.item_code] ?? null })) : null,
+    prices_seen: r.prices_seen, coverage_flag: r.coverage_flag, created_at: r.created_at,
     dispositif_type: r.dispositif_type, dispositif_type_label_fr: r.dispositif_type ? dispositifTypeLabelFr(r.dispositif_type) : null,
   };
 }
@@ -108,6 +112,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const body = await request.json().catch(() => null);
     if (!body) return json({ ok: false, error: "Champs requis manquants" }, 400);
     const dispositif_id = String(body.dispositif_id || "").trim();
+
+    // ── Confirmation des articles (incrément 2a, 03/09) ──
+    if (String(body.action || "") === "confirm") {
+      const photo_id = String(body.photo_id || "").trim();
+      if (!dispositif_id || !photo_id || !Array.isArray(body.items_confirmed)) return json({ ok: false, error: "dispositif_id, photo_id, items_confirmed requis" }, 400);
+      const bq0 = makeBQClient(BQ_PROJECT);
+      const disp0 = await readDispositif(bq0, dispositif_id, null);
+      if (!disp0) return json({ ok: false, error: "dispositif introuvable" }, 404);
+      requireLocationOwnership(locals, disp0.location_id);
+      const [rows0, items0] = await Promise.all([listPhotoRows(bq0, dispositif_id), listSiteItems(bq0, disp0.location_id)]);
+      const current = rows0.find((r) => r.photo_id === photo_id);
+      if (!current) return json({ ok: false, error: "photo introuvable" }, 404);
+      const confirmed = withConfirmedItems(current, body.items_confirmed.map((c: any) => String(c)), items0.map((i) => i.item_code), new Date().toISOString());
+      await insertPhotoRow(bq0, confirmed);
+      return json({ ok: true, photo: publicRow(confirmed, byCode(items0)) });
+    }
+
     const component_key = String(body.component_key || "").trim();
     const version_no = body.version_no != null && Number.isFinite(Number(body.version_no)) ? Number(body.version_no) : null;
     const content_type = String(body.content_type || "image/jpeg");

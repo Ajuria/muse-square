@@ -229,7 +229,7 @@ it("un pôle SANS composant dit l'absence (lexique règle 7), jamais une section
 
 it("renderComponentPhoto : vignette servie par l'API, date, comptes, question → réponse, articles par désignation", () => {
   const html = String(kit.renderComponentPhoto({
-    url: "/api/dispositifs/photos?dispositif_id=d&file=p", created_at: "2026-09-03T10:00:00Z",
+    photo_id: "p1", url: "/api/dispositifs/photos?dispositif_id=d&file=p", created_at: "2026-09-03T10:00:00Z",
     checklist: { ls_moyen_essai: "non", ls_prix_par_article: "oui", ls_facing_vide: "non_visible" },
     questions: [{ key: "ls_moyen_essai", question_fr: "Y a-t-il un moyen d'essayer : sentir, goûter, toucher, un échantillon ?" }, { key: "ls_prix_par_article", question_fr: "Chaque article porte-t-il son prix ?" }, { key: "ls_facing_vide", question_fr: "Un emplacement est-il vide au moment de la photo ?" }],
     items_matched: [{ item_code: "CF-1", confidence: "haute", item_description: "Ethiopia" }],
@@ -237,7 +237,16 @@ it("renderComponentPhoto : vignette servie par l'API, date, comptes, question �
   expect(html).toContain('src="/api/dispositifs/photos?dispositif_id=d&amp;file=p"');
   expect(html).toContain("03/09/2026 · 1 oui · 1 non · 1 non visible");
   expect(html).toContain("Y a-t-il un moyen d'essayer");
-  expect(html).toContain("Articles reconnus : Ethiopia");
-  expect(html).not.toContain("CF-1");
+  // Reconnus, pas encore confirmés : une case cochée par article + « Confirmer → »
+  expect(html).toContain("Articles reconnus :");
+  expect(html).toContain('<input type="checkbox" data-eg-item="CF-1" checked> Ethiopia');
+  expect(html).toContain("Confirmer →");
+  expect(html).toContain('data-eg-items-confirm="p1"');
+  // Confirmés : le mot de l'exploitant prime, plus de cases
+  const confirmed = String(kit.renderComponentPhoto({ photo_id: "p1", url: "/x", created_at: "2026-09-03T10:00:00Z", checklist: {}, questions: [], items_matched: [{ item_code: "CF-1", confidence: "haute", item_description: "Ethiopia" }], items_confirmed: [{ item_code: "CF-2", item_description: "Latte" }] }, EVOL_COPY));
+  expect(confirmed).toContain("Articles confirmés : Latte");
+  expect(confirmed).not.toContain("checkbox");
+  const none = String(kit.renderComponentPhoto({ photo_id: "p1", url: "/x", created_at: "2026-09-03T10:00:00Z", checklist: {}, questions: [], items_matched: [], items_confirmed: [] }, EVOL_COPY));
+  expect(none).toContain("Articles confirmés : —");
   expect(String(kit.renderComponentPhoto(null, EVOL_COPY))).toBe("Aucune photo pour l'instant.");
 });

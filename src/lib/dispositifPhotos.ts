@@ -62,15 +62,19 @@ export async function insertPhotoRow(bq: any, row: PhotoRow): Promise<void> {
     items_confirmed: row.items_confirmed ? JSON.stringify(row.items_confirmed) : null,
     prices_seen: row.prices_seen ? JSON.stringify(row.prices_seen) : null,
     coverage_flag: row.coverage_flag, model: row.model, prompt_version: row.prompt_version, created_by: row.created_by,
+    // created_at = celui de la LIGNE (03/09) : la valeur stockée est celle que l'API rend à la page,
+    // et l'ordre append-only (la dernière gagne) est celui que l'app a décidé — jamais l'heure
+    // d'insertion, qui avait fait gagner une vieille photo réinsérée en dernier (sonde lot 2).
+    created_at: new Date(row.created_at),
   };
   const types: Record<string, string> = {
     walk_id: "STRING", seq: "INT64", t_offset_s: "FLOAT64", dispositif_type: "STRING", dispositif_role: "STRING",
     checklist: "STRING", items_matched: "STRING", items_confirmed: "STRING", prices_seen: "STRING",
-    coverage_flag: "STRING", model: "STRING", prompt_version: "STRING", created_by: "STRING",
+    coverage_flag: "STRING", model: "STRING", prompt_version: "STRING", created_by: "STRING", created_at: "TIMESTAMP",
   };
   const cols = Object.keys(params);
   const [job] = await bq.createQueryJob({
-    query: `INSERT INTO \`${PHOTO_TABLE}\` (${cols.join(", ")}, created_at) VALUES (${cols.map((c) => "@" + c).join(", ")}, CURRENT_TIMESTAMP())`,
+    query: `INSERT INTO \`${PHOTO_TABLE}\` (${cols.join(", ")}) VALUES (${cols.map((c) => "@" + c).join(", ")})`,
     params, types, location: "EU",
   });
   await job.getQueryResults();
@@ -126,4 +130,14 @@ export async function listSiteItems(bq: any, location_id: string, limit = 500): 
     params: { l: location_id }, location: "EU",
   }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
   return (rows as any[]).map((r) => ({ item_code: String(flat(r.item_code)), item_description: String(flat(r.item_description) ?? "") }));
+}
+
+// PUR : la ligne de CONFIRMATION d'une photo — même photo_id, items_confirmed posé, created_at
+// maintenant. Append-only : on n'édite jamais une ligne, la dernière gagne (latestPerComponent).
+// Les codes hors liste du site sont écartés, jamais corrigés ; un code confirmé qui n'était pas
+// reconnu par la lecture est accepté (l'exploitant voit mieux que le modèle).
+export function withConfirmedItems(row: PhotoRow, codes: string[], allowedCodes: readonly string[], now: string): PhotoRow {
+  const allowed = new Set(allowedCodes);
+  const uniq = Array.from(new Set(codes.map((c) => String(c).trim()).filter((c) => c && allowed.has(c))));
+  return { ...row, items_confirmed: uniq.map((item_code) => ({ item_code })), created_at: now };
 }

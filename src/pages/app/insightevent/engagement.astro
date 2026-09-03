@@ -41,7 +41,7 @@ const id = Astro.url.searchParams.get("id") || "";
 
     <script is:inline src="/ms-loader.js?v=2"></script>
     <script is:inline src="/commit-form.js?v=15"></script>
-    <script is:inline src="/card-kit.js?v=68"></script>
+    <script is:inline src="/card-kit.js?v=69"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -93,6 +93,21 @@ const id = Astro.url.searchParams.get("id") || "";
               });
             }
             sec.addEventListener("click", function (ev) {
+              // Confirmer les articles (03/09) : les cases cochées partent en items_confirmed.
+              var cbtn = ev.target && ev.target.closest ? ev.target.closest("[data-eg-items-submit]") : null;
+              if (cbtn) {
+                var box = cbtn.closest("[data-eg-items-confirm]"); var rowEl = cbtn.closest("[data-eg-component]");
+                if (!box || !rowEl) return;
+                var pid = box.getAttribute("data-eg-items-confirm"); var ckey = rowEl.getAttribute("data-eg-component");
+                var codes = Array.prototype.map.call(box.querySelectorAll("[data-eg-item]:checked"), function (i) { return i.getAttribute("data-eg-item"); });
+                cbtn.disabled = true;
+                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "confirm", dispositif_id: did, photo_id: pid, items_confirmed: codes }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) { if (j && j.ok && j.photo) show(ckey, j.photo); else { cbtn.disabled = false; } })
+                  .catch(function () { cbtn.disabled = false; });
+                return;
+              }
               var btn = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-add]") : null;
               if (!btn) return;
               var key = btn.getAttribute("data-eg-photo-add");
