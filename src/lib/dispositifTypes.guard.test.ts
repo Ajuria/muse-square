@@ -114,7 +114,7 @@ describe("dispositifTypes — libellés", () => {
     for (const s of strings) expect(hasBanned(s), s).toEqual([]);
   });
   it("les libellés sans mot owner sont marqués provisoires (et seulement eux)", () => {
-    const owner = new Set(["vitrine", "lineaire", "gondole", "tete_de_gondole", "point_assiste", "mediation", "autre"]);
+    const owner = new Set(["vitrine", "lineaire", "gondole", "tete_de_gondole", "table_ilot", "point_assiste", "caisse", "espace_experience", "mediation", "autre"]);
     for (const o of DISPOSITIF_TYPES) expect(!!o.provisoire, o.value).toBe(!owner.has(o.value));
   });
 });

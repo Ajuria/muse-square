@@ -149,9 +149,13 @@ photo entrera.
 
 Aucun libellé visible par l'utilisateur ne s'écrit avant que l'owner ait choisi le mot. Les mots
 ci-dessous sont ceux que l'owner a employés ou proposés pendant la session du 03/09 ; ils sont
-validés par l'owner le 03/09 (D2) et sont inscrits au lexique (onze lignes, dont deux qui
-listent les libellés encore SANS mot : les rôles, table ou îlot, caisse, espace dégustation /
-atelier, panneau de salle, signalétique — marqués `provisoire` dans le registre). Les clés de code, elles, sont internes et se figent au
+validés par l'owner le 03/09 (D2) et sont inscrits au lexique. Les mots de l'après-midi du 03/09
+ont levé presque tous les libellés provisoires : Îlot, Caisse, Espace dégustation, Service client
+(forme courte de « point service / vente avec une personne »), Produits du quotidien, Produits de
+connaisseur, Promotion, Service au comptoir, Conseiller clientèle, Accueil, Signalétique, et
+« Rôle » pour le second menu du formulaire. Restent SANS mot, donc non rendus : le rôle impulsion
+(« Achat d'impulsion » proposé) et le sous-type panneau de salle. Les seeds dbt se régénèrent
+depuis le registre (`docs/dbt-handoff/HANDOFF-seeds-composants-2026-09-03.md`). Les clés de code, elles, sont internes et se figent au
 premier enregistrement.
 
 | Ce qu'il faut nommer | Mot employé ou proposé par l'owner le 03/09 | Clé interne |
@@ -507,8 +511,8 @@ présente comme telle.
 
 ## 9. Ce qui reste à faire, dans cet ordre
 
-1. Obtenir de l'owner les mots encore provisoires (lexique, ligne « Trois types de composant… »
-   et ligne « rôle ») avant tout rendu à l'écran.
+1. (fait le 03/09 pour onze mots — § 2.) Restent : le rôle impulsion et le panneau de salle ;
+   appliquer la passation des seeds dans dbt Cloud IDE.
 2. (fait le 03/09 : mots au lexique, registre et garde, ligne dans `module-index.md`.)
 3. (fait le 03/09 : colonne, endpoint, document du pôle, formulaire — § 1.) Reste, lié au
    point 1 : les rôles du libre-service et trois types n'apparaissent au formulaire qu'une fois

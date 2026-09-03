@@ -10,8 +10,10 @@
 // ce qu'il contient et comment le client le choisit (courant, expert, impulsion, promo). Les
 // questions de la check-list dépendent des deux.
 //
-// Mots : docs/lexique.md fait loi. Les libellés marqués `provisoire: true` n'ont PAS de mot owner
-// (lexique, lignes du 03/09) — ils se demandent avant tout rendu, ils ne s'inventent pas. Les
+// Mots : docs/lexique.md fait loi. Mots owner du 03/09 (après-midi) : Îlot, Caisse, Espace dégustation,
+// Service client, Produits du quotidien, Produits de connaisseur, Promotion, Service au comptoir,
+// Conseiller clientèle, Accueil, Signalétique. Restent `provisoire: true` (aucun mot owner — se
+// demandent avant tout rendu, ne s'inventent pas) : le rôle impulsion et le panneau de salle. Les
 // `question_fr` sont la consigne d'extraction (une question à laquelle une photo répond oui / non /
 // on ne voit pas) — pas une phrase de geste ; tout rendu à l'écran repasse par le lexique.
 
@@ -47,10 +49,10 @@ export const DISPOSITIF_TYPES: DispositifTypeOption[] = [
   { value: "lineaire", label_fr: "Linéaire" },
   { value: "gondole", label_fr: "Gondole" },
   { value: "tete_de_gondole", label_fr: "Tête de gondole" },
-  { value: "table_ilot", label_fr: "Table ou îlot", provisoire: true },
-  { value: "point_assiste", label_fr: "Point service / vente avec une personne" },
-  { value: "caisse", label_fr: "Caisse", provisoire: true },
-  { value: "espace_experience", label_fr: "Espace dégustation / atelier", provisoire: true },
+  { value: "table_ilot", label_fr: "Îlot" },
+  { value: "point_assiste", label_fr: "Service client" },
+  { value: "caisse", label_fr: "Caisse" },
+  { value: "espace_experience", label_fr: "Espace dégustation" },
   { value: "mediation", label_fr: "Dispositif de médiation" },
   { value: "autre", label_fr: "Autre" },
 ];
@@ -58,21 +60,21 @@ export const DISPOSITIF_TYPES: DispositifTypeOption[] = [
 // ── Les rôles, par type ────────────────────────────────────────────────────────────────────────
 // Libre-service : ce que l'unité contient et comment le client le choisit (libellés provisoires).
 const ROLES_LIBRE_SERVICE: DispositifRoleOption[] = [
-  { value: "courant", label_fr: "Produits courants", provisoire: true },
-  { value: "expert", label_fr: "Produits d'expert", provisoire: true },
+  { value: "courant", label_fr: "Produits du quotidien" },
+  { value: "expert", label_fr: "Produits de connaisseur" },
   { value: "impulsion", label_fr: "Achats d'impulsion", provisoire: true },
-  { value: "promo", label_fr: "Offre temporaire", provisoire: true },
+  { value: "promo", label_fr: "Promotion" },
 ];
 const ROLES_POINT_ASSISTE: DispositifRoleOption[] = [
-  { value: "comptoir_service", label_fr: "La personne sert le produit", provisoire: true },
-  { value: "point_conseil", label_fr: "La personne conseille, le produit est ailleurs", provisoire: true },
-  { value: "billetterie_accueil", label_fr: "Accueil / billetterie", provisoire: true },
+  { value: "comptoir_service", label_fr: "Service au comptoir" },
+  { value: "point_conseil", label_fr: "Conseiller clientèle" },
+  { value: "billetterie_accueil", label_fr: "Accueil" },
 ];
 const ROLES_MEDIATION: DispositifRoleOption[] = [
   { value: "cartel", label_fr: "Cartel" },
   { value: "panneau_de_salle", label_fr: "Panneau de salle", provisoire: true },
   { value: "multimedia", label_fr: "Dispositif multimédia" },
-  { value: "signaletique", label_fr: "Signalétique", provisoire: true },
+  { value: "signaletique", label_fr: "Signalétique" },
 ];
 
 export const ROLES_BY_TYPE: Record<string, DispositifRoleOption[]> = {

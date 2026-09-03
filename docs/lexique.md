@@ -65,13 +65,18 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Le meuble central double face | **gondole** (owner 03/09) | — |
 | L'extrémité d'un rayon, très utilisée pour les promotions | **tête de gondole** (owner 03/09) | TG à l'écran (abréviation, règle 6 de tournure) |
 | La présentation qu'on voit depuis la rue | **vitrine** (owner 03/09 ; mot déjà en prod dans les champs mémoire) | — |
-| L'endroit où une personne sert ou conseille | **point service / vente avec une personne** (phrase owner 03/09 — **forme courte pour un menu déroulant NON choisie** : demander avant tout rendu) | comptoir (comme nom de type), point assisté (clé interne seulement) |
+| L'endroit où une personne sert ou conseille | **point service / vente avec une personne** (phrase owner 03/09 matin) ; forme courte à l'écran : **Service client** (owner 03/09 après-midi) | comptoir (comme nom de type), point assisté (clé interne seulement) |
 | Ce qui permet à un musée de parler à son public | **dispositif de médiation** (owner 03/09 : cartel, dispositif multimédia…) | — |
 | Ce que le client fait pour acheter : où il va, ce qu'il combine, ce qu'il doit marcher ou demander | **parcours d'achat** (owner 03/09) | customer journey |
 | Le trajet le plus court qui permet d'acheter ce qu'un ticket contient | **parcours idéal-type** (owner 03/09 — s'affiche toujours comme un minimum : on ne sait pas si le client a hésité ou fait des allers-retours) | parcours réel, trajet |
-| Ce qu'un composant contient et comment le client le choisit | **rôle** — clé interne (`dispositif_role`) ; valeurs courant · expert · impulsion · promo = **libellés PROVISOIRES, non arbitrés** (registre `dispositifTypes.ts`, marqués `provisoire`) | — |
+| Ce qu'un composant contient et comment le client le choisit (le second menu du formulaire) | **Rôle** (owner 03/09) ; ses valeurs : **Produits du quotidien** (courant), **Produits de connaisseur** (expert), **Promotion** (promo) — owner 03/09 ; **impulsion : EN ATTENTE** (« Achat d'impulsion » proposé, non validé — reste `provisoire`, non rendu) | Produits courants, Produits d'expert, Offre temporaire (brouillons du 03/09 matin) |
 | L'image d'un composant, pièce de la mémoire d'une version | **photo** (mot employé par l'owner le 03/09 — D6 « les photos des composants font partie de l'onboarding » ; le CTA qui y mène reste **Documenter →**) | image, cliché, visuel |
-| Trois types de composant et quatre sous-types de médiation sans mot arbitré | table ou îlot · caisse · espace dégustation / atelier · panneau de salle · signalétique — **libellés PROVISOIRES** dans le registre, marqués `provisoire` ; demander le mot avant tout rendu | — |
+| Présentation libre au milieu du magasin (type de composant) | **Îlot** (owner 03/09) | Table ou îlot, table |
+| La zone d'encaissement (type de composant) | **Caisse** (owner 03/09 — même mot que le champ profil « Caisse / logiciel de vente » : le contexte tranche) | Zone de caisse |
+| Dégustation, atelier, démonstration (type de composant) | **Espace dégustation** (owner 03/09) | Espace dégustation / atelier, atelier |
+| Forme courte de « point service / vente avec une personne » (menu déroulant) | **Service client** (owner 03/09) | Point service, point assisté, comptoir (comme nom de type) |
+| Rôles d'un Service client | **Service au comptoir** (la personne sert le produit) · **Conseiller clientèle** (la personne conseille, le produit est ailleurs) · **Accueil** (accueil / billetterie) — owner 03/09 | Comptoir, Point conseil, Billetterie |
+| Sous-types de médiation | **Cartel** · **Dispositif multimédia** · **Signalétique** (owner 03/09) ; **panneau de salle : EN ATTENTE** (proposé, non validé — reste `provisoire`, non rendu) | Texte de salle, parcours fléché |
 
 ## Les mots des interactions humaines (Slack — registre distinct, owner 28/08)
 

@@ -85,7 +85,7 @@
       var rSel = row.querySelector('[data-ef-comp-role]');
       var syncRoles = function () {
         var roles = roleOptions(tSel.value);
-        rSel.innerHTML = '<option value=""></option>' + roles.map(function (r) { return '<option value="' + esc(r.value) + '">' + esc(r.label_fr) + '</option>'; }).join('');
+        rSel.innerHTML = '<option value="">R\u00f4le</option>' + roles.map(function (r) { return '<option value="' + esc(r.value) + '">' + esc(r.label_fr) + '</option>'; }).join('');
         rSel.style.display = roles.length ? '' : 'none';
       };
       tSel.addEventListener('change', syncRoles);
