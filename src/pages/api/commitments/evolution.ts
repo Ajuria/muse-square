@@ -211,15 +211,25 @@ export const GET: APIRoute = async ({ url, locals }) => {
       let _famList: string[] = [];
       try { _famList = JSON.parse(String((snap as any).pole_families || "[]")); } catch { /* périmètre illisible → lecture vide, jamais un crash */ }
       const asOfP = new Date().toISOString().slice(0, 10);
+      // Composants de CETTE version (03/09, § 5.5) : lus dans la couche SEMANTIC — la vue mémoire
+      // porte le JSON `components` de chaque version (la vue composants ne porte que la version
+      // courante ; le mart est hors frontière : warehouseBoundary.guard). Jamais la table analytics.
+      // Amorcé en parallèle de la lecture continue.
+      const _compsP = bq.query({
+        query: `SELECT components FROM \`${BQ_PROJECT}.semantic.vw_insight_event_commitment_memory\`
+                WHERE commitment_id = @id LIMIT 1`,
+        params: { id: String(snap.commitment_id) }, location: "EU",
+      }).then((r: any) => readComponents(flat((Array.isArray(r?.[0]) ? r[0] : [])[0]?.components))).catch(() => [] as ReturnType<typeof readComponents>);
       const pole = await buildPoleReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), _famList, asOfP);
+      const _comps = await _compsP;
       const commitment = {
         commitment_id: snap.commitment_id, location_id: snap.location_id, status: snap.status,
         dispositif_nature: "permanent",
         committed_action_text: snap.committed_action_text, owner_person_name: snap.owner_person_name,
         pole_families: (snap as any).pole_families ?? null,
-        // Composants (03/09) : liste LUE et libellée côté serveur (registre dispositifTypes) — le
-        // client n'a ni le JSON brut ni le registre à charger.
-        components: readComponents((snap as any).components).map((c) => ({
+        // Composants (03/09) : libellés côté serveur (registre dispositifTypes) — le client n'a
+        // ni le JSON brut ni le registre à charger.
+        components: _comps.map((c) => ({
           key: c.key, type: c.type, role: c.role, label: c.label,
           type_label_fr: dispositifTypeLabelFr(c.type), role_label_fr: c.role ? dispositifRoleLabelFr(c.role) : "",
         })),

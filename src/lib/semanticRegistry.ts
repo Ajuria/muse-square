@@ -14,7 +14,7 @@ import { KPI_NOM_FR, type KpiKey } from "./kpiRegistry";
 
 // ── Types d'entités (les MOTS sont ceux du lexique — jamais réécrits ici) ──────────────────
 export interface EntityTypeDef {
-  kind: "pole" | "famille" | "operation" | "personne";
+  kind: "pole" | "famille" | "operation" | "personne" | "composant";
   mot_fr: string;
   definition_fr: string;      // la définition business, voix owner (source : lexique/specs)
   relations_fr: string[];     // relations nommées — celles que les composeurs implémentent
@@ -38,6 +38,12 @@ export const ENTITY_TYPES: EntityTypeDef[] = [
     mot_fr: "opération",
     definition_fr: "Dispositif DATÉ ou récurrent (série) : des occurrences datées, un objectif dans UN KPI déclaré, un verdict par occurrence mesurée.",
     relations_fr: ["une opération A des occurrences datées", "une opération PEUT être rattachée à un pôle", "une occurrence mesurée PORTE un verdict dans le KPI déclaré"],
+  },
+  {
+    kind: "composant",
+    mot_fr: "composant",
+    definition_fr: "Unité PHYSIQUE d'un dispositif permanent (pôle) : linéaire, gondole, tête de gondole, vitrine, point service / vente avec une personne, dispositif de médiation… Nommé par son libellé (« Linéaire poivres ») ou par son type. Ce qu'on photographie ; sa mémoire suit les versions du dispositif.",
+    relations_fr: ["un composant APPARTIENT à un pôle", "un composant PORTE des articles (quand ils sont reconnus)"],
   },
   {
     kind: "personne",
@@ -175,6 +181,7 @@ export function resolverSystemPrompt(site: SiteEntities, today: string): string 
     `Familles produit : ${byKind("famille").join(" · ") || "(aucune)"}`,
     `Opérations : ${byKind("operation").join(" · ") || "(aucune)"}`,
     `Personnes : ${byKind("personne").join(" · ") || "(aucune)"}`,
+    `Composants (unités physiques des pôles) : ${byKind("composant").join(" · ") || "(aucun)"}`,
   ].join("\n");
   const defs = ENTITY_TYPES.map((t) => `- ${t.mot_fr} (${t.kind}) : ${t.definition_fr}`).join("\n");
   const concepts = CONCEPTS.map((c) => `- ${c.mot_fr} : ${c.definition_fr}`).join("\n");
@@ -196,7 +203,7 @@ ${lists}
 LE FORMULAIRE (réponds UNIQUEMENT ce JSON, exactement ces clés, sans fence markdown) :
 {
   "intent": "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "autre",
-  "entites": [ { "nom": "<recopie exacte d'une entité des listes>", "type": "pole" | "famille" | "operation" | "personne" } ],
+  "entites": [ { "nom": "<recopie exacte d'une entité des listes>", "type": "pole" | "famille" | "operation" | "personne" | "composant" } ],
   "periode": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "expression": "<les mots de l'utilisateur>" } | null,
   "periode_comparaison": <même forme que periode> | null,
   "kpi": "revenue_residual" | "transactions" | "basket" | "footfall" | "conversion" | "family_revenue" | "profit_estimated" | null,

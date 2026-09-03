@@ -69,8 +69,14 @@ version courante avec leur libellé et le drapeau « provisoire » lus dans deux
 depuis le registre de l'app. La vue mémoire (`vw_insight_event_commitment_memory`) porte les
 composants et le coût saisi. Toute la chaîne est en vues : un composant déclaré dans l'app se
 lit dans la session. Vérifié de bout en bout le 03/09 sur deux versions sonde de Muse Square,
-lues dans les vues de production en 8,8 s, puis effacées. Le prompt page et le résolveur
-Explorer lisent encore la table `analytics` en direct (étape 5.5).
+lues dans les vues de production en 8,8 s, puis effacées. Le résolveur Explorer connaît les composants (03/09, étape 5.5 faite) : ils sont chargés
+depuis la vue semantic, reconnus par leur libellé ou par leur type quand ils sont seuls de ce
+type (« ma vitrine »), et une question sur un composant rend ses faits déclarés — pôle, type,
+rôle s'il a un mot, version et date — puis les chiffres de son pôle, en disant que ses articles
+ne sont pas encore reconnus. Le volet pôle de Piloter et l'onglet Pôles du compte listent les
+composants ; le document du pôle lit les siens dans la vue mémoire. Plus aucun lecteur de composants
+sur la table analytics, ni sur le mart (frontière entrepôt : l'app lit semantic). Vérifié le 03/09 sur une sonde de Muse Square (résolveur, lecture,
+blocs, liste, prompt, mart), effacée ensuite.
 
 **On sait quel produit est sur chaque ligne de vente.** Chaque ligne importée de la caisse
 contient le code de l'article, sa désignation, sa famille, le numéro de ticket ou de facture, et
@@ -482,8 +488,8 @@ présente comme telle.
 3. (fait le 03/09 : colonne, endpoint, document du pôle, formulaire — § 1.) Reste, lié au
    point 1 : les rôles du libre-service et trois types n'apparaissent au formulaire qu'une fois
    leur mot arbitré.
-3b. (fait le 03/09, appliqué par l'owner, PR #93 : la chaîne semantic des composants est en
-   base — § 1.) Reste 5.5 : les lecteurs Explorer basculent sur la vue.
+3b. (fait le 03/09 : chaîne semantic en base — PR #93 — et lecteurs Explorer / Piloter /
+   Compte / document du pôle basculés sur la vue et le mart, § 1.)
 4. Créer l'espace de stockage et les tables (5.2, D7) ; compléter l'appel au modèle pour les
    images ; écrire la lecture des photos et son contrôle (5.3), avec le test qui prouve que le
    contrôle attrape une invention, dans le même commit.

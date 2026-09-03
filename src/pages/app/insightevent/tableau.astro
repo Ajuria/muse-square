@@ -339,6 +339,16 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                         + (f.delta_pct != null ? ' <b style="color:' + (f.delta_pct >= 0 ? '#059669' : '#B45309') + ';">' + mDelta(f.delta_pct) + '</b>' : '') + '</span>';
                     }).join("") + '</div>';
               }
+              // Composants (03/09) : libellé libre, sinon le type ; jamais un libellé provisoire.
+              var comps = (p.components || []).filter(function (c) { return c.label || c.type_label_fr; });
+              if (comps.length) {
+                html += '<p class="tb-eb" style="margin:2px 2px 4px;">Composants</p>'
+                  + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 2px 8px;">'
+                  + comps.map(function (c) {
+                      var meta = [c.type_label_fr, c.role_label_fr].filter(function (x) { return !!x; }).join(' \u00b7 ');
+                      return '<span class="tb-chip" style="background:#F3F4F6;color:#374151;"' + (c.label && meta ? ' title="' + esc(meta) + '"' : '') + '>' + esc(c.label || c.type_label_fr) + '</span>';
+                    }).join("") + '</div>';
+              }
               var imp = p.impact || null;
               var nx = p.next || null;
               var djx = nx && nx.we ? daysTo(nx.we) : null;

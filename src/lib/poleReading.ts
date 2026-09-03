@@ -183,9 +183,67 @@ export interface PoleListRow {
   lever: string | null;
   responsable: string | null;
   commitment_id: string | null;
+  // Composants de la VERSION COURANTE (03/09, spec dispositifs-typologie § 5.5) — lus dans la
+  // couche semantic (vw_insight_event_dispositif_components), jamais dans la table analytics.
+  components: PoleComponentRow[];
+}
+
+// Un composant d'un dispositif permanent, tel que la couche semantic le libelle. Les libellés
+// `provisoire` n'ont pas de mot owner (lexique) : un rendu les OMET, il ne les invente pas.
+export interface PoleComponentRow {
+  dispositif_id: string;
+  component_key: string;
+  type: string;
+  type_label_fr: string | null;
+  type_provisoire: boolean;
+  role: string | null;
+  role_label_fr: string | null;
+  role_provisoire: boolean;
+  label: string | null;
+  version_no: number | null;
+  created_at: string | null;   // ISO — la version courante existe depuis cette date
+  pole_name: string;
+  pole_families: string[];
+}
+
+// LE foyer des composants — la vue semantic de la version courante (statut ouvert), triée par
+// pôle puis par ordre de déclaration. Une vue en chaîne de vues : un composant déclaré dans la
+// session se lit dans la session.
+export async function listPoleComponents(bq: any, location_id: string, limit = 200): Promise<PoleComponentRow[]> {
+  const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  const rows = await bq.query({
+    query: `SELECT dispositif_id, component_key, component_type, component_type_label_fr, component_type_provisoire,
+                   component_role, component_role_label_fr, component_role_provisoire, component_label,
+                   version_no, CAST(created_at AS STRING) AS created_at, committed_action_text, pole_families
+            FROM \`${PROJECT}.semantic.vw_insight_event_dispositif_components\`
+            WHERE location_id = @location_id AND status = 'open'
+            ORDER BY committed_action_text, component_order LIMIT ${Math.max(1, Math.min(500, limit))}`,
+    params: { location_id }, location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  return (rows as any[]).map((r) => {
+    let fams: string[] = [];
+    try { fams = JSON.parse(String(flat(r.pole_families) || "[]")); } catch { /* périmètre illisible */ }
+    return {
+      dispositif_id: String(flat(r.dispositif_id)),
+      component_key: String(flat(r.component_key)),
+      type: String(flat(r.component_type)),
+      type_label_fr: r.component_type_label_fr != null ? String(flat(r.component_type_label_fr)) : null,
+      type_provisoire: Boolean(flat(r.component_type_provisoire)),
+      role: r.component_role != null ? String(flat(r.component_role)) : null,
+      role_label_fr: r.component_role_label_fr != null ? String(flat(r.component_role_label_fr)) : null,
+      role_provisoire: Boolean(flat(r.component_role_provisoire)),
+      label: r.component_label != null ? String(flat(r.component_label)) || null : null,
+      version_no: r.version_no != null ? Number(flat(r.version_no)) : null,
+      created_at: r.created_at != null ? String(flat(r.created_at)) : null,
+      pole_name: String(flat(r.committed_action_text) || "").split(" — ")[0],
+      pole_families: fams,
+    };
+  });
 }
 export async function listPoles(bq: any, location_id: string, limit = 12): Promise<PoleListRow[]> {
   const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  // Composants (semantic) amorcés en parallèle de la liste — un aller-retour, pas deux en série.
+  const componentsP = listPoleComponents(bq, location_id);
   const rows = await bq.query({
     query: `SELECT commitment_id, dispositif_id, committed_action_text, pole_families, owner_person_name FROM (
               SELECT commitment_id, dispositif_id, committed_action_text, pole_families, owner_person_name, status, verdict,
@@ -198,17 +256,20 @@ export async function listPoles(bq: any, location_id: string, limit = 12): Promi
             ORDER BY committed_action_text LIMIT ${Math.max(1, Math.min(50, limit))}`,
     params: { location_id }, location: "EU",
   }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const components = await componentsP;
   return (rows as any[]).map((r) => {
     let fams: string[] = [];
     try { fams = JSON.parse(String(flat(r.pole_families) || "[]")); } catch { /* périmètre illisible */ }
     const parts = String(flat(r.committed_action_text) || "").split(" — ");
+    const did = String(flat(r.dispositif_id));
     return {
-      dispositif_id: String(flat(r.dispositif_id)),
+      dispositif_id: did,
       name: parts[0],
       families: fams,
       lever: parts.slice(1).join(" — ") || null,
       responsable: r.owner_person_name != null ? String(flat(r.owner_person_name)) || null : null,
       commitment_id: r.commitment_id != null ? String(flat(r.commitment_id)) : null,
+      components: components.filter((c) => c.dispositif_id === did),
     };
   });
 }

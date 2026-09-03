@@ -19,7 +19,7 @@ import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpiRegistry";
 import { familySlug, MARGIN_FAMILY_PREFIX } from "../../../lib/ai/corrections";
 // Pôles (build 28/08, protos validés) : lecture = LE foyer poleReading (mêmes chiffres que
 // journal/plan/fiche — jamais un 3e calcul) ; Historique = poleActivity (1er lecteur des traces).
-import { listPoles, buildPoleReading } from "../../../lib/poleReading";
+import { listPoles, buildPoleReading, type PoleComponentRow } from "../../../lib/poleReading";
 import { buildPoleActivity, resolveMemberNames } from "../../../lib/poleActivity";
 
 const PROJECT = "muse-square-open-data";
@@ -1210,6 +1210,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // La cible des CTA Ajuster/Documenter du volet : la fiche de la version courante.
         commitment_id: p.commitment_id,
         name: p.name, lever: p.lever, families: p.families, responsable: p.responsable,
+        // Composants de la version courante (03/09, § 5.5) — depuis la couche semantic via
+        // listPoles ; les libellés provisoires (sans mot owner) sont omis au rendu.
+        components: ((p.components ?? []) as PoleComponentRow[]).map((c) => ({
+          key: c.component_key, label: c.label,
+          type_label_fr: c.type_provisoire ? null : c.type_label_fr,
+          role_label_fr: c.role_provisoire ? null : c.role_label_fr,
+        })),
         // Les opérations rattachées pour la liste du volet (poleReading, attached_pole_id).
         operations: reading.operations.map((op: any) => ({
           commitment_id: op.commitment_id, text: op.committed_action_text,

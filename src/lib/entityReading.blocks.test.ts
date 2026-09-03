@@ -91,3 +91,28 @@ describe("bilan de série — échelle de la vente", () => {
     expect(b2.funnel_table).not.toBeNull(); // le tableau se montre dès 2 occurrences — seule la décision attend
   });
 });
+
+describe("buildEntityPeriodBlocks — composant (03/09, § 5.5)", () => {
+  const base = pole({ rev30_eur: 59703, share_pct: 50.7, avg30_eur_day: 678, base_eur_day: 447, delta_pct: 51.7, n30: 88 });
+  const withComposant = (c: any): EntityPeriodReading => ({
+    ...base,
+    entity: { kind: "composant", id: "p1:c-lin", name: "Linéaire poivres", families: ["Coffee", "Bakery"], pole_id: "p1", component_key: "c-lin" },
+    composant: c,
+  });
+  it("la prose dit le pôle, le type, la version et l'absence d'articles — puis les chiffres du pôle", () => {
+    const b = buildEntityPeriodBlocks(withComposant({ label: "Linéaire poivres", type_label_fr: "Linéaire", role_label_fr: null, pole_name: "Pôle périssables", version_no: 2, since: "2026-09-03" }));
+    expect(b.headline).toBe("Linéaire poivres — du 01/06/2026 au 27/08/2026");
+    expect(b.prose).toContain("Composant du pôle Pôle périssables — Linéaire. Version 2 depuis le 03/09/2026.");
+    expect(b.prose).toContain("Articles reconnus : aucun pour l'instant · les chiffres ci-dessous sont ceux du pôle.");
+    expect(b.prose).toContain("50,7 % du CA du site");
+    expect(b.table!.rows.map((r: any) => r.cells[0].v)).toEqual(["Coffee", "Bakery"]);
+    expect(b.sources[0]).toBe("Mes dispositifs (composants déclarés)");
+  });
+  it("un rôle dont le libellé est provisoire (aucun mot owner) ne s'écrit pas", () => {
+    const b = buildEntityPeriodBlocks(withComposant({ label: "Linéaire poivres", type_label_fr: "Linéaire", role_label_fr: null, pole_name: "Pôle périssables", version_no: 1, since: null }));
+    expect(b.prose).toContain("— Linéaire.");
+    expect(b.prose).not.toContain("Version 1");
+    const b2 = buildEntityPeriodBlocks(withComposant({ label: "Linéaire poivres", type_label_fr: "Linéaire", role_label_fr: "Produits d'expert", pole_name: "Pôle périssables", version_no: 1, since: "2026-09-03" }));
+    expect(b2.prose).toContain("— Linéaire · Produits d'expert.");
+  });
+});

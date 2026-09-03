@@ -1,18 +1,18 @@
 // src/lib/entityResolver.ts
 // LE résolveur d'entités du site (horizons libres × entités, 27/08) — reconnaît dans une
 // question les entités RÉELLES du compte : pôles, familles produits, opérations/séries,
-// personnes. Zéro invention : les listes viennent des foyers existants (poleReading.listPoles,
+// personnes, composants (03/09 — depuis la couche semantic). Zéro invention : les listes viennent des foyers existants (poleReading.listPoles,
 // kpiRegistry.listSiteFamilies, evenement.listUserEvenements, owner_person_name distincts) —
 // jamais une seconde requête du même concept. Le matching est PUR (testé + mutation) :
 // normalisation accents/casse, nom le plus long d'abord, jamais un match dans un mot.
 
-import { listPoles, type PoleListRow } from "./poleReading";
+import { listPoles, listPoleComponents, type PoleListRow } from "./poleReading";
 import { listSiteFamilies } from "./kpiRegistry";
 import { listUserEvenements } from "./insightFamilies/evenement";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 
-export type EntityKind = "pole" | "famille" | "operation" | "personne";
+export type EntityKind = "pole" | "famille" | "operation" | "personne" | "composant";
 
 export interface SiteEntity {
   kind: EntityKind;
@@ -20,8 +20,14 @@ export interface SiteEntity {
   id: string | null;
   /** Le nom tel que porté par la donnée (affichable tel quel). */
   name: string;
-  /** Périmètre familles (pole) — vide sinon. */
+  /** Périmètre familles (pole, composant : celles de son pôle) — vide sinon. */
   families: string[];
+  /** composant seulement (03/09, § 5.5) : son pôle et sa clé stable dans la version. */
+  pole_id?: string | null;
+  component_key?: string | null;
+  /** Alias supplémentaires de reconnaissance (composant : le libellé de son type quand il est
+   *  le seul de ce type sur le site — « ma vitrine » suffit alors). */
+  aliases?: string[];
 }
 
 export interface SiteEntities { entities: SiteEntity[] }
@@ -41,6 +47,7 @@ function aliasesFor(e: SiteEntity): string[] {
     const first = short.split(" ")[0];
     if (first && first.length >= 3) out.push(first);
   }
+  for (const extra of e.aliases ?? []) { const n = norm(extra); if (n && !out.includes(n)) out.push(n); }
   return out.filter((a) => a.length >= 3);
 }
 
@@ -50,7 +57,7 @@ export async function loadSiteEntities(
   clerk_user_id: string,
 ): Promise<SiteEntities> {
   const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
-  const [poles, familles, evenements, owners] = await Promise.all([
+  const [poles, familles, evenements, owners, composants] = await Promise.all([
     listPoles(bq, location_id).catch(() => [] as PoleListRow[]),
     listSiteFamilies(bq, location_id, 30).catch(() => []),
     // Le SITE entier (loi owner : un suivi appartient à un site) — user null exprès.
@@ -61,12 +68,27 @@ export async function loadSiteEntities(
                 AND owner_person_name NOT IN ('—', 'probe') LIMIT 30`,
       params: { location_id }, location: "EU",
     }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+    // Composants (03/09, § 5.5) : LE foyer poleReading.listPoleComponents — la couche semantic.
+    listPoleComponents(bq, location_id).catch(() => []),
   ]);
+  // Un composant se nomme par son libellé libre, sinon par le libellé de son type — sauf si ce
+  // libellé est provisoire (aucun mot owner : il ne se rend pas, donc ne se reconnaît pas).
+  const typeCount: Record<string, number> = {};
+  for (const c of composants) typeCount[c.type] = (typeCount[c.type] ?? 0) + 1;
+  const composantEntities: SiteEntity[] = composants.flatMap((c): SiteEntity[] => {
+    const typeLabel = c.type_provisoire ? null : c.type_label_fr;
+    const name = c.label || typeLabel;
+    if (!name) return [];
+    const aliases = typeLabel && c.label && typeCount[c.type] === 1 ? [typeLabel] : [];
+    return [{ kind: "composant", id: `${c.dispositif_id}:${c.component_key}`, name, families: c.pole_families,
+      pole_id: c.dispositif_id, component_key: c.component_key, aliases }];
+  });
   const entities: SiteEntity[] = [
     ...poles.map((p): SiteEntity => ({ kind: "pole", id: p.dispositif_id, name: p.name, families: p.families })),
     ...(familles as any[]).map((f): SiteEntity => ({ kind: "famille", id: null, name: String(f.category), families: [String(f.category)] })),
     ...(evenements as any[]).map((e): SiteEntity => ({ kind: "operation", id: String(e.saved_item_id), name: String(e.title), families: [] })),
     ...(owners as any[]).map((o): SiteEntity => ({ kind: "personne", id: null, name: String(flat(o.owner_person_name)), families: [] })),
+    ...composantEntities,
   ].filter((e) => e.name && e.name.trim());
   return { entities };
 }
