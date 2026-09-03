@@ -61,6 +61,17 @@ une personne, Autre ; table ou îlot, caisse, espace dégustation / atelier et t
 libre-service attendent leur mot (lexique) pour apparaître. Le guard lexique scanne désormais
 `pole-form.js`.
 
+**La couche semantic connaît les composants** (03/09, appliqué par l'owner dans dbt Cloud
+IDE). La colonne JSON est dépliée en lignes, une par composant et par version, dans un modèle
+intermédiaire ; un mart en fact mince la matérialise en vue ; une vue semantic
+(`vw_insight_event_dispositif_components`, contrat de 20 colonnes) expose les composants de la
+version courante avec leur libellé et le drapeau « provisoire » lus dans deux seeds générés
+depuis le registre de l'app. La vue mémoire (`vw_insight_event_commitment_memory`) porte les
+composants et le coût saisi. Toute la chaîne est en vues : un composant déclaré dans l'app se
+lit dans la session. Vérifié de bout en bout le 03/09 sur deux versions sonde de Muse Square,
+lues dans les vues de production en 8,8 s, puis effacées. Le prompt page et le résolveur
+Explorer lisent encore la table `analytics` en direct (étape 5.5).
+
 **On sait quel produit est sur chaque ligne de vente.** Chaque ligne importée de la caisse
 contient le code de l'article, sa désignation, sa famille, le numéro de ticket ou de facture, et
 l'heure. À partir de ces lignes, trois tables sont calculées : le profil de chaque article sur
@@ -471,6 +482,8 @@ présente comme telle.
 3. (fait le 03/09 : colonne, endpoint, document du pôle, formulaire — § 1.) Reste, lié au
    point 1 : les rôles du libre-service et trois types n'apparaissent au formulaire qu'une fois
    leur mot arbitré.
+3b. (fait le 03/09, appliqué par l'owner, PR #93 : la chaîne semantic des composants est en
+   base — § 1.) Reste 5.5 : les lecteurs Explorer basculent sur la vue.
 4. Créer l'espace de stockage et les tables (5.2, D7) ; compléter l'appel au modèle pour les
    images ; écrire la lecture des photos et son contrôle (5.3), avec le test qui prouve que le
    contrôle attrape une invention, dans le même commit.

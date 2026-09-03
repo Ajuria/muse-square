@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-08-27",
+"generated_date": "2026-09-03",
 "project": "muse-square-open-data",
 "region": "EU",
 "dbt_repo_sha_at_generation": "08d0cc9",
-"table_count": 498,
-"column_count": 9008
+"table_count": 505,
+"column_count": 9132
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -849,6 +849,10 @@
 {
 "name": "operation_cost_eur",
 "type": "FLOAT64"
+},
+{
+"name": "components",
+"type": "STRING"
 }
 ]
 },
@@ -1694,6 +1698,51 @@
 }
 ]
 },
+"analytics.card_forwards": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "forward_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "user_id",
+"type": "STRING"
+},
+{
+"name": "kind",
+"type": "STRING"
+},
+{
+"name": "action_type",
+"type": "STRING"
+},
+{
+"name": "affected_date",
+"type": "DATE"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "slack_channel",
+"type": "STRING"
+},
+{
+"name": "sent_ok",
+"type": "BOOL"
+},
+{
+"name": "sent_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "analytics.catchment_hypothesis_days": {
 "type": "BASE TABLE",
 "columns": [
@@ -1999,6 +2048,10 @@
 {
 "name": "span_days",
 "type": "INT64"
+},
+{
+"name": "corr_r",
+"type": "FLOAT64"
 },
 {
 "name": "computed_at",
@@ -2597,6 +2650,10 @@
 {
 "name": "updated_at",
 "type": "TIMESTAMP"
+},
+{
+"name": "slack_user_id",
+"type": "STRING"
 }
 ]
 },
@@ -5342,6 +5399,138 @@
 {
 "name": "parent_commitment_id",
 "type": "STRING"
+},
+{
+"name": "window_kind",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "dispositif_plus",
+"type": "STRING"
+},
+{
+"name": "dispositif_why",
+"type": "STRING"
+},
+{
+"name": "dispositif_resources",
+"type": "STRING"
+},
+{
+"name": "kpi_noise_se",
+"type": "FLOAT64"
+},
+{
+"name": "verdict_basis",
+"type": "STRING"
+},
+{
+"name": "dispositif_nature",
+"type": "STRING"
+},
+{
+"name": "pole_families",
+"type": "STRING"
+},
+{
+"name": "attached_pole_id",
+"type": "STRING"
+},
+{
+"name": "operation_cost_eur",
+"type": "FLOAT64"
+},
+{
+"name": "components",
+"type": "STRING"
+},
+{
+"name": "origin_kind",
+"type": "STRING"
+},
+{
+"name": "creation_residual_pct",
+"type": "FLOAT64"
+},
+{
+"name": "creation_residual_z",
+"type": "FLOAT64"
+},
+{
+"name": "creation_confidence_tier",
+"type": "STRING"
+},
+{
+"name": "retro_note",
+"type": "STRING"
+},
+{
+"name": "window_residual_z_raw",
+"type": "FLOAT64"
+},
+{
+"name": "applied_rho",
+"type": "FLOAT64"
+},
+{
+"name": "applied_vif",
+"type": "FLOAT64"
+},
+{
+"name": "window_days_resolved",
+"type": "INT64"
+},
+{
+"name": "ctx_any_school_holiday",
+"type": "BOOL"
+},
+{
+"name": "ctx_school_holiday_days",
+"type": "INT64"
+},
+{
+"name": "ctx_worst_weather_impact_pct",
+"type": "FLOAT64"
+},
+{
+"name": "ctx_max_event_count",
+"type": "INT64"
+},
+{
+"name": "ctx_max_tourism_index",
+"type": "FLOAT64"
+},
+{
+"name": "creation_enjeu_eur_year",
+"type": "FLOAT64"
+},
+{
+"name": "creation_enjeu_tier_label_fr",
+"type": "STRING"
+},
+{
+"name": "creation_enjeu_label_fr",
+"type": "STRING"
+},
+{
+"name": "creation_enjeu_class_key",
+"type": "STRING"
+},
+{
+"name": "creation_enjeu_entangled",
+"type": "BOOL"
+},
+{
+"name": "creation_enjeu_inherited",
+"type": "BOOL"
 }
 ]
 },
@@ -5447,6 +5636,79 @@
 {
 "name": "last_ingested_at",
 "type": "TIMESTAMP"
+}
+]
+},
+"intermediate.int_client_dispositif_components": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "commitment_id",
+"type": "STRING"
+},
+{
+"name": "status",
+"type": "STRING"
+},
+{
+"name": "attached_pole_id",
+"type": "STRING"
+},
+{
+"name": "committed_action_text",
+"type": "STRING"
+},
+{
+"name": "owner_person_name",
+"type": "STRING"
+},
+{
+"name": "pole_families",
+"type": "STRING"
+},
+{
+"name": "component_order",
+"type": "INT64"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "component_type",
+"type": "STRING"
+},
+{
+"name": "component_role",
+"type": "STRING"
+},
+{
+"name": "component_label",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "updated_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "is_current_version",
+"type": "BOOL"
 }
 ]
 },
@@ -12674,6 +12936,79 @@
 }
 ]
 },
+"mart.fct_client_dispositif_components": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "commitment_id",
+"type": "STRING"
+},
+{
+"name": "status",
+"type": "STRING"
+},
+{
+"name": "attached_pole_id",
+"type": "STRING"
+},
+{
+"name": "committed_action_text",
+"type": "STRING"
+},
+{
+"name": "owner_person_name",
+"type": "STRING"
+},
+{
+"name": "pole_families",
+"type": "STRING"
+},
+{
+"name": "component_order",
+"type": "INT64"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "component_type",
+"type": "STRING"
+},
+{
+"name": "component_role",
+"type": "STRING"
+},
+{
+"name": "component_label",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "updated_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "is_current_version",
+"type": "BOOL"
+}
+]
+},
 "mart.fct_client_hourly_sales": {
 "type": "BASE TABLE",
 "columns": [
@@ -19836,6 +20171,44 @@
 }
 ]
 },
+"open_data.dispositif_roles": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "type_value",
+"type": "STRING"
+},
+{
+"name": "role_value",
+"type": "STRING"
+},
+{
+"name": "label_fr",
+"type": "STRING"
+},
+{
+"name": "provisoire",
+"type": "BOOL"
+}
+]
+},
+"open_data.dispositif_types": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "type_value",
+"type": "STRING"
+},
+{
+"name": "label_fr",
+"type": "STRING"
+},
+{
+"name": "provisoire",
+"type": "BOOL"
+}
+]
+},
 "open_data.event_impacts_coeffs": {
 "type": "BASE TABLE",
 "columns": [
@@ -26296,6 +26669,63 @@
 }
 ]
 },
+"raw.webscraping_events": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "title",
+"type": "STRING"
+},
+{
+"name": "start_date",
+"type": "DATE"
+},
+{
+"name": "end_date",
+"type": "DATE"
+},
+{
+"name": "long_description",
+"type": "STRING"
+},
+{
+"name": "short_description",
+"type": "STRING"
+},
+{
+"name": "address",
+"type": "STRING"
+},
+{
+"name": "lat",
+"type": "FLOAT64"
+},
+{
+"name": "lon",
+"type": "FLOAT64"
+},
+{
+"name": "organizer",
+"type": "STRING"
+},
+{
+"name": "source_url",
+"type": "STRING"
+},
+{
+"name": "category",
+"type": "STRING"
+},
+{
+"name": "commune",
+"type": "STRING"
+},
+{
+"name": "event_id",
+"type": "INT64"
+}
+]
+},
 "semantic.vw_calendar_event_lookup": {
 "type": "VIEW",
 "columns": [
@@ -28067,6 +28497,14 @@
 "type": "STRING"
 },
 {
+"name": "components",
+"type": "STRING"
+},
+{
+"name": "operation_cost_eur",
+"type": "FLOAT64"
+},
+{
 "name": "adjustment_move",
 "type": "STRING"
 },
@@ -29400,6 +29838,91 @@
 {
 "name": "change_feed",
 "type": "ARRAY<STRUCT<change_type STRING, entity_id STRING, old_value STRING, new_value STRING, score_delta INT64>>"
+}
+]
+},
+"semantic.vw_insight_event_dispositif_components": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "commitment_id",
+"type": "STRING"
+},
+{
+"name": "status",
+"type": "STRING"
+},
+{
+"name": "attached_pole_id",
+"type": "STRING"
+},
+{
+"name": "committed_action_text",
+"type": "STRING"
+},
+{
+"name": "owner_person_name",
+"type": "STRING"
+},
+{
+"name": "pole_families",
+"type": "STRING"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "component_order",
+"type": "INT64"
+},
+{
+"name": "component_type",
+"type": "STRING"
+},
+{
+"name": "component_type_label_fr",
+"type": "STRING"
+},
+{
+"name": "component_type_provisoire",
+"type": "BOOL"
+},
+{
+"name": "component_role",
+"type": "STRING"
+},
+{
+"name": "component_role_label_fr",
+"type": "STRING"
+},
+{
+"name": "component_role_provisoire",
+"type": "BOOL"
+},
+{
+"name": "component_label",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "updated_at",
+"type": "TIMESTAMP"
 }
 ]
 },
@@ -32202,6 +32725,14 @@
 },
 {
 "name": "attached_pole_id",
+"type": "STRING"
+},
+{
+"name": "operation_cost_eur",
+"type": "FLOAT64"
+},
+{
+"name": "components",
 "type": "STRING"
 },
 {
