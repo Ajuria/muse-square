@@ -60,6 +60,17 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Le logiciel d'encaissement déclaré au profil (P3.1-c) | **Caisse / logiciel de vente** (champ profil) ; à l'import : **votre caisse déclarée (modifiable dans votre profil)** | POS, logiciel de caisse, système d'encaissement |
 | Caisse dont le connecteur n'existe pas encore | **Connexion directe prévue — en attendant, export CSV…** (consigne `export_note_fr` de `analytics.pos_systems`, jamais réécrite en dur) | bientôt disponible, coming soon |
 | Suivi posé par le système à l'ouverture du compte (P3.1-f) | **suivi proposé — ajustez** (chip sur la fiche ; l'infobulle dit le critère : recouvrement mesuré) | suivi automatique, suggestion, recommandé pour vous |
+| L'objet physique d'un dispositif, celui qu'on photographie (un dispositif peut en avoir plusieurs ; un pôle peut avoir plusieurs dispositifs) | **composant** (owner 03/09, D1 — spec `dispositifs-typologie-spec.md` § 3) | meuble, unité typée, sous-type (brouillons du 03/09, attrapés à la relecture owner) |
+| La longueur d'étagère ou d'alignement de meubles dédiée à une catégorie de produits | **linéaire** (owner 03/09) | rayonnage (comme nom de type) |
+| Le meuble central double face | **gondole** (owner 03/09) | — |
+| L'extrémité d'un rayon, très utilisée pour les promotions | **tête de gondole** (owner 03/09) | TG à l'écran (abréviation, règle 6 de tournure) |
+| La présentation qu'on voit depuis la rue | **vitrine** (owner 03/09 ; mot déjà en prod dans les champs mémoire) | — |
+| L'endroit où une personne sert ou conseille | **point service / vente avec une personne** (phrase owner 03/09 — **forme courte pour un menu déroulant NON choisie** : demander avant tout rendu) | comptoir (comme nom de type), point assisté (clé interne seulement) |
+| Ce qui permet à un musée de parler à son public | **dispositif de médiation** (owner 03/09 : cartel, dispositif multimédia…) | — |
+| Ce que le client fait pour acheter : où il va, ce qu'il combine, ce qu'il doit marcher ou demander | **parcours d'achat** (owner 03/09) | customer journey |
+| Le trajet le plus court qui permet d'acheter ce qu'un ticket contient | **parcours idéal-type** (owner 03/09 — s'affiche toujours comme un minimum : on ne sait pas si le client a hésité ou fait des allers-retours) | parcours réel, trajet |
+| Ce qu'un composant contient et comment le client le choisit | **rôle** — clé interne (`dispositif_role`) ; valeurs courant · expert · impulsion · promo = **libellés PROVISOIRES, non arbitrés** (registre `dispositifTypes.ts`, marqués `provisoire`) | — |
+| Trois types de composant et quatre sous-types de médiation sans mot arbitré | table ou îlot · caisse · espace dégustation / atelier · panneau de salle · signalétique — **libellés PROVISOIRES** dans le registre, marqués `provisoire` ; demander le mot avant tout rendu | — |
 
 ## Les mots des interactions humaines (Slack — registre distinct, owner 28/08)
 

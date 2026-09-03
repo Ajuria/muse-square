@@ -7,6 +7,7 @@
 - dbt Cloud IDE (never run dbt CLI commands — all dbt work happens in dbt Cloud IDE)
 - Clerk v3 for auth
 - Repo: git@github.com:Ajuria/muse-square.git, branch: `dev`
+- INTENT : `docs/intent.md` (une page, DÉFINITIF) dit ce que le produit est POUR, ses objets et le test de valeur ; tout chantier s'ouvre par la ligne qu'il sert (« Sert : intent § … »).
 
 ## Code Discipline
 - **DOCS : le titre dit la nature, le corps dit l'ÉTAT** (`docs/README.md`, convention owner 26/08). Tout document de `docs/` se termine par `— DÉFINITIF` (dit ce qui est) ou `— SPEC DE TRAVAIL` (dit ce qui reste à faire) ; `head -1 docs/*.md` est l'index. Dans les DEUX cas, ce qui est déjà appliqué s'écrit au PRÉSENT — jamais « remplacer X par Y » : un `grep` tombe sur le X et repart avec la valeur périmée (défaut mesuré sur `competition-split-spec.md`, où le X était l'unité buguée que le doc servait à corriger). Une spec de travail dont la dernière instruction est appliquée se RÉÉCRIT en définitif — elle ne se marque pas « terminé ». Réécrire oblige à re-vérifier chaque affirmation gardée : c'est le but (3 contre-vérités tombées au premier passage). Gardent leur date : les mesures, les arbitrages owner, les constats non re-vérifiés.
