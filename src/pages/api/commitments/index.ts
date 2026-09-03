@@ -11,6 +11,7 @@ import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBa
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/actionCommitments";
 import { parseComponents } from "../../../lib/dispositifTypes";
+import { listPoles } from "../../../lib/poleReading";
 import { assignmentMessageFr } from "../../../lib/channels/slackMessagesFr";
 import { themeForActionType } from "../../../lib/recoThemeMap";
 import { vif } from "../../../lib/commitmentResolve";
@@ -132,6 +133,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
     if (url.searchParams.get("goal_context")) {
       const wk = String(url.searchParams.get("window_kind") || "7d").trim();
       const days = WINDOW_DAYS[wk] || 7;
+      // Pôles du site (03/09, « Je m'engage » rattaché à un pôle) : LE foyer listPoles, amorcé en
+      // parallèle du contexte d'objectif — un aller-retour de plus en parallèle, jamais en série.
+      const polesP = listPoles(bq, locationId).catch(() => []);
       const [gRows] = await bq.query({
         query: `
           WITH base AS (
@@ -175,6 +179,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         floor_pct: pctForZ(1.0),
         preset_modeste_pct: pctForZ(1.0),
         preset_net_pct: pctForZ(1.5),
+        // La liste des pôles ouverts pour « Rattacher à un pôle » (mêmes champs que create_context).
+        poles: (await polesP).map((p) => ({ dispositif_id: p.dispositif_id, name: p.name, families: p.families })),
       });
     }
 

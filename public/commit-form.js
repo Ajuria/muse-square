@@ -65,6 +65,13 @@
       + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Responsable(s)</div>'
         + '<input data-cm-owner placeholder="Une personne de l\'équipe" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;" />'
         + '<div data-cm-owner-sugg style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;"></div></div>'
+      // Rattacher à un pôle (03/09, spec dispositifs-typologie) : le MÊME contrôle que « Créer
+      // opération » (event-form.js) — mots owner « Rattacher à un pôle », option « Aucun », une
+      // ligne par pôle avec ses familles. Caché tant que le site n'a pas de pôle (liste servie
+      // par goal_context) ; le KPI de l'engagement reste celui de la carte — le rattachement
+      // inscrit l'opération dans la mémoire du pôle.
+      + '<div data-cm-pole-wrap style="display:none;margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Rattacher \u00e0 un p\u00f4le</div>'
+        + '<select data-cm-pole style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;cursor:pointer;"><option value="">Aucun</option></select></div>'
       + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Levier</div>'
         + suggestionsHtml(opts.suggestions)
         + '<textarea data-cm-action placeholder="' + (Array.isArray(opts.suggestions) && opts.suggestions.length ? "Choisissez une suggestion ci-dessus ou décrivez votre action" : "Ce que vous allez faire") + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:52px;box-sizing:border-box;">' + escapeHtml(action) + "</textarea></div>"
@@ -234,6 +241,19 @@
       }
       applyGoal(start, "init");
     }
+    // La liste des pôles, remplie UNE fois (le contexte d'objectif se re-fetch à chaque fenêtre).
+    var _polesFilled = false;
+    function fillPoles(poles) {
+      var wrap = gEl("[data-cm-pole-wrap]"), sel = gEl("[data-cm-pole]");
+      if (!wrap || !sel || _polesFilled) return;
+      if (!poles.length) { wrap.style.display = "none"; return; }
+      _polesFilled = true;
+      sel.innerHTML = '<option value="">Aucun</option>' + poles.map(function (pp) {
+        return '<option value="' + escapeHtml(pp.dispositif_id) + '">' + escapeHtml(pp.name)
+          + (pp.families && pp.families.length ? ' \u2014 ' + escapeHtml(pp.families.join(', ')) : '') + '</option>';
+      }).join('');
+      wrap.style.display = "";
+    }
     function refreshGoalCtx() {
       goalCtx = null;
       fillGoalUi();
@@ -241,6 +261,7 @@
       fetch("/api/commitments?goal_context=1&location_id=" + encodeURIComponent(opts.location_id) + "&window_kind=" + encodeURIComponent(state.window))
         .then(function (r) { return r.json(); })
         .then(function (j) {
+          if (j && j.ok && Array.isArray(j.poles)) fillPoles(j.poles);
           if (j && j.ok && j.window_kind === state.window) {
             goalCtx = j;
             // Fallback : la carte porte déjà un habituel/jour — on ne perd pas la traduction €.
@@ -401,6 +422,8 @@
           // Objectif libre : base 'pct' — le verdict comparera le % réalisé à CE chiffre.
           window_kind: state.window, threshold_basis: "pct", threshold_pct: goalPct,
           committed_action_text: action, owner_person_name: owner,
+          // Rattachement au pôle (03/09) — validé côté API (site + nature permanent), null sinon.
+          attached_pole_id: (function () { var el = container.querySelector('[data-cm-pole]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),
           // Contexte de la version (étape 3, 27/08) — vide -> null (une V2 hérite du parent côté API)
           dispositif_plus: (function () { var el = container.querySelector('[data-cm-plus]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),
           dispositif_why: (function () { var el = container.querySelector('[data-cm-why]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),

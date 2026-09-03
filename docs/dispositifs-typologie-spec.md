@@ -78,6 +78,12 @@ composants ; le document du pôle lit les siens dans la vue mémoire. Plus aucun
 sur la table analytics, ni sur le mart (frontière entrepôt : l'app lit semantic). Vérifié le 03/09 sur une sonde de Muse Square (résolveur, lecture,
 blocs, liste, prompt, mart), effacée ensuite.
 
+**Une opération née d'une carte entre dans la mémoire du pôle** (03/09). Le formulaire
+« M'engager » ouvert depuis une carte porte le même contrôle « Rattacher à un pôle » que
+« Créer opération » ; la liste des pôles arrive avec le contexte d'objectif que le formulaire
+lisait déjà, et l'engagement part avec son pôle. Le KPI de l'engagement reste celui de la carte :
+le rattachement inscrit l'opération dans la mémoire du pôle, il ne change pas sa mesure.
+
 **On sait quel produit est sur chaque ligne de vente.** Chaque ligne importée de la caisse
 contient le code de l'article, sa désignation, sa famille, le numéro de ticket ou de facture, et
 l'heure. À partir de ces lignes, trois tables sont calculées : le profil de chaque article sur
