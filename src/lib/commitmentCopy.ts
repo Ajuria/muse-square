@@ -180,6 +180,9 @@ export const EVOL_COPY = {
   pole_chip: "Dispositif en continu",
   pole_resp: "Responsable(s)",
   pole_fams_title: "Familles du pôle",
+  // Composants (03/09, mot owner « composant » — lexique) : les unités physiques du dispositif.
+  pole_components_title: "Composants",
+  pole_components_none: "Aucun composant déclaré pour l'instant.",
   pole_reading_title: "Résultats — 30 derniers jours",
   pole_reading_caption: "€/j des jours vendus, comparé aux 90 jours précédents.",
   pole_reading_row: "{n30} j vendus · habituel {base} €/j",

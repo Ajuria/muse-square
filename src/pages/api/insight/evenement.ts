@@ -10,6 +10,7 @@ import { measureKpiCoverage, listSiteFamilies } from "../../../lib/kpiRegistry";
 import { listPoles } from "../../../lib/poleReading";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypesFor, eventTypeLabelFr } from "../../../lib/eventTypes";
+import { dispositifTypesFor, dispositifRolesFor } from "../../../lib/dispositifTypes";
 import { evenementFamily } from "../../../lib/insightFamilies/evenement";
 import { getDeclaredFamilyMargins, getDeclaredMarginPct, familySlug } from "../../../lib/ai/corrections";
 
@@ -106,6 +107,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
           conversion: Number(_cov.conversion_days ?? 0) >= 30,
         },
         event_types: eventTypesFor(industry),
+        // Types de COMPOSANT proposés au formulaire de pôle (03/09, registre dispositifTypes) —
+        // curatés par métier. Les libellés SANS mot owner (`provisoire`) ne sont PAS servis : le
+        // lexique interdit de rendre un mot non arbitré ; ils apparaîtront quand le mot existera.
+        component_types: dispositifTypesFor(industry)
+          .filter((o) => !o.provisoire)
+          .map((o) => ({
+            value: o.value, label_fr: o.label_fr,
+            roles: dispositifRolesFor(o.value).filter((r) => !r.provisoire).map((r) => ({ value: r.value, label_fr: r.label_fr })),
+          })),
         dow_baseline,
         families: famRows as any[],
         poles: poleRows as any[],

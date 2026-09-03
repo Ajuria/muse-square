@@ -37,13 +37,29 @@ leurs rôles, une liste de questions par type, la sélection par métier, « Aut
 liste. Sa garde (`dispositifTypes.guard.test.ts`, 13 tests) attrape une valeur dupliquée, une
 liste qui ne finit pas par « Autre », une question qui vise un rôle inexistant, un mot banni dans
 un libellé ; chacun de ces trois défauts a été introduit volontairement et vu rougir le test.
-Aucun formulaire ni endpoint ne le consomme encore. Il est construit sur le modèle du registre
-des types d'opération, `src/lib/eventTypes.ts` :
+Il est construit sur le modèle du registre des types d'opération, `src/lib/eventTypes.ts` :
 23 types (dégustation, venue de producteurs, vente privée…), rangés en cinq listes selon le
 métier du lieu, chaque liste finissant par « Autre ». Ce registre suit quatre règles qui
 serviront de modèle : la liste est fermée (pas de texte libre) ; une valeur ne se renomme jamais
 parce que des enregistrements la portent ; le formulaire et tous les affichages lisent la même
 liste ; on l'étend en ajoutant une ligne.
+
+**Les composants d'un dispositif sont en base, à l'API et au formulaire** (03/09, étape 3 de
+ce document). La table des dispositifs a une colonne `components` (position 80, texte JSON,
+vérifiée en base) : une liste de composants, chacun avec une clé stable, un type et un rôle du
+registre, un libellé libre. À la création d'un pôle, l'endpoint valide cette liste contre le
+registre (type inconnu, rôle hors du type, clé dupliquée → refus) et fabrique la clé qui manque ;
+une version suivante créée sans composants hérite ceux de la version précédente. Preuve par sonde
+sur Muse Square le 03/09 : une V1 à deux composants écrite puis relue exacte, une V2 sans
+composants relue avec les mêmes clés, les deux sondes effacées. Le document du pôle (page
+engagement, `card-kit.js`) rend la section « Composants » avec le libellé, le type et le rôle,
+ou dit l'absence. Le formulaire de pôle (`pole-form.js`, sur « Nouvelle opération » et sur l'onglet
+Pôles du compte) propose les composants quand le contexte de création lui sert les types du
+métier ; **il ne sert que les types et rôles dont le mot est arbitré** : sur Muse Square
+(métier commerce) ce sont Vitrine, Linéaire, Gondole, Tête de gondole, Point service / vente avec
+une personne, Autre ; table ou îlot, caisse, espace dégustation / atelier et tous les rôles du
+libre-service attendent leur mot (lexique) pour apparaître. Le guard lexique scanne désormais
+`pole-form.js`.
 
 **On sait quel produit est sur chaque ligne de vente.** Chaque ligne importée de la caisse
 contient le code de l'article, sa désignation, sa famille, le numéro de ticket ou de facture, et
@@ -452,10 +468,9 @@ présente comme telle.
 1. Obtenir de l'owner les mots encore provisoires (lexique, ligne « Trois types de composant… »
    et ligne « rôle ») avant tout rendu à l'écran.
 2. (fait le 03/09 : mots au lexique, registre et garde, ligne dans `module-index.md`.)
-3. Ajouter la colonne `components` à la table des dispositifs ; permettre l'enregistrement d'un
-   dispositif permanent rattaché à un pôle, avec ses composants, dans l'endpoint de création et
-   dans le formulaire « Nouvelle opération » (quand la nature est permanente, proposer les
-   composants avec leur type et leur rôle).
+3. (fait le 03/09 : colonne, endpoint, document du pôle, formulaire — § 1.) Reste, lié au
+   point 1 : les rôles du libre-service et trois types n'apparaissent au formulaire qu'une fois
+   leur mot arbitré.
 4. Créer l'espace de stockage et les tables (5.2, D7) ; compléter l'appel au modèle pour les
    images ; écrire la lecture des photos et son contrôle (5.3), avec le test qui prouve que le
    contrôle attrape une invention, dans le même commit.

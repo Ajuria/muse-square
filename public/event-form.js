@@ -193,6 +193,7 @@
             window.MSPoleForm.render(q('[data-ef-pole-panel]'), {
               location_id: loc, families: fams,
               owners: owners, takenFamilies: taken,
+              componentTypes: Array.isArray(ctx.component_types) ? ctx.component_types : [],
             });
           }
         });

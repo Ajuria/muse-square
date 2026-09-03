@@ -7,6 +7,7 @@
 // and the per-day series returns residual_pct only — so the render cannot leak z.
 import type { APIRoute } from "astro";
 import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpiRegistry";
+import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifTypes";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
@@ -216,6 +217,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
         dispositif_nature: "permanent",
         committed_action_text: snap.committed_action_text, owner_person_name: snap.owner_person_name,
         pole_families: (snap as any).pole_families ?? null,
+        // Composants (03/09) : liste LUE et libellée côté serveur (registre dispositifTypes) — le
+        // client n'a ni le JSON brut ni le registre à charger.
+        components: readComponents((snap as any).components).map((c) => ({
+          key: c.key, type: c.type, role: c.role, label: c.label,
+          type_label_fr: dispositifTypeLabelFr(c.type), role_label_fr: c.role ? dispositifRoleLabelFr(c.role) : "",
+        })),
         dispositif_plus: (snap as any).dispositif_plus ?? null,
         dispositif_why: (snap as any).dispositif_why ?? null,
         dispositif_resources: (snap as any).dispositif_resources ?? null,

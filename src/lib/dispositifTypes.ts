@@ -240,3 +240,67 @@ export function dispositifRoleLabelFr(value: string | null | undefined): string 
   const v = String(value ?? "").trim();
   return v ? (ROLE_LABEL_BY_VALUE[v] ?? v.replace(/_/g, " ")) : "";
 }
+
+// ── Les composants d'un dispositif (spec § 3, owner 03/09 D1) ───────────────────────────────
+// Un dispositif permanent liste ses composants DANS sa ligne (colonne `components`, JSON) : une
+// clé stable par composant (la photo s'y rattache), un type du registre, un rôle du type quand
+// il en a un, un libellé libre (« Linéaire poivres »). Le TYPE et le RÔLE ne sont jamais du
+// texte libre — le registre ci-dessus fait loi ; le libellé l'est.
+
+export interface DispositifComponent {
+  key: string;         // stable dans la chaîne de versions — jamais régénérée si fournie
+  type: string;        // valeur de DISPOSITIF_TYPES
+  role: string | null; // valeur de ROLES_BY_TYPE[type], ou null si le type n'a pas de rôle
+  label: string | null;
+}
+
+export type ParsedComponents =
+  | { ok: true; components: DispositifComponent[] }
+  | { ok: false; error: string };
+
+const KEY_RE = /^[a-z0-9_-]{1,40}$/i;
+
+// Valide une liste de composants venue d'un client (formulaire) ou d'un parent (héritage).
+// `newKey` fabrique la clé d'un composant qui n'en a pas encore (crypto.randomUUID côté serveur).
+// Une liste vide est valide : un dispositif peut n'avoir aucun composant déclaré.
+export function parseComponents(input: unknown, newKey: () => string): ParsedComponents {
+  if (input == null) return { ok: true, components: [] };
+  if (!Array.isArray(input)) return { ok: false, error: "components doit être une liste" };
+  if (input.length > 50) return { ok: false, error: "components : 50 composants au plus" };
+  const out: DispositifComponent[] = [];
+  const seen = new Set<string>();
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") return { ok: false, error: "components : un composant est un objet {type, role, label, key}" };
+    const r = raw as Record<string, unknown>;
+    const type = String(r.type ?? "").trim();
+    if (!type || !DISPOSITIF_TYPES.some((o) => o.value === type)) {
+      return { ok: false, error: `components : type inconnu « ${type || "(vide)"} »` };
+    }
+    const roles = ROLES_BY_TYPE[type] ?? [];
+    const roleRaw = r.role == null ? "" : String(r.role).trim();
+    let role: string | null = null;
+    if (roleRaw) {
+      if (!roles.some((o) => o.value === roleRaw)) return { ok: false, error: `components : rôle « ${roleRaw} » inconnu pour le type ${type}` };
+      role = roleRaw;
+    }
+    const keyRaw = r.key == null ? "" : String(r.key).trim();
+    if (keyRaw && !KEY_RE.test(keyRaw)) return { ok: false, error: `components : clé invalide « ${keyRaw} »` };
+    const key = keyRaw || newKey();
+    if (seen.has(key)) return { ok: false, error: `components : clé dupliquée « ${key} »` };
+    seen.add(key);
+    const labelRaw = r.label == null ? "" : String(r.label).trim().slice(0, 120);
+    out.push({ key, type, role, label: labelRaw || null });
+  }
+  return { ok: true, components: out };
+}
+
+// Lecture tolérante de la colonne `components` (JSON texte) : une colonne illisible rend une
+// liste vide, jamais un crash — même règle que pole_families dans evolution.ts.
+export function readComponents(raw: unknown): DispositifComponent[] {
+  if (raw == null || raw === "") return [];
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const res = parseComponents(parsed, () => "");
+    return res.ok ? res.components.filter((c) => c.key !== "") : [];
+  } catch { return []; }
+}

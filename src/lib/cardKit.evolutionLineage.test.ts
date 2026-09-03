@@ -153,6 +153,10 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
       owner_person_name: "Camille Robin", pole_families: '["Coffee","Bakery"]',
       dispositif_plus: "Fraîcheur visible en vitrine", dispositif_why: "Le public vacances achète le matin",
       dispositif_resources: "1 vendeur, vitrine réfrigérée", created_at: "2026-08-27T10:00:00Z",
+      components: [
+        { key: "c1", type: "lineaire", role: "expert", label: "Linéaire poivres", type_label_fr: "Linéaire", role_label_fr: "Produits d'expert" },
+        { key: "c2", type: "vitrine", role: null, label: null, type_label_fr: "Vitrine", role_label_fr: "" },
+      ],
     },
     pole: {
       totals: { rev30_eur: 24965, share_pct: 51.1, avg30_eur_day: 832.18, base_eur_day: 543.93, delta_pct: 53, n30: 30 },
@@ -178,6 +182,12 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
   expect(html).toContain("3 jours vendus sur les 30 derniers");
   expect(html).not.toContain("pas encore comparable");
   expect(html.toLowerCase()).not.toContain("lecture continue");
+  // Composants (03/09) : le libellé libre, sinon le type ; type · rôle en méta ; section présente
+  expect(html).toContain("Composants");
+  expect(html).toContain("Linéaire poivres");
+  expect(html).toContain("Linéaire · Produits d&#39;expert".replace("&#39;", "'"));
+  expect(html).toContain(">Vitrine<");
+  expect(html).not.toContain("Aucun composant");
   expect(html).toContain("Opérations sur ce pôle");
   expect(html).toContain('/app/insightevent/engagement?id=op-1');
   expect(html).toContain("14/09/2026");
@@ -197,4 +207,15 @@ it("coût de l'opération (ROI) : la ligne rend le coût, et le net SEULEMENT qu
   data.commitment.window_expected_revenue = 1100;
   const measured = String(kit.renderEvolution(data, EVOL_COPY));
   expect(measured).toContain("Coût de l’opération : 120 € · net après coût : −320 €");
+});
+
+it("un pôle SANS composant dit l'absence (lexique règle 7), jamais une section vide", () => {
+  const data: any = {
+    commitment: { commitment_id: "pole-2", status: "open", dispositif_nature: "permanent",
+      committed_action_text: "Pôle traiteur", pole_families: '["Traiteur"]', created_at: "2026-08-27T10:00:00Z" },
+    pole: { totals: {}, families: [], operations: [] }, lineage: [],
+  };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("Composants");
+  expect(html).toContain("Aucun composant déclaré pour l'instant.");
 });

@@ -3623,7 +3623,7 @@ window.toggleAutomationCard = function() {
 </script>
 
 <!-- ── Onglet Pôles (inc 9c) : le module partagé + le câblage liste/liaisons. ── -->
-<script is:inline src="/pole-form.js?v=1"></script>
+<script is:inline src="/pole-form.js?v=2"></script>
 <script is:inline>
   (function () {
     var locCard = document.querySelector('.loc-card[data-location-id]');
@@ -3697,6 +3697,7 @@ window.toggleAutomationCard = function() {
             location_id: locId,
             families: Array.isArray(ctx.families) ? ctx.families : [],
             owners: owners, takenFamilies: taken,
+            componentTypes: Array.isArray(ctx.component_types) ? ctx.component_types : [],
             onCreated: function () { loaded = false; loadPoles(); },
           });
         }

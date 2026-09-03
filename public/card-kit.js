@@ -1010,6 +1010,20 @@
         + '</div>';
       h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_fams_title')) + '</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + pFams.map(function (f) { return '<span style="font-size:12px;background:#F3F4F6;color:#374151;padding:4px 11px;border-radius:999px;">' + esc(f) + '</span>'; }).join('') + '</div></div>';
+      // Composants du dispositif (03/09, spec dispositifs-typologie § 3) : les unites physiques
+      // (lineaire, gondole, vitrine...) libellees par le serveur (registre dispositifTypes).
+      // Absence dite (lexique regle 7), jamais une section vide.
+      var pComps = Array.isArray(cm.components) ? cm.components : [];
+      h += '<div class="eg-sec" data-eg-components><div class="eg-uc">' + esc(t2('pole_components_title')) + '</div>'
+        + (pComps.length
+          ? pComps.map(function (c) {
+              var meta = [c.type_label_fr, c.role_label_fr].filter(function (x) { return !!x; }).join(' \u00b7 ');
+              return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5e7eb;padding:8px 14px;margin-bottom:6px;">'
+                + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(c.label || c.type_label_fr || '') + '</span>'
+                + '<span style="font-size:12px;color:#6b7280;">' + esc(meta) + '</span></div>';
+            }).join('')
+          : '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_components_none')) + '</div>')
+        + '</div>';
       var pt = pr.totals || {};
       var ptLine = '';
       if (pt.rev30_eur != null) {
