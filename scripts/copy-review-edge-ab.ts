@@ -63,7 +63,7 @@ const strip = (h: any) => String(h == null ? "" : h).replace(/<[^>]*>/g, " ").re
       perte_corps: A.corps.length - B.corps.length, perte_geste: A.geste.length - B.geste.length });
   }
   out.sort((a, b) => b.sites - a.sites);
-  writeFileSync(new URL("../shots/edge-ab.json", import.meta.url).pathname, JSON.stringify(out, null, 1));
+  writeFileSync(new URL("../data/shots/edge-ab.json", import.meta.url).pathname, JSON.stringify(out, null, 1));
   console.log(`types affectés : ${out.length} / ${(rows as any[]).length}\n`);
   for (const o of out) {
     console.log(`── ${o.action_type} · ${o.sites} sites  (−${o.perte_corps} car. corps, −${o.perte_geste} geste)`);

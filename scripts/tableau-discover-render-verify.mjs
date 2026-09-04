@@ -79,7 +79,7 @@ check("Suivre → POST add-competitor avec nom, ville, adresse, source_url, loca
 check("bouton → « Suivi ✓ »", follows[0].textContent.trim() === "Suivi ✓", follows[0].textContent);
 check("un seul clic par bouton (le 2e ne reposte pas)", (() => { const n = posted.length; follows[0].click(); return posted.length === n; })());
 
-const out = new URL("../shots/tableau-discover-render.html", import.meta.url);
+const out = new URL("../data/shots/tableau-discover-render.html", import.meta.url);
 writeFileSync(out, "<!doctype html><meta charset=utf-8><style>body{font-family:system-ui;max-width:900px;margin:24px auto}</style>" + body.innerHTML);
 console.log(fails ? `\n${fails} FAIL` : "\nTOUT VERT", "— rendu écrit :", out.pathname);
 process.exit(fails ? 1 : 0);

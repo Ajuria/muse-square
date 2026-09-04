@@ -1,3 +1,5 @@
+import os
+REF = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data", "ref")
 #!/usr/bin/env python3
 import urllib.request, json, csv
 
@@ -15,14 +17,14 @@ for reg in REGIONS:
                 seen.add(code)
                 rows.append(c)
 
-with open("city_map.csv", "w", newline="", encoding="utf-8") as f:
+with open(os.path.join(REF, "city_map.csv"), "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
     w.writerow(["insee_city_id","city_name","region_code","zip_code","location_uid","active_flag"])
     for c in rows:
         zip_code = (c.get("codesPostaux") or [""])[0]
         w.writerow([c["code"], c.get("nom",""), c.get("codeRegion",""), zip_code, c["code"], "TRUE"])
 
-with open("communes_coords.csv", "w", newline="", encoding="utf-8") as f:
+with open(os.path.join(REF, "communes_coords.csv"), "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
     w.writerow(["city_id","location_uid","latitude","longitude"])
     for c in rows:
@@ -45,7 +47,7 @@ for reg in REGIONS:
                 dseen.add(code)
                 dept_rows.append(d)
 
-with open("departments_map.csv", "w", newline="", encoding="utf-8") as f:
+with open(os.path.join(REF, "departments_map.csv"), "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
     w.writerow(["department_code_insee", "department_name_official", "region_code_insee"])
     for d in dept_rows:

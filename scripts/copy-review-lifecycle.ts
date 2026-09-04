@@ -68,6 +68,6 @@ const strip = (h: any) => String(h == null ? "" : h).replace(/<[^>]*>/g, " ").re
     console.log(`   C: ${strip(tm.sowhat)}`);
     console.log(`   G: ${strip(tm.action)}`);
   }
-  writeFileSync(new URL("../shots/copy-review-lifecycle.json", import.meta.url).pathname, JSON.stringify(out, null, 1));
-  console.log("\nécrit: shots/copy-review-lifecycle.json");
+  writeFileSync(new URL("../data/shots/copy-review-lifecycle.json", import.meta.url).pathname, JSON.stringify(out, null, 1));
+  console.log("\nécrit: data/shots/copy-review-lifecycle.json");
 })();

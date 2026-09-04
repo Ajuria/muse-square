@@ -2,7 +2,7 @@
 // dates que la vue conserve. LECTURE SEULE. Ne modifie rien en base, ne touche pas à l'app.
 // Rend chaque carte par le VRAI moteur (public/action-cards.js en happy-dom), exactement comme
 // pulse.astro : le texte affiché est celui que la page écrirait.
-// Sortie : shots/capture-all.json (brut par date, RIEN de supprimé) + inventaire lisible.
+// Sortie : data/shots/capture-all.json (brut par date, RIEN de supprimé) + inventaire lisible.
 // Usage : npx tsx scripts/shot-capture.ts
 import "dotenv/config";
 import { writeFileSync, readFileSync } from "node:fs";
@@ -77,7 +77,7 @@ const frInt = (n: any) => (n == null || !isFinite(Number(n)) ? "—" : Number(n)
   }
 
   const out = { captured_at: new Date().toISOString(), location_id: OWNER, site_label: "Muse Square", dates, per_date: perDate, structural };
-  const dest = new URL("../shots/capture-all.json", import.meta.url).pathname;
+  const dest = new URL("../data/shots/capture-all.json", import.meta.url).pathname;
   writeFileSync(dest, JSON.stringify(out, null, 1));
 
   console.log("\n══════ INVENTAIRE — CARTES DU JOUR ══════");

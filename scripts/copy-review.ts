@@ -82,7 +82,7 @@ const strip = (h: any) => String(h == null ? "" : h).replace(/<[^>]*>/g, " ").re
 
   const rendus = out.filter((o) => o.rendu).length;
   console.log(`rendus : ${rendus}/${out.length}`);
-  writeFileSync(new URL("../shots/copy-review.json", import.meta.url).pathname, JSON.stringify(out, null, 1));
+  writeFileSync(new URL("../data/shots/copy-review.json", import.meta.url).pathname, JSON.stringify(out, null, 1));
   out.forEach((o, i) => {
     console.log(`\n${String(i + 1).padStart(2)}. <${o.action_type}> · ${o.sites} sites · ${o.tirs} tirs${o.rendu ? "" : "  ⚠ NON RENDU" + (o.erreur ? " — " + o.erreur : "")}`);
     if (o.titre) console.log(`    T: ${o.titre}`);

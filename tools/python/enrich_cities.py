@@ -1,8 +1,11 @@
+import os
+HERE = os.path.dirname(os.path.abspath(__file__))
+REF = os.path.join(HERE, "..", "..", "data", "ref")
 import pandas as pd
 import json
 
 # Load your 7k file
-df = pd.read_csv("event_location_city_map.csv", dtype=str)
+df = pd.read_csv(os.path.join(HERE, "event_location_city_map.csv"), dtype=str)
 
 # Normalize arrondissement codes to parent commune
 def normalize_city_id(code):
@@ -17,7 +20,7 @@ def normalize_city_id(code):
 df["city_id"] = df["city_id"].apply(normalize_city_id)
 
 # Load communes JSON (official source)
-with open("communes_full.json", "r") as f:
+with open(os.path.join(REF, "communes_full.json"), "r") as f:
     communes_data = json.load(f)
 
 # Convert JSON to DataFrame
@@ -42,6 +45,6 @@ df["geo_point"] = df.apply(
 )
 
 # Save result
-df.to_csv("event_location_city_map_enriched.csv", index=False)
+df.to_csv(os.path.join(HERE, "event_location_city_map_enriched.csv"), index=False)
 
 print("Done.")

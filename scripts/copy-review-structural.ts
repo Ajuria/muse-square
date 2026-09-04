@@ -60,6 +60,6 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
     console.log(`   C: ${s.corps}`);
     console.log(`   G: ${s.geste}`);
   });
-  writeFileSync(new URL("../shots/copy-review-structural.json", import.meta.url).pathname, JSON.stringify(structural, null, 1));
-  console.log("\nécrit: shots/copy-review-structural.json");
+  writeFileSync(new URL("../data/shots/copy-review-structural.json", import.meta.url).pathname, JSON.stringify(structural, null, 1));
+  console.log("\nécrit: data/shots/copy-review-structural.json");
 })();
