@@ -7,7 +7,7 @@
 // is enforced (no causal verbs, no tier changes). Engines (sensitivities / decomposition / track record)
 // are included ONLY where present — honest-absent otherwise, never padded.
 
-import type { DayContext } from "../dayContext";
+import type { DayContext } from "../context/dayContext";
 import type { Tier } from "../sensitivity/sensitivityStore";
 import type { FactOrigin } from "../fr/factOrigins.fr";
 

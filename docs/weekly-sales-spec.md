@@ -114,7 +114,7 @@ order by week_start
 
 1. **Le rail « note interne » n'est pas branché.** Les deux cartes portent
    `channel_hint = 'note_interne'` côté dbt, mais **ne figurent pas** dans `V1_ALERT_ACTION_TYPES`
-   (`src/lib/internalAlertCards.ts`). Conséquence : elles ne bénéficient pas du contournement de
+   (`src/lib/context/internalAlertCards.ts`). Conséquence : elles ne bénéficient pas du contournement de
    fenêtre du monitor et ne surfacent que le jour de leur ingestion. Soit le `channel_hint` est
    trompeur, soit l'allowlist est incomplète — **jamais arbitré**, et la situation est identique
    pour les cartes mensuelles.

@@ -5,8 +5,8 @@
 // Context queries are LIFTED from sales-report.ts (range-based, BETWEEN @s AND @e)
 // so named context stays consistent with the report — Météo-France/OpenAgenda/INSEE.
 
-import { getActionRollup } from "../dayContext";
-import { frCountry } from "../contextCopy";
+import { getActionRollup } from "../context/dayContext";
+import { frCountry } from "../context/contextCopy";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);

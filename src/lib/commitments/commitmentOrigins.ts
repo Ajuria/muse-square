@@ -11,7 +11,7 @@
 // opportunity / threat / weather / tourism / footfall families still need adding
 // (copy the exact strings from the SPECS registry — never hand-type from memory).
 export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<string>([
-  // Sales / performance — verified in src/lib/internalAlertCards.ts
+  // Sales / performance — verified in src/lib/context/internalAlertCards.ts
   "sales_surge",
   "sales_revenue_down_wow",
   "sales_traffic_not_converting",

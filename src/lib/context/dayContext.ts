@@ -7,9 +7,9 @@
 // structured data for owner copy); it authors NO French of its own.
 
 import { formatDisruption, fillContextFallback, formatWeatherAlert, frCountry } from './contextCopy';
-import { getSensitivities, type Sensitivity, type Tier } from './sensitivity/sensitivityStore';
-import { envTodayLine, decompositionLine } from './sensitivity/sensitivityCopy';
-import featureRegistry from './sensitivity/sensitivityFeatures.json';
+import { getSensitivities, type Sensitivity, type Tier } from '../sensitivity/sensitivityStore';
+import { envTodayLine, decompositionLine } from '../sensitivity/sensitivityCopy';
+import featureRegistry from '../sensitivity/sensitivityFeatures.json';
 
 const PROJECT = 'muse-square-open-data';
 export const flatVal = (v: any): any => (v && typeof v === 'object' && 'value' in v ? v.value : v);
@@ -154,7 +154,7 @@ export interface DayContext {
   };
   // the LLM contract: every citable fact carries its claim_type; driver is a salience RANKING (not a cause).
   llm: {
-    citable_facts: Array<{ fact_fr: string; claim_type: 'measured' | 'observed_difference' | 'observed_proximity' | 'observed_presence' | 'observed_acute' | 'observed_change' | 'observed'; origin?: import('./fr/factOrigins.fr').FactOrigin }>;
+    citable_facts: Array<{ fact_fr: string; claim_type: 'measured' | 'observed_difference' | 'observed_proximity' | 'observed_presence' | 'observed_acute' | 'observed_change' | 'observed'; origin?: import('../fr/factOrigins.fr').FactOrigin }>;
     driver: { value: string | null; claim_type: 'observed_ranking' };
     forbidden: string[];
   };

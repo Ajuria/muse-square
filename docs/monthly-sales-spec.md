@@ -103,7 +103,7 @@ order by month_start
 ## Ce qui reste ouvert
 
 1. **Le rail « note interne » n'est pas branché** — `channel_hint = 'note_interne'` côté dbt, mais
-   les deux types sont absents de `V1_ALERT_ACTION_TYPES` (`src/lib/internalAlertCards.ts`). Les
+   les deux types sont absents de `V1_ALERT_ACTION_TYPES` (`src/lib/context/internalAlertCards.ts`). Les
    cartes ne surfacent donc que le jour de leur ingestion. **Jamais arbitré**, exactement comme en
    C2 — c'est une seule décision à prendre pour les quatre cartes.
 2. **La table mensuelle ne se reconstruit plus depuis le 07/08**, alors que ses voisines

@@ -12,7 +12,7 @@
 //   concurrence_competitor — Tier-3 competitor line ({distance}, {nom} filled by the render)
 // See docs/archive/features/context-decision-service.md.
 
-import { FEATURE_FR } from "./sensitivity/sensitivityCopy";
+import { FEATURE_FR } from "../sensitivity/sensitivityCopy";
 
 export const CONTEXT_FALLBACK_FR: Record<string, string> = {
   mobility_disruption: "Trafic dense aujourd'hui — accès au lieu perturbé",

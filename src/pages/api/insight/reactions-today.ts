@@ -2,8 +2,8 @@ import type { APIRoute } from 'astro';
 import { makeBQClient } from '../../../lib/bq';
 import { FEATURE_FR, envTodayLine, actionLine, moveLine, trackRecordQualifies } from '../../../lib/sensitivity/sensitivityCopy';
 import featureRegistry from '../../../lib/sensitivity/sensitivityFeatures.json';
-import { assembleDayContext, type DayContext, type DayContextFact } from '../../../lib/dayContext';
-import { fillContextFallback, CONTEXT_LABELS } from '../../../lib/contextCopy';
+import { assembleDayContext, type DayContext, type DayContextFact } from '../../../lib/context/dayContext';
+import { fillContextFallback, CONTEXT_LABELS } from '../../../lib/context/contextCopy';
 
 // French distance formatting (JJ/MM style number rules — comma decimal). Formatting, not copy.
 const frKm = (km: number | null): string => km == null ? '' : (km < 10 ? String(Math.round(km * 10) / 10).replace('.', ',') : String(Math.round(km))) + ' km';

@@ -1,6 +1,6 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
-import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredFamilyMarginAnswerFr, declaredClientCountAnswerFr } from "../../../lib/contextCopy";
+import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredFamilyMarginAnswerFr, declaredClientCountAnswerFr } from "../../../lib/context/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
@@ -9,7 +9,7 @@ import { renderLineItemsFrV1 } from "../../../lib/ai/render/renderLineItemsFr.v1
 import { renderDayWhyV1 } from "../../../lib/ai/decision/day_why/day_why_v1";
 import { modelFor } from "../../../lib/ai/models";
 import { callClaudeMessagesAPI, callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
-import { assembleDayContext } from "../../../lib/dayContext";
+import { assembleDayContext } from "../../../lib/context/dayContext";
 import { toGroundedDayPayload, composeHonestAbsenceFr } from "../../../lib/ai/groundedPayload";
 import { FACT_ORIGIN_FR, type FactOrigin } from "../../../lib/fr/factOrigins.fr";
 import { buildIdentityFacts } from "../../../lib/ai/facts/buildIdentityFacts";

@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { modelFor } from "../../../lib/ai/models";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { makeBQClient } from "../../../lib/bq";
-import { assembleDayContext } from "../../../lib/dayContext";
+import { assembleDayContext } from "../../../lib/context/dayContext";
 import { toGroundedDayPayload, type GroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { validate_grounded_draft } from "../../../lib/ai/contracts/packagerGroundedDraftValidator";

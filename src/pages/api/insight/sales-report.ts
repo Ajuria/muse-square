@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { makeBQClient } from '../../../lib/bq';
 // Named-context assembly is shared with reactions-today via dayContext (one source, no fork).
-import { namedEventsRange, foreignVisitorsRange } from '../../../lib/dayContext';
+import { namedEventsRange, foreignVisitorsRange } from '../../../lib/context/dayContext';
 // Section « Vos canaux » (R1, docs/rapport-canaux-spec.md) — même cœur que le provider channels.
 import { channelsData } from '../../../lib/insightFamilies/channels';
 

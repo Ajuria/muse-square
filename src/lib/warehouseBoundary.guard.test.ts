@@ -32,7 +32,7 @@ const CLIQUET: Record<string, number> = {
   // aussi raw.client_transactions (familles × produits) — hors de ce garde, dette notée.
   "src/lib/commitments/commitmentShape.ts": 2,
   "src/lib/kpi/dayClassRegistry.ts": 10,
-  "src/lib/dayContext.ts": 19,
+  "src/lib/context/dayContext.ts": 19,
   "src/lib/insightFamilies/calendar.ts": 1,
   "src/lib/insightFamilies/channels.ts": 8,
   "src/lib/insightFamilies/competitor.ts": 3,
