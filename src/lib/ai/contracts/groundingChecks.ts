@@ -40,7 +40,9 @@ const UNIT_RE = /^\s*(km\/h|°c|€|%|km|min|points?|pts?)(?![\p{L}\d])/iu;
 export function extractNumbersWithUnits(text: string): NumWithUnit[] {
   const joined = String(text ?? "")
     .replace(/[−–—]/g, "-")
-    .replace(/(\d)[   ](?=\d{3}\b)/g, "$1");
+    // Même classe que extractNumbers (espace, U+00A0, U+202F) — écrite en échappements (04/09) : la
+    // copie collée ici ne portait que des espaces simples, « 1 439 » en insécable donnait 1 et 439.
+    .replace(/(\d)[ \u00a0\u202f](?=\d{3}\b)/g, "$1");
   const out: NumWithUnit[] = [];
   const re = /-?\d+(?:[.,]\d+)?/g;
   let m: RegExpExecArray | null;
@@ -69,6 +71,49 @@ export function reproducibleSumDiff(stated: NumWithUnit, operandText: string): {
     }
   }
   return { ok: false, expr: null };
+}
+
+// ── Cohérence d'une COMPARAISON (I4, 04/09 — spec explorer-routage-inversion § 3.7) ─────────────────
+// Née d'une réponse réelle (03/09, f10c3e58) : « 1 439 €, contre un CA habituel d'environ 1 533 € pour un
+// jeudi — un écart de +70 % vs cette référence ». Chaque nombre existait dans le payload (1 533 = moyenne
+// des jeudis, +70 % = résidu du mercredi vs 847 €) : le contrôle d'EXISTENCE laissait passer un
+// RÉFÉRENTIEL CROISÉ. Ici on vérifie l'arithmétique que la phrase affirme : deux montants en €, un
+// marqueur de comparaison, un écart SIGNÉ en % ⇒ écart ≈ (a − b) / b, dans un sens ou l'autre, à 1 point
+// près (les deux côtés sont arrondis). Hors champ (aucun faux rejet possible) : % non signé (une part),
+// pas de marqueur, autre chose que deux montants.
+const COMPARISON_MARKERS_RE = /\b(contre|au lieu de|vs|par rapport a|versus|habituel|habituelle|habituels)\b/;
+export function comparisonInconsistency(sentence: string): { a: number; b: number; stated: number; actual: number } | null {
+  const raw = String(sentence ?? "");
+  if (!COMPARISON_MARKERS_RE.test(norm(raw))) return null;
+  const joined = raw.replace(/[−–—]/g, "-").replace(/(\d)[ \u00a0\u202f](?=\d{3}\b)/g, "$1");
+  const euros: number[] = [];
+  let signedPct: number | null = null;
+  const re = /([+-]?)(\d+(?:[.,]\d+)?)\s*(€|%)/g;
+  // Un % signé qui qualifie UN AUTRE sujet que les deux montants (« le panier moyen était en repli
+  // (−10 % vs sa base) », mesuré 04/09 sur « Pourquoi le 28/08 ? ») ne se compare pas à eux : on
+  // regarde les 45 caractères avant et les 30 après le %, normalisés.
+  const OTHER_SUBJECT = /(panier|conversion|visiteur|frequentation|affluence|tickets?|unites?|ventes?\/jour|remise|vs (sa|son|leur) base|sa base|son habituel)/;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(joined))) {
+    const v = Number(m[2].replace(",", "."));
+    if (!Number.isFinite(v)) continue;
+    if (m[3] === "€") euros.push(v);
+    else if (m[1]) {
+      const before = norm(joined.slice(Math.max(0, m.index - 45), m.index));
+      const after = norm(joined.slice(re.lastIndex, re.lastIndex + 30));
+      if (OTHER_SUBJECT.test(before) || OTHER_SUBJECT.test(after)) continue;
+      if (signedPct != null) return null;   // deux % signés : hors champ
+      signedPct = (m[1] === "-" ? -1 : 1) * v;
+    }
+  }
+  if (euros.length !== 2 || signedPct == null) return null;
+  const [x, y] = euros;
+  const xy = y > 0 ? ((x - y) / y) * 100 : null;   // « X contre Y » lu dans l'ordre de la phrase
+  const yx = x > 0 ? ((y - x) / x) * 100 : null;   // l'autre sens (« au lieu de » inverse souvent)
+  const cands = [xy, yx].filter((c): c is number => c != null);
+  if (!cands.length) return null;
+  if (cands.some((c) => Math.abs(c - signedPct!) <= 1)) return null;
+  return { a: x, b: y, stated: signedPct, actual: xy ?? yx! };
 }
 
 export const norm = (s: string): string =>

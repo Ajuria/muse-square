@@ -238,3 +238,25 @@ describe("saisons — les cas qui ont fait tomber la première version", () => {
     expect(resolveFrPeriod("cet été", { today: "2026-05-10", yearBias: "future" })!.start).toBe("2026-06-01");
   });
 });
+
+// I2 (03/09) — un jour relatif : la convention du résolveur, validée par le code.
+describe("jour relatif — hier / avant-hier / aujourd'hui (I2)", () => {
+  it("hier → J−1, un seul jour", () => {
+    const p = past("combien j'ai vendu hier ?");
+    expect(p!.kind).toBe("day");
+    expect(p!.start).toBe("2026-08-25");
+    expect(p!.end).toBe("2026-08-25");
+  });
+  it("avant-hier → J−2 (et « hier » ne le vole pas)", () => {
+    const p = past("et avant-hier ?");
+    expect(p!.kind).toBe("day");
+    expect(p!.start).toBe("2026-08-24");
+  });
+  it("aujourd'hui → J, avec ou sans apostrophe", () => {
+    expect(past("mes ventes aujourd'hui")!.start).toBe("2026-08-26");
+    expect(past("mes ventes aujourdhui")!.start).toBe("2026-08-26");
+  });
+  it("« hier » dans un mot ne compte pas (hiérarchie)", () => {
+    expect(past("la hiérarchie des familles")).toBeNull();
+  });
+});

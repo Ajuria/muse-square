@@ -1173,6 +1173,20 @@ if (!root) {
     return blocks;
   }
 
+  // I3 (owner 04/09, spec explorer-routage-inversion § 3.8) — la recherche concurrents ne prend que
+  // les QUESTIONS SUR LES CONCURRENTS, aux mots de l'owner : « qui sont mes compétiteurs? », « qui sont
+  // mes concurrents », « cherche adversaires et rivaux », « quels sont mes compétiteurs »,
+  // « compétiteurs », « concurrents », « qui menace mon activité », « cherche compétiteurs ».
+  // Accents et casse indifférents. « concurrence » n'en fait pas partie (une DIMENSION servie par le
+  // serveur : « la concurrence a-t-elle pesé sur mon mois ? »). Tout le reste part à l'endpoint —
+  // avant I3, isQuestion détournait toute saisie courte sans « ? » (mesuré 03/09 : 7 des 10
+  // dialogues de la batterie). isQuestion ne sert plus qu'en mode concurrence (un nom court cherche).
+  function isCompetitorSearch(q) {
+    var s = String(q || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return /(^|[^a-z])(competiteurs?|concurrents?|adversaires?|rivaux|rivales?|rival)([^a-z]|$)/.test(s)
+      || /menace mon activite/.test(s);
+  }
+
   function isQuestion(q) {
     var s = q.trim().toLowerCase();
     if (s.length > 50) return true;
@@ -1194,10 +1208,13 @@ if (!root) {
     const q = overrideQ || (ta && ta.value ? ta.value : "").trim();
     if (!q) return;
 
-    // Smart routing: questions → AI prompt, keywords → competitor search
+    // Routage (I3, 04/09). Mode planning : question SUR LES CONCURRENTS → recherche ; tout le reste →
+    // endpoint. Mode concurrence (la barre est celle de la recherche — même bouton, icône loupe) :
+    // comportement d'avant conservé — une saisie courte sans « ? » (un nom : « GL Events ») cherche,
+    // une question part à l'endpoint, une question sur les concurrents cherche.
     const activeMode = document.querySelector('.ie-mode-btn.active')?.dataset?.mode ?? 'planning';
-    if (!isQuestion(q) && typeof window.__ieRunConcSearch === 'function') {
-      // Short keyword → competitor search regardless of mode
+    const toSearch = activeMode === 'concurrence' ? (!isQuestion(q) || isCompetitorSearch(q)) : isCompetitorSearch(q);
+    if (toSearch && typeof window.__ieRunConcSearch === 'function') {
       // If in planning mode, setMode to concurrence temporarily for search UI
       if (activeMode === 'planning') {
         window.__ieSetMode('concurrence');

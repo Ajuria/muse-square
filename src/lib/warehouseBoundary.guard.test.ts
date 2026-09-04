@@ -32,6 +32,14 @@ const CLIQUET: Record<string, number> = {
   // aussi raw.client_transactions (familles × produits) — hors de ce garde, dette notée.
   "src/lib/commitmentShape.ts": 2,
   "src/lib/dayClassRegistry.ts": 10,
+  // 0 → 1 (04/09, I8 lecture dispositif × famille — spec explorer-dispositif-famille-spec.md) : la
+  // part de chaque famille dans le CA du jour (fct_client_offering_daily.revenue_share, intra-jour)
+  // moyennée sur les jours d'opération vs comparables — grain JOUR × famille. Même situation que
+  // dashboard.ts 17 → 18 : vw_insight_event_client_offering est un profil 30 j par article, sans
+  // grain jour — vue semantic À DEMANDER en passation dbt (dbt est actif, owner 04/09 ; voir mémoire
+  // semantic-views-missing). Le reste du fichier lit raw.client_transactions (tickets par famille,
+  // hors de ce garde, dette notée au module-index).
+  "src/lib/dispositifFamille.ts": 1,
   "src/lib/dayContext.ts": 19,
   "src/lib/insightFamilies/calendar.ts": 1,
   "src/lib/insightFamilies/channels.ts": 8,
@@ -63,7 +71,8 @@ const CLIQUET: Record<string, number> = {
   // 15 → 16 (27/08, fusion K9 marges) : famCa lit fct_client_offering_daily BORNÉ à
   // CURRENT_DATE() — la voie semantic (vw_insight_event_client_offering) est NON bornée en haut
   // (int_client_offering_profile : >= -30 j seul) et la graine porte des dates futures : la
-  // « fenêtre 30 j » y compte 68 jours (mesuré 24/08). dbt gelé — pas de vue corrigée possible.
+  // « fenêtre 30 j » y compte 68 jours (mesuré 24/08). [Écrit « dbt gelé » le 27/08 ; FAUX depuis
+  // le 04/09 (owner : dbt actif) — la vue bornée est à demander, mémoire semantic-views-missing.]
   // 16 → 17 (28/08, vue-equipe inc 3 — commit 8849137, instruit après coup) : le bandeau KPI
   // membre lit fct_client_daily_performance (volume/affluence/conversion en %, jamais un €).
   // 17 → 18 (28/08, pôles inc 2 — commit 79e2123, instruit après coup le 03/09) : la lecture
@@ -74,7 +83,7 @@ const CLIQUET: Record<string, number> = {
   "src/pages/api/insight/monitor.ts": 1,
   // 1 → 2 (27/08, fusion K9 marges) : la réponse marge PAR FAMILLE lit fct_client_offering_daily
   // borné à CURRENT_DATE() — même justification que dashboard.ts ci-dessus (vue semantic non
-  // bornée en haut + graine à dates futures ; dbt gelé).
+  // bornée en haut + graine à dates futures ; « dbt gelé » écrit alors — faux depuis le 04/09, vue à demander).
   "src/pages/api/insight/prompt.ts": 2,
   "src/pages/api/insight/reactions-today.ts": 3,
   "src/pages/api/insight/sales-report.ts": 9,

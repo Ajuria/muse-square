@@ -204,5 +204,81 @@ await dialogue("Idée soumise, puis changement de condition", [
   } },
 ]);
 
+
+// D11 — DISPOSITIF × FAMILLE (I8, owner go 04/09) : la phrase owner complète, puis la suite de famille.
+await dialogue("Dispositif × famille : ventes, panier moyen, mix — puis suite de famille", [
+  { q: "quel est l'impact du dispositif Corner de vente producteur sur le volume de transactions de la famille Coffee, le panier moyen ou le mix produits ?", expect: {
+    "producer = dispositif_famille": ({ producer }) => producer === "deterministic_dispositif_famille_v1",
+    "cadre : l'opération ET la famille": ({ frame }) => frame?.entity_names?.some((e) => e.type === "operation") && frame?.entity_names?.some((e) => e.nom === "Coffee"),
+    "table famille : 4 lignes (ventes, panier, CA, part) aux libellés owner": ({ j }) => {
+      const sec = (j?.ai?.output?.plan_sections ?? []).find((s2) => s2.title === "Famille Coffee pendant l'opération");
+      const labels = (sec?.table?.rows ?? []).map((r) => r.cells[0].v);
+      return labels.join("|") === "Ventes/jour avec Coffee|Panier moyen avec Coffee|CA/jour Coffee|Part de Coffee dans le CA";
+    },
+    "table mix présente (tournure owner 28/08), Coffee en gras": ({ j }) => {
+      const sec = (j?.ai?.output?.plan_sections ?? []).find((s2) => /^Vos \d+ familles, de la plus forte hausse à la plus forte baisse$/.test(String(s2.title)));
+      return !!sec && (sec.table?.rows ?? []).some((r) => r.cells[0].v === "Coffee" && r.cells[0].bold === true);
+    },
+    "la phrase ouvre sur le mix (mot de la question) : « … au lieu de … »": ({ j }) => {
+      const sec = (j?.ai?.output?.plan_sections ?? []).find((s2) => s2.title === "Famille Coffee pendant l'opération");
+      return /^Part de Coffee dans le CA pendant l'opération : .+ au lieu de .+ \(/.test(String(sec?.facts?.[0] ?? ""));
+    },
+  } },
+  { q: "et la famille Tea ?", expect: {
+    "producer = dispositif_famille (suite)": ({ producer }) => producer === "deterministic_dispositif_famille_v1",
+    // Mesuré 04/09 : sur ce cadre à deux natures, Haiku a AJOUTÉ Tea à Coffee au lieu de la remplacer (D2, cadre à une
+    // nature, remplace). La règle 1 du prompt le dit désormais ; on n'asserte pas l'absence de Coffee (variance LLM),
+    // on asserte ce qui compte : Tea lue, l'opération gardée, la table Tea présente.
+    "famille Tea lue, opération gardée": ({ frame }) => frame?.entity_names?.some((e) => e.nom === "Tea") && frame?.entity_names?.some((e) => e.type === "operation"),
+    "table « Famille Tea pendant l'opération » présente": ({ j }) => (j?.ai?.output?.plan_sections ?? []).some((s2) => s2.title === "Famille Tea pendant l'opération"),
+  } },
+]);
+
+// ── CIBLE (I0, spec docs/explorer-routage-inversion-spec.md) — les 16 probes de l'audit 03/09,
+// UN tour chacune, sur l'endpoint réel. `livre` = l'incrément qui doit la faire passer ; tant
+// qu'il n'est pas appliqué, la probe est RAPPORTÉE (« RESTE ROUGE (cible) ») et ne compte pas
+// dans `fails`. Quand l'incrément livre, on pose `now: true` : la probe devient une porte et
+// une régression compte. Les attendus sont ceux de la CIBLE (producer), jamais l'état actuel.
+const CIBLE = [
+  { q: "qui est Jésus ?",                       livre: "I1", now: true , attend: (p) => p === "deterministic_hors_perimetre_v1" },
+  { q: "quelle heure est-il ?",                 livre: "I1", now: true , attend: (p) => p === "deterministic_hors_perimetre_v1" },
+  { q: "raconte-moi une blague",                livre: "I1", now: true , attend: (p) => p === "deterministic_hors_perimetre_v1" },
+  { q: "quelle est la capitale de l'Australie ?", livre: "I1", now: true , attend: (p) => p === "deterministic_hors_perimetre_v1" },
+  { q: "bonjour",                               livre: "I1", now: true , attend: (p) => p === "deterministic_hors_perimetre_v1" },   // arbitrage owner 2 : politesse ou même réponse
+  { q: "merci",                                 livre: "I1", now: true , attend: (p) => p === "deterministic_hors_perimetre_v1" },
+  { q: "mon panié moyen en juilet",             livre: "—",  now: true,  attend: (p) => p === "deterministic_kpi_period_v1" },
+  { q: "planifi moi septembr",                  livre: "—",  now: true,  attend: (p) => p === "deterministic_plan_period_v1" },
+  { q: "le CA de la famile Cofee cet ete",      livre: "—",  now: true,  attend: (p) => p === "deterministic_entity_period_v1" },
+  { q: "mes engagemant",                        livre: "—",  now: true,  attend: (p) => String(p).startsWith("deterministic_engagements") },
+  { q: "combien j'ai vendu hier ?",             livre: "I2", now: true,  attend: (p, j) => p === "grounded_day_claude" && (j?.decision_payload?.used_dates ?? []).includes(hier()) },
+  // Semaine CIVILE précédente (convention frPeriod, lundi → dimanche) — jamais « les 7 derniers jours ».
+  { q: "c'était comment la semaine dernière ?", livre: "I2", now: true,  attend: (p, j) => { const [a, b] = semaineDerniere(); const t = String(j?.ai?.output?.answer ?? ""); return p === "deterministic_report_nav_v1" && t.includes(frFr(a)) && t.includes(frFr(b)); } },
+  { q: "ça va mes ventes ?",                    livre: "I5", now: true,  attend: (p) => p !== "deterministic_engagements_v1" && p !== "v3_fallback_deterministic" && p != null },
+  { q: "top 3 produits août",                   livre: "I7", now: true,  attend: (p, j) => p === "deterministic_top_familles_v1" && (j?.ai?.output?.plan_sections?.[0]?.table?.rows ?? []).length >= 3 && /01\/08\/2026/.test(String(j?.ai?.headline)) },
+  { q: "what were my sales in July?",           livre: "—",  now: true,  attend: (p) => p === "deterministic_report_nav_v1" },
+  { q: "je veux savoir si mon panier moyen a progressé en juillet et aussi quels sont mes meilleurs jours en septembre",
+                                                livre: "I6", now: true,  attend: (p, j, h) => p === "deterministic_kpi_period_v1" && /01\/07\/2026/.test(h) && !/01\/09\/2026/.test(h)
+                                                  && (j?.ai?.output?.plan_sections ?? []).some((s2) => (s2.facts ?? []).some((f) => /^Vous m'avez aussi demandé : « .+ » — posez-la à part\.$/.test(f))) },
+];
+function hier() { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); }
+function semaineDerniere() { const d = new Date(); const dow = d.getDay(); const lundi = new Date(d); lundi.setDate(d.getDate() - ((dow + 6) % 7) - 7); const dim = new Date(lundi); dim.setDate(lundi.getDate() + 6); return [lundi.toISOString().slice(0, 10), dim.toISOString().slice(0, 10)]; }
+function frFr(iso) { return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`; }
+console.log("\n== CIBLE — probes de l'audit 03/09 (un tour chacune)");
+let cibleRouges = 0;
+for (const c of CIBLE) {
+  const t0 = Date.now();
+  const r = await fetch(URL, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: c.q, thread_context: { location_id: LOC, resolved: null }, conversation_history: [] }) });
+  const j = await r.json();
+  const producer = j?.meta?.producer ?? null;
+  const headline = String(j?.ai?.headline ?? "");
+  const ok = c.attend(producer, j, headline);
+  const etat = ok ? "OK   " : (c.now ? "ÉCHEC" : `RESTE ROUGE (cible ${c.livre})`);
+  console.log(`  ${etat} « ${c.q} » → ${producer} (${Date.now() - t0} ms) — ${headline.slice(0, 60)}`);
+  if (!ok && c.now) fails++;
+  if (!ok && !c.now) cibleRouges++;
+}
+console.log(`  cible : ${CIBLE.length - cibleRouges}/${CIBLE.length} passent — ${cibleRouges} restent à livrer`);
+
 console.log(`\n${fails === 0 ? "BATTERIE VERTE" : fails + " ÉCHEC(S)"}`);
 process.exit(fails ? 1 : 0);

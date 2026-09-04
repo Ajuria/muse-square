@@ -149,6 +149,17 @@ export interface FunnelStepReading {
   base_days: number;
 }
 
+// La BASE COMPARABLE, un seul foyer (I8, 04/09) : les jours d'occurrence de l'opération dans la
+// période, et la fenêtre de repli 90 j avant le début. Partagée byte-identique entre l'échelle
+// de la vente (ci-dessous) et la lecture dispositif × famille (dispositifFamille.ts) — deux
+// définitions de « jours comparables » seraient deux vérités.
+export const COMPARABLE_LOOKBACK_DAYS = 90;
+export const OCC_CTE = `occ AS (
+        SELECT DATE(date) AS d FROM \`${PROJECT}.raw.saved_item_dates\`
+        WHERE saved_item_id = @sid AND location_id = @loc
+          AND DATE(date) BETWEEN @pStart AND @pEnd
+      )`;
+
 export async function readSerieFunnel(
   bq: any,
   location_id: string,
@@ -160,11 +171,7 @@ export async function readSerieFunnel(
   const wEnd = end < todayIso ? end : todayIso;
   const rows = await bq.query({
     query: `
-      WITH occ AS (
-        SELECT DATE(date) AS d FROM \`${PROJECT}.raw.saved_item_dates\`
-        WHERE saved_item_id = @sid AND location_id = @loc
-          AND DATE(date) BETWEEN @pStart AND @pEnd
-      ),
+      WITH ${OCC_CTE},
       perf AS (
         SELECT DATE(p.date) AS d,
                p.daily_visitors, p.daily_conversion_rate, p.daily_transactions, p.daily_avg_basket, p.daily_revenue,
@@ -172,7 +179,7 @@ export async function readSerieFunnel(
                DATE(p.date) IN (SELECT d FROM occ) AS is_occ
         FROM \`${PROJECT}.semantic.vw_insight_event_client_performance\` p
         WHERE p.location_id = @loc
-          AND p.date BETWEEN DATE_SUB(@pStart, INTERVAL 90 DAY) AND @pEnd
+          AND p.date BETWEEN DATE_SUB(@pStart, INTERVAL ${COMPARABLE_LOOKBACK_DAYS} DAY) AND @pEnd
       ),
       dows AS (SELECT DISTINCT dow FROM perf WHERE is_occ)
       SELECT
@@ -393,7 +400,8 @@ export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlo
     visitors: { label: "Visiteurs/jour", fmt: (v) => String(Math.round(v)) },
     conversion: { label: "Taux de conversion", fmt: (v) => `${String(Math.round(v * 1000) / 10).replace(".", ",")} %` },
     transactions: { label: "Ventes/jour", fmt: (v) => String(Math.round(v)) },
-    basket: { label: "Panier moyen", fmt: (v) => `${String(Math.round(v * 100) / 100).replace(".", ",")} €` },
+    // Deux décimales (owner 04/09) — « 4,70 € », aligné sur la lecture dispositif × famille.
+    basket: { label: "Panier moyen", fmt: (v) => `${v.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` },
     revenue: { label: "CA/jour", fmt: (v) => `${frEur(v)} €` },
   };
   let funnel_table: { cols: any[]; rows: any[] } | null = null;

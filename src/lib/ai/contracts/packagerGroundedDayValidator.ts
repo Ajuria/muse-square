@@ -4,7 +4,7 @@
 
 import { groundedFactStrings, type GroundedDayPayload } from "../groundedPayload";
 import {
-  extractNumbers, extractNumbersWithUnits, reproducibleSumDiff,
+  extractNumbers, extractNumbersWithUnits, reproducibleSumDiff, comparisonInconsistency,
   norm, extractNamedEntities, splitSentences,
   CAUSAL_ATTRIBUTION_PATTERNS, PREDICTED_OUTCOME_PATTERNS, verdictRegisterViolations,
 } from "./groundingChecks";
@@ -76,10 +76,39 @@ export function validate_packager_output_grounded_day(output: any, row: any): [b
     .join("  ");
   const ungroundedNums: string[] = [];
   const seenNums = new Set<string>();
+  // I4 — LOCALITÉ (spec explorer-routage-inversion § 3.7). Avec sentence_provenance, un nombre porté
+  // par une phrase doit vivre dans les faits que CETTE phrase cite (ou s'en recomposer) — plus
+  // seulement « quelque part dans le payload ». Le mécanisme est celui des entités (Phase 1 #6),
+  // appliqué aux nombres. Restent permis partout : la date affichée et les nombres des signaux /
+  // moteurs (ils ne sont pas des faits cités). Sans provenance : le contrôle global d'avant, intact.
+  const provForNums: Array<{ text: string; fact_ids: string[] }> =
+    Array.isArray(output.sentence_provenance) ? output.sentence_provenance : [];
+  const factTextById = new Map(payload.citable_facts.map((f) => [f.id, f.fact_fr]));
+  const nonFactNumericText = JSON.stringify(payload.signals ?? {}) + " " + JSON.stringify(payload.engines ?? {}) + " " +
+    (payload.display_date ?? "") + " " + (payload.date ?? "");
+  const nonFactNums = extractNumbers(nonFactNumericText);
+  const localNums: string[] = [];
   for (const seg of segments) {
     for (const nu of extractNumbersWithUnits(seg)) {
       const key = String(nu.v);
-      if (allowedNums.has(key) || seenNums.has(key)) continue;
+      if (seenNums.has(key)) continue;
+      if (allowedNums.has(key)) {
+        // Existe dans le payload — la localité décide, si la phrase est déclarée dans la provenance.
+        if (provForNums.length && !nonFactNums.has(key)) {
+          const sentencesWithNum = splitSentences(seg).filter((st) => extractNumbers(st).has(key));
+          for (const st of sentencesWithNum) {
+            const covering = provForNums.filter((pv) => norm(String(pv.text ?? "")).includes(norm(st)) || norm(st).includes(norm(String(pv.text ?? ""))));
+            if (!covering.length) continue;   // phrase non déclarée : le contrôle d'entités s'en occupe déjà
+            const localText = covering.flatMap((pv) => (Array.isArray(pv.fact_ids) ? pv.fact_ids : []).map((id) => String(factTextById.get(String(id)) ?? ""))).join("  ");
+            if (!extractNumbers(localText).has(key) && !reproducibleSumDiff(nu, localText).ok) {
+              localNums.push(key);
+              break;
+            }
+          }
+        }
+        seenNums.add(key);
+        continue;
+      }
       seenNums.add(key);
       const rep = reproducibleSumDiff(nu, citedFactText);
       if (rep.ok) {
@@ -91,6 +120,21 @@ export function validate_packager_output_grounded_day(output: any, row: any): [b
   }
   if (ungroundedNums.length) {
     errors.push(`grounded_day: ungrounded number(s) not in any citable_fact: ${ungroundedNums.join(", ")}`);
+  }
+  if (localNums.length) {
+    errors.push(`grounded_day: number(s) not in the fact(s) the sentence cites (référentiel local): ${[...new Set(localNums)].join(", ")}`);
+  }
+  // I4 — COHÉRENCE D'UNE COMPARAISON : « 1 439 € contre 1 533 €, +70 % » — chaque nombre existe, la
+  // comparaison est fausse (réponse réelle du 03/09). Par phrase, sans dépendre de la provenance.
+  for (const seg of segments) {
+    for (const st of splitSentences(seg)) {
+      const inc = comparisonInconsistency(st);
+      if (inc) {
+        // La phrase fautive est citée (60 caractères) : le feedback de régénération et le log disent
+        // OÙ le référentiel se croise — sans elle, un rejet ne se juge pas (vrai ou faux positif).
+        errors.push(`grounded_day: référentiel croisé — ${inc.stated >= 0 ? "+" : "−"}${Math.abs(inc.stated)} % ne relie pas ${inc.a} et ${inc.b} (écart réel ${inc.actual >= 0 ? "+" : "−"}${Math.abs(Math.round(inc.actual))} %) dans « ${st.slice(0, 160)} »`);
+      }
+    }
   }
 
   // 3) ENTITY grounding — a named entity (2+ consecutive Capitalized words, e.g. a competitor/event/place)

@@ -40,6 +40,9 @@ import { listClassDispositifs } from "../../../lib/bestPractices";
 import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
 import { loadSiteEntities, matchEntities } from "../../../lib/entityResolver";
 import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
+import { signalMetier, horsPerimetreReponse } from "../../../lib/ai/horsPerimetre";
+import { operationLife, readDispositifFamille, buildDispositifFamilleBlocks } from "../../../lib/dispositifFamille";
+import { readTopFamilles, buildTopFamillesBlocks } from "../../../lib/topFamilles";
 import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, readEntityWhy, readKpiPeriod } from "../../../lib/entityReading";
 import { readIdeaPlacement } from "../../../lib/ideaPlacement";
 import { planPeriod, buildPlanBlocks, buildPlanWhyBlocks } from "../../../lib/planPeriod";
@@ -50,7 +53,7 @@ import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { sinkTelemetry } from "../../../lib/telemetrySink";
 // addDaysYmd existe déjà en local (l.~757) — ne pas l'importer en doublon.
-import { resolveFrPeriod, daysInRangeYmd, type YearBias } from "../../../lib/dates/frPeriod";
+import { resolveFrPeriod, daysInRangeYmd, type YearBias, type FrPeriod } from "../../../lib/dates/frPeriod";
 
 export const prerender = false;
 
@@ -91,7 +94,7 @@ function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: Fa
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1" || producer === "deterministic_engagements_elicit_v1" || producer === "deterministic_entity_period_elicit_v1") return null;
+  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1" || producer === "deterministic_engagements_elicit_v1" || producer === "deterministic_entity_period_elicit_v1" || producer === "deterministic_hors_perimetre_v1" || producer === "deterministic_dispositif_famille_v1" || producer === "deterministic_top_familles_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -2328,13 +2331,30 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
     // Le cadre résolu du TOUR (posé par le bloc résolveur plus bas quand il a tourné) — voyage
     // dans meta.resolved_frame de toute réponse sysDialogue ; le client l'écho-e au tour suivant.
     let _rsvFrameOut: ResolvedFrame | null = null;
+    // Déclaré ICI (avant sysDialogueResponse, qui le lit via _suppQ) : posé par le bloc résolveur plus bas.
+    let _rsv: ResolvedTurn | null = null;
+    // I2 (03/09) — la période RÉSOLUE que les branches déterministes n'ont pas consommée (aucune
+    // entité, aucun KPI mesurable) : transmise au chemin legacy au lieu d'être jetée. Un jour
+    // unique passé → la date du chemin jour ; une période passée de plusieurs jours → la fenêtre
+    // du renvoi rapport. Jamais l'avenir (une période à venir n'est ni un jour mesuré ni un bilan).
+    let _rsvPassPeriod: { start: string; end: string; expression: string } | null = null;
 
     // Shared envelope for the SYSTEM-DIALOGUE answers (elicit / declared capture / declared estimate):
     // deterministic French, null-register producers, same shape the client's elicit branch renders.
     // extras (27/08, journal pôles) : cartes construites SERVEUR (pole_cards/dated_cards) —
     // fusionnées dans ai.output ; le client les rend verbatim (datecards), jamais reformulées.
-    const sysDialogueResponse = (headline: string, answer: string, producer: string, primary: any = null, extras: Record<string, any> | null = null) =>
-      new Response(JSON.stringify({
+    // I6 (owner 04/09) — un message qui porte plusieurs questions : la réponse traite la première et
+    // DIT que la seconde attend, avec les mots de l'utilisateur (phrase actée owner 04/09). Posée sur
+    // les réponses déterministes (sections ou prose) ; les chemins legacy la reçoivent avec I5.
+    const _suppQ = (): string[] =>
+      (_rsv?.questions_supplementaires ?? []).map((q2) => `Vous m'avez aussi demandé : « ${q2} » — posez-la à part.`);
+    const sysDialogueResponse = (headline: string, answer: string, producer: string, primary: any = null, extras: Record<string, any> | null = null) => {
+      const _supp = _suppQ();
+      if (_supp.length) {
+        if (extras && Array.isArray(extras.plan_sections)) extras = { ...extras, plan_sections: [...extras.plan_sections, { facts: _supp }] };
+        else answer = [answer, ..._supp].filter(Boolean).join("\n\n");
+      }
+      return new Response(JSON.stringify({
         ok: true,
         meta: { location_id, resolved_horizon: "day", resolved_intent: "DAY_DIMENSION_DETAIL", producer, register: registerFor(producer), mode: request_mode, ...(_rsvFrameOut ? { resolved_frame: _rsvFrameOut } : {}) },
         ai: {
@@ -2349,6 +2369,7 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
         window_aggregates_v3: null,
         ui_packaging_v3: null,
       }), { status: 200, headers: { "content-type": "application/json" } });
+    };
 
     // ── MODE ENQUÊTE « Reproduire le dispositif gagnant » (pièce 2b, spec atelier § Hiérarchie
     // de l'enquête). Early-return complet, comme isUnknownIntent : la page dispositif.astro
@@ -2491,7 +2512,6 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // leurs portes AUGMENTÉES — les regex restent le repli complet (résolveur null = legacy).
     // Chaque entité est validée contre les listes RÉELLES du site (semanticRegistry) ; le
     // cadre ne porte jamais un fait. Coût mesuré au harnais : ~0,3 s (listes) + ~1 s (appel).
-    let _rsv: ResolvedTurn | null = null;
     let _rsvSite: Awaited<ReturnType<typeof loadSiteEntities>> | null = null;
     {
       const _rsvT0 = Date.now();
@@ -2506,7 +2526,51 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           history: conversation_history,
         });
         if (_rsv) _rsvFrameOut = frameOf(_rsv);
-        console.log(`[resolver] ${Date.now() - _rsvT0} ms — intent=${_rsv?.intent ?? "null"} entites=${_rsv?.entities.length ?? 0}/${_rsv?.entity_names.length ?? 0} periode=${_rsv?.periode?.expression ?? "-"} suite=${_rsv?.suite ?? "-"} chg=${(_rsv?.changements ?? []).join(",")}`);
+        console.log(`[resolver] ${Date.now() - _rsvT0} ms — intent=${_rsv?.intent ?? "null"} entites=${_rsv?.entities.length ?? 0}/${_rsv?.entity_names.length ?? 0} periode=${_rsv?.periode?.expression ?? "-"} suite=${_rsv?.suite ?? "-"} confiance=${_rsv?.confiance ?? "-"} periodeValidee=${_rsv?.periode_validee ?? "-"} chg=${(_rsv?.changements ?? []).join(",")}`);
+      }
+    }
+
+    // I5 (04/09) — la période résolue passe au chemin legacy dès qu'aucune entité n'est nommée
+    // (bilan_periode, rapport, jour…) ; le bloc entité × période la pose aussi, plus bas, pour
+    // les entity_period sans entité. Jamais l'avenir.
+    if (_rsv?.periode && !_rsv.entities.length && !_rsv.entity_names.length && !_rsvPassPeriod
+        && _rsv.periode.end < new Date().toISOString().slice(0, 10)) {
+      _rsvPassPeriod = { ..._rsv.periode };
+    }
+
+    // ── HORS PÉRIMÈTRE (I1, spec docs/explorer-routage-inversion-spec.md § 3.4, owner 03/09) —
+    // le résolveur dit que la question ne parle pas du commerce ; le code VÉRIFIE avant de
+    // refuser : un seul signal métier (famille, entité, date, période, lookup, journal, plan,
+    // mot de KPI) ⇒ la question repart dans la chaîne. Réponse = option A (horsPerimetre.ts) :
+    // ce que CE compte contient + la question verbatim + une question que la page propose déjà.
+    // Le cadre écho-é reste le PRÉCÉDENT : « et octobre ? » après un refus continue la conversation.
+    // `confiance` ne conditionne PAS la branche : mesuré 03/09, Haiku posait « basse » sur
+    // « bonjour » et la question retombait sur un théâtre. La garde déterministe EST la sécurité
+    // (spec § 3.2 : basse ⇒ la garde tranche) ; la confiance se trace pour I5.
+    if (_rsv?.intent === "hors_perimetre") {
+      const _hpToday = new Date().toISOString().slice(0, 10);
+      const _hpSignal = signalMetier(qRaw, {
+        familles: (q2) => familiesForQuestion(q2).length,
+        dateToken: (q2) => extractDateMentions(q2, _hpToday).hasDateToken,
+        periode: (q2) => resolveFrPeriod(q2, { today: _hpToday, yearBias: "past" }) != null,
+        lookupEvenement: (q2) => isEventLookupQuestion(q2),
+        entites: (q2) => (_rsvSite ? matchEntities(q2, _rsvSite).length : 0),
+        journal: (q2) => JOURNAL_Q.test(q2),
+        plan: (q2) => /\b(planifie[rsz]?|pr[ée]parer?|organiser?|que faire)\b/i.test(q2),
+      });
+      console.log(`[hors-perimetre] signal=${_hpSignal ?? "aucun"}`);
+      if (!_hpSignal) {
+        // Le dernier jour mesuré du site → « Pourquoi le JJ/MM ? » (même vue que les faits jour).
+        const _bqh = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+        const _hpLast = await _bqh.query({
+          query: `SELECT FORMAT_DATE('%d/%m', MAX(date)) AS d
+                  FROM \`${process.env.BQ_PROJECT_ID || "muse-square-open-data"}.semantic.vw_insight_event_day_residual\`
+                  WHERE location_id = @location_id AND residual_pct IS NOT NULL`,
+          params: { location_id }, location: "EU",
+        }).then((r: any) => { const v = r?.[0]?.[0]?.d; return v == null ? null : String(v && typeof v === "object" && "value" in v ? v.value : v); }).catch(() => null);
+        const _hp = horsPerimetreReponse({ qRaw, site: _rsvSite, dernierJourMesure: _hpLast });
+        _rsvFrameOut = thread_context?.resolved ?? null;
+        return sysDialogueResponse(_hp.headline, _hp.answer, "deterministic_hors_perimetre_v1");
       }
     }
 
@@ -2690,13 +2754,37 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       const _epToday = new Date().toISOString().slice(0, 10);
       // Résolveur d'abord (suites « et pour Poeiti ? » : entité changée, période héritée du
       // cadre) ; les parseurs legacy restent le repli complet.
-      const _epPeriod = (_rsv && (_rsv.intent === "entity_period" || _rsv.entities.length) && _rsv.periode)
+      let _epPeriod = (_rsv && (_rsv.intent === "entity_period" || _rsv.entities.length) && _rsv.periode)
         ? { start: _rsv.periode.start, end: _rsv.periode.end }
         : resolveFrPeriod(qRaw, { today: _epToday, yearBias: "past" });
+      // I8 § 4.2 (04/09) — une opération nommée SANS période : sa vie (première occurrence →
+      // aujourd'hui), posée par le code. Mesuré 03/09 : la question owner complète tombait
+      // faute de période, jusqu'au matcher offering qui ignorait le dispositif.
+      const _bqe = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      if (!_epPeriod && _rsv && _rsv.entities.filter((e) => e.kind === "operation").length === 1) {
+        const _op0 = _rsv.entities.find((e) => e.kind === "operation")!;
+        _epPeriod = await operationLife(_bqe, location_id, String(_op0.id), _epToday);
+        if (_epPeriod) console.log(`[dispositif-famille] periode=vie ${_epPeriod.start}→${_epPeriod.end} (« ${_op0.name} »)`);
+      }
       if (_epPeriod) {
-        const _bqe = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
         const _epSite = _rsvSite ?? await loadSiteEntities(_bqe, location_id, String(clerk_user_id || ""));
         const _epMatches = (_rsv?.entities.length ? _rsv.entities : matchEntities(qRaw, _epSite));
+        // ── DISPOSITIF × FAMILLE (I8, owner go 04/09) — UNE opération nommée AVEC une ou
+        // plusieurs familles = l'effet de l'opération SUR ces familles (ventes, panier moyen du
+        // ticket entier, CA, part), jamais côte à côte. Avant la comparaison N entités.
+        {
+          const _dfOps = _epMatches.filter((e) => e.kind === "operation");
+          const _dfFams = _epMatches.filter((e) => e.kind === "famille");
+          if (_dfOps.length === 1 && _dfFams.length >= 1) {
+            const _dfKpi: any = /\bmix\b/i.test(qRaw) ? "mix" : (_rsv?.kpi ?? null);
+            const _dfR = await readDispositifFamille(_bqe, location_id, _dfOps[0], _dfFams, _epPeriod.start, _epPeriod.end, _epToday, _dfKpi);
+            const _dfB = buildDispositifFamilleBlocks(_dfR);
+            return sysDialogueResponse(
+              _dfB.headline, "", "deterministic_dispositif_famille_v1", null,
+              { plan_sections: _dfB.sections, sources_list: _dfB.sources },
+            );
+          }
+        }
         // ── COMPARAISONS (incrément 4, 28/08) — N entités et/ou 2 périodes : mise en table
         // de lectures unitaires (readEntitiesCompared), cellules nues, jamais un verdict
         // fabriqué entre entités. Une seule entité, une seule période → le chemin historique.
@@ -2722,6 +2810,20 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
             { entity_table: _epBlocks.table, funnel_table: _epBlocks.funnel_table, sources_list: _epBlocks.sources },
           );
         }
+        // I2 — aucune entité : la période résolue par le résolveur passe au chemin legacy
+        // (posée ici, lue plus bas par la fenêtre du renvoi rapport et l'extraction de dates).
+        if (_rsv?.periode && !_rsvPassPeriod) {
+          const _ppToday = new Date().toISOString().slice(0, 10);
+          if (_rsv.periode.end < _ppToday) _rsvPassPeriod = { ..._rsv.periode };
+        }
+        // I7 (04/09) — « top 3 produits août » : question de FAMILLES (matcher offering) sur une
+        // période PASSÉE de plusieurs jours → lecture déterministe des familles classées par CA
+        // (topFamilles.ts). La famille offering est un profil 30 j : elle ne sait pas dire août.
+        if (_rsvPassPeriod && _rsvPassPeriod.start < _rsvPassPeriod.end && familyForQuestion(qRaw)?.key === "offering") {
+          const _tfR = await readTopFamilles(_bqe, location_id, _rsvPassPeriod.start, _rsvPassPeriod.end);
+          const _tfB = buildTopFamillesBlocks(_tfR, resolveTopKFromText(qRaw));
+          return sysDialogueResponse(_tfB.headline, "", "deterministic_top_familles_v1", null, { plan_sections: _tfB.sections, sources_list: _tfB.sources });
+        }
         // D2 — l'entité nommée est introuvable : élicitation avec les LISTES RÉELLES du site,
         // jamais une devinette. Seulement quand la question NOMME un pôle ou une famille.
         if (/\bp[oô]les?\b/i.test(qRaw) || /\bfamille\b/i.test(qRaw)
@@ -2746,7 +2848,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // Précision d'abord : « événement » est un mot chargé (paysage concurrent, calendrier) —
     // la branche ne s'arme QUE sur le possessif (mes/mon/nos événements, mon lancement) ;
     // « les événements demain » reste la famille events existante.
-    if (/\b(m(es|on)|nos|notre)\s+(événements?|évènements?|evenements?|lancements?)\b/i.test(qRaw)) {
+    if (/\b(m(es|on)|nos|notre)\s+(événements?|évènements?|evenements?|lancements?)\b/i.test(qRaw) || _rsv?.intent === "mes_evenements") {
       const _bqe = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
       const _evRows = await listUserEvenements(_bqe, location_id, clerk_user_id || "", 6);
       const _frDe = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
@@ -3018,13 +3120,33 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // Intégration limitée aux formes mois / plage de mois / du-au : les formes
     // relatives (« semaine dernière », « ce mois ») gardent leurs chemins
     // existants (weekday windows, temporal constraints).
+    // I2 (03/09) : une période PASSÉE de plusieurs jours résolue par le résolveur et non consommée
+    // (« c'était comment la semaine dernière ? ») fixe la fenêtre — elle descend alors sur le
+    // renvoi rapport (_reportWindowEnd), au lieu de « today + 29 » qui rendait le jour courant.
+    const _rsvWindow: FrPeriod | null =
+      _rsvPassPeriod && _rsvPassPeriod.start < _rsvPassPeriod.end
+        ? { start: _rsvPassPeriod.start, end: _rsvPassPeriod.end, kind: "explicit_range", months: [], explicit_year: true }
+        : null;
+    if (_rsvWindow) console.log(`[resolver→legacy] fenêtre ${_rsvWindow.start}→${_rsvWindow.end} (« ${_rsvPassPeriod!.expression} »)`);
+    // I2 résilience (04/09) : quand le résolveur n'a pas tourné (timeout mesuré : 228 s sous charge,
+    // intent=null), une période RELATIVE entièrement passée parsée par frPeriod — « la semaine
+    // dernière », « le mois dernier », « les 30 derniers jours » — fixe aussi la fenêtre (renvoi
+    // rapport), au lieu de retomber sur « aujourd'hui + 29 » et le plancher. frPeriod est le SST.
+    const _todayW = new Date().toISOString().slice(0, 10);
+    const _relPast = !_rsvWindow && parsed_period
+      && (parsed_period.kind === "last_week" || parsed_period.kind === "last_month" || parsed_period.kind === "last_n_days")
+      && parsed_period.end < _todayW && parsed_period.start < parsed_period.end
+      ? parsed_period : null;
+    if (_relPast) console.log(`[frPeriod→legacy] fenêtre ${_relPast.start}→${_relPast.end} (${_relPast.kind})`);
     const period_for_window =
-      parsed_period &&
+      _rsvWindow ??
+      _relPast ??
+      (parsed_period &&
       (parsed_period.kind === "month" ||
         parsed_period.kind === "month_range" ||
         parsed_period.kind === "explicit_range")
         ? parsed_period
-        : null;
+        : null);
 
     // selected_date precedence:
     // 1) explicit payload
@@ -3223,6 +3345,19 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
 
     const dateMentions = extractDateMentions(qRaw, selected_date.slice(0, 10));
     const extracted_dates = dateMentions.dates;
+    // I2 (03/09) : un jour unique PASSÉ résolu (« hier » → 02/09) devient LA date du chemin jour
+    // quand la question n'en porte aucune — sinon le chemin jour prenait aujourd'hui et servait
+    // les faits TODAY/FUTURE (mesuré : « 1 439 € contre 1 533 € pour un jeudi, +70 % »).
+    if (_rsvPassPeriod && _rsvPassPeriod.start === _rsvPassPeriod.end && extracted_dates.length === 0 && !date && dates.length === 0) {
+      extracted_dates.push(_rsvPassPeriod.start);
+      console.log(`[resolver→legacy] jour ${_rsvPassPeriod.start} (« ${_rsvPassPeriod.expression} »)`);
+    } else if (!_rsvPassPeriod && parsed_period && parsed_period.kind === "day" && parsed_period.end < new Date().toISOString().slice(0, 10)
+               && extracted_dates.length === 0 && !date && dates.length === 0) {
+      // Résolveur absent (timeout) : « hier » parsé par frPeriod devient la date du chemin jour.
+      extracted_dates.push(parsed_period.start);
+      _rsvPassPeriod = { start: parsed_period.start, end: parsed_period.end, expression: "hier" };
+      console.log(`[frPeriod→legacy] jour ${parsed_period.start} (day)`);
+    }
 
     // Base effective_dates precedence:
     // 1) dates[] payload
@@ -3255,6 +3390,48 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       resolved_intent = resolveIntentFromText(qRaw, "day");
     }
 
+    // ── I5 (04/09, spec § 3.1) — LE RÉSOLVEUR EST LA PORTE D'ENTRÉE : sa décision pose les variables
+    // de routage legacy (horizon / intent), les regex ci-dessus ne restent que le REPLI quand il n'a
+    // pas tourné. Les branches ne bougent pas : on les APPELLE par intention. `_rsvDecided` coupe le
+    // classifieur Haiku 4 classes (un aller-retour LLM de moins par tour).
+    let _rsvDecided = false;
+    if (_rsv && !force_compare) {
+      switch (_rsv.intent) {
+        case "jour": {
+          // « ça va mes ventes ? » sans date : LE DERNIER JOUR MESURÉ (précision owner 04/09), pas
+          // aujourd'hui — aujourd'hui n'est jamais mesuré, ses faits (habituel du jour + dernier jour
+          // mesuré) invitaient le référentiel croisé que I4 rejette, jusqu'au plancher (mesuré).
+          if (extracted_dates.length === 0 && !date && dates.length === 0 && !_rsvPassPeriod) {
+            const _lastRow = await makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data").query({
+              query: `SELECT CAST(MAX(date) AS STRING) AS d FROM \`${process.env.BQ_PROJECT_ID || "muse-square-open-data"}.semantic.vw_insight_event_day_residual\` WHERE location_id = @location_id AND residual_pct IS NOT NULL`,
+              params: { location_id }, location: "EU",
+            }).then((r: any) => { const v = r?.[0]?.[0]?.d; return v == null ? null : String(v && typeof v === "object" && "value" in v ? v.value : v).slice(0, 10); }).catch(() => null);
+            if (_lastRow && /^\d{4}-\d{2}-\d{2}$/.test(_lastRow)) {
+              extracted_dates.push(_lastRow);
+              _rsvPassPeriod = { start: _lastRow, end: _lastRow, expression: "dernier jour mesuré" };
+              console.log(`[resolver→routage] jour sans date → dernier jour mesuré ${_lastRow}`);
+            }
+          }
+          resolved_horizon = "day"; resolved_intent = resolveIntentFromText(qRaw, "day"); _rsvDecided = true; break;
+        }
+        case "dimension":
+          if (extracted_dates.length === 0) { resolved_horizon = "day"; resolved_intent = "DAY_DIMENSION_DETAIL"; }
+          _rsvDecided = true; break;
+        case "fenetre":
+          if (resolved_horizon !== "day") { resolved_horizon = "month"; resolved_intent = resolveIntentFromText(qRaw, "month"); }
+          _rsvDecided = true; break;
+        case "entite_exterieure":
+          resolved_horizon = "month"; resolved_intent = "ENTITY_IMPACT" as any; _rsvDecided = true; break;
+        case "evenement_lookup":
+          resolved_horizon = "lookup_event"; resolved_intent = "LOOKUP_EVENT"; _rsvDecided = true; break;
+        case "bilan_periode":
+        case "rapport":
+          _rsvDecided = true; break;   // la fenêtre (_rsvPassPeriod → _reportWindowEnd) mène au renvoi rapport
+        default: break;
+      }
+      if (_rsvDecided) console.log(`[resolver→routage] ${_rsv.intent} → horizon=${resolved_horizon} intent=${resolved_intent}`);
+    }
+
     // Only force DAY when a date token includes both day + month
     const hasExplicitDayAndMonth =
       dateMentions.dates.length === 1 &&
@@ -3277,7 +3454,9 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // inline. Setting horizon "day" short-circuits both the deterministic lookup check and the Haiku
     // classifier (they gate on horizon month / not-day). No explicit date / no compare required — the
     // family router is a first-class classifier, not an afterthought on the day branch.
-    if (!force_compare && extracted_dates.length === 0 && familyForQuestion(qRaw)) {
+    // I5 : le matcher de famille ne prime plus sur le résolveur (mesuré 04/09 : « quand a lieu la fête
+    // des vendanges ? » — résolveur evenement_lookup, matcher « quand » → famille → jour, faux).
+    if (!force_compare && !_rsvDecided && extracted_dates.length === 0 && familyForQuestion(qRaw)) {
       resolved_horizon = "day";
       resolved_intent = "DAY_DIMENSION_DETAIL";
     }
@@ -3433,12 +3612,12 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       extracted_dates.length === 0 &&
       !/(compar|entre ces|laquelle|difference|\bvs\b)/.test(qn);
 
-    const needsHaikuClassification =
+    const needsHaikuClassification = !_rsvDecided && (
       (!force_compare &&
         resolved_horizon === "month" &&
         resolved_intent === "WINDOW_TOP_DAYS" &&
         !isEventLookupQuestion(qRaw)) // still use deterministic for clear-cut lookups (Black Friday, "quand a lieu")
-      || (isDefaultedCompare && !isEventLookupQuestion(qRaw));
+      || (isDefaultedCompare && !isEventLookupQuestion(qRaw)));
 
     // Clear-cut lookup (deterministic) — keep existing behavior for unambiguous cases
     if (!force_compare && resolved_horizon !== "day" && resolved_horizon !== "selected_days" && isEventLookupQuestion(qRaw)) {
@@ -3533,6 +3712,15 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     };
 
     let _interpretedDateFact: string | null = null;   // R4-2 — set when « <jour> dernier » resolves
+    // I9 (04/09) — le jour résolu par le résolveur (« hier » = 03/09) est DIT au modèle par le même
+    // fait « Date interprétée » que « jeudi dernier » (règle 1quater du prompt jour) : mesuré 04/09,
+    // sans lui le modèle appelait « hier » le dernier jour mesuré (02/09) au lieu du 03/09 demandé.
+    if (_rsvPassPeriod && _rsvPassPeriod.start === _rsvPassPeriod.end && extracted_dates[0] === _rsvPassPeriod.start && _rsvPassPeriod.expression) {
+      const _WD = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+      const _p = _rsvPassPeriod.start.split("-");
+      const _dow = new Date(Date.UTC(Number(_p[0]), Number(_p[1]) - 1, Number(_p[2]))).getUTCDay();
+      _interpretedDateFact = `Date interprétée : « ${_rsvPassPeriod.expression} » = ${_WD[_dow]} ${_p[2]}/${_p[1]}/${_p[0]}.`;
+    }
     // Bare weekday on the day path → resolve within CURRENT WEEK (today excluded → tomorrow..Sunday).
     // Skipped on an inherited continuation: its weekday is FRAME-relative (next dimanche after the
     // answer's date), already injected into extracted_dates — today's-week resolution would clobber it.
@@ -6716,6 +6904,12 @@ Règles :
             )
           : [],
     };
+
+    // I6 (04/09) — la phrase « Vous m'avez aussi demandé … » sur les chemins legacy (jour, mois, familles).
+    {
+      const _supp = _suppQ();
+      if (_supp.length && typeof normalized_ai.answer === "string") normalized_ai.answer = [normalized_ai.answer, ..._supp].filter(Boolean).join("\n\n");
+    }
 
     // ---- RESPONSE (truth payload ready for AI) ----
     return new Response(

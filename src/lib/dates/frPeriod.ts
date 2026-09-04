@@ -23,6 +23,7 @@
 // il est remplacé par l'intent serveur REPORT — voir docs/module-index.md.
 
 export type FrPeriodKind =
+  | "day" // un seul jour relatif : hier, avant-hier, aujourd'hui (I2, 03/09)
   | "explicit_range" // du JJ/MM/AAAA au JJ/MM/AAAA (ou ISO)
   | "last_n_days" // N derniers jours (finissant hier)
   | "last_week" // semaine civile précédente, lundi → dimanche
@@ -136,6 +137,21 @@ export function resolveFrPeriod(
   if ((m = q.match(/du (\d{4}-\d{2}-\d{2}) au (\d{4}-\d{2}-\d{2})/))) {
     if (m[1] <= m[2])
       return { start: m[1], end: m[2], kind: "explicit_range", months: [], explicit_year: true };
+  }
+
+  // 1ter) UN JOUR RELATIF — « hier », « avant-hier », « aujourd'hui » (I2, 03/09) : la convention
+  //       que le résolveur LLM reçoit et que le code VALIDE (spec explorer-routage-inversion § 3.3).
+  //       Testé avant « N derniers jours » ; « hier » seul, jamais dans un mot (« hiérarchie »).
+  if (/(^|[^a-z])avant[- ]hier([^a-z]|$)/.test(q)) {
+    const d = addDaysYmd(opts.today, -2);
+    return { start: d, end: d, kind: "day", months: [], explicit_year: false };
+  }
+  if (/(^|[^a-z])hier([^a-z]|$)/.test(q)) {
+    const d = addDaysYmd(opts.today, -1);
+    return { start: d, end: d, kind: "day", months: [], explicit_year: false };
+  }
+  if (/(^|[^a-z])aujourd'?hui([^a-z]|$)/.test(q)) {
+    return { start: opts.today, end: opts.today, kind: "day", months: [], explicit_year: false };
   }
 
   // 2) N derniers jours — fenêtre finissant HIER (le jour en cours est incomplet)

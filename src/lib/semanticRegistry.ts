@@ -76,7 +76,9 @@ export const CONCEPTS: ConceptDef[] = [
 
 // ── Intentions routables (v1) — chaque intention nomme SON composeur et SON producer ───────
 export interface IntentDef {
-  intent: "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "autre";
+  intent: "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "hors_perimetre"
+    | "jour" | "bilan_periode" | "dimension" | "fenetre" | "entite_exterieure" | "evenement_lookup" | "mes_evenements" | "rapport"
+    | "autre";
   definition_fr: string;
   composer: string;   // le foyer déterministe qui calcule
   producer: string;   // le producer de la réponse (traçabilité)
@@ -91,13 +93,13 @@ export const INTENTS: IntentDef[] = [
   },
   {
     intent: "entity_period",
-    definition_fr: "Lire les RÉSULTATS d'une ou plusieurs entités nommées (pôle, famille, opération, personne) sur une période (« le pôle traiteur depuis juin », « bilan du corner cet été », « les opérations de Julen en août »).",
+    definition_fr: "Lire les RÉSULTATS d'une ou plusieurs entités nommées (pôle, famille, opération, personne) sur une période (« le pôle traiteur depuis juin », « bilan du corner cet été », « les opérations de Julen en août »). Une OPÉRATION nommée AVEC une ou plusieurs FAMILLES (« l'impact du corner sur les ventes de la famille Coffee, le panier moyen ou le mix ») = l'effet de l'opération sur ces familles : mets les deux dans entites (l'opération ET chaque famille). Une opération sans période : laisse periode null, le système prend sa vie.",
     composer: "entityReading.readEntityPeriod + buildEntityPeriodBlocks",
     producer: "deterministic_entity_period_v1",
   },
   {
     intent: "journal",
-    definition_fr: "Le journal des dispositifs/engagements du site sans entité précise (« mes engagements », « mes pôles », « qu'est-ce qui a marché ? »).",
+    definition_fr: "Le journal des dispositifs/engagements du site sans entité précise (« mes engagements », « mes pôles », « qu'est-ce qui a marché ? »). Jamais pour « ça va mes ventes ? » ou « comment vont mes ventes ? » (c'est jour : le dernier jour mesuré).",
     composer: "branche JOURNAL_Q (engagementsFamily/journalPlan)",
     producer: "deterministic_engagements_v1",
   },
@@ -114,8 +116,62 @@ export const INTENTS: IntentDef[] = [
     producer: "deterministic_idee_v1",
   },
   {
+    intent: "jour",
+    definition_fr: "L'état ou l'explication d'UN jour du site : « pourquoi le 28/08 ? », « combien j'ai vendu hier ? », « ça va mes ventes ? » (= le dernier jour mesuré), « demain ? ». Un seul jour, passé, présent ou à venir — pas une période.",
+    composer: "chemin jour (grounded day + familles)",
+    producer: "grounded_day_claude",
+  },
+  {
+    intent: "bilan_periode",
+    definition_fr: "Le bilan CHIFFRÉ d'une période PASSÉE sans entité nommée : « c'était comment la semaine dernière ? », « bilan d'août », « mes ventes du mois dernier », « comment se sont passées mes journées ». Renvoie le rapport de la période avec son verdict.",
+    composer: "renvoi rapport (_reportWindowEnd)",
+    producer: "deterministic_report_nav_v1",
+  },
+  {
+    intent: "dimension",
+    definition_fr: "Une DIMENSION du commerce, sans date : « quand je vends le plus ? » (heures), « quels produits je vends le plus ? » (offre), « la météo pèse-t-elle sur mes ventes ? », « les musées autour me prennent-ils des clients ? » (concurrents suivis), « mon affluence ? », « les touristes ? ». Le système choisit la famille de lecture.",
+    composer: "chemin jour, famille en tête (familiesForQuestion)",
+    producer: "family_grounded_claude",
+  },
+  {
+    intent: "fenetre",
+    definition_fr: "Les JOURS À CHOISIR dans une période à venir ou en cours : « mes meilleurs jours en septembre », « quels jours éviter ce mois-ci », « les jours de forte activité dans mon périmètre », « top 3 dates ». Une fenêtre de jours, pas un plan complet (ça, c'est plan) et pas un bilan passé.",
+    composer: "pipeline mois (top / pires / filtre)",
+    producer: "v3_claude",
+  },
+  {
+    intent: "entite_exterieure",
+    definition_fr: "L'impact ou la découverte d'une entité EXTÉRIEURE au site, nommée mais absente des listes du site : un salon, un festival, un concurrent non suivi, une marque, un lieu (« l'impact de Vinexpo sur mes ventes ? », « c'est quoi le Festival d'Avignon pour moi ? »). Jamais pour une entité du site (ça, c'est entity_period).",
+    composer: "branche ENTITY_IMPACT (web)",
+    producer: "web_search",
+  },
+  {
+    intent: "evenement_lookup",
+    definition_fr: "Trouver DES ÉVÉNEMENTS de l'agenda local : « quels événements ce week-end ? », « quand a lieu la fête des vendanges ? », « y a-t-il un concert samedi près de chez moi ? », « Black Friday c'est quand ? ». Une recherche dans le calendrier, pas un verdict sur les ventes.",
+    composer: "lookup événements",
+    producer: "deterministic_lookup_event_ir_v1",
+  },
+  {
+    intent: "mes_evenements",
+    definition_fr: "LES ÉVÉNEMENTS OU LANCEMENTS DU SITE lui-même, en liste (« mes événements », « nos lancements », « mes opérations à venir ») — la liste, pas la lecture d'une opération nommée (entity_period) ni le journal des engagements (journal).",
+    composer: "branche possessive « mes événements »",
+    producer: "deterministic_evenements_v1",
+  },
+  {
+    intent: "rapport",
+    definition_fr: "Le DOCUMENT rapport de ventes, demandé comme tel : « génère le rapport d'août », « le rapport de la semaine », « what were my sales in July? ». Renvoi vers le rapport imprimable de la période.",
+    composer: "renvoi rapport",
+    producer: "deterministic_report_nav_v1",
+  },
+  {
+    intent: "hors_perimetre",
+    definition_fr: "La question ne porte sur RIEN du site : ni ses ventes, ni ses jours, ni ses familles/pôles/opérations, ni ses suivis, ni la météo, le calendrier ou les événements autour de lui, ni un plan ou une idée pour lui. Culture générale (« qui est Jésus ? », « la capitale de l'Australie ? »), l'heure, une blague, une salutation seule (« bonjour », « merci »), une demande sans rapport avec un commerce. Le système répond par une phrase fixe qui dit ce qu'il sait du site — mais SEULEMENT si aucun signal métier n'est détecté par le code (garde déterministe) — le code protège, tu peux le poser franchement.",
+    composer: "ai/horsPerimetre.signalMetier (garde) + horsPerimetreReponse",
+    producer: "deterministic_hors_perimetre_v1",
+  },
+  {
     intent: "autre",
-    definition_fr: "Tout le reste (cartes, jours, météo, concurrence, recherche, questions ouvertes) — routé par la chaîne existante.",
+    definition_fr: "Tout le reste d'ordre MÉTIER (cartes, jours, météo, concurrence, recherche, questions ouvertes sur le commerce) — routé par la chaîne existante.",
     composer: "chaîne legacy de prompt.ts",
     producer: "(inchangé)",
   },
@@ -167,8 +223,10 @@ export function resolverSchema(): Record<string, any> {
       },
       suite: { type: "boolean" },
       changements: { type: "array", items: { type: "string" }, maxItems: 6 },
+      confiance: { type: "string", enum: ["haute", "basse"] },
+      questions_supplementaires: { type: "array", items: { type: "string" }, maxItems: 3 },
     },
-    required: ["intent", "entites", "periode", "periode_comparaison", "kpi", "suite", "changements"],
+    required: ["intent", "entites", "periode", "periode_comparaison", "kpi", "suite", "changements", "confiance", "questions_supplementaires"],
     additionalProperties: false,
   };
 }
@@ -202,24 +260,28 @@ ${lists}
 
 LE FORMULAIRE (réponds UNIQUEMENT ce JSON, exactement ces clés, sans fence markdown) :
 {
-  "intent": "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "autre",
+  "intent": "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "jour" | "bilan_periode" | "dimension" | "fenetre" | "entite_exterieure" | "evenement_lookup" | "mes_evenements" | "rapport" | "hors_perimetre" | "autre",
   "entites": [ { "nom": "<recopie exacte d'une entité des listes>", "type": "pole" | "famille" | "operation" | "personne" | "composant" } ],
   "periode": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "expression": "<les mots de l'utilisateur>" } | null,
   "periode_comparaison": <même forme que periode> | null,
   "kpi": "revenue_residual" | "transactions" | "basket" | "footfall" | "conversion" | "family_revenue" | "profit_estimated" | null,
   "idee": null | { "levier": "frequentation" | "conversion" | "panier" | "yield" | "fidelisation", "condition": "rain" | "heat" | "school_holiday" | "public_holiday" | "tourism_peak" | "calme" | "aucune" },
   "suite": true | false,
-  "changements": [ "<slots changés par ce tour>" ]
+  "changements": [ "<slots changés par ce tour>" ],
+  "confiance": "haute" | "basse",
+  "questions_supplementaires": [ "<les autres questions du message, mot pour mot>" ]
 }
 
 RÈGLES :
-1. Ressors le tuple COMPLET à chaque tour. Si la question est une SUITE (« et octobre ? », « et pour X ? »), hérite du cadre précédent tout ce qu'elle ne change pas, et pose suite=true.
+1. Ressors le tuple COMPLET à chaque tour. Si la question est une SUITE (« et octobre ? », « et pour X ? »), hérite du cadre précédent tout ce qu'elle ne change pas, et pose suite=true. « Et la famille X ? » / « et X ? » REMPLACE l'entité de même type du cadre (une famille chasse la famille précédente, l'opération reste) ; « et aussi X », « ajoute X », « X et Y » AJOUTENT.
 2. Une CONTESTATION (« non, je parlais de X ») remplace le slot visé, garde le reste.
-3. Les périodes : dates ISO exactes (start/end) + l'expression d'origine. « septembre » sans année = le prochain si l'intention est plan, le plus récent passé sinon. Les saisons sont MÉTÉOROLOGIQUES (convention maison, identique au parseur frPeriod) : printemps = 01/03→31/05, été = 01/06→31/08, automne = 01/09→30/11, hiver = 01/12→28-29/02 (à cheval sur deux années).
+3. Les périodes : dates ISO exactes (start/end) + l'expression d'origine, recopiée telle quelle (le système la re-lit). « septembre » sans année = le prochain si l'intention est plan, le plus récent passé sinon. Conventions maison (identiques au parseur frPeriod) : « hier » = la veille, un seul jour (start = end) ; « avant-hier » = deux jours avant ; « la semaine dernière » = la semaine CIVILE précédente, du lundi au dimanche (jamais les 7 derniers jours) ; « le mois dernier » = le mois civil précédent ; « ce mois » = du 1er à aujourd'hui ; « les N derniers jours » = N jours finissant hier. Les saisons sont MÉTÉOROLOGIQUES (convention maison, identique au parseur frPeriod) : printemps = 01/03→31/05, été = 01/06→31/08, automne = 01/09→30/11, hiver = 01/12→28-29/02 (à cheval sur deux années).
 4. Une entité absente des listes ci-dessus ne se devine pas : ne la mets PAS dans entites (le système demandera).
 5. "changements" liste les slots que CE tour a changés par rapport au cadre (ex. ["periode"]). Aucun cadre fourni → tous les slots posés sont des changements.
 6. "idee" SEULEMENT quand intent = "idee" : "levier" = ce que l'idée cherche à bouger (attirer du passage = frequentation ; faire acheter ceux qui passent = conversion ; augmenter le ticket = panier ; prix/remises = yield ; faire revenir = fidelisation) ; "condition" = la condition de jours que l'idée VISE si elle en nomme une (jours de pluie → rain, canicule → heat, vacances → school_holiday, féries → public_holiday, saison touristique → tourism_peak, périodes calmes → calme), sinon "aucune".
 7. "periode_comparaison" SEULEMENT si la comparaison est DEMANDÉE (« vs », « par rapport à », « contre », « versus ») — un simple changement de période (« et en juin ? ») remplace "periode" et laisse "periode_comparaison" null.
 8. Le KPI seulement s'il est NOMMÉ (CA, ventes, panier, visiteurs, conversion, marge/profit, CA famille produits & services) — sinon null.
-9. Rien d'autre que le JSON du formulaire — pas de fence, pas de prose, la clé est "intent" (jamais "intention").`;
+9. Rien d'autre que le JSON du formulaire — pas de fence, pas de prose, la clé est "intent" (jamais "intention").
+10. "confiance" = "basse" quand tu hésites entre deux intentions ou que la question est ambiguë. Le système vérifie de toute façon par le code qu'aucun signal métier n'est présent avant de répondre "hors_perimetre" — pose-le sans crainte quand la question ne parle pas du commerce (une salutation seule, l'heure, la culture générale).
+11. UN MESSAGE, PLUSIEURS QUESTIONS (« … et aussi … », « … ; et … ») : remplis le formulaire pour la PREMIÈRE question seulement (son intention, SA période, SON KPI — jamais la période de la seconde), et recopie chaque autre question MOT POUR MOT dans "questions_supplementaires" (le système dira à l'utilisateur de la poser à part). Un seul sujet → [].`;
 }
