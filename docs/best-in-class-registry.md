@@ -3,7 +3,7 @@
 > **Statut : VALIDÉ owner 27/07/2026** (3 décisions successives : registre → « récupération + b » →
 > « purge + gate », après un audit déclenché par son retour « the outcome is SHIT »). Objet de ce
 > doc : pourquoi la bibliothèque des « références de votre secteur » est construite ainsi.
-> Code : `src/lib/bestInClassCrawlCore.mjs` (LE contrat), `bestInClassStore.ts` (lecture),
+> Code : `src/lib/bestInClass/bestInClassCrawlCore.mjs` (LE contrat), `bestInClassStore.ts` (lecture),
 > `tools/generators/crawl-best-in-class.mjs` (build offline), `api/cron/crawl-best-in-class.ts` (drain).
 > Surfaces : insight « Plan à essayer », panneau diagnostic de la page évolution. **PAS le
 > formulaire M'engager** — le bloc y a été ajouté puis RETIRÉ le 27/07 (voir la section « Test du

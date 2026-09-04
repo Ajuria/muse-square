@@ -11,7 +11,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { kpiKeyForOrigin } from "../../../lib/kpi/kpiRegistry";
-import { leverForActionType } from "../../../lib/bestInClassStore";
+import { leverForActionType } from "../../../lib/bestInClass/bestInClassStore";
 import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";
 import {
   insertBestPractice,

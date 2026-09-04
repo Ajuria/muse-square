@@ -13,7 +13,7 @@ import { writeFileSync, unlinkSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { waitUntil } from "@vercel/functions";
-import * as core from "../../../lib/bestInClassCrawlCore.mjs";
+import * as core from "../../../lib/bestInClass/bestInClassCrawlCore.mjs";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";

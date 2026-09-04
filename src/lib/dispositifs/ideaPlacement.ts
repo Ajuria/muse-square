@@ -9,7 +9,7 @@
 import { listCalmWeeks, type CalmWeek } from "../insightFamilies/events";
 import { listDayFactors, dayFactorKeys, factorFr } from "../explorer/journalPlan";
 import { corrIndexFr, signalAConfirmer } from "../kpi/dayClassRegistry";
-import { listIndustryPlays, type BestInClassPlay, type Lever } from "../bestInClassStore";
+import { listIndustryPlays, type BestInClassPlay, type Lever } from "../bestInClass/bestInClassStore";
 import type { ResolvedIdea } from "../ai/resolver";
 import type { CompareSection, EntityCompareBlocks } from "../explorer/entityReading";
 

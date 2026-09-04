@@ -16,7 +16,7 @@ import { buildPoleReading, buildPoleItemsReading } from "../../../lib/dispositif
 import { commitmentEffect } from "../../../lib/commitments/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitments/commitmentContext";
 import { buildWindowShape, buildPriceLadder } from "../../../lib/commitments/commitmentShape";
-import { playsAvecVoisin, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClassStore";
+import { playsAvecVoisin, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClass/bestInClassStore";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";

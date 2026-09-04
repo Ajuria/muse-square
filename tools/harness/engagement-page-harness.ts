@@ -12,7 +12,7 @@ import { EVOL_COPY } from "../../src/lib/commitments/commitmentCopy";
 import { makeBQClient } from "../../src/lib/bq";
 import { readLatestSnapshot } from "../../src/lib/commitments/actionCommitments";
 import { resolveCommitment } from "../../src/lib/commitments/commitmentResolve";
-import { leverForWeakFactor, leverForActionType, getBestInClassPlays, playsAvecVoisin, playsRattachesAuSujet } from "../../src/lib/bestInClassStore";
+import { leverForWeakFactor, leverForActionType, getBestInClassPlays, playsAvecVoisin, playsRattachesAuSujet } from "../../src/lib/bestInClass/bestInClassStore";
 
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const OPEN_ID = "2d99694a-17fa-4486-92e1-548ce588e1f5";   // vacances scolaires — EN COURS

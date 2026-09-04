@@ -34,7 +34,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { BigQuery } from "@google-cloud/bigquery";
-import * as core from "../../src/lib/bestInClassCrawlCore.mjs";
+import * as core from "../../src/lib/bestInClass/bestInClassCrawlCore.mjs";
 
 const bq = new BigQuery({ projectId: "muse-square-open-data" });
 const STORE = "analytics.best_in_class_plays";

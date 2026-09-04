@@ -4,7 +4,7 @@
 // par accident (avant l'étape 2, ~75 des 80+ sous-types y retombaient en silence).
 import { describe, it, expect } from "vitest";
 import { leverForActionType } from "./bestInClassStore";
-import { COMMITMENT_ORIGIN_ACTION_TYPES } from "./commitments/commitmentOrigins";
+import { COMMITMENT_ORIGIN_ACTION_TYPES } from "../commitments/commitmentOrigins";
 
 // Types dont le levier dépend du DRIVER de la carte (cartes ventes K1) — le type seul n'a
 // volontairement PAS d'entrée explicite ; sans driver ils retombent sur « conversion » (assumé).
