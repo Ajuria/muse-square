@@ -57,13 +57,16 @@ export function buildTopFamillesBlocks(r: TopFamillesReading, k: number): { head
     const ca = rest.reduce((a, f) => a + f.ca, 0), sh = rest.reduce((a, f) => a + f.share, 0);
     rows.push({ cells: [{ v: `Autres familles (${rest.length})`, bold: false, color: "#6B7280" } as any, { v: `${frEur(ca)} €` }, { v: frShare(sh) }, { v: `${frEur(r.n_days_total > 0 ? ca / r.n_days_total : 0)} €`, color: "#6B7280" }] });
   }
-  const lead = top[0];
+  // Owner 04/09 : « famille » se dit explicitement (« Les 3 premières au CA » ne voulait rien dire) ;
+  // la phrase de tête ne redit pas la première ligne de la table (redondance, juge R7) — elle porte
+  // ce que la table ne montre pas d'un coup d'œil : la concentration des K premières.
+  const topShare = top.reduce((a, f) => a + f.share, 0);
   return {
     headline,
     sections: [{
-      title: `Les ${kk} premières au CA`,
+      title: kk > 1 ? `Vos ${kk} premières familles par CA` : "Votre première famille par CA",
       table: { cols: [{ label: "Famille", align: "left" }, { label: "CA" }, { label: "Part du CA" }, { label: "CA/jour" }], rows },
-      facts: [`${r.familles.length} familles vendues sur ${r.n_days_total} jour${r.n_days_total > 1 ? "s" : ""} mesuré${r.n_days_total > 1 ? "s" : ""} · ${lead.famille} en tête : ${frEur(lead.ca)} €, ${frShare(lead.share)} du CA.`],
+      facts: [`${r.familles.length} familles vendues sur ${r.n_days_total} jour${r.n_days_total > 1 ? "s" : ""} mesuré${r.n_days_total > 1 ? "s" : ""} · ${kk > 1 ? `vos ${kk} premières familles font` : `la famille ${top[0].famille} fait`} ${frShare(topShare)} du CA de la période.`],
     }],
     sources: ["Vos ventes quotidiennes (mesures par jour)", "CA/jour = CA de la famille sur la période / jours mesurés de la période."],
   };
