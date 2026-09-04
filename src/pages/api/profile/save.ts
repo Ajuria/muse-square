@@ -748,6 +748,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       location_type: location_type ?? null,
       latitude: company_lat ?? null,
       longitude: company_lon ?? null,
+      geocode_status: company_geocode_status ?? null,
       client_industry_code: derivedIndustryCode,
       location_access_pattern: location_access_pattern ?? null,
       origin_city_ids: [origin_city_id_1, origin_city_id_2, origin_city_id_3]
@@ -771,6 +772,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       location_type: 'STRING',
       latitude: 'FLOAT64',
       longitude: 'FLOAT64',
+      geocode_status: 'STRING',
       client_industry_code: 'STRING',
       location_access_pattern: 'STRING',
       origin_city_ids: 'STRING',
@@ -814,8 +816,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
             location_label        = @location_label,
             location_type         = @location_type,
             active_flag           = TRUE,
-            latitude              = @latitude,
-            longitude             = @longitude,
+            latitude              = IF(@geocode_status IN ('unchanged','throttled'), T.latitude,  @latitude),
+            longitude             = IF(@geocode_status IN ('unchanged','throttled'), T.longitude, @longitude),
             client_industry_code  = @client_industry_code,
             location_access_pattern = @location_access_pattern,
             origin_city_ids       = @origin_city_ids,
@@ -828,7 +830,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
             main_event_objective  = @main_event_objective,
             operating_hours       = @operating_hours,
             is_primary            = @is_primary,
-            geo_point             = IF(@longitude IS NULL OR @latitude IS NULL, NULL, ST_GEOGPOINT(@longitude, @latitude))
+            geo_point             = IF(@geocode_status IN ('unchanged','throttled'), T.geo_point,
+                                       IF(@longitude IS NULL OR @latitude IS NULL, NULL, ST_GEOGPOINT(@longitude, @latitude)))
           WHEN NOT MATCHED THEN INSERT (
             location_id, location_label, location_type, active_flag,
             city_id_granular, city_id_commune, location_source,
