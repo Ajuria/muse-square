@@ -2500,6 +2500,9 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         });
         if (_rsv) _rsvFrameOut = frameOf(_rsv);
         console.log(`[resolver] ${Date.now() - _rsvT0} ms — intent=${_rsv?.intent ?? "null"} entites=${_rsv?.entities.length ?? 0}/${_rsv?.entity_names.length ?? 0} periode=${_rsv?.periode?.expression ?? "-"} suite=${_rsv?.suite ?? "-"} confiance=${_rsv?.confiance ?? "-"} periodeValidee=${_rsv?.periode_validee ?? "-"} chg=${(_rsv?.changements ?? []).join(",")}`);
+        // 04/09 — mesure PROD avant tout « warm-up » : un résolveur nul (timeout 8 s, parse) se compte ici
+        // (analytics, event_type resolver) — la question du démarrage à froid se tranche sur ces lignes.
+        sinkTelemetry(location_id, "resolver", { ms: Date.now() - _rsvT0, intent: _rsv?.intent ?? null, nul: !_rsv, validee: _rsv?.periode_validee ?? null });
       }
     }
 

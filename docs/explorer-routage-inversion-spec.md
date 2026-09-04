@@ -224,7 +224,13 @@ ni refus hors périmètre — « qui est Jésus ? » y rend encore le théâtre.
 résolveur sur tout compte (les listes vides se disent vides dans le prompt, déjà géré par
 `resolverSystemPrompt`). Observé aussi : la PREMIÈRE requête après démarrage du serveur peut
 dépasser le timeout du résolveur (8 s) et retomber sur le repli regex — réponse juste, cadre
-absent ; à mesurer en prod avant de toucher le timeout.
+absent ; à mesurer en prod avant de toucher le timeout. **Mesure en place (04/09)** : chaque appel du
+résolveur écrit une ligne `analytics.consulter_telemetry` (`event_type = "resolver"`, payload `ms`,
+`intent`, `nul`, `validee`). Un « warm-up » au déploiement ne se construit que si cette requête montre
+des `nul` au premier tour :
+`SELECT DATE(event_ts) d, COUNTIF(JSON_VALUE(payload,'$.nul')='true') nuls, COUNT(*) n,
+ APPROX_QUANTILES(CAST(JSON_VALUE(payload,'$.ms') AS INT64), 20)[OFFSET(19)] p95_ms
+ FROM \`muse-square-open-data.analytics.consulter_telemetry\` WHERE event_type='resolver' GROUP BY 1 ORDER BY 1 DESC`.
 
 ## 5. Ce qui ne bouge pas
 
