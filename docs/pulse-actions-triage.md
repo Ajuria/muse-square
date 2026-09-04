@@ -1,6 +1,6 @@
 # Pulse — triage des actions par site (doctrine + implémentation) — DÉFINITIF
 
-> **Statut : VALIDÉ owner 26/07/2026** (proto interactif `public/actions-triage-proto.html`, itéré
+> **Statut : VALIDÉ owner 26/07/2026** (proto interactif `tools/proto/actions-triage-proto.html`, itéré
 > depuis sa proposition — la version « page Chantiers séparée » a été REJETÉE comme trop compliquée).
 > Objet de ce doc : permettre à un futur chat de comprendre POURQUOI la page est ainsi, pas
 > seulement comment. Code : `pulse.astro` (buildTriageLayout + renderStructuralSection),
@@ -102,7 +102,7 @@ profondeur : Résolu = motif présent avant, absent des gates maintenant, avec e
 
 ## Restyle des cartes R1-R6 — LIVRÉ sur pulse UNIQUEMENT (26/07 soir)
 
-Validé sur `public/cards-restyle-proto.html` (avant/après). **Pas de parité monitor.astro —
+Validé sur `tools/proto/cards-restyle-proto.html` (avant/après). **Pas de parité monitor.astro —
 décision owner 26/07 : monitor est une page différente, elle garde son rendu.** Tout est dans le
 bâtisseur inline de `pulse.astro` (cardsHtml + buildMetricsStrip + `_structRowHtml`).
 
@@ -136,7 +136,7 @@ corrigé avant livraison. E2E authentifié = passage owner.
 
 ## Cartes engagement au standard R1-R6 + code couleur lisible — LIVRÉ (27/07)
 
-Proto validé `public/engagement-cards-restyle-proto.html` (3 itérations owner : mini-phrases en
+Proto validé `tools/proto/engagement-cards-restyle-proto.html` (3 itérations owner : mini-phrases en
 français courant, « Attente de ventes », repli d'« Action menée ? »). AUCUN changement de
 structure de page (les engagements restent dans `#pls-engagement-cards`, hors triage — décision
 owner : « just cards »).

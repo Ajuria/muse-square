@@ -54,7 +54,7 @@ const id = Astro.url.searchParams.get("id") || "";
         function doneBtnStyle(sel) { return "font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;" + (sel ? "background:#1D3BB3;color:#fff;border:1px solid #1D3BB3;" : "background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;"); }
 
         // ── PURE render moved to the SHARED public/card-kit.js (MSCardKit.renderEvolution),
-        //    the SINGLE source verified by public/card-harness.html — same as the system
+        //    the SINGLE source verified by tools/harness/card-harness.html — same as the system
         //    cards. This page keeps ONLY the interactive wiring (capture POSTs + advice
         //    M'engager sub-form via window.MSCommitForm), attached after the kit renders. ──
         function render(data) {

@@ -1,7 +1,7 @@
 # Rapport par canal — spec finale (étape 4, 08/08/2026) — DÉFINITIF
 
 Process owner respecté : livrables spécifiés → concepts validés → prototype itéré
-(5 versions, `public/rapport-canaux-proto.html` = v5 validée) → cette spec → code.
+(5 versions, `tools/proto/rapport-canaux-proto.html` = v5 validée) → cette spec → code.
 Chantier 100 % app (AUCUN travail dbt : les marts du chantier grain suffisent).
 
 ## 0. Décisions verrouillées (owner, 07-08/08)

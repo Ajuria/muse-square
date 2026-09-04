@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — onboarding en dialogue (03/09)</title>
+<!--
+  PROTOTYPE — onboarding en dialogue, à valider AVANT toute page (règle pulse-ui : proto d'abord).
+  Bâti sur le VRAI markup : styles .dp-* de dispositif.astro (page chat-first validée 03/08),
+  grille horaires + champs + suggestions d'adresse de profile.astro, bouton « joindre » d'Explorer,
+  VRAI public/pole-form.js (formulaire de pôle, composants) et VRAI public/card-kit.js
+  (renderComponentPhoto). Aucun backend : fetch est simulé (données réelles de Muse Square pour les
+  familles, 30 derniers jours). Servi par proto-static (4173).
+-->
+<style>
+  /* ── dispositif.astro (chat-first) — copié tel quel ── */
+  body { margin: 0; background: #F9FAFB; }
+  #dispo-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+  .dp-card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(16,24,40,0.06); padding: 14px 16px; }
+  .dp-pills { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
+  .dp-chip { display: inline-flex; align-items: center; font-size: 12px; padding: 3px 9px; border-radius: 20px; background: #F3F4F6; color: #6b7280; white-space: nowrap; }
+  .dp-what { font-size: 14px; font-weight: 600; line-height: 1.35; margin-bottom: 4px; }
+  .dp-sub { font-size: 12px; color: #6B7280; line-height: 1.45; }
+  .dp-btn { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500; color: #1D3BB3; border: 1px solid #1D3BB3; border-radius: 10px; padding: 6px 12px; background: transparent; cursor: pointer; font-family: inherit; }
+  .dp-btn[disabled] { opacity: 0.5; cursor: default; }
+  .dp-field { margin: 8px 0; }
+  .dp-field label { display: block; font-size: 10.5px; font-weight: 600; color: #6B7280; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .dp-src { font-size: 10.5px; color: #9CA3AF; margin-top: 6px; }
+  .dp-msg { border-radius: 10px; padding: 11px 13px; font-size: 13px; line-height: 1.55; margin: 10px 0; max-width: 92%; }
+  .dp-msg.ia { background: #F8FAFC; border: 1px solid rgba(0,0,0,0.08); color: #374151; }
+  .dp-msg.moi { background: #EEF2FF; color: #1D3BB3; margin-left: auto; }
+  .dp-aside { font-size: 12px; color: #9CA3AF; line-height: 1.5; margin: 4px 0 10px 4px; max-width: 88%; }
+  .dp-aside a { color: #6B7280; text-decoration: underline dotted; cursor: pointer; }
+  .dp-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 6px; }
+  .dp-chips button { font-size: 12.5px; color: #1D3BB3; background: #fff; border: 1px dashed rgba(29,59,179,0.45); border-radius: 18px; padding: 7px 13px; cursor: pointer; font-family: inherit; text-align: left; }
+  .dp-inputbar { display: flex; gap: 8px; align-items: center; background: #fff; border: 1px solid rgba(0,0,0,0.1); border-radius: 12px; padding: 8px 10px; margin-top: 12px; }
+  .dp-inputbar input { flex: 1; border: none; outline: none; font-size: 13px; font-family: inherit; color: #111827; background: transparent; }
+  .dp-fiche { border: 1px solid rgba(29,59,179,0.25); border-radius: 10px; padding: 10px 12px; margin-top: 10px; background: #fff; }
+  /* ── profile.astro — champs, adresse, grille horaires — copiés tels quels ── */
+  .field-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #6b7280; margin-bottom: 6px; }
+  .field-req { color: #ef4444; margin-left: 2px; }
+  .field-input { width: 100%; padding: 10px 0; background: transparent; border: 0; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #111827; outline: none; transition: border-color 0.15s; box-sizing: border-box; font-family: inherit; }
+  .field-input:focus { border-bottom-color: #111827; }
+  .field-hint { font-size: 11px; color: #9ca3af; margin-top: 5px; }
+  .city-option { padding: 9px 12px; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+  .city-option:hover { background: #f9fafb; }
+  .city-option-dept { font-size: 11px; color: #9ca3af; }
+  .schedule { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-top: 4px; }
+  .schedule-row { display: grid; grid-template-columns: 88px 40px 1fr; align-items: center; border-bottom: 1px solid #f3f4f6; }
+  .schedule-row:last-child { border-bottom: none; }
+  .schedule-row.sched-closed .sched-times { opacity: 0.25; pointer-events: none; }
+  .sched-day { font-size: 13px; padding: 9px 12px; color: #374151; }
+  .sched-day.sched-weekend { font-weight: 500; }
+  .sched-toggle { width: 30px; height: 17px; border-radius: 20px; background: #d1d5db; position: relative; cursor: pointer; transition: background 0.15s; flex-shrink: 0; }
+  .sched-toggle.tog-on { background: #0b37e5; }
+  .sched-toggle::after { content: ''; position: absolute; width: 13px; height: 13px; border-radius: 50%; background: #fff; top: 2px; left: 2px; transition: transform 0.15s; }
+  .sched-toggle.tog-on::after { transform: translateX(13px); }
+  .sched-times { display: flex; align-items: center; gap: 6px; padding: 8px 12px 8px 8px; }
+  .sched-time-input { width: 72px; padding: 5px 7px; font-size: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 5px; color: #111827; outline: none; text-align: center; }
+  .sched-time-input:focus { border-color: #0b37e5; }
+  .sched-sep { font-size: 11px; color: #9ca3af; }
+  .sched-apply-btn { font-size: 11px; color: #0b37e5; background: none; border: none; cursor: pointer; padding: 6px 0 0; display: block; font-family: inherit; }
+  .sched-apply-btn:hover { opacity: 0.7; }
+  /* ── proto : la barre d'étape (nouveau — à valider) ── */
+  .ob-progress { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #6B7280; margin-bottom: 10px; }
+  .ob-progress b { color: #111827; font-weight: 600; }
+  .ob-bar { height: 4px; background: #F3F4F6; border-radius: 4px; overflow: hidden; margin-bottom: 14px; }
+  .ob-bar > div { height: 100%; background: #1D3BB3; width: 0; transition: width 0.3s; }
+  .ob-widget { margin: 10px 0 6px; }
+  .ob-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  .ob-table th { text-align: left; font-size: 10.5px; font-weight: 600; color: #6B7280; text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 8px; border-bottom: 1px solid #E5E7EB; }
+  .ob-table td { padding: 7px 8px; border-bottom: 1px solid #F3F4F6; }
+  .ob-table td.n { text-align: right; white-space: nowrap; }
+  .ob-todo { font-size: 13px; color: #374151; line-height: 1.6; }
+  .ob-todo div { padding: 6px 0; border-bottom: 1px solid #F3F4F6; }
+  .ob-todo .s { font-size: 11px; color: #9CA3AF; }
+</style>
+</head>
+<body>
+<div id="dispo-root">
+  <div class="dp-card">
+    <div class="ob-progress"><span><b id="ob-step-label">Étape 1 sur 8</b> · <span id="ob-step-name">Votre site</span></span><span>Muse Square · Lyon 2e</span></div>
+    <div class="ob-bar"><div id="ob-bar"></div></div>
+    <div id="dp-chat"></div>
+    <div class="dp-inputbar" id="dp-inputbar" style="display:none;"><input id="dp-input" placeholder="Écrivez votre réponse…" autocomplete="off"><button type="button" id="dp-send" class="dp-btn">Envoyer</button></div>
+  </div>
+</div>
+
+<script>
+/* ── fetch simulé : le vrai pole-form.js POSTe sur /api/commitments et le contexte de création. ── */
+(function () {
+  var FAMS = [
+    { category: "Coffee", avg_day_eur: 1606 }, { category: "Tea", avg_day_eur: 1135 }, { category: "Bakery", avg_day_eur: 500 },
+    { category: "Drinking Chocolate", avg_day_eur: 399 }, { category: "Coffee beans", avg_day_eur: 191 }, { category: "Branded", avg_day_eur: 112 },
+    { category: "Flavours", avg_day_eur: 68 }, { category: "Loose Tea", avg_day_eur: 62 }, { category: "Packaged Chocolate", avg_day_eur: 29 }
+  ];
+  window.__PROTO = { FAMS: FAMS, poles: [], photos: {} };
+  window.fetch = function (url, init) {
+    var u = String(url); var json = function (o) { return Promise.resolve({ ok: true, json: function () { return Promise.resolve(o); } }); };
+    if (u.indexOf("/api/commitments") === 0 && init && init.method === "POST") {
+      var body = JSON.parse(init.body || "{}"); var id = "pole-" + (window.__PROTO.poles.length + 1);
+      window.__PROTO.poles.push({ commitment_id: id, dispositif_id: id, name: String(body.committed_action_text || "").split(" — ")[0], families: body.pole_families || [], components: body.components || [] });
+      return json({ ok: true, commitment_id: id, dispositif_id: id, version_no: 1 });
+    }
+    if (u.indexOf("/api/channels/team") === 0) return json({ ok: true, items: [{ first_name: "Camille", last_name: "Robin", role: "Vente" }] });
+    return json({ ok: true });
+  };
+})();
+</script>
+<script src="/public/pole-form.js?v=3"></script>
+<script src="/public/card-kit.js?v=70"></script>
+<script>
+(function () {
+  "use strict";
+  var chat = document.getElementById("dp-chat");
+  var esc = function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
+  var frInt = function (n) { return Math.round(n).toLocaleString("fr-FR"); };
+  function addEl(cssClass, innerHtml) { var d = document.createElement("div"); d.className = cssClass; d.innerHTML = innerHtml; chat.appendChild(d); d.scrollIntoView({ behavior: "smooth", block: "nearest" }); return d; }
+  function ia(html) { return addEl("dp-msg ia", html); }
+  function moi(text) { return addEl("dp-msg moi", esc(text)); }
+  function aside(html) { return addEl("dp-aside", html); }
+  function widget(html) { return addEl("ob-widget", html); }
+
+  /* Les chaînes REPRISES de l'app (approuvées) ; les lignes du dialogue (« IA ») sont des PROPOSITIONS
+     à valider — listées dans la passation. */
+  var COPY = { pole_photo_cta: "Documenter →", pole_photo_none: "Aucune photo pour l'instant.", pole_photo_yes: "oui", pole_photo_no: "non", pole_photo_nv: "non visible",
+    pole_photo_items: "Articles reconnus :", pole_photo_confirm: "Confirmer →", pole_photo_confirmed: "Articles confirmés :", pole_photo_reading: "Lecture en cours…" };
+  var STEPS = ["Votre site", "Vos ventes", "Première lecture", "Vos pôles", "Vos photos", "Vos horaires", "Votre équipe", "Et maintenant"];
+  var step = 0;
+  function setStep(n) { step = n; document.getElementById("ob-step-label").textContent = "Étape " + (n + 1) + " sur " + STEPS.length; document.getElementById("ob-step-name").textContent = STEPS[n]; document.getElementById("ob-bar").style.width = Math.round(((n + 1) / STEPS.length) * 100) + "%"; }
+  function next() { setStep(step + 1); (MOMENTS[step] || function () {})(); }
+  function skipLink(label) { var a = aside('<a data-skip>' + esc(label || "Passer cette étape") + '</a>'); a.querySelector("[data-skip]").addEventListener("click", function () { moi("Plus tard"); next(); }); return a; }
+  function cont(label, fn) { var w = widget('<button type="button" class="dp-btn">' + esc(label || "Continuer →") + '</button>'); w.querySelector("button").addEventListener("click", function () { w.querySelector("button").disabled = true; (fn || next)(); }); return w; }
+
+  var MOMENTS = [];
+
+  /* ── 1. Votre site : ce que l'invitation et la lecture du site web savent déjà — on confirme, on ne saisit pas ── */
+  MOMENTS[0] = function () {
+    ia("Bonjour Julen. Voici ce que nous savons déjà de <b>Muse Square</b> : un commerce (Commerce &amp; Retail), avec un site web lu cette nuit. Confirmez l'adresse — elle décide de tout ce qui vous entoure : concurrents, événements, transports.");
+    var w = widget('<div class="dp-fiche">'
+      + '<div style="position:relative;"><label class="field-label">Adresse professionnelle <span class="field-req">*</span></label>'
+      + '<input type="text" class="field-input addr-autocomplete" id="ob-addr" autocomplete="off" placeholder="Numéro et rue" value="12 rue de la Ré">'
+      + '<div class="addr-suggestions" id="ob-addr-sugg" style="position:absolute;z-index:150;background:#fff;border:1px solid #e5e7eb;border-radius:6px;width:100%;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.06);"></div>'
+      + '<p class="field-hint">Commencez à taper, puis sélectionnez une proposition.</p></div>'
+      + '<div id="ob-addr-ok" style="display:none;font-size:12px;color:#0F6E56;margin-top:6px;"></div>'
+      + '<div class="dp-chips" style="margin-top:10px;"><button type="button" data-ind="ok">Commerce &amp; Retail, c\'est bien ça</button><button type="button" data-ind="no">Autre secteur…</button></div>'
+      + '</div>');
+    var inp = w.querySelector("#ob-addr"), dd = w.querySelector("#ob-addr-sugg"), ok = w.querySelector("#ob-addr-ok");
+    var SUGG = [{ label: "12 Rue de la République 69002 Lyon", city: "Lyon 2e" }, { label: "12 Rue de la Réunion 69003 Lyon", city: "Lyon 3e" }, { label: "12 Rue de la Régie 69100 Villeurbanne", city: "Villeurbanne" }];
+    var chosen = null;
+    function showSugg() { dd.innerHTML = SUGG.map(function (f) { return '<div class="city-option" data-addr="' + esc(f.label) + '"><span>' + esc(f.label) + '</span></div>'; }).join(""); dd.style.display = "block"; }
+    inp.addEventListener("input", function () { chosen = null; ok.style.display = "none"; showSugg(); });
+    inp.addEventListener("focus", showSugg);
+    dd.addEventListener("click", function (e) { var o = e.target.closest(".city-option"); if (!o) return; chosen = o.getAttribute("data-addr"); inp.value = chosen; dd.style.display = "none"; ok.style.display = ""; ok.textContent = "Position vérifiée · " + chosen.split(" ").slice(-2).join(" ") + " · les concurrents, événements et transports se calculent sur ce point."; });
+    w.querySelectorAll("[data-ind]").forEach(function (b) { b.addEventListener("click", function () {
+      if (!chosen) { inp.focus(); showSugg(); ok.style.display = ""; ok.style.color = "#B45309"; ok.textContent = "Sélectionnez une proposition dans la liste — une adresse tapée sans sélection n'est pas placée."; return; }
+      moi((b.getAttribute("data-ind") === "ok" ? "Commerce & Retail" : "Autre secteur") + " · " + chosen); next();
+    }); });
+    skipLink("Passer — je le ferai dans mon compte");
+  };
+
+  /* ── 2. Vos ventes : le seul fichier que rien ne remplace — le bouton « joindre » d'Explorer ── */
+  MOMENTS[1] = function () {
+    ia("Vos ventes sont la seule chose que nous ne pouvons pas lire seuls. <b>Un export CSV de votre caisse suffit</b> — pour Sage 100 : Ventes → Export → Lignes de factures, au format CSV. Sans lui, le site est aveugle : ni cartes du jour, ni verdicts mesurés.");
+    var w = widget('<div class="dp-inputbar" style="margin-top:6px;">'
+      + '<input type="file" id="ob-file" accept=".csv,.xlsx,.xls" style="display:none;">'
+      + '<button id="ob-attach" type="button" aria-label="Joindre un fichier de ventes (CSV)" style="width:36px;height:36px;border-radius:50%;background:transparent;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;">'
+      + '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:20px;height:20px;stroke:#6b7280;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>'
+      + '<span style="flex:1;font-size:13px;color:#9CA3AF;">Déposez votre export de ventes ici</span></div>');
+    var f = w.querySelector("#ob-file"); w.querySelector("#ob-attach").addEventListener("click", function () { f.click(); });
+    f.addEventListener("change", function () { var name = f.files && f.files[0] ? f.files[0].name : "ventes.csv"; moi(name); ia("Fichier reçu — 30 204 lignes, 80 articles, 9 familles. Lecture en cours…"); setTimeout(next, 900); });
+    aside('<a data-demo>Simuler le dépôt (proto)</a>').querySelector("[data-demo]").addEventListener("click", function () { moi("ventes_sage100_2026-09.csv"); ia("Fichier reçu — 30 204 lignes, 80 articles, 9 familles. Lecture en cours…"); setTimeout(next, 900); });
+    skipLink("Passer — je n'ai pas l'export sous la main");
+  };
+
+  /* ── 3. Première lecture : la valeur avant la suite (chiffres réels de Muse Square, 30 derniers jours) ── */
+  MOMENTS[2] = function () {
+    var F = window.__PROTO.FAMS; var total = F.reduce(function (a, x) { return a + x.avg_day_eur * 30; }, 0);
+    ia("Voici vos 30 derniers jours, par famille de produits &amp; services. C'est le référentiel de tout ce qui suit : chaque pôle, chaque opération se lira contre ce résultat habituel.");
+    widget('<table class="ob-table"><tr><th>Famille</th><th style="text-align:right;">30 derniers jours</th><th style="text-align:right;">€/jour</th></tr>'
+      + F.map(function (x) { return "<tr><td>" + esc(x.category) + '</td><td class="n">' + frInt(x.avg_day_eur * 30) + " €</td><td class=\"n\">" + frInt(x.avg_day_eur) + " €</td></tr>"; }).join("")
+      + '<tr><td><b>Ensemble du site</b></td><td class="n"><b>' + frInt(total) + ' €</b></td><td class="n"></td></tr></table>'
+      + '<div class="dp-src">Vos ventes par famille (lignes de caisse) · 03/08/2026 → 01/09/2026</div>');
+    cont("Continuer →");
+  };
+
+  /* ── 4. Vos pôles : le VRAI formulaire (pole-form.js), familles réelles, composants avec les mots owner ── */
+  MOMENTS[3] = function () {
+    ia("Un <b>pôle</b>, c'est un sous-ensemble permanent de votre magasin : des familles, une personne qui le tient, des moyens. Déclarez le premier — les familles viennent de vos ventes, jamais d'une liste inventée.");
+    var w = widget('<div class="dp-fiche" id="ob-pole"></div>');
+    var CT = [
+      { value: "vitrine", label_fr: "Vitrine", roles: [] },
+      { value: "lineaire", label_fr: "Linéaire", roles: [{ value: "courant", label_fr: "Produits du quotidien" }, { value: "expert", label_fr: "Produits de connaisseur" }, { value: "promo", label_fr: "Promotion" }] },
+      { value: "gondole", label_fr: "Gondole", roles: [{ value: "courant", label_fr: "Produits du quotidien" }, { value: "expert", label_fr: "Produits de connaisseur" }, { value: "promo", label_fr: "Promotion" }] },
+      { value: "tete_de_gondole", label_fr: "Tête de gondole", roles: [{ value: "courant", label_fr: "Produits du quotidien" }, { value: "expert", label_fr: "Produits de connaisseur" }, { value: "promo", label_fr: "Promotion" }] },
+      { value: "table_ilot", label_fr: "Îlot", roles: [] },
+      { value: "point_assiste", label_fr: "Service client", roles: [{ value: "comptoir_service", label_fr: "Service au comptoir" }, { value: "point_conseil", label_fr: "Conseiller clientèle" }, { value: "billetterie_accueil", label_fr: "Accueil" }] },
+      { value: "caisse", label_fr: "Caisse", roles: [] }, { value: "espace_experience", label_fr: "Espace dégustation", roles: [] }, { value: "autre", label_fr: "Autre", roles: [] }
+    ];
+    window.MSPoleForm.render(w.querySelector("#ob-pole"), { location_id: "proto", families: window.__PROTO.FAMS, owners: ["Camille Robin · Vente", "Nicolas Petit · Caisse"], takenFamilies: {}, componentTypes: CT,
+      onCreated: function () { setTimeout(next, 600); } });
+    skipLink("Passer — mes pôles plus tard, depuis Compte → Pôles");
+  };
+
+  /* ── 5. Vos photos : un composant = une photo, sur le téléphone ; la lecture rendue par le VRAI card-kit ── */
+  MOMENTS[4] = function () {
+    var pole = window.__PROTO.poles[0]; var comps = pole && pole.components && pole.components.length ? pole.components : [{ key: "c1", type: "lineaire", label: "Linéaire poivres" }];
+    var labelOf = function (c) { return c.label || ({ vitrine: "Vitrine", lineaire: "Linéaire", gondole: "Gondole", tete_de_gondole: "Tête de gondole", table_ilot: "Îlot", point_assiste: "Service client", caisse: "Caisse", espace_experience: "Espace dégustation" })[c.type] || c.type; };
+    ia("Prenez une photo de chaque composant" + (pole ? " du pôle <b>" + esc(pole.name) + "</b>" : "") + ", de face, en entier, sans personne dans le champ. Nous lisons ce qu'elle montre : ce qui est exposé, les prix visibles, les articles reconnus. Une photo où une personne apparaît n'est pas conservée.");
+    var w = widget('<div class="dp-fiche">' + comps.map(function (c, i) {
+      return '<div data-comp="' + i + '" style="background:#fff;border:1px solid #e5e7eb;padding:8px 14px;margin-bottom:6px;">'
+        + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;"><span style="font-size:13px;font-weight:600;color:#111827;">' + esc(labelOf(c)) + '</span>'
+        + '<button type="button" data-photo="' + i + '" style="font-size:12px;font-weight:500;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit;">' + esc(COPY.pole_photo_cta) + '</button></div>'
+        + '<div data-slot="' + i + '" style="margin-top:6px;font-size:12px;color:#6b7280;">' + esc(COPY.pole_photo_none) + '</div></div>';
+    }).join("") + '</div>');
+    w.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-photo]"); if (!b) return; var i = b.getAttribute("data-photo");
+      var input = document.createElement("input"); input.type = "file"; input.accept = "image/*"; input.setAttribute("capture", "environment"); input.style.display = "none"; document.body.appendChild(input);
+      input.addEventListener("change", function () { var file = input.files && input.files[0]; input.remove(); if (!file) return; var slot = w.querySelector('[data-slot="' + i + '"]'); slot.textContent = COPY.pole_photo_reading;
+        var url = URL.createObjectURL(file);
+        setTimeout(function () { slot.innerHTML = window.MSCardKit.renderComponentPhoto({ photo_id: "p" + i, url: url, created_at: new Date().toISOString(),
+          checklist: { ls_moyen_essai: "non", ls_usage_explique: "non", ls_prix_par_article: "oui", ls_entree_gamme_oeil: "non_visible", ls_facing_vide: "non", ls_article_apparie: "oui" },
+          questions: [{ key: "ls_moyen_essai", question_fr: "Y a-t-il un moyen d'essayer : sentir, goûter, toucher, un échantillon ?" }, { key: "ls_usage_explique", question_fr: "Un support dit-il à quoi sert le produit ou comment le choisir, et pas seulement d'où il vient ?" }, { key: "ls_prix_par_article", question_fr: "Chaque article porte-t-il son prix ?" }, { key: "ls_entree_gamme_oeil", question_fr: "Y a-t-il un article d'entrée de gamme à hauteur d'œil ?" }, { key: "ls_facing_vide", question_fr: "Un emplacement est-il vide au moment de la photo ?" }, { key: "ls_article_apparie", question_fr: "Quels articles de la liste vendue reconnaît-on ?" }],
+          items_matched: [{ item_code: "59", confidence: "haute", item_description: "Dark chocolate Lg" }, { item_code: "39", confidence: "haute", item_description: "Latte Rg" }] }, COPY); }, 1200);
+      });
+      input.click();
+    });
+    w.addEventListener("click", function (e) { var s = e.target.closest("[data-eg-items-submit]"); if (!s) return; var box = s.closest("[data-eg-items-confirm]"); var names = Array.prototype.map.call(box.querySelectorAll("[data-eg-item]:checked"), function (i) { return i.parentNode.textContent.trim(); }); box.innerHTML = '<div style="margin-top:4px;font-size:12px;color:#374151;">' + esc(COPY.pole_photo_confirmed) + ' ' + esc(names.join(", ") || "—") + '</div>'; });
+    cont("Continuer →");
+    skipLink("Passer — je photographierai depuis la fiche du pôle");
+  };
+
+  /* ── 6. Vos horaires : la VRAIE grille du compte, « Appliquer les horaires du lundi à tous les jours ouverts » ── */
+  MOMENTS[5] = function () {
+    ia("Vos horaires d'ouverture : renseignez le lundi, appliquez-le aux jours ouverts, décochez les jours fermés. Les jours fermés sont exclus des recommandations.");
+    var DAYS = [["mon", "Lundi", false], ["tue", "Mardi", false], ["wed", "Mercredi", false], ["thu", "Jeudi", false], ["fri", "Vendredi", false], ["sat", "Samedi", true], ["sun", "Dimanche", true]];
+    var w = widget('<div class="schedule">' + DAYS.map(function (d) {
+      var closed = d[0] === "sun";
+      return '<div class="schedule-row' + (closed ? " sched-closed" : "") + '" data-day="' + d[0] + '"><span class="sched-day' + (d[2] ? " sched-weekend" : "") + '">' + d[1] + '</span>'
+        + '<div class="sched-toggle' + (closed ? "" : " tog-on") + '"></div>'
+        + '<div class="sched-times"><input class="sched-time-input" type="text" maxlength="5" data-type="open" value="09:00"><span class="sched-sep">→</span><input class="sched-time-input" type="text" maxlength="5" data-type="close" value="19:00"></div></div>';
+    }).join("") + '</div><button type="button" class="sched-apply-btn" id="ob-apply">Appliquer les horaires du lundi à tous les jours ouverts</button><p class="field-hint" style="margin-top:4px">Les jours fermés sont exclus des recommandations IA.</p>');
+    w.querySelectorAll(".sched-toggle").forEach(function (t) { t.addEventListener("click", function () { t.classList.toggle("tog-on"); t.closest(".schedule-row").classList.toggle("sched-closed", !t.classList.contains("tog-on")); }); });
+    w.querySelector("#ob-apply").addEventListener("click", function () {
+      var mon = w.querySelector('[data-day="mon"]'); var o = mon.querySelector('[data-type="open"]').value, c = mon.querySelector('[data-type="close"]').value;
+      w.querySelectorAll(".schedule-row:not(.sched-closed)").forEach(function (r) { r.querySelector('[data-type="open"]').value = o; r.querySelector('[data-type="close"]').value = c; });
+    });
+    cont("Continuer →");
+    skipLink();
+  };
+
+  /* ── 7. Votre équipe et vos canaux : trois gestes courts, tous facultatifs ── */
+  MOMENTS[6] = function () {
+    ia("Qui reçoit les alertes et les engagements ? Une personne suffit pour commencer. Le canal peut attendre.");
+    var w = widget('<div class="dp-fiche">'
+      + '<div style="display:flex;gap:12px;"><div style="flex:1;"><label class="field-label">Prénom <span class="field-req">*</span></label><input class="field-input" value="Camille"></div><div style="flex:1;"><label class="field-label">Nom</label><input class="field-input" value="Robin"></div><div style="flex:1;"><label class="field-label">Rôle</label><input class="field-input" value="Vente"></div></div>'
+      + '<div style="margin-top:12px;"><label class="field-label">Canal</label><div class="dp-chips" style="margin:4px 0 0;"><button type="button">Connectez votre workspace Slack</button><button type="button">Email</button></div></div>'
+      + '<div style="margin-top:12px;"><label class="field-label">Déclarer votre marge — débloque le KPI profit</label><div style="display:flex;align-items:center;gap:8px;"><input class="field-input" style="width:80px;text-align:right;" placeholder="35"><span style="font-size:13px;color:#6B7280;">% en moyenne sur vos ventes · un chiffre, ici même — rien d\'autre</span></div></div>'
+      + '</div>');
+    cont("Continuer →");
+    skipLink();
+  };
+
+  /* ── 8. Et maintenant : ce qui va se passer, et les gestes restants dans « À faire » (mêmes lignes que Piloter) ── */
+  MOMENTS[7] = function () {
+    ia("C'est en place. Chaque matin, vos cartes du jour lisent vos ventes contre votre résultat habituel ; vos pôles se lisent en continu ; chaque photo garde la mémoire de ce que vous avez mis en place. Ce qui reste vous attend dans <b>À faire</b>, sur Piloter — jamais avant que ce soit utile.");
+    widget('<div class="dp-fiche ob-todo"><div style="font-size:10.5px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">À faire</div>'
+      + '<div>→ Engagez votre premier test mesuré — verdict automatique à la fin de la fenêtre<div class="s">une action, une fenêtre à venir — la mesure et le verdict se font seuls</div></div>'
+      + '<div>→ Brancher un canal (email ou Slack) — vos alertes et notifications partiront<div class="s">Compte → Communication · 2 min</div></div>'
+      + '<div>→ Choisir ce qui mérite un email — alertes critiques, point du jour, digest<div class="s">vos préférences d\'alertes n\'ont jamais été posées</div></div>'
+      + '</div>');
+    widget('<button type="button" class="dp-btn" onclick="location.reload()">Ouvrir Piloter →</button>');
+  };
+
+  setStep(0); MOMENTS[0]();
+})();
+</script>
+</body>
+</html>

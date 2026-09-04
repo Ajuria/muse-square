@@ -976,7 +976,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
       // Card-detail loaders — fetch + delegate rendering to the SHARED window.MSCardKit
       // (public/card-kit.js), the SINGLE source verified by the render harness
-      // (public/card-harness.html). What renders here == what the harness verifies.
+      // (tools/harness/card-harness.html). What renders here == what the harness verifies.
       function loadWeatherWindow(locId, date, container) {
         if (!container) return;
         fetch('/api/insight/weather-window?location_id=' + encodeURIComponent(locId) + '&date=' + encodeURIComponent(date))

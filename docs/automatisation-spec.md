@@ -2,7 +2,7 @@
 
 Chantier « améliorer l'automatisation », concept owner : **automatiser l'exécution vers les
 gens** (équipe, participants), pas le routage de signaux. Maquette validée :
-`public/automatisation-proto.html` (artifact du 05/08). Deux cas, un même objet :
+`tools/proto/automatisation-proto.html` (artifact du 05/08). Deux cas, un même objet :
 
 - **La consigne d'opération** — ce que les gens doivent savoir/faire, structurée, attachée à
   une série d'événements (cas 2) ou à un dispositif (cas 1). Distribuable par email/Slack ;

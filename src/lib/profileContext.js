@@ -48,7 +48,7 @@ export async function getProfileContext(bq, clerk_user_id) {
         -- Latest-wins sur la table ENTIÈRE, filtre APRÈS rn=1 : un tombstone écrit par
         -- l'owner (clé member_id, sans clerk_user_id) doit gagner. Filtrer avant le
         -- ROW_NUMBER le rendrait invisible et la ligne morte compterait encore —
-        -- défaut attrapé par le harnais (scripts/vue-equipe-access-harness.ts).
+        -- défaut attrapé par le harnais (tools/harness/vue-equipe-access-harness.ts).
         SELECT *, ROW_NUMBER() OVER (PARTITION BY member_id ORDER BY updated_at DESC) AS rn
         FROM \`${projectId}.analytics.location_members\`
       )

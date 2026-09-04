@@ -1,6 +1,6 @@
 # Revue de copie des cartes — 23/08/2026, données réelles — DÉFINITIF
 
-> Produite par `scripts/copy-review-2308.ts` : exécute `reco-library.js` puis `action-cards.js`
+> Produite par `tools/oneoff/2026-08-23-copy-review.ts` : exécute `reco-library.js` puis `action-cards.js`
 > TELS QU'ILS SONT LIVRÉS, rend chaque carte avec un **payload réel** du parc et le profil réel de
 > `f10c3e58`, puis croise avec les tirs sur 90 j et la couverture `MS_SALES_RECO_LIB`.
 > Aucune chaîne n'est corrigée ici — c'est un relevé.

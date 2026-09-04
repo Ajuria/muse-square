@@ -1,4 +1,4 @@
-// MSBpForm — « Enrichir vos bonnes pratiques » (validé 26/07, proto public/methode-proto.html).
+// MSBpForm — « Enrichir vos bonnes pratiques » (validé 26/07, proto tools/proto/methode-proto.html).
 // The POSITIVE branch of « M'engager » : on an opportunity card the menu entry opens THIS form
 // instead of the objective form. Same visual grammar as MSCommitForm (commit-form.js) — labels,
 // chips, suggestion rows, buttons — nothing new to learn.

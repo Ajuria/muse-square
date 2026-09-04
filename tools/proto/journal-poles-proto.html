@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Proto v2 — journal pôles &amp; mémoire (rendu retenu : C + ambre + résultats)</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; background: #f6f7f9; margin: 0; padding: 24px; color: #111827; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .note { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
+  .bubble { background: #fff; border: 1px solid rgba(0,0,0,.1); border-radius: 12px; padding: 18px 20px; max-width: 620px; }
+</style>
+</head>
+<body>
+<h1>Rendu retenu — « Vos dispositifs » (C + ambre + résultats ; corrections owner 27/08)</h1>
+<div class="note">Vrai MSCardKit.renderAnswerBlocks. Pill du pôle = les RÉSULTATS (CA 30 j · poids du CA · écart vs les 90 j précédents — chiffres réels f10c3e58 pour le pôle d'exemple). « Données insuffisantes » + infobulle ⓘ (survolez). Ambre = verdict imminent.</div>
+<div class="bubble" id="final"></div>
+<script src="/public/card-kit.js"></script>
+<script>
+(function () {
+  var K = window.MSCardKit;
+  document.getElementById('final').innerHTML = K.renderAnswerBlocks([
+    { type: 'register', register: 'vetted', facts_cited: 8 },
+    { type: 'headline', variant: 'lead', text: 'Vos dispositifs' },
+    { type: 'headline', text: 'Vos pôles' },
+    { type: 'datecards', items: [
+      {
+        label: "Pôle périssables",
+        pill: "24 965 € sur 30 j · 51 % du CA · +8,5 % vs les 90 jours précédents",
+        rows: [
+          { k: "Familles", v: "Coffee +8,5 % · Bakery +3,1 %" },
+          { k: "Responsable(s)", v: "Camille Robin" },
+          { k: "Levier", v: "Vendeur dédié, réassort quotidien, fraîcheur en vitrine" },
+          { k: "Opérations en cours", v: "Producteur invité — fromages (14/09/2026, en cours)" }
+        ]
+      },
+      {
+        label: "Pôle traiteur libanais",
+        pill: "Données insuffisantes ⓘ",
+        tip: "12 jours vendus sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté.",
+        rows: [
+          { k: "Familles", v: "Traiteur" },
+          { k: "Responsable(s)", v: "Nadim K." }
+        ]
+      }
+    ] },
+    { type: 'headline', text: 'Vos opérations datées' },
+    { type: 'datecards', items: [
+      { label: 'Corner de vente producteur', tone: 'amber',
+        pill: 'Version 3 en cours (pivoter) — verdict d’ici le 27/08/2026',
+        rows: [{ k: 'Historique', v: 'V1 objectif manqué (−78,3 % sur le CA famille, effet prouvé) · V2 remplacée' }] }
+    ] },
+    { type: 'facts', items: [
+      "Dispositif « Vacances scolaires » — version 2 en cours, du 27/08/2026 au 02/09/2026."
+    ] },
+    { type: 'cta', url: '/app/insightevent/engagement?id=x', label: 'Ouvrir le pôle périssables' }
+  ]);
+})();
+</script>
+</body>
+</html>

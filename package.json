@@ -4,11 +4,16 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "dotenv -e .env -- astro dev",
-    "build": "astro build && node scripts/strip-protos.mjs",
+    "build": "astro build && node tools/build/strip-protos.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "gate": "vitest run src/lib/ai/contracts/ src/lib/ai/honestAbsence.test.ts",
+    "battery:explorer": "dotenv -e .env -- tsx tools/battery/explorer-quality-battery.ts",
+    "battery:prompt": "dotenv -e .env -- node tools/battery/prompt-conversation-battery.mjs",
+    "harness": "python3 -m http.server 4173 --directory .",
+    "placement:check": "node tools/build/placement-check.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

@@ -1,6 +1,6 @@
 # « Vos bonnes pratiques » — base de connaissance du lieu (validé 26/07) — DÉFINITIF
 
-Proto validé : `public/methode-proto.html`. Doctrine owner : le nom vend la FIN (un actif du
+Proto validé : `tools/proto/methode-proto.html`. Doctrine owner : le nom vend la FIN (un actif du
 lieu qui grandit), jamais le moyen ; on ne force JAMAIS une explication (pas de champ
 obligatoire, deux sorties honnêtes sans écriture) ; branchement sur la NATURE de la carte
 (opportunité), jamais sur la couleur du montant.

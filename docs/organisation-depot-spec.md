@@ -33,7 +33,7 @@ La racine porte aussi `shots/` (10 captures JSON + 1 HTML, lues par 6 scripts), 
 |---|---|---|
 | Libs runtime chargées par les pages (`card-kit.js`, `action-cards.js`, `commit-form.js`, `ms-loader.js`, `pole-form.js`, `event-form.js`, `bp-form.js`, `draft-workspace.js`, `reco-library.js`, `map-markers.js`, `reactions.js`) | 11 | oui, voulu |
 | `kpi.js` | 1 | oui — **0 consommateur**, 26/08/2025 |
-| `*-proto.html` (+ `-v2`, `-v3`) | 45 | non — purgés au build par `scripts/strip-protos.mjs` |
+| `*-proto.html` (+ `-v2`, `-v3`) | 45 | non — purgés au build par `tools/build/strip-protos.mjs` |
 | `*-proto-data.js` (données réelles de compte figées) | 15 | non — idem |
 | `*-harness.html` | 5 | non — idem |
 | favicon ×3, `robots.txt` | 4 | oui |
@@ -269,7 +269,7 @@ remove` sur ceux dont la session est finie — jamais sans avoir vérifié qu'au
 **Exécution.** Les phases se font dans un worktree dédié (branche `claude/organisation-depot`),
 pas dans le checkout principal : au 04/09 07:30 une autre session y édite en direct
 `api/insight/prompt.ts`, `lib/ai/resolver.ts`, `lib/semanticRegistry.ts`, `lib/entityReading.ts`,
-`scripts/prompt-conversation-battery.mjs`, `docs/module-index.md` — des fichiers que les phases 2
+`tools/battery/prompt-conversation-battery.mjs`, `docs/module-index.md` — des fichiers que les phases 2
 et 6 déplacent. La fusion dans `dev` se fait APRÈS le commit de cette session ; les renommages
 se résolvent par détection de renommage git. Les chemins cités dans la mémoire
 (`~/.claude/projects/…/memory/`) se réécrivent au moment de la fusion, pas avant.

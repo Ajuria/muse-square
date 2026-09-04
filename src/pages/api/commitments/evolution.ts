@@ -39,7 +39,7 @@ function json(body: unknown, status = 200): Response {
 
 
 // ── KPI déclaré : série jour + pairs + objectif, dans l'unité de measured_metric ─────────
-// Aligné sur le harnais du proto validé (scripts/engagement-kpi-proto-harness.ts). K1 lit les
+// Aligné sur le harnais du proto validé (tools/generators/engagement-kpi-proto-data.ts). K1 lit les
 // lignes residual déjà chargées (zéro requête en plus) ; K2-K6 lisent la colonne du registre
 // dans fct_client_daily_performance ; K8 (famille) rejoint saved_items.kpi_family.
 const PERF_TABLE = `${BQ_PROJECT}.mart.fct_client_daily_performance`;

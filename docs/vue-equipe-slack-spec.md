@@ -139,7 +139,7 @@ passe par un appel Clerk backend API au premier accès.
   disparaît, l'écart reste), et la carte achats/panier promettait au membre une réponse
   qui ne viendrait jamais (carte retirée pour lui). Prouvé : `engagement-page-harness`
   80/80, mutation « redaction désactivée » vue rouge (5).
-- **Preuves** : harnais réel `scripts/vue-equipe-access-harness.ts` (BQ + Clerk réels,
+- **Preuves** : harnais réel `tools/harness/vue-equipe-access-harness.ts` (BQ + Clerk réels,
   compte owner f10c3e58) **22/22**, dont : sorties owner byte-identiques à l'ancienne
   requête du middleware (location_id, first_name, all_location_ids ordre compris),
   tombstone owner-style masque le membre, résolution réelle bout en bout, listes jamais
@@ -174,7 +174,7 @@ rendues de la page : « ventes/jour », « nombre de visiteurs/jour », « taux 
 conversion ») ; plancher n ≥ 5 j ; un compte sans capteur d'affluence rend « — », jamais
 « 0 » ; « Nouvelle opération » masqué (geste owner).
 
-**Preuves** : harnais réel `scripts/vue-equipe-dashboard-harness.ts` (handler réel, BQ
+**Preuves** : harnais réel `tools/harness/vue-equipe-dashboard-harness.ts` (handler réel, BQ
 réel, f10c3e58) **32/32** — owner byte-compatible (tous ses blocs, pas de champ role),
 clés membre exactes, filtre pôle positif ET négatif sur les 2 engagements ouverts réels,
 5 occurrences Corner filtrées, 403 hors périmètre — + **rendu vm 7/7** (renderMemberView
@@ -210,7 +210,7 @@ restauration verte. Le harnais a attrapé en route la projection manquante de la
   −13 %, panier −3 %. » Note : l'écart € du jour disparaît AUSSI quand il se calcule
   depuis des niveaux — plus strict que l'arbitrage (écarts permis) ; à desserrer type par
   type si l'owner le veut.
-- **Preuves** : `scripts/vue-equipe-agir-harness.ts` **20/20** — politique pure sur
+- **Preuves** : `tools/harness/vue-equipe-agir-harness.ts` **20/20** — politique pure sur
   payloads réels, endpoint réel owner (byte-compat) + membre, **balayage récursif du
   payload membre entier : zéro clé de niveau** (days et all_feed inclus), 403 hors
   périmètre, rendu sowhat plein vs expurgé via le vrai `renderActionCandidates` en vm.
@@ -243,7 +243,7 @@ restauration verte. Le harnais a attrapé en route la projection manquante de la
   (action-cards.js `?v=96`) ne garde que « Consulter » ; Communiquer / Sauvegarder /
   Signaler / M'engager restent owner. Le reste du gating fin de pulse se constate à
   l'E2E navigateur membre (voir Vérification).
-- **Preuves** : `scripts/vue-equipe-gestes-harness.ts` **17/17** sur les VRAIS endpoints
+- **Preuves** : `tools/harness/vue-equipe-gestes-harness.ts` **17/17** sur les VRAIS endpoints
   — sonde engagement DML (termes complets, nettoyée), liste membre filtrée + projetée,
   goal_context 403, disposition/retro dans le périmètre (journal + auteur action_log
   vérifiés en base), refus hors périmètre testé sur une SECONDE sonde (jamais un
@@ -280,7 +280,7 @@ dans Slack (boutons + modal) est ACTÉ comme incrément 7, après constat d'usag
   ligne `channel='slack'`. Se constate à la première consigne réelle (série Corner).
 - **La fiche dispositif postable** passe par le MÊME POST (`kind:'fiche'`, titre + corps
   depuis la fiche) — l'entrée UI sur la fiche viendra avec l'E2E.
-- **Preuves** : `scripts/vue-equipe-forward-harness.ts` **15/15** — routage pur
+- **Preuves** : `tools/harness/vue-equipe-forward-harness.ts` **15/15** — routage pur
   (écrit/relu/tombstone, famille→pôle→canal sur pôle-sonde), 403 membre (POST et PUT),
   502 canal-sonde avec l'erreur DE SLACK (token vivant, résolution pôle prouvée dans la
   réponse), 400 sans canal, **UN envoi réel DÉLIVRÉ** dans le workspace owner (routé par
@@ -313,7 +313,7 @@ conversation libre (événements/parsing = déconseillé, hors périmètre).
   handler retro ; ses règles répondent dans le modal (409 « après résolution » affiché).
 - **Réponses** : confirmation éphémère au cliqueur (« Enregistré — action menée. ») ;
   compte non relié → phrase d'orientation, aucune écriture.
-- **Preuves** : `scripts/vue-equipe-interact-harness.ts` **13/13** — 401 sans/fausse
+- **Preuves** : `tools/harness/vue-equipe-interact-harness.ts` **13/13** — 401 sans/fausse
   signature + anti-rejeu, mappage pur (locals `slack:<id>`), bouton Fait → journal +
   auteur tracés en base, hors périmètre AUCUNE écriture, non mappé AUCUNE écriture, modal
   → retro écrit, modal sur engagement ouvert → erreurs du rail. Mutation vue tomber :
@@ -404,7 +404,7 @@ discrétion ») — gabarits proposés au fil du 28/08, GO owner requis avant to
 mot restant à trancher : le geste de fin (« Terminer » — mot du feedback owner — vs
 « Arrêter », le move existant de l'app).
 
-### CONSTRUIT 28/08 (harnais `scripts/vue-equipe-cycle-harness.ts` 22/22 + mutation)
+### CONSTRUIT 28/08 (harnais `tools/harness/vue-equipe-cycle-harness.ts` 22/22 + mutation)
 
 - **Ack-immédiat** : les boutons de `slack-interact` répondent 200 tout de suite (mesuré :
   3 ms) et le travail court dans `waitUntil` (4,6 s derrière — le « Operation timed out »
@@ -444,7 +444,7 @@ tâche ASSIGNÉE (owner : « peut-être ») · G3/G4 constatés sur une résolut
 
 ## Compte : onglet Pôles + gestion équipe (incrément 9 — MAQUETTE VALIDÉE 28/08, build à lancer)
 
-Proto : `public/vue-equipe-admin-proto.html` (grammaire réelle de profile.astro, ajouts
+Proto : `tools/proto/vue-equipe-admin-proto.html` (grammaire réelle de profile.astro, ajouts
 encadrés). **Menu Compte arbitré owner** : Profil · Sites · **Pôles** (nouvel onglet) ·
 Communication (**absorbe Alertes** ; le bloc « Destinataires supplémentaires » — 3 emails
 à part — se résorbe dans le roster) · **Opérations confiées** (ex-Recommandations) ·
@@ -469,7 +469,7 @@ Plan de build (à partir de l'existant — zéro duplication, ménage derrière 
    lexique avant envoi (chaîne visible nouvelle).
 Chaque lot : un commit, son harnais, module-index dans le même commit.
 
-**9a-9c CONSTRUITS 28/08** (harnais `scripts/vue-equipe-admin-harness.ts` 18/18 + mutation
+**9a-9c CONSTRUITS 28/08** (harnais `tools/harness/vue-equipe-admin-harness.ts` 18/18 + mutation
 copy-forward vue tomber) : menu Compte réordonné (Nav.astro, desktop+mobile) ; onglet
 Pôles dans profile.astro (liste + canal par pôle branché sur PUT/GET forward + membres +
 création via MSPoleForm) ; `pole-form.js` = module PARTAGÉ extrait d'event-form.js

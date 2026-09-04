@@ -22,10 +22,12 @@ La règle complète : `CLAUDE.md` § Placement des fichiers ; l'état et l'histo
 ## Commandes
 
 ```
-npm run dev              # serveur de dev, port 4321
-npm run build            # build + tripwire : échoue si un fichier de tools/ atteint l'artefact
-npm run test:run         # vitest
-npm run gate             # portes de merge : lie-bait + batteries
-npm run harness          # serveur statique à la racine : tools/harness/*.html, tools/proto/*.html
-npm run placement:check  # vérifie que chaque fichier est à sa place
+npm run dev               # serveur de dev, port 4321
+npm run build             # build + tripwire : échoue si un fichier d'outillage atteint l'artefact
+npm run test:run          # vitest — tests co-localisés dans src/ + tests/
+npm run gate              # porte de merge permanente : lie-bait (contrats + honestAbsence)
+npm run battery:explorer  # batterie Explorer (dev server sur 4321 requis)
+npm run battery:prompt    # batterie conversation (idem)
+npm run harness           # serveur statique enraciné ici, port 4173 : /tools/harness/*.html, /tools/proto/*.html
+npm run placement:check   # chaque fichier suivi est à sa place (CLAUDE.md § Placement)
 ```

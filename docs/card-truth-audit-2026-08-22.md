@@ -8,7 +8,7 @@
 > Une première passe comptait les tirs sur les 32 sites contre une mesurabilité sur 6 : deux
 > populations mélangées, verdict gonflé. Corrigé — tout ce qui suit est sur la même population.
 >
-> **Méthode** : les portes ne sont PAS réimplémentées. `scripts/audit-verite-2608.ts` appelle
+> **Méthode** : les portes ne sont PAS réimplémentées. `tools/oneoff/2026-08-26-audit-verite.ts` appelle
 > `rowsToImpactsWithImmaterial`, le seul point d'entrée de lecture, exactement comme `monitor.ts`.
 > Le verdict est donc celui que l'app applique vraiment. Tirs sur 90 jours.
 >

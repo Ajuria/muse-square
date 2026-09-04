@@ -3206,7 +3206,7 @@ if (!location_id) {
     log.innerHTML = '<div style="margin-bottom:18px;"><p class="eb" style="margin:0 0 10px;">Vos engagements</p><div class="tl">' + rows + '</div></div>';
     log.querySelectorAll('[data-eng-evo]').forEach(function (b) { b.addEventListener('click', function (e) { e.stopPropagation(); window.location.href = '/app/insightevent/engagement?id=' + encodeURIComponent(b.getAttribute('data-eng-evo')); }); });
   }
-  // ══ TRIAGE PAR SITE (validé 26/07 — proto public/actions-triage-proto.html) ══════════════════
+  // ══ TRIAGE PAR SITE (validé 26/07 — proto tools/proto/actions-triage-proto.html) ══════════════════
   // Doctrine (docs/pulse-actions-triage.md) : UNE page qui centralise l'action.
   //  - Blocs PAR SITE (un P&L, une équipe) : contextuel d'abord, chantiers structurels compacts après.
   //  - Tri défaut = HORIZON (aujourd'hui → semaine → structurel) puis |ENJEU| décroissant.

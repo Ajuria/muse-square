@@ -4,7 +4,7 @@ Chantier : remplacer l'usage « daté et limité » de monitor (un événement =
 par **l'événement-dispositif mesuré** : créé avec un objectif (KPI dominant) et une description
 de dispositif, récurrent si besoin, évalué occurrence par occurrence par la boucle d'engagement
 existante, servi par un provider de famille (page à deux états + chat + rapport + cartes).
-Protos validés : `public/evenement-dossier-proto.html` (v1) et `-v2.html` (v2.1 — le contrat UI).
+Protos validés : `public/evenement-dossier-proto.html (supprimé le 04/09/2026 — remplacé par la version -v3 ; historique git)` (v1) et `-v2.html` (v2.1 — le contrat UI).
 
 ## Décisions owner (03/08, toutes tranchées)
 

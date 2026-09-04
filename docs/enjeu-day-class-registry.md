@@ -5,7 +5,7 @@
 > `api/insight/monitor.ts` (lecteur), `pulse.astro buildMetricsStrip` (rendu).
 > À lire avant TOUTE extension. Tenir ce fichier + la ligne module-index à jour dans le même commit.
 
-## Décisions verrouillées (owner, proto 24/07 — `public/enjeu-chip-proto.html`, direction B v2)
+## Décisions verrouillées (owner, proto 24/07 — `tools/proto/enjeu-chip-proto.html`, direction B v2)
 
 1. **Enjeu TOUJOURS annualisé (€/an)** — « who acts over 110 € ? Nobody. » Le €/an = poids annuel du
    MOTIF : écart résiduel moyen des jours de la classe × fréquence réelle de ces jours dans
@@ -82,7 +82,7 @@ STRUCTURELLES — grain motif × site, SANS date :
   owner-éditable `contextCopy.structuralCardCopyFr` : titre chiffré, honnêteté du pool, chantier
   proposé par classe). Tri |€/an| décroissant, merge multi-sites côté client (location_label).
 - **Client** (`pulse.astro renderStructuralSection`) : anatomie `.ab-card` validée au proto
-  (`public/chantiers-proto.html`) — chips Structurel/famille/site/état, pill Enjeu partagée
+  (`tools/proto/chantiers-proto.html`) — chips Structurel/famille/site/état, pill Enjeu partagée
   (ambre/verte), « Chantier : … », M'engager → `MSCommitForm` avec
   `origin_action_type = structural_<class_key>` (préfixe accepté par `isCommitmentOrigin` ;
   `kpiKeyForOrigin` : structural_discount_no_lift → discount, structural_traffic_high → conversion,

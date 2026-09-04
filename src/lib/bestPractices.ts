@@ -1,5 +1,5 @@
 // « Vos bonnes pratiques » — the venue's own knowledge base of what worked (validé 26/07,
-// proto public/methode-proto.html).
+// proto tools/proto/methode-proto.html).
 //
 // TWO doors feed it, ONE reader serves it:
 //   1. DECLARED — a positive card's « M'engager » opens « Enrichir vos bonnes pratiques »

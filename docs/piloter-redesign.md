@@ -97,7 +97,7 @@ cartes système ne vivent pas dans ce volet.
 L'audit de code mort du 24/08 est appliqué : les huit items nommés de `tableau.astro` ont
 disparu (`veilleOk`, `covSub`, `nTrouvailles`, `veilleCassee`, `#tb-mg`, `goal_fr`,
 `practices_proven`, `.tb-rv`), la collision d'id de volet `"co"` n'existe plus (une seule
-carte-porte le porte, « Mon positionnement »), et `scripts/strip-protos.mjs` purge protos et
+carte-porte le porte, « Mon positionnement »), et `tools/build/strip-protos.mjs` purge protos et
 harnais de l'artefact de build. Les protos et harnais de la famille tableau restent de
 l'outillage VIVANT — seul `radar-proto.html` est orphelin.
 

@@ -927,7 +927,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // « € mesurés » restait donc vide alors que des verdicts tombaient. Le journal porte les
     // mêmes colonnes et la même règle (verdict rendu, confounded exclu des €).
     // PRÉALABLE FAIT le 28/08 : les 2 « jour même » mesurés le jour de création ont été
-    // re-résolus (scripts/reresolve-day-of.ts) — la somme porte donc les bonnes journées.
+    // re-résolus (tools/oneoff/2026-08-28-reresolve-day-of.ts) — la somme porte donc les bonnes journées.
     const dansMart = new Set(martAll.map((r) => r.commitment_id));
     const duJournal = coms
       .filter((c) => c.status === "resolved" && c.verdict && c.commitment_id && !dansMart.has(c.commitment_id)

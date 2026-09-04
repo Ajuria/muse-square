@@ -75,7 +75,7 @@ une absence (contrôler sur un témoin connu) ; un compte qui change ne dit pas 
 - `.ts` → `npx tsc --noEmit` ; scripts inline `.astro` et `public/*.js` → `node --check`
   (extraire le `<script>`). Syntaxe seulement : « done » = sortie réelle tracée (requête de
   l'endpoint + rendu confirmé sur `f10c3e58`).
-- Le rendu se prouve au HARNAIS, pas à l'œil : `public/card-harness.html` pour
+- Le rendu se prouve au HARNAIS, pas à l'œil : `tools/harness/card-harness.html` pour
   `card-kit.js` et les réponses Consulter ; harnais `vm` (bytes exacts de `pulse.astro` +
   `action-cards.js`) pour Pulse. Le harnais EST la page.
 - `public/action-cards.js` est statique mais cache-busté par `?v=` — bump sur les surfaces
