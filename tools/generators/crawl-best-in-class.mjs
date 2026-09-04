@@ -21,7 +21,7 @@
  * distinct case per intent — pivot (below goal: what else to try) / reinforce (aligned: push it
  * further) / scale (above: make it last). The verdict->intent map lives in bestInClassStore.
  *
- * RUN: node src/scripts/crawl-best-in-class.mjs                 (full build — all industries x levers x intents, WRITE_TRUNCATE)
+ * RUN: node tools/generators/crawl-best-in-class.mjs                 (full build — all industries x levers x intents, WRITE_TRUNCATE)
  *      INDUSTRIES=live_event LEVERS=conversion INTENTS=pivot node src/scripts/...   (subset, fast test)
  *      MODE=merge LEVERS=conversion INTENTS=pivot node src/scripts/...   (demand-drain: supersede ONLY these cells)
  *      MODE=refresh node src/scripts/...   (demand-drain: active verticals × stale/missing cells only)
@@ -34,7 +34,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { BigQuery } from "@google-cloud/bigquery";
-import * as core from "../lib/bestInClassCrawlCore.mjs";
+import * as core from "../../src/lib/bestInClassCrawlCore.mjs";
 
 const bq = new BigQuery({ projectId: "muse-square-open-data" });
 const STORE = "analytics.best_in_class_plays";

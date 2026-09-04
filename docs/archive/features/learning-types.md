@@ -240,7 +240,7 @@ dev-only `?src=seed` proves the populated path.
 
 **A2 as-built — committed matrix build + single-source registry (reproducibility, no fit change).**
 `b_real_designmatrix` was an ORPHAN (built ad-hoc, never in source control → the pipeline was not
-reproducible). It is now built by the committed **`src/scripts/build-designmatrix.cjs`**
+reproducible). It is now built by the committed **`tools/generators/build-designmatrix.cjs`**
 (`mart.fct_client_day_residual` × `mart.fct_location_context_daily`, `is_oos` = most-recent 20%/venue,
 universe inherited from the residual mart — never hardcoded). The factor set is a **single-source
 registry `src/lib/sensitivityFeatures.json`** (feature → context predicate → mechanism) driving the

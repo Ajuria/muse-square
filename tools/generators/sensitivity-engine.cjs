@@ -44,7 +44,7 @@ const TAXONOMY_SEED = {
 // Low-contrast ones (cold/wind/snow/public_holiday/mobility/major_event at 81 days) are expected
 // to drop out on the N/contrast/variance gates — deferral by identifiability, NOT suppression
 // here (tier-not-gate). Weekend/dow/season are NOT features: already removed in the residual.
-const REG = require("../lib/sensitivityFeatures.json");
+const REG = require("../../src/lib/sensitivityFeatures.json");
 // FIT LIST = `fittable` entries only (Tier-1 environment factors). Estimation/concurrence/action
 // entries live in the same registry but are structurally excluded from the regression here.
 const taxonomyFromRegistry = (metric) =>

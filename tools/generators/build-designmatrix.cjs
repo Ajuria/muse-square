@@ -1,7 +1,7 @@
 // Type B — COMMITTED design-matrix build (A2). See docs/archive/features/learning-types.md §C.1.
 //
 // Materializes analytics.b_real_designmatrix = the fit source the offline engine
-// (src/scripts/sensitivity-engine.cjs, BMODE=real) reads. Until now this table was an
+// (tools/generators/sensitivity-engine.cjs, BMODE=real) reads. Until now this table was an
 // ORPHAN — built ad-hoc offline, never in source control, so the whole Type-B pipeline
 // (matrix -> fit -> store) was not reproducible. This script IS that build.
 //
@@ -13,11 +13,11 @@
 //
 // The universe (which venues / dates) is inherited from the residual mart — never hardcoded, so
 // the matrix tracks the data as it accrues. Reproducible in one command:
-//   node src/scripts/build-designmatrix.cjs            (writes the real table)
-//   node src/scripts/build-designmatrix.cjs --dry <t>  (writes a scratch table for verification)
+//   node tools/generators/build-designmatrix.cjs            (writes the real table)
+//   node tools/generators/build-designmatrix.cjs --dry <t>  (writes a scratch table for verification)
 
 const { BigQuery } = require("@google-cloud/bigquery");
-const REG = require("../lib/sensitivityFeatures.json");
+const REG = require("../../src/lib/sensitivityFeatures.json");
 
 const bq = new BigQuery({ projectId: "muse-square-open-data" });
 const DS = "muse-square-open-data";

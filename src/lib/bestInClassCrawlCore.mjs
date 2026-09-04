@@ -1,6 +1,6 @@
 /**
  * bestInClassCrawlCore.cjs — the SINGLE SOURCE for the best-in-class crawl CONTRACT (labels, prompt,
- * validation, schema). Shared by the standalone full-build script (src/scripts/crawl-best-in-class.mjs) AND the demand-drain cron (src/pages/api/cron/crawl-best-in-class.ts, via import — a
+ * validation, schema). Shared by the standalone full-build script (tools/generators/crawl-best-in-class.mjs) AND the demand-drain cron (src/pages/api/cron/crawl-best-in-class.ts, via import — a
  * co-located .d.ts gives it types). Keep both callers in sync by editing HERE only.
  *
  * Pure + portable: no BigQuery / no dotenv / no fs. Uses global fetch (Node 18+ / Vercel). Callers

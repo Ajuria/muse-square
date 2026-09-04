@@ -11,7 +11,7 @@
 // lands — change STORE_TABLE only, no consumer touches the path.
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
-// PROD/default = the real batch output of the offline engine (src/scripts/sensitivity-engine.cjs
+// PROD/default = the real batch output of the offline engine (tools/generators/sensitivity-engine.cjs
 // BMODE=real): analytics.b_sensitivity_store, populated from the real residual × context. A caller
 // may override via opts.storeTable (dev fixtures only). -> mart.fct_location_sensitivity in prod.
 const STORE_TABLE = "analytics.b_sensitivity_store";
