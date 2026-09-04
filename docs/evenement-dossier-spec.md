@@ -134,7 +134,7 @@ PILOTER reste surligné (Nav : la règle du 03/08 couvre déjà toute nouvelle p
 Où : le modal de days.astro est REMPLACÉ par le nouveau formulaire (même point d'entrée), qui
 réutilise les briques MSCommitForm (fetch attendu — par jour de semaine pour un récurrent —,
 %⇄€, plancher de bruit, raccourcis, roster). Champs → colonnes du § 1.1. Types par métier :
-`src/lib/eventTypes.ts` — registre `location_type/industrie → liste FR` + repli générique,
+`src/lib/events/eventTypes.ts` — registre `location_type/industrie → liste FR` + repli générique,
 consommé par le formulaire ET par le rendu (tue la liste dupliquée EVT_TYPE_LABELS).
 À la création d'un récurrent : occurrences matérialisées + engagement de la 1re occurrence.
 
@@ -239,7 +239,7 @@ Portes standing : lie-bait à toute modification de grounding ; localisation FR 
   window_days 400 prouvée.
 - **Incrément 1 FAIT (03/08)** : ALTER additifs exécutés et vérifiés en base (12 colonnes sur
   `raw.saved_items`, `saved_item_id` sur `analytics.action_commitments` — `ADD COLUMN IF NOT
-  EXISTS`, DDL dans le commit) + `src/lib/eventTypes.ts` (registre types par métier, 12 valeurs
+  EXISTS`, DDL dans le commit) + `src/lib/events/eventTypes.ts` (registre types par métier, 12 valeurs
   historiques préservées, `eventTypesFor(industryCode)` + `eventTypeLabelFr(value)`).
 
 

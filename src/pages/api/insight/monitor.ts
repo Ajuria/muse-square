@@ -8,7 +8,7 @@ import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
 import { assembleDayContext } from "../../../lib/dayContext";
 import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/contextCopy";
 import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured, structuralFunnelLineFr, corrIndexFr } from "../../../lib/kpi/dayClassRegistry";
-import { buildEventLifecycleCards } from "../../../lib/eventLifecycleCards";
+import { buildEventLifecycleCards } from "../../../lib/events/eventLifecycleCards";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {

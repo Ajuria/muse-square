@@ -1,11 +1,11 @@
-// COMPLÉMENT — cycle de vie événement (src/lib/eventLifecycleCards.ts), 4 types.
+// COMPLÉMENT — cycle de vie événement (src/lib/events/eventLifecycleCards.ts), 4 types.
 // Un seul tire sur le parc aujourd'hui ; les 3 autres portent une copie écrite qu'on rend
 // avec un payload RECONSTRUIT depuis leurs propres appels push() — marqué comme tel.
 // LECTURE SEULE. Usage : npx tsx tools/oneoff/2026-08-24-copy-review-lifecycle.ts
 import "dotenv/config";
 import { writeFileSync, readFileSync } from "node:fs";
 import { makeBQClient } from "../../src/lib/bq";
-import { buildEventLifecycleCards } from "../../src/lib/eventLifecycleCards";
+import { buildEventLifecycleCards } from "../../src/lib/events/eventLifecycleCards";
 import { GET as monitorGET } from "../../src/pages/api/insight/monitor";
 
 const P = "muse-square-open-data";

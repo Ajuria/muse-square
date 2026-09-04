@@ -1,6 +1,6 @@
 // COMPLÉMENT DU RELEVÉ — familles absentes de copy-review.ts : motifs structurels
 // (analytics.day_class_impacts → contextCopy.structuralCardCopyFr) et cycle de vie événement
-// (src/lib/eventLifecycleCards.ts). LECTURE SEULE. Usage : npx tsx tools/oneoff/2026-08-22-copy-review-structural.ts
+// (src/lib/events/eventLifecycleCards.ts). LECTURE SEULE. Usage : npx tsx tools/oneoff/2026-08-22-copy-review-structural.ts
 import "dotenv/config";
 import { writeFileSync } from "node:fs";
 import { makeBQClient } from "../../src/lib/bq";

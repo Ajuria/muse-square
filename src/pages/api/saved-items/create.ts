@@ -3,7 +3,7 @@ import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import crypto from "node:crypto";
 import { makeBQClient } from "../../../lib/bq";
-import { generateOccurrences } from "../../../lib/eventOccurrences";
+import { generateOccurrences } from "../../../lib/events/eventOccurrences";
 
 export const prerender = false;
 

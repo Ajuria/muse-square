@@ -9,7 +9,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { measureKpiCoverage, listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
 import { listPoles } from "../../../lib/dispositifs/poleReading";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { eventTypesFor, eventTypeLabelFr } from "../../../lib/eventTypes";
+import { eventTypesFor, eventTypeLabelFr } from "../../../lib/events/eventTypes";
 import { dispositifTypesFor, dispositifRolesFor } from "../../../lib/dispositifs/dispositifTypes";
 import { evenementFamily } from "../../../lib/insightFamilies/evenement";
 import { getDeclaredFamilyMargins, getDeclaredMarginPct, familySlug } from "../../../lib/ai/corrections";

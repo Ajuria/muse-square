@@ -37,7 +37,7 @@ leurs rôles, une liste de questions par type, la sélection par métier, « Aut
 liste. Sa garde (`dispositifTypes.guard.test.ts`, 13 tests) attrape une valeur dupliquée, une
 liste qui ne finit pas par « Autre », une question qui vise un rôle inexistant, un mot banni dans
 un libellé ; chacun de ces trois défauts a été introduit volontairement et vu rougir le test.
-Il est construit sur le modèle du registre des types d'opération, `src/lib/eventTypes.ts` :
+Il est construit sur le modèle du registre des types d'opération, `src/lib/events/eventTypes.ts` :
 23 types (dégustation, venue de producteurs, vente privée…), rangés en cinq listes selon le
 métier du lieu, chaque liste finissant par « Autre ». Ce registre suit quatre règles qui
 serviront de modèle : la liste est fermée (pas de texte libre) ; une valeur ne se renomme jamais
