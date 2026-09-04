@@ -1,8 +1,8 @@
-// Harnais incrément 2 — teste les fonctions RÉELLES (src/lib/profileContext.js,
+// Harnais incrément 2 — teste les fonctions RÉELLES (src/lib/profile/profileContext.js,
 // src/lib/requireLocationOwnership.ts) contre BigQuery + Clerk réels.
 import "dotenv/config";
 import { BigQuery } from "@google-cloud/bigquery";
-import { getProfileContext, resolvePendingMembership } from "../../src/lib/profileContext.js";
+import { getProfileContext, resolvePendingMembership } from "../../src/lib/profile/profileContext.js";
 import { requireLocationOwnership, requireLocationAccess } from "../../src/lib/requireLocationOwnership.ts";
 
 const OWNER = "user_38OwkmwUq0Ldj5FwB9AJ8HmziWo"; // copié de la sortie bq, jamais retapé

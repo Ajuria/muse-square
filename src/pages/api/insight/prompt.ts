@@ -21,7 +21,7 @@ import { listUserEvenements } from "../../../lib/insightFamilies/evenement";
 import { getActiveCorrections, correctionsBrief, captureCorrectionFromTurn, appendCorrectionEvent, getDeclaredMetric, getDeclaredFamilyMargins, familySlug } from "../../../lib/ai/corrections";
 import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declaredMetrics";
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
-import { frActivity, frAudience, frVenueType } from "../../../lib/profileLabels";
+import { frActivity, frAudience, frVenueType } from "../../../lib/profile/profileLabels";
 import { familyForQuestion, familiesForQuestion, FAMILIES } from "../../../lib/insightFamilies";
 import { competitorImpactFacts } from "../../../lib/insightFamilies/competitor";
 import { getWebDayContext } from "../../../lib/ai/webContext";

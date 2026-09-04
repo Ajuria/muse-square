@@ -107,7 +107,7 @@ passe par un appel Clerk backend API au premier accès.
 
 ## Accès et rôle (incrément 2 — CONSTRUIT 28/08)
 
-- Le contexte profil vit dans `src/lib/profileContext.js` (extrait du middleware pour être
+- Le contexte profil vit dans `src/lib/profile/profileContext.js` (extrait du middleware pour être
   testable hors Astro) et couvre owner + membre en **UN aller-retour BQ** (UNION ; côté
   membre, latest-wins sur la table ENTIÈRE puis filtre APRÈS `rn = 1` — un tombstone
   écrit par l'owner, clé `member_id` sans `clerk_user_id`, doit gagner : filtrer avant le

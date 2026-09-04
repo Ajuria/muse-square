@@ -10,7 +10,7 @@ import "dotenv/config";
 import { BigQuery } from "@google-cloud/bigquery";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
-import { cardScope, memberCanSeeCard, redactPayloadForMember } from "../../src/lib/memberCardPolicy";
+import { cardScope, memberCanSeeCard, redactPayloadForMember } from "../../src/lib/profile/memberCardPolicy";
 
 const OWNER = "user_38OwkmwUq0Ldj5FwB9AJ8HmziWo";
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
@@ -121,7 +121,7 @@ main().then(() => markerPhase()).catch((e) => { console.error("HARNESS FAILED:",
 // ── Fin de chantier : marqueur owner-only (owner 28/08 « distinguer les owner only ») ──
 export async function markerPhase() {
   const { GET } = await import("../../src/pages/api/insight/monitor");
-  const { cardScope } = await import("../../src/lib/memberCardPolicy");
+  const { cardScope } = await import("../../src/lib/profile/memberCardPolicy");
   const today = new Date().toISOString().slice(0, 10);
   const ownerLocals = { clerk_user_id: OWNER, real_clerk_user_id: OWNER, all_location_ids: [LOC], member_location_ids: [], member_poles: {}, role: "owner" };
   const res: Response = await (GET as any)({ url: new URL("http://localhost/x?location_id=" + LOC + "&selected_dates=" + today + "&light=1"), locals: ownerLocals });

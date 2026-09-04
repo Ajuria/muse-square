@@ -63,7 +63,7 @@ async function main() {
   ]);
 
   const { POST } = await import("../../src/pages/api/channels/slack-interact");
-  const { localsFromSlackUser } = await import("../../src/lib/profileContext.js");
+  const { localsFromSlackUser } = await import("../../src/lib/profile/profileContext.js");
   async function call(req: Request) {
     const r: Response = await (POST as any)({ request: req });
     const txt = await r.text();

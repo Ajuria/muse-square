@@ -1,4 +1,4 @@
-// src/lib/proposedFollows.ts — P3.1-f (onboarding) : suivis proposés par menace.
+// src/lib/profile/proposedFollows.ts — P3.1-f (onboarding) : suivis proposés par menace.
 // Un compte NEUF dont la chaîne géo vient d'aboutir (le mart menaces porte ses concurrents)
 // n'a encore RIEN en veille — le système lui pose ses premiers suivis : le top des menaces
 // mesurées (threat_score), marqués `proposed` sur la fiche (« suivi proposé — ajustez »).

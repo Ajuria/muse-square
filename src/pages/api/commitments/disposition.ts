@@ -4,7 +4,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { memberCommitmentInPerimeter, logMemberGesture } from "../../../lib/memberCardPolicy";
+import { memberCommitmentInPerimeter, logMemberGesture } from "../../../lib/profile/memberCardPolicy";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/commitments/actionCommitments";
 
 export const prerender = false;

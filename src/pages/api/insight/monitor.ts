@@ -2,7 +2,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { cardScope, memberCanSeeCard, redactPayloadForMember } from "../../../lib/memberCardPolicy";
+import { cardScope, memberCanSeeCard, redactPayloadForMember } from "../../../lib/profile/memberCardPolicy";
 import { filterDisabledThemes } from "../../../lib/recos/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/context/internalAlertCards";
 import { assembleDayContext } from "../../../lib/context/dayContext";

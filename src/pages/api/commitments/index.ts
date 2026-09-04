@@ -5,7 +5,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
+import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
 import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline, measureProfitBaseline } from "../../../lib/kpi/kpiRegistry";
 import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";

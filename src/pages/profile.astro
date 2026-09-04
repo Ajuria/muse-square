@@ -8,7 +8,7 @@ import { clerkClient } from "@clerk/astro/server";
 import { RECO_BUCKETS } from "../lib/recos/reco-taxonomy";
 // C3 : réclamation du profil pré-provisionné à l'invitation (clé « invite:<uuid> » dans les
 // métadonnées Clerk) — cette page est le passage obligé de tout nouveau compte (middleware).
-import { claimProvisionedProfile } from "../lib/onboardingClaim";
+import { claimProvisionedProfile } from "../lib/profile/onboardingClaim";
 
 if (import.meta.env.DEV) {
   console.log("PROFILE SSR locals (safe):", {

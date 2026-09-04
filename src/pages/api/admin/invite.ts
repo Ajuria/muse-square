@@ -15,7 +15,7 @@ import { createClerkClient } from "@clerk/backend";
 const clerk = () => createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY || "" });
 import { isAdmin } from "../../../lib/admins";
 import { INDUSTRY_LABEL } from "../../../lib/competitive/constants";
-import { PROFILE_AUDIENCE_OPTIONS } from "../../../lib/profileLabels";
+import { PROFILE_AUDIENCE_OPTIONS } from "../../../lib/profile/profileLabels";
 // P3.1-c : la demande de fichier part À L'INVITATION (le goulot mesuré est humain — J+9 chez
 // Les Olivades pour obtenir le fichier ; on le demande donc au plus tôt). Rail Resend interne,
 // réponses routées vers l'inviteur (reply_to). Consigne d'export par caisse pressentie

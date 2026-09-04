@@ -3,7 +3,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { isAdmin } from "../../../lib/admins";
 // C2 : le formulaire d'invitation porte les enums du PROFIL (mêmes SST que le formulaire profil).
 import { INDUSTRY_LABEL } from "../../../lib/competitive/constants";
-import { PROFILE_AUDIENCE_OPTIONS } from "../../../lib/profileLabels";
+import { PROFILE_AUDIENCE_OPTIONS } from "../../../lib/profile/profileLabels";
 export const prerender = false;
 const userId = Astro.locals.clerk_user_id;
 

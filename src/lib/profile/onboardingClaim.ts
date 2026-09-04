@@ -1,4 +1,4 @@
-// src/lib/onboardingClaim.ts — C3 : réclamation du profil pré-provisionné au premier login.
+// src/lib/profile/onboardingClaim.ts — C3 : réclamation du profil pré-provisionné au premier login.
 // À l'invitation, admin/invite.ts crée la ligne profil sous une clé en attente
 // (clerk_user_id = « invite:<uuid> », posée aussi dans publicMetadata.provision_key de
 // l'invitation — Clerk la recopie sur l'utilisateur à l'inscription). Au premier chargement

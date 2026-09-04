@@ -6,7 +6,7 @@
 // Usage : npx tsx tools/harness/proposed-follows-verify.mts
 import "dotenv/config";
 import { makeBQClient } from "../../src/lib/bq";
-import { runProposedFollows } from "../../src/lib/proposedFollows";
+import { runProposedFollows } from "../../src/lib/profile/proposedFollows";
 import { GET as dashGET } from "../../src/pages/api/insight/dashboard";
 
 const P = "muse-square-open-data";

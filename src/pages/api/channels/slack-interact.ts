@@ -13,7 +13,7 @@ import type { APIRoute } from "astro";
 import crypto from "node:crypto";
 import { waitUntil } from "@vercel/functions";
 import { makeBQClient } from "../../../lib/bq";
-import { localsFromSlackUser } from "../../../lib/profileContext";
+import { localsFromSlackUser } from "../../../lib/profile/profileContext";
 import { POST as DISPO } from "../commitments/disposition";
 import { POST as RETRO } from "../commitments/retro";
 import { EVOL_COPY as COMMIT_COPY } from "../../../lib/commitments/commitmentCopy";

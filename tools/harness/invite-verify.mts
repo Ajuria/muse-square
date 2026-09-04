@@ -78,7 +78,7 @@ if (process.argv.includes("--send")) {
       const w1 = await q(`SELECT clerk_user_id, location_id, competitor_name FROM \`muse-square-open-data.raw.watched_competitors\` WHERE location_id = @l AND deleted_at IS NULL`, { l: locId });
       check("C4 : la veille porte la clé en attente + la location invitée", w1.length === 1 && (w1[0] as any).clerk_user_id === pk, JSON.stringify(w1));
       // Réclamation (la même lib que profile.astro appellera au premier login).
-      const { claimProvisionedProfile } = await import("../../src/lib/onboardingClaim.ts");
+      const { claimProvisionedProfile } = await import("../../src/lib/profile/onboardingClaim.ts");
       const cl = await claimProvisionedProfile(bq, { clerk_user_id: "user_c3claimtest", email: "julen.deajuriaguerra+p3test@gmail.com", provision_key: pk });
       check("réclamation : la ligne bascule vers l'utilisateur", cl.claimed === true && cl.location_ids.includes(locId), JSON.stringify(cl));
       const cl2 = await claimProvisionedProfile(bq, { clerk_user_id: "user_c3claimtest", email: null, provision_key: pk });

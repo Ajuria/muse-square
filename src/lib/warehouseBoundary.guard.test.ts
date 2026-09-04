@@ -47,7 +47,7 @@ const CLIQUET: Record<string, number> = {
   "src/lib/insightFamilies/tourism.ts": 2,
   "src/lib/insightFamilies/weather.ts": 3,
   "src/lib/kpi/kpiRegistry.ts": 1,
-  "src/lib/proposedFollows.ts": 2,
+  "src/lib/profile/proposedFollows.ts": 2,
   "src/lib/commitments/trackRecordCore.ts": 1,
   "src/pages/api/analytics/admin-dashboard.ts": 1,
   "src/pages/api/analytics/party-role.ts": 1,

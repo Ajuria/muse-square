@@ -1,4 +1,4 @@
-// src/lib/profileLabels.ts
+// src/lib/profile/profileLabels.ts
 // The declared-profile fields are MACHINE enums — "live_event", "mixed", "local", "professionals".
 // Injecting them raw into a French prompt is how `live_event` got read as "lieu de spectacle": the
 // model is handed a token, not a word, and guesses. Same class of bug as printing "alerte niveau 3".
@@ -10,7 +10,7 @@
 //   - venue    → the labels authored in profile.astro
 // Unknown value → passthrough (never invent a label for an enum we don't know).
 
-import { INDUSTRY_LABEL } from "./competitive/constants";
+import { INDUSTRY_LABEL } from "../competitive/constants";
 
 // Verbatim from days.astro's AUDIENCE_FR — the owner's wording, one home.
 export const AUDIENCE_FR: Record<string, string> = {

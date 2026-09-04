@@ -6,7 +6,7 @@ import { assembleDayContext } from "../../../lib/context/dayContext";
 import { toGroundedDayPayload, type GroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { validate_grounded_draft } from "../../../lib/ai/contracts/packagerGroundedDraftValidator";
-import { AUDIENCE_FR, frActivity, frAudience, frEventType, frObjective, frSeasonality } from "../../../lib/profileLabels";
+import { AUDIENCE_FR, frActivity, frAudience, frEventType, frObjective, frSeasonality } from "../../../lib/profile/profileLabels";
 
 export const prerender = false;
 

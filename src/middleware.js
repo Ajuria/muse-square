@@ -3,7 +3,7 @@ import { ADMIN_USER_IDS } from "./lib/admins";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/astro/server";
 import { BigQuery } from "@google-cloud/bigquery";
 import { resolveOperationalScope } from "./lib/scope";
-import { getProfileContext, resolvePendingMembership } from "./lib/profileContext";
+import { getProfileContext, resolvePendingMembership } from "./lib/profile/profileContext";
 console.log("[MW] LOADED middleware.js");
 
 const isOnboardingRoute = createRouteMatcher([
@@ -96,7 +96,7 @@ function mustGetEnv(name) {
   return v;
 }
 
-// getProfileContext vit désormais dans src/lib/profileContext.js (incrément 2, vue
+// getProfileContext vit désormais dans src/lib/profile/profileContext.js (incrément 2, vue
 // équipe) : UNE requête couvre profil owner + memberships (analytics.location_members),
 // et la couture est testable hors Astro. Le middleware ne garde que l'orchestration.
 

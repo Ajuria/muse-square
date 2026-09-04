@@ -10,7 +10,7 @@ import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpi/kpiRegistry
 import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifs/dispositifTypes";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
+import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
 import { readLatestSnapshot } from "../../../lib/commitments/actionCommitments";
 import { buildPoleReading, buildPoleItemsReading } from "../../../lib/dispositifs/poleReading";
 import { commitmentEffect } from "../../../lib/commitments/commitmentEffect";
