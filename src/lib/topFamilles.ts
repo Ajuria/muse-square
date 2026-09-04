@@ -64,7 +64,7 @@ export function buildTopFamillesBlocks(r: TopFamillesReading, k: number): { head
   return {
     headline,
     sections: [{
-      title: kk > 1 ? `Vos ${kk} premières familles par CA` : "Votre première famille par CA",
+      title: `Top ${kk} famille${kk > 1 ? "s" : ""} de produits par CA`,   // mot owner 04/09
       table: { cols: [{ label: "Famille", align: "left" }, { label: "CA" }, { label: "Part du CA" }, { label: "CA/jour" }], rows },
       facts: [`${r.familles.length} familles vendues sur ${r.n_days_total} jour${r.n_days_total > 1 ? "s" : ""} mesuré${r.n_days_total > 1 ? "s" : ""} · ${kk > 1 ? `vos ${kk} premières familles font` : `la famille ${top[0].famille} fait`} ${frShare(topShare)} du CA de la période.`],
     }],
