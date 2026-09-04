@@ -32,6 +32,20 @@
 - Never hardcode IDs, coordinates, or data. All solutions must be pipeline-driven and generic.
 - Never delete old functions until replacements are tested.
 
+## Placement des fichiers (règles owner 04/09 — `docs/organisation-depot-spec.md` dit l'état et les phases)
+- **La PLACE dit si c'est livré et combien de temps ça vit ; le NOM d'un fichier ne dit ni l'un ni l'autre.** `src/` et `public/` sont livrés en prod, rien d'autre. `public/` ne contient QUE ce qui doit être servi : `npm run build` ÉCHOUE si un fichier d'outillage atteint l'artefact (tripwire `tools/build/strip-protos.mjs`).
+- **La racine du dépôt ne reçoit AUCUN fichier** hors configuration (`package.json`, `astro.config.mjs`, `tsconfig.json`, `vitest.config.ts`, `tailwind.config.cjs`) et les deux README.
+- **`tools/` = tout l'outillage de dev, un sous-dossier par DURÉE DE VIE** : `proto/` (jusqu'à l'arbitrage owner) · `harness/` (tant que la surface vit) · `battery/` (portes de merge permanentes) · `generators/` (écrivent les données de proto et de fixture depuis BQ) · `oneoff/` (migrations, backfills, revues — préfixe `AAAA-MM-JJ-`, supprimés après exécution) · `build/` · `python/`.
+- **Un proto = UN fichier par piste en attente ; jamais `-v2` à côté de `-v1`** — une version REMPLACE la précédente, git garde l'histoire. Le proto est SUPPRIMÉ dans le commit qui livre la surface ; l'arbitrage vit dans `docs/`. Deux pistes soumises ENSEMBLE s'appellent `-piste-a` / `-piste-b` et meurent ensemble.
+- **Un brouillon ne vit JAMAIS dans le dépôt** : le scratchpad de session. `_tmp-*` est refusé par le hook.
+- **`data/`** = données de référence et de SEED (`ref/`), échantillons (`samples/`), captures de run (`shots/`). **Un fichier de seed ou de jeu de données ne se supprime jamais** (owner 04/09).
+- **Tests** : co-localisés `x.test.ts` à côté de `x.ts` dans `src/` ; `tests/` pour ce dont le sujet n'est PAS dans `src/` (les libs de `public/`). Aucun `__tests__/`, aucun `.spec.ts` dans `tools/`.
+- **`docs/`** : documents vivants à la racine ; `audits/` instantanés datés, jamais mis à jour ; `dbt-handoff/` passations ; `catalog/` catalogue BQ ; `site/` copie marketing. `docs/README.md` § Place fait loi sur les documents comme ce paragraphe sur le code.
+- **`src/lib/` se range par DOMAINE** (`commitments/`, `dispositifs/`, `explorer/`, `kpi/`, `events/`, …) : un nouveau fichier entre dans son domaine, jamais à plat. Ce qui ne relève d'aucun domaine (`bq.ts`, `scope.ts`, `rate-limit.ts`…) reste à la racine de `lib/`.
+- **Toute commande de vérification passe par `npm run`** (`gate`, `harness`, `placement:check`, …) — une commande qu'on ne peut pas taper depuis `package.json` n'existe pas.
+- **`module-index.md` porte le chemin COMPLET** de chaque fichier : le dossier fait partie de l'identité.
+- Le garde `.claude/hooks/placement-guard.sh` (PreToolUse sur `git commit`) refuse un fichier hors de sa place ; il ne se contourne pas, il s'instruit.
+
 ## Working Method (before ANY code — non-negotiable)
 - **Test against the REAL local account, always.** The owner tests one account only — **Muse Square**, `location_id f10c3e58-326e-4e38-947c-d59fcbe51df5`. Verify every data claim AND every rendered card against THIS location and the exact card URL the owner uses (`/app/insightevent/insight?type=<card>&date=<date>&location_id=f10c3e58…`). NEVER verify against a different demo location (e.g. ff2aeb35) — its data differs and "works for me" then breaks for the owner.
 - **ADD, don't REPLACE.** When the ask is to *add* to a page/card, EXTEND it — never remove, replace, or restyle working content as a side effect. Dropping or reformatting something the owner already approved is a hard fail, even if the new thing is better. If a change would remove existing behavior, stop and confirm first.
