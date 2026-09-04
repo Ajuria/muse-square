@@ -3,9 +3,26 @@
 Sert : `docs/README.md` (la convention dit la NATURE d'un document, pas sa PLACE) et
 `CLAUDE.md` § Code Discipline (aucune règle de placement n'y figure : c'est la cause mesurée).
 
-**Statut : audit fait le 04/09/2026, rien n'est déplacé.** Ordre convenu : (1) ce document,
-(2) les règles de placement entrent dans `CLAUDE.md`, (3) seulement ensuite les déplacements,
-une phase par commit.
+**Statut au 04/09/2026 : les 7 phases sont APPLIQUÉES sur la branche `claude/organisation-depot`
+(worktree `.claude/worktrees/organisation-depot`), 17 commits depuis `c44ae4a`, non fusionnés dans `dev`.**
+La section 1 décrit l'état d'AVANT (instantané du 04/09 au matin, conservé comme mesure) ; la
+section 2 est l'état de la branche, vérifié à chaque commit (tsc 0 · vitest 54 fichiers / 382 tests ·
+`npm run build` vert · `npm run placement:check` OK sur 768 fichiers suivis).
+
+Ce qui reste, dans l'ordre :
+1. **Fusion dans `dev`** — APRÈS que la session qui édite le checkout principal a commité (au 04/09 07:30 :
+   `api/insight/prompt.ts`, `lib/ai/resolver.ts`, `lib/explorer/…`, `docs/module-index.md`, protos non suivis).
+   `git merge --no-ff claude/organisation-depot` ; les conflits attendus sont des renommages × modifications
+   (git les résout par détection de renommage ; `module-index.md` se relit à la main).
+2. **Après fusion** : `scratchpad/merge-followup.sh` (session du 04/09) réécrit les chemins dans la mémoire
+   (`~/.claude/projects/…/memory/`, 22 fichiers) depuis la table des renommages git, et range les non-suivis
+   de l'autre session (`public/*-proto.html` → `tools/proto/`, `src/client/*.test.ts` → `tests/client/`,
+   `docs/plateforme-*.md` → `docs/site/`, `src/lib/dispositifFamille*.ts` → `src/lib/dispositifs/`).
+3. **Owner** : parcours des 15 pages sur f10c3e58 (les URL `/js/<lib>.js` ont changé) ; `src/pages/api/legacy/`
+   (2 routes, 0 appelant interne — supprimer après 0 hit dans les logs Vercel) ; `docs/archive/features/`
+   (4 as-built anglais : convertir en — DÉFINITIF ou supprimer) ; les protos des surfaces DÉJÀ livrées
+   (`tools/proto/`, 41 HTML : la règle veut qu'ils meurent au commit qui livre — liste à trancher un par un).
+4. Ce document se réécrit en `— DÉFINITIF` à la fusion (section 1 → `docs/audits/`, section 2 → l'état).
 
 ---
 
@@ -233,7 +250,7 @@ Chaque phase : `git mv` (jamais supprimer-recréer, l'histoire suit), puis les c
 ET la mémoire (`~/.claude/projects/…/memory/`) · la porte de merge de chaque surface touchée
 (`explorer-quality-battery`, `pulse-render-verify`, `card-harness.html` ouvert et capturé).
 
-| Phase | Périmètre | Risque | Preuve de fin |
+| Phase | Périmètre | Risque | Preuve de fin (toutes APPLIQUÉES le 04/09, un commit chacune — phase 6 : un commit par domaine) |
 |---|---|---|---|
 | **0** | Ce document ; règles dans `CLAUDE.md` ; hook + `npm run` écrits mais tolérants (avertissent, ne bloquent pas) | nul | le hook signale l'existant sans le bloquer |
 | **1 — racine et morts évidents** | supprimer `1`, `repo_snapshot.txt`, `src/layouts/astro`, `scripts/_tmp-*` ; `data/ref/`, `data/samples/`, `data/shots/` ; `tools/python/` ; réécrire `README.md` (le produit, pas l'init) | faible : 6 scripts lisent `shots/`, 2 lisent les CSV | build + vitest + les 6 scripts relancés |
@@ -244,7 +261,11 @@ ET la mémoire (`~/.claude/projects/…/memory/`) · la porte de merge de chaque
 | **6 — `src/lib` par domaine** | sur go owner ; un domaine par commit (commitments, dispositifs, explorer/résolveur, kpi/poles…) ; réécriture d'imports par outil, jamais à la main | élevé en volume, nul en comportement si tsc est vert | tsc + vitest + les batteries ; `module-index` réécrit avec les chemins complets |
 | **7 — `public/js/`** (optionnelle) | les 11 libs runtime ; 16 surfaces consommatrices (15 pages + `BaseLayout.astro`) ; cache-busters remis à `?v=1` | touche les URL de prod | build + parcours des 15 pages sur f10c3e58 |
 
-Phases 1 à 4 se font en une session. Les phases 5, 6 et 7 sont chacune un go owner distinct.
+Les phases 5, 6 et 7 ont eu leur go owner le 04/09 (décisions § 4). Écarts d'exécution : la phase 0 (garde et `npm run`)
+a été écrite EN DERNIER contre la disposition finale plutôt qu'en tolérant d'abord ; les cache-busters `?v=` sont
+CONSERVÉS en phase 7 (le chemin change, le cache tombe seul, et les docs citent ces numéros) ; `public/scripts/ie-prompt.js`
+rejoint `public/js/` (un seul dossier client) ; `docs/features/` est ARCHIVÉ avec bandeau, pas converti — la conversion
+exige de re-vérifier 822 lignes contre le code, c'est un chantier owner, pas un rangement.
 
 Hors dépôt mais à traiter au passage : `.claude/worktrees/` contient 8 worktrees, 4 en HEAD détaché,
 chacun une copie complète de `src/` (déjà exclus de vitest). `git worktree list` puis `git worktree
