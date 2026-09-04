@@ -22,7 +22,7 @@ export interface ResolvedIdea { levier: "frequentation" | "conversion" | "panier
 export interface ResolvedFrame {
   intent: "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "hors_perimetre"
     | "jour" | "bilan_periode" | "dimension" | "fenetre" | "entite_exterieure" | "evenement_lookup" | "mes_evenements" | "rapport"
-    | "autre";
+    | "fiches" | "autre";
   entity_names: Array<{ nom: string; type: string }>;
   periode: ResolvedPeriod | null;
   periode_comparaison: ResolvedPeriod | null;
@@ -93,7 +93,7 @@ export async function resolveTurn(opts: {
     const intent = String(out?.intent ?? out?.intention ?? "");
     if (!["plan", "entity_period", "journal", "pourquoi", "idee", "hors_perimetre",
           "jour", "bilan_periode", "dimension", "fenetre", "entite_exterieure", "evenement_lookup", "mes_evenements", "rapport",
-          "autre"].includes(intent)) return null;
+          "fiches", "autre"].includes(intent)) return null;
     const entity_names = Array.isArray(out?.entites)
       ? out.entites.filter((e: any) => e && typeof e.nom === "string" && typeof e.type === "string").slice(0, 4)
       : [];

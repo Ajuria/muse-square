@@ -2476,33 +2476,6 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       return enqueteResponse(enq.say_fr, enq.fiche, "enquete_claude");
     }
 
-    // ── VOS DISPOSITIFS (incrément 2, 03/08) — une question qui NOMME les dispositifs / bonnes
-    // pratiques répond DÉTERMINISTE depuis la base (même patron que les métriques déclarées) :
-    // le routage jour/mois n'a pas de raison de porter cette question (mesuré 03/08 : elle
-    // tombait sur le repli mois inutile), et la liste exacte vaut mieux qu'une citation LLM.
-    // Les faits « dispositifs » restent AUSSI dans la liste blanche des réponses jour
-    // (buildPracticeFacts) pour les questions qui les effleurent sans les nommer.
-    // Streamline owner 27/08 : « mes dispositifs » appartient au JOURNAL (la vérité
-    // opérationnelle — pôles, opérations, mémoire) ; cette branche ne garde que les questions
-    // qui NOMMENT les fiches (« documentés », « bonnes pratiques »). Le journal absorbe les
-    // fiches en section compacte — rien ne se perd, rien ne se dit deux fois.
-    if (/\b(bonnes?\s+pratiques?|dispositifs?\s+documentés?|documentés?\s.*dispositifs?)\b/i.test(qRaw)) {
-      const _bqd = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-      const _dispoRows = await listClassDispositifs(_bqd, location_id, null, 6);
-      if (_dispoRows.length) {
-        const _lines = _dispoRows.map(dispoLineFr);
-        return sysDialogueResponse(
-          _dispoRows.length === 1 ? "Votre dispositif documenté" : "Vos dispositifs documentés",
-          _lines.join("\n\n"),
-          "deterministic_dispositifs_v1",
-        );
-      }
-      return sysDialogueResponse(
-        "Aucun dispositif documenté",
-        "Vous n'avez pas encore documenté de dispositif. Ouvrez « Reproduire le dispositif » depuis une carte structurelle de Pulse : la conversation vous aide à le formaliser, puis à l'engager sur un test mesuré.",
-        "deterministic_dispositifs_v1",
-      );
-    }
 
     // ── LE RÉSOLVEUR (porte d'entrée conversationnelle, owner go 28/08) — « le LLM comprend,
     // le code calcule ». Il remplit le tuple {intention, entités, période, KPI} depuis la
@@ -2536,6 +2509,36 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     if (_rsv?.periode && !_rsv.entities.length && !_rsv.entity_names.length && !_rsvPassPeriod
         && _rsv.periode.end < new Date().toISOString().slice(0, 10)) {
       _rsvPassPeriod = { ..._rsv.periode };
+    }
+
+    // ── VOS DISPOSITIFS (incrément 2, 03/08) — une question qui NOMME les dispositifs / bonnes
+    // pratiques répond DÉTERMINISTE depuis la base (même patron que les métriques déclarées) :
+    // le routage jour/mois n'a pas de raison de porter cette question (mesuré 03/08 : elle
+    // tombait sur le repli mois inutile), et la liste exacte vaut mieux qu'une citation LLM.
+    // Les faits « dispositifs » restent AUSSI dans la liste blanche des réponses jour
+    // (buildPracticeFacts) pour les questions qui les effleurent sans les nommer.
+    // Streamline owner 27/08 : « mes dispositifs » appartient au JOURNAL (la vérité
+    // opérationnelle — pôles, opérations, mémoire) ; cette branche ne garde que les questions
+    // qui NOMMENT les fiches (« documentés », « bonnes pratiques »). Le journal absorbe les
+    // fiches en section compacte — rien ne se perd, rien ne se dit deux fois.
+    // I5 suite (04/09) : la branche vit APRÈS le résolveur — l'intention `fiches` l'atteint aussi
+    // quand la question ne porte pas les mots du matcher (« qu'est-ce qui a marché chez les autres ? »).
+    if (/\b(bonnes?\s+pratiques?|dispositifs?\s+documentés?|documentés?\s.*dispositifs?)\b/i.test(qRaw) || _rsv?.intent === "fiches") {
+      const _bqd = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _dispoRows = await listClassDispositifs(_bqd, location_id, null, 6);
+      if (_dispoRows.length) {
+        const _lines = _dispoRows.map(dispoLineFr);
+        return sysDialogueResponse(
+          _dispoRows.length === 1 ? "Votre dispositif documenté" : "Vos dispositifs documentés",
+          _lines.join("\n\n"),
+          "deterministic_dispositifs_v1",
+        );
+      }
+      return sysDialogueResponse(
+        "Aucun dispositif documenté",
+        "Vous n'avez pas encore documenté de dispositif. Ouvrez « Reproduire le dispositif » depuis une carte structurelle de Pulse : la conversation vous aide à le formaliser, puis à l'engager sur un test mesuré.",
+        "deterministic_dispositifs_v1",
+      );
     }
 
     // ── HORS PÉRIMÈTRE (I1, spec docs/explorer-routage-inversion-spec.md § 3.4, owner 03/09) —

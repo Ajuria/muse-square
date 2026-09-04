@@ -26,7 +26,7 @@ bien routées par le résolveur : elles n'échouent que par le défaut 1.
 
 ## 2. L'état du routage (ce qui est, 04/09/2026)
 
-**Une décision par tour.** Le résolveur (`lib/ai/resolver.ts`, 15 intentions, formulaire généré
+**Une décision par tour.** Le résolveur (`lib/ai/resolver.ts`, 16 intentions, formulaire généré
 par `semanticRegistry.ts`) lit chaque question ; sa décision pose les variables de routage du
 handler (`_rsvDecided`, `prompt.ts` § « I5 ») et les branches existantes sont appelées PAR
 intention. Les regex historiques (`resolveHorizonFromText`, `resolveIntentFromText`,
@@ -45,7 +45,7 @@ jamais comme décision première. Patron : classification unique puis chemin de 
 (routing workflow) — le même que Cortex Analyst / Genie pour la partie « le LLM comprend, le
 code calcule », et que Rasa / Dialogflow / Lex pour l'intention de repli.
 
-### 3.1 Le jeu d'intentions (registre `INTENTS`, 15 intentions — appliqué)
+### 3.1 Le jeu d'intentions (registre `INTENTS`, 16 intentions — appliqué)
 
 | intent | Existe | Composeur (existant) | producer |
 |---|---|---|---|
@@ -60,7 +60,7 @@ code calcule », et que Rasa / Dialogflow / Lex pour l'intention de repli.
 | `fenetre` | oui (I5, 04/09) | pipeline mois (top/pires/filtre/motifs) | `v3_claude` … |
 | `entite_exterieure` | oui (I5, 04/09) | branche `isUnknownIntent` web (impact / découverte) | `web_search` |
 | `evenement_lookup` | oui (I5, 04/09) | lookup événements | `deterministic_lookup_event_ir_v1` |
-| `fiches` | regex seule (la branche « bonnes pratiques » précède le résolveur dans le handler ; à rattacher si un cas mesuré l'exige) | branche « bonnes pratiques » | `deterministic_dispositifs_v1` |
+| `fiches` | oui (04/09 — la branche « bonnes pratiques » vit après le résolveur : regex OU intention) | branche « bonnes pratiques » (`listClassDispositifs`) | `deterministic_dispositifs_v1` |
 | `mes_evenements` | oui (I5, 04/09) | branche possessive | `deterministic_evenements_v1` |
 | `rapport` | oui (I5, 04/09) | renvoi rapport | `deterministic_report_nav_v1` |
 | `hors_perimetre` | oui (I1, 03/09) | `ai/horsPerimetre.signalMetier` (garde) + `horsPerimetreReponse` (option A) | `deterministic_hors_perimetre_v1` |

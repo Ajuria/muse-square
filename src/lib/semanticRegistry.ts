@@ -78,7 +78,7 @@ export const CONCEPTS: ConceptDef[] = [
 export interface IntentDef {
   intent: "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "hors_perimetre"
     | "jour" | "bilan_periode" | "dimension" | "fenetre" | "entite_exterieure" | "evenement_lookup" | "mes_evenements" | "rapport"
-    | "autre";
+    | "fiches" | "autre";
   definition_fr: string;
   composer: string;   // le foyer déterministe qui calcule
   producer: string;   // le producer de la réponse (traçabilité)
@@ -156,6 +156,12 @@ export const INTENTS: IntentDef[] = [
     definition_fr: "LES ÉVÉNEMENTS OU LANCEMENTS DU SITE lui-même, en liste (« mes événements », « nos lancements », « mes opérations à venir ») — la liste, pas la lecture d'une opération nommée (entity_period) ni le journal des engagements (journal).",
     composer: "branche possessive « mes événements »",
     producer: "deterministic_evenements_v1",
+  },
+  {
+    intent: "fiches",
+    definition_fr: "Les FICHES de dispositifs documentés du site — les bonnes pratiques mémorisées, ce qui a marché et a été noté : « quelles bonnes pratiques ai-je documentées ? », « qu'est-ce qui a marché chez moi sur les jours de pluie ? », « mes dispositifs documentés ». Pas le journal des engagements (journal), pas une opération nommée (entity_period).",
+    composer: "branche « bonnes pratiques » (listClassDispositifs)",
+    producer: "deterministic_dispositifs_v1",
   },
   {
     intent: "rapport",
@@ -260,7 +266,7 @@ ${lists}
 
 LE FORMULAIRE (réponds UNIQUEMENT ce JSON, exactement ces clés, sans fence markdown) :
 {
-  "intent": "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "jour" | "bilan_periode" | "dimension" | "fenetre" | "entite_exterieure" | "evenement_lookup" | "mes_evenements" | "rapport" | "hors_perimetre" | "autre",
+  "intent": "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "jour" | "bilan_periode" | "dimension" | "fenetre" | "entite_exterieure" | "evenement_lookup" | "mes_evenements" | "rapport" | "fiches" | "hors_perimetre" | "autre",
   "entites": [ { "nom": "<recopie exacte d'une entité des listes>", "type": "pole" | "famille" | "operation" | "personne" | "composant" } ],
   "periode": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "expression": "<les mots de l'utilisateur>" } | null,
   "periode_comparaison": <même forme que periode> | null,
