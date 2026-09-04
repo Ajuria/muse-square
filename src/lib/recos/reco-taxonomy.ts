@@ -1,4 +1,4 @@
-// src/lib/reco-taxonomy.ts
+// src/lib/recos/reco-taxonomy.ts
 //
 // Single source of truth for the Recommandations settings surface.
 // Outcome buckets -> themes -> action card types.

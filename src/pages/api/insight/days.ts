@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { filterDisabledThemes, themeForActionType } from "../../../lib/recoThemeMap";
+import { filterDisabledThemes, themeForActionType } from "../../../lib/recos/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/context/internalAlertCards";
 
 function requireString(v: string | undefined, name: string) {

@@ -98,5 +98,5 @@ mix sectoriel, précisément parce que le public est moins disputé.
   pipeline fournit `pressure_ratio` et l'enjeu.
 - Après écriture : bump du cache-buster `?v=` sur les surfaces consommatrices
   (pulse.astro ~326, monitor ~285, insight ~137) + `node --check public/reco-library.js`.
-  Le garde-fou `src/lib/recoCoverage.guard.test.ts` (dette nommée, ne peut que rétrécir)
+  Le garde-fou `src/lib/recos/recoCoverage.guard.test.ts` (dette nommée, ne peut que rétrécir)
   doit voir `weekend_vacation_low_comp` sortir de la liste des 76.

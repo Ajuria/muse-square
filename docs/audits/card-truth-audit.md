@@ -121,7 +121,7 @@ Implémenté selon le patron DÉJÀ établi dans le modèle pour `competitor_eve
 exclusives *au source*, jamais via un détournement de `action_priority` (qui signifie l'urgence,
 pas le départage).
 
-**③ Trois démotions au Fil** (`DEMOTED_TO_FEED`, `src/lib/recoThemeMap.ts`) — décidées sur la
+**③ Trois démotions au Fil** (`DEMOTED_TO_FEED`, `src/lib/recos/recoThemeMap.ts`) — décidées sur la
 couverture de mesure réellement constatée, et contre mon conseil précédent :
 - `audience_shift_opportunity` (31/j sur 31 sites) : libellé qui n'affirme rien, 1 classe
   calendrier significative sur 8 ;

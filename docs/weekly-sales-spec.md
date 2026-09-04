@@ -51,7 +51,7 @@ Expiration à **J+13** de la semaine concernée. `channel_hint = 'note_interne'`
 Actions : *comprendre la semaine — contexte, achats, animation* (trou) ; *identifier ce qui a porté
 la semaine et le capturer* (pic).
 
-Thème `ventes`, déclaré des deux côtés (`action-cards.js` + `src/lib/recoThemeMap.ts`, parité
+Thème `ventes`, déclaré des deux côtés (`action-cards.js` + `src/lib/recos/recoThemeMap.ts`, parité
 testée). Trois plans dans `reco-library.js` par type, et les deux types sont inscrits dans
 `COUVERTS_ACQUIS` de `recoCoverage.guard.test.ts` — **liste qui ne fait que grandir** : le chantier
 ne peut plus régresser silencieusement. Origines d'engagement dans `commitmentOrigins.ts`.

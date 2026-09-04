@@ -5,7 +5,7 @@ export const prerender = false;
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { clerkClient } from "@clerk/astro/server";
-import { RECO_BUCKETS } from "../lib/reco-taxonomy";
+import { RECO_BUCKETS } from "../lib/recos/reco-taxonomy";
 // C3 : réclamation du profil pré-provisionné à l'invitation (clé « invite:<uuid> » dans les
 // métadonnées Clerk) — cette page est le passage obligé de tout nouveau compte (middleware).
 import { claimProvisionedProfile } from "../lib/onboardingClaim";

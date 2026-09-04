@@ -13,7 +13,7 @@ import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } fr
 import { parseComponents } from "../../../lib/dispositifs/dispositifTypes";
 import { listPoles } from "../../../lib/dispositifs/poleReading";
 import { assignmentMessageFr } from "../../../lib/channels/slackMessagesFr";
-import { themeForActionType } from "../../../lib/recoThemeMap";
+import { themeForActionType } from "../../../lib/recos/recoThemeMap";
 import { vif } from "../../../lib/commitments/commitmentResolve";
 import { RHO_FLOOR } from "../../../lib/commitments/commitmentConstants";
 

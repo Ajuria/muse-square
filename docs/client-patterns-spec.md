@@ -94,7 +94,7 @@ porte de régime : la carte n'est pas quotidienne.
   opérateur ; deux graines de brouillon (`note_interne`, `email`).
 
 Thème `ventes` de la taxonomie, gate `pos` — déclaré **deux fois**, côté client
-(`action-cards.js`) et côté serveur (`src/lib/recoThemeMap.ts`), parité verrouillée par
+(`action-cards.js`) et côté serveur (`src/lib/recos/recoThemeMap.ts`), parité verrouillée par
 `recoThemeMap.parity.test.ts`. Toute nouvelle carte doit être ajoutée aux deux.
 
 Trois surfaces chargent `action-cards.js` : `pulse.astro`, `insight.astro`, `rapport.astro` —
