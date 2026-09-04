@@ -7,15 +7,16 @@
 // and the per-day series returns residual_pct only — so the render cannot leak z.
 import type { APIRoute } from "astro";
 import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpiRegistry";
+import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifTypes";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
 import { readLatestSnapshot } from "../../../lib/actionCommitments";
-import { buildPoleReading } from "../../../lib/poleReading";
+import { buildPoleReading, buildPoleItemsReading } from "../../../lib/poleReading";
 import { commitmentEffect } from "../../../lib/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
-import { buildWindowShape } from "../../../lib/commitmentShape";
-import { getBestInClassPlays, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClassStore";
+import { buildWindowShape, buildPriceLadder } from "../../../lib/commitmentShape";
+import { playsAvecVoisin, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClassStore";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -210,12 +211,31 @@ export const GET: APIRoute = async ({ url, locals }) => {
       let _famList: string[] = [];
       try { _famList = JSON.parse(String((snap as any).pole_families || "[]")); } catch { /* périmètre illisible → lecture vide, jamais un crash */ }
       const asOfP = new Date().toISOString().slice(0, 10);
+      // Composants de CETTE version (03/09, § 5.5) : lus dans la couche SEMANTIC — la vue mémoire
+      // porte le JSON `components` de chaque version (la vue composants ne porte que la version
+      // courante ; le mart est hors frontière : warehouseBoundary.guard). Jamais la table analytics.
+      // Amorcé en parallèle de la lecture continue.
+      const _compsP = bq.query({
+        query: `SELECT components FROM \`${BQ_PROJECT}.semantic.vw_insight_event_commitment_memory\`
+                WHERE commitment_id = @id LIMIT 1`,
+        params: { id: String(snap.commitment_id) }, location: "EU",
+      }).then((r: any) => readComponents(flat((Array.isArray(r?.[0]) ? r[0] : [])[0]?.components))).catch(() => [] as ReturnType<typeof readComponents>);
+      // Articles des photos (livrable 2, 03/09) — amorcé en parallèle de la lecture continue.
+      const _itemsP = buildPoleItemsReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), (snap as any).version_no != null ? Number((snap as any).version_no) : null, _famList, asOfP).catch(() => null);
       const pole = await buildPoleReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), _famList, asOfP);
+      const _comps = await _compsP;
+      (pole as any).items = await _itemsP;
       const commitment = {
         commitment_id: snap.commitment_id, location_id: snap.location_id, status: snap.status,
         dispositif_nature: "permanent",
         committed_action_text: snap.committed_action_text, owner_person_name: snap.owner_person_name,
         pole_families: (snap as any).pole_families ?? null,
+        // Composants (03/09) : libellés côté serveur (registre dispositifTypes) — le client n'a
+        // ni le JSON brut ni le registre à charger.
+        components: _comps.map((c) => ({
+          key: c.key, type: c.type, role: c.role, label: c.label,
+          type_label_fr: dispositifTypeLabelFr(c.type), role_label_fr: c.role ? dispositifRoleLabelFr(c.role) : "",
+        })),
         dispositif_plus: (snap as any).dispositif_plus ?? null,
         dispositif_why: (snap as any).dispositif_why ?? null,
         dispositif_resources: (snap as any).dispositif_resources ?? null,
@@ -372,17 +392,28 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // ce qui manquait était la valeur de l'article. Repli : le type de la carte.
         // shapeP est déjà amorcée : l'attendre ici ne coûte aucun aller-retour de plus.
         const _shapePourLevier = await shapeP;
-        const levier = leverForWeakFactor(_shapePourLevier?.weak_factor)
-          ?? leverForActionType(snap.origin_action_type, snap.origin_driver);
+        const _levierMesure = leverForWeakFactor(_shapePourLevier?.weak_factor);
+        const levier = _levierMesure ?? leverForActionType(snap.origin_action_type, snap.origin_driver);
         // All intents (pivot/reinforce/scale) — card-kit filters to the one that fits the verdict.
-        const _tousLesCas = await getBestInClassPlays(bq, industry, levier, { limit: 9 });
+        // Levier voisin si le rayon du levier exact est vide (owner 29/08).
+        const _tousLesCas = await playsAvecVoisin(bq, industry, levier, { limit: 9 });
         // RATTACHEMENT AU SUJET (owner 28/08 : « complètement déconnectés du dispositif de
         // l'utilisateur ») : un cas ne sort que s'il partage assez de mots de fond avec CE
         // dispositif, et deux cas qui disent le même geste ne sortent jamais ensemble.
         // Rien au-dessus du plancher → section vide, jamais un cas hors sujet.
+        // QUI ÉTABLIT LE LIEN ? (owner 29/08)
+        //   · levier venu de la MESURE (facteur le plus faible) : le lien est déjà fait par
+        //     le chiffre — un cas qui travaille ce levier RÉPOND au diagnostic, même s'il ne
+        //     partage aucun mot avec le texte du dispositif. Le rattachement au sujet ne
+        //     ferme plus la porte, il ORDONNE (plancher 0) ; le dédoublonnage reste.
+        //     Sans ça, « prix moyen d'article faible » n'aurait jamais fait remonter
+        //     « proposer systématiquement desserts et boissons » — le conseil attendu.
+        //   · levier venu du TYPE DE LA CARTE (aucune mesure) : rien ne relie encore le cas
+        //     à cette opération, la porte reste fermée au plancher normal.
         best_in_class = playsRattachesAuSujet(_tousLesCas, {
           texte: [snap.committed_action_text, (snap as any).dispositif_why, (snap as any).dispositif_plus]
             .filter(Boolean).join(" . "),
+          plancher: _levierMesure ? 0 : 2,
         });
       }
     } catch (e) { /* store/profile absent → slot keeps its placeholder */ }
@@ -394,6 +425,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const lineage = await buildLineage(bq, snap);
 
     const shape = await shapeP;
+    // L'ÉCHELLE DE PRIX (owner 29/08) — seulement quand la mesure désigne la valeur de
+    // l'article : c'est la seule faiblesse que ce chiffre éclaire. Amorcée ici, après le
+    // shape dont elle dépend ; une requête, sur la dernière journée mesurée.
+    const price_ladder = (shape?.weak_factor === "price" && shape.actual_eur != null)
+      // Fenêtre ancrée sur la dernière journée MESURÉE, jamais sur la fin de fenêtre :
+      // celle-ci est dans le futur pour une opération en cours (12 unités au lieu de 9,
+      // relevé au rendu 29/08 — le seed porte des ventes au-delà d'aujourd'hui).
+      ? await buildPriceLadder(bq, String(snap.location_id), _shapeDates[_shapeDates.length - 1] || maxD).catch(() => null)
+      : null;
     // ── RÈGLE DES CHIFFRES POUR UN MEMBRE (arbitrage owner 27-28/08, déjà appliquée aux
     // cartes et au tableau) : « occasion d'agir oui, état du business jamais ». Les NIVEAUX
     // sortent (CA du jour, CA habituel, panier, cible en €, enjeu) ; les ÉCARTS €, les %,
@@ -421,10 +461,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         ok: true, role: "member",
         commitment: memberCommitmentProjection(commitment),
         series: serieMembre, kpi: null, move_stats, best_in_class, site_name, lineage,
-        shape: shapeMembre, ...extras,
+        shape: shapeMembre, price_ladder: null,   // prix d'un article = niveau : jamais au membre
+        ...extras,
       });
     }
-    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, shape, ...extras });
+    return json({ ok: true, commitment, series, kpi, move_stats, best_in_class, site_name, lineage, shape, price_ladder, ...extras });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);

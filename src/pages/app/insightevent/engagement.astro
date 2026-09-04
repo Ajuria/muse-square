@@ -40,8 +40,8 @@ const id = Astro.url.searchParams.get("id") || "";
     </style>
 
     <script is:inline src="/ms-loader.js?v=2"></script>
-    <script is:inline src="/commit-form.js?v=14"></script>
-    <script is:inline src="/card-kit.js?v=66"></script>
+    <script is:inline src="/commit-form.js?v=15"></script>
+    <script is:inline src="/card-kit.js?v=70"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -61,6 +61,75 @@ const id = Astro.url.searchParams.get("id") || "";
           if (!data || !data.ok) { showError((data && data.error) || "Engagement introuvable."); return; }
           if (!window.MSCardKit || !MSCardKit.renderEvolution) { showError("Erreur lors du chargement de l'évolution."); return; }
           docEl.innerHTML = MSCardKit.renderEvolution(data, COPY);
+          // ── Photos des composants (étape 4, 03/09, spec dispositifs-typologie § 5) ──
+          // Le kit a rendu un emplacement par composant ; la page les remplit depuis l'API et
+          // câble « Documenter » : choisir une image, la RÉDUIRE dans le navigateur (1600 px,
+          // JPEG) — moins de 1,5 Mo part vers l'API — puis rendre la photo lue. Une personne
+          // visible → l'API a effacé l'image, la page dit pourquoi.
+          (function wirePhotos() {
+            var sec = docEl.querySelector("[data-eg-components]");
+            if (!sec || !MSCardKit.renderComponentPhoto) return;
+            var did = sec.getAttribute("data-eg-dispositif"), ver = sec.getAttribute("data-eg-version");
+            if (!did) return;
+            var slot = function (key) { return sec.querySelector('[data-eg-photo="' + key + '"]'); };
+            var show = function (key, photo) { var el = slot(key); if (el) el.innerHTML = MSCardKit.renderComponentPhoto(photo, COPY); };
+            var say = function (key, msg) { var el = slot(key); if (el) el.textContent = msg; };
+            fetch("/api/dispositifs/photos?dispositif_id=" + encodeURIComponent(did) + (ver ? "&version_no=" + encodeURIComponent(ver) : ""))
+              .then(function (r) { return r.json(); })
+              .then(function (j) { if (j && j.ok) (j.photos || []).forEach(function (p) { show(p.component_key, p); }); })
+              .catch(function () {});
+            function shrink(file) {
+              return new Promise(function (resolve, reject) {
+                var img = new Image(); var url = URL.createObjectURL(file);
+                img.onload = function () {
+                  var max = 1600, w = img.width, h = img.height, k = Math.min(1, max / Math.max(w, h));
+                  var c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+                  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+                  URL.revokeObjectURL(url);
+                  resolve(c.toDataURL("image/jpeg", 0.85));
+                };
+                img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("image illisible")); };
+                img.src = url;
+              });
+            }
+            sec.addEventListener("click", function (ev) {
+              // Confirmer les articles (03/09) : les cases cochées partent en items_confirmed.
+              var cbtn = ev.target && ev.target.closest ? ev.target.closest("[data-eg-items-submit]") : null;
+              if (cbtn) {
+                var box = cbtn.closest("[data-eg-items-confirm]"); var rowEl = cbtn.closest("[data-eg-component]");
+                if (!box || !rowEl) return;
+                var pid = box.getAttribute("data-eg-items-confirm"); var ckey = rowEl.getAttribute("data-eg-component");
+                var codes = Array.prototype.map.call(box.querySelectorAll("[data-eg-item]:checked"), function (i) { return i.getAttribute("data-eg-item"); });
+                cbtn.disabled = true;
+                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "confirm", dispositif_id: did, photo_id: pid, items_confirmed: codes }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) { if (j && j.ok && j.photo) show(ckey, j.photo); else { cbtn.disabled = false; } })
+                  .catch(function () { cbtn.disabled = false; });
+                return;
+              }
+              var btn = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-add]") : null;
+              if (!btn) return;
+              var key = btn.getAttribute("data-eg-photo-add");
+              var input = document.createElement("input"); input.type = "file"; input.accept = "image/*"; input.setAttribute("capture", "environment");
+              input.style.display = "none"; document.body.appendChild(input);
+              input.addEventListener("change", function () {
+                var file = input.files && input.files[0]; input.remove();
+                if (!file) return;
+                btn.disabled = true; say(key, COPY.pole_photo_reading || "");
+                shrink(file).then(function (dataUrl) {
+                  return fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ dispositif_id: did, version_no: ver ? Number(ver) : null, component_key: key, image_base64: dataUrl, content_type: "image/jpeg" }) })
+                    .then(function (r) { return r.json(); });
+                }).then(function (j) {
+                  btn.disabled = false;
+                  if (j && j.ok && j.photo) { show(key, j.photo); return; }
+                  say(key, j && j.rejected === "person" ? (COPY.pole_photo_person || "") : (COPY.pole_photo_failed || ""));
+                }).catch(function () { btn.disabled = false; say(key, COPY.pole_photo_failed || ""); });
+              });
+              input.click();
+            });
+          })();
           docEl.style.display = "block";
           statusEl.style.display = "none";
           var cm = data.commitment, open = cm.status === "open", advice = data.advice || [];

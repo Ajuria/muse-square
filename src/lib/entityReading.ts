@@ -11,7 +11,7 @@
 // Règle maison : jamais une moyenne de % entre occurrences — la somme des écarts € mesurés
 // et le compte des verdicts (isKeptVerdict partagé), occurrence par occurrence.
 
-import { buildPoleReading, type PoleTotals, type PoleFamilyReading, type PoleOperationRow } from "./poleReading";
+import { buildPoleReading, buildPoleItemsReading, type PoleTotals, type PoleFamilyReading, type PoleOperationRow } from "./poleReading";
 import { commitmentEffect } from "./commitmentEffect";
 import { personKey, isKeptVerdict } from "./actionCommitments";
 import type { SiteEntity } from "./entityResolver";
@@ -42,10 +42,25 @@ export interface SerieOrPersonReading {
   net_eur: number | null;        // écart CA mesuré − coûts ; null tant qu'un des deux manque
 }
 
+// Un composant (03/09, spec dispositifs-typologie § 5.5) : ses faits DÉCLARÉS, lus dans la couche
+// semantic (vw_insight_event_dispositif_components). Ses articles ne sont pas encore reconnus
+// (étape 4) : sa lecture chiffrée est celle de son pôle, dite comme telle.
+export interface ComposantReading {
+  label: string | null;
+  type_label_fr: string | null;      // null quand le libellé est provisoire (aucun mot owner)
+  role_label_fr: string | null;      // idem
+  pole_name: string;
+  version_no: number | null;
+  since: string | null;              // ISO date — la version courante existe depuis
+  // Articles vus sur SA photo courante (livrable 2, 03/09) — depuis la couche semantic ; null = aucune photo.
+  items?: { seen: string[]; retrait: string[]; confirmed: boolean } | null;
+}
+
 export interface EntityPeriodReading {
   entity: SiteEntity;
   start: string;
   end: string;
+  composant?: ComposantReading;
   pole?: { families: PoleFamilyReading[]; operations: PoleOperationRow[]; totals: PoleTotals };
   serie?: SerieOrPersonReading;
   funnel?: { steps: FunnelStepReading[]; occ_days: number; base_days: number };
@@ -134,6 +149,17 @@ export interface FunnelStepReading {
   base_days: number;
 }
 
+// La BASE COMPARABLE, un seul foyer (I8, 04/09) : les jours d'occurrence de l'opération dans la
+// période, et la fenêtre de repli 90 j avant le début. Partagée byte-identique entre l'échelle
+// de la vente (ci-dessous) et la lecture dispositif × famille (dispositifFamille.ts) — deux
+// définitions de « jours comparables » seraient deux vérités.
+export const COMPARABLE_LOOKBACK_DAYS = 90;
+export const OCC_CTE = `occ AS (
+        SELECT DATE(date) AS d FROM \`${PROJECT}.raw.saved_item_dates\`
+        WHERE saved_item_id = @sid AND location_id = @loc
+          AND DATE(date) BETWEEN @pStart AND @pEnd
+      )`;
+
 export async function readSerieFunnel(
   bq: any,
   location_id: string,
@@ -145,11 +171,7 @@ export async function readSerieFunnel(
   const wEnd = end < todayIso ? end : todayIso;
   const rows = await bq.query({
     query: `
-      WITH occ AS (
-        SELECT DATE(date) AS d FROM \`${PROJECT}.raw.saved_item_dates\`
-        WHERE saved_item_id = @sid AND location_id = @loc
-          AND DATE(date) BETWEEN @pStart AND @pEnd
-      ),
+      WITH ${OCC_CTE},
       perf AS (
         SELECT DATE(p.date) AS d,
                p.daily_visitors, p.daily_conversion_rate, p.daily_transactions, p.daily_avg_basket, p.daily_revenue,
@@ -157,7 +179,7 @@ export async function readSerieFunnel(
                DATE(p.date) IN (SELECT d FROM occ) AS is_occ
         FROM \`${PROJECT}.semantic.vw_insight_event_client_performance\` p
         WHERE p.location_id = @loc
-          AND p.date BETWEEN DATE_SUB(@pStart, INTERVAL 90 DAY) AND @pEnd
+          AND p.date BETWEEN DATE_SUB(@pStart, INTERVAL ${COMPARABLE_LOOKBACK_DAYS} DAY) AND @pEnd
       ),
       dows AS (SELECT DISTINCT dow FROM perf WHERE is_occ)
       SELECT
@@ -225,6 +247,37 @@ export async function readEntityPeriod(
     );
     return { entity, start, end, pole };
   }
+  if (entity.kind === "composant") {
+    // Faits déclarés depuis la couche semantic (jamais la table analytics) + la lecture de SON pôle.
+    const rows = await bq.query({
+      query: `SELECT component_label, component_type_label_fr, component_type_provisoire,
+                     component_role_label_fr, component_role_provisoire, committed_action_text, pole_families,
+                     version_no, CAST(created_at AS STRING) AS created_at
+              FROM \`${PROJECT}.semantic.vw_insight_event_dispositif_components\`
+              WHERE location_id = @location_id AND dispositif_id = @d AND component_key = @k LIMIT 1`,
+      params: { location_id, d: String(entity.pole_id ?? ""), k: String(entity.component_key ?? "") }, location: "EU",
+    }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+    const c: any = rows[0] ?? {};
+    let fams: string[] = entity.families;
+    try { if (c.pole_families) fams = JSON.parse(String(flat(c.pole_families))); } catch { /* périmètre illisible */ }
+    const composant: ComposantReading = {
+      label: c.component_label != null ? String(flat(c.component_label)) || null : null,
+      type_label_fr: c.component_type_label_fr != null && !flat(c.component_type_provisoire) ? String(flat(c.component_type_label_fr)) : null,
+      role_label_fr: c.component_role_label_fr != null && !flat(c.component_role_provisoire) ? String(flat(c.component_role_label_fr)) : null,
+      pole_name: String(flat(c.committed_action_text) || "").split(" — ")[0] || "",
+      version_no: c.version_no != null ? Number(flat(c.version_no)) : null,
+      since: c.created_at != null ? String(flat(c.created_at)).slice(0, 10) : null,
+    };
+    const [pole, items] = await Promise.all([
+      buildPoleReading(bq, location_id, String(entity.pole_id ?? ""), fams, todayIso, { start, end }),
+      buildPoleItemsReading(bq, location_id, String(entity.pole_id ?? ""), composant.version_no, fams, todayIso).catch(() => null),
+    ]);
+    if (items && items.n_photos) {
+      const mine = items.seen.filter((x) => x.component_keys.includes(String(entity.component_key ?? "")));
+      composant.items = mine.length ? { seen: mine.map((x) => x.item_description), retrait: mine.filter((x) => x.en_retrait).map((x) => x.item_description), confirmed: mine.every((x) => x.confirmed) } : null;
+    }
+    return { entity, start, end, composant, pole };
+  }
   if (entity.kind === "operation") {
     const [serie, funnel] = await Promise.all([
       readOccurrences(bq, location_id, "saved_item_id = @sid", { sid: String(entity.id) }, start, end),
@@ -269,6 +322,19 @@ export interface EntityPeriodBlocks {
 // « Montre la donnée » (owner 27/08) : un TABLEAU (Produit/Opération · Période · Résultat ·
 // Variation), une ligne de contexte chiffrée, des sources dépliables — jamais des phrases
 // d'appréciation. Les cellules sous les planchers disent « — » avec le compte de jours en sub.
+// La phrase des faits déclarés d'un composant. Les libellés provisoires (sans mot owner) sont
+// omis, jamais inventés ; le rôle ne s'écrit que s'il a un mot.
+export function composantProse(c: ComposantReading): string {
+  const nature = [c.type_label_fr, c.role_label_fr].filter(Boolean).join(" · ");
+  const head = `Composant du pôle ${c.pole_name}${nature ? ` — ${nature}` : ""}.`;
+  const version = c.version_no != null && c.since ? ` Version ${c.version_no} depuis le ${frD(c.since)}.` : "";
+  if (c.items && c.items.seen.length) {
+    const retrait = c.items.retrait.length ? ` En retrait sur votre résultat habituel (30 derniers jours) : ${c.items.retrait.join(", ")}.` : " Aucun en retrait sur les 30 derniers jours.";
+    return `${head}${version} Articles ${c.items.confirmed ? "confirmés" : "reconnus"} sur la photo : ${c.items.seen.join(", ")}.${retrait}`;
+  }
+  return `${head}${version} Articles reconnus : aucun pour l'instant · les chiffres ci-dessous sont ceux du pôle.`;
+}
+
 export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlocks {
   const per = periodLabelFr(r.start, r.end);
   const headline = `${r.entity.kind === "famille" ? `Famille ${r.entity.name}` : r.entity.name} — ${per}`;
@@ -294,6 +360,9 @@ export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlo
     }
     const openOps = r.pole.operations.filter((o) => o.status === "open");
     const proseParts = [
+      // Composant (03/09) : ses faits déclarés d'abord, puis l'absence dite (règle 7) — la
+      // lecture chiffrée est celle du pôle, jamais attribuée au composant.
+      r.composant ? composantProse(r.composant) : "",
       t.share_pct != null ? `${String(t.share_pct).replace(".", ",")} % du CA du site sur la période · variation vs la même durée précédente.` : "",
       openOps.length ? `Opérations en cours sur ce pôle : ${openOps.map((o) => `${String(o.committed_action_text || "").split(" — ")[0]} (${frD(o.window_start)})`).join(" · ")}.` : "",
     ].filter(Boolean);
@@ -302,7 +371,7 @@ export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlo
       prose: proseParts.join("\n\n"),
       table: { cols: [{ label: "Produit" }, { label: "Période" }, { label: "Résultat" }, { label: "Variation" }], rows },
       funnel_table: null,
-      sources: ["Vos ventes par famille (lignes de caisse)"],
+      sources: [...(r.composant ? ["Mes dispositifs (composants déclarés)"] : []), "Vos ventes par famille (lignes de caisse)"],
     };
   }
   const s2 = r.serie!;
@@ -331,7 +400,8 @@ export function buildEntityPeriodBlocks(r: EntityPeriodReading): EntityPeriodBlo
     visitors: { label: "Visiteurs/jour", fmt: (v) => String(Math.round(v)) },
     conversion: { label: "Taux de conversion", fmt: (v) => `${String(Math.round(v * 1000) / 10).replace(".", ",")} %` },
     transactions: { label: "Ventes/jour", fmt: (v) => String(Math.round(v)) },
-    basket: { label: "Panier moyen", fmt: (v) => `${String(Math.round(v * 100) / 100).replace(".", ",")} €` },
+    // Deux décimales (owner 04/09) — « 4,70 € », aligné sur la lecture dispositif × famille.
+    basket: { label: "Panier moyen", fmt: (v) => `${v.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €` },
     revenue: { label: "CA/jour", fmt: (v) => `${frEur(v)} €` },
   };
   let funnel_table: { cols: any[]; rows: any[] } | null = null;
@@ -496,6 +566,7 @@ export function buildEntityWhyBlocks(r: EntityPeriodReading): EntityCompareBlock
       facts.push(`${t.n30} j vendus sur la période — sous le plancher de 5 j de chaque côté, aucune variation ne s'affiche.`);
     }
     if (t.share_pct != null) facts.push(`Le poids (${String(t.share_pct).replace(".", ",")} % du CA) divise ce résultat par le CA TOTAL du site sur la même période.`);
+    if (r.composant) facts.unshift(`${r.entity.name} est un composant déclaré du pôle ${r.composant.pole_name}${r.composant.version_no != null ? ` (version ${r.composant.version_no})` : ""} ; ses articles ne sont pas reconnus pour l'instant — les chiffres sont ceux du pôle.`);
     sections.push({ title: "D'où viennent ces chiffres", facts });
     if (r.entity.kind === "pole" && r.pole.families.length > 1) {
       sections.push({
@@ -524,7 +595,7 @@ export function buildEntityWhyBlocks(r: EntityPeriodReading): EntityCompareBlock
   return {
     headline: `${label} — ${per} : d'où viennent les chiffres`,
     sections,
-    sources: r.pole ? ["Vos ventes par famille (lignes de caisse)"] : ["Vos engagements (verdicts et mesures)"],
+    sources: r.pole ? [...(r.composant ? ["Mes dispositifs (composants déclarés)"] : []), "Vos ventes par famille (lignes de caisse)"] : ["Vos engagements (verdicts et mesures)"],
   };
 }
 

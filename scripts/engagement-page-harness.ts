@@ -12,7 +12,7 @@ import { EVOL_COPY } from "../src/lib/commitmentCopy";
 import { makeBQClient } from "../src/lib/bq";
 import { readLatestSnapshot } from "../src/lib/actionCommitments";
 import { resolveCommitment } from "../src/lib/commitmentResolve";
-import { leverForWeakFactor, leverForActionType, getBestInClassPlays, playsRattachesAuSujet } from "../src/lib/bestInClassStore";
+import { leverForWeakFactor, leverForActionType, getBestInClassPlays, playsAvecVoisin, playsRattachesAuSujet } from "../src/lib/bestInClassStore";
 
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const OPEN_ID = "2d99694a-17fa-4486-92e1-548ce588e1f5";   // vacances scolaires — EN COURS
@@ -85,11 +85,26 @@ async function payload(id: string): Promise<any> {
           const sujet = [data.commitment.committed_action_text, data.commitment.dispositif_why, data.commitment.dispositif_plus]
             .filter(Boolean).join(" . ");
           const titres = (x: any[]) => x.map((p: any) => p.title).sort().join("|");
-          const brutFacteur = await getBestInClassPlays(bqL, industrie, attendu, { limit: 9 });
-          const attenduServi = playsRattachesAuSujet(brutFacteur, { texte: sujet });
-          ok(`dispositifs servis = levier ${attendu} PUIS rattachement au sujet`,
+          // La chaîne complète : levier aiguillé par la mesure -> rayon voisin si le levier
+          // exact est vide -> rattachement au sujet, qui ORDONNE (plancher 0) quand le levier
+          // vient de la mesure et FERME (plancher 2) quand il vient du type de la carte.
+          const brutFacteur = await playsAvecVoisin(bqL, industrie, attendu, { limit: 9 });
+          const attenduServi = playsRattachesAuSujet(brutFacteur, { texte: sujet, plancher: 0 });
+          ok(`dispositifs servis = levier ${attendu} (+ voisin) PUIS ordre par sujet`,
             titres(data.best_in_class || []) === titres(attenduServi),
             { servis: (data.best_in_class || []).length, attendu: attenduServi.length });
+          // Le levier de la MESURE fait remonter des cas que le levier de la carte n'aurait
+          // jamais servis — c'est tout l'intérêt de l'aiguillage (owner 28-29/08).
+          const parCarte = await playsAvecVoisin(bqL, industrie, levierCarte, { limit: 9 });
+          // La porte du SUJET reste fermée quand aucune mesure n'a désigné le levier :
+          // ce chemin n'est pas exercé par ces deux engagements (ils ont tous deux une
+          // mesure), on le vérifie donc directement sur la fonction.
+          ok("sans mesure, un cas hors sujet reste écarté",
+            playsRattachesAuSujet(brutFacteur, { texte: "vacances scolaires retraités Houdan" }).length === 0);
+          ok("avec un sujet qui correspond, il passe même au plancher normal",
+            playsRattachesAuSujet(brutFacteur, { texte: brutFacteur[0]?.title || "" }).length >= 1);
+          ok("l'aiguillage change bien les cas servis",
+            titres(brutFacteur) !== titres(parCarte), { facteur: brutFacteur.length, carte: parCarte.length });
           // Le rattachement DOIT pouvoir écarter : sur ce dispositif, aucun cas du magasin
           // ne parle du même sujet — la section reste vide plutôt que de servir un théâtre
           // de pantomime sous une opération vacances scolaires (owner 28/08).
@@ -98,8 +113,17 @@ async function payload(id: string): Promise<any> {
               (data.best_in_class || []).map((p: any) => p.title));
           }
           // Et il DOIT savoir laisser passer : un sujet qui parle du même geste ressort.
-          const temoin = playsRattachesAuSujet(brutFacteur, { texte: brutFacteur[0]?.title || "" });
-          ok("le filtre laisse passer un sujet qui correspond", temoin.length >= 1, temoin.length);
+          // Le témoin se prend sur un rayon NON VIDE du secteur — le levier servi peut ne
+          // porter aucun cas (le magasin `commercial` n'a pas de « yield »), et un témoin
+          // vide prouverait seulement que rien n'entre, pas que le filtre trie.
+          let rayon = brutFacteur;
+          for (const l of ["panier", "conversion", "frequentation", "fidelisation", "yield"] as const) {
+            if (rayon.length) break;
+            rayon = await getBestInClassPlays(bqL, industrie, l, { limit: 9 });
+          }
+          const temoin = rayon.length ? playsRattachesAuSujet(rayon, { texte: rayon[0].title }) : [];
+          ok("le filtre laisse passer un sujet qui correspond", rayon.length === 0 || temoin.length >= 1,
+            { rayon: rayon.length, laisses: temoin.length });
           // Jamais deux fois le même geste.
           const t2 = (data.best_in_class || []).map((p: any) => p.title);
           ok("aucun doublon de geste servi", new Set(t2).size === t2.length, t2);
@@ -164,6 +188,31 @@ async function payload(id: string): Promise<any> {
     // habituel (28/08) : la phrase serait fausse.
     ok("aucune compensation promise sur les heures", !/autant en moins/.test(out));
     ok("chip « observé » sur le contexte (proto validé)", out.includes("observé"));
+    // Les cas d'ailleurs sont des ILLUSTRATIONS du levier mesuré, pas des consignes : la
+    // ligne « Ce que la mesure désigne » les précède (owner 29/08).
+    if ((data.best_in_class || []).length && data.shape?.weak_factor) {
+      ok("la mesure est nommée au-dessus des cas", /Ce que la mesure désigne/.test(out));
+      ok("elle précède les cas", out.indexOf("Ce que la mesure désigne") < out.indexOf("pas un résultat promis"));
+      // L'ÉCHELLE DE PRIX (owner 29/08) : la montée en gamme devient un écart CHEZ LUI.
+      if (data.price_ladder) {
+        const pl = data.price_ladder;
+        ok("l'échelle de prix n'est servie que sur le facteur prix", data.shape.weak_factor === "price", data.shape.weak_factor);
+        ok("le plafond dépasse le prix moyen", pl.top_price > pl.avg_price, pl);
+        ok("l'échelle est rendue à l'écran", out.includes("Vous vendez déjà à"));
+        // Fenêtre ancrée sur une journée MESURÉE : un seed porte des ventes au-delà
+        // d'aujourd'hui, la fin de fenêtre gonflait le compte (12 unités au lieu de 9).
+        const [ctrl] = await makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data").query({
+          query: `SELECT SUM(quantity) q FROM \`muse-square-open-data.raw.client_transactions\`
+                  WHERE location_id=@l AND item_description=@n
+                    AND transaction_date BETWEEN DATE_SUB(DATE(@d), INTERVAL 29 DAY) AND DATE(@d)`,
+          params: { l: LOC, n: pl.top_name, d: String(data.commitment.window_kind === "day_of" ? data.commitment.window_end : data.series.filter((x: any) => x.has_data).slice(-1)[0]?.date) },
+          location: "EU",
+        });
+        ok("les unités du plafond sont celles de la caisse sur la fenêtre lue",
+          Math.round(Number(ctrl?.[0]?.q?.value ?? ctrl?.[0]?.q ?? -1)) === pl.top_units,
+          { rendu: pl.top_units, base: ctrl?.[0]?.q });
+      }
+    }
     // Français de machine (owner 28/08) : ni pluriel entre parenthèses dans une phrase, ni
     // statistique météo orpheline quand l'opération n'a pas connu de jour perturbé.
     ok("aucun pluriel « (s) » dans une phrase de contexte", !/(événement|jour|journée)\(s\)/.test(out));

@@ -13,13 +13,16 @@ import { modelFor } from "./models";
 import { resolverSchema, resolverSystemPrompt } from "../semanticRegistry";
 import type { SiteEntities, SiteEntity } from "../entityResolver";
 import { KPI_NOM_FR, type KpiKey } from "../kpiRegistry";
+import { resolveFrPeriod } from "../dates/frPeriod";
 
 export interface ResolvedPeriod { start: string; end: string; expression: string }
 
 export interface ResolvedIdea { levier: "frequentation" | "conversion" | "panier" | "yield" | "fidelisation"; condition: "rain" | "heat" | "school_holiday" | "public_holiday" | "tourism_peak" | "calme" | "aucune" }
 
 export interface ResolvedFrame {
-  intent: "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "autre";
+  intent: "plan" | "entity_period" | "journal" | "pourquoi" | "idee" | "hors_perimetre"
+    | "jour" | "bilan_periode" | "dimension" | "fenetre" | "entite_exterieure" | "evenement_lookup" | "mes_evenements" | "rapport"
+    | "fiches" | "autre";
   entity_names: Array<{ nom: string; type: string }>;
   periode: ResolvedPeriod | null;
   periode_comparaison: ResolvedPeriod | null;
@@ -29,8 +32,11 @@ export interface ResolvedFrame {
 
 export interface ResolvedTurn extends ResolvedFrame {
   entities: SiteEntity[];       // les entités VALIDÉES (l'objet complet du site)
+  periode_validee: boolean;     // I2 — frPeriod a parsé l'expression et ses bornes ont remplacé celles du LLM
   suite: boolean;
   changements: string[];        // le diff déclaré par le résolveur — tracé, testable
+  confiance: "haute" | "basse"; // I1 — tracée ; la garde déterministe tranche
+  questions_supplementaires: string[]; // I6 — les autres questions du message, mot pour mot (cap 3)
 }
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -72,7 +78,12 @@ export async function resolveTurn(opts: {
       model: modelFor("classifier"),
       maxTokens: 500,
       temperature: 0,
-      timeoutMs: opts.timeoutMs ?? 8000, // p95 mesurée ~3 s (batterie 28/08) — 4 s coupait de vrais tours
+      // p95 mesurée ~3 s (batterie 28/08) — 4 s coupait de vrais tours ; 8 s posé alors. 04/09 13:01-13:03
+      // (télémétrie analytics.consulter_telemetry, event_type resolver) : 4 appels coupés à 8 s sur 20 min
+      // (~9 s bout en bout) alors que la journée entière donnait 0 nul et 3,5 s au pire — une pointe de
+      // latence API. Un tour coupé part sur les regex et perd sa comparaison (batterie D6) : plus cher
+      // que 4 s d'attente. 12 s ; la prochaine lecture se fait sur la télémétrie, pas sur une supposition.
+      timeoutMs: opts.timeoutMs ?? 12000,
       cacheSystem: true,
       conversationHistory: (opts.history ?? []).slice(-8),
       userText: `${opts.qRaw}${frameLine}`,
@@ -85,7 +96,9 @@ export async function resolveTurn(opts: {
     // Tolérance de clé (mesuré 28/08 : Haiku sans mode structuré écrivait « intention ») —
     // le schéma reste passé pour les modèles qui le supportent.
     const intent = String(out?.intent ?? out?.intention ?? "");
-    if (!["plan", "entity_period", "journal", "pourquoi", "idee", "autre"].includes(intent)) return null;
+    if (!["plan", "entity_period", "journal", "pourquoi", "idee", "hors_perimetre",
+          "jour", "bilan_periode", "dimension", "fenetre", "entite_exterieure", "evenement_lookup", "mes_evenements", "rapport",
+          "fiches", "autre"].includes(intent)) return null;
     const entity_names = Array.isArray(out?.entites)
       ? out.entites.filter((e: any) => e && typeof e.nom === "string" && typeof e.type === "string").slice(0, 4)
       : [];
@@ -94,6 +107,22 @@ export async function resolveTurn(opts: {
     const entities = entity_names
       .map((e: any) => matchName(e.nom, e.type, opts.site))
       .filter((e: SiteEntity | null): e is SiteEntity => e != null);
+    // Garde-fou 2bis (I2, 03/09) : LE CODE VALIDE LES DATES. Quand frPeriod parse l'expression
+    // que le modèle a recopiée (« la semaine dernière », « hier », « cet été »), ses bornes
+    // remplacent celles du modèle — mesuré 03/09 : Haiku lisait « la semaine dernière » comme
+    // les 7 derniers jours, frPeriod (le SST) dit la semaine civile précédente. Une expression
+    // que frPeriod ne connaît pas garde les bornes du modèle (bornées/ordonnées par okPeriod).
+    const bias = intent === "plan" ? "future" : "past";
+    let periode_validee = false;
+    const validee = (p: ResolvedPeriod | null): ResolvedPeriod | null => {
+      if (!p || !p.expression) return p;
+      const fp = resolveFrPeriod(p.expression, { today: opts.today, yearBias: bias });
+      if (!fp) return p;
+      if (fp.start !== p.start || fp.end !== p.end) periode_validee = true;
+      return { start: fp.start, end: fp.end, expression: p.expression };
+    };
+    const periodeV = validee(okPeriod(out?.periode));
+    const periodeCmpV = validee(okPeriod(out?.periode_comparaison));
     const kpiRawV = out?.kpi != null ? String(out.kpi) : null;
     const LEVIERS = ["frequentation", "conversion", "panier", "yield", "fidelisation"];
     const CONDS = ["rain", "heat", "school_holiday", "public_holiday", "tourism_peak", "calme", "aucune"];
@@ -105,12 +134,17 @@ export async function resolveTurn(opts: {
       intent: intent as ResolvedTurn["intent"],
       entity_names,
       entities,
-      periode: okPeriod(out?.periode),
-      periode_comparaison: okPeriod(out?.periode_comparaison),
+      periode: periodeV,
+      periode_comparaison: periodeCmpV,
+      periode_validee,
       kpi: kpiRawV && kpiRawV in KPI_NOM_FR ? (kpiRawV as KpiKey) : null,
       idee,
       suite: Boolean(out?.suite),
       changements: Array.isArray(out?.changements) ? out.changements.map(String).slice(0, 6) : [],
+      // Absente (modèle sans le champ) → haute : le comportement d'avant I1, jamais un refus de plus.
+      confiance: String(out?.confiance ?? "haute") === "basse" ? "basse" : "haute",
+      questions_supplementaires: Array.isArray(out?.questions_supplementaires)
+        ? out.questions_supplementaires.map((x: any) => String(x).trim()).filter(Boolean).slice(0, 3) : [],
     };
   } catch {
     return null;

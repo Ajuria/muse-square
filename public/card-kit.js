@@ -1010,6 +1010,56 @@
         + '</div>';
       h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_fams_title')) + '</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + pFams.map(function (f) { return '<span style="font-size:12px;background:#F3F4F6;color:#374151;padding:4px 11px;border-radius:999px;">' + esc(f) + '</span>'; }).join('') + '</div></div>';
+      // Composants du dispositif (03/09, spec dispositifs-typologie § 3) : les unites physiques
+      // (lineaire, gondole, vitrine...) libellees par le serveur (registre dispositifTypes).
+      // Absence dite (lexique regle 7), jamais une section vide.
+      var pComps = Array.isArray(cm.components) ? cm.components : [];
+      // Photos (etape 4, 03/09) : une rangee par composant porte un emplacement [data-eg-photo]
+      // que la page remplit (GET /api/dispositifs/photos) et un CTA « Documenter » (mot owner)
+      // qui ouvre le depot d'une photo — le cablage vit dans engagement.astro, le kit ne rend.
+      h += '<div class="eg-sec" data-eg-components data-eg-dispositif="' + esc(cm.dispositif_id || '') + '" data-eg-version="' + esc(cm.version_no != null ? String(cm.version_no) : '') + '"><div class="eg-uc">' + esc(t2('pole_components_title')) + '</div>'
+        + (pComps.length
+          ? pComps.map(function (c) {
+              var meta = [c.type_label_fr, c.role_label_fr].filter(function (x) { return !!x; }).join(' \u00b7 ');
+              return '<div data-eg-component="' + esc(c.key || '') + '" style="background:#fff;border:1px solid #e5e7eb;padding:8px 14px;margin-bottom:6px;">'
+                + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;">'
+                + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(c.label || c.type_label_fr || '') + '</span>'
+                + '<span style="display:inline-flex;align-items:center;gap:10px;"><span style="font-size:12px;color:#6b7280;">' + esc(meta) + '</span>'
+                + (cm.status === 'open' ? '<button type="button" data-eg-photo-add="' + esc(c.key || '') + '" style="font-size:12px;font-weight:500;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit;">' + esc(t2('pole_photo_cta')) + '</button>' : '')
+                + '</span></div>'
+                + '<div data-eg-photo="' + esc(c.key || '') + '" style="margin-top:6px;font-size:12px;color:#6b7280;">' + esc(t2('pole_photo_none')) + '</div>'
+                + '</div>';
+            }).join('')
+          : '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_components_none')) + '</div>')
+        + '</div>';
+      // Articles des photos face aux ventes (livrable 2, 03/09) : ce qui est expose et ne se vend
+      // pas, ce qui se vend sans etre vu. Absence dite a chaque niveau, jamais une section vide.
+      var pi = pr.items || null;
+      h += '<div class="eg-sec" data-eg-items><div class="eg-uc">' + esc(t2('pole_items_title')) + '</div>';
+      if (!pi || !pi.n_photos) {
+        h += '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_no_photos')) + '</div>';
+      } else {
+        h += '<div style="font-size:11px;color:#374151;margin-bottom:8px;">' + esc(t2('pole_items_caption')) + '</div>';
+        var retrait = (pi.seen || []).filter(function (x) { return x.en_retrait; });
+        h += '<div style="font-size:12px;font-weight:600;color:#374151;margin:6px 0 4px;">' + esc(t2('pole_items_retrait_title')) + '</div>';
+        if (!retrait.length) h += '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_no_retrait')) + '</div>';
+        retrait.forEach(function (x) {
+          h += '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;background:#fff;border:1px solid #e5e7eb;padding:8px 14px;margin-bottom:6px;">'
+            + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(x.item_description) + ' <span style="font-size:11px;font-weight:500;color:#6b7280;">' + esc(t2(x.confirmed ? 'pole_items_confirmed' : 'pole_items_recognised')) + '</span></span>'
+            + '<span style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_row', { rev: Number(x.rev30_eur).toLocaleString('fr-FR'), n: x.n30, exp: Number(x.expected30_eur).toLocaleString('fr-FR') })) + '</span>'
+            + '<span style="font-size:13px;font-weight:600;color:#B45309;">' + pPct(x.delta_pct) + '</span></div>';
+        });
+        var others = (pi.seen || []).filter(function (x) { return !x.en_retrait; });
+        if (others.length) {
+          h += '<div style="font-size:12px;color:#374151;margin:6px 0 8px;">' + others.map(function (x) {
+            return esc(x.item_description) + (x.delta_pct != null && x.n30 >= 5 ? ' ' + pPct(x.delta_pct) : ' \u2014 ' + esc(t2('pole_items_thin')));
+          }).join(' \u00b7 ') + '</div>';
+        }
+        h += '<div style="font-size:12px;font-weight:600;color:#374151;margin:6px 0 4px;">' + esc(t2('pole_items_unseen_title')) + '</div>';
+        if (!(pi.unseen || []).length) h += '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_all_seen')) + '</div>';
+        else h += '<div style="font-size:12px;color:#374151;">' + pi.unseen.map(function (x) { return esc(x.item_description) + ' (' + Number(x.rev30_eur).toLocaleString('fr-FR') + ' \u20ac)'; }).join(' \u00b7 ') + '</div>';
+      }
+      h += '</div>';
       var pt = pr.totals || {};
       var ptLine = '';
       if (pt.rev30_eur != null) {
@@ -1416,8 +1466,27 @@
     function _bicBlock(intent) {
       var plays = (data.best_in_class || []).filter(function (p) { return p.intent === intent; }).slice(0, 2);
       if (!plays.length) return '';
+      // Ce que la MESURE désigne (owner 29/08) : sans cette ligne, un cas se lit comme une
+      // consigne — « ajouter une référence haut de gamme » sous un café. Avec elle, le cas
+      // illustre un levier que le chiffre a désigné, et reste un cas d'ailleurs.
+      var _mes = (data.shape || {}).weak_factor;
+      var _mesLigne = _mes ? '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">' + esc(t('bic_mesure_' + _mes)) + '</div>' : '';
+      // L'échelle de prix DU LIEU : le plafond qu'il atteint déjà, et ce qu'il pèse. Rendue
+      // seulement quand la mesure désigne la valeur de l'article (owner 29/08).
+      var _pl = data.price_ladder;
+      if (_pl) {
+        // Un prix rond s'écrit rond : « 45 € », pas « 45,00 € ».
+        var _prix = function (n2) {
+          var v = Math.round(Number(n2) * 100) / 100;
+          return Number.isInteger(v) ? intfr(v) : v.toFixed(2).replace('.', ',');
+        };
+        _mesLigne += '<div style="font-size:13px;color:#374151;line-height:1.55;margin-bottom:8px;">'
+          + esc(t('ladder_top', { top: _prix(_pl.top_price), nom: _pl.top_name, units: intfr(_pl.top_units), days: _pl.days, avg: _prix(_pl.avg_price) }))
+          + ' ' + esc(t('ladder_share', { n: intfr(_pl.above_refs), share: fr(_pl.above_share_pct) })) + '</div>';
+      }
       return '<div style="margin-top:16px;">'
         + '<div class="eg-uc">' + esc(t('diag_bic_title')) + '</div>'
+        + _mesLigne
         + '<div style="font-size:11.5px;color:#374151;margin-bottom:10px;">' + esc(t('diag_bic_caption_' + intent) || t('diag_bic_caption')) + '</div>'
         + plays.map(function (p) {
             var conf = t('diag_bic_conf_' + (p.confidence || 'faible')) || '';
@@ -2017,7 +2086,47 @@
     return html;
   }
 
-  window.MSCardKit = {
+  // Etape 4 (03/09) : le rendu d'une photo LUE d'un composant — vignette servie par l'API,
+  // date, compte des reponses, puis la liste question → reponse (les questions sont celles du
+  // registre, servies par l'API). Aucune phrase de conseil : des faits lus sur l'image.
+  // Articles : CONFIRMÉS s'ils le sont (le mot de l'exploitant prime) ; sinon les reconnus, chacun
+  // avec une case cochée, et « Confirmer → » — la page POSTe les cases cochées.
+  function itemsBlock(photo, t) {
+    if (Array.isArray(photo.items_confirmed)) {
+      return '<div data-eg-items-confirmed style="margin-top:4px;font-size:12px;color:#374151;">' + esc(t('pole_photo_confirmed')) + ' '
+        + (photo.items_confirmed.length ? photo.items_confirmed.map(function (it) { return esc(it.item_description || it.item_code); }).join(', ') : '\u2014') + '</div>';
+    }
+    if (!Array.isArray(photo.items_matched) || !photo.items_matched.length) return '';
+    return '<div data-eg-items-confirm="' + esc(photo.photo_id || '') + '" style="margin-top:6px;font-size:12px;color:#374151;">'
+      + '<div>' + esc(t('pole_photo_items')) + '</div>'
+      + photo.items_matched.map(function (it) {
+          return '<label style="display:inline-flex;align-items:center;gap:5px;margin:3px 10px 3px 0;cursor:pointer;"><input type="checkbox" data-eg-item="' + esc(it.item_code) + '" checked> ' + esc(it.item_description || it.item_code) + '</label>';
+        }).join('')
+      + '<div style="margin-top:4px;"><button type="button" data-eg-items-submit style="font-size:12px;font-weight:500;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit;">' + esc(t('pole_photo_confirm')) + '</button></div>'
+      + '</div>';
+  }
+
+  function renderComponentPhoto(photo, copy) {
+    var t = function (k) { return (copy && copy[k]) || ''; };
+    if (!photo) return esc(t('pole_photo_none'));
+    var cl = photo.checklist || {}; var keys = Object.keys(cl);
+    var n = { oui: 0, non: 0, non_visible: 0 }; keys.forEach(function (k) { if (n[cl[k]] != null) n[cl[k]]++; });
+    var d = String(photo.created_at || '').slice(0, 10); var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+    var qs = Array.isArray(photo.questions) ? photo.questions : [];
+    var ans = { oui: t('pole_photo_yes'), non: t('pole_photo_no'), non_visible: t('pole_photo_nv') };
+    return '<div style="display:flex;gap:12px;align-items:flex-start;">'
+      + '<img src="' + esc(photo.url) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;flex:none;">'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-size:12px;color:#374151;">' + esc(dfr) + (keys.length ? ' \u00b7 ' + n.oui + ' ' + esc(ans.oui) + ' \u00b7 ' + n.non + ' ' + esc(ans.non) + ' \u00b7 ' + n.non_visible + ' ' + esc(ans.non_visible) : '') + '</div>'
+      + (qs.length ? '<div style="margin-top:4px;">' + qs.map(function (q) {
+          var v = cl[q.key]; var col = v === 'oui' ? '#0F6E56' : v === 'non' ? '#B45309' : '#9CA3AF';
+          return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;border-bottom:1px solid #F3F4F6;"><span style="color:#374151;">' + esc(q.question_fr) + '</span><span style="color:' + col + ';font-weight:600;white-space:nowrap;">' + esc(ans[v] || '') + '</span></div>';
+        }).join('') + '</div>' : '')
+      + itemsBlock(photo, t)
+      + '</div></div>';
+  }
+
+  window.MSCardKit = { renderComponentPhoto: renderComponentPhoto,
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
     msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,

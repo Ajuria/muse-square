@@ -149,6 +149,12 @@ export const MOTS_BANNIS: Record<string, string> = {
   // de tableau.astro décrit bien un score filtré secteur. Un garde-fou textuel ne sait pas
   // lire la source. Les bannir aveuglément rougit 6 fichiers et ~25 chaînes, dont des
   // légitimes. Le lot est SIGNALÉ à l'owner, pas corrigé en passant.
+  // 03/09 — composants des dispositifs (lexique, owner D1/D2) : l'objet photographié se dit
+  // « composant » ; « meuble », « unité typée » et « sous-type » étaient mes brouillons, attrapés à
+  // la relecture owner. Le second axe se dit « rôle ».
+  "meuble": "composant",
+  "unité typée": "composant",
+  "sous-type": "rôle",
 };
 
 // ── Les mots du dossier. {x} = variable interpolée par `t(key, vars)`.

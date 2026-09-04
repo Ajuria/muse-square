@@ -9,6 +9,12 @@
 //                  and WHICH component moved (fct_client_sales_signals_daily *_delta_pct).
 //   - TODAY/FUTURE day -> the same-dow CA habituel (mean of recent same-dow realized days) +
 //                  the latest measured day's performance (recency anchor).
+//   - PAST day NOT YET MEASURED (I9, owner 04/09 — « hier » le matin, avant le traitement de nuit)
+//                  -> ONE fact : the day is not in the sales yet, and the latest measured day.
+//                  NEVER the same-dow habituel of the unmeasured day : mesuré le 04/09, ces deux
+//                  faits côte à côte (« habituel pour un jeudi ~1 533 € » + « dernier jour mesuré
+//                  02/09 +70 % ») faisaient écrire au modèle « 1 439 € contre 1 533 €, +70 % » —
+//                  le référentiel croisé que le validateur (I4) rejette, jusqu'au plancher.
 // Same consumption pattern as buildIdentityFacts: folded into the grounded whitelist as
 // extraFacts — every number the model may surface is INSIDE a fact string, validator-gated.
 // Honesty rules: components state ONLY what is measured (visitors are often absent — a NULL delta
@@ -50,7 +56,55 @@ const MATCH_TIER_FR: Record<string, string> = {
   dow: "même jour de semaine",
 };
 
-export async function buildDayPerformanceFacts(location_id: string, date: string): Promise<{ facts: DayPerfFact[] }> {
+// I9 — QUAND un jour entre dans la base (owner 04/09 : « la précision doit être notre marque de
+// fabrique »). Mesuré sur dbt Cloud le 04/09 : le job `daily_fresh_data_run_general`
+// (`dbt build --select source_status:fresher+`) part à 05:00 UTC du lundi au samedi (cron
+// « 0 5 * * 1,2,3,4,5,6 », jamais le dimanche) ; `fct_client_day_residual` (transaction_date <
+// current_date()) est construit ~7-10 min plus tard (runs Paris 07:07-07:10 du 28/08 au 03/09).
+// L'heure est UTC : 7 h 10 à Paris l'été, 6 h 10 l'hiver — calculée, jamais écrite en dur.
+const DBT_DAILY_RUN_UTC = { hour: 5, minute: 10, days: [1, 2, 3, 4, 5, 6] };   // 1 = lundi … 6 = samedi
+
+/** « ce matin » / « demain matin » / « lundi matin », avec l'heure de Paris du prochain run. */
+export function nextDailyRunFr(nowUtc: Date): string {
+  const JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+  const paris = (d: Date) => {
+    const parts = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(d);
+    const h = Number(parts.find((x) => x.type === "hour")?.value ?? 0), m = Number(parts.find((x) => x.type === "minute")?.value ?? 0);
+    return { h, m };
+  };
+  const parisDayKey = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  // Prochain run : aujourd'hui (UTC) si jour de run et pas encore passé, sinon le jour de run suivant.
+  const run = new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth(), nowUtc.getUTCDate(), DBT_DAILY_RUN_UTC.hour, DBT_DAILY_RUN_UTC.minute));
+  while (!DBT_DAILY_RUN_UTC.days.includes(run.getUTCDay()) || run.getTime() <= nowUtc.getTime()) run.setUTCDate(run.getUTCDate() + 1);
+  const { h, m } = paris(run);
+  const heure = `${h} h${m ? ` ${String(m).padStart(2, "0")}` : ""}`;
+  const todayKey = parisDayKey(nowUtc), runKey = parisDayKey(run);
+  const tomorrow = new Date(nowUtc.getTime() + 86400000);
+  const quand = runKey === todayKey ? "ce matin" : runKey === parisDayKey(tomorrow) ? "demain matin" : `${JOURS[run.getUTCDay()]} matin`;
+  return `${quand}, à partir de ${heure}`;
+}
+
+/** I9 — le fait d'un jour PASSÉ non mesuré (phrase owner 04/09, corrigée : « il sera dans la base de
+ *  données demain matin, à partir de 7 h 10 » — l'heure vient du job, jamais d'un concept).
+ *  Pur : testé par mutation dans buildDayPerformanceFacts.test.ts. */
+export function unmeasuredPastDayFacts(
+  date: string,
+  latest: { date: string; ca: number; res_pct: number } | null,
+  nowUtc: Date = new Date(),
+): DayPerfFact[] {
+  const arrive = `il sera dans la base de données ${nextDailyRunFr(nowUtc)}`;
+  if (!latest || !Number.isFinite(latest.ca) || !Number.isFinite(latest.res_pct)) {
+    return [{ fact_fr: `Le ${frDay(date)} n'est pas encore dans vos ventes : ${arrive}.`, claim_type: "observed" }];
+  }
+  const dow = DOW_FR[dowOf(latest.date)];
+  return [{
+    fact_fr: `Le ${frDay(date)} n'est pas encore dans vos ventes : ${arrive}. Dernier jour mesuré : ${dow} ${frDay(latest.date)}, ${frInt(latest.ca)} €, ${frSignedPct(latest.res_pct)} vs votre CA habituel.`,
+    claim_type: "observed_difference",
+  }];
+}
+
+export async function buildDayPerformanceFacts(location_id: string, date: string, todayIso?: string): Promise<{ facts: DayPerfFact[] }> {
+  const today = todayIso ?? new Date().toISOString().slice(0, 10);
   const facts: DayPerfFact[] = [];
   try {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
@@ -139,6 +193,13 @@ export async function buildDayPerformanceFacts(location_id: string, date: string
           claim_type: "observed_difference",
         });
       }
+    } else if (date < today) {
+      // ── PAST day NOT YET MEASURED (I9) — one fact, never the unmeasured day's habituel ──
+      const c: any = (ctxRes[0] ?? [])[0];
+      const lIso = c ? str(c.latest_date).slice(0, 10) : "";
+      const latest = c && lIso && Number.isFinite(num(c.latest_ca)) && Number.isFinite(num(c.latest_res))
+        ? { date: lIso, ca: num(c.latest_ca), res_pct: num(c.latest_res) } : null;
+      facts.push(...unmeasuredPastDayFacts(date, latest));
     } else {
       // ── TODAY / FUTURE day: expectation + recency anchor ──
       const c: any = (ctxRes[0] ?? [])[0];

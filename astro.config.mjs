@@ -21,7 +21,10 @@ export default defineConfig({
   security: {
     checkOrigin: false,
   },
-  adapter: vercel(),
+  // Durée max des fonctions (03/09, lecture des photos ≈ 8 s) : 60 s tient sur le plan Hobby
+  // dans les deux régimes — 60 s max en serverless classique, 300 s avec Fluid compute (docs
+  // Vercel du 24/08/2026). L'adaptateur ne sait pas la poser par route : elle vaut pour toutes.
+  adapter: vercel({ maxDuration: 60 }),
 
   integrations: [
     tailwind(),

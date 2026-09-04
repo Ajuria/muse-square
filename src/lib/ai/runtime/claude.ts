@@ -24,6 +24,13 @@ export async function callClaudeMessagesAPI(args: {
   userPayload?: Record<string, any>;
   // Raw-text user message (classifiers/lookups that want plain text, not JSON). Takes precedence.
   userText?: string;
+  // Content BLOCKS for the user turn (03/09, lecture des photos — spec dispositifs-typologie § 5.3) :
+  // images base64 + texte, dans l'ordre. Prend le pas sur userText/userPayload quand présent. C'est
+  // LE transport image du dépôt — module-index interdit un second point d'appel.
+  userContent?: Array<
+    | { type: "text"; text: string }
+    | { type: "image"; source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/webp"; data: string } }
+  >;
   model?: string;
   maxTokens?: number;
   temperature?: number;
@@ -68,7 +75,9 @@ export async function callClaudeMessagesAPI(args: {
       })),
       {
         role: "user" as const,
-        content: typeof args.userText === "string"
+        content: Array.isArray(args.userContent) && args.userContent.length
+          ? args.userContent
+          : typeof args.userText === "string"
           ? args.userText
           : JSON.stringify(
               Object.fromEntries(

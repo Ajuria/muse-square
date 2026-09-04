@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — hero « mémoire » : la liste des dispositifs</title>
+<style>
+  /* ── Valeurs TIRÉES du code, aucune couleur inventée ──────────────────────
+     design-tokens.css : --color-bg-card #ffffff · --color-border rgba(0,0,0,0.08)
+       --color-text-primary #111827 · --color-text-secondary #6b7280
+       --color-brand-blue #0b37e5 · --color-pill-green-bg #E6F6F0
+       --color-pill-source-low-bg #F3F4F6 / -text #6b7280
+     pulse.astro : .ab-card radius 10px · .ab-summary 18/20/8 · .ab-pill 9px/700/uppercase
+       .ab-what 15.5px/650 · .chip-n 12px 3/9 radius 20 · .aline #1D3BB3 13px/600
+     entityReading.ts:317 : gardé #0F6E56 · sinon #B45309 · ouvert #6B7280
+     bestPractices.ts:347-352 : les PHRASES D'ÉTAT sont reprises verbatim
+     global.css : .ms-h1 40px/1.15 · .ms-lead 18px/1.55 · .ms-container 1140px
+  ─────────────────────────────────────────────────────────────────────────── */
+  :root{
+    --color-bg-card:#ffffff; --color-border:rgba(0,0,0,0.08);
+    --color-text-primary:#111827; --color-text-secondary:#6b7280;
+    --color-brand-blue:#0b37e5;
+    --color-pill-green-bg:#E6F6F0;
+    --color-pill-source-low-bg:#F3F4F6; --color-pill-source-low-text:#6b7280;
+    --data-blue:#1D3BB3; --green:#0F6E56; --amber:#B45309;
+    --font-family:'Avenir Next',Avenir,'Nunito Sans','Helvetica Neue',Helvetica,Arial,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font-family);background:#f5f6f8;color:var(--color-text-primary)}
+  .protobar{font-size:12px;color:#6b7280;padding:10px 16px;background:#fff;border-bottom:1px solid var(--color-border);line-height:1.5}
+
+  .hero{position:relative;background:#111827;overflow:hidden}
+  .hero::after{content:"";position:absolute;inset:0;
+    background:radial-gradient(1200px 420px at 78% 45%, rgba(11,55,229,.28) 0%, rgba(17,24,39,0) 65%);
+    pointer-events:none}
+  .ms-container{max-width:1140px;margin:0 auto;padding:0 24px}
+  .hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,470px);
+    gap:48px;align-items:center;min-height:520px;padding:56px 0}
+  .ms-h1{font-size:40px;line-height:1.15;font-weight:500;color:#fff;margin:0;letter-spacing:-.01em}
+  .ms-lead{font-size:18px;line-height:1.55;color:rgba(255,255,255,.92);margin:16px 0 0;max-width:560px}
+  .cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+  .msq-btn{height:44px;display:inline-flex;align-items:center;padding:0 18px;border-radius:10px;
+    font-size:15px;font-weight:500;text-decoration:none;border:1px solid}
+  .btn-solid{background:#fff;color:#111827;border-color:#fff}
+  .btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}
+
+  /* ── LA CARTE « MÉMOIRE » : une liste, pas un objet unique ─────────────── */
+  .ab-card{background:var(--color-bg-card);border:1px solid var(--color-border);border-radius:10px;
+    box-shadow:0 18px 40px rgba(16,24,40,.28),0 1px 3px rgba(16,24,40,.06);overflow:hidden}
+  .card-head{padding:16px 20px 12px;border-bottom:1px solid var(--color-border)}
+  .card-title{font-size:15.5px;font-weight:650;letter-spacing:-.01em;margin:0}
+  .card-sub{font-size:12px;color:var(--color-text-secondary);margin:3px 0 0}
+  .rows{padding:4px 0}
+  .row{display:flex;gap:12px;align-items:flex-start;padding:11px 20px;
+    border-top:1px solid rgba(17,24,39,.06)}
+  .row:first-child{border-top:none}
+  .row-main{flex:1;min-width:0}
+  .row-name{font-size:14px;font-weight:650;color:#111827;line-height:1.3;margin:0 0 3px}
+  .row-state{font-size:12.5px;line-height:1.45;color:#374151;margin:0}
+  .row-num{font-size:14px;font-weight:700;white-space:nowrap;padding-top:1px}
+  .pos{color:var(--green)} .neg{color:var(--amber)} .neu{color:var(--color-text-secondary)}
+  .chip-n{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 8px;
+    border-radius:20px;background:var(--color-pill-source-low-bg);
+    color:var(--color-pill-source-low-text);white-space:nowrap;font-weight:600}
+  .chip-prouve{background:var(--color-pill-green-bg);color:var(--green)}
+  .chip-ecarte{background:#FEF3E2;color:var(--amber)}
+  .card-foot{padding:10px 20px 14px;border-top:1px solid var(--color-border);
+    display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .foot-txt{font-size:12px;color:var(--color-text-secondary)}
+  .agir-btn{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;
+    color:var(--data-blue);border:1px solid var(--data-blue);border-radius:10px;
+    padding:6px 12px;background:transparent;font-family:inherit;white-space:nowrap}
+
+  .variants{max-width:1140px;margin:0 auto;padding:32px 24px 56px}
+  .variants h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;
+    font-weight:700;margin:28px 0 4px}
+  .variants p{font-size:13px;color:#6b7280;margin:0 0 16px;max-width:820px;line-height:1.55}
+  .scaled{transform:scale(.72);transform-origin:top left;width:139%}
+
+  @media (max-width:900px){
+    .hero-grid{grid-template-columns:1fr;gap:32px;min-height:0;padding:40px 0}
+    .ms-h1{font-size:32px}
+  }
+</style>
+</head>
+<body>
+
+<div class="protobar">
+  Proto hero « mémoire » — la liste des dispositifs plutôt qu'une carte unique : l'œil lit le
+  SYSTÈME (états, verdicts, montants) au lieu d'une étiquette sectorielle.
+  Graphisme : <code>design-tokens.css</code> + <code>pulse.astro</code>. Phrases d'état :
+  <code>bestPractices.ts:347-352</code>, verbatim. <strong>Noms d'opérations et chiffres =
+  gabarit</strong>, à remplacer par une capture du compte réel.
+</div>
+
+<section class="hero">
+  <div class="ms-container">
+    <div class="hero-grid">
+
+      <div>
+        <h1 class="ms-h1">La mémoire opérationnelle de votre organisation</h1>
+        <p class="ms-lead">
+          Muse Square vous prévient de ce qui impacte votre activité, mesure l'impact réel de vos
+          dispositifs de vente, et facilite l'application et le partage de vos bonnes pratiques.
+        </p>
+        <div class="cta-row">
+          <a class="msq-btn btn-solid" href="#">Découvrir la plateforme</a>
+          <a class="msq-btn btn-ghost" href="#">Nous contacter</a>
+        </div>
+      </div>
+
+      <div>
+        <div class="ab-card">
+          <div class="card-head">
+            <p class="card-title">Mes dispositifs</p>
+            <p class="card-sub">Ce qui a été testé chez vous, et ce que ça a donné</p>
+          </div>
+
+          <div class="rows">
+            <div class="row">
+              <div class="row-main">
+                <p class="row-name">Nocturne d'été <span class="chip-n chip-prouve">prouvé</span></p>
+                <p class="row-state">prouvé au rejeu (+12,4 % vs votre résultat habituel)</p>
+              </div>
+              <div class="row-num pos">+ 2 140 €</div>
+            </div>
+
+            <div class="row">
+              <div class="row-main">
+                <p class="row-name">Portes ouvertes <span class="chip-n chip-prouve">prouvé</span></p>
+                <p class="row-state">prouvé au rejeu (+6,1 % vs votre résultat habituel)</p>
+              </div>
+              <div class="row-num pos">+ 860 €</div>
+            </div>
+
+            <div class="row">
+              <div class="row-main">
+                <p class="row-name">Offre de rentrée <span class="chip-n">en test</span></p>
+                <p class="row-state">effet positif mesuré (+3,2 % vs votre résultat habituel), objectif manqué</p>
+              </div>
+              <div class="row-num neu">+ 410 €</div>
+            </div>
+
+            <div class="row">
+              <div class="row-main">
+                <p class="row-name">Atelier famille <span class="chip-n">en test</span></p>
+                <p class="row-state">testé, non concluant (effet dans le bruit du lieu)</p>
+              </div>
+              <div class="row-num neu">—</div>
+            </div>
+
+            <div class="row">
+              <div class="row-main">
+                <p class="row-name">Remise fin de journée <span class="chip-n chip-ecarte">écarté</span></p>
+                <p class="row-state">il a prouvé ne pas être adapté (−4,8 % vs votre résultat habituel, 1 test manqué)</p>
+              </div>
+              <div class="row-num neg">− 520 €</div>
+            </div>
+          </div>
+
+          <div class="card-foot">
+            <span class="foot-txt">Mesuré sur vos ventes, saison après saison</span>
+            <span class="agir-btn">Consulter la source →</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="variants">
+  <h2>Le levier de la distance</h2>
+  <p>
+    La même carte réduite à 72 %. Les libellés deviennent de la texture, la structure reste
+    lisible : états, verdicts, montants. C'est ce qui permet de montrer une donnée sectorielle
+    sans perdre les prospects des autres secteurs — l'écran reste vrai, seule la distance change.
+  </p>
+  <div style="overflow:hidden">
+    <div class="scaled">
+      <div class="ab-card" style="max-width:470px;box-shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04)">
+        <div class="card-head">
+          <p class="card-title">Mes dispositifs</p>
+          <p class="card-sub">Ce qui a été testé chez vous, et ce que ça a donné</p>
+        </div>
+        <div class="rows">
+          <div class="row"><div class="row-main"><p class="row-name">Nocturne d'été <span class="chip-n chip-prouve">prouvé</span></p><p class="row-state">prouvé au rejeu (+12,4 % vs votre résultat habituel)</p></div><div class="row-num pos">+ 2 140 €</div></div>
+          <div class="row"><div class="row-main"><p class="row-name">Portes ouvertes <span class="chip-n chip-prouve">prouvé</span></p><p class="row-state">prouvé au rejeu (+6,1 % vs votre résultat habituel)</p></div><div class="row-num pos">+ 860 €</div></div>
+          <div class="row"><div class="row-main"><p class="row-name">Offre de rentrée <span class="chip-n">en test</span></p><p class="row-state">effet positif mesuré (+3,2 %), objectif manqué</p></div><div class="row-num neu">+ 410 €</div></div>
+          <div class="row"><div class="row-main"><p class="row-name">Atelier famille <span class="chip-n">en test</span></p><p class="row-state">testé, non concluant (effet dans le bruit du lieu)</p></div><div class="row-num neu">—</div></div>
+          <div class="row"><div class="row-main"><p class="row-name">Remise fin de journée <span class="chip-n chip-ecarte">écarté</span></p><p class="row-state">il a prouvé ne pas être adapté (−4,8 %, 1 test manqué)</p></div><div class="row-num neg">− 520 €</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

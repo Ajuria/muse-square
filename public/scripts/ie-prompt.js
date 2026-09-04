@@ -667,7 +667,12 @@ if (!root) {
   function _regFromProducer(p) {
     return p === 'web_search' ? 'web'
       : p === 'llm_only' ? 'model'
-      : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1' || p === 'deterministic_offering_elicit_v1' || p === 'deterministic_missing_dimension_elicit_v1' || p === 'deterministic_declared_capture_v1' || p === 'deterministic_declared_margin_v1') ? null
+      : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1' || p === 'deterministic_offering_elicit_v1' || p === 'deterministic_missing_dimension_elicit_v1' || p === 'deterministic_declared_capture_v1' || p === 'deterministic_declared_margin_v1'
+         // 04/09 — dialogues système du chantier inversion : pas de pilule (même liste que registerFor serveur).
+         || p === 'deterministic_hors_perimetre_v1' || p === 'deterministic_dispositif_famille_v1' || p === 'deterministic_top_familles_v1'
+         // Le renvoi rapport est un dialogue système (registre null côté serveur depuis le 26/08) : la pilule
+         // « Vérifié » qu'il portait côté client était fausse (mesuré au rejeu 04/09).
+         || p === 'deterministic_report_nav_v1') ? null
       : 'vetted';
   }
   function resolveRegister(out) {
@@ -841,7 +846,11 @@ if (!root) {
       // Item 4 — same system-dialogue class: the capture confirmation asserts nothing (it echoes the
       // user's own declaration back); the declared estimate is attributed in-copy (« déclarée par
       // vous », « estimation ») rather than wearing a trust pill it hasn't earned.
-      || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1";
+      || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1"
+      // 04/09 (retour owner : « qui est Jésus ? » → pas de résultat) : la réponse hors périmètre (I1) est
+      // une phrase de dialogue système — headline + prose, aucune pilule. Sans cette ligne, la branche
+      // DAY_DIMENSION_DETAIL avalait la prose et n'affichait que le titre. Rejoué : explorer-client-gate.
+      || producer === "deterministic_hors_perimetre_v1";
     const isLookup = horizon === "lookup_event" || intent === "LOOKUP_EVENT";
     const isTopDays = intent === "WINDOW_TOP_DAYS";
     const isWorstDays = intent === "WINDOW_WORST_DAYS";
@@ -940,6 +949,16 @@ if (!root) {
     // ── LOOKUP ──────────────────────────────────────────────────
     // "date: nom || desc" is a SERVER line format the adapter still parses (content parity; this
     // client parse retires when the packager emits native blocks).
+    // ── RENVOI RAPPORT (04/09, mesuré au rejeu client) : le verdict chiffré du renvoi rapport (26/08,
+    // « 12 574 €, +0,7 % vs période précédente … ») n'était JAMAIS affiché — la branche
+    // DAY_DIMENSION_DETAIL avalait la prose et ne laissait que le titre et le bouton. Headline + prose +
+    // CTA, rien d'autre ; la pilule reste absente (dialogue système, registre null).
+    if (producer === "deterministic_report_nav_v1") {
+      if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+      if (answer) blocks.push({ type: "prose", md: answer, asserts_nothing: true });
+      if (ctaBlock) blocks.push(ctaBlock);
+      return blocks;
+    }
     if (isElicit) {
       if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
       if (answer) blocks.push({ type: "prose", md: answer, asserts_nothing: true });
@@ -1173,6 +1192,20 @@ if (!root) {
     return blocks;
   }
 
+  // I3 (owner 04/09, spec explorer-routage-inversion § 3.8) — la recherche concurrents ne prend que
+  // les QUESTIONS SUR LES CONCURRENTS, aux mots de l'owner : « qui sont mes compétiteurs? », « qui sont
+  // mes concurrents », « cherche adversaires et rivaux », « quels sont mes compétiteurs »,
+  // « compétiteurs », « concurrents », « qui menace mon activité », « cherche compétiteurs ».
+  // Accents et casse indifférents. « concurrence » n'en fait pas partie (une DIMENSION servie par le
+  // serveur : « la concurrence a-t-elle pesé sur mon mois ? »). Tout le reste part à l'endpoint —
+  // avant I3, isQuestion détournait toute saisie courte sans « ? » (mesuré 03/09 : 7 des 10
+  // dialogues de la batterie). isQuestion ne sert plus qu'en mode concurrence (un nom court cherche).
+  function isCompetitorSearch(q) {
+    var s = String(q || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return /(^|[^a-z])(competiteurs?|concurrents?|adversaires?|rivaux|rivales?|rival)([^a-z]|$)/.test(s)
+      || /menace mon activite/.test(s);
+  }
+
   function isQuestion(q) {
     var s = q.trim().toLowerCase();
     if (s.length > 50) return true;
@@ -1194,10 +1227,13 @@ if (!root) {
     const q = overrideQ || (ta && ta.value ? ta.value : "").trim();
     if (!q) return;
 
-    // Smart routing: questions → AI prompt, keywords → competitor search
+    // Routage (I3, 04/09). Mode planning : question SUR LES CONCURRENTS → recherche ; tout le reste →
+    // endpoint. Mode concurrence (la barre est celle de la recherche — même bouton, icône loupe) :
+    // comportement d'avant conservé — une saisie courte sans « ? » (un nom : « GL Events ») cherche,
+    // une question part à l'endpoint, une question sur les concurrents cherche.
     const activeMode = document.querySelector('.ie-mode-btn.active')?.dataset?.mode ?? 'planning';
-    if (!isQuestion(q) && typeof window.__ieRunConcSearch === 'function') {
-      // Short keyword → competitor search regardless of mode
+    const toSearch = activeMode === 'concurrence' ? (!isQuestion(q) || isCompetitorSearch(q)) : isCompetitorSearch(q);
+    if (toSearch && typeof window.__ieRunConcSearch === 'function') {
       // If in planning mode, setMode to concurrence temporarily for search UI
       if (activeMode === 'planning') {
         window.__ieSetMode('concurrence');

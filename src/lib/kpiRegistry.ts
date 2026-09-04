@@ -109,7 +109,7 @@ export const KPI_LABEL_FR: Record<KpiKey, string> = {
   transactions: "ventes/jour",
   discount: "€ remisés/jour",
   reputation: "note Google",
-  family_revenue: "CA famille/jour",
+  family_revenue: "CA famille produits & services/jour",
   profit_estimated: "profit estimé/jour",
 };
 
@@ -138,7 +138,7 @@ export const KPI_NOM_FR: Record<KpiKey, KpiGrammaire> = {
   transactions:     { nom: "ventes",             genre: "f", pluriel: true,  parJour: true },
   discount:         { nom: "\u20ac remis\u00e9s",         genre: "m", pluriel: true,  parJour: true },
   reputation:       { nom: "note Google",        genre: "f", pluriel: false, parJour: false },
-  family_revenue:   { nom: "CA famille",         genre: "m", pluriel: false, parJour: true },
+  family_revenue:   { nom: "CA famille produits & services", genre: "m", pluriel: false, parJour: true },
   profit_estimated: { nom: "profit estimé",      genre: "m", pluriel: false, parJour: true },
 };
 

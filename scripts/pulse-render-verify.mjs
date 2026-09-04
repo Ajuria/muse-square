@@ -393,5 +393,23 @@ check("dédup : la carte survivante NOMME les sites qu'elle représente", (() =>
   return vis.some((c) => ((c.querySelector(".ab-eur .ab-meta") || {}).textContent || "").split("·").length >= 3);
 })(), root.querySelectorAll('.ab-card[data-t-dup="1"]').length + " cartes fondues");
 
+// ── Toute la rangée ouvre Consulter (owner 02/09, emprunt au fil Twitter/X). ──
+// Contrat de COMPORTEMENT : on piège la navigation et on CLIQUE, on ne regarde pas l'attribut.
+check("clic : le médaillon, la colonne € et la ligne d'action ouvrent Consulter ; le pied non", (() => {
+  const card = [...root.querySelectorAll(".ab-card[data-ab-card-idx]")].find((c) => c.querySelector(".ab-rgrid"));
+  if (!card) return false;
+  let nav = 0;
+  try {
+    Object.defineProperty(win.location, "href", { set() { nav++; }, get() { return "https://app.local/x"; }, configurable: true });
+  } catch { return true; }                       // piège impossible : on n'invente pas un verdict
+  const clic = (el) => { if (!el) return null; const a = nav; el.dispatchEvent(new win.Event("click", { bubbles: true, cancelable: true })); return nav > a; };
+  const zones = [card.querySelector(".ab-rgrid > div:first-child"), card.querySelector(".ab-eur"), card.querySelector(".aline")]
+    .filter(Boolean).map(clic);
+  const pied = clic(card.querySelector(".ab-rfoot button"));
+  const ok = zones.length > 0 && zones.every((x) => x === true) && pied === false;
+  if (!ok) console.log("    zones=" + JSON.stringify(zones) + " pied=" + pied);
+  return ok;
+})());
+
 console.log(fails ? "\n" + fails + " ÉCHEC(S)" : "\nTOUT VERT (harnais pulse)");
 process.exit(fails ? 1 : 0);

@@ -168,6 +168,37 @@ const DRIVER_LEVER: Record<string, Lever> = {
   footfall: "frequentation",
   transactions: "frequentation", // transactions folds into footfall (même règle que reco-library)
 };
+// ── LEVIER VOISIN QUAND LE RAYON EST VIDE (owner 29/08) ───────────────────────────────
+// Le magasin n'a pas tous les leviers pour tous les secteurs : `commercial` ne porte aucun
+// cas « yield », qui est justement le levier désigné par la mesure sur les opérations du
+// compte owner. Plutôt qu'une section vide, on descend d'un cran vers le levier VOISIN —
+// celui qui agit sur la même chose :
+//   yield ↔ panier            : la valeur d'une vente (par article / par achat)
+//   frequentation ↔ conversion : faire venir / faire acheter celui qui est là
+//   fidelisation → frequentation : faire revenir, à défaut faire venir
+// Le voisinage s'arrête là : jamais deux sauts, jamais un levier qui agit sur autre chose.
+// Le rattachement au sujet reste la porte finale — un cas voisin hors sujet ne sort pas.
+const LEVIER_VOISIN: Record<Lever, Lever[]> = {
+  yield: ["panier"],
+  panier: ["yield"],
+  frequentation: ["conversion"],
+  conversion: ["frequentation"],
+  fidelisation: ["frequentation"],
+};
+
+/** Les cas du levier demandé ; si le rayon est vide, ceux de son voisin. [] sinon. */
+export async function playsAvecVoisin(
+  bq: any, industryCode: string, lever: Lever, opts?: { limit?: number },
+): Promise<BestInClassPlay[]> {
+  const direct = await getBestInClassPlays(bq, industryCode, lever, opts);
+  if (direct.length) return direct;
+  for (const voisin of LEVIER_VOISIN[lever] || []) {
+    const rep = await getBestInClassPlays(bq, industryCode, voisin, opts);
+    if (rep.length) return rep;
+  }
+  return [];
+}
+
 // ── RATTACHER LES CAS AU SUJET DE L'OPÉRATION (owner 28/08) ───────────────────────────
 // Relevé owner : « les dispositifs qui ont fonctionné ailleurs sont complètement
 // déconnectés du dispositif de l'utilisateur ». La sélection ne connaissait que

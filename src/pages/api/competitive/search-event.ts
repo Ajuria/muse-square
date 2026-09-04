@@ -7,7 +7,7 @@ import { VALID_INDUSTRY, VALID_AUDIENCE, BUCKET_MAP, VALID_CONFIDENCE } from "..
 import { confidenceToScore } from "../../../lib/competitive/constants";
 export const prerender = false;
 
-const SYSTEM_PROMPT = `Tu es un agent d'extraction de données événementielles pour Muse Square Insight, une plateforme de veille concurrentielle pour professionnels de l'événementiel en France.
+const SYSTEM_PROMPT = `Tu es un agent d'extraction de données événementielles pour Muse Square, une plateforme de veille concurrentielle pour professionnels de l'événementiel en France.
 
 Ta mission : identifier et extraire des informations structurées sur un événement professionnel spécifique à partir d'une recherche web.
 

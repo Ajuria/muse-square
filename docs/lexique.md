@@ -60,6 +60,25 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Le logiciel d'encaissement déclaré au profil (P3.1-c) | **Caisse / logiciel de vente** (champ profil) ; à l'import : **votre caisse déclarée (modifiable dans votre profil)** | POS, logiciel de caisse, système d'encaissement |
 | Caisse dont le connecteur n'existe pas encore | **Connexion directe prévue — en attendant, export CSV…** (consigne `export_note_fr` de `analytics.pos_systems`, jamais réécrite en dur) | bientôt disponible, coming soon |
 | Suivi posé par le système à l'ouverture du compte (P3.1-f) | **suivi proposé — ajustez** (chip sur la fiche ; l'infobulle dit le critère : recouvrement mesuré) | suivi automatique, suggestion, recommandé pour vous |
+| L'objet physique d'un dispositif, celui qu'on photographie (un dispositif peut en avoir plusieurs ; un pôle peut avoir plusieurs dispositifs) | **composant** (owner 03/09, D1 — spec `dispositifs-typologie-spec.md` § 3) | meuble, unité typée, sous-type (brouillons du 03/09, attrapés à la relecture owner) |
+| La longueur d'étagère ou d'alignement de meubles dédiée à une catégorie de produits | **linéaire** (owner 03/09) | rayonnage (comme nom de type) |
+| Le meuble central double face | **gondole** (owner 03/09) | — |
+| L'extrémité d'un rayon, très utilisée pour les promotions | **tête de gondole** (owner 03/09) | TG à l'écran (abréviation, règle 6 de tournure) |
+| La présentation qu'on voit depuis la rue | **vitrine** (owner 03/09 ; mot déjà en prod dans les champs mémoire) | — |
+| L'endroit où une personne sert ou conseille | **point service / vente avec une personne** (phrase owner 03/09 matin) ; forme courte à l'écran : **Service client** (owner 03/09 après-midi) | comptoir (comme nom de type), point assisté (clé interne seulement) |
+| Ce qui permet à un musée de parler à son public | **dispositif de médiation** (owner 03/09 : cartel, dispositif multimédia…) | — |
+| Ce que le client fait pour acheter : où il va, ce qu'il combine, ce qu'il doit marcher ou demander | **parcours d'achat** (owner 03/09) | customer journey |
+| Le trajet le plus court qui permet d'acheter ce qu'un ticket contient | **parcours idéal-type** (owner 03/09 — s'affiche toujours comme un minimum : on ne sait pas si le client a hésité ou fait des allers-retours) | parcours réel, trajet |
+| Ce qu'un composant contient et comment le client le choisit (le second menu du formulaire) | **Rôle** (owner 03/09) ; ses valeurs : **Produits du quotidien** (courant), **Produits de connaisseur** (expert), **Promotion** (promo) — owner 03/09 ; **impulsion : EN ATTENTE** (« Achat d'impulsion » proposé, non validé — reste `provisoire`, non rendu) | Produits courants, Produits d'expert, Offre temporaire (brouillons du 03/09 matin) |
+| L'image d'un composant, pièce de la mémoire d'une version | **photo** (mot employé par l'owner le 03/09 — D6 « les photos des composants font partie de l'onboarding » ; le CTA qui y mène reste **Documenter →**) | image, cliché, visuel |
+| Présentation libre au milieu du magasin (type de composant) | **Îlot** (owner 03/09) | Table ou îlot, table |
+| La zone d'encaissement (type de composant) | **Caisse** (owner 03/09 — même mot que le champ profil « Caisse / logiciel de vente » : le contexte tranche) | Zone de caisse |
+| Dégustation, atelier, démonstration (type de composant) | **Espace dégustation** (owner 03/09) | Espace dégustation / atelier, atelier |
+| Forme courte de « point service / vente avec une personne » (menu déroulant) | **Service client** (owner 03/09) | Point service, point assisté, comptoir (comme nom de type) |
+| Rôles d'un Service client | **Service au comptoir** (la personne sert le produit) · **Conseiller clientèle** (la personne conseille, le produit est ailleurs) · **Accueil** (accueil / billetterie) — owner 03/09 | Comptoir, Point conseil, Billetterie |
+| Sous-types de médiation | **Cartel** · **Dispositif multimédia** · **Signalétique** (owner 03/09) ; **panneau de salle : EN ATTENTE** (proposé, non validé — reste `provisoire`, non rendu) | Texte de salle, parcours fléché |
+| Ce qu'Explorer répond à une question qui ne porte sur rien du site (« qui est Jésus ? », « bonjour », l'heure, une blague) | **Aucune donnée pour cette question** (titre) — corps : « Je réponds sur vos ventes par jour, vos familles de produits (Coffee, Tea, Bakery…), vos pôles, vos opérations et vos suivis. Rien ici ne répond à « <la question, verbatim> ». Par exemple : « Pourquoi le JJ/MM ? » » (option A, owner 03/09 — miroir de l'élicitation « Je ne trouve ni pôle ni famille de ce nom sur ce site » ; familles réelles du compte, dernier jour mesuré ; foyer `src/lib/ai/horsPerimetre.ts`). Ne se rend QUE si aucun signal métier ne tire (garde déterministe) | Je ne comprends pas, Question hors sujet, Désolé, toute phrase de chatbot générique |
+| La part de chaque famille dans le CA du jour, lue pendant une opération (Explorer, lecture dispositif × famille) | **mix produits & services** (owner 04/09) ; lignes de la table : **Ventes/jour avec <famille>** (tickets contenant la famille) · **Panier moyen avec <famille>** (le ticket entier de ces tickets — owner 04/09) · **CA/jour <famille>** · **Part de <famille> dans le CA** ; l'écart d'une part s'écrit en RELATIF « +1,6 % » (owner 04/09) ; foyer `src/lib/dispositifFamille.ts`, doc `explorer-dispositif-famille-spec.md` | mix produit (au singulier, hors matcher), points de part, pp |
 
 ## Les mots des interactions humaines (Slack — registre distinct, owner 28/08)
 
@@ -148,6 +167,12 @@ quand l'owner refuse une phrase** ; en retirer une demande son accord.
   les services vendus sont des familles au même titre que les produits (item_category).
   Remplace « famille produit » sur les 4 chaînes visibles (formulaire opération ×2, infobulle
   profit du héros, infobulle marge du plan). Le registre sémantique porte la même définition.
+  **ÉTENDU EN PROD le 31/08 (owner : « partout y compris en prod »)** : le KPI famille aussi —
+  `kpiRegistry` (nom + label/jour), le pli de lecture et le bandeau du tableau disent désormais
+  « CA famille produits & services ». La forme NOMMÉE ne l'empile pas : quand la famille est
+  connue, la règle owner du 27/08 s'applique (« CA de la famille « Branded » »). Piège mesuré :
+  le `&` est ÉCHAPPÉ au rendu (`&amp;`) — un test qui asserte la source échoue, il faut asserter
+  la forme RENDUE ; contrôlé sur le rendu réel, aucun double-échappement.
 
 - Indice de corrélation (owner 28/08) : **« Indice de corrélation »** — palier + chiffre
   (« Indice de corrélation fort (r = 0,42) », paliers faible < 0,3 / moyen / fort ≥ 0,5) ;

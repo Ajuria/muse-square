@@ -10,6 +10,8 @@ import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/i
 import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline, measureProfitBaseline } from "../../../lib/kpiRegistry";
 import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/actionCommitments";
+import { parseComponents } from "../../../lib/dispositifTypes";
+import { listPoles } from "../../../lib/poleReading";
 import { assignmentMessageFr } from "../../../lib/channels/slackMessagesFr";
 import { themeForActionType } from "../../../lib/recoThemeMap";
 import { vif } from "../../../lib/commitmentResolve";
@@ -131,6 +133,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
     if (url.searchParams.get("goal_context")) {
       const wk = String(url.searchParams.get("window_kind") || "7d").trim();
       const days = WINDOW_DAYS[wk] || 7;
+      // Pôles du site (03/09, « Je m'engage » rattaché à un pôle) : LE foyer listPoles, amorcé en
+      // parallèle du contexte d'objectif — un aller-retour de plus en parallèle, jamais en série.
+      const polesP = listPoles(bq, locationId).catch(() => []);
       const [gRows] = await bq.query({
         query: `
           WITH base AS (
@@ -174,6 +179,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         floor_pct: pctForZ(1.0),
         preset_modeste_pct: pctForZ(1.0),
         preset_net_pct: pctForZ(1.5),
+        // La liste des pôles ouverts pour « Rattacher à un pôle » (mêmes champs que create_context).
+        poles: (await polesP).map((p) => ({ dispositif_id: p.dispositif_id, name: p.name, families: p.families })),
       });
     }
 
@@ -248,6 +255,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
         }
       }
       const _pLineage = lineageFor(_pParent, poleId);
+      // Composants (03/09, spec dispositifs-typologie § 3) : type/rôle du registre, clé stable,
+      // libellé libre. Absents au POST → hérités du parent (même règle que le contexte de version).
+      const _pComps = parseComponents(body.components, () => crypto.randomUUID().slice(0, 8));
+      if (!_pComps.ok) return json({ ok: false, error: _pComps.error }, 400);
+      const _pComponents: string | null = body.components != null
+        ? (_pComps.components.length ? JSON.stringify(_pComps.components) : null)
+        : (((_pParent as any)?.components as string | null | undefined) ?? null);
       const row = await readMergeWrite(bqP, {
         commitmentId: poleId, transitionType: "created", create: true,
         patch: {
@@ -256,6 +270,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           origin_kind: "pole", origin_action_type: "pole",
           dispositif_nature: "permanent",
           pole_families: fams.length ? JSON.stringify(fams) : ((_pParent as any)?.pole_families ?? null),
+          components: _pComponents,
           committed_action_text: String(body.committed_action_text).trim(),
           owner_person_name: body.owner_person_name != null && String(body.owner_person_name).trim()
             ? String(body.owner_person_name).trim() : (_pParent?.owner_person_name ?? null),

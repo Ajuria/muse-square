@@ -6,7 +6,7 @@ import { callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
 
 export const prerender = false;
 
-const SYSTEM_PROMPT = `Tu es un agent d'extraction de données concurrentielles pour Muse Square Insight, une plateforme de veille concurrentielle pour professionnels de l'événementiel en France.
+const SYSTEM_PROMPT = `Tu es un agent d'extraction de données concurrentielles pour Muse Square, une plateforme de veille concurrentielle pour professionnels de l'événementiel en France.
 
 Ta mission : identifier et extraire des informations structurées sur une organisation concurrente (marque, enseigne, organisateur, lieu) à partir d'une recherche web.
 

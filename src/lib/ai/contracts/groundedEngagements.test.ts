@@ -9,7 +9,7 @@ import { verdictRegisterViolations } from "./groundingChecks";
 const payload = () => ({
   horizon: "day", question: "q", date: "2026-08-27", display_date: "27/08/2026",
   citable_facts: [
-    { id: "e0", fact_fr: "Dispositif « Corner de vente producteur » — 2 tests sur le CA famille : −50,2 % le 08/08/2026 et −78,3 % le 22/08/2026 (effet prouvé), vs votre résultat habituel. Effet mesuré : il a prouvé ne pas être adapté.", claim_type: "observed_difference", tier: "preliminaire" },
+    { id: "e0", fact_fr: "Dispositif « Corner de vente producteur » — 2 tests sur le CA famille produits & services : −50,2 % le 08/08/2026 et −78,3 % le 22/08/2026 (effet prouvé), vs votre résultat habituel. Effet mesuré : il a prouvé ne pas être adapté.", claim_type: "observed_difference", tier: "preliminaire" },
     { id: "e1", fact_fr: "Objectif de +11 % manqué.", claim_type: "measured", tier: "preliminaire" },
     { id: "e2", fact_fr: "Dispositif « Vacances scolaires » — version 2 en cours, verdict d'ici le 02/09/2026.", claim_type: "observed" },
   ],
@@ -27,7 +27,7 @@ const out = (answer: string, cited: string[]) => ({
 describe("lie-bait engagements — chiffres", () => {
   it("rejette un effet % inventé (+18 % absent des faits)", () => {
     const [ok, errs] = validate_packager_output_grounded_day(
-      out("Votre dispositif a amélioré le CA famille de +18 %.", ["e0"]), payload());
+      out("Votre dispositif a amélioré le CA famille produits & services de +18 %.", ["e0"]), payload());
     expect(ok).toBe(false);
     expect(errs.join(" ")).toContain("18");
   });
@@ -71,7 +71,7 @@ describe("lie-bait engagements — registre de verdict", () => {
 describe("usages légitimes — passent", () => {
   it("citer l'effet réel avec son registre passe (chiffres et « prouvé » portés par e0)", () => {
     const [ok, errs] = validate_packager_output_grounded_day(
-      out("Le dispositif « Corner de vente producteur » a un effet prouvé : −50,2 % puis −78,3 % sur le CA famille vs votre résultat habituel.", ["e0"]), payload());
+      out("Le dispositif « Corner de vente producteur » a un effet prouvé : −50,2 % puis −78,3 % sur le CA famille produits & services vs votre résultat habituel.", ["e0"]), payload());
     expect(ok, errs.join(" | ")).toBe(true);
   });
   it("dire l'objectif manqué en citant e1 passe", () => {

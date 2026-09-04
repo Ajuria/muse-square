@@ -29,6 +29,12 @@ const SURFACES = [
   "public/card-kit.js",
   "public/draft-workspace.js",
   "public/commit-form.js",
+  // 03/09 (I1) : la réponse hors périmètre d'Explorer — option A, owner 03/09.
+  "src/lib/ai/horsPerimetre.ts",
+  // 04/09 (I8) : la lecture dispositif × famille — libellés owner 04/09.
+  "src/lib/dispositifFamille.ts",
+  "src/lib/topFamilles.ts",
+  "public/pole-form.js",
   // Le harnais de rendu DUPLIQUE la copie réelle dans ses fixtures : sans lui sous garde,
   // il affiche des mots périmés et ment sur ce que la page dit (constaté le 10/08).
   "public/card-harness.html",

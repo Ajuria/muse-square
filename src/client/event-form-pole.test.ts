@@ -21,7 +21,14 @@ function stubFetch(): void {
   };
 }
 
-beforeAll(() => { (0, eval)(readFileSync("public/event-form.js", "utf8")); });
+// Rouge depuis le 28/08 (instruit le 03/09) : le panneau pôle est rendu par window.MSPoleForm,
+// module PARTAGÉ extrait d'event-form.js (vue équipe inc 9c, d5d692f) — il faut évaluer les DEUX
+// fichiers ; et le libellé des familles est le mot owner « Familles de produits & services »
+// (28/08, ddbf3d4), rendu `&amp;` dans le innerHTML.
+beforeAll(() => {
+  (0, eval)(readFileSync("public/event-form.js", "utf8"));
+  (0, eval)(readFileSync("public/pole-form.js", "utf8"));
+});
 
 it("la bascule montre le panneau pôle, les chips choisissent les familles, le POST porte nature permanent", async () => {
   stubFetch();
@@ -40,7 +47,7 @@ it("la bascule montre le panneau pôle, les chips choisissent les familles, le P
   (mount.querySelector('[data-ef-mode="pole"]') as HTMLElement).click();
   expect(pole.style.display).toBe("");
   expect(dated.style.display).toBe("none");
-  expect(pole.innerHTML).toContain("Familles du pôle — depuis vos ventes");
+  expect(pole.innerHTML).toContain("Familles de produits &amp; services — depuis vos ventes");
   expect(pole.innerHTML).toContain("Coffee · 412 €/j");
 
   (mount.querySelector('[data-ef="polename"]') as HTMLInputElement).value = "Pôle périssables";

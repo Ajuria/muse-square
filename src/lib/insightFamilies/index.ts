@@ -83,7 +83,8 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /\bquels? (produits?|articles?|references?)\b/,
       /(qu est ce que|ce que|que) je vends?\b/,
       /(qu est ce qui|ce qui) se vend\b/,
-      /(meilleure?s? vente|meilleurs? vendeur|best[- ]?seller|produits? phares?|top (produits?|ventes?))/,
+      // I7 (04/09) : « top 3 produits » — le nombre entre « top » et « produits » ne doit pas faire rater le matcher.
+      /(meilleure?s? vente|meilleurs? vendeur|best[- ]?seller|produits? phares?|top (\d+ )?(produits?|ventes?))/,
       /ventes? par (categorie|produit|article|famille)/,
       /(repartition|mix|assortiment|composition) (des ventes|produit|de vente|de mon)/,
       /\b(ma carte|mon menu|mon assortiment|mon catalogue)\b/,

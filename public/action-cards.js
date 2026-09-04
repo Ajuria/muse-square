@@ -1,5 +1,5 @@
 /**
- * ACTION CARDS v2 — Muse Square Insight
+ * ACTION CARDS v2 — Muse Square
  *
  * Single source of truth for action card branding, personalized sowhat,
  * draft seeds per channel, and Agir dropdown rendering.
@@ -1635,7 +1635,7 @@
   );
 
   // C2 — weather_comp_opportunity
-  reg('weather_comp_opportunity', 'Beau temps + faible concurrence', 'OPPORTUNIT\u00c9', '\u2600\ufe0f', '#2E7D32', 'action', 'pulse#radar-score',
+  reg('weather_comp_opportunity', 'Adaptez vos op\u00e9rations \u2014 m\u00e9t\u00e9o favorable, moins d\u2019activit\u00e9 que d\u2019habitude dans votre p\u00e9rim\u00e8tre', 'OPPORTUNIT\u00c9', '\u2600\ufe0f', '#2E7D32', 'action', 'pulse#radar-score',
     function(a, p, d) {
       var pr = Number(a.pressure_ratio || d.competition_pressure_ratio || 0);
       var n = Number(a.events_5km || d.events_within_5km_count || 0);
@@ -1644,7 +1644,7 @@
       return line;
     },
     {
-      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Beau temps, peu de concurrence. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
+      instagram: function(a, p, d) { return 'Post Instagram pour ' + siteName(p) + '. Beau temps, peu d\u2019activit\u00e9 dans le p\u00e9rim\u00e8tre. ' + (userEdge(p) || '') + '. Max 2200 car.'; },
       gbp: function(a, p, d) { return 'Post GBP pour ' + siteName(p) + '. Conditions id\u00e9ales. Horaires + offre. Max 1500 car.'; }
     }
   );
@@ -3153,17 +3153,34 @@
     'sales_surge': { action: function(a, p, d) {
       var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
       var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
-      // Real driver = the caisse decomposition (dominant_factor when present; else the larger delta).
-      // This is arithmetic FACT, not "repérez ce qui a marché" filler. Numbers stay verbatim.
-      var byVol = a.dominant_factor ? (a.dominant_factor === 'transactions')
-                : ((tx != null && bk != null) ? (Math.abs(tx) >= Math.abs(bk)) : true);
-      var driver = byVol ? 'du volume' : 'du panier moyen';
-      var detail = (tx != null && bk != null)
-        ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de ventes, panier ' + (bk >= 0 ? '+' : '') + bk + ' %)'
-        : (tx != null ? ' (' + (tx >= 0 ? '+' : '') + tx + ' % de ventes)' : (bk != null ? ' (panier ' + (bk >= 0 ? '+' : '') + bk + ' %)' : ''));
-      // Named co-occurring context — observed, not asserted as the sole cause; omitted when nothing specific.
-      var hook = a.is_vacation ? 'les vacances scolaires' : (a.is_holiday ? 'le jour férié' : (Number(a.weather_alert || 0) === 0 ? 'une météo favorable' : ''));
-      return 'La hausse vient ' + driver + detail + (hook ? ', porté par ' + hook : '') + '. À rejouer sur vos prochaines journées comparables.';
+      // PORTE DE SIGNE (02/09) \u2014 un facteur ne PORTE la hausse que s'il monte LUI AUSSI.
+      // C'est la r\u00e8gle d'attribution d\u00e9j\u00e0 arbitr\u00e9e sur opFunnel (m\u00eame c\u00f4t\u00e9 que le total) ;
+      // elle manquait ici. L'ancien choix se faisait par MAGNITUDE ABSOLUE \u2014 comme le
+      // `dominant_factor` du mod\u00e8le dbt, qui n'a pas non plus de porte de signe. R\u00e9sultat
+      // mesur\u00e9 le 01/09 sur le compte owner : la carte \u00e9crivait \u00ab la hausse vient du panier
+      // moyen \u00bb avec panier \u2212 5,2 % et ventes \u2212 0,3 %. Les deux baissaient.
+      // SECOND PI\u00c8GE, mesur\u00e9 le m\u00eame jour : les deux nombres n'ont pas le m\u00eame r\u00e9f\u00e9rentiel.
+      // La hausse se lit sur l'attendu du M\u00caME JOUR DE SEMAINE (residual_z, fen\u00eatre w_dow) ;
+      // les deltas ventes/panier se lisent sur la moyenne des 28 DERNIERS JOURS, tous jours
+      // confondus (fen\u00eatre w de fct_client_sales_signals_daily). On ne les met donc plus
+      // c\u00f4te \u00e0 c\u00f4te sans nommer le second.
+      var mont = { transactions: tx != null && tx > 0, basket: bk != null && bk > 0 };
+      var dom = (a.dominant_factor === 'transactions' || a.dominant_factor === 'basket') ? a.dominant_factor : null;
+      var pick = (dom && mont[dom]) ? dom
+               : (mont.transactions && mont.basket) ? (Math.abs(tx) >= Math.abs(bk) ? 'transactions' : 'basket')
+               : mont.transactions ? 'transactions' : (mont.basket ? 'basket' : null);
+      var sgn = function (v) { return (v >= 0 ? '+' : '\u2212') + Math.abs(v) + ' %'; };
+      var ref = ' sur leur moyenne des 28 derniers jours';
+      var chiffres = (tx != null && bk != null) ? ' (ventes ' + sgn(tx) + ', panier ' + sgn(bk) + ref + ')'
+        : (tx != null ? ' (ventes ' + sgn(tx) + ref + ')' : (bk != null ? ' (panier ' + sgn(bk) + ref + ')' : ''));
+      // Contexte co-occurrent NOMM\u00c9 \u2014 observ\u00e9, jamais pos\u00e9 comme la cause unique.
+      var hook = a.is_vacation ? 'les vacances scolaires' : (a.is_holiday ? 'le jour f\u00e9ri\u00e9' : (Number(a.weather_alert || 0) === 0 ? 'une m\u00e9t\u00e9o favorable' : ''));
+      if (!pick) {
+        return 'Action conseill\u00e9e : vous d\u00e9passez votre r\u00e9sultat habituel pour ce jour, sans que le volume ni le panier ne montent'
+          + chiffres + '. Notez ce que vous aviez en place ce jour-l\u00e0, pour pouvoir le rejouer.';
+      }
+      return 'Action conseill\u00e9e : la hausse vient ' + (pick === 'transactions' ? 'du volume' : 'du panier moyen')
+        + chiffres + (hook ? ', port\u00e9 par ' + hook : '') + '. \u00c0 rejouer sur vos prochaines journ\u00e9es comparables.';
     }, urgency: 'plan' },
     'sales_competition_cannibalization': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;

@@ -7,6 +7,7 @@
 - dbt Cloud IDE (never run dbt CLI commands — all dbt work happens in dbt Cloud IDE)
 - Clerk v3 for auth
 - Repo: git@github.com:Ajuria/muse-square.git, branch: `dev`
+- INTENT : `docs/intent.md` (une page, DÉFINITIF) dit ce que le produit est POUR, ses objets et le test de valeur ; tout chantier s'ouvre par la ligne qu'il sert (« Sert : intent § … »).
 
 ## Code Discipline
 - **DOCS : le titre dit la nature, le corps dit l'ÉTAT** (`docs/README.md`, convention owner 26/08). Tout document de `docs/` se termine par `— DÉFINITIF` (dit ce qui est) ou `— SPEC DE TRAVAIL` (dit ce qui reste à faire) ; `head -1 docs/*.md` est l'index. Dans les DEUX cas, ce qui est déjà appliqué s'écrit au PRÉSENT — jamais « remplacer X par Y » : un `grep` tombe sur le X et repart avec la valeur périmée (défaut mesuré sur `competition-split-spec.md`, où le X était l'unité buguée que le doc servait à corriger). Une spec de travail dont la dernière instruction est appliquée se RÉÉCRIT en définitif — elle ne se marque pas « terminé ». Réécrire oblige à re-vérifier chaque affirmation gardée : c'est le but (3 contre-vérités tombées au premier passage). Gardent leur date : les mesures, les arbitrages owner, les constats non re-vérifiés.
@@ -30,6 +31,20 @@
 - No nested template literals inside `.map()` calls.
 - Never hardcode IDs, coordinates, or data. All solutions must be pipeline-driven and generic.
 - Never delete old functions until replacements are tested.
+
+## Placement des fichiers (règles owner 04/09 — `docs/organisation-depot-spec.md` dit l'état et les phases)
+- **La PLACE dit si c'est livré et combien de temps ça vit ; le NOM d'un fichier ne dit ni l'un ni l'autre.** `src/` et `public/` sont livrés en prod, rien d'autre. `public/` ne contient QUE ce qui doit être servi : `npm run build` ÉCHOUE si un fichier d'outillage atteint l'artefact (tripwire `tools/build/strip-protos.mjs`).
+- **La racine du dépôt ne reçoit AUCUN fichier** hors configuration (`package.json`, `astro.config.mjs`, `tsconfig.json`, `vitest.config.ts`, `tailwind.config.cjs`) et les deux README.
+- **`tools/` = tout l'outillage de dev, un sous-dossier par DURÉE DE VIE** : `proto/` (jusqu'à l'arbitrage owner) · `harness/` (tant que la surface vit) · `battery/` (portes de merge permanentes) · `generators/` (écrivent les données de proto et de fixture depuis BQ) · `oneoff/` (migrations, backfills, revues — préfixe `AAAA-MM-JJ-`, supprimés après exécution) · `build/` · `python/`.
+- **Un proto = UN fichier par piste en attente ; jamais `-v2` à côté de `-v1`** — une version REMPLACE la précédente, git garde l'histoire. Le proto est SUPPRIMÉ dans le commit qui livre la surface ; l'arbitrage vit dans `docs/`. Deux pistes soumises ENSEMBLE s'appellent `-piste-a` / `-piste-b` et meurent ensemble.
+- **Un brouillon ne vit JAMAIS dans le dépôt** : le scratchpad de session. `_tmp-*` est refusé par le hook.
+- **`data/`** = données de référence et de SEED (`ref/`), échantillons (`samples/`), captures de run (`shots/`). **Un fichier de seed ou de jeu de données ne se supprime jamais** (owner 04/09).
+- **Tests** : co-localisés `x.test.ts` à côté de `x.ts` dans `src/` ; `tests/` pour ce dont le sujet n'est PAS dans `src/` (les libs de `public/`). Aucun `__tests__/`, aucun `.spec.ts` dans `tools/`.
+- **`docs/`** : documents vivants à la racine ; `audits/` instantanés datés, jamais mis à jour ; `dbt-handoff/` passations ; `catalog/` catalogue BQ ; `site/` copie marketing. `docs/README.md` § Place fait loi sur les documents comme ce paragraphe sur le code.
+- **`src/lib/` se range par DOMAINE** (`commitments/`, `dispositifs/`, `explorer/`, `kpi/`, `events/`, …) : un nouveau fichier entre dans son domaine, jamais à plat. Ce qui ne relève d'aucun domaine (`bq.ts`, `scope.ts`, `rate-limit.ts`…) reste à la racine de `lib/`.
+- **Toute commande de vérification passe par `npm run`** (`gate`, `harness`, `placement:check`, …) — une commande qu'on ne peut pas taper depuis `package.json` n'existe pas.
+- **`module-index.md` porte le chemin COMPLET** de chaque fichier : le dossier fait partie de l'identité.
+- Le garde `.claude/hooks/placement-guard.sh` (PreToolUse sur `git commit`) refuse un fichier hors de sa place ; il ne se contourne pas, il s'instruit.
 
 ## Working Method (before ANY code — non-negotiable)
 - **Test against the REAL local account, always.** The owner tests one account only — **Muse Square**, `location_id f10c3e58-326e-4e38-947c-d59fcbe51df5`. Verify every data claim AND every rendered card against THIS location and the exact card URL the owner uses (`/app/insightevent/insight?type=<card>&date=<date>&location_id=f10c3e58…`). NEVER verify against a different demo location (e.g. ff2aeb35) — its data differs and "works for me" then breaks for the owner.
@@ -128,6 +143,7 @@
   3. **REJOUER le geste par programme sur le fichier réel, puis RELIRE la sortie** — modèles perdus, descriptions modifiées, commentaires de section déplacés, diff ajouts/suppressions ligne à ligne. **« Le YAML parse » ne prouve rien** : mon générateur avait déplacé cinq titres de section À L'INTÉRIEUR de modèles (entre `config:` et `columns:`) et le fichier parsait parfaitement.
   4. **Vérifier la VERSION de l'outil avant d'écrire sa syntaxe.** `access:` au niveau du modèle est déprécié en dbt 1.10 (`PropertyMovedToConfigDeprecation`, comme `group`, `tags`, `meta`, `docs`, `freshness`) : 5 modèles = 5 signalements et un dossier rouge dans l'IDE. La version se lit dans `target/manifest.json` ou dans l'IDE, elle ne se suppose pas.
   5. **Une consigne = UN geste quand c'est prouvable.** Découper en 19 opérations manuelles n'est pas de la prudence, c'est un défaut de génération : dès que la sortie est prouvée sans perte (modèles, descriptions, commentaires, diff), UN fichier complet à coller bat 18 sélections à la main. L'owner ne doit jamais compter des lignes ni arbitrer une indentation.
+  6. **L'ORDRE DES FICHIERS EST L'ORDRE DU DAG — les dépendances d'abord, toujours (échec 03/09).** Une passation dbt se colle dans l'ordre où elle est écrite, et dbt refuse de compiler un modèle dont une dépendance n'existe pas encore dans le projet. Livrée dans l'ordre « quatre fichiers à modifier, puis six à créer, seeds en dernier », la passation composants a produit chez l'owner `depends on a node named 'dispositif_types' which was not found` : la vue semantic référençait deux seeds que le document ne lui faisait créer que trois sections plus loin. Règle mécanique : **numéroter les fichiers dans l'ordre amont → aval — seeds, sources, staging, intermédiaire, mart, semantic, puis les yml qui les déclarent** — et le vérifier par programme avant envoi : pour chaque fichier livré, tout `ref()` / `source()` qu'il contient doit pointer sur un nœud déjà présent dans la branche de base OU livré à un numéro inférieur. Le découpage « modifier / créer » est un critère de présentation, jamais un ordre d'exécution.
 
 ## App-repo Git flow (deploy)
 - Verify repo first (`git remote -v` → `Ajuria/muse-square`, the APP repo — not the dbt repo `ms_database`). Stage explicit files, never `git add .`.

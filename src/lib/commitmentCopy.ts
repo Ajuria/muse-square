@@ -180,6 +180,37 @@ export const EVOL_COPY = {
   pole_chip: "Dispositif en continu",
   pole_resp: "Responsable(s)",
   pole_fams_title: "Familles du pôle",
+  // Composants (03/09, mot owner « composant » — lexique) : les unités physiques du dispositif.
+  pole_components_title: "Composants",
+  pole_components_none: "Aucun composant déclaré pour l'instant.",
+  // Photos des composants (étape 4, 03/09). « Documenter » = le CTA owner qui mène ici ; « photo »
+  // = le mot employé par l'owner (D6, 03/09). Les réponses sont celles du formulaire de lecture.
+  pole_photo_cta: "Documenter →",
+  pole_photo_none: "Aucune photo pour l'instant.",
+  pole_photo_yes: "oui",
+  pole_photo_no: "non",
+  pole_photo_nv: "non visible",
+  pole_photo_items: "Articles reconnus :",
+  pole_photo_person: "Une personne est visible sur la photo — elle n'est pas conservée.",
+  pole_photo_failed: "La lecture de la photo a échoué — réessayez.",
+  pole_photo_reading: "Lecture en cours…",
+  // Confirmation des articles (03/09) : « Confirmer → » = CTA verbe + flèche ; « confirmé » est
+  // déjà le mot des retours de signal (positive/negative/confirmed).
+  pole_photo_confirm: "Confirmer →",
+  pole_photo_confirmed: "Articles confirmés :",
+  // Articles des photos face aux ventes (livrable 2, 03/09) — miroir des chaînes de la lecture du
+  // pôle (« Résultats — 30 derniers jours », « {n30} j vendus · habituel {base} €/j »).
+  pole_items_title: "Articles des photos — 30 derniers jours",
+  pole_items_caption: "Ventes de chaque article vu sur une photo, comparées à votre résultat habituel sur les mêmes jours.",
+  pole_items_retrait_title: "En retrait sur votre résultat habituel",
+  pole_items_unseen_title: "Vendus sans être vus sur une photo",
+  pole_items_row: "{rev} € sur {n} j vendus · habituel {exp} €",
+  pole_items_thin: "Données insuffisantes",
+  pole_items_no_photos: "Aucune photo lue pour l'instant.",
+  pole_items_no_retrait: "Aucun article vu sur les photos n'est en retrait.",
+  pole_items_all_seen: "Tous les articles vendus des familles du pôle sont vus sur une photo.",
+  pole_items_confirmed: "confirmé",
+  pole_items_recognised: "reconnu",
   pole_reading_title: "Résultats — 30 derniers jours",
   pole_reading_caption: "€/j des jours vendus, comparé aux 90 jours précédents.",
   pole_reading_row: "{n30} j vendus · habituel {base} €/j",
@@ -214,6 +245,16 @@ export const EVOL_COPY = {
   // One title (reuses the app's "dispositif" vocabulary — cf. "Votre dispositif"); the verdict→intent
   // nuance lives in the subline: pivot (en-dessous) · reinforce (aligné) · scale (au-dessus).
   diag_bic_title: "Dispositifs qui ont fonctionné ailleurs",
+  // Ce que la MESURE désigne (owner 29/08) : la ligne qui transforme les cas en
+  // illustrations d'un levier, au lieu de consignes à appliquer. Elle nomme le facteur
+  // sorti de la caisse — donc inécrivable sans ouvrir le compte, et datée.
+  bic_mesure_tx: "Ce que la mesure désigne : le nombre d’achats.",
+  bic_mesure_items: "Ce que la mesure désigne : le nombre d’articles par achat.",
+  bic_mesure_price: "Ce que la mesure désigne : la valeur de chaque article vendu.",
+  // L'échelle de prix DU LIEU (owner 29/08) : la montée en gamme cesse d'être une idée —
+  // le plafond existe déjà dans sa carte, et on dit ce qu'il pèse.
+  ladder_top: "Vous vendez déjà à {top} € ({nom}, {units} vendus sur {days} jours). Votre article moyen est à {avg} €.",
+  ladder_share: "Vos {n} références au-dessus de ce moyen font {share} % de votre chiffre.",
   diag_bic_caption_pivot: "Une autre approche à tester — pas un résultat promis.",
   diag_bic_caption_reinforce: "Comment des lieux comparables ont amplifié ce type d'action.",
   diag_bic_caption_scale: "Comment d'autres ont pérennisé ce type de résultat.",

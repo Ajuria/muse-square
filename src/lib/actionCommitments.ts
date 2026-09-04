@@ -139,6 +139,12 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   // optionnel, JAMAIS déduit ni hérité en silence (un coût fabriqué maquillerait le net). Le
   // bilan rend le NET en € (écart CA mesuré − coûts), jamais un ratio.
   ["operation_cost_eur", "FLOAT64"],
+  // COMPOSANTS (03/09, spec dispositifs-typologie § 3, owner D1) — JSON array de
+  // {key, type, role, label} : les unités physiques d'un dispositif PERMANENT (linéaire, gondole,
+  // vitrine…). type/role viennent du registre dispositifTypes.ts, jamais du texte libre ; la clé
+  // est stable dans la chaîne de versions (la photo s'y rattache). NULL sur une opération datée.
+  // Hérité du parent à la V2 si absent au POST. Position 80 (ALTER vérifié live le 03/09).
+  ["components", "STRING"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -230,6 +236,7 @@ export interface CommitmentRow {
   pole_families: string | null;
   attached_pole_id: string | null;
   operation_cost_eur: number | null;  // coût saisi (€) — jamais déduit
+  components: string | null;          // JSON array {key,type,role,label} — permanents seulement
 }
 
 // The columns that make a commitment a commitment. Any write (create OR later

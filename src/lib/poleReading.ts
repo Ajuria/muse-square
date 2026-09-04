@@ -183,9 +183,67 @@ export interface PoleListRow {
   lever: string | null;
   responsable: string | null;
   commitment_id: string | null;
+  // Composants de la VERSION COURANTE (03/09, spec dispositifs-typologie § 5.5) — lus dans la
+  // couche semantic (vw_insight_event_dispositif_components), jamais dans la table analytics.
+  components: PoleComponentRow[];
+}
+
+// Un composant d'un dispositif permanent, tel que la couche semantic le libelle. Les libellés
+// `provisoire` n'ont pas de mot owner (lexique) : un rendu les OMET, il ne les invente pas.
+export interface PoleComponentRow {
+  dispositif_id: string;
+  component_key: string;
+  type: string;
+  type_label_fr: string | null;
+  type_provisoire: boolean;
+  role: string | null;
+  role_label_fr: string | null;
+  role_provisoire: boolean;
+  label: string | null;
+  version_no: number | null;
+  created_at: string | null;   // ISO — la version courante existe depuis cette date
+  pole_name: string;
+  pole_families: string[];
+}
+
+// LE foyer des composants — la vue semantic de la version courante (statut ouvert), triée par
+// pôle puis par ordre de déclaration. Une vue en chaîne de vues : un composant déclaré dans la
+// session se lit dans la session.
+export async function listPoleComponents(bq: any, location_id: string, limit = 200): Promise<PoleComponentRow[]> {
+  const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  const rows = await bq.query({
+    query: `SELECT dispositif_id, component_key, component_type, component_type_label_fr, component_type_provisoire,
+                   component_role, component_role_label_fr, component_role_provisoire, component_label,
+                   version_no, CAST(created_at AS STRING) AS created_at, committed_action_text, pole_families
+            FROM \`${PROJECT}.semantic.vw_insight_event_dispositif_components\`
+            WHERE location_id = @location_id AND status = 'open'
+            ORDER BY committed_action_text, component_order LIMIT ${Math.max(1, Math.min(500, limit))}`,
+    params: { location_id }, location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  return (rows as any[]).map((r) => {
+    let fams: string[] = [];
+    try { fams = JSON.parse(String(flat(r.pole_families) || "[]")); } catch { /* périmètre illisible */ }
+    return {
+      dispositif_id: String(flat(r.dispositif_id)),
+      component_key: String(flat(r.component_key)),
+      type: String(flat(r.component_type)),
+      type_label_fr: r.component_type_label_fr != null ? String(flat(r.component_type_label_fr)) : null,
+      type_provisoire: Boolean(flat(r.component_type_provisoire)),
+      role: r.component_role != null ? String(flat(r.component_role)) : null,
+      role_label_fr: r.component_role_label_fr != null ? String(flat(r.component_role_label_fr)) : null,
+      role_provisoire: Boolean(flat(r.component_role_provisoire)),
+      label: r.component_label != null ? String(flat(r.component_label)) || null : null,
+      version_no: r.version_no != null ? Number(flat(r.version_no)) : null,
+      created_at: r.created_at != null ? String(flat(r.created_at)) : null,
+      pole_name: String(flat(r.committed_action_text) || "").split(" — ")[0],
+      pole_families: fams,
+    };
+  });
 }
 export async function listPoles(bq: any, location_id: string, limit = 12): Promise<PoleListRow[]> {
   const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  // Composants (semantic) amorcés en parallèle de la liste — un aller-retour, pas deux en série.
+  const componentsP = listPoleComponents(bq, location_id);
   const rows = await bq.query({
     query: `SELECT commitment_id, dispositif_id, committed_action_text, pole_families, owner_person_name FROM (
               SELECT commitment_id, dispositif_id, committed_action_text, pole_families, owner_person_name, status, verdict,
@@ -198,17 +256,112 @@ export async function listPoles(bq: any, location_id: string, limit = 12): Promi
             ORDER BY committed_action_text LIMIT ${Math.max(1, Math.min(50, limit))}`,
     params: { location_id }, location: "EU",
   }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const components = await componentsP;
   return (rows as any[]).map((r) => {
     let fams: string[] = [];
     try { fams = JSON.parse(String(flat(r.pole_families) || "[]")); } catch { /* périmètre illisible */ }
     const parts = String(flat(r.committed_action_text) || "").split(" — ");
+    const did = String(flat(r.dispositif_id));
     return {
-      dispositif_id: String(flat(r.dispositif_id)),
+      dispositif_id: did,
       name: parts[0],
       families: fams,
       lever: parts.slice(1).join(" — ") || null,
       responsable: r.owner_person_name != null ? String(flat(r.owner_person_name)) || null : null,
       commitment_id: r.commitment_id != null ? String(flat(r.commitment_id)) : null,
+      components: components.filter((c) => c.dispositif_id === did),
     };
   });
+}
+
+// ── Les articles vus sur les photos d'un pôle, face à leurs ventes (livrable 2, spec
+// dispositifs-typologie § 6, 03/09). Deux vues semantic, jamais analytics ni mart :
+//   · vw_insight_event_dispositif_photos — la photo courante de chaque composant de la version,
+//     items_effective = confirmés par l'exploitant sinon reconnus ;
+//   · vw_insight_event_client_item_signals — par article et par jour, ventes et « CA attendu »
+//     du moteur (expected_item_revenue) ; l'article se rattache à son code par la vue offering.
+// Fenêtre : les 30 derniers jours calendaires jusqu'à asOf (la même que la lecture du pôle) ;
+// référentiel : la somme du CA attendu des mêmes jours — « votre résultat habituel », jamais
+// une moyenne réinventée. Un article « en retrait » = au moins 5 jours vendus, un attendu > 0 et
+// un écart ≤ −10 % — seuil explicite, documenté, jamais un jour isolé annualisé.
+export interface PoleItemSeen {
+  item_code: string; item_description: string; item_category: string | null;
+  component_keys: string[]; confirmed: boolean;
+  rev30_eur: number; expected30_eur: number; n30: number; delta_pct: number | null;
+  en_retrait: boolean; days_since_last_sale: number | null;
+}
+export interface PoleItemUnseen { item_code: string; item_description: string; item_category: string | null; rev30_eur: number; n30: number }
+export interface PoleItemsReading { n_photos: number; seen: PoleItemSeen[]; unseen: PoleItemUnseen[] }
+
+export const RETRAIT_MIN_DAYS = 5;
+export const RETRAIT_PCT = -10;
+
+// PUR : le classement — testé, muté.
+export function classifyPoleItems(inp: {
+  photos: Array<{ component_key: string; items: Array<{ item_code: string }>; confirmed: boolean }>;
+  items: Array<{ item_code: string; item_description: string; item_category: string | null; rev30_eur: number; expected30_eur: number; n30: number; days_since_last_sale: number | null }>;
+  families: string[];
+}): PoleItemsReading {
+  const seenBy = new Map<string, { keys: string[]; confirmed: boolean }>();
+  for (const ph of inp.photos) for (const it of ph.items) {
+    const cur = seenBy.get(it.item_code) ?? { keys: [], confirmed: false };
+    if (!cur.keys.includes(ph.component_key)) cur.keys.push(ph.component_key);
+    cur.confirmed = cur.confirmed || ph.confirmed;
+    seenBy.set(it.item_code, cur);
+  }
+  const byCode = new Map(inp.items.map((i) => [i.item_code, i]));
+  const seen: PoleItemSeen[] = [];
+  for (const [code, sb] of seenBy) {
+    const i = byCode.get(code);
+    const rev = i?.rev30_eur ?? 0, exp = i?.expected30_eur ?? 0, n = i?.n30 ?? 0;
+    const delta_pct = exp > 0 ? Math.round(((rev - exp) / exp) * 1000) / 10 : null;
+    seen.push({
+      item_code: code, item_description: i?.item_description ?? code, item_category: i?.item_category ?? null,
+      component_keys: sb.keys, confirmed: sb.confirmed, rev30_eur: Math.round(rev), expected30_eur: Math.round(exp), n30: n,
+      delta_pct, en_retrait: n >= RETRAIT_MIN_DAYS && exp > 0 && delta_pct != null && delta_pct <= RETRAIT_PCT,
+      days_since_last_sale: i?.days_since_last_sale ?? null,
+    });
+  }
+  seen.sort((a, b) => (a.delta_pct ?? 1e9) - (b.delta_pct ?? 1e9));
+  const fams = new Set(inp.families);
+  const unseen: PoleItemUnseen[] = inp.items
+    .filter((i) => !seenBy.has(i.item_code) && i.rev30_eur > 0 && (fams.size === 0 || (i.item_category != null && fams.has(i.item_category))))
+    .map((i) => ({ item_code: i.item_code, item_description: i.item_description, item_category: i.item_category, rev30_eur: Math.round(i.rev30_eur), n30: i.n30 }))
+    .sort((a, b) => b.rev30_eur - a.rev30_eur);
+  return { n_photos: inp.photos.length, seen, unseen };
+}
+
+export async function buildPoleItemsReading(bq: any, location_id: string, dispositif_id: string, version_no: number | null, families: string[], asOfIso: string): Promise<PoleItemsReading> {
+  const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  const [phRows, itRows] = await Promise.all([
+    bq.query({
+      query: `SELECT component_key, items_effective, items_are_confirmed
+              FROM \`${PROJECT}.semantic.vw_insight_event_dispositif_photos\`
+              WHERE location_id = @loc AND dispositif_id = @d ${version_no != null ? "AND version_no = @v" : ""}`,
+      params: version_no != null ? { loc: location_id, d: dispositif_id, v: Number(version_no) } : { loc: location_id, d: dispositif_id }, location: "EU",
+    }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+    bq.query({
+      query: `SELECT ANY_VALUE(o.item_code) AS item_code, s.item_description, ANY_VALUE(s.item_category) AS item_category,
+                     SUM(s.revenue) AS rev30, SUM(s.expected_item_revenue) AS exp30, COUNTIF(s.revenue > 0) AS n30,
+                     MAX(s.days_since_last_sale) AS dsls
+              FROM \`${PROJECT}.semantic.vw_insight_event_client_item_signals\` s
+              LEFT JOIN \`${PROJECT}.semantic.vw_insight_event_client_offering\` o
+                ON o.location_id = s.location_id AND o.item_description = s.item_description
+              WHERE s.location_id = @loc AND s.transaction_date > DATE_SUB(DATE(@asOf), INTERVAL 30 DAY) AND s.transaction_date <= DATE(@asOf)
+              GROUP BY s.item_description`,
+      params: { loc: location_id, asOf: asOfIso }, location: "EU",
+    }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+  ]);
+  const photos = (phRows as any[]).map((r) => {
+    let items: Array<{ item_code: string }> = [];
+    try { items = (JSON.parse(String(flat(r.items_effective) || "[]")) as any[]).map((x) => ({ item_code: String(x.item_code) })); } catch { /* JSON illisible → aucun article */ }
+    return { component_key: String(flat(r.component_key)), items, confirmed: Boolean(flat(r.items_are_confirmed)) };
+  });
+  const items = (itRows as any[]).filter((r) => r.item_code != null).map((r) => ({
+    item_code: String(flat(r.item_code)), item_description: String(flat(r.item_description)),
+    item_category: r.item_category != null ? String(flat(r.item_category)) : null,
+    rev30_eur: Number(flat(r.rev30) ?? 0), expected30_eur: Number(flat(r.exp30) ?? 0), n30: Number(flat(r.n30) ?? 0),
+    days_since_last_sale: r.dsls != null ? Number(flat(r.dsls)) : null,
+  }));
+  return classifyPoleItems({ photos, items, families });
 }

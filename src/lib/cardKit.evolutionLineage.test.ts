@@ -28,14 +28,16 @@ it("chaîne >1 version : la section rend chaque version avec verdict, effet SUR 
   data.lineage = [
     { commitment_id: "c-v1", version_no: 1, status: "resolved", verdict: "missed",
       window_start: "2026-08-22", window_end: "2026-08-22",
-      effect_pct: -78.3, effect_proven: true, kpi_mention_fr: "sur le CA famille", is_current: false },
+      effect_pct: -78.3, effect_proven: true, kpi_mention_fr: "sur le CA famille produits & services", is_current: false },
     { commitment_id: "c-v2", version_no: 2, status: "open", verdict: null,
       window_start: "2026-08-29", window_end: "2026-08-29",
       effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: true },
   ];
   const html = String(kit.renderEvolution(data, EVOL_COPY));
   expect(html).toContain("Historique du dispositif");
-  expect(html).toContain("Version 1 — du 22/08/2026 au 22/08/2026 : objectif manqué — −78,3 % sur le CA famille vs votre résultat habituel (effet prouvé).");
+  // « produits & services » (owner 31/08) : le rendu ÉCHAPPE le & en &amp; — on asserte la
+  // forme RENDUE, jamais la source (même piège que les href, harnais 15/08).
+  expect(html).toContain("Version 1 — du 22/08/2026 au 22/08/2026 : objectif manqué — −78,3 % sur le CA famille produits &amp; services vs votre résultat habituel (effet prouvé).");
   // « fenêtre » est BANNI (lexique l.23) — la forme est celle de la carte owner du 27/08.
   expect(html).toContain("Version 2 — du 29/08/2026 au 29/08/2026 : en cours, verdict d’ici le 29/08/2026.");
   expect(html).not.toContain("fenêtre");
@@ -80,7 +82,7 @@ it("dispositif écarté (dernier effet résolu négatif prouvé) : « pivoter »
   data.lineage = [
     { commitment_id: "c-v1", version_no: 1, status: "resolved", verdict: "missed",
       window_start: "2026-08-22", window_end: "2026-08-22",
-      effect_pct: -78.3, effect_proven: true, kpi_mention_fr: "sur le CA famille", is_current: false },
+      effect_pct: -78.3, effect_proven: true, kpi_mention_fr: "sur le CA famille produits & services", is_current: false },
     { commitment_id: "c-v2", version_no: 2, status: "open", verdict: null,
       window_start: "2026-08-29", window_end: "2026-08-29",
       effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: true },
@@ -151,6 +153,10 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
       owner_person_name: "Camille Robin", pole_families: '["Coffee","Bakery"]',
       dispositif_plus: "Fraîcheur visible en vitrine", dispositif_why: "Le public vacances achète le matin",
       dispositif_resources: "1 vendeur, vitrine réfrigérée", created_at: "2026-08-27T10:00:00Z",
+      components: [
+        { key: "c1", type: "lineaire", role: "expert", label: "Linéaire poivres", type_label_fr: "Linéaire", role_label_fr: "Produits d'expert" },
+        { key: "c2", type: "vitrine", role: null, label: null, type_label_fr: "Vitrine", role_label_fr: "" },
+      ],
     },
     pole: {
       totals: { rev30_eur: 24965, share_pct: 51.1, avg30_eur_day: 832.18, base_eur_day: 543.93, delta_pct: 53, n30: 30 },
@@ -176,6 +182,22 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
   expect(html).toContain("3 jours vendus sur les 30 derniers");
   expect(html).not.toContain("pas encore comparable");
   expect(html.toLowerCase()).not.toContain("lecture continue");
+  // Articles des photos (livrable 2) : sans photo, l'absence est dite
+  expect(html).toContain("Articles des photos — 30 derniers jours");
+  expect(html).toContain("Aucune photo lue pour l'instant.");
+  // Composants (03/09) : le libellé libre, sinon le type ; type · rôle en méta ; section présente
+  expect(html).toContain("Composants");
+  expect(html).toContain("Linéaire poivres");
+  expect(html).toContain("Linéaire · Produits d&#39;expert".replace("&#39;", "'"));
+  expect(html).toContain(">Vitrine<");
+  expect(html).not.toContain("Aucun composant");
+  // Photos (étape 4) : un emplacement par composant, le CTA « Documenter → » sur un pôle ouvert,
+  // l'absence dite ; la section porte le dispositif et la version pour la page.
+  expect(html).toContain('data-eg-photo="c1"');
+  expect(html).toContain('data-eg-photo-add="c2"');
+  expect(html).toContain("Documenter →");
+  expect(html).toContain("Aucune photo pour l'instant.");
+  expect(html).toContain('data-eg-dispositif=""');
   expect(html).toContain("Opérations sur ce pôle");
   expect(html).toContain('/app/insightevent/engagement?id=op-1');
   expect(html).toContain("14/09/2026");
@@ -195,4 +217,64 @@ it("coût de l'opération (ROI) : la ligne rend le coût, et le net SEULEMENT qu
   data.commitment.window_expected_revenue = 1100;
   const measured = String(kit.renderEvolution(data, EVOL_COPY));
   expect(measured).toContain("Coût de l’opération : 120 € · net après coût : −320 €");
+});
+
+it("un pôle SANS composant dit l'absence (lexique règle 7), jamais une section vide", () => {
+  const data: any = {
+    commitment: { commitment_id: "pole-2", status: "open", dispositif_nature: "permanent",
+      committed_action_text: "Pôle traiteur", pole_families: '["Traiteur"]', created_at: "2026-08-27T10:00:00Z" },
+    pole: { totals: {}, families: [], operations: [] }, lineage: [],
+  };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("Composants");
+  expect(html).toContain("Aucun composant déclaré pour l'instant.");
+});
+
+it("renderComponentPhoto : vignette servie par l'API, date, comptes, question → réponse, articles par désignation", () => {
+  const html = String(kit.renderComponentPhoto({
+    photo_id: "p1", url: "/api/dispositifs/photos?dispositif_id=d&file=p", created_at: "2026-09-03T10:00:00Z",
+    checklist: { ls_moyen_essai: "non", ls_prix_par_article: "oui", ls_facing_vide: "non_visible" },
+    questions: [{ key: "ls_moyen_essai", question_fr: "Y a-t-il un moyen d'essayer : sentir, goûter, toucher, un échantillon ?" }, { key: "ls_prix_par_article", question_fr: "Chaque article porte-t-il son prix ?" }, { key: "ls_facing_vide", question_fr: "Un emplacement est-il vide au moment de la photo ?" }],
+    items_matched: [{ item_code: "CF-1", confidence: "haute", item_description: "Ethiopia" }],
+  }, EVOL_COPY));
+  expect(html).toContain('src="/api/dispositifs/photos?dispositif_id=d&amp;file=p"');
+  expect(html).toContain("03/09/2026 · 1 oui · 1 non · 1 non visible");
+  expect(html).toContain("Y a-t-il un moyen d'essayer");
+  // Reconnus, pas encore confirmés : une case cochée par article + « Confirmer → »
+  expect(html).toContain("Articles reconnus :");
+  expect(html).toContain('<input type="checkbox" data-eg-item="CF-1" checked> Ethiopia');
+  expect(html).toContain("Confirmer →");
+  expect(html).toContain('data-eg-items-confirm="p1"');
+  // Confirmés : le mot de l'exploitant prime, plus de cases
+  const confirmed = String(kit.renderComponentPhoto({ photo_id: "p1", url: "/x", created_at: "2026-09-03T10:00:00Z", checklist: {}, questions: [], items_matched: [{ item_code: "CF-1", confidence: "haute", item_description: "Ethiopia" }], items_confirmed: [{ item_code: "CF-2", item_description: "Latte" }] }, EVOL_COPY));
+  expect(confirmed).toContain("Articles confirmés : Latte");
+  expect(confirmed).not.toContain("checkbox");
+  const none = String(kit.renderComponentPhoto({ photo_id: "p1", url: "/x", created_at: "2026-09-03T10:00:00Z", checklist: {}, questions: [], items_matched: [], items_confirmed: [] }, EVOL_COPY));
+  expect(none).toContain("Articles confirmés : —");
+  expect(String(kit.renderComponentPhoto(null, EVOL_COPY))).toBe("Aucune photo pour l'instant.");
+});
+
+it("articles des photos : l'article en retrait porte ses chiffres et son signe, les autres se listent, les non vus se nomment", () => {
+  const data: any = {
+    commitment: { commitment_id: "pole-3", status: "open", dispositif_nature: "permanent", committed_action_text: "Pôle épices", pole_families: '["Coffee"]', created_at: "2026-08-27T10:00:00Z", components: [] },
+    pole: { totals: {}, families: [], operations: [], items: { n_photos: 1,
+      seen: [
+        { item_code: "A", item_description: "Ethiopia", item_category: "Coffee", component_keys: ["c1"], confirmed: true, rev30_eur: 700, expected30_eur: 1000, n30: 20, delta_pct: -30, en_retrait: true, days_since_last_sale: null },
+        { item_code: "B", item_description: "Latte", item_category: "Coffee", component_keys: ["c1"], confirmed: false, rev30_eur: 1050, expected30_eur: 1000, n30: 25, delta_pct: 5, en_retrait: false, days_since_last_sale: null },
+        { item_code: "C", item_description: "Scone", item_category: "Coffee", component_keys: ["c1"], confirmed: false, rev30_eur: 60, expected30_eur: 100, n30: 3, delta_pct: -40, en_retrait: false, days_since_last_sale: 4 },
+      ],
+      unseen: [{ item_code: "D", item_description: "Croissant", item_category: "Coffee", rev30_eur: 400, n30: 28 }] } },
+    lineage: [],
+  };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("En retrait sur votre résultat habituel");
+  expect(html).toContain("Ethiopia <span");
+  expect(html).toContain("confirmé");
+  expect(html).toMatch(/700 € sur 20 j vendus · habituel 1[\s\u00a0\u202f]000 €/);
+  expect(html).toContain("−30 %");
+  expect(html).toContain("Latte +5 %");
+  expect(html).toContain("Scone — Données insuffisantes");
+  expect(html).toContain("Vendus sans être vus sur une photo");
+  expect(html).toContain("Croissant (400 €)");
+  expect(html).not.toContain("Aucune photo lue");
 });

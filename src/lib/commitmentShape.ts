@@ -86,6 +86,63 @@ export interface WindowShape {
   volume: ShapeVolume | null;       // null si la caisse ne donne pas achats/panier
 }
 
+// ── L'ÉCHELLE DE PRIX DU LIEU (owner 29/08) ───────────────────────────────────────────
+// « On sait s'il y en a » : oui — la caisse porte le prix de chaque article. Quand la
+// mesure désigne la valeur de l'article comme facteur faible, la montée en gamme cesse
+// d'être une idée générale et devient un écart CHEZ LUI : le plus cher qu'il vend déjà,
+// son prix moyen, et le poids réel de ce qui se vend au-dessus de ce moyen.
+// Fenêtre : les 30 jours qui précèdent la fin de l'opération (dite à l'écran).
+export interface PriceLadder {
+  days: number;                 // fenêtre lue
+  refs: number;                 // références vendues
+  avg_price: number;            // prix moyen d'un article
+  top_price: number;            // l'article le plus cher vendu
+  top_name: string;             // son nom
+  top_units: number;            // combien d'unités il en a vendu
+  above_refs: number;           // références au-dessus du prix moyen
+  above_share_pct: number;      // part du chiffre qu'elles font
+}
+
+export async function buildPriceLadder(
+  bq: any, location_id: string, endIso: string, days = 30,
+): Promise<PriceLadder | null> {
+  const start = new Date(endIso + "T00:00:00Z");
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  const rows: any[] = await bq.query({
+    query: `
+      WITH a AS (
+        SELECT item_description AS nom,
+               SUM(revenue) / NULLIF(SUM(quantity), 0) AS prix,
+               SUM(quantity) AS qte, SUM(revenue) AS ca
+        FROM \`${PROJECT}.raw.client_transactions\`
+        WHERE location_id = @loc AND transaction_date BETWEEN @a AND @b
+          AND quantity > 0 AND item_description IS NOT NULL AND TRIM(item_description) != ''
+        GROUP BY 1
+      ),
+      m AS (SELECT SUM(ca) / NULLIF(SUM(qte), 0) AS moy FROM a)
+      SELECT COUNT(*) AS refs, m.moy AS avg_price,
+             COUNTIF(a.prix > m.moy) AS above_refs,
+             SUM(IF(a.prix > m.moy, a.ca, 0)) / NULLIF(SUM(a.ca), 0) * 100 AS above_share,
+             ARRAY_AGG(STRUCT(a.nom, a.prix, a.qte) ORDER BY a.prix DESC LIMIT 1)[OFFSET(0)] AS top
+      FROM a, m GROUP BY m.moy`,
+    params: { loc: location_id, a: bq.date(start.toISOString().slice(0, 10)), b: bq.date(endIso) },
+    location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const r0: any = rows[0];
+  if (!r0 || !flat(r0.top)) return null;
+  const top: any = flat(r0.top);
+  const avg = num(r0.avg_price), top_price = num(flat(top.prix));
+  // L'écart doit EXISTER : un lieu dont l'article le plus cher vaut son prix moyen n'a pas
+  // d'échelle à montrer (absence honnête plutôt qu'une évidence).
+  if (!(avg > 0) || !(top_price > avg)) return null;
+  return {
+    days, refs: num(r0.refs), avg_price: r2(avg),
+    top_price: r2(top_price), top_name: String(flat(top.nom) ?? "").trim(),
+    top_units: num(flat(top.qte)),
+    above_refs: num(r0.above_refs), above_share_pct: r1(num(r0.above_share)),
+  };
+}
+
 /** Les 4 mêmes jours de semaine précédant l'opération, pour chaque jour mesuré. */
 export function comparableDates(measured: string[], windowStart: string, backWeeks = 4): string[] {
   const out = new Set<string>();
