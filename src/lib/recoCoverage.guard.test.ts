@@ -23,7 +23,7 @@ import { test, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import vm from "node:vm";
-import { COMMITMENT_ORIGIN_ACTION_TYPES } from "./commitmentOrigins";
+import { COMMITMENT_ORIGIN_ACTION_TYPES } from "./commitments/commitmentOrigins";
 
 // Les deux fichiers de /public sont des globals navigateur : on les exécute pour de vrai, dans
 // l'ORDRE DE CHARGEMENT des pages (reco-library.js AVANT action-cards.js). Lire le texte à la

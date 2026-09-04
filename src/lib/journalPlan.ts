@@ -16,7 +16,7 @@
 // sous chaleur » (au passé) et « ce jour sera sous chaleur » (à venir) sont donc la MÊME règle
 // contre la MÊME table — jamais une seconde définition.
 import featureRegistry from "./sensitivityFeatures.json";
-import { commitmentEffect } from "./commitmentEffect";
+import { commitmentEffect } from "./commitments/commitmentEffect";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const CTX = `${PROJECT}.${(featureRegistry as any).context_table}`;

@@ -120,7 +120,7 @@ commitment rows and vice-versa). **Never compute a cross-source `positive_rate`.
 ---
 
 ## Consumer wiring (app — step 3, only after the marts populate)
-- **Provenance** (`src/lib/commitmentContext.ts`): read
+- **Provenance** (`src/lib/commitments/commitmentContext.ts`): read
   `WHERE location_id=@loc AND source='commitment' AND has_sufficient_sample`. Surface as
   *"Quand vous avez fait cette action, le CA a battu l'attendu {beat_count} fois sur {done_count}."*
   — never "marche à X %".
@@ -178,7 +178,7 @@ column must exist in BigQuery before the code that references it deploys.
 ### 1. Schema — `analytics.action_commitments`
 - Add column **`origin_driver STRING`** (NULLABLE). One-time DDL (dbt/BQ console). NULL for
   existing rows and non-sales origins.
-- Add to `COLUMN_SPEC` in `src/lib/actionCommitments.ts` right after `origin_action_type`
+- Add to `COLUMN_SPEC` in `src/lib/commitments/actionCommitments.ts` right after `origin_action_type`
   (line 41): `["origin_driver", "STRING"]`. This single edit auto-wires the INSERT column list +
   typed-null param (the spec is the source of truth). Also add `origin_driver` to the
   `CommitmentRow` interface (`string | null`).

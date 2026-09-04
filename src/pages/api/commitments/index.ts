@@ -1,6 +1,6 @@
 // Routes: /api/commitments  — CREATE / LIST / CANCEL only.
 // Disposition, resolution, and retro are separate writers that reuse
-// readMergeWrite() from src/lib/actionCommitments.ts. Mirrors
+// readMergeWrite() from src/lib/commitments/actionCommitments.ts. Mirrors
 // src/pages/api/channels/internal-alert.ts (Clerk session, requireLocationOwnership).
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
@@ -8,14 +8,14 @@ import { requireLocationOwnership, requireLocationAccess } from "../../../lib/re
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
 import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline, measureProfitBaseline } from "../../../lib/kpiRegistry";
-import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
-import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/actionCommitments";
+import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";
+import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/commitments/actionCommitments";
 import { parseComponents } from "../../../lib/dispositifTypes";
 import { listPoles } from "../../../lib/poleReading";
 import { assignmentMessageFr } from "../../../lib/channels/slackMessagesFr";
 import { themeForActionType } from "../../../lib/recoThemeMap";
-import { vif } from "../../../lib/commitmentResolve";
-import { RHO_FLOOR } from "../../../lib/commitmentConstants";
+import { vif } from "../../../lib/commitments/commitmentResolve";
+import { RHO_FLOOR } from "../../../lib/commitments/commitmentConstants";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";

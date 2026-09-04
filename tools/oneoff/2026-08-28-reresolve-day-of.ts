@@ -12,8 +12,8 @@
 //   npx tsx tools/oneoff/2026-08-28-reresolve-day-of.ts          → aperçu, aucune écriture
 //   npx tsx tools/oneoff/2026-08-28-reresolve-day-of.ts --ecrire → applique
 import { makeBQClient } from "../../src/lib/bq";
-import { readLatestSnapshot, readMergeWrite } from "../../src/lib/actionCommitments";
-import { resolveCommitment } from "../../src/lib/commitmentResolve";
+import { readLatestSnapshot, readMergeWrite } from "../../src/lib/commitments/actionCommitments";
+import { resolveCommitment } from "../../src/lib/commitments/commitmentResolve";
 
 const ECRIRE = process.argv.includes("--ecrire");
 const PROJECT = "muse-square-open-data";

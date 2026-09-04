@@ -5,8 +5,8 @@
 // achats/panier vaut EXACTEMENT le gap de l'en-tête.
 //   npx tsx tools/harness/engagement-shape-harness.ts
 import { makeBQClient } from "../../src/lib/bq";
-import { readLatestSnapshot } from "../../src/lib/actionCommitments";
-import { buildWindowShape, comparableDates } from "../../src/lib/commitmentShape";
+import { readLatestSnapshot } from "../../src/lib/commitments/actionCommitments";
+import { buildWindowShape, comparableDates } from "../../src/lib/commitments/commitmentShape";
 
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const OPEN_ID = "2d99694a-17fa-4486-92e1-548ce588e1f5";   // vacances scolaires, 7 j ouverts

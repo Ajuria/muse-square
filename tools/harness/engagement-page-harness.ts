@@ -8,10 +8,10 @@ import * as fs from "node:fs";
 import * as vm from "node:vm";
 import * as path from "node:path";
 import { GET as evolutionGET } from "../../src/pages/api/commitments/evolution";
-import { EVOL_COPY } from "../../src/lib/commitmentCopy";
+import { EVOL_COPY } from "../../src/lib/commitments/commitmentCopy";
 import { makeBQClient } from "../../src/lib/bq";
-import { readLatestSnapshot } from "../../src/lib/actionCommitments";
-import { resolveCommitment } from "../../src/lib/commitmentResolve";
+import { readLatestSnapshot } from "../../src/lib/commitments/actionCommitments";
+import { resolveCommitment } from "../../src/lib/commitments/commitmentResolve";
 import { leverForWeakFactor, leverForActionType, getBestInClassPlays, playsAvecVoisin, playsRattachesAuSujet } from "../../src/lib/bestInClassStore";
 
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";

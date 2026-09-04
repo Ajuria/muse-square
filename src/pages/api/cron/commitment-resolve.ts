@@ -4,8 +4,8 @@
 // resolved/expired/cancelled are never re-processed; a no-op pending is skipped.
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
-import { readMergeWrite, type CommitmentRow } from "../../../lib/actionCommitments";
-import { resolveCommitment } from "../../../lib/commitmentResolve";
+import { readMergeWrite, type CommitmentRow } from "../../../lib/commitments/actionCommitments";
+import { resolveCommitment } from "../../../lib/commitments/commitmentResolve";
 import { sendSlack, loadChannelConfig } from "../../../lib/channels/internalSend";
 import { readDispositifChannel } from "../../../lib/channels/slackRouting";
 import { verdictMessageFr } from "../../../lib/channels/slackMessagesFr";

@@ -322,7 +322,7 @@ export const FACT_ORIGIN_FR: Record<FactOrigin, string> = {
 };
 ```
 
-## src/lib/commitmentCopy.ts (engagements)
+## src/lib/commitments/commitmentCopy.ts (engagements)
 ```
 // ── Engagement / "Consulter l'évolution" — ALL user-facing French copy ──
 //

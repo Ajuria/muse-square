@@ -12,7 +12,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { kpiKeyForOrigin } from "../../../lib/kpiRegistry";
 import { leverForActionType } from "../../../lib/bestInClassStore";
-import { isCommitmentOrigin } from "../../../lib/commitmentOrigins";
+import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";
 import {
   insertBestPractice,
   listMatchedPractices,

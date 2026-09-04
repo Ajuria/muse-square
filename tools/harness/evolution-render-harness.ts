@@ -8,7 +8,7 @@ import "dotenv/config";
 import { readFileSync, writeFileSync } from "node:fs";
 import { makeBQClient } from "../../src/lib/bq";
 import { GET as evoGET } from "../../src/pages/api/commitments/evolution";
-import { EVOL_COPY } from "../../src/lib/commitmentCopy";
+import { EVOL_COPY } from "../../src/lib/commitments/commitmentCopy";
 
 const P = "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);

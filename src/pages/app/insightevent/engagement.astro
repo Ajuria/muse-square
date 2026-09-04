@@ -3,7 +3,7 @@ export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
-import { EVOL_COPY } from "../../../lib/commitmentCopy";
+import { EVOL_COPY } from "../../../lib/commitments/commitmentCopy";
 
 const id = Astro.url.searchParams.get("id") || "";
 ---

@@ -11,11 +11,11 @@ import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "..
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
-import { readLatestSnapshot } from "../../../lib/actionCommitments";
+import { readLatestSnapshot } from "../../../lib/commitments/actionCommitments";
 import { buildPoleReading, buildPoleItemsReading } from "../../../lib/poleReading";
-import { commitmentEffect } from "../../../lib/commitmentEffect";
-import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
-import { buildWindowShape, buildPriceLadder } from "../../../lib/commitmentShape";
+import { commitmentEffect } from "../../../lib/commitments/commitmentEffect";
+import { assembleEvolutionExtras } from "../../../lib/commitments/commitmentContext";
+import { buildWindowShape, buildPriceLadder } from "../../../lib/commitments/commitmentShape";
 import { playsAvecVoisin, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClassStore";
 
 export const prerender = false;

@@ -23,7 +23,7 @@ const SURFACES = [
   "src/pages/app/insightevent/tableau.astro",
   "src/pages/app/insightevent/pulse.astro",
   "src/pages/app/insightevent/insight.astro",
-  "src/lib/commitmentCopy.ts",
+  "src/lib/commitments/commitmentCopy.ts",
   "public/event-form.js",
   "public/action-cards.js",
   "public/card-kit.js",

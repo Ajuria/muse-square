@@ -1,4 +1,4 @@
-// src/lib/commitmentEffect.ts
+// src/lib/commitments/commitmentEffect.ts
 // L'EFFET d'un engagement, mesuré SUR SON KPI — le foyer unique (correctif owner 27/08).
 //
 // Le défaut mesuré : la carte journal et le planificateur lisaient window_residual_pct/z (le
@@ -12,7 +12,7 @@
 // z = (kpi_window_value − kpi_baseline) / kpi_noise_se — kpi_noise_se est la SE journalière
 // VIF-corrigée écrite par commitmentResolve, et la porte officielle de kpiVerdict est 1×SE :
 // le seuil de preuve |z| >= 1 (lexique l.17) est donc LE MÊME dans les deux régimes.
-import { kpiLe, KPI_LABEL_FR, type KpiKey } from "./kpiRegistry";
+import { kpiLe, KPI_LABEL_FR, type KpiKey } from "../kpiRegistry";
 
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
 const num = (v: any): number | null => {

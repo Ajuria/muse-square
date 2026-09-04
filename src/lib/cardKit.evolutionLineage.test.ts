@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import * as vm from "node:vm";
 import { beforeAll, expect, it } from "vitest";
-import { EVOL_COPY } from "./commitmentCopy";
+import { EVOL_COPY } from "./commitments/commitmentCopy";
 
 let kit: any;
 beforeAll(() => {

@@ -8,7 +8,7 @@
 // Période ?period=30|90|365 (défaut 30) : filtre l'AFFICHAGE des agrégats, jamais un recalcul.
 // Perf : UN lot Promise.all de 8 lectures légères (~1 aller-retour BQ de wall-clock).
 import type { APIRoute } from "astro";
-import { personKey, isKeptVerdict } from "../../../lib/actionCommitments";
+import { personKey, isKeptVerdict } from "../../../lib/commitments/actionCommitments";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation, corrIndexFr } from "../../../lib/dayClassRegistry";

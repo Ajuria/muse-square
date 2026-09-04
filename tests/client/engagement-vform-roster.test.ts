@@ -5,7 +5,7 @@
 // Vérifié en évaluant les VRAIS public/commit-form.js + public/card-kit.js (le harnais est la page).
 import { readFileSync } from "node:fs";
 import { beforeAll, expect, it } from "vitest";
-import { EVOL_COPY } from "../../src/lib/commitmentCopy";
+import { EVOL_COPY } from "../../src/lib/commitments/commitmentCopy";
 
 beforeAll(() => {
   (0, eval)(readFileSync("public/commit-form.js", "utf8"));

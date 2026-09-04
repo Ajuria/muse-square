@@ -6,8 +6,8 @@
 //         npx tsx tools/oneoff/2026-08-15-backfill-kpi-verdicts.ts --apply   (écrit)
 import "dotenv/config";
 import { makeBQClient } from "../../src/lib/bq";
-import { readLatestSnapshot, readMergeWrite } from "../../src/lib/actionCommitments";
-import { resolveCommitment } from "../../src/lib/commitmentResolve";
+import { readLatestSnapshot, readMergeWrite } from "../../src/lib/commitments/actionCommitments";
+import { resolveCommitment } from "../../src/lib/commitments/commitmentResolve";
 
 const P = "muse-square-open-data";
 const APPLY = process.argv.includes("--apply");

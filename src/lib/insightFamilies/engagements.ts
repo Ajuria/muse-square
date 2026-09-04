@@ -36,7 +36,7 @@
 // Mots : `docs/lexique.md` — « engagement » (l.18), « cible/objectif : atteint · manqué · non
 // concluant » (l.21), « votre résultat habituel » (l.24), dates JJ/MM/AAAA.
 import type { FamilyProvider, FamilyResult, FamilyFact } from "./types";
-import { commitmentEffect } from "../commitmentEffect";
+import { commitmentEffect } from "../commitments/commitmentEffect";
 import { buildPoleReading } from "../poleReading";
 
 const PROJECT = "muse-square-open-data";

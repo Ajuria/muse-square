@@ -17,7 +17,7 @@
 import type { APIRoute } from "astro";
 import crypto from "node:crypto";
 import { makeBQClient } from "../../../lib/bq";
-import { readMergeWrite, type CommitmentRow } from "../../../lib/actionCommitments";
+import { readMergeWrite, type CommitmentRow } from "../../../lib/commitments/actionCommitments";
 import { kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline, isKpiMeasurable } from "../../../lib/kpiRegistry";
 import { sendEmail, sendSlack, loadChannelConfig } from "../../../lib/channels/internalSend";
 import { readDispositifChannel } from "../../../lib/channels/slackRouting";

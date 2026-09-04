@@ -22,15 +22,15 @@ import { join } from "node:path";
 const CLIQUET: Record<string, number> = {
   "src/lib/ai/facts/buildDayPerformanceFacts.ts": 2,
   "src/lib/ai/find_dates/find-dates.ts": 2,
-  "src/lib/commitmentContext.ts": 4,
-  "src/lib/commitmentResolve.ts": 1,
+  "src/lib/commitments/commitmentContext.ts": 4,
+  "src/lib/commitments/commitmentResolve.ts": 1,
   // 0 → 2 (28/08, page Opération « Comprendre le résultat », commit 01c66b3 — instruit après
   // coup le 03/09, le garde était resté rouge 6 jours) : le grain HEURE × JOUR de
   // fct_client_hourly_sales (heures d'une opération et de ses 4 jours comparables). La seule
   // surface semantic horaire est vw_insight_event_client_hourly_profile — un PROFIL moyen par
   // jour de semaine × heure, pas des jours datés : aucune vue équivalente. Le même fichier lit
   // aussi raw.client_transactions (familles × produits) — hors de ce garde, dette notée.
-  "src/lib/commitmentShape.ts": 2,
+  "src/lib/commitments/commitmentShape.ts": 2,
   "src/lib/dayClassRegistry.ts": 10,
   "src/lib/dayContext.ts": 19,
   "src/lib/insightFamilies/calendar.ts": 1,
@@ -48,7 +48,7 @@ const CLIQUET: Record<string, number> = {
   "src/lib/insightFamilies/weather.ts": 3,
   "src/lib/kpiRegistry.ts": 1,
   "src/lib/proposedFollows.ts": 2,
-  "src/lib/trackRecordCore.ts": 1,
+  "src/lib/commitments/trackRecordCore.ts": 1,
   "src/pages/api/analytics/admin-dashboard.ts": 1,
   "src/pages/api/analytics/party-role.ts": 1,
   "src/pages/api/commitments/evolution.ts": 3,

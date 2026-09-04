@@ -16,7 +16,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { localsFromSlackUser } from "../../../lib/profileContext";
 import { POST as DISPO } from "../commitments/disposition";
 import { POST as RETRO } from "../commitments/retro";
-import { EVOL_COPY as COMMIT_COPY } from "../../../lib/commitmentCopy";
+import { EVOL_COPY as COMMIT_COPY } from "../../../lib/commitments/commitmentCopy";
 
 export const prerender = false;
 const PROJECT = "muse-square-open-data";

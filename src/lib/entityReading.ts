@@ -12,8 +12,8 @@
 // et le compte des verdicts (isKeptVerdict partagé), occurrence par occurrence.
 
 import { buildPoleReading, buildPoleItemsReading, type PoleTotals, type PoleFamilyReading, type PoleOperationRow } from "./poleReading";
-import { commitmentEffect } from "./commitmentEffect";
-import { personKey, isKeptVerdict } from "./actionCommitments";
+import { commitmentEffect } from "./commitments/commitmentEffect";
+import { personKey, isKeptVerdict } from "./commitments/actionCommitments";
 import type { SiteEntity } from "./entityResolver";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";

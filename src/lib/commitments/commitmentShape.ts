@@ -1,4 +1,4 @@
-// src/lib/commitmentShape.ts
+// src/lib/commitments/commitmentShape.ts
 // « Comprendre le résultat » (page Opération, owner 28/08) — la lecture qui manquait :
 // d'où vient l'écart, pour que l'utilisateur puisse pivoter au lieu de subir le verdict.
 //

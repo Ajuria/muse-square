@@ -21,7 +21,7 @@ BigQuery EU, project `muse-square-open-data`, dataset `analytics`. **Append-only
 every transition writes a COMPLETE new row (full snapshot), latest via
 `ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC)`.
 
-**Authoritative column list = `COLUMN_SPEC` in [`src/lib/actionCommitments.ts`](../../src/lib/actionCommitments.ts)**
+**Authoritative column list = `COLUMN_SPEC` in [`src/lib/commitments/actionCommitments.ts`](../../src/lib/actionCommitments.ts)**
 (48 cols, in DDL order; drives the interface, the INSERT column list, the VALUES params, and
 the typed nulls). The referenced `action_commitments.ddl.sql` is **not checked in** — the live
 BigQuery table + `COLUMN_SPEC` are the source of truth (verified in lockstep 2026-07-08).
@@ -69,12 +69,12 @@ All Clerk-gated (`locals.clerk_user_id`) + `requireLocationOwnership(locals, loc
 
 | File | Owns |
 |---|---|
-| [`src/lib/actionCommitments.ts`](../../src/lib/actionCommitments.ts) | `COLUMN_SPEC` (the schema), `CommitmentRow`, `readMergeWrite` (full-snapshot read-merge-write via INSERT DML), `readLatestSnapshot`. |
-| [`src/lib/commitmentConstants.ts`](../../src/lib/commitmentConstants.ts) | `WINDOW_DAYS`, `THRESHOLD_Z`, `MATERIAL_SHARE=0.5`, `GRACE_DAYS=30`, `RHO_FLOOR=0.40`. |
-| [`src/lib/commitmentOrigins.ts`](../../src/lib/commitmentOrigins.ts) | `COMMITMENT_ORIGIN_ACTION_TYPES` — which card types may seed a commitment (§4). |
-| [`src/lib/commitmentResolve.ts`](../../src/lib/commitmentResolve.ts) | Residual resolution: VIF from measured ρ, asymmetric confound gate, verdict. |
-| [`src/lib/commitmentContext.ts`](../../src/lib/commitmentContext.ts) | Évolution extras: §2d holiday-norm, ② context, provenance, ③ advice (keys only, z-free, French-free). |
-| [`src/lib/commitmentCopy.ts`](../../src/lib/commitmentCopy.ts) | **Owner-editable** — every French string on the évolution page (tokened templates; injected via `define:vars`). |
+| [`src/lib/commitments/actionCommitments.ts`](../../src/lib/actionCommitments.ts) | `COLUMN_SPEC` (the schema), `CommitmentRow`, `readMergeWrite` (full-snapshot read-merge-write via INSERT DML), `readLatestSnapshot`. |
+| [`src/lib/commitments/commitmentConstants.ts`](../../src/lib/commitmentConstants.ts) | `WINDOW_DAYS`, `THRESHOLD_Z`, `MATERIAL_SHARE=0.5`, `GRACE_DAYS=30`, `RHO_FLOOR=0.40`. |
+| [`src/lib/commitments/commitmentOrigins.ts`](../../src/lib/commitmentOrigins.ts) | `COMMITMENT_ORIGIN_ACTION_TYPES` — which card types may seed a commitment (§4). |
+| [`src/lib/commitments/commitmentResolve.ts`](../../src/lib/commitmentResolve.ts) | Residual resolution: VIF from measured ρ, asymmetric confound gate, verdict. |
+| [`src/lib/commitments/commitmentContext.ts`](../../src/lib/commitmentContext.ts) | Évolution extras: §2d holiday-norm, ② context, provenance, ③ advice (keys only, z-free, French-free). |
+| [`src/lib/commitments/commitmentCopy.ts`](../../src/lib/commitmentCopy.ts) | **Owner-editable** — every French string on the évolution page (tokened templates; injected via `define:vars`). |
 | [`public/reco-library.js`](../../public/reco-library.js) | **Owner-editable** — the 3 recommended actions per sales card/driver (§5). |
 | [`public/commit-form.js`](../../public/commit-form.js) | Shared `window.MSCommitForm` create-form builder/wirer (used by the évolution advice CTAs). |
 | [`src/pages/app/insightevent/engagement.astro`](../../src/pages/app/insightevent/engagement.astro) | The évolution page (rapport look; ① goal + chart, ② context, ③ advice, ④ capture, sources). |
