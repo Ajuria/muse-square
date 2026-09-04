@@ -1,4 +1,4 @@
-// src/lib/journalPlan.ts
+// src/lib/explorer/journalPlan.ts
 // J2.2 — CROISER LE SIGNAL AVEC LE JOURNAL : « ce jour-là réunit les conditions où votre
 // dispositif X a été prouvé ». C'est la capacité 2 de la boucle agent (owner 26/08).
 //
@@ -15,8 +15,8 @@
 // registre que `commitmentResolve` utilise déjà pour écrire `window_active_factors`. « a tourné
 // sous chaleur » (au passé) et « ce jour sera sous chaleur » (à venir) sont donc la MÊME règle
 // contre la MÊME table — jamais une seconde définition.
-import featureRegistry from "./sensitivityFeatures.json";
-import { commitmentEffect } from "./commitments/commitmentEffect";
+import featureRegistry from "../sensitivityFeatures.json";
+import { commitmentEffect } from "../commitments/commitmentEffect";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const CTX = `${PROJECT}.${(featureRegistry as any).context_table}`;

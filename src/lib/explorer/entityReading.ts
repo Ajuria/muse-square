@@ -1,4 +1,4 @@
-// src/lib/entityReading.ts
+// src/lib/explorer/entityReading.ts
 // Lectures d'ENTITÉ sur PÉRIODE LIBRE (horizons libres × entités, 27/08) — de fines
 // COMPOSITIONS des foyers existants, jamais un moteur nouveau :
 //   - pôle / famille → poleReading.buildPoleReading (fenêtre libre, référentiel = même durée
@@ -11,9 +11,9 @@
 // Règle maison : jamais une moyenne de % entre occurrences — la somme des écarts € mesurés
 // et le compte des verdicts (isKeptVerdict partagé), occurrence par occurrence.
 
-import { buildPoleReading, buildPoleItemsReading, type PoleTotals, type PoleFamilyReading, type PoleOperationRow } from "./dispositifs/poleReading";
-import { commitmentEffect } from "./commitments/commitmentEffect";
-import { personKey, isKeptVerdict } from "./commitments/actionCommitments";
+import { buildPoleReading, buildPoleItemsReading, type PoleTotals, type PoleFamilyReading, type PoleOperationRow } from "../dispositifs/poleReading";
+import { commitmentEffect } from "../commitments/commitmentEffect";
+import { personKey, isKeptVerdict } from "../commitments/actionCommitments";
 import type { SiteEntity } from "./entityResolver";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
@@ -596,7 +596,7 @@ export function buildEntityWhyBlocks(r: EntityPeriodReading): EntityCompareBlock
 // moyenne que les verdicts, jamais recopiée) sur la période ET la même durée précédente ;
 // profit estimé via measureProfitEstimatedStats (marges déclarées, jamais un profit inventé).
 // KPI non mesurables sur le site (visiteurs/conversion sans capteur) → « — » avec le compte.
-import { measureKpiMean, measureProfitEstimatedStats, KPI_NOM_FR, isKpiMeasurable, type KpiKey } from "./kpiRegistry";
+import { measureKpiMean, measureProfitEstimatedStats, KPI_NOM_FR, isKpiMeasurable, type KpiKey } from "../kpiRegistry";
 
 const kpiFmt = (key: KpiKey, v: number): string => {
   if (key === "conversion") return `${(Math.round(v * 1000) / 10).toLocaleString("fr-FR")} %`;
@@ -678,7 +678,7 @@ export async function readKpiPeriod(
 // Règle anti-bruit : un étage qui n'isole rien ne s'affiche pas. Les relations utilisées se
 // listent au pied « Indices de corrélation » (une section Sources existe → il se liste).
 import { listDayFactors, dayFactorKeys, factorFr } from "./journalPlan";
-import { corrIndexFr, signalAConfirmer } from "./dayClassRegistry";
+import { corrIndexFr, signalAConfirmer } from "../dayClassRegistry";
 
 export interface WhyFactorInput {
   key: string; mot_fr: string;

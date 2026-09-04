@@ -1,4 +1,4 @@
-// src/lib/semanticRegistry.ts
+// src/lib/explorer/semanticRegistry.ts
 // LE REGISTRE SÉMANTIQUE (ontologie légère, owner go 28/08) — l'assemblage machine-lisible
 // de ce qui existait en pièces détachées : les MOTS (docs/lexique.md), les KPI (kpiRegistry),
 // les instances (entityResolver — lues en base, jamais codées en dur), les périodes (frPeriod),
@@ -10,7 +10,7 @@
 // requête structurée contre des définitions gouvernées, l'exécution est déterministe.
 
 import type { SiteEntities } from "./entityResolver";
-import { KPI_NOM_FR, type KpiKey } from "./kpiRegistry";
+import { KPI_NOM_FR, type KpiKey } from "../kpiRegistry";
 
 // ── Types d'entités (les MOTS sont ceux du lexique — jamais réécrits ici) ──────────────────
 export interface EntityTypeDef {

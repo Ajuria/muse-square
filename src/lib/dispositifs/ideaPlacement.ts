@@ -7,11 +7,11 @@
 // Le résolveur comprend l'idée (levier + condition visée) ; ce module calcule.
 
 import { listCalmWeeks, type CalmWeek } from "../insightFamilies/events";
-import { listDayFactors, dayFactorKeys, factorFr } from "../journalPlan";
+import { listDayFactors, dayFactorKeys, factorFr } from "../explorer/journalPlan";
 import { corrIndexFr, signalAConfirmer } from "../dayClassRegistry";
 import { listIndustryPlays, type BestInClassPlay, type Lever } from "../bestInClassStore";
 import type { ResolvedIdea } from "../ai/resolver";
-import type { CompareSection, EntityCompareBlocks } from "../entityReading";
+import type { CompareSection, EntityCompareBlocks } from "../explorer/entityReading";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);

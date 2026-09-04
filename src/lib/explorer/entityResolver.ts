@@ -1,4 +1,4 @@
-// src/lib/entityResolver.ts
+// src/lib/explorer/entityResolver.ts
 // LE résolveur d'entités du site (horizons libres × entités, 27/08) — reconnaît dans une
 // question les entités RÉELLES du compte : pôles, familles produits, opérations/séries,
 // personnes, composants (03/09 — depuis la couche semantic). Zéro invention : les listes viennent des foyers existants (poleReading.listPoles,
@@ -6,9 +6,9 @@
 // jamais une seconde requête du même concept. Le matching est PUR (testé + mutation) :
 // normalisation accents/casse, nom le plus long d'abord, jamais un match dans un mot.
 
-import { listPoles, listPoleComponents, type PoleListRow } from "./dispositifs/poleReading";
-import { listSiteFamilies } from "./kpiRegistry";
-import { listUserEvenements } from "./insightFamilies/evenement";
+import { listPoles, listPoleComponents, type PoleListRow } from "../dispositifs/poleReading";
+import { listSiteFamilies } from "../kpiRegistry";
+import { listUserEvenements } from "../insightFamilies/evenement";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 

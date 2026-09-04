@@ -1,4 +1,4 @@
-// src/lib/planPeriod.ts
+// src/lib/explorer/planPeriod.ts
 // LE COMPOSEUR du plan de période (27/08) — « planifie-moi septembre ». Il n'invente RIEN :
 // il COMPOSE quatre sources réelles du compte, toutes des foyers existants :
 //   1. l'inventaire — ce qui est DÉJÀ en place (occurrences datées, engagements ouverts) ;
@@ -12,12 +12,12 @@
 // Jamais un verdict a priori, jamais un chiffre non mesuré : une source vide se dit vide.
 
 import { journalPlan, listDayFactors, dayFactorKeys, factorFr, type PlanItem } from "./journalPlan";
-import { listCalmWeeks, type CalmWeek } from "./insightFamilies/events";
-import { listUserEvenements } from "./insightFamilies/evenement";
-import { listIndustryPlays, type BestInClassPlay } from "./bestInClassStore";
-import { listPoles, buildPoleReading } from "./dispositifs/poleReading";
-import { getDeclaredFamilyMargins, familySlug } from "./ai/corrections";
-import { corrIndexFr, signalAConfirmer } from "./dayClassRegistry";
+import { listCalmWeeks, type CalmWeek } from "../insightFamilies/events";
+import { listUserEvenements } from "../insightFamilies/evenement";
+import { listIndustryPlays, type BestInClassPlay } from "../bestInClassStore";
+import { listPoles, buildPoleReading } from "../dispositifs/poleReading";
+import { getDeclaredFamilyMargins, familySlug } from "../ai/corrections";
+import { corrIndexFr, signalAConfirmer } from "../dayClassRegistry";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
