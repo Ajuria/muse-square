@@ -1,5 +1,5 @@
 // Shared "M'engager" commitment-creation form. Static /public asset (browser-cached
-// by ?v=), loaded via <script is:inline src="/commit-form.js?v=N">. Exposes a global
+// by ?v=), loaded via <script is:inline src="/js/commit-form.js?v=N">. Exposes a global
 // window.MSCommitForm so BOTH the pulse feed cards and the évolution page's advice CTAs
 // render the SAME form and POST the same shape to /api/commitments.
 //

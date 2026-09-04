@@ -53,7 +53,7 @@ const strip = (h: any) => String(h == null ? "" : h).replace(/<[^>]*>/g, " ").re
   // 3) Le VRAI moteur.
   const { Window } = await import("happy-dom");
   const win: any = new Window({ url: "https://app.local/app/insightevent/pulse" });
-  new Function("window", "document", readFileSync(new URL("../../public/action-cards.js", import.meta.url), "utf8"))(win, win.document);
+  new Function("window", "document", readFileSync(new URL("../../public/js/action-cards.js", import.meta.url), "utf8"))(win, win.document);
 
   // 4) Un rendu par type, isolément — pour qu'aucun filtrage inter-cartes ne masque un texte.
   const out: any[] = [];

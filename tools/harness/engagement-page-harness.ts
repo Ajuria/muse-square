@@ -1,6 +1,6 @@
 // tools/harness/engagement-page-harness.ts — harnais de la PAGE Opération (deux états).
 // Appelle le VRAI endpoint /api/commitments/evolution (sa fonction GET, locals simulés :
-// les gardes réelles s'exécutent), puis rend le VRAI public/card-kit.js dans un contexte vm.
+// les gardes réelles s'exécutent), puis rend le VRAI public/js/card-kit.js dans un contexte vm.
 // Ce que je vérifie est donc exactement ce que la page affiche — même règle que le harnais
 // Pulse. Écrit aussi les deux rendus sur disque pour la vérification visuelle au navigateur.
 //   npx tsx tools/harness/engagement-page-harness.ts
@@ -27,7 +27,7 @@ function ok(label: string, cond: boolean, detail?: unknown) {
 
 // Le kit est une IIFE qui s'accroche à window — un contexte vm suffit (renderEvolution est PURE).
 function loadKit(): any {
-  const src = fs.readFileSync(path.resolve("public/card-kit.js"), "utf8");
+  const src = fs.readFileSync(path.resolve("public/js/card-kit.js"), "utf8");
   const ctx: any = { window: {}, console };
   ctx.self = ctx; ctx.globalThis = ctx;
   vm.createContext(ctx);

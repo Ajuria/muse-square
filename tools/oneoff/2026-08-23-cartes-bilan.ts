@@ -18,7 +18,7 @@ const Q: Array<[string, string[]]> = [
   const [ol] = await bq.query({ query: `SELECT location_id FROM \`${P}.raw.insight_event_user_location_profile\` WHERE LOWER(company_name) LIKE '%olivade%' LIMIT 1`, location: "EU" });
   const sites: Array<[string, string, string]> = [["f10c3e58-326e-4e38-947c-d59fcbe51df5", "MUSE SQUARE", "ventes = graine Kaggle (café), heure + familles, régime quotidien"], [String(flat(ol[0].location_id)), "LES OLIVADES", "ventes réelles Sage 100, sans heure ni famille ni visiteurs, régime hebdomadaire"]];
   const { Window } = await import("happy-dom"); const win: any = new Window({ url: "https://app.local/app/insightevent/pulse" });
-  new Function("window", "document", readFileSync(new URL("../../public/action-cards.js", import.meta.url), "utf8"))(win, win.document);
+  new Function("window", "document", readFileSync(new URL("../../public/js/action-cards.js", import.meta.url), "utf8"))(win, win.document);
   let out = `# Toutes les cartes du ${today.slice(8)}/${today.slice(5, 7)}/${today.slice(0, 4)} — deux comptes, rendu réel (action-cards.js via monitor.ts)\n\nChaque tir du mart, pas un par type. Coin : €/an propre quand la carte est adossée à une classe mesurée ; « motif du jour » = le €/an de la classe de la date ; « ce jour » = l'écart en euros du payload (cartes de faits) ; sinon « — ». Les cartes structurelles (grain motif × site) portent tous les €/an mesurés.\n`;
   let total = 0;
   for (const [L, NAME, DESC] of sites) {

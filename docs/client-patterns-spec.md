@@ -84,7 +84,7 @@ porte de régime : la carte n'est pas quotidienne.
 
 ## Le rendu dans l'app
 
-`public/action-cards.js`, entrée SPECS `client_dormant` :
+`public/js/action-cards.js`, entrée SPECS `client_dormant` :
 
 - **libellé : « Client régulier sans commande »** ;
 - **catégorie : `INTELLIGENCE`** (`'PERFORMANCE'` n'existe pas comme badge app — le mot

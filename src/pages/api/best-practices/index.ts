@@ -1,9 +1,9 @@
 // Routes: /api/best-practices — « Vos bonnes pratiques » (validé 26/07, proto methode-proto.html).
 //   POST : create a DECLARED practice from a positive card's « Enrichir vos bonnes pratiques »
-//          form (public/bp-form.js). kpi + outcome_lever are computed SERVER-SIDE from the
+//          form (public/js/bp-form.js). kpi + outcome_lever are computed SERVER-SIDE from the
 //          origin (kpiRegistry / bestInClassStore vocabularies) — the client never invents them.
 //   GET  : matched practices for an origin context — feeds the « Mon action » slot of the
-//          M'engager form (public/commit-form.js self-fetch), prouvées d'abord.
+//          M'engager form (public/js/commit-form.js self-fetch), prouvées d'abord.
 //   PATCH: link the replay commitment created by the chain « Ajouter + m'engager à la rejouer »
 //          (the commitment itself is created by the EXISTING /api/commitments POST).
 // Auth mirrors /api/commitments (Clerk session + requireLocationOwnership).

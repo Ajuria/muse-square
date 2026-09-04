@@ -95,7 +95,7 @@ async function main() {
   assert("membre 403 hors périmètre", forb.status === 403, { status: forb.status });
 
   // ── Phase 3 : rendu réel d'une carte ventes, plein vs expurgé ──
-  const src = readFileSync("public/action-cards.js", "utf8");
+  const src = readFileSync("public/js/action-cards.js", "utf8");
   const ctx: any = { window: {}, document: { createElement: () => ({ style: {} }) }, console };
   ctx.window = ctx; // action-cards écrit sur window.*
   vm.createContext(ctx);
@@ -130,7 +130,7 @@ export async function markerPhase() {
   assert("owner_only : booléen sur chaque candidate", cands.length > 0 && cands.every((c: any) => typeof c.owner_only === "boolean"), { n: cands.length });
   assert("owner_only : cohérent avec cardScope", cands.every((c: any) => c.owner_only === (cardScope(String(c.action_type)) === "owner")));
 
-  const src2 = readFileSync("public/action-cards.js", "utf8");
+  const src2 = readFileSync("public/js/action-cards.js", "utf8");
   assert("action-cards : owner_only copié sur item", src2.includes("owner_only: ac.owner_only === true"));
   const pulse = readFileSync("src/pages/app/insightevent/pulse.astro", "utf8");
   assert("pulse : marqueur cadenas + infobulle « Visible par vous seul »", pulse.includes("Visible par vous seul — jamais montrée à l’équipe") && pulse.includes("entry.item.owner_only === true"));

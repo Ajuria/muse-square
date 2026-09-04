@@ -193,7 +193,7 @@ column must exist in BigQuery before the code that references it deploys.
 ### 3. Client — pass the card's driver
 - pulse commit form (`buildCommitFormHtml` submit, `pulse.astro`): add to the POST body
   `origin_driver: card.primary_revenue_driver || card.dominant_factor || null`.
-- `public/commit-form.js` (`MSCommitForm`, used by évolution advice CTAs + Répliquer): thread
+- `public/js/commit-form.js` (`MSCommitForm`, used by évolution advice CTAs + Répliquer): thread
   `origin.origin_driver` through so re-engagements carry it; for **Répliquer**, reuse the source
   commitment's `origin_driver`.
 

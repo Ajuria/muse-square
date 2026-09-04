@@ -38,7 +38,7 @@ CTE `monthly_channel_latest` → `monthly_sales_hole` / `monthly_sales_spike` da
 `fct_location_daily_action_candidates.sql`. Priorité **4** / **3**, expiration à
 `last_day + 21 jours`, `channel_hint = 'note_interne'`.
 
-Côté app (`public/action-cards.js`) : copie au format MM/AAAA, nombres en fr-FR, ligne
+Côté app (`public/js/action-cards.js`) : copie au format MM/AAAA, nombres en fr-FR, ligne
 **« Porté par : »** alimentée par `top_parties`, et **« Données jusqu'au »** — la carte dit toujours
 jusqu'où va la donnée.
 

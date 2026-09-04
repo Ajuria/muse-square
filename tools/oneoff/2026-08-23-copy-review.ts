@@ -20,8 +20,8 @@ const OWNER = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const win:any = {};
 const ctx = vm.createContext({ window: win, document:{createElement:()=>({style:{},setAttribute(){},appendChild(){}})},
   console, Date, JSON, Math, Number, String, Array, Object, isNaN, parseInt, parseFloat, RegExp });
-vm.runInContext(fs.readFileSync("public/reco-library.js","utf8"), ctx, {filename:"reco-library.js"});
-vm.runInContext(fs.readFileSync("public/action-cards.js","utf8"), ctx, {filename:"action-cards.js"});
+vm.runInContext(fs.readFileSync("public/js/reco-library.js","utf8"), ctx, {filename:"reco-library.js"});
+vm.runInContext(fs.readFileSync("public/js/action-cards.js","utf8"), ctx, {filename:"action-cards.js"});
 const SPECS = win.ACTION_CARDS;
 const prof = JSON.parse(fs.readFileSync(process.env.SP + "/owner-profile.json","utf8"));
 

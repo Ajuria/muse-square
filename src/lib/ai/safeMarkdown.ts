@@ -1,5 +1,5 @@
 // src/lib/ai/safeMarkdown.ts
-// Server-side twin of the chat renderer (public/scripts/ie-prompt.js → mdInlineToSafeHtml).
+// Server-side twin of the chat renderer (public/js/ie-prompt.js → mdInlineToSafeHtml).
 // Used wherever the SERVER prints model-authored prose into HTML — today the daily-briefing and alert
 // emails, which otherwise deliver literal **asterisks** to the operator's inbox.
 //

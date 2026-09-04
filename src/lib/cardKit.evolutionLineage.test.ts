@@ -1,5 +1,5 @@
 // La section « Historique du dispositif » de renderEvolution — vérifiée en exécutant le VRAI
-// public/card-kit.js dans un vm Node (le harnais est la page), jamais à la regex sur la source.
+// public/js/card-kit.js dans un vm Node (le harnais est la page), jamais à la regex sur la source.
 import { readFileSync } from "node:fs";
 import * as vm from "node:vm";
 import { beforeAll, expect, it } from "vitest";
@@ -10,7 +10,7 @@ beforeAll(() => {
   const sandbox: any = { window: {}, console };
   sandbox.window.window = sandbox.window;
   vm.createContext(sandbox);
-  vm.runInContext(readFileSync("public/card-kit.js", "utf8"), sandbox, { filename: "card-kit.js" });
+  vm.runInContext(readFileSync("public/js/card-kit.js", "utf8"), sandbox, { filename: "card-kit.js" });
   kit = sandbox.window.MSCardKit;
 });
 

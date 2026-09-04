@@ -70,11 +70,11 @@ async function main() {
   // ── Modules client (vm) : le partagé existe, event-form n'a plus sa copie ──
   const ctx: any = { console }; ctx.window = ctx;
   vm.createContext(ctx);
-  vm.runInContext(readFileSync("public/pole-form.js", "utf8"), ctx);
+  vm.runInContext(readFileSync("public/js/pole-form.js", "utf8"), ctx);
   assert("MSPoleForm exposé par le module partagé", typeof ctx.MSPoleForm === "object" && typeof ctx.MSPoleForm.render === "function");
-  const ef = readFileSync("public/event-form.js", "utf8");
+  const ef = readFileSync("public/js/event-form.js", "utf8");
   assert("event-form : plus de copie du panneau (délégué au module)", !ef.includes("data-ef-pole-submit") && ef.includes("MSPoleForm.render"));
-  const pf = readFileSync("public/pole-form.js", "utf8");
+  const pf = readFileSync("public/js/pole-form.js", "utf8");
   assert("libellé owner 28/08 : Familles de produits & services", pf.includes("Familles de produits &amp; services"));
   assert("garde une famille = un pôle présente", pf.includes("une famille vit dans un seul pôle"));
 

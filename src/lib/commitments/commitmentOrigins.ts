@@ -5,7 +5,7 @@
 // v1 origin = action cards, broadly). This set must be the action-card SPECS
 // universe, not the alert subset.
 //
-// AUTHORITATIVE LIST = the SPECS/ACTION_CARDS keys in public/action-cards.js.
+// AUTHORITATIVE LIST = the SPECS/ACTION_CARDS keys in public/js/action-cards.js.
 // Complete this set from those keys before the endpoint accepts non-sales cards.
 // Seeded below ONLY with action_types verified present in the repo; the
 // opportunity / threat / weather / tourism / footfall families still need adding
@@ -23,7 +23,7 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "monthly_sales_hole",            // C3 (07/08/2026) — s'engager après un mois extrême (canal)
   "monthly_sales_spike",           // C3 (07/08/2026)
 
-  // Weather — verified present in public/action-cards.js SPECS (the four types that route to
+  // Weather — verified present in public/js/action-cards.js SPECS (the four types that route to
   // the weather deep page / drill-down in insight.astro `_isWeather`).
   "weather_hazard_onset",
   "weather_worsened",
@@ -31,13 +31,13 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "extended_bad_weather",          // → renderWeatherWindow (the extended-window deep page)
   "extended_bad_weather_3d",       // legacy/phantom key kept for back-compat; the real SPECS type is above
 
-  // Events / calendar — verified present in public/action-cards.js SPECS (the types that route to
+  // Events / calendar — verified present in public/js/action-cards.js SPECS (the types that route to
   // the events deep page / "Paysage événementiel" in insight.astro `_isEvent`).
   "commercial_event_match",
   "mega_event_activation",
   "mega_event_end",
 
-  // Competitor / tarifs — verified present in public/action-cards.js SPECS (types that route to the
+  // Competitor / tarifs — verified present in public/js/action-cards.js SPECS (types that route to the
   // competitor deep page / "Concurrence" in insight.astro `_isCompetitor`).
   "competition_proximity",
   "high_competition_density",
@@ -49,7 +49,7 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "competitor_new_offering",
   "competitor_offering_removed",
 
-  // Tourism — verified present in public/action-cards.js SPECS (types routing to "Tourisme" in `_isTourism`).
+  // Tourism — verified present in public/js/action-cards.js SPECS (types routing to "Tourisme" in `_isTourism`).
   "tourist_high_season",
   "tourist_surge_vacation",
   "tourism_peak_window",
@@ -68,7 +68,7 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "ft_peak_tourism_vacation",
   "ft_peak_mobility",
 
-  // TODO(complete from public/action-cards.js SPECS keys): opportunity/threat families
+  // TODO(complete from public/js/action-cards.js SPECS keys): opportunity/threat families
   // (verify each string against the registry).
 
   // Chat décision commits (Day 2, 16/07) — a « Prochaines étapes » line inside an inline FAMILY CARD
@@ -89,7 +89,7 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
 
   // Complétion 26/07 (menu Agir universel — décision owner : TOUTE carte « Actions du
   // jour » porte M'engager, y compris les specs card_type 'notification') : la totalité
-  // restante du registre SPECS de public/action-cards.js, extraite mécaniquement du
+  // restante du registre SPECS de public/js/action-cards.js, extraite mécaniquement du
   // fichier (regex sur les appels reg()), jamais recopiée à la main.
   "weather_window",
   "top_day_approaching",

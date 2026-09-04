@@ -10,7 +10,7 @@ let fails = 0; const check = (l: string, c: boolean, d?: any) => { console.log((
   const today = new Date().toISOString().slice(0, 10);
   const res = await monitorGET({ url: new URL(`http://l/api/insight/monitor?location_id=${OWNER}&selected_dates=${today}`), locals: { clerk_user_id: String(flat(u.clerk_user_id)), location_id: OWNER, all_location_ids: [OWNER] } } as any);
   const j = JSON.parse(await (res as any).text());
-  const ac = readFileSync(new URL("../../public/action-cards.js", import.meta.url), "utf8");
+  const ac = readFileSync(new URL("../../public/js/action-cards.js", import.meta.url), "utf8");
   const astro = readFileSync(new URL("../../src/pages/app/insightevent/pulse.astro", import.meta.url), "utf8");
   const m = astro.match(/<script is:inline(?:\s[^>]*)?>\n([\s\S]*?)\n\s*<\/script>/); if (!m) throw new Error("script");
   const body = m[1]; const tail = body.lastIndexOf("})();");

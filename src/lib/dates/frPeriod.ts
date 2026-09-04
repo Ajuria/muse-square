@@ -19,7 +19,7 @@
 // est résolu par le biais, le mois de début est la dernière occurrence <= fin.
 //
 // Consommateurs : src/pages/api/insight/prompt.ts (fenêtre du mode mois).
-// public/scripts/ie-prompt.js porte encore parseFrPeriod (navigation rapport) ;
+// public/js/ie-prompt.js porte encore parseFrPeriod (navigation rapport) ;
 // il est remplacé par l'intent serveur REPORT — voir docs/module-index.md.
 
 export type FrPeriodKind =

@@ -46,7 +46,7 @@ citer comme référence — l'auditer reste toujours permis.
 
 La copie approuvée est **littérale et concrète** : « Cinq actions priorisées vous attendent.
 Pas vingt. » La cadence LLM se détecte immédiatement : triades, parallélismes, formules
-bouclées, sentences au présent général. Le corpus de référence est `public/reco-library.js`,
+bouclées, sentences au présent général. Le corpus de référence est `public/js/reco-library.js`,
 entrées ÉCRITES seulement (13) — jamais l'échafaudage commenté.
 
 Avant de montrer la moindre chaîne proposée, la passer aux tests 8-13 de `docs/lexique.md`

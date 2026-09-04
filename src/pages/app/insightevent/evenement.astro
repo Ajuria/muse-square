@@ -3,7 +3,7 @@
 // Mode LISTE (par défaut, sans saved_item_id) : les événements du lieu via ?list=1 — premier
 // consommateur de vw_insight_event_user_events ; lieu résolu via /api/profile/locations
 // (primaire d'abord) quand l'URL n'en porte pas (lien BottomBar).
-// Mode CRÉATION (?new=1 ou ?dates=) : MSEventForm (public/event-form.js, ?dates= pré-remplies).
+// Mode CRÉATION (?new=1 ou ?dates=) : MSEventForm (public/js/event-form.js, ?dates= pré-remplies).
 // Mode DOSSIER (?saved_item_id=) : les 3 états Décider/Avant/Après sur provider evenementFamily ;
 // la CIBLE du KPI dominant est jugée en DÉTERMINISTE (target_met — un fait), le verdict
 // STATISTIQUE reste celui de l'engagement K1 (bande de bruit + gardes — décision étape 3),
@@ -41,9 +41,9 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
       .evt-bl-chip:hover { border-color: #1D3BB3 !important; color: #1D3BB3 !important; }
     </style>
 
-<script is:inline src="/pole-form.js?v=3"></script>
-<script is:inline src="/event-form.js?v=15"></script>
-    <script is:inline src="/draft-workspace.js?v=5"></script>
+<script is:inline src="/js/pole-form.js?v=3"></script>
+<script is:inline src="/js/event-form.js?v=15"></script>
+    <script is:inline src="/js/draft-workspace.js?v=5"></script>
     <script is:inline>
       (function () {
         var root = document.getElementById("evt-root");

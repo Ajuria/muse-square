@@ -221,7 +221,7 @@ That is the correct honest result; **no gate was loosened.** The baseline stays 
 all venues (0 émergent+ effects → nothing to swap; the powered paired-difference CI machinery is
 ready for the first one). The **read-only consumer is wired now** (before beta, so the live path is
 proven off-customer): endpoint `src/pages/api/insight/sensitivities.ts` → page
-`src/pages/app/insightevent/reactions.astro` → shared render `public/reactions.js`. Both states are
+`src/pages/app/insightevent/reactions.astro` → shared render `public/js/reactions.js`. Both states are
 proven on the real render component (empty real store = "rien de notable"; seed store = tiered
 render with the correct register per tier). The page defaults to the **real (empty) store**; a
 dev-only `?src=seed` proves the populated path.

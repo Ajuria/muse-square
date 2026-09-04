@@ -7,7 +7,7 @@
 >
 > Méthode : pour chacune des 10 cartes les plus fréquentes sur 90 j
 > (`mart.fct_location_daily_action_candidates`), comparer **ce que la carte affirme** (titre +
-> `reg()` dans `public/action-cards.js`) à **ce que disent les données du lieu** (payload réel +
+> `reg()` dans `public/js/action-cards.js`) à **ce que disent les données du lieu** (payload réel +
 > `analytics.day_class_impacts_history` + `mart.fct_competitor_threat_profile`).
 > Compte de référence : Muse Square `f10c3e58` (règle CLAUDE.md — jamais un autre lieu de démo).
 > Barre appliquée : CLAUDE.md « Card Quality Bar » — une carte doit dire quelque chose de VRAI que

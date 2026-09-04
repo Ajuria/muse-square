@@ -3,7 +3,7 @@
 //
 // TWO doors feed it, ONE reader serves it:
 //   1. DECLARED — a positive card's « M'engager » opens « Enrichir vos bonnes pratiques »
-//      (public/bp-form.js) → POST /api/best-practices → a row HERE (analytics.best_practices).
+//      (public/js/bp-form.js) → POST /api/best-practices → a row HERE (analytics.best_practices).
 //      A declared cause is a USER HYPOTHESIS ("déclarée"), never presented as fact.
 //   2. PROVEN — the EXISTING commitment loop: a resolved commitment with verdict 'met'
 //      (analytics.action_commitments, retro columns retro_worked/retro_repeat) IS a proven

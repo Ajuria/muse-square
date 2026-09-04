@@ -1,6 +1,6 @@
 // Guards against drift between the server theme→action_type map
 // (recoThemeMap.ts) and the client window.RECO_TAXONOMY in
-// public/action-cards.js. They share the action_type vocabulary for different
+// public/js/action-cards.js. They share the action_type vocabulary for different
 // purposes (server: filtering; client: toggle rendering) and must not diverge.
 //
 // Assumes: Vitest; tests run from repo root; no taxonomy string value contains
@@ -16,9 +16,9 @@ import { RECO_THEME_ACTION_TYPES } from "./recoThemeMap";
 function loadClientTaxonomy(): {
   buckets?: Array<{ themes?: Array<{ action_types?: string[] }> }>;
 } {
-  const src = readFileSync(resolve("public/action-cards.js"), "utf8");
+  const src = readFileSync(resolve("public/js/action-cards.js"), "utf8");
   const markerIdx = src.indexOf("window.RECO_TAXONOMY");
-  if (markerIdx === -1) throw new Error("window.RECO_TAXONOMY not found in public/action-cards.js");
+  if (markerIdx === -1) throw new Error("window.RECO_TAXONOMY not found in public/js/action-cards.js");
   const start = src.indexOf("{", src.indexOf("=", markerIdx));
   let depth = 0, end = start;
   for (let i = start; i < src.length; i++) {

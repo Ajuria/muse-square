@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // « Je m'engage » rattaché à un pôle (03/09, spec dispositifs-typologie — une opération née
-// d'une carte entre dans la mémoire du pôle). Vérifié en évaluant le VRAI public/commit-form.js
+// d'une carte entre dans la mémoire du pôle). Vérifié en évaluant le VRAI public/js/commit-form.js
 // (le harnais est la page), fetch stubé sur le contrat exact de goal_context (+ poles) et le
 // POST /api/commitments capturé : le corps porte attached_pole_id.
 import { readFileSync } from "node:fs";
@@ -34,7 +34,7 @@ async function mountForm(poles: any[] | undefined): Promise<HTMLElement> {
   return mount;
 }
 
-beforeAll(() => { (0, eval)(readFileSync("public/commit-form.js", "utf8")); });
+beforeAll(() => { (0, eval)(readFileSync("public/js/commit-form.js", "utf8")); });
 
 const POLES = [{ dispositif_id: "d-1", name: "Pôle périssables", families: ["Coffee", "Bakery"] }, { dispositif_id: "d-2", name: "Pôle traiteur", families: [] }];
 

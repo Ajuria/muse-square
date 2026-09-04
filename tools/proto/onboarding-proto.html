@@ -8,7 +8,7 @@
   PROTOTYPE — onboarding en dialogue, à valider AVANT toute page (règle pulse-ui : proto d'abord).
   Bâti sur le VRAI markup : styles .dp-* de dispositif.astro (page chat-first validée 03/08),
   grille horaires + champs + suggestions d'adresse de profile.astro, bouton « joindre » d'Explorer,
-  VRAI public/pole-form.js (formulaire de pôle, composants) et VRAI public/card-kit.js
+  VRAI public/js/pole-form.js (formulaire de pôle, composants) et VRAI public/js/card-kit.js
   (renderComponentPhoto). Aucun backend : fetch est simulé (données réelles de Muse Square pour les
   familles, 30 derniers jours). Servi par proto-static (4173).
 -->
@@ -107,8 +107,8 @@
   };
 })();
 </script>
-<script src="/public/pole-form.js?v=3"></script>
-<script src="/public/card-kit.js?v=70"></script>
+<script src="/public/js/pole-form.js?v=3"></script>
+<script src="/public/js/card-kit.js?v=70"></script>
 <script>
 (function () {
   "use strict";

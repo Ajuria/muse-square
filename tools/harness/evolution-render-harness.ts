@@ -26,7 +26,7 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
 
   const { Window } = await import("happy-dom");
   const win: any = new Window({ url: "https://app.local/app/insightevent/engagement" });
-  new Function("window", "document", readFileSync(new URL("../../public/card-kit.js", import.meta.url), "utf8"))(win, win.document);
+  new Function("window", "document", readFileSync(new URL("../../public/js/card-kit.js", import.meta.url), "utf8"))(win, win.document);
   if (!win.MSCardKit || !win.MSCardKit.renderEvolution) throw new Error("card-kit non chargé");
 
   let fails = 0;

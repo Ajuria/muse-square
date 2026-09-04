@@ -99,7 +99,7 @@ async function main() {
   assert("traces card_forwards écrites (échec ET succès)", (traces as any[]).length >= 1 && (traces as any[])[0].sent_ok === false, (traces as any[]).map((t: any) => ({ ch: t.slack_channel, ok: t.sent_ok })));
 
   // ── Phase 3 : msMemberForwardText réel (vm) ──
-  const src = readFileSync("public/action-cards.js", "utf8");
+  const src = readFileSync("public/js/action-cards.js", "utf8");
   const ctx: any = { console }; ctx.window = ctx;
   vm.createContext(ctx); vm.runInContext(src, ctx);
   const [candRows] = await bq.query({

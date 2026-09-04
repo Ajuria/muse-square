@@ -221,7 +221,7 @@ l'impact de votre action par rapport à votre CA habituel (X €/jour) et à vot
 journées, chart() reprend, inchangé. **Redirection** : après M'engager sur Pulse, succès 1,4 s
 puis navigation vers `engagement?id=<commitment_id>`.
 
-**Deux bugs préexistants attrapés par la harness J1** (public/card-kit.js) : le headline
+**Deux bugs préexistants attrapés par la harness J1** (public/js/card-kit.js) : le headline
 « fenêtre démarrée » calculait l'objectif avec la constante 0,19 au lieu de lire la base `pct`
 (+10 % affiché « +7 % ») ; l'intro du panneau « Votre prochain mouvement » disait « Ça marche. »
 à J1 sans aucune donnée → intro neutre tant que zéro journée reçue. Preuves : harness navigateur

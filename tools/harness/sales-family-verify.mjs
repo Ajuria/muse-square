@@ -47,7 +47,7 @@ const fQuiet = await salesFamily(bq, loc, dQuiet);
 check("jour sans signal : is_down === null + absence DITE dans les facts", fQuiet.data.is_down === null && fQuiet.facts.some((f) => f.fact_fr.indexOf("Aucun signal CA") >= 0), dQuiet);
 
 // 3 · renderSales RÉEL : extrait de card-kit, mode neutre vs mode baisse.
-const kit = readFileSync(new URL("../../public/card-kit.js", import.meta.url), "utf8");
+const kit = readFileSync(new URL("../../public/js/card-kit.js", import.meta.url), "utf8");
 const mFn = kit.match(/(function salesLevier[\s\S]*?\n  \})\n\n/) || kit.match(/(function salesLevier[\s\S]*?\n  \})\n/);
 const mRs = kit.match(/(function renderSales\(j, isDown, date\) \{[\s\S]*?\n  \})\n/);
 if (!mFn || !mRs) throw new Error("renderSales/salesLevier introuvables");

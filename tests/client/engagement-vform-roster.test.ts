@@ -2,14 +2,14 @@
 // Roster Responsable(s) sur « La version suivante » (owner 27/08) : les personnes des canaux
 // de communication (/api/channels/team) se proposent en chips sous l'input du sous-formulaire,
 // via le MÊME foyer que le formulaire M'engager (MSCommitForm.wireOwnerPool — zéro duplication).
-// Vérifié en évaluant les VRAIS public/commit-form.js + public/card-kit.js (le harnais est la page).
+// Vérifié en évaluant les VRAIS public/js/commit-form.js + public/js/card-kit.js (le harnais est la page).
 import { readFileSync } from "node:fs";
 import { beforeAll, expect, it } from "vitest";
 import { EVOL_COPY } from "../../src/lib/commitments/commitmentCopy";
 
 beforeAll(() => {
-  (0, eval)(readFileSync("public/commit-form.js", "utf8"));
-  (0, eval)(readFileSync("public/card-kit.js", "utf8"));
+  (0, eval)(readFileSync("public/js/commit-form.js", "utf8"));
+  (0, eval)(readFileSync("public/js/card-kit.js", "utf8"));
 });
 
 it("les chips du roster se rendent sous Responsable(s) et un clic remplit l'input", async () => {

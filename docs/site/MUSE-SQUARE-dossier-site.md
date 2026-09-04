@@ -68,7 +68,7 @@ vous attendent. Pas vingt. » — c'est exact et c'est un bon argument.
    (gagnés · à prendre · cible · vs votre résultat habituel). Jamais un € nu.
 3. **Une action** que l'exploitant peut réellement faire.
 
-**Les gestes disponibles sur une carte** (tous existent dans `public/action-cards.js`) :
+**Les gestes disponibles sur une carte** (tous existent dans `public/js/action-cards.js`) :
 - **Consulter la source** — remonter à la donnée derrière l'affirmation.
 - **Communiquer** — un brouillon prêt à publier sur **Google Business, Instagram, Email ou Slack**.
 - **Faire suivre** — passer le signal en interne avec l'action recommandée.
@@ -1128,7 +1128,7 @@ export function decompositionLine(d: DecompositionCite): string {
 }
 ```
 
-## Phrases d'action réelles (public/action-cards.js — ACTION_SENTENCES)
+## Phrases d'action réelles (public/js/action-cards.js — ACTION_SENTENCES)
 ```
 'À faire : reprendre contact en direct — comprendre si la pause est saisonnière, un point de friction, ou un départ chez un concurrent.'
 'À faire : reconstituer la semaine (fermetures, absence, contexte local), puis ajuster ce qui se pilote à ce terme — achats et animation.'

@@ -2857,7 +2857,7 @@
   }
 
   // Vue equipe inc 6 — texte MEMBRE d'une carte pour le forward Slack.
-  // msRedactPayloadForMember est le JUMEAU CLIENT de src/lib/memberCardPolicy.ts
+  // msRedactPayloadForMember est le JUMEAU CLIENT de src/lib/profile/memberCardPolicy.ts
   // (redactPayloadForMember) : meme regle, documentee des deux cotes — toute cle
   // revenue/basket hors formes relatives (_pct/_share/_z/_rank), plus avg_30d.
   // Un canal Slack d'equipe n'a pas plus de droits qu'une session membre.
@@ -3811,7 +3811,7 @@
   };
 
   // Recommended actions per sales card — a real "à faire". CONTENT lives in the
-  // owner-editable window.MS_SALES_RECO_LIB (public/reco-library.js), loaded BEFORE
+  // owner-editable window.MS_SALES_RECO_LIB (public/js/reco-library.js), loaded BEFORE
   // this file on surfaces that show recos (pulse form, rapport). Here we only wire it:
   //   spec.recos(item) -> up to 3 driver-matched actions (the M'engager form options)
   //   spec.reco(item)  -> the top one as a string (the sales report, back-compat)
@@ -3880,7 +3880,7 @@
   window.MS_ROUTING_MAP = {weather_worsened:'weather',weather_improved:'weather',weather_hazard_onset:'weather',competitor_event_launch:'competition',competitor_audience_conflict:'competition',competition_pressure_spike:'competition',competitor_event_ending:'competition',mobility_disruption:'mobility',mobility_disruption_planned:'mobility',score_up:'opportunity',score_down:'opportunity',_day_opportunity:'opportunity',_best_day:'opportunity',_low_competition:'competition',_same_bucket_saturation:'competition',_holiday_high_comp:'competition',_perfect_storm:'opportunity',_commercial_event:'calendar',_extended_bad_weather:'weather',_weather_mobility_double:'weather',_saturated_bad_weather:'weather',_mobility_comp_squeeze:'mobility',_audience_mismatch:'competition',_weather_window:'weather',competitor_review_surge:'competition',competitor_review_drop:'competition',competitor_hours_change:'competition',competitor_new_offering:'competition',competitor_sold_out:'competition',competitor_content_spike:'competition',competitor_content_silent:'competition',institution_campaign_detected:'competition',media_mention_detected:'competition',calendar_audience_shift:'calendar'};
 
   // v1 internal-alert allowlist — the 5 performance RULE cards eligible for "Communiquer en interne".
-  // Keep in sync with src/lib/internalAlertCards.ts (backend Barrier 2).
+  // Keep in sync with src/lib/context/internalAlertCards.ts (backend Barrier 2).
   window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','hour_share_move'];
 
 })();

@@ -112,7 +112,7 @@ UI d'édition : différée (DML à la demande) — notée en queue.
   channel_key) ; appelle `channelsData` avec la période demandée ; la réponse
   gagne `channels: {…}` (section absente si < 2 flux — décision 12). Le reste
   du rapport INCHANGÉ.
-- **`public/card-kit.js`** : `MSCardKit.renderChannels(data)` — le rendu v5 :
+- **`public/js/card-kit.js`** : `MSCardKit.renderChannels(data)` — le rendu v5 :
   tableau hiérarchique (sites en gras + canaux indentés + Total), bloc
   4 questions, série hebdo monochrome (barres + sélecteur de mise en avant,
   états du détecteur), mois pros + tableau des comptes + totaux, liste

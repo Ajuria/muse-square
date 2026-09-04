@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // Menu KPI du formulaire événement/opération (audit owner 27/08) : flux et conversion ne sont
 // proposés que si le SITE porte la donnée (ctx.kpi_available, >= 30 j couverts sur 90) — même
-// mécanisme que le KPI famille. Vérifié en évaluant le VRAI public/event-form.js (le harnais est
+// mécanisme que le KPI famille. Vérifié en évaluant le VRAI public/js/event-form.js (le harnais est
 // la page), fetch stubé sur le contrat exact de create_context.
 import { readFileSync } from "node:fs";
 import { beforeAll, expect, it } from "vitest";
@@ -34,7 +34,7 @@ async function renderMenu(kpi_available: Record<string, boolean>): Promise<strin
 
 beforeAll(() => {
   // UN eval du vrai fichier (même règle que explorerTestKit : le module n'a pas de ré-init).
-  (0, eval)(readFileSync("public/event-form.js", "utf8"));
+  (0, eval)(readFileSync("public/js/event-form.js", "utf8"));
 });
 
 it("site AVEC capteur : Visiteurs et Taux de conversion apparaissent, gabarit des options existantes", async () => {

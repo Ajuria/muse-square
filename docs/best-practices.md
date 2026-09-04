@@ -32,7 +32,7 @@ kpi, outcome_lever, means_lever, day_class_key, practice_text, replay_commitment
 ## Flux
 
 1. Carte OPPORTUNITÉ → menu « M'engager » (`data-agir-positive`) → `MSBpForm`
-   (public/bp-form.js) : pistes tirées du driver, texte libre, levier-moyen, auteur (roster).
+   (public/js/bp-form.js) : pistes tirées du driver, texte libre, levier-moyen, auteur (roster).
    Sorties « c'était le contexte » / « je ne peux pas l'expliquer » = première classe, rien
    n'entre en base (événements `bp_context_exit`/`bp_unexplained_exit` via analytics/track).
 2. « Ajouter + m'engager à la rejouer » → MSCommitForm prérempli (action = pratique, 7 j) →

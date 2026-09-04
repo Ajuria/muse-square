@@ -39,9 +39,9 @@ const id = Astro.url.searchParams.get("id") || "";
       .eg-sec { margin-bottom: 26px; }
     </style>
 
-    <script is:inline src="/ms-loader.js?v=2"></script>
-    <script is:inline src="/commit-form.js?v=15"></script>
-    <script is:inline src="/card-kit.js?v=70"></script>
+    <script is:inline src="/js/ms-loader.js?v=2"></script>
+    <script is:inline src="/js/commit-form.js?v=15"></script>
+    <script is:inline src="/js/card-kit.js?v=70"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -53,7 +53,7 @@ const id = Astro.url.searchParams.get("id") || "";
         function showError(msg) { statusEl.textContent = msg; statusEl.style.display = "block"; docEl.style.display = "none"; }
         function doneBtnStyle(sel) { return "font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;" + (sel ? "background:#1D3BB3;color:#fff;border:1px solid #1D3BB3;" : "background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;"); }
 
-        // ── PURE render moved to the SHARED public/card-kit.js (MSCardKit.renderEvolution),
+        // ── PURE render moved to the SHARED public/js/card-kit.js (MSCardKit.renderEvolution),
         //    the SINGLE source verified by tools/harness/card-harness.html — same as the system
         //    cards. This page keeps ONLY the interactive wiring (capture POSTs + advice
         //    M'engager sub-form via window.MSCommitForm), attached after the kit renders. ──

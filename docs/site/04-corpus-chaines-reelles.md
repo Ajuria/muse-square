@@ -654,7 +654,7 @@ export function decompositionLine(d: DecompositionCite): string {
 }
 ```
 
-## Phrases d'action réelles (public/action-cards.js — ACTION_SENTENCES)
+## Phrases d'action réelles (public/js/action-cards.js — ACTION_SENTENCES)
 ```
 'À faire : reprendre contact en direct — comprendre si la pause est saisonnière, un point de friction, ou un départ chez un concurrent.'
 'À faire : reconstituer la semaine (fermetures, absence, contexte local), puis ajuster ce qui se pilote à ce terme — achats et animation.'

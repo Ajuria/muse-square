@@ -190,7 +190,7 @@ Livré (pulse.astro, bâtisseur cardsHtml + handlers) :
   `/profile?tab=comm` (grammaire du prompt destinataire existant). « Communiquer en interne »
   retombe déjà sur note_interne — aucun canal requis.
 - `src/lib/commitments/commitmentOrigins.ts` : allowlist complétée avec les 47 clés SPECS manquantes
-  (extraction mécanique regex sur les `reg()` de public/action-cards.js — son TODO d'origine),
+  (extraction mécanique regex sur les `reg()` de public/js/action-cards.js — son TODO d'origine),
   sinon l'API commitments aurait rejeté M'engager sur ces cartes. `kpiKeyForOrigin` retombe sur
   `revenue_residual` pour les types non mappés — POST sûr pour tout le registre.
 

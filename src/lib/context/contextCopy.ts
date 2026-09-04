@@ -448,7 +448,7 @@ export function structuralCardCopyFr(i: {
   // PRÉFIXE D'ACTION UNIQUE (owner 25/08 : « Unifie les préfixes → Action(s) conseillée(s) »,
   // puis « Chantier aussi »). Le mot « Chantier » disparaît du PRÉFIXE ; il reste dans le corps
   // du plan quand l'owner l'y a écrit — seule l'étiquette change, jamais le plan lui-même.
-  // ACCORD : même règle que le moteur client (accordActionPrefix, public/action-cards.js) —
+  // ACCORD : même règle que le moteur client (accordActionPrefix, public/js/action-cards.js) —
   // on compte les GESTES (impératif en -ez hors « vous …ez », plus l'enchaînement « …, puis … »),
   // jamais les phrases. Jumeau côté serveur assumé : la copie structurelle se compose ici, la
   // copie des cartes datées là-bas ; une seule règle, écrite deux fois, testée des deux côtés.

@@ -1,5 +1,5 @@
 // Shared Communiquer/Faire suivre workspace — window.MSDraftWorkspace. Static /public asset
-// (browser-cached by ?v=N), loaded via <script is:inline src="/draft-workspace.js?v=N">.
+// (browser-cached by ?v=N), loaded via <script is:inline src="/js/draft-workspace.js?v=N">.
 //
 // UNIFICATION (18/07, owner) : Pulse et la page détail (insight) avaient chacun LEUR copie du
 // workspace de rédaction/envoi — toutes les incohérences (destinataires absents, libellés,

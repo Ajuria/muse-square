@@ -5,7 +5,7 @@
 // your business voice, not LLM 101.
 //
 // MECHANISM: action-cards.js is a static /public asset that can't import TS, so this
-// is a browser global (loaded via <script src="/reco-library.js?v=N"> BEFORE
+// is a browser global (loaded via <script src="/js/reco-library.js?v=N"> BEFORE
 // action-cards.js on every surface that shows recos — currently pulse + rapport).
 // action-cards.js reads window.MS_SALES_RECO_LIB and attaches spec.recos (the 3) +
 // spec.reco (the top one). If this file is missing, recos degrade to empty (the
@@ -32,7 +32,7 @@
 //                 populated for crawled case studies).
 //
 // COVERAGE INVARIANT: every card type in COMMITMENT_ORIGIN_ACTION_TYPES
-// (src/lib/commitmentOrigins.ts) MUST have an entry here. v1 allowlist =
+// (src/lib/commitments/commitmentOrigins.ts) MUST have an entry here. v1 allowlist =
 // sales_surge, sales_revenue_down_wow, sales_traffic_not_converting,
 // sales_discount_no_lift, footfall_vs_basket_decomposition. When the allowlist
 // grows (opportunity/threat/weather/tourism families), add recos here in lockstep.

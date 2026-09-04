@@ -75,8 +75,8 @@ All Clerk-gated (`locals.clerk_user_id`) + `requireLocationOwnership(locals, loc
 | [`src/lib/commitments/commitmentResolve.ts`](../../src/lib/commitmentResolve.ts) | Residual resolution: VIF from measured ρ, asymmetric confound gate, verdict. |
 | [`src/lib/commitments/commitmentContext.ts`](../../src/lib/commitmentContext.ts) | Évolution extras: §2d holiday-norm, ② context, provenance, ③ advice (keys only, z-free, French-free). |
 | [`src/lib/commitments/commitmentCopy.ts`](../../src/lib/commitmentCopy.ts) | **Owner-editable** — every French string on the évolution page (tokened templates; injected via `define:vars`). |
-| [`public/reco-library.js`](../../public/reco-library.js) | **Owner-editable** — the 3 recommended actions per sales card/driver (§5). |
-| [`public/commit-form.js`](../../public/commit-form.js) | Shared `window.MSCommitForm` create-form builder/wirer (used by the évolution advice CTAs). |
+| [`public/js/reco-library.js`](../../public/js/reco-library.js) | **Owner-editable** — the 3 recommended actions per sales card/driver (§5). |
+| [`public/js/commit-form.js`](../../public/js/commit-form.js) | Shared `window.MSCommitForm` create-form builder/wirer (used by the évolution advice CTAs). |
 | [`src/pages/app/insightevent/engagement.astro`](../../src/pages/app/insightevent/engagement.astro) | The évolution page (rapport look; ① goal + chart, ② context, ③ advice, ④ capture, sources). |
 
 ---
@@ -100,15 +100,15 @@ one → it fills the field, still editable. This is the create-form's core value
 sowhat surveillance line.
 
 Plumbing (the piece that silently regressed once — see §7):
-1. **Content** lives in [`public/reco-library.js`](../../public/reco-library.js) →
+1. **Content** lives in [`public/js/reco-library.js`](../../public/js/reco-library.js) →
    `window.MS_SALES_RECO_LIB` = `{ card_type: { driver: [a1,a2,a3], _default:[…] } }`.
    Owner-editable; each line clears the Card Quality Bar (specific / controllable / €-relevant /
    vertical-correct / non-obvious).
 2. **Wiring**: `action-cards.js` reads the lib and attaches `spec.recos(item)` (the 3, for the
    form) and `spec.reco(item)` (top one, for the sales report). Degrades to `[]` / `''` if the
    lib isn't loaded — never throws, never wrong text.
-3. **Load order**: surfaces that show recos must load `/reco-library.js` **before**
-   `/action-cards.js` — currently **pulse** (the form) and **rapport** (the report). Monitor
+3. **Load order**: surfaces that show recos must load `/js/reco-library.js` **before**
+   `/js/action-cards.js` — currently **pulse** (the form) and **rapport** (the report). Monitor
    loads action-cards.js but never calls recos.
    **31/07 — le câblage est DÉRIVÉ des clés de la bibliothèque**, plus une liste de types
    recopiée dans `action-cards.js`. Cette liste était figée à 7 alors que l'allowlist §4 avait
@@ -118,7 +118,7 @@ Plumbing (the piece that silently regressed once — see §7):
    suffit à câbler son type.
    **État de la couverture au 31/07, mesuré sur 90 j** : 33 types tirent, **6 ont des plans, 27
    n'en ont pas**. L'échafaudage des 27 (variables de payload réelles par type, classées par
-   fréquence de tir) est en fin de `public/reco-library.js`, commenté — il attend le contenu en
+   fréquence de tir) est en fin de `public/js/reco-library.js`, commenté — il attend le contenu en
    voix owner. `low_competition_window` est couvert mais ne rend qu'**1 plan sur 3**.
 4. **Render**: pulse computes `entry.item.__suggested_actions = spec.recos(item)` at card
    render; `cmSuggestionsHtml` renders the rows; clicking fills `data-cm-action` (editable).

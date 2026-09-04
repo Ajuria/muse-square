@@ -13,7 +13,7 @@
 //   · un type couvert PERD ses plans                       -> régression silencieuse
 //   · le câblage cesse de DÉRIVER des clés de la bibliothèque -> on retomberait à deux gestes
 //
-// QUAND VOUS ÉCRIVEZ DES PLANS : décommentez l'entrée dans public/reco-library.js, puis RETIREZ
+// QUAND VOUS ÉCRIVEZ DES PLANS : décommentez l'entrée dans public/js/reco-library.js, puis RETIREZ
 // le type de DETTE_SANS_PLANS ci-dessous. Le test vous y forcera.
 //
 // Il ne juge PAS le contenu — la voix owner et la barre de qualité ne se testent pas.
@@ -42,7 +42,7 @@ function loadClient(): { ACTION_CARDS: Record<string, any>; MS_SALES_RECO_LIB: R
     body: { appendChild() {} },
   };
   vm.createContext(sb);
-  for (const f of ["public/reco-library.js", "public/action-cards.js"]) {
+  for (const f of ["public/js/reco-library.js", "public/js/action-cards.js"]) {
     vm.runInContext(readFileSync(resolve(f), "utf8"), sb, { filename: f });
   }
   return { ACTION_CARDS: sb.window.ACTION_CARDS || {}, MS_SALES_RECO_LIB: sb.window.MS_SALES_RECO_LIB || {}, planText: sb.window.MS_planText };
@@ -70,7 +70,7 @@ const COUVERTS_ACQUIS = [
 ];
 
 // LA DETTE, nommée. 76 types de l'allowlist sans plans au 31/07 — dont 27 tirent réellement
-// (mesuré sur 90 j ; l'échafaudage de public/reco-library.js les classe par fréquence).
+// (mesuré sur 90 j ; l'échafaudage de public/js/reco-library.js les classe par fréquence).
 // Cette liste ne doit que RÉTRÉCIR.
 const DETTE_SANS_PLANS = [
   "audience_shift_opportunity",
@@ -190,7 +190,7 @@ test("aucune dette NOUVELLE : un type entrant dans l'allowlist doit arriver avec
     .filter((t) => !hasRecos(ACTION_CARDS, t))
     .filter((t) => !connus.has(t))
     .sort();
-  // Si ceci casse : soit vous ajoutez l'entrée dans public/reco-library.js (l'échafaudage en fin
+  // Si ceci casse : soit vous ajoutez l'entrée dans public/js/reco-library.js (l'échafaudage en fin
   // de fichier donne la forme et les variables du payload), soit le type n'a rien à faire dans
   // COMMITMENT_ORIGIN_ACTION_TYPES. Ne l'ajoutez pas à DETTE_SANS_PLANS : cette liste est un
   // constat daté du 31/07, pas une porte de sortie.

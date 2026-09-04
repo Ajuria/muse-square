@@ -1,5 +1,5 @@
 // HARNAIS DE RENDU PULSE — le harnais EST la page. LECTURE SEULE côté données.
-// Exécute le VRAI script inline de pulse.astro + le VRAI public/action-cards.js dans
+// Exécute le VRAI script inline de pulse.astro + le VRAI public/js/action-cards.js dans
 // happy-dom, avec le payload monitor RÉEL du compte owner, puis rend le brief
 // (renderDailyBrief → wireBriefHandlers → buildTriageLayout) et INSPECTE LE DOM :
 // boutons présents ? visibles (pas de display:none hérité) ? styles CSS atteignables ?
@@ -34,7 +34,7 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
   // fetch stub : les appels annexes du wiring rendent vide/ok — le rendu ne doit pas en dépendre.
   win.fetch = async () => ({ ok: true, status: 200, json: async () => ({}), text: async () => "{}" });
 
-  const ac = readFileSync(new URL("../../public/action-cards.js", import.meta.url), "utf8");
+  const ac = readFileSync(new URL("../../public/js/action-cards.js", import.meta.url), "utf8");
   new Function("window", "document", ac)(win, win.document);
 
   const astro = readFileSync(new URL("../../src/pages/app/insightevent/pulse.astro", import.meta.url), "utf8");

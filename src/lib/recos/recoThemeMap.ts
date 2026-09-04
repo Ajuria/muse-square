@@ -1,6 +1,6 @@
 // Canonical theme → action_type vocabulary for server-side recommendation
 // filtering. MUST stay in parity with window.RECO_TAXONOMY in
-// public/action-cards.js (buckets[].themes[].action_types).
+// public/js/action-cards.js (buckets[].themes[].action_types).
 // Client owns labels/buckets/hues for /profile toggle rendering; this module
 // owns only the action_type membership used to suppress disabled themes.
 //

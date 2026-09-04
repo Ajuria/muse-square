@@ -1,4 +1,4 @@
-// public/card-kit.js — SHARED render kit for the card-specific deep pages ("Consulter la source").
+// public/js/card-kit.js — SHARED render kit for the card-specific deep pages ("Consulter la source").
 // SINGLE SOURCE of the card-detail components + renderers, loaded BOTH by insight.astro AND by the
 // offline render harness (scratchpad/card-harness.html) — so what I verify is exactly what ships.
 // Each render*(json) is PURE: returns an HTML string, no fetch, no DOM writes. The page loaders do

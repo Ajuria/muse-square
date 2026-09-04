@@ -1,6 +1,6 @@
 // Capture SITE VITRINE — inventaire complet des cartes réelles du compte owner, sur TOUTES les
 // dates que la vue conserve. LECTURE SEULE. Ne modifie rien en base, ne touche pas à l'app.
-// Rend chaque carte par le VRAI moteur (public/action-cards.js en happy-dom), exactement comme
+// Rend chaque carte par le VRAI moteur (public/js/action-cards.js en happy-dom), exactement comme
 // pulse.astro : le texte affiché est celui que la page écrirait.
 // Sortie : data/shots/capture-all.json (brut par date, RIEN de supprimé) + inventaire lisible.
 // Usage : npx tsx tools/generators/shot-capture.ts
@@ -35,7 +35,7 @@ const frInt = (n: any) => (n == null || !isFinite(Number(n)) ? "—" : Number(n)
   // Moteur de rendu RÉEL, chargé une fois.
   const { Window } = await import("happy-dom");
   const win: any = new Window({ url: "https://app.local/app/insightevent/pulse" });
-  const src = readFileSync(new URL("../../public/action-cards.js", import.meta.url), "utf8");
+  const src = readFileSync(new URL("../../public/js/action-cards.js", import.meta.url), "utf8");
   new Function("window", "document", src)(win, win.document);
 
   const locals = { clerk_user_id: uid, location_id: OWNER, all_location_ids: [OWNER] };

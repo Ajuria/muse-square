@@ -344,7 +344,7 @@ conseil sur un abstrait.
 Verbes de conseil à proscrire : *aligner, capter, concentrer, activer* (sans objet),
 *surveiller, se positionner, optimiser, maximiser, adresser, **animer*** (owner 24/08 —
 « animer la clientèle » → « **cibler** » ; au MOTS_BANNIS). Le corpus de référence est
-`public/reco-library.js` — les entrées **écrites** (13), pas l'échafaudage commenté.
+`public/js/reco-library.js` — les entrées **écrites** (13), pas l'échafaudage commenté.
 
 **9. Test du retournement.** Écrire le contraire de la phrase. Si le contraire est absurde,
 la phrase n'affirme rien et doit sauter.

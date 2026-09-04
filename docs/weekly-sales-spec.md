@@ -44,7 +44,7 @@ Expiration à **J+13** de la semaine concernée. `channel_hint = 'note_interne'`
 
 ## Le rendu dans l'app
 
-`public/action-cards.js` : **« Semaine très en retrait »** (📉) et **« Semaine exceptionnelle »**
+`public/js/action-cards.js` : **« Semaine très en retrait »** (📉) et **« Semaine exceptionnelle »**
 (📈). Le sowhat lit le payload du mart (`week_start`/`week_end`, `ca`, `active_days`,
 `baseline_median`, `baseline_weeks`, `data_end`) — jamais de valeur re-dérivée côté client.
 

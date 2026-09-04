@@ -44,7 +44,7 @@ const strip = (h: any) => String(h == null ? "" : h).replace(/<[^>]*>/g, " ").re
 
   const { Window } = await import("happy-dom");
   const win: any = new Window({ url: "https://app.local/app/insightevent/pulse" });
-  new Function("window", "document", readFileSync(new URL("../../public/action-cards.js", import.meta.url), "utf8"))(win, win.document);
+  new Function("window", "document", readFileSync(new URL("../../public/js/action-cards.js", import.meta.url), "utf8"))(win, win.document);
 
   const out: any[] = [];
   for (const t of ["event_prepare", "event_measure", "event_decision_due", "event_threat"]) {

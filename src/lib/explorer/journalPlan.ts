@@ -65,7 +65,7 @@ export interface PlanItem {
 }
 
 // La fenêtre du rejeu est celle du test PROUVÉ — on ne réinvente pas une durée. Les valeurs sont
-// celles que `public/commit-form.js` accepte (`opts.prefill.window_kind`).
+// celles que `public/js/commit-form.js` accepte (`opts.prefill.window_kind`).
 function windowKind(start: string, end: string): "day_of" | "7d" | "14d" | "30d" {
   const a = Date.parse(start + "T00:00:00Z"), b = Date.parse(end + "T00:00:00Z");
   const days = Number.isFinite(a) && Number.isFinite(b) ? Math.round((b - a) / 86400000) + 1 : 1;

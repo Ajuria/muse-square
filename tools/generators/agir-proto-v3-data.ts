@@ -63,7 +63,7 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
   const { Window } = await import("happy-dom");
   const strip = (h: any) => String(h == null ? "" : h).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   const primary = dates[0];
-  const src = readFileSync(new URL("../../public/action-cards.js", import.meta.url), "utf8");
+  const src = readFileSync(new URL("../../public/js/action-cards.js", import.meta.url), "utf8");
   const cands: any[] = [];
   for (const ps of perSite) {
     const win: any = new Window({ url: "https://app.local/app/insightevent/pulse" });

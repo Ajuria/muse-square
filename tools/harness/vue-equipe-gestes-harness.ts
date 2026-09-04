@@ -112,7 +112,7 @@ async function main() {
   assert("owner disposition inchangée", dOwn.status === 200 && dOwn.body.ok === true);
 
   // ── Rangée d'actions des cartes (vm, action-cards réel) ──
-  const src = readFileSync("public/action-cards.js", "utf8");
+  const src = readFileSync("public/js/action-cards.js", "utf8");
   function actionsWith(memberFlag: boolean): string[] {
     const ctx: any = { console };
     ctx.window = ctx;

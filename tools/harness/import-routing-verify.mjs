@@ -1,7 +1,7 @@
 // Vérité COMPORTEMENT du routage d'import par caisse (P3.1-c) — deux étages :
 // 1. ENDPOINT réel : /api/import/locations (GET direct) rend `pos` quand le profil porte une
 //    caisse — pose temporaire de sage100 sur MS Test, lecture, retour à NULL (aucun état durable).
-// 2. FLUX réel : l'IIFE setupCsvImport EXTRAITE VERBATIM de public/scripts/ie-prompt.js exécutée
+// 2. FLUX réel : l'IIFE setupCsvImport EXTRAITE VERBATIM de public/js/ie-prompt.js exécutée
 //    sous happy-dom — caisse déclarée → question sautée + import routé source=sage100 ;
 //    sans caisse → question « De quel logiciel provient l'export ? » inchangée.
 // Usage : npx tsx tools/harness/import-routing-verify.mjs
@@ -52,7 +52,7 @@ const l2 = (ep2.locations || []).find((x) => x.location_id === LOC);
 check("endpoint : caisse retirée → pos null (et le libellé du site tient toujours)", l2 && l2.pos === null && !!l2.label);
 
 // ── Étage 2 : flux réel sous happy-dom ──
-const js = readFileSync(new URL("../../public/scripts/ie-prompt.js", import.meta.url), "utf8");
+const js = readFileSync(new URL("../../public/js/ie-prompt.js", import.meta.url), "utf8");
 const start = js.indexOf("(function setupCsvImport() {");
 if (start < 0) throw new Error("setupCsvImport introuvable");
 const end = js.indexOf("\n    })();", start);

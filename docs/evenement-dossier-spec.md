@@ -366,7 +366,7 @@ left join outcomes o using (saved_item_id)
   `docs/module-index.md` d'abord). Ce qui existait déjà et que je réimplémentais en moins bien :
   `adjustment_move` (`poursuivre|doubler|pivoter|stop`, libellés FR dans `lib/commitmentCopy.ts`),
   la page **`/app/insightevent/engagement?id=`** (« Évolution de l'engagement »), le **moteur de
-  recommandation** de `public/card-kit.js` (au-dessus → doubler ; en dessous + exécution complète
+  recommandation** de `public/js/card-kit.js` (au-dessus → doubler ; en dessous + exécution complète
   + pas de facteur externe → pivoter ; en dessous + incomplète → poursuivre), le **track record
   par move** (`move_stats` : « ici : 2/3 fois → objectif atteint »), le **diagnostic** (météo,
   événements, vacances, qualité d'exécution) et le re-commit (enfant sur fenêtre fraîche +

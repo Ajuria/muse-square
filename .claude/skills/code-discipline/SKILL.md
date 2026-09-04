@@ -78,7 +78,7 @@ une absence (contrôler sur un témoin connu) ; un compte qui change ne dit pas 
 - Le rendu se prouve au HARNAIS, pas à l'œil : `tools/harness/card-harness.html` pour
   `card-kit.js` et les réponses Consulter ; harnais `vm` (bytes exacts de `pulse.astro` +
   `action-cards.js`) pour Pulse. Le harnais EST la page.
-- `public/action-cards.js` est statique mais cache-busté par `?v=` — bump sur les surfaces
+- `public/js/action-cards.js` est statique mais cache-busté par `?v=` — bump sur les surfaces
   consommatrices + hard-refresh. Astro dev ne recharge pas les routes API `.ts` : restart
   du serveur après édition serveur.
 - HTML injecté dynamiquement = styles inline (les `<style>` scopés ne l'atteignent pas).

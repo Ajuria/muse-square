@@ -53,7 +53,7 @@ vous attendent. Pas vingt. » — c'est exact et c'est un bon argument.
    (gagnés · à prendre · cible · vs votre résultat habituel). Jamais un € nu.
 3. **Une action** que l'exploitant peut réellement faire.
 
-**Les gestes disponibles sur une carte** (tous existent dans `public/action-cards.js`) :
+**Les gestes disponibles sur une carte** (tous existent dans `public/js/action-cards.js`) :
 - **Consulter la source** — remonter à la donnée derrière l'affirmation.
 - **Communiquer** — un brouillon prêt à publier sur **Google Business, Instagram, Email ou Slack**.
 - **Faire suivre** — passer le signal en interne avec l'action recommandée.

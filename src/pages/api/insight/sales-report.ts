@@ -295,7 +295,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         },
       },
       // Raw signal + payload only — the report page renders these through the SAME
-      // motor as pulse/monitor (public/action-cards.js → window.ACTION_CARDS), no duplicate copy.
+      // motor as pulse/monitor (public/js/action-cards.js → window.ACTION_CARDS), no duplicate copy.
       actions: actions.map((a) => ({
         action_type: a.action_type,
         data_payload: typeof a.data_payload === 'string' ? a.data_payload : JSON.stringify(a.data_payload ?? {}),

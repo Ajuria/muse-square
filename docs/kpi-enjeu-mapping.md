@@ -17,7 +17,7 @@
 > - **KPI de suivi (boucle)** = l'unité dans laquelle on mesure l'effet de l'action de l'utilisateur →
 >   n'exige qu'une grandeur observable avant/après. TOUTE carte doit en avoir un ; toutes n'ont pas d'enjeu.
 >
-> Inventaire réel : 82 sous-types au registre client (`public/action-cards.js`), 25 vivants dans
+> Inventaire réel : 82 sous-types au registre client (`public/js/action-cards.js`), 25 vivants dans
 > `mart.fct_location_daily_action_candidates` sur 60 j (24/07). Colonne « Live » = présent sur 60 j.
 
 ## 1. Dictionnaire des KPIs (chaque source VÉRIFIÉE via INFORMATION_SCHEMA le 24/07)

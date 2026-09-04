@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // Mode « Pôle — dispositif permanent » greffé sur « Nouvelle opération » (spec pôles, 27/08).
-// Vérifié en évaluant le VRAI public/event-form.js (le harnais est la page) : bascule de
+// Vérifié en évaluant le VRAI public/js/event-form.js (le harnais est la page) : bascule de
 // nature, chips familles RÉELLES multi-choix, POST /api/commitments nature permanent.
 import { readFileSync } from "node:fs";
 import { beforeAll, expect, it } from "vitest";
@@ -26,8 +26,8 @@ function stubFetch(): void {
 // fichiers ; et le libellé des familles est le mot owner « Familles de produits & services »
 // (28/08, ddbf3d4), rendu `&amp;` dans le innerHTML.
 beforeAll(() => {
-  (0, eval)(readFileSync("public/event-form.js", "utf8"));
-  (0, eval)(readFileSync("public/pole-form.js", "utf8"));
+  (0, eval)(readFileSync("public/js/event-form.js", "utf8"));
+  (0, eval)(readFileSync("public/js/pole-form.js", "utf8"));
 });
 
 it("la bascule montre le panneau pôle, les chips choisissent les familles, le POST porte nature permanent", async () => {

@@ -153,7 +153,7 @@
     // Un commutateur de nature en tête : « Opération datée » = TOUT l'existant, intact ;
     // « Pôle — dispositif permanent » = panneau propre (familles réelles en chips, responsable,
     // levier + mémoire), POST direct /api/commitments — sans terme, jamais jugé par le cron.
-    // Le panneau pôle est rendu par le MODULE PARTAGÉ MSPoleForm (public/pole-form.js,
+    // Le panneau pôle est rendu par le MODULE PARTAGÉ MSPoleForm (public/js/pole-form.js,
     // inc 9c) — même formulaire que l'onglet Pôles du Compte, jamais deux copies.
     var polePanel = '<div data-ef-pole-panel style="display:none;"></div>';
     var natureSwitch = '<div style="margin-bottom:12px;"><label style="' + lbl + '">Nature</label>'

@@ -1,5 +1,5 @@
-// Socle des suites CLIENT Explorer (08/08) — exécute les VRAIS public/card-kit.js +
-// public/scripts/ie-prompt.js dans happy-dom, fetch stubbé. RÈGLE : UN SEUL eval par FICHIER de
+// Socle des suites CLIENT Explorer (08/08) — exécute les VRAIS public/js/card-kit.js +
+// public/js/ie-prompt.js dans happy-dom, fetch stubbé. RÈGLE : UN SEUL eval par FICHIER de
 // test — le module n'a pas de ré-init, deux copies vivantes se disputent le DOM (mesuré : cartes
 // mélangées) ; chaque état de données vit donc dans son propre fichier (page happy-dom fraîche).
 
@@ -62,8 +62,8 @@ export function stubFetch(days: any[]): void {
 // UN eval des vrais fichiers — appeler UNE fois par fichier de test, jamais deux.
 export async function bootOnce(days: any[]): Promise<void> {
   stubDom(); stubFetch(days);
-  (0, eval)(readFileSync("public/card-kit.js", "utf8"));
-  (0, eval)(readFileSync("public/scripts/ie-prompt.js", "utf8"));
+  (0, eval)(readFileSync("public/js/card-kit.js", "utf8"));
+  (0, eval)(readFileSync("public/js/ie-prompt.js", "utf8"));
   await new Promise((r) => setTimeout(r, 100));
 }
 

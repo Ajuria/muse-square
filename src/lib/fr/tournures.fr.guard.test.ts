@@ -14,8 +14,8 @@ import { TOURNURES_LLM } from "./tournures.fr";
 const SURFACES = [
   "src/lib/commitments/commitmentCopy.ts",
   "src/lib/fr/evenement.fr.ts",
-  "public/reco-library.js",
-  "public/card-kit.js",
+  "public/js/reco-library.js",
+  "public/js/card-kit.js",
   "tools/proto/engagement-redesign-proto.html",
 ];
 
