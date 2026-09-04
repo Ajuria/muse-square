@@ -15,7 +15,7 @@ import { journalPlan, listDayFactors, dayFactorKeys, factorFr, type PlanItem } f
 import { listCalmWeeks, type CalmWeek } from "./insightFamilies/events";
 import { listUserEvenements } from "./insightFamilies/evenement";
 import { listIndustryPlays, type BestInClassPlay } from "./bestInClassStore";
-import { listPoles, buildPoleReading } from "./poleReading";
+import { listPoles, buildPoleReading } from "./dispositifs/poleReading";
 import { getDeclaredFamilyMargins, familySlug } from "./ai/corrections";
 import { corrIndexFr, signalAConfirmer } from "./dayClassRegistry";
 

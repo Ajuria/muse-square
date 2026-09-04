@@ -6,7 +6,7 @@
 // jamais une seconde requête du même concept. Le matching est PUR (testé + mutation) :
 // normalisation accents/casse, nom le plus long d'abord, jamais un match dans un mot.
 
-import { listPoles, listPoleComponents, type PoleListRow } from "./poleReading";
+import { listPoles, listPoleComponents, type PoleListRow } from "./dispositifs/poleReading";
 import { listSiteFamilies } from "./kpiRegistry";
 import { listUserEvenements } from "./insightFamilies/evenement";
 

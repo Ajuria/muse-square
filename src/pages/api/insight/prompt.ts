@@ -36,12 +36,12 @@ import { assertNoSentenceWithoutFactIdV1 } from "../../../lib/ai/assertions/asse
 import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
 import { makeBQClient } from "../../../lib/bq";
 import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
-import { listClassDispositifs } from "../../../lib/bestPractices";
+import { listClassDispositifs } from "../../../lib/dispositifs/bestPractices";
 import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
 import { loadSiteEntities, matchEntities } from "../../../lib/entityResolver";
 import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
 import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, readEntityWhy, readKpiPeriod } from "../../../lib/entityReading";
-import { readIdeaPlacement } from "../../../lib/ideaPlacement";
+import { readIdeaPlacement } from "../../../lib/dispositifs/ideaPlacement";
 import { planPeriod, buildPlanBlocks, buildPlanWhyBlocks } from "../../../lib/planPeriod";
 import { journalPlan } from "../../../lib/journalPlan";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";

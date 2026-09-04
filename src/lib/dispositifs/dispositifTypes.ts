@@ -17,7 +17,7 @@
 // `question_fr` sont la consigne d'extraction (une question à laquelle une photo répond oui / non /
 // on ne voit pas) — pas une phrase de geste ; tout rendu à l'écran repasse par le lexique.
 
-import type { Lever } from "./bestInClassStore";
+import type { Lever } from "../bestInClassStore";
 
 export interface DispositifTypeOption {
   value: string;

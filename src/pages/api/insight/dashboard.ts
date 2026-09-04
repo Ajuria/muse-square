@@ -19,8 +19,8 @@ import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpiRegistry";
 import { familySlug, MARGIN_FAMILY_PREFIX } from "../../../lib/ai/corrections";
 // Pôles (build 28/08, protos validés) : lecture = LE foyer poleReading (mêmes chiffres que
 // journal/plan/fiche — jamais un 3e calcul) ; Historique = poleActivity (1er lecteur des traces).
-import { listPoles, buildPoleReading, type PoleComponentRow } from "../../../lib/poleReading";
-import { buildPoleActivity, resolveMemberNames } from "../../../lib/poleActivity";
+import { listPoles, buildPoleReading, type PoleComponentRow } from "../../../lib/dispositifs/poleReading";
+import { buildPoleActivity, resolveMemberNames } from "../../../lib/dispositifs/poleActivity";
 
 const PROJECT = "muse-square-open-data";
 const json = (status: number, body: unknown) =>

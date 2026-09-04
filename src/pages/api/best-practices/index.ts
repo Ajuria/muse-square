@@ -19,7 +19,7 @@ import {
   linkReplayCommitment,
   updateArming,
   type BestPracticeRow,
-} from "../../../lib/bestPractices";
+} from "../../../lib/dispositifs/bestPractices";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";

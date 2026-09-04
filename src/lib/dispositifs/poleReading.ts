@@ -1,4 +1,4 @@
-// src/lib/poleReading.ts
+// src/lib/dispositifs/poleReading.ts
 // Lecture CONTINUE d'un pôle (spec poles-dispositifs-permanents, owner 27/08) — un dispositif
 // permanent n'a ni fenêtre ni verdict : sa mesure est le CA journalier de SES familles vs son
 // résultat habituel, en continu. Source = raw.client_transactions (item_category), le MÊME

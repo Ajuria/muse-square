@@ -7,12 +7,12 @@
 // and the per-day series returns residual_pct only — so the render cannot leak z.
 import type { APIRoute } from "astro";
 import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpiRegistry";
-import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifTypes";
+import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifs/dispositifTypes";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
 import { readLatestSnapshot } from "../../../lib/commitments/actionCommitments";
-import { buildPoleReading, buildPoleItemsReading } from "../../../lib/poleReading";
+import { buildPoleReading, buildPoleItemsReading } from "../../../lib/dispositifs/poleReading";
 import { commitmentEffect } from "../../../lib/commitments/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitments/commitmentContext";
 import { buildWindowShape, buildPriceLadder } from "../../../lib/commitments/commitmentShape";

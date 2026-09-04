@@ -6,7 +6,7 @@
 // La consigne et le schéma sont générés depuis le registre (dispositifTypes) : aucune question,
 // aucun code n'existe ici en dur. La porte (contracts/photoExtractionChecks) rejette toute clé
 // hors registre et tout code hors liste — lie-bait dans le même commit.
-import { checklistFor, type ChecklistQuestion } from "../dispositifTypes";
+import { checklistFor, type ChecklistQuestion } from "../dispositifs/dispositifTypes";
 
 export const PHOTO_PROMPT_VERSION = "photo_extract_v1";
 

@@ -1,4 +1,4 @@
-// src/lib/poleActivity.ts
+// src/lib/dispositifs/poleActivity.ts
 // L'HISTORIQUE d'un pôle (proto Piloter validé owner 28/08) — PREMIER lecteur des traces
 // équipe : `action_log event='member_gesture'` et `analytics.card_forwards` étaient écrits
 // sans aucun lecteur en production. Fusion en fil daté PAR PÔLE de quatre sources :

@@ -19,7 +19,7 @@
 //  - impact : la pilule du motif par LE chemin de politique réel (getDayClassImpacts —
 //    jamais une réimplémentation des portes).
 import { getDayClassImpacts, dayClassMembersSql, WEATHER_DAY_CLASSES, TERCILE_DAY_CLASSES, OTHER_DAY_CLASSES, type DayClassImpact } from "../dayClassRegistry";
-import { listClassDispositifs, dispositifStateFr, type ClassDispositif } from "../bestPractices";
+import { listClassDispositifs, dispositifStateFr, type ClassDispositif } from "../dispositifs/bestPractices";
 import type { FamilyFact } from "./types";
 
 const PROJECT = "muse-square-open-data";

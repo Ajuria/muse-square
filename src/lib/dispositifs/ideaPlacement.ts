@@ -1,4 +1,4 @@
-// src/lib/ideaPlacement.ts
+// src/lib/dispositifs/ideaPlacement.ts
 // L'IDÉE SOUMISE (owner go 28/08, roadmap v1) — l'utilisateur propose une idée d'opération ;
 // la réponse la PLACE (fenêtres calmes, jours de la condition visée), l'entoure d'ANALOGUES
 // mesurés (ses dispositifs prouvés du même levier, les références crawlées du secteur), et la
@@ -6,12 +6,12 @@
 // inventé : chaque section compose des foyers existants, une source vide se dit vide.
 // Le résolveur comprend l'idée (levier + condition visée) ; ce module calcule.
 
-import { listCalmWeeks, type CalmWeek } from "./insightFamilies/events";
-import { listDayFactors, dayFactorKeys, factorFr } from "./journalPlan";
-import { corrIndexFr, signalAConfirmer } from "./dayClassRegistry";
-import { listIndustryPlays, type BestInClassPlay, type Lever } from "./bestInClassStore";
-import type { ResolvedIdea } from "./ai/resolver";
-import type { CompareSection, EntityCompareBlocks } from "./entityReading";
+import { listCalmWeeks, type CalmWeek } from "../insightFamilies/events";
+import { listDayFactors, dayFactorKeys, factorFr } from "../journalPlan";
+import { corrIndexFr, signalAConfirmer } from "../dayClassRegistry";
+import { listIndustryPlays, type BestInClassPlay, type Lever } from "../bestInClassStore";
+import type { ResolvedIdea } from "../ai/resolver";
+import type { CompareSection, EntityCompareBlocks } from "../entityReading";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);

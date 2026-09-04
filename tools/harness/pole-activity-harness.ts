@@ -64,7 +64,7 @@ async function main() {
     params: { u: CLERK, l: LOC }, location: "EU",
   });
 
-  const { buildPoleActivity, resolveMemberNames } = await import("../../src/lib/poleActivity");
+  const { buildPoleActivity, resolveMemberNames } = await import("../../src/lib/dispositifs/poleActivity");
 
   // ── Lecture ──
   const feed = await buildPoleActivity(bq as any, LOC, [POLE]);

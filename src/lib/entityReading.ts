@@ -11,7 +11,7 @@
 // Règle maison : jamais une moyenne de % entre occurrences — la somme des écarts € mesurés
 // et le compte des verdicts (isKeptVerdict partagé), occurrence par occurrence.
 
-import { buildPoleReading, buildPoleItemsReading, type PoleTotals, type PoleFamilyReading, type PoleOperationRow } from "./poleReading";
+import { buildPoleReading, buildPoleItemsReading, type PoleTotals, type PoleFamilyReading, type PoleOperationRow } from "./dispositifs/poleReading";
 import { commitmentEffect } from "./commitments/commitmentEffect";
 import { personKey, isKeptVerdict } from "./commitments/actionCommitments";
 import type { SiteEntity } from "./entityResolver";

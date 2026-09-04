@@ -8,7 +8,7 @@ import {
   DISPOSITIF_TYPES, ROLES_BY_TYPE, CHECKLIST_BY_TYPE, ALL_CHECKLIST_KEYS,
   dispositifTypesFor, dispositifRolesFor, checklistFor, dispositifTypeLabelFr, dispositifRoleLabelFr,
 } from "./dispositifTypes";
-import { MOTS_BANNIS } from "./fr/evenement.fr";
+import { MOTS_BANNIS } from "../fr/evenement.fr";
 
 const INDUSTRIES = [
   "commercial", "food_nightlife", "market_hall", "wine_tourism", "culture", "gallery", "cinema_theatre",

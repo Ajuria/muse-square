@@ -10,8 +10,8 @@ import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/i
 import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline, measureProfitBaseline } from "../../../lib/kpiRegistry";
 import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/commitments/actionCommitments";
-import { parseComponents } from "../../../lib/dispositifTypes";
-import { listPoles } from "../../../lib/poleReading";
+import { parseComponents } from "../../../lib/dispositifs/dispositifTypes";
+import { listPoles } from "../../../lib/dispositifs/poleReading";
 import { assignmentMessageFr } from "../../../lib/channels/slackMessagesFr";
 import { themeForActionType } from "../../../lib/recoThemeMap";
 import { vif } from "../../../lib/commitments/commitmentResolve";
