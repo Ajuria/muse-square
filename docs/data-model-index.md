@@ -8,7 +8,7 @@
 >
 > **Rule before you build.** Grep this file (and `docs/module-index.md`) for the capability before creating a new dbt model or query. Extend the existing model; don't fork a parallel one.
 >
-> _Generated 2026-07-09. dbt repo: `~/Documents/ms_database/ms_dbt` @ git **`b5d8579`** (`Ajuria-branch`, the live SQL repo — regenerated after pulling 62 commits from the May‑7 snapshot). BQ catalog snapshot: 2026-07-09, project `muse-square-open-data` (EU), 430 tables / 7441 columns. dbt Cloud IDE edits are local until synced to GitHub — if this SHA is behind `origin/Ajuria-branch`, pull + regenerate (`docs/refresh-bq-catalog.sh` for Truth B; re-read the model files for Truth A)._
+> _Generated 2026-07-09. dbt repo: `~/Documents/ms_database/ms_dbt` @ git **`b5d8579`** (`Ajuria-branch`, the live SQL repo — regenerated after pulling 62 commits from the May‑7 snapshot). BQ catalog snapshot: 2026-07-09, project `muse-square-open-data` (EU), 430 tables / 7441 columns. dbt Cloud IDE edits are local until synced to GitHub — if this SHA is behind `origin/Ajuria-branch`, pull + regenerate (`docs/catalog/refresh-bq-catalog.sh` for Truth B; re-read the model files for Truth A)._
 
 ## ⚠️ Live warehouse vs dbt project — they diverge
 

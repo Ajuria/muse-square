@@ -1729,7 +1729,7 @@
       // tout le fichier, mais le score COMPOSITE lui-même ne dit rien à un exploitant et
       // l'audit l'avait déjà retiré de low_competition_window pour ce motif. Le ratio de
       // pression reste : sur CETTE carte il est dans sa plage de sélection (0,02-0,79,
-      // moyenne 0,53 — docs/card-truth-audit.md, « la plus saine du lot »).
+      // moyenne 0,53 — docs/audits/card-truth-audit.md, « la plus saine du lot »).
       var line = 'Week-end de vacances, pression \u00d7' + frDec(pr) + '.';
       line += ' Occasion rare \u2014 communiquez maintenant.';
       return line;
@@ -3857,7 +3857,7 @@
   // registre SPECS entier (83 types) le 26/07. Consequence mesuree : 27 des 33 types qui tirent
   // sur 90 jours n'ont aucun plan, et ajouter une entree dans reco-library.js ne suffisait PAS a
   // la faire apparaitre — il fallait penser a modifier CE fichier aussi. Deux gestes pour un,
-  // donc un oubli garanti : c'est exactement l'invariant de docs/features/commitments.md §5
+  // donc un oubli garanti : c'est exactement l'invariant de docs/archive/features/commitments.md §5
   // (« every COMMITMENT_ORIGIN_ACTION_TYPES entry MUST have a reco-library entry »), viole 76
   // fois sur 83. Il devient mecanique : UNE entree dans la bibliotheque = des plans dans
   // « M'engager », sans second geste. Un type absent de SPECS est ignore en silence, comme avant.

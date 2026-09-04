@@ -13,7 +13,7 @@
 
 ## 1. `weekend_vacation_low_comp` — verdict d'audit et matière
 
-**Verdict (`docs/card-truth-audit.md`)** : « Garder — la plus saine du lot » (28/07),
+**Verdict (`docs/audits/card-truth-audit.md`)** : « Garder — la plus saine du lot » (28/07),
 inchangé au réexamen du 31/07. `pressure_ratio` 0,02–0,79 (moy. 0,53) sur ses tirs →
 réellement faible ✓, adossée au +88 €/j mesuré (`competition_low`, t = 2,4, n = 30 chez
 Muse Square) ✓. **Aucun plan aujourd'hui — « Mon action » s'ouvre vide.**
@@ -81,7 +81,7 @@ mix sectoriel, précisément parce que le public est moins disputé.
    `competition-split-spec.md` — payload et copie, JAMAIS la règle de tir : « GARDER TELLE
    QUELLE ») ;
 2. scinder la mesure `competition_low` par part même-secteur — dépend de l'arbitrage de
-   `docs/residu-bruit-diagnostic.md` (le moteur de mesure d'abord, les textes ensuite) ;
+   `docs/audits/residu-bruit-diagnostic.md` (le moteur de mesure d'abord, les textes ensuite) ;
 3. alors seulement, des branches de méthode par régime (le mécanisme de résolution
    `_recosFor` devra porter une clé de plus).
 

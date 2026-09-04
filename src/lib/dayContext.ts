@@ -3,7 +3,7 @@
 // (src/pages/api/insight/reactions-today.ts) and the sales report (src/pages/api/insight/sales-report.ts).
 // It REUSES the strings the app already generates (audience_availability_label, disruption title_merged,
 // action-candidate headline_fr, named events) rather than re-deriving bare numbers — see
-// docs/features/context-decision-service.md. It produces STRUCTURED facts (mart French where clean +
+// docs/archive/features/context-decision-service.md. It produces STRUCTURED facts (mart French where clean +
 // structured data for owner copy); it authors NO French of its own.
 
 import { formatDisruption, fillContextFallback, formatWeatherAlert, frCountry } from './contextCopy';

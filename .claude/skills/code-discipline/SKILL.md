@@ -14,7 +14,7 @@ une absence (contrôler sur un témoin connu) ; un compte qui change ne dit pas 
 
 - **SINGLE SOURCE OF TRUTH avant de créer.** Avant tout nouvel endpoint, module lib, script
   client ou modèle dbt : grep `docs/module-index.md` (code) et `docs/data-model-index.md`
-  (dbt, + `docs/bq-catalog.json` en snapshot) pour la capacité visée — étendre l'existant,
+  (dbt, + `docs/catalog/bq-catalog.json` en snapshot) pour la capacité visée — étendre l'existant,
   jamais forker. Quand un fichier change de handlers ou de sources, sa ligne d'index se met
   à jour dans le MÊME commit.
 - **Zéro nom deviné.** Toute colonne, table, champ, id, suffixe d'UUID se vérifie dans le
@@ -110,7 +110,7 @@ une absence (contrôler sur un témoin connu) ; un compte qui change ne dit pas 
   tombe sur le X et repart avec la valeur périmée). Une spec dont la dernière instruction
   est appliquée se RÉÉCRIT en définitif, en re-vérifiant chaque affirmation gardée — elle
   ne se marque pas « terminé ».
-- Avant toute liste de priorités sur des cartes : ouvrir `docs/card-truth-audit.md` et
+- Avant toute liste de priorités sur des cartes : ouvrir `docs/audits/card-truth-audit.md` et
   CITER son verdict. Le volume de tirs n'est pas un critère — c'est souvent le symptôme
   inverse.
 

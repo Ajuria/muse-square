@@ -12,7 +12,7 @@ export const prerender = false;
 const PROJECT = 'muse-square-open-data';
 const json = (b: unknown, s = 200): Response => new Response(JSON.stringify(b), { status: s, headers: { 'content-type': 'application/json' } });
 
-// ── Four-tier context-decision assembly (see docs/features/context-decision-service.md) ──
+// ── Four-tier context-decision assembly (see docs/archive/features/context-decision-service.md) ──
 // PURE SHAPING of the brain's payload (assembleDayContext). This endpoint reads NOTHING directly —
 // Engine 2 (sensitivities), Engine 1 (track record), the estimation priors and competitors ALL come
 // from the brain. Four provenance-labelled tiers, never merged.

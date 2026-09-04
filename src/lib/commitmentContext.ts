@@ -146,7 +146,7 @@ export async function assembleEvolutionExtras(bq: any, snap: any, asOfDate: stri
   const advice: EvolutionExtras["advice"] = [];
   // Type A track record is the strongest evidence-based signal for "reconduire?" — it LEADS when
   // present, and replaces the generic met_hold/aim_higher. Beat-ratio thresholds (see
-  // docs/features/learning-engine.md): reconduire only on a clear majority AND enough N; a mixed
+  // docs/archive/features/learning-engine.md): reconduire only on a clear majority AND enough N; a mixed
   // record reads "résultats mitigés", never an endorsement.
   if (trackRecord) {
     const ratio = trackRecord.done > 0 ? trackRecord.beat / trackRecord.done : 0;

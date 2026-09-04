@@ -10,7 +10,7 @@ vit dans `git log` (`ba82e39`, `638feb6`, `dc7aa69`, 28/07). Seules les **mesure
 date — un chiffre sans sa fenêtre n'est pas réutilisable.
 
 Portée : `models/ms_open_data/mart/fct_location_daily_action_candidates.sql` (dbt Cloud IDE) +
-`public/action-cards.js`. Audit d'origine : `docs/card-truth-audit.md`.
+`public/action-cards.js`. Audit d'origine : `docs/audits/card-truth-audit.md`.
 
 ---
 

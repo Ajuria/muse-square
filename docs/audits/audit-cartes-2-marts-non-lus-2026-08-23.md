@@ -54,7 +54,7 @@ Attention règle 13 : l'écart en € **et** en part, jamais le volume seul.
 Écart médian jour courant vs analogues : **+44,6 % sur f10c3e58, +148 % sur les Olivades,
 +319 % sur Esprit de Fabrique**. Jamais un seul `is_unexplained` sur 128 lignes. Un « jour
 comparable » qui vaut systématiquement la moitié du jour courant n'est pas comparable : c'est le
-**biais de retransformation log** documenté le 01/08 (`docs/residu-bruit-diagnostic.md`), que ce
+**biais de retransformation log** documenté le 01/08 (`docs/audits/residu-bruit-diagnostic.md`), que ce
 mart ne corrige pas. Le modèle dit lui-même que le tier `exact` « ne se répète presque jamais »
 et retombe sur `dow_weather` (5/5 lignes vues).
 → **Ne pas câbler.** Corriger d'abord le référentiel (médiane log, pas moyenne €), puis

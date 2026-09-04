@@ -1,4 +1,4 @@
-// Type B — COMMITTED design-matrix build (A2). See docs/features/learning-types.md §C.1.
+// Type B — COMMITTED design-matrix build (A2). See docs/archive/features/learning-types.md §C.1.
 //
 // Materializes analytics.b_real_designmatrix = the fit source the offline engine
 // (src/scripts/sensitivity-engine.cjs, BMODE=real) reads. Until now this table was an

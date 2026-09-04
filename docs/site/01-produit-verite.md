@@ -121,7 +121,7 @@ Un dispositif en cours d'exécution est un « **Dispositif actif** ».
 - Une suite de tests plante volontairement de fausses affirmations dans le système ; si l'app les
   laisse passer, le code ne part pas en production. C'est une **porte de merge**, pas une intention.
 - Des cartes qui se déclenchaient tous les jours ont été **retirées** parce qu'elles ne
-  discriminaient rien. Un audit interne (`docs/card-truth-audit.md`) juge les cartes.
+  discriminaient rien. Un audit interne (`docs/audits/card-truth-audit.md`) juge les cartes.
 
 ---
 

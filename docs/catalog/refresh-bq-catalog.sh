@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Regenerate docs/bq-catalog.json (+ .allowlist.json) from LIVE BigQuery
+# Regenerate docs/catalog/bq-catalog.json (+ .allowlist.json) from LIVE BigQuery
 # INFORMATION_SCHEMA — this is "Truth B" and the allowlist the bq-guard hook
 # checks against. Run it after dbt changes land (or on a schedule / in CI) so a
 # newly created table stops being flagged as unknown.

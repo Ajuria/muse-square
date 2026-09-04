@@ -140,7 +140,7 @@ export function themeForActionType(actionType: string | null | undefined): strin
 // DÉMOTIONS (étape 4, décision owner 24/07, docs/kpi-enjeu-mapping.md §I + amendement C2) :
 // cartes SANS grandeur mesurable attachée → pas des cartes d'action. Elles quittent « À piloter »
 // (candidates) ; leur information reste servie par le Fil d'actualité (change feed) et Consulter.
-// AMENDEMENT 28/07 (owner, après l'audit de vérité — docs/card-truth-audit.md) : trois démotions
+// AMENDEMENT 28/07 (owner, après l'audit de vérité — docs/audits/card-truth-audit.md) : trois démotions
 // de plus, décidées sur la couverture de mesure réellement constatée :
 //   - audience_shift_opportunity : tire sur 31 sites TOUS LES JOURS, son libellé n'affirme rien
 //     (« certains résidents partent, d'autres restent »), 1 classe calendrier significative sur 8 ;

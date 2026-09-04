@@ -1,7 +1,7 @@
 // GARDE-FOU — couverture de la bibliothèque de méthodes (« Mon action »).
 //
 // Ce que ce test protège, et pourquoi il existe (31/07/2026).
-// docs/features/commitments.md §5 pose un INVARIANT : « every COMMITMENT_ORIGIN_ACTION_TYPES
+// docs/archive/features/commitments.md §5 pose un INVARIANT : « every COMMITMENT_ORIGIN_ACTION_TYPES
 // entry MUST have a reco-library entry ». Le 26/07, l'allowlist des engagements a été complétée
 // au registre SPECS entier — la bibliothèque n'a pas suivi, et personne ne l'a vu pendant cinq
 // jours : « Mon action » s'ouvrait vide sur 76 types sur 83. Rien ne cassait, rien n'alertait.
@@ -204,7 +204,7 @@ test("la liste de dette ne ment pas : un type qui a reçu ses plans doit en sort
 });
 
 test("chaque type couvert rend au moins un plan exploitable", () => {
-  // « up to 3 driver-matched recommended actions » (docs/features/commitments.md §5). Le PLAFOND
+  // « up to 3 driver-matched recommended actions » (docs/archive/features/commitments.md §5). Le PLAFOND
   // de 3 est déjà imposé par _recosFor (arr.slice(0, 3)) — l'asserter sur la SORTIE testerait le
   // slice, jamais le contenu. On teste donc ce qui peut réellement casser : au moins un plan, et
   // un texte non vide — un titre vide remplirait « Mon action » avec du blanc.

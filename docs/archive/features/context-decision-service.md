@@ -1,5 +1,9 @@
 # Context-as-decision service — the four-tier contract (Engines 1 & 2 close-out)
 
+> **Archivé le 04/09/2026** (owner : convertir ce qui est vrai en — DÉFINITIF, supprimer le reste). Dernier commit 2026-07-09,
+> non re-vérifié depuis ; le code le cite encore comme contrat (`grep -rn "docs/archive/features" src public`).
+> Hors index (`head -1 docs/*.md docs/audits/*.md`) tant qu'il n'est pas converti.
+
 Status: **as-built contract.** For `today × venue`, one decision surface shows every relevant factor —
 environment, competition, and the operator's own proven actions — each labelled by **how we know it**.
 This closes the 48h build. We are **surfacing existing data, not learning new coefficients** (that is

@@ -1,5 +1,9 @@
 # Learning types — the A vs B contract
 
+> **Archivé le 04/09/2026** (owner : convertir ce qui est vrai en — DÉFINITIF, supprimer le reste). Dernier commit 2026-07-10,
+> non re-vérifié depuis ; le code le cite encore comme contrat (`grep -rn "docs/archive/features" src public`).
+> Hors index (`head -1 docs/*.md docs/audits/*.md`) tant qu'il n'est pas converti.
+
 Status: Type A (action-outcome) is **built + verified** (see
 [learning-engine.md](learning-engine.md)). **Type B (environmental-response) has a v1 engine
 built + validated on seeded ground-truth (2026-07-08), NOT yet live on real data** — see §C.1.

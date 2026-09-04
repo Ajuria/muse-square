@@ -10,7 +10,7 @@
 //   mobility_disruption  — Tier-2 fallback when there is no named disruption, only a traffic level
 //   events               — Tier-2 events line (fact is the named-events list)
 //   concurrence_competitor — Tier-3 competitor line ({distance}, {nom} filled by the render)
-// See docs/features/context-decision-service.md.
+// See docs/archive/features/context-decision-service.md.
 
 import { FEATURE_FR } from "./sensitivityCopy";
 
@@ -323,7 +323,7 @@ export function fillContextFallback(labelKey: string, vars: Record<string, strin
 // proposé. Owner-éditable ici (voix : phrases nominales, jamais de français robotique).
 const STRUCTURAL_CHANTIER_FR: Record<string, string> = {
   // Clé `heat` corrigée le 21/08 : elle n'a correspondu à AUCUNE classe depuis la scission de la
-  // chaleur par dose (29/07, docs/card-truth-audit.md § « Scission de la classe chaleur »).
+  // chaleur par dose (29/07, docs/audits/card-truth-audit.md § « Scission de la classe chaleur »).
   // Les deux classes retombaient sur le chantier générique — visible en production sur f10c3e58,
   // dont la carte à −8 809 €/an affichait « Dispositif durable à définir ».
   // Le texte parle de « forte chaleur » : il appartient à heat_28_plus, pas au doux.

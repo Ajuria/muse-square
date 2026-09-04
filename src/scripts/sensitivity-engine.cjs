@@ -1,4 +1,4 @@
-// Type B — OFFLINE sensitivity engine (v1). See docs/features/learning-types.md §C.1.
+// Type B — OFFLINE sensitivity engine (v1). See docs/archive/features/learning-types.md §C.1.
 //
 // A vetted BATCH -> STORE service, NEVER a live fitter. Run offline; consumers only retrieve.
 //   BMODE=seed  → synthetic ground-truth validation (recovers known coefs; proves the gates).

@@ -10,7 +10,7 @@
 //   retransformation log-normale (mesuré chez Les Olivades : +1 942 €/j sur TOUS les jours,
 //   exp(σ²/2)=1,975 vs 1,823 observé) qui fabriquait des faux positifs au-dessus de |t| ≥ 2 :
 //   les jours de semaine — DANS la baseline, effet nul par construction — sortaient à t=+2,0..+2,8
-//   en linéaire, à −0,03..+0,31 en log. Preuves : docs/residu-bruit-diagnostic.md.
+//   en linéaire, à −0,03..+0,31 en log. Preuves : docs/audits/residu-bruit-diagnostic.md.
 //   Enjeu €/an = MÉDIANE(gap € des jours de classe) × (jours de classe par an, fréquence réelle du
 //   lieu). La médiane est insensible au biais (gap médian Olivades : −81 € vs moyenne +1 942 €) ET
 //   aux factures extrêmes (une facture portait 76 % des € de competition_high). Garde de COHÉRENCE
@@ -693,7 +693,7 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
   const sd = Number(row?.sd_gap_eur ?? NaN);
   const spanDays = Number(row?.span_days ?? 0);
   if (!key || !CLASS_LABELS[key] || !Number.isFinite(avg) || n < 5 || spanDays < 60) return null;
-  // RÉGIME LOG + MÉDIANE (01/08, GO owner — preuves docs/residu-bruit-diagnostic.md) :
+  // RÉGIME LOG + MÉDIANE (01/08, GO owner — preuves docs/audits/residu-bruit-diagnostic.md) :
   // le t se calcule sur le résidu LOG (centré par construction ; le t linéaire fabriquait des
   // faux positifs à +2,0..+2,8 sur des classes d'effet nul), l'€/j est la MÉDIANE des gaps
   // (insensible au biais de retransformation et aux factures — une seule portait 76 % des €
@@ -1071,7 +1071,7 @@ const CARD_TYPE_CLASS: Record<string, string> = {
   // Ces cartes restent affichées, SANS pastille € : elles sont décidables par l'urgence, pas par
   // l'argent. Rouvrir le sujet suppose (1) plusieurs comptes réels avec ventes + concurrents suivis,
   // (2) une normalisation d'event_type (146 valeurs libres pour 496 lignes aujourd'hui),
-  // (3) la scission secteur/audience de competition-split-spec.md. Voir docs/card-truth-audit.md.
+  // (3) la scission secteur/audience de competition-split-spec.md. Voir docs/audits/card-truth-audit.md.
 };
 
 // Cartes dont le CONTENU dépend du périmètre de clientèle déclaré (client_catchment) — donc les

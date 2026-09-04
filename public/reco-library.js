@@ -383,7 +383,7 @@ window.MS_SALES_RECO_LIB_BY_INDUSTRY = {
 
 // ╔═══════════════════════════════════════════════════════════════════════════════════════════╗
 // ║ ⚠ AVERTISSEMENT 31/07/2026 — L'ORDRE CI-DESSOUS EST CELUI DU VOLUME DE TIRS, ET IL EST    ║
-// ║ TROMPEUR. Il a été établi sans consulter docs/card-truth-audit.md, qui juge la VÉRITÉ des ║
+// ║ TROMPEUR. Il a été établi sans consulter docs/audits/card-truth-audit.md, qui juge la VÉRITÉ des ║
 // ║ cartes. Vérifié depuis : sur les 4 premières, AUCUNE n'est jugée saine —                  ║
 // ║   foreign_tourism_signal      RÉEXAMEN 31/07 : démotion ANNULÉE — donnée non branchée,   ║
 // ║                               pas absente (fct_region_foreign_country_profile, 27/32     ║
@@ -409,7 +409,7 @@ window.MS_SALES_RECO_LIB_BY_INDUSTRY = {
 //
 // POURQUOI CE BLOC. Le 26/07 l'allowlist des engagements a été complétée au registre SPECS
 // entier (83 types, commitmentOrigins.ts). La bibliothèque, elle, n'a jamais couvert que les
-// cartes de vente : 7 types. L'invariant de docs/features/commitments.md §5 est donc violé 76
+// cartes de vente : 7 types. L'invariant de docs/archive/features/commitments.md §5 est donc violé 76
 // fois sur 83, et « Mon action » s'ouvre vide sur presque toutes les cartes.
 //
 // MESURE (90 jours, tous lieux, semantic.vw_insight_event_action_candidates) :

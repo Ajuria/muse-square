@@ -1,6 +1,6 @@
 # Audit de vérité rejoué — 22/08/2026 — DÉFINITIF
 
-> Rejoue l'audit du 27/07 (`docs/card-truth-audit.md`) avec le moteur d'aujourd'hui : régime
+> Rejoue l'audit du 27/07 (`docs/audits/card-truth-audit.md`) avec le moteur d'aujourd'hui : régime
 > log+médiane (01/08), métrique-dimension à 6 KPI (22/08), store reconstruit ce jour.
 >
 > **PÉRIMÈTRE (arbitrage owner 22/08) : les 6 sites QUI ONT DES VENTES.** Un site sans historique

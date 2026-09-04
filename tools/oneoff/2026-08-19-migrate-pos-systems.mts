@@ -1,7 +1,7 @@
 // tools/oneoff/2026-08-19-migrate-pos-systems.mts — P3.1-b migration (one-shot, idempotent).
 // ALTER profil (+pos_system) + CREATE analytics.pos_systems + MERGE des 12 caisses.
 // import_source = clé PARSEUR de api/import/sales-csv (VALID_SOURCES) — le routage d'import vit ICI.
-// Table pré-enregistrée dans docs/bq-catalog.allowlist.json (bq-guard).
+// Table pré-enregistrée dans docs/catalog/bq-catalog.allowlist.json (bq-guard).
 import "dotenv/config";
 import { makeBQClient } from "../../src/lib/bq";
 
