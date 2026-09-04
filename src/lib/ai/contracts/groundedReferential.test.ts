@@ -55,6 +55,12 @@ describe("comparisonInconsistency (la primitive)", () => {
     expect(comparisonInconsistency("Hier (02/09/2026), le CA s'est élevé à 1 439 €, soit +70 % au-dessus de votre CA habituel du jeudi (~1 533 € en moyenne).")).not.toBeNull();
     expect(comparisonInconsistency("Le dernier jour mesuré (02/09/2026) affiche 1 439 € contre un CA habituel de jeudi d'environ 1 533 € — l'écart annoncé (+70 %) se lit vs cette même base de comparaison.")).not.toBeNull();
   });
+  it("arrondi des montants (batterie qualité 04/09) : « 35 € contre 25 € (+38 %) » depuis 35,2 / 25,5 → null ; +50 % → rejet", () => {
+    expect(comparisonInconsistency("Par pluie, Flavours atteint 35 € en moyenne contre 25 € hors condition (+38 %, sur 7 jours).")).toBeNull();
+    expect(comparisonInconsistency("Par pluie, Flavours atteint 35 € en moyenne contre 25 € hors condition (+50 %, sur 7 jours).")).not.toBeNull();
+    // Les grands montants ne gagnent presque rien : 1 439 € contre 1 533 €, +70 % reste rejeté.
+    expect(comparisonInconsistency("1 439 € contre 1 533 € habituels, soit +70 %.")).not.toBeNull();
+  });
   it("hors champ : pas de marqueur de comparaison, ou % non signé, ou trois montants → null (pas de faux rejet)", () => {
     expect(comparisonInconsistency("CA 1 439 €, panier 4,81 €, la famille Coffee pèse 39 % du CA.")).toBeNull();
     expect(comparisonInconsistency("1 439 € contre 1 533 € : 70 % du CA vient du matin.")).toBeNull();
@@ -110,6 +116,13 @@ describe("validate_packager_output_grounded_day — règle 2, localité des nomb
   });
   it("sans provenance : repli global inchangé (le nombre existe dans le payload → passe)", () => {
     const [ok, errs] = validate_packager_output_grounded_day(out("Votre CA habituel d'un jeudi est de 1 533 €.", ["fB"]), payload());
+    expect(errs).toEqual([]);
+    expect(ok).toBe(true);
+  });
+  it("le nombre de la QUESTION (« chuté de 40 % ») peut être repris pour être contesté → passe (batterie qualité 04/09)", () => {
+    const p = { ...payload(), question: "Mon CA a chuté de 40 % samedi dernier, pourquoi ?" };
+    const s = "Vous parlez de −40 % : le 02/09/2026, votre CA a atteint 1 439 €, contre 847 € habituels — un écart de +70 %.";
+    const [ok, errs] = validate_packager_output_grounded_day(out(s, ["fC"], [{ text: s, fact_ids: ["fC"] }]), p);
     expect(errs).toEqual([]);
     expect(ok).toBe(true);
   });

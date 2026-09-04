@@ -3005,6 +3005,17 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         // Marges par famille (24/08) : quand des marges FAMILLE sont déclarées, la réponse marge
         // se calcule famille par famille (couverture dite) — AVANT le chemin global. Une marge
         // globale déclarée DANS CE TOUR garde la priorité (fraîcheur, comme avant).
+        // 04/09 (batterie qualité, juge R1) : « Quelle est ma marge le week-end ? » se calculait sur les
+        // 30 jours entiers sans le dire. Un qualificatif de jours — week-end, un jour de semaine — filtre
+        // la fenêtre sur CES jours (ceux qui ont des ventes : jamais « samedi + dimanche » supposés
+        // ouverts) et le libellé le dit. BigQuery DAYOFWEEK : 1 = dimanche … 7 = samedi.
+        const _dowFilter = (() => {
+          const qn2 = norm(qRaw);
+          if (/\bweek ?-?end\b/.test(qn2)) return { sql: " AND EXTRACT(DAYOFWEEK FROM transaction_date) IN (1, 7)", fr: "vos jours de week-end des 30 derniers jours" };
+          const DOWS: Array<[string, number]> = [["dimanche", 1], ["lundi", 2], ["mardi", 3], ["mercredi", 4], ["jeudi", 5], ["vendredi", 6], ["samedi", 7]];
+          const hit = DOWS.find(([w]) => new RegExp(`\\b${w}s?\\b`).test(qn2));
+          return hit ? { sql: ` AND EXTRACT(DAYOFWEEK FROM transaction_date) = ${hit[1]}`, fr: `vos ${hit[0]}s des 30 derniers jours` } : { sql: "", fr: "vos 30 derniers jours" };
+        })();
         if (_missingDim === "marge" && !(_justDeclared && _justDeclared.correction_type === "declared_margin_pct")) {
           try {
             const famMargins = await getDeclaredFamilyMargins(location_id);
@@ -3015,7 +3026,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
                 query: `SELECT item_category, ROUND(SUM(revenue), 0) AS ca
                         FROM \`muse-square-open-data.mart.fct_client_offering_daily\`
                         WHERE location_id = @location_id
-                          AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()
+                          AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()${_dowFilter.sql}
                         GROUP BY 1 ORDER BY 2 DESC`,
                 params: { location_id }, types: { location_id: "STRING" }, location: "EU",
               });
@@ -3033,7 +3044,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
               }
               if (lines.length && caTotal > 0) {
                 sinkTelemetry(location_id, "declared-answer", { type: "declared_margin_pct_families", n: lines.length });
-                const ans = declaredFamilyMarginAnswerFr({ lines, ca_total_eur: caTotal, window_fr: "vos 30 derniers jours" });
+                const ans = declaredFamilyMarginAnswerFr({ lines, ca_total_eur: caTotal, window_fr: _dowFilter.fr });
                 return sysDialogueResponse(ans.headline, ans.answer, "deterministic_declared_margin_v1");
               }
             }
@@ -3054,13 +3065,13 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
                 query: `SELECT SUM(daily_revenue) AS ca
                         FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
                         WHERE location_id = @location_id
-                          AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()`,
+                          AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()${_dowFilter.sql}`,
                 params: { location_id }, types: { location_id: "STRING" }, location: "EU",
               });
               const ca = Number(rows?.[0]?.ca);
               if (Number.isFinite(ca) && ca > 0) {
                 sinkTelemetry(location_id, "declared-answer", { type: _metric.correction_type, value: decl.value });
-                const common = { ca_eur: ca, window_fr: "vos 30 derniers jours", declarant_name: decl.declarant_name, declared_on: decl.corrected_at };
+                const common = { ca_eur: ca, window_fr: _dowFilter.fr, declarant_name: decl.declarant_name, declared_on: decl.corrected_at };
                 const ans = _metric.correction_type === "declared_client_count"
                   ? declaredClientCountAnswerFr({ count: decl.value, ...common })
                   : declaredMarginAnswerFr({ pct: decl.value, ...common });

@@ -64,10 +64,13 @@ export function validate_packager_output_grounded_day(output: any, row: any): [b
   //    validator itself can REPRODUCE it as a same-unit sum/diff of two numbers from the facts the model
   //    CITED (cited_fact_ids) — the model states "260 €", we recompute 1500−1240 from the cited fact and
   //    confirm. Anything we cannot reproduce (wrong total, %, rounding, uncited operand) rejects as before.
+  // Les nombres de la QUESTION sont permis partout : l'exploitant les a écrits (« chuté de 40 % »),
+  // le modèle doit pouvoir les reprendre pour les contester. Mesuré 04/09 (batterie qualité) : le
+  // « 40 » de la question rejeté en localité → régénération → 43 s, budget 40 s dépassé.
   const payloadNumericText = groundedText + " " +
     JSON.stringify(payload.signals ?? {}) + " " +
     JSON.stringify(payload.engines ?? {}) + " " +
-    (payload.display_date ?? "") + " " + (payload.date ?? "");
+    (payload.display_date ?? "") + " " + (payload.date ?? "") + " " + String((payload as any).question ?? "");
   const allowedNums = extractNumbers(payloadNumericText);
   const citedIdSet = new Set((output.cited_fact_ids as any[]).map((x) => String(x)));
   const citedFactText = payload.citable_facts
@@ -85,7 +88,7 @@ export function validate_packager_output_grounded_day(output: any, row: any): [b
     Array.isArray(output.sentence_provenance) ? output.sentence_provenance : [];
   const factTextById = new Map(payload.citable_facts.map((f) => [f.id, f.fact_fr]));
   const nonFactNumericText = JSON.stringify(payload.signals ?? {}) + " " + JSON.stringify(payload.engines ?? {}) + " " +
-    (payload.display_date ?? "") + " " + (payload.date ?? "");
+    (payload.display_date ?? "") + " " + (payload.date ?? "") + " " + String((payload as any).question ?? "");
   const nonFactNums = extractNumbers(nonFactNumericText);
   const localNums: string[] = [];
   for (const seg of segments) {

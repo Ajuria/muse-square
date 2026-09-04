@@ -112,7 +112,13 @@ export function comparisonInconsistency(sentence: string): { a: number; b: numbe
   const yx = x > 0 ? ((y - x) / x) * 100 : null;   // l'autre sens (« au lieu de » inverse souvent)
   const cands = [xy, yx].filter((c): c is number => c != null);
   if (!cands.length) return null;
-  if (cands.some((c) => Math.abs(c - signedPct!) <= 1)) return null;
+  // Tolérance = 1 point + l'ARRONDI des montants : un fait écrit « 35 € contre 25 € (+38 %) » depuis
+  // 35,2 et 25,5 — les entiers portent ±0,5 € chacun, soit jusqu'à (0,5/35 + 0,5/25) = 3,4 points
+  // sur l'écart. Mesuré 04/09 (batterie qualité, « Quand il pleut, je vends moins ? ») : faux rejet.
+  const isInt = (v: number) => Math.round(v) === v;
+  const rounding = ((isInt(x) ? 0.5 / Math.max(x, 1) : 0) + (isInt(y) ? 0.5 / Math.max(y, 1) : 0)) * 100;
+  const tol = 1 + rounding;
+  if (cands.some((c) => Math.abs(c - signedPct!) <= tol)) return null;
   return { a: x, b: y, stated: signedPct, actual: xy ?? yx! };
 }
 

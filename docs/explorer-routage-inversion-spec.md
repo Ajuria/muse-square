@@ -164,6 +164,17 @@ au plancher déterministe (`v3_fallback_deterministic`), qui liste les faits san
 « Pourquoi le 02/09 ? » et « Pourquoi le 28/08 ? » passent en attempt 1 (4/4 après correction du
 faux positif). Coût : une régénération (~15-20 s) quand la règle tire.
 
+**Batterie qualité (`explorer-quality-battery.ts`, 19 questions, juge Sonnet), 04/09 après I5.** Premier
+run : 17/19 portes, juge 3,70/5 ; 7 régénérations sur 18 réponses grounded, dont 4 par les règles I4 —
+2 vrais positifs (« +82 % vs votre CA habituel de vendredi (~1 369 €) » pour 1 600 €, écart réel +17 %)
+et 2 faux positifs, corrigés et plantés dans la lie-bait : (a) l'ARRONDI des montants — « 35 € contre
+25 € (+38 %) » écrit depuis 35,2 et 25,5 ; la tolérance vaut désormais 1 point + l'arrondi des entiers
+(0,5 € sur chaque montant) ; (b) le nombre de la QUESTION — « chuté de 40 % » repris pour être
+contesté était rejeté en localité (43 s, budget 40 s) ; les nombres de `payload.question` sont
+permis partout. Second run : **19/19 portes, juge 3,82/5**. Au passage, « Quelle est ma marge le
+week-end ? » : la réponse marge (K9, 27/08) filtre désormais les jours nommés (week-end, un jour de
+semaine) et le dit — 13 927 € de CA sur les jours de week-end des 30 derniers jours, recoupé BQ.
+
 ### 3.8 Le client — la recherche prend les questions SUR LES CONCURRENTS (appliqué, I3)
 
 L'owner a donné le 04/09 ce qu'il tape quand il veut la recherche concurrents : « qui sont
