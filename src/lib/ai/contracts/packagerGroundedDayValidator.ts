@@ -127,6 +127,15 @@ export function validate_packager_output_grounded_day(output: any, row: any): [b
   if (localNums.length) {
     errors.push(`grounded_day: number(s) not in the fact(s) the sentence cites (référentiel local): ${[...new Set(localNums)].join(", ")}`);
   }
+  // Prose (04/09, juge R7) — OBSERVABILITÉ : un même nombre écrit dans le headline ET dans l'answer, ou
+  // deux fois dans l'answer, est un AVERTISSEMENT (jamais un rejet : « 1 439 € » peut légitimement
+  // ouvrir le verdict et sa base). Se lit dans les warnings → mesure de la redondance avant/après prompt.
+  {
+    const headNums = extractNumbers(String(output.headline ?? ""));
+    const ansNums = extractNumbers(String(output.answer ?? ""));
+    const both = [...headNums].filter((n) => ansNums.has(n));
+    if (both.length) warnings.push(`grounded_day: prose — nombre(s) répété(s) headline/answer : ${both.join(", ")}`);
+  }
   // I4 — COHÉRENCE D'UNE COMPARAISON : « 1 439 € contre 1 533 €, +70 % » — chaque nombre existe, la
   // comparaison est fausse (réponse réelle du 03/09). Par phrase, sans dépendre de la provenance.
   for (const seg of segments) {
