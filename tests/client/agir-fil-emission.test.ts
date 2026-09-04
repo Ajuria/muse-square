@@ -6,7 +6,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 
-const src = readFileSync(new URL("../pages/app/insightevent/pulse.astro", import.meta.url).pathname, "utf8");
+const src = readFileSync(new URL("../../src/pages/app/insightevent/pulse.astro", import.meta.url).pathname, "utf8");
 // Chaînes visibles seulement (hors commentaires) pour les assertions d'ABSENCE.
 const sansCommentaires = src.replace(/\/\*[\s\S]*?\*\//g, " ").split("\n")
   .map((l) => l.replace(/(^|\s)\/\/.*$/, "$1")).join("\n");

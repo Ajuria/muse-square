@@ -1,9 +1,9 @@
-// src/lib/ai/impact_narrations/__tests__/impact_determinism.e2e.test.ts
+// src/lib/ai/impact_narrations/impact_determinism.e2e.test.ts
 
 import { describe, it, expect } from "vitest";
 
-import type { DecisionSignalsV1 } from "../../decision/decision_signals.v1";
-import { evaluateImpactBlocksV1 } from "../evaluate_impact_blocks_v1";
+import type { DecisionSignalsV1 } from "../decision/decision_signals.v1";
+import { evaluateImpactBlocksV1 } from "./evaluate_impact_blocks_v1";
 
 /**
  * This test proves END-TO-END determinism:

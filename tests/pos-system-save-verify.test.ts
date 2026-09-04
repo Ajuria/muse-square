@@ -1,10 +1,10 @@
-// tools/harness/pos-system-save-verify.spec.ts — preuve par le comportement (P3.1-b), sous vitest
+// tests/pos-system-save-verify.test.ts — preuve par le comportement (P3.1-b), sous vitest
 // (save.ts lit import.meta.env, absent sous tsx). Invocation DIRECTE du POST réel sur le site
 // MS Test : pos_system écrit, sentinelles intactes, puis retour à NULL. Aucun état durable.
-// Lancement : npx vitest run tools/harness/pos-system-save-verify.spec.ts
+// Lancement : npx vitest run tests/pos-system-save-verify.test.ts
 import "dotenv/config";
 import { describe, it, expect } from "vitest";
-import { makeBQClient } from "../../src/lib/bq";
+import { makeBQClient } from "../src/lib/bq";
 
 const PROJECT = "muse-square-open-data";
 const TBL = `\`${PROJECT}.raw.insight_event_user_location_profile\``;
@@ -33,7 +33,7 @@ describe("save.ts écrit pos_system (P3.1-b)", () => {
     expect(before, "ligne MS Test introuvable").toBeTruthy();
     expect(before.city_id, "city_id nul — chemin géocode 'unchanged' non tenable").toBeTruthy();
 
-    const { POST } = await import("../../src/pages/api/profile/save");
+    const { POST } = await import("../src/pages/api/profile/save");
     // profileRowExists : posé par le middleware en prod ; la ligne vient d'être LUE ci-dessus.
     const locals = { clerk_user_id: String(before.clerk_user_id), all_location_ids: [LOC], profileRowExists: true };
     const basePayload: Record<string, any> = {

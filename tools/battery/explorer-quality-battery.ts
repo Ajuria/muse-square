@@ -38,7 +38,7 @@ R9 — VOIX : registre professionnel d'un analyste qui parle à un exploitant �
 // « no 101 / robotic crap » (08/08)          → R9
 // « mes journées de juin-juillet » routées lookup_event → « Aucun événement trouvé » (26/08) → cas bilan (porte : horizon ≠ lookup_event)
 // Comportements CLIENT (fil qui survit, Nouvelle conversation, 3 slots, chips) → suite séparée
-// src/client/explorer-ui.test.ts (happy-dom sur les VRAIS card-kit.js + ie-prompt.js).
+// tests/client/explorer-ui.test.ts (happy-dom sur les VRAIS card-kit.js + ie-prompt.js).
 
 type Expect = {
   producers: string[]; maxSeconds: number; groundedChips?: boolean; webSources?: boolean;
