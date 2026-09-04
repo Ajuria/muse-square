@@ -8,7 +8,7 @@
 // are included ONLY where present — honest-absent otherwise, never padded.
 
 import type { DayContext } from "../dayContext";
-import type { Tier } from "../sensitivityStore";
+import type { Tier } from "../sensitivity/sensitivityStore";
 import type { FactOrigin } from "../fr/factOrigins.fr";
 
 export interface CitableFact {

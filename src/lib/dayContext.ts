@@ -7,9 +7,9 @@
 // structured data for owner copy); it authors NO French of its own.
 
 import { formatDisruption, fillContextFallback, formatWeatherAlert, frCountry } from './contextCopy';
-import { getSensitivities, type Sensitivity, type Tier } from './sensitivityStore';
-import { envTodayLine, decompositionLine } from './sensitivityCopy';
-import featureRegistry from './sensitivityFeatures.json';
+import { getSensitivities, type Sensitivity, type Tier } from './sensitivity/sensitivityStore';
+import { envTodayLine, decompositionLine } from './sensitivity/sensitivityCopy';
+import featureRegistry from './sensitivity/sensitivityFeatures.json';
 
 const PROJECT = 'muse-square-open-data';
 export const flatVal = (v: any): any => (v && typeof v === 'object' && 'value' in v ? v.value : v);

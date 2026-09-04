@@ -1012,7 +1012,7 @@ export const EVOL_COPY = {
 export type EvolCopy = typeof EVOL_COPY;
 ```
 
-## src/lib/sensitivityCopy.ts
+## src/lib/sensitivity/sensitivityCopy.ts
 ```
 // Type B — French copy for citing sensitivities. OWNER: your voice pass lives here; no
 // French is hardcoded in consumers. Rules (see memory french-copy-voice): terse noun-phrases,

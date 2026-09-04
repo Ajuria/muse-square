@@ -20,7 +20,7 @@
 import { GRACE_DAYS, MATERIAL_SHARE, RHO_FLOOR, WINDOW_FACTOR_SHARE } from "./commitmentConstants";
 import { isKpiMeasurable, measureKpiWindow, measureFamilyRevenueMean, measureKpiDailySd, measureFamilyDailySd, measureProfitEstimatedStats, kpiDeltaPct as kpiDeltaPctFn, kpiVerdict } from "../kpi/kpiRegistry";
 import type { CommitmentRow } from "./actionCommitments";
-import featureRegistry from "../sensitivityFeatures.json";
+import featureRegistry from "../sensitivity/sensitivityFeatures.json";
 
 const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const RESIDUAL = `${BQ_PROJECT}.semantic.vw_insight_event_day_residual`;

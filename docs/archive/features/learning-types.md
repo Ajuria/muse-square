@@ -207,8 +207,8 @@ KPI-generality = rerunning the same vetted pipeline per metric, storing `(metric
 
 **Store + one typed accessor.** Batch output → `analytics.b_sensitivity_store` (dev; → mart
 `mart.fct_location_sensitivity` when the dbt/BQML batch model lands). The **one** typed accessor is
-`src/lib/sensitivityStore.ts` (`getSensitivities(loc, {metric, minTier})`); French citation +
-tier register in `src/lib/sensitivityCopy.ts`. Every surface imports the accessor — none queries
+`src/lib/sensitivity/sensitivityStore.ts` (`getSensitivities(loc, {metric, minTier})`); French citation +
+tier register in `src/lib/sensitivity/sensitivityCopy.ts`. Every surface imports the accessor — none queries
 the store or recomputes. Validated end-to-end on seed: accessor serves, consumer cites at tier, all
 three registers render, honesty asserts pass (préliminaire never asserts, decoy absent, Paris-heat
 scoped out).
@@ -243,7 +243,7 @@ dev-only `?src=seed` proves the populated path.
 reproducible). It is now built by the committed **`tools/generators/build-designmatrix.cjs`**
 (`mart.fct_client_day_residual` × `mart.fct_location_context_daily`, `is_oos` = most-recent 20%/venue,
 universe inherited from the residual mart — never hardcoded). The factor set is a **single-source
-registry `src/lib/sensitivityFeatures.json`** (feature → context predicate → mechanism) driving the
+registry `src/lib/sensitivity/sensitivityFeatures.json`** (feature → context predicate → mechanism) driving the
 engine's mechanism gate, the build's feature columns, AND the endpoint's today-activation — killing
 the prior two-list drift (engine `TAXONOMY_REAL` vs endpoint `ACTIVE_EXPR`). All 10 binary features
 reproduce the frozen matrix exactly; `major_event` is an inert placeholder (`predicate: FALSE`) whose

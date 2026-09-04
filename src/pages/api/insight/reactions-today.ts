@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { makeBQClient } from '../../../lib/bq';
-import { FEATURE_FR, envTodayLine, actionLine, moveLine, trackRecordQualifies } from '../../../lib/sensitivityCopy';
-import featureRegistry from '../../../lib/sensitivityFeatures.json';
+import { FEATURE_FR, envTodayLine, actionLine, moveLine, trackRecordQualifies } from '../../../lib/sensitivity/sensitivityCopy';
+import featureRegistry from '../../../lib/sensitivity/sensitivityFeatures.json';
 import { assembleDayContext, type DayContext, type DayContextFact } from '../../../lib/dayContext';
 import { fillContextFallback, CONTEXT_LABELS } from '../../../lib/contextCopy';
 

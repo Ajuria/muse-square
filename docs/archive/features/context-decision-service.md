@@ -11,8 +11,8 @@ A3, deferred). See [learning-types.md](learning-types.md) (the A/B contract) and
 [learning-engine.md](learning-engine.md) (Engine 1).
 
 Endpoint: `src/pages/api/insight/reactions-today.ts` (extended — no new route).
-Registry: `src/lib/sensitivityFeatures.json` (single source, extended with `tier` + per-tier `source`).
-Copy: `src/lib/sensitivityCopy.ts` is **owner-final** — this service produces STRUCTURED data keyed by
+Registry: `src/lib/sensitivity/sensitivityFeatures.json` (single source, extended with `tier` + per-tier `source`).
+Copy: `src/lib/sensitivity/sensitivityCopy.ts` is **owner-final** — this service produces STRUCTURED data keyed by
 `label_key`; the French words live in the copy file. This doc never authors words.
 
 ## The one rule: four tiers, never merged

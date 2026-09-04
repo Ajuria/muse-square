@@ -7,7 +7,7 @@
 //
 //   residual  = mart.fct_client_day_residual (dow+trend removed; the fit target)
 //   features  = binary predicates over mart.fct_location_context_daily, driven by the
-//               SINGLE-SOURCE registry src/lib/sensitivityFeatures.json (same map the engine's
+//               SINGLE-SOURCE registry src/lib/sensitivity/sensitivityFeatures.json (same map the engine's
 //               mechanism gate and the endpoint's today-activation read — no second list).
 //   is_oos    = the most-recent ceil(0.2*n) days PER LOCATION (holdout for the baseline shadow).
 //
@@ -17,7 +17,7 @@
 //   node tools/generators/build-designmatrix.cjs --dry <t>  (writes a scratch table for verification)
 
 const { BigQuery } = require("@google-cloud/bigquery");
-const REG = require("../../src/lib/sensitivityFeatures.json");
+const REG = require("../../src/lib/sensitivity/sensitivityFeatures.json");
 
 const bq = new BigQuery({ projectId: "muse-square-open-data" });
 const DS = "muse-square-open-data";
