@@ -3414,23 +3414,11 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     let _rsvDecided = false;
     if (_rsv && !force_compare) {
       switch (_rsv.intent) {
-        case "jour": {
-          // « ça va mes ventes ? » sans date : LE DERNIER JOUR MESURÉ (précision owner 04/09), pas
-          // aujourd'hui — aujourd'hui n'est jamais mesuré, ses faits (habituel du jour + dernier jour
-          // mesuré) invitaient le référentiel croisé que I4 rejette, jusqu'au plancher (mesuré).
-          if (extracted_dates.length === 0 && !date && dates.length === 0 && !_rsvPassPeriod) {
-            const _lastRow = await makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data").query({
-              query: `SELECT CAST(MAX(date) AS STRING) AS d FROM \`${process.env.BQ_PROJECT_ID || "muse-square-open-data"}.semantic.vw_insight_event_day_residual\` WHERE location_id = @location_id AND residual_pct IS NOT NULL`,
-              params: { location_id }, location: "EU",
-            }).then((r: any) => { const v = r?.[0]?.[0]?.d; return v == null ? null : String(v && typeof v === "object" && "value" in v ? v.value : v).slice(0, 10); }).catch(() => null);
-            if (_lastRow && /^\d{4}-\d{2}-\d{2}$/.test(_lastRow)) {
-              extracted_dates.push(_lastRow);
-              _rsvPassPeriod = { start: _lastRow, end: _lastRow, expression: "dernier jour mesuré" };
-              console.log(`[resolver→routage] jour sans date → dernier jour mesuré ${_lastRow}`);
-            }
-          }
+        case "jour":
+          // Sans date : le dernier jour mesuré est posé PLUS BAS, après la logique de suite de fil
+          // (« et le dimanche ? » = lendemain du cadre) — mesuré 04/09 (batterie qualité) : posé ici,
+          // il volait la date de la suite (03/09 au lieu du 19/07).
           resolved_horizon = "day"; resolved_intent = resolveIntentFromText(qRaw, "day"); _rsvDecided = true; break;
-        }
         case "dimension":
           if (extracted_dates.length === 0) { resolved_horizon = "day"; resolved_intent = "DAY_DIMENSION_DETAIL"; }
           _rsvDecided = true; break;
@@ -3572,6 +3560,21 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           ? nextWeekdayAfterYmd(_frameDate, wanted_weekday)  // "et le dimanche ?" → weekday delta
           : _frameDate;                                      // no temporal delta → same subject, same date
       if (frame_delta_date && extracted_dates.length === 0) extracted_dates.push(frame_delta_date);
+      // I5 (04/09) — « ça va mes ventes ? » : un jour demandé SANS date ni suite de fil lit LE DERNIER
+      // JOUR MESURÉ (précision owner), jamais aujourd'hui (non mesuré : ses faits invitaient le
+      // référentiel croisé que I4 rejette, jusqu'au plancher — mesuré). Après la suite de fil : « et le
+      // dimanche ? » garde le lendemain du cadre.
+      if (_rsv?.intent === "jour" && extracted_dates.length === 0 && !date && dates.length === 0 && !_rsvPassPeriod) {
+        const _lastRow = await makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data").query({
+          query: `SELECT CAST(MAX(date) AS STRING) AS d FROM \`${process.env.BQ_PROJECT_ID || "muse-square-open-data"}.semantic.vw_insight_event_day_residual\` WHERE location_id = @location_id AND residual_pct IS NOT NULL`,
+          params: { location_id }, location: "EU",
+        }).then((r: any) => { const v = r?.[0]?.[0]?.d; return v == null ? null : String(v && typeof v === "object" && "value" in v ? v.value : v).slice(0, 10); }).catch(() => null);
+        if (_lastRow && /^\d{4}-\d{2}-\d{2}$/.test(_lastRow)) {
+          extracted_dates.push(_lastRow);
+          _rsvPassPeriod = { start: _lastRow, end: _lastRow, expression: "dernier jour mesuré" };
+          console.log(`[resolver→routage] jour sans date → dernier jour mesuré ${_lastRow}`);
+        }
+      }
       console.log(`[phase2][continuation] inherited frame horizon=${resolved_horizon} intent=${String(resolved_intent)} family=${_frameFamily ?? "-"} date=${frame_delta_date ?? "-"} (q="${qRaw.slice(0, 60)}")`);
     }
 
@@ -7114,11 +7117,22 @@ Règles :
 // no field for model text (structural truth rule).
 export const POST: APIRoute = async (ctx) => {
   let wantStream = false;
+  let _tLoc: string | null = null;
+  const _t0 = Date.now();
   try {
     const probe = await ctx.request.clone().json();
     wantStream = probe?.stream === true;
+    _tLoc = typeof probe?.thread_context?.location_id === "string" ? probe.thread_context.location_id : null;
   } catch { /* unparseable body → let handleCore produce today's error */ }
-  if (!wantStream) return handleCore(ctx);
+  // 04/09 (retour owner « ça a sauté ») — la DURÉE de chaque tour, mesurée côté serveur, pour lire en prod
+  // ce qui dépasse la garde client de 90 s (analytics.consulter_telemetry, event_type prompt-duration).
+  const _durée = (status: number, producer: string | null) =>
+    sinkTelemetry(_tLoc, "prompt-duration", { ms: Date.now() - _t0, status, producer, stream: wantStream });
+  if (!wantStream) {
+    const res = await handleCore(ctx);
+    _durée(res.status, null);
+    return res;
+  }
 
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
@@ -7148,6 +7162,7 @@ export const POST: APIRoute = async (ctx) => {
       const text = await res.text();
       let body: unknown = null;
       try { body = JSON.parse(text); } catch { /* body stays null; client shows HTTP-status error */ }
+      _durée(res.status, (body as any)?.meta?.producer ?? null);
       await send("result", { status: res.status, body });
     } catch (err: any) {
       await send("result", { status: 500, body: { ok: false, error: err?.message ?? "Unknown error" } });

@@ -69,7 +69,8 @@ code calcule », et que Rasa / Dialogflow / Lex pour l'intention de repli.
 Chaque intention nomme le composeur qui existait déjà : aucun composeur n'a été réécrit. La
 regex qui gardait chaque branche est la condition de repli. `jour` sans date lit LE DERNIER JOUR
 MESURÉ (jamais aujourd'hui, non mesuré : mesuré 04/09, « ça va mes ventes ? » tombait au plancher
-sur les faits du jour). Le matcher de famille ne prime plus sur le résolveur (mesuré : « quand a
+sur les faits du jour) — posé APRÈS la logique de suite de fil : « et le dimanche ? » après un cadre du
+18/07 lit le 19/07 (régression du premier jet attrapée par la batterie qualité, corrigée le jour même). Le matcher de famille ne prime plus sur le résolveur (mesuré : « quand a
 lieu la fête des vendanges ? » — résolveur `evenement_lookup`, matcher « quand » → famille).
 
 ### 3.2 Le formulaire (ajouts, `resolverSchema` + prompt généré)
@@ -175,6 +176,21 @@ permis partout. Second run : **19/19 portes, juge 3,82/5**. Au passage, « Quell
 week-end ? » : la réponse marge (K9, 27/08) filtre désormais les jours nommés (week-end, un jour de
 semaine) et le dit — 13 927 € de CA sur les jours de week-end des 30 derniers jours, recoupé BQ.
 
+**Prose du packager (04/09, item ouvert par l'owner sur les notes du juge).** Règles ajoutées à
+`packagerGroundedDayPrompt.ts` : 1quinquies (headline et answer disjoints — un chiffre du headline
+n'apparaît nulle part dans l'answer, un chiffre d'ouverture dans aucune puce), 1sexies (répondre à
+l'OBJET nommé ou dire que les faits couvrent plus large), 1ter étendu (tout couple de repères
+contradictoires se réconcilie en une phrase), 3ter-1 (ce que l'exploitant sait déjà — adresse,
+secteur, public déclaré, jour de semaine d'une date qu'il a écrite — n'est jamais une information,
+seulement la base d'un écart), 3ter-2 (aucun quantificateur vague à la place d'un chiffre) ; l'answer
+« commence par ce qui explique le verdict », plus « par le verdict ». Observabilité : le validateur
+avertit (jamais ne rejette) quand un nombre est écrit dans le headline ET l'answer. **Mesure** : trois
+runs de la batterie qualité — 3,82 avant les règles, 3,84 et 3,76 après (19/19 portes les deux fois) ;
+R7 « pire règle » sur 5 réponses avant, 2 puis 3 après. À n = 19 et avec la variance du juge, l'effet
+sur la moyenne n'est PAS démontré ; la disjonction headline/answer, elle, se voit sur chaque réponse
+jour relue. Les règles restent (elles reprennent mot pour mot les notes du juge) ; la prochaine
+lecture de cette moyenne se fait sur plusieurs runs, pas un.
+
 ### 3.8 Le client — la recherche prend les questions SUR LES CONCURRENTS (appliqué, I3)
 
 L'owner a donné le 04/09 ce qu'il tape quand il veut la recherche concurrents : « qui sont
@@ -226,7 +242,10 @@ résolveur sur tout compte (les listes vides se disent vides dans le prompt, dé
 dépasser le timeout du résolveur (8 s) et retomber sur le repli regex — réponse juste, cadre
 absent ; à mesurer en prod avant de toucher le timeout. **Mesure en place (04/09)** : chaque appel du
 résolveur écrit une ligne `analytics.consulter_telemetry` (`event_type = "resolver"`, payload `ms`,
-`intent`, `nul`, `validee`). Un « warm-up » au déploiement ne se construit que si cette requête montre
+`intent`, `nul`, `validee`). Première lecture (04/09 13:00) : 4 appels coupés à 8 s en 20 minutes (~9 s bout en bout) après une
+journée à 0 nul et 3,5 s au pire — une pointe de latence API, pas un démarrage à froid ; un tour coupé
+part sur les regex et perd sa comparaison (batterie D6). Timeout porté à **12 s** (`resolver.ts`).
+Un « warm-up » au déploiement ne se construit que si cette requête montre
 des `nul` au premier tour :
 `SELECT DATE(event_ts) d, COUNTIF(JSON_VALUE(payload,'$.nul')='true') nuls, COUNT(*) n,
  APPROX_QUANTILES(CAST(JSON_VALUE(payload,'$.ms') AS INT64), 20)[OFFSET(19)] p95_ms

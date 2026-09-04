@@ -667,7 +667,12 @@ if (!root) {
   function _regFromProducer(p) {
     return p === 'web_search' ? 'web'
       : p === 'llm_only' ? 'model'
-      : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1' || p === 'deterministic_offering_elicit_v1' || p === 'deterministic_missing_dimension_elicit_v1' || p === 'deterministic_declared_capture_v1' || p === 'deterministic_declared_margin_v1') ? null
+      : (!p || p === 'no_data' || p === 'deterministic_missing_dates_v1' || p === 'deterministic_offering_elicit_v1' || p === 'deterministic_missing_dimension_elicit_v1' || p === 'deterministic_declared_capture_v1' || p === 'deterministic_declared_margin_v1'
+         // 04/09 — dialogues système du chantier inversion : pas de pilule (même liste que registerFor serveur).
+         || p === 'deterministic_hors_perimetre_v1' || p === 'deterministic_dispositif_famille_v1' || p === 'deterministic_top_familles_v1'
+         // Le renvoi rapport est un dialogue système (registre null côté serveur depuis le 26/08) : la pilule
+         // « Vérifié » qu'il portait côté client était fausse (mesuré au rejeu 04/09).
+         || p === 'deterministic_report_nav_v1') ? null
       : 'vetted';
   }
   function resolveRegister(out) {
@@ -841,7 +846,11 @@ if (!root) {
       // Item 4 — same system-dialogue class: the capture confirmation asserts nothing (it echoes the
       // user's own declaration back); the declared estimate is attributed in-copy (« déclarée par
       // vous », « estimation ») rather than wearing a trust pill it hasn't earned.
-      || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1";
+      || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1"
+      // 04/09 (retour owner : « qui est Jésus ? » → pas de résultat) : la réponse hors périmètre (I1) est
+      // une phrase de dialogue système — headline + prose, aucune pilule. Sans cette ligne, la branche
+      // DAY_DIMENSION_DETAIL avalait la prose et n'affichait que le titre. Rejoué : explorer-client-gate.
+      || producer === "deterministic_hors_perimetre_v1";
     const isLookup = horizon === "lookup_event" || intent === "LOOKUP_EVENT";
     const isTopDays = intent === "WINDOW_TOP_DAYS";
     const isWorstDays = intent === "WINDOW_WORST_DAYS";
@@ -940,6 +949,16 @@ if (!root) {
     // ── LOOKUP ──────────────────────────────────────────────────
     // "date: nom || desc" is a SERVER line format the adapter still parses (content parity; this
     // client parse retires when the packager emits native blocks).
+    // ── RENVOI RAPPORT (04/09, mesuré au rejeu client) : le verdict chiffré du renvoi rapport (26/08,
+    // « 12 574 €, +0,7 % vs période précédente … ») n'était JAMAIS affiché — la branche
+    // DAY_DIMENSION_DETAIL avalait la prose et ne laissait que le titre et le bouton. Headline + prose +
+    // CTA, rien d'autre ; la pilule reste absente (dialogue système, registre null).
+    if (producer === "deterministic_report_nav_v1") {
+      if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
+      if (answer) blocks.push({ type: "prose", md: answer, asserts_nothing: true });
+      if (ctaBlock) blocks.push(ctaBlock);
+      return blocks;
+    }
     if (isElicit) {
       if (headline) blocks.push({ type: "headline", text: headline, variant: "lead" });
       if (answer) blocks.push({ type: "prose", md: answer, asserts_nothing: true });

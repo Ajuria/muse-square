@@ -78,7 +78,12 @@ export async function resolveTurn(opts: {
       model: modelFor("classifier"),
       maxTokens: 500,
       temperature: 0,
-      timeoutMs: opts.timeoutMs ?? 8000, // p95 mesurée ~3 s (batterie 28/08) — 4 s coupait de vrais tours
+      // p95 mesurée ~3 s (batterie 28/08) — 4 s coupait de vrais tours ; 8 s posé alors. 04/09 13:01-13:03
+      // (télémétrie analytics.consulter_telemetry, event_type resolver) : 4 appels coupés à 8 s sur 20 min
+      // (~9 s bout en bout) alors que la journée entière donnait 0 nul et 3,5 s au pire — une pointe de
+      // latence API. Un tour coupé part sur les regex et perd sa comparaison (batterie D6) : plus cher
+      // que 4 s d'attente. 12 s ; la prochaine lecture se fait sur la télémétrie, pas sur une supposition.
+      timeoutMs: opts.timeoutMs ?? 12000,
       cacheSystem: true,
       conversationHistory: (opts.history ?? []).slice(-8),
       userText: `${opts.qRaw}${frameLine}`,
