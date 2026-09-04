@@ -1,7 +1,7 @@
 # Enjeu €/an — day-class registry — DÉFINITIF
 
 > Spec de référence de la pill « Enjeu ~X €/an · estimé/mesuré » des cartes d'action système, et du
-> registre de classes de jours qui la calcule. Code : `src/lib/dayClassRegistry.ts` (calcul + policy),
+> registre de classes de jours qui la calcule. Code : `src/lib/kpi/dayClassRegistry.ts` (calcul + policy),
 > `api/insight/monitor.ts` (lecteur), `pulse.astro buildMetricsStrip` (rendu).
 > À lire avant TOUTE extension. Tenir ce fichier + la ligne module-index à jour dans le même commit.
 

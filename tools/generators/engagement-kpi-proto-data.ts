@@ -8,7 +8,7 @@
 import "dotenv/config";
 import { writeFileSync } from "node:fs";
 import { makeBQClient } from "../../src/lib/bq";
-import { KPI_LABEL_FR } from "../../src/lib/kpiRegistry";
+import { KPI_LABEL_FR } from "../../src/lib/kpi/kpiRegistry";
 
 const P = "muse-square-open-data";
 const PERF = `${P}.mart.fct_client_daily_performance`;

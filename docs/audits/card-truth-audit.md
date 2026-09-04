@@ -161,7 +161,7 @@ La classe météo n'admettait que le niveau ≥ 2, soit **35 °C**, alors que le
 Météo-France en Île-de-France est de **31 °C**. La mesure était plus stricte que la définition
 officielle *et* que le vécu de l'exploitant : elle jetait 19 jours sur 22.
 
-**Deux correctifs, un seul foyer** (`conditionCaseSql`, `src/lib/dayClassRegistry.ts` — il alimente
+**Deux correctifs, un seul foyer** (`conditionCaseSql`, `src/lib/kpi/dayClassRegistry.ts` — il alimente
 à la fois la construction du store et la résolution carte→classe, donc les deux ne divergent pas) :
 
 1. **Seuil `>= 2` → `>= 1`.** Effet vérifié sur les 4 sites ayant un historique de ventes :

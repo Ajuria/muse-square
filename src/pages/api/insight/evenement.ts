@@ -6,7 +6,7 @@
 // Le dossier (`?saved_item_id=`) : provider evenementFamily.
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
-import { measureKpiCoverage, listSiteFamilies } from "../../../lib/kpiRegistry";
+import { measureKpiCoverage, listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
 import { listPoles } from "../../../lib/dispositifs/poleReading";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypesFor, eventTypeLabelFr } from "../../../lib/eventTypes";

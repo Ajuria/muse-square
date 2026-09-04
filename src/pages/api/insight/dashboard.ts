@@ -11,10 +11,10 @@ import type { APIRoute } from "astro";
 import { personKey, isKeptVerdict } from "../../../lib/commitments/actionCommitments";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation, corrIndexFr } from "../../../lib/dayClassRegistry";
+import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation, corrIndexFr } from "../../../lib/kpi/dayClassRegistry";
 // KPI -> colonne journalière : LU au registre, jamais retapé (les deux CASE ci-dessous en
 // étaient des copies ; un mart qui renomme une colonne cassait alors 3 surfaces sur 4).
-import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpiRegistry";
+import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpi/kpiRegistry";
 // Marges par famille (24/08) : le slug et le préfixe viennent du propriétaire du log — jamais retapés.
 import { familySlug, MARGIN_FAMILY_PREFIX } from "../../../lib/ai/corrections";
 // Pôles (build 28/08, protos validés) : lecture = LE foyer poleReading (mêmes chiffres que

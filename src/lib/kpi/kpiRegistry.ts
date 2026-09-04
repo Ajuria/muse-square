@@ -1,4 +1,4 @@
-// src/lib/kpiRegistry.ts
+// src/lib/kpi/kpiRegistry.ts
 //
 // KPI REGISTRY — the ONE dictionary of measurable KPIs for the engagement loop (étape 3 validée
 // 24/07, spec: docs/kpi-enjeu-mapping.md §1). Same unit BOTH sides: the card's claim (Enjeu pill,
@@ -40,7 +40,7 @@ const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const PERF = `${PROJECT}.mart.fct_client_daily_performance`;
 
 // K9 : les marges déclarées viennent du propriétaire du log (jamais re-dérivées ici).
-import { getDeclaredFamilyMargins, getDeclaredMarginPct, familySlug } from "./ai/corrections";
+import { getDeclaredFamilyMargins, getDeclaredMarginPct, familySlug } from "../ai/corrections";
 
 // CLÉS = le vocabulaire EXISTANT de l'app (DRIVER_SET de /api/commitments + metrics du moteur
 // Type B : footfall/conversion/basket) — jamais un 3e vocabulaire (audit anti-duplication 26/07).

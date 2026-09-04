@@ -3,7 +3,7 @@
 // le seul point d'entrée de lecture, exactement comme monitor.ts.
 import "dotenv/config";
 import { BigQuery } from "@google-cloud/bigquery";
-import { rowsToImpactsWithImmaterial } from "../../src/lib/dayClassRegistry";
+import { rowsToImpactsWithImmaterial } from "../../src/lib/kpi/dayClassRegistry";
 const bq = new BigQuery({ projectId: "muse-square-open-data", location: "EU" });
 const f = (v:any)=> v && typeof v==="object" && "value" in v ? v.value : v;
 

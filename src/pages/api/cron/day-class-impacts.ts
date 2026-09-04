@@ -12,7 +12,7 @@ import "dotenv/config";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { waitUntil } from "@vercel/functions";
-import { dayClassAggregateSql, catchmentHypothesisSql, DAY_CLASS_STORE, CATCHMENT_HYP_STORE } from "../../../lib/dayClassRegistry";
+import { dayClassAggregateSql, catchmentHypothesisSql, DAY_CLASS_STORE, CATCHMENT_HYP_STORE } from "../../../lib/kpi/dayClassRegistry";
 
 export const prerender = false;
 

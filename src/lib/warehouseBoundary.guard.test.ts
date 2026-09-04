@@ -31,7 +31,7 @@ const CLIQUET: Record<string, number> = {
   // jour de semaine × heure, pas des jours datés : aucune vue équivalente. Le même fichier lit
   // aussi raw.client_transactions (familles × produits) — hors de ce garde, dette notée.
   "src/lib/commitments/commitmentShape.ts": 2,
-  "src/lib/dayClassRegistry.ts": 10,
+  "src/lib/kpi/dayClassRegistry.ts": 10,
   "src/lib/dayContext.ts": 19,
   "src/lib/insightFamilies/calendar.ts": 1,
   "src/lib/insightFamilies/channels.ts": 8,
@@ -46,7 +46,7 @@ const CLIQUET: Record<string, number> = {
   "src/lib/insightFamilies/salesDiscount.ts": 1,
   "src/lib/insightFamilies/tourism.ts": 2,
   "src/lib/insightFamilies/weather.ts": 3,
-  "src/lib/kpiRegistry.ts": 1,
+  "src/lib/kpi/kpiRegistry.ts": 1,
   "src/lib/proposedFollows.ts": 2,
   "src/lib/commitments/trackRecordCore.ts": 1,
   "src/pages/api/analytics/admin-dashboard.ts": 1,

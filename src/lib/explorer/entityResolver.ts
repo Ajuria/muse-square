@@ -7,7 +7,7 @@
 // normalisation accents/casse, nom le plus long d'abord, jamais un match dans un mot.
 
 import { listPoles, listPoleComponents, type PoleListRow } from "../dispositifs/poleReading";
-import { listSiteFamilies } from "../kpiRegistry";
+import { listSiteFamilies } from "../kpi/kpiRegistry";
 import { listUserEvenements } from "../insightFamilies/evenement";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";

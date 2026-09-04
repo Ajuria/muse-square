@@ -8,7 +8,7 @@
 > document, à arbitrer par l'owner.
 >
 > Chaîne concernée : `mart.fct_client_day_residual` (dbt) fournit `expected_revenue` ;
-> `src/lib/dayClassRegistry.ts` (`dayClassAggregateSql`, ligne 204) calcule
+> `src/lib/kpi/dayClassRegistry.ts` (`dayClassAggregateSql`, ligne 204) calcule
 > `gap_eur = daily_revenue − expected_revenue`, agrège par classe de jours et stocke
 > `avg_gap_eur`/`sd_gap_eur` dans `analytics.day_class_impacts` ; `rowToImpact` applique
 > les portes (n ≥ 5, span ≥ 60 j, |t| ≥ 1, matérialité 0,3 % du CA).

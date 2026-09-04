@@ -12,7 +12,7 @@
 // z = (kpi_window_value − kpi_baseline) / kpi_noise_se — kpi_noise_se est la SE journalière
 // VIF-corrigée écrite par commitmentResolve, et la porte officielle de kpiVerdict est 1×SE :
 // le seuil de preuve |z| >= 1 (lexique l.17) est donc LE MÊME dans les deux régimes.
-import { kpiLe, KPI_LABEL_FR, type KpiKey } from "../kpiRegistry";
+import { kpiLe, KPI_LABEL_FR, type KpiKey } from "../kpi/kpiRegistry";
 
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
 const num = (v: any): number | null => {

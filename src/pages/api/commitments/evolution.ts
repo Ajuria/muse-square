@@ -6,7 +6,7 @@
 // field (window_residual_z, _raw, applied_rho/vif, threshold_value, creation_residual_z)
 // and the per-day series returns residual_pct only — so the render cannot leak z.
 import type { APIRoute } from "astro";
-import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpiRegistry";
+import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpi/kpiRegistry";
 import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifs/dispositifTypes";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";

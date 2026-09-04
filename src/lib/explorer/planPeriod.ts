@@ -17,7 +17,7 @@ import { listUserEvenements } from "../insightFamilies/evenement";
 import { listIndustryPlays, type BestInClassPlay } from "../bestInClassStore";
 import { listPoles, buildPoleReading } from "../dispositifs/poleReading";
 import { getDeclaredFamilyMargins, familySlug } from "../ai/corrections";
-import { corrIndexFr, signalAConfirmer } from "../dayClassRegistry";
+import { corrIndexFr, signalAConfirmer } from "../kpi/dayClassRegistry";
 
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);

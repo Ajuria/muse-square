@@ -5,7 +5,7 @@ import "dotenv/config";
 import { writeFileSync } from "node:fs";
 import { makeBQClient } from "../../src/lib/bq";
 import * as ctx from "../../src/lib/contextCopy";
-import { WEATHER_DAY_CLASSES, TERCILE_DAY_CLASSES, OTHER_DAY_CLASSES } from "../../src/lib/dayClassRegistry";
+import { WEATHER_DAY_CLASSES, TERCILE_DAY_CLASSES, OTHER_DAY_CLASSES } from "../../src/lib/kpi/dayClassRegistry";
 
 const PROJECT = "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);

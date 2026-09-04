@@ -9,7 +9,7 @@
 import "dotenv/config";
 import { BigQuery } from "@google-cloud/bigquery";
 import { makeBQClient } from "../../src/lib/bq";
-import { getDayClassImpacts, enjeuWithReasonForCandidate } from "../../src/lib/dayClassRegistry";
+import { getDayClassImpacts, enjeuWithReasonForCandidate } from "../../src/lib/kpi/dayClassRegistry";
 import * as fs from "fs"; import * as vm from "vm";
 const raw = new BigQuery({ projectId: "muse-square-open-data", location: "EU" });
 const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");

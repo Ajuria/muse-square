@@ -18,7 +18,7 @@
 //     that day, it goes pending — it NEVER resolves against an adjacent/wrong day.
 
 import { GRACE_DAYS, MATERIAL_SHARE, RHO_FLOOR, WINDOW_FACTOR_SHARE } from "./commitmentConstants";
-import { isKpiMeasurable, measureKpiWindow, measureFamilyRevenueMean, measureKpiDailySd, measureFamilyDailySd, measureProfitEstimatedStats, kpiDeltaPct as kpiDeltaPctFn, kpiVerdict } from "../kpiRegistry";
+import { isKpiMeasurable, measureKpiWindow, measureFamilyRevenueMean, measureKpiDailySd, measureFamilyDailySd, measureProfitEstimatedStats, kpiDeltaPct as kpiDeltaPctFn, kpiVerdict } from "../kpi/kpiRegistry";
 import type { CommitmentRow } from "./actionCommitments";
 import featureRegistry from "../sensitivityFeatures.json";
 

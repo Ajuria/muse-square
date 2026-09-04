@@ -10,7 +10,7 @@
 // requête structurée contre des définitions gouvernées, l'exécution est déterministe.
 
 import type { SiteEntities } from "./entityResolver";
-import { KPI_NOM_FR, type KpiKey } from "../kpiRegistry";
+import { KPI_NOM_FR, type KpiKey } from "../kpi/kpiRegistry";
 
 // ── Types d'entités (les MOTS sont ceux du lexique — jamais réécrits ici) ──────────────────
 export interface EntityTypeDef {

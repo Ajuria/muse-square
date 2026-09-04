@@ -1,4 +1,4 @@
-// src/lib/dayClassRegistry.ts
+// src/lib/kpi/dayClassRegistry.ts
 //
 // DAY-CLASS REGISTRY — the ONE home of « Enjeu €/an » (annualized pattern weight) for action cards,
 // and the substrate of the future structural pattern-finder cards. Full spec + decisions + backlog:

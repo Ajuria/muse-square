@@ -12,7 +12,7 @@ import { callClaudeMessagesAPI } from "./runtime/claude";
 import { modelFor } from "./models";
 import { resolverSchema, resolverSystemPrompt } from "../explorer/semanticRegistry";
 import type { SiteEntities, SiteEntity } from "../explorer/entityResolver";
-import { KPI_NOM_FR, type KpiKey } from "../kpiRegistry";
+import { KPI_NOM_FR, type KpiKey } from "../kpi/kpiRegistry";
 
 export interface ResolvedPeriod { start: string; end: string; expression: string }
 
