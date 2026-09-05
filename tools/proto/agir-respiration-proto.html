@@ -1,0 +1,311 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Agir — respiration du texte</title><style>
+*{box-sizing:border-box} body{margin:0;background:#F4F6F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif;color:#111827;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 70px}
+h2{font-size:12px;font-weight:650;letter-spacing:.09em;text-transform:uppercase;color:#6B7280;margin:30px 0 4px}
+.note{font-size:12.5px;color:#4B5563;line-height:1.6;margin:0 0 10px;max-width:74ch}
+.note b{color:#111827}
+.sac{font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:9px;padding:9px 12px;margin:9px 0 0;max-width:74ch;line-height:1.55}
+.stack{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:14px;overflow:hidden;max-width:760px}
+.row{border-top:1px solid rgba(17,24,39,.06)} .row:first-child{border-top:none}
+.disc{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.amt{display:inline-block}
+.gain .val0,.gain .valA,.gain .valB{color:#059669;background:#ECFDF5}
+.defend .val0,.defend .valA,.defend .valB{color:#B45309;background:#FFF7ED}
+button{font-family:inherit;cursor:pointer;background:none;border:none;padding:0}
+.sec{font-size:12.5px;font-weight:500;color:#6B7280}
+.pri{font-size:12.5px;font-weight:650;color:#1D3BB3}
+
+/* ═══ AVANT — valeurs réelles de pulse.astro ═══ */
+.g0{display:grid;grid-template-columns:46px minmax(0,1fr) 156px;gap:0 14px;padding:16px 20px 0 16px}
+.what0{font-size:15.5px;font-weight:650;color:#111827;line-height:1.35;margin-bottom:7px;letter-spacing:-.01em}
+.sowhat0{font-size:13px;color:#374151;line-height:1.65;max-width:58ch}
+.aline0{color:#1D3BB3;font-size:13px;font-weight:600;line-height:1.5;margin:8px 0 0}
+.eur0{text-align:right;display:flex;flex-direction:column;align-items:flex-end}
+.meta0{display:block;font-size:11px;color:#6B7280;margin-bottom:3px;white-space:nowrap}
+.val0{display:inline-block;font-size:19px;font-weight:700;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.01em;padding:4px 10px;border-radius:10px}
+.sub0{font-size:11px;color:#6B7280;margin-top:3px;text-align:right;max-width:150px}
+.foot0{display:flex;align-items:center;gap:16px;justify-content:flex-end;padding:12px 20px 14px 76px}
+
+/* ═══ COMMUN AUX DEUX PROPOSITIONS — point 1, la typographie ═══ */
+.whatN{font-size:15.5px;font-weight:650;color:#111827;line-height:1.35;margin-bottom:5px;letter-spacing:-.01em}
+.sowhatN{font-size:14.5px;color:#374151;line-height:1.5;max-width:68ch}
+.alineN{color:#1D3BB3;font-size:14px;font-weight:600;line-height:1.5;margin:9px 0 0;max-width:68ch}
+.ident{font-size:11.5px;color:#6B7280;white-space:nowrap;display:block;margin-bottom:3px}
+.footN{display:flex;align-items:center;gap:16px;justify-content:flex-end;padding:12px 20px 14px 76px}
+.row:hover{background:#FCFDFF}
+
+/* ═══ A — identité à gauche, colonne € conservée ═══ */
+.gA{display:grid;grid-template-columns:46px minmax(0,1fr) 140px;gap:0 14px;padding:16px 20px 0 16px}
+.eurA{text-align:right;display:flex;flex-direction:column;align-items:flex-end}
+.valA{display:inline-block;font-size:19px;font-weight:700;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.01em;padding:4px 10px;border-radius:10px}
+
+/* ═══ B — identité ET € sur la même ligne, pas de colonne droite ═══ */
+.gB{display:grid;grid-template-columns:46px minmax(0,1fr);gap:0 14px;padding:16px 20px 0 16px}
+.identLine{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:4px}
+.identR{display:inline-flex;align-items:baseline;gap:8px;flex:none;white-space:nowrap}
+.valB{display:inline-block;font-size:16px;font-weight:700;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.01em;padding:2px 8px;border-radius:8px}
+.subB{font-size:11px;color:#6B7280;text-align:right}
+.footB{display:flex;align-items:center;gap:16px;justify-content:flex-end;padding:12px 20px 14px 76px}
+</style></head><body><div class="wrap">
+
+<h2>Aujourd'hui — les valeurs réelles de la page</h2>
+<p class="note">Corps <b>13 px</b> · interligne <b>1,65</b>. Colonne droite <b>156 px</b> qui porte deux choses de nature différente : la provenance et la valeur. Largeur de texte mesurée : <b>475 px</b>, hauteur moyenne de carte <b>187 px</b>. Les six cartes sont celles du fil d'aujourd'hui, contenu réel.</p>
+<div class="stack"><article class="row v0">
+  <div class="g0">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="what0">CA supérieur à votre mardi habituel</div>
+      <div class="sowhat0">CA 1795 € le 01/09 — une très bonne journée, au-dessus de votre mardi habituel : +911 € (884 €). La hausse vient de l&#x27;affluence : +11 % de ventes, panier -4 %.</div>
+      <div class="aline0">La hausse vient du volume (+11 % de ventes, panier -4 %), porté par une météo favorable. À rejouer sur vos prochaines journées comparables.</div>
+    </div>
+    <div class="eur0">
+      <span class="meta0">01/09 · MS Test · Muse Square</span>
+      <div class="amt gain"><span class="val0">+7 735 €/an</span></div>
+      <div class="sub0">à gagner</div>
+    </div>
+  </div>
+  <div class="foot0"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row v0">
+  <div class="g0">
+    <div><span class="disc" style="width:30px;height:30px;background:#FEF3E2;color:#B45309;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M4 21V4h12l-2 4 2 4H4"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="what0">Adaptez vos opérations — moins d’activité que d’habitude dans votre périmètre</div>
+      <div class="sowhat0">L’activité autour de vous sera inférieure à votre moyenne du mercredi 02/09 au samedi 05/09 (4 jours). Chez vous, ces journées rapportent plus que la moyenne. Motif du jour : jours à faible activité dans votre périmètre.</div>
+      <div class="aline0">Action conseillée : mettez votre meilleure offre sur ces jours, ils vous rapportent 57 € de plus par jour.</div>
+    </div>
+    <div class="eur0">
+      <span class="meta0">02/09 · MS Test · Muse Square</span>
+      <div class="amt defend"><span class="val0">−9 %</span></div>
+      <div class="sub0">vos ventes · ces jours-là</div>
+    </div>
+  </div>
+  <div class="foot0"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row v0">
+  <div class="g0">
+    <div><span class="disc" style="width:30px;height:30px;background:#FEF3E2;color:#B45309;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M4 21V4h12l-2 4 2 4H4"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="what0">Adaptez vos opérations — moins d’activité que d’habitude dans votre périmètre</div>
+      <div class="sowhat0">L’activité autour de vous sera inférieure à votre moyenne du mercredi 02/09 au samedi 05/09 (4 jours). Chez vous, ces journées rapportent plus que la moyenne. Motif du jour : jours à faible activité dans votre périmètre.</div>
+      <div class="aline0">Action conseillée : mettez votre meilleure offre sur ces jours, ils vous rapportent 238 € de plus par jour.</div>
+    </div>
+    <div class="eur0">
+      <span class="meta0">02/09 · Muse Square Occitanie</span>
+      <div class="amt gain"><span class="val0">+16 %</span></div>
+      <div class="sub0">vos visiteurs · ces jours-là</div>
+    </div>
+  </div>
+  <div class="foot0"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row v0">
+  <div class="g0">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="what0">Le créneau 18 h–19 h en hausse</div>
+      <div class="sowhat0">Ce mardi, ce créneau a fait 200 € (+247 %) contre 58 € votre mardi habituel à cette heure, sur une journée à +627 €. Le gain vient des ventes (39 contre 13 attendues). Comparé surtout à des mardis en vacances scolaires (8 sur 8) — l’écart peut tenir au calendrier.</div>
+      
+    </div>
+    <div class="eur0">
+      <span class="meta0">01/09 · Muse Square Occitanie</span>
+      <div class="amt gain"><span class="val0">+5 155 €/an</span></div>
+      <div class="sub0">à gagner</div>
+    </div>
+  </div>
+  <div class="foot0"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row v0">
+  <div class="g0">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="what0">Le produit Sustainably Grown Organic Lg en hausse</div>
+      <div class="sowhat0">Sustainably Grown Organic Lg a fait 95 € contre 24 € votre résultat habituel sur ce produit (+71 €), sur une journée à +754 €. Comparé surtout à des jours en vacances scolaires (29 sur 30) — l’écart peut tenir au calendrier.</div>
+      
+    </div>
+    <div class="eur0">
+      <span class="meta0">01/09 · Muse Square</span>
+      <div class="amt gain"><span class="val0">+3 523 €/an</span></div>
+      <div class="sub0">à gagner</div>
+    </div>
+  </div>
+  <div class="foot0"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row v0">
+  <div class="g0">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="what0">Le créneau 13 h–14 h en hausse</div>
+      <div class="sowhat0">Ce mardi, ce créneau a fait 153 € (+258 %) contre 43 € votre mardi habituel à cette heure, sur une journée à +754 €. Le gain vient des ventes (32 contre 10 attendues). Comparé surtout à des mardis en vacances scolaires (8 sur 8) — l’écart peut tenir au calendrier.</div>
+      
+    </div>
+    <div class="eur0">
+      <span class="meta0">01/09 · Muse Square</span>
+      <div class="amt gain"><span class="val0">+2 811 €/an</span></div>
+      <div class="sub0">à gagner</div>
+    </div>
+  </div>
+  <div class="foot0"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article></div>
+
+<h2>Proposition A — typographie + identité à gauche, colonne € conservée</h2>
+<p class="note">Point 1 : corps <b>14,5 px</b> · interligne <b>1,5</b> · mesure <b>68 ch</b>. Point 2 : <b>la date et le site passent à gauche</b>, au-dessus du titre ; la colonne droite ne garde que la valeur et descend à <b>140 px</b>.</p>
+<div class="stack"><article class="row vA">
+  <div class="gA">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="ident">01/09 · MS Test · Muse Square</div>
+      <div class="whatN">CA supérieur à votre mardi habituel</div>
+      <div class="sowhatN">CA 1795 € le 01/09 — une très bonne journée, au-dessus de votre mardi habituel : +911 € (884 €). La hausse vient de l&#x27;affluence : +11 % de ventes, panier -4 %.</div>
+      <div class="alineN">La hausse vient du volume (+11 % de ventes, panier -4 %), porté par une météo favorable. À rejouer sur vos prochaines journées comparables.</div>
+    </div>
+    <div class="eurA">
+      <div class="amt gain"><span class="valA">+7 735 €/an</span></div>
+      <div class="sub0">à gagner</div>
+    </div>
+  </div>
+  <div class="footN"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row vA">
+  <div class="gA">
+    <div><span class="disc" style="width:30px;height:30px;background:#FEF3E2;color:#B45309;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M4 21V4h12l-2 4 2 4H4"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="ident">02/09 · MS Test · Muse Square</div>
+      <div class="whatN">Adaptez vos opérations — moins d’activité que d’habitude dans votre périmètre</div>
+      <div class="sowhatN">L’activité autour de vous sera inférieure à votre moyenne du mercredi 02/09 au samedi 05/09 (4 jours). Chez vous, ces journées rapportent plus que la moyenne. Motif du jour : jours à faible activité dans votre périmètre.</div>
+      <div class="alineN">Action conseillée : mettez votre meilleure offre sur ces jours, ils vous rapportent 57 € de plus par jour.</div>
+    </div>
+    <div class="eurA">
+      <div class="amt defend"><span class="valA">−9 %</span></div>
+      <div class="sub0">vos ventes · ces jours-là</div>
+    </div>
+  </div>
+  <div class="footN"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row vA">
+  <div class="gA">
+    <div><span class="disc" style="width:30px;height:30px;background:#FEF3E2;color:#B45309;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M4 21V4h12l-2 4 2 4H4"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="ident">02/09 · Muse Square Occitanie</div>
+      <div class="whatN">Adaptez vos opérations — moins d’activité que d’habitude dans votre périmètre</div>
+      <div class="sowhatN">L’activité autour de vous sera inférieure à votre moyenne du mercredi 02/09 au samedi 05/09 (4 jours). Chez vous, ces journées rapportent plus que la moyenne. Motif du jour : jours à faible activité dans votre périmètre.</div>
+      <div class="alineN">Action conseillée : mettez votre meilleure offre sur ces jours, ils vous rapportent 238 € de plus par jour.</div>
+    </div>
+    <div class="eurA">
+      <div class="amt gain"><span class="valA">+16 %</span></div>
+      <div class="sub0">vos visiteurs · ces jours-là</div>
+    </div>
+  </div>
+  <div class="footN"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row vA">
+  <div class="gA">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="ident">01/09 · Muse Square Occitanie</div>
+      <div class="whatN">Le créneau 18 h–19 h en hausse</div>
+      <div class="sowhatN">Ce mardi, ce créneau a fait 200 € (+247 %) contre 58 € votre mardi habituel à cette heure, sur une journée à +627 €. Le gain vient des ventes (39 contre 13 attendues). Comparé surtout à des mardis en vacances scolaires (8 sur 8) — l’écart peut tenir au calendrier.</div>
+      
+    </div>
+    <div class="eurA">
+      <div class="amt gain"><span class="valA">+5 155 €/an</span></div>
+      <div class="sub0">à gagner</div>
+    </div>
+  </div>
+  <div class="footN"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row vA">
+  <div class="gA">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="ident">01/09 · Muse Square</div>
+      <div class="whatN">Le produit Sustainably Grown Organic Lg en hausse</div>
+      <div class="sowhatN">Sustainably Grown Organic Lg a fait 95 € contre 24 € votre résultat habituel sur ce produit (+71 €), sur une journée à +754 €. Comparé surtout à des jours en vacances scolaires (29 sur 30) — l’écart peut tenir au calendrier.</div>
+      
+    </div>
+    <div class="eurA">
+      <div class="amt gain"><span class="valA">+3 523 €/an</span></div>
+      <div class="sub0">à gagner</div>
+    </div>
+  </div>
+  <div class="footN"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row vA">
+  <div class="gA">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="ident">01/09 · Muse Square</div>
+      <div class="whatN">Le créneau 13 h–14 h en hausse</div>
+      <div class="sowhatN">Ce mardi, ce créneau a fait 153 € (+258 %) contre 43 € votre mardi habituel à cette heure, sur une journée à +754 €. Le gain vient des ventes (32 contre 10 attendues). Comparé surtout à des mardis en vacances scolaires (8 sur 8) — l’écart peut tenir au calendrier.</div>
+      
+    </div>
+    <div class="eurA">
+      <div class="amt gain"><span class="valA">+2 811 €/an</span></div>
+      <div class="sub0">à gagner</div>
+    </div>
+  </div>
+  <div class="footN"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article></div>
+<p class="sac"><b>Mesuré au rendu :</b> texte <b>475 → 508 px</b> (+7 %), carte <b>187 → 205 px</b> de haut (+10 %). <b>Ce qu'on sacrifie :</b> la ligne d'identité ajoute une ligne sans gagner beaucoup de largeur — c'est l'option qui coûte le plus de hauteur pour le moins de respiration. La colonne € reste intacte.</p>
+
+<h2>Proposition B — la ligne d'identité porte tout, plus de colonne droite</h2>
+<p class="note">Comme A, mais <b>la valeur rejoint la ligne d'identité</b>, alignée à droite — exactement le <i>nom · handle · heure</i> de Twitter. Le texte prend alors <b>toute la largeur</b> de la carte.</p>
+<div class="stack"><article class="row vB">
+  <div class="gB">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="identLine"><span class="ident">01/09 · MS Test · Muse Square</span><span class="identR"><span class="subB">à gagner</span><span class="amt gain"><span class="valB">+7 735 €/an</span></span></span></div>
+      <div class="whatN">CA supérieur à votre mardi habituel</div>
+      <div class="sowhatN">CA 1795 € le 01/09 — une très bonne journée, au-dessus de votre mardi habituel : +911 € (884 €). La hausse vient de l&#x27;affluence : +11 % de ventes, panier -4 %.</div>
+      <div class="alineN">La hausse vient du volume (+11 % de ventes, panier -4 %), porté par une météo favorable. À rejouer sur vos prochaines journées comparables.</div>
+    </div>
+  </div>
+  <div class="footB"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row vB">
+  <div class="gB">
+    <div><span class="disc" style="width:30px;height:30px;background:#FEF3E2;color:#B45309;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M4 21V4h12l-2 4 2 4H4"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="identLine"><span class="ident">02/09 · MS Test · Muse Square</span><span class="identR"><span class="subB">vos ventes · ces jours-là</span><span class="amt defend"><span class="valB">−9 %</span></span></span></div>
+      <div class="whatN">Adaptez vos opérations — moins d’activité que d’habitude dans votre périmètre</div>
+      <div class="sowhatN">L’activité autour de vous sera inférieure à votre moyenne du mercredi 02/09 au samedi 05/09 (4 jours). Chez vous, ces journées rapportent plus que la moyenne. Motif du jour : jours à faible activité dans votre périmètre.</div>
+      <div class="alineN">Action conseillée : mettez votre meilleure offre sur ces jours, ils vous rapportent 57 € de plus par jour.</div>
+    </div>
+  </div>
+  <div class="footB"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row vB">
+  <div class="gB">
+    <div><span class="disc" style="width:30px;height:30px;background:#FEF3E2;color:#B45309;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M4 21V4h12l-2 4 2 4H4"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="identLine"><span class="ident">02/09 · Muse Square Occitanie</span><span class="identR"><span class="subB">vos visiteurs · ces jours-là</span><span class="amt gain"><span class="valB">+16 %</span></span></span></div>
+      <div class="whatN">Adaptez vos opérations — moins d’activité que d’habitude dans votre périmètre</div>
+      <div class="sowhatN">L’activité autour de vous sera inférieure à votre moyenne du mercredi 02/09 au samedi 05/09 (4 jours). Chez vous, ces journées rapportent plus que la moyenne. Motif du jour : jours à faible activité dans votre périmètre.</div>
+      <div class="alineN">Action conseillée : mettez votre meilleure offre sur ces jours, ils vous rapportent 238 € de plus par jour.</div>
+    </div>
+  </div>
+  <div class="footB"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row vB">
+  <div class="gB">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="identLine"><span class="ident">01/09 · Muse Square Occitanie</span><span class="identR"><span class="subB">à gagner</span><span class="amt gain"><span class="valB">+5 155 €/an</span></span></span></div>
+      <div class="whatN">Le créneau 18 h–19 h en hausse</div>
+      <div class="sowhatN">Ce mardi, ce créneau a fait 200 € (+247 %) contre 58 € votre mardi habituel à cette heure, sur une journée à +627 €. Le gain vient des ventes (39 contre 13 attendues). Comparé surtout à des mardis en vacances scolaires (8 sur 8) — l’écart peut tenir au calendrier.</div>
+      
+    </div>
+  </div>
+  <div class="footB"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row vB">
+  <div class="gB">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="identLine"><span class="ident">01/09 · Muse Square</span><span class="identR"><span class="subB">à gagner</span><span class="amt gain"><span class="valB">+3 523 €/an</span></span></span></div>
+      <div class="whatN">Le produit Sustainably Grown Organic Lg en hausse</div>
+      <div class="sowhatN">Sustainably Grown Organic Lg a fait 95 € contre 24 € votre résultat habituel sur ce produit (+71 €), sur une journée à +754 €. Comparé surtout à des jours en vacances scolaires (29 sur 30) — l’écart peut tenir au calendrier.</div>
+      
+    </div>
+  </div>
+  <div class="footB"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article><article class="row vB">
+  <div class="gB">
+    <div><span class="disc" style="width:30px;height:30px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;"><path d="M3 17l6-6 4 4 8-8"></path><path d="M15 7h6v6"></path></svg></span></div>
+    <div style="min-width:0;">
+      <div class="identLine"><span class="ident">01/09 · Muse Square</span><span class="identR"><span class="subB">à gagner</span><span class="amt gain"><span class="valB">+2 811 €/an</span></span></span></div>
+      <div class="whatN">Le créneau 13 h–14 h en hausse</div>
+      <div class="sowhatN">Ce mardi, ce créneau a fait 153 € (+258 %) contre 43 € votre mardi habituel à cette heure, sur une journée à +754 €. Le gain vient des ventes (32 contre 10 attendues). Comparé surtout à des mardis en vacances scolaires (8 sur 8) — l’écart peut tenir au calendrier.</div>
+      
+    </div>
+  </div>
+  <div class="footB"><button class="sec">Pas pour moi</button><button class="sec">Faire suivre</button><button class="pri">Enrichir</button></div>
+</article></div>
+<p class="sac"><b>Mesuré au rendu :</b> texte <b>475 → 621 px</b> (+31 %), carte <b>187 → 198 px</b> (+6 %) — la largeur récupérée absorbe presque toute la hauteur ajoutée par le corps à 14,5 px. Montants alignés à <b>x = 769</b>, colonne franche (vérifié). <b>Ce qu'on sacrifie :</b> le montant descend de <b>19 à 16 px</b> et partage sa ligne avec la date — il pèse moins lourd à l'œil, et la hiérarchie « le chiffre d'abord » que le tri vient d'installer s'affaiblit. <b>Corrigé au premier rendu :</b> le sous-texte passe AVANT le montant — sinon sa largeur variable décalait les montants et cassait la colonne, contrairement à ce que j'avais écrit.</p>
+
+</div></body></html>

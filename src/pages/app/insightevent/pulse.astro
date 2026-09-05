@@ -169,7 +169,7 @@ if (!location_id) {
       /* ---- Action-card chips / action line / Agir / disposition ---- */
       .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
       .chip-good { display:inline-flex; align-items:center; gap:4px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-green-bg); color:var(--color-pill-green-text); white-space:nowrap; }
-      /* Restyle R4 (validé 26/07, proto cards-restyle-proto.html) : la ligne d'action est
+      /* Restyle R4 (validé 26/07, proto cards-restyle-proto.html (supprime le 05/09/2026 - surface livree, historique git)) : la ligne d'action est
          l'instruction de la carte — en gras pour porter la hiérarchie chiffre → action. */
       .aline { color:#1D3BB3; font-size:13px; font-weight:600; line-height:1.5; margin:8px 0 0; }
       /* Geste « Préciser ce compte » (carte client_dormant, spec client-patterns § R.3) —
@@ -1564,7 +1564,7 @@ if (!location_id) {
           pills.push('<span class="ab-metric" style="background:' + o.bg + ';color:' + o.fg + ';font-weight:600;' + strikeCss + '"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="' + o.fg + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' + o.icon + '</svg>' + o.txt + '</span>');
         }
       }
-      // Enjeu \u20ac/an : depuis le restyle R1 (valid\u00e9 26/07, proto cards-restyle-proto.html) le
+      // Enjeu \u20ac/an : depuis le restyle R1 (valid\u00e9 26/07, proto cards-restyle-proto.html (supprime le 05/09/2026 - surface livree, historique git)) le
       // montant ne vit plus ici \u2014 il est rendu dans la zone titre (bloc .amt, cf. cardsHtml).
       // La strip garde : automation/\u00e9tat, r\u00e9putation, raison d'absence, disposition (R3).
       var enj = a && a.enjeu;
@@ -1671,18 +1671,18 @@ if (!location_id) {
       // consultable). Le pattern « Voir » n'existe que dans le fil d'actualité, jamais ici.
       var consultOpen = ' data-consult-open="' + cardIdx + '" style="cursor:pointer;"';
 
-      // Triage par site (validé 26/07, proto actions-triage-proto.html) : chaque carte porte ses
+      // Triage par site (validé 26/07, proto actions-triage-proto.html (supprime le 05/09/2026 - surface livree, historique git)) : chaque carte porte ses
       // clés de tri — site, horizon (0=aujourd'hui,1=semaine,2=autre), |enjeu|, nature.
       var _tSite = String(entry.item.location_label || '');
       var _tH = (t.urgencyPill && String(t.urgencyPill.label).indexOf('ujourd') >= 0) ? 0 : ((t.urgencyPill && String(t.urgencyPill.label).indexOf('semaine') >= 0) ? 1 : 2);
       var _tE = (entry.item.enjeu && entry.item.enjeu.eur_year) ? Math.abs(Math.round(Number(entry.item.enjeu.eur_year))) : 0;
       var _tN = (entry.item.enjeu && Number(entry.item.enjeu.eur_year)) ? (Number(entry.item.enjeu.eur_year) > 0 ? 'capture' : 'defend') : 'none';
 
-      // ---- Restyle R1-R6 (validé 26/07, proto cards-restyle-proto.html) ----
+      // ---- Restyle R1-R6 (validé 26/07, proto cards-restyle-proto.html (supprime le 05/09/2026 - surface livree, historique git)) ----
       // R2 : barre latérale sémantique = border-left de la carte (couleurs .ab-bar existantes :
       // rouge menace / ambre vigilance / vert opportunité, gris neutre sinon).
       // R2 : chip catégorie sobre — sans emoji, sans MAJUSCULES (le sémantique est sur la barre).
-      // R1/R5/R6 + code couleur lisible (proto engagement-cards-restyle-proto.html, validé
+      // R1/R5/R6 + code couleur lisible (proto engagement-cards-restyle-proto.html (supprime le 05/09/2026 - surface livree, historique git), validé
       // 27/07) : montant SIGNÉ (+/−) + mini-phrase en français courant — « à gagner »,
       // « perdus · <cause> ». La cause vient de label_fr (préfixe « jours de » retiré), jamais
       // écrite à la main. « estimé/mesuré », « motif de fond », « multifactorielle » → infobulle.
@@ -2103,7 +2103,7 @@ if (!location_id) {
               body: JSON.stringify({ practice_id: ws.getAttribute('data-bp-chain-practice'), location_id: card.location_id, replay_commitment_id: j.commitment_id }) }).catch(function(){});
             ws.removeAttribute('data-bp-chain-practice');
           }
-          // Redirection post-engagement (validé 26/07, proto evolution-j1-proto.html) : après le
+          // Redirection post-engagement (validé 26/07, proto evolution-j1-proto.html (supprime le 05/09/2026 - surface livree, historique git)) : après le
           // battement de succès (le temps de lire « notification envoyée »), la page évolution —
           // le contrat signé : ce qui sera suivi, l'enjeu, la fenêtre, la consigne de retour.
           // La carte système sort au retour via la suppression serveur Phase 1.
@@ -2114,7 +2114,7 @@ if (!location_id) {
         onCancel: function(){ ws.style.display = 'none'; ws.innerHTML = ''; ws.removeAttribute('data-bp-chain-practice'); }
       });
     }
-    // Branche POSITIVE de M'engager (validé 26/07, proto methode-proto.html) : sur une carte
+    // Branche POSITIVE de M'engager (validé 26/07, proto methode-proto.html (supprime le 05/09/2026 - surface livree, historique git)) : sur une carte
     // opportunité (nature du signal — data-agir-positive posé au build sur t.barClass), le
     // menu ouvre « Enrichir vos bonnes pratiques » (MSBpForm) au lieu du formulaire objectif.
     function _openBpForm(ws, card) {
@@ -2957,7 +2957,7 @@ if (!location_id) {
       ? Math.round(Number(_cgFv(r.threshold_value)))
       : _cgTargetPct(r.threshold_value, _days); // % vs CA habituel to validate
     var _uplift = _base != null ? Math.round((_base / _days) * _ypct / 100 / 10) * 10 : null; // €/day, rounded to 10
-    // R1 (proto engagement-cards-restyle-proto.html, validé 27/07) : le titre est l'ACTION
+    // R1 (proto engagement-cards-restyle-proto.html (supprime le 05/09/2026 - surface livree, historique git), validé 27/07) : le titre est l'ACTION
     // elle-même ; le chiffre (objectif ou résultat) vit en zone titre (bloc .amt, cf. _amt).
     // TITRE COURT, OBJECTIF EN DESSOUS (owner 25/08). `committed_action_text` est la saisie
     // BRUTE de l'exploitant : sur le compte owner, quarante mots avec leurs coquilles servaient
@@ -3206,7 +3206,7 @@ if (!location_id) {
     log.innerHTML = '<div style="margin-bottom:18px;"><p class="eb" style="margin:0 0 10px;">Vos engagements</p><div class="tl">' + rows + '</div></div>';
     log.querySelectorAll('[data-eng-evo]').forEach(function (b) { b.addEventListener('click', function (e) { e.stopPropagation(); window.location.href = '/app/insightevent/engagement?id=' + encodeURIComponent(b.getAttribute('data-eng-evo')); }); });
   }
-  // ══ TRIAGE PAR SITE (validé 26/07 — proto tools/proto/actions-triage-proto.html) ══════════════════
+  // ══ TRIAGE PAR SITE (validé 26/07 — proto tools/proto/actions-triage-proto.html (supprime le 05/09/2026 - surface livree, historique git)) ══════════════════
   // Doctrine (docs/pulse-actions-triage.md) : UNE page qui centralise l'action.
   //  - Blocs PAR SITE (un P&L, une équipe) : contextuel d'abord, chantiers structurels compacts après.
   //  - Tri défaut = HORIZON (aujourd'hui → semaine → structurel) puis |ENJEU| décroissant.

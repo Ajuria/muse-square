@@ -444,7 +444,7 @@ tâche ASSIGNÉE (owner : « peut-être ») · G3/G4 constatés sur une résolut
 
 ## Compte : onglet Pôles + gestion équipe (incrément 9 — MAQUETTE VALIDÉE 28/08, build à lancer)
 
-Proto : `tools/proto/vue-equipe-admin-proto.html` (grammaire réelle de profile.astro, ajouts
+Proto : `tools/proto/vue-equipe-admin-proto.html (supprimé le 05/09/2026 — surface livrée, historique git)` (grammaire réelle de profile.astro, ajouts
 encadrés). **Menu Compte arbitré owner** : Profil · Sites · **Pôles** (nouvel onglet) ·
 Communication (**absorbe Alertes** ; le bloc « Destinataires supplémentaires » — 3 emails
 à part — se résorbe dans le roster) · **Opérations confiées** (ex-Recommandations) ·

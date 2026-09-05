@@ -40,13 +40,6 @@ const SURFACES = [
   "tools/harness/card-harness.html",
   // Maquettes (owner 17/08) : elles portent la copie que l'owner VALIDE — un mot inventé
   // en maquette devient un mot en prod ; le garde-fou mord donc dès la maquette.
-  "tools/proto/piloter-full-proto.html",
-  "tools/proto/piloter-autour-proto.html",
-  "tools/proto/piloter-ops-proto.html",
-  "tools/proto/fiche-enrich-proto.html",
-  "tools/proto/competitor-proto.html",
-  "tools/proto/savoir-tile-proto.html",
-  "tools/proto/piloter-kpis-proto.html",
   "src/pages/app/insightevent/competitor.astro",
 ];
 

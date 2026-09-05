@@ -1,4 +1,4 @@
-// Routes: /api/best-practices — « Vos bonnes pratiques » (validé 26/07, proto methode-proto.html).
+// Routes: /api/best-practices — « Vos bonnes pratiques » (validé 26/07, proto methode-proto.html (supprimé le 05/09/2026 — surface livrée, historique git)).
 //   POST : create a DECLARED practice from a positive card's « Enrichir vos bonnes pratiques »
 //          form (public/js/bp-form.js). kpi + outcome_lever are computed SERVER-SIDE from the
 //          origin (kpiRegistry / bestInClassStore vocabularies) — the client never invents them.

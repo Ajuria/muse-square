@@ -16,7 +16,6 @@ const SURFACES = [
   "src/lib/fr/evenement.fr.ts",
   "public/js/reco-library.js",
   "public/js/card-kit.js",
-  "tools/proto/engagement-redesign-proto.html",
 ];
 
 /** Retire les commentaires, puis ne garde que le contenu des littéraux de chaîne. */

@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-09-03",
+"generated_date": "2026-09-04",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "08d0cc9",
-"table_count": 506,
-"column_count": 9153
+"dbt_repo_sha_at_generation": "3ccd79f",
+"table_count": 513,
+"column_count": 9307
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -5797,6 +5797,103 @@
 },
 {
 "name": "is_current_version",
+"type": "BOOL"
+}
+]
+},
+"intermediate.int_client_dispositif_photos_latest": {
+"type": "VIEW",
+"columns": [
+{
+"name": "photo_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "walk_id",
+"type": "STRING"
+},
+{
+"name": "seq",
+"type": "INT64"
+},
+{
+"name": "t_offset_s",
+"type": "FLOAT64"
+},
+{
+"name": "gcs_uri",
+"type": "STRING"
+},
+{
+"name": "dispositif_type",
+"type": "STRING"
+},
+{
+"name": "dispositif_role",
+"type": "STRING"
+},
+{
+"name": "status",
+"type": "STRING"
+},
+{
+"name": "checklist",
+"type": "STRING"
+},
+{
+"name": "items_matched",
+"type": "STRING"
+},
+{
+"name": "items_confirmed",
+"type": "STRING"
+},
+{
+"name": "prices_seen",
+"type": "STRING"
+},
+{
+"name": "coverage_flag",
+"type": "STRING"
+},
+{
+"name": "model",
+"type": "STRING"
+},
+{
+"name": "prompt_version",
+"type": "STRING"
+},
+{
+"name": "created_by",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "items_effective",
+"type": "STRING"
+},
+{
+"name": "items_are_confirmed",
 "type": "BOOL"
 }
 ]
@@ -12135,6 +12232,79 @@
 }
 ]
 },
+"intermediate.int_webscraping_events_enriched": {
+"type": "VIEW",
+"columns": [
+{
+"name": "event_uid",
+"type": "STRING"
+},
+{
+"name": "source_system",
+"type": "STRING"
+},
+{
+"name": "data_provenance",
+"type": "STRING"
+},
+{
+"name": "event_label",
+"type": "STRING"
+},
+{
+"name": "event_venue_name",
+"type": "STRING"
+},
+{
+"name": "event_venue_address",
+"type": "STRING"
+},
+{
+"name": "event_url",
+"type": "STRING"
+},
+{
+"name": "description",
+"type": "STRING"
+},
+{
+"name": "longDescription",
+"type": "STRING"
+},
+{
+"name": "category",
+"type": "STRING"
+},
+{
+"name": "organizer_name",
+"type": "STRING"
+},
+{
+"name": "event_start_date",
+"type": "DATE"
+},
+{
+"name": "event_end_date",
+"type": "DATE"
+},
+{
+"name": "city_id",
+"type": "STRING"
+},
+{
+"name": "city_name",
+"type": "STRING"
+},
+{
+"name": "region_code_insee",
+"type": "STRING"
+},
+{
+"name": "geo_point",
+"type": "GEOGRAPHY"
+}
+]
+},
 "intermediate.legacy_int_commercial_events_region_daily_named": {
 "type": "VIEW",
 "columns": [
@@ -13094,6 +13264,103 @@
 },
 {
 "name": "is_current_version",
+"type": "BOOL"
+}
+]
+},
+"mart.fct_client_dispositif_photos": {
+"type": "VIEW",
+"columns": [
+{
+"name": "photo_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "walk_id",
+"type": "STRING"
+},
+{
+"name": "seq",
+"type": "INT64"
+},
+{
+"name": "t_offset_s",
+"type": "FLOAT64"
+},
+{
+"name": "gcs_uri",
+"type": "STRING"
+},
+{
+"name": "dispositif_type",
+"type": "STRING"
+},
+{
+"name": "dispositif_role",
+"type": "STRING"
+},
+{
+"name": "status",
+"type": "STRING"
+},
+{
+"name": "checklist",
+"type": "STRING"
+},
+{
+"name": "items_matched",
+"type": "STRING"
+},
+{
+"name": "items_confirmed",
+"type": "STRING"
+},
+{
+"name": "prices_seen",
+"type": "STRING"
+},
+{
+"name": "coverage_flag",
+"type": "STRING"
+},
+{
+"name": "model",
+"type": "STRING"
+},
+{
+"name": "prompt_version",
+"type": "STRING"
+},
+{
+"name": "created_by",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "items_effective",
+"type": "STRING"
+},
+{
+"name": "items_are_confirmed",
 "type": "BOOL"
 }
 ]
@@ -28252,6 +28519,151 @@
 }
 ]
 },
+"semantic.vw_insight_event_client_item_signals": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "item_description",
+"type": "STRING"
+},
+{
+"name": "item_category",
+"type": "STRING"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "units",
+"type": "FLOAT64"
+},
+{
+"name": "unit_price",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_share",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_share",
+"type": "FLOAT64"
+},
+{
+"name": "share_delta_points",
+"type": "FLOAT64"
+},
+{
+"name": "share_robust_z",
+"type": "FLOAT64"
+},
+{
+"name": "share_n",
+"type": "INT64"
+},
+{
+"name": "is_daily_item",
+"type": "BOOL"
+},
+{
+"name": "days_sold",
+"type": "INT64"
+},
+{
+"name": "price_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "price_delta_pct",
+"type": "FLOAT64"
+},
+{
+"name": "direction",
+"type": "STRING"
+},
+{
+"name": "is_share_move",
+"type": "BOOL"
+},
+{
+"name": "is_price_move",
+"type": "BOOL"
+},
+{
+"name": "days_since_last_sale",
+"type": "INT64"
+},
+{
+"name": "is_dead_item",
+"type": "BOOL"
+},
+{
+"name": "expected_day_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "day_gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "expected_item_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "delta_eur",
+"type": "FLOAT64"
+},
+{
+"name": "delta_z",
+"type": "FLOAT64"
+},
+{
+"name": "delta_n",
+"type": "INT64"
+},
+{
+"name": "direction_eur",
+"type": "STRING"
+},
+{
+"name": "is_eur_move",
+"type": "BOOL"
+},
+{
+"name": "is_school_holiday_flag",
+"type": "BOOL"
+},
+{
+"name": "typ_n",
+"type": "INT64"
+},
+{
+"name": "baseline_same_regime_n",
+"type": "INT64"
+},
+{
+"name": "regime_mismatch_flag",
+"type": "BOOL"
+},
+{
+"name": "n_occurrences_60d",
+"type": "INT64"
+},
+{
+"name": "first_occurrence_date",
+"type": "DATE"
+}
+]
+},
 "semantic.vw_insight_event_client_offering": {
 "type": "VIEW",
 "columns": [
@@ -30011,6 +30423,91 @@
 },
 {
 "name": "updated_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"semantic.vw_insight_event_dispositif_photos": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "photo_id",
+"type": "STRING"
+},
+{
+"name": "gcs_uri",
+"type": "STRING"
+},
+{
+"name": "dispositif_type",
+"type": "STRING"
+},
+{
+"name": "dispositif_role",
+"type": "STRING"
+},
+{
+"name": "status",
+"type": "STRING"
+},
+{
+"name": "checklist",
+"type": "STRING"
+},
+{
+"name": "items_matched",
+"type": "STRING"
+},
+{
+"name": "items_confirmed",
+"type": "STRING"
+},
+{
+"name": "items_effective",
+"type": "STRING"
+},
+{
+"name": "items_are_confirmed",
+"type": "BOOL"
+},
+{
+"name": "prices_seen",
+"type": "STRING"
+},
+{
+"name": "coverage_flag",
+"type": "STRING"
+},
+{
+"name": "model",
+"type": "STRING"
+},
+{
+"name": "prompt_version",
+"type": "STRING"
+},
+{
+"name": "created_by",
+"type": "STRING"
+},
+{
+"name": "created_at",
 "type": "TIMESTAMP"
 }
 ]
@@ -33886,6 +34383,95 @@
 },
 {
 "name": "extraction_model",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"staging.stg_dispositif_photos": {
+"type": "VIEW",
+"columns": [
+{
+"name": "photo_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "walk_id",
+"type": "STRING"
+},
+{
+"name": "seq",
+"type": "INT64"
+},
+{
+"name": "t_offset_s",
+"type": "FLOAT64"
+},
+{
+"name": "gcs_uri",
+"type": "STRING"
+},
+{
+"name": "dispositif_type",
+"type": "STRING"
+},
+{
+"name": "dispositif_role",
+"type": "STRING"
+},
+{
+"name": "status",
+"type": "STRING"
+},
+{
+"name": "checklist",
+"type": "STRING"
+},
+{
+"name": "items_matched",
+"type": "STRING"
+},
+{
+"name": "items_confirmed",
+"type": "STRING"
+},
+{
+"name": "prices_seen",
+"type": "STRING"
+},
+{
+"name": "coverage_flag",
+"type": "STRING"
+},
+{
+"name": "model",
+"type": "STRING"
+},
+{
+"name": "prompt_version",
+"type": "STRING"
+},
+{
+"name": "created_by",
 "type": "STRING"
 },
 {
@@ -39148,6 +39734,71 @@
 {
 "name": "wind_speed_10m_max",
 "type": "FLOAT64"
+}
+]
+},
+"staging.stg_webscraping_events": {
+"type": "VIEW",
+"columns": [
+{
+"name": "source_system",
+"type": "STRING"
+},
+{
+"name": "event_id",
+"type": "STRING"
+},
+{
+"name": "scrape_uid",
+"type": "STRING"
+},
+{
+"name": "title",
+"type": "STRING"
+},
+{
+"name": "start_date",
+"type": "DATE"
+},
+{
+"name": "end_date",
+"type": "DATE"
+},
+{
+"name": "long_description",
+"type": "STRING"
+},
+{
+"name": "short_description",
+"type": "STRING"
+},
+{
+"name": "address",
+"type": "STRING"
+},
+{
+"name": "lat",
+"type": "FLOAT64"
+},
+{
+"name": "lon",
+"type": "FLOAT64"
+},
+{
+"name": "organizer",
+"type": "STRING"
+},
+{
+"name": "category",
+"type": "STRING"
+},
+{
+"name": "commune",
+"type": "STRING"
+},
+{
+"name": "source_url",
+"type": "STRING"
 }
 ]
 }

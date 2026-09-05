@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1092 300" role="img" aria-labelledby="t4q d4q" width="100%" style="max-width:1092px;height:auto;display:block">
+  <title id="t4q">Les quatre questions, et ce qui revient au signal suivant</title>
+  <desc id="d4q">Quatre étapes en ligne : ce qui impacte votre activité, quel dispositif y répond, qui s'en charge, est-ce que ça a marché. Une flèche de retour ramène le dispositif prouvé vers la première étape.</desc>
+
+  <defs>
+    <style>
+      .card  { fill:#fff; stroke:rgba(0,0,0,0.08); stroke-width:1; }
+      .num   { font:500 26px 'Avenir Next',Avenir,'Nunito Sans','Helvetica Neue',Helvetica,Arial,sans-serif; fill:#0b37e5; opacity:.28; }
+      .q     { font:600 15px 'Avenir Next',Avenir,'Nunito Sans','Helvetica Neue',Helvetica,Arial,sans-serif; fill:#111827; }
+      .s     { font:400 12.5px 'Avenir Next',Avenir,'Nunito Sans','Helvetica Neue',Helvetica,Arial,sans-serif; fill:#6b7280; }
+      .loop  { font:500 12.5px 'Avenir Next',Avenir,'Nunito Sans','Helvetica Neue',Helvetica,Arial,sans-serif; fill:#0b37e5; }
+      .arr   { stroke:rgba(0,0,0,0.22); stroke-width:1.5; fill:none; }
+      .back  { stroke:#0b37e5; stroke-width:1.5; fill:none; stroke-dasharray:5 4; }
+    </style>
+    <marker id="h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="rgba(0,0,0,0.22)"/>
+    </marker>
+    <marker id="hb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#0b37e5"/>
+    </marker>
+  </defs>
+
+  <!-- 01 -->
+  <rect class="card" x="0.5" y="8.5" width="240" height="152" rx="10"/>
+  <text class="num" x="20" y="44">01</text>
+  <text class="q" x="20" y="76">Qu'est-ce qui impacte</text>
+  <text class="q" x="20" y="95">mon activité ?</text>
+  <text class="s" x="20" y="120">Concurrence, météo, mobilité,</text>
+  <text class="s" x="20" y="137">calendrier — croisés chaque</text>
+  <text class="s" x="20" y="154">nuit avec vos ventes.</text>
+
+  <!-- 02 -->
+  <rect class="card" x="284.5" y="8.5" width="240" height="152" rx="10"/>
+  <text class="num" x="304" y="44">02</text>
+  <text class="q" x="304" y="76">Quel dispositif</text>
+  <text class="q" x="304" y="95">y répond le mieux ?</text>
+  <text class="s" x="304" y="120">Cinq actions priorisées.</text>
+  <text class="s" x="304" y="137">Pas vingt. Chacune porte</text>
+  <text class="s" x="304" y="154">son enjeu en euros.</text>
+
+  <!-- 03 -->
+  <rect class="card" x="568.5" y="8.5" width="240" height="152" rx="10"/>
+  <text class="num" x="588" y="44">03</text>
+  <text class="q" x="588" y="76">Qui doit</text>
+  <text class="q" x="588" y="95">s'en charger ?</text>
+  <text class="s" x="588" y="120">Communiquer, Faire suivre,</text>
+  <text class="s" x="588" y="137">Automatiser — le brouillon</text>
+  <text class="s" x="588" y="154">est prêt à publier.</text>
+
+  <!-- 04 -->
+  <rect class="card" x="852.5" y="8.5" width="239" height="152" rx="10"/>
+  <text class="num" x="872" y="44">04</text>
+  <text class="q" x="872" y="76">Est-ce que</text>
+  <text class="q" x="872" y="95">ça a marché ?</text>
+  <text class="s" x="872" y="120">Mesuré chaque jour contre</text>
+  <text class="s" x="872" y="137">votre résultat habituel.</text>
+  <text class="s" x="872" y="154">Atteint, manqué, non concluant.</text>
+
+  <!-- flèches -->
+  <path class="arr" marker-end="url(#h)" d="M248 84 H278"/>
+  <path class="arr" marker-end="url(#h)" d="M532 84 H562"/>
+  <path class="arr" marker-end="url(#h)" d="M816 84 H846"/>
+
+  <!-- retour -->
+  <path class="back" marker-end="url(#hb)" d="M972 161 V216 Q972 228 960 228 H132 Q120 228 120 216 V161"/>
+  <text class="loop" x="546" y="256" text-anchor="middle">Ce qui a marché devient un dispositif prouvé — et sert au signal suivant.</text>
+  <text class="loop" x="546" y="275" text-anchor="middle" style="fill:#6b7280">Ce qui a coûté est écarté : il ne vous sera plus proposé.</text>
+</svg>

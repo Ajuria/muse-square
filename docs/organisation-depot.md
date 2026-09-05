@@ -40,7 +40,7 @@ muse-square/
 │   └── favicon*  robots.txt
 │
 ├── tools/                     NON LIVRÉ — tout l'outillage de développement
-│   ├── proto/                 prototypes HTML + leurs `-data.js`, UN fichier par piste EN ATTENTE d'arbitrage
+│   ├── proto/                 prototypes HTML + leurs `-data.js`, UN fichier par piste EN ATTENTE d'arbitrage (1 au 05/09)
 │   ├── harness/               harnais de rendu (HTML + le .ts/.mjs qui les pilote), un par surface, vivent tant que la surface vit
 │   ├── battery/               les portes de merge permanentes (explorer-quality-battery, prompt-conversation-battery, lie-bait via vitest)
 │   ├── generators/            scripts qui ÉCRIVENT des données de proto ou de fixture depuis BigQuery
@@ -134,8 +134,9 @@ Une règle écrite se relit ; une règle exécutée s'applique. Les trois portes
 - **`src/pages/api/legacy/`** (2 routes, 0 appelant interne) : supprimer après 0 hit dans les logs Vercel.
 - **`docs/archive/features/`** (4 as-built anglais, juillet) : convertir ce qui est vrai en `— DÉFINITIF`,
   supprimer le reste — 822 lignes à re-vérifier contre le code.
-- **`tools/proto/`, 44 HTML** : la règle veut qu'un proto meure au commit qui livre sa surface ; ceux des
-  surfaces déjà livrées sont à trancher un par un.
+- **`tools/proto/`** : les 40 protos des surfaces livrées sont SUPPRIMÉS le 05/09/2026 (avec 13 données et
+  12 générateurs). Reste `onboarding-proto.html` (à valider owner) et trois protos non suivis d'une autre session
+  (`agir-formats`, `agir-respiration`, `offres`) — à commiter puis supprimer, ou supprimer, selon leur sort.
 - **`tools/proto/schema-4-questions.svg`** (session du 04/09) : aucune référence dans `src/`, `content/`,
   `tools/` — rangé avec les protos ; à mettre dans `public/images/` s'il est destiné au site.
 

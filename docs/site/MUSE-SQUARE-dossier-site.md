@@ -648,7 +648,7 @@ export function tEvt(key: EvtCopyKey, vars?: Record<string, string | number>): s
 ```
 // Copie du rapport par canal — LE fichier que l'owner édite (spec docs/rapport-canaux-spec.md § 2).
 // Voix : les 4 questions de l'exploitant, jamais la voix comptable (« compensé par ») ni le
-// jargon d'app. Référence de ton : le proto v5 validé (tools/proto/rapport-canaux-proto.html).
+// jargon d'app. Référence de ton : le proto v5 validé (tools/proto/rapport-canaux-proto.html (supprimé le 05/09/2026 — surface livrée, historique git)).
 // Règle absolue (décision 10) : ces gabarits n'ORNENT jamais un chiffre et n'inventent jamais
 // une cause — ils assemblent des faits mesurés qui leur sont passés.
 

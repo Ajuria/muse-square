@@ -102,7 +102,7 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   // (bande de bruit du KPI déclaré) + référentiel qui a JUGÉ ('kpi' | 'revenue_residual').
   ["kpi_noise_se", "FLOAT64"],
   ["verdict_basis", "STRING"],
-  // Gel de l'enjeu d'ORIGINE (26/07, page évolution J1 — proto evolution-j1-proto.html) : les
+  // Gel de l'enjeu d'ORIGINE (26/07, page évolution J1 — proto evolution-j1-proto.html (supprimé le 05/09/2026 — surface livrée, historique git)) : les
   // champs VERBATIM de la pill de la carte au moment du M'engager. La page évolution rend
   // tier_label_fr TEL QUEL → pill et page ne peuvent pas diverger, par construction.
   // inherited distingue « facteur principal de la journée » (motif hérité, sélection max |€/an|

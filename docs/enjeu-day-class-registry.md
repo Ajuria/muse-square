@@ -5,7 +5,7 @@
 > `api/insight/monitor.ts` (lecteur), `pulse.astro buildMetricsStrip` (rendu).
 > À lire avant TOUTE extension. Tenir ce fichier + la ligne module-index à jour dans le même commit.
 
-## Décisions verrouillées (owner, proto 24/07 — `tools/proto/enjeu-chip-proto.html`, direction B v2)
+## Décisions verrouillées (owner, proto 24/07 — `tools/proto/enjeu-chip-proto.html (supprimé le 05/09/2026 — surface livrée, historique git)`, direction B v2)
 
 1. **Enjeu TOUJOURS annualisé (€/an)** — « who acts over 110 € ? Nobody. » Le €/an = poids annuel du
    MOTIF : écart résiduel moyen des jours de la classe × fréquence réelle de ces jours dans
@@ -82,7 +82,7 @@ STRUCTURELLES — grain motif × site, SANS date :
   owner-éditable `contextCopy.structuralCardCopyFr` : titre chiffré, honnêteté du pool, chantier
   proposé par classe). Tri |€/an| décroissant, merge multi-sites côté client (location_label).
 - **Client** (`pulse.astro renderStructuralSection`) : anatomie `.ab-card` validée au proto
-  (`tools/proto/chantiers-proto.html`) — chips Structurel/famille/site/état, pill Enjeu partagée
+  (`tools/proto/chantiers-proto.html (supprimé le 05/09/2026 — surface livrée, historique git)`) — chips Structurel/famille/site/état, pill Enjeu partagée
   (ambre/verte), « Chantier : … », M'engager → `MSCommitForm` avec
   `origin_action_type = structural_<class_key>` (préfixe accepté par `isCommitmentOrigin` ;
   `kpiKeyForOrigin` : structural_discount_no_lift → discount, structural_traffic_high → conversion,
@@ -196,7 +196,7 @@ school_holiday −12 016 hérité.
    `action_category='structurel'`, section « Chantiers structurels » (PILOTER), réévaluation
    mensuelle. Voir memory `enjeu-chip-and-structural-cards`.
 
-## Gel de l'enjeu à la création + page évolution J1 (26/07 soir, proto evolution-j1-proto.html)
+## Gel de l'enjeu à la création + page évolution J1 (26/07 soir, proto evolution-j1-proto.html (supprimé le 05/09/2026 — surface livrée, historique git))
 
 **Gel (provenance)** : au M'engager, la surface passe les champs VERBATIM de l'enjeu de la carte
 (`creation_enjeu_eur_year/tier_label_fr/label_fr/class_key/entangled/inherited` — colonnes
