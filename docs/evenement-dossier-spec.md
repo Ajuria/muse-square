@@ -4,7 +4,7 @@ Chantier : remplacer l'usage « daté et limité » de monitor (un événement =
 par **l'événement-dispositif mesuré** : créé avec un objectif (KPI dominant) et une description
 de dispositif, récurrent si besoin, évalué occurrence par occurrence par la boucle d'engagement
 existante, servi par un provider de famille (page à deux états + chat + rapport + cartes).
-Protos validés : `public/evenement-dossier-proto.html` (v1) et `-v2.html` (v2.1 — le contrat UI).
+Protos validés : `public/evenement-dossier-proto.html (supprimé le 04/09/2026 — remplacé par la version -v3 ; historique git)` (v1) et `-v2.html` (v2.1 — le contrat UI).
 
 ## Décisions owner (03/08, toutes tranchées)
 
@@ -134,7 +134,7 @@ PILOTER reste surligné (Nav : la règle du 03/08 couvre déjà toute nouvelle p
 Où : le modal de days.astro est REMPLACÉ par le nouveau formulaire (même point d'entrée), qui
 réutilise les briques MSCommitForm (fetch attendu — par jour de semaine pour un récurrent —,
 %⇄€, plancher de bruit, raccourcis, roster). Champs → colonnes du § 1.1. Types par métier :
-`src/lib/eventTypes.ts` — registre `location_type/industrie → liste FR` + repli générique,
+`src/lib/events/eventTypes.ts` — registre `location_type/industrie → liste FR` + repli générique,
 consommé par le formulaire ET par le rendu (tue la liste dupliquée EVT_TYPE_LABELS).
 À la création d'un récurrent : occurrences matérialisées + engagement de la 1re occurrence.
 
@@ -239,7 +239,7 @@ Portes standing : lie-bait à toute modification de grounding ; localisation FR 
   window_days 400 prouvée.
 - **Incrément 1 FAIT (03/08)** : ALTER additifs exécutés et vérifiés en base (12 colonnes sur
   `raw.saved_items`, `saved_item_id` sur `analytics.action_commitments` — `ADD COLUMN IF NOT
-  EXISTS`, DDL dans le commit) + `src/lib/eventTypes.ts` (registre types par métier, 12 valeurs
+  EXISTS`, DDL dans le commit) + `src/lib/events/eventTypes.ts` (registre types par métier, 12 valeurs
   historiques préservées, `eventTypesFor(industryCode)` + `eventTypeLabelFr(value)`).
 
 
@@ -366,7 +366,7 @@ left join outcomes o using (saved_item_id)
   `docs/module-index.md` d'abord). Ce qui existait déjà et que je réimplémentais en moins bien :
   `adjustment_move` (`poursuivre|doubler|pivoter|stop`, libellés FR dans `lib/commitmentCopy.ts`),
   la page **`/app/insightevent/engagement?id=`** (« Évolution de l'engagement »), le **moteur de
-  recommandation** de `public/card-kit.js` (au-dessus → doubler ; en dessous + exécution complète
+  recommandation** de `public/js/card-kit.js` (au-dessus → doubler ; en dessous + exécution complète
   + pas de facteur externe → pivoter ; en dessous + incomplète → poursuivre), le **track record
   par move** (`move_stats` : « ici : 2/3 fois → objectif atteint »), le **diagnostic** (météo,
   événements, vacances, qualité d'exécution) et le re-commit (enfant sur fenêtre fraîche +

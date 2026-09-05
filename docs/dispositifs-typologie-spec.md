@@ -32,12 +32,12 @@ La spec de référence est `poles-dispositifs-permanents-spec.md`.
 son identité, seul le numéro de version augmente. Tout ce qu'on apprend s'accumule sur le
 dispositif, version après version. Techniquement : `dispositif_id` inchangé, `version_no` + 1.
 
-**Le registre des types de composant existe** (`src/lib/dispositifTypes.ts`, 03/09) : dix types,
+**Le registre des types de composant existe** (`src/lib/dispositifs/dispositifTypes.ts`, 03/09) : dix types,
 leurs rôles, une liste de questions par type, la sélection par métier, « Autre » en fin de chaque
 liste. Sa garde (`dispositifTypes.guard.test.ts`, 13 tests) attrape une valeur dupliquée, une
 liste qui ne finit pas par « Autre », une question qui vise un rôle inexistant, un mot banni dans
 un libellé ; chacun de ces trois défauts a été introduit volontairement et vu rougir le test.
-Il est construit sur le modèle du registre des types d'opération, `src/lib/eventTypes.ts` :
+Il est construit sur le modèle du registre des types d'opération, `src/lib/events/eventTypes.ts` :
 23 types (dégustation, venue de producteurs, vente privée…), rangés en cinq listes selon le
 métier du lieu, chaque liste finissant par « Autre ». Ce registre suit quatre règles qui
 serviront de modèle : la liste est fermée (pas de texte libre) ; une valeur ne se renomme jamais
@@ -213,7 +213,7 @@ règle :
   que si l'exploitant le déclare.
 
 **Un second registre, construit comme celui des types d'opération.** Un fichier
-`src/lib/dispositifTypes.ts` liste les types de composant, leurs rôles, la liste de questions
+`src/lib/dispositifs/dispositifTypes.ts` liste les types de composant, leurs rôles, la liste de questions
 attachée à chaque type, et la sélection à proposer selon le métier du lieu. Chaque liste finit
 par « Autre ». Le formulaire, les affichages, la lecture des photos et le crawl lisent ce fichier
 et lui seul. Chaque composant porte un type (l'objet physique) et, quand cela a un sens, un rôle

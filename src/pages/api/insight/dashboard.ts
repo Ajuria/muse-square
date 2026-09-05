@@ -8,19 +8,19 @@
 // Période ?period=30|90|365 (défaut 30) : filtre l'AFFICHAGE des agrégats, jamais un recalcul.
 // Perf : UN lot Promise.all de 8 lectures légères (~1 aller-retour BQ de wall-clock).
 import type { APIRoute } from "astro";
-import { personKey, isKeptVerdict } from "../../../lib/actionCommitments";
+import { personKey, isKeptVerdict } from "../../../lib/commitments/actionCommitments";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation, corrIndexFr } from "../../../lib/dayClassRegistry";
+import { rowsToImpactsWithImmaterial, readDayClassStore, annualRevenueByLocation, corrIndexFr } from "../../../lib/kpi/dayClassRegistry";
 // KPI -> colonne journalière : LU au registre, jamais retapé (les deux CASE ci-dessous en
 // étaient des copies ; un mart qui renomme une colonne cassait alors 3 surfaces sur 4).
-import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpiRegistry";
+import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpi/kpiRegistry";
 // Marges par famille (24/08) : le slug et le préfixe viennent du propriétaire du log — jamais retapés.
 import { familySlug, MARGIN_FAMILY_PREFIX } from "../../../lib/ai/corrections";
 // Pôles (build 28/08, protos validés) : lecture = LE foyer poleReading (mêmes chiffres que
 // journal/plan/fiche — jamais un 3e calcul) ; Historique = poleActivity (1er lecteur des traces).
-import { listPoles, buildPoleReading, type PoleComponentRow } from "../../../lib/poleReading";
-import { buildPoleActivity, resolveMemberNames } from "../../../lib/poleActivity";
+import { listPoles, buildPoleReading, type PoleComponentRow } from "../../../lib/dispositifs/poleReading";
+import { buildPoleActivity, resolveMemberNames } from "../../../lib/dispositifs/poleActivity";
 
 const PROJECT = "muse-square-open-data";
 const json = (status: number, body: unknown) =>
@@ -927,7 +927,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // « € mesurés » restait donc vide alors que des verdicts tombaient. Le journal porte les
     // mêmes colonnes et la même règle (verdict rendu, confounded exclu des €).
     // PRÉALABLE FAIT le 28/08 : les 2 « jour même » mesurés le jour de création ont été
-    // re-résolus (scripts/reresolve-day-of.ts) — la somme porte donc les bonnes journées.
+    // re-résolus (tools/oneoff/2026-08-28-reresolve-day-of.ts) — la somme porte donc les bonnes journées.
     const dansMart = new Set(martAll.map((r) => r.commitment_id));
     const duJournal = coms
       .filter((c) => c.status === "resolved" && c.verdict && c.commitment_id && !dansMart.has(c.commitment_id)

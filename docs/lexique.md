@@ -78,7 +78,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Rôles d'un Service client | **Service au comptoir** (la personne sert le produit) · **Conseiller clientèle** (la personne conseille, le produit est ailleurs) · **Accueil** (accueil / billetterie) — owner 03/09 | Comptoir, Point conseil, Billetterie |
 | Sous-types de médiation | **Cartel** · **Dispositif multimédia** · **Signalétique** (owner 03/09) ; **panneau de salle : EN ATTENTE** (proposé, non validé — reste `provisoire`, non rendu) | Texte de salle, parcours fléché |
 | Ce qu'Explorer répond à une question qui ne porte sur rien du site (« qui est Jésus ? », « bonjour », l'heure, une blague) | **Aucune donnée pour cette question** (titre) — corps : « Je réponds sur vos ventes par jour, vos familles de produits (Coffee, Tea, Bakery…), vos pôles, vos opérations et vos suivis. Rien ici ne répond à « <la question, verbatim> ». Par exemple : « Pourquoi le JJ/MM ? » » (option A, owner 03/09 — miroir de l'élicitation « Je ne trouve ni pôle ni famille de ce nom sur ce site » ; familles réelles du compte, dernier jour mesuré ; foyer `src/lib/ai/horsPerimetre.ts`). Ne se rend QUE si aucun signal métier ne tire (garde déterministe) | Je ne comprends pas, Question hors sujet, Désolé, toute phrase de chatbot générique |
-| La part de chaque famille dans le CA du jour, lue pendant une opération (Explorer, lecture dispositif × famille) | **mix produits & services** (owner 04/09) ; lignes de la table : **Ventes/jour avec <famille>** (tickets contenant la famille) · **Panier moyen avec <famille>** (le ticket entier de ces tickets — owner 04/09) · **CA/jour <famille>** · **Part de <famille> dans le CA** ; l'écart d'une part s'écrit en RELATIF « +1,6 % » (owner 04/09) ; foyer `src/lib/dispositifFamille.ts`, doc `explorer-dispositif-famille-spec.md` | mix produit (au singulier, hors matcher), points de part, pp |
+| La part de chaque famille dans le CA du jour, lue pendant une opération (Explorer, lecture dispositif × famille) | **mix produits & services** (owner 04/09) ; lignes de la table : **Ventes/jour avec <famille>** (tickets contenant la famille) · **Panier moyen avec <famille>** (le ticket entier de ces tickets — owner 04/09) · **CA/jour <famille>** · **Part de <famille> dans le CA** ; l'écart d'une part s'écrit en RELATIF « +1,6 % » (owner 04/09) ; foyer `src/lib/dispositifs/dispositifFamille.ts`, doc `explorer-dispositif-famille-spec.md` | mix produit (au singulier, hors matcher), points de part, pp |
 
 ## Les mots des interactions humaines (Slack — registre distinct, owner 28/08)
 
@@ -346,7 +346,7 @@ conseil sur un abstrait.
 Verbes de conseil à proscrire : *aligner, capter, concentrer, activer* (sans objet),
 *surveiller, se positionner, optimiser, maximiser, adresser, **animer*** (owner 24/08 —
 « animer la clientèle » → « **cibler** » ; au MOTS_BANNIS). Le corpus de référence est
-`public/reco-library.js` — les entrées **écrites** (13), pas l'échafaudage commenté.
+`public/js/reco-library.js` — les entrées **écrites** (13), pas l'échafaudage commenté.
 
 **9. Test du retournement.** Écrire le contraire de la phrase. Si le contraire est absurde,
 la phrase n'affirme rien et doit sauter.

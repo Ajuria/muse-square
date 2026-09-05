@@ -2,13 +2,13 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { cardScope, memberCanSeeCard, redactPayloadForMember } from "../../../lib/memberCardPolicy";
-import { filterDisabledThemes } from "../../../lib/recoThemeMap";
-import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
-import { assembleDayContext } from "../../../lib/dayContext";
-import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/contextCopy";
-import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured, structuralFunnelLineFr, corrIndexFr } from "../../../lib/dayClassRegistry";
-import { buildEventLifecycleCards } from "../../../lib/eventLifecycleCards";
+import { cardScope, memberCanSeeCard, redactPayloadForMember } from "../../../lib/profile/memberCardPolicy";
+import { filterDisabledThemes } from "../../../lib/recos/recoThemeMap";
+import { V1_ALERT_ACTION_TYPES } from "../../../lib/context/internalAlertCards";
+import { assembleDayContext } from "../../../lib/context/dayContext";
+import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/context/contextCopy";
+import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured, structuralFunnelLineFr, corrIndexFr } from "../../../lib/kpi/dayClassRegistry";
+import { buildEventLifecycleCards } from "../../../lib/events/eventLifecycleCards";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {

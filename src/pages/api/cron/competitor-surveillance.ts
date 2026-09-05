@@ -29,7 +29,7 @@ import { VALID_INDUSTRY, VALID_AUDIENCE } from "../../../lib/competitive/constan
 import { waitUntil } from "@vercel/functions";
 import { salesFresherThanDayClass, runDayClassBatch } from "./day-class-impacts";
 import { makeBQClient as _mkBqDc } from "../../../lib/bq";
-import { runProposedFollows } from "../../../lib/proposedFollows";
+import { runProposedFollows } from "../../../lib/profile/proposedFollows";
 
 export const prerender = false;
 

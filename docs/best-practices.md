@@ -1,6 +1,6 @@
 # « Vos bonnes pratiques » — base de connaissance du lieu (validé 26/07) — DÉFINITIF
 
-Proto validé : `public/methode-proto.html`. Doctrine owner : le nom vend la FIN (un actif du
+Proto validé : `tools/proto/methode-proto.html`. Doctrine owner : le nom vend la FIN (un actif du
 lieu qui grandit), jamais le moyen ; on ne force JAMAIS une explication (pas de champ
 obligatoire, deux sorties honnêtes sans écriture) ; branchement sur la NATURE de la carte
 (opportunité), jamais sur la couleur du montant.
@@ -32,7 +32,7 @@ kpi, outcome_lever, means_lever, day_class_key, practice_text, replay_commitment
 ## Flux
 
 1. Carte OPPORTUNITÉ → menu « M'engager » (`data-agir-positive`) → `MSBpForm`
-   (public/bp-form.js) : pistes tirées du driver, texte libre, levier-moyen, auteur (roster).
+   (public/js/bp-form.js) : pistes tirées du driver, texte libre, levier-moyen, auteur (roster).
    Sorties « c'était le contexte » / « je ne peux pas l'expliquer » = première classe, rien
    n'entre en base (événements `bp_context_exit`/`bp_unexplained_exit` via analytics/track).
 2. « Ajouter + m'engager à la rejouer » → MSCommitForm prérempli (action = pratique, 7 j) →

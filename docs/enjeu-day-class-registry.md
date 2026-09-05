@@ -1,11 +1,11 @@
 # Enjeu €/an — day-class registry — DÉFINITIF
 
 > Spec de référence de la pill « Enjeu ~X €/an · estimé/mesuré » des cartes d'action système, et du
-> registre de classes de jours qui la calcule. Code : `src/lib/dayClassRegistry.ts` (calcul + policy),
+> registre de classes de jours qui la calcule. Code : `src/lib/kpi/dayClassRegistry.ts` (calcul + policy),
 > `api/insight/monitor.ts` (lecteur), `pulse.astro buildMetricsStrip` (rendu).
 > À lire avant TOUTE extension. Tenir ce fichier + la ligne module-index à jour dans le même commit.
 
-## Décisions verrouillées (owner, proto 24/07 — `public/enjeu-chip-proto.html`, direction B v2)
+## Décisions verrouillées (owner, proto 24/07 — `tools/proto/enjeu-chip-proto.html`, direction B v2)
 
 1. **Enjeu TOUJOURS annualisé (€/an)** — « who acts over 110 € ? Nobody. » Le €/an = poids annuel du
    MOTIF : écart résiduel moyen des jours de la classe × fréquence réelle de ces jours dans
@@ -82,7 +82,7 @@ STRUCTURELLES — grain motif × site, SANS date :
   owner-éditable `contextCopy.structuralCardCopyFr` : titre chiffré, honnêteté du pool, chantier
   proposé par classe). Tri |€/an| décroissant, merge multi-sites côté client (location_label).
 - **Client** (`pulse.astro renderStructuralSection`) : anatomie `.ab-card` validée au proto
-  (`public/chantiers-proto.html`) — chips Structurel/famille/site/état, pill Enjeu partagée
+  (`tools/proto/chantiers-proto.html`) — chips Structurel/famille/site/état, pill Enjeu partagée
   (ambre/verte), « Chantier : … », M'engager → `MSCommitForm` avec
   `origin_action_type = structural_<class_key>` (préfixe accepté par `isCommitmentOrigin` ;
   `kpiKeyForOrigin` : structural_discount_no_lift → discount, structural_traffic_high → conversion,
@@ -221,7 +221,7 @@ l'impact de votre action par rapport à votre CA habituel (X €/jour) et à vot
 journées, chart() reprend, inchangé. **Redirection** : après M'engager sur Pulse, succès 1,4 s
 puis navigation vers `engagement?id=<commitment_id>`.
 
-**Deux bugs préexistants attrapés par la harness J1** (public/card-kit.js) : le headline
+**Deux bugs préexistants attrapés par la harness J1** (public/js/card-kit.js) : le headline
 « fenêtre démarrée » calculait l'objectif avec la constante 0,19 au lieu de lire la base `pct`
 (+10 % affiché « +7 % ») ; l'intro du panneau « Votre prochain mouvement » disait « Ça marche. »
 à J1 sans aucune donnée → intro neutre tant que zéro journée reçue. Preuves : harness navigateur

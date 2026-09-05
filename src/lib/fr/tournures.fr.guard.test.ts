@@ -12,11 +12,11 @@ import { TOURNURES_LLM } from "./tournures.fr";
 // Foyers de copie d'abord. La liste s'étend au fur et à mesure qu'une surface est nettoyée —
 // jamais l'inverse (un garde-fou qu'on désactive pour faire passer un build ne garde rien).
 const SURFACES = [
-  "src/lib/commitmentCopy.ts",
+  "src/lib/commitments/commitmentCopy.ts",
   "src/lib/fr/evenement.fr.ts",
-  "public/reco-library.js",
-  "public/card-kit.js",
-  "public/engagement-redesign-proto.html",
+  "public/js/reco-library.js",
+  "public/js/card-kit.js",
+  "tools/proto/engagement-redesign-proto.html",
 ];
 
 /** Retire les commentaires, puis ne garde que le contenu des littéraux de chaîne. */

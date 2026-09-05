@@ -109,7 +109,7 @@ la taille d'Épices et Tout ne financent pas de la R&D grands comptes ; sans ce 
 | Couche sémantique du client hébergée chez MS | **partiel** — la couche dbt existe mais elle est MUTUALISÉE : tous les clients dans le même projet BigQuery. Un tenant dédié est un chantier d'infrastructure |
 | Exécution chez le client (BYOC / on-prem) | **à construire** — déploiement, mises à jour, support, chaîne dbt Cloud à répliquer. L'engagement le plus lourd du SaaS |
 | Leur IA / IA locale avec les paramètres MS | **à construire** — un seul adaptateur existe (`src/lib/ai/runtime/claude.ts`), aucun autre fournisseur : il faut d'abord une abstraction |
-| KPI et signaux sur mesure | **à construire** — la liste des KPI est un type + un registre FIGÉS en code (`src/lib/kpiRegistry.ts:47`), un seul foyer volontaire. Un KPI client = un déploiement, pas un réglage |
+| KPI et signaux sur mesure | **à construire** — la liste des KPI est un type + un registre FIGÉS en code (`src/lib/kpi/kpiRegistry.ts:47`), un seul foyer volontaire. Un KPI client = un déploiement, pas un réglage |
 
 ---
 

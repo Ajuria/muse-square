@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { sendSlack, sendEmail } from "../../../lib/channels/internalSend";
-import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
+import { V1_ALERT_ACTION_TYPES } from "../../../lib/context/internalAlertCards";
 
 export const prerender = false;
 
@@ -9,7 +9,7 @@ const BQ_PROJECT = "muse-square-open-data";
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
 // v1 internal-alert allowlist (the 5 performance RULE cards) is the single source of truth in
-// src/lib/internalAlertCards.ts, shared with the arm endpoint's Barrier 2 so it can never
+// src/lib/context/internalAlertCards.ts, shared with the arm endpoint's Barrier 2 so it can never
 // drift. Match on action_type only, never action_category.
 
 // ── direct render (no generate-action-draft on the v1 rail) ──

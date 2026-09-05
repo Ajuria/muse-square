@@ -1,7 +1,7 @@
 # Rapport par canal — spec finale (étape 4, 08/08/2026) — DÉFINITIF
 
 Process owner respecté : livrables spécifiés → concepts validés → prototype itéré
-(5 versions, `public/rapport-canaux-proto.html` = v5 validée) → cette spec → code.
+(5 versions, `tools/proto/rapport-canaux-proto.html` = v5 validée) → cette spec → code.
 Chantier 100 % app (AUCUN travail dbt : les marts du chantier grain suffisent).
 
 ## 0. Décisions verrouillées (owner, 07-08/08)
@@ -112,7 +112,7 @@ UI d'édition : différée (DML à la demande) — notée en queue.
   channel_key) ; appelle `channelsData` avec la période demandée ; la réponse
   gagne `channels: {…}` (section absente si < 2 flux — décision 12). Le reste
   du rapport INCHANGÉ.
-- **`public/card-kit.js`** : `MSCardKit.renderChannels(data)` — le rendu v5 :
+- **`public/js/card-kit.js`** : `MSCardKit.renderChannels(data)` — le rendu v5 :
   tableau hiérarchique (sites en gras + canaux indentés + Total), bloc
   4 questions, série hebdo monochrome (barres + sélecteur de mise en avant,
   états du détecteur), mois pros + tableau des comptes + totaux, liste

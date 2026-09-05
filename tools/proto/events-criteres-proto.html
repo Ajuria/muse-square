@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proto — Événements publics dans le volet « Activité dans votre périmètre »</title>
+<style>
+  /* CSS RÉEL de tableau.astro (valeurs citées, jamais approximées). */
+  body { margin: 0; background: #F6F7F9; font-family: 'DM Sans', -apple-system, sans-serif; }
+  #tb-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 90px; color: #111827; }
+  .tb-card { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 10px; box-shadow: 0 1px 3px rgba(16,24,40,0.06), 0 1px 2px rgba(16,24,40,0.04); margin-bottom: 12px; }
+  .tb-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+  .tb-link { color: #1D3BB3; font-weight: 600; text-decoration: none; font-size: 12.5px; }
+  .tb-rb { background: #fff; border: 1px solid rgba(0,0,0,0.08); border-radius: 12px; padding: 11px 13px; box-shadow: 0 1px 2px rgba(16,24,40,0.04); cursor: pointer; transition: border-color .12s; text-align: left; font-family: inherit; }
+  .tb-rb.on { border-color: #1D3BB3; box-shadow: 0 0 0 1px #1D3BB3 inset; }
+  .tb-rb .hd { display: flex; align-items: center; gap: 7px; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: #6B7280; font-weight: 600; }
+  .tb-rb .hd .cv { margin-left: auto; color: #C7D2FE; font-size: 11px; }
+  .tb-rb .num { font-size: 18px; font-weight: 700; margin-top: 5px; letter-spacing: -0.01em; }
+  .tb-rb .num .u { font-size: 11.5px; font-weight: 500; color: #6B7280; margin-left: 4px; }
+  .tb-rb .rs2 { font-size: 10.5px; color: #9CA3AF; margin-top: 3px; line-height: 1.5; }
+  .note { max-width: 760px; margin: 14px auto 0; padding: 0 16px; font-size: 12px; color: #6B7280; line-height: 1.6; }
+  .note b { color: #111827; }
+  /* Chips-filtres : MÊME forme que tb-chip, version cliquable (état actif = liseré data-blue, motif .tb-rb.on). */
+  .flt { cursor: pointer; border: 1px solid rgba(0,0,0,0.08); background: #fff; color: #6b7280; font-family: inherit; }
+  .flt.on { border-color: #1D3BB3; color: #1D3BB3; background: #EEF2FF; }
+</style>
+</head>
+<body>
+<div id="tb-root">
+  <div class="note" style="padding:0 0 12px;"><b>Maquette</b> — volet « Activité dans votre périmètre » du tableau, ÉTENDU (rien de l'existant ne bouge) : bloc « Événements publics » ajouté sous les événements concurrents. Données réelles du 19/08, 3 sites = 3 états réels.</div>
+  <div class="tb-card" style="padding:14px 16px;">
+    <!-- Tuile-résumé du volet (rbCard réel) — le résumé gagne le compte des événements publics. -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">
+      <button type="button" class="tb-rb on"><span class="hd"><span style="width:7px;height:7px;border-radius:50%;background:#B45309;flex:none;display:inline-block;"></span>Activité dans votre périmètre<span class="cv">▾</span></span>
+        <div class="num">6<span class="u">sur 14 j</span></div>
+        <div class="rs2">1 le jour d'une de vos opérations · <span id="rb-npub">…</span> événements publics · carte</div></button>
+    </div>
+    <div id="volet-body"></div>
+  </div>
+  <div class="note" id="notes"></div>
+</div>
+<script src="./events-criteres-proto-data.js"></script>
+<script src="./piloter-autour-proto-data.js"></script>
+<script>
+(function () {
+  var D = window.EVT_CRIT_PROTO, A = window.AUTOUR_PROTO;
+  var AMBER = "#B45309", GREEN = "#059669", GREY = "#9CA3AF";
+  var DOW = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
+  var esc = function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); };
+  var frD = function (iso) { var p = String(iso).split("-"); return p[2] + "/" + p[1]; };
+  var dowFr = function (iso) { return DOW[new Date(iso + "T12:00:00Z").getUTCDay()]; };
+  var daysTo = function (iso) { return Math.round((new Date(iso + "T12:00:00Z") - new Date(new Date().toISOString().slice(0, 10) + "T12:00:00Z")) / 86400000); };
+  var km = function (m) { return (m / 1000).toFixed(1).replace(".", ",") + " km"; };
+
+  // Appariement publics : audience LUE (texte FR de l'enrichissement) vs publics DÉCLARÉS (enums).
+  var KW = { local: ["local", "résident", "habitant", "riverain", "quartier"], tourists: ["touriste", "visiteur"], professionals: ["professionnel", "entreprise", "b2b"], students: ["étudiant", "scolaire", "élève", "jeune"], families: ["famille", "enfant"], mixed: ["tous publics", "grand public"] };
+  var pubMatch = function (pubTxt, declared) {
+    if (!pubTxt) return null; // pas lu — pas de chip, jamais deviné
+    var t = String(pubTxt).toLowerCase();
+    var toutPublic = t.indexOf("tous publics") >= 0 || t.indexOf("grand public") >= 0;
+    var hit = declared.some(function (a) { return (KW[a] || []).some(function (k) { return t.indexOf(k) >= 0; }); });
+    if (hit || (toutPublic && declared.length)) return ["même public que vous", "#FEF3E2", AMBER];
+    if (t.indexOf("mixte") >= 0) return ["public partiellement commun", "#F3F4F6", "#6b7280"];
+    return ["public différent du vôtre", "#E6F6F0", GREEN];
+  };
+
+  var bySite = {};
+  (D.evts || []).forEach(function (e) {
+    var k = e.location_id;
+    if (!bySite[k]) bySite[k] = {};
+    var dk = (e.nom || "") + "|" + (e.lieu || ""); // dédup d'affichage : même nom + même lieu (flux Paris dupliqué par uid)
+    var cur = bySite[k][dk];
+    // Priorité au duplicat dont le public est LU (le flux Paris duplique par uid), sinon au plus tôt.
+    if (!cur || (e.pub && !cur.pub) || (!!e.pub === !!cur.pub && e.d < cur.d)) bySite[k][dk] = e;
+  });
+  var covBy = {}; (D.cov || []).forEach(function (c) { covBy[c.location_id] = Number(c.n30) || 0; });
+
+  // Rayon = la règle MAISON du catchment déclaré (dayClassRegistry.ts:306) — jamais arbitraire :
+  // commune -> 1 km, beyond -> 20 km, non renseigné -> 500 m (le drapeau périmètre existant
+  // pousse déjà à répondre). Valeurs mesurées le 19/08 pour les 3 sites (dim_client_location).
+  var CATCH = { "f10c3e58-326e-4e38-947c-d59fcbe51df5": "commune" };
+  var RAD = { commune: 1000, beyond: 20000 };
+  var radFor = function (loc) { return RAD[CATCH[loc]] || 500; };
+  var radLbl = function (loc) { var r = radFor(loc); return r >= 1000 ? (r / 1000) + " km" : r + " m"; };
+
+  var html = "";
+
+  // ── 1. EXISTANT, INCHANGÉ : événements concurrents (extrait réel du 17/08, 2 rangées). ──
+  html += '<div style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:#9CA3AF;font-weight:600;padding:2px 0 4px;">Événements de vos concurrents suivis — inchangé</div>';
+  (A.evts || []).slice(0, 2).forEach(function (e0) {
+    var dj = daysTo(e0.d); if (dj < 0) dj = 0;
+    html += '<div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:0 10px;align-items:center;padding:8px 0;border-top:1px solid #F3F4F6;">'
+      + '<span><span style="font-size:11px;font-weight:700;color:' + GREY + ';">' + (dj === 0 ? "auj." : "J-" + dj) + '</span><span style="display:block;font-size:9.5px;color:#9CA3AF;">' + dowFr(e0.d) + " " + frD(e0.d) + '</span></span>'
+      + '<span style="min-width:0;"><span class="tb-chip" style="background:#F3F4F6;color:#6b7280;margin-right:6px;">risque ' + (e0.score || 0) + '/4</span><span style="font-weight:600;">' + esc(e0.lieu) + ' ouvre « ' + esc(String(e0.nom).slice(0, 34)) + ' »</span></span><span></span></div>';
+  });
+
+  // ── 2. NOUVEAU : événements publics — par site, 3 états réels. ──
+  (D.sites || []).forEach(function (s) {
+    var declared = [s.primary_audience_1, s.primary_audience_2].filter(Boolean);
+    var all = Object.keys(bySite[s.location_id] || {}).map(function (k) { return bySite[s.location_id][k]; })
+      .sort(function (a, b) { return a.d.localeCompare(b.d) || a.m - b.m; });
+    var rad = radFor(s.location_id);
+    var rows = all.filter(function (e) { return e.m <= rad; });        // votre zone
+    var beyond = all.filter(function (e) { return e.m > rad; });        // au-delà, derrière le bouton
+    var n30 = covBy[s.location_id] || 0;
+    var read = rows.filter(function (e) { return e.pub; }).length;
+
+    html += '<div style="margin-top:14px;font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:#9CA3AF;font-weight:600;display:flex;align-items:center;gap:8px;">Événements publics autour de vous<span class="tb-chip" style="background:#F3F4F6;color:#6b7280;text-transform:none;letter-spacing:0;">' + esc(s.label) + '</span></div>';
+
+    if (!rows.length && n30 === 0) {
+      // ABSENCE DITE — la zone n'est pas couverte : on le dit, on ne laisse pas un vide muet.
+      html += '<div style="padding:10px 0 4px;font-size:12.5px;color:#374151;line-height:1.6;">'
+        + 'Votre zone n’est pas encore couverte par nos sources d’événements publics — 0 événement repéré à moins de 15 km sur 30 jours, toutes activités confondues. '
+        + '<span style="color:#6B7280;">Votre veille concurrents reste active sur ce site — elle n’en dépend pas.</span></div>';
+      return;
+    }
+    if (!rows.length) {
+      // Couvert, mais rien de VOTRE secteur dans VOTRE zone — l'autre absence, dite aussi.
+      html += '<div style="padding:10px 0 4px;font-size:12.5px;color:#374151;line-height:1.6;">'
+        + 'Aucun événement de votre secteur dans votre zone (' + radLbl(s.location_id) + ') sur les 14 prochains jours'
+        + (n30 ? ' — la zone est bien couverte (' + n30 + ' événement' + (n30 > 1 ? 's' : '') + ' toutes activités à moins de 15 km sur 30 jours).' : '.')
+        + (beyond.length ? ' <a class="tb-link" href="#" data-show-beyond="' + s.location_id + '">' + beyond.length + ' au-delà de votre zone →</a>' : '')
+        + '</div><div data-evt-beyond="' + s.location_id + '" style="display:none;"></div>';
+      return;
+    }
+
+    // Filtre publics + liste (rangées à la grammaire EXACTE du volet).
+    html += '<div style="display:flex;gap:6px;padding:8px 0 6px;align-items:center;" data-flt-row="' + s.location_id + '">'
+      + '<button type="button" class="tb-chip flt on" data-flt="tous">Votre zone \u00b7 ' + radLbl(s.location_id) + ' (' + rows.length + ')</button>'
+      + '<button type="button" class="tb-chip flt" data-flt="commun">Même public que vous (' + rows.filter(function (e) { return (pubMatch(e.pub, declared) || [""])[0] === "même public que vous"; }).length + ')</button></div>';
+    html += '<div data-evt-list="' + s.location_id + '">';
+    rows.slice(0, 8).forEach(function (e) {
+      var dj = daysTo(e.d); if (dj < 0) dj = 0;
+      var enCours = e.dfin && e.dfin > e.d && dj === 0; // exposition/série déjà ouverte
+      // dfin est BORNÉ par la fenêtre de 14 j : au bord, on ne connaît PAS la vraie fin — on ne l'affirme pas.
+      var finConnue = enCours && daysTo(e.dfin) < 14;
+      var chip = pubMatch(e.pub, declared);
+      var commun = chip && chip[0] === "même public que vous";
+      var nom = String(e.nom); if (nom.length > 44) nom = nom.slice(0, 43) + "\u2026";
+      html += '<div data-evt-row data-commun="' + (commun ? 1 : 0) + '" style="display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:0 10px;align-items:center;padding:8px 0;border-top:1px solid #F3F4F6;">'
+        + '<span><span style="font-size:11px;font-weight:700;color:' + (commun ? AMBER : GREY) + ';">' + (enCours ? "en cours" : dj === 0 ? "auj." : "J-" + dj) + '</span><span style="display:block;font-size:9.5px;color:#9CA3AF;">' + (enCours ? (finConnue ? "jusqu\u2019au " + frD(e.dfin) : "tous les jours") : dowFr(e.d) + " " + frD(e.d)) + '</span></span>'
+        + '<span style="min-width:0;"><span style="font-weight:600;">' + esc(nom) + '</span>'
+        + '<span style="display:block;font-size:11.5px;color:#6B7280;">' + esc(e.lieu || e.ville || "") + ' · à ' + km(e.m) + (e.gratuit ? ' · gratuit' : '') + '</span></span>'
+        + '<span>' + (chip ? '<span class="tb-chip" style="background:' + chip[1] + ';color:' + chip[2] + ';" title="public lu sur la page de l’événement, comparé à vos publics déclarés">' + chip[0] + '</span>' : '') + '</span></div>';
+    });
+    html += '</div>';
+    if (rows.length > 8) html += '<div style="padding:6px 0 0;"><a class="tb-link" href="#">Les ' + rows.length + ' de votre zone →</a></div>';
+    // Au-delà de la zone : jamais montré d'office, jamais supprimé en silence — un geste.
+    if (beyond.length) html += '<div style="padding:6px 0 0;"><a class="tb-link" href="#" data-show-beyond="' + s.location_id + '">Au-del\u00e0 de votre zone \u00b7 ' + beyond.length + ' \u00e9v\u00e9nements jusqu\u2019\u00e0 15 km \u2192</a></div><div data-evt-beyond="' + s.location_id + '" style="display:none;"></div>';
+    // Honnêteté de la lecture publics : jamais deviné, l'état d'avancement est dit.
+    html += '<div style="padding:8px 0 0;font-size:11px;color:#9CA3AF;">' + read + ' événement' + (read > 1 ? 's ont' : ' a') + ' son public lu — la lecture s’étoffe chaque nuit, en commençant par les plus proches de vous.</div>';
+  });
+
+  document.getElementById("volet-body").innerHTML = html;
+  // Tuile : le compte AU RÉFÉRENTIEL de la zone (motif du volet : les compteurs disent ce qui est listé).
+  var nPub = 0; (D.sites || []).forEach(function (s) {
+    var allK = Object.keys(bySite[s.location_id] || {});
+    nPub += allK.filter(function (k) { return bySite[s.location_id][k].m <= radFor(s.location_id); }).length;
+  });
+  document.getElementById("rb-npub").textContent = nPub;
+
+  // « Au-delà de votre zone » : dépliage à la demande (mêmes rangées, distance en tête de sous-ligne).
+  document.querySelectorAll("[data-show-beyond]").forEach(function (a) {
+    a.addEventListener("click", function (ev) {
+      ev.preventDefault();
+      var loc = a.getAttribute("data-show-beyond");
+      var zone = document.querySelector('[data-evt-beyond="' + loc + '"]');
+      if (!zone) return;
+      if (zone.style.display !== "none") { zone.style.display = "none"; return; }
+      var siteObj = (D.sites || []).filter(function (x) { return x.location_id === loc; })[0] || {};
+      var declared = [siteObj.primary_audience_1, siteObj.primary_audience_2].filter(Boolean);
+      var rad = radFor(loc);
+      var list = Object.keys(bySite[loc] || {}).map(function (k) { return bySite[loc][k]; })
+        .filter(function (e) { return e.m > rad; })
+        .sort(function (x, y) { return x.m - y.m || x.d.localeCompare(y.d); }).slice(0, 8);
+      zone.innerHTML = list.map(function (e) {
+        var chip = pubMatch(e.pub, declared);
+        var nom2 = String(e.nom); if (nom2.length > 44) nom2 = nom2.slice(0, 43) + "\u2026";
+        return '<div style="display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:0 10px;align-items:center;padding:8px 0;border-top:1px solid #F3F4F6;">'
+          + '<span style="font-size:11px;font-weight:700;color:#9CA3AF;">' + km(e.m) + '</span>'
+          + '<span style="min-width:0;"><span style="font-weight:600;">' + esc(nom2) + '</span>'
+          + '<span style="display:block;font-size:11.5px;color:#6B7280;">' + esc(e.lieu || e.ville || "") + ' · ' + frD(e.d) + (e.gratuit ? ' · gratuit' : '') + '</span></span>'
+          + '<span>' + (chip ? '<span class="tb-chip" style="background:' + chip[1] + ';color:' + chip[2] + ';">' + chip[0] + '</span>' : '') + '</span></div>';
+      }).join("");
+      zone.style.display = "block";
+    });
+  });
+
+  // Filtre « Même public que vous » — masque les rangées sans appariement.
+  document.querySelectorAll("[data-flt-row]").forEach(function (row) {
+    var loc = row.getAttribute("data-flt-row");
+    row.querySelectorAll(".flt").forEach(function (b) {
+      b.addEventListener("click", function () {
+        row.querySelectorAll(".flt").forEach(function (x) { x.classList.remove("on"); });
+        b.classList.add("on");
+        var commun = b.getAttribute("data-flt") === "commun";
+        var list = document.querySelector('[data-evt-list="' + loc + '"]');
+        var shown = 0;
+        list.querySelectorAll("[data-evt-row]").forEach(function (r) {
+          var ok = !commun || r.getAttribute("data-commun") === "1";
+          r.style.display = ok ? "grid" : "none"; if (ok) shown++;
+        });
+        var empty = list.querySelector("[data-flt-empty]");
+        if (!shown && !empty) {
+          empty = document.createElement("div");
+          empty.setAttribute("data-flt-empty", "");
+          empty.style.cssText = "padding:10px 0 4px;font-size:12.5px;color:#374151;";
+          empty.textContent = "Aucun événement au public commun repéré — la plupart des publics ne sont pas encore lus.";
+          list.appendChild(empty);
+        } else if (shown && empty) { empty.remove(); }
+      });
+    });
+  });
+
+  document.getElementById("notes").innerHTML =
+    '<b>Ce que la maquette décide</b> : ① le bloc vit DANS le volet « Activité dans votre périmètre », sous les événements concurrents (inchangés) — le résumé de la tuile gagne « · N événements publics » AU RÉFÉRENTIEL de votre zone (rayon du catchment déclaré — commune 1 km / beyond 20 km / non renseigné 500 m, règle maison dayClassRegistry) ; au-delà : jamais montré d’office, jamais supprimé en silence — « Au-delà de votre zone · N jusqu’à 15 km → ». '
+    + '② Absence DITE, deux registres distincts : zone non couverte (MS Test, 0/30 j) vs couverte mais rien de votre secteur (Occitanie, 5 évts toutes activités). '
+    + '③ Chip publics = le vocabulaire EXACT des fiches concurrents (même public que vous / partiellement commun / différent du vôtre) — seulement quand le public est LU, jamais deviné ; l’avancement de la lecture est dit. '
+    + '④ Filtre « Même public que vous » — à zéro résultat, il le dit au lieu de vider la liste en silence. '
+    + 'Données : capture réelle du ' + frD(String(D.captured_at).slice(0, 10)) + ', rayon = catchment déclaré (règle maison : commune 1 km / beyond 20 km / non renseigné 500 m), « au-delà » jusqu\u2019\u00e0 15 km sur geste, couverture 30 j, dédup d’affichage nom+lieu (le flux Paris duplique par uid).';
+})();
+</script>
+</body>
+</html>

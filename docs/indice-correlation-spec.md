@@ -2,7 +2,7 @@
 
 > Arbitrages owner du 28/08/2026 (fil résolveur/plan). Ce document est la mémoire de ce qui
 > est ACTÉ : ce qui est déjà appliqué s'écrit au présent ; ce qui reste à faire est listé en
-> fin. La politique de code vit dans `src/lib/dayClassRegistry.ts` (un seul foyer).
+> fin. La politique de code vit dans `src/lib/kpi/dayClassRegistry.ts` (un seul foyer).
 
 ## Les mots (owner, 28/08 — actés)
 

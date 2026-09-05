@@ -46,7 +46,7 @@ citer comme référence — l'auditer reste toujours permis.
 
 La copie approuvée est **littérale et concrète** : « Cinq actions priorisées vous attendent.
 Pas vingt. » La cadence LLM se détecte immédiatement : triades, parallélismes, formules
-bouclées, sentences au présent général. Le corpus de référence est `public/reco-library.js`,
+bouclées, sentences au présent général. Le corpus de référence est `public/js/reco-library.js`,
 entrées ÉCRITES seulement (13) — jamais l'échafaudage commenté.
 
 Avant de montrer la moindre chaîne proposée, la passer aux tests 8-13 de `docs/lexique.md`
@@ -80,11 +80,11 @@ d'écart) se corrige.
 ## Le fond — ce que la copie a le droit d'affirmer
 
 Ouvrir AVANT le premier jet, dans cet ordre :
-1. `docs/lexique.md` — fait loi sur les mots (le snapshot de `docs/pack-copie-site/03-…` est
+1. `docs/lexique.md` — fait loi sur les mots (le snapshot de `docs/site/03-…` est
    PÉRIMÉ, ne lire que l'original).
-2. `docs/positionnement-scan-concurrentiel.md` + `docs/pack-copie-site/01-produit-verite.md`
+2. `docs/positionnement-scan-concurrentiel.md` + `docs/site/01-produit-verite.md`
    — ce qui est vrai du produit et du marché.
-3. `docs/pack-copie-site/04-corpus-chaines-reelles.md` — les chaînes réelles de l'app, la
+3. `docs/site/04-corpus-chaines-reelles.md` — les chaînes réelles de l'app, la
    matière première du deck (montrer le produit vaut mieux que le décrire).
 
 Les acquis du positionnement (scan 20 acteurs FR+US, 20/08 ; axe convergent 29/08) :

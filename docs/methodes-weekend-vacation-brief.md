@@ -1,6 +1,6 @@
 # À rédiger (owner) — méthodes `weekend_vacation_low_comp` + complément `low_competition_window` — DÉFINITIF
 
-> **L'ACTION : écrire les textes des plans dans `public/reco-library.js` — 9 entrées pour
+> **L'ACTION : écrire les textes des plans dans `public/js/reco-library.js` — 9 entrées pour
 > `weekend_vacation_low_comp` (gabarit prêt, décommenté en fin de fichier), 2 entrées de plus
 > dans le `_default` de `low_competition_window` (ligne ~187).** Rien d'autre à câbler :
 > depuis le 31/07, `action-cards.js` dérive le câblage des clés de ce fichier — une entrée
@@ -13,7 +13,7 @@
 
 ## 1. `weekend_vacation_low_comp` — verdict d'audit et matière
 
-**Verdict (`docs/card-truth-audit.md`)** : « Garder — la plus saine du lot » (28/07),
+**Verdict (`docs/audits/card-truth-audit.md`)** : « Garder — la plus saine du lot » (28/07),
 inchangé au réexamen du 31/07. `pressure_ratio` 0,02–0,79 (moy. 0,53) sur ses tirs →
 réellement faible ✓, adossée au +88 €/j mesuré (`competition_low`, t = 2,4, n = 30 chez
 Muse Square) ✓. **Aucun plan aujourd'hui — « Mon action » s'ouvre vide.**
@@ -51,7 +51,7 @@ se découvre à J-2. C'est l'angle qui distingue les 9 textes.
 **Verdict d'audit** : « GARDER TELLE QUELLE » — ne pas toucher à la règle. Défaut restant
 (réexamen 31/07) : la branche `_default` — servie aux lieux **sans mesure**, soit 20 sites
 sur 24 — n'offre qu'**un** plan (« Vérifiez si ces jours sont bons ou mauvais chez vous »,
-`public/reco-library.js:187-196`). Les branches mesurées ont déjà 3 + 3.
+`public/js/reco-library.js:187-196`). Les branches mesurées ont déjà 3 + 3.
 
 À écrire : **2 plans de plus** dans ce `_default`. Contrainte d'honnêteté qui a fondé le
 plan unique (28/07, en tête de l'entrée) : sans mesure, aucun texte ne peut affirmer que
@@ -81,7 +81,7 @@ mix sectoriel, précisément parce que le public est moins disputé.
    `competition-split-spec.md` — payload et copie, JAMAIS la règle de tir : « GARDER TELLE
    QUELLE ») ;
 2. scinder la mesure `competition_low` par part même-secteur — dépend de l'arbitrage de
-   `docs/residu-bruit-diagnostic.md` (le moteur de mesure d'abord, les textes ensuite) ;
+   `docs/audits/residu-bruit-diagnostic.md` (le moteur de mesure d'abord, les textes ensuite) ;
 3. alors seulement, des branches de méthode par régime (le mécanisme de résolution
    `_recosFor` devra porter une clé de plus).
 
@@ -97,6 +97,6 @@ mix sectoriel, précisément parce que le public est moins disputé.
 - Les chiffres ne s'écrivent pas à la main : les phrases peuvent nommer « ces jours », le
   pipeline fournit `pressure_ratio` et l'enjeu.
 - Après écriture : bump du cache-buster `?v=` sur les surfaces consommatrices
-  (pulse.astro ~326, monitor ~285, insight ~137) + `node --check public/reco-library.js`.
-  Le garde-fou `src/lib/recoCoverage.guard.test.ts` (dette nommée, ne peut que rétrécir)
+  (pulse.astro ~326, monitor ~285, insight ~137) + `node --check public/js/reco-library.js`.
+  Le garde-fou `src/lib/recos/recoCoverage.guard.test.ts` (dette nommée, ne peut que rétrécir)
   doit voir `weekend_vacation_low_comp` sortir de la liste des 76.

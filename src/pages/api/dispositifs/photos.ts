@@ -18,11 +18,11 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { readComponents, dispositifTypeLabelFr, checklistFor } from "../../../lib/dispositifTypes";
+import { readComponents, dispositifTypeLabelFr, checklistFor } from "../../../lib/dispositifs/dispositifTypes";
 import {
   PHOTO_MAX_BYTES, makeStorageClient, photoObjectPath, photoGcsUri, putPhotoObject, getPhotoObject, deletePhotoObject,
   insertPhotoRow, listPhotoRows, latestPerComponent, listSiteItems, withConfirmedItems, type PhotoRow,
-} from "../../../lib/dispositifPhotos";
+} from "../../../lib/dispositifs/dispositifPhotos";
 import { PHOTO_PROMPT_VERSION, photoQuestions, photoExtractionSchema, photoExtractionSystem } from "../../../lib/ai/photoExtraction";
 import { validatePhotoExtraction } from "../../../lib/ai/contracts/photoExtractionChecks";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";

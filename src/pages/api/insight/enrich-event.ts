@@ -1,7 +1,7 @@
 import { makeBQClient } from "../../../lib/bq";
 import { modelFor } from "../../../lib/ai/models";
 import { callClaudeWithWebSearch } from "../../../lib/ai/runtime/claude";
-import { frActivity, frAudience, frObjective } from "../../../lib/profileLabels";
+import { frActivity, frAudience, frObjective } from "../../../lib/profile/profileLabels";
 import { randomUUID } from "crypto";
 
 export async function POST({ request }: { request: Request }) {

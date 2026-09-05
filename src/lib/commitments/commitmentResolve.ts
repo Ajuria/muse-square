@@ -1,0 +1,305 @@
+// Resolution computation for Engagement commitments — the statistical core.
+// Pure-ish: given a commitment snapshot + the residual/context marts, returns the
+// patch readMergeWrite() should write. Kept separate from the cron HTTP handler
+// so it can be unit-tested against live mart rows.
+//
+// Carries the FULL locked verdict logic:
+//   - window metric = Σactual vs Σexpected (revenue-weighted pct), NOT mean of pcts
+//   - window_residual_z = z_raw / √VIF, VIF from measured per-location ρ (floor 0.40);
+//     z_raw, ρ, VIF stored as provenance
+//   - asymmetric confound gate: material_holiday_share ≥ 0.5 flips a provisional
+//     MET → confounded; a miss is never gated. ctx_material_confound is recorded
+//     regardless of verdict (present-or-not, not outcome).
+//   - pending (incomplete within grace) vs expired (incomplete past window_end+30d)
+//   - context snapshot at WINDOW level: ANY-day holiday, worst-day weather (MIN),
+//     MAX event/tourism — not a single same-date join
+//   - day_of resolves against the mart's business day (Europe/Paris date of
+//     created_at), NOT the UTC-anchored window_start. If no residual row exists for
+//     that day, it goes pending — it NEVER resolves against an adjacent/wrong day.
+
+import { GRACE_DAYS, MATERIAL_SHARE, RHO_FLOOR, WINDOW_FACTOR_SHARE } from "./commitmentConstants";
+import { isKpiMeasurable, measureKpiWindow, measureFamilyRevenueMean, measureKpiDailySd, measureFamilyDailySd, measureProfitEstimatedStats, kpiDeltaPct as kpiDeltaPctFn, kpiVerdict } from "../kpi/kpiRegistry";
+import type { CommitmentRow } from "./actionCommitments";
+import featureRegistry from "../sensitivity/sensitivityFeatures.json";
+
+const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
+const RESIDUAL = `${BQ_PROJECT}.semantic.vw_insight_event_day_residual`;
+const CTX = `${BQ_PROJECT}.mart.fct_location_context_features_daily`;
+// window_active_factors is computed against the registry's DECLARED context_table with the SAME
+// single-source predicates the endpoint's ACTIVE_EXPR uses — so "ran under heat" (here) and "today is
+// heat" (endpoint) are one definition against one mart (verified identical to context_features_daily).
+const FACTOR_CTX = `${BQ_PROJECT}.${(featureRegistry as any).context_table}`;
+const FIT_FACTORS = (featureRegistry.revenue as Array<{ key: string; fittable?: boolean; predicate?: string }>)
+  .filter((f) => f.fittable && f.predicate);
+
+export interface ResolveResult {
+  patch: Partial<CommitmentRow>;
+  note: string;
+}
+
+const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+const round3 = (n: number): number => Math.round(n * 1000) / 1000;
+
+// Europe/Paris calendar date ('YYYY-MM-DD') of an instant — the mart's grain.
+function parisDate(iso: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date(iso));
+}
+function dateArray(start: string, end: string): string[] {
+  const out: string[] = [];
+  const d = new Date(start + "T00:00:00Z");
+  const e = new Date(end + "T00:00:00Z");
+  while (d <= e) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); }
+  return out;
+}
+function daysBetween(a: string, b: string): number {
+  return Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 86400000);
+}
+// Variance-inflation factor for a sum of n AR(1)-ish terms with lag-1 corr rho.
+// Exporté (18/07) : le goal-context de /api/commitments réutilise la MÊME correction
+// d'autocorrélation pour traduire les seuils z en % détectable — jamais une 2e formule.
+export function vif(rho: number, n: number): number {
+  if (n <= 1) return 1;
+  let s = 0;
+  for (let k = 1; k <= n - 1; k++) s += (1 - k / n) * Math.pow(rho, k);
+  return 1 + 2 * s;
+}
+
+export async function resolveCommitment(
+  bq: any,
+  snap: CommitmentRow,
+  nowIso: string,
+): Promise<ResolveResult> {
+  const nowDate = parisDate(nowIso);
+  const expectedCount = Number(snap.window_days_expected);
+
+  // Dates de résolution. `day_of` -> LE JOUR DE L'OPÉRATION (window_start stocké), pas le
+  // jour de création : un « jour même » ancré sur un événement se crée d'avance (corner
+  // producteur : créé le 15/08, opéré le 22/08), et la convention historique mesurait donc
+  // une journée sans rapport avec l'opération. 7 des 8 « jour même » du compte owner sont
+  // dans ce cas (mesuré le 28/08). Repli sur le jour de création pour les très vieilles
+  // lignes sans window_start. `buildKpiBlock` avait déjà tranché ce point le 15/08 ; le
+  // verdict revenu, lui, était resté sur la mauvaise date.
+  const _wsStored = String(flat(snap.window_start) ?? "").slice(0, 10);
+  const dates = snap.window_kind === "day_of"
+    ? [_wsStored || parisDate(snap.created_at)]
+    : dateArray(String(snap.window_start), String(snap.window_end));
+  const minDate = dates[0], maxDate = dates[dates.length - 1];
+
+  // 1. Residual rows over the window. Contiguous window -> BETWEEN with bq.date()
+  //    bounds (NOT a string array + IN UNNEST — that hits the silent DATE/STRING
+  //    0-rows trap). minDate==maxDate for day_of.
+  const [rrows] = await bq.query({
+    query:
+      `SELECT CAST(date AS STRING) AS date, daily_revenue, expected_revenue, residual_z ` +
+      `FROM \`${RESIDUAL}\` WHERE location_id=@loc AND date BETWEEN @minD AND @maxD`,
+    params: { loc: snap.location_id, minD: bq.date(minDate), maxD: bq.date(maxDate) },
+    location: "EU",
+  });
+
+  const coverage = rrows.length;
+
+  // 2. Incomplete → pending (within grace) or expired (past window_end + grace).
+  if (coverage < expectedCount) {
+    const past = daysBetween(String(snap.window_end), nowDate);
+    const status = past > GRACE_DAYS ? "expired" : "pending";
+    return {
+      patch: {
+        status,
+        window_days_resolved: coverage,
+        resolved_at: status === "expired" ? nowIso : null,
+      },
+      note: `${status} — coverage ${coverage}/${expectedCount}, ${past}d past window_end`,
+    };
+  }
+
+  // 3. Complete → window metric (revenue-weighted).
+  let sumAct = 0, sumExp = 0;
+  const expByDate: Record<string, number> = {};
+  const perDay = rrows.map((r: any) => {
+    const rev = Number(flat(r.daily_revenue));
+    const exp = Number(flat(r.expected_revenue));
+    const z = Number(flat(r.residual_z));
+    sumAct += rev; sumExp += exp; expByDate[String(flat(r.date))] = exp;
+    return { resid: rev - exp, z };
+  });
+  const residAbs = sumAct - sumExp;
+  const windowResidualPct = sumExp !== 0 ? (residAbs / sumExp) * 100 : 0;
+
+  // Per-day sigma = |resid|/|z| (recoverable); impute median for near-zero-z days.
+  const computable = perDay
+    .filter((d: any) => Math.abs(d.z) >= 0.05)
+    .map((d: any) => Math.abs(d.resid) / Math.abs(d.z))
+    .sort((a: number, b: number) => a - b);
+  const medSigma = computable.length ? computable[Math.floor(computable.length / 2)] : 0;
+  let varIndep = 0;
+  for (const d of perDay) {
+    const s = Math.abs(d.z) >= 0.05 ? Math.abs(d.resid) / Math.abs(d.z) : medSigma;
+    varIndep += s * s;
+  }
+  const zRaw = varIndep > 0 ? residAbs / Math.sqrt(varIndep) : 0;
+
+  // 4. Autocorrelation correction — measured per-location ρ, floored.
+  const [rhoRows] = await bq.query({
+    query:
+      `WITH s AS (SELECT residual_z, LAG(residual_z) OVER (PARTITION BY location_id ORDER BY date) prev ` +
+      `FROM \`${RESIDUAL}\` WHERE location_id=@loc) ` +
+      `SELECT CORR(residual_z, prev) AS rho FROM s WHERE prev IS NOT NULL`,
+    params: { loc: snap.location_id },
+    location: "EU",
+  });
+  let rho = rhoRows[0] && rhoRows[0].rho != null ? Number(flat(rhoRows[0].rho)) : RHO_FLOOR;
+  if (!(rho >= RHO_FLOOR)) rho = RHO_FLOOR; // also catches NaN
+  const vifVal = vif(rho, expectedCount);
+  const zCorr = zRaw / Math.sqrt(vifVal);
+
+  // 5. Window-level context snapshot.
+  const [crows] = await bq.query({
+    query:
+      `SELECT CAST(date AS STRING) AS date, is_school_holiday_flag, impact_weather_pct, ` +
+      `event_count_region, tourism_index_region ` +
+      `FROM \`${CTX}\` WHERE location_id=@loc AND date BETWEEN @minD AND @maxD`,
+    params: { loc: snap.location_id, minD: bq.date(minDate), maxD: bq.date(maxDate) },
+    location: "EU",
+  });
+  let anyHol = false, holidayDays = 0, holidayExp = 0;
+  let worstWeather: number | null = null, maxEvent: number | null = null, maxTour: number | null = null;
+  for (const c of crows) {
+    const d = String(flat(c.date));
+    if (flat(c.is_school_holiday_flag)) { anyHol = true; holidayDays++; holidayExp += expByDate[d] ?? 0; }
+    const w = flat(c.impact_weather_pct);
+    if (w != null) worstWeather = worstWeather == null ? Number(w) : Math.min(worstWeather, Number(w));
+    const e = flat(c.event_count_region);
+    if (e != null) maxEvent = maxEvent == null ? Number(e) : Math.max(maxEvent, Number(e));
+    const t = flat(c.tourism_index_region);
+    if (t != null) maxTour = maxTour == null ? Number(t) : Math.max(maxTour, Number(t));
+  }
+  const materialShare = sumExp !== 0 ? holidayExp / sumExp : 0;
+  const ctxMaterialConfound = materialShare >= MATERIAL_SHARE;
+
+  // 5b. window_active_factors — the registry factors the action ACTUALLY ran under (what conditions,
+  // not why the card fired). Reuse the single-source registry predicates against its declared
+  // context_table; keep factors active on >= WINDOW_FACTOR_SHARE of the window's context days. Stored
+  // CSV of comma-free registry keys (dbt SPLIT()s it to ARRAY<STRING>); null when none clear the bar.
+  const factorSel = FIT_FACTORS.map((f, i) => `COUNTIF(${f.predicate}) AS on_${i}`).join(", ");
+  const [frows] = await bq.query({
+    query: `SELECT COUNT(*) AS tot, ${factorSel} FROM \`${FACTOR_CTX}\` WHERE location_id=@loc AND date BETWEEN @minD AND @maxD`,
+    params: { loc: snap.location_id, minD: bq.date(minDate), maxD: bq.date(maxDate) },
+    location: "EU",
+  });
+  const totFactorDays = Number(flat(frows[0]?.tot)) || 0;
+  const activeFactors = totFactorDays
+    ? FIT_FACTORS.filter((f, i) => (Number(flat(frows[0][`on_${i}`])) || 0) / totFactorDays >= WINDOW_FACTOR_SHARE).map((f) => f.key)
+    : [];
+  const windowActiveFactors = activeFactors.length ? activeFactors.join(",") : null;
+
+  // 6. Provisional verdict + asymmetric gate (mets only).
+  // Base 'pct' (18/07, objectif libre) : le verdict compare le % réalisé de la fenêtre au % FIXÉ
+  // par l'utilisateur — exactement sa promesse. Le z ne disparaît pas : un « met » en pct dont le
+  // z corrigé reste sous 1.0 n'est pas distinguable du bruit du lieu → confounded (Non concluant),
+  // jamais un gain attribué. Les engagements existants (basis residual_z) gardent l'ancien chemin.
+  const thresholdBasis = String(snap.threshold_basis || "residual_z");
+  const provisional = thresholdBasis === "pct"
+    ? (windowResidualPct >= Number(snap.threshold_value) ? "met" : "missed")
+    : (zCorr >= Number(snap.threshold_value) ? "met" : "missed");
+  let verdict = provisional === "met" && materialShare >= MATERIAL_SHARE ? "confounded" : provisional;
+  if (thresholdBasis === "pct" && verdict === "met" && zCorr < 1.0) verdict = "confounded";
+
+  // 7. Boucle multi-KPI (étape 3, 26/07) : quand le commitment porte un KPI non-K1 (measured_metric
+  // ≠ revenue_residual, dérivé carte+driver à la création), mesure ADDITIVE avant/après dans SON
+  // unité (kpi_* — matière du futur verdict par KPI). Le verdict CA ci-dessus reste inchangé :
+  // la bande de bruit par KPI n'est pas établie (décision étape 3). Échec soft → null.
+  let kpiWindowValue: number | null = null;
+  let kpiDeltaPct: number | null = null;
+  let kpiDailySd: number | null = null;
+  const kpiKey = String(snap.measured_metric || "revenue_residual") as any;
+  if (kpiKey === "family_revenue") {
+    // K8 (événements, 03/08) : la famille vit sur l'ÉVÉNEMENT ancré (saved_items.kpi_family,
+    // rejoint par saved_item_id) — jamais une colonne dupliquée sur le commitment. Échec soft.
+    try {
+      const [famRows] = snap.saved_item_id ? await bq.query({
+        query: `SELECT kpi_family FROM \`${process.env.BQ_PROJECT_ID || "muse-square-open-data"}.raw.saved_items\` WHERE saved_item_id = @sid LIMIT 1`,
+        params: { sid: String(snap.saved_item_id) }, location: "EU",
+      }) : [[]];
+      const famName = famRows?.[0]?.kpi_family != null ? String(famRows[0].kpi_family) : null;
+      if (famName) {
+        const win = await measureFamilyRevenueMean(bq, String(snap.location_id), famName, String(snap.window_start), String(snap.window_end));
+        kpiWindowValue = win ? win.value : null;
+        kpiDeltaPct = kpiDeltaPctFn(snap.kpi_baseline ?? null, kpiWindowValue);
+        kpiDailySd = await measureFamilyDailySd(bq, String(snap.location_id), famName, String(snap.window_start)).catch(() => null);
+      }
+    } catch { kpiWindowValue = null; kpiDeltaPct = null; }
+  } else if (kpiKey === "profit_estimated") {
+    // K9 (24/08) : profit estimé journalier — marges déclarées lues au moment de la mesure
+    // (baseline créée au même barème seulement si les marges n'ont pas bougé ; sinon le delta
+    // reste honnête : les deux côtés sont des estimations déclarées). Sd = 30 j pré-fenêtre,
+    // même convention que K8. Aucune marge déclarée → mesure NULL, verdict CA conservé.
+    try {
+      const win = await measureProfitEstimatedStats(bq, String(snap.location_id), String(snap.window_start), String(snap.window_end));
+      kpiWindowValue = win ? win.mean : null;
+      kpiDeltaPct = kpiDeltaPctFn(snap.kpi_baseline ?? null, kpiWindowValue);
+      const preEnd = new Date(String(snap.window_start) + "T00:00:00Z"); preEnd.setUTCDate(preEnd.getUTCDate() - 1);
+      const preStart = new Date(preEnd); preStart.setUTCDate(preStart.getUTCDate() - 29);
+      const pre = await measureProfitEstimatedStats(bq, String(snap.location_id), preStart.toISOString().slice(0, 10), preEnd.toISOString().slice(0, 10)).catch(() => null);
+      kpiDailySd = pre && pre.n_days >= 5 ? pre.sd : null;
+    } catch { kpiWindowValue = null; kpiDeltaPct = null; kpiDailySd = null; }
+  } else if (kpiKey !== "revenue_residual" && isKpiMeasurable(kpiKey)) {
+    try {
+      kpiWindowValue = await measureKpiWindow(bq, String(snap.location_id), kpiKey, String(snap.window_start), String(snap.window_end));
+      kpiDeltaPct = kpiDeltaPctFn(snap.kpi_baseline ?? null, kpiWindowValue);
+      kpiDailySd = await measureKpiDailySd(bq, String(snap.location_id), kpiKey, String(snap.window_start)).catch(() => null);
+    } catch { kpiWindowValue = null; kpiDeltaPct = null; kpiDailySd = null; }
+  }
+
+  // 8. Verdict par KPI (chantier 15/08) : quand le commitment déclare un KPI non-K1 avec un
+  // objectif 'pct' ET que la mesure est complète (baseline + fenêtre + bande de bruit), le
+  // verdict est rendu dans SON unité — même structure que K1 : SE de la moyenne fenêtre
+  // corrigée par LE MÊME VIF (une seule formule d'autocorrélation), portes asymétriques
+  // (bruit + vacances) sur les « met » seulement. Mesure incomplète → verdict CA conservé
+  // et verdict_basis le DIT ('revenue_residual') — jamais un verdict KPI deviné.
+  let kpiNoiseSe: number | null = null;
+  let verdictBasis = "revenue_residual";
+  if (
+    kpiKey !== "revenue_residual" && String(snap.threshold_basis || "") === "pct" &&
+    snap.kpi_baseline != null && kpiWindowValue != null && snap.threshold_value != null
+  ) {
+    kpiNoiseSe = kpiDailySd != null ? round3((kpiDailySd / Math.sqrt(expectedCount)) * Math.sqrt(vifVal)) : null;
+    const kpiGoal = Number(snap.kpi_baseline) * (1 + Number(snap.threshold_value) / 100);
+    verdict = kpiVerdict({
+      realized: kpiWindowValue, baseline: Number(snap.kpi_baseline), goal: kpiGoal,
+      se: kpiNoiseSe, materialConfound: materialShare >= MATERIAL_SHARE,
+    });
+    verdictBasis = "kpi";
+  }
+
+  return {
+    patch: {
+      kpi_window_value: kpiWindowValue,
+      kpi_delta_pct: kpiDeltaPct,
+      kpi_noise_se: kpiNoiseSe,
+      verdict_basis: verdictBasis,
+      status: "resolved",
+      verdict,
+      resolved_at: nowIso,
+      window_actual_revenue: round2(sumAct),
+      window_expected_revenue: round2(sumExp),
+      window_residual_pct: round2(windowResidualPct),
+      window_residual_z: round3(zCorr),
+      window_residual_z_raw: round3(zRaw),
+      applied_rho: round3(rho),
+      applied_vif: round3(vifVal),
+      window_days_resolved: coverage,
+      ctx_any_school_holiday: anyHol,
+      ctx_school_holiday_days: holidayDays,
+      material_holiday_share: round3(materialShare),
+      ctx_worst_weather_impact_pct: worstWeather != null ? round2(worstWeather) : null,
+      ctx_max_event_count: maxEvent != null ? Math.round(maxEvent) : null,
+      ctx_max_tourism_index: maxTour != null ? round3(maxTour) : null,
+      ctx_material_confound: ctxMaterialConfound,
+      window_active_factors: windowActiveFactors,
+    },
+    note: `${verdict} [${verdictBasis}] — z=${zCorr.toFixed(2)} (raw ${zRaw.toFixed(2)}, ρ=${rho.toFixed(2)}, vif=${vifVal.toFixed(2)}), share=${materialShare.toFixed(2)}${kpiNoiseSe != null ? `, kpi_se=${kpiNoiseSe}` : ""}`,
+  };
+}

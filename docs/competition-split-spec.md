@@ -10,7 +10,7 @@ vit dans `git log` (`ba82e39`, `638feb6`, `dc7aa69`, 28/07). Seules les **mesure
 date — un chiffre sans sa fenêtre n'est pas réutilisable.
 
 Portée : `models/ms_open_data/mart/fct_location_daily_action_candidates.sql` (dbt Cloud IDE) +
-`public/action-cards.js`. Audit d'origine : `docs/card-truth-audit.md`.
+`public/js/action-cards.js`. Audit d'origine : `docs/audits/card-truth-audit.md`.
 
 ---
 
@@ -99,7 +99,7 @@ lequel la classe `competition_low` mesure **+88 €/j** (t = 2,4, n = 30) — me
 | `a.pct_same_sector` | payload de la carte (dbt) | **pourcentage 0-100** |
 | `d.pct_same_bucket_5km` | vue sémantique du jour | **ratio 0-1** |
 
-**Le helper `samePct(a, d)` (`public/action-cards.js:101`) porte seul cette normalisation** —
+**Le helper `samePct(a, d)` (`public/js/action-cards.js:101`) porte seul cette normalisation** —
 payload prioritaire, vue en repli ×100 — et tous ses appelants passent par lui
 (`same_bucket_saturation`, `ft_peak_saturated`, `saturated_bad_weather`, sowhat + notes internes).
 **Ne jamais lire l'un des deux champs directement dans une nouvelle carte** : c'est le bug qui

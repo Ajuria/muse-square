@@ -10,6 +10,8 @@ import { defineConfig, configDefaults } from "vitest/config";
 // (`git worktree list`), les effacer détruirait un travail qui n'est pas le nôtre.
 export default defineConfig({
   test: {
+    // UNE convention (CLAUDE.md § Placement) : co-localisés dans src/, sinon tests/. Rien ailleurs.
+    include: ["src/**/*.test.ts", "tests/**/*.test.ts"],
     exclude: [...configDefaults.exclude, "**/.claude/worktrees/**"],
   },
 });

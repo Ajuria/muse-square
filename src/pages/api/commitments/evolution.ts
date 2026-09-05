@@ -6,17 +6,17 @@
 // field (window_residual_z, _raw, applied_rho/vif, threshold_value, creation_residual_z)
 // and the per-day series returns residual_pct only — so the render cannot leak z.
 import type { APIRoute } from "astro";
-import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpiRegistry";
-import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifTypes";
+import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpi/kpiRegistry";
+import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifs/dispositifTypes";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/memberCardPolicy";
-import { readLatestSnapshot } from "../../../lib/actionCommitments";
-import { buildPoleReading, buildPoleItemsReading } from "../../../lib/poleReading";
-import { commitmentEffect } from "../../../lib/commitmentEffect";
-import { assembleEvolutionExtras } from "../../../lib/commitmentContext";
-import { buildWindowShape, buildPriceLadder } from "../../../lib/commitmentShape";
-import { playsAvecVoisin, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClassStore";
+import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
+import { readLatestSnapshot } from "../../../lib/commitments/actionCommitments";
+import { buildPoleReading, buildPoleItemsReading } from "../../../lib/dispositifs/poleReading";
+import { commitmentEffect } from "../../../lib/commitments/commitmentEffect";
+import { assembleEvolutionExtras } from "../../../lib/commitments/commitmentContext";
+import { buildWindowShape, buildPriceLadder } from "../../../lib/commitments/commitmentShape";
+import { playsAvecVoisin, leverForActionType, leverForWeakFactor, playsRattachesAuSujet } from "../../../lib/bestInClass/bestInClassStore";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -39,7 +39,7 @@ function json(body: unknown, status = 200): Response {
 
 
 // ── KPI déclaré : série jour + pairs + objectif, dans l'unité de measured_metric ─────────
-// Aligné sur le harnais du proto validé (scripts/engagement-kpi-proto-harness.ts). K1 lit les
+// Aligné sur le harnais du proto validé (tools/generators/engagement-kpi-proto-data.ts). K1 lit les
 // lignes residual déjà chargées (zéro requête en plus) ; K2-K6 lisent la colonne du registre
 // dans fct_client_daily_performance ; K8 (famille) rejoint saved_items.kpi_family.
 const PERF_TABLE = `${BQ_PROJECT}.mart.fct_client_daily_performance`;
