@@ -1,4 +1,4 @@
-# Audit des cartes d'action — 04/09/2026 — DÉFINITIF (instantané, jamais mis à jour)
+# Audit des cartes d'action — 04/09/2026 (instantané, jamais mis à jour) — DÉFINITIF
 
 Sert : intent § « dire à l'exploitant quelque chose de vrai qu'il ne pouvait pas voir seul, et pointer ce qu'il peut bouger ».
 
