@@ -32,7 +32,7 @@
 - Never hardcode IDs, coordinates, or data. All solutions must be pipeline-driven and generic.
 - Never delete old functions until replacements are tested.
 
-## Placement des fichiers (règles owner 04/09 — `docs/organisation-depot-spec.md` dit l'état et les phases)
+## Placement des fichiers (règles owner 04/09 — `docs/organisation-depot.md` dit l'état et les phases)
 - **La PLACE dit si c'est livré et combien de temps ça vit ; le NOM d'un fichier ne dit ni l'un ni l'autre.** `src/` et `public/` sont livrés en prod, rien d'autre. `public/` ne contient QUE ce qui doit être servi : `npm run build` ÉCHOUE si un fichier d'outillage atteint l'artefact (tripwire `tools/build/strip-protos.mjs`).
 - **La racine du dépôt ne reçoit AUCUN fichier** hors configuration (`package.json`, `astro.config.mjs`, `tsconfig.json`, `vitest.config.ts`, `tailwind.config.cjs`) et les deux README.
 - **`tools/` = tout l'outillage de dev, un sous-dossier par DURÉE DE VIE** : `proto/` (jusqu'à l'arbitrage owner) · `harness/` (tant que la surface vit) · `battery/` (portes de merge permanentes) · `generators/` (écrivent les données de proto et de fixture depuis BQ) · `oneoff/` (migrations, backfills, revues — préfixe `AAAA-MM-JJ-`, supprimés après exécution) · `build/` · `python/`.

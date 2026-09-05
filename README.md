@@ -17,7 +17,7 @@ l'intention du produit dans `docs/intent.md`.
 | `content/` | oui | pages marketing |
 
 La règle complète : `CLAUDE.md` § Placement des fichiers ; l'état et l'historique :
-`docs/organisation-depot-spec.md`.
+`docs/organisation-depot.md`.
 
 ## Commandes
 
