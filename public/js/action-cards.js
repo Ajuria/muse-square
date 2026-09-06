@@ -2925,7 +2925,10 @@
     var entries = window.renderActionCandidates([red], prof || {}, null, String(red.date || ''), 'pulse', null, today) || [];
     if (!entries.length) return null;
     // Inc 8 (G1) : la ligne d'action de la carte voyage avec — « Action proposée : … ».
-    return { title: msUnescapeHtml(entries[0].tmpl.what), body: String(entries[0].tmpl.sowhat || ''), action: String(entries[0].tmpl.action || '') };
+    // 06/09 (audit P6) - la reserve de regime (tmpl.reserve) voyage avec le corps : un membre qui lit
+    // Slack ne doit pas prendre un fait hedge pour un fait ferme.
+    var _fwdBody = String(entries[0].tmpl.sowhat || '') + (entries[0].tmpl.reserve ? ' ' + String(entries[0].tmpl.reserve) : '');
+    return { title: msUnescapeHtml(entries[0].tmpl.what), body: _fwdBody, action: String(entries[0].tmpl.action || '') };
   };
 
   window.renderActionCandidates = function(candidates, prof, currentDay, selectedDate, mode, channelConfig, today) {
