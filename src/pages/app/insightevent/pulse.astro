@@ -1789,6 +1789,29 @@ if (!location_id) {
           + '<div class="amt-sub">votre réponse le débloque</div>'
         + '</div>';
       }
+      // 06/09 (audit P4) — UNE UNITÉ PAR CARTE. Quand la carte porte son PROPRE motif environnemental
+      // (CARD_CONTEXT_CLASS : faible activité dans le périmètre, événements voisins, tourisme — jamais
+      // un motif hérité de la date), le coin dit ce que ces jours valent chez vous EN EUROS PAR JOUR
+      // (avg_gap_eur, la médiane du moteur — le même nombre que le geste : « ils vous rapportent
+      // 203 € de plus par jour »), et le % funnel descend au ⓘ. Avant : « +19 % · vos visiteurs » au
+      // coin et « 225 € de plus par jour » dans le geste — deux référentiels sur une carte (A1 du
+      // 04/09). Le €/an de la classe n'y revient jamais : il est celui du chantier structurel.
+      if (!_amtHtml && entry.item.context_motif && entry.item.context_motif.inherited !== true
+          && isFinite(Number(entry.item.context_motif.avg_gap_eur)) && Math.round(Number(entry.item.context_motif.avg_gap_eur)) !== 0) {
+        var _cx = entry.item.context_motif;
+        var _cxV = Math.round(Number(_cx.avg_gap_eur));
+        var _cxFg = _cxV > 0 ? 'var(--color-pill-green-text)' : '#B45309';
+        var _cxTip = 'Mesuré sur ' + (_cx.n_days || '?') + ' jours de ' + String(_cx.label_fr || '') + ' : ' + (_cxV > 0 ? '+' : '−') + Math.abs(_cxV).toLocaleString('fr-FR') + ' € par jour vs vos jours comparables.';
+        if (entry.item.funnel_corner && isFinite(Number(entry.item.funnel_corner.pct))) {
+          var _cxK = entry.item.funnel_corner.kpi, _cxP = Math.round(Number(entry.item.funnel_corner.pct) * 100);
+          var _cxSub = ({ footfall: 'Vos visiteurs', transactions: 'Vos ventes', basket: 'Votre panier moyen', conversion: 'Votre taux de conversion', busyness: 'Votre affluence estimée' })[_cxK];
+          if (_cxSub && _cxP !== 0) _cxTip += ' ' + _cxSub + ' ' + (_cxP > 0 ? '+' : '−') + Math.abs(_cxP) + ' % sur ces jours.';
+        }
+        _amtHtml = '<div class="amt ' + (_cxV > 0 ? 'gain' : 'defend') + '" title="' + escapeHtml(_cxTip) + '">'
+          + '<div class="amt-val" style="color:' + _cxFg + ';">' + (_cxV > 0 ? '+' : '−') + Math.abs(_cxV).toLocaleString('fr-FR') + ' €</div>'
+          + '<div class="amt-sub">par jour · ces jours-là</div>'
+        + '</div>';
+      }
       // BARREAU 2 du coin (owner 24/08) : ni enjeu €, ni € du jour, ni question de périmètre —
       // le coin porte le % MESURÉ de l'étape funnel de la carte sur sa classe (servi par monitor,
       // funnel_corner ; portes et classe côté registre, jamais recalculées ici). Relatif au coin,

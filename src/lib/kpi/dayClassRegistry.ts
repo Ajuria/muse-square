@@ -1019,10 +1019,13 @@ const CARD_TYPE_CLASS: Record<string, string> = {
   //   · foreign_tourism_signal tire sur le poids des visiteurs étrangers → tourism_high.
   // Rien n'est inventé : le coin reste soumis aux portes du moteur (n >= 5, span >= 60 j,
   // |t| >= 1, cohérence de signe, plancher 5 %). Une carte sans mesure garde un coin VIDE.
-  competitor_event_launch: "events_high",
-  competitor_event_ending: "events_high",
-  mega_event_end: "events_high",
-  foreign_tourism_signal: "tourism_high",
+  // 06/09 (audit P4, owner « start p4 ») — les quatre ci-dessus (competitor_event_launch /
+  // competitor_event_ending / mega_event_end → events_high, foreign_tourism_signal →
+  // tourism_high) QUITTENT cette table : au coin, le €/an de la classe était LE MÊME nombre que
+  // le chantier structurel « dispositif événements voisins » (+13 513 €/an sur le compte owner,
+  // mesuré 06/09) — le doublon de coin interdit par la doctrine du 01/08. Elles vivent dans
+  // CARD_CONTEXT_CLASS : la classe reste leur contexte (€ par jour au coin, % funnel au ⓘ,
+  // pulse.astro), jamais un €/an.
   // DÉLIBÉRÉMENT SANS CLASSE, et ce n'est pas un oubli :
   //   · commercial_event_match — sa variable est une annotation commerciale (rentrée, soldes) ;
   //     aucune classe ne la mesure. Le mapper sur school_holiday ferait porter à la RENTRÉE le
@@ -1413,6 +1416,12 @@ const CARD_CONTEXT_CLASS: Record<string, string> = {
   // l'interdit : le coin est l'impact PROPRE à la carte. Le chantier garde le coin, la carte du
   // jour cite la classe en ligne de contexte.
   low_competition_window: "competition_low",
+  // 06/09 (audit P4) — venues de CARD_TYPE_CLASS (voir le commentaire là-bas) : la classe est le
+  // CONTEXTE de la carte, jamais son coin €/an.
+  competitor_event_launch: "events_high",
+  competitor_event_ending: "events_high",
+  mega_event_end: "events_high",
+  foreign_tourism_signal: "tourism_high",
   // 22/08 — weekend_vacation_low_comp retirée de CARD_TYPE_CLASS pour le MÊME motif que
   // sa voisine : elle affichait −5 185 €/an chez MS Test, exactement le montant du chantier
   // structurel « Les jours à faible pression concurrentielle » juste en dessous. Même
@@ -1439,6 +1448,11 @@ const CARD_VALUE_TYPES = new Set([
   // rapportent plus ou moins » alors que `competition_low` est mesurée sur le lieu.
   "low_competition_window",
   "weekend_vacation_low_comp",
+  // 06/09 (audit P4) — les quatre cartes à classe de CONTEXTE : context_motif servi, enjeu null.
+  "competitor_event_launch",
+  "competitor_event_ending",
+  "mega_event_end",
+  "foreign_tourism_signal",
   // 06/09 (audit N1) — event_measure : « Résultat d'hier » porte le SEUL chiffre mesuré sur
   // l'objet qu'il nomme (CA d'hier − résultat habituel du jour, vw_insight_event_day_residual,
   // lib/events/eventLifecycleCards). Elle n'avait AUCUN coin : ni population, ni classe, ni

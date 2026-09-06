@@ -20,3 +20,13 @@ describe("porte de régime — coin", () => {
     expect(flagged.population_enjeu ?? null).toBeNull();
   });
 });
+
+describe("06/09 (audit P4) — cartes à classe de contexte", () => {
+  it("competitor_event_launch : plus de €/an de classe au coin, la classe est le contexte", () => {
+    const res: any = { impacts: new Map([["events_high", { class_key: "events_high", eur_year: 13513, tier: "mesuré", tier_label_fr: "mesuré", entangled: false, n_days: 66, span_months: 5, avg_gap_eur: 205, t_stat: 2, label_fr: "jours à forte densité d'événements" }]]), conditionByDate: new Map(), calendarByDate: new Map() };
+    const r = enjeuWithReasonForCandidate(res, { action_type: "competitor_event_launch", date: "2026-09-06", data_payload: {} });
+    expect(r.enjeu).toBeNull();
+    expect(r.context_motif?.class_key).toBe("events_high");
+    expect(r.context_motif?.inherited).not.toBe(true);
+  });
+});

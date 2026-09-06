@@ -44,3 +44,18 @@ it("carte de fait avec témoins : « +169 € le 04/09 » au coin, population au
   expect(html).not.toContain("passera en €/an");
   expect(html).not.toMatch(/597 €\/an<\/div>/);
 });
+
+it("carte à motif de contexte propre : « +203 € · par jour · ces jours-là » au coin, le % funnel au ⓘ, jamais le €/an", () => {
+  const html = renderOne({
+    date: TODAY, action_type: "low_competition_window", action_priority: 3, action_category: "competition", location_id: "f10c3e58-326e-4e38-947c-d59fcbe51df5",
+    enjeu: null, corner_day_mode: true,
+    context_motif: { class_key: "competition_low", label_fr: "jours à faible activité dans votre périmètre", eur_year: 19131, tier: "mesuré", tier_label_fr: "mesuré", entangled: false, n_days: 23, span_months: 5, avg_gap_eur: 203, t_stat: 2 },
+    funnel_corner: { kpi: "footfall", pct: 0.13, abs_per_day: 41, n_days: 23, class_key: "competition_low", class_label_fr: "jours à faible activité dans votre périmètre" },
+    data_payload: { window_start: TODAY, window_end: "2026-09-09", window_days: 4, pressure_ratio: 0.8, events_5km: 257, baseline_avg: 3461, score: 61 },
+  });
+  expect(html).toMatch(/amt-val[^>]*>\+203 €</);
+  expect(html).toContain('<div class="amt-sub">par jour · ces jours-là</div>');
+  expect(html).toContain("Mesuré sur 23 jours de jours à faible activité dans votre périmètre : +203 € par jour vs vos jours comparables. Vos visiteurs +13 % sur ces jours.");
+  expect(html).not.toContain("€/an");
+  expect(html).not.toMatch(/amt-val[^>]*>\+13 %</);
+});
