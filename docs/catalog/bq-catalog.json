@@ -4,9 +4,9 @@
 "generated_date": "2026-09-06",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "eb1a547",
-"table_count": 525,
-"column_count": 9571
+"dbt_repo_sha_at_generation": "8fb72b1",
+"table_count": 527,
+"column_count": 9596
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -869,6 +869,26 @@
 {
 "name": "window_basket_term_eur",
 "type": "FLOAT64"
+},
+{
+"name": "window_transactions",
+"type": "FLOAT64"
+},
+{
+"name": "window_expected_transactions",
+"type": "FLOAT64"
+},
+{
+"name": "window_avg_basket",
+"type": "FLOAT64"
+},
+{
+"name": "window_expected_basket",
+"type": "FLOAT64"
+},
+{
+"name": "window_top_families",
+"type": "STRING"
 }
 ]
 },
@@ -13360,6 +13380,51 @@
 },
 {
 "name": "families_revenue_gap_eur",
+"type": "FLOAT64"
+}
+]
+},
+"mart.fct_client_day_family_decomposition": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "expected_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "delta_eur",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_share",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_share",
+"type": "FLOAT64"
+},
+{
+"name": "day_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "day_expected_revenue",
 "type": "FLOAT64"
 }
 ]
@@ -30660,6 +30725,51 @@
 },
 {
 "name": "families_revenue_gap_eur",
+"type": "FLOAT64"
+}
+]
+},
+"semantic.vw_insight_event_day_family_decomposition": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "expected_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "delta_eur",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_share",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_share",
+"type": "FLOAT64"
+},
+{
+"name": "day_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "day_expected_revenue",
 "type": "FLOAT64"
 }
 ]
