@@ -284,6 +284,20 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   owner (« or something ») : « très prudent · prudent · ambitieux · optimiste » — LES quatre
   mots à arbitrer avant le build commit-form.
 - « geste » (employé par la tuile prod « 6 gestes en attente ») — pas de mot d'interface arbitré.
+- **Le mot des niveaux de chaleur (06/09)** : « canicule » est sorti des cartes (critère officiel IBM,
+  non vérifiable par `lvl_heat`). Une carte d'alerte chaleur ne tire plus qu'au niveau 3 (32–34 °C)
+  et 4 (35 °C et plus) et se dit « Alerte météo (niveau critique), … 15°C–35°C » — le repli. Le
+  chantier structurel dit déjà « dispositif **forte chaleur** » pour la classe 28 °C et plus : LE mot
+  de l'alerte est à arbitrer (le même, ou un autre).
+- **Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3)** :
+  competitor_price_increase (« Saisissez la marge tarifaire »), competitor_price_drop,
+  competitor_repricing_event (« Analysez ce mouvement tarifaire »), competitor_new_offering,
+  competitor_hours_change, competitor_offering_removed (« Saisissez l'offre abandonnée ») —
+  rendues FAIT SEUL en attendant : leurs lignes échouent aux tests 8-12 (« Votre positionnement
+  tarifaire devient relativement plus attractif », « Ne vous alignez pas par réflexe »).
+- **P8 — trois plans par carte de fait (heure / produit / famille) dans `reco-library.js`** :
+  le formulaire « M'engager » de ces cartes ouvre sur une liste vide (clé absente). Gabarit
+  existant : `{ title, description, why, tag }` × 3, par type, `_default` ou par direction.
 - « Voir → » vs « Lire → » : deux mots en prod pour « ouvrir une carte » — un seul doit rester.
 - Le mot du pont rangée santé ↔ rangée pilotage (« dont +1 166 € mesurés de vos opérations »).
 - « Déclarer vos marges » (pluriel, marge par famille produit) — paraphrase, pas un mot acté.
