@@ -1170,9 +1170,11 @@ export function enjeuForCandidate(result: DayClassResult, candidate: { action_ty
       // dit fragile (« l'écart peut tenir au calendrier »). Le coin retombe sur l'écart du jour
       // (corner_day_mode, delta_eur), la mesure de l'objet nommé, son référentiel au ⓘ.
       if (dp?.regime_mismatch_flag === true) return null;
-      const dir = String(dp?.direction || (Number(dp?.delta_eur ?? 0) < 0 ? "collapse" : "surge"));
-      const popKey = dir === "collapse" ? byDir.miss : byDir.carry;
-      return result.impacts.get(popKey) ?? null;
+      // 06/09 (audit P4, owner « start p4 ») — UNE UNITÉ PAR CARTE : le coin d'une carte de fait
+      // est l'écart du jour de l'OBJET qu'elle nomme (delta_eur, corner_day_mode) ; le €/an de sa
+      // POPULATION (le même sous chaque créneau du site — A2 du 04/09) ne prend plus le coin, il
+      // vit au ⓘ (population_enjeu, enjeuWithReasonForCandidate). Enjeu du coin : null.
+      return null;
     }
     const pop = CARD_POPULATION[actionType];
     return pop ? (result.impacts.get(pop) ?? null) : null;
@@ -1273,7 +1275,21 @@ export function classNeverMeasured(result: DayClassResult, candidate: { action_t
 }
 
 /** enjeu + raison d'absence : LA façade que les endpoints consomment (monitor, futurs). */
-export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean; needs_catchment?: boolean; context_motif?: DayClassImpact | null; corner_day_mode?: boolean; funnel_corner?: FunnelCorner | null } {
+// 06/09 (audit P4) — la POPULATION d'une carte de fait (créneaux / produits / familles qui ont
+// manqué ou porté, famille 'card' du store) : servie À CÔTÉ du coin, pour le ⓘ. Null sur une carte
+// à régime contredit (P1 : on ne cite pas un €/an sous un fait sans témoin) et hors des trois types.
+export function populationEnjeuForCandidate(result: DayClassResult, candidate: { action_type?: any; data_payload?: any }): DayClassImpact | null {
+  const at = String(candidate?.action_type || "");
+  const byDir = CARD_POPULATION_BY_DIRECTION[at];
+  if (!byDir) return null;
+  let dp: any = candidate?.data_payload;
+  if (typeof dp === "string") { try { dp = JSON.parse(dp); } catch { dp = null; } }
+  if (dp?.regime_mismatch_flag === true) return null;
+  const dir = String(dp?.direction || (Number(dp?.delta_eur ?? 0) < 0 ? "collapse" : "surge"));
+  return result.impacts.get(dir === "collapse" ? byDir.miss : byDir.carry) ?? null;
+}
+
+export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): { enjeu: DayClassImpact | null; reason_fr: string | null; immaterial?: boolean; needs_catchment?: boolean; context_motif?: DayClassImpact | null; corner_day_mode?: boolean; funnel_corner?: FunnelCorner | null; population_enjeu?: DayClassImpact | null } {
   const enjeu = enjeuForCandidate(result, candidate);
   // Doctrine 01/08 : le motif du jour est du CONTEXTE (ligne de texte), servi À CÔTÉ de
   // l'enjeu propre — jamais à sa place.
@@ -1319,7 +1335,7 @@ export function enjeuWithReasonForCandidate(result: DayClassResult, candidate: {
   const needsCatchment = result?.clientCatchment == null && CATCHMENT_DEPENDENT_TYPES.has(actionType);
   // Amendement 6 (01/08) : plus de raison « anomalie ponctuelle » — le coin passe en mode
   // « € ce jour » (écart du payload, unité en toutes lettres), bascule €/an à n >= 5 tirs.
-  if (CARD_VALUE_TYPES.has(actionType)) return { enjeu: null, reason_fr: null, context_motif: contextMotif, corner_day_mode: true, funnel_corner: funnelCorner };
+  if (CARD_VALUE_TYPES.has(actionType)) return { enjeu: null, reason_fr: null, context_motif: contextMotif, corner_day_mode: true, funnel_corner: funnelCorner, population_enjeu: populationEnjeuForCandidate(result, candidate) };
   const mapped = actionType === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(actionType)
     || CALENDAR_TYPES.has(actionType) || Boolean(COMBO_TYPE_CLASSES[actionType]) || Boolean(CARD_TYPE_CLASS[actionType]);
   if (!mapped) return { enjeu: null, reason_fr: null, funnel_corner: funnelCorner };

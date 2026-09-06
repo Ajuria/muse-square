@@ -12,6 +12,11 @@ describe("porte de régime — coin", () => {
     expect(flagged.enjeu).toBeNull();
     expect(flagged.corner_day_mode).toBe(true);
     const clean = enjeuWithReasonForCandidate(result, { action_type: "hour_share_move", date: "2026-09-04", data_payload: JSON.stringify({ delta_eur: 169, direction: "surge", regime_mismatch_flag: false, baseline_same_regime_n: 6, typ_n: 8 }) });
-    expect(clean.enjeu?.eur_year).toBe(2597);
+    // 06/09 (audit P4) : la population ne prend plus le coin (enjeu null, corner_day_mode), elle est
+    // servie à côté pour le ⓘ ; absente sur une carte à régime contredit.
+    expect(clean.enjeu).toBeNull();
+    expect(clean.corner_day_mode).toBe(true);
+    expect(clean.population_enjeu?.eur_year).toBe(2597);
+    expect(flagged.population_enjeu ?? null).toBeNull();
   });
 });
