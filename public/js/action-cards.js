@@ -2479,7 +2479,7 @@
         var exp = a.expected_revenue != null ? Math.round(Number(a.expected_revenue)) : null;
         var resid = a.residual_pct != null ? Math.round(Number(a.residual_pct)) : null;
         var soft = msSalesConfidence(a) === 'possible';
-        return 'Aux équipes' + (soft ? ' — à noter ensemble : ' : ' : ') + 'belle journée' + (resid != null ? ', CA +' + resid + ' % au-dessus de l\'attendu pour ce jour' : '') + (rev != null && exp != null ? ' (' + rev + ' € vs ' + exp + ' € attendus)' : '') + frDateFr(a.affected_date) + '. ' + (soft ? 'Notons ce qui a marché ce jour-là (offre, accueil, mise en avant) pour voir si on peut le reproduire.' : 'Documentons les conditions du jour et rejouons cette routine sur les prochaines occasions comparables.');
+        return 'Aux équipes' + (soft ? ' — à noter ensemble : ' : ' : ') + 'belle journée' + (resid != null ? ', CA +' + resid + ' % au-dessus de l\'attendu pour ce jour' : '') + (rev != null && exp != null ? ' (' + rev + ' € vs ' + exp + ' € attendus)' : '') + frDateFr(a.affected_date) + '. ' + (soft ? 'Notez ce qui a marché ce jour-là (offre, accueil, mise en avant) pour voir si on peut le reproduire.' : 'Documentons les conditions du jour et rejouons cette routine sur les prochaines occasions comparables.');
       }
     }
   );
@@ -2692,7 +2692,7 @@
       var dg = a.day_gap_eur != null ? Math.round(Number(a.day_gap_eur)) : null;
       var dir = a.direction || (dlt != null && dlt < 0 ? 'collapse' : 'surge');
       var sEur = function (n) { return (n >= 0 ? '+' : '\u2212') + frInt(Math.abs(n)) + ' \u20ac'; };
-      var line = nom + ' a fait ' + (rev != null ? frInt(rev) + ' \u20ac' : 'un montant inhabituel');
+      var line = nom + ' a g\u00e9n\u00e9r\u00e9 ' + (rev != null ? frInt(rev) + ' \u20ac' : 'un montant inhabituel');
       if (exp != null) line += ' contre ' + frInt(exp) + ' \u20ac votre r\u00e9sultat habituel sur cette famille';
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
@@ -2848,7 +2848,7 @@
       var dg = a.day_gap_eur != null ? Math.round(Number(a.day_gap_eur)) : null;
       var dir = a.direction || (dlt != null && dlt < 0 ? 'collapse' : 'surge');
       var sEur = function (n) { return (n >= 0 ? '+' : '\u2212') + frInt(Math.abs(n)) + ' \u20ac'; };
-      var line = nom + ' a fait ' + (rev != null ? frInt(rev) + ' \u20ac' : 'un montant inhabituel');
+      var line = nom + ' a g\u00e9n\u00e9r\u00e9 ' + (rev != null ? frInt(rev) + ' \u20ac' : 'un montant inhabituel');
       if (exp != null) line += ' contre ' + frInt(exp) + ' \u20ac votre r\u00e9sultat habituel sur ce produit';
       if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
@@ -2940,9 +2940,10 @@
       var sujet = 'ce cr\u00e9neau';
       if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
         line += nOcc + 'e ' + dow + (dir === 'collapse' ? ' en retrait' : ' en hausse') + ' sur ce cr\u00e9neau depuis' + frDateFr(a.first_occurrence_date) + '. ';
-        sujet = 'il';
+        // 06/09 (owner) : « il » ne tient pas lieu d'un créneau — le sujet reste nommé.
       }
-      line += 'Ce ' + dow + ', ' + sujet + ' a fait ' + (rev != null ? frInt(rev) + ' \u20ac' : 'un montant inhabituel');
+      // 06/09 (owner) : « il a fait 0 € » n'est pas du français — un montant se GÉNÈRE (CLAUDE.md § copie, règle 5).
+      line += 'Ce ' + dow + ', ' + sujet + ' a g\u00e9n\u00e9r\u00e9 ' + (rev != null ? frInt(rev) + ' \u20ac' : 'un montant inhabituel');
       if (pct != null) line += ' (' + (pct >= 0 ? '+' : '\u2212') + Math.abs(pct) + ' %)';
       else if (dlt != null) line += ' (' + sEur(dlt) + ')';
       if (exp != null) line += ' contre ' + frInt(exp) + ' \u20ac votre ' + dow + ' habituel \u00e0 cette heure';

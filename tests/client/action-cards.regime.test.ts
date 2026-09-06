@@ -44,6 +44,6 @@ it("06/09 (audit P6) — le texte équipe (Faire suivre) porte la réserve dans 
   const win: any = new Window({ url: "https://app.local/app/insightevent/pulse" });
   new Function("window", "document", readFileSync(resolve("public/js/action-cards.js"), "utf8"))(win, win.document);
   const t = win.msMemberForwardText(item, {}, TODAY);
-  expect(t.body).toMatch(/Traditional Blend Chai Rg a fait/);
+  expect(t.body).toMatch(/Traditional Blend Chai Rg a généré/);
   expect(t.body).toMatch(/ Comparé surtout à des jours en vacances scolaires \(26 sur 30\) — l’écart peut tenir au calendrier\.$/);
 });

@@ -16,6 +16,7 @@ const SURFACES = [
   "src/lib/fr/evenement.fr.ts",
   "public/js/reco-library.js",
   "public/js/card-kit.js",
+  "public/js/action-cards.js",
 ];
 
 /** Retire les commentaires, puis ne garde que le contenu des littéraux de chaîne. */

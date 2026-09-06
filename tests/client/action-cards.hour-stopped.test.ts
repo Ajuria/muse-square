@@ -44,7 +44,7 @@ describe("hour_share_move — journée arrêtée (build 1, owner 06/09)", () => 
     const { is_day_stopped: _s, ...plain } = STOPPED_0708;
     const t = render({ ...plain, transaction_hour: 15, hour_revenue: 0, expected_hour_revenue: 137, delta_eur: -137 }, "2026-08-07");
     expect(t.what).toBe("Le créneau 15 h–16 h sous-performe");
-    expect(t.sowhat).toMatch(/^Ce vendredi, ce créneau a fait 0 €/);
+    expect(t.sowhat).toMatch(/^Ce vendredi, ce créneau a généré 0 €/);
     expect(t.action).not.toMatch(/journée arrêtée|export incomplet/);
   });
 });

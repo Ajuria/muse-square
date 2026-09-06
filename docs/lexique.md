@@ -129,6 +129,7 @@ parler du commerce.**
 | « Les deux se compensent : c'est ce qui tient l'écart du jour à +39 € » | démonstration mathématique | « …, mais un panier de 5,57 € au lieu de 4,71 €. » |
 | « 1 événement(s) · 4 j de vacances » | pluriel entre parenthèses, abréviation | « 1 événement à proximité · 4 jours de vacances scolaires » |
 | « Vos jours frais : 1 166 € vs 1 346 € » posé sans lien avec la journée | statistique orpheline (« énigme ») | ne s'affiche QUE si l'opération a connu un jour perturbé |
+| « Ce vendredi, il a fait 0 € » (06/09, en prod depuis le 24/08, cité comme « voisin approuvé ») | « X a fait N € » n'est pas du français ; « il » pour un créneau | « Ce vendredi, ce créneau a généré 0 € » — formes owner : « vous avez généré … », « le CA de ce vendredi est … » ; `action-cards.js` entre dans le garde |
 
 **Ces tournures sont désormais MÉCANIQUES** : `src/lib/fr/tournures.fr.ts` les porte avec
 la phrase refusée qui les a fait naître, et `tournures.fr.guard.test.ts` échoue si l'une
