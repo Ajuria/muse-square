@@ -813,7 +813,12 @@
   // #9 — extended_bad_weather
   reg('extended_bad_weather', 'Adaptez vos op\u00e9rations \u2014 m\u00e9t\u00e9o d\u00e9grad\u00e9e prolong\u00e9e', 'M\u00c9T\u00c9O', '\ud83c\udf27\ufe0f', '#E65100', 'action', 'pulse#radar-score',
     function(a, p, d) {
-      var days = a.consecutive_bad_days || a.prevBadDays || '2+';
+      // 06/09 (audit N2, W4) - consecutive_bad_days est la serie PASSEE (gaps-and-islands, dbt) ; la
+      // carte est EMISE sur la fenetre A VENIR : aujourd'hui ET demain a alerte >= 2 (window_size = 2,
+      // min_alert_in_window >= 2 ; 3 jours -> extended_bad_weather_3d). Payload du 06/09 :
+      // consecutive_bad_days 1 sous un titre << prolongee >> - le corps disait << aujourd'hui >>.
+      // Le compte affiche est au moins la fenetre d'emission (2), jamais moins.
+      var days = Math.max(Number(a.consecutive_bad_days || 0), 2) || (a.prevBadDays || '2+');
       var weather = d.weather_label_fr || '';
       var t = temp(d.temperature_2m_max);
       var wind = Number(d.wind_speed_10m_max || 0);
