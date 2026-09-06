@@ -2405,7 +2405,10 @@
     return first === 'basket' ? (bkS + ' votre ' + joursS + ' habituel, ' + volS) : (volS + ' votre ' + joursS + ' habituel, ' + bkS);
   }
   // << Familles : Coffee 44 % du CA contre 39 % d'habitude, Tea 32 % contre 28 %, Bakery 15 % contre 12 %. >> - le referentiel une fois, en tete.
-  function famsS(fams) { return fams.length ? ' Familles : ' + fams.map(function (f, i) { return f.family + ' ' + pctS(f.revenue_share) + (i === 0 ? ' du CA' : '') + ' contre ' + pctS(f.baseline_share) + (i === 0 ? ' d\u2019habitude' : ''); }).join(', ') + '.' : ''; }
+  // Owner 06/09 : la part ET l'ordre de grandeur - << Coffee 44 % du CA (672 EUR) contre 39 % d'habitude (362 EUR),
+  // Tea 32 % (496 EUR) contre 28 % (263 EUR) >>. Le EUR entre parentheses est le CA de la famille, un fait.
+  function famEur(v) { return (v != null && isFinite(Number(v))) ? ' (' + frInt(Math.round(Number(v))) + ' \u20ac)' : ''; }
+  function famsS(fams) { return fams.length ? ' Familles : ' + fams.map(function (f, i) { return f.family + ' ' + pctS(f.revenue_share) + (i === 0 ? ' du CA' : '') + famEur(f.revenue) + ' contre ' + pctS(f.baseline_share) + (i === 0 ? ' d\u2019habitude' : '') + famEur(f.expected_revenue); }).join(', ') + '.' : ''; }
   function surgeDriverPick(a) {
     var dcp = surgeDecomp(a);
     if (dcp) return { tx: null, bk: null, pick: dcp.dom, decomp: dcp };
@@ -3091,7 +3094,7 @@
         // Corps \u00e9tendu PAR CARTE (gabarit owner 25/08) : le cr\u00e9neau dit r\u00e9currence + fait +
         // funnel + r\u00e9serve de r\u00e9gime — 4 phrases ; les autres cartes gardent 2 phrases / 200.
         // 06/09 (trois couches) : sales_surge / down_wow disent fait + facteur + familles = 3 phrases.
-        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], sales_surge: [3, 380], sales_revenue_down_wow: [3, 380] })[actionType] || [2, 200];
+        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], sales_surge: [3, 470], sales_revenue_down_wow: [3, 470] })[actionType] || [2, 200];
         try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); if (_swObj.reserve) reserveText = String(_swObj.reserve); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, _swLim[0]).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, _swLim[1]); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
         // Name the actual weekday on the sales movement cards — never "jours comparables".
