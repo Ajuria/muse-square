@@ -25,7 +25,9 @@ describe("porte de régime", () => {
     expect(render([hour("2026-09-04", 0)]).length).toBe(0);
     const out = render([item]);
     expect(out.length).toBe(1);
-    expect(out[0].tmpl.sowhat).toMatch(/Comparé surtout à des jours en vacances scolaires \(26 sur 30\)/);
+    // 06/09 (audit P6) : la réserve de régime vit à part (tmpl.reserve), jamais dans le corps.
+    expect(out[0].tmpl.reserve).toMatch(/^Comparé surtout à des jours en vacances scolaires \(26 sur 30\) — l’écart peut tenir au calendrier\.$/);
+    expect(out[0].tmpl.sowhat).not.toMatch(/Comparé surtout/);
   });
   it("le dernier-par-type ignore les cartes écartées : un fait plus ancien avec témoins rend", () => {
     const out = render([hour("2026-09-04", 0), hour("2026-09-01", 5, 120)]);

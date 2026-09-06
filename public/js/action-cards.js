@@ -2658,11 +2658,13 @@
           + (_rsB.objet > 0 ? 'gagnait ' : 'perdait ') + frInt(Math.abs(_rsB.objet)) + ' \u20ac.';
       }
       // Réserve de régime (trigger arbitré 25/08) : base 30 j d'un AUTRE régime calendaire.
+      var _reserve;
       if (a.regime_mismatch_flag === true && a.typ_n != null && a.baseline_same_regime_n != null) {
         var nAutres = Number(a.typ_n) - Number(a.baseline_same_regime_n);
-        line += ' Compar\u00e9 surtout \u00e0 des jours ' + (a.is_school_holiday_flag === true ? 'hors vacances scolaires' : 'en vacances scolaires') + ' (' + nAutres + ' sur ' + Number(a.typ_n) + ') \u2014 l\u2019\u00e9cart peut tenir au calendrier.';
+        _reserve = 'Compar\u00e9 surtout \u00e0 des jours ' + (a.is_school_holiday_flag === true ? 'hors vacances scolaires' : 'en vacances scolaires') + ' (' + nAutres + ' sur ' + Number(a.typ_n) + ') \u2014 l\u2019\u00e9cart peut tenir au calendrier.';
       }
-      return line;
+      // 06/09 (audit P6) - la phrase de reserve vit HORS du corps (pulse la rend sous le clamp, jamais pliee).
+      return (typeof _reserve === 'string') ? { context: line, reserve: _reserve } : line;
     },
     {
       note_interne: function(a, p, d) {
@@ -2708,11 +2710,13 @@
           + (_rsB.objet > 0 ? 'gagnait ' : 'perdait ') + frInt(Math.abs(_rsB.objet)) + ' \u20ac.';
       }
       // Réserve de régime (trigger arbitré 25/08) : base 30 j d'un AUTRE régime calendaire.
+      var _reserve;
       if (a.regime_mismatch_flag === true && a.typ_n != null && a.baseline_same_regime_n != null) {
         var nAutres = Number(a.typ_n) - Number(a.baseline_same_regime_n);
-        line += ' Compar\u00e9 surtout \u00e0 des jours ' + (a.is_school_holiday_flag === true ? 'hors vacances scolaires' : 'en vacances scolaires') + ' (' + nAutres + ' sur ' + Number(a.typ_n) + ') \u2014 l\u2019\u00e9cart peut tenir au calendrier.';
+        _reserve = 'Compar\u00e9 surtout \u00e0 des jours ' + (a.is_school_holiday_flag === true ? 'hors vacances scolaires' : 'en vacances scolaires') + ' (' + nAutres + ' sur ' + Number(a.typ_n) + ') \u2014 l\u2019\u00e9cart peut tenir au calendrier.';
       }
-      return line;
+      // 06/09 (audit P6) - la phrase de reserve vit HORS du corps (pulse la rend sous le clamp, jamais pliee).
+      return (typeof _reserve === 'string') ? { context: line, reserve: _reserve } : line;
     },
     {
       note_interne: function(a, p, d) {
@@ -2780,11 +2784,13 @@
       }
       // Réserve de régime (trigger arbitré 25/08) : base d'un AUTRE régime calendaire —
       // l'écart peut tenir au calendrier, la carte ne l'affirme plus.
+      var _reserve;
       if (a.regime_mismatch_flag === true && a.typ_n != null && a.baseline_same_regime_n != null) {
         var nAutres = Number(a.typ_n) - Number(a.baseline_same_regime_n);
-        line += ' Compar\u00e9 surtout \u00e0 des ' + dow + 's ' + (a.is_school_holiday_flag === true ? 'hors vacances scolaires' : 'en vacances scolaires') + ' (' + nAutres + ' sur ' + Number(a.typ_n) + ') \u2014 l\u2019\u00e9cart peut tenir au calendrier.';
+        _reserve = 'Compar\u00e9 surtout \u00e0 des ' + dow + 's ' + (a.is_school_holiday_flag === true ? 'hors vacances scolaires' : 'en vacances scolaires') + ' (' + nAutres + ' sur ' + Number(a.typ_n) + ') \u2014 l\u2019\u00e9cart peut tenir au calendrier.';
       }
-      return line;
+      // 06/09 (audit P6) - la phrase de reserve vit HORS du corps (pulse la rend sous le clamp, jamais pliee).
+      return (typeof _reserve === 'string') ? { context: line, reserve: _reserve } : line;
     },
     {
       note_interne: function(a, p, d) {
@@ -3022,12 +3028,13 @@
       if (ac.data_payload) { for (var pk in ac.data_payload) { if (ac.data_payload.hasOwnProperty(pk)) mergedDay[pk] = ac.data_payload[pk]; } }
       var sowhatText = '';
       var actionText = '';
+      var reserveText = '';
       var whatText = '';
       if (spec) {
         // Corps \u00e9tendu PAR CARTE (gabarit owner 25/08) : le cr\u00e9neau dit r\u00e9currence + fait +
         // funnel + r\u00e9serve de r\u00e9gime — 4 phrases ; les autres cartes gardent 2 phrases / 200.
         var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320] })[actionType] || [2, 200];
-        try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, _swLim[0]).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, _swLim[1]); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
+        try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); if (_swObj.reserve) reserveText = String(_swObj.reserve); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, _swLim[0]).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, _swLim[1]); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
         // Name the actual weekday on the sales movement cards — never "jours comparables".
         // Titres arbitrés par l'owner le 21/08. Forme jour au SINGULIER + « habituel » : la
@@ -3132,7 +3139,7 @@
       // cette construction, sinon il meurt en silence entre monitor et le rendu.
       var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: _locLbl, action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType, enjeu: ac.enjeu || null, enjeu_reason_fr: ac.enjeu_reason_fr || null, needs_catchment: ac.needs_catchment === true, catchment_days: ac.catchment_days || null, context_motif: ac.context_motif || null, corner_day_mode: ac.corner_day_mode === true, funnel_corner: ac.funnel_corner || null, population_enjeu: ac.population_enjeu || null, owner_only: ac.owner_only === true, data_payload: ac.data_payload || null };
       if (ac.data_payload) { var dp2 = ac.data_payload; for (var k2 in dp2) { if (dp2.hasOwnProperty(k2) && !item.hasOwnProperty(k2)) item[k2] = dp2[k2]; } }
-      var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, action: actionText, actions: actions, _is_action_candidate: true, confidence_tier: ((item && item.residual_z != null) ? msSalesConfidence(item) : (ac.confidence_tier || (ac.data_payload && ac.data_payload.confidence_tier) || null)), _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
+      var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, reserve: reserveText, action: actionText, actions: actions, _is_action_candidate: true, confidence_tier: ((item && item.residual_z != null) ? msSalesConfidence(item) : (ac.confidence_tier || (ac.data_payload && ac.data_payload.confidence_tier) || null)), _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
       // 06/09 (audit N1) - les cartes de cycle de vie (lib/events/eventLifecycleCards : event_threat 95,
       // event_measure 90, event_decision_due 85, event_prepare 80) portent leur priorite SUR L'ECHELLE
       // DU SCORE, pas sur 1-4 : PRIO_SCORE[90] valait undefined -> 60, le plancher, et la carte
@@ -3769,17 +3776,22 @@
       _origSpecs[_k] = SPECS[_k].sowhat;
       (function(key, origFn) {
         SPECS[key].sowhat = function(a, p, d) {
-          var _raw = origFn(a, p, d);
+          var _raw0 = origFn(a, p, d);
+          // 06/09 (audit P6) - un sowhat peut rendre { context, reserve } : la reserve (phrase de
+          // regime) reste a part, jamais concatenee au corps.
+          var _rawIsObj = _raw0 && typeof _raw0 === 'object';
+          var _raw = _rawIsObj ? _raw0.context : _raw0;
+          var _reserveOut = _rawIsObj ? _raw0.reserve : undefined;
           var _meta = ACTION_SENTENCES[key];
-          if (!_meta) return _raw;
+          if (!_meta) return _raw0;
           // 06/09 (audit N3) - les six types concurrents sans terme reviennent sur Actions avec leur
           // FAIT seul (nomme, chiffre, date). Leurs lignes ACTION_SENTENCES (ecrites avant la demotion
           // du 28/07) echouent aux tests 8-12 du lexique (<< Votre positionnement tarifaire devient
           // relativement plus attractif >>, << Ne vous alignez pas par reflexe >>...) : slot EN ATTENTE
           // owner, signale dans l'audit du 06/09 - jamais reecrit ici. Les lignes restent en place.
-          if (window.MS_PERSISTENT_TYPES && window.MS_PERSISTENT_TYPES[key]) return _raw;
+          if (window.MS_PERSISTENT_TYPES && window.MS_PERSISTENT_TYPES[key]) return _raw0;
           var _action = (typeof _meta.action === 'function') ? _meta.action(a, p, d) : _meta.action;
-          return { context: _raw, action: _action, urgency: _meta.urgency };
+          return { context: _raw, reserve: _reserveOut, action: _action, urgency: _meta.urgency };
         };
       })(_k, _origSpecs[_k]);
     }
