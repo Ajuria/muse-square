@@ -20,6 +20,8 @@ export const V1_ALERT_ACTION_TYPES: string[] = [
   "offering_mix_shift",
   "item_share_move",
   "hour_share_move",
+  // 06/09 — grain FACTURE (fct_client_tickets_daily) : paniers à plusieurs articles, vos propres tickets.
+  "tickets_lines_move",
 ];
 
 export const V1_ALERT_ACTION_TYPE_SET: ReadonlySet<string> = new Set(V1_ALERT_ACTION_TYPES);

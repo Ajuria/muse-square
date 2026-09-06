@@ -1440,6 +1440,9 @@ const CARD_VALUE_TYPES = new Set([
   "hour_share_move",
   "item_share_move",
   "offering_mix_shift",
+  // 06/09 — paniers à plusieurs articles (grain facture) : même régime — coin « ce jour » sur delta_eur
+  // (lignes en plus/en moins × € par ligne), le corps reste dans ses unités (articles, tickets).
+  "tickets_lines_move",
   // 22/08 — low_competition_window entre ici APRÈS sa sortie de CARD_TYPE_CLASS. Cet ensemble
   // commande DEUX choses : le coin passe par CARD_POPULATION (aucune entrée pour ce type ⇒
   // null, coin absent, doublon avec le chantier structurel réglé) ET le calcul de

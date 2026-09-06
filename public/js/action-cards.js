@@ -2728,6 +2728,33 @@
       }
     }
   );
+  // 06/09 — tickets_lines_move : le grain FACTURE (fct_client_tickets_daily). Owner : « Paniers à
+  // plusieurs articles : ce sera la situation courante. » Chaque couche dans SON unité (loi owner
+  // 06/09) : articles par ticket, part des tickets à un seul article, nombre de tickets — jamais
+  // d'euros dans le corps ; delta_eur (lignes en plus/en moins × € par ligne) ne sert qu'au COIN.
+  // Référentiel = base 28 j du mart → « d'habitude » (forme approuvée de la ligne Familles, 06/09).
+  reg('tickets_lines_move', 'Paniers à plusieurs articles', 'INTELLIGENCE', '🛒', '#1565C0', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var lpt = a.lines_per_ticket != null ? Number(a.lines_per_ticket) : null;
+      var lptB = a.lines_per_ticket_baseline != null ? Number(a.lines_per_ticket_baseline) : null;
+      var sh = a.single_line_share != null ? Math.round(Number(a.single_line_share) * 100) : null;
+      var shB = a.single_line_share_baseline != null ? Math.round(Number(a.single_line_share_baseline) * 100) : null;
+      var tk = a.tickets != null ? Number(a.tickets) : null;
+      var dsc = a.discounted_ticket_share != null ? Math.round(Number(a.discounted_ticket_share) * 100) : null;
+      var dscB = a.discounted_ticket_share_baseline != null ? Math.round(Number(a.discounted_ticket_share_baseline) * 100) : null;
+      if (lpt == null || lptB == null) return 'Paniers à plusieurs articles : mesure incomplète ce jour-là.';
+      // « 1,0 article par ticket le 30/08 contre 1,8 d'habitude : 97 % des tickets à un seul article contre 54 %, sur 322 tickets. »
+      var line = frDec(lpt) + ' article' + (lpt >= 2 ? 's' : '') + ' par ticket' + frDateFr(a.affected_date)
+        + ' contre ' + frDec(lptB) + ' d’habitude';
+      if (sh != null && shB != null) line += ' : ' + sh + ' % des tickets à un seul article contre ' + shB + ' %';
+      if (tk != null) line += ', sur ' + frInt(tk) + ' tickets';
+      line += '.';
+      // La remise n'entre que si elle a bougé (5 points) : une part stable n'explique rien.
+      if (dsc != null && dscB != null && Math.abs(dsc - dscB) >= 5) line += ' Tickets remisés : ' + dsc + ' % contre ' + dscB + ' %.';
+      return line;
+    },
+    {}
+  );
   // 23/08 — item_share_move : le grain PRODUIT, calqué mot pour mot sur offering_mix_shift
   // (la surface approuvée ci-dessus), « catégorie » → « produit ». Payload dbt
   // (fct_client_item_signals_daily) : item_description, revenue_share, baseline_share,
@@ -3094,7 +3121,7 @@
         // Corps \u00e9tendu PAR CARTE (gabarit owner 25/08) : le cr\u00e9neau dit r\u00e9currence + fait +
         // funnel + r\u00e9serve de r\u00e9gime — 4 phrases ; les autres cartes gardent 2 phrases / 200.
         // 06/09 (trois couches) : sales_surge / down_wow disent fait + facteur + familles = 3 phrases.
-        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], sales_surge: [3, 470], sales_revenue_down_wow: [3, 470] })[actionType] || [2, 200];
+        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], tickets_lines_move: [3, 320], sales_surge: [3, 470], sales_revenue_down_wow: [3, 470] })[actionType] || [2, 200];
         try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); if (_swObj.reserve) reserveText = String(_swObj.reserve); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, _swLim[0]).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, _swLim[1]); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
         // Name the actual weekday on the sales movement cards — never "jours comparables".
@@ -3131,6 +3158,13 @@
         }
         // 23/08 — cartes de faits en euros : le titre suit le SENS (owner : « bascule » datait
         // des parts). Même forme que les cartes ventes « CA inférieur / supérieur ».
+        // 06/09 — paniers à plusieurs articles : le titre porte le SENS avec les mots de l'owner
+        // (« Paniers à plusieurs articles ») et le référentiel de la ligne Familles (« d'habitude »).
+        else if (actionType === 'tickets_lines_move') {
+          whatText = ((feedItem.direction || (Number(feedItem.lines_per_ticket_delta || 0) < 0 ? 'collapse' : 'surge')) === 'collapse')
+            ? 'Moins de paniers à plusieurs articles que d\u2019habitude'
+            : 'Plus de paniers à plusieurs articles que d\u2019habitude';
+        }
         else if (actionType === 'hour_share_move' || actionType === 'item_share_move' || actionType === 'offering_mix_shift') {
           var _fd = feedItem.direction || (Number(feedItem.delta_eur || 0) < 0 ? 'collapse' : 'surge');
           // Lot 1 copie (owner 25/08) : le titre porte le FAIT sp\u00e9cifique — le cr\u00e9neau nomm\u00e9
@@ -3804,6 +3838,14 @@
         ? 'Action conseill\u00e9e : revoyez sa place et son prix.'
         : 'Action conseill\u00e9e : mettez-le en avant — première place, visible de l\'entrée.';
     }, urgency: 'soon' },
+    // 06/09 — paniers à plusieurs articles : le geste porte sur le DEUXIÈME article (chose qu'on
+    // tient : sa place en caisse et sur le linéaire) ; forme « au prochain jour comme celui-ci » (item_share_move).
+    'tickets_lines_move': { action: function(a, p, d) {
+      var _dirT = a.direction || (Number(a.lines_per_ticket_delta || 0) < 0 ? 'collapse' : 'surge');
+      return _dirT === 'collapse'
+        ? 'Action conseill\u00e9e : au prochain jour comme celui-ci, remettez le deuxi\u00e8me article \u00e0 c\u00f4t\u00e9 du premier \u2014 en caisse et sur le lin\u00e9aire.'
+        : 'Action conseill\u00e9e : notez ce qui \u00e9tait \u00e0 c\u00f4t\u00e9 du produit ce jour-l\u00e0 \u2014 c\u2019est l\u2019association \u00e0 reconduire.';
+    }, urgency: 'soon' },
     'hour_share_move': { action: function(a, p, d) {
       // Réserve de régime (25/08) : rétrogradée en information — pas de geste sur un signal
       // que le calendrier peut expliquer.
@@ -3902,6 +3944,7 @@
         { id: 'ventes', label: 'Performance ventes', gate: 'pos', action_types: [
           'sales_underperformance', 'sales_surge', 'sales_missed_opportunity', 'sales_competition_cannibalization',
           'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift',
+          'tickets_lines_move',
           'footfall_vs_basket_decomposition', 'client_dormant', 'weekly_sales_hole', 'weekly_sales_spike',
           'monthly_sales_hole', 'monthly_sales_spike'] },
         { id: 'apprentissage', label: 'Apprentissage', gate: 'measured_actions', action_types: [
@@ -4030,6 +4073,6 @@
   window.MS_REGIME_GATE_TYPES = { hour_share_move: 1, item_share_move: 1, offering_mix_shift: 1 };
   // 06/09 (audit N3) - meme liste que PERSISTENT_COMPETITOR_TYPES (lib/recos/recoThemeMap), valeur = jours de validite.
   window.MS_PERSISTENT_TYPES = { competitor_price_drop: 14, competitor_price_increase: 14, competitor_repricing_event: 14, competitor_hours_change: 14, competitor_new_offering: 14, competitor_offering_removed: 14 };
-  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','hour_share_move'];
+  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','tickets_lines_move','hour_share_move'];
 
 })();

@@ -129,6 +129,8 @@ const DETTE_SANS_PLANS = [
   "sales_underperformance",
   "same_bucket_saturation",
   "saturated_bad_weather",
+  // 06/09 — tickets_lines_move : carte née sans plans (mots owner attendus, lexique § À arbitrer).
+  "tickets_lines_move",
   "score_down",
   "score_driver_shift",
   "score_up",

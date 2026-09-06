@@ -289,6 +289,13 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   et 4 (35 °C et plus) et se dit « Alerte météo (niveau critique), … 15°C–35°C » — le repli. Le
   chantier structurel dit déjà « dispositif **forte chaleur** » pour la classe 28 °C et plus : LE mot
   de l'alerte est à arbitrer (le même, ou un autre).
+- **Carte « Paniers à plusieurs articles » (`tickets_lines_move`, 06/09)** — livrée avec les mots de
+  l'owner (« paniers à plusieurs articles », « ticket », « linéaire ») ; trois chaînes à ratifier :
+  titres « Moins de paniers à plusieurs articles que d'habitude » / « Plus de … » ; gestes « au prochain
+  jour comme celui-ci, remettez le deuxième article à côté du premier — en caisse et sur le linéaire »
+  (effondrement) et « notez ce qui était à côté du produit ce jour-là — c'est l'association à reconduire »
+  (hausse). « Deuxième article » tient lieu du concept sans mot (l'article acheté AVEC le premier) ;
+  « accompagnement » écarté (jamais arbitré). Le corps ne porte que des formes approuvées.
 - **Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3)** :
   competitor_price_increase (« Saisissez la marge tarifaire »), competitor_price_drop,
   competitor_repricing_event (« Analysez ce mouvement tarifaire »), competitor_new_offering,
