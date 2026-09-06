@@ -203,9 +203,12 @@
     var exp = a.expected_hour_revenue != null ? Number(a.expected_hour_revenue) : null;
     if (!(eht > 0 && tx > 0 && rev > 0 && exp > 0)) return null;
     var eur2 = function (v) { return v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20ac'; };
+    var _jourS = (typeof window.msWeekdayFrSing === 'function') ? window.msWeekdayFrSing(a.affected_date || a.transaction_date) : 'jour';
     var facts = [
-      { c: Math.log(tx / eht), r: tx / eht, de: 'des ventes', tenu: 'vos ventes ont tenu', txt: frInt(tx) + ' contre ' + frInt(Math.round(eht)) + ' attendues' },
-      { c: Math.log((rev / tx) / (exp / eht)), r: (rev / tx) / (exp / eht), de: 'du panier', tenu: 'votre panier moyen a tenu', txt: eur2(rev / tx) + ' \u00b7 attendu ' + eur2(exp / eht) }
+      // 06/09 (audit P9) - << attendu >> est banni (lexique ligne 26) : la reference se nomme
+      // << votre vendredi habituel >>, la forme deja approuvee dans le corps de cette carte.
+      { c: Math.log(tx / eht), r: tx / eht, de: 'des ventes', tenu: 'vos ventes ont tenu', txt: frInt(tx) + ' contre ' + frInt(Math.round(eht)) + ' votre ' + _jourS + ' habituel' },
+      { c: Math.log((rev / tx) / (exp / eht)), r: (rev / tx) / (exp / eht), de: 'du panier', tenu: 'votre panier moyen a tenu', txt: eur2(rev / tx) + ' contre ' + eur2(exp / eht) + ' votre ' + _jourS + ' habituel' }
     ];
     var totalLog = Math.log(rev / exp);
     var floor2 = Math.max(0.02, 0.2 * Math.abs(totalLog));
@@ -248,7 +251,8 @@
 
   var AUD_FR = {local:'r\u00e9sidents locaux',professionals:'professionnels',tourists:'touristes',students:'\u00e9tudiants',families:'familles',seniors:'seniors',mixed:'public mixte'};
   var EVT_FR = {corporate:'\u00e9v\u00e9nements corporate',product_launch:'lancements produit',store_opening:'ouvertures de point de vente',concert:'concerts',press_conf:'conf\u00e9rences de presse',expo:'expositions',tasting:'d\u00e9gustations',open_day:'journ\u00e9es portes ouvertes',launch_party:'soir\u00e9es de lancement',promo:'promotions',charity:'\u00e9v\u00e9nements caritatifs'};
-  var THREAT_FR = {high:'\u00e9lev\u00e9e',medium:'mod\u00e9r\u00e9e',low:'faible'};
+  // 06/09 (audit P9) - 'moderate' est la valeur reelle des payloads (22 sur 30 j) : sans elle le niveau sortait en anglais.
+  var THREAT_FR = {high:'\u00e9lev\u00e9e',medium:'mod\u00e9r\u00e9e',moderate:'mod\u00e9r\u00e9e',low:'faible'};
   var OBJ_FR = {maximize_attendance:'maximiser l\u2019affluence',avoid_competition:'\u00e9viter la concurrence',brand_awareness:'notori\u00e9t\u00e9'};
 
   function audLabel(p) {
@@ -469,7 +473,7 @@
     var overlap = Number(a.audience_overlap_pct || 0);
     var threatRaw = a.entity_threat_level || a.threat_level || '';
     var threatFr = THREAT_FR[threatRaw] || threatRaw;
-    if (overlap > 0) bits.push('chevauchement d\u2019audience ' + overlap + '%');
+    if (overlap > 0) bits.push('chevauchement d\u2019audience ' + overlap + '\u00a0%');
     if (threatFr) bits.push('menace ' + threatFr);
     if (withDist) {
       var dkm = a.entity_threat_distance_km;
@@ -1223,7 +1227,7 @@
       var threatRaw = a.threat_level || a.entity_threat_level || '';
       var threatFr = THREAT_FR[threatRaw] || threatRaw;
       var line = name + ' cible votre audience' + (aud ? ' (' + aud + ')' : '') + '.';
-      if (overlap > 0) line += ' Chevauchement : ' + overlap + '%.';
+      if (overlap > 0) line += ' Chevauchement : ' + overlap + '\u00a0%.';
       if (threatFr) line += ' Menace ' + threatFr + '.';
       return line;
     },
@@ -2097,7 +2101,7 @@
       var alert = Number(a.weather_alert || 0);
 
       var line = (rev != null && avg != null)
-        ? 'CA ' + rev + ' € — ~' + gap + ' € sous votre moyenne 30j (' + avg + ' €' + (pctBelow != null ? ', -' + pctBelow + ' %' : '') + ').'
+        ? 'CA ' + rev + ' € — ≈ ' + gap + ' € sous votre moyenne 30j (' + avg + ' €' + (pctBelow != null ? ', -' + pctBelow + ' %' : '') + ').'
         : 'CA en retrait sur votre moyenne 30j.';
 
       var fav = [];
@@ -2182,7 +2186,7 @@
       var ratio = a.lateness_ratio != null ? Number(a.lateness_ratio) : null;
       var ca = a.total_revenue != null ? Math.round(Number(a.total_revenue)) : null;
       var who = a.party_label || a.party_code || 'Ce client';
-      var line = who + ' : ' + (nb != null ? nb + ' commandes' : 'client régulier') + (itv != null ? ', une tous les ~' + itv + ' j' : '') + ' — silencieux depuis ' + (sil != null ? sil + ' jours' : 'plusieurs semaines') + (ratio != null ? ' (' + String(ratio).replace('.', ',') + '× son rythme)' : '') + '.';
+      var line = who + ' : ' + (nb != null ? nb + ' commandes' : 'client régulier') + (itv != null ? ', une tous les ≈ ' + itv + ' j' : '') + ' — silencieux depuis ' + (sil != null ? sil + ' jours' : 'plusieurs semaines') + (ratio != null ? ' (' + String(ratio).replace('.', ',') + '× son rythme)' : '') + '.';
       if (ca != null) line += ' ' + ca.toLocaleString('fr-FR') + ' € sur la période' + (a.last_order ? ', dernière commande le ' + msEvFrD(a.last_order) : '') + '.';
       else if (a.last_order) line += ' Dernière commande le ' + msEvFrD(a.last_order) + '.';
       if (a.data_end) line += ' Données jusqu’au ' + msEvFrD(a.data_end) + '.';
@@ -2496,9 +2500,12 @@
       var line = 'Le public était là' + frDateFr(a.affected_date);
       var _fb = [];
       if (vis != null) _fb.push(vis + ' visiteurs');
-      if (foot != null) _fb.push('fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' % vs habitude');
+      // 06/09 (audit P9) - << vs habitude >> nommait mal la reference : footfall_delta_pct se lit sur la
+      // fenetre w de fct_client_sales_signals_daily = 28 jours precedents, tous jours confondus (verifie
+      // dans le modele, 06/09). Meme forme que la ligne d'action de sales_surge.
+      if (foot != null) _fb.push('fréquentation ' + (foot >= 0 ? '+' : '') + foot + ' % sur sa moyenne des 28 derniers jours');
       if (_fb.length) line += ' (' + _fb.join(', ') + ')';
-      line += ' mais peu d\'achats : ' + (rateN != null ? Math.round(rateN) + ' % des visiteurs ont acheté' : 'conversion en retrait') + (usual != null ? ', contre ~' + Math.round(usual) + ' % d\'ordinaire' : ' (sous votre norme du même jour)') + '.';
+      line += ' mais peu d\'achats : ' + (rateN != null ? Math.round(rateN) + ' % des visiteurs ont acheté' : 'conversion en retrait') + (usual != null ? ', contre ≈ ' + Math.round(usual) + ' % d\'ordinaire' : ' (sous votre norme du même jour)') + '.';
       return line;
     },
     {
