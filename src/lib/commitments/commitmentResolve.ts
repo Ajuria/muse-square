@@ -96,7 +96,8 @@ export async function resolveCommitment(
   //    0-rows trap). minDate==maxDate for day_of.
   const [rrows] = await bq.query({
     query:
-      `SELECT CAST(date AS STRING) AS date, daily_revenue, expected_revenue, residual_z ` +
+      // 06/09 (audit N6) : expected_transactions / expected_basket (colonnes vérifiées live sur la vue).
+      `SELECT CAST(date AS STRING) AS date, daily_revenue, expected_revenue, residual_z, expected_transactions, expected_basket ` +
       `FROM \`${RESIDUAL}\` WHERE location_id=@loc AND date BETWEEN @minD AND @maxD`,
     params: { loc: snap.location_id, minD: bq.date(minDate), maxD: bq.date(maxDate) },
     location: "EU",
@@ -277,8 +278,33 @@ export async function resolveCommitment(
     verdictBasis = "kpi";
   }
 
+  // 9. 06/09 (audit N6) — la proposition de valeur promet « le volume de transactions, le panier
+  // moyen ou le mix produits » ; le verdict ne lisait que le CA. Ventes (somme) et panier (moyenne)
+  // de la fenêtre, réalisés sur fct_client_daily_performance (KPI_DAILY_COL, le foyer unique),
+  // attendus sur la vue résiduelle (expected_transactions / expected_basket, même référentiel que
+  // le CA : résultat habituel du lieu et du jour de semaine). Échec soft → null, jamais inventé.
+  // Le mix par famille reste la mesure K8 déjà en place quand une famille est déclarée.
+  let windowTransactionsDeltaPct: number | null = null;
+  let windowBasketDeltaPct: number | null = null;
+  try {
+    const expTx = rrows.reduce((a: number, r: any) => a + (Number(flat(r.expected_transactions)) || 0), 0);
+    const expBkArr = rrows.map((r: any) => Number(flat(r.expected_basket))).filter((v: number) => Number.isFinite(v) && v > 0);
+    const expBk = expBkArr.length ? expBkArr.reduce((a: number, b: number) => a + b, 0) / expBkArr.length : null;
+    const [arows] = await bq.query({
+      query: `SELECT SUM(daily_transactions) AS tx, AVG(daily_avg_basket) AS bk, COUNT(*) AS n FROM \`${BQ_PROJECT}.mart.fct_client_daily_performance\` WHERE location_id=@loc AND transaction_date BETWEEN @minD AND @maxD`,
+      params: { loc: snap.location_id, minD: bq.date(minDate), maxD: bq.date(maxDate) },
+      location: "EU",
+    });
+    const a0: any = arows?.[0] || {};
+    const actTx = Number(flat(a0.tx)), actBk = Number(flat(a0.bk)), nAct = Number(flat(a0.n)) || 0;
+    if (nAct >= 1 && Number.isFinite(actTx) && expTx > 0) windowTransactionsDeltaPct = round2(((actTx - expTx) / expTx) * 100);
+    if (nAct >= 1 && Number.isFinite(actBk) && expBk != null && expBk > 0) windowBasketDeltaPct = round2(((actBk - expBk) / expBk) * 100);
+  } catch { windowTransactionsDeltaPct = null; windowBasketDeltaPct = null; }
+
   return {
     patch: {
+      window_transactions_delta_pct: windowTransactionsDeltaPct,
+      window_basket_delta_pct: windowBasketDeltaPct,
       kpi_window_value: kpiWindowValue,
       kpi_delta_pct: kpiDeltaPct,
       kpi_noise_se: kpiNoiseSe,

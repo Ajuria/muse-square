@@ -2926,6 +2926,17 @@ if (!location_id) {
     var m = /^(\d+)d$/.exec(String(k || '')); return m ? m[1] + ' j' : '7 j';
   }
   function _cgEur(n){ return (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' €'; }
+  // 06/09 (audit N6) — « (ventes +4 %, panier −2 %) » : un signe par delta (lexique règle 3), le
+  // référentiel est celui de la phrase (vs votre résultat habituel). Un seul des deux mesuré → lui seul.
+  function _cgTxBk(r){
+    var tx = r.window_transactions_delta_pct != null ? Number(_cgFv(r.window_transactions_delta_pct)) : null;
+    var bk = r.window_basket_delta_pct != null ? Number(_cgFv(r.window_basket_delta_pct)) : null;
+    var f = function(v){ return (v >= 0 ? '+' : '−') + Math.abs(Math.round(v)) + ' %'; };
+    var parts = [];
+    if (tx != null && isFinite(tx)) parts.push('ventes ' + f(tx));
+    if (bk != null && isFinite(bk)) parts.push('panier ' + f(bk));
+    return parts.length ? ' (' + parts.join(', ') + ')' : '';
+  }
   // indicative % above "habituel" needed to validate the objective — the z threshold
   // translated through the location's noise band (~0.19 = CV × √VIF) over the window.
   function _cgTargetPct(z, days){ return Math.max(1, Math.round((Number(z) || 1) * 0.19 / Math.sqrt(days || 7) * 100)); }
@@ -2988,7 +2999,10 @@ if (!location_id) {
     var sowhat = r.status === 'open' ? escapeHtml((r.window_kind === 'day_of' ? 'Mesure ' : 'Mesure sur ') + _cgWin(r.window_kind, r.window_start) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'expired' ? escapeHtml('Aucune donnée de ventes reçue en 30 j.')
-      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind, r.window_start) + '.')
+      // 06/09 (audit N6) — ventes et panier de la fenêtre, même référentiel que le CA (résultat
+      // habituel). Forme approuvée de la ligne d'action sales_surge : « (ventes +3 %, panier −8 %) ».
+      // Absents (résolution antérieure au 06/09, ou mesure impossible) → rien, jamais un zéro.
+      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel' + _cgTxBk(r) + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind, r.window_start) + '.')
       : escapeHtml('Dates de l\u2019op\u00e9ration : ' + _cgWin(r.window_kind, r.window_start) + '.');
     // Code couleur lisible (proto 27/07) : montant signé + mini-phrase. Objectif bleu tant que
     // rien n'est mesuré ; résultat couleur verdict une fois résolu. Ligne legacy sans seuil et

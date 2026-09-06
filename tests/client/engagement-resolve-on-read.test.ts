@@ -12,6 +12,7 @@ let h: any;
 const calls: Array<{ url: string; body: any }> = [];
 let listCalls = 0;
 let resolveChanged = true;
+let resolvedItem: any = null;
 
 beforeAll(() => {
   document.body.innerHTML = '<div id="pls-engagement-cards"></div><div id="pls-eng-head"></div><span id="pls-eng-count"></span><div id="pls-past-actions"></div>';
@@ -33,6 +34,7 @@ beforeAll(() => {
         // fenêtre close hier, encore pending → à résoudre
         { commitment_id: "c-close", status: "pending", location_id: "loc-test", window_kind: "day_of", window_start: "2026-09-05", window_end: { value: "2026-09-05" }, window_days_expected: 1, window_days_resolved: 0, committed_action_text: "Corner producteur", updated_at: "2026-09-06T02:00:00Z" },
         // fenêtre encore ouverte → jamais demandée
+        ...(resolvedItem ? [resolvedItem] : []),
         { commitment_id: "c-open", status: "open", location_id: "loc-test", window_kind: "7d", window_start: "2099-01-01", window_end: "2099-01-07", window_days_expected: 7, committed_action_text: "Offre rentrée", updated_at: "2026-09-06T01:00:00Z" },
       ] }) });
     }
@@ -62,4 +64,14 @@ it("un nouveau rendu sans changement ne redemande rien", async () => {
   await tick(); await tick();
   expect(calls.length).toBe(before);       // déjà tentée ce chargement
   expect(listCalls).toBe(lists + 1);       // le rendu demandé, pas de re-rendu
+});
+
+it("06/09 (audit N6) — un engagement résolu dit ventes et panier à côté du CA, même référentiel", async () => {
+  resolvedItem = { commitment_id: "c-res", status: "resolved", verdict: "met", location_id: "loc-test", window_kind: "day_of", window_start: "2026-09-05", window_end: "2026-09-05",
+    window_days_expected: 1, window_days_resolved: 1, window_residual_pct: 66.16, window_expected_revenue: 925, window_transactions_delta_pct: 75.76, window_basket_delta_pct: -5.63,
+    threshold_basis: "pct", threshold_value: 11, committed_action_text: "Corner de vente producteur", updated_at: "2026-09-06T09:31:57Z" };
+  h.renderEngagements(["loc-test"]);
+  await tick(); await tick();
+  const txt = String(document.body.textContent || "").replace(/\s+/g, " ");
+  expect(txt).toContain("CA +66.16 % vs votre résultat habituel (ventes +76 %, panier −6 %) · habituel 925 €");
 });

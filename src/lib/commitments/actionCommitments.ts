@@ -145,6 +145,10 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   // est stable dans la chaîne de versions (la photo s'y rattache). NULL sur une opération datée.
   // Hérité du parent à la V2 si absent au POST. Position 80 (ALTER vérifié live le 03/09).
   ["components", "STRING"],
+  // 06/09 (audit N6) — ventes et panier de la fenêtre vs résultat habituel (commitmentResolve
+  // § 9). ALTER ADD COLUMN IF NOT EXISTS vérifié live le 06/09 (positions 82-83).
+  ["window_transactions_delta_pct", "FLOAT64"],
+  ["window_basket_delta_pct", "FLOAT64"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -194,6 +198,8 @@ export interface CommitmentRow {
   applied_rho: number | null;
   applied_vif: number | null;
   window_days_resolved: number | null;
+  window_transactions_delta_pct?: number | null;   // 06/09 (audit N6)
+  window_basket_delta_pct?: number | null;         // 06/09 (audit N6)
   ctx_any_school_holiday: boolean | null;
   ctx_school_holiday_days: number | null;
   material_holiday_share: number | null;
