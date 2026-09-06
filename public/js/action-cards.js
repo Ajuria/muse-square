@@ -2755,6 +2755,33 @@
     },
     {}
   );
+  // 06/09 — item_absent_regular : produit RÉGULIER (vendu >= 80 % des 60 jours d'ouverture)
+  // absent d'un jour d'ouverture — mart fct_client_item_absence_daily. Rupture, retrait ou oubli
+  // de mise en rayon : la caisse ne dit pas lequel, la carte non plus (règle 4 : on nomme ou on
+  // se tait). Une carte par jour, tous les absents dedans (3 nommés). Les € (CA habituel du
+  // produit, forme approuvée de item_share_move) ne vivent qu'en clés « revenue » de premier
+  // niveau : membre = pas d'€, la phrase se ferme sur les jours.
+  reg('item_absent_regular', 'Produit régulier absent', 'INTELLIGENCE', '📭', '#B45309', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var items = Array.isArray(a.items) && a.items.length ? a.items : (a.item_description ? [{ item_description: a.item_description, days_sold_60: a.days_sold_60, open_days_60: a.open_days_60 }] : []);
+      if (!items.length) return 'Un produit régulier absent de vos ventes ce jour-là.';
+      var eurs = Array.isArray(a.items_expected_revenue) ? a.items_expected_revenue : (a.expected_item_revenue != null ? [a.expected_item_revenue] : []);
+      var n = a.n_items != null ? Number(a.n_items) : items.length;
+      var named = items.slice(0, 3);
+      var joinFr = function (arr) { return arr.length <= 1 ? arr.join('') : arr.slice(0, -1).join(', ') + ' et ' + arr[arr.length - 1]; };
+      var noms = joinFr(named.map(function (it) { return it.item_description; }));
+      if (n > named.length) noms += ' et ' + (n - named.length) + ' autre' + (n - named.length > 1 ? 's' : '') + ' produit' + (n - named.length > 1 ? 's' : '');
+      var jours = joinFr(named.map(function (it) { return it.days_sold_60 != null ? frInt(it.days_sold_60) : '?'; }));
+      var ouv = named[0].open_days_60 != null ? frInt(named[0].open_days_60) : null;
+      var eurS = named.map(function (it, i) { return eurs[i] != null ? frInt(Math.round(Number(eurs[i]))) + ' €' : null; }).filter(function (x) { return x != null; });
+      // « Scottish Cream Scone absent de vos ventes le 30/08 : vendu 58 jours sur 60 ces deux mois, 18 € par jour d'habitude. »
+      var line = noms + (n > 1 ? ' absents' : ' absent') + ' de vos ventes' + frDateFr(a.affected_date)
+        + ' : vendu' + (named.length > 1 ? 's ' : ' ') + jours + (ouv != null ? ' jours sur ' + ouv : ' jours') + ' ces deux mois';
+      if (eurS.length === named.length) line += (named.length > 1 ? ' (' + joinFr(eurS) + ' par jour d’habitude)' : ', ' + eurS[0] + ' par jour d’habitude');
+      return line + '.';
+    },
+    {}
+  );
   // 23/08 — item_share_move : le grain PRODUIT, calqué mot pour mot sur offering_mix_shift
   // (la surface approuvée ci-dessus), « catégorie » → « produit ». Payload dbt
   // (fct_client_item_signals_daily) : item_description, revenue_share, baseline_share,
@@ -3121,7 +3148,7 @@
         // Corps \u00e9tendu PAR CARTE (gabarit owner 25/08) : le cr\u00e9neau dit r\u00e9currence + fait +
         // funnel + r\u00e9serve de r\u00e9gime — 4 phrases ; les autres cartes gardent 2 phrases / 200.
         // 06/09 (trois couches) : sales_surge / down_wow disent fait + facteur + familles = 3 phrases.
-        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], tickets_lines_move: [3, 320], sales_surge: [3, 470], sales_revenue_down_wow: [3, 470] })[actionType] || [2, 200];
+        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], tickets_lines_move: [3, 320], item_absent_regular: [3, 320], sales_surge: [3, 470], sales_revenue_down_wow: [3, 470] })[actionType] || [2, 200];
         try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); if (_swObj.reserve) reserveText = String(_swObj.reserve); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, _swLim[0]).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, _swLim[1]); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
         // Name the actual weekday on the sales movement cards — never "jours comparables".
@@ -3160,6 +3187,11 @@
         // des parts). Même forme que les cartes ventes « CA inférieur / supérieur ».
         // 06/09 — paniers à plusieurs articles : le titre porte le SENS avec les mots de l'owner
         // (« Paniers à plusieurs articles ») et le référentiel de la ligne Familles (« d'habitude »).
+        // 06/09 — produit régulier absent : le titre nomme le produit (règle 4) ; à plusieurs, le compte.
+        else if (actionType === 'item_absent_regular') {
+          var _nAb = Number(feedItem.n_items || (Array.isArray(feedItem.items) ? feedItem.items.length : 1));
+          whatText = (_nAb > 1 || !feedItem.item_description) ? (_nAb > 1 ? _nAb + ' produits r\u00e9guliers absents de vos ventes' : 'Produit r\u00e9gulier absent de vos ventes') : feedItem.item_description + ' absent de vos ventes';
+        }
         else if (actionType === 'tickets_lines_move') {
           whatText = ((feedItem.direction || (Number(feedItem.lines_per_ticket_delta || 0) < 0 ? 'collapse' : 'surge')) === 'collapse')
             ? 'Moins de paniers à plusieurs articles que d\u2019habitude'
@@ -3844,6 +3876,13 @@
     // « deuxième article » qu'il ne sait pas nommer. Les deux sens ouvrent sur la même moitié de
     // phrase ratifiée (l'exploitant nomme lui-même ce qui était à côté) ; seule la hausse porte une
     // queue (« l'association à reconduire »), fausse sur une baisse — la baisse s'arrête là.
+    // 06/09 — produit régulier absent : le geste porte sur le stock et la place sur le linéaire (choses
+    // qu'on tient) ; la cause n'est pas nommée parce que la caisse ne la donne pas (règle 4).
+    'item_absent_regular': { action: function(a, p, d) {
+      var _nAb2 = Number(a.n_items || (Array.isArray(a.items) ? a.items.length : 1));
+      var _obj = (_nAb2 > 1 || !a.item_description) ? 'de ces produits et leur place' : 'de ' + a.item_description + ' et sa place';
+      return 'Action conseill\u00e9e : v\u00e9rifiez le stock ' + _obj + ' sur le lin\u00e9aire \u2014 rupture, retrait ou oubli, la caisse ne dit pas lequel.';
+    }, urgency: 'soon' },
     'tickets_lines_move': { action: function(a, p, d) {
       var _dirT = a.direction || (Number(a.lines_per_ticket_delta || 0) < 0 ? 'collapse' : 'surge');
       return _dirT === 'collapse'
@@ -3948,7 +3987,7 @@
         { id: 'ventes', label: 'Performance ventes', gate: 'pos', action_types: [
           'sales_underperformance', 'sales_surge', 'sales_missed_opportunity', 'sales_competition_cannibalization',
           'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift',
-          'tickets_lines_move',
+          'tickets_lines_move', 'item_absent_regular',
           'footfall_vs_basket_decomposition', 'client_dormant', 'weekly_sales_hole', 'weekly_sales_spike',
           'monthly_sales_hole', 'monthly_sales_spike'] },
         { id: 'apprentissage', label: 'Apprentissage', gate: 'measured_actions', action_types: [
@@ -4077,6 +4116,6 @@
   window.MS_REGIME_GATE_TYPES = { hour_share_move: 1, item_share_move: 1, offering_mix_shift: 1 };
   // 06/09 (audit N3) - meme liste que PERSISTENT_COMPETITOR_TYPES (lib/recos/recoThemeMap), valeur = jours de validite.
   window.MS_PERSISTENT_TYPES = { competitor_price_drop: 14, competitor_price_increase: 14, competitor_repricing_event: 14, competitor_hours_change: 14, competitor_new_offering: 14, competitor_offering_removed: 14 };
-  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','tickets_lines_move','hour_share_move'];
+  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','tickets_lines_move','item_absent_regular','hour_share_move'];
 
 })();

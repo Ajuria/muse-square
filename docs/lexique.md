@@ -289,6 +289,12 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   et 4 (35 °C et plus) et se dit « Alerte météo (niveau critique), … 15°C–35°C » — le repli. Le
   chantier structurel dit déjà « dispositif **forte chaleur** » pour la classe 28 °C et plus : LE mot
   de l'alerte est à arbitrer (le même, ou un autre).
+- **Carte « Produit régulier absent » (`item_absent_regular`, 06/09)** — chaînes à ratifier : titre « Scottish
+  Cream Scone absent de vos ventes » / « 2 produits réguliers absents de vos ventes » ; corps « … absent de vos
+  ventes le 30/08 : vendu 58 jours sur 60 ces deux mois, 18 € par jour d'habitude. » ; geste « vérifiez le stock
+  de <produit> et sa place sur le linéaire — rupture, retrait ou oubli, la caisse ne dit pas lequel. » (la cause
+  n'est pas nommée : la caisse ne la donne pas, règle 4). Mot en attente : « ces deux mois » pour la fenêtre
+  de 60 jours d'ouverture.
 - **Carte « Paniers à plusieurs articles » (`tickets_lines_move`, 06/09)** — livrée avec les mots de
   l'owner (« paniers à plusieurs articles », « ticket », « linéaire ») ; titres « Moins de paniers à
   plusieurs articles que d'habitude » / « Plus de … ». Gestes : hausse « notez ce qui était à côté du

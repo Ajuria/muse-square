@@ -110,6 +110,8 @@ const DETTE_SANS_PLANS = [
   "high_competition_density",
   "holiday_high_comp",
   "institution_campaign_detected",
+  // 06/09 — item_absent_regular : carte née sans plans (mots owner attendus).
+  "item_absent_regular",
   "low_tourism_local_opp",
   "medal_change",
   "media_mention_detected",

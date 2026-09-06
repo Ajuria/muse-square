@@ -241,6 +241,7 @@ export const CARD_FUNNEL_STEP: Record<string, KpiKey> = {
   hour_share_move: "transactions",
   item_share_move: "transactions",
   offering_mix_shift: "transactions",
+  item_absent_regular: "transactions",
   client_dormant: "transactions",
   // K1 — chiffre d'affaires (la carte mesure le résultat final)
   sales_surge: "revenue_residual",
