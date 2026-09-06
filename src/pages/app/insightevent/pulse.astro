@@ -3995,6 +3995,27 @@ if (!location_id) {
         if (_past.length) wireEngagementCards(pastMount);
       }
       renderEngagementFeedLog(items);
+      // 06/09 (audit N5) — RÉSOLUTION À LA LECTURE. Un engagement open/pending dont la fenêtre
+      // est close attend le cron de 02:00 UTC, qui peut avoir tourné AVANT l'ingestion des ventes
+      // (mesuré 06/09 : « Ventes reçues 0 / 1 j. » toute la journée sous un « Résultat d'hier » à
+      // +612 €). La page le demande UNE fois par chargement (window._engResolveTried), APRÈS le
+      // premier rendu — la résolution coûte ~3,5 s côté serveur, hors budget du premier écran.
+      // Une résolution qui change l'état re-rend le bloc ; sinon rien ne bouge.
+      var _today = todayYmd();
+      window._engResolveTried = window._engResolveTried || {};
+      var _toResolve = _active.filter(function (r) {
+        var we = String(_cgFv(r.window_end) || '').slice(0, 10);
+        return /^\d{4}-\d{2}-\d{2}$/.test(we) && we < _today && !window._engResolveTried[String(r.commitment_id)];
+      });
+      if (_toResolve.length) {
+        _toResolve.forEach(function (r) { window._engResolveTried[String(r.commitment_id)] = true; });
+        Promise.all(_toResolve.map(function (r) {
+          return fetch('/api/commitments/resolve', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commitment_id: r.commitment_id, location_id: r.location_id }) })
+            .then(function (x) { return x.json(); })
+            .then(function (j) { return !!(j && j.ok && j.changed); })
+            .catch(function () { return false; });
+        })).then(function (flags) { if (flags.some(Boolean)) renderEngagements(locationIds); });
+      }
     });
   }
 

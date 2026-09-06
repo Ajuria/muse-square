@@ -19,7 +19,10 @@
 
 import { GRACE_DAYS, MATERIAL_SHARE, RHO_FLOOR, WINDOW_FACTOR_SHARE } from "./commitmentConstants";
 import { isKpiMeasurable, measureKpiWindow, measureFamilyRevenueMean, measureKpiDailySd, measureFamilyDailySd, measureProfitEstimatedStats, kpiDeltaPct as kpiDeltaPctFn, kpiVerdict } from "../kpi/kpiRegistry";
-import type { CommitmentRow } from "./actionCommitments";
+import { readMergeWrite, type CommitmentRow } from "./actionCommitments";
+import { sendSlack, loadChannelConfig } from "../channels/internalSend";
+import { readDispositifChannel } from "../channels/slackRouting";
+import { verdictMessageFr } from "../channels/slackMessagesFr";
 import featureRegistry from "../sensitivity/sensitivityFeatures.json";
 
 const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
@@ -302,4 +305,74 @@ export async function resolveCommitment(
     },
     note: `${verdict} [${verdictBasis}] — z=${zCorr.toFixed(2)} (raw ${zRaw.toFixed(2)}, ρ=${rho.toFixed(2)}, vif=${vifVal.toFixed(2)}), share=${materialShare.toFixed(2)}${kpiNoiseSe != null ? `, kpi_se=${kpiNoiseSe}` : ""}`,
   };
+}
+
+// ── Résoudre ET persister (06/09, audit N5) ─────────────────────────────────────────────────
+// UNE fonction, DEUX appelants : le cron nocturne (balayage de tout le parc) et
+// POST /api/commitments/resolve (résolution à la lecture : la page voit un instantané open/pending
+// dont la fenêtre est close et le demande). Mesuré le 06/09 sur le compte owner : le cron de
+// 02:00 UTC avait écrit `pending 0/1` AVANT l'ingestion des ventes du 05/09 ; toute la journée la
+// page affirmait « Ventes reçues 0 / 1 j. » sous une carte « Résultat d'hier » qui lisait
+// 1 537 € en direct, et le verdict attendait le cron suivant (J+2 pour une opération d'un jour).
+// Le verdict Slack part avec la PREMIÈRE résolution, quel que soit l'appelant ; le second ne
+// trouve plus de ligne open/pending. Un no-op pending (même statut, même couverture) n'écrit rien.
+export interface ResolveAndPersistResult {
+  commitment_id: string;
+  changed: boolean;              // false = no-op pending, rien d'écrit
+  outcome: string;               // statut écrit (pending | resolved | expired) ou statut inchangé
+  verdict: string | null;
+  note: string;
+  verdict_slack?: boolean | string;
+}
+
+export async function resolveAndPersist(bq: any, snap: CommitmentRow, now: string): Promise<ResolveAndPersistResult> {
+  const { patch, note } = await resolveCommitment(bq, snap, now);
+
+  // Skip a no-op pending re-write (same status, same coverage) — keeps the
+  // log from growing a pending row every run.
+  if (patch.status === "pending" && snap.status === "pending" &&
+      patch.window_days_resolved === snap.window_days_resolved) {
+    return { commitment_id: snap.commitment_id, changed: false, outcome: "pending", verdict: null, note };
+  }
+
+  // expired gets its own transition_type so expiries are findable in the
+  // log; pending/resolved both use 'resolved' (the resolution writer).
+  // NOTE: expired is terminal — a venue uploading sales after the 30-day
+  // grace will NOT re-resolve; grace is the only knob.
+  await readMergeWrite(bq, {
+    commitmentId: snap.commitment_id,
+    transitionType: patch.status === "expired" ? "expired" : "resolved",
+    patch,
+  });
+  const out: ResolveAndPersistResult = { commitment_id: snap.commitment_id, changed: true, outcome: String(patch.status), verdict: patch.verdict ?? null, note };
+
+  // ── Inc 8 (G3, mots owner 28/08) : le verdict se dit dans Slack — canal du
+  // dispositif d'abord, sinon canal par défaut du compte, sinon rien (dit dans le
+  // résultat). Écart € = réel − résultat habituel de la fenêtre (les deux champs
+  // de la résolution). Non bloquant : un échec d'envoi ne touche pas la résolution.
+  if (patch.status === "resolved" && patch.verdict) {
+    try {
+      const ch = snap.dispositif_id
+        ? await readDispositifChannel(bq, String(snap.location_id), String(snap.dispositif_id)).catch(() => null)
+        : null;
+      const cfg: any = await loadChannelConfig(bq, String(snap.user_id), String(snap.location_id), "slack").catch(() => ({}));
+      const channel = ch || String(cfg?.default_channel || "").trim() || null;
+      if (channel) {
+        const gap = (patch.window_actual_revenue != null && patch.window_expected_revenue != null)
+          ? Number(patch.window_actual_revenue) - Number(patch.window_expected_revenue) : null;
+        const msg = verdictMessageFr({
+          actionText: String(snap.committed_action_text || ""), verdict: String(patch.verdict),
+          windowStart: String(snap.window_start || ""), windowEnd: String(snap.window_end || ""),
+          gapEur: gap, commitmentId: snap.commitment_id, locationId: String(snap.location_id),
+        });
+        const r = await sendSlack(cfg, { title: msg.title, body: msg.body, recipient: channel, blocks: msg.blocks });
+        out.verdict_slack = r.ok === true;
+      } else {
+        out.verdict_slack = "aucun canal";
+      }
+    } catch (e: any) {
+      out.verdict_slack = "erreur: " + String(e?.message || e).slice(0, 60);
+    }
+  }
+  return out;
 }
