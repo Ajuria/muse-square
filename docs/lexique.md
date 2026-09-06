@@ -289,6 +289,12 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   et 4 (35 °C et plus) et se dit « Alerte météo (niveau critique), … 15°C–35°C » — le repli. Le
   chantier structurel dit déjà « dispositif **forte chaleur** » pour la classe 28 °C et plus : LE mot
   de l'alerte est à arbitrer (le même, ou un autre).
+- **Carte « Prix réalisé par famille » (`family_price_move`, 06/09)** — chaînes à ratifier : titre « Drinking
+  Chocolate vendu moins cher / plus cher que d'habitude » ; corps « Drinking Chocolate : 3,87 € l'unité le 30/08
+  contre 4,13 € d'habitude (−6 %), sur 43 unités vendues. » ; gestes « vérifiez les tickets de <famille> ce
+  jour-là — remises, poids ou produits moins chers dans la famille, le prix moyen ne dit pas lequel. » (baisse)
+  et « notez ce qui s'est vendu dans <famille> ce jour-là — c'est le mix à reconduire. » (hausse). Mot en
+  attente : « l'unité » quand la famille mêle pièces et poids (quantity_decimal) — « prix réalisé » lui-même.
 - **Carte « Produit régulier absent » (`item_absent_regular`, 06/09)** — chaînes à ratifier : titre « Scottish
   Cream Scone absent de vos ventes » / « 2 produits réguliers absents de vos ventes » ; corps « … absent de vos
   ventes le 30/08 : vendu 58 jours sur 60 ces deux mois, 18 € par jour d'habitude. » ; geste « vérifiez le stock

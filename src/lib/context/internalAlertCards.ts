@@ -24,6 +24,8 @@ export const V1_ALERT_ACTION_TYPES: string[] = [
   "tickets_lines_move",
   // 06/09 — produit régulier absent des ventes (fct_client_item_absence_daily).
   "item_absent_regular",
+  // 06/09 — prix réalisé par famille (fct_client_family_price_daily).
+  "family_price_move",
 ];
 
 export const V1_ALERT_ACTION_TYPE_SET: ReadonlySet<string> = new Set(V1_ALERT_ACTION_TYPES);

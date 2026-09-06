@@ -66,7 +66,7 @@ export const RECO_THEME_ACTION_TYPES: Record<string, string[]> = {
     "sales_competition_cannibalization", "sales_traffic_not_converting",
     "sales_discount_no_lift", "sales_revenue_down_wow", "offering_mix_shift",
     // 06/09 — paniers à plusieurs articles (grain facture, fct_client_tickets_daily) ; parité client testée.
-    "tickets_lines_move", "item_absent_regular",
+    "tickets_lines_move", "item_absent_regular", "family_price_move",
     // 31/07/2026 — même dérive, côté « Performance ventes » (entré client le 10/06, 832b294).
     // Portée réelle plus faible : monitor.ts l'exclut déjà à la frontière de sa requête
     // (« Retired: redundant with sales_surge »). On l'aligne quand même — un vocabulaire qui

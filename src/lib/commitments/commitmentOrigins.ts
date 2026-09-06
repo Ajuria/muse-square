@@ -141,6 +141,7 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   // 06/09 — paniers à plusieurs articles (grain facture).
   "tickets_lines_move",
   "item_absent_regular",
+  "family_price_move",
 
   // Onboarding P2 (05/08) : le PREMIER test mesuré d'un compte neuf — geste du tableau
   // « Engagez votre premier test mesuré » (MSCommitForm, fenêtre à venir, verdict auto).
