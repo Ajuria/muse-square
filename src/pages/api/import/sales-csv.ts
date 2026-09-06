@@ -85,6 +85,9 @@ function canonicalToBqRow(
     item_category: r.item_category ?? null,
     unit_price: r.unit_price ?? null,
     quantity: toInt(r.quantity),
+    // 06/09 — lignes vendues au POIDS (Crisalid, périssables) : la quantité décimale telle quelle, à côté
+    // de l'entier arrondi. Colonne raw additive (ALTER 06/09) ; stg_client_transactions.quantity_decimal la lit.
+    quantity_decimal: r.quantity ?? null,
     customer_type: r.customer_type ?? null,
     channel: r.channel ?? null,
     payment_method: r.payment_method ?? null,
