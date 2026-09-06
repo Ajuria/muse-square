@@ -179,7 +179,7 @@ export const DEMOTED_TO_FEED = new Set([
 // et expirant le 06/09, ET démis au Fil — visibles zéro jour sur Actions. Ici : la liste des
 // types qui restent lisibles PERSISTENT_VALIDITY_DAYS jours après le fait (monitor / days les
 // servent sur cette fenêtre ; renderActionCandidates les rend sur aujourd'hui, date du fait dans
-// la méta). 14 jours = valeur provisoire, arbitrage owner en attente (audit § 4, décision b).
+// la méta). 14 jours : arbitré owner le 06/09 (audit § 4, décision b).
 // Le kit porte la même liste sous window.MS_PERSISTENT_TYPES (test de parité).
 export const PERSISTENT_VALIDITY_DAYS = 14;
 export const PERSISTENT_COMPETITOR_TYPES: readonly string[] = [

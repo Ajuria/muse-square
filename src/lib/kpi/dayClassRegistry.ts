@@ -834,8 +834,11 @@ async function dateResolutionQuery(bq: any, location_id: string, dates: string[]
     query: `
       SELECT FORMAT_DATE('%Y-%m-%d', c.date) AS date, ${conditionCaseSql()} AS condition,
              c.is_school_holiday_flag AS school_flag, c.is_public_holiday_flag AS holiday_flag,
-             -- 06/09 (audit N2) : alerte courante du jour (colonne vérifiée live sur la vue, 06/09).
-             c.alert_level_max AS alert_level,
+             -- 06/09 (audit N2) : alerte courante du jour. PLANCHER CHALEUR (owner 06/09, décision a) :
+             -- la chaleur ne compte comme alerte qu'à partir du niveau 3 (32 °C) — 28–31 °C (niveau 2)
+             -- n'est pas une alerte pour l'exploitant. Les cinq colonnes lvl_* vérifiées live (06/09).
+             GREATEST(COALESCE(c.lvl_rain, 0), COALESCE(c.lvl_wind, 0), COALESCE(c.lvl_snow, 0), COALESCE(c.lvl_cold, 0),
+                      IF(COALESCE(c.lvl_heat, 0) >= 3, c.lvl_heat, 0)) AS alert_level,
              dcl.client_catchment AS client_catchment
       FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
       -- Périmètre déclaré : lu sur la DIMENSION, pas sur le mart de contexte.
@@ -1205,6 +1208,9 @@ export const ABSENCE_REASON_FR = {
 // l'alerte du jour est retombée SOUS le niveau d'émission de la carte, la carte n'a plus d'objet.
 // Sans lecture du jour (date hors fenêtre, requête en échec) → on garde : jamais une suppression
 // sur une absence de donnée. weather_worsened n'est pas dans le périmètre (niveau émis non lu).
+// PLANCHER CHALEUR (owner 06/09) : l'alerte courante servie par dateResolutionQuery compte la chaleur
+// à partir du niveau 3 seulement (32 °C) — une carte émise sur 'heat:2' tombe donc même si la
+// prévision n'a pas bougé. Le mart, lui, émet toujours à 2 : passation dbt à suivre.
 const WEATHER_ALERT_TYPES_FLOOR2 = new Set([
   "extended_bad_weather", "extended_bad_weather_3d", "ft_peak_bad_weather",
   "saturated_bad_weather", "weather_mobility_double",
