@@ -13,7 +13,8 @@
     "battery:explorer": "dotenv -e .env -- tsx tools/battery/explorer-quality-battery.ts",
     "battery:prompt": "dotenv -e .env -- node tools/battery/prompt-conversation-battery.mjs",
     "harness": "python3 -m http.server 4173 --directory .",
-    "placement:check": "node tools/build/placement-check.mjs"
+    "placement:check": "node tools/build/placement-check.mjs",
+    "catalog:refresh": "bash tools/build/refresh-bq-catalog.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

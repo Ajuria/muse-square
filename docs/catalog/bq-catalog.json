@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-09-04",
+"generated_date": "2026-09-06",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "3ccd79f",
-"table_count": 513,
-"column_count": 9307
+"dbt_repo_sha_at_generation": "eb1a547",
+"table_count": 525,
+"column_count": 9571
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -853,6 +853,22 @@
 {
 "name": "components",
 "type": "STRING"
+},
+{
+"name": "window_transactions_delta_pct",
+"type": "FLOAT64"
+},
+{
+"name": "window_basket_delta_pct",
+"type": "FLOAT64"
+},
+{
+"name": "window_volume_term_eur",
+"type": "FLOAT64"
+},
+{
+"name": "window_basket_term_eur",
+"type": "FLOAT64"
 }
 ]
 },
@@ -8280,6 +8296,135 @@
 }
 ]
 },
+"intermediate.int_events_daily_idf_openagenda": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "event_uid",
+"type": "STRING"
+},
+{
+"name": "source_system",
+"type": "STRING"
+},
+{
+"name": "data_provenance",
+"type": "STRING"
+},
+{
+"name": "city_id",
+"type": "STRING"
+},
+{
+"name": "city_name",
+"type": "STRING"
+},
+{
+"name": "region_id",
+"type": "STRING"
+},
+{
+"name": "geo_point",
+"type": "GEOGRAPHY"
+},
+{
+"name": "latitude",
+"type": "FLOAT64"
+},
+{
+"name": "longitude",
+"type": "FLOAT64"
+},
+{
+"name": "event_label",
+"type": "STRING"
+},
+{
+"name": "event_venue_name",
+"type": "STRING"
+},
+{
+"name": "event_venue_address",
+"type": "STRING"
+},
+{
+"name": "event_url",
+"type": "STRING"
+},
+{
+"name": "description",
+"type": "STRING"
+},
+{
+"name": "longDescription",
+"type": "STRING"
+},
+{
+"name": "keywords",
+"type": "STRING"
+},
+{
+"name": "theme",
+"type": "STRING"
+},
+{
+"name": "organizer_name",
+"type": "STRING"
+},
+{
+"name": "event_start_date",
+"type": "DATE"
+},
+{
+"name": "event_end_date",
+"type": "DATE"
+},
+{
+"name": "event_duration_days",
+"type": "INT64"
+},
+{
+"name": "is_multi_day_bool",
+"type": "BOOL"
+},
+{
+"name": "is_free_bool",
+"type": "BOOL"
+},
+{
+"name": "is_cancelled_bool",
+"type": "BOOL"
+},
+{
+"name": "is_sold_out",
+"type": "BOOL"
+},
+{
+"name": "industry_code",
+"type": "STRING"
+},
+{
+"name": "keyword_priority_rank",
+"type": "INT64"
+},
+{
+"name": "estimated_attendance",
+"type": "INT64"
+},
+{
+"name": "venue_capacity",
+"type": "INT64"
+},
+{
+"name": "confidence_score",
+"type": "FLOAT64"
+}
+]
+},
 "intermediate.int_events_daily_occitanie": {
 "type": "BASE TABLE",
 "columns": [
@@ -13114,6 +13259,111 @@
 }
 ]
 },
+"mart.fct_client_day_decomposition": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "daily_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "expected_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "residual_z",
+"type": "FLOAT64"
+},
+{
+"name": "daily_transactions",
+"type": "INT64"
+},
+{
+"name": "expected_transactions",
+"type": "FLOAT64"
+},
+{
+"name": "transactions_residual_z",
+"type": "FLOAT64"
+},
+{
+"name": "daily_avg_basket",
+"type": "FLOAT64"
+},
+{
+"name": "expected_basket",
+"type": "FLOAT64"
+},
+{
+"name": "basket_residual_z",
+"type": "FLOAT64"
+},
+{
+"name": "daily_visitors",
+"type": "INT64"
+},
+{
+"name": "expected_visitors",
+"type": "FLOAT64"
+},
+{
+"name": "daily_conversion_rate",
+"type": "FLOAT64"
+},
+{
+"name": "expected_conversion",
+"type": "FLOAT64"
+},
+{
+"name": "volume_term_eur",
+"type": "FLOAT64"
+},
+{
+"name": "basket_term_eur",
+"type": "FLOAT64"
+},
+{
+"name": "closure_residual_eur",
+"type": "FLOAT64"
+},
+{
+"name": "dominant_factor",
+"type": "STRING"
+},
+{
+"name": "top_families",
+"type": "ARRAY<STRUCT<family STRING, revenue FLOAT64, expected_revenue FLOAT64, delta_eur FLOAT64, revenue_share FLOAT64, baseline_share FLOAT64>>"
+},
+{
+"name": "families_delta_eur",
+"type": "FLOAT64"
+},
+{
+"name": "family_count",
+"type": "INT64"
+},
+{
+"name": "families_unexplained_eur",
+"type": "FLOAT64"
+},
+{
+"name": "families_revenue_gap_eur",
+"type": "FLOAT64"
+}
+]
+},
 "mart.fct_client_day_residual": {
 "type": "BASE TABLE",
 "columns": [
@@ -13365,6 +13615,91 @@
 }
 ]
 },
+"mart.fct_client_family_price_daily": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "item_category",
+"type": "STRING"
+},
+{
+"name": "units",
+"type": "FLOAT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "discount_amount",
+"type": "FLOAT64"
+},
+{
+"name": "realized_price",
+"type": "FLOAT64"
+},
+{
+"name": "discount_rate",
+"type": "FLOAT64"
+},
+{
+"name": "price_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "price_sd",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_n",
+"type": "INT64"
+},
+{
+"name": "discount_rate_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "discount_rate_sd",
+"type": "FLOAT64"
+},
+{
+"name": "price_z",
+"type": "FLOAT64"
+},
+{
+"name": "price_delta_pct",
+"type": "FLOAT64"
+},
+{
+"name": "discount_z",
+"type": "FLOAT64"
+},
+{
+"name": "discount_delta_points",
+"type": "FLOAT64"
+},
+{
+"name": "is_price_move",
+"type": "BOOL"
+},
+{
+"name": "is_discount_move",
+"type": "BOOL"
+},
+{
+"name": "price_direction",
+"type": "STRING"
+}
+]
+},
 "mart.fct_client_hourly_sales": {
 "type": "BASE TABLE",
 "columns": [
@@ -13508,6 +13843,47 @@
 {
 "name": "dbt_updated_at",
 "type": "TIMESTAMP"
+}
+]
+},
+"mart.fct_client_item_absence_daily": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "item_description",
+"type": "STRING"
+},
+{
+"name": "item_category",
+"type": "STRING"
+},
+{
+"name": "days_sold_60",
+"type": "INT64"
+},
+{
+"name": "open_days_60",
+"type": "INT64"
+},
+{
+"name": "regularity",
+"type": "FLOAT64"
+},
+{
+"name": "expected_item_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "is_absent_regular",
+"type": "BOOL"
 }
 ]
 },
@@ -13915,6 +14291,183 @@
 }
 ]
 },
+"mart.fct_client_performance_context_daily": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "client_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "source_type",
+"type": "STRING"
+},
+{
+"name": "daily_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "daily_net_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "daily_transactions",
+"type": "INT64"
+},
+{
+"name": "daily_visitors",
+"type": "INT64"
+},
+{
+"name": "daily_avg_basket",
+"type": "FLOAT64"
+},
+{
+"name": "daily_conversion_rate",
+"type": "FLOAT64"
+},
+{
+"name": "daily_discount_total",
+"type": "FLOAT64"
+},
+{
+"name": "daily_promo_line_count",
+"type": "INT64"
+},
+{
+"name": "revenue_yesterday",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_last_week",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_30d_avg",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_vs_yesterday_pct",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_vs_last_week_pct",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_vs_30d_avg_pct",
+"type": "FLOAT64"
+},
+{
+"name": "opportunity_score",
+"type": "STRING"
+},
+{
+"name": "opportunity_regime",
+"type": "STRING"
+},
+{
+"name": "opportunity_medal",
+"type": "STRING"
+},
+{
+"name": "is_mega_event_flag",
+"type": "BOOL"
+},
+{
+"name": "active_mega_event_name",
+"type": "STRING"
+},
+{
+"name": "competition_index_local",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_comp_avg",
+"type": "FLOAT64"
+},
+{
+"name": "competition_pressure_ratio",
+"type": "FLOAT64"
+},
+{
+"name": "has_valid_baseline_flag",
+"type": "BOOL"
+},
+{
+"name": "primary_score_driver_label",
+"type": "STRING"
+},
+{
+"name": "is_public_holiday_flag",
+"type": "BOOL"
+},
+{
+"name": "is_school_holiday_flag",
+"type": "BOOL"
+},
+{
+"name": "is_weekend_flag",
+"type": "BOOL"
+},
+{
+"name": "ft_peak_hour",
+"type": "INT64"
+},
+{
+"name": "ft_peak_busyness_pct",
+"type": "INT64"
+},
+{
+"name": "weather_alert_level",
+"type": "INT64"
+},
+{
+"name": "lvl_rain",
+"type": "INT64"
+},
+{
+"name": "lvl_wind",
+"type": "INT64"
+},
+{
+"name": "first_ingested_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "last_ingested_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "is_revenue_anomaly_low",
+"type": "BOOL"
+},
+{
+"name": "is_revenue_surge",
+"type": "BOOL"
+},
+{
+"name": "is_missed_opportunity",
+"type": "BOOL"
+},
+{
+"name": "is_mega_event_revenue_boost",
+"type": "BOOL"
+},
+{
+"name": "is_competition_cannibalization",
+"type": "BOOL"
+}
+]
+},
 "mart.fct_client_sales_signals_daily": {
 "type": "BASE TABLE",
 "columns": [
@@ -14072,6 +14625,164 @@
 },
 {
 "name": "primary_revenue_driver",
+"type": "STRING"
+}
+]
+},
+"mart.fct_client_tickets": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "client_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "invoice_number",
+"type": "STRING"
+},
+{
+"name": "line_count",
+"type": "INT64"
+},
+{
+"name": "item_count",
+"type": "INT64"
+},
+{
+"name": "family_count",
+"type": "INT64"
+},
+{
+"name": "units",
+"type": "FLOAT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "discount_amount",
+"type": "FLOAT64"
+},
+{
+"name": "discounted_line_count",
+"type": "INT64"
+},
+{
+"name": "transaction_hour",
+"type": "INT64"
+},
+{
+"name": "channel",
+"type": "STRING"
+},
+{
+"name": "customer_type",
+"type": "STRING"
+},
+{
+"name": "payment_method",
+"type": "STRING"
+},
+{
+"name": "families",
+"type": "ARRAY<STRING>"
+}
+]
+},
+"mart.fct_client_tickets_daily": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "tickets",
+"type": "INT64"
+},
+{
+"name": "lines",
+"type": "INT64"
+},
+{
+"name": "units",
+"type": "FLOAT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "lines_per_ticket",
+"type": "FLOAT64"
+},
+{
+"name": "single_line_share",
+"type": "FLOAT64"
+},
+{
+"name": "units_per_ticket",
+"type": "FLOAT64"
+},
+{
+"name": "discounted_ticket_share",
+"type": "FLOAT64"
+},
+{
+"name": "lines_per_ticket_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "lines_per_ticket_sd",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_n",
+"type": "INT64"
+},
+{
+"name": "single_line_share_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "units_per_ticket_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "discounted_ticket_share_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "lines_per_ticket_delta",
+"type": "FLOAT64"
+},
+{
+"name": "lines_per_ticket_z",
+"type": "FLOAT64"
+},
+{
+"name": "single_line_share_delta_points",
+"type": "FLOAT64"
+},
+{
+"name": "is_lines_move",
+"type": "BOOL"
+},
+{
+"name": "direction",
 "type": "STRING"
 }
 ]
@@ -22017,6 +22728,10 @@
 {
 "name": "source_file",
 "type": "STRING"
+},
+{
+"name": "quantity_decimal",
+"type": "FLOAT64"
 }
 ]
 },
@@ -29844,6 +30559,111 @@
 }
 ]
 },
+"semantic.vw_insight_event_day_decomposition": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "daily_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "expected_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "residual_z",
+"type": "FLOAT64"
+},
+{
+"name": "daily_transactions",
+"type": "INT64"
+},
+{
+"name": "expected_transactions",
+"type": "FLOAT64"
+},
+{
+"name": "transactions_residual_z",
+"type": "FLOAT64"
+},
+{
+"name": "daily_avg_basket",
+"type": "FLOAT64"
+},
+{
+"name": "expected_basket",
+"type": "FLOAT64"
+},
+{
+"name": "basket_residual_z",
+"type": "FLOAT64"
+},
+{
+"name": "daily_visitors",
+"type": "INT64"
+},
+{
+"name": "expected_visitors",
+"type": "FLOAT64"
+},
+{
+"name": "daily_conversion_rate",
+"type": "FLOAT64"
+},
+{
+"name": "expected_conversion",
+"type": "FLOAT64"
+},
+{
+"name": "volume_term_eur",
+"type": "FLOAT64"
+},
+{
+"name": "basket_term_eur",
+"type": "FLOAT64"
+},
+{
+"name": "closure_residual_eur",
+"type": "FLOAT64"
+},
+{
+"name": "dominant_factor",
+"type": "STRING"
+},
+{
+"name": "top_families",
+"type": "ARRAY<STRUCT<family STRING, revenue FLOAT64, expected_revenue FLOAT64, delta_eur FLOAT64, revenue_share FLOAT64, baseline_share FLOAT64>>"
+},
+{
+"name": "families_delta_eur",
+"type": "FLOAT64"
+},
+{
+"name": "family_count",
+"type": "INT64"
+},
+{
+"name": "families_unexplained_eur",
+"type": "FLOAT64"
+},
+{
+"name": "families_revenue_gap_eur",
+"type": "FLOAT64"
+}
+]
+},
 "semantic.vw_insight_event_day_residual": {
 "type": "VIEW",
 "columns": [
@@ -30650,6 +31470,132 @@
 {
 "name": "arm_cooldown_days",
 "type": "INT64"
+}
+]
+},
+"semantic.vw_insight_event_family_price_daily": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "item_category",
+"type": "STRING"
+},
+{
+"name": "units",
+"type": "FLOAT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "discount_amount",
+"type": "FLOAT64"
+},
+{
+"name": "realized_price",
+"type": "FLOAT64"
+},
+{
+"name": "discount_rate",
+"type": "FLOAT64"
+},
+{
+"name": "price_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "price_sd",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_n",
+"type": "INT64"
+},
+{
+"name": "discount_rate_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "discount_rate_sd",
+"type": "FLOAT64"
+},
+{
+"name": "price_z",
+"type": "FLOAT64"
+},
+{
+"name": "price_delta_pct",
+"type": "FLOAT64"
+},
+{
+"name": "discount_z",
+"type": "FLOAT64"
+},
+{
+"name": "discount_delta_points",
+"type": "FLOAT64"
+},
+{
+"name": "is_price_move",
+"type": "BOOL"
+},
+{
+"name": "is_discount_move",
+"type": "BOOL"
+},
+{
+"name": "price_direction",
+"type": "STRING"
+}
+]
+},
+"semantic.vw_insight_event_item_absence_daily": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "item_description",
+"type": "STRING"
+},
+{
+"name": "item_category",
+"type": "STRING"
+},
+{
+"name": "days_sold_60",
+"type": "INT64"
+},
+{
+"name": "open_days_60",
+"type": "INT64"
+},
+{
+"name": "regularity",
+"type": "FLOAT64"
+},
+{
+"name": "expected_item_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "is_absent_regular",
+"type": "BOOL"
 }
 ]
 },
@@ -31754,6 +32700,95 @@
 }
 ]
 },
+"semantic.vw_insight_event_tickets_daily": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "tickets",
+"type": "INT64"
+},
+{
+"name": "lines",
+"type": "INT64"
+},
+{
+"name": "units",
+"type": "FLOAT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "lines_per_ticket",
+"type": "FLOAT64"
+},
+{
+"name": "single_line_share",
+"type": "FLOAT64"
+},
+{
+"name": "units_per_ticket",
+"type": "FLOAT64"
+},
+{
+"name": "discounted_ticket_share",
+"type": "FLOAT64"
+},
+{
+"name": "lines_per_ticket_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "lines_per_ticket_sd",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_n",
+"type": "INT64"
+},
+{
+"name": "single_line_share_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "units_per_ticket_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "discounted_ticket_share_baseline",
+"type": "FLOAT64"
+},
+{
+"name": "lines_per_ticket_delta",
+"type": "FLOAT64"
+},
+{
+"name": "lines_per_ticket_z",
+"type": "FLOAT64"
+},
+{
+"name": "single_line_share_delta_points",
+"type": "FLOAT64"
+},
+{
+"name": "is_lines_move",
+"type": "BOOL"
+},
+{
+"name": "direction",
+"type": "STRING"
+}
+]
+},
 "semantic.vw_insight_event_user_active_goal": {
 "type": "VIEW",
 "columns": [
@@ -32132,6 +33167,83 @@
 {
 "name": "region_name",
 "type": "STRING"
+}
+]
+},
+"semantic.vw_insight_national_tourism_macro_context": {
+"type": "VIEW",
+"columns": [
+{
+"name": "snapshot_year",
+"type": "INT64"
+},
+{
+"name": "is_national",
+"type": "BOOL"
+},
+{
+"name": "national_demand_source",
+"type": "STRING"
+},
+{
+"name": "national_demand_frequency",
+"type": "STRING"
+},
+{
+"name": "total_trips_perso",
+"type": "FLOAT64"
+},
+{
+"name": "total_trips_pro",
+"type": "FLOAT64"
+},
+{
+"name": "total_nights_perso",
+"type": "FLOAT64"
+},
+{
+"name": "total_nights_pro",
+"type": "FLOAT64"
+},
+{
+"name": "avg_nights_per_trip_perso",
+"type": "FLOAT64"
+},
+{
+"name": "avg_nights_per_trip_pro",
+"type": "FLOAT64"
+},
+{
+"name": "departure_travel_rate_pct",
+"type": "FLOAT64"
+},
+{
+"name": "region_capacity_source",
+"type": "STRING"
+},
+{
+"name": "region_capacity_frequency",
+"type": "STRING"
+},
+{
+"name": "region_capacity_context",
+"type": "ARRAY<STRUCT<region_code_insee STRING, category_group STRING, total_establishments FLOAT64, total_places FLOAT64, total_bedplaces FLOAT64, source STRING, frequency STRING>>"
+},
+{
+"name": "country_context_source",
+"type": "STRING"
+},
+{
+"name": "country_context_frequency",
+"type": "STRING"
+},
+{
+"name": "country_context",
+"type": "ARRAY<STRUCT<country_code STRING, recettes_eur_millions FLOAT64, depenses_eur_millions FLOAT64, solde_eur_millions FLOAT64, source STRING, frequency STRING>>"
+},
+{
+"name": "_semantic_generated_at",
+"type": "TIMESTAMP"
 }
 ]
 },
@@ -33534,6 +34646,10 @@
 {
 "name": "quantity",
 "type": "INT64"
+},
+{
+"name": "quantity_decimal",
+"type": "FLOAT64"
 },
 {
 "name": "customer_type",
