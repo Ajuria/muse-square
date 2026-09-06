@@ -1466,6 +1466,9 @@ const CARD_VALUE_TYPES = new Set([
 /** Motif de CONTEXTE d'une carte (doctrine 01/08) — l'ex-« Motif de fond » hérité, désormais
  *  une ligne de texte : la classe la plus lourde parmi météo/calendrier de la date affectée,
  *  ou la classe environnementale citée par la carte (CARD_CONTEXT_CLASS). Jamais le coin. */
+// 06/09 (audit P7) — cartes dont la VARIABLE est le calendrier : héritage calendaire seul.
+const CALENDAR_INHERIT_ONLY = new Set<string>(["commercial_event_match", "audience_shift_opportunity", "calendar_audience_shift"]);
+
 export function motifContextForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): DayClassImpact | null {
   const actionType = String(candidate?.action_type || "");
   const ctxKey = CARD_CONTEXT_CLASS[actionType];
@@ -1473,7 +1476,14 @@ export function motifContextForCandidate(result: DayClassResult, candidate: { ac
   if (!MOTIF_INHERIT_TYPES.has(actionType)) return null;
   const iso = String(candidate?.date?.value ?? candidate?.date ?? "").slice(0, 10);
   let best: DayClassImpact | null = null;
-  for (const token of ["weather@date", "calendar@date"]) {
+  // 06/09 (audit P7, owner « go p7 ») — l'héritage suit la NATURE de la carte. Une carte de
+  // CALENDRIER (rentrée, soldes, férié, vacances) n'hérite que du calendrier de sa date ; le motif
+  // météo le plus lourd lui tombait dessus par |€/an| : « Préparez une offre pour la rentrée
+  // scolaire — Motif du jour : jours à 25–27 °C » (mesuré 04/09 et 06/09 sur le compte owner).
+  // Sans classe calendaire mesurée sur la date (la rentrée est HORS vacances) → aucun motif, et
+  // c'est juste. Les cartes d'anomalie ventes et celles qui désignent une journée gardent les deux.
+  const tokens = CALENDAR_INHERIT_ONLY.has(actionType) ? ["calendar@date"] : ["weather@date", "calendar@date"];
+  for (const token of tokens) {
     const key = resolveClassToken(token, result, iso);
     const imp = key ? (result.impacts.get(key) ?? null) : null;
     if (imp && (!best || Math.abs(imp.eur_year) > Math.abs(best.eur_year))) best = imp;
