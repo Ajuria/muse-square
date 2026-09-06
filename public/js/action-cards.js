@@ -3838,12 +3838,16 @@
         ? 'Action conseill\u00e9e : revoyez sa place et son prix.'
         : 'Action conseill\u00e9e : mettez-le en avant — première place, visible de l\'entrée.';
     }, urgency: 'soon' },
-    // 06/09 — paniers à plusieurs articles : le geste porte sur le DEUXIÈME article (chose qu'on
-    // tient : sa place en caisse et sur le linéaire) ; forme « au prochain jour comme celui-ci » (item_share_move).
+    // 06/09 — paniers à plusieurs articles. Règle 4 du lexique (« on nomme ou on se tait »), owner
+    // 06/09 option 1 : le grain facture ne porte AUCUNE paire d'articles (0 ticket multi-lignes sur
+    // le compte owner ; codes Sage sans libellé chez Les Olivades), donc le geste ne désigne plus un
+    // « deuxième article » qu'il ne sait pas nommer. Les deux sens ouvrent sur la même moitié de
+    // phrase ratifiée (l'exploitant nomme lui-même ce qui était à côté) ; seule la hausse porte une
+    // queue (« l'association à reconduire »), fausse sur une baisse — la baisse s'arrête là.
     'tickets_lines_move': { action: function(a, p, d) {
       var _dirT = a.direction || (Number(a.lines_per_ticket_delta || 0) < 0 ? 'collapse' : 'surge');
       return _dirT === 'collapse'
-        ? 'Action conseill\u00e9e : au prochain jour comme celui-ci, remettez le deuxi\u00e8me article \u00e0 c\u00f4t\u00e9 du premier \u2014 en caisse et sur le lin\u00e9aire.'
+        ? 'Action conseill\u00e9e : notez ce qui \u00e9tait \u00e0 c\u00f4t\u00e9 du produit ce jour-l\u00e0.'
         : 'Action conseill\u00e9e : notez ce qui \u00e9tait \u00e0 c\u00f4t\u00e9 du produit ce jour-l\u00e0 \u2014 c\u2019est l\u2019association \u00e0 reconduire.';
     }, urgency: 'soon' },
     'hour_share_move': { action: function(a, p, d) {

@@ -37,12 +37,13 @@ const SURGE_0905 = { tickets: 107, lines: 348, revenue: 1537, lines_per_ticket: 
   avg_line_eur: 4.42, delta_eur: 685 };
 
 describe("tickets_lines_move — chaque couche dans son unité, jamais d'euros dans le corps", () => {
-  it("effondrement : titre au sens, corps en articles / tickets, geste sur le deuxième article", () => {
+  it("effondrement : titre au sens, corps en articles / tickets, geste sans article nommé (règle 4, owner 06/09)", () => {
     const t = render(COLLAPSE_0830, "2026-08-30");
     expect(t.what).toBe("Moins de paniers à plusieurs articles que d’habitude");
     expect(t.sowhat).toBe("1,0 article par ticket le 30/08 contre 1,8 d’habitude : 97 % des tickets à un seul article contre 54 %, sur 322 tickets. Tickets remisés : 17 % contre 24 %.");
     expect(t.sowhat).not.toMatch(/€/);
-    expect(t.action).toBe("Action conseillée : au prochain jour comme celui-ci, remettez le deuxième article à côté du premier — en caisse et sur le linéaire.");
+    expect(t.action).toBe("Action conseillée : notez ce qui était à côté du produit ce jour-là.");
+    expect(t.action).not.toMatch(/deuxième article|à côté du premier/);
   });
   it("hausse : pluriel « articles », titre « Plus de … », geste d'observation", () => {
     const t = render(SURGE_0905, "2026-09-05");
@@ -59,6 +60,6 @@ describe("tickets_lines_move — chaque couche dans son unité, jamais d'euros d
     const { direction: _d, ...noDir } = COLLAPSE_0830;
     const t = render(noDir, "2026-08-30");
     expect(t.what).toMatch(/^Moins de paniers/);
-    expect(t.action).toMatch(/remettez le deuxième article/);
+    expect(t.action).toBe("Action conseillée : notez ce qui était à côté du produit ce jour-là.");
   });
 });
