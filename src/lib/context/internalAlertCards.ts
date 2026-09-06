@@ -26,6 +26,7 @@ export const V1_ALERT_ACTION_TYPES: string[] = [
   "item_absent_regular",
   // 06/09 — prix réalisé par famille (fct_client_family_price_daily).
   "family_price_move",
+  "family_discount_move",
 ];
 
 export const V1_ALERT_ACTION_TYPE_SET: ReadonlySet<string> = new Set(V1_ALERT_ACTION_TYPES);

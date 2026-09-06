@@ -289,6 +289,12 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   et 4 (35 °C et plus) et se dit « Alerte météo (niveau critique), … 15°C–35°C » — le repli. Le
   chantier structurel dit déjà « dispositif **forte chaleur** » pour la classe 28 °C et plus : LE mot
   de l'alerte est à arbitrer (le même, ou un autre).
+- **Carte « Remise par famille » (`family_discount_move`, 06/09)** — chaînes à ratifier : titre « Drinking
+  Chocolate remisé plus / moins que d'habitude » ; corps « Drinking Chocolate : remise 5,9 % du CA le 09/08
+  contre 2,5 % d'habitude (12 € sur 211 €), sur 51 unités vendues. » (forme de la carte site « Vous avez
+  remisé 2,6 % du CA… ») ; gestes « vérifiez les tickets remisés de <famille> ce jour-là — qui, sur quoi,
+  et si c'était prévu. » (hausse) et « notez ce qui s'est vendu sans remise dans <famille> ce jour-là. »
+  (baisse). Plancher 10 unités (comme le prix) : à confirmer.
 - **Carte « Prix réalisé par famille » (`family_price_move`, 06/09)** — chaînes à ratifier : titre « Drinking
   Chocolate vendu moins cher / plus cher que d'habitude » ; corps « Drinking Chocolate : 3,87 € l'unité le 30/08
   contre 4,13 € d'habitude (−6 %), sur 43 unités vendues. » ; gestes « vérifiez les tickets de <famille> ce

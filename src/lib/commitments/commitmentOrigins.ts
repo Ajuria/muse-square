@@ -142,6 +142,7 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "tickets_lines_move",
   "item_absent_regular",
   "family_price_move",
+  "family_discount_move",
 
   // Onboarding P2 (05/08) : le PREMIER test mesuré d'un compte neuf — geste du tableau
   // « Engagez votre premier test mesuré » (MSCommitForm, fenêtre à venir, verdict auto).

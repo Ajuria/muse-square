@@ -238,6 +238,7 @@ export const CARD_FUNNEL_STEP: Record<string, KpiKey> = {
   // 06/09 — paniers à plusieurs articles : le geste (deuxième article à côté du premier) joue sur la valeur du ticket.
   tickets_lines_move: "basket",
   family_price_move: "basket",
+  family_discount_move: "basket",
   // K5 — ventes (le geste fait des transactions)
   hour_share_move: "transactions",
   item_share_move: "transactions",

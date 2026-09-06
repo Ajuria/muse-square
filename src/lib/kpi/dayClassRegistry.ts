@@ -1447,6 +1447,8 @@ const CARD_VALUE_TYPES = new Set([
   "item_absent_regular",
   // 06/09 — prix réalisé par famille : coin « ce jour » sur delta_eur (effet prix à volume constant).
   "family_price_move",
+  // 06/09 — remise par famille : coin « ce jour » sur delta_eur (remise en plus ou en moins × CA du jour).
+  "family_discount_move",
   // 22/08 — low_competition_window entre ici APRÈS sa sortie de CARD_TYPE_CLASS. Cet ensemble
   // commande DEUX choses : le coin passe par CARD_POPULATION (aucune entrée pour ce type ⇒
   // null, coin absent, doublon avec le chantier structurel réglé) ET le calcul de

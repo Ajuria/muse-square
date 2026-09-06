@@ -2806,6 +2806,32 @@
     },
     {}
   );
+  // 06/09 — family_discount_move : taux de remise (remise / CA brut) d'une famille contre sa base
+  // 28 j — mart fct_client_family_price_daily. Le grain FAMILLE de sales_discount_no_lift (« Vous
+  // avez remisé 2,6 % du CA le 31/08, contre ~2,3 % d'habitude », forme approuvée). Le taux se
+  // dit en % du CA, la remise en € du jour ; le prix réalisé n'entre que si le mart l'a vu bouger.
+  reg('family_discount_move', 'Remise par famille', 'INTELLIGENCE', '🏷️', '#B45309', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var nom = a.item_category || 'Une famille';
+      var dr = a.discount_rate != null ? Number(a.discount_rate) * 100 : null;
+      var drB = a.discount_rate_baseline != null ? Number(a.discount_rate_baseline) * 100 : null;
+      var dA = a.discount_amount != null ? Math.round(Number(a.discount_amount)) : null;
+      var rev = a.revenue != null ? Math.round(Number(a.revenue)) : null;
+      var un = a.units != null ? Math.round(Number(a.units)) : null;
+      if (dr == null || drB == null) return nom + ' : remise inhabituelle ce jour-là.';
+      // « Drinking Chocolate : remise 5,9 % du CA le 09/08 contre 2,5 % d'habitude (12 € sur 211 €), sur 51 unités vendues. »
+      var line = nom + ' : remise ' + frDec(dr, 1) + ' % du CA' + frDateFr(a.affected_date) + ' contre ' + frDec(drB, 1) + ' % d’habitude';
+      if (dA != null && rev != null) line += ' (' + frInt(dA) + ' € sur ' + frInt(rev) + ' €)';
+      if (un != null) line += ', sur ' + frInt(un) + ' unités vendues';
+      line += '.';
+      if (a.is_price_move === true && a.price_delta_pct != null) {
+        var _pdp = Math.round(Number(a.price_delta_pct));
+        line += ' Prix moyen réalisé ' + (_pdp >= 0 ? '+' : '−') + Math.abs(_pdp) + ' %.';
+      }
+      return line;
+    },
+    {}
+  );
   // 23/08 — item_share_move : le grain PRODUIT, calqué mot pour mot sur offering_mix_shift
   // (la surface approuvée ci-dessus), « catégorie » → « produit ». Payload dbt
   // (fct_client_item_signals_daily) : item_description, revenue_share, baseline_share,
@@ -3172,7 +3198,7 @@
         // Corps \u00e9tendu PAR CARTE (gabarit owner 25/08) : le cr\u00e9neau dit r\u00e9currence + fait +
         // funnel + r\u00e9serve de r\u00e9gime — 4 phrases ; les autres cartes gardent 2 phrases / 200.
         // 06/09 (trois couches) : sales_surge / down_wow disent fait + facteur + familles = 3 phrases.
-        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], tickets_lines_move: [3, 320], item_absent_regular: [3, 320], family_price_move: [3, 320], sales_surge: [3, 470], sales_revenue_down_wow: [3, 470] })[actionType] || [2, 200];
+        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], tickets_lines_move: [3, 320], item_absent_regular: [3, 320], family_price_move: [3, 320], family_discount_move: [3, 320], sales_surge: [3, 470], sales_revenue_down_wow: [3, 470] })[actionType] || [2, 200];
         try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); if (_swObj.reserve) reserveText = String(_swObj.reserve); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, _swLim[0]).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, _swLim[1]); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
         // Name the actual weekday on the sales movement cards — never "jours comparables".
@@ -3213,6 +3239,11 @@
         // (« Paniers à plusieurs articles ») et le référentiel de la ligne Familles (« d'habitude »).
         // 06/09 — produit régulier absent : le titre nomme le produit (règle 4) ; à plusieurs, le compte.
         // 06/09 — prix réalisé : titre au SENS avec la famille nommée et le référentiel ratifié (« que d'habitude »).
+        // 06/09 — remise par famille : titre au SENS, famille nommée, référentiel ratifié.
+        else if (actionType === 'family_discount_move') {
+          var _fdd = feedItem.direction || (Number(feedItem.discount_delta_points || 0) < 0 ? 'collapse' : 'surge');
+          whatText = (feedItem.item_category || 'Une famille') + (_fdd === 'collapse' ? ' remis\u00e9 moins que d\u2019habitude' : ' remis\u00e9 plus que d\u2019habitude');
+        }
         else if (actionType === 'family_price_move') {
           var _fpd = feedItem.direction || (Number(feedItem.price_delta_pct || 0) < 0 ? 'collapse' : 'surge');
           whatText = (feedItem.item_category || 'Une famille') + (_fpd === 'collapse' ? ' vendu moins cher que d\u2019habitude' : ' vendu plus cher que d\u2019habitude');
@@ -3909,6 +3940,15 @@
     // qu'on tient) ; la cause n'est pas nommée parce que la caisse ne la donne pas (règle 4).
     // 06/09 — prix réalisé : baisse = vérifier les tickets de la famille (cause non nommée, règle 4) ;
     // hausse = noter ce qui s'est vendu (forme « notez … — c'est … à reconduire », ratifiée sur les paniers).
+    // 06/09 — remise par famille : hausse = vérifier les tickets remisés (qui, sur quoi, prévu ou non) ;
+    // baisse = noter ce qui s'est vendu sans remise (forme « notez … » ratifiée).
+    'family_discount_move': { action: function(a, p, d) {
+      var _fdd2 = a.direction || (Number(a.discount_delta_points || 0) < 0 ? 'collapse' : 'surge');
+      var _famD = a.item_category || 'cette famille';
+      return _fdd2 === 'collapse'
+        ? 'Action conseill\u00e9e : notez ce qui s\u2019est vendu sans remise dans ' + _famD + ' ce jour-l\u00e0.'
+        : 'Action conseill\u00e9e : v\u00e9rifiez les tickets remis\u00e9s de ' + _famD + ' ce jour-l\u00e0 \u2014 qui, sur quoi, et si c\u2019\u00e9tait pr\u00e9vu.';
+    }, urgency: 'soon' },
     'family_price_move': { action: function(a, p, d) {
       var _fpd2 = a.direction || (Number(a.price_delta_pct || 0) < 0 ? 'collapse' : 'surge');
       var _fam = a.item_category || 'cette famille';
@@ -4025,7 +4065,7 @@
         { id: 'ventes', label: 'Performance ventes', gate: 'pos', action_types: [
           'sales_underperformance', 'sales_surge', 'sales_missed_opportunity', 'sales_competition_cannibalization',
           'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift',
-          'tickets_lines_move', 'item_absent_regular', 'family_price_move',
+          'tickets_lines_move', 'item_absent_regular', 'family_price_move', 'family_discount_move',
           'footfall_vs_basket_decomposition', 'client_dormant', 'weekly_sales_hole', 'weekly_sales_spike',
           'monthly_sales_hole', 'monthly_sales_spike'] },
         { id: 'apprentissage', label: 'Apprentissage', gate: 'measured_actions', action_types: [
@@ -4154,6 +4194,6 @@
   window.MS_REGIME_GATE_TYPES = { hour_share_move: 1, item_share_move: 1, offering_mix_shift: 1 };
   // 06/09 (audit N3) - meme liste que PERSISTENT_COMPETITOR_TYPES (lib/recos/recoThemeMap), valeur = jours de validite.
   window.MS_PERSISTENT_TYPES = { competitor_price_drop: 14, competitor_price_increase: 14, competitor_repricing_event: 14, competitor_hours_change: 14, competitor_new_offering: 14, competitor_offering_removed: 14 };
-  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','tickets_lines_move','item_absent_regular','family_price_move','hour_share_move'];
+  window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','tickets_lines_move','item_absent_regular','family_price_move','family_discount_move','hour_share_move'];
 
 })();

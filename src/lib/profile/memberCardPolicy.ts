@@ -14,7 +14,7 @@
 
 // 'famille' : le contenu de la carte est une famille produit (item_category au payload).
 // 06/09 — item_absent_regular : item_category = la famille du premier produit absent (classé par CA habituel).
-const FAMILY_SCOPED = new Set(["item_share_move", "offering_mix_shift", "item_absent_regular", "family_price_move"]);
+const FAMILY_SCOPED = new Set(["item_share_move", "offering_mix_shift", "item_absent_regular", "family_price_move", "family_discount_move"]);
 
 // 'owner' : jamais montrées à un membre. client_dormant porte l'identité et le CA cumulé
 // d'un client B2B ; les synthèses de période (briefing, semaine, mois) sont par nature des

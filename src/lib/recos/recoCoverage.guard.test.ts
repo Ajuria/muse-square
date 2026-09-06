@@ -100,7 +100,8 @@ const DETTE_SANS_PLANS = [
   "day_opportunity",
   "extended_bad_weather",
   "extended_bad_weather_3d",
-  // 06/09 — family_price_move : carte née sans plans (mots owner attendus).
+  // 06/09 — family_price_move / family_discount_move : cartes nées sans plans (mots owner attendus).
+  "family_discount_move",
   "family_price_move",
   "foreign_tourism_signal",
   "ft_peak_bad_weather",
