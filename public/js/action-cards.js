@@ -2955,6 +2955,13 @@
         } else {
           continue;
         }
+      } else if (window.MS_PERSISTENT_TYPES && window.MS_PERSISTENT_TYPES[actionType] && _todayN && target === _todayN) {
+        // 06/09 (audit N3) - changement concurrent SANS TERME (prix, offre, horaires) : rendu sur
+        // AUJOURD'HUI tant que le fait a moins de N jours (N = MS_PERSISTENT_TYPES[type], liste
+        // partagee avec lib/recos/recoThemeMap PERSISTENT_COMPETITOR_TYPES). La date du fait vit
+        // dans la meta de la carte (affected_date). Sur une date passee : rendu sur SA date seulement.
+        var _pAge = Date.parse(_todayN + 'T00:00:00Z') - Date.parse(acDate + 'T00:00:00Z');
+        if (!(isFinite(_pAge) && _pAge >= 0 && _pAge <= window.MS_PERSISTENT_TYPES[actionType] * 86400000)) continue;
       } else if (acDate !== target) {
         continue;
       }
@@ -3740,6 +3747,12 @@
           var _raw = origFn(a, p, d);
           var _meta = ACTION_SENTENCES[key];
           if (!_meta) return _raw;
+          // 06/09 (audit N3) - les six types concurrents sans terme reviennent sur Actions avec leur
+          // FAIT seul (nomme, chiffre, date). Leurs lignes ACTION_SENTENCES (ecrites avant la demotion
+          // du 28/07) echouent aux tests 8-12 du lexique (<< Votre positionnement tarifaire devient
+          // relativement plus attractif >>, << Ne vous alignez pas par reflexe >>...) : slot EN ATTENTE
+          // owner, signale dans l'audit du 06/09 - jamais reecrit ici. Les lignes restent en place.
+          if (window.MS_PERSISTENT_TYPES && window.MS_PERSISTENT_TYPES[key]) return _raw;
           var _action = (typeof _meta.action === 'function') ? _meta.action(a, p, d) : _meta.action;
           return { context: _raw, action: _action, urgency: _meta.urgency };
         };
@@ -3913,6 +3926,8 @@
 
   // v1 internal-alert allowlist — the 5 performance RULE cards eligible for "Communiquer en interne".
   // Keep in sync with src/lib/context/internalAlertCards.ts (backend Barrier 2).
+  // 06/09 (audit N3) - meme liste que PERSISTENT_COMPETITOR_TYPES (lib/recos/recoThemeMap), valeur = jours de validite.
+  window.MS_PERSISTENT_TYPES = { competitor_price_drop: 14, competitor_price_increase: 14, competitor_repricing_event: 14, competitor_hours_change: 14, competitor_new_offering: 14, competitor_offering_removed: 14 };
   window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','hour_share_move'];
 
 })();

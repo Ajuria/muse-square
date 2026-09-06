@@ -9,7 +9,7 @@
 import { test, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { RECO_THEME_ACTION_TYPES } from "./recoThemeMap";
+import { RECO_THEME_ACTION_TYPES, PERSISTENT_COMPETITOR_TYPES, PERSISTENT_VALIDITY_DAYS } from "./recoThemeMap";
 
 // Extract the RECO_TAXONOMY object literal by brace-matching, then eval just
 // that slice — avoids running the full client script (which touches DOM).
@@ -55,4 +55,17 @@ test("client RECO_TAXONOMY and server RECO_THEME_ACTION_TYPES cover the same act
   const inServerOnly = [...server].filter((x) => !client.has(x)).sort();
   // On failure the diff names exactly which action_types drifted, each way.
   expect({ inClientOnly, inServerOnly }).toEqual({ inClientOnly: [], inServerOnly: [] });
+});
+
+// 06/09 (audit N3) — la liste des changements concurrents sans terme vit deux fois (lib : service
+// monitor/days ; kit : fenêtre de rendu). Même liste, même nombre de jours, sinon une carte servie
+// n'est pas rendue — ou l'inverse.
+test("MS_PERSISTENT_TYPES (kit) = PERSISTENT_COMPETITOR_TYPES × PERSISTENT_VALIDITY_DAYS (lib)", () => {
+  const src = readFileSync(resolve("public/js/action-cards.js"), "utf8");
+  const idx = src.indexOf("window.MS_PERSISTENT_TYPES = ");
+  expect(idx).toBeGreaterThan(-1);
+  const start = src.indexOf("{", idx), end = src.indexOf("}", start) + 1;
+  const kit = Function(`return (${src.slice(start, end)});`)() as Record<string, number>;
+  expect(Object.keys(kit).sort()).toEqual([...PERSISTENT_COMPETITOR_TYPES].sort());
+  for (const k of Object.keys(kit)) expect(kit[k]).toBe(PERSISTENT_VALIDITY_DAYS);
 });

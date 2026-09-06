@@ -165,15 +165,31 @@ export const DEMOTED_TO_FEED = new Set([
   "weekly_briefing",
   // signaux concurrents ponctuels non-réputation (amendement C2) : aucune grandeur de VOTRE
   // activité ne mesure l'issue de « réagir au reprix d'un concurrent » — vigilance, pas action.
+  // 06/09 (audit N3, owner : « un concurrent qui change ses prix ou lance un produit ne doit pas
+  // expirer le lendemain ») : prix, offre, horaires REVIENNENT sur Actions — voir
+  // PERSISTENT_COMPETITOR_TYPES ci-dessous. Le contenu (spike/silent) reste au Fil.
+  "competitor_content_spike",
+  "competitor_content_silent",
+]);
+
+// ── 06/09 (audit N3) — CE QUI N'A PAS DE TERME NE S'ÉTEINT PAS LE SOIR MÊME ──────────────────
+// Un changement de prix, une offre lancée ou retirée, des horaires modifiés chez un suivi sont des
+// FAITS sans date de fin ; le mart les date du jour de détection et `expires_at = feed_date`.
+// Mesuré le 06/09 : competitor_price_increase et competitor_new_offering émis sur le parc, datés
+// et expirant le 06/09, ET démis au Fil — visibles zéro jour sur Actions. Ici : la liste des
+// types qui restent lisibles PERSISTENT_VALIDITY_DAYS jours après le fait (monitor / days les
+// servent sur cette fenêtre ; renderActionCandidates les rend sur aujourd'hui, date du fait dans
+// la méta). 14 jours = valeur provisoire, arbitrage owner en attente (audit § 4, décision b).
+// Le kit porte la même liste sous window.MS_PERSISTENT_TYPES (test de parité).
+export const PERSISTENT_VALIDITY_DAYS = 14;
+export const PERSISTENT_COMPETITOR_TYPES: readonly string[] = [
   "competitor_price_drop",
   "competitor_price_increase",
   "competitor_repricing_event",
   "competitor_hours_change",
   "competitor_new_offering",
   "competitor_offering_removed",
-  "competitor_content_spike",
-  "competitor_content_silent",
-]);
+];
 
 // Drop candidates whose action_type belongs to a disabled theme, plus the DEMOTED types
 // (feed-only). Uncovered action_types (not in any theme) always pass the theme check.
