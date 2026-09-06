@@ -2948,6 +2948,20 @@
       if (exp != null) line += ' contre ' + frInt(exp) + ' \u20ac votre ' + dow + ' habituel \u00e0 cette heure';
       if (dg != null) line += ', sur une journ\u00e9e \u00e0 ' + sEur(dg);
       line += '.';
+      // 06/09 — build 2 (owner) : CE QUI MANQUE (ou porte) À CETTE HEURE, nommé — les familles
+      // de l'heure, calculées au mart (hour_family_gaps, même référentiel que delta_eur), dans
+      // la forme approuvée de la ligne Familles du verdict (« X contre Y d'habitude »). Seules
+      // les familles du même signe que l'heure ; jamais plus de trois ; muet sans payload.
+      var _fg = Array.isArray(a.hour_family_gaps) ? a.hour_family_gaps : null;
+      if (_fg && _fg.length) {
+        var _sg = dir === 'collapse' ? -1 : 1;
+        var _fl = _fg.filter(function (g) { return g && g.family && g.delta != null && Number(g.delta) * _sg > 0; }).slice(0, 3);
+        if (_fl.length) {
+          line += ' Familles : ' + _fl.map(function (g, i) {
+            return g.family + ' ' + frInt(g.revenue) + ' \u20ac contre ' + frInt(g.expected) + ' \u20ac' + (i === 0 ? ' d\u2019habitude \u00e0 cette heure' : '');
+          }).join(', ') + '.';
+        }
+      }
       // LE FAIT QUE LA CARTE TAISAIT (owner 25/08) : l'écart de l'objet contre celui de la
       // JOURNÉE. Les deux sont dans le payload depuis toujours ; personne ne les confrontait.
       var _rsF = reportOuSurplus(a);

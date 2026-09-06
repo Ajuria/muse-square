@@ -326,6 +326,10 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   incomplet ? Notez-le · sinon, laissez. » (la fin est la forme prod de l'atelier). Concept sans mot : « journée
   arrêtée » (la caisse s'est tue avant la fin habituelle). Surface : carte `hour_share_move`, payload
   `is_day_stopped` (HANDOFF-journee-arretee-2026-09-06).
+- **Familles de l'heure (build 2, owner 06/09) — mots PROVISOIRES** : « Familles : Coffee 22 € contre 70 € d'habitude
+  à cette heure, Tea 11 € contre 52 €, Bakery 0 € contre 23 €. » — forme de la ligne Familles du verdict (06/09), le
+  référentiel dit une fois ; surface : corps de `hour_share_move`, payload `hour_family_gaps`
+  (HANDOFF-familles-heure-2026-09-06).
 - **Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3)** :
   competitor_price_increase (« Saisissez la marge tarifaire »), competitor_price_drop,
   competitor_repricing_event (« Analysez ce mouvement tarifaire »), competitor_new_offering,
