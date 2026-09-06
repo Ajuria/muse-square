@@ -301,10 +301,30 @@ export async function resolveCommitment(
     if (nAct >= 1 && Number.isFinite(actBk) && expBk != null && expBk > 0) windowBasketDeltaPct = round2(((actBk - expBk) / expBk) * 100);
   } catch { windowTransactionsDeltaPct = null; windowBasketDeltaPct = null; }
 
+  // 10. 06/09 — LES TROIS COUCHES sur la fenêtre (lot dbt ms_database#112) : Σ des termes volume et
+  // panier de vw_insight_event_day_decomposition (fermeture exacte jour par jour, donc sur la fenêtre :
+  // Σ volume + Σ panier = Σ CA − Σ attendu). Même référentiel que le verdict CA. Vue absente → null.
+  let windowVolumeTermEur: number | null = null;
+  let windowBasketTermEur: number | null = null;
+  try {
+    const [drows] = await bq.query({
+      query: `SELECT SUM(volume_term_eur) AS v, SUM(basket_term_eur) AS b, COUNT(*) AS n FROM \`${BQ_PROJECT}.semantic.vw_insight_event_day_decomposition\` WHERE location_id=@loc AND date BETWEEN @minD AND @maxD`,
+      params: { loc: snap.location_id, minD: bq.date(minDate), maxD: bq.date(maxDate) },
+      location: "EU",
+    });
+    const d0: any = drows?.[0] || {};
+    if ((Number(flat(d0.n)) || 0) >= 1 && Number.isFinite(Number(flat(d0.v))) && Number.isFinite(Number(flat(d0.b)))) {
+      windowVolumeTermEur = round2(Number(flat(d0.v)));
+      windowBasketTermEur = round2(Number(flat(d0.b)));
+    }
+  } catch { windowVolumeTermEur = null; windowBasketTermEur = null; }
+
   return {
     patch: {
       window_transactions_delta_pct: windowTransactionsDeltaPct,
       window_basket_delta_pct: windowBasketDeltaPct,
+      window_volume_term_eur: windowVolumeTermEur,
+      window_basket_term_eur: windowBasketTermEur,
       kpi_window_value: kpiWindowValue,
       kpi_delta_pct: kpiDeltaPct,
       kpi_noise_se: kpiNoiseSe,

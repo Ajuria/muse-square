@@ -149,6 +149,9 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   // § 9). ALTER ADD COLUMN IF NOT EXISTS vérifié live le 06/09 (positions 82-83).
   ["window_transactions_delta_pct", "FLOAT64"],
   ["window_basket_delta_pct", "FLOAT64"],
+  // 06/09 — termes en € de la fenêtre (volume, panier), lot trois couches. ALTER vérifié live le 06/09.
+  ["window_volume_term_eur", "FLOAT64"],
+  ["window_basket_term_eur", "FLOAT64"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -200,6 +203,8 @@ export interface CommitmentRow {
   window_days_resolved: number | null;
   window_transactions_delta_pct?: number | null;   // 06/09 (audit N6)
   window_basket_delta_pct?: number | null;         // 06/09 (audit N6)
+  window_volume_term_eur?: number | null;          // 06/09 (trois couches)
+  window_basket_term_eur?: number | null;          // 06/09 (trois couches)
   ctx_any_school_holiday: boolean | null;
   ctx_school_holiday_days: number | null;
   material_holiday_share: number | null;

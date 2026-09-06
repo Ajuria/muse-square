@@ -359,3 +359,14 @@ App-activity chain (`int_user_*`, `int_publish_log`, `int_channel_performance`),
 - [`bq-catalog.allowlist.json`](bq-catalog.allowlist.json) — compact `dataset.table → [column names]` sidecar (allowlist for the `bq-guard` hook).
 - Regenerate with [`refresh-bq-catalog.sh`](refresh-bq-catalog.sh). For any query, re-verify the exact column against live `INFORMATION_SCHEMA` via the `bq-verify` skill. Run BQ with `--location=EU`; always `DATE()`-cast.
 | `fct_client_hourly_signals_daily` 🆕 | table | location_id × transaction_date × transaction_hour — part de l'heure dans le CA du jour vs sa moyenne 30 j (z ≥ 2, ≥ 8 pts, n ≥ 20, calibré 23/08 : 16 % des jours-site) ; source `fct_client_hourly_sales` ; consommé par le CTE `hour_share_move` |
+
+### Lot « trois couches et grain facture » (06/09/2026, PR ms_database#112)
+
+| modèle | grain | lignage | colonnes clés |
+|---|---|---|---|
+| `mart.fct_client_tickets` | site × jour × ticket | stg_client_transactions (is_invoiced, invoice_number) | lignes, articles, familles, unités (quantity_decimal), CA, remise, heure, canal, type client, paiement — LE grain facture (lot 06/09, ms_database#112) |
+| `mart.fct_client_tickets_daily` | site × jour | fct_client_tickets | lignes par ticket, part tickets à 1 article, unités par ticket, part remisée ; base 28 j, is_lines_move |
+| `mart.fct_client_family_price_daily` | site × jour × famille | stg_client_transactions | prix réalisé (CA/unités), taux de remise ; base 28 j ; is_price_move (units ≥ 10), is_discount_move |
+| `mart.fct_client_item_absence_daily` | site × jour × produit (absences) | stg_client_transactions | produit régulier (≥ 80 % des 60 jours d'ouverture) absent un jour d'ouverture : is_absent_regular, expected_item_revenue |
+| `mart.fct_client_day_decomposition` | site × jour | fct_client_day_residual × fct_client_daily_performance × fct_client_offering_daily | volume_term_eur + basket_term_eur = CA − attendu (exact) ; mix : top_families (spine 30 j, parts en ratio de sommes, Σ = gap), families_unexplained_eur, dominant_factor (porte de signe) |
+| `semantic.vw_insight_event_day_decomposition · vw_insight_event_tickets_daily · vw_insight_event_family_price_daily · vw_insight_event_item_absence_daily` | id. | les 4 marts ci-dessus | projections fidèles, contrat enforced (schéma généré du réel) — surfaces de lecture de l'app |
