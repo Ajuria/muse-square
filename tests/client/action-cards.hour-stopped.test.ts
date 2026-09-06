@@ -31,14 +31,14 @@ const STOPPED_0708 = { transaction_hour: 13, hour_revenue: 0, expected_hour_reve
 describe("hour_share_move — journée arrêtée (build 1, owner 06/09)", () => {
   it("titre = la fin de journée, corps = dernière vente + queue à zéro + niveau à l'arrêt + récurrence", () => {
     const t = render(STOPPED_0708, "2026-08-07");
-    expect(t.what).toBe("Aucune vente de 13 h à 19 h");
-    expect(t.sowhat).toBe("Dernière vente à 12 h 53 ce vendredi. De 13 h à 19 h : 0 ticket contre 126 tickets et 589 € votre vendredi habituel sur ces heures. La journée faisait 1 169 € à 13 h contre 1 439 € d’habitude à cette heure, −859 € sur la journée. 4e journée arrêtée en 90 jours (10/05, 07/06, 08/07).");
-    expect(t.sowhat).not.toMatch(/heure qui a manqué|15 h|entre 12 h/);
-    expect(t.action).toBe("Actions conseillées : aucune vente enregistrée à partir de 13 h — fermeture, panne de caisse ou export incomplet ? Notez-le · sinon, laissez.");
+    expect(t.what).toBe("Fermeture anticipée : dernière vente à 12 h 53");
+    expect(t.sowhat).toBe("Fermé après 12 h 53 ce vendredi : de 13 h à 19 h, 0 ticket au lieu de 126, 589 € manqués. À 13 h, le CA de la journée était de 1 169 € contre 1 439 € d’habitude à cette heure ; −859 € sur la journée. 4e fermeture anticipée depuis le 10/05.");
+    expect(t.sowhat).not.toMatch(/heure qui a manqué|15 h|entre 12 h|arrêtée/);
+    expect(t.action).toBe("Fermeture voulue, panne de caisse ou export incomplet ? Notez-le · sinon, laissez.");
   });
   it("sans la minute au payload, repli sur l'heure pleine", () => {
     const { last_sale_time: _m, ...noMin } = STOPPED_0708;
-    expect(render(noMin, "2026-08-07").sowhat).toMatch(/^Dernière vente entre 12 h et 13 h ce vendredi\./);
+    expect(render(noMin, "2026-08-07").sowhat).toMatch(/^Fermé entre 12 h et 13 h ce vendredi : de 13 h à 19 h, 0 ticket au lieu de 126/);
   });
   it("sans le drapeau du mart, la carte heure ordinaire est inchangée", () => {
     const { is_day_stopped: _s, ...plain } = STOPPED_0708;

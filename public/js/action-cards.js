@@ -2925,15 +2925,16 @@
         var _lt = (typeof a.last_sale_time === 'string' && /^\d{2}:\d{2}$/.test(a.last_sale_time))
           ? 'à ' + String(Number(a.last_sale_time.slice(0, 2))) + ' h ' + a.last_sale_time.slice(3)
           : 'entre ' + _ls + ' h et ' + (_ls + 1) + ' h';
-        var _st = 'Dernière vente ' + _lt + ' ce ' + dow + '. De ' + _sh + ' h à ' + (_tl + 1) + ' h : 0 ticket';
-        if (_stx != null && _ser != null) _st += ' contre ' + frInt(_stx) + ' tickets et ' + frInt(_ser) + ' € votre ' + dow + ' habituel sur ces heures';
+        var _st = 'Fermé ' + (_lt.charAt(0) === 'à' ? 'après ' + _lt.slice(2) : _lt) + ' ce ' + dow + ' : de ' + _sh + ' h à ' + (_tl + 1) + ' h, 0 ticket';
+        if (_stx != null) _st += ' au lieu de ' + frInt(_stx);
+        if (_ser != null) _st += ', ' + frInt(_ser) + ' € manqués';
         _st += '.';
         if (_dr != null && _eus != null) {
-          _st += ' La journée faisait ' + frInt(_dr) + ' € à ' + _sh + ' h contre ' + frInt(_eus) + ' € d’habitude à cette heure';
-          if (dg != null) _st += ', ' + sEur(dg) + ' sur la journée';
+          _st += ' À ' + _sh + ' h, le CA de la journée était de ' + frInt(_dr) + ' € contre ' + frInt(_eus) + ' € d’habitude à cette heure';
+          if (dg != null) _st += ' ; ' + sEur(dg) + ' sur la journée';
           _st += '.';
         }
-        if (_nst > 0 && a.stopped_dates_90d) _st += ' ' + (_nst + 1) + 'e journée arrêtée en 90 jours (' + a.stopped_dates_90d + ').';
+        if (_nst > 0 && a.stopped_dates_90d) _st += ' ' + (_nst + 1) + 'e fermeture anticipée depuis le ' + String(a.stopped_dates_90d).split(',')[0].trim() + '.';
         return _st;
       }
       var line = '';
@@ -3309,7 +3310,7 @@
           // stop_hour, typical_last_hour) ; « Aucune vente de 13 h à 19 h » = la chaîne headline_fr
           // du bloc candidat, mot pour mot. Mots provisoires (lexique § À arbitrer).
           if (actionType === 'hour_share_move' && feedItem.is_day_stopped === true && feedItem.stop_hour != null && feedItem.typical_last_hour != null) {
-            whatText = 'Aucune vente de ' + Number(feedItem.stop_hour) + ' h à ' + (Number(feedItem.typical_last_hour) + 1) + ' h';
+            whatText = 'Fermeture anticipée' + ((typeof feedItem.last_sale_time === 'string' && /^\d{2}:\d{2}$/.test(feedItem.last_sale_time)) ? ' : dernière vente à ' + String(Number(feedItem.last_sale_time.slice(0, 2))) + ' h ' + feedItem.last_sale_time.slice(3) : ' à ' + Number(feedItem.stop_hour) + ' h');
           } else if (actionType === 'hour_share_move' && feedItem.transaction_hour != null) {
             var _hh = Number(feedItem.transaction_hour);
             // Réserve de régime (25/08) : le titre dit le FAIT (« en hausse/en retrait »,
@@ -4023,7 +4024,7 @@
       // 06/09 — journée arrêtée : la base sait tout sauf POURQUOI la caisse s'est tue. La question
       // reprend la forme prod de l'atelier (« Notez-le · sinon, laissez »). Mots provisoires.
       if (a && a.is_day_stopped === true && a.stop_hour != null) {
-        return 'Action conseill\u00e9e : aucune vente enregistr\u00e9e \u00e0 partir de ' + Number(a.stop_hour) + ' h \u2014 fermeture, panne de caisse ou export incomplet ? Notez-le \u00b7 sinon, laissez.';
+        return 'Fermeture voulue, panne de caisse ou export incomplet ? Notez-le \u00b7 sinon, laissez.';
       }
       var dir = a.direction || 'surge';
       // S'AJOUTENT-ILS, OU CHANGENT-ILS D'HEURE ? (owner 25/08) — cette question passe AVANT

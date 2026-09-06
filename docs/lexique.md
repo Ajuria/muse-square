@@ -319,14 +319,13 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   compte réel où le prouver. « accompagnement » écarté (jamais arbitré). **« Les paniers prennent plus
   d'articles » REFUSÉ (owner 06/09 : ce n'est pas du français)** — la phrase de sens tombe du `detail_fr`
   dbt (ms_database#115), qui porte le fait seul ; le sens vit dans le titre de la carte.
-- **Journée arrêtée (build 1, owner 06/09) — mots PROVISOIRES, l'owner a demandé de traiter le lexique après le build** :
-  titre « Aucune vente de 13 h à 19 h » ; corps « Dernière vente à 12 h 53 ce vendredi. De 13 h à 19 h :
-  0 ticket contre 126 tickets et 589 € votre vendredi habituel sur ces heures. La journée faisait 1 169 € à 13 h
-  contre 1 439 € d'habitude à cette heure, −859 € sur la journée. 4e journée arrêtée en 90 jours (10/05, 07/06,
-  08/07). » ; ligne d'action « aucune vente enregistrée à partir de 13 h — fermeture, panne de caisse ou export
-  incomplet ? Notez-le · sinon, laissez. » (la fin est la forme prod de l'atelier). Concept sans mot : « journée
-  arrêtée » (la caisse s'est tue avant la fin habituelle). Surface : carte `hour_share_move`, payload
-  `is_day_stopped` (HANDOFF-journee-arretee-2026-09-06).
+- **Fermeture anticipée (carte heure, build 1) — TRANCHÉ 06/09 soir** : « journée arrêtée » (mon mot) refusé par l'owner
+  (« ne veut rien dire ») ; six heures sans un ticket = **fermeture anticipée**, le mot du commerce. Titre « Fermeture
+  anticipée : dernière vente à 12 h 53 » ; corps « Fermé après 12 h 53 ce vendredi : de 13 h à 19 h, 0 ticket au lieu de
+  126, 589 € manqués. À 13 h, le CA de la journée était de 1 169 € contre 1 439 € d'habitude à cette heure ; −859 € sur
+  la journée. 4e fermeture anticipée depuis le 10/05. » (formes owner : « le CA de … est / était de », « au lieu de ») ;
+  ligne d'action SANS préfixe, forme de l'atelier : « Fermeture voulue, panne de caisse ou export incomplet ? Notez-le ·
+  sinon, laissez. » Mart : mêmes chaînes (PR ms_database #122). Surface : `hour_share_move`, payload `is_day_stopped`.
 - **Familles de l'heure (build 2, owner 06/09) — mots PROVISOIRES** : « Familles : Coffee 22 € contre 70 € d'habitude
   à cette heure, Tea 11 € contre 52 €, Bakery 0 € contre 23 €. » — forme de la ligne Familles du verdict (06/09), le
   référentiel dit une fois ; surface : corps de `hour_share_move`, payload `hour_family_gaps`
