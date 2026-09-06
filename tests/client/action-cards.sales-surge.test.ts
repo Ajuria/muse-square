@@ -56,7 +56,7 @@ describe("sales_surge — les trois couches quand la décomposition du jour est 
   it("corps et ligne d'action en euros sur le référentiel du jour, familles nommées", () => {
     const t = render(P_0409, "2026-09-04", { decomposition: DECOMP_0409 });
     // Owner 06/09 : volume = compte, panier = € par ticket, mix = part de CA en points — jamais des € de volume.
-    expect(t.sowhat).toContain("La hausse vient du volume : 351 ventes contre 189 votre vendredi habituel, panier 4,55 € contre 4,64 €. Familles : Tea 36 % du CA contre 28 % d’habitude, Coffee 40 % du CA contre 39 % d’habitude.");
+    expect(t.sowhat).toContain("La hausse vient du volume : 351 ventes contre 189 votre vendredi habituel, panier 4,55 € contre 4,64 €. Familles : Tea 36 % du CA contre 28 % d’habitude, Coffee 40 % contre 39 %.");
     expect(t.action).toContain("la hausse vient du volume (351 ventes contre 189, panier 4,55 € contre 4,64 € votre vendredi habituel)");
     expect(t.sowhat + t.action).not.toMatch(/volume \(\+|\+752 €|−33 €/);
     expect(t.action).not.toMatch(/28 derniers jours/);
