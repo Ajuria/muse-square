@@ -3096,7 +3096,13 @@
       var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: _locLbl, action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType, enjeu: ac.enjeu || null, enjeu_reason_fr: ac.enjeu_reason_fr || null, needs_catchment: ac.needs_catchment === true, catchment_days: ac.catchment_days || null, context_motif: ac.context_motif || null, corner_day_mode: ac.corner_day_mode === true, funnel_corner: ac.funnel_corner || null, owner_only: ac.owner_only === true, data_payload: ac.data_payload || null };
       if (ac.data_payload) { var dp2 = ac.data_payload; for (var k2 in dp2) { if (dp2.hasOwnProperty(k2) && !item.hasOwnProperty(k2)) item[k2] = dp2[k2]; } }
       var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, action: actionText, actions: actions, _is_action_candidate: true, confidence_tier: ((item && item.residual_z != null) ? msSalesConfidence(item) : (ac.confidence_tier || (ac.data_payload && ac.data_payload.confidence_tier) || null)), _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
-      var score = PRIO_SCORE[ac.action_priority || 2] || 60;
+      // 06/09 (audit N1) - les cartes de cycle de vie (lib/events/eventLifecycleCards : event_threat 95,
+      // event_measure 90, event_decision_due 85, event_prepare 80) portent leur priorite SUR L'ECHELLE
+      // DU SCORE, pas sur 1-4 : PRIO_SCORE[90] valait undefined -> 60, le plancher, et la carte
+      // << Resultat d'hier >> (+612 EUR mesures sur le dispositif de l'owner) tombait sous le plafond
+      // MAX_PER_SITE = 10 de pulse.astro (mesuree le 06/09 : 11e sur 10, absente du DOM en vue mono-site).
+      var _prioRaw = Number(ac.action_priority || 2);
+      var score = PRIO_SCORE[_prioRaw] || ((_prioRaw >= 10 && _prioRaw <= 100) ? _prioRaw : 60);
       entries.push({ item: item, tmpl: tmpl, score: score });
     }
     return entries;
