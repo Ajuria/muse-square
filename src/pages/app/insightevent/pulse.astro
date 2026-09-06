@@ -1894,6 +1894,14 @@ if (!location_id) {
                         // (context_motif) pour les seules cartes d'anomalie/conjonction.
                         + (function () {
                             var cm = entry.item.context_motif;
+                            // 06/09 (owner, P7) — une carte de CALENDRIER sans classe mesurée sur sa date ne
+                            // reste pas sans motif : son motif est le temps fort lui-même. Mot owner 06/09 :
+                            // « saisonnalité » (lexique, tableau des mots). Le nom vient du payload (mart),
+                            // jamais du titre.
+                            if (!cm && String(t._spec_action_type || '') === 'commercial_event_match') {
+                              var _cen = String((entry.item.data_payload || {}).commercial_event_name || '').trim();
+                              if (_cen) return ' ' + escapeHtml('Motif du jour : saisonnalité — ' + _cen.charAt(0).toLowerCase() + _cen.slice(1) + '.');
+                            }
                             if (!cm || !cm.label_fr || !Number(cm.eur_year)) return '';
                             var v = Math.abs(Math.round(Number(cm.eur_year))).toLocaleString('fr-FR');
                             // Streamline (owner 25/08) : le corps dit le motif SEUL — le chiffrage

@@ -82,3 +82,12 @@ it("06/09 (audit P6) — la réserve hors du clamp, le geste avant « Voir plus 
   expect(sowhat.classList.contains("pls-clamp")).toBe(true);
   expect(reserve.classList.contains("pls-clamp")).toBe(false);
 });
+
+it("06/09 (owner, P7) — une carte de calendrier sans classe mesurée dit « Motif du jour : saisonnalité — rentrée scolaire. »", () => {
+  const html = renderOne({
+    date: TODAY, action_type: "commercial_event_match", action_priority: 3, action_category: "opportunity", location_id: "f10c3e58-326e-4e38-947c-d59fcbe51df5",
+    enjeu: null, corner_day_mode: true, funnel_corner: null, context_motif: null, population_enjeu: null,
+    data_payload: { window_start: TODAY, window_end: "2026-09-09", window_days: 4, is_commercial: true, commercial_event_name: "Rentrée scolaire", commercial_event_code: "back-to-school", score: 59, events_5km: 265, pressure_ratio: 0.84 },
+  });
+  expect(html).toContain("Motif du jour : saisonnalité — rentrée scolaire.");
+});

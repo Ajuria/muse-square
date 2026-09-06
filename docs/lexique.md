@@ -28,6 +28,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Un écart de pourcentage affiché | **% (ou €)** (owner 27/08 — « pp » n'existe pas pour l'utilisateur ; un chiffre affiché est idiot-proof : des euros ou des pour cent, le référentiel dit dans la phrase) | pp, points de pourcentage |
 | Surveillance des concurrents | **veille** / **vos suivis** | couverture, tracking, crawl |
 | Fraîcheur de la veille | **lus cette nuit** | dernier passage, visités, crawlés |
+| Le motif d'une carte de calendrier (rentrée, soldes, férié) quand aucune classe n'est mesurée sur sa date | **saisonnalité** (owner 06/09 — « Motif du jour : saisonnalité — rentrée scolaire. » ; le nom du temps fort vient du mart, jamais du titre ; une classe mesurée sur la date garde la main) | aucun motif, ligne vide |
 | Un concurrent surveillé | **suivi** | tracké, monitored |
 | Zone autour d'un site | **votre périmètre** | catchment, zone de chalandise (à confirmer) |
 | Contexte favorable détecté (le volet du tableau) | **Opportunités** (owner 24/08 — titre du volet ; contenu = prospective chaleur + couverture, renvoi « les cartes des 7 prochains jours → Agir ») ; « occasion » reste le mot d'une occasion individuelle | Vos prochaines occasions (trop long, owner 24/08), fenêtre de la semaine, momentum, jour favorable |
