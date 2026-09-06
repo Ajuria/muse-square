@@ -1364,6 +1364,14 @@ const CARD_VALUE_TYPES = new Set([
   // rapportent plus ou moins » alors que `competition_low` est mesurée sur le lieu.
   "low_competition_window",
   "weekend_vacation_low_comp",
+  // 06/09 (audit N1) — event_measure : « Résultat d'hier » porte le SEUL chiffre mesuré sur
+  // l'objet qu'il nomme (CA d'hier − résultat habituel du jour, vw_insight_event_day_residual,
+  // lib/events/eventLifecycleCards). Elle n'avait AUCUN coin : ni population, ni classe, ni
+  // corner_day_mode — et le tri du pli (data-t-k) la rangeait derrière quinze cartes à chiffre
+  // emprunté (mesuré le 06/09 sur le compte owner : 16e, +612 € invisibles). Ici elle reçoit
+  // corner_day_mode ; aucune population (pas d'entrée CARD_POPULATION → enjeu null), aucun
+  // motif hérité (pas dans MOTIF_INHERIT_TYPES → context_motif null).
+  "event_measure",
 ]);
 
 /** Motif de CONTEXTE d'une carte (doctrine 01/08) — l'ex-« Motif de fond » hérité, désormais

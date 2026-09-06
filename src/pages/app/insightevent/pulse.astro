@@ -387,7 +387,7 @@ if (!location_id) {
     <script is:inline src="/js/reco-library.js?v=12"></script>
     <script is:inline src="/js/commit-form.js?v=15"></script>
     <script is:inline src="/js/bp-form.js?v=1"></script>
-    <script is:inline src="/js/action-cards.js?v=101"></script>
+    <script is:inline src="/js/action-cards.js?v=102"></script>
     <script is:inline src="/js/draft-workspace.js?v=5"></script>
   
 
@@ -1699,6 +1699,10 @@ if (!location_id) {
         return meta;
       })();
       var _amtHtml = '';
+      // 06/09 (audit N1) — le coin est-il le chiffre de l'OBJET que la carte nomme (écart du
+      // jour, corner_day_mode) ? Un €/an de population ou de classe et un % funnel sont des
+      // chiffres EMPRUNTÉS : mesurés, mais pas sur cet objet. Le tri du pli lit la distinction.
+      var _amtOwn = false;
       if (entry.item.enjeu && Number(entry.item.enjeu.eur_year) && entry.item.enjeu.tier) {
         var _enj = entry.item.enjeu;
         var _aVal = Math.abs(Math.round(Number(_enj.eur_year))).toLocaleString('fr-FR');
@@ -1746,11 +1750,18 @@ if (!location_id) {
           var _dRefTxt = _dp0.delta_eur != null
             ? ('Écart ' + _dRefLbl + (_dp0.expected_hour_revenue != null ? ' (' + Math.round(Number(_dp0.expected_hour_revenue)).toLocaleString('fr-FR') + ' €)' : '') + '.')
             : ('Écart du jour ' + _dRefLbl + ' (' + Math.round(_dRefV).toLocaleString('fr-FR') + ' €).');
-          _amtHtml = '<div class="amt ' + (_dGap >= 0 ? 'gain' : 'defend') + '" title="' + escapeHtml(_dRefTxt + ' Ce coin passera en €/an « au rythme constaté » dès 5 occurrences du même problème — jamais extrapolé d’un jour isolé.') + '">'
+          // 06/09 (audit N1) — event_measure (« Résultat d'hier ») n'a pas de population : la
+          // promesse « passera en €/an dès récurrence » y serait fausse. Infobulle et mini gardent
+          // le référentiel seul ; les autres cartes « € du jour » sont inchangées.
+          var _dNoPop = (String(t._spec_action_type || '') === 'event_measure');
+          _amtOwn = true;
+          _amtHtml = '<div class="amt ' + (_dGap >= 0 ? 'gain' : 'defend') + '" title="' + escapeHtml(_dRefTxt + (_dNoPop ? '' : ' Ce coin passera en €/an « au rythme constaté » dès 5 occurrences du même problème — jamais extrapolé d’un jour isolé.')) + '">'
             + '<div class="amt-val" style="color:' + _dFg + ';">' + (_dGap >= 0 ? '+' : '−') + Math.abs(_dGap).toLocaleString('fr-FR') + ' €</div>'
             // 24/08 — le fait est daté : « ce jour » lisait comme aujourd'hui alors que la carte
             // remonte en latest-per-type des jours après le fait (CA du 28/07 rendu un lundi 24/08).
-            + '<div class="amt-sub">' + ((function (iso) { var s = String(iso || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? 'le ' + s.slice(8, 10) + '/' + s.slice(5, 7) : 'ce jour'; })(entry.item.date)) + ' · passera en €/an dès récurrence</div>'
+            // event_measure est datée AUJOURD'HUI (carte de cycle de vie) mais son fait est d'HIER :
+            // la mini porte la date du fait (payload occurrence_date), comme les autres cartes datées.
+            + '<div class="amt-sub">' + ((function (iso) { var s = String(iso || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? 'le ' + s.slice(8, 10) + '/' + s.slice(5, 7) : 'ce jour'; })(_dNoPop ? _dp0.occurrence_date : entry.item.date)) + (_dNoPop ? '' : ' · passera en €/an dès récurrence') + '</div>'
           + '</div>';
         }
       }
@@ -1817,8 +1828,13 @@ if (!location_id) {
         // donc toutes sous le pli, derrière des cartes à enjeu ZÉRO.
         //  · data-t-k = la carte porte-t-elle un chiffre MESURÉ au coin ? « pas encore chiffré »
         //    et « ? €/an » (périmètre) ne comptent pas : ce sont des absences, pas des mesures.
+        //    06/09 (audit N1) : TROIS niveaux — 2 = chiffre de l'OBJET nommé (écart du jour,
+        //    corner_day_mode) ; 1 = chiffre emprunté (€/an de population ou de classe, % funnel) ;
+        //    0 = rien. Mesuré le 06/09 : 15 cartes à chiffre emprunté passaient devant la seule
+        //    carte à résultat propre (« Résultat d'hier », +612 €). L'arbitrage du 25/08
+        //    (mesuré devant non mesuré) reste entier entre 1 et 0.
         //  · data-t-type = le type, pour regrouper les motifs identiques entre sites.
-        + ' data-t-k="' + ((_amtHtml && _amtHtml.indexOf('amt-val') >= 0 && _amtHtml.indexOf('? €/an') < 0) ? '1' : '0') + '"'
+        + ' data-t-k="' + (_amtOwn ? '2' : ((_amtHtml && _amtHtml.indexOf('amt-val') >= 0 && _amtHtml.indexOf('? €/an') < 0) ? '1' : '0')) + '"'
         // P2 (27/08) : 1 si le THÈME de la carte a déjà été écarté (« Pas pour moi ») sur CE
         // site — départage FINAL du tri seulement, clés arbitrées du 25/08 intouchées.
         + ' data-t-rej="' + (function () { var th = (typeof window._themeOfActionType === 'function') ? window._themeOfActionType(String(t._spec_action_type || '')) : null; var rej = (window._themeRejByLoc || {})[String(entry.item.location_id || '')] || {}; return (th && Number(rej[th]) > 0) ? '1' : '0'; })() + '"'
@@ -3775,7 +3791,10 @@ if (!location_id) {
       _dups.forEach(function (c) { holder.appendChild(c); });
     })();
     // TRI (owner 25/08) : une carte qui porte un chiffre MESURÉ passe devant une carte qui n'en
-    // porte pas — c'est ce qui séparait le signal du remplissage. À l'intérieur de chaque groupe
+    // porte pas — c'est ce qui séparait le signal du remplissage. 06/09 (audit N1) : data-t-k
+    // vaut 2 quand le chiffre est celui de l'OBJET nommé (écart du jour), 1 quand il est
+    // emprunté (population, classe, funnel) — la comparaison numérique ci-dessous ne change pas.
+    // À l'intérieur de chaque groupe
     // l'horizon garde la main (arbitrage owner : les prospectives chiffrées restent devant),
     // puis le montant. Avant : l'horizon écrasait tout, et un enjeu de 0 € battait 5 412 €.
     _mix.sort(function(a, b) {

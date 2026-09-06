@@ -137,7 +137,12 @@ export async function buildEventLifecycleCards(bq: any, location_id: string, cle
           push("event_measure", d, 90, { ...base,
             revenue: res0 ? Number(flat(res0.rev)) : null,
             expected: res0 ? Number(flat(res0.exp)) : null,
-            gap_eur: res0 && flat(res0.rev) != null && flat(res0.exp) != null ? Number(flat(res0.rev)) - Number(flat(res0.exp)) : null });
+            gap_eur: res0 && flat(res0.rev) != null && flat(res0.exp) != null ? Number(flat(res0.rev)) - Number(flat(res0.exp)) : null,
+            // 06/09 (audit N1) — mêmes valeurs sous les clés que lit le coin « € du jour » de
+            // pulse.astro (corner_day_mode : daily_revenue / expected_revenue). revenue/expected
+            // restent : le corps de la carte (action-cards.js, event_measure) les lit.
+            daily_revenue: res0 ? Number(flat(res0.rev)) : null,
+            expected_revenue: res0 ? Number(flat(res0.exp)) : null });
         }
       }
     }

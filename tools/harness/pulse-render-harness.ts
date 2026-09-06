@@ -98,6 +98,15 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
     console.log("\npied de la 1re carte (texte):", String(foot ? foot.textContent : "—").replace(/\s+/g, " ").trim().slice(0, 160));
     console.log("pied 1re carte (boutons):", Array.from(foot ? foot.querySelectorAll("button") : []).map((b: any) => b.textContent.trim()));
   }
+  // 06/09 (audit N1) — ORDRE DU PLI : type · data-t-k (2 propre / 1 emprunté / 0 rien) · horizon ·
+  // coin rendu, dans l'ordre DOM après buildTriageLayout. C'est la preuve du tri, pas sa lecture.
+  const ordre = q('[data-t-cards="0"] .ab-card[data-t-site]').filter((c: any) => c.getAttribute("data-t-dup") !== "1");
+  console.log("\n=== ORDRE DU PLI (" + ordre.length + " cartes contextuelles) ===");
+  ordre.slice(0, 12).forEach((c: any, i: number) => {
+    const amt = c.querySelector(".ab-eur .amt");
+    const val = amt ? String(amt.textContent || "").replace(/\s+/g, " ").trim().slice(0, 48) : "—";
+    console.log(String(i + 1).padStart(2), c.getAttribute("data-t-type"), "k=" + c.getAttribute("data-t-k"), "h=" + c.getAttribute("data-t-h"), "e=" + c.getAttribute("data-t-e"), "·", val);
+  });
   // Styles atteignables ? (règle CLAUDE.md : le <style> scopé Astro n'atteint pas l'HTML injecté)
   const styleBlocks = astro.match(/<style[^>]*>/g) || [];
   console.log("\nblocs <style> de la page:", styleBlocks);
