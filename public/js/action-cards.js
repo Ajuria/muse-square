@@ -2935,10 +2935,27 @@
     // looking cards. The mart's 30-day window feeds the per-type pick; the brief cap sets how
     // many distinct sales types show.
     var _perfTypes = window.MS_INTERNAL_ALERT_TYPES || [];
+    // PORTE DE REGIME (06/09, audit P1 - en attendant dbt : HANDOFF-lot-cartes-2026-09-06). Un fait
+    // heure / produit / famille se compare a une base typique de 8 semaines ; quand cette base ne
+    // contient pas 3 jours du MEME regime (vacances / hors vacances) que le jour du fait, il n'a
+    // pas de temoin - la carte disait << Compare surtout a des vendredis en vacances scolaires
+    // (8 sur 8) >> et gardait un EUR/an au coin. Mesure sur le parc depuis le 28/08 : 14 creneaux sur
+    // 16 a ZERO temoin. Sans temoin, pas de carte ; elle reviendra quand septembre en aura.
+    var _regimeGated = function (c) {
+      var t = c && c.action_type || '';
+      if (!(window.MS_REGIME_GATE_TYPES && window.MS_REGIME_GATE_TYPES[t])) return false;
+      var dp = c.data_payload;
+      if (!dp || dp.baseline_same_regime_n == null) return false;
+      var n = Number(dp.baseline_same_regime_n);
+      return isFinite(n) && n < 3;
+    };
     var _perfLatest = {};
     for (var _pi = 0; _pi < candidates.length; _pi++) {
       var _pat = candidates[_pi].action_type || '';
       if (_perfTypes.indexOf(_pat) < 0) continue;
+      // Le dernier-par-type se calcule SANS les cartes ecartees par la porte : sinon un fait
+      // ecarte masquerait un fait plus ancien qui, lui, a ses temoins.
+      if (_regimeGated(candidates[_pi])) continue;
       var _pd = normalizeDate(candidates[_pi].date);
       if (!_perfLatest[_pat] || _pd > _perfLatest[_pat]) _perfLatest[_pat] = _pd;
     }
@@ -2947,6 +2964,7 @@
       var ac = candidates[i];
       var acDate = normalizeDate(ac.date);
       var actionType = ac.action_type || '';
+      if (_regimeGated(ac)) continue;
       if (_perfTypes.indexOf(actionType) >= 0) {
         if (_todayN && target === _todayN) {
           if (acDate !== _perfLatest[actionType]) continue;
@@ -3933,6 +3951,8 @@
 
   // v1 internal-alert allowlist — the 5 performance RULE cards eligible for "Communiquer en interne".
   // Keep in sync with src/lib/context/internalAlertCards.ts (backend Barrier 2).
+  // 06/09 (audit P1) - cartes de faits soumises a la porte de regime (baseline_same_regime_n < 3 => pas de carte).
+  window.MS_REGIME_GATE_TYPES = { hour_share_move: 1, item_share_move: 1, offering_mix_shift: 1 };
   // 06/09 (audit N3) - meme liste que PERSISTENT_COMPETITOR_TYPES (lib/recos/recoThemeMap), valeur = jours de validite.
   window.MS_PERSISTENT_TYPES = { competitor_price_drop: 14, competitor_price_increase: 14, competitor_repricing_event: 14, competitor_hours_change: 14, competitor_new_offering: 14, competitor_offering_removed: 14 };
   window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','hour_share_move'];

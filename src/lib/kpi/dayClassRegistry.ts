@@ -1164,6 +1164,12 @@ export function enjeuForCandidate(result: DayClassResult, candidate: { action_ty
       // monitor.ts passe la ligne du mart : data_payload y est encore une chaîne JSON.
       let dp: any = candidate?.data_payload;
       if (typeof dp === "string") { try { dp = JSON.parse(dp); } catch { dp = null; } }
+      // 06/09 (audit P1) — un fait dont la base ne porte pas le régime du jour
+      // (regime_mismatch_flag) n'affiche JAMAIS le €/an de sa population : ce montant est celui
+      // de tous les créneaux/produits du site, et il coiffait un fait que la carte elle-même
+      // dit fragile (« l'écart peut tenir au calendrier »). Le coin retombe sur l'écart du jour
+      // (corner_day_mode, delta_eur), la mesure de l'objet nommé, son référentiel au ⓘ.
+      if (dp?.regime_mismatch_flag === true) return null;
       const dir = String(dp?.direction || (Number(dp?.delta_eur ?? 0) < 0 ? "collapse" : "surge"));
       const popKey = dir === "collapse" ? byDir.miss : byDir.carry;
       return result.impacts.get(popKey) ?? null;
