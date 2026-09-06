@@ -7,7 +7,7 @@ import { filterDisabledThemes } from "../../../lib/recos/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/context/internalAlertCards";
 import { assembleDayContext } from "../../../lib/context/dayContext";
 import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/context/contextCopy";
-import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured, structuralFunnelLineFr, corrIndexFr } from "../../../lib/kpi/dayClassRegistry";
+import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured, structuralFunnelLineFr, corrIndexFr, weatherAlertGone } from "../../../lib/kpi/dayClassRegistry";
 import { buildEventLifecycleCards } from "../../../lib/events/eventLifecycleCards";
 
 function json(status: number, body: unknown) {
@@ -1045,6 +1045,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // (consigne owner) et les cartes météo résolues par date (la valeur d'une alerte est sa
         // prévision, pas son prix).
         .filter((r: any) => !classNeverMeasured(dayClassResult as any, r))
+        // ALERTE RÉVISÉE (06/09, audit N2) : la prévision du jour est retombée sous le niveau
+        // d'émission de la carte → la carte n'a plus d'objet. Prédicat dans le registre.
+        .filter((r: any) => !weatherAlertGone(dayClassResult as any, r))
         .map((r: any) => ({
         ...((er) => ({
           // Indice de corrélation (owner 28/08) : préformaté serveur sur l'enjeu du coin —

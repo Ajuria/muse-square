@@ -65,6 +65,9 @@ export type DayClassImpact = {
 export type DayClassResult = {
   impacts: Map<string, DayClassImpact>;   // class_key -> impact (all classes passing the floor)
   conditionByDate: Map<string, string>;   // 'YYYY-MM-DD' -> weather class_key (for date-resolved cards)
+  // 06/09 (audit N2) — alerte météo COURANTE du jour (alert_level_max du contexte, 0-4) : la
+  // carte d'alerte a été émise sur une prévision, la prévision peut avoir été révisée depuis.
+  alertByDate?: Map<string, number>;
   calendarByDate: Map<string, { school: boolean; holiday: boolean }>; // date-resolved calendar flags
   immaterial?: Set<string>;               // classes écartées par la SEULE porte de matérialité
   clientCatchment?: string | null;        // périmètre DÉCLARÉ du lieu ('commune'|'beyond'|null)
@@ -824,13 +827,15 @@ function rowsToImpacts(rows: any[], annualRevenue?: number | null): Map<string, 
   return rowsToImpactsWithImmaterial(rows, annualRevenue).impacts;
 }
 
-async function dateResolutionQuery(bq: any, location_id: string, dates: string[]): Promise<{ conditionByDate: Map<string, string>; calendarByDate: Map<string, { school: boolean; holiday: boolean }>; clientCatchment: string | null }> {
-  const empty = { conditionByDate: new Map<string, string>(), calendarByDate: new Map<string, { school: boolean; holiday: boolean }>(), clientCatchment: null as string | null };
+async function dateResolutionQuery(bq: any, location_id: string, dates: string[]): Promise<{ conditionByDate: Map<string, string>; calendarByDate: Map<string, { school: boolean; holiday: boolean }>; clientCatchment: string | null; alertByDate: Map<string, number> }> {
+  const empty = { conditionByDate: new Map<string, string>(), calendarByDate: new Map<string, { school: boolean; holiday: boolean }>(), clientCatchment: null as string | null, alertByDate: new Map<string, number>() };
   if (!dates.length) return empty;
   const rows = await bq.query({
     query: `
       SELECT FORMAT_DATE('%Y-%m-%d', c.date) AS date, ${conditionCaseSql()} AS condition,
              c.is_school_holiday_flag AS school_flag, c.is_public_holiday_flag AS holiday_flag,
+             -- 06/09 (audit N2) : alerte courante du jour (colonne vérifiée live sur la vue, 06/09).
+             c.alert_level_max AS alert_level,
              dcl.client_catchment AS client_catchment
       FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
       -- Périmètre déclaré : lu sur la DIMENSION, pas sur le mart de contexte.
@@ -856,6 +861,7 @@ async function dateResolutionQuery(bq: any, location_id: string, dates: string[]
   for (const row of rows as any[]) {
     if (!row?.date) continue;
     if (row?.condition) out.conditionByDate.set(String(row.date), String(row.condition));
+    if (row?.alert_level != null && Number.isFinite(Number(row.alert_level))) out.alertByDate.set(String(row.date), Number(row.alert_level));
     out.calendarByDate.set(String(row.date), { school: row?.school_flag === true, holiday: row?.holiday_flag === true });
     // Grain LIEU : identique sur toutes les lignes, on garde la première valeur non nulle.
     if (out.clientCatchment == null && row?.client_catchment != null) out.clientCatchment = String(row.client_catchment);
@@ -1190,6 +1196,47 @@ export const ABSENCE_REASON_FR = {
  *     alerte orage parce que la classe « vent » n'est pas chiffrable sur ce site serait une perte
  *     sèche pour l'exploitant.
  */
+// ── 06/09 (audit N2) — ALERTE MÉTÉO RÉVISÉE ─────────────────────────────────────────────────
+// Une carte d'alerte est un INSTANTANÉ du mart : elle porte le niveau de la prévision au moment
+// du build. Mesuré le 06/09 sur le compte owner : candidates `heat:2` / `alert_level 2` (mart),
+// contexte du jour `alert_level_max 1` (prévision révisée : 25–27 °C). Deux cartes « canicule
+// (niveau sévère) » et « météo dégradée prolongée » pour un dimanche nuageux. La doctrine du 23/08
+// (« la valeur d'une alerte est sa PRÉVISION, pas son prix ») impose la prévision COURANTE : si
+// l'alerte du jour est retombée SOUS le niveau d'émission de la carte, la carte n'a plus d'objet.
+// Sans lecture du jour (date hors fenêtre, requête en échec) → on garde : jamais une suppression
+// sur une absence de donnée. weather_worsened n'est pas dans le périmètre (niveau émis non lu).
+const WEATHER_ALERT_TYPES_FLOOR2 = new Set([
+  "extended_bad_weather", "extended_bad_weather_3d", "ft_peak_bad_weather",
+  "saturated_bad_weather", "weather_mobility_double",
+]);
+function payloadOf(candidate: { data_payload?: any }): any {
+  const dp = candidate?.data_payload;
+  if (dp == null) return null;
+  if (typeof dp === "string") { try { return JSON.parse(dp); } catch { return null; } }
+  return dp;
+}
+export function weatherAlertGone(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): boolean {
+  const at = String(candidate?.action_type || "").trim();
+  const isOnset = at === "weather_hazard_onset";
+  if (!isOnset && !WEATHER_ALERT_TYPES_FLOOR2.has(at)) return false;
+  const iso = String(candidate?.date?.value ?? candidate?.date ?? "").slice(0, 10);
+  const map = result?.alertByDate;
+  if (!map || !map.has(iso)) return false;
+  const current = Number(map.get(iso));
+  if (!Number.isFinite(current)) return false;
+  const p = payloadOf(candidate);
+  // Niveau d'émission : 'heat:2' (flux, onset) ; alert_level du payload (extended…), plancher 2 =
+  // la porte dbt is_bad_day (alert_level_max >= 2). Sans lecture possible → 2.
+  let emitted = 2;
+  if (isOnset) {
+    const lvl = Number(String(p?.new_value || "").split(":")[1]);
+    if (Number.isFinite(lvl) && lvl >= 1) emitted = lvl;
+  } else if (p?.alert_level != null && Number.isFinite(Number(p.alert_level))) {
+    emitted = Math.max(2, Number(p.alert_level));
+  }
+  return current < emitted;
+}
+
 export function classNeverMeasured(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): boolean {
   const at = String(candidate?.action_type || "").trim();
   if (at === "weather_hazard_onset" || DATE_RESOLVED_WEATHER_TYPES.has(at)) return false;
