@@ -318,6 +318,14 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   compte réel où le prouver. « accompagnement » écarté (jamais arbitré). **« Les paniers prennent plus
   d'articles » REFUSÉ (owner 06/09 : ce n'est pas du français)** — la phrase de sens tombe du `detail_fr`
   dbt (ms_database#115), qui porte le fait seul ; le sens vit dans le titre de la carte.
+- **Journée arrêtée (build 1, owner 06/09) — mots PROVISOIRES, l'owner a demandé de traiter le lexique après le build** :
+  titre « Aucune vente de 13 h à 19 h » ; corps « Dernière vente à 12 h 53 ce vendredi. De 13 h à 19 h :
+  0 ticket contre 126 tickets et 589 € votre vendredi habituel sur ces heures. La journée faisait 1 169 € à 13 h
+  contre 1 439 € d'habitude à cette heure, −859 € sur la journée. 4e journée arrêtée en 90 jours (10/05, 07/06,
+  08/07). » ; ligne d'action « aucune vente enregistrée à partir de 13 h — fermeture, panne de caisse ou export
+  incomplet ? Notez-le · sinon, laissez. » (la fin est la forme prod de l'atelier). Concept sans mot : « journée
+  arrêtée » (la caisse s'est tue avant la fin habituelle). Surface : carte `hour_share_move`, payload
+  `is_day_stopped` (HANDOFF-journee-arretee-2026-09-06).
 - **Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3)** :
   competitor_price_increase (« Saisissez la marge tarifaire »), competitor_price_drop,
   competitor_repricing_event (« Analysez ce mouvement tarifaire »), competitor_new_offering,

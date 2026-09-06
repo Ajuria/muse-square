@@ -2908,6 +2908,34 @@
       // en %, le créneau ne se répète pas (le titre le nomme, fin comprise).
       var nOcc = a.n_occurrences_60d != null ? Number(a.n_occurrences_60d) : null;
       var pct = (dlt != null && exp != null && exp > 0) ? Math.round(dlt / exp * 100) : null;
+      // 06/09 — journée arrêtée (build 1 owner). Mesuré le 07/08 f10c3e58 : dernière vente 12 h,
+      // 13 h–18 h à zéro, matin au double ; la carte disait « 15 h : 0 € … heure qui a manqué »,
+      // vrai et à côté. Ici le fait est la fin de journée : dernière heure vendue, queue à zéro
+      // contre son attendu (même référentiel que delta_eur), niveau du jour à l'arrêt, récurrence
+      // sur 90 jours. La seule chose que la base ne sait pas — pourquoi — vit dans la ligne d'action.
+      if (a.is_day_stopped === true && a.stop_hour != null && a.last_sale_hour != null && a.typical_last_hour != null) {
+        var _ls = Number(a.last_sale_hour), _sh = Number(a.stop_hour), _tl = Number(a.typical_last_hour);
+        var _stx = a.stopped_expected_transactions != null ? Math.round(Number(a.stopped_expected_transactions)) : null;
+        var _ser = a.stopped_expected_revenue != null ? Math.round(Number(a.stopped_expected_revenue)) : null;
+        var _eus = a.expected_revenue_until_stop != null ? Math.round(Number(a.expected_revenue_until_stop)) : null;
+        var _dr = a.day_revenue != null ? Math.round(Number(a.day_revenue)) : null;
+        var _nst = a.n_stopped_days_90d != null ? Number(a.n_stopped_days_90d) : 0;
+        // Minute exacte quand le mart la porte (last_sale_time 'HH:MM', owner 06/09 : « 12 h 53 »,
+        // pas « entre 12 h et 13 h ») ; repli sur l'heure pleine si absente.
+        var _lt = (typeof a.last_sale_time === 'string' && /^\d{2}:\d{2}$/.test(a.last_sale_time))
+          ? 'à ' + String(Number(a.last_sale_time.slice(0, 2))) + ' h ' + a.last_sale_time.slice(3)
+          : 'entre ' + _ls + ' h et ' + (_ls + 1) + ' h';
+        var _st = 'Dernière vente ' + _lt + ' ce ' + dow + '. De ' + _sh + ' h à ' + (_tl + 1) + ' h : 0 ticket';
+        if (_stx != null && _ser != null) _st += ' contre ' + frInt(_stx) + ' tickets et ' + frInt(_ser) + ' € votre ' + dow + ' habituel sur ces heures';
+        _st += '.';
+        if (_dr != null && _eus != null) {
+          _st += ' La journée faisait ' + frInt(_dr) + ' € à ' + _sh + ' h contre ' + frInt(_eus) + ' € d’habitude à cette heure';
+          if (dg != null) _st += ', ' + sEur(dg) + ' sur la journée';
+          _st += '.';
+        }
+        if (_nst > 0 && a.stopped_dates_90d) _st += ' ' + (_nst + 1) + 'e journée arrêtée en 90 jours (' + a.stopped_dates_90d + ').';
+        return _st;
+      }
       var line = '';
       var sujet = 'ce cr\u00e9neau';
       if (nOcc != null && nOcc >= 2 && a.first_occurrence_date) {
@@ -3261,7 +3289,13 @@
           var _fd = feedItem.direction || (Number(feedItem.delta_eur || 0) < 0 ? 'collapse' : 'surge');
           // Lot 1 copie (owner 25/08) : le titre porte le FAIT sp\u00e9cifique — le cr\u00e9neau nomm\u00e9
           // avec sa fin (grain heure pleine du mart \u2192 h\u2013h+1), ce qui lib\u00e8re le corps.
-          if (actionType === 'hour_share_move' && feedItem.transaction_hour != null) {
+          // 06/09 — journée arrêtée (build 1 owner) : la caisse s'est tue avant la fin habituelle,
+          // la carte du jour est la FIN DE JOURNÉE, pas une heure. Champs du mart (is_day_stopped,
+          // stop_hour, typical_last_hour) ; « Aucune vente de 13 h à 19 h » = la chaîne headline_fr
+          // du bloc candidat, mot pour mot. Mots provisoires (lexique § À arbitrer).
+          if (actionType === 'hour_share_move' && feedItem.is_day_stopped === true && feedItem.stop_hour != null && feedItem.typical_last_hour != null) {
+            whatText = 'Aucune vente de ' + Number(feedItem.stop_hour) + ' h à ' + (Number(feedItem.typical_last_hour) + 1) + ' h';
+          } else if (actionType === 'hour_share_move' && feedItem.transaction_hour != null) {
             var _hh = Number(feedItem.transaction_hour);
             // Réserve de régime (25/08) : le titre dit le FAIT (« en hausse/en retrait »,
             // mots de la ligne de récurrence), jamais un verdict de performance.
@@ -3971,6 +4005,11 @@
       // Réserve de régime (25/08) : rétrogradée en information — pas de geste sur un signal
       // que le calendrier peut expliquer.
       if (a && a.regime_mismatch_flag === true) return '';
+      // 06/09 — journée arrêtée : la base sait tout sauf POURQUOI la caisse s'est tue. La question
+      // reprend la forme prod de l'atelier (« Notez-le · sinon, laissez »). Mots provisoires.
+      if (a && a.is_day_stopped === true && a.stop_hour != null) {
+        return 'Action conseill\u00e9e : aucune vente enregistr\u00e9e \u00e0 partir de ' + Number(a.stop_hour) + ' h \u2014 fermeture, panne de caisse ou export incomplet ? Notez-le \u00b7 sinon, laissez.';
+      }
       var dir = a.direction || 'surge';
       // S'AJOUTENT-ILS, OU CHANGENT-ILS D'HEURE ? (owner 25/08) — cette question passe AVANT
       // le moteur : tant qu'elle n'est pas tranchée, tout geste de mise en avant peut porter
