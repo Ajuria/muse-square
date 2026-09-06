@@ -311,7 +311,11 @@
     if (Number(d.lvl_snow || 0) >= 2) return 'neige';
     if (Number(d.lvl_rain || 0) >= 2) return 'fortes pluies';
     if (Number(d.lvl_wind || 0) >= 2) return 'vent fort';
-    if (Number(d.lvl_heat || 0) >= 2) return 'canicule';
+    // 06/09 (owner, N8) - << canicule >> est un critere OFFICIEL (Meteo-France / Sante publique France :
+    // IBM sur 3 jours ET 3 nuits, seuils departementaux 31-36 degC le jour, 18-24 la nuit) que
+    // lvl_heat (Tmax seule) ne verifie pas. Le mot sort ; une journee chaude se dit par sa temperature,
+    // deja dans la phrase (<< 15 degC - 35 degC >>), sous le repli approuve << alerte meteo >>.
+    // Slot du mot << chaleur >> EN ATTENTE owner - jamais invente ici.
     if (Number(d.lvl_cold || 0) >= 2) return 'grand froid';
     if (Number(d.lvl_rain || 0) >= 1) return 'pluie';
     if (Number(d.lvl_wind || 0) >= 1) return 'vent';
@@ -886,8 +890,11 @@
   // ═══════════════════════════════════════════════════════════════════════════
 
   function hazardFromFlux(a, d) {
-    var HZ_FR = { rain: 'fortes pluies', wind: 'vent fort', snow: 'neige', heat: 'canicule', cold: 'grand froid' };
+    // 06/09 (owner, N8) - plus de << canicule >> (critere officiel non verifiable, cf. hazardLabel) :
+    // un flux 'heat:N' rend le repli approuve << alerte meteo >>, la temperature dit le reste.
+    var HZ_FR = { rain: 'fortes pluies', wind: 'vent fort', snow: 'neige', cold: 'grand froid' };
     var nv = String(a && a.new_value || '').split(':')[0];
+    if (nv === 'heat') return 'alerte m\u00e9t\u00e9o';
     return HZ_FR[nv] ? 'alerte ' + HZ_FR[nv] : hazardPhrase(d);
   }
 
