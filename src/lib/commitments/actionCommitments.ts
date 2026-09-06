@@ -157,6 +157,8 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   ["window_expected_transactions", "FLOAT64"],
   ["window_avg_basket", "FLOAT64"],
   ["window_expected_basket", "FLOAT64"],
+  // 06/09 (owner : familles au verdict) — JSON [{family, revenue, expected_revenue, revenue_share, baseline_share}] × 3. ALTER vérifié live le 06/09.
+  ["window_top_families", "STRING"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -214,6 +216,7 @@ export interface CommitmentRow {
   window_expected_transactions?: number | null;
   window_avg_basket?: number | null;               // 06/09 (€ par ticket)
   window_expected_basket?: number | null;
+  window_top_families?: string | null;             // 06/09 (mix sur la fenêtre, JSON)
   ctx_any_school_holiday: boolean | null;
   ctx_school_holiday_days: number | null;
   material_holiday_share: number | null;

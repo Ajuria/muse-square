@@ -2984,6 +2984,16 @@ if (!location_id) {
   function _cgEur(n){ return (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' €'; }
   // 06/09 (audit N6) — « (ventes +4 %, panier −2 %) » : un signe par delta (lexique règle 3), le
   // référentiel est celui de la phrase (vs votre résultat habituel). Un seul des deux mesuré → lui seul.
+  // 06/09 (owner : familles au verdict) — « Familles : Coffee 44 % du CA (672 €) contre 39 % d'habitude
+  // (362 €), Tea 32 % (496 €) contre 28 % (263 €). » — même forme que les cartes ventes ; JSON du résolveur.
+  function _cgFams(r){
+    var raw = _cgFv(r.window_top_families); if (!raw) return '';
+    var fams; try { fams = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return ''; }
+    if (!Array.isArray(fams) || !fams.length) return '';
+    var pc = function(v){ return Math.round(Number(v) * 100) + ' %'; };
+    var eu = function(v){ return (v != null && isFinite(Number(v))) ? ' (' + Math.round(Number(v)).toLocaleString('fr-FR') + ' €)' : ''; };
+    return ' Familles : ' + fams.map(function(f, i){ return f.family + ' ' + pc(f.revenue_share) + (i === 0 ? ' du CA' : '') + eu(f.revenue) + ' contre ' + pc(f.baseline_share) + (i === 0 ? ' d\u2019habitude' : '') + eu(f.expected_revenue); }).join(', ') + '.';
+  }
   function _cgTxBk(r){
     // 06/09 — trois couches : quand les termes en € de la fenêtre existent (lot dbt ms_database#112),
     // ils remplacent les % — « (volume +752 €, panier −33 €) », même référentiel que le CA.
@@ -3069,7 +3079,7 @@ if (!location_id) {
       // 06/09 (audit N6) — ventes et panier de la fenêtre, même référentiel que le CA (résultat
       // habituel). Forme approuvée de la ligne d'action sales_surge : « (ventes +3 %, panier −8 %) ».
       // Absents (résolution antérieure au 06/09, ou mesure impossible) → rien, jamais un zéro.
-      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel' + _cgTxBk(r) + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind, r.window_start) + '.')
+      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel' + _cgTxBk(r) + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind, r.window_start) + '.' + _cgFams(r))
       : escapeHtml('Dates de l\u2019op\u00e9ration : ' + _cgWin(r.window_kind, r.window_start) + '.');
     // Code couleur lisible (proto 27/07) : montant signé + mini-phrase. Objectif bleu tant que
     // rien n'est mesuré ; résultat couleur verdict une fois résolu. Ligne legacy sans seuil et

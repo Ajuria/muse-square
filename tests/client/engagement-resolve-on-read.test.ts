@@ -79,9 +79,10 @@ it("06/09 (audit N6) — un engagement résolu dit ventes et panier à côté du
 it("06/09 (trois couches) — les termes en € de la fenêtre remplacent les % quand ils existent", async () => {
   resolvedItem = { commitment_id: "c-res2", status: "resolved", verdict: "met", location_id: "loc-test", window_kind: "day_of", window_start: "2026-09-05", window_end: "2026-09-05",
     window_days_expected: 1, window_days_resolved: 1, window_residual_pct: 66.16, window_expected_revenue: 925, window_transactions_delta_pct: 75.76, window_basket_delta_pct: -5.63,
-    window_volume_term_eur: 751.68, window_basket_term_eur: -33.33, window_transactions: 351, window_expected_transactions: 189, window_avg_basket: 4.55, window_expected_basket: 4.64, threshold_basis: "pct", threshold_value: 11, committed_action_text: "Corner de vente producteur", updated_at: "2026-09-06T09:31:57Z" };
+    window_volume_term_eur: 751.68, window_basket_term_eur: -33.33, window_transactions: 351, window_expected_transactions: 189, window_avg_basket: 4.55, window_expected_basket: 4.64, window_top_families: JSON.stringify([{ family: "Coffee", revenue: 672, expected_revenue: 362, revenue_share: 0.437, baseline_share: 0.386 }, { family: "Tea", revenue: 496, expected_revenue: 263, revenue_share: 0.323, baseline_share: 0.281 }]), threshold_basis: "pct", threshold_value: 11, committed_action_text: "Corner de vente producteur", updated_at: "2026-09-06T09:31:57Z" };
   h.renderEngagements(["loc-test"]);
   await tick(); await tick();
   const txt = String(document.body.textContent || "").replace(/\s+/g, " ");
   expect(txt).toContain("CA +66.16 % vs votre résultat habituel (351 ventes contre 189, panier 4,55 € contre 4,64 €) · habituel 925 €");
+  expect(txt).toContain("Familles : Coffee 44 % du CA (672 €) contre 39 % d’habitude (362 €), Tea 32 % (496 €) contre 28 % (263 €).");
 });

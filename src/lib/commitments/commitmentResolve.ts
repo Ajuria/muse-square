@@ -325,8 +325,39 @@ export async function resolveCommitment(
     }
   } catch { windowVolumeTermEur = null; windowBasketTermEur = null; }
 
+  // 11. Owner 06/09 « add families to verdict too » — la couche MIX sur la fenêtre, depuis
+  // vw_insight_event_day_family_decomposition (grain famille × jour, ms_database#113) : par famille Σ CA et
+  // Σ attendu ; part de la fenêtre = Σ CA famille / Σ CA jours ; part de base = Σ attendu famille /
+  // Σ attendu jours (ratio de sommes, même référentiel que le verdict). Les 3 plus grands écarts
+  // |Σ CA − Σ attendu|, 'non classe' exclue, en JSON (window_top_families). Vue absente → null.
+  let windowTopFamilies: string | null = null;
+  try {
+    const [frows] = await bq.query({
+      query: `SELECT family, SUM(revenue) AS rev, SUM(expected_revenue) AS exp,
+                     SUM(SUM(revenue)) OVER () AS rev_total, SUM(SUM(expected_revenue)) OVER () AS exp_total
+              FROM \`${BQ_PROJECT}.semantic.vw_insight_event_day_family_decomposition\`
+              WHERE location_id=@loc AND date BETWEEN @minD AND @maxD
+              GROUP BY family
+              ORDER BY ABS(SUM(revenue) - SUM(expected_revenue)) DESC`,
+      params: { loc: snap.location_id, minD: bq.date(minDate), maxD: bq.date(maxDate) },
+      location: "EU",
+    });
+    const fams = ((frows || []) as any[])
+      .filter((f: any) => String(flat(f.family) || "").toLowerCase() !== "non classe" && Number(flat(f.rev_total)) > 0 && Number(flat(f.exp_total)) > 0)
+      .slice(0, 3)
+      .map((f: any) => ({
+        family: String(flat(f.family)),
+        revenue: round2(Number(flat(f.rev))),
+        expected_revenue: round2(Number(flat(f.exp))),
+        revenue_share: round3(Number(flat(f.rev)) / Number(flat(f.rev_total))),
+        baseline_share: round3(Number(flat(f.exp)) / Number(flat(f.exp_total))),
+      }));
+    windowTopFamilies = fams.length ? JSON.stringify(fams) : null;
+  } catch { windowTopFamilies = null; }
+
   return {
     patch: {
+      window_top_families: windowTopFamilies,
       window_transactions_delta_pct: windowTransactionsDeltaPct,
       window_basket_delta_pct: windowBasketDeltaPct,
       window_volume_term_eur: windowVolumeTermEur,
