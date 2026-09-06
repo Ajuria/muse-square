@@ -182,7 +182,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // reader. Per selected date; the profile row is location-level (same across dates). day_surface_raw /
     // profile_raw are the full view rows (parity-verified against the old profileQuery/signalsQuery). The
     // brain memoizes per (location,date), so reactions-today / sensitivities on the same page share this read.
-    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult, eventLifecycleRows] = await Promise.all([
+    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult, eventLifecycleRows, decompositionRows] = await Promise.all([
       // Enrich only the PRIMARY date (selected_dates[0]) with the full brain context — that's the day
       // whose rich detail a client renders (pulse: today; monitor: its single selected date). The other
       // dates only feed the 7-day week-bar (opportunity_score) + selected-day detail, which the clients
@@ -345,6 +345,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // ADDITIF (lib/eventLifecycleCards, échec soft → []) ; « aujourd'hui » = le jour demandé
       // (selected_dates[0]) pour rester testable. Les lignes rejoignent les candidates plus bas.
       buildEventLifecycleCards(bq, location_id, clerk_user_id, String(selected_dates[0] ?? "")),
+      // 06/09 — LES TROIS COUCHES d'un écart du jour (vw_insight_event_day_decomposition, lot dbt
+      // ms_database#112) : volume, panier, mix par famille sur UN référentiel (le modèle résiduel).
+      // 35 jours en arrière, MÊME vague (aucun aller-retour de plus) ; attachée aux cartes ventes
+      // par date affectée. Vue absente ou en échec → [] : les cartes gardent leur corps actuel.
+      bq.query({
+        query: `SELECT CAST(date AS STRING) AS date, gap_eur, volume_term_eur, basket_term_eur, dominant_factor, top_families, families_delta_eur, families_unexplained_eur
+                FROM \`muse-square-open-data.semantic.vw_insight_event_day_decomposition\`
+                WHERE location_id = @location_id AND date >= DATE_SUB(CURRENT_DATE('Europe/Paris'), INTERVAL 35 DAY)`,
+        params: { location_id },
+        location: "EU",
+      }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
     ]);
 
     const _t2 = Date.now();
@@ -985,6 +996,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
     for (const r of ((pfRows as any[]) || [])) {
       try { for (const f of JSON.parse(String((r as any).pole_families || "[]"))) if (f) poleFamilies.add(String(f)); } catch { /* familles illisibles → pôle sans périmètre */ }
     }
+    // 06/09 — décomposition par date (vw_insight_event_day_decomposition), pour les cartes ventes.
+    const SALES_DECOMPOSITION_TYPES = new Set(["sales_surge", "sales_revenue_down_wow"]);
+    const decompositionByDate = new Map<string, any>((decompositionRows as any[]).map((d: any) => [String(d?.date ?? "").slice(0, 10), d]));
+
     const applyMemberPolicy = (arr: any[]) => memberView
       ? arr.filter((c) => memberCanSeeCard(c, poleFamilies)).map((c) => ({ ...c, data_payload: redactPayloadForMember(c.data_payload) }))
       : arr;
@@ -1067,6 +1082,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
           funnel_corner: er.funnel_corner ?? null,
           // 06/09 (audit P4) : population d'une carte de fait, pour le ⓘ du coin (jamais le coin).
           population_enjeu: er.population_enjeu ?? null,
+          // 06/09 — décomposition du jour affecté (cartes ventes seulement) : volume, panier, familles.
+          decomposition: (SALES_DECOMPOSITION_TYPES.has(String(r?.action_type || "")) ? (decompositionByDate.get(String(r?.date?.value ?? r?.date ?? "").slice(0, 10)) ?? null) : null),
           // Temps 2 périmètre : les jours mesurables par hypothèse, UNIQUEMENT sur les cartes qui
           // posent la question (calculés par le cron, CATCHMENT_HYP_STORE — jamais en dur).
           catchment_days: er.needs_catchment === true ? ((dayClassResult as any).catchmentHypotheses ?? null) : null,

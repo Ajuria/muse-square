@@ -10,11 +10,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { Window } from "happy-dom";
 
-function render(payload: Record<string, unknown>, date: string) {
+function render(payload: Record<string, unknown>, date: string, extra: Record<string, unknown> = {}, type = "sales_surge") {
   const win: any = new Window({ url: "https://app.local/app/insightevent/pulse" });
   const src = readFileSync(resolve("public/js/action-cards.js"), "utf8");
   new Function("window", "document", src)(win, win.document);
-  const row = { date, action_type: "sales_surge", action_priority: 3, action_category: "sales", location_id: "f10c3e58-326e-4e38-947c-d59fcbe51df5", data_payload: payload };
+  const row = { date, action_type: type, action_priority: 3, action_category: "sales", location_id: "f10c3e58-326e-4e38-947c-d59fcbe51df5", data_payload: payload, ...extra };
   const out = win.renderActionCandidates([row], {}, null, date, "pulse", null, date) || [];
   expect(out.length).toBe(1);
   return out[0].tmpl as { sowhat: string; action: string };
@@ -42,5 +42,25 @@ describe("sales_surge — corps et ligne d'action, une seule porte de signe", ()
     const t = render(P_0409, "2026-09-04");
     expect(t.sowhat).toMatch(/votre vendredi habituel \(856 €\) : \+739 €\./);
     expect(t.sowhat).not.toMatch(/\+739 € \(856 €\)/);
+  });
+});
+
+// 06/09 — LES TROIS COUCHES (lot dbt ms_database#112) : valeurs RÉELLES du 04/09 (owner) lues dans
+// fct_client_day_decomposition (_audit_scratch) : gap +718 € = volume +752 € + panier −33 € ; Tea +334, Coffee +295.
+const DECOMP_0409 = { date: "2026-09-04", gap_eur: 718.35, volume_term_eur: 751.68, basket_term_eur: -33.33, dominant_factor: "transactions",
+  top_families: [{ family: "Tea", revenue: 579.1, expected_revenue: 244.99, delta_eur: 334.11, revenue_share: 0.363, baseline_share: 0.2793 }, { family: "Coffee", revenue: 634.25, expected_revenue: 339.45, delta_eur: 294.8, revenue_share: 0.3976, baseline_share: 0.3871 }],
+  families_delta_eur: 718.3, families_unexplained_eur: 0 };
+
+describe("sales_surge — les trois couches quand la décomposition du jour est servie", () => {
+  it("corps et ligne d'action en euros sur le référentiel du jour, familles nommées", () => {
+    const t = render(P_0409, "2026-09-04", { decomposition: DECOMP_0409 });
+    expect(t.sowhat).toContain("La hausse vient du volume (+752 €), pas du panier (−33 €). Familles : Tea +334 €, Coffee +295 €.");
+    expect(t.action).toContain("la hausse vient du volume (volume +752 €, panier −33 € vs votre résultat habituel du jour)");
+    expect(t.action).not.toMatch(/28 derniers jours/);
+  });
+  it("recul : le terme au signe du recul explique, l'autre est dit", () => {
+    const t = render({ ...P_0409, daily_revenue: 640, expected_revenue: 877, residual_pct: -27, transactions_delta_pct: -20, basket_delta_pct: 2, primary_revenue_driver: null, revenue_robust_z: -2.2 }, "2026-09-04",
+      { decomposition: { ...DECOMP_0409, gap_eur: -237, volume_term_eur: -260, basket_term_eur: 23, dominant_factor: "transactions", top_families: [{ family: "Coffee", delta_eur: -180 }, { family: "non classe", delta_eur: -40 }] } }, "sales_revenue_down_wow");
+    expect(t.sowhat).toContain("Le recul vient du volume (−260 €), pas du panier (+23 €). Familles : Coffee −180 €.");
   });
 });

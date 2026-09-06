@@ -2379,7 +2379,20 @@
   // dominant_factor 'basket' et panier -5,2 / -9,8 / -8,4 / -6,1 %. Le corps ecrivait
   // << la hausse vient du panier moyen >>, la ligne d'action << sans que le volume ni le panier
   // ne montent >>. UNE fonction, DEUX appelants : le corps et la ligne d'action lisent le meme choix.
+  // 06/09 - LES TROIS COUCHES (lot dbt ms_database#112) : quand la decomposition du jour est servie
+  // (a.decomposition), les termes en EUROS sur le referentiel du modele residuel remplacent les % sur
+  // la moyenne 28 j, et le facteur dominant vient du mart (porte de signe incluse, 'none' = aucun).
+  function surgeDecomp(a) {
+    var dc = a && a.decomposition;
+    if (!dc || dc.volume_term_eur == null || dc.basket_term_eur == null) return null;
+    var fams = Array.isArray(dc.top_families) ? dc.top_families.filter(function (f) { return f && f.family && f.delta_eur != null && String(f.family).toLowerCase() !== 'non classe'; }).slice(0, 3) : [];
+    return { vol: Math.round(Number(dc.volume_term_eur)), bk: Math.round(Number(dc.basket_term_eur)), dom: (dc.dominant_factor === 'transactions' || dc.dominant_factor === 'basket') ? dc.dominant_factor : null, fams: fams };
+  }
+  function eurS(v) { return (v < 0 ? '\u2212' : '+') + frInt(Math.abs(Math.round(v))) + ' \u20ac'; }
+  function famsS(fams) { return fams.length ? ' Familles : ' + fams.map(function (f) { return f.family + ' ' + eurS(Number(f.delta_eur)); }).join(', ') + '.' : ''; }
   function surgeDriverPick(a) {
+    var dcp = surgeDecomp(a);
+    if (dcp) return { tx: null, bk: null, pick: dcp.dom, decomp: dcp };
     var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
     var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
     var mont = { transactions: tx != null && tx > 0, basket: bk != null && bk > 0 };
@@ -2415,8 +2428,14 @@
 
       // 06/09 (audit N7) : meme porte de signe que la ligne d'action (surgeDriverPick). Aucun
       // facteur ne monte -> le corps ne nomme pas de cause ; la ligne d'action le dit.
-      var _pk = surgeDriverPick(a).pick;
-      if (tx != null && bk != null && _pk) {
+      var _sp = surgeDriverPick(a); var _pk = _sp.pick;
+      if (_sp.decomp) {
+        // trois couches : << La hausse vient du volume (+752 EUR), pas du panier (-33 EUR). Familles : Tea +334 EUR, Coffee +295 EUR. >>
+        var _d = _sp.decomp;
+        if (_pk === 'transactions') line += ' La hausse vient du volume (' + eurS(_d.vol) + ')' + (_d.bk > 0 ? ' et du panier (' + eurS(_d.bk) + ').' : ', pas du panier (' + eurS(_d.bk) + ').');
+        else if (_pk === 'basket') line += ' La hausse vient du panier moyen (' + eurS(_d.bk) + ')' + (_d.vol > 0 ? ' et du volume (' + eurS(_d.vol) + ').' : ', pas du volume (' + eurS(_d.vol) + ').');
+        line += famsS(_d.fams);
+      } else if (tx != null && bk != null && _pk) {
         line += (_pk === 'transactions')
           ? ' La hausse vient de l\'affluence : ' + (tx >= 0 ? '+' : '') + tx + ' % de ventes, panier ' + (bk >= 0 ? '+' : '') + bk + ' %.'
           : ' La hausse vient du panier moyen (' + (bk >= 0 ? '+' : '') + bk + ' %)' + (tx <= 0 ? ', pas du volume.' : '.');
@@ -2557,8 +2576,18 @@
       var gapJ = (rev != null && expD != null) ? rev - expD : null;
       // 24/08 — fait daté, même règle que sales_surge.
       var line = (rev != null ? 'CA ' + rev + ' €' + frDateFr(a.affected_date) + ' — ' : '') + 'journée en retrait, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'sous votre ' + joursS + ' habituel'
-        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € (' + expD + ' €).' : '.');
-      if (driver) {
+        // 06/09 : le referentiel se lit a cote du nom qu'il chiffre (meme geste que sales_surge, N7).
+        + (expD != null ? ' (' + expD + ' €)' : '')
+        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' €.' : '.');
+      var _dd = surgeDecomp(a);
+      if (_dd) {
+        // 06/09 - trois couches, meme forme que sales_surge ; le terme qui a le signe du recul explique.
+        var _dv = _dd.vol < 0, _db = _dd.bk < 0;
+        if (_dv && _db) line += ' Le recul vient ' + (Math.abs(_dd.vol) >= Math.abs(_dd.bk) ? 'du volume (' + eurS(_dd.vol) + ') et du panier (' + eurS(_dd.bk) + ').' : 'du panier moyen (' + eurS(_dd.bk) + ') et du volume (' + eurS(_dd.vol) + ').');
+        else if (_dv) line += ' Le recul vient du volume (' + eurS(_dd.vol) + '), pas du panier (' + eurS(_dd.bk) + ').';
+        else if (_db) line += ' Le recul vient du panier moyen (' + eurS(_dd.bk) + '), pas du volume (' + eurS(_dd.vol) + ').';
+        line += famsS(_dd.fams);
+      } else if (driver) {
         line += ' Le recul vient ' + (/^[aeiou]/i.test(driver) ? "d'" : 'de ') + driver + '.';
       } else if (tx != null && bk != null) {
         line += ' Deux facteurs : ventes ' + (tx >= 0 ? '+' : '') + tx + ' %, panier ' + (bk >= 0 ? '+' : '') + bk + ' %.';
@@ -3031,6 +3060,8 @@
       // si elles vous rapportent plus ou moins » alors que la classe `competition_low` est
       // mesurée sur les trois comptes (−5 185 / +5 864 / −8 361 €/an).
       feedItem.context_motif = ac.context_motif || null;
+      // 06/09 - les trois couches du jour affecte (monitor, vw_insight_event_day_decomposition) : cartes ventes.
+      feedItem.decomposition = ac.decomposition || null;
       var mergedDay = {};
       for (var mk in currentDay) { if (currentDay.hasOwnProperty(mk)) mergedDay[mk] = currentDay[mk]; }
       if (mergedDay.opportunity_score != null && mergedDay.opportunity_score_final_local == null) mergedDay.opportunity_score_final_local = mergedDay.opportunity_score;
@@ -3043,7 +3074,8 @@
       if (spec) {
         // Corps \u00e9tendu PAR CARTE (gabarit owner 25/08) : le cr\u00e9neau dit r\u00e9currence + fait +
         // funnel + r\u00e9serve de r\u00e9gime — 4 phrases ; les autres cartes gardent 2 phrases / 200.
-        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320] })[actionType] || [2, 200];
+        // 06/09 (trois couches) : sales_surge / down_wow disent fait + facteur + familles = 3 phrases.
+        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], sales_surge: [3, 320], sales_revenue_down_wow: [3, 320] })[actionType] || [2, 200];
         try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); if (_swObj.reserve) reserveText = String(_swObj.reserve); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, _swLim[0]).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, _swLim[1]); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
         // Name the actual weekday on the sales movement cards — never "jours comparables".
@@ -3147,7 +3179,7 @@
       // 24/08 — funnel_corner copié ici : TROISIÈME occurrence de la ligne jumelle (enjeu 28/07,
       // context_motif 22/08) — tout champ serveur que pulse lit sur entry.item DOIT passer par
       // cette construction, sinon il meurt en silence entre monitor et le rendu.
-      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: _locLbl, action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType, enjeu: ac.enjeu || null, enjeu_reason_fr: ac.enjeu_reason_fr || null, needs_catchment: ac.needs_catchment === true, catchment_days: ac.catchment_days || null, context_motif: ac.context_motif || null, corner_day_mode: ac.corner_day_mode === true, funnel_corner: ac.funnel_corner || null, population_enjeu: ac.population_enjeu || null, owner_only: ac.owner_only === true, data_payload: ac.data_payload || null };
+      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: _locLbl, action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType, enjeu: ac.enjeu || null, enjeu_reason_fr: ac.enjeu_reason_fr || null, needs_catchment: ac.needs_catchment === true, catchment_days: ac.catchment_days || null, context_motif: ac.context_motif || null, corner_day_mode: ac.corner_day_mode === true, funnel_corner: ac.funnel_corner || null, population_enjeu: ac.population_enjeu || null, decomposition: ac.decomposition || null, owner_only: ac.owner_only === true, data_payload: ac.data_payload || null };
       if (ac.data_payload) { var dp2 = ac.data_payload; for (var k2 in dp2) { if (dp2.hasOwnProperty(k2) && !item.hasOwnProperty(k2)) item[k2] = dp2[k2]; } }
       var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, reserve: reserveText, action: actionText, actions: actions, _is_action_candidate: true, confidence_tier: ((item && item.residual_z != null) ? msSalesConfidence(item) : (ac.confidence_tier || (ac.data_payload && ac.data_payload.confidence_tier) || null)), _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
       // 06/09 (audit N1) - les cartes de cycle de vie (lib/events/eventLifecycleCards : event_threat 95,
@@ -3252,7 +3284,9 @@
       var pick = surgeDriverPick(a).pick;
       var sgn = function (v) { return (v >= 0 ? '+' : '\u2212') + Math.abs(v) + ' %'; };
       var ref = ' sur leur moyenne des 28 derniers jours';
-      var chiffres = (tx != null && bk != null) ? ' (ventes ' + sgn(tx) + ', panier ' + sgn(bk) + ref + ')'
+      var _sdp = surgeDriverPick(a);
+      var chiffres = _sdp.decomp ? ' (volume ' + eurS(_sdp.decomp.vol) + ', panier ' + eurS(_sdp.decomp.bk) + ' vs votre r\u00e9sultat habituel du jour)'
+        : (tx != null && bk != null) ? ' (ventes ' + sgn(tx) + ', panier ' + sgn(bk) + ref + ')'
         : (tx != null ? ' (ventes ' + sgn(tx) + ref + ')' : (bk != null ? ' (panier ' + sgn(bk) + ref + ')' : ''));
       // Contexte co-occurrent NOMM\u00c9 \u2014 observ\u00e9, jamais pos\u00e9 comme la cause unique.
       var hook = a.is_vacation ? 'les vacances scolaires' : (a.is_holiday ? 'le jour f\u00e9ri\u00e9' : (Number(a.weather_alert || 0) === 0 ? 'une m\u00e9t\u00e9o favorable' : ''));
