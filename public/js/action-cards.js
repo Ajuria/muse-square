@@ -2356,6 +2356,24 @@
   // sales_surge — ATTRIBUTE. Payload: daily_revenue, avg_30d, revenue_vs_avg_pct,
   // pressure_ratio, weather_alert, driver, is_holiday, is_vacation, events_5km.
   // €-rise T1; favourable context T1/T2; "à reproduire" is advice, not a claim.
+  // PORTE DE SIGNE PARTAGEE (06/09, audit N7) - un facteur ne PORTE la hausse que s'il monte
+  // LUI AUSSI. Le corps de sales_surge choisissait par MAGNITUDE ABSOLUE (comme le
+  // dominant_factor dbt, sans porte de signe) pendant que la ligne d'action (02/09) avait la
+  // porte : mesure du 06/09 sur le compte owner, 4 payloads sur 4 (01-04/09) avec
+  // dominant_factor 'basket' et panier -5,2 / -9,8 / -8,4 / -6,1 %. Le corps ecrivait
+  // << la hausse vient du panier moyen >>, la ligne d'action << sans que le volume ni le panier
+  // ne montent >>. UNE fonction, DEUX appelants : le corps et la ligne d'action lisent le meme choix.
+  function surgeDriverPick(a) {
+    var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
+    var bk = a.basket_delta_pct != null ? Math.round(Number(a.basket_delta_pct)) : null;
+    var mont = { transactions: tx != null && tx > 0, basket: bk != null && bk > 0 };
+    var dom = (a.dominant_factor === 'transactions' || a.dominant_factor === 'basket') ? a.dominant_factor : null;
+    var pick = (dom && mont[dom]) ? dom
+             : (mont.transactions && mont.basket) ? (Math.abs(tx) >= Math.abs(bk) ? 'transactions' : 'basket')
+             : mont.transactions ? 'transactions' : (mont.basket ? 'basket' : null);
+    return { tx: tx, bk: bk, pick: pick };
+  }
+
   reg('sales_surge', 'CA supérieur à vos jours comparables', 'OPPORTUNITÉ', '📈', '#2E7D32', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var rev = a.daily_revenue != null ? Math.round(Number(a.daily_revenue)) : null;
@@ -2374,12 +2392,18 @@
       // 24/08 — le fait est DATÉ (même règle que les cartes prix concurrents, lot 3) : la carte
       // remonte en latest-per-type des jours après le fait ; sans date elle lit comme aujourd'hui.
       var line = (rev != null ? 'CA ' + rev + ' €' + frDateFr(a.affected_date) + ' — ' : '') + 'une très bonne journée, ' + ((dz != null && dz >= 2) ? 'nettement ' : '') + 'au-dessus de votre ' + joursS + ' habituel'
-        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' € (' + exp + ' €).' : '.');
+        // 06/09 (audit N7) : le referentiel se lit a cote du nom qu'il chiffre - << votre vendredi
+        // habituel (856 EUR) : +739 EUR >> ; avant, << +739 EUR (856 EUR) >> laissait le second nombre sans nom.
+        + (exp != null ? ' (' + exp + ' €)' : '')
+        + (gapJ != null ? ' : ' + (gapJ < 0 ? '-' : '+') + Math.abs(gapJ) + ' €.' : '.');
 
-      if (tx != null && bk != null) {
-        line += (Math.abs(tx) >= Math.abs(bk))
+      // 06/09 (audit N7) : meme porte de signe que la ligne d'action (surgeDriverPick). Aucun
+      // facteur ne monte -> le corps ne nomme pas de cause ; la ligne d'action le dit.
+      var _pk = surgeDriverPick(a).pick;
+      if (tx != null && bk != null && _pk) {
+        line += (_pk === 'transactions')
           ? ' La hausse vient de l\'affluence : ' + (tx >= 0 ? '+' : '') + tx + ' % de ventes, panier ' + (bk >= 0 ? '+' : '') + bk + ' %.'
-          : ' La hausse vient du panier moyen (' + (bk >= 0 ? '+' : '') + bk + ' %), pas du volume.';
+          : ' La hausse vient du panier moyen (' + (bk >= 0 ? '+' : '') + bk + ' %)' + (tx <= 0 ? ', pas du volume.' : '.');
       }
 
       if (a.is_holiday || a.is_vacation) {
@@ -3164,11 +3188,8 @@
       // les deltas ventes/panier se lisent sur la moyenne des 28 DERNIERS JOURS, tous jours
       // confondus (fen\u00eatre w de fct_client_sales_signals_daily). On ne les met donc plus
       // c\u00f4te \u00e0 c\u00f4te sans nommer le second.
-      var mont = { transactions: tx != null && tx > 0, basket: bk != null && bk > 0 };
-      var dom = (a.dominant_factor === 'transactions' || a.dominant_factor === 'basket') ? a.dominant_factor : null;
-      var pick = (dom && mont[dom]) ? dom
-               : (mont.transactions && mont.basket) ? (Math.abs(tx) >= Math.abs(bk) ? 'transactions' : 'basket')
-               : mont.transactions ? 'transactions' : (mont.basket ? 'basket' : null);
+      // 06/09 (audit N7) : la porte vit dans surgeDriverPick, partagee avec le corps de la carte.
+      var pick = surgeDriverPick(a).pick;
       var sgn = function (v) { return (v >= 0 ? '+' : '\u2212') + Math.abs(v) + ' %'; };
       var ref = ' sur leur moyenne des 28 derniers jours';
       var chiffres = (tx != null && bk != null) ? ' (ventes ' + sgn(tx) + ', panier ' + sgn(bk) + ref + ')'
