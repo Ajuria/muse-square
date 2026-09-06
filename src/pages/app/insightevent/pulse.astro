@@ -1936,7 +1936,6 @@ if (!location_id) {
         + '<div class="ab-rfoot"'
               + ' data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '"'
               + ' data-ab-draft-what="' + escapeHtml(String(t.what).replace(/<[^>]+>/g,"")) + '"'
-              + ' data-ab-draft-sowhat="' + escapeHtml(String(t.sowhat||"")) + '"'
               + ' data-ab-draft-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '"'
               + ' data-ab-draft-location="' + escapeHtml(String(entry.item.location_id||"")) + '"'
               + ' data-ab-draft-signal=\'' + signalJson + '\'>'
@@ -3050,6 +3049,7 @@ if (!location_id) {
     var resolved = r.status === 'resolved';
     var amber = resolved && r.verdict === 'met' && r.ctx_any_school_holiday && Number(r.material_holiday_share) < 0.5;
     var chip = r.status === 'open' ? 'En cours' : r.status === 'pending' ? 'Dates pass\u00e9es' : r.status === 'expired' ? 'Clôturé' : 'Évalué';
+    // 06/09 : le % du verdict s'arrondit à l'entier (« +66.16 % » rendu tel quel depuis la base).
     var pct = r.window_residual_pct;
     // Measurable, card-specific objective vs past performance: a concrete € target above
     // "votre habituel" (the window baseline captured at creation), + the % to clear it.
@@ -3079,7 +3079,7 @@ if (!location_id) {
       // 06/09 (audit N6) — ventes et panier de la fenêtre, même référentiel que le CA (résultat
       // habituel). Forme approuvée de la ligne d'action sales_surge : « (ventes +3 %, panier −8 %) ».
       // Absents (résolution antérieure au 06/09, ou mesure impossible) → rien, jamais un zéro.
-      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel' + _cgTxBk(r) + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind, r.window_start) + '.' + _cgFams(r))
+      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Math.round(Number(pct))) + ' % vs votre résultat habituel' + _cgTxBk(r) + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind, r.window_start) + '.' + _cgFams(r))
       : escapeHtml('Dates de l\u2019op\u00e9ration : ' + _cgWin(r.window_kind, r.window_start) + '.');
     // Code couleur lisible (proto 27/07) : montant signé + mini-phrase. Objectif bleu tant que
     // rien n'est mesuré ; résultat couleur verdict une fois résolu. Ligne legacy sans seuil et
@@ -3089,8 +3089,8 @@ if (!location_id) {
       var _rPos = Number(pct) >= 0;
       var _rFg = r.verdict === 'met' ? '#166534' : r.verdict === 'missed' ? '#B45309' : '#6b7280';
       var _rLbl = r.verdict === 'met' ? 'objectif atteint' : r.verdict === 'missed' ? 'objectif manqué' : 'non concluant';
-      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind, r.window_start) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel.') + '">'
-        + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' %</div>'
+      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind, r.window_start) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Math.round(Number(pct))) + ' % vs votre résultat habituel.') + '">'
+        + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Math.round(Number(pct))) + ' %</div>'
         + '<div class="amt-sub">' + _rLbl + '</div>'
       + '</div>';
     } else if (r.status !== 'expired' && r.threshold_value != null) {

@@ -73,7 +73,7 @@ it("06/09 (audit N6) — un engagement résolu dit ventes et panier à côté du
   h.renderEngagements(["loc-test"]);
   await tick(); await tick();
   const txt = String(document.body.textContent || "").replace(/\s+/g, " ");
-  expect(txt).toContain("CA +66.16 % vs votre résultat habituel (ventes +76 %, panier −6 %) · habituel 925 €");
+  expect(txt).toContain("CA +66 % vs votre résultat habituel (ventes +76 %, panier −6 %) · habituel 925 €");
 });
 
 it("06/09 (trois couches) — les termes en € de la fenêtre remplacent les % quand ils existent", async () => {
@@ -83,6 +83,6 @@ it("06/09 (trois couches) — les termes en € de la fenêtre remplacent les % 
   h.renderEngagements(["loc-test"]);
   await tick(); await tick();
   const txt = String(document.body.textContent || "").replace(/\s+/g, " ");
-  expect(txt).toContain("CA +66.16 % vs votre résultat habituel (351 ventes contre 189, panier 4,55 € contre 4,64 €) · habituel 925 €");
+  expect(txt).toContain("CA +66 % vs votre résultat habituel (351 ventes contre 189, panier 4,55 € contre 4,64 €) · habituel 925 €");
   expect(txt).toContain("Familles : Coffee 44 % du CA (672 €) contre 39 % d’habitude (362 €), Tea 32 % (496 €) contre 28 % (263 €).");
 });
