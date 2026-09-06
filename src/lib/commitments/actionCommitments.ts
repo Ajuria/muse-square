@@ -152,6 +152,11 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   // 06/09 — termes en € de la fenêtre (volume, panier), lot trois couches. ALTER vérifié live le 06/09.
   ["window_volume_term_eur", "FLOAT64"],
   ["window_basket_term_eur", "FLOAT64"],
+  // 06/09 (owner : volume = compte, panier = € par ticket) — valeurs brutes de la fenêtre. ALTER vérifié live le 06/09.
+  ["window_transactions", "FLOAT64"],
+  ["window_expected_transactions", "FLOAT64"],
+  ["window_avg_basket", "FLOAT64"],
+  ["window_expected_basket", "FLOAT64"],
 ];
 
 // Row shape mirrors COLUMN_SPEC / the DDL. Carried forward verbatim on every
@@ -205,6 +210,10 @@ export interface CommitmentRow {
   window_basket_delta_pct?: number | null;         // 06/09 (audit N6)
   window_volume_term_eur?: number | null;          // 06/09 (trois couches)
   window_basket_term_eur?: number | null;          // 06/09 (trois couches)
+  window_transactions?: number | null;             // 06/09 (compte)
+  window_expected_transactions?: number | null;
+  window_avg_basket?: number | null;               // 06/09 (€ par ticket)
+  window_expected_basket?: number | null;
   ctx_any_school_holiday: boolean | null;
   ctx_school_holiday_days: number | null;
   material_holiday_share: number | null;

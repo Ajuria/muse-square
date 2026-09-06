@@ -286,6 +286,8 @@ export async function resolveCommitment(
   // Le mix par famille reste la mesure K8 déjà en place quand une famille est déclarée.
   let windowTransactionsDeltaPct: number | null = null;
   let windowBasketDeltaPct: number | null = null;
+  let windowTransactions: number | null = null, windowExpectedTransactions: number | null = null;
+  let windowAvgBasket: number | null = null, windowExpectedBasket: number | null = null;
   try {
     const expTx = rrows.reduce((a: number, r: any) => a + (Number(flat(r.expected_transactions)) || 0), 0);
     const expBkArr = rrows.map((r: any) => Number(flat(r.expected_basket))).filter((v: number) => Number.isFinite(v) && v > 0);
@@ -299,6 +301,10 @@ export async function resolveCommitment(
     const actTx = Number(flat(a0.tx)), actBk = Number(flat(a0.bk)), nAct = Number(flat(a0.n)) || 0;
     if (nAct >= 1 && Number.isFinite(actTx) && expTx > 0) windowTransactionsDeltaPct = round2(((actTx - expTx) / expTx) * 100);
     if (nAct >= 1 && Number.isFinite(actBk) && expBk != null && expBk > 0) windowBasketDeltaPct = round2(((actBk - expBk) / expBk) * 100);
+    // Owner 06/09 : le volume se dit en VENTES contre ventes, le panier en € par ticket — les valeurs brutes
+    // voyagent (window_transactions… ), la page les rend ; les % restent au ⓘ.
+    if (nAct >= 1 && Number.isFinite(actTx)) { windowTransactions = round2(actTx); windowExpectedTransactions = expTx > 0 ? round2(expTx) : null; }
+    if (nAct >= 1 && Number.isFinite(actBk)) { windowAvgBasket = round2(actBk); windowExpectedBasket = expBk != null ? round2(expBk) : null; }
   } catch { windowTransactionsDeltaPct = null; windowBasketDeltaPct = null; }
 
   // 10. 06/09 — LES TROIS COUCHES sur la fenêtre (lot dbt ms_database#112) : Σ des termes volume et
@@ -325,6 +331,10 @@ export async function resolveCommitment(
       window_basket_delta_pct: windowBasketDeltaPct,
       window_volume_term_eur: windowVolumeTermEur,
       window_basket_term_eur: windowBasketTermEur,
+      window_transactions: windowTransactions,
+      window_expected_transactions: windowExpectedTransactions,
+      window_avg_basket: windowAvgBasket,
+      window_expected_basket: windowExpectedBasket,
       kpi_window_value: kpiWindowValue,
       kpi_delta_pct: kpiDeltaPct,
       kpi_noise_se: kpiNoiseSe,

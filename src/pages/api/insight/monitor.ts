@@ -350,7 +350,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // 35 jours en arrière, MÊME vague (aucun aller-retour de plus) ; attachée aux cartes ventes
       // par date affectée. Vue absente ou en échec → [] : les cartes gardent leur corps actuel.
       bq.query({
-        query: `SELECT CAST(date AS STRING) AS date, gap_eur, volume_term_eur, basket_term_eur, dominant_factor, top_families, families_delta_eur, families_unexplained_eur
+        query: `SELECT CAST(date AS STRING) AS date, gap_eur, volume_term_eur, basket_term_eur, dominant_factor, daily_transactions, expected_transactions, daily_avg_basket, expected_basket, top_families, families_delta_eur, families_unexplained_eur
                 FROM \`muse-square-open-data.semantic.vw_insight_event_day_decomposition\`
                 WHERE location_id = @location_id AND date >= DATE_SUB(CURRENT_DATE('Europe/Paris'), INTERVAL 35 DAY)`,
         params: { location_id },

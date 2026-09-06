@@ -2385,11 +2385,26 @@
   function surgeDecomp(a) {
     var dc = a && a.decomposition;
     if (!dc || dc.volume_term_eur == null || dc.basket_term_eur == null) return null;
-    var fams = Array.isArray(dc.top_families) ? dc.top_families.filter(function (f) { return f && f.family && f.delta_eur != null && String(f.family).toLowerCase() !== 'non classe'; }).slice(0, 3) : [];
-    return { vol: Math.round(Number(dc.volume_term_eur)), bk: Math.round(Number(dc.basket_term_eur)), dom: (dc.dominant_factor === 'transactions' || dc.dominant_factor === 'basket') ? dc.dominant_factor : null, fams: fams };
+    // Owner 06/09 : le volume est un COMPTE (ventes contre ventes), le panier des EUROS PAR TICKET, le mix une
+    // PART (points de CA par famille). Les termes en euros du mart ne servent qu'a designer la couche qui
+    // porte l'ecart (dominant_factor, porte de signe) - jamais a la dire.
+    var fams = Array.isArray(dc.top_families) ? dc.top_families.filter(function (f) { return f && f.family && f.revenue_share != null && f.baseline_share != null && String(f.family).toLowerCase() !== 'non classe'; }).slice(0, 3) : [];
+    var tx = dc.daily_transactions != null ? Math.round(Number(dc.daily_transactions)) : null;
+    var etx = dc.expected_transactions != null ? Math.round(Number(dc.expected_transactions)) : null;
+    var bk = dc.daily_avg_basket != null ? Number(dc.daily_avg_basket) : null;
+    var ebk = dc.expected_basket != null ? Number(dc.expected_basket) : null;
+    if (tx == null || etx == null || bk == null || ebk == null) return null;
+    return { tx: tx, etx: etx, bk: bk, ebk: ebk, vol: Math.round(Number(dc.volume_term_eur)), bkt: Math.round(Number(dc.basket_term_eur)), dom: (dc.dominant_factor === 'transactions' || dc.dominant_factor === 'basket') ? dc.dominant_factor : null, fams: fams };
   }
-  function eurS(v) { return (v < 0 ? '\u2212' : '+') + frInt(Math.abs(Math.round(v))) + ' \u20ac'; }
-  function famsS(fams) { return fams.length ? ' Familles : ' + fams.map(function (f) { return f.family + ' ' + eurS(Number(f.delta_eur)); }).join(', ') + '.' : ''; }
+  function eur2S(v) { return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20ac'; }
+  function pctS(v) { return Math.round(Number(v) * 100) + ' %'; }
+  // << 351 ventes contre 189 votre samedi habituel, panier 4,55 EUR contre 4,64 EUR >> - forme du creneau (47 contre 11 votre vendredi habituel).
+  function decompCouchesS(d, joursS, first) {
+    var volS = frInt(d.tx) + ' ventes contre ' + frInt(d.etx);
+    var bkS = 'panier ' + eur2S(d.bk) + ' contre ' + eur2S(d.ebk);
+    return first === 'basket' ? (bkS + ' votre ' + joursS + ' habituel, ' + volS) : (volS + ' votre ' + joursS + ' habituel, ' + bkS);
+  }
+  function famsS(fams) { return fams.length ? ' Familles : ' + fams.map(function (f) { return f.family + ' ' + pctS(f.revenue_share) + ' du CA contre ' + pctS(f.baseline_share) + ' d\u2019habitude'; }).join(', ') + '.' : ''; }
   function surgeDriverPick(a) {
     var dcp = surgeDecomp(a);
     if (dcp) return { tx: null, bk: null, pick: dcp.dom, decomp: dcp };
@@ -2432,8 +2447,8 @@
       if (_sp.decomp) {
         // trois couches : << La hausse vient du volume (+752 EUR), pas du panier (-33 EUR). Familles : Tea +334 EUR, Coffee +295 EUR. >>
         var _d = _sp.decomp;
-        if (_pk === 'transactions') line += ' La hausse vient du volume (' + eurS(_d.vol) + ')' + (_d.bk > 0 ? ' et du panier (' + eurS(_d.bk) + ').' : ', pas du panier (' + eurS(_d.bk) + ').');
-        else if (_pk === 'basket') line += ' La hausse vient du panier moyen (' + eurS(_d.bk) + ')' + (_d.vol > 0 ? ' et du volume (' + eurS(_d.vol) + ').' : ', pas du volume (' + eurS(_d.vol) + ').');
+        if (_pk === 'transactions') line += ' La hausse vient du volume : ' + decompCouchesS(_d, joursS, 'transactions') + '.';
+        else if (_pk === 'basket') line += ' La hausse vient du panier moyen : ' + decompCouchesS(_d, joursS, 'basket') + '.';
         line += famsS(_d.fams);
       } else if (tx != null && bk != null && _pk) {
         line += (_pk === 'transactions')
@@ -2582,10 +2597,10 @@
       var _dd = surgeDecomp(a);
       if (_dd) {
         // 06/09 - trois couches, meme forme que sales_surge ; le terme qui a le signe du recul explique.
-        var _dv = _dd.vol < 0, _db = _dd.bk < 0;
-        if (_dv && _db) line += ' Le recul vient ' + (Math.abs(_dd.vol) >= Math.abs(_dd.bk) ? 'du volume (' + eurS(_dd.vol) + ') et du panier (' + eurS(_dd.bk) + ').' : 'du panier moyen (' + eurS(_dd.bk) + ') et du volume (' + eurS(_dd.vol) + ').');
-        else if (_dv) line += ' Le recul vient du volume (' + eurS(_dd.vol) + '), pas du panier (' + eurS(_dd.bk) + ').';
-        else if (_db) line += ' Le recul vient du panier moyen (' + eurS(_dd.bk) + '), pas du volume (' + eurS(_dd.vol) + ').';
+        var _dv = _dd.vol < 0, _db = _dd.bkt < 0;
+        var _first = (_dv && _db) ? (Math.abs(_dd.vol) >= Math.abs(_dd.bkt) ? 'transactions' : 'basket') : (_dv ? 'transactions' : (_db ? 'basket' : null));
+        if (_first === 'transactions') line += ' Le recul vient du volume : ' + decompCouchesS(_dd, joursS, 'transactions') + '.';
+        else if (_first === 'basket') line += ' Le recul vient du panier moyen : ' + decompCouchesS(_dd, joursS, 'basket') + '.';
         line += famsS(_dd.fams);
       } else if (driver) {
         line += ' Le recul vient ' + (/^[aeiou]/i.test(driver) ? "d'" : 'de ') + driver + '.';
@@ -3285,7 +3300,7 @@
       var sgn = function (v) { return (v >= 0 ? '+' : '\u2212') + Math.abs(v) + ' %'; };
       var ref = ' sur leur moyenne des 28 derniers jours';
       var _sdp = surgeDriverPick(a);
-      var chiffres = _sdp.decomp ? ' (volume ' + eurS(_sdp.decomp.vol) + ', panier ' + eurS(_sdp.decomp.bk) + ' vs votre r\u00e9sultat habituel du jour)'
+      var chiffres = _sdp.decomp ? ' (' + frInt(_sdp.decomp.tx) + ' ventes contre ' + frInt(_sdp.decomp.etx) + ', panier ' + eur2S(_sdp.decomp.bk) + ' contre ' + eur2S(_sdp.decomp.ebk) + ' votre ' + window.msWeekdayFrSing(a.affected_date) + ' habituel)'
         : (tx != null && bk != null) ? ' (ventes ' + sgn(tx) + ', panier ' + sgn(bk) + ref + ')'
         : (tx != null ? ' (ventes ' + sgn(tx) + ref + ')' : (bk != null ? ' (panier ' + sgn(bk) + ref + ')' : ''));
       // Contexte co-occurrent NOMM\u00c9 \u2014 observ\u00e9, jamais pos\u00e9 comme la cause unique.

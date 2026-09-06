@@ -48,19 +48,22 @@ describe("sales_surge — corps et ligne d'action, une seule porte de signe", ()
 // 06/09 — LES TROIS COUCHES (lot dbt ms_database#112) : valeurs RÉELLES du 04/09 (owner) lues dans
 // fct_client_day_decomposition (_audit_scratch) : gap +718 € = volume +752 € + panier −33 € ; Tea +334, Coffee +295.
 const DECOMP_0409 = { date: "2026-09-04", gap_eur: 718.35, volume_term_eur: 751.68, basket_term_eur: -33.33, dominant_factor: "transactions",
+  daily_transactions: 351, expected_transactions: 189, daily_avg_basket: 4.5452, expected_basket: 4.64,
   top_families: [{ family: "Tea", revenue: 579.1, expected_revenue: 244.99, delta_eur: 334.11, revenue_share: 0.363, baseline_share: 0.2793 }, { family: "Coffee", revenue: 634.25, expected_revenue: 339.45, delta_eur: 294.8, revenue_share: 0.3976, baseline_share: 0.3871 }],
   families_delta_eur: 718.3, families_unexplained_eur: 0 };
 
 describe("sales_surge — les trois couches quand la décomposition du jour est servie", () => {
   it("corps et ligne d'action en euros sur le référentiel du jour, familles nommées", () => {
     const t = render(P_0409, "2026-09-04", { decomposition: DECOMP_0409 });
-    expect(t.sowhat).toContain("La hausse vient du volume (+752 €), pas du panier (−33 €). Familles : Tea +334 €, Coffee +295 €.");
-    expect(t.action).toContain("la hausse vient du volume (volume +752 €, panier −33 € vs votre résultat habituel du jour)");
+    // Owner 06/09 : volume = compte, panier = € par ticket, mix = part de CA en points — jamais des € de volume.
+    expect(t.sowhat).toContain("La hausse vient du volume : 351 ventes contre 189 votre vendredi habituel, panier 4,55 € contre 4,64 €. Familles : Tea 36 % du CA contre 28 % d’habitude, Coffee 40 % du CA contre 39 % d’habitude.");
+    expect(t.action).toContain("la hausse vient du volume (351 ventes contre 189, panier 4,55 € contre 4,64 € votre vendredi habituel)");
+    expect(t.sowhat + t.action).not.toMatch(/volume \(\+|\+752 €|−33 €/);
     expect(t.action).not.toMatch(/28 derniers jours/);
   });
   it("recul : le terme au signe du recul explique, l'autre est dit", () => {
     const t = render({ ...P_0409, daily_revenue: 640, expected_revenue: 877, residual_pct: -27, transactions_delta_pct: -20, basket_delta_pct: 2, primary_revenue_driver: null, revenue_robust_z: -2.2 }, "2026-09-04",
-      { decomposition: { ...DECOMP_0409, gap_eur: -237, volume_term_eur: -260, basket_term_eur: 23, dominant_factor: "transactions", top_families: [{ family: "Coffee", delta_eur: -180 }, { family: "non classe", delta_eur: -40 }] } }, "sales_revenue_down_wow");
-    expect(t.sowhat).toContain("Le recul vient du volume (−260 €), pas du panier (+23 €). Familles : Coffee −180 €.");
+      { decomposition: { ...DECOMP_0409, gap_eur: -237, volume_term_eur: -260, basket_term_eur: 23, dominant_factor: "transactions", daily_transactions: 133, expected_transactions: 189, daily_avg_basket: 4.81, expected_basket: 4.64, top_families: [{ family: "Coffee", revenue_share: 0.31, baseline_share: 0.39 }, { family: "non classe", revenue_share: 0.1, baseline_share: 0.05 }] } }, "sales_revenue_down_wow");
+    expect(t.sowhat).toContain("Le recul vient du volume : 133 ventes contre 189 votre vendredi habituel, panier 4,81 € contre 4,64 €. Familles : Coffee 31 % du CA contre 39 % d’habitude.");
   });
 });
