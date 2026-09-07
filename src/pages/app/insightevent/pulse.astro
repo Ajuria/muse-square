@@ -3529,11 +3529,17 @@ if (!location_id) {
     var ty = String(t && t._spec_action_type || '');
     var dp = (entry && entry.item && entry.item.data_payload) || {};
     // Photo Google Places du concurrent suivi (servie par monitor : competitor_photo) — avec sa légende.
-    if (dp.competitor_photo) {
+    // Conditions Google Places : la photo s'affiche avec l'attribution livrée avec elle (nom + lien) — sans
+    // attribution, pas de photo (monitor ne la sert d'ailleurs pas).
+    var _attr = null;
+    if (dp.competitor_photo && dp.competitor_photo_attribution) { try { _attr = typeof dp.competitor_photo_attribution === 'string' ? JSON.parse(dp.competitor_photo_attribution) : dp.competitor_photo_attribution; } catch (e) { _attr = null; } }
+    if (dp.competitor_photo && _attr && _attr.name) {
+      var _uri = String(_attr.uri || ''); if (!/^https:\/\//.test(_uri)) _uri = '';
+      var attrHtml = 'Photo : ' + (_uri ? '<a href="' + escapeHtml(_uri) + '" target="_blank" rel="noopener" data-stop-consult="1" style="color:inherit;">' + escapeHtml(String(_attr.name)) + '</a>' : escapeHtml(String(_attr.name)));
       var cap = '<b>' + escapeHtml(String(dp.competitor_name || '')) + '</b>'
         + (dp.google_rating != null ? ' \u00b7 ' + escapeHtml(String(Number(dp.google_rating)).replace('.', ',')) + ' \u2605' : '')
         + (dp.google_rating_count != null ? ' \u00b7 ' + Math.round(Number(dp.google_rating_count)).toLocaleString('fr-FR') + ' avis' : '');
-      return '<div class="ab-media photo"><img src="' + escapeHtml(String(dp.competitor_photo)) + '" alt="" loading="lazy"><div class="cap"><span>' + cap + '</span></div></div>';
+      return '<div class="ab-media photo"><img src="' + escapeHtml(String(dp.competitor_photo)) + '" alt="" loading="lazy"><div class="cap"><span>' + cap + '</span><span>' + attrHtml + '</span></div></div>';
     }
     if ((ty === 'sales_surge' || ty === 'sales_revenue_down_wow') && dp.daily_revenue != null && dp.expected_revenue != null) {
       var days = (entry.group && entry.group.length) ? entry.group : [entry];

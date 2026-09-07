@@ -99,9 +99,16 @@ it("carte calendrier : tuile de dates « 07 → 10 sept. » + nom du temps fort"
 
 it("carte concurrent avec photo servie par monitor : média photo avec la légende", () => {
   const html = render([{ date: TODAY, action_type: "competitor_reputation_strength", action_priority: 2, action_category: "competition", location_id: LOC, location_label: "Muse Square", card_instance_id: "r1",
-    data_payload: { competitor_name: "Centre Pompidou", google_rating: 4.5, google_rating_count: 134, competitor_photo: "https://lh3.googleusercontent.com/place-photos/x=s4800-w800", audience_overlap_pct: 50, distance_m: 4200 } }]);
+    data_payload: { competitor_name: "Centre Pompidou", google_rating: 4.5, google_rating_count: 134, competitor_photo: "https://lh3.googleusercontent.com/place-photos/x=s4800-w800", competitor_photo_attribution: JSON.stringify({ name: "Jean Dupont", uri: "https://maps.google.com/maps/contrib/123" }), audience_overlap_pct: 50, distance_m: 4200 } }]);
   expect(html).toMatch(/<div class="ab-media photo"><img src="https:\/\/lh3\.googleusercontent\.com\/place-photos\/x=s4800-w800"/);
   expect(html).toMatch(/<b>Centre Pompidou<\/b> · 4,5 ★ · 134 avis/);
+  // Conditions Google Places : l'attribution (nom + lien) à côté de la photo.
+  expect(html).toMatch(/Photo : <a href="https:\/\/maps\.google\.com\/maps\/contrib\/123"[^>]*>Jean Dupont<\/a>/);
+});
+it("carte concurrent avec photo mais SANS attribution : pas de photo", () => {
+  const html = render([{ date: TODAY, action_type: "competitor_reputation_strength", action_priority: 2, action_category: "competition", location_id: LOC, location_label: "Muse Square", card_instance_id: "r2",
+    data_payload: { competitor_name: "Centre Pompidou", google_rating: 4.5, google_rating_count: 134, competitor_photo: "https://lh3.googleusercontent.com/place-photos/x=s4800-w800" } }]);
+  expect(html).not.toContain('class="ab-media photo"');
 });
 
 it("pied : « Pas pour moi » juste avant « M’engager »", () => {

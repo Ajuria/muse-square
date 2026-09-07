@@ -207,6 +207,8 @@ quand l'owner refuse une phrase** ; en retirer une demande son accord.
   +752 € vendredi 04/09. La hausse vient du volume les 2 fois. », coin « +3 361 € sur 5 jours » (les € du jour,
   jamais l'€/an d'une population — owner : « how is CA supérieur à mercredi habituel → +5 704 €/an ? »).
   « À noter » (kit, priorité 2, nature info) = une ligne, mot du kit non arbitré.
+- Photos Google Places des suivis (07/09) : la légende porte « Photo : <auteur> » avec le lien Google (conditions
+  Places) ; sans attribution en base, pas de photo (monitor). Colonne dbt #125, 18 fiches rétro-remplies.
 - Chaleur : « forte chaleur » dès le niveau 3 (voir la table). `day_opportunity` va au Fil (décision 1 du
   04/09). `foreign_tourism_signal` : sites de destination seulement (décision 2). Mix : part de CA ET
   articles (« We need both »). Planchers : à tester le 11/09 (file À arbitrer).
@@ -341,9 +343,6 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   owner (« or something ») : « très prudent · prudent · ambitieux · optimiste » — LES quatre
   mots à arbitrer avant le build commit-form.
 - « geste » (employé par la tuile prod « 6 gestes en attente ») — pas de mot d'interface arbitré.
-- **Photos Google Places sur les cartes concurrent (07/09)** : servies sur dev (`competitor_photo`, suivis avec photo :
-  Guimet, Pompidou, GL Events). Les conditions Google exigent l'ATTRIBUTION livrée avec chaque photo, que le crawl ne
-  stocke pas : à ajouter (crawl + légende) AVANT que la photo aille en prod.
 - **Planchers des cartes facture (20 tickets par jour pour les articles par ticket, 10 articles par jour
   pour le prix moyen et les remises)** : NON arbitrés — l'owner les teste jeudi 11/09/2026 (« The floor
   wasn't tested yet. Will be next Thursday »). Ce qu'ils font : rien sur un site à 300 tickets ; ils

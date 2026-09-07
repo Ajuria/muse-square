@@ -140,7 +140,6 @@ if (!root) {
     }
   }
 
-  const SUGGESTION_CHIPS = [];
   let _monitorData = null;
 
   // J1.6 (26/08, arbitrage owner) — etat « Consulte le JJ/MM » des suggestions, serveur
@@ -236,17 +235,16 @@ if (!root) {
   var SVG_ICON_USERS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
   var SVG_ICON_TARGET = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>';
 
-  // R7 (08/08, proto approuvé owner) — l'état vide devient 3 SLOTS : Trouver une date (inchangé) ·
-  // UNE carte contextuelle (priorité anomalie mesurée > alerte météo > repli météo générique — le
-  // sous-titre est écrit depuis les données du compte, chiffre d'abord) · Générer un rapport.
-  // Chaque clic pré-remplit le chat avec une question ÉPROUVÉE par la batterie (chemins forts).
-  function buildDynamicSuggestions(data, compData) {
-    var slots = [];
+  // ÉTAT VIDE = LE GUICHET DE LA MÉMOIRE (owner 07/09, docs/explorer-etat-vide-spec.md). Trois natures
+  // de carte, jamais de remplissage : (1) ce qui manque à la mémoire et (2) ce qui attend une décision
+  // viennent du SERVEUR (/api/insight/explorer-slots, classées par € de l'objet × ancienneté) ; (3) LA
+  // question mesurée reste ici — l'anomalie du dernier jour mesuré, même source (monitor) et même
+  // référentiel qu'avant (R7, 08/08). Les états météo B/C, « Trouver une date » et « Générer un
+  // rapport » sont retirés (test 11 du lexique : écrivables sans ouvrir le compte).
+  function buildAnomalySuggestion(data) {
     var DOW_FR = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
     var frPct = function (n) { return (n > 0 ? '+' : '−') + Math.abs(Math.round(n)) + ' %'; };
     var frInt = function (n) { return Math.round(n).toLocaleString('fr-FR'); };
-
-    // ── SLOT 2 · ÉTAT A : dernier jour PASSÉ mesuré avec anomalie (|z| >= 2) ──
     var days = (data && Array.isArray(data.days)) ? data.days : [];
     var today = new Date();
     var todayYmd = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
@@ -259,61 +257,72 @@ if (!root) {
         if (!anomaly || ymd > anomaly.ymd) anomaly = { ymd: ymd, d: d };
       }
     }
-    if (anomaly) {
-      var ad = new Date(anomaly.ymd + 'T00:00:00');
-      var pct = Number(anomaly.d.revenue_vs_30d_avg_pct);
-      var up = pct >= 0;
-      var dispD = anomaly.ymd.slice(8,10) + '/' + anomaly.ymd.slice(5,7);
-      slots.push({
-        svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M3 3v18h18v-2H5V3H3zm4 12 4-4 3 3 5-6 1.5 1.2L15 15l-3-3-4 4H7z"/></svg>',
-        text: 'Pourquoi le CA de ' + DOW_FR[ad.getDay()] + ' a-t-il ' + (up ? 'bondi' : 'décroché') + ' ?',
-        sub: DOW_FR[ad.getDay()] + ' ' + dispD + ' : ' + frInt(Number(anomaly.d.daily_revenue)) + ' € · ' + frPct(pct) + ' vs votre normale — causes mesurées, événements du jour, contexte',
-        q: 'Pourquoi le ' + dispD + ' ?',
-        key: 'explorer_sugg_anomaly', date: anomaly.ymd,
-      });
-    } else {
-      // ── ÉTAT B : alerte météo active sur la fenêtre ──
-      var weatherDay = null;
-      for (var j = 0; j < days.length; j++) {
-        if (String(days[j].date || '').slice(0,10) >= todayYmd && Number(days[j].alert_level_max || 0) >= 2) { weatherDay = days[j]; break; }
-      }
-      if (weatherDay) {
-        var wd = new Date(String(weatherDay.date).slice(0,10) + 'T00:00:00');
-        var tempMax = Number(weatherDay.temperature_2m_max || 0);
-        var precipMax = Number(weatherDay.precipitation_probability_max_pct || 0);
-        var cond = tempMax >= 30 ? 'chaleur' : (precipMax >= 60 ? 'pluie' : 'météo');
-        var condLabel = tempMax >= 30 ? 'Chaleur (' + Math.round(tempMax) + '°C)' : (precipMax >= 60 ? 'Pluie probable (' + Math.round(precipMax) + ' %)' : 'Alerte météo');
-        slots.push({
-          svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M12 2a5 5 0 0 1 5 5c0 1.7-.9 3.2-2.2 4.1A6 6 0 1 1 6 17h12a4 4 0 0 0 .8-7.9A5 5 0 0 1 12 2z"/></svg>',
-          text: 'Quel est l’effet de la ' + cond + ' sur mes ventes ?',
-          sub: condLabel + ' ' + DOW_FR[wd.getDay()] + ' — votre réaction mesurée sur vos jours comparables',
-          q: 'Quel est l’effet de la ' + cond + ' sur mes ventes ?',
-          key: 'explorer_sugg_weather', date: String(weatherDay.date).slice(0, 10),
-        });
-      } else {
-        // ── ÉTAT C : repli — toujours mesurable, jamais 101 ──
-        slots.push({
-          svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M12 2a5 5 0 0 1 5 5c0 1.7-.9 3.2-2.2 4.1A6 6 0 1 1 6 17h12a4 4 0 0 0 .8-7.9A5 5 0 0 1 12 2z"/></svg>',
-          text: 'Quel est l’effet de la météo sur mes ventes ?',
-          sub: 'Chaleur, pluie, froid — l’écart mesuré de votre CA sur vos jours comparables',
-          q: 'Quel est l’effet de la météo sur mes ventes ?',
-          key: 'explorer_sugg_weather', date: todayYmd,
-        });
-      }
-    }
+    if (!anomaly) return null;
+    var ad = new Date(anomaly.ymd + 'T00:00:00');
+    var pct = Number(anomaly.d.revenue_vs_30d_avg_pct);
+    var up = pct >= 0;
+    var dispD = anomaly.ymd.slice(8,10) + '/' + anomaly.ymd.slice(5,7);
+    return {
+      nature: 'question',
+      svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M3 3v18h18v-2H5V3H3zm4 12 4-4 3 3 5-6 1.5 1.2L15 15l-3-3-4 4H7z"/></svg>',
+      text: 'Pourquoi le CA de ' + DOW_FR[ad.getDay()] + ' a-t-il ' + (up ? 'bondi' : 'décroché') + ' ?',
+      sub: DOW_FR[ad.getDay()] + ' ' + dispD + ' : ' + frInt(Number(anomaly.d.daily_revenue)) + ' € · ' + frPct(pct) + ' vs votre normale — causes mesurées, événements du jour, contexte',
+      q: 'Pourquoi le ' + dispD + ' ?',
+      key: 'explorer_sugg_anomaly', date: anomaly.ymd,
+    };
+  }
 
-    // ── SLOT 3 : Générer un rapport (le raccourci chat, rendu visible) ──
-    var MONTHS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
-    var lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    slots.push({
-      svg: '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>',
-      text: 'Générer un rapport',
-      sub: MONTHS_FR[lastMonth.getMonth()].charAt(0).toUpperCase() + MONTHS_FR[lastMonth.getMonth()].slice(1) + ', une semaine, une période — le document complet, imprimable et partageable',
-      q: 'Génère le rapport de ' + MONTHS_FR[lastMonth.getMonth()],
-      key: 'explorer_sugg_report',
-      date: lastMonth.getFullYear() + '-' + String(lastMonth.getMonth() + 1).padStart(2, '0') + '-01',
-    });
-    return slots;
+  var SVG_SLOT_MEMOIRE = '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v5.6l4 2.4-.8 1.3L11 13V7h2z"/></svg>';
+  var SVG_SLOT_DECISION = '<svg viewBox="0 0 24 24" style="fill:white;"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM8 12h8v2H8v-2zm0 4h8v2H8v-2z"/></svg>';
+
+  // Le placeholder du composer tourne sur des questions ÉPROUVÉES par la batterie (owner 07/09, § 6bis) :
+  // le rapport du mois dernier, les meilleurs jours du mois prochain, le pourquoi du dernier jour
+  // mesuré. Toutes les 4 s ; figé dès que la personne touche le composer.
+  function startPlaceholderRotation(data, anomaly) {
+    var ta = qs('ie-prompt-input');
+    if (!ta) return;
+    var MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+    var de = function (m) { return /^[aeiouy]/i.test(m) ? "d’" + m : 'de ' + m; };
+    var now = new Date();
+    var prev = new Date(now.getFullYear(), now.getMonth() - 1, 1), next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    var lastDay = null;
+    if (anomaly) lastDay = anomaly.date;
+    else if (data && Array.isArray(data.days)) {
+      var todayYmd = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+      for (var i = data.days.length - 1; i >= 0; i--) { var y = String(data.days[i].date || '').slice(0, 10); if (y < todayYmd && data.days[i].daily_revenue != null) { lastDay = y; break; } }
+    }
+    var qsList = ['Génère le rapport ' + de(MOIS[prev.getMonth()]), 'Quels sont mes 3 meilleurs jours en ' + MOIS[next.getMonth()] + ' ?'];
+    if (lastDay) qsList.push('Pourquoi le ' + lastDay.slice(8, 10) + '/' + lastDay.slice(5, 7) + ' ?');
+    var idx = 0;
+    ta.setAttribute('placeholder', qsList[0]);
+    var timer = setInterval(function () {
+      if (document.activeElement === ta || ta.value) { clearInterval(timer); return; }
+      idx = (idx + 1) % qsList.length;
+      ta.setAttribute('placeholder', qsList[idx]);
+    }, 4000);
+    ta.addEventListener('focus', function () { clearInterval(timer); }, { once: true });
+  }
+
+  async function fetchExplorerSlots() {
+    try {
+      var res = await fetch('/api/insight/explorer-slots?location_id=' + encodeURIComponent(LOCATION_ID), { cache: 'no-store' });
+      var json = await res.json().catch(function () { return null; });
+      return (json && json.ok && Array.isArray(json.cards)) ? json.cards : [];
+    } catch (e) { return []; }
+  }
+
+  // Les cartes serveur d'abord (déjà classées), la question mesurée en dernier ; trois au plus,
+  // jamais trois de la même nature (owner 07/09, § 6.1 et § 6.5). Aucun candidat → aucune carte.
+  function mergeSlots(serverCards, anomaly) {
+    var out = [];
+    for (var i = 0; i < serverCards.length; i++) {
+      var c = serverCards[i];
+      var same = out.filter(function (x) { return x.nature === c.nature; }).length;
+      if (out.length >= (anomaly ? 2 : 3) || same >= 2) continue;
+      out.push({ nature: c.nature, svg: c.nature === 'decision' ? SVG_SLOT_DECISION : SVG_SLOT_MEMOIRE, text: c.text, sub: c.sub, cta: c.cta, href: c.href, key: c.key, date: c.date });
+    }
+    if (anomaly) out.push(anomaly);
+    return out;
   }
 
   function renderDynamicSuggestions(suggestions) {
@@ -321,14 +330,16 @@ if (!root) {
     // carte \u00ab Trouver une date \u00bb : titre 15px/500, sous-titre 13px, tuile ic\u00f4ne brand par d\u00e9faut),
     // inject\u00e9s APR\u00c8S le formulaire finder \u2014 les 3 slots vivent sous le m\u00eame label ACTIONS.
     var container = document.getElementById('ie-prompt-suggestions-label');
-    var anchor = document.getElementById('ie-finder-form') || container;
+    var actionsLabel = document.getElementById('ie-prompt-actions-label');
+    var anchor = actionsLabel || container;
     if (!anchor) return;
     if (container) container.style.display = 'none';   // un seul label : ACTIONS
 
-    // Remove old static cards (but not finder)
-    var oldCards = document.querySelectorAll('.ie-prompt-card:not(#ie-finder-card)');
+    var oldCards = document.querySelectorAll('.ie-prompt-card');
     for (var i = 0; i < oldCards.length; i++) { oldCards[i].remove(); }
 
+    // Aucune carte → aucun label : la page vaut titre + composer (jamais de remplissage).
+    if (actionsLabel) actionsLabel.style.display = suggestions.length ? '' : 'none';
     if (!suggestions.length) return;
 
     // Cartes insérées UNE PAR UNE en boucle inverse : « afterend » d'une chaîne multi-éléments a un
@@ -337,12 +348,13 @@ if (!root) {
     var cardHtmls = [];
     for (var i = 0; i < suggestions.length; i++) {
       var s = suggestions[i];
-      cardHtmls.push('<a href="#" class="ie-prompt-card ie-dynamic-suggestion" data-dynamic-q="' + escapeHtml(s.q) + '"'
+      cardHtmls.push('<a href="' + (s.href ? escapeHtml(s.href) : '#') + '" class="ie-prompt-card ie-dynamic-suggestion"' + (s.q ? ' data-dynamic-q="' + escapeHtml(s.q) + '"' : '') + (s.href ? ' data-dynamic-href="' + escapeHtml(s.href) + '"' : '') + ' data-nature="' + escapeHtml(s.nature || 'question') + '"'
         + (s.key ? ' data-sugg-key="' + escapeHtml(s.key) + '" data-sugg-date="' + escapeHtml(s.date || '') + '"' : '') + '>'
         + '<div class="ie-prompt-card-icon">' + s.svg + '</div>'
         + '<div class="ie-prompt-card-content">'
           + '<p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">' + escapeHtml(s.text) + '</p>'
           + '<p style="font-size:13px;color:#374151;margin:0;line-height:1.4;">' + escapeHtml(s.sub) + '</p>'
+          + (s.cta ? '<p style="font-size:13px;font-weight:600;color:#0b37e5;margin:6px 0 0 0;">' + escapeHtml(s.cta) + '</p>' : '')
         + '</div>'
         + '<div class="ie-prompt-card-arrow"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>'
       + '</a>');
@@ -366,8 +378,10 @@ if (!root) {
       if (marked) _applyConsultedMark(card, marked);
       card.addEventListener('click', function(e) {
         e.preventDefault();
-        var q = card.getAttribute('data-dynamic-q') || '';
         _recordConsulted(card);
+        var href = card.getAttribute('data-dynamic-href');
+        if (href) { window.location.href = href; return; }   // une carte de la mémoire ouvre son rail
+        var q = card.getAttribute('data-dynamic-q') || '';
         setTextareaValue(q);
         submitQuestion(q);
       });
@@ -1501,14 +1515,6 @@ if (!root) {
     }
   });
 
-  // Bind suggestion cards (exclude finder card)
-  document.querySelectorAll(".ie-prompt-card:not(#ie-finder-card)").forEach((card) => {
-    card.addEventListener("click", (e) => {
-      e.preventDefault();
-      const idx = Number(card.getAttribute("data-suggestion-idx") || "0");
-      setTextareaValue(SUGGESTION_CHIPS[idx] || "");
-    });
-  });
 
   // Bind submit button
   qs("ie-prompt-submit-btn")?.addEventListener("click", (e) => {
@@ -1539,137 +1545,21 @@ if (!root) {
     });
 
   // ---- Finder form ----
-    const finderCard = document.getElementById("ie-finder-card");
-    const finderChip = document.getElementById("ie-finder-chip");
-    const finderForm = document.getElementById("ie-finder-form");
-    const finderChevron = document.getElementById("ie-finder-chevron");
-    const finderError = document.getElementById("ie-finder-error");
-    const finderSubmit = document.getElementById("ie-finder-submit");
-
-    let finderOpen = false;
-
-    function toggleFinderForm() {
-      finderOpen = !finderOpen;
-      if (finderForm) finderForm.style.display = finderOpen ? "block" : "none";
-      if (finderChevron) finderChevron.style.transform = finderOpen ? "rotate(180deg)" : "rotate(0deg)";
-      const inputBar = document.getElementById('ie-prompt-input-bar');
-      if (inputBar) inputBar.style.display = finderOpen ? 'none' : '';
-    }
-
-    if (finderCard) {
-      finderCard.addEventListener("click", (e) => {
-        e.preventDefault();
-        toggleFinderForm();
-      });
-    }
-
-    if (finderChip) {
-      finderChip.addEventListener("click", (e) => {
-        e.preventDefault();
-        toggleFinderForm();
-        if (finderOpen && finderForm) {
-          finderForm.scrollIntoView({ block: "nearest" });
-        }
-      });
-    }
-
-    function setFinderError(msg) {
-      if (!finderError) return;
-      finderError.textContent = msg;
-      finderError.style.display = msg ? "block" : "none";
-    }
-
-    async function submitFinder() {
-      setFinderError("");
-
-      // Read ISO for the API: flatpickr keeps Y-m-d in .value; the CDN-fallback keeps it in
-      // data-iso (while .value shows JJ/MM/AAAA). Prefer an ISO-shaped .value, else data-iso.
-      const _dsEl = document.getElementById("ie-finder-date-start");
-      const _deEl = document.getElementById("ie-finder-date-end");
-      const start = _dsEl ? (/^\d{4}-\d{2}-\d{2}$/.test(_dsEl.value) ? _dsEl.value : (_dsEl.dataset.iso || _dsEl.value)) : "";
-      const end = _deEl ? (/^\d{4}-\d{2}-\d{2}$/.test(_deEl.value) ? _deEl.value : (_deEl.dataset.iso || _deEl.value)) : "";
-      const weekday = document.getElementById("ie-finder-weekday")?.checked ?? true;
-      const weekend = document.getElementById("ie-finder-weekend")?.checked ?? true;
-      const exclSchool = document.getElementById("ie-finder-excl-school")?.checked ?? false;
-      const exclHolidays = document.getElementById("ie-finder-excl-holidays")?.checked ?? false;
-
-      if (!weekday && !weekend) { setFinderError("Sélectionnez au moins un type de jour."); return; }
-      if (!start || !end) { setFinderError("Renseignez la fenêtre de dates."); return; }
-      if (start > end) { setFinderError("La date de début doit être avant la date de fin."); return; }
-
-      if (finderSubmit) { finderSubmit.disabled = true; finderSubmit.textContent = "Recherche en cours…"; }
-
-      console.log("[finder] payload:", JSON.stringify({ date_start: start, date_end: end, allow_weekday: weekday, allow_weekend: weekend, exclude_school_holidays: exclSchool, exclude_public_holidays: exclHolidays }));
-      try {
-        const res = await fetch("/api/insight/find-dates", {
-          method: "POST",
-          headers: { "content-type": "application/json", accept: "application/json" },
-          body: JSON.stringify({
-            date_start: start,
-            date_end: end,
-            allow_weekday: weekday,
-            allow_weekend: weekend,
-            exclude_school_holidays: exclSchool,
-            exclude_public_holidays: exclHolidays,
-          }),
-        });
-
-        const out = await res.json().catch(() => null);
-
-        if (!res.ok || !out?.ok) {
-          setFinderError(out?.error ?? `Erreur (${res.status})`);
-          return;
-        }
-
-        if (!out.dates_csv) {
-          setFinderError("Aucune date disponible pour ces critères.");
-          return;
-        }
-
-        sessionStorage.setItem("ms_finder_narrative", out.narrative ?? "");
-        sessionStorage.setItem("ms_finder_is_least_worst", out.is_least_worst ? "1" : "0");
-
-        window.location.href = `/app/insightevent/days?selected_dates=${encodeURIComponent(out.dates_csv)}&source=finder`;
-
-      } catch (e) {
-        setFinderError("Erreur réseau. Veuillez réessayer.");
-      } finally {
-        if (finderSubmit) { finderSubmit.disabled = false; finderSubmit.textContent = "Trouver les meilleures dates →"; }
-      }
-    }
-
-    if (finderSubmit) finderSubmit.addEventListener("click", submitFinder);
-
-    // Default dates
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const in30 = new Date(); in30.setDate(in30.getDate() + 30);
-    const in30Str = in30.toISOString().slice(0, 10);
-    const dsEl = document.getElementById("ie-finder-date-start");
-    const deEl = document.getElementById("ie-finder-date-end");
-    // French display (JJ/MM/AAAA) with ISO kept in data-iso for the API. This is the fallback
-    // when the flatpickr CDN fails to load (VPN/CSP) — when flatpickr IS active it owns .value
-    // (Y-m-d) and these branches skip because .value is already set.
-    if (dsEl && !dsEl.value) { dsEl.value = todayStr.split('-').reverse().join('/'); dsEl.dataset.iso = todayStr; }
-    if (deEl && !deEl.value) { deEl.value = in30Str.split('-').reverse().join('/'); deEl.dataset.iso = in30Str; }
-
     syncInputWrapHeight();
 
     // Load dynamic suggestions + competitor signals
     Promise.all([
       fetchMonitorForSuggestions(),
       fetchCompetitorSignalsForSuggestions(),
-      fetchConsultedMarks()
+      fetchConsultedMarks(),
+      fetchExplorerSlots()
     ]).then(function(results) {
       var data = results[0];
       var compData = results[1];
+      var anomaly = buildAnomalySuggestion(data);
+      renderDynamicSuggestions(mergeSlots(results[3] || [], anomaly));
+      startPlaceholderRotation(data, anomaly);
       if (!data) return;
-      var suggestions = buildDynamicSuggestions(data, compData);
-      if (suggestions.length) {
-        renderDynamicSuggestions(suggestions);
-        for (var i = 0; i < suggestions.length; i++) {
-          SUGGESTION_CHIPS[i] = suggestions[i].q;
-        }
-      }
       // Status chips
       var chipsEl = document.getElementById('ie-prompt-status-chips');
       if (chipsEl && Array.isArray(data.days) && data.days.length) {

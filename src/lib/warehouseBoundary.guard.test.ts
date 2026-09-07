@@ -21,7 +21,6 @@ import { join } from "node:path";
 // Cliquet mesuré le 26/08 sur src/ (fichier -> nombre de références `mart.fct_*`).
 const CLIQUET: Record<string, number> = {
   "src/lib/ai/facts/buildDayPerformanceFacts.ts": 2,
-  "src/lib/ai/find_dates/find-dates.ts": 2,
   "src/lib/commitments/commitmentContext.ts": 4,
   "src/lib/commitments/commitmentResolve.ts": 1,
   // 0 → 2 (28/08, page Opération « Comprendre le résultat », commit 01c66b3 — instruit après
