@@ -182,7 +182,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // reader. Per selected date; the profile row is location-level (same across dates). day_surface_raw /
     // profile_raw are the full view rows (parity-verified against the old profileQuery/signalsQuery). The
     // brain memoizes per (location,date), so reactions-today / sensitivities on the same page share this read.
-    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult, eventLifecycleRows, decompositionRows] = await Promise.all([
+    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult, eventLifecycleRows, decompositionRows, competitorPhotoRows] = await Promise.all([
       // Enrich only the PRIMARY date (selected_dates[0]) with the full brain context — that's the day
       // whose rich detail a client renders (pulse: today; monitor: its single selected date). The other
       // dates only feed the 7-day week-bar (opportunity_score) + selected-day detail, which the clients
@@ -356,7 +356,21 @@ export const GET: APIRoute = async ({ url, locals }) => {
         params: { location_id },
         location: "EU",
       }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+      // 07/09 — photo Google Places des concurrents SUIVIS (proto agir-fil, owner 07/09) : attachée aux
+      // cartes concurrent comme `competitor_photo` (média de la carte). Même vague, aucun aller-retour de
+      // plus. L'ATTRIBUTION Google livrée avec chaque photo n'est pas stockée par le crawl : à ajouter
+      // avant la prod (signalé à l'owner le 07/09). Vue absente ou en échec → [] : pas de photo.
+      bq.query({
+        query: `SELECT competitor_name, google_photos
+                FROM \`muse-square-open-data.semantic.vw_insight_event_competitors_followed\`
+                WHERE location_id = @location_id AND google_photos IS NOT NULL`,
+        params: { location_id },
+        location: "EU",
+      }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
     ]);
+    const competitorPhotoByName = new Map<string, string>(
+      (competitorPhotoRows as any[]).map((r: any) => [String(r?.competitor_name ?? ""), String(r?.google_photos ?? "")]).filter(([k, v]) => k && v) as [string, string][]
+    );
 
     const _t2 = Date.now();
     console.log(`[monitor] Promise.all (primary brain + batch day_surface + 5 queries): ${_t2 - _t1}ms`);
@@ -1098,7 +1112,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
         action_priority: r?.action_priority ?? null,
         action_category: r?.action_category ?? null,
         confidence_tier: r?.confidence_tier ?? null,
-        data_payload:    r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null,
+        data_payload:    ((pl: any) => {
+          // 07/09 — photo du concurrent suivi sur les cartes concurrent (appariement par NOM du suivi : la clé
+          // commune des payloads ; competitor_id absent de plusieurs d'entre eux).
+          if (pl && typeof pl === 'object' && pl.competitor_name && competitorPhotoByName.has(String(pl.competitor_name))) pl.competitor_photo = competitorPhotoByName.get(String(pl.competitor_name));
+          return pl;
+        })(r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null),
         suppression_key: r?.suppression_key ?? null,
         expires_at:      (r?.expires_at?.value ?? r?.expires_at ?? null),
       }))),

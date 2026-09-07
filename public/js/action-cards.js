@@ -3183,7 +3183,11 @@
       if (_regimeGated(ac)) continue;
       if (_perfTypes.indexOf(actionType) >= 0) {
         if (_todayN && target === _todayN) {
-          if (acDate !== _perfLatest[actionType]) continue;
+          // 07/09 (pulse, owner) : les cartes CA d'un site se REGROUPENT en une carte dans le pli — la page
+          // demande TOUTES leurs occurrences des 7 derniers jours (window.MS_PERF_KEEP_ALL, pose par pulse
+          // seul) ; les autres surfaces gardent le dernier par type.
+          var _keepAll = !!(window.MS_PERF_KEEP_ALL && window.MS_PERF_KEEP_ALL[actionType]);
+          if (!_keepAll && acDate !== _perfLatest[actionType]) continue;
           // Limite 7 jours (owner 24/08) : un fait CA de 27 jours n'est plus une « action du
           // jour » — même daté, il encombre. Au-delà, la carte ne remonte plus sur aujourd'hui ;
           // elle reste rendue sur SA date (branche ci-dessous) pour le travail rétrospectif.

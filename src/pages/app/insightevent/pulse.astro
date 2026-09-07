@@ -171,7 +171,33 @@ if (!location_id) {
       .chip-good { display:inline-flex; align-items:center; gap:4px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-green-bg); color:var(--color-pill-green-text); white-space:nowrap; }
       /* Restyle R4 (validé 26/07, proto cards-restyle-proto.html (supprime le 05/09/2026 - surface livree, historique git)) : la ligne d'action est
          l'instruction de la carte — en gras pour porter la hiérarchie chiffre → action. */
-      .aline { color:#1D3BB3; font-size:13px; font-weight:600; line-height:1.5; margin:8px 0 0; }
+      /* 07/09 — TEASER (proto agir-fil-proto, arbitré owner 07/09) : le geste est la PROPOSITION que « M'engager »
+         engage — bloc calme, sans préfixe, sans filet vertical (refusé 07/09). */
+      .aline { color:#111827; font-size:13.5px; font-weight:500; line-height:1.5; margin:10px 0 0; background:#F9FAFB; border-radius:10px; padding:9px 12px; max-width:58ch; }
+      /* Nature (Opportunité / Menace / Résultat) + urgence (Aujourd'hui / Cette semaine) — le « pourquoi je devrais
+         m'en soucier » lisible avant le titre (owner 07/09). */
+      .ab-chips { display:flex; align-items:center; gap:6px; margin-bottom:6px; flex-wrap:wrap; }
+      .ab-chip { font-size:10.5px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; padding:2px 8px; border-radius:999px; line-height:1.5; }
+      .ab-chip.opp { background:#DCFCE7; color:#166534; } .ab-chip.thr { background:#FEE2E2; color:#991B1B; } .ab-chip.res { background:#EEF2FF; color:#1D3BB3; }
+      .ab-chip.urg { background:#F3F4F6; color:#4B5563; text-transform:none; letter-spacing:0; font-weight:600; } .ab-chip.urg.now { background:#FEE2E2; color:#991B1B; }
+      /* L'emplacement média — après le fait, avant le geste : photo, graphique ou tuile, centré (owner 07/09). */
+      .ab-media { margin:10px 0 0; border:1px solid var(--color-border); border-radius:12px; overflow:hidden; background:var(--color-bg-card); max-width:58ch; }
+      .ab-media.chart { display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end; justify-content:center; padding:14px 16px 10px; }
+      .ab-media.chart .grp { display:flex; flex-direction:column; align-items:center; gap:4px; } .ab-media.chart .pair { display:flex; gap:4px; align-items:flex-end; height:64px; }
+      .ab-media.chart i { display:block; width:26px; border-radius:4px 4px 0 0; background:#CBD5E1; } .ab-media.chart i.me { background:#1D3BB3; } .ab-media.chart small { font-size:11px; color:#4B5563; }
+      .ab-media.chart .lg { flex-basis:100%; text-align:center; font-size:11px; color:#9CA3AF; line-height:1.6; margin-top:4px; } .ab-media.chart .lg span + span { margin-left:14px; } .ab-media.chart .lg i { display:inline-block; width:10px; height:10px; border-radius:2px; vertical-align:-1px; margin-right:4px; }
+      .ab-media.tile { display:flex; align-items:center; justify-content:center; gap:14px; padding:14px 16px; background:#F9FAFB; }
+      .ab-media.tile .d { font-size:26px; font-weight:700; letter-spacing:-0.02em; line-height:1; color:#1D3BB3; } .ab-media.tile .d small { display:block; font-size:11px; font-weight:600; color:#9CA3AF; letter-spacing:0.06em; text-transform:uppercase; margin-top:4px; }
+      .ab-media.tile .lbl { font-size:14px; color:#4B5563; } .ab-media.tile .lbl b { color:#111827; }
+      .ab-media.tile .ic { width:40px; height:40px; border-radius:12px; background:#EEF2FF; color:#1D3BB3; display:flex; align-items:center; justify-content:center; flex:none; } .ab-media.tile .ic svg { width:20px; height:20px; }
+      .ab-media.photo img { width:100%; aspect-ratio:16/7; object-fit:cover; display:block; } .ab-media.photo .cap { display:flex; justify-content:space-between; gap:8px; padding:8px 12px; font-size:12.5px; color:#4B5563; } .ab-media.photo .cap b { color:#111827; }
+      /* « M'engager » est LE geste du fil : bouton plein, à côté de « Pas pour moi » (owner 07/09). */
+      .ab-rfoot .pls-cta-pri { background:#1D3BB3; color:#fff; padding:6px 14px; border-radius:999px; font-weight:600; }
+      .ab-rfoot .pls-cta-pri:hover { text-decoration:none; background:#162C8A; }
+      /* « À noter » (owner 07/09) : une ligne cliquable — titre, coin, gestes ; corps et média repliés. */
+      .ab-card.ab-row .ab-sowhat, .ab-card.ab-row .aline, .ab-card.ab-row .ab-media, .ab-card.ab-row .ab-reserve, .ab-card.ab-row .pls-more { display:none; }
+      .ab-card.ab-row .ab-rgrid { padding-top:10px; } .ab-card.ab-row .ab-what { font-size:14px; font-weight:600; margin-bottom:0; }
+      .ab-card.ab-row .ab-rfoot { padding:4px 20px 10px 76px; } .ab-card.ab-row .ab-rfoot .pls-cta-pri { background:none; color:#1D3BB3; padding:0; }
       /* Geste « Préciser ce compte » (carte client_dormant, spec client-patterns § R.3) —
          chips = forme .chip-n existante rendue cliquable ; survol = teinte de la tuile
          Intelligence ; confirmation = vert des pills (tokens). Proto validé owner 07/08. */
@@ -389,7 +415,7 @@ if (!location_id) {
     <script is:inline src="/js/reco-library.js?v=13"></script>
     <script is:inline src="/js/commit-form.js?v=15"></script>
     <script is:inline src="/js/bp-form.js?v=1"></script>
-    <script is:inline src="/js/action-cards.js?v=119"></script>
+    <script is:inline src="/js/action-cards.js?v=120"></script>
     <script is:inline src="/js/draft-workspace.js?v=5"></script>
   
 
@@ -1338,6 +1364,7 @@ if (!location_id) {
     var MAX_PER_SITE = 10;
     var _goalCounts = {};
     var _perfCounts = {};
+    var _perfGroupSeen = {};
 
     // Goal pass: up to 3 cards serving the active weekly goal, surfaced first.
     var _goalTypes = (activeGoalKey && window.GOAL_SERVING_TYPES) ? (window.GOAL_SERVING_TYPES[activeGoalKey] || []) : [];
@@ -1369,14 +1396,23 @@ if (!location_id) {
       var _pc = candidates[_pj];
       if (String(_pc.item.action_category || "").toLowerCase() !== "performance") continue;
       var _pk = _siteKey(_pc);
-      if ((_perfCounts[_pk] || 0) >= 4 || _topForSite(_pk) >= MAX_PER_SITE) continue;
       var _psub = String(_pc.item.change_subtype || "").toLowerCase();
+      // 07/09 — les cartes CA d'un site (sales_surge / down) font UNE carte au pli (regroupées plus bas) :
+      // elles ne consomment le budget performance qu'UNE fois par (site, type), sinon cinq hausses de la
+      // semaine chassaient le produit et la famille du pli (mesuré au harnais le 07/09).
+      var _pGroupable = (_psub === "sales_surge" || _psub === "sales_revenue_down_wow");
+      var _pGk = _pk + "|" + _psub;
+      var _pCounts = !(_pGroupable && _perfGroupSeen[_pGk]);
+      if (_pCounts && ((_perfCounts[_pk] || 0) >= 4 || _topForSite(_pk) >= MAX_PER_SITE)) continue;
       var _pdedup = _pk + "|" + _psub + "|" + normalizeYmd(_pc.item.affected_date);
       if (seen[_pdedup]) continue;
       seen[_pdedup] = true;
       top.push(_pc);
-      _perfCounts[_pk] = (_perfCounts[_pk] || 0) + 1;
-      _catCounts[_pk + "|performance"] = (_catCounts[_pk + "|performance"] || 0) + 1;
+      if (_pCounts) {
+        _perfCounts[_pk] = (_perfCounts[_pk] || 0) + 1;
+        _catCounts[_pk + "|performance"] = (_catCounts[_pk + "|performance"] || 0) + 1;
+        if (_pGroupable) _perfGroupSeen[_pGk] = true;
+      }
     }
 
     // PÉRIMÈTRE PASS (étage 4, 31/07/2026) — UNE place réservée PAR SITE pour une carte qui attend
@@ -1453,6 +1489,21 @@ if (!location_id) {
       if (_catCounts[_acCat] > _catMax) continue;
       top.push(c);
     }
+
+    // 07/09 (owner : « fluctuations in revenue showed again and again ») — les hausses ou baisses de CA
+    // d'un MÊME site font UNE carte dans le pli : la plus récente porte le lien, le geste et le coin
+    // (Σ des écarts) ; les autres jours vivent dans son corps et son graphique. Jamais entre sites
+    // (arbitrage 29/07 : une carte par lieu, aucune entité « A · B »).
+    (function () {
+      var byKey = {}, out = [];
+      for (var gi = 0; gi < top.length; gi++) {
+        var ge = top[gi]; var gty = String(ge.tmpl && ge.tmpl._spec_action_type || '');
+        if (!/^sales_(surge|revenue_down_wow)$/.test(gty)) { out.push(ge); continue; }
+        var gk = _siteKey(ge) + '|' + gty;
+        if (!byKey[gk]) { byKey[gk] = ge; ge.group = [ge]; out.push(ge); } else { byKey[gk].group.push(ge); }
+      }
+      top = out;
+    })();
 
     // ---- Resolve sowhat: render fallback now, store payload for async replacement ----
     var _aiSowhatPayload = [];
@@ -1658,6 +1709,23 @@ if (!location_id) {
       var _swText = '';
       if (_sw && typeof _sw === 'object' && _sw.context) { _swText = _sw.context; }
       else if (typeof _sw === 'string') { _swText = _sw; }
+      _swText = msTeaserBody(_swText);
+      // Carte CA groupée (07/09) : le titre compte les jours, le corps les liste avec leurs écarts.
+      if (entry.group && entry.group.length > 1) {
+        var _gN = entry.group.length, _gTy = String(t._spec_action_type || '');
+        var _gParts = entry.group.map(function (e) {
+          var d = (e.item && e.item.data_payload) || {}; var g = Math.round(Number(d.daily_revenue) - Number(d.expected_revenue));
+          return (g > 0 ? '+' : '\u2212') + Math.abs(g).toLocaleString('fr-FR') + ' \u20ac ' + (window.msWeekdayFrSing ? window.msWeekdayFrSing(e.item.affected_date) : '') + ' ' + _ddmm(e.item.affected_date);
+        });
+        var _gDrv = [];
+        entry.group.forEach(function (e) {
+          var sw = e.tmpl ? (typeof e.tmpl.sowhat === 'string' ? e.tmpl.sowhat : String(e.tmpl.sowhat && e.tmpl.sowhat.context || '')) : '';
+          var dv = /vient (du volume|de l.affluence)/.test(sw) ? 'volume' : /vient du panier/.test(sw) ? 'panier moyen' : '';
+          if (dv && _gDrv.indexOf(dv) < 0) _gDrv.push(dv);
+        });
+        _swText = _gParts.join(', ') + '.' + (_gTy === 'sales_surge' && _gDrv.length === 1 ? ' La hausse vient du ' + _gDrv[0] + ' les ' + _gN + ' fois.' : '');
+        t.what = _gN + ' jours ' + (_gTy === 'sales_surge' ? 'au-dessus' : 'en dessous') + ' de votre CA habituel cette semaine';
+      }
       // Corps étendu PAR CARTE (gabarit owner 25/08, miroir d'action-cards.js) : le créneau
       // porte récurrence + fait + funnel + réserve de régime ; les autres restent à 2 / 200.
       // 06/09 (trois couches) — COPIE de la carte du kit (renderActionCandidates, _swLim) : un jumeau de
@@ -1708,7 +1776,30 @@ if (!location_id) {
       // jour, corner_day_mode) ? Un €/an de population ou de classe et un % funnel sont des
       // chiffres EMPRUNTÉS : mesurés, mais pas sur cet objet. Le tri du pli lit la distinction.
       var _amtOwn = false;
-      if (entry.item.enjeu && Number(entry.item.enjeu.eur_year) && entry.item.enjeu.tier) {
+      // 07/09 (owner : « how is CA supérieur à mercredi habituel → +5 704 €/an ? ») — sur une carte CA du
+      // jour, le coin porte l'écart DU JOUR (les € vus) ; l'€/an de ses jours comparables vit au ⓘ.
+      (function () {
+        var _tyA = String(t._spec_action_type || '');
+        if (!/^sales_(surge|revenue_down_wow)$/.test(_tyA)) return;
+        var _dpA = entry.item.data_payload || {};
+        if (_dpA.daily_revenue == null || _dpA.expected_revenue == null) return;
+        var _days = (entry.group && entry.group.length) ? entry.group : [entry];
+        var _gap = 0; _days.forEach(function (e) { var d = (e.item && e.item.data_payload) || {}; _gap += Math.round(Number(d.daily_revenue) - Number(d.expected_revenue)); });
+        if (!isFinite(_gap)) return;
+        var _jS = window.msWeekdayFrSing ? String(window.msWeekdayFrSing(entry.item.affected_date)) : 'jour';
+        var _tip = _days.length > 1
+          ? 'Écart cumulé de ' + _days.length + ' jours au-dessus de votre CA habituel.'
+          : 'Écart du jour vs votre ' + _jS + ' habituel (' + Math.round(Number(_dpA.expected_revenue)).toLocaleString('fr-FR') + ' €).';
+        var _enjA = entry.item.enjeu;
+        if (_enjA && Number(_enjA.eur_year) && _enjA.label_fr) _tip += ' Vos ' + String(_enjA.label_fr) + ' : ' + (Number(_enjA.eur_year) > 0 ? '+' : '−') + Math.abs(Math.round(Number(_enjA.eur_year))).toLocaleString('fr-FR') + ' €/an' + (_enjA.n_days ? ', mesuré sur ' + _enjA.n_days + ' j / ' + _enjA.span_months + ' mois' : '') + '.';
+        var _fgA = _gap > 0 ? 'var(--color-pill-green-text)' : '#B45309';
+        _amtHtml = '<div class="amt ' + (_gap > 0 ? 'gain' : 'defend') + '" title="' + escapeHtml(_tip) + '">'
+          + '<div class="amt-val" style="color:' + _fgA + ';">' + (_gap > 0 ? '+' : '−') + Math.abs(_gap).toLocaleString('fr-FR') + ' €</div>'
+          + '<div class="amt-sub">' + escapeHtml(_days.length > 1 ? 'sur ' + _days.length + ' jours' : 'le ' + _ddmm(entry.item.affected_date)) + '</div>'
+        + '</div>';
+        _amtOwn = true;
+      })();
+      if (!_amtHtml && entry.item.enjeu && Number(entry.item.enjeu.eur_year) && entry.item.enjeu.tier) {
         var _enj = entry.item.enjeu;
         var _aVal = Math.abs(Math.round(Number(_enj.eur_year))).toLocaleString('fr-FR');
         var _aPos = Number(_enj.eur_year) > 0;
@@ -1855,10 +1946,14 @@ if (!location_id) {
       // cartes système (même action ecarte) ; « Action menée ?/Déjà fait » = engagements ;
       // « Communiquer » vit sur la page Consulter. Le wrapper data-ab-dispo-* est conservé
       // tel quel (le handler passe par closest('[data-ab-dispo-row]'), inchangé).
-      var _dispoHtml = (t._card_type === 'action') ? ('<span data-ab-dispo-row="' + cardIdx + '" data-ab-dispo-instance="' + escapeHtml(String(entry.item.card_instance_id||"")) + '" data-ab-dispo-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-dispo-cat="' + escapeHtml(String(entry.item.action_category||"")) + '" data-ab-dispo-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-dispo-location="' + escapeHtml(String(entry.item.location_id||"")) + '" style="display:inline-flex;align-items:center;">'
+      var _dispoGroup = (entry.group && entry.group.length > 1) ? ' data-ab-dispo-group="' + escapeHtml(entry.group.map(function (e) { return String(e.item && e.item.card_instance_id || ''); }).filter(Boolean).join(',')) + '"' : '';
+      var _dispoHtml = (t._card_type === 'action') ? ('<span data-ab-dispo-row="' + cardIdx + '"' + _dispoGroup + ' data-ab-dispo-instance="' + escapeHtml(String(entry.item.card_instance_id||"")) + '" data-ab-dispo-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '" data-ab-dispo-cat="' + escapeHtml(String(entry.item.action_category||"")) + '" data-ab-dispo-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '" data-ab-dispo-location="' + escapeHtml(String(entry.item.location_id||"")) + '" style="display:inline-flex;align-items:center;">'
         + '<button type="button" data-ab-dispo-btn="card_not_done" class="pls-cta-sec">Pas pour moi</button>'
       + '</span>') : '';
-      return '<div class="ab-card" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '" data-t-site="' + escapeHtml(_tSite) + '" data-t-h="' + _tH + '" data-t-e="' + _tE + '" data-t-n="' + _tN + '"'
+      // 07/09 (owner) : ce qui n'est pas urgent (« À noter », nature info) est une LIGNE, pas une carte —
+      // même balisage, mêmes gestes, corps et média repliés par la classe ab-row.
+      var _isNote = (/noter/.test(String(t.urgencyPill && t.urgencyPill.label || '')) && String(t.type || '') === 'info');
+      return '<div class="ab-card' + (_isNote ? ' ab-row' : '') + '" id="' + cardId + '"' + dataSignalAttr + ' data-ab-card-idx="' + cardIdx + '" data-t-site="' + escapeHtml(_tSite) + '" data-t-h="' + _tH + '" data-t-e="' + _tE + '" data-t-n="' + _tN + '"'
         // Règle 5 (01/08) : classe portée par la carte datée (enjeu direct, jamais hérité) —
         // le motif structurel de la même classe reste compact ce jour-là (dédup du coin).
         + ' data-t-class="' + escapeHtml((entry.item.enjeu && !entry.item.enjeu.inherited && entry.item.enjeu.class_key) ? String(entry.item.enjeu.class_key) : '') + '"'
@@ -1890,6 +1985,7 @@ if (!location_id) {
         + '<div class="ab-rgrid"' + consultOpen + '>'
           + (function () { var _f = _famOf(t._spec_action_type); return '<div><div class="ab-disc' + (t.barClass === 'ab-threat' ? ' urgent' : '') + '" style="margin-top:2px;background:' + _f.bg + ';color:' + _f.ink + ';" title="' + _f.label + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;">' + _f.svg + '</svg></div></div>'; })()
           + '<div style="min-width:0;">'
+                      + msTeaserChips(t)
                       + '<div class="ab-what"' + consultOpen + '>' + t.what + '</div>'
                       + '<div class="ab-sowhat"' + consultOpen + '>' + escapeHtml(_swText)
                         // Doctrine 01/08 : le motif du jour est du CONTEXTE — une phrase, jamais
@@ -1928,7 +2024,8 @@ if (!location_id) {
                   // au calendrier ») vit HORS du clamp : elle était pliée sous « Voir plus » pendant
                   // que le montant du coin restait visible — l'aveu caché, le chiffre gras non.
                   + (t.reserve ? '<div class="ab-reserve">' + escapeHtml(t.reserve) + '</div>' : '')
-                  + (t.action ? '<div class="aline">' + escapeHtml(t.action) + '</div>' : '')
+                  + msTeaserMedia(entry, t)
+                  + (t.action ? '<div class="aline">' + escapeHtml(msTeaserGesture(t.action, t._spec_action_type)) + '</div>' : '')
                   + msPartyRoleStrip(entry.item)
           + '</div>'
           + '<div class="ab-eur">' + _metaLine + _amtHtml + '</div>'
@@ -1942,11 +2039,12 @@ if (!location_id) {
               + metricsHtml
               + '<span style="margin-left:auto;display:inline-flex;align-items:center;gap:16px;">'
                 + (statusLabel ? '<span style="font-size:12px;color:#9CA3AF;">' + escapeHtml(statusLabel) + '</span>' : '')
-                + _dispoHtml
                 // Vue équipe inc 6 : « Faire suivre » (mot owner du brief) — envoie la VERSION
                 // MEMBRE de la carte (payload expurgé, msMemberForwardText) dans le canal Slack
                 // du pôle (résolution serveur), jamais pour un membre.
                 + (window._msMemberView ? '' : '<button type="button" data-fwd-card="' + cardIdx + '" class="pls-cta-sec" title="Envoyer cette carte dans le canal Slack de l’équipe — version équipe du texte, résolution du canal par pôle">Faire suivre</button>')
+                // 07/09 (owner) : « Pas pour moi » à côté de « M'engager ».
+                + _dispoHtml
                 + _commitEntry
               + '</span>'
         + '</div>'
@@ -2502,11 +2600,17 @@ if (!location_id) {
           var _cEl = root.querySelector("[data-actions-counter]");
           if (_cEl) { var _n = parseInt(_cEl.textContent, 10) || 0; _cEl.textContent = String(_n + 1); }
         }
-        fetch("/api/analytics/track", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ event: ev, location_id: locId, card_instance_id: instance, action_type: sub, action_category: cat, change_subtype: sub, affected_date: affected }),
-        }).catch(function(){});
+        // 07/09 — carte CA groupée : le geste vaut pour CHAQUE occurrence du groupe (sinon la suivante
+        // referait surface au prochain rendu).
+        var _instances = (row.getAttribute("data-ab-dispo-group") || "").split(",").filter(Boolean);
+        if (!_instances.length) _instances = [instance];
+        _instances.forEach(function (inst) {
+          fetch("/api/analytics/track", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ event: ev, location_id: locId, card_instance_id: inst, action_type: sub, action_category: cat, change_subtype: sub, affected_date: affected }),
+          }).catch(function(){});
+        });
         delete _cardStatesByLoc[locId]; // outcome changed — next render re-reads the state
       });
     });
@@ -3383,6 +3487,70 @@ if (!location_id) {
   // Famille STRUCTURELLE → famille visuelle (mêmes teintes que les cartes datées).
   var _STRUCT2FAM = { weather: 'weather', competition: 'competitor', suivis: 'competitor', tourism: 'calendar', events: 'calendar', calendar: 'calendar', mobility: 'mobility', traffic: 'mobility', sales: 'sales' };
   function _famOfStruct(fam) { return _FAM[_STRUCT2FAM[String(fam || '')]] || _FAM.opportunity; }
+  // 07/09 — le kit rend toutes les cartes CA des 7 derniers jours (pas le dernier par type) : le pli les regroupe en une.
+  window.MS_PERF_KEEP_ALL = { sales_surge: 1, sales_revenue_down_wow: 1 };
+
+  // ── 07/09 — TEASER (proto tools/proto/agir-fil-proto.html, arbitré owner 07/09). Chaque carte est un
+  // teaser vers sa page de détail : nature + urgence, le titre, UNE phrase (le chiffre qui décide —
+  // jamais les familles, qui vivent sur la page insight), un média, le geste comme proposition.
+  function msTeaserChips(t) {
+    var ty = String(t && t._spec_action_type || '');
+    var n = String(t && t.type || '');
+    var h = '';
+    // « Résultat d'hier » : sa couleur venait de la CATÉGORIE (ÉVÉNEMENT → warning), pas du résultat.
+    if (ty === 'event_measure') h += '<span class="ab-chip res">Résultat</span>';
+    else if (n === 'opportunity') h += '<span class="ab-chip opp">Opportunité</span>';
+    else if (n === 'threat') h += '<span class="ab-chip thr">Menace</span>';
+    var u = String(t && t.urgencyPill && t.urgencyPill.label || '');
+    if (/ujourd/.test(u)) h += '<span class="ab-chip urg now">' + escapeHtml(u) + '</span>';
+    else if (/semaine/.test(u)) h += '<span class="ab-chip urg">' + escapeHtml(u) + '</span>';
+    return h ? '<div class="ab-chips">' + h + '</div>' : '';
+  }
+  // Le corps sans la ligne Familles (elle reste sur la page insight, rendue par le même kit).
+  function msTeaserBody(s) { return String(s || '').split(' Familles :')[0]; }
+  // Le geste sans son préfixe (le bouton « M'engager » le dit), première lettre en capitale.
+  function msTeaserGesture(a, ty) {
+    var g = String(a || '').replace(/^Actions? conseill\u00e9es? :\s*/, '');
+    // Sur les cartes CA, les parenthèses du geste répètent le fait rendu juste au-dessus (owner 07/09).
+    if (/^sales_(surge|revenue_down_wow)$/.test(String(ty || ''))) g = g.replace(/\s*\([^)]*\)/g, '').replace(/\s+,/g, ',');
+    return g ? g.charAt(0).toUpperCase() + g.slice(1) : g;
+  }
+  var _MOIS_FR = ['janv.', 'f\u00e9vr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'ao\u00fbt', 'sept.', 'oct.', 'nov.', 'd\u00e9c.'];
+  function _ddmm(iso) { var y = String(iso || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(y) ? y.slice(8, 10) + '/' + y.slice(5, 7) : ''; }
+  function msTeaserChart(pairs) {
+    var mx = 1; pairs.forEach(function (p) { mx = Math.max(mx, p.hab, p.jour); });
+    return '<div class="ab-media chart">' + pairs.map(function (p) {
+      return '<span class="grp"><span class="pair"><i style="height:' + Math.round(6 + 56 * p.hab / mx) + 'px"></i><i class="me" style="height:' + Math.round(6 + 56 * p.jour / mx) + 'px"></i></span><small>' + escapeHtml(p.lbl) + '</small></span>';
+    }).join('') + '<span class="lg"><span><i style="background:#CBD5E1"></i>votre CA habituel</span><span><i style="background:#1D3BB3"></i>ce jour-l\u00e0</span></span></div>';
+  }
+  function msTeaserMedia(entry, t) {
+    var ty = String(t && t._spec_action_type || '');
+    var dp = (entry && entry.item && entry.item.data_payload) || {};
+    // Photo Google Places du concurrent suivi (servie par monitor : competitor_photo) — avec sa légende.
+    if (dp.competitor_photo) {
+      var cap = '<b>' + escapeHtml(String(dp.competitor_name || '')) + '</b>'
+        + (dp.google_rating != null ? ' \u00b7 ' + escapeHtml(String(Number(dp.google_rating)).replace('.', ',')) + ' \u2605' : '')
+        + (dp.google_rating_count != null ? ' \u00b7 ' + Math.round(Number(dp.google_rating_count)).toLocaleString('fr-FR') + ' avis' : '');
+      return '<div class="ab-media photo"><img src="' + escapeHtml(String(dp.competitor_photo)) + '" alt="" loading="lazy"><div class="cap"><span>' + cap + '</span></div></div>';
+    }
+    if ((ty === 'sales_surge' || ty === 'sales_revenue_down_wow') && dp.daily_revenue != null && dp.expected_revenue != null) {
+      var days = (entry.group && entry.group.length) ? entry.group : [entry];
+      var pairs = days.map(function (e) { var d = (e.item && e.item.data_payload) || {}; return { hab: Number(d.expected_revenue) || 0, jour: Number(d.daily_revenue) || 0, lbl: (window.msWeekdayFrSing ? String(window.msWeekdayFrSing(e.item.affected_date)).slice(0, 3) + '. ' : '') + _ddmm(e.item.affected_date) }; }).reverse();
+      return msTeaserChart(pairs);
+    }
+    if (ty === 'commercial_event_match') {
+      var a = _ddmm(dp.window_start || entry.item.affected_date), b = _ddmm(dp.window_end || '');
+      var mois = String(dp.window_end || dp.window_start || entry.item.affected_date || '').slice(5, 7);
+      var nm = String(dp.commercial_event_name || '').trim();
+      return '<div class="ab-media tile"><span class="d">' + escapeHtml(a && b && a !== b ? a.slice(0, 2) + ' \u2192 ' + b.slice(0, 2) : a) + '<small>' + escapeHtml(_MOIS_FR[Number(mois) - 1] || '') + '</small></span>'
+        + (nm ? '<span class="lbl">' + escapeHtml(nm.charAt(0).toUpperCase() + nm.slice(1)) + '</span>' : '') + '</div>';
+    }
+    if (ty === 'event_measure') {
+      return '<div class="ab-media tile"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4a1 1 0 011-1h11l-2 4 2 4H5"/></svg></span>'
+        + '<span class="lbl"><b>' + escapeHtml(String(dp.event_title || 'Votre dispositif')) + '</b><br>r\u00e9sultat mesur\u00e9 le ' + escapeHtml(_ddmm(dp.occurrence_date || entry.item.affected_date)) + '</span></div>';
+    }
+    return '';
+  }
 
   // VARIANTE 2 (owner 25/08) — UN MOTIF = UNE LIGNE, sites regroupés. Le même chantier
   // apparaissait autant de fois qu'il y a de sites : « dispositif vacances scolaires » trois
