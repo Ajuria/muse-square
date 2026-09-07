@@ -57,9 +57,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
           WHERE rn = 1
         ),
         resolved AS (SELECT * FROM latest WHERE status = 'resolved')
-        SELECT l.commitment_id, l.status, l.verdict, l.committed_action_text, s.title AS saved_item_title,
+        SELECT l.commitment_id, l.status, l.verdict, l.committed_action_text, s.title AS saved_item_title, s.kpi_family AS saved_item_family, l.measured_metric,
                CAST(l.window_start AS STRING) AS window_start, CAST(l.window_end AS STRING) AS window_end,
-               l.window_days_expected, l.retro_worked, l.adjustment_move,
+               l.window_days_expected, l.retro_worked, l.adjustment_move, l.threshold_basis, l.threshold_value, l.action_done_status,
                l.window_expected_revenue, l.window_actual_revenue, CAST(l.resolved_at AS STRING) AS resolved_at,
                l.pole_families, l.owner_person_id, l.user_id, l.location_id,
                (SELECT COUNT(*) FROM latest c WHERE c.parent_commitment_id = l.commitment_id) AS has_child

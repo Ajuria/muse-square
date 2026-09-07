@@ -3,7 +3,7 @@
 // Corner du 08/08 (resolved missed, −394 €). Chaque assertion vue tomber par mutation (score, tri,
 // garde « jamais trois de la même nature », libellés).
 import { describe, it, expect } from "vitest";
-import { commitmentCandidates, dayNoteCandidates, decisionCandidates, occurrenceCandidates, alertCandidates, rankSlots, shortTitle, markId, type CommitmentSlotRow, type DayNoteSlotRow, type OccurrenceSlotRow, type AlertSlotRow } from "./explorerSlots";
+import { commitmentCandidates, dayNoteCandidates, decisionCandidates, occurrenceCandidates, alertCandidates, rankSlots, shortTitle, markId, verdictFr, type CommitmentSlotRow, type DayNoteSlotRow, type OccurrenceSlotRow, type AlertSlotRow } from "./explorerSlots";
 
 const TODAY = "2026-09-07";
 // toLocaleString("fr-FR") écrit les milliers en U+202F : on compare sur l'espace simple.
@@ -33,6 +33,21 @@ describe("commitmentCandidates", () => {
     const [c] = commitmentCandidates([{ ...base, commitment_id: "c1", verdict: "missed", saved_item_title: "Corner de vente producteur", window_start: "2026-08-08", window_end: "2026-08-08", window_days_expected: 1, window_expected_revenue: 2263, window_actual_revenue: 1869.15, resolved_at: "2026-08-28" }], TODAY);
     expect(plain(c.text)).toBe("Corner de vente producteur : objectif manqué, −394 € sur 1 jour");
     expect(c.anciennete_jours).toBe(10);
+  });
+  it("owner 07/09 : le verdict dit son objectif — « objectif de +20 % manqué, +904 € sur 7 jours » (le Dispositif vacances scolaires)", () => {
+    const r: CommitmentSlotRow = { ...base, verdict: "missed", threshold_basis: "pct", threshold_value: 20, window_expected_revenue: 10421, window_actual_revenue: 11324.85 };
+    expect(plain(commitmentCandidates([r], TODAY)[0].text)).toBe("Dispositif vacances scolaires centré sur les retraités : objectif de +20 % manqué, +904 € sur 7 jours");
+    // L'objectif nomme son KPI : CA sans le dire ; famille en toutes lettres (owner 27/08) ; KPI sans mot → verdict nu.
+    expect(verdictFr({ verdict: "missed", threshold_basis: "pct", threshold_value: 11, action_done_status: null, measured_metric: "family_revenue", saved_item_family: "Coffee" })).toBe("objectif de +11 % de CA de la famille « Coffee » manqué");
+    expect(verdictFr({ verdict: "met", threshold_basis: "pct", threshold_value: 11, action_done_status: null, measured_metric: "family_revenue", saved_item_family: null })).toBe("objectif atteint");
+    expect(verdictFr({ verdict: "met", threshold_basis: "pct", threshold_value: 11, action_done_status: null, measured_metric: "transactions" })).toBe("objectif atteint");
+    expect(verdictFr({ verdict: "met", threshold_basis: "z", threshold_value: 1.5, action_done_status: null })).toBe("objectif atteint");
+  });
+  it("owner 07/09 : une action déclarée non menée remplace le verdict — « action non menée, +904 € sur 7 jours »", () => {
+    const r: CommitmentSlotRow = { ...base, verdict: "missed", threshold_basis: "pct", threshold_value: 20, action_done_status: "pas_encore", window_expected_revenue: 10421, window_actual_revenue: 11324.85 };
+    expect(plain(commitmentCandidates([r], TODAY)[0].text)).toBe("Dispositif vacances scolaires centré sur les retraités : action non menée, +904 € sur 7 jours");
+    const [d] = decisionCandidates([{ ...r, resolved_at: "2026-09-04", has_child: 0 }], TODAY);
+    expect(d.text).toContain("action non menée");
   });
   it("rien à demander → aucune carte (bilan fait, ouvert — même fenêtre finie —, annulé)", () => {
     const rows: CommitmentSlotRow[] = [

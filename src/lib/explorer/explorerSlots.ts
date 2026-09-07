@@ -44,6 +44,11 @@ export interface CommitmentSlotRow {
   window_expected_revenue: number | null;
   window_actual_revenue: number | null;
   resolved_at: string | null;              // ISO
+  threshold_basis?: string | null;         // 'pct' : l'objectif est un % déclaré (threshold_value)
+  threshold_value?: number | null;
+  measured_metric?: string | null;         // revenue_residual | family_revenue | transactions | basket | …
+  saved_item_family?: string | null;       // raw.saved_items.kpi_family — la famille d'un objectif family_revenue
+  action_done_status?: string | null;      // 'pas_encore' = déclarée non menée (owner 07/09 : remplace le verdict)
   adjustment_move?: string | null;         // E2 : le geste choisi (poursuivre/doubler/pivoter/stop)
   has_child?: number | boolean | null;     // E2 : une version suivante existe (parent_commitment_id = cet id)
 }
@@ -112,6 +117,21 @@ const distLabel = (m: number | null): string => {
 const daysBetween = (fromIso: string, toIso: string): number =>
   Math.max(0, Math.round((Date.parse(toIso.slice(0, 10)) - Date.parse(fromIso.slice(0, 10))) / 86400000));
 
+/** Le mot du verdict (owner 07/09) : « action non menée » quand elle est déclarée telle ; sinon
+ *  « objectif de +20 % manqué » quand l'objectif est un % déclaré ; sinon le mot nu du lexique. */
+export function verdictFr(r: Pick<CommitmentSlotRow, "verdict" | "threshold_basis" | "threshold_value" | "action_done_status" | "measured_metric" | "saved_item_family">): string {
+  if (r.action_done_status === "pas_encore") return SLOTS_FR.action_non_menee;
+  const v = String(r.verdict ?? "");
+  const pct = num(r.threshold_value);
+  const metric = String(r.measured_metric ?? "revenue_residual");
+  const famille = (r.saved_item_family && String(r.saved_item_family).trim()) || null;
+  if ((v === "met" || v === "missed") && r.threshold_basis === "pct" && pct != null) {
+    if (metric === "revenue_residual") return SLOTS_FR.verdict_avec_objectif(frSignedPct(pct), v);
+    if (metric === "family_revenue" && famille) return SLOTS_FR.verdict_avec_objectif(frSignedPct(pct), v, famille);
+  }
+  return SLOTS_FR.verdict[v] ?? SLOTS_FR.verdict.inconclusive;   // KPI sans mot owner : le verdict nu, jamais un % sur un KPI innommé
+}
+
 /** Le nom court de l'objet : le titre de l'opération liée, sinon la tête du texte d'engagement. */
 export function shortTitle(r: Pick<CommitmentSlotRow, "committed_action_text" | "saved_item_title">): string {
   const t = (r.saved_item_title && String(r.saved_item_title).trim()) || String(r.committed_action_text ?? "").split(" — ")[0].trim();
@@ -132,12 +152,11 @@ export function commitmentCandidates(rows: CommitmentSlotRow[], todayIso: string
     const jours = daysBetween(when, todayIso);
     const ecart = r.window_actual_revenue != null && r.window_expected_revenue != null ? r.window_actual_revenue - r.window_expected_revenue : null;
     const nDays = r.window_days_expected ?? (r.window_start && r.window_end ? daysBetween(r.window_start, r.window_end) + 1 : 1);
-    const verdictFr = SLOTS_FR.verdict[String(r.verdict ?? "")] ?? SLOTS_FR.verdict.inconclusive;
     const ecartFr = ecart != null ? `${ecart >= 0 ? "+" : "−"}${frInt(Math.abs(ecart))} €` : "écart non mesuré";
     out.push({
       nature: "memoire", kind: "bilan", key: "explorer_slot_bilan", date: when, objet_id: r.commitment_id,
       score: Math.abs(ecart ?? 0) * jours, enjeu_eur: ecart != null ? Math.abs(ecart) : null, anciennete_jours: jours,
-      text: SLOTS_FR.bilan_titre(shortTitle(r), verdictFr, ecartFr, Math.max(1, nDays)),
+      text: SLOTS_FR.bilan_titre(shortTitle(r), verdictFr(r), ecartFr, Math.max(1, nDays)),
       sub: SLOTS_FR.bilan_sub,
       cta: SLOTS_FR.bilan_cta,
       href: `/app/insightevent/engagement?id=${encodeURIComponent(r.commitment_id)}`,
@@ -165,7 +184,7 @@ export function decisionCandidates(rows: CommitmentSlotRow[], todayIso: string):
       nature: "decision", kind: met ? "reconduire" : "ajuster", key: met ? "explorer_slot_reconduire" : "explorer_slot_ajuster",
       date: resolvedAt, objet_id: raw.commitment_id,
       score: Math.abs(ecart ?? 0) * jours, enjeu_eur: ecart != null ? Math.abs(ecart) : null, anciennete_jours: jours,
-      text: SLOTS_FR.bilan_titre(shortTitle(raw), SLOTS_FR.verdict[verdict], ecartFr, Math.max(1, nDays)),
+      text: SLOTS_FR.bilan_titre(shortTitle(raw), verdictFr(raw), ecartFr, Math.max(1, nDays)),
       sub: met ? SLOTS_FR.reconduire_sub : SLOTS_FR.ajuster_sub,
       cta: met ? SLOTS_FR.reconduire_cta : SLOTS_FR.ajuster_cta,
       href: `/app/insightevent/engagement?id=${encodeURIComponent(raw.commitment_id)}`,

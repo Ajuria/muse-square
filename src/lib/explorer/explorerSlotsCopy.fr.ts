@@ -48,6 +48,15 @@ export const SLOTS_FR = {
   alerte_titre: (nom: string, evenement: string, distance: string) => `${nom}${evenement ? ` — ${evenement}` : ""}${distance ? `, à ${distance}` : ""}.`,
   alerte_sub: (sousType: string) => `Menace : ${ALERTE_SOUS_TYPES[sousType] ?? "Signal concurrent"}`,
   alerte_cta: "Consulter →",
-  // Les verdicts, mots du lexique (« Le jugement automatique sur la cible »).
+  // Les verdicts, mots du lexique (« Le jugement automatique sur la cible »). Owner 07/09 : le verdict
+  // dit l'objectif quand il en a un (« Objectif : +20 % de CA vs votre résultat habituel », page de
+  // l'engagement) — « objectif de +20 % manqué » ; et une action déclarée non menée (Pulse : « Action
+  // non menée ») remplace le verdict, inattribuable.
   verdict: { met: "objectif atteint", missed: "objectif manqué", inconclusive: "non concluant" } as Record<string, string>,
+  // L'objectif nomme son KPI : le CA (revenue_residual) va sans le dire ; une famille se dit
+  // « CA de la famille « Coffee » » (owner 27/08, lexique) ; les autres KPI attendent leur mot
+  // (lexique § À arbitrer) — le verdict reste nu.
+  verdict_avec_objectif: (pctFr: string, etat: "met" | "missed", famille?: string | null) =>
+    `objectif de ${pctFr}${famille ? ` de CA de la famille « ${famille} »` : ""} ${etat === "met" ? "atteint" : "manqué"}`,
+  action_non_menee: "action non menée",
 } as const;
