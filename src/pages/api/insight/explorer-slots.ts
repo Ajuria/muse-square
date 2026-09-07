@@ -7,7 +7,11 @@
 // Sources (vérifiées INFORMATION_SCHEMA 07/09) : analytics.action_commitments (dernier instantané par
 // engagement — la MÊME fenêtre ROW_NUMBER que commitments/index.ts, jamais une seconde définition)
 // jointe à raw.saved_items pour le titre de l'opération liée. Candidats : les engagements résolus sans
-// bilan (retro_worked nul) ; les jours inexpliqués (semantic.vw_insight_event_day_residual, |residual_z|
+// bilan (retro_worked nul) et, E2, résolus sans geste ni version suivante (adjustment_move, has_child —
+// la lib filtre) ; les occurrences sous 7 jours sans consigne ni engagement lié (raw.saved_item_dates ×
+// raw.saved_items, € = kpi_target_eur sinon CA moyen passé) ; les alertes concurrents des 7 derniers jours
+// (semantic.vw_insight_event_competitor_alerts × vw_insight_event_competitors_followed pour le nom) non
+// consultées (E4) ; les jours inexpliqués (semantic.vw_insight_event_day_residual, |residual_z|
 // ≥ 2 sur 30 jours) sans note dans analytics.day_notes (E3). Les deux lectures partent ensemble
 // (Promise.all : coût = max, pas somme). Aucune carte « fait / pas fait » : le silence vaut « action
 // menée » (doctrine owner 05/08, voir lib/explorer/explorerSlots.ts). Accès : requireLocationAccess
@@ -19,7 +23,10 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter } from "../../../lib/profile/memberCardPolicy";
-import { commitmentCandidates, dayNoteCandidates, rankSlots, markId, type CommitmentSlotRow, type DayNoteSlotRow } from "../../../lib/explorer/explorerSlots";
+import {
+  commitmentCandidates, decisionCandidates, occurrenceCandidates, alertCandidates, dayNoteCandidates, rankSlots, markId,
+  type CommitmentSlotRow, type DayNoteSlotRow, type OccurrenceSlotRow, type AlertSlotRow,
+} from "../../../lib/explorer/explorerSlots";
 
 export const prerender = false;
 const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
@@ -47,17 +54,18 @@ export const GET: APIRoute = async ({ url, locals }) => {
             FROM \`${BQ_PROJECT}.analytics.action_commitments\`
             WHERE location_id = @locationId
           )
-          WHERE rn = 1 AND status = 'resolved'
-        )
+          WHERE rn = 1
+        ),
+        resolved AS (SELECT * FROM latest WHERE status = 'resolved')
         SELECT l.commitment_id, l.status, l.verdict, l.committed_action_text, s.title AS saved_item_title,
                CAST(l.window_start AS STRING) AS window_start, CAST(l.window_end AS STRING) AS window_end,
-               l.window_days_expected, l.retro_worked,
+               l.window_days_expected, l.retro_worked, l.adjustment_move,
                l.window_expected_revenue, l.window_actual_revenue, CAST(l.resolved_at AS STRING) AS resolved_at,
-               l.pole_families, l.owner_person_id, l.user_id, l.location_id
-        FROM latest l
+               l.pole_families, l.owner_person_id, l.user_id, l.location_id,
+               (SELECT COUNT(*) FROM latest c WHERE c.parent_commitment_id = l.commitment_id) AS has_child
+        FROM resolved l
         LEFT JOIN \`${BQ_PROJECT}.raw.saved_items\` s
           ON s.saved_item_id = l.saved_item_id AND s.location_id = l.location_id
-        WHERE l.retro_worked IS NULL
       `,
       params: { locationId },
       location: "EU",
@@ -92,7 +100,39 @@ export const GET: APIRoute = async ({ url, locals }) => {
       params: { userId, locationId },
       location: "EU",
     }).catch(() => [[]] as any);
-    const [[rows], [dayRows], [markRows]] = await Promise.all([commitmentsP, daysP, marksP]);
+    const occurrencesP = bq.query({
+      query: `
+        SELECT d.saved_item_id, CAST(d.date AS STRING) AS date, s.title, s.consigne_enabled, s.kpi_target_eur,
+          (SELECT COUNT(*) FROM \`${BQ_PROJECT}.analytics.action_commitments\` c
+             WHERE c.saved_item_id = d.saved_item_id AND c.location_id = s.location_id AND c.status IN ('open', 'pending')
+               AND DATE(c.window_end) >= d.date AND DATE(c.window_start) <= d.date) AS engagements_lies,
+          (SELECT ROUND(AVG(r.daily_revenue)) FROM \`${BQ_PROJECT}.raw.saved_item_dates\` p
+             JOIN \`${BQ_PROJECT}.semantic.vw_insight_event_day_residual\` r ON r.location_id = s.location_id AND r.date = p.date
+             WHERE p.saved_item_id = d.saved_item_id AND p.date < CURRENT_DATE('Europe/Paris')) AS ca_moyen_passe
+        FROM \`${BQ_PROJECT}.raw.saved_item_dates\` d
+        JOIN \`${BQ_PROJECT}.raw.saved_items\` s ON s.saved_item_id = d.saved_item_id
+        WHERE s.location_id = @locationId
+          AND d.date BETWEEN CURRENT_DATE('Europe/Paris') AND DATE_ADD(CURRENT_DATE('Europe/Paris'), INTERVAL 7 DAY)
+      `,
+      params: { locationId },
+      location: "EU",
+    }).catch(() => [[]] as any);
+    const alertsP = bq.query({
+      query: `
+        SELECT a.competitor_alert_id, a.competitor_id, f.competitor_name, a.change_subtype, a.alert_level, a.event_label,
+               CAST(a.affected_date AS STRING) AS affected_date, a.distance_m, a.entity_threat_score, CAST(a.created_at AS STRING) AS created_at
+        FROM \`${BQ_PROJECT}.semantic.vw_insight_event_competitor_alerts\` a
+        LEFT JOIN \`${BQ_PROJECT}.semantic.vw_insight_event_competitors_followed\` f
+          ON f.competitor_id = a.competitor_id AND f.location_id = a.location_id
+        WHERE a.location_id = @locationId
+          AND a.created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+        ORDER BY a.alert_level DESC, a.entity_threat_score DESC, a.created_at DESC
+        LIMIT 50
+      `,
+      params: { locationId },
+      location: "EU",
+    }).catch(() => [[]] as any);
+    const [[rows], [dayRows], [markRows], [occRows], [alertRows]] = await Promise.all([commitmentsP, daysP, marksP, occurrencesP, alertsP]);
     const marks = new Set<string>((markRows as any[]).map((m) => markId(String(m.key), String(m.date).slice(0, 10))));
     const isMember = String((locals as any)?.role || "") === "member";
     const visible = (rows as any[]).filter((r) => !isMember || memberCommitmentInPerimeter(locals, locationId, r));
@@ -100,6 +140,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const candidates = [
       ...commitmentCandidates(visible as CommitmentSlotRow[], todayIso),
       ...dayNoteCandidates(dayRows as DayNoteSlotRow[], todayIso),
+      ...decisionCandidates(visible as CommitmentSlotRow[], todayIso),
+      ...occurrenceCandidates(occRows as OccurrenceSlotRow[], todayIso),
+      ...alertCandidates(alertRows as AlertSlotRow[], todayIso, marks),
     ];
     const cards = rankSlots(candidates, 3, marks);
     return json({ ok: true, cards, candidates: candidates.length });

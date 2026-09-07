@@ -10,6 +10,19 @@
 // rend (buildDayPerformanceFacts : « N € — +X % vs votre CA habituel »), la question est la forme owner
 // « Un souvenir ? Notez-le · sinon, laissez » (CLAUDE.md, règle 4 de la copie), le bouton est
 // « Enregistrer » (commitmentCopy, page de l'engagement).
+// E2/E4 (owner 07/09 : « don't you have all you need in lexique + in agir page? ») — oui, tout vient
+// de là : « Ajuster » (lexique), « Choisissez votre prochaine action : » + Poursuivre · Doubler la mise ·
+// Pivoter (commitmentCopy, page de l'engagement), « Garder ce qui a marché — et le reconduire » et
+// « Répliquer » (pulse.astro, bouton de la bande engagements), « Préparer — <titre> » (evenement.astro,
+// en-tête de l'étape avant), « sans action » (lexique, jour non couvert), « Préparer → » et « Consulter → »
+// (lexique), la ligne « <Concurrent> — <événement>, à <distance>. » et « Menace : <sous-type> »
+// (action-cards.js et pulse.astro feedLine4, le fil Agir).
+
+// pulse.astro feedLine4 — les libellés des sous-types d'alerte, repris tels quels.
+const ALERTE_SOUS_TYPES: Record<string, string> = {
+  event_new: "Proximité géographique", proximity: "Proximité géographique", industry_overlap: "Même secteur",
+  audience_overlap: "Même audience", industry_audience_overlap: "Secteur & audience", date_conflict: "Même date",
+};
 
 export const SLOTS_FR = {
   // Nature 1 — engagement résolu, sans bilan.
@@ -21,6 +34,20 @@ export const SLOTS_FR = {
   note_titre: (jourCap: string, dateFr: string, caFr: string, pctFr: string) => `${jourCap} ${dateFr} : ${caFr} €, ${pctFr} vs votre CA habituel`,
   note_sub: "Un souvenir ? Notez-le · sinon, laissez",
   note_cta: "Enregistrer",
+  // Nature 2 — verdict manqué, ni geste ni version suivante (≤ 14 j).
+  ajuster_sub: "Choisissez votre prochaine action : Poursuivre · Doubler la mise · Pivoter",
+  ajuster_cta: "Ajuster",
+  // Nature 2 — verdict atteint, jamais reconduit.
+  reconduire_sub: "Garder ce qui a marché — et le reconduire",
+  reconduire_cta: "Répliquer",
+  // Nature 2 — occurrence sous 7 jours, sans consigne ni engagement lié.
+  preparer_titre: (titre: string) => `Préparer — ${titre}`,
+  preparer_sub: (jourCap: string, dateFr: string) => `${jourCap} ${dateFr} — sans action`,
+  preparer_cta: "Préparer →",
+  // Nature 2 — alerte concurrent non traitée (la ligne du fil Agir, mot pour mot).
+  alerte_titre: (nom: string, evenement: string, distance: string) => `${nom}${evenement ? ` — ${evenement}` : ""}${distance ? `, à ${distance}` : ""}.`,
+  alerte_sub: (sousType: string) => `Menace : ${ALERTE_SOUS_TYPES[sousType] ?? "Signal concurrent"}`,
+  alerte_cta: "Consulter →",
   // Les verdicts, mots du lexique (« Le jugement automatique sur la cible »).
   verdict: { met: "objectif atteint", missed: "objectif manqué", inconclusive: "non concluant" } as Record<string, string>,
 } as const;

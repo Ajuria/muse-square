@@ -3,7 +3,7 @@
 // Corner du 08/08 (resolved missed, −394 €). Chaque assertion vue tomber par mutation (score, tri,
 // garde « jamais trois de la même nature », libellés).
 import { describe, it, expect } from "vitest";
-import { commitmentCandidates, dayNoteCandidates, rankSlots, shortTitle, markId, type CommitmentSlotRow, type DayNoteSlotRow } from "./explorerSlots";
+import { commitmentCandidates, dayNoteCandidates, decisionCandidates, occurrenceCandidates, alertCandidates, rankSlots, shortTitle, markId, type CommitmentSlotRow, type DayNoteSlotRow, type OccurrenceSlotRow, type AlertSlotRow } from "./explorerSlots";
 
 const TODAY = "2026-09-07";
 // toLocaleString("fr-FR") écrit les milliers en U+202F : on compare sur l'espace simple.
@@ -80,6 +80,68 @@ describe("dayNoteCandidates (E3)", () => {
   });
 });
 
+describe("decisionCandidates (E2 — mots du lexique et de la page de l'engagement)", () => {
+  // f10c3e58 au 07/09 : le Corner du 08/08 (missed, −394 €, résolu le 28/08, sans geste ni version suivante).
+  const missed: CommitmentSlotRow = { ...base, commitment_id: "c1", verdict: "missed", saved_item_title: "Corner de vente producteur", window_start: "2026-08-08", window_end: "2026-08-08", window_days_expected: 1, window_expected_revenue: 2263, window_actual_revenue: 1869.15, resolved_at: "2026-08-28", adjustment_move: null, has_child: 0 };
+  it("verdict manqué sans geste ni suite → à ajuster : « Ajuster », la ligne de la page de l'engagement", () => {
+    const [c] = decisionCandidates([missed], TODAY);
+    expect(c.nature).toBe("decision"); expect(c.kind).toBe("ajuster"); expect(c.key).toBe("explorer_slot_ajuster");
+    expect(plain(c.text)).toBe("Corner de vente producteur : objectif manqué, −394 € sur 1 jour");
+    expect(c.sub).toBe("Choisissez votre prochaine action : Poursuivre · Doubler la mise · Pivoter");
+    expect(c.cta).toBe("Ajuster");
+    expect(c.href).toBe("/app/insightevent/engagement?id=c1");
+    expect(c.anciennete_jours).toBe(10); expect(c.enjeu_eur).toBeCloseTo(393.85, 1);
+  });
+  it("verdict atteint sans suite → à reconduire : « Répliquer », la phrase du fil Agir", () => {
+    const [c] = decisionCandidates([{ ...missed, verdict: "met", window_expected_revenue: 925, window_actual_revenue: 1537, resolved_at: "2026-09-06" }], TODAY);
+    expect(c.kind).toBe("reconduire"); expect(c.cta).toBe("Répliquer");
+    expect(c.sub).toBe("Garder ce qui a marché — et le reconduire");
+    expect(plain(c.text)).toBe("Corner de vente producteur : objectif atteint, +612 € sur 1 jour");
+  });
+  it("un geste choisi, une version suivante, plus de 14 jours, non concluant → aucune carte", () => {
+    expect(decisionCandidates([
+      { ...missed, adjustment_move: "pivoter" },
+      { ...missed, commitment_id: "x", has_child: 1 },
+      { ...missed, commitment_id: "y", resolved_at: "2026-08-20" },
+      { ...missed, commitment_id: "z", verdict: "confounded" },
+    ], TODAY)).toEqual([]);
+  });
+});
+
+describe("occurrenceCandidates (E2 — Préparer)", () => {
+  const occ: OccurrenceSlotRow = { saved_item_id: "i1", date: "2026-09-12", title: "Corner de vente producteur", consigne_enabled: false, engagements_lies: 0, kpi_target_eur: 150, ca_moyen_passe: 1694 };
+  it("occurrence sous 7 jours sans consigne ni engagement → « Préparer — <titre> », « <jour> — sans action », « Préparer → »", () => {
+    const [c] = occurrenceCandidates([occ], TODAY);
+    expect(c.nature).toBe("decision"); expect(c.kind).toBe("preparer");
+    expect(c.text).toBe("Préparer — Corner de vente producteur");
+    expect(c.sub).toBe("Samedi 12/09 — sans action");
+    expect(c.cta).toBe("Préparer →");
+    expect(c.href).toBe("/app/insightevent/evenement?saved_item_id=i1");
+    expect(c.enjeu_eur).toBe(150); expect(c.anciennete_jours).toBe(3); expect(c.score).toBe(450);
+  });
+  it("sans cible € → le CA moyen des occurrences passées ; consigne ou engagement lié, ou plus de 7 jours → aucune carte", () => {
+    expect(occurrenceCandidates([{ ...occ, kpi_target_eur: null }], TODAY)[0].enjeu_eur).toBe(1694);
+    expect(occurrenceCandidates([{ ...occ, consigne_enabled: true }, { ...occ, engagements_lies: 1 }, { ...occ, date: "2026-09-20" }], TODAY)).toEqual([]);
+  });
+});
+
+describe("alertCandidates (E4 — la ligne du fil Agir)", () => {
+  const al: AlertSlotRow = { competitor_alert_id: "a1", competitor_id: "k1", competitor_name: "Musée de l'Orangerie", change_subtype: "proximity", alert_level: 2, event_label: "Chefs-d'œuvre, de Monet à Picasso", affected_date: "2026-09-12", distance_m: 4212.39, entity_threat_score: 0.4894, created_at: "2026-09-07" };
+  it("l'alerte du niveau maximal, non consultée → « <Concurrent> — <événement>, à 4,2 km. », « Menace : Proximité géographique », « Consulter → »", () => {
+    const [c] = alertCandidates([al, { ...al, competitor_alert_id: "a0", alert_level: 1 }], TODAY);
+    expect(alertCandidates([al, { ...al, competitor_alert_id: "a0", alert_level: 1 }], TODAY)).toHaveLength(1);
+    expect(c.nature).toBe("decision"); expect(c.kind).toBe("alerte"); expect(c.key).toBe("explorer_slot_alerte:a1");
+    expect(c.text).toBe("Musée de l'Orangerie — Chefs-d'œuvre, de Monet à Picasso, à 4,2 km.");
+    expect(c.sub).toBe("Menace : Proximité géographique");
+    expect(c.cta).toBe("Consulter →");
+    expect(c.href).toBe("/app/insightevent/competitor?id=k1");
+    expect(c.enjeu_eur).toBeNull(); expect(c.score).toBe(0.4894);
+  });
+  it("une alerte consultée est traitée : elle ne revient pas", () => {
+    expect(alertCandidates([al], TODAY, new Set([markId("explorer_slot_alerte:a1", "2026-09-12")]))).toEqual([]);
+  });
+});
+
 describe("rankSlots", () => {
   const mk = (id: string, enjeu: number | null, jours: number, nature: "memoire" | "decision" = "memoire") =>
     ({ nature, kind: "bilan" as const, key: "k", date: TODAY, objet_id: id, score: (enjeu ?? 0) * jours, enjeu_eur: enjeu, anciennete_jours: jours, text: id, sub: "", cta: "", href: "" });
@@ -91,6 +153,15 @@ describe("rankSlots", () => {
   it("trois cartes au plus, jamais trois de la même nature", () => {
     const out = rankSlots([mk("a", 100, 9), mk("b", 100, 8), mk("c", 100, 7), mk("d", 1, 1, "decision")]);
     expect(out.map((c) => c.objet_id)).toEqual(["a", "b", "d"]);
+  });
+  it("un objet = une carte : le bilan d'un engagement passe avant sa décision (même score, mémoire d'abord)", () => {
+    const bilan = { ...mk("c1", 394, 10), key: "explorer_slot_bilan" };
+    const ajuster = { ...mk("c1", 394, 10, "decision"), kind: "ajuster" as const, key: "explorer_slot_ajuster" };
+    expect(rankSlots([bilan, ajuster, mk("b", 10, 1)]).map((c) => c.key)).toEqual(["explorer_slot_bilan", "k"]);
+  });
+  it("sans chiffre : le score de menace classe, puis l'ancienneté", () => {
+    const a = { ...mk("a", null, 1, "decision"), score: 0.9 }, b = { ...mk("b", null, 5, "decision"), score: 0.4 };
+    expect(rankSlots([b, a]).map((c) => c.objet_id)).toEqual(["a", "b"]);
   });
   it("aucun candidat → aucune carte, jamais de remplissage", () => {
     expect(rankSlots([])).toEqual([]);
