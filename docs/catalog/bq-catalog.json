@@ -5,8 +5,8 @@
 "project": "muse-square-open-data",
 "region": "EU",
 "dbt_repo_sha_at_generation": "ebee861",
-"table_count": 528,
-"column_count": 9624
+"table_count": 530,
+"column_count": 9636
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -30887,6 +30887,35 @@
 }
 ]
 },
+"semantic.vw_insight_event_day_notes": {
+"type": "VIEW",
+"columns": [
+{
+"name": "note_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "clerk_user_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "note_text",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "semantic.vw_insight_event_day_residual": {
 "type": "VIEW",
 "columns": [
@@ -35726,6 +35755,35 @@
 },
 {
 "name": "extraction_model",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"staging.stg_day_notes": {
+"type": "VIEW",
+"columns": [
+{
+"name": "note_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "clerk_user_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "note_text",
 "type": "STRING"
 },
 {
