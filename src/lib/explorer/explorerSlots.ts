@@ -15,7 +15,11 @@
 // (« Pas menée ») compte, et elle ne se réclame pas.
 // Décision owner 07/09 (§ 6.2) : creation_enjeu_eur_year vaut 0 sur tout le compte — c'est la FENÊTRE
 // qui classe. Sans aucun chiffre : dernier, le plus ancien d'abord.
-// Nature 2 (décisions) et la note-cause d'un jour arrivent avec leurs mots owner (E2, E3).
+//   - note d'un jour inexpliqué (E3) : `semantic.vw_insight_event_day_residual`, |residual_z| ≥ 2 sur
+//     30 jours, sans ligne dans `analytics.day_notes` ; € = |daily_revenue − expected_revenue| ;
+//     ancienneté = jours depuis la date. La carte porte le champ de saisie (POST /api/insight/day-notes),
+//     forme owner « Un souvenir ? Notez-le · sinon, laissez » ; une fois notée, la source ne la produit plus.
+// Nature 2 (décisions) arrive avec ses mots owner (E2).
 // Nature 3 (la question mesurée) reste au client : elle lit le monitor, même référentiel qu'avant.
 
 import { SLOTS_FR } from "./explorerSlotsCopy.fr";
@@ -35,9 +39,17 @@ export interface CommitmentSlotRow {
   resolved_at: string | null;              // ISO
 }
 
+export interface DayNoteSlotRow {
+  date: string;                            // YYYY-MM-DD
+  daily_revenue: number | null;
+  expected_revenue: number | null;
+  residual_z: number | null;
+  residual_pct: number | null;             // (réalisé − habituel) / habituel, en % — celui des faits du jour
+}
+
 export interface SlotCard {
   nature: "memoire" | "decision" | "question";
-  kind: "bilan";
+  kind: "bilan" | "note";
   key: string;                             // clé de marque « consulté » (action_log.change_subtype)
   date: string;                            // YYYY-MM-DD — la date de l'objet (marque consulté + tri)
   objet_id: string;
@@ -47,7 +59,7 @@ export interface SlotCard {
   text: string;
   sub: string;
   cta: string;
-  href: string;                            // le rail ouvert par le clic
+  href: string;                            // le rail ouvert par le clic ; vide quand la carte porte sa propre saisie (note)
 }
 
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
@@ -55,6 +67,10 @@ const ymd = (v: any): string | null => { const s = flat(v); return s ? String(s)
 const num = (v: any): number | null => { const x = flat(v); if (x == null) return null; const n = Number(x); return Number.isFinite(n) ? n : null; };
 
 const frInt = (n: number): string => Math.round(n).toLocaleString("fr-FR");
+const frDate = (iso: string): string => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+const JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+const jourFr = (iso: string): string => JOURS[new Date(iso + "T00:00:00Z").getUTCDay()];
+const frSignedPct = (n: number): string => `${n >= 0 ? "+" : "−"}${Math.abs(Math.round(n))} %`;
 const daysBetween = (fromIso: string, toIso: string): number =>
   Math.max(0, Math.round((Date.parse(toIso.slice(0, 10)) - Date.parse(fromIso.slice(0, 10))) / 86400000));
 
@@ -87,6 +103,28 @@ export function commitmentCandidates(rows: CommitmentSlotRow[], todayIso: string
       sub: SLOTS_FR.bilan_sub,
       cta: SLOTS_FR.bilan_cta,
       href: `/app/insightevent/engagement?id=${encodeURIComponent(r.commitment_id)}`,
+    });
+  }
+  return out;
+}
+
+/** E3 — les jours inexpliqués sans note : une carte par jour, la saisie sur la carte. */
+export function dayNoteCandidates(rows: DayNoteSlotRow[], todayIso: string): SlotCard[] {
+  const out: SlotCard[] = [];
+  for (const raw of rows) {
+    const date = ymd(raw.date);
+    const ca = num(raw.daily_revenue), exp = num(raw.expected_revenue), z = num(raw.residual_z), pct = num(raw.residual_pct);
+    if (!date || ca == null || exp == null || z == null || pct == null || Math.abs(z) < 2 || date >= todayIso) continue;
+    const jours = daysBetween(date, todayIso);
+    const ecart = Math.abs(ca - exp);
+    const jour = jourFr(date);
+    out.push({
+      nature: "memoire", kind: "note", key: "explorer_slot_note", date, objet_id: date,
+      score: ecart * jours, enjeu_eur: ecart, anciennete_jours: jours,
+      text: SLOTS_FR.note_titre(jour.charAt(0).toUpperCase() + jour.slice(1), frDate(date), frInt(ca), frSignedPct(pct)),
+      sub: SLOTS_FR.note_sub,
+      cta: SLOTS_FR.note_cta,
+      href: "",
     });
   }
   return out;

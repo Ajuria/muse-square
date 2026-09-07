@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-09-06",
+"generated_date": "2026-09-07",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "8fb72b1",
-"table_count": 527,
-"column_count": 9596
+"dbt_repo_sha_at_generation": "ebee861",
+"table_count": 528,
+"column_count": 9624
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -2157,6 +2157,35 @@
 {
 "name": "metric",
 "type": "STRING"
+}
+]
+},
+"analytics.day_notes": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "note_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "clerk_user_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "note_text",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
 }
 ]
 },
@@ -7139,6 +7168,10 @@
 "type": "STRING"
 },
 {
+"name": "google_photo_attribution",
+"type": "STRING"
+},
+{
 "name": "google_rating",
 "type": "FLOAT64"
 },
@@ -7745,6 +7778,10 @@
 },
 {
 "name": "google_photos",
+"type": "STRING"
+},
+{
+"name": "google_photo_attribution",
 "type": "STRING"
 },
 {
@@ -12437,7 +12474,7 @@
 "type": "STRING"
 },
 {
-"name": "category",
+"name": "theme",
 "type": "STRING"
 },
 {
@@ -13364,7 +13401,7 @@
 },
 {
 "name": "top_families",
-"type": "ARRAY<STRUCT<family STRING, revenue FLOAT64, expected_revenue FLOAT64, delta_eur FLOAT64, revenue_share FLOAT64, baseline_share FLOAT64>>"
+"type": "ARRAY<STRUCT<family STRING, revenue FLOAT64, expected_revenue FLOAT64, delta_eur FLOAT64, revenue_share FLOAT64, baseline_share FLOAT64, units FLOAT64, baseline_units_per_day FLOAT64>>"
 },
 {
 "name": "families_delta_eur",
@@ -13425,6 +13462,14 @@
 },
 {
 "name": "day_expected_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "units",
+"type": "INT64"
+},
+{
+"name": "baseline_units_per_day",
 "type": "FLOAT64"
 }
 ]
@@ -13876,6 +13921,58 @@
 {
 "name": "regime_mismatch_flag",
 "type": "BOOL"
+},
+{
+"name": "is_day_stopped",
+"type": "BOOL"
+},
+{
+"name": "is_stop_row",
+"type": "BOOL"
+},
+{
+"name": "last_sale_hour",
+"type": "INT64"
+},
+{
+"name": "last_sale_ts",
+"type": "TIMESTAMP"
+},
+{
+"name": "typical_last_hour",
+"type": "INT64"
+},
+{
+"name": "stopped_hours",
+"type": "INT64"
+},
+{
+"name": "stop_hour",
+"type": "INT64"
+},
+{
+"name": "stopped_expected_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "stopped_expected_transactions",
+"type": "FLOAT64"
+},
+{
+"name": "expected_revenue_until_stop",
+"type": "FLOAT64"
+},
+{
+"name": "n_stopped_days_90d",
+"type": "INT64"
+},
+{
+"name": "stopped_dates_90d",
+"type": "STRING"
+},
+{
+"name": "hour_family_gaps",
+"type": "STRING"
 },
 {
 "name": "delta_eur",
@@ -15045,6 +15142,10 @@
 "type": "STRING"
 },
 {
+"name": "google_photo_attribution",
+"type": "STRING"
+},
+{
 "name": "description",
 "type": "STRING"
 },
@@ -16169,6 +16270,10 @@
 },
 {
 "name": "google_photos",
+"type": "STRING"
+},
+{
+"name": "google_photo_attribution",
 "type": "STRING"
 },
 {
@@ -23108,6 +23213,10 @@
 {
 "name": "commercial_news_at",
 "type": "TIMESTAMP"
+},
+{
+"name": "google_photo_attribution",
+"type": "STRING"
 }
 ]
 },
@@ -30579,6 +30688,10 @@
 "type": "STRING"
 },
 {
+"name": "google_photo_attribution",
+"type": "STRING"
+},
+{
 "name": "description",
 "type": "STRING"
 },
@@ -35034,6 +35147,10 @@
 },
 {
 "name": "google_photos",
+"type": "STRING"
+},
+{
+"name": "google_photo_attribution",
 "type": "STRING"
 },
 {

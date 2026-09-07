@@ -3,9 +3,11 @@
 // Corner du 08/08 (resolved missed, −394 €). Chaque assertion vue tomber par mutation (score, tri,
 // garde « jamais trois de la même nature », libellés).
 import { describe, it, expect } from "vitest";
-import { commitmentCandidates, rankSlots, shortTitle, type CommitmentSlotRow } from "./explorerSlots";
+import { commitmentCandidates, dayNoteCandidates, rankSlots, shortTitle, type CommitmentSlotRow, type DayNoteSlotRow } from "./explorerSlots";
 
 const TODAY = "2026-09-07";
+// toLocaleString("fr-FR") écrit les milliers en U+202F : on compare sur l'espace simple.
+const plain = (s: string) => s.replace(/[\u202f\u00a0]/g, " ");
 const base: CommitmentSlotRow = {
   commitment_id: "c2", status: "resolved", verdict: "met", committed_action_text: "Dispositif vacances scolaires centré sur les retraités — texte",
   saved_item_title: null, window_start: "2026-08-26", window_end: "2026-09-01", window_days_expected: 7,
@@ -18,7 +20,7 @@ describe("commitmentCandidates", () => {
     expect(c.kind).toBe("bilan");
     expect(c.nature).toBe("memoire");
     expect(c.key).toBe("explorer_slot_bilan");
-    expect(c.text.replace(/ /g, " ")).toBe("Dispositif vacances scolaires centré sur les retraités : objectif atteint, +904 € sur 7 jours");
+    expect(plain(c.text)).toBe("Dispositif vacances scolaires centré sur les retraités : objectif atteint, +904 € sur 7 jours");
     expect(c.sub).toBe("Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes.");
     expect(c.cta).toBe("Bilan →");
     expect(c.href).toBe("/app/insightevent/engagement?id=c2");
@@ -29,7 +31,7 @@ describe("commitmentCandidates", () => {
   });
   it("objectif manqué, écart négatif, un jour : le Corner du 08/08", () => {
     const [c] = commitmentCandidates([{ ...base, commitment_id: "c1", verdict: "missed", saved_item_title: "Corner de vente producteur", window_start: "2026-08-08", window_end: "2026-08-08", window_days_expected: 1, window_expected_revenue: 2263, window_actual_revenue: 1869.15, resolved_at: "2026-08-28" }], TODAY);
-    expect(c.text.replace(/ /g, " ")).toBe("Corner de vente producteur : objectif manqué, −394 € sur 1 jour");
+    expect(plain(c.text)).toBe("Corner de vente producteur : objectif manqué, −394 € sur 1 jour");
     expect(c.anciennete_jours).toBe(10);
   });
   it("rien à demander → aucune carte (bilan fait, ouvert — même fenêtre finie —, annulé)", () => {
@@ -48,6 +50,33 @@ describe("commitmentCandidates", () => {
   it("le titre court : l'opération liée d'abord, sinon la tête du texte d'engagement", () => {
     expect(shortTitle({ committed_action_text: "A — B", saved_item_title: "Corner" })).toBe("Corner");
     expect(shortTitle({ committed_action_text: "A — B", saved_item_title: null })).toBe("A");
+  });
+});
+
+describe("dayNoteCandidates (E3)", () => {
+  // f10c3e58 au 07/09 : mardi 01/09, 1 603 € réalisés pour 920 attendus, residual_z 2,35, +74 %.
+  const day: DayNoteSlotRow = { date: "2026-09-01", daily_revenue: 1603, expected_revenue: 920, residual_z: 2.35, residual_pct: 74.2 };
+  it("jour inexpliqué sans note → carte note : le fait du jour, la forme owner, « Enregistrer », score = |écart| × jours", () => {
+    const [c] = dayNoteCandidates([day], TODAY);
+    expect(c.kind).toBe("note");
+    expect(c.nature).toBe("memoire");
+    expect(c.key).toBe("explorer_slot_note");
+    expect(c.date).toBe("2026-09-01");
+    expect(plain(c.text)).toBe("Mardi 01/09 : 1 603 €, +74 % vs votre CA habituel");
+    expect(c.sub).toBe("Un souvenir ? Notez-le · sinon, laissez");
+    expect(c.cta).toBe("Enregistrer");
+    expect(c.href).toBe("");
+    expect(c.anciennete_jours).toBe(6);
+    expect(c.enjeu_eur).toBe(683);
+    expect(c.score).toBe(683 * 6);
+  });
+  it("un jour sous le seuil, un jour d'aujourd'hui ou sans mesure → aucune carte", () => {
+    expect(dayNoteCandidates([{ ...day, residual_z: 1.9 }, { ...day, date: TODAY }, { ...day, expected_revenue: null }], TODAY)).toEqual([]);
+  });
+  it("un jour en baisse : le signe suit", () => {
+    const [c] = dayNoteCandidates([{ ...day, date: "2026-08-08", daily_revenue: 1869, expected_revenue: 2151, residual_z: -2.1, residual_pct: -13.1 }], TODAY);
+    expect(plain(c.text)).toBe("Samedi 08/08 : 1 869 €, −13 % vs votre CA habituel");
+    expect(c.enjeu_eur).toBe(282);
   });
 });
 

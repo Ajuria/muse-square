@@ -78,7 +78,7 @@ aucune quand il n'y en a pas (§ 6.5).
 | Engagement résolu sans bilan | `analytics.action_commitments` : status `resolved`, `retro_worked` nul (dernier instantané par engagement) | La page de l'engagement (`engagement?id=`), dont le rail Documenter (`POST /api/commitments/retro`) ne se câble que sur une opération terminée — le « Bilan → » du lexique. **Livré E1.** |
 | ~~Engagement fini sans « fait / pas fait »~~ | Retiré 07/09 : le silence vaut « action menée » (doctrine owner 05/08, § 2). La page de l'engagement n'a plus de bloc « Action menée ? » (owner 28/08) ; le geste vit dans Pulse, Insight et Slack sur les engagements OUVERTS seulement. | — |
 | Opération sans cible | `raw.saved_items` : `kpi_target_pct` et `kpi_target_eur` nuls, `event_end_date` ≥ aujourd'hui − 30 j | `POST /api/saved-items/update` (existe) |
-| Jour inexpliqué sans note | `semantic.vw_insight_event_day_residual` : \|`residual_z`\| ≥ 2, ≤ 30 j, ET aucune note | **rail à créer** (§ 4) |
+| Jour inexpliqué sans note | `semantic.vw_insight_event_day_residual` : \|`residual_z`\| ≥ 2, ≤ 30 j, ET aucune ligne dans `analytics.day_notes` (même site, même jour) | La carte porte SA saisie : `POST /api/insight/day-notes` (E3, **livré 07/09**) — forme owner « Un souvenir ? Notez-le · sinon, laissez », bouton « Enregistrer ». Un jour = une carte : quand la question mesurée (nature 3) porte la même date, elle cède. |
 | Valeur déclarée ancienne | `analytics.consulter_correction_events` : dernière `correction_type` > 90 j (nombre de clients : 53 j au 07/09, sous le seuil) | Explorer, pré-rempli « <valeur> : » — le chat déclare déjà (`declared_capture`) |
 | Pôle sans photo, photo sans articles confirmés | `action_commitments.pole_families` non nul sans ligne `dispositif_photos` ; `items_matched` non nul et `items_confirmed` nul | « Documenter → » (existe, page du pôle) |
 
@@ -107,13 +107,14 @@ carte répondue disparaît — sa source ne la produit plus).
 
 Manque :
 
-1. **Le rail de la note-cause d'un jour.** « Un souvenir ? Notez-le · sinon, laissez » n'existe que
-   comme commentaire dans `pulse.astro` ; aucun endpoint n'écrit une note de jour, aucune table ne
-   la porte (vérifié : `INSERT` de l'app = drafts, snapshots, alerts, members, goal_state, triggers).
-   C'est le chantier ouvert « Notez ce qui a changé » (mémoire `notez-ce-qui-a-change-chantier`) et la
-   porte manquante « mise en test depuis une cause ». Proposition : une note = un événement
-   `consulter_correction_events` de `correction_type = "day_note"` avec `raw_turn` = la date
-   (rail append-only existant, zéro DDL) — à arbitrer (§ 6).
+1. **Le rail de la note-cause d'un jour — EXISTE depuis le 07/09 (E3, décision § 6.3).** Table
+   `analytics.day_notes` (six colonnes REQUIRED, créée en base le 07/09), `POST /api/insight/day-notes`
+   (append-only, 500 caractères au plus, accès site), lecture par `explorer-slots` (un jour noté ne
+   redemande plus) et par `buildDayPerformanceFacts` (« Note du JJ/MM/AAAA : « … » », fait `observed`,
+   jamais causal). Côté dbt : passation `docs/dbt-handoff/HANDOFF-day-notes-2026-09-07.md` (source,
+   `stg_day_notes`, `semantic.vw_insight_event_day_notes`) — à coller par l'owner. Avant le 07/09 la forme
+   « Un souvenir ? Notez-le · sinon, laissez » n'existait que comme commentaire dans `pulse.astro`
+   (chantier « Notez ce qui a changé », mémoire `notez-ce-qui-a-change-chantier`).
 2. **« Alerte traitée ».** Un événement `action_log` `alert_consulted` (même table, même GET que
    `explorer_consulted`).
 3. **Le lecteur qui classe.** Un endpoint GET `insight/explorer-slots.ts` (à créer — `grep
@@ -182,7 +183,7 @@ date est une question d'Explorer.
 | E0 — **APPLIQUÉ 07/09** | États B et C, « Trouver une date » (carte, formulaire, pickers, endpoint `find-dates` et sa lib — seul consommateur) et « Générer un rapport » retirés ; l'état vide vaut titre + composer quand rien n'est mesuré ; placeholder tournant (§ 6bis, questions de la batterie). Proto supprimé (règle de placement : le proto meurt dans le commit qui livre). | Harnais client instruit : `explorer-ui` (aucune carte, label masqué, placeholder), `explorer-slots-anomaly` (la question seule), `explorer-slots-server` (fusion, cap, rail), `explorer-consulted` (marque sur une carte serveur). |
 | E1 — **APPLIQUÉ 07/09** | `insight/explorer-slots.ts` + `lib/explorer/explorerSlots.ts` (pur) + `explorerSlotsCopy.fr.ts` (mots, garde) : nature 1 = l'engagement résolu sans bilan, score = \|écart de la fenêtre\| × jours, jamais trois de même nature, jamais de remplissage. La carte « fait / pas fait » n'est PAS livrée (doctrine 05/08, § 2). | Test pur 8 cas (mutations vues rouges) ; rejeu de la requête + lib sur f10c3e58 (§ 8) : 5 candidats, 2 cartes rendues (garde de nature) — Corner du 08/08 (−394 €, 10 j), Dispositif vacances scolaires (+904 €, 3 j) ; batterie conversation verte. |
 | E2 | Nature 2 : verdict à ajuster, prouvé à reconduire, occurrence à préparer. | Idem, sur les lignes réelles. |
-| E3 | Rail note-cause (§ 6.3) + nature 1 « jour inexpliqué » ; la note nourrit `buildDayPerformanceFacts` (le fait « Note du JJ/MM : … » cité par le packager). | Lie-bait : une note est un fait `observed`, jamais causal ; batterie qualité ≥ baseline. |
+| E3 — **APPLIQUÉ 07/09** (dbt : passation à coller) | Rail note-cause (§ 6.3) : table + endpoint + carte « jour inexpliqué » avec sa saisie + le fait « Note du JJ/MM/AAAA : « … » » dans `buildDayPerformanceFacts` (`dayNoteFacts`, pur). Sur f10c3e58 au 07/09 : 5 jours à \|z\| ≥ 2 sans note → la carte du mardi 01/09 (+683 €, 6 j) passe première, devant le bilan du Corner. | Test pur (candidat, seuil, signe, fait `observed` — mutations vues rouges) ; harnais client `explorer-slots-note` (saisie, écriture site × jour × texte, carte retirée, question du même jour cédée) ; rejeu de la requête sur f10c3e58. |
 | E4 | `alert_consulted` + nature 2 « alerte concurrent ». | Harnais client + rejeu. |
 | E5 | Marques : une carte consultée sans réponse redescend au score suivant ; disparaît une fois la source vide. | Harnais client (marques stubbées). |
 

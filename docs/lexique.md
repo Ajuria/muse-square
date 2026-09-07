@@ -87,6 +87,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | La part remisée du CA d'une famille sur un jour | **remises** — « Plus / Moins de remises que d'habitude sur <famille> », « 5,9 % de remise le 09/08, contre 2,5 % d'habitude » (owner 07/09) | remisé plus que d'habitude, taux de remise, « % du CA » dans le titre |
 | La mesure du mix par famille | **part de CA ET articles** — « Coffee 45 % du CA (722 €, 239 articles) contre 39 % d'habitude (341 €, 216 articles) » (owner 07/09 : « We need both ») | des € de volume, une part sans son ordre de grandeur |
 | Une alerte chaleur de niveau 3 et plus (32 °C) | **forte chaleur** — « Alerte forte chaleur (niveau critique) » ; en dessous du niveau 3, « Alerte météo » (owner 07/09 ; même mot que la classe structurelle) | canicule (critère officiel IBM, jamais déduit de lvl_heat), chaleur seule |
+| Demander à l'exploitant ce que la mesure ne voit pas sur un jour (carte « jour inexpliqué », état vide d'Explorer, E3 07/09) | **Un souvenir ? Notez-le · sinon, laissez** (forme owner relevée en prod le 22/08, CLAUDE.md règle 4 ; bouton **Enregistrer**, mot de la page de l'engagement) | Qu'est-ce qui se passait chez vous ce jour-là ? (refusé 22/08 : « is not a phrase for a human ») ; toute prose qui étale les vérifications |
 
 ## Les mots des interactions humaines (Slack — registre distinct, owner 28/08)
 

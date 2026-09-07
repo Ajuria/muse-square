@@ -7,15 +7,18 @@
 // Sources (vérifiées INFORMATION_SCHEMA 07/09) : analytics.action_commitments (dernier instantané par
 // engagement — la MÊME fenêtre ROW_NUMBER que commitments/index.ts, jamais une seconde définition)
 // jointe à raw.saved_items pour le titre de l'opération liée. Candidats : les engagements résolus sans
-// bilan (retro_worked nul). Aucune carte « fait / pas fait » : le silence vaut « action menée »
-// (doctrine owner 05/08, voir lib/explorer/explorerSlots.ts). Accès : requireLocationAccess (membre :
-// périmètre de pôles via memberCommitmentInPerimeter, comme la liste des engagements).
+// bilan (retro_worked nul) ; les jours inexpliqués (semantic.vw_insight_event_day_residual, |residual_z|
+// ≥ 2 sur 30 jours) sans note dans analytics.day_notes (E3). Les deux lectures partent ensemble
+// (Promise.all : coût = max, pas somme). Aucune carte « fait / pas fait » : le silence vaut « action
+// menée » (doctrine owner 05/08, voir lib/explorer/explorerSlots.ts). Accès : requireLocationAccess
+// (membre : périmètre de pôles via memberCommitmentInPerimeter pour les engagements ; une note de jour
+// est du site entier).
 
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter } from "../../../lib/profile/memberCardPolicy";
-import { commitmentCandidates, rankSlots, type CommitmentSlotRow } from "../../../lib/explorer/explorerSlots";
+import { commitmentCandidates, dayNoteCandidates, rankSlots, type CommitmentSlotRow, type DayNoteSlotRow } from "../../../lib/explorer/explorerSlots";
 
 export const prerender = false;
 const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
@@ -33,7 +36,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     requireLocationAccess(locals, locationId);
 
     const bq = makeBQClient(BQ_PROJECT);
-    const [rows] = await bq.query({
+    const commitmentsP = bq.query({
       query: `
         WITH latest AS (
           SELECT * EXCEPT(rn) FROM (
@@ -58,11 +61,32 @@ export const GET: APIRoute = async ({ url, locals }) => {
       params: { locationId },
       location: "EU",
     });
+    const daysP = bq.query({
+      query: `
+        SELECT CAST(r.date AS STRING) AS date, r.daily_revenue, r.expected_revenue, r.residual_z, r.residual_pct
+        FROM \`${BQ_PROJECT}.semantic.vw_insight_event_day_residual\` r
+        LEFT JOIN (
+          SELECT location_id, date FROM \`${BQ_PROJECT}.analytics.day_notes\` WHERE location_id = @locationId GROUP BY location_id, date
+        ) n ON n.location_id = r.location_id AND n.date = r.date
+        WHERE r.location_id = @locationId
+          AND r.date >= DATE_SUB(CURRENT_DATE('Europe/Paris'), INTERVAL 30 DAY)
+          AND r.date < CURRENT_DATE('Europe/Paris')
+          AND ABS(r.residual_z) >= 2
+          AND n.date IS NULL
+      `,
+      params: { locationId },
+      location: "EU",
+    });
+    const [[rows], [dayRows]] = await Promise.all([commitmentsP, daysP]);
     const isMember = String((locals as any)?.role || "") === "member";
     const visible = (rows as any[]).filter((r) => !isMember || memberCommitmentInPerimeter(locals, locationId, r));
     const todayIso = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
-    const cards = rankSlots(commitmentCandidates(visible as CommitmentSlotRow[], todayIso));
-    return json({ ok: true, cards, candidates: visible.length });
+    const candidates = [
+      ...commitmentCandidates(visible as CommitmentSlotRow[], todayIso),
+      ...dayNoteCandidates(dayRows as DayNoteSlotRow[], todayIso),
+    ];
+    const cards = rankSlots(candidates);
+    return json({ ok: true, cards, candidates: candidates.length });
   } catch (err: any) {
     const status = /FORBIDDEN|UNAUTH/.test(String(err?.message)) ? 403 : 500;
     return json({ ok: false, error: err?.message || "Unknown error" }, status);
