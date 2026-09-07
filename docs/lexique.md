@@ -188,6 +188,12 @@ quand l'owner refuse une phrase** ; en retirer une demande son accord.
   Reste « Réagissez à la baisse de prix concurrente » (titre de competitor_price_drop, hors de la demande N3).
 - P8 (même consigne) : 21 plans chargés dans `reco-library.js` (heure, produit, famille, articles par ticket,
   produit sans vente, prix moyen, remises) en français courant — un verbe ordinaire, un objet qu'on tient.
+- Cartes sans terme (owner 07/09, « all four ») : `competitor_reputation_strength` rejoint la classe 14 jours
+  (date stable = lundi de la semaine, dbt #124). Les trois autres proposées ne sont PAS déplacées, à la
+  lecture des modèles : `competitor_threat_direct` est lié à un événement daté (event_date) ;
+  `high_competition_density` est un état ré-émis chaque jour (J..J+3) — le garder 14 jours le rendrait en
+  quatre exemplaires ; `medal_change` est le changement de VOTRE médaille d'opportunité (change feed), une
+  transition, pas un état. Ma description du 07/09 (« un concurrent a gagné une distinction ») était fausse.
 - Chaleur : « forte chaleur » dès le niveau 3 (voir la table). `day_opportunity` va au Fil (décision 1 du
   04/09). `foreign_tourism_signal` : sites de destination seulement (décision 2). Mix : part de CA ET
   articles (« We need both »). Planchers : à tester le 11/09 (file À arbitrer).

@@ -193,6 +193,8 @@ export const PERSISTENT_COMPETITOR_TYPES: readonly string[] = [
   "competitor_hours_change",
   "competitor_new_offering",
   "competitor_offering_removed",
+  // 07/09 (owner) : la note d'un suivi contre la vôtre est un état, pas un événement — 14 jours, date stable (lundi, dbt).
+  "competitor_reputation_strength",
 ];
 
 // Drop candidates whose action_type belongs to a disabled theme, plus the DEMOTED types

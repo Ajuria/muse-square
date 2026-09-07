@@ -4249,7 +4249,7 @@
   // 06/09 (audit P1) - cartes de faits soumises a la porte de regime (baseline_same_regime_n < 3 => pas de carte).
   window.MS_REGIME_GATE_TYPES = { hour_share_move: 1, item_share_move: 1, offering_mix_shift: 1 };
   // 06/09 (audit N3) - meme liste que PERSISTENT_COMPETITOR_TYPES (lib/recos/recoThemeMap), valeur = jours de validite.
-  window.MS_PERSISTENT_TYPES = { competitor_price_drop: 14, competitor_price_increase: 14, competitor_repricing_event: 14, competitor_hours_change: 14, competitor_new_offering: 14, competitor_offering_removed: 14 };
+  window.MS_PERSISTENT_TYPES = { competitor_price_drop: 14, competitor_price_increase: 14, competitor_repricing_event: 14, competitor_hours_change: 14, competitor_new_offering: 14, competitor_offering_removed: 14, competitor_reputation_strength: 14 };
   window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','tickets_lines_move','item_absent_regular','family_price_move','family_discount_move','hour_share_move'];
 
 })();
