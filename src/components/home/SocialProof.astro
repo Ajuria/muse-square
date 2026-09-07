@@ -44,7 +44,7 @@ const quotes = [
         >
           <div
             class="mx-auto max-w-[820px] px-8 md:px-16
-                   h-[210px] md:h-[240px] overflow-hidden
+                   min-h-[210px] md:h-[240px] md:overflow-hidden
                    flex flex-col items-center justify-center"
           >
             <blockquote class="ms-quote">{q.text}</blockquote>
@@ -87,7 +87,7 @@ const quotes = [
         <button
           data-sp-dot
           data-index={i}
-          class={`h-2.5 w-2.5 rounded-full border border-primary ${i === 0 ? 'bg-primary' : 'bg-transparent'}`}
+          class={`relative before:absolute before:-inset-4 before:content-[''] h-2.5 w-2.5 rounded-full border border-primary ${i === 0 ? 'bg-primary' : 'bg-transparent'}`}
           aria-label={`Aller au témoignage ${i + 1}`}
           type="button"
         />

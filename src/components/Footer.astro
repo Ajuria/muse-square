@@ -72,3 +72,10 @@ const year = new Date().getFullYear();
   </div>
 </footer>
 
+<style>
+  /* Mobile: each footer link gets a 16 px vertical hit area (13 px text stays). */
+  @media (max-width: 767px) {
+    footer li > a { display: inline-block; padding: 8px 0; }
+  }
+</style>
+
