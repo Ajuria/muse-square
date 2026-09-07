@@ -30,7 +30,10 @@
   .foot{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--line)} .foot button{border:0;background:transparent;color:var(--ink3);font-size:13px;padding:6px 10px;border-radius:8px;cursor:pointer} .foot button:hover{background:var(--bg);color:var(--ink)} .foot button.pri{margin-left:auto;background:var(--blue);color:#fff;font-weight:600;font-size:13.5px;padding:7px 14px} .foot button.pri:hover{background:#162c8a;color:#fff} .foot button.link{margin-left:auto;color:var(--blue);font-weight:600}
   .card .who{display:flex;align-items:center;gap:8px;color:var(--ink2);font-size:13px;margin-bottom:6px} .who img,.who .ic{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:0 0 28px} .who .ic{display:flex;align-items:center;justify-content:center;background:var(--blue-bg);color:var(--blue)} .who .ic svg{width:15px;height:15px}
   .row{display:flex;align-items:center;gap:10px;padding:9px 14px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:6px;font-size:14px;text-decoration:none;color:var(--ink);transition:box-shadow .15s} .row:hover{box-shadow:0 3px 12px rgba(17,24,39,.07)} .row .eng{color:var(--blue);font-size:13px;font-weight:600;white-space:nowrap;border:1px solid var(--blue-bg);background:var(--blue-bg);border-radius:999px;padding:3px 10px} .row img{width:44px;height:44px;border-radius:10px;object-fit:cover;flex:0 0 44px} .row .ic{width:26px;height:26px;border-radius:50%;flex:0 0 26px}
-  .bars{display:flex;gap:10px;align-items:flex-end;margin-left:12px} .bars span{display:flex;flex-direction:column;align-items:center;gap:2px} .bars i{display:block;width:22px;border-radius:3px 3px 0 0;background:#CBD5E1} .bars i.me{background:var(--blue)} .bars small{font-size:10px;color:var(--ink3)} .row .ic{display:flex;align-items:center;justify-content:center;background:#F3F4F6;color:var(--ink2)} .row .ic svg{width:14px;height:14px} .row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .row .v{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap} .row .v.up{color:var(--green)} .row .v.down{color:var(--amber)} .row .go{color:var(--blue);font-size:13px;white-space:nowrap}
+  .media{margin:12px 0 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+  .media.chart{display:flex;gap:18px;align-items:flex-end;padding:14px 16px 10px} .media.chart .grp{display:flex;flex-direction:column;align-items:center;gap:4px} .media.chart .pair{display:flex;gap:4px;align-items:flex-end;height:64px} .media.chart i{display:block;width:26px;border-radius:4px 4px 0 0;background:#CBD5E1} .media.chart i.me{background:var(--blue)} .media.chart small{font-size:11px;color:var(--ink2)} .media.chart .lg{margin-left:auto;font-size:11px;color:var(--ink3);align-self:flex-start;line-height:1.6} .media.chart .lg i{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:4px}
+  .media.tile{display:flex;align-items:center;gap:14px;padding:12px 16px;background:var(--bg)} .media.tile .d{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1;color:var(--blue)} .media.tile .d small{display:block;font-size:11px;font-weight:600;color:var(--ink3);letter-spacing:.06em;text-transform:uppercase;margin-top:4px} .media.tile .lbl{font-size:14px;color:var(--ink2)} .media.tile .ic{width:40px;height:40px;border-radius:12px;background:var(--blue-bg);color:var(--blue);display:flex;align-items:center;justify-content:center;flex:0 0 40px} .media.tile .ic svg{width:20px;height:20px}
+  .media.photo img{width:100%;aspect-ratio:16/7;object-fit:cover;display:block} .row .ic{display:flex;align-items:center;justify-content:center;background:#F3F4F6;color:var(--ink2)} .row .ic svg{width:14px;height:14px} .row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .row .v{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap} .row .v.up{color:var(--green)} .row .v.down{color:var(--amber)} .row .go{color:var(--blue);font-size:13px;white-space:nowrap}
   .row.band .ic{background:var(--blue-bg);color:var(--blue)}
   .more{display:block;width:100%;border:1px dashed var(--line);background:transparent;border-radius:12px;padding:9px;color:var(--ink2);font-size:13px;cursor:pointer;margin-top:2px}
   .note{margin-top:28px;color:var(--ink3);font-size:12px;line-height:1.5}
@@ -80,28 +83,37 @@ const eur = (n) => (n >= 0 ? '+' : '−') + Math.abs(n).toLocaleString('fr-FR') 
 const jour = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long' });
 const dm = (iso) => iso.slice(8, 10) + '/' + iso.slice(5, 7);
 const num = (g) => Number(String(g).replace('−', '-').replace('+', ''));
-function bars(pairs){ const mx = Math.max(...pairs.flatMap(p => [p.hab, p.jour])) || 1;
-  return '<span class="bars">' + pairs.map(p => '<span><i style="height:' + Math.round(4 + 26 * p.hab / mx) + 'px"></i><small>' + p.lbl + '</small></span><span><i class="me" style="height:' + Math.round(4 + 26 * p.jour / mx) + 'px"></i><small>&nbsp;</small></span>').join('') + '</span>'; }
+const cap = (t) => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+const MOIS = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+function chart(pairs){ const mx = Math.max(...pairs.flatMap(p => [p.hab, p.jour])) || 1;
+  return '<div class="media chart">' + pairs.map(p => '<span class="grp"><span class="pair"><i style="height:' + Math.round(6 + 56 * p.hab / mx) + 'px"></i><i class="me" style="height:' + Math.round(6 + 56 * p.jour / mx) + 'px"></i></span><small>' + p.lbl + '</small></span>').join('')
+    + '<span class="lg"><i style="background:#CBD5E1"></i>votre CA habituel<br><i style="background:var(--blue)"></i>ce jour-là</span></div>'; }
+// l'emplacement média : photo quand elle existe, graphique pour les ventes, tuile de dates pour le calendrier, tuile pour votre dispositif
+function media(c){
+  const name = nameOf(c); const ph = D.photos[name]; if (ph && ph.photo) return '<div class="media photo"><img src="' + ph.photo + '" alt=""></div>';
+  if (c.type === 'sales_surge') { const pr = (c.group || [c]).map(x => { const m = String(x.sowhat || '').match(/CA (\d+) €.*?\((\d+) €\)/); return m ? { jour: +m[1], hab: +m[2], lbl: jour(x.date).slice(0, 3) + '. ' + dm(x.date) } : null; }).filter(Boolean); return pr.length ? chart(pr.reverse()) : ''; }
+  if (c.type === 'commercial_event_match') { const m = String(c.sowhat || '').match(/du \w+ (\d\d)\/(\d\d) au \w+ (\d\d)\/(\d\d)/); const lbl = String(c.what || '').replace(/^Préparez une offre pour (la |l’|l')?/, ''); return '<div class="media tile"><span class="d">' + (m ? m[1] + ' → ' + m[3] : dm(c.date)) + '<small>' + (m ? MOIS[+m[4] - 1] : '') + '</small></span><span class="lbl">' + esc(cap(lbl)) + '</span></div>'; }
+  if (c.type === 'event_measure') { const m = String(c.sowhat || '').match(/«\s*([^»]+)\s*»/); return '<div class="media tile"><span class="ic">' + I.flag + '</span><span class="lbl"><b>' + esc(m ? m[1].trim() : 'Votre dispositif') + '</b><br>résultat mesuré le ' + dm(c.date) + '</span></div>'; }
+  return '';
+}
 function full(c){
   const cls = c.nature === 'opportunity' ? 'opp' : c.nature === 'threat' ? 'thr' : '';
   const isCA = c.type === 'sales_surge';
-  // 5 : la valeur de la carte est l'écart DU JOUR (les € qu'on a vus), jamais l'€/an d'une population — celui-là vit sur la page de détail
   let valTxt = c.amt, valSub = c.amt_sub || '';
   if (isCA && gapOf(c)) { const gs = (c.group || [c]).map(x => num(gapOf(x))); valTxt = eur(gs.reduce((a, b) => a + b, 0)); valSub = c.group ? 'sur ' + c.group.length + ' jours' : 'le ' + dm(c.date); }
   const val = valTxt ? '<span class="val ' + sign(valTxt) + '">' + esc(valTxt.replace(/ (le|à gagner|perdus).*$/, '')) + '<small>' + esc(valSub) + '</small></span>' : '';
-  let vis = '';
-  if (isCA) { const pr = (c.group || [c]).map(x => { const m = String(x.sowhat || '').match(/CA (\d+) €.*?\((\d+) €\)/); return m ? { jour: +m[1], hab: +m[2], lbl: jour(x.date).slice(0, 3) + '.' } : null; }).filter(Boolean); if (pr.length) vis = bars(pr); }
   let ttl = c.what, fct = fact(c);
   if (c.group) { const g = c.group; ttl = g.length + ' jours au-dessus de votre CA habituel cette semaine'; fct = g.map(x => eur(num(gapOf(x))) + ' ' + jour(x.date) + ' ' + dm(x.date)).join(', ') + '.'; const drv = [...new Set(g.map(driverOf).filter(Boolean))]; if (drv.length === 1) fct += ' La hausse vient du ' + drv[0] + ' les ' + g.length + ' fois.'; }
-  const gs = gesture(c); const act = gs ? '<p class="act">' + esc(gs) + '</p>' : '';
+  const gs = cap(gesture(c)); const act = gs ? '<p class="act">' + esc(gs) + '</p>' : '';
   const foot = USER_TYPES[c.type]
     ? '<div class="foot"><button class="link" data-stop>Documenter →</button></div>'
     : '<div class="foot"><button data-stop>Pas pour moi</button><button class="pri" data-stop>M’engager</button></div>';
-  return '<a class="card ' + cls + '" href="' + href(c) + '"><div class="top">' + chip(c) + val + vis + (val || vis ? '' : '<span style="margin-left:auto"></span>') + CHEV + '</div>' + who(c)
-    + '<h3 class="ttl">' + esc(ttl) + '</h3><p class="fact">' + esc(fct) + '</p>' + act + foot + '</a>';
+  return '<a class="card ' + cls + '" href="' + href(c) + '"><div class="top">' + chip(c) + val + (val ? '' : '<span style="margin-left:auto"></span>') + CHEV + '</div>' + who(c)
+    + '<h3 class="ttl">' + esc(ttl) + '</h3><p class="fact">' + esc(fct) + '</p>' + media(c) + act + foot + '</a>';
 }
 function row(c){ const name = nameOf(c); const ph = D.photos[name]; const ic = (WHO[c.type] || ['', 'sales'])[1];
-  return '<a class="row" href="' + href(c) + '">' + (ph && ph.photo ? '<img src="' + ph.photo + '" alt="">' : '<span class="ic">' + I[ic] + '</span>') + '<span class="t">' + esc(c.what) + '</span>' + (c.amt ? '<span class="v ' + sign(c.amt) + '">' + esc(c.amt.replace(/ (le|à gagner|perdus).*$/, '')) + '</span>' : '') + (USER_TYPES[c.type] ? '' : '<span class="eng" data-stop>M’engager</span>') + '</a>'; }
+  const t = c.type === 'family_price_move' && c.p && c.p.realized_price != null ? (c.p.item_category + ' : ' + String(c.p.realized_price).replace('.', ',') + ' € par article contre ' + String(c.p.price_baseline).replace('.', ',') + ' € d’habitude') : c.what;
+  return '<a class="row" href="' + href(c) + '">' + (ph && ph.photo ? '<img src="' + ph.photo + '" alt="">' : '<span class="ic">' + I[ic] + '</span>') + '<span class="t">' + esc(t) + '</span>' + (c.amt ? '<span class="v ' + sign(c.amt) + '">' + esc(c.amt.replace(/ (le|à gagner|perdus).*$/, '')) + '</span>' : '') + (USER_TYPES[c.type] ? '' : '<span class="eng" data-stop>M’engager</span>') + '</a>'; }
 const ul = (c) => (c.urgency && c.urgency.label) || 'À noter';
 const isFull = (c) => c.nature === 'opportunity' || c.nature === 'threat' || /Aujourd|semaine/.test(ul(c));
 const sorted = D.cards.slice().sort((a, b) => (b.date > a.date) - (b.date < a.date));
