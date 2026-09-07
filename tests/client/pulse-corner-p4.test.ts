@@ -21,7 +21,9 @@ beforeAll(() => {
   if (!h?.renderDailyBrief) throw new Error("renderDailyBrief non exporté");
 });
 
-const TODAY = "2026-09-06";
+// 07/09 : la page rend les cartes de performance sur le jour RÉEL (todayYmd) — une constante figée
+// a fait tomber deux tests au changement de date. TODAY suit l'horloge locale de la machine.
+const TODAY = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();
 function renderOne(candidate: any): string {
   (window as any)._lastActionCandidates = [candidate];
   (window as any)._lastDayClassImpacts = [];

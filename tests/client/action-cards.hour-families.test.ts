@@ -36,10 +36,23 @@ describe("hour_share_move — familles de l'heure nommées (build 2, owner 06/09
     const t = render(COLLAPSE_0809, "2026-08-09");
     expect(t.what).toBe("Le créneau 14 h–15 h sous-performe");
     expect(t.sowhat).toContain("Familles : Coffee 22 € contre 70 € d’habitude à cette heure, Tea 11 € contre 52 €, Bakery 0 € contre 23 €.");
+    // 07/09 (owner) : la ligne d'action TRANCHE — moteur + familles nommées, aucune question.
+    expect(t.action).toBe("Il est venu moins de monde à 14 h (9 tickets contre 30) et ils ont moins acheté : c’est Coffee (22 € contre 70 €) et Tea (11 € contre 52 €) qui ont manqué, pas votre offre ; la journée est à −162 €.");
   });
   it("hausse : les familles qui portent", () => {
     const t = render(SURGE_0828, "2026-08-28");
     expect(t.sowhat).toContain("Familles : Coffee 97 € contre 41 € d’habitude à cette heure, Tea 53 € contre 25 €, Drinking Chocolate 19 € contre 4 €.");
+    // Le reste de la journée a perdu plus que le créneau n'a gagné (−272 € pour +103 €) : déplacement, rien à changer.
+    expect(t.action).toBe("Ce créneau n’a pas gagné de clients, il en a pris au reste de la journée : −272 € ailleurs pour +103 € à 16 h. Rien à changer à 16 h ; la journée est à −169 €.");
+    expect(t.action).not.toMatch(/regardez si|même monde/);
+  });
+  it("hausse non compensée : prévoir les familles qui ont porté, moteur nommé", () => {
+    const t = render({ ...SURGE_0828, day_gap_eur: 300 }, "2026-08-28");
+    expect(t.action).toBe("Action conseillée : vendredi prochain, prévoyez Coffee (97 € contre 41 €) et Tea (53 € contre 25 €) dès 16 h : le monde en plus est réel (39 tickets contre 18).");
+  });
+  it("retrait compensé ailleurs : déplacement, rien à changer", () => {
+    const t = render({ ...COLLAPSE_0809, day_gap_eur: 200 }, "2026-08-09");
+    expect(t.action).toBe("Les clients de 14 h sont venus à une autre heure : +325 € ailleurs pour −125 € à 14 h. Rien à changer à 14 h ; la journée est à +200 €.");
   });
   it("une famille du signe opposé ne s'écrit pas ; sans payload, rien", () => {
     const t = render({ ...COLLAPSE_0809, hour_family_gaps: [{ delta: 30, expected: 10, family: "Tea", revenue: 40 }, { delta: -48, expected: 70, family: "Coffee", revenue: 22 }] }, "2026-08-09");
