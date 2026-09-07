@@ -61,6 +61,11 @@ export const TOURNURES_LLM: TournureBannie[] = [
     faute: "phrase nominale d'étiquette : commencer par ce qui s'est passé",
     refusee: "Comparaison à vos 4 mêmes jours de semaine précédents.",
   },
+  {
+    motif: /\bne s['’]apprend pas\b|\bs['’]apprend\b|\bne se m[ée]morise pas\b|\bse m[ée]morise\b/,
+    faute: "verbe pronominal posé sur un objet du commerce : un dispositif ne « s'apprend » pas — dire ce qui manque à l'exploitant, avec un sujet nommé",
+    refusee: "Sans lui, le dispositif ne s'apprend pas. (owner 07/09 : « llm crap again »)",
+  },
   // Tics génériques de rédaction machine — jamais employés par l'owner dans reco-library.
   {
     motif: /\bil s['’]agit d/,

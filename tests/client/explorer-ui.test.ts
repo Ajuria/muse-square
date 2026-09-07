@@ -8,7 +8,7 @@ import { bootOnce, slotCards, OUT, THREAD_KEY } from "./explorerTestKit";
 
 beforeAll(async () => {
   sessionStorage.setItem(THREAD_KEY, JSON.stringify([{ q: "Pourquoi le 18/07 ?", out: OUT, t: Date.now() - 60000 }]));
-  await bootOnce([]);   // aucun signal → le slot contextuel doit être l'ÉTAT C
+  await bootOnce([]);   // aucun signal, aucune carte serveur → l'état vide n'a AUCUNE carte (07/09)
 });
 
 describe("fil persistant (frais) + Nouvelle conversation", () => {
@@ -38,11 +38,11 @@ describe("fil persistant (frais) + Nouvelle conversation", () => {
       .toBe(kit.renderAnswerBlocks((window as any).__ieBlocksFromResponse(noProv)));
   });
 
-  it("état vide C (aucun signal) → repli météo mesurable + rapport, jamais zéro carte", () => {
-    const cards = slotCards();
-    expect(cards.length).toBe(2);
-    expect(cards[0].textContent).toContain("météo");
-    expect(cards[1].getAttribute("data-dynamic-q")).toMatch(/^Génère le rapport de /);
+  it("état vide sans candidat (owner 07/09) → AUCUNE carte, label ACTIONS masqué, le placeholder tourne sur une question éprouvée", () => {
+    expect(slotCards().length).toBe(0);
+    expect(document.getElementById("ie-prompt-actions-label")!.style.display).toBe("none");
+    const ph = (document.getElementById("ie-prompt-input") as HTMLTextAreaElement).getAttribute("placeholder") || "";
+    expect(ph).toMatch(/^Génère le rapport d[e’]/);
   });
 
   it("« Nouvelle conversation » → fil vidé, état vide de retour, store purgé", async () => {

@@ -28,9 +28,9 @@ Ce que l'app ne sait PAS demander aujourd'hui, mesuré sur f10c3e58 le 07/09 (re
 
 | Trou de la mémoire ou décision en attente | n |
 |---|---|
-| Engagements ouverts dont la fenêtre est finie et jamais résolus (`action_commitments`, status open, window_end < aujourd'hui) | 13 |
-| Engagements ouverts sans « fait / pas fait » (`action_done_status` nul) | 13 |
-| Engagements résolus sans bilan (`retro_worked` nul) | 8 |
+| Engagements résolus sans bilan (`retro_worked` nul) — **dernier instantané par engagement** (la fenêtre ROW_NUMBER de `commitments/index.ts`) | 5 (re-mesuré 07/09 au soir ; le « 8 » du matin comptait les instantanés, pas les engagements) |
+| Engagements ouverts dont la fenêtre est finie | 0 au dernier instantané (le « 13 » du matin comptait 14 instantanés de 11 engagements ; le cron `commitment-resolve` les résout à l'échéance) |
+| Engagements sans « fait / pas fait » (`action_done_status` nul) | **N'est PAS un trou de mémoire.** Doctrine owner 05/08, en prod dans l'infobulle de Pulse : « Si vous ne déclarez rien, l'action est considérée comme menée à l'échéance de la fenêtre — le verdict mesure alors son effet. » Seule l'exclusion explicite (« Pas menée ») compte, et elle ne se réclame pas. La carte 1 du proto (« l'opération a-t-elle eu lieu ? ») contredisait cette doctrine : RETIRÉE le 07/09 à l'implémentation, avant tout rendu. |
 | Opérations sans cible (`saved_items`, `kpi_target_pct` et `kpi_target_eur` nuls) | 3 sur 5 |
 | Jours à \|z\| ≥ 2 sur 30 jours, sans note (`vw_insight_event_day_residual`) | 5 — et **aucun rail** pour écrire la note (§ 4) |
 | Dernière valeur déclarée : nombre de clients | il y a 53 jours (`consulter_correction_events`) |
@@ -75,8 +75,8 @@ aucune quand il n'y en a pas (§ 6.5).
 
 | Candidat | Source (vérifiée 07/09) | Écriture ouverte par le clic |
 |---|---|---|
-| Engagement fini sans « fait / pas fait » | `analytics.action_commitments` : status `open`, `window_end` < aujourd'hui, `action_done_status` nul | `POST /api/commitments/disposition` (existe) |
-| Engagement résolu sans bilan | status `resolved`, `retro_worked` nul | `POST /api/commitments/retro` (existe) — le « Bilan → » du lexique |
+| Engagement résolu sans bilan | `analytics.action_commitments` : status `resolved`, `retro_worked` nul (dernier instantané par engagement) | La page de l'engagement (`engagement?id=`), dont le rail Documenter (`POST /api/commitments/retro`) ne se câble que sur une opération terminée — le « Bilan → » du lexique. **Livré E1.** |
+| ~~Engagement fini sans « fait / pas fait »~~ | Retiré 07/09 : le silence vaut « action menée » (doctrine owner 05/08, § 2). La page de l'engagement n'a plus de bloc « Action menée ? » (owner 28/08) ; le geste vit dans Pulse, Insight et Slack sur les engagements OUVERTS seulement. | — |
 | Opération sans cible | `raw.saved_items` : `kpi_target_pct` et `kpi_target_eur` nuls, `event_end_date` ≥ aujourd'hui − 30 j | `POST /api/saved-items/update` (existe) |
 | Jour inexpliqué sans note | `semantic.vw_insight_event_day_residual` : \|`residual_z`\| ≥ 2, ≤ 30 j, ET aucune note | **rail à créer** (§ 4) |
 | Valeur déclarée ancienne | `analytics.consulter_correction_events` : dernière `correction_type` > 90 j (nombre de clients : 53 j au 07/09, sous le seuil) | Explorer, pré-rempli « <valeur> : » — le chat déclare déjà (`declared_capture`) |
@@ -139,8 +139,8 @@ cité et le tableau des tests 8-13, après le § 6.
    `creation_enjeu_eur_year` vaut 0 sur TOUS les engagements du compte — ce champ ne classe rien.
    Le € d'un engagement est donc **la fenêtre elle-même** : `|window_actual_revenue −
    window_expected_revenue|` quand elle est résolue (le « Dispositif vacances scolaires » : +904 €
-   sur 7 jours ; le Corner du 08/08 : −433 €), `window_expected_revenue` quand elle est finie sans
-   résolution (ce qui était en jeu). Opération : `kpi_target_eur`, à défaut le CA moyen de ses
+   sur 7 jours ; le Corner du 08/08 : −394 € — `window_actual_revenue` 1 869,15 sur 2 263 attendus, requête § 3).
+   Une fenêtre finie sans résolution ne fait pas de carte (le cron la résout, § 2). Opération : `kpi_target_eur`, à défaut le CA moyen de ses
    occurrences passées. Alerte : `entity_threat_score` converti en rang. Score = € × ancienneté en
    jours ; sans aucun chiffre, dernier, le plus ancien d'abord.
 3. **Rail de la note-cause = table `analytics.day_notes` + vue `semantic.vw_insight_event_day_notes`**,
@@ -179,8 +179,8 @@ date est une question d'Explorer.
 
 | # | Incrément | Porte |
 |---|---|---|
-| E0 | Retrait des états B et C du slot 2 et des deux cartes fixes (si § 6.5) ; l'état vide vaut titre + composer quand rien n'est mesuré. | Harnais client (`explorer-ui.test.ts`, états A/B/C) instruit : B et C rendent zéro carte. |
-| E1 | `insight/explorer-slots.ts` : nature 1 sur les engagements (« fait / pas fait », bilan) — les 13 et 8 lignes réelles de f10c3e58. | Test pur du score + rejeu sur f10c3e58 : les deux cartes attendues, dans l'ordre, cliquables vers `commitments/disposition` et `retro` ; batterie conversation verte. |
+| E0 — **APPLIQUÉ 07/09** | États B et C, « Trouver une date » (carte, formulaire, pickers, endpoint `find-dates` et sa lib — seul consommateur) et « Générer un rapport » retirés ; l'état vide vaut titre + composer quand rien n'est mesuré ; placeholder tournant (§ 6bis, questions de la batterie). Proto supprimé (règle de placement : le proto meurt dans le commit qui livre). | Harnais client instruit : `explorer-ui` (aucune carte, label masqué, placeholder), `explorer-slots-anomaly` (la question seule), `explorer-slots-server` (fusion, cap, rail), `explorer-consulted` (marque sur une carte serveur). |
+| E1 — **APPLIQUÉ 07/09** | `insight/explorer-slots.ts` + `lib/explorer/explorerSlots.ts` (pur) + `explorerSlotsCopy.fr.ts` (mots, garde) : nature 1 = l'engagement résolu sans bilan, score = \|écart de la fenêtre\| × jours, jamais trois de même nature, jamais de remplissage. La carte « fait / pas fait » n'est PAS livrée (doctrine 05/08, § 2). | Test pur 8 cas (mutations vues rouges) ; rejeu de la requête + lib sur f10c3e58 (§ 8) : 5 candidats, 2 cartes rendues (garde de nature) — Corner du 08/08 (−394 €, 10 j), Dispositif vacances scolaires (+904 €, 3 j) ; batterie conversation verte. |
 | E2 | Nature 2 : verdict à ajuster, prouvé à reconduire, occurrence à préparer. | Idem, sur les lignes réelles. |
 | E3 | Rail note-cause (§ 6.3) + nature 1 « jour inexpliqué » ; la note nourrit `buildDayPerformanceFacts` (le fait « Note du JJ/MM : … » cité par le packager). | Lie-bait : une note est un fait `observed`, jamais causal ; batterie qualité ≥ baseline. |
 | E4 | `alert_consulted` + nature 2 « alerte concurrent ». | Harnais client + rejeu. |

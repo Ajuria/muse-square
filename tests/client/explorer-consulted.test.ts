@@ -4,14 +4,16 @@
 // la carte garde son encre ; (2) un clic écrit la marque (POST user × item × date) et l'affiche.
 
 import { it, expect, beforeAll } from "vitest";
-import { ACTION_LOG, bootOnce, slotCards } from "./explorerTestKit";
+import { ACTION_LOG, SLOTS, bootOnce, slotCards } from "./explorerTestKit";
 
 // La clé du slot rapport est ancrée au 1er du mois précédent — calculée comme le fait le code.
 const lastMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
 const reportDate = lastMonth.getFullYear() + "-" + String(lastMonth.getMonth() + 1).padStart(2, "0") + "-01";
 
 beforeAll(async () => {
-  ACTION_LOG.marks = [{ key: "explorer_sugg_report", date: reportDate, consulted_ymd: "2026-08-20" }];
+  // Une carte serveur (guichet de la mémoire) consultée le 20/08 ; l'anomalie sans marque.
+  SLOTS.cards = [{ nature: "memoire", kind: "bilan", key: "explorer_slot_bilan", date: reportDate, text: "Corner de vente producteur : objectif manqué, −394 € sur 1 jour", sub: "Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes.", cta: "Bilan →", href: "/app/insightevent/engagement?id=0b4018cf" }];
+  ACTION_LOG.marks = [{ key: "explorer_slot_bilan", date: reportDate, consulted_ymd: "2026-08-20" }];
   await bootOnce([
     { date: "2026-08-07", daily_revenue: 1169, revenue_robust_z: -2.6, revenue_vs_30d_avg_pct: -24, alert_level_max: 0 },
   ]);
@@ -20,7 +22,7 @@ beforeAll(async () => {
 it("une marque serveur rend « Consulté le JJ/MM » sur sa carte, et seulement la sienne", () => {
   const cards = slotCards();
   expect(cards.length).toBe(2);
-  const report = cards.find((c) => (c.getAttribute("data-sugg-key") || "") === "explorer_sugg_report")!;
+  const report = cards.find((c) => (c.getAttribute("data-sugg-key") || "") === "explorer_slot_bilan")!;
   expect(report).toBeTruthy();
   expect(report.getAttribute("data-sugg-date")).toBe(reportDate);
   expect(report.querySelector(".ie-sugg-consulted")?.textContent).toContain("Consulté le 20/08");

@@ -12,12 +12,12 @@ beforeAll(async () => {
   ]);
 });
 
-it("état vide A → carte anomalie d'abord (prime l'alerte météo), sous-titre chiffré, question éprouvée", () => {
+it("état vide A → la question mesurée, seule carte (plus de rapport ni de météo) : sous-titre chiffré, question éprouvée", () => {
   const cards = slotCards();
-  expect(cards.length).toBe(2);
+  expect(cards.length).toBe(1);
   expect(cards[0].textContent).toContain("décroché");
   expect(cards[0].textContent).toMatch(/1\s*169\s*€/);   // frInt fr-FR → espace fine insécable
   expect(cards[0].textContent).toContain("−24 %");
   expect(cards[0].getAttribute("data-dynamic-q")).toBe("Pourquoi le 07/08 ?");
-  expect(cards[1].getAttribute("data-dynamic-q")).toMatch(/^Génère le rapport de /);
+  expect(cards[0].getAttribute("data-nature")).toBe("question");
 });

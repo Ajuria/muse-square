@@ -31,7 +31,7 @@ export function stubDom(): void {
   document.body.innerHTML =
     '<div id="ie-prompt-root" data-location-id="' + LOC + '"></div>' +
     '<div id="ie-prompt-empty"><div id="ie-prompt-suggestions-label"></div>' +
-    '<a id="ie-finder-card" class="ie-prompt-card"></a><div id="ie-finder-form"></div></div>' +
+    '<div id="ie-prompt-actions-label">ACTIONS</div></div>' +
     '<div id="ie-new-thread-row" hidden><button data-ie-new-thread>Nouvelle conversation</button></div>' +
     '<div id="ie-thread" hidden></div><textarea id="ie-prompt-input"></textarea>';
 }
@@ -41,6 +41,10 @@ export function stubDom(): void {
 // simplement un compte sans marque ({ok:true, marks:[]}).
 export const ACTION_LOG = { marks: [] as any[], posts: [] as any[] };
 
+// Le guichet de la mémoire (07/09) : les cartes SERVEUR de l'état vide (/api/insight/explorer-slots),
+// posées par le fichier de test AVANT bootOnce ; vide par défaut (rien ne manque au compte).
+export const SLOTS = { cards: [] as any[] };
+
 export function stubFetch(days: any[]): void {
   (globalThis as any).fetch = (url: any, init?: any) => {
     const u = String(url);
@@ -48,6 +52,7 @@ export function stubFetch(days: any[]): void {
     if (u.includes("/api/insight/monitor")) return json({ ok: true, days });
     if (u.includes("competitor-signals")) return json({ ok: true, signals: [], followed_count: 0 });
     if (u.includes("/api/insight/corrections")) return json({ ok: true, corrections: [] });
+    if (u.includes("/api/insight/explorer-slots")) return json({ ok: true, cards: SLOTS.cards });
     if (u.includes("/api/insight/action-log")) {
       if (init && init.method === "POST") {
         try { ACTION_LOG.posts.push(JSON.parse(String(init.body))); } catch { ACTION_LOG.posts.push(null); }

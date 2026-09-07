@@ -59,52 +59,6 @@ if (!location_id) {
           <div id="ie-prompt-suggestions-label" style="display:none;">SUGGESTIONS</div>
 
           <div id="ie-prompt-actions-label" style="font-size:12px;letter-spacing:.08em;color:#9ca3af;font-weight:600;text-transform:uppercase;margin:24px 0 16px 0;">ACTIONS</div>
-          <a href="#" class="ie-prompt-card" id="ie-finder-card" data-suggestion-idx="2">
-            <div class="ie-prompt-card-icon">
-              <svg viewBox="0 0 24 24" aria-hidden="true" style="fill:white;"><path d="M11 17a6 6 0 1 0 0-12 6 6 0 0 0 0 12zm7.07-1.07 3 3a1 1 0 0 1-1.41 1.41l-3-3A8 8 0 1 1 18.07 15.93z"/></svg>
-            </div>
-            <div class="ie-prompt-card-content">
-              <p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">Trouver une date</p>
-              <p style="font-size:13px;color:#6b7280;margin:0;line-height:1.4;">Jusqu'à 7 meilleures dates sur une fenêtre choisie</p>
-            </div>
-            <div class="ie-prompt-card-arrow" id="ie-finder-chevron">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
-              </svg>
-            </div>
-          </a>
-
-          <div id="ie-finder-form" style="display:none;background:#f8f9fa;border:1px solid rgba(0,0,0,0.08);padding:20px;margin-top:-10px;">
-            <div style="margin-bottom:16px;">
-              <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Fenêtre</div>
-              <div style="display:flex;gap:10px;align-items:center;">
-                <input type="text" readonly placeholder="JJ/MM/AAAA" id="ie-finder-date-start" style="flex:1;font-size:14px;padding:8px 10px;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#111827;font-family:inherit;">
-                <span style="font-size:13px;color:#9ca3af;">→</span>
-                <input type="text" readonly placeholder="JJ/MM/AAAA" id="ie-finder-date-end" style="flex:1;font-size:14px;padding:8px 10px;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#111827;font-family:inherit;">
-              </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-              <div>
-                <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Jours</div>
-                <div style="display:flex;flex-direction:column;gap:8px;">
-                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-weekday" checked style="width:16px;height:16px;cursor:pointer;"> Semaine</label>
-                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-weekend" checked style="width:16px;height:16px;cursor:pointer;"> Week-end</label>
-                </div>
-              </div>
-              <div>
-                <div style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Exclusions</div>
-                <div style="display:flex;flex-direction:column;gap:8px;">
-                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-excl-school" style="width:16px;height:16px;cursor:pointer;"> Vacances scolaires</label>
-                  <label style="display:flex;align-items:center;gap:6px;font-size:14px;color:#111827;cursor:pointer;"><input type="checkbox" id="ie-finder-excl-holidays" style="width:16px;height:16px;cursor:pointer;"> Jours fériés</label>
-                </div>
-              </div>
-            </div>
-            <div id="ie-finder-error" style="display:none;font-size:13px;color:#b91c1c;margin-bottom:12px;padding:8px 12px;background:#fef2f2;border-radius:6px;"></div>
-            <button id="ie-finder-submit" type="button" style="width:100%;background:#1D3BB3;color:#fff;border:none;border-radius:6px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">
-              Trouver les meilleures dates →
-            </button>
-          </div>
-
           <!-- CONCURRENCE SECTION (hidden by default) -->
           <div id="ie-concurrence-section" style="display:none;">
             <div id="ie-conc-empty-state">
@@ -1054,8 +1008,6 @@ if (!location_id) {
       const marketingEl   = document.getElementById('ie-marketing-section');
       const inputEl       = document.getElementById('ie-prompt-input');
 
-      // Cards to show/hide per mode
-      const finderForm    = document.getElementById('ie-finder-form');
 
       function setMode(m) {
         currentMode = m;
@@ -1082,7 +1034,6 @@ if (!location_id) {
         // Live query, NOT the init-time `planningCards` snapshot: the suggestion cards are injected
         // by ie-prompt.js AFTER its data fetch, so a snapshot taken at init never hides them.
         document.querySelectorAll('.ie-prompt-card').forEach(c => c.style.display = showPlanning ? 'flex' : 'none');
-        if (finderForm) finderForm.style.display = 'none';
         const actionsLabel = document.getElementById('ie-prompt-actions-label');
         if (actionsLabel) actionsLabel.style.display = showPlanning ? '' : 'none';
 
@@ -2132,29 +2083,13 @@ if (!location_id) {
         _fpInitDone = true;
       }
 
-      // Finder window pickers — French display (JJ/MM/AAAA) while keeping the Y-m-d value the
-      // find-dates API + validation rely on (altInput shows d/m/Y; the original hidden input
-      // keeps Y-m-d). Runs on load; sets the same defaults ie-prompt.js would, so it skips them.
-      (function initFinderPickers() {
-        if (!window.flatpickr) return;
-        var locale = window.flatpickr.l10ns && window.flatpickr.l10ns.fr ? 'fr' : 'default';
-        var today = new Date();
-        var in30 = new Date(); in30.setDate(in30.getDate() + 30);
-        var style = 'flex:1;font-size:14px;padding:8px 10px;border:1px solid rgba(0,0,0,0.12);border-radius:8px;background:#fff;color:#111827;font-family:inherit;';
-        [['#ie-finder-date-start', today], ['#ie-finder-date-end', in30]].forEach(function (p) {
-          var el = document.querySelector(p[0]);
-          if (!el) return;
-          var fp = window.flatpickr(el, { locale: locale, dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', defaultDate: p[1], disableMobile: true });
-          if (fp && fp.altInput) fp.altInput.setAttribute('style', style);
-        });
-      })();
     })();
     </script>
 
     <script is:inline src="/js/ms-loader.js?v=2"></script>
 <script is:inline src="/js/card-kit.js?v=70"></script>
     <script is:inline src="/js/commit-form.js?v=15"></script>
-    <script type="module" src="/js/ie-prompt.js?v=53" defer></script>
+    <script type="module" src="/js/ie-prompt.js?v=54" defer></script>
 
   </BaseLayout>
 </Show>
