@@ -177,6 +177,23 @@ quand l'owner refuse une phrase** ; en retirer une demande son accord.
   5,9 % de remise le 09/08, contre 2,5 % d'habitude (12 € sur 211 € de ventes). 51 articles vendus. » ;
   gestes « vérifiez les tickets remisés du 09/08 sur <famille> : qui a remisé, sur quoi, et si c'était
   prévu. » / « notez ce qui s'est vendu sans remise dans <famille> le 09/08. »
+- Cartes concurrent (owner 07/09 : « make changes yourself ») — titres « Prix en hausse chez <concurrent> »,
+  « Plusieurs prix modifiés chez <concurrent> », « Offre retirée chez <concurrent> » ; lignes : « comparez votre
+  prix de <article> au sien ; si le vôtre est plus bas, affichez-le. » · « notez votre prix et votre marge sur
+  <article>, puis regardez vos ventes pendant deux semaines avant de changer quoi que ce soit. » · « relevez ses
+  nouveaux prix sur les produits que vous vendez aussi et notez les écarts. » · « si vous vendez un produit
+  équivalent à <article>, mettez-le en avant cette semaine. » · « comparez vos horaires aux siens ; indiquez sur
+  votre fiche Google et en vitrine les heures où vous êtes le seul ouvert. » · « si vous vendez <article>,
+  mettez-le en avant : ses clients cherchent maintenant où l'acheter. » La porte « fait seul » du 06/09 est levée.
+  Reste « Réagissez à la baisse de prix concurrente » (titre de competitor_price_drop, hors de la demande N3).
+- P8 (même consigne) : 21 plans chargés dans `reco-library.js` (heure, produit, famille, articles par ticket,
+  produit sans vente, prix moyen, remises) en français courant — un verbe ordinaire, un objet qu'on tient.
+- Cartes sans terme (owner 07/09, « all four ») : `competitor_reputation_strength` rejoint la classe 14 jours
+  (date stable = lundi de la semaine, dbt #124). Les trois autres proposées ne sont PAS déplacées, à la
+  lecture des modèles : `competitor_threat_direct` est lié à un événement daté (event_date) ;
+  `high_competition_density` est un état ré-émis chaque jour (J..J+3) — le garder 14 jours le rendrait en
+  quatre exemplaires ; `medal_change` est le changement de VOTRE médaille d'opportunité (change feed), une
+  transition, pas un état. Ma description du 07/09 (« un concurrent a gagné une distinction ») était fausse.
 - Chaleur : « forte chaleur » dès le niveau 3 (voir la table). `day_opportunity` va au Fil (décision 1 du
   04/09). `foreign_tourism_signal` : sites de destination seulement (décision 2). Mix : part de CA ET
   articles (« We need both »). Planchers : à tester le 11/09 (file À arbitrer).
@@ -315,36 +332,8 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   pour le prix moyen et les remises)** : NON arbitrés — l'owner les teste jeudi 11/09/2026 (« The floor
   wasn't tested yet. Will be next Thursday »). Ce qu'ils font : rien sur un site à 300 tickets ; ils
   éteignent les sites à 1-6 factures par jour (grossiste), où une moyenne par ticket décrit une commande.
-- **Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3) — BROUILLONS 07/09**
-  (owner : « What do you want from me? » → les chaînes écrites, à corriger, pas des slots vides). Le
-  corps de chaque carte dit déjà le fait (« <Concurrent> a augmenté le prix de <article> : 8 € → 9 € (+12 %)
-  le 04/09. ») ; manquent le titre (trois cartes) et la ligne d'action (six). Forme des titres = celle des
-  cartes concurrent en prod (« Nouvelle offre », « Horaires modifiés ») ; forme des gestes = règle 8 (verbe
-  ordinaire, objet qu'on tient) + test 11 (écrit depuis les nombres de la carte) :
-  · competitor_price_increase — titre « Prix en hausse chez <concurrent> » ; geste « Action conseillée :
-    comparez votre prix de <article> au nouveau prix de <concurrent> ; s'il est plus bas, affichez-le. »
-  · competitor_price_drop — geste « Action conseillée : notez votre prix et votre marge sur <article> ; suivez
-    vos ventes de <article> sur deux semaines avant de bouger. »
-  · competitor_repricing_event — titre « Plusieurs prix modifiés chez <concurrent> » ; geste « Action
-    conseillée : relevez les nouveaux prix de <concurrent> sur les articles que vous vendez aussi ; notez les écarts. »
-  · competitor_new_offering — geste « Action conseillée : si <article> a un équivalent chez vous, mettez-le
-    en avant cette semaine. »
-  · competitor_hours_change — geste « Action conseillée : comparez vos horaires aux nouveaux horaires de
-    <concurrent> ; signalez les créneaux où vous êtes seul ouvert (fiche Google, vitrine). »
-  · competitor_offering_removed — titre « Offre retirée chez <concurrent> » ; geste « Action conseillée : si
-    vous vendez <article>, mettez-le en avant — ses clients cherchent où l'acheter. »
-  Tests 8-13 relus sur les six : verbe + objet tenu (comparez / notez / relevez / mettez en avant /
-  signalez), condition nommée (l'article, le concurrent, deux semaines), écrits depuis les nombres de la
-  carte, aucune maxime. Rien n'est en prod : les cartes restent FAIT SEUL jusqu'à correction owner.
-- ~~Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3)~~ (remplacé ci-dessus) :
-  competitor_price_increase (« Saisissez la marge tarifaire »), competitor_price_drop,
-  competitor_repricing_event (« Analysez ce mouvement tarifaire »), competitor_new_offering,
-  competitor_hours_change, competitor_offering_removed (« Saisissez l'offre abandonnée ») —
-  rendues FAIT SEUL en attendant : leurs lignes échouent aux tests 8-12 (« Votre positionnement
-  tarifaire devient relativement plus attractif », « Ne vous alignez pas par réflexe »).
-- **P8 — trois plans par carte de fait (heure / produit / famille) dans `reco-library.js`** :
-  le formulaire « M'engager » de ces cartes ouvre sur une liste vide (clé absente). Gabarit
-  existant : `{ title, description, why, tag }` × 3, par type, `_default` ou par direction.
+- ~~Les six lignes d'action et trois titres des cartes concurrent (N3)~~ et ~~P8, les plans des cartes de
+  fait~~ : CHARGÉS le 07/09 sur consigne owner (« make changes yourself ») — voir Arbitrages tranchés 07/09.
 - « Voir → » vs « Lire → » : deux mots en prod pour « ouvrir une carte » — un seul doit rester.
 - Le mot du pont rangée santé ↔ rangée pilotage (« dont +1 166 € mesurés de vos opérations »).
 - « Déclarer vos marges » (pluriel, marge par famille produit) — paraphrase, pas un mot acté.
@@ -404,6 +393,7 @@ conseil sur un abstrait.
 | **Passez en accueil multilingue** cette semaine | Adaptez votre dispositif de communication et d'accueil (owner) |
 | Temps fort commercial — **activez** | (verbe sans objet : activez quoi ?) |
 | **Surveillez** la réputation concurrente | (surveiller n'est pas un geste : on fait, ou on ne fait pas) |
+| **Calez le réassort** sur l'heure de pointe (07/09 : « mean NOTHING ») | **Remplissez les rayons** avant le créneau fort — « caler » n'a pas ce sens (Larousse) ; un rayon se remplit, une commande se passe |
 
 Verbes de conseil à proscrire : *aligner, capter, concentrer, activer* (sans objet),
 *surveiller, se positionner, optimiser, maximiser, adresser, **animer*** (owner 24/08 —

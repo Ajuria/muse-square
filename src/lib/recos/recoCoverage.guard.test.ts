@@ -100,9 +100,6 @@ const DETTE_SANS_PLANS = [
   "day_opportunity",
   "extended_bad_weather",
   "extended_bad_weather_3d",
-  // 06/09 — family_price_move / family_discount_move : cartes nées sans plans (mots owner attendus).
-  "family_discount_move",
-  "family_price_move",
   "foreign_tourism_signal",
   "ft_peak_bad_weather",
   "ft_peak_low_comp",
@@ -113,8 +110,6 @@ const DETTE_SANS_PLANS = [
   "high_competition_density",
   "holiday_high_comp",
   "institution_campaign_detected",
-  // 06/09 — item_absent_regular : carte née sans plans (mots owner attendus).
-  "item_absent_regular",
   "low_tourism_local_opp",
   "medal_change",
   "media_mention_detected",
@@ -124,7 +119,6 @@ const DETTE_SANS_PLANS = [
   "mobility_disruption",
   "mobility_disruption_planned",
   "mobility_disruption_resolved",
-  "offering_mix_shift",
   "perfect_storm",
   "proven_action_replication",
   "regime_c_warning",
@@ -134,8 +128,6 @@ const DETTE_SANS_PLANS = [
   "sales_underperformance",
   "same_bucket_saturation",
   "saturated_bad_weather",
-  // 06/09 — tickets_lines_move : carte née sans plans (mots owner attendus, lexique § À arbitrer).
-  "tickets_lines_move",
   "score_down",
   "score_driver_shift",
   "score_up",

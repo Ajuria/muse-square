@@ -446,82 +446,75 @@ window.MS_SALES_RECO_LIB_BY_INDUSTRY = {
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════════════════
-// BROUILLONS 07/09 — P8, les sept cartes de FAIT (heure, produit, famille, articles par ticket,
-// produit sans vente, prix moyen, remises). L'owner (07/09) : « I don't have context to provide
-// any input » → voici les plans ÉCRITS, à corriger dans SA voix, jamais à charger tels quels.
-// Règle : COMMENTÉS tant que l'owner n'a pas relu ; décommenter = retirer le type de
-// DETTE_SANS_PLANS (recoCoverage.guard.test.ts). Les « why » réutilisent en priorité les
-// phrases déjà ÉCRITES par l'owner dans ce fichier (sales_revenue_down_wow, sales_surge).
-// Ce que la carte dit (rendu réel, compte owner) est rappelé au-dessus de chaque entrée.
+// 07/09 — P8, les sept cartes de FAIT (heure, produit, famille, articles par ticket, produit sans vente,
+// prix moyen, remises). Owner 07/09 : « Still llm crap such as Calez le réassort that mean NOTHING. Review
+// larousse or basic grammar and make changes yourself » → écrits en français courant (un verbe ordinaire,
+// un objet qu'on tient : le rayon, le stock, la caisse, l'équipe, le prix), CHARGÉS. Les « why » réutilisent
+// en priorité les phrases déjà écrites par l'owner dans ce fichier. Ce que la carte dit est rappelé au-dessus.
 // ═══════════════════════════════════════════════════════════════════════════════════════
 
-// ── hour_share_move ── « Le créneau 8 h–9 h surperforme / sous-performe » ; corps en € du créneau
-//    contre votre résultat habituel à cette heure.
-// window.MS_SALES_RECO_LIB.hour_share_move = {
-//   _default: [
-//     { title: "Offre d'appel sur le créneau qui décroche", description: "Formule ou produit du moment, affiché à l'entrée sur ce créneau seulement.", why: "Un prix d'entrée déclenche l'achat au moment où le passage est là mais n'achète pas.", tag: "Conversion" },
-//     { title: "Calez le réassort sur le créneau qui porte", description: "Produits phares en rayon avant l'heure qui fait la journée.", why: "Une rupture sur le créneau qui tire le CA coûte plus qu'une rupture à une heure creuse.", tag: "Réassort" },
-//     { title: "Vente additionnelle sur le créneau fort", description: "Le complément proposé à chaque encaissement sur ce créneau.", why: "Le panier monte sans trafic supplémentaire — la marge la plus rapide à récupérer.", tag: "Panier" },
-//   ],
-// };
+// ── hour_share_move ── « Le créneau 8 h–9 h surperforme / sous-performe » ; corps en € du créneau contre votre résultat habituel à cette heure.
+window.MS_SALES_RECO_LIB.hour_share_move = {
+  _default: [
+    { title: "Proposez une offre sur le créneau faible", description: "Une formule ou un produit du jour, affiché à l'entrée pendant ce créneau.", why: "Un prix d'entrée déclenche l'achat au moment où le passage est là mais n'achète pas.", tag: "Conversion" },
+    { title: "Remplissez les rayons avant le créneau fort", description: "Les produits qui se vendent le plus sont en place avant l'heure de pointe.", why: "Un rayon vide à l'heure de pointe coûte plus qu'un rayon vide à une heure creuse.", tag: "Réassort" },
+    { title: "Proposez un produit en plus à chaque client du créneau fort", description: "L'équipe propose un complément à chaque passage en caisse pendant cette heure.", why: "Le panier monte sans trafic supplémentaire — la marge la plus rapide à récupérer.", tag: "Panier" },
+  ],
+};
 
 // ── item_share_move ── « Le produit X sous-performe / surperforme » ; corps en € du produit.
-// window.MS_SALES_RECO_LIB.item_share_move = {
-//   _default: [
-//     { title: "Première place pour le produit qui monte", description: "Visible de l'entrée, réassort sécurisé.", why: "Ce qui a marché une fois est votre meilleur pari — encore faut-il le rejouer sciemment.", tag: "À reconduire" },
-//     { title: "Revoyez la place et le prix du produit qui décroche", description: "Emplacement, étiquette, produit voisin moins cher.", why: "Un produit régulier qui décroche à passage constant signale un frein en rayon, pas un problème de flux.", tag: "Diagnostic" },
-//     { title: "Associez-le à un complément en caisse", description: "Le produit proposé avec son accompagnement naturel.", why: "Un complément pertinent vaut mieux qu'un « et avec ceci ? » réflexe.", tag: "Panier" },
-//   ],
-// };
+window.MS_SALES_RECO_LIB.item_share_move = {
+  _default: [
+    { title: "Mettez en avant le produit qui monte", description: "À l'entrée, bien visible, avec assez de stock.", why: "Ce qui a marché une fois est votre meilleur pari — encore faut-il le rejouer sciemment.", tag: "À reconduire" },
+    { title: "Changez de place le produit qui baisse et vérifiez son prix", description: "Un autre emplacement, une étiquette lisible, un regard sur le produit voisin moins cher.", why: "Quand le passage est le même et qu'un seul produit baisse, la cause est dans le rayon.", tag: "Diagnostic" },
+    { title: "Proposez ce produit avec un complément en caisse", description: "Le produit et ce qui va avec, proposés ensemble.", why: "Un complément pertinent vaut mieux qu'un « et avec ceci ? » réflexe.", tag: "Panier" },
+  ],
+};
 
 // ── offering_mix_shift ── « La famille X sous-performe / surperforme » ; corps en € de la famille.
-// window.MS_SALES_RECO_LIB.offering_mix_shift = {
-//   _default: [
-//     { title: "Réassort et linéaire de la famille qui porte", description: "Stock et longueur de linéaire à la hauteur de la demande.", why: "Une famille qui tire la journée et tombe en rupture transforme une hausse en occasion manquée.", tag: "Réassort" },
-//     { title: "Trois vérifications sur la famille qui manque", description: "Ruptures, prix, mise en avant — en rayon, le jour même.", why: "Une famille qui décroche seule, à passage constant, a une cause en rayon.", tag: "Diagnostic" },
-//     { title: "Formule croisée entre deux familles", description: "La famille forte tire la famille faible, à l'encaissement.", why: "Le panier monte sans trafic supplémentaire — la marge la plus rapide à récupérer.", tag: "Panier" },
-//   ],
-// };
+window.MS_SALES_RECO_LIB.offering_mix_shift = {
+  _default: [
+    { title: "Donnez plus de place et de stock à la famille qui monte", description: "Plus de linéaire et une commande à la hauteur de la demande.", why: "Une famille qui fait la journée et qui manque en rayon, c'est une hausse perdue.", tag: "Réassort" },
+    { title: "Vérifiez en rayon la famille qui baisse", description: "Produits manquants, prix affichés, mise en avant, le jour même.", why: "Quand le passage est le même et qu'une seule famille baisse, la cause est dans le rayon.", tag: "Diagnostic" },
+    { title: "Vendez les deux familles ensemble", description: "Une formule qui associe la famille qui marche à celle qui baisse, proposée en caisse.", why: "Le panier monte sans trafic supplémentaire — la marge la plus rapide à récupérer.", tag: "Panier" },
+  ],
+};
 
-// ── tickets_lines_move ── « Moins / Plus d'articles par ticket que d'habitude » ; corps en articles
-//    par ticket et part des tickets à un seul article.
-// window.MS_SALES_RECO_LIB.tickets_lines_move = {
-//   _default: [
-//     { title: "Le deuxième article à portée du premier", description: "Accompagnement placé à côté du produit phare et en caisse.", why: "Le panier monte sans trafic supplémentaire — la marge la plus rapide à récupérer.", tag: "Panier" },
-//     { title: "Vente additionnelle ciblée", description: "Formez l'équipe au bon complément, au bon moment.", why: "Un complément pertinent vaut mieux qu'un « et avec ceci ? » réflexe.", tag: "Équipe" },
-//     { title: "Formules à deux articles visibles en caisse", description: "2-3 formules mises en avant à l'encaissement.", why: "Rendre l'option visible au bon moment suffit souvent à la déclencher.", tag: "Panier" },
-//   ],
-// };
+// ── tickets_lines_move ── « Moins / Plus d'articles par ticket que d'habitude » ; corps en articles par ticket et part des tickets à un seul article.
+window.MS_SALES_RECO_LIB.tickets_lines_move = {
+  _default: [
+    { title: "Placez le deuxième article à côté du premier", description: "Ce qui va avec le produit principal, à côté de lui en rayon et en caisse.", why: "Le panier monte sans trafic supplémentaire — la marge la plus rapide à récupérer.", tag: "Panier" },
+    { title: "Vente additionnelle ciblée", description: "Formez l'équipe au bon complément, au bon moment.", why: "Un complément pertinent vaut mieux qu'un « et avec ceci ? » réflexe.", tag: "Équipe" },
+    { title: "Affichez des formules à deux articles en caisse", description: "Deux ou trois formules bien visibles au moment de payer.", why: "Rendre l'option visible au bon moment suffit souvent à la déclencher.", tag: "Panier" },
+  ],
+};
 
-// ── item_absent_regular ── « Scottish Cream Scone : aucune vente » ; « Aucune vente de … le 30/08.
-//    Il se vend 58 jours sur 60, 18 € par jour. »
-// window.MS_SALES_RECO_LIB.item_absent_regular = {
-//   _default: [
-//     { title: "Stock et place en rayon du produit sans vente", description: "Rupture, retrait ou oubli de mise en rayon : la caisse ne dit pas lequel, le rayon oui.", why: "Un produit régulier absent un jour d'ouverture, c'est son CA du jour perdu sans que personne ne l'ait décidé.", tag: "Réassort" },
-//     { title: "Réassort prioritaire des produits vendus tous les jours", description: "Les réguliers à forte marge d'abord, dans la commande de la semaine.", why: "Une rupture sur un produit qui tire la marge transforme une journée normale en occasion manquée.", tag: "Achats" },
-//     { title: "Un remplaçant affiché quand le produit manque", description: "Produit voisin proposé à la place, en rayon et en caisse.", why: "Le client venu pour un produit repart sans rien si personne ne lui propose l'autre.", tag: "Conversion" },
-//   ],
-// };
+// ── item_absent_regular ── « Scottish Cream Scone : aucune vente » ; « Aucune vente de … le 30/08. Il se vend 58 jours sur 60, 18 € par jour. »
+window.MS_SALES_RECO_LIB.item_absent_regular = {
+  _default: [
+    { title: "Vérifiez le stock et le rayon du produit sans vente", description: "Le produit est-il en réserve, en rayon, à sa place ?", why: "Un produit qui se vend tous les jours et qui manque un jour, c'est une journée de ventes perdue sans que personne ne l'ait décidé.", tag: "Réassort" },
+    { title: "Commandez en priorité les produits vendus tous les jours", description: "D'abord ceux qui rapportent le plus, dans la commande de la semaine.", why: "Une rupture sur un produit qui rapporte coûte plus qu'un surstock.", tag: "Achats" },
+    { title: "Proposez un produit de remplacement quand il manque", description: "Un produit proche, proposé à sa place en rayon et en caisse.", why: "Le client venu pour un produit repart sans rien si personne ne lui en propose un autre.", tag: "Conversion" },
+  ],
+};
 
-// ── family_price_move ── « Prix moyen en baisse / en hausse sur Drinking Chocolate » ; « 3,87 € par
-//    article le 30/08, contre 4,13 € d'habitude (−6 %). 43 articles vendus. »
-// window.MS_SALES_RECO_LIB.family_price_move = {
-//   _default: [
-//     { title: "Lecture des tickets du jour sur la famille", description: "Remises, poids, produits moins chers : trois causes, une lecture des tickets.", why: "Un prix moyen qui baisse à volume constant est une marge qui part sans décision.", tag: "Diagnostic" },
-//     { title: "Cadrez les remises de la famille", description: "Qui peut remiser, combien, sur quoi — écrit et partagé à l'équipe.", why: "Une remise non cadrée se répète ; une remise cadrée se mesure.", tag: "Équipe" },
-//     { title: "Montée en gamme sur la famille", description: "Option supérieure proposée à chaque vente de la famille.", why: "Le panier monte sans trafic supplémentaire — la marge la plus rapide à récupérer.", tag: "Panier" },
-//   ],
-// };
+// ── family_price_move ── « Prix moyen en baisse / en hausse sur <famille> » ; « 3,87 € par article le 30/08, contre 4,13 € d'habitude (−6 %). 43 articles vendus. »
+window.MS_SALES_RECO_LIB.family_price_move = {
+  _default: [
+    { title: "Relisez les tickets du jour sur cette famille", description: "Remises, pesées, produits moins chers : les tickets le montrent.", why: "Un prix moyen qui baisse alors qu'on vend autant, c'est de la marge perdue sans décision.", tag: "Diagnostic" },
+    { title: "Fixez les règles de remise sur cette famille", description: "Qui peut faire une remise, de combien, sur quels produits ; écrit et donné à l'équipe.", why: "Une remise sans règle se répète ; une remise avec règle se mesure.", tag: "Équipe" },
+    { title: "Proposez le produit supérieur de la famille", description: "À chaque vente de la famille, l'équipe propose la version au-dessus.", why: "Le panier monte sans trafic supplémentaire — la marge la plus rapide à récupérer.", tag: "Panier" },
+  ],
+};
 
-// ── family_discount_move ── « Plus / Moins de remises que d'habitude sur Drinking Chocolate » ;
-//    « 5,9 % de remise le 09/08, contre 2,5 % d'habitude (12 € sur 211 € de ventes). 51 articles vendus. »
-// window.MS_SALES_RECO_LIB.family_discount_move = {
-//   _default: [
-//     { title: "Lecture des tickets remisés du jour", description: "Qui a remisé, sur quoi, et si c'était prévu.", why: "Une remise non prévue est une marge qui part sans décision.", tag: "Diagnostic" },
-//     { title: "Cadrez les remises de la famille", description: "Qui peut remiser, combien, sur quoi — écrit et partagé à l'équipe.", why: "Une remise non cadrée se répète ; une remise cadrée se mesure.", tag: "Équipe" },
-//     { title: "Ciblez vos remises", description: "Sur les produits et les créneaux où elles font vendre plus — mesuré sur la semaine suivante.", why: "Une remise qui ne fait pas vendre plus est un prix baissé.", tag: "Test" },
-//   ],
-// };
+// ── family_discount_move ── « Plus / Moins de remises que d'habitude sur <famille> » ; « 5,9 % de remise le 09/08, contre 2,5 % d'habitude (12 € sur 211 € de ventes). 51 articles vendus. »
+window.MS_SALES_RECO_LIB.family_discount_move = {
+  _default: [
+    { title: "Relisez les tickets remisés du jour", description: "Qui a fait la remise, sur quel produit, et si c'était prévu.", why: "Une remise qui n'était pas prévue, c'est de la marge donnée sans décision.", tag: "Diagnostic" },
+    { title: "Fixez les règles de remise sur cette famille", description: "Qui peut faire une remise, de combien, sur quels produits ; écrit et donné à l'équipe.", why: "Une remise sans règle se répète ; une remise avec règle se mesure.", tag: "Équipe" },
+    { title: "Réservez les remises aux produits et aux heures où elles font vendre plus", description: "Et regardez la semaine suivante si les ventes ont suivi.", why: "Une remise qui ne fait pas vendre plus est seulement un prix plus bas.", tag: "Test" },
+  ],
+};
 
 // ── foreign_tourism_signal ── 128 tirs · 32 lieux (90 j)
 //    Variables disponibles dans le payload :

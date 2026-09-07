@@ -18,12 +18,13 @@ const row = (type: string, date: string, extra: any = {}) => ({
 });
 
 describe("changements concurrents sans terme", () => {
-  it("un fait de 5 jours rend sur aujourd'hui, daté du fait, sans ligne d'action", () => {
+  it("un fait de 5 jours rend sur aujourd'hui, daté du fait, avec sa ligne d'action (owner 07/09)", () => {
     const out = render([row("competitor_price_increase", "2026-09-01")]);
     expect(out.length).toBe(1);
     expect(String(out[0].item.affected_date)).toBe("2026-09-01");
     expect(out[0].tmpl.sowhat).toMatch(/Centre Pompidou a augmenté le prix de Hilma af Klint/);
-    expect(out[0].tmpl.action || "").toBe("");
+    // 07/09 (owner) : la porte « fait seul » du 06/09 est levée — la ligne réécrite en français courant se rend.
+    expect(out[0].tmpl.action || "").toMatch(/^Actions conseillées : comparez votre prix de .* au sien ; si le vôtre est plus bas, affichez-le\.$/);
   });
   it("un fait de 20 jours ne rend plus ; un fait futur ne rend pas", () => {
     expect(render([row("competitor_new_offering", "2026-08-17")]).length).toBe(0);

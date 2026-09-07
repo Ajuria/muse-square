@@ -14,9 +14,11 @@ const flat = (v) => (v && typeof v === "object" && "value" in v ? v.value : v);
 const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
 const [[u]] = await bq.query({ query: `SELECT clerk_user_id FROM \`${PROJECT}.raw.insight_event_user_location_profile\` WHERE location_id = @l LIMIT 1`, params: { l: OWNER }, location: "EU" });
 const uid = String(flat(u.clerk_user_id));
-const today = new Date();
-const dates = [];
-for (let i = 0; i < 7; i++) dates.push(new Date(today.getTime() + i * 86_400_000).toISOString().slice(0, 10));
+// PULSE_DUMP_DATES=2026-08-09[,…] rejoue le fil d'une date PASSÉE (07/09 : montrer une carte heure réelle,
+// absente du fil du jour — les mouvements de septembre sont retenus par la porte de régime).
+const today = process.env.PULSE_DUMP_DATES ? new Date(process.env.PULSE_DUMP_DATES.split(",")[0] + "T00:00:00Z") : new Date();
+const dates = process.env.PULSE_DUMP_DATES ? process.env.PULSE_DUMP_DATES.split(",") : [];
+if (!dates.length) for (let i = 0; i < 7; i++) dates.push(new Date(today.getTime() + i * 86_400_000).toISOString().slice(0, 10));
 const locals = { clerk_user_id: uid, location_id: OWNER, all_location_ids: [OWNER] };
 // MULTI-SITE réel (owner 25/08 : le dump mono cachait chips site, vue agrégée, périodes taguées).
 const [siteRows] = await bq.query({ query: `SELECT location_id, ANY_VALUE(company_name) AS label FROM \`${PROJECT}.raw.insight_event_user_location_profile\` WHERE clerk_user_id = @u GROUP BY 1`, params: { u: uid }, location: "EU" });
@@ -25,6 +27,12 @@ const payloadBySite = {};
 for (const s of sites) {
   const r2 = await monitorGET({ url: new URL(`http://l/api/insight/monitor?location_id=${s.location_id}&selected_dates=${dates.join(",")}&light=1`), locals: { clerk_user_id: uid, location_id: s.location_id, all_location_ids: sites.map((x) => x.location_id) } });
   payloadBySite[s.location_id] = JSON.parse(await r2.text());
+  // PULSE_DUMP_TYPES=hour_share_move[,…] ne garde que ces cartes (07/09 : isoler une carte que le
+  // plafond du fil masque — 7 rendues sur 33 le 28/08 — pour la montrer telle que Pulse la rend).
+  if (process.env.PULSE_DUMP_TYPES) {
+    const keep = new Set(process.env.PULSE_DUMP_TYPES.split(","));
+    payloadBySite[s.location_id].action_candidates = (payloadBySite[s.location_id].action_candidates || []).filter((c) => keep.has(c.action_type));
+  }
   console.log(s.company_name, "· candidates:", (payloadBySite[s.location_id].action_candidates || []).length);
 }
 
@@ -55,7 +63,15 @@ const fetchStub = (url) => {
   return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body), text: () => Promise.resolve(JSON.stringify(body)) });
 };
 win.fetch = fetchStub;
-for (const m of MODULES) new Function("window", "document", "fetch", readFileSync(new URL("../../public/" + m, import.meta.url), "utf8"))(win, doc, fetchStub);
+// Horloge GELÉE sur la date rejouée : les cartes de performance (MS_INTERNAL_ALERT_TYPES, dont la
+// carte heure) ne se rendent que si le jour sélectionné est « aujourd'hui » (renderActionCandidates,
+// target === today) — sans ce gel, un fil passé n'en montre aucune.
+if (process.env.PULSE_DUMP_DATES) {
+  const fixed = Date.parse(dates[0] + "T12:00:00");
+  const RealDate = Date;
+  globalThis.Date = class extends RealDate { constructor(...a) { a.length ? super(...a) : super(fixed); } static now() { return fixed; } };
+}
+for (const m of MODULES) new Function("window", "document", "fetch", readFileSync(new URL("../../public/js/" + m, import.meta.url), "utf8"))(win, doc, fetchStub);
 new Function("window", "document", "fetch", "location_id", "sessionStorage", "localStorage", "var locationId = location_id;\n" + inline)(win, doc, fetchStub, OWNER, win.sessionStorage, win.localStorage);
 await new Promise((r) => setTimeout(r, 900));
 // Segments de site (Inc C) — vérité COMPORTEMENT : 1 + N segments, le clic filtre le fil au
