@@ -26,21 +26,21 @@ const UP_0809 = { item_category: "Drinking Chocolate", units: 51, revenue: 211, 
 describe("family_discount_move — le taux en % du CA (forme de la carte site), la remise en €", () => {
   it("hausse : titre au sens, corps taux contre taux avec les €, geste tickets remisés", () => {
     const t = render(UP_0809, "2026-08-09");
-    expect(t.what).toBe("Drinking Chocolate remisé plus que d’habitude");
-    expect(t.sowhat).toBe("Drinking Chocolate : remise 5,9 % du CA le 09/08 contre 2,5 % d’habitude (12 € sur 211 €), sur 51 unités vendues.");
-    expect(t.action).toBe("Action conseillée : vérifiez les tickets remisés de Drinking Chocolate ce jour-là — qui, sur quoi, et si c’était prévu.");
+    expect(t.what).toBe("Plus de remises que d’habitude sur Drinking Chocolate");
+    expect(t.sowhat).toBe("Drinking Chocolate : 5,9 % de remise le 09/08, contre 2,5 % d’habitude (12 € sur 211 € de ventes). 51 articles vendus.");
+    expect(t.action).toBe("Action conseillée : vérifiez les tickets remisés du 09/08 sur Drinking Chocolate : qui a remisé, sur quoi, et si c’était prévu.");
   });
   it("baisse : « remisé moins », geste d'observation", () => {
     const t = render({ ...UP_0809, discount_rate: 0.004, discount_delta_points: -2.1, direction: "collapse", delta_eur: 4 }, "2026-08-09");
-    expect(t.what).toBe("Drinking Chocolate remisé moins que d’habitude");
-    expect(t.action).toBe("Action conseillée : notez ce qui s’est vendu sans remise dans Drinking Chocolate ce jour-là.");
+    expect(t.what).toBe("Moins de remises que d’habitude sur Drinking Chocolate");
+    expect(t.action).toBe("Action conseillée : notez ce qui s’est vendu sans remise dans Drinking Chocolate le 09/08.");
   });
   it("le prix réalisé n'entre que si le mart l'a vu bouger (is_price_move)", () => {
     expect(render(UP_0809, "2026-08-09").sowhat).not.toMatch(/Prix moyen/);
-    expect(render({ ...UP_0809, is_price_move: true, price_delta_pct: -15.4 }, "2026-08-09").sowhat).toMatch(/ Prix moyen réalisé −15 %\.$/);
+    expect(render({ ...UP_0809, is_price_move: true, price_delta_pct: -15.4 }, "2026-08-09").sowhat).toMatch(/ Prix moyen −15 %\.$/);
   });
   it("membre (clés « revenue » retirées) : la phrase tient sans les €", () => {
     const { revenue: _r, ...member } = UP_0809;
-    expect(render(member, "2026-08-09").sowhat).toBe("Drinking Chocolate : remise 5,9 % du CA le 09/08 contre 2,5 % d’habitude, sur 51 unités vendues.");
+    expect(render(member, "2026-08-09").sowhat).toBe("Drinking Chocolate : 5,9 % de remise le 09/08, contre 2,5 % d’habitude. 51 articles vendus.");
   });
 });

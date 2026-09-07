@@ -28,15 +28,15 @@ const UP_0809 = { item_category: "Bakery", units: 48, revenue: 201, realized_pri
 describe("family_price_move — le prix dans son unité (€ par unité), la cause tue", () => {
   it("baisse : titre au sens, corps prix contre prix, geste tickets sans cause nommée", () => {
     const t = render(DOWN_0830, "2026-08-30");
-    expect(t.what).toBe("Drinking Chocolate vendu moins cher que d’habitude");
-    expect(t.sowhat).toBe("Drinking Chocolate : 3,87 € l’unité le 30/08 contre 4,13 € d’habitude (−6 %), sur 43 unités vendues.");
-    expect(t.action).toBe("Action conseillée : vérifiez les tickets de Drinking Chocolate ce jour-là — remises, poids ou produits moins chers dans la famille, le prix moyen ne dit pas lequel.");
+    expect(t.what).toBe("Prix moyen en baisse sur Drinking Chocolate");
+    expect(t.sowhat).toBe("Drinking Chocolate : 3,87 € par article le 30/08, contre 4,13 € d’habitude (−6 %). 43 articles vendus.");
+    expect(t.action).toBe("Action conseillée : vérifiez les tickets du 30/08 sur Drinking Chocolate : remises, poids ou produits moins chers.");
   });
   it("hausse : « vendu plus cher », geste d'observation du mix", () => {
     const t = render(UP_0809, "2026-08-09");
-    expect(t.what).toBe("Bakery vendu plus cher que d’habitude");
-    expect(t.sowhat).toBe("Bakery : 4,19 € l’unité le 09/08 contre 3,51 € d’habitude (+20 %), sur 48 unités vendues.");
-    expect(t.action).toBe("Action conseillée : notez ce qui s’est vendu dans Bakery ce jour-là — c’est le mix à reconduire.");
+    expect(t.what).toBe("Prix moyen en hausse sur Bakery");
+    expect(t.sowhat).toBe("Bakery : 4,19 € par article le 09/08, contre 3,51 € d’habitude (+20 %). 48 articles vendus.");
+    expect(t.action).toBe("Action conseillée : notez ce qui s’est vendu dans Bakery le 09/08.");
   });
   it("la remise n'entre que si le mart l'a vue bouger (is_discount_move)", () => {
     const t = render({ ...DOWN_0830, is_discount_move: true, discount_rate: 0.095, discount_rate_baseline: 0.019 }, "2026-08-30");

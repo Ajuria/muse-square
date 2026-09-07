@@ -157,6 +157,8 @@ export function themeForActionType(actionType: string | null | undefined): strin
 export const DEMOTED_TO_FEED = new Set([
   // démotions du 28/07 (audit de vérité)
   "audience_shift_opportunity",
+  // 07/09 (owner, décision 1 de l'audit du 04/09) : day_opportunity va au Fil.
+  "day_opportunity",
   "tourism_peak_window",
   "review_solicitation",
   // informationnelles (groupe I)

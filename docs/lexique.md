@@ -285,51 +285,31 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   owner (« or something ») : « très prudent · prudent · ambitieux · optimiste » — LES quatre
   mots à arbitrer avant le build commit-form.
 - « geste » (employé par la tuile prod « 6 gestes en attente ») — pas de mot d'interface arbitré.
-- **Le mot des niveaux de chaleur (06/09)** : « canicule » est sorti des cartes (critère officiel IBM,
-  non vérifiable par `lvl_heat`). Une carte d'alerte chaleur ne tire plus qu'au niveau 3 (32–34 °C)
-  et 4 (35 °C et plus) et se dit « Alerte météo (niveau critique), … 15°C–35°C » — le repli. Le
-  chantier structurel dit déjà « dispositif **forte chaleur** » pour la classe 28 °C et plus : LE mot
-  de l'alerte est à arbitrer (le même, ou un autre).
-- **Carte « Remise par famille » (`family_discount_move`, 06/09)** — chaînes à ratifier : titre « Drinking
-  Chocolate remisé plus / moins que d'habitude » ; corps « Drinking Chocolate : remise 5,9 % du CA le 09/08
-  contre 2,5 % d'habitude (12 € sur 211 €), sur 51 unités vendues. » (forme de la carte site « Vous avez
-  remisé 2,6 % du CA… ») ; gestes « vérifiez les tickets remisés de <famille> ce jour-là — qui, sur quoi,
-  et si c'était prévu. » (hausse) et « notez ce qui s'est vendu sans remise dans <famille> ce jour-là. »
-  (baisse). Plancher 10 unités (comme le prix) : à confirmer.
-- **Carte « Prix réalisé par famille » (`family_price_move`, 06/09)** — chaînes à ratifier : titre « Drinking
-  Chocolate vendu moins cher / plus cher que d'habitude » ; corps « Drinking Chocolate : 3,87 € l'unité le 30/08
-  contre 4,13 € d'habitude (−6 %), sur 43 unités vendues. » ; gestes « vérifiez les tickets de <famille> ce
-  jour-là — remises, poids ou produits moins chers dans la famille, le prix moyen ne dit pas lequel. » (baisse)
-  et « notez ce qui s'est vendu dans <famille> ce jour-là — c'est le mix à reconduire. » (hausse). Mot en
-  attente : « l'unité » quand la famille mêle pièces et poids (quantity_decimal) — « prix réalisé » lui-même.
-- **Carte « Produit régulier absent » (`item_absent_regular`, 06/09)** — chaînes à ratifier : titre « Scottish
-  Cream Scone absent de vos ventes » / « 2 produits réguliers absents de vos ventes » ; corps « … absent de vos
-  ventes le 30/08 : vendu 58 jours sur 60 ces deux mois, 18 € par jour d'habitude. » ; geste « vérifiez le stock
-  de <produit> et sa place sur le linéaire — rupture, retrait ou oubli, la caisse ne dit pas lequel. » (la cause
-  n'est pas nommée : la caisse ne la donne pas, règle 4). Mot en attente : « ces deux mois » pour la fenêtre
-  de 60 jours d'ouverture.
-- **Carte « Paniers à plusieurs articles » (`tickets_lines_move`, 06/09)** — livrée avec les mots de
-  l'owner (« paniers à plusieurs articles », « ticket », « linéaire ») ; titres « Moins de paniers à
-  plusieurs articles que d'habitude » / « Plus de … ». Gestes : hausse « notez ce qui était à côté du
-  produit ce jour-là — c'est l'association à reconduire » ; baisse « notez ce qui était à côté du produit
-  ce jour-là. » — **règle 4 appliquée (owner 06/09, option 1)** : le grain facture ne porte aucune paire
-  d'articles (0 ticket multi-lignes sur le compte owner, 47 782 tickets ; codes Sage sans libellé chez
-  Les Olivades), donc la baisse ne désigne plus « le deuxième article » qu'elle ne peut pas nommer, et
-  l'exploitant le nomme lui-même. Nommer la paire attend un mart de paires par `item_description` ET un
-  compte réel où le prouver. « accompagnement » écarté (jamais arbitré). **« Les paniers prennent plus
-  d'articles » REFUSÉ (owner 06/09 : ce n'est pas du français)** — la phrase de sens tombe du `detail_fr`
-  dbt (ms_database#115), qui porte le fait seul ; le sens vit dans le titre de la carte.
-- **Fermeture anticipée (carte heure, build 1) — TRANCHÉ 06/09 soir** : « journée arrêtée » (mon mot) refusé par l'owner
-  (« ne veut rien dire ») ; six heures sans un ticket = **fermeture anticipée**, le mot du commerce. Titre « Fermeture
-  anticipée : dernière vente à 12 h 53 » ; corps « Fermé après 12 h 53 ce vendredi : de 13 h à 19 h, 0 ticket au lieu de
-  126, 589 € manqués. À 13 h, le CA de la journée était de 1 169 € contre 1 439 € d'habitude à cette heure ; −859 € sur
-  la journée. 4e fermeture anticipée depuis le 10/05. » (formes owner : « le CA de … est / était de », « au lieu de ») ;
-  ligne d'action SANS préfixe, forme de l'atelier : « Fermeture voulue, panne de caisse ou export incomplet ? Notez-le ·
-  sinon, laissez. » Mart : mêmes chaînes (PR ms_database #122). Surface : `hour_share_move`, payload `is_day_stopped`.
-- **Familles de l'heure (build 2, owner 06/09) — mots PROVISOIRES** : « Familles : Coffee 22 € contre 70 € d'habitude
-  à cette heure, Tea 11 € contre 52 €, Bakery 0 € contre 23 €. » — forme de la ligne Familles du verdict (06/09), le
-  référentiel dit une fois ; surface : corps de `hour_share_move`, payload `hour_family_gaps`
-  (HANDOFF-familles-heure-2026-09-06).
+- **Le mot des niveaux de chaleur — ARBITRÉ 07/09** : « **forte chaleur** » (mot de la classe structurelle,
+  28 °C et plus) sert aussi à l'alerte dès le niveau 3 (32 °C) : « Alerte forte chaleur (niveau critique),
+  … 15°C–35°C ». En dessous du niveau 3, le repli « Alerte météo ». « canicule » reste réservé au critère
+  officiel (IBM), jamais déduit de `lvl_heat`.
+- **Les quatre cartes du grain facture (06-07/09) — ARBITRÉES le 07/09** : l'owner a refusé le
+  premier registre (« NOT HUMAN LANGUAGE ») et donné la forme : « **Moins d'articles par facture** (ou
+  équivalent : les bonnes pratiques) ». Retenu « articles par ticket » (indice de vente = articles par
+  ticket, mot du lexique 03/09 ; « facture » = le même objet côté Crisalid). Chaînes en prod :
+  · `tickets_lines_move` : « Moins / Plus d'articles par ticket que d'habitude » ; corps « 1,0 article par
+    ticket le 30/08 contre 1,8 d'habitude : 97 % des tickets à un seul article contre 54 %, sur 322 tickets. »
+  · `item_absent_regular` : « Scottish Cream Scone : aucune vente » / « 2 produits sans vente » ; corps
+    « Aucune vente de Scottish Cream Scone le 30/08. Il se vend 58 jours sur 60, 18 € par jour. » ; geste
+    « vérifiez le stock de <produit> et sa place sur le linéaire. »
+  · `family_price_move` : « Prix moyen en baisse / en hausse sur <famille> » ; corps « Drinking Chocolate :
+    3,87 € par article le 30/08, contre 4,13 € d'habitude (−6 %). 43 articles vendus. » ; gestes « vérifiez
+    les tickets du 30/08 sur <famille> : remises, poids ou produits moins chers. » / « notez ce qui s'est
+    vendu dans <famille> le 09/08. »
+  · `family_discount_move` : « Plus / Moins de remises que d'habitude sur <famille> » ; corps « Drinking
+    Chocolate : 5,9 % de remise le 09/08, contre 2,5 % d'habitude (12 € sur 211 € de ventes). 51 articles
+    vendus. » ; gestes « vérifiez les tickets remisés du 09/08 sur <famille> : qui a remisé, sur quoi, et si
+    c'était prévu. » / « notez ce qui s'est vendu sans remise dans <famille> le 09/08. »
+  « prix réalisé », « l'unité », « ces deux mois », « paniers à plusieurs articles » ne s'affichent plus.
+  Planchers (20 tickets, 10 articles) : question owner 07/09 « what does 20 tickets do that is truthful? »
+  — réponse : rien sur un site à 300 tickets ; ils n'éteignent que les sites à 1-6 factures par jour
+  (grossiste), où une moyenne par ticket décrit une commande, pas une population. Gardés.
 - **Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3)** :
   competitor_price_increase (« Saisissez la marge tarifaire »), competitor_price_drop,
   competitor_repricing_event (« Analysez ce mouvement tarifaire »), competitor_new_offering,

@@ -320,6 +320,8 @@
     // lvl_heat (Tmax seule) ne verifie pas. Le mot sort ; une journee chaude se dit par sa temperature,
     // deja dans la phrase (<< 15 degC - 35 degC >>), sous le repli approuve << alerte meteo >>.
     // Slot du mot << chaleur >> EN ATTENTE owner - jamais invente ici.
+    // 07/09 owner : « forte chaleur » (mot de la classe structurelle) dès le niveau 3 (32 °C).
+    if (Number(d.lvl_heat || 0) >= 3) return 'forte chaleur';
     if (Number(d.lvl_cold || 0) >= 2) return 'grand froid';
     if (Number(d.lvl_rain || 0) >= 1) return 'pluie';
     if (Number(d.lvl_wind || 0) >= 1) return 'vent';
@@ -897,8 +899,9 @@
     // 06/09 (owner, N8) - plus de << canicule >> (critere officiel non verifiable, cf. hazardLabel) :
     // un flux 'heat:N' rend le repli approuve << alerte meteo >>, la temperature dit le reste.
     var HZ_FR = { rain: 'fortes pluies', wind: 'vent fort', snow: 'neige', cold: 'grand froid' };
-    var nv = String(a && a.new_value || '').split(':')[0];
-    if (nv === 'heat') return 'alerte m\u00e9t\u00e9o';
+    var _nvp = String(a && a.new_value || '').split(':'); var nv = _nvp[0];
+    // 07/09 owner : niveau 3 et plus = « forte chaleur » ; en dessous, le repli « alerte météo ».
+    if (nv === 'heat') return Number(_nvp[1] || 0) >= 3 ? 'alerte forte chaleur' : 'alerte m\u00e9t\u00e9o';
     return HZ_FR[nv] ? 'alerte ' + HZ_FR[nv] : hazardPhrase(d);
   }
 
@@ -2407,8 +2410,9 @@
   // << Familles : Coffee 44 % du CA contre 39 % d'habitude, Tea 32 % contre 28 %, Bakery 15 % contre 12 %. >> - le referentiel une fois, en tete.
   // Owner 06/09 : la part ET l'ordre de grandeur - << Coffee 44 % du CA (672 EUR) contre 39 % d'habitude (362 EUR),
   // Tea 32 % (496 EUR) contre 28 % (263 EUR) >>. Le EUR entre parentheses est le CA de la famille, un fait.
-  function famEur(v) { return (v != null && isFinite(Number(v))) ? ' (' + frInt(Math.round(Number(v))) + ' \u20ac)' : ''; }
-  function famsS(fams) { return fams.length ? ' Familles : ' + fams.map(function (f, i) { return f.family + ' ' + pctS(f.revenue_share) + (i === 0 ? ' du CA' : '') + famEur(f.revenue) + ' contre ' + pctS(f.baseline_share) + (i === 0 ? ' d\u2019habitude' : '') + famEur(f.expected_revenue); }).join(', ') + '.' : ''; }
+  // 07/09 (owner : « we need both ») : les unités à côté des € — « (672 €, 150 articles) ».
+  function famEur(v, u) { if (v == null || !isFinite(Number(v))) return ''; var s = ' (' + frInt(Math.round(Number(v))) + ' \u20ac'; if (u != null && isFinite(Number(u))) s += ', ' + frInt(Math.round(Number(u))) + ' article' + (Math.round(Number(u)) > 1 ? 's' : ''); return s + ')'; }
+  function famsS(fams) { return fams.length ? ' Familles : ' + fams.map(function (f, i) { return f.family + ' ' + pctS(f.revenue_share) + (i === 0 ? ' du CA' : '') + famEur(f.revenue, f.units) + ' contre ' + pctS(f.baseline_share) + (i === 0 ? ' d\u2019habitude' : '') + famEur(f.expected_revenue, f.baseline_units_per_day != null ? f.baseline_units_per_day : f.baseline_units); }).join(', ') + '.' : ''; }
   function surgeDriverPick(a) {
     var dcp = surgeDecomp(a);
     if (dcp) return { tx: null, bk: null, pick: dcp.dom, decomp: dcp };
@@ -2733,7 +2737,7 @@
   // 06/09) : articles par ticket, part des tickets à un seul article, nombre de tickets — jamais
   // d'euros dans le corps ; delta_eur (lignes en plus/en moins × € par ligne) ne sert qu'au COIN.
   // Référentiel = base 28 j du mart → « d'habitude » (forme approuvée de la ligne Familles, 06/09).
-  reg('tickets_lines_move', 'Paniers à plusieurs articles', 'INTELLIGENCE', '🛒', '#1565C0', 'action', 'pulse#day-detail',
+  reg('tickets_lines_move', 'Articles par ticket', 'INTELLIGENCE', '🛒', '#1565C0', 'action', 'pulse#day-detail',
     function(a, p, d) {
       var lpt = a.lines_per_ticket != null ? Number(a.lines_per_ticket) : null;
       var lptB = a.lines_per_ticket_baseline != null ? Number(a.lines_per_ticket_baseline) : null;
@@ -2742,7 +2746,7 @@
       var tk = a.tickets != null ? Number(a.tickets) : null;
       var dsc = a.discounted_ticket_share != null ? Math.round(Number(a.discounted_ticket_share) * 100) : null;
       var dscB = a.discounted_ticket_share_baseline != null ? Math.round(Number(a.discounted_ticket_share_baseline) * 100) : null;
-      if (lpt == null || lptB == null) return 'Paniers à plusieurs articles : mesure incomplète ce jour-là.';
+      if (lpt == null || lptB == null) return 'Articles par ticket : mesure incomplète ce jour-là.';
       // « 1,0 article par ticket le 30/08 contre 1,8 d'habitude : 97 % des tickets à un seul article contre 54 %, sur 322 tickets. »
       var line = frDec(lpt) + ' article' + (lpt >= 2 ? 's' : '') + ' par ticket' + frDateFr(a.affected_date)
         + ' contre ' + frDec(lptB) + ' d’habitude';
@@ -2761,10 +2765,11 @@
   // se tait). Une carte par jour, tous les absents dedans (3 nommés). Les € (CA habituel du
   // produit, forme approuvée de item_share_move) ne vivent qu'en clés « revenue » de premier
   // niveau : membre = pas d'€, la phrase se ferme sur les jours.
-  reg('item_absent_regular', 'Produit régulier absent', 'INTELLIGENCE', '📭', '#B45309', 'action', 'pulse#day-detail',
+  reg('item_absent_regular', 'Produit sans vente', 'INTELLIGENCE', '📭', '#B45309', 'action', 'pulse#day-detail',
     function(a, p, d) {
+      // 07/09 owner : registre courant. « Aucune vente de Scottish Cream Scone le 30/08. Il se vend 58 jours sur 60, 18 € par jour. »
       var items = Array.isArray(a.items) && a.items.length ? a.items : (a.item_description ? [{ item_description: a.item_description, days_sold_60: a.days_sold_60, open_days_60: a.open_days_60 }] : []);
-      if (!items.length) return 'Un produit régulier absent de vos ventes ce jour-là.';
+      if (!items.length) return 'Un produit régulier sans vente ce jour-là.';
       var eurs = Array.isArray(a.items_expected_revenue) ? a.items_expected_revenue : (a.expected_item_revenue != null ? [a.expected_item_revenue] : []);
       var n = a.n_items != null ? Number(a.n_items) : items.length;
       var named = items.slice(0, 3);
@@ -2774,10 +2779,9 @@
       var jours = joinFr(named.map(function (it) { return it.days_sold_60 != null ? frInt(it.days_sold_60) : '?'; }));
       var ouv = named[0].open_days_60 != null ? frInt(named[0].open_days_60) : null;
       var eurS = named.map(function (it, i) { return eurs[i] != null ? frInt(Math.round(Number(eurs[i]))) + ' €' : null; }).filter(function (x) { return x != null; });
-      // « Scottish Cream Scone absent de vos ventes le 30/08 : vendu 58 jours sur 60 ces deux mois, 18 € par jour d'habitude. »
-      var line = noms + (n > 1 ? ' absents' : ' absent') + ' de vos ventes' + frDateFr(a.affected_date)
-        + ' : vendu' + (named.length > 1 ? 's ' : ' ') + jours + (ouv != null ? ' jours sur ' + ouv : ' jours') + ' ces deux mois';
-      if (eurS.length === named.length) line += (named.length > 1 ? ' (' + joinFr(eurS) + ' par jour d’habitude)' : ', ' + eurS[0] + ' par jour d’habitude');
+      var line = 'Aucune vente de ' + noms + frDateFr(a.affected_date) + '. '
+        + (n > 1 ? 'Ils se vendent ' : 'Il se vend ') + jours + (ouv != null ? ' jours sur ' + ouv : ' jours');
+      if (eurS.length === named.length) line += (named.length > 1 ? ' (' + joinFr(eurS) + ' par jour)' : ', ' + eurS[0] + ' par jour');
       return line + '.';
     },
     {}
@@ -2786,19 +2790,19 @@
   // 28 j — mart fct_client_family_price_daily. Couche PRIX dans son unité : € par unité vendue,
   // jamais un € de volume. Remises cachées, poids arrondis ou mix intra-famille : le prix moyen
   // ne dit pas lequel, la carte non plus (règle 4). La remise n'entre que si elle a bougé (mart).
-  reg('family_price_move', 'Prix réalisé par famille', 'INTELLIGENCE', '🏷️', '#1565C0', 'action', 'pulse#day-detail',
+  reg('family_price_move', 'Prix moyen par famille', 'INTELLIGENCE', '🏷️', '#1565C0', 'action', 'pulse#day-detail',
     function(a, p, d) {
+      // 07/09 owner : registre courant. « Drinking Chocolate : 3,87 € par article le 30/08, contre 4,13 € d'habitude (−6 %). 43 articles vendus. »
       var nom = a.item_category || 'Une famille';
       var px = a.realized_price != null ? Number(a.realized_price) : null;
       var pxB = a.price_baseline != null ? Number(a.price_baseline) : null;
       var un = a.units != null ? Math.round(Number(a.units)) : null;
       var dp = a.price_delta_pct != null ? Math.round(Number(a.price_delta_pct)) : null;
-      if (px == null || pxB == null) return nom + ' : prix moyen réalisé inhabituel ce jour-là.';
-      // « Drinking Chocolate : 3,87 € l'unité le 30/08 contre 4,13 € d'habitude (−6 %), sur 43 unités vendues. »
-      var line = nom + ' : ' + frDec(px, 2) + ' € l’unité' + frDateFr(a.affected_date) + ' contre ' + frDec(pxB, 2) + ' € d’habitude';
+      if (px == null || pxB == null) return nom + ' : prix moyen inhabituel ce jour-là.';
+      var line = nom + ' : ' + frDec(px, 2) + ' € par article' + frDateFr(a.affected_date) + ', contre ' + frDec(pxB, 2) + ' € d’habitude';
       if (dp != null) line += ' (' + (dp >= 0 ? '+' : '−') + Math.abs(dp) + ' %)';
-      if (un != null) line += ', sur ' + frInt(un) + ' unités vendues';
       line += '.';
+      if (un != null) line += ' ' + frInt(un) + ' articles vendus.';
       if (a.is_discount_move === true && a.discount_rate != null && a.discount_rate_baseline != null) {
         line += ' Remise ' + frDec(Number(a.discount_rate) * 100, 1) + ' % contre ' + frDec(Number(a.discount_rate_baseline) * 100, 1) + ' % d’habitude.';
       }
@@ -2810,23 +2814,23 @@
   // 28 j — mart fct_client_family_price_daily. Le grain FAMILLE de sales_discount_no_lift (« Vous
   // avez remisé 2,6 % du CA le 31/08, contre ~2,3 % d'habitude », forme approuvée). Le taux se
   // dit en % du CA, la remise en € du jour ; le prix réalisé n'entre que si le mart l'a vu bouger.
-  reg('family_discount_move', 'Remise par famille', 'INTELLIGENCE', '🏷️', '#B45309', 'action', 'pulse#day-detail',
+  reg('family_discount_move', 'Remises par famille', 'INTELLIGENCE', '🏷️', '#B45309', 'action', 'pulse#day-detail',
     function(a, p, d) {
+      // 07/09 owner : registre courant. « Drinking Chocolate : 5,9 % de remise le 09/08, contre 2,5 % d'habitude (12 € sur 211 € de ventes). 51 articles vendus. »
       var nom = a.item_category || 'Une famille';
       var dr = a.discount_rate != null ? Number(a.discount_rate) * 100 : null;
       var drB = a.discount_rate_baseline != null ? Number(a.discount_rate_baseline) * 100 : null;
       var dA = a.discount_amount != null ? Math.round(Number(a.discount_amount)) : null;
       var rev = a.revenue != null ? Math.round(Number(a.revenue)) : null;
       var un = a.units != null ? Math.round(Number(a.units)) : null;
-      if (dr == null || drB == null) return nom + ' : remise inhabituelle ce jour-là.';
-      // « Drinking Chocolate : remise 5,9 % du CA le 09/08 contre 2,5 % d'habitude (12 € sur 211 €), sur 51 unités vendues. »
-      var line = nom + ' : remise ' + frDec(dr, 1) + ' % du CA' + frDateFr(a.affected_date) + ' contre ' + frDec(drB, 1) + ' % d’habitude';
-      if (dA != null && rev != null) line += ' (' + frInt(dA) + ' € sur ' + frInt(rev) + ' €)';
-      if (un != null) line += ', sur ' + frInt(un) + ' unités vendues';
+      if (dr == null || drB == null) return nom + ' : remises inhabituelles ce jour-là.';
+      var line = nom + ' : ' + frDec(dr, 1) + ' % de remise' + frDateFr(a.affected_date) + ', contre ' + frDec(drB, 1) + ' % d’habitude';
+      if (dA != null && rev != null) line += ' (' + frInt(dA) + ' € sur ' + frInt(rev) + ' € de ventes)';
       line += '.';
+      if (un != null) line += ' ' + frInt(un) + ' articles vendus.';
       if (a.is_price_move === true && a.price_delta_pct != null) {
         var _pdp = Math.round(Number(a.price_delta_pct));
-        line += ' Prix moyen réalisé ' + (_pdp >= 0 ? '+' : '−') + Math.abs(_pdp) + ' %.';
+        line += ' Prix moyen ' + (_pdp >= 0 ? '+' : '−') + Math.abs(_pdp) + ' %.';
       }
       return line;
     },
@@ -3286,20 +3290,20 @@
         // 06/09 — remise par famille : titre au SENS, famille nommée, référentiel ratifié.
         else if (actionType === 'family_discount_move') {
           var _fdd = feedItem.direction || (Number(feedItem.discount_delta_points || 0) < 0 ? 'collapse' : 'surge');
-          whatText = (feedItem.item_category || 'Une famille') + (_fdd === 'collapse' ? ' remis\u00e9 moins que d\u2019habitude' : ' remis\u00e9 plus que d\u2019habitude');
+          whatText = (_fdd === 'collapse' ? 'Moins' : 'Plus') + ' de remises que d\u2019habitude sur ' + (feedItem.item_category || 'une famille');
         }
         else if (actionType === 'family_price_move') {
           var _fpd = feedItem.direction || (Number(feedItem.price_delta_pct || 0) < 0 ? 'collapse' : 'surge');
-          whatText = (feedItem.item_category || 'Une famille') + (_fpd === 'collapse' ? ' vendu moins cher que d\u2019habitude' : ' vendu plus cher que d\u2019habitude');
+          whatText = 'Prix moyen en ' + (_fpd === 'collapse' ? 'baisse' : 'hausse') + ' sur ' + (feedItem.item_category || 'une famille');
         }
         else if (actionType === 'item_absent_regular') {
           var _nAb = Number(feedItem.n_items || (Array.isArray(feedItem.items) ? feedItem.items.length : 1));
-          whatText = (_nAb > 1 || !feedItem.item_description) ? (_nAb > 1 ? _nAb + ' produits r\u00e9guliers absents de vos ventes' : 'Produit r\u00e9gulier absent de vos ventes') : feedItem.item_description + ' absent de vos ventes';
+          whatText = (_nAb > 1 || !feedItem.item_description) ? (_nAb > 1 ? _nAb + ' produits sans vente' : 'Produit sans vente') : feedItem.item_description + ' : aucune vente';
         }
         else if (actionType === 'tickets_lines_move') {
           whatText = ((feedItem.direction || (Number(feedItem.lines_per_ticket_delta || 0) < 0 ? 'collapse' : 'surge')) === 'collapse')
-            ? 'Moins de paniers à plusieurs articles que d\u2019habitude'
-            : 'Plus de paniers à plusieurs articles que d\u2019habitude';
+            ? 'Moins d\u2019articles par ticket que d\u2019habitude'
+            : 'Plus d\u2019articles par ticket que d\u2019habitude';
         }
         else if (actionType === 'hour_share_move' || actionType === 'item_share_move' || actionType === 'offering_mix_shift') {
           var _fd = feedItem.direction || (Number(feedItem.delta_eur || 0) < 0 ? 'collapse' : 'surge');
@@ -3995,21 +3999,23 @@
     'family_discount_move': { action: function(a, p, d) {
       var _fdd2 = a.direction || (Number(a.discount_delta_points || 0) < 0 ? 'collapse' : 'surge');
       var _famD = a.item_category || 'cette famille';
+      var _djD = frDateFr(a.affected_date) || ' ce jour-l\u00e0';
       return _fdd2 === 'collapse'
-        ? 'Action conseill\u00e9e : notez ce qui s\u2019est vendu sans remise dans ' + _famD + ' ce jour-l\u00e0.'
-        : 'Action conseill\u00e9e : v\u00e9rifiez les tickets remis\u00e9s de ' + _famD + ' ce jour-l\u00e0 \u2014 qui, sur quoi, et si c\u2019\u00e9tait pr\u00e9vu.';
+        ? 'Action conseill\u00e9e : notez ce qui s\u2019est vendu sans remise dans ' + _famD + _djD + '.'
+        : 'Action conseill\u00e9e : v\u00e9rifiez les tickets remis\u00e9s' + _djD.replace(/^ le /, ' du ') + ' sur ' + _famD + ' : qui a remis\u00e9, sur quoi, et si c\u2019\u00e9tait pr\u00e9vu.';
     }, urgency: 'soon' },
     'family_price_move': { action: function(a, p, d) {
       var _fpd2 = a.direction || (Number(a.price_delta_pct || 0) < 0 ? 'collapse' : 'surge');
       var _fam = a.item_category || 'cette famille';
+      var _dj = frDateFr(a.affected_date) || ' ce jour-l\u00e0';
       return _fpd2 === 'collapse'
-        ? 'Action conseill\u00e9e : v\u00e9rifiez les tickets de ' + _fam + ' ce jour-l\u00e0 \u2014 remises, poids ou produits moins chers dans la famille, le prix moyen ne dit pas lequel.'
-        : 'Action conseill\u00e9e : notez ce qui s\u2019est vendu dans ' + _fam + ' ce jour-l\u00e0 \u2014 c\u2019est le mix \u00e0 reconduire.';
+        ? 'Action conseill\u00e9e : v\u00e9rifiez les tickets' + _dj.replace(/^ le /, ' du ') + ' sur ' + _fam + ' : remises, poids ou produits moins chers.'
+        : 'Action conseill\u00e9e : notez ce qui s\u2019est vendu dans ' + _fam + _dj + '.';
     }, urgency: 'soon' },
     'item_absent_regular': { action: function(a, p, d) {
       var _nAb2 = Number(a.n_items || (Array.isArray(a.items) ? a.items.length : 1));
       var _obj = (_nAb2 > 1 || !a.item_description) ? 'de ces produits et leur place' : 'de ' + a.item_description + ' et sa place';
-      return 'Action conseill\u00e9e : v\u00e9rifiez le stock ' + _obj + ' sur le lin\u00e9aire \u2014 rupture, retrait ou oubli, la caisse ne dit pas lequel.';
+      return 'Action conseill\u00e9e : v\u00e9rifiez le stock ' + _obj + ' sur le lin\u00e9aire.';
     }, urgency: 'soon' },
     'tickets_lines_move': { action: function(a, p, d) {
       var _dirT = a.direction || (Number(a.lines_per_ticket_delta || 0) < 0 ? 'collapse' : 'surge');
@@ -4027,27 +4033,50 @@
         return 'Fermeture voulue, panne de caisse ou export incomplet ? Notez-le \u00b7 sinon, laissez.';
       }
       var dir = a.direction || 'surge';
-      // S'AJOUTENT-ILS, OU CHANGENT-ILS D'HEURE ? (owner 25/08) — cette question passe AVANT
-      // le moteur : tant qu'elle n'est pas tranchée, tout geste de mise en avant peut porter
-      // sur des clients qui se sont seulement déplacés dans la journée.
+      // 07/09 (owner : « Fix la ligne d'action ») — la carte TRANCHE au lieu de demander. Elle sait
+      // déjà si le reste de la journée a bougé en sens inverse (reportOuSurplus), ce qui a porté ou
+      // manqué (hourFunnelFacts : ventes / panier) et quelles familles (hour_family_gaps, build 2).
+      // Quand le reste de la journée a perdu au moins ce que le créneau a gagné (part >= 1), c'est
+      // un DÉPLACEMENT : rien à changer sur l'heure, la journée est le sujet. Sinon le geste nomme
+      // les familles et le moteur. Aucune question à l'exploitant ; sujets nommés, verbes du métier.
+      var _hh = a.transaction_hour != null ? Number(a.transaction_hour) : null;
+      var _jour = (function (iso) { var x = new Date(String(iso || '') + 'T00:00:00Z'); var D = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi']; return isNaN(x.getTime()) ? 'jour' : D[x.getUTCDay()]; })(a.affected_date || (d && d.date));
+      var _sE = function (n) { return (n >= 0 ? '+' : '−') + frInt(Math.abs(n)) + ' €'; };
+      var _dg = a.day_gap_eur != null ? Math.round(Number(a.day_gap_eur)) : null;
+      var _ff = hourFunnelFacts(a);
+      var _tx = a.hour_transactions != null ? Math.round(Number(a.hour_transactions)) : null;
+      var _etx = a.expected_hour_transactions != null ? Math.round(Number(a.expected_hour_transactions)) : null;
+      var _sg = dir === 'collapse' ? -1 : 1;
+      var _fam = (Array.isArray(a.hour_family_gaps) ? a.hour_family_gaps : []).filter(function (g) { return g && g.family && g.delta != null && Number(g.delta) * _sg > 0; }).slice(0, 2);
+      var _famTxt = _fam.map(function (g) { return g.family + ' (' + frInt(g.revenue) + ' € contre ' + frInt(g.expected) + ' €)'; }).join(' et ');
+      var _hTxt = _hh != null ? _hh + ' h' : 'ce créneau';
       var _rsh = reportOuSurplus(a);
-      if (_rsh) {
-        var _jour = (function (iso) { var x = new Date(String(iso || '') + 'T00:00:00Z'); var D = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi']; return isNaN(x.getTime()) ? 'jour' : D[x.getUTCDay()]; })(a.affected_date || a.date);
-        var _hh = a.transaction_hour != null ? Number(a.transaction_hour) : null;
-        return 'Action conseill\u00e9e : au prochain ' + _jour + (_hh != null ? ' ' + _hh + ' h' : '')
-          + ', regardez si le reste de la journ\u00e9e bouge encore \u2014 m\u00eame monde \u00e0 une autre heure, ou monde en plus.';
-      }
-      // LE GESTE SUIT LE MOTEUR MESURÉ (owner 25/08, levier 1), plus seulement le sens.
       var moteur = hourFunnelDriver(a);
-      if (dir === 'collapse') {
-        if (moteur === 'ventes') return 'Action conseill\u00e9e : il est venu moins de monde sur ce cr\u00e9neau \u2014 ce n\u2019est pas votre offre qui a manqu\u00e9 : ajustez ce que vous pr\u00e9parez pour cette heure-l\u00e0.';
-        if (moteur === 'panier') return 'Action conseill\u00e9e : le passage \u00e9tait l\u00e0, c\u2019est le panier qui a baiss\u00e9 \u2014 remettez en avant ce qui se vend cher sur ce cr\u00e9neau.';
-        return 'Action conseill\u00e9e : notez ce qui se passait chez vous sur ce cr\u00e9neau \u2014 c\u2019est ce qui dira si \u00e7a se reproduit.';
+      if (dir !== 'collapse') {
+        if (_rsh && _rsh.part >= 1) {
+          return 'Ce créneau n’a pas gagné de clients, il en a pris au reste de la journée : ' + _sE(_rsh.reste) + ' ailleurs pour ' + _sE(_rsh.objet) + ' à ' + _hTxt
+            + '. Rien à changer à ' + _hTxt + (_dg != null ? ' ; la journée est à ' + _sE(_dg) : '') + '.';
+        }
+        var _s1 = 'Action conseillée : ' + _jour + ' prochain, prévoyez ' + (_famTxt || 'ce qui part à cette heure') + ' dès ' + _hTxt;
+        if (moteur === 'ventes' && _tx != null && _etx != null) _s1 += ' : le monde en plus est réel (' + frInt(_tx) + ' tickets contre ' + frInt(_etx) + ')';
+        else if (moteur === 'panier') _s1 += ' : c’est le panier qui a porté la hausse';
+        else if (moteur === 'les deux' && _tx != null && _etx != null) _s1 += ' : plus de monde (' + frInt(_tx) + ' tickets contre ' + frInt(_etx) + ') et un panier plus haut';
+        return _s1 + '.';
       }
-      if (moteur === 'ventes') return 'Action conseill\u00e9e : le flux \u00e9tait l\u00e0 \u2014 reconduisez la m\u00eame mise en avant sur ce cr\u00e9neau et calez vos achats dessus.';
-      if (moteur === 'panier') return 'Action conseill\u00e9e : c\u2019est le panier qui a port\u00e9 la hausse \u2014 gardez en avant ce qui se vend cher sur ce cr\u00e9neau.';
-      if (moteur === 'les deux') return 'Action conseill\u00e9e : passage ET panier ont mont\u00e9 \u2014 reconduisez la mise en avant de ce cr\u00e9neau et calez vos achats dessus.';
-      return 'Action conseill\u00e9e : calez vos offres group\u00e9es sur ce cr\u00e9neau.';
+      if (_rsh && _rsh.part >= 1) {
+        return 'Les clients de ' + _hTxt + ' sont venus à une autre heure : ' + _sE(_rsh.reste) + ' ailleurs pour ' + _sE(_rsh.objet) + ' à ' + _hTxt
+          + '. Rien à changer à ' + _hTxt + (_dg != null ? ' ; la journée est à ' + _sE(_dg) : '') + '.';
+      }
+      if (moteur === 'panier') {
+        return 'Action conseillée : le passage était là' + (_tx != null && _etx != null ? ' (' + frInt(_tx) + ' tickets contre ' + frInt(_etx) + ')' : '') + ', le panier a baissé : '
+          + _jour + ' prochain, mettez ' + (_famTxt || 'ce qui se vend cher à cette heure') + ' en avant à ' + _hTxt + '.';
+      }
+      var _s2 = (moteur === 'ventes' || moteur === 'les deux') && _tx != null && _etx != null
+        ? 'Il est venu moins de monde à ' + _hTxt + ' (' + frInt(_tx) + ' tickets contre ' + frInt(_etx) + ')' + (moteur === 'les deux' ? ' et ils ont moins acheté' : '')
+        : 'Le créneau de ' + _hTxt + ' a manqué';
+      if (_famTxt) _s2 += ' : c’est ' + _famTxt + ' qui ' + (_fam.length > 1 ? 'ont' : 'a') + ' manqué, pas votre offre';
+      if (_dg != null) _s2 += ' ; la journée est à ' + _sE(_dg);
+      return _s2 + '.';
     }, urgency: 'soon' }
   };
 

@@ -67,3 +67,12 @@ describe("sales_surge — les trois couches quand la décomposition du jour est 
     expect(t.sowhat).toContain("Le recul vient du volume : 133 ventes contre 189 votre vendredi habituel, panier 4,81 € contre 4,64 €. Familles : Coffee 31 % du CA (198 €) contre 39 % d’habitude (342 €).");
   });
 });
+
+// 07/09 (owner : « we need both ») : les unités à côté des € dans la ligne Familles.
+describe("sales_surge — familles avec leurs unités quand le mart les porte", () => {
+  it("« Tea 36 % du CA (579 €, 177 articles) contre 28 % d’habitude (245 €, 169 articles) »", () => {
+    const fams = (DECOMP_0409.top_families as any[]).map((f, i) => i === 0 ? { ...f, units: 177, baseline_units_per_day: 168.9 } : f);
+    const t = render(P_0409, "2026-09-04", { decomposition: { ...DECOMP_0409, top_families: fams } });
+    expect(t.sowhat).toContain("Tea 36 % du CA (579 €, 177 articles) contre 28 % d’habitude (245 €, 169 articles)");
+  });
+});

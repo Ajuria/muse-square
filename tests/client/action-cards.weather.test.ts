@@ -22,6 +22,11 @@ describe("chaleur sans le mot « canicule »", () => {
     expect(s).toMatch(/^Alerte météo \(niveau sévère\), 2 jours d’affilée\. Nuageux, 15°C–29°C\./);
     expect(s).not.toMatch(/canicule/i);
   });
+  it("07/09 owner : niveau 3 et plus → « Alerte forte chaleur », le mot de la classe structurelle", () => {
+    const s = render({ signal_type: "weather_hazard_onset", old_value: "0", new_value: "heat:3", hazard_days: 2, direction: "worsened" }, { ...DAY, lvl_heat: 3, temperature_2m_max: 33.1 });
+    expect(s).toMatch(/^Alerte forte chaleur \(niveau/);
+    expect(s).not.toMatch(/canicule/i);
+  });
   it("un autre aléa garde son nom : 'wind:2' → « Alerte vent fort »", () => {
     const s = render({ signal_type: "weather_hazard_onset", old_value: "0", new_value: "wind:2", hazard_days: 1, direction: "worsened" }, { ...DAY, lvl_wind: 2, lvl_heat: 0 });
     expect(s).toMatch(/^Alerte vent fort \(niveau sévère\)/);

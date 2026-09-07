@@ -28,21 +28,21 @@ const TWO_0807 = { n_items: 2, item_description: "Scottish Cream Scone", item_ca
 describe("item_absent_regular — le produit nommé, la cause tue (règle 4)", () => {
   it("un produit : titre nommé, corps jours + CA habituel, geste stock + linéaire", () => {
     const t = render(ONE_0830, "2026-08-30");
-    expect(t.what).toBe("Scottish Cream Scone absent de vos ventes");
-    expect(t.sowhat).toBe("Scottish Cream Scone absent de vos ventes le 30/08 : vendu 58 jours sur 60 ces deux mois, 18 € par jour d’habitude.");
-    expect(t.action).toBe("Action conseillée : vérifiez le stock de Scottish Cream Scone et sa place sur le linéaire — rupture, retrait ou oubli, la caisse ne dit pas lequel.");
+    expect(t.what).toBe("Scottish Cream Scone : aucune vente");
+    expect(t.sowhat).toBe("Aucune vente de Scottish Cream Scone le 30/08. Il se vend 58 jours sur 60, 18 € par jour.");
+    expect(t.action).toBe("Action conseillée : vérifiez le stock de Scottish Cream Scone et sa place sur le linéaire.");
     expect(t.action).not.toMatch(/rupture de stock|probablement/);
   });
   it("deux produits : compte au titre, les deux nommés au corps, CA entre parenthèses", () => {
     const t = render(TWO_0807, "2026-08-07");
-    expect(t.what).toBe("2 produits réguliers absents de vos ventes");
-    expect(t.sowhat).toBe("Scottish Cream Scone et Croissant absents de vos ventes le 07/08 : vendus 57 et 58 jours sur 60 ces deux mois (16 € et 14 € par jour d’habitude).");
+    expect(t.what).toBe("2 produits sans vente");
+    expect(t.sowhat).toBe("Aucune vente de Scottish Cream Scone et Croissant le 07/08. Ils se vendent 57 et 58 jours sur 60 (16 € et 14 € par jour).");
     expect(t.action).toMatch(/^Action conseillée : vérifiez le stock de ces produits et leur place sur le linéaire/);
   });
   it("membre (clés « revenue » retirées) : la phrase se ferme sur les jours, sans €", () => {
     const { expected_item_revenue: _a, items_expected_revenue: _b, ...member } = ONE_0830;
     const t = render(member, "2026-08-30");
-    expect(t.sowhat).toBe("Scottish Cream Scone absent de vos ventes le 30/08 : vendu 58 jours sur 60 ces deux mois.");
+    expect(t.sowhat).toBe("Aucune vente de Scottish Cream Scone le 30/08. Il se vend 58 jours sur 60.");
     expect(t.sowhat).not.toMatch(/€/);
   });
 });

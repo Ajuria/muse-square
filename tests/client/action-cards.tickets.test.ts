@@ -39,7 +39,7 @@ const SURGE_0905 = { tickets: 107, lines: 348, revenue: 1537, lines_per_ticket: 
 describe("tickets_lines_move — chaque couche dans son unité, jamais d'euros dans le corps", () => {
   it("effondrement : titre au sens, corps en articles / tickets, geste sans article nommé (règle 4, owner 06/09)", () => {
     const t = render(COLLAPSE_0830, "2026-08-30");
-    expect(t.what).toBe("Moins de paniers à plusieurs articles que d’habitude");
+    expect(t.what).toBe("Moins d’articles par ticket que d’habitude");
     expect(t.sowhat).toBe("1,0 article par ticket le 30/08 contre 1,8 d’habitude : 97 % des tickets à un seul article contre 54 %, sur 322 tickets. Tickets remisés : 17 % contre 24 %.");
     expect(t.sowhat).not.toMatch(/€/);
     expect(t.action).toBe("Action conseillée : notez ce qui était à côté du produit ce jour-là.");
@@ -47,7 +47,7 @@ describe("tickets_lines_move — chaque couche dans son unité, jamais d'euros d
   });
   it("hausse : pluriel « articles », titre « Plus de … », geste d'observation", () => {
     const t = render(SURGE_0905, "2026-09-05");
-    expect(t.what).toBe("Plus de paniers à plusieurs articles que d’habitude");
+    expect(t.what).toBe("Plus d’articles par ticket que d’habitude");
     expect(t.sowhat).toBe("3,3 articles par ticket le 05/09 contre 1,8 d’habitude : 30 % des tickets à un seul article contre 55 %, sur 107 tickets. Tickets remisés : 36 % contre 24 %.");
     expect(t.action).toMatch(/^Action conseillée : notez ce qui était à côté du produit ce jour-là/);
   });
@@ -59,7 +59,7 @@ describe("tickets_lines_move — chaque couche dans son unité, jamais d'euros d
   it("sans direction au payload, le sens se lit sur lines_per_ticket_delta", () => {
     const { direction: _d, ...noDir } = COLLAPSE_0830;
     const t = render(noDir, "2026-08-30");
-    expect(t.what).toMatch(/^Moins de paniers/);
+    expect(t.what).toMatch(/^Moins d’articles par ticket/);
     expect(t.action).toBe("Action conseillée : notez ce qui était à côté du produit ce jour-là.");
   });
 });

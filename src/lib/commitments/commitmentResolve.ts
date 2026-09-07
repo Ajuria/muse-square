@@ -334,6 +334,7 @@ export async function resolveCommitment(
   try {
     const [frows] = await bq.query({
       query: `SELECT family, SUM(revenue) AS rev, SUM(expected_revenue) AS exp,
+                     SUM(units) AS un, SUM(baseline_units_per_day) AS un_exp,
                      SUM(SUM(revenue)) OVER () AS rev_total, SUM(SUM(expected_revenue)) OVER () AS exp_total
               FROM \`${BQ_PROJECT}.semantic.vw_insight_event_day_family_decomposition\`
               WHERE location_id=@loc AND date BETWEEN @minD AND @maxD
@@ -349,6 +350,9 @@ export async function resolveCommitment(
         family: String(flat(f.family)),
         revenue: round2(Number(flat(f.rev))),
         expected_revenue: round2(Number(flat(f.exp))),
+        // 07/09 (owner : « we need both ») : unités de la fenêtre et unités habituelles (Σ des moyennes/jour).
+        units: flat(f.un) != null ? Math.round(Number(flat(f.un))) : null,
+        baseline_units: flat(f.un_exp) != null ? Math.round(Number(flat(f.un_exp))) : null,
         revenue_share: round3(Number(flat(f.rev)) / Number(flat(f.rev_total))),
         baseline_share: round3(Number(flat(f.exp)) / Number(flat(f.exp_total))),
       }));
