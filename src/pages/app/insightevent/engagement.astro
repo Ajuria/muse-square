@@ -37,6 +37,15 @@ const id = Astro.url.searchParams.get("id") || "";
       /* Titres de section en ENCRE (owner 28/08) : le gris clair était illisible. */
       .eg-uc { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #111827; font-weight: 700; margin-bottom: 10px; }
       .eg-sec { margin-bottom: 26px; }
+      /* TÉLÉPHONE (< 768 px, audit mobile 07/09) : c'est la page qu'ouvre le bouton « Ajuster »
+         des messages Slack. La mise en page tient déjà (rien ne déborde à 375 px) ; seuls les
+         gestes étaient sous le pouce (boutons 29 px, dépliants 15 px). Le desktop ne change pas. */
+      @media (max-width: 767px) {
+        #eng-root { padding: 12px 12px 16px; }
+        #eng-doc { padding: 18px 16px; }
+        #eng-doc button { min-height: 40px; }
+        #eng-doc summary:not([style*="border-radius:50%"]) { padding-top: 8px; padding-bottom: 8px; }
+      }
     </style>
 
     <script is:inline src="/js/ms-loader.js?v=2"></script>

@@ -39,6 +39,24 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
       #evt-root { max-width: 760px; margin: 0 auto; padding: 16px 16px 80px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
       /* Bilan : les puces se lisent comme des CHOIX (retour owner 05/08) */
       .evt-bl-chip:hover { border-color: #1D3BB3 !important; color: #1D3BB3 !important; }
+      /* Écart par occurrence : sur une ligne au bureau ; sur téléphone il revient à la ligne
+         (en nowrap il élargissait la page à 425 px — audit mobile 07/09). */
+      @media (min-width: 768px) { .evt-occ-delta { white-space: nowrap; } }
+      /* TÉLÉPHONE (< 768 px) : page ouverte depuis les mails/Slack des crons (consigne, bilan).
+         La mise en page tient ; les gestes étaient sous le pouce (18 sur 20 sous 32 px) et les
+         champs à 13 px déclenchaient le zoom iOS au focus (d'où le !important : tailles inline). */
+      @media (max-width: 767px) {
+        #evt-root { padding: 12px 12px 90px; }
+        #evt-root button { min-height: 40px; }
+        #evt-root a[href] { display: inline-block; padding-top: 8px; padding-bottom: 8px; }
+        #evt-root summary { padding-top: 8px; padding-bottom: 8px; }
+        #evt-root input:not([type=checkbox]):not([type=radio]), #evt-root textarea, #evt-root select { font-size: 16px !important; }
+        /* Rangée d'occurrence (date · valeur · objectif · écart) : l'écart prend sa propre ligne,
+           la date ne réserve plus 92 px — sinon l'objectif tombait un mot par ligne. */
+        .evt-occ-row { flex-wrap: wrap; row-gap: 2px; }
+        .evt-occ-row > span:first-child { width: auto !important; }
+        .evt-occ-row .evt-occ-delta { flex-basis: 100%; }
+      }
     </style>
 
 <script is:inline src="/js/pole-form.js?v=3"></script>
@@ -991,13 +1009,13 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
                 + '<div style="margin-top:6px;">' + j.apres.rows.map(function (r) {
                     var kv = it.kpi === "family_revenue" ? r.family_rev : it.kpi === "revenue_residual" ? r.residual_pct : it.kpi === "tickets" ? r.tickets_delta_pct : it.kpi === "profit_estimated" ? r.profit_delta_pct : r.basket_delta_pct;
                     var okR = r.target_met;
-                    return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;">'
+                    return '<div class="evt-occ-row" style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #F3F4F6;font-size:12.5px;">'
                       + '<span style="width:92px;font-weight:600;">' + r.dow_fr.slice(0, 3) + " " + frD(r.date) + '</span>'
                       + (kv != null
                         ? '<span style="min-width:90px;font-weight:600;color:' + (okR === true ? "#059669" : okR === false ? "#B45309" : "#111827") + ';">' + kUnit(kv) + '</span>'
                           + '<span style="flex:1;font-size:11.5px;color:#6B7280;">' + esc(kpiLbl) + (se.kpi_target != null ? " · objectif " + kUnit(se.kpi_target) : "") + '</span>'
                         : '<span style="flex:1;font-size:11px;color:#9CA3AF;">pas de mesure</span>')
-                      + (r.gap_eur != null ? '<span style="font-size:11px;color:#6B7280;white-space:nowrap;">CA ' + signEur(r.gap_eur) + ' vs votre résultat habituel</span>' : "")
+                      + (r.gap_eur != null ? '<span class="evt-occ-delta" style="font-size:11px;color:#6B7280;">CA ' + signEur(r.gap_eur) + ' vs votre résultat habituel</span>' : "")
                       + '</div>';
                   }).join("") + '</div>'
                 // La DÉCISION au bout : le moteur (diagnostic + move recommandé + track record
