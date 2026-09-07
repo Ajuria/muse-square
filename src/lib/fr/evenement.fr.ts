@@ -117,6 +117,10 @@ export const MOTS_BANNIS: Record<string, string> = {
   "(armée)": "(dispositif actif)",
   // Owner 17/08 (correctif Autour de vous) : ce qui est prouvé se RÉUTILISE — jamais « rejouable ».
   rejouable: "réutilisable",
+  // Owner 07/09 : « stop saying rejouer → Reconduire » — un dispositif prouvé se RECONDUIT.
+  rejouer: "reconduire",
+  "rejoué": "reconduit",
+  "à rejouer": "à reconduire",
   "se rejoue seule": "se relance seul",
   // Owner 17/08 soir : zéro label neuf — lire une page externe = « Consulter → » (label déjà
   // en prod, Consulter la source) ; sections à la première personne (« Mes dispositifs »).

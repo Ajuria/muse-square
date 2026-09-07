@@ -2244,7 +2244,7 @@
     function(a) {
       return {
         context: msWkLine(a, 'spike'),
-        action: 'Action conseill\u00e9e : identifier ce qui a porté la semaine (client, opération, contexte) — et le noter pour le rejouer sciemment.'
+        action: 'Action conseill\u00e9e : identifier ce qui a porté la semaine (client, opération, contexte) — et le noter pour le reconduire sciemment.'
       };
     },
     {
@@ -3500,10 +3500,10 @@
       var hook = a.is_vacation ? 'les vacances scolaires' : (a.is_holiday ? 'le jour f\u00e9ri\u00e9' : (Number(a.weather_alert || 0) === 0 ? 'une m\u00e9t\u00e9o favorable' : ''));
       if (!pick) {
         return 'Action conseill\u00e9e : vous d\u00e9passez votre r\u00e9sultat habituel pour ce jour, sans que le volume ni le panier ne montent'
-          + chiffres + '. Notez ce que vous aviez en place ce jour-l\u00e0, pour pouvoir le rejouer.';
+          + chiffres + '. Notez ce que vous aviez en place ce jour-l\u00e0, pour pouvoir le reconduire.';
       }
       return 'Action conseill\u00e9e : la hausse vient ' + (pick === 'transactions' ? 'du volume' : 'du panier moyen')
-        + chiffres + (hook ? ', port\u00e9 par ' + hook : '') + '. \u00c0 rejouer sur vos prochaines journ\u00e9es comparables.';
+        + chiffres + (hook ? ', port\u00e9 par ' + hook : '') + '. \u00c0 reconduire sur vos prochaines journ\u00e9es comparables.';
     }, urgency: 'plan' },
     'sales_competition_cannibalization': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
