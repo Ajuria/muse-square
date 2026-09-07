@@ -310,7 +310,28 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   Planchers (20 tickets, 10 articles) : question owner 07/09 « what does 20 tickets do that is truthful? »
   — réponse : rien sur un site à 300 tickets ; ils n'éteignent que les sites à 1-6 factures par jour
   (grossiste), où une moyenne par ticket décrit une commande, pas une population. Gardés.
-- **Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3)** :
+- **Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3) — BROUILLONS 07/09**
+  (owner : « What do you want from me? » → les chaînes écrites, à corriger, pas des slots vides). Le
+  corps de chaque carte dit déjà le fait (« <Concurrent> a augmenté le prix de <article> : 8 € → 9 € (+12 %)
+  le 04/09. ») ; manquent le titre (trois cartes) et la ligne d'action (six). Forme des titres = celle des
+  cartes concurrent en prod (« Nouvelle offre », « Horaires modifiés ») ; forme des gestes = règle 8 (verbe
+  ordinaire, objet qu'on tient) + test 11 (écrit depuis les nombres de la carte) :
+  · competitor_price_increase — titre « Prix en hausse chez <concurrent> » ; geste « Action conseillée :
+    comparez votre prix de <article> au nouveau prix de <concurrent> ; s'il est plus bas, affichez-le. »
+  · competitor_price_drop — geste « Action conseillée : notez votre prix et votre marge sur <article> ; suivez
+    vos ventes de <article> sur deux semaines avant de bouger. »
+  · competitor_repricing_event — titre « Plusieurs prix modifiés chez <concurrent> » ; geste « Action
+    conseillée : relevez les nouveaux prix de <concurrent> sur les articles que vous vendez aussi ; notez les écarts. »
+  · competitor_new_offering — geste « Action conseillée : si <article> a un équivalent chez vous, mettez-le
+    en avant cette semaine. »
+  · competitor_hours_change — geste « Action conseillée : comparez vos horaires aux nouveaux horaires de
+    <concurrent> ; signalez les créneaux où vous êtes seul ouvert (fiche Google, vitrine). »
+  · competitor_offering_removed — titre « Offre retirée chez <concurrent> » ; geste « Action conseillée : si
+    vous vendez <article>, mettez-le en avant — ses clients cherchent où l'acheter. »
+  Tests 8-13 relus sur les six : verbe + objet tenu (comparez / notez / relevez / mettez en avant /
+  signalez), condition nommée (l'article, le concurrent, deux semaines), écrits depuis les nombres de la
+  carte, aucune maxime. Rien n'est en prod : les cartes restent FAIT SEUL jusqu'à correction owner.
+- ~~Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3)~~ (remplacé ci-dessus) :
   competitor_price_increase (« Saisissez la marge tarifaire »), competitor_price_drop,
   competitor_repricing_event (« Analysez ce mouvement tarifaire »), competitor_new_offering,
   competitor_hours_change, competitor_offering_removed (« Saisissez l'offre abandonnée ») —
