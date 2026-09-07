@@ -3,7 +3,7 @@
 // Corner du 08/08 (resolved missed, −394 €). Chaque assertion vue tomber par mutation (score, tri,
 // garde « jamais trois de la même nature », libellés).
 import { describe, it, expect } from "vitest";
-import { commitmentCandidates, dayNoteCandidates, rankSlots, shortTitle, type CommitmentSlotRow, type DayNoteSlotRow } from "./explorerSlots";
+import { commitmentCandidates, dayNoteCandidates, rankSlots, shortTitle, markId, type CommitmentSlotRow, type DayNoteSlotRow } from "./explorerSlots";
 
 const TODAY = "2026-09-07";
 // toLocaleString("fr-FR") écrit les milliers en U+202F : on compare sur l'espace simple.
@@ -94,5 +94,13 @@ describe("rankSlots", () => {
   });
   it("aucun candidat → aucune carte, jamais de remplissage", () => {
     expect(rankSlots([])).toEqual([]);
+  });
+  it("E5 : une carte consultée sans réponse redescend derrière les autres, et sort du top 3 s'il y a mieux", () => {
+    const a = { ...mk("a", 100, 9), key: "explorer_slot_bilan", date: "2026-08-28" };
+    const marks = new Set([markId("explorer_slot_bilan", "2026-08-28")]);
+    expect(rankSlots([a, mk("b", 50, 8), mk("c", 1, 1, "decision")], 3, marks).map((c) => c.objet_id)).toEqual(["b", "c", "a"]);
+    expect(rankSlots([a, mk("b", 50, 8), mk("c", 40, 7), mk("d", 1, 1, "decision")], 3, marks).map((c) => c.objet_id)).toEqual(["b", "c", "d"]);
+    // une autre date de la même clé n'est pas la même marque
+    expect(rankSlots([{ ...a, date: "2026-08-29" }, mk("b", 50, 8)], 3, marks).map((c) => c.objet_id)).toEqual(["a", "b"]);
   });
 });

@@ -185,6 +185,6 @@ date est une question d'Explorer.
 | E2 | Nature 2 : verdict à ajuster, prouvé à reconduire, occurrence à préparer. | Idem, sur les lignes réelles. |
 | E3 — **APPLIQUÉ 07/09** (dbt : passation à coller) | Rail note-cause (§ 6.3) : table + endpoint + carte « jour inexpliqué » avec sa saisie + le fait « Note du JJ/MM/AAAA : « … » » dans `buildDayPerformanceFacts` (`dayNoteFacts`, pur). Sur f10c3e58 au 07/09 : 5 jours à \|z\| ≥ 2 sans note → la carte du mardi 01/09 (+683 €, 6 j) passe première, devant le bilan du Corner. | Test pur (candidat, seuil, signe, fait `observed` — mutations vues rouges) ; harnais client `explorer-slots-note` (saisie, écriture site × jour × texte, carte retirée, question du même jour cédée) ; rejeu de la requête sur f10c3e58. |
 | E4 | `alert_consulted` + nature 2 « alerte concurrent ». | Harnais client + rejeu. |
-| E5 | Marques : une carte consultée sans réponse redescend au score suivant ; disparaît une fois la source vide. | Harnais client (marques stubbées). |
+| E5 — **APPLIQUÉ 07/09** | Marques : `explorer-slots` lit les marques `explorer_consulted` de l'utilisateur (même lecture que `action-log` GET, clés `explorer_slot_*`) et `rankSlots` fait redescendre une carte consultée sans réponse derrière celles qui ne l'ont pas été — elle sort du top 3 s'il y a mieux ; répondue, sa source ne la produit plus. Le client ne réordonne rien, il affiche « Consulté le JJ/MM ». Une carte note ne se marque pas (sa saisie EST la réponse ; « laissez » = rien). | Harnais client (marques stubbées). |
 
 — SPEC DE TRAVAIL

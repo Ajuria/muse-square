@@ -12,13 +12,14 @@
 // (Promise.all : coût = max, pas somme). Aucune carte « fait / pas fait » : le silence vaut « action
 // menée » (doctrine owner 05/08, voir lib/explorer/explorerSlots.ts). Accès : requireLocationAccess
 // (membre : périmètre de pôles via memberCommitmentInPerimeter pour les engagements ; une note de jour
-// est du site entier).
+// est du site entier). E5 : les marques « consulté » de l'utilisateur (analytics.action_log, la MÊME
+// lecture que action-log GET, 60 jours) font redescendre une carte consultée sans réponse (rankSlots).
 
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter } from "../../../lib/profile/memberCardPolicy";
-import { commitmentCandidates, dayNoteCandidates, rankSlots, type CommitmentSlotRow, type DayNoteSlotRow } from "../../../lib/explorer/explorerSlots";
+import { commitmentCandidates, dayNoteCandidates, rankSlots, markId, type CommitmentSlotRow, type DayNoteSlotRow } from "../../../lib/explorer/explorerSlots";
 
 export const prerender = false;
 const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
@@ -77,7 +78,22 @@ export const GET: APIRoute = async ({ url, locals }) => {
       params: { locationId },
       location: "EU",
     });
-    const [[rows], [dayRows]] = await Promise.all([commitmentsP, daysP]);
+    const marksP = bq.query({
+      query: `
+        SELECT DISTINCT change_subtype AS key, CAST(affected_date AS STRING) AS date
+        FROM \`${BQ_PROJECT}.analytics.action_log\`
+        WHERE user_id = @userId
+          AND location_id = @locationId
+          AND event = 'explorer_consulted'
+          AND change_subtype LIKE 'explorer_slot_%'
+          AND affected_date IS NOT NULL
+          AND created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 60 DAY)
+      `,
+      params: { userId, locationId },
+      location: "EU",
+    }).catch(() => [[]] as any);
+    const [[rows], [dayRows], [markRows]] = await Promise.all([commitmentsP, daysP, marksP]);
+    const marks = new Set<string>((markRows as any[]).map((m) => markId(String(m.key), String(m.date).slice(0, 10))));
     const isMember = String((locals as any)?.role || "") === "member";
     const visible = (rows as any[]).filter((r) => !isMember || memberCommitmentInPerimeter(locals, locationId, r));
     const todayIso = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
@@ -85,7 +101,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       ...commitmentCandidates(visible as CommitmentSlotRow[], todayIso),
       ...dayNoteCandidates(dayRows as DayNoteSlotRow[], todayIso),
     ];
-    const cards = rankSlots(candidates);
+    const cards = rankSlots(candidates, 3, marks);
     return json({ ok: true, cards, candidates: candidates.length });
   } catch (err: any) {
     const status = /FORBIDDEN|UNAUTH/.test(String(err?.message)) ? 403 : 500;

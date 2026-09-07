@@ -130,10 +130,17 @@ export function dayNoteCandidates(rows: DayNoteSlotRow[], todayIso: string): Slo
   return out;
 }
 
+/** La clé d'une marque « consulté » (action_log : change_subtype × affected_date), la même que le client. */
+export const markId = (key: string, date: string): string => `${key}|${date}`;
+
 /** Classement (§ 6.1-6.2) : score décroissant ; sans chiffre → dernier, le plus ancien d'abord ;
- *  au plus `max` cartes, jamais trois de la même nature. */
-export function rankSlots(cards: SlotCard[], max = 3): SlotCard[] {
+ *  au plus `max` cartes, jamais trois de la même nature. E5 (§ 4) : une carte déjà consultée sans
+ *  réponse REDESCEND derrière celles qui ne l'ont pas été (sa source la produit encore : la réponse
+ *  n'est pas venue) ; répondue, elle a disparu d'elle-même. `marks` = les clés markId consultées. */
+export function rankSlots(cards: SlotCard[], max = 3, marks: ReadonlySet<string> = new Set()): SlotCard[] {
   const sorted = [...cards].sort((a, b) => {
+    const aSeen = marks.has(markId(a.key, a.date)), bSeen = marks.has(markId(b.key, b.date));
+    if (aSeen !== bSeen) return aSeen ? 1 : -1;
     const aHas = a.enjeu_eur != null && a.enjeu_eur > 0, bHas = b.enjeu_eur != null && b.enjeu_eur > 0;
     if (aHas !== bHas) return aHas ? -1 : 1;
     if (aHas) return b.score - a.score || b.anciennete_jours - a.anciennete_jours;
