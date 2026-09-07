@@ -1410,7 +1410,7 @@
   );
 
   // #37 — competitor_price_increase
-  reg('competitor_price_increase', 'Saisissez la marge tarifaire', 'INTELLIGENCE', '\ud83d\udcc8', '#1565C0', 'notification', 'pulse#radar-threats',
+  reg('competitor_price_increase', 'Prix en hausse chez un concurrent', 'INTELLIGENCE', '\ud83d\udcc8', '#1565C0', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent';
       var item = a.item || 'une offre';
@@ -1451,7 +1451,7 @@
   );
 
   // #39 — competitor_offering_removed
-  reg('competitor_offering_removed', 'Saisissez l\u2019offre abandonn\u00e9e', 'INTELLIGENCE', '\ud83d\uddd1\ufe0f', '#1565C0', 'action', 'pulse#radar-threats',
+  reg('competitor_offering_removed', 'Offre retir\u00e9e chez un concurrent', 'INTELLIGENCE', '\ud83d\uddd1\ufe0f', '#1565C0', 'action', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent';
       var item = a.item || 'une offre';
@@ -1562,7 +1562,7 @@
   );
 
   // competitor_repricing_event — compound: >=2 price moves in one crawl
-  reg('competitor_repricing_event', 'Analysez ce mouvement tarifaire', 'CONCURRENCE', '\ud83d\udcb1', '#D32F2F', 'notification', 'pulse#radar-threats',
+  reg('competitor_repricing_event', 'Plusieurs prix modifi\u00e9s chez un concurrent', 'CONCURRENCE', '\ud83d\udcb1', '#D32F2F', 'notification', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent';
       var n = (a.price_change_count != null) ? Number(a.price_change_count) : 0;
@@ -3287,6 +3287,11 @@
         // (« Paniers à plusieurs articles ») et le référentiel de la ligne Familles (« d'habitude »).
         // 06/09 — produit régulier absent : le titre nomme le produit (règle 4) ; à plusieurs, le compte.
         // 06/09 — prix réalisé : titre au SENS avec la famille nommée et le référentiel ratifié (« que d'habitude »).
+        // 07/09 (owner) — trois titres concurrent : le fait, le concurrent nommé (forme « Nouvelle offre », « Horaires modifiés »).
+        else if (actionType === 'competitor_price_increase' || actionType === 'competitor_repricing_event' || actionType === 'competitor_offering_removed') {
+          var _cn = feedItem.competitor_name || 'un concurrent';
+          whatText = (actionType === 'competitor_price_increase' ? 'Prix en hausse chez ' : actionType === 'competitor_repricing_event' ? 'Plusieurs prix modifi\u00e9s chez ' : 'Offre retir\u00e9e chez ') + _cn;
+        }
         // 06/09 — remise par famille : titre au SENS, famille nommée, référentiel ratifié.
         else if (actionType === 'family_discount_move') {
           var _fdd = feedItem.direction || (Number(feedItem.discount_delta_points || 0) < 0 ? 'collapse' : 'surge');
@@ -3608,53 +3613,24 @@
     'review_solicitation': { action: function(a, p, d) {
       return 'Action conseill\u00e9e : une occasion favorable approche. Profitez de l\'affluence attendue pour solliciter des avis auprès de vos visiteurs satisfaits — un bon moment pour renforcer votre e-réputation.';
     }, urgency: 'soon' },
-    'competitor_hours_change': { action: 'Faire suivre : v\u00e9rifiez si vos horaires restent comp\u00e9titifs.', urgency: 'soon', channel: 'suivre' },
+    'competitor_hours_change': { action: 'Action conseill\u00e9e : comparez vos horaires aux siens ; indiquez sur votre fiche Google et en vitrine les heures o\u00f9 vous \u00eates le seul ouvert.', urgency: 'soon' },
     'competitor_new_offering': { action: function(a, p, d) {
-      var name = a.competitor_name || 'Un concurrent';
-      var item = a.item || 'une nouvelle offre';
-      var newP = a.new_price_raw || null;
-      return 'Action conseill\u00e9e : ' + name + ' lance ' + item + (newP ? ' à ' + newP : '') + '. Repositionnez votre offre équivalente et mettez en avant ce qui vous distingue.';
+      var item = a.item || 'cette offre';
+      return 'Action conseill\u00e9e : si vous vendez un produit \u00e9quivalent \u00e0 ' + item + ', mettez-le en avant cette semaine.';
     }, urgency: 'soon' },
     'competitor_price_increase': { action: function(a, p, d) {
-      var name = a.competitor_name || 'Un concurrent';
-      var item = a.item || 'une offre';
-      var oldP = a.old_price_raw || null;
-      var newP = a.new_price_raw || null;
-      var pct = a.price_pct_change != null ? Number(a.price_pct_change) : null;
-      var s = 'Action conseill\u00e9e : ' + name + ' a augmenté ' + item;
-      if (oldP && newP) s += ' (' + oldP + ' → ' + newP + ')';
-      else if (pct != null) s += ' (+' + pct + ' %)';
-      s += '. Votre positionnement tarifaire devient relativement plus attractif : mettez en avant votre rapport qualité-prix, ou évaluez une marge de repositionnement.';
-      return s;
+      var item = a.item || 'ce produit';
+      return 'Action conseill\u00e9e : comparez votre prix de ' + item + ' au sien ; si le v\u00f4tre est plus bas, affichez-le.';
     }, urgency: 'plan' },
     'competitor_price_drop': { action: function(a, p, d) {
-      var name = a.competitor_name || 'Un concurrent';
-      var item = a.item || 'une offre';
-      var oldP = a.old_price_raw || null;
-      var newP = a.new_price_raw || null;
-      var pct = a.price_pct_change != null ? Number(a.price_pct_change) : null;
-      var s = 'Action conseill\u00e9e : ' + name + ' a baissé ' + item;
-      if (oldP && newP) s += ' (' + oldP + ' → ' + newP + ')';
-      else if (pct != null) s += ' (' + pct + ' %)';
-      s += '. Ne vous alignez pas par réflexe : vérifiez votre marge sur ce poste, puis argumentez sur votre différence de gamme.';
-      return s;
+      var item = a.item || 'ce produit';
+      return 'Action conseill\u00e9e : notez votre prix et votre marge sur ' + item + ', puis regardez vos ventes pendant deux semaines avant de changer quoi que ce soit.';
     }, urgency: 'soon' },
     'competitor_offering_removed': { action: function(a, p, d) {
-      var name = a.competitor_name || 'Un concurrent';
-      var item = a.item || 'une offre';
-      var oldP = a.old_price_raw || null;
-      return 'Action conseill\u00e9e : ' + name + ' ne propose plus ' + item + (oldP ? ' (anciennement ' + oldP + ')' : '') + '. Confirmez que le retrait est durable (pas un simple changement de page) ; si vous proposez un équivalent, vous êtes peut-être seul sur ce créneau localement.';
+      var item = a.item || 'ce produit';
+      return 'Action conseill\u00e9e : si vous vendez ' + item + ', mettez-le en avant : ses clients cherchent maintenant o\u00f9 l\u2019acheter.';
     }, urgency: 'soon' },
-    'competitor_repricing_event': { action: function(a, p, d) {
-      var name = a.competitor_name || 'Un concurrent';
-      var n = a.price_change_count != null ? Number(a.price_change_count) : null;
-      var inc = a.increase_count != null ? Number(a.increase_count) : null;
-      var dec = a.decrease_count != null ? Number(a.decrease_count) : null;
-      var s = 'Action conseill\u00e9e : ' + name + ' a repositionné ' + (n != null ? n + ' tarifs' : 'plusieurs tarifs');
-      if (inc != null && dec != null) s += ' (' + inc + (inc > 1 ? ' hausses' : ' hausse') + ', ' + dec + (dec > 1 ? ' baisses' : ' baisse') + ')';
-      s += '. Analysez le mouvement avant d\'ajuster les vôtres.';
-      return s;
-    }, urgency: 'soon' },
+    'competitor_repricing_event': { action: 'Action conseill\u00e9e : relevez ses nouveaux prix sur les produits que vous vendez aussi et notez les \u00e9carts.', urgency: 'soon' },
     'competitor_sold_out': { action: 'Action conseill\u00e9e : un concurrent affiche complet. Adressez-vous au public qui n\'a pas pu réserver pour récupérer ce report de demande.', urgency: 'now' },
     'competitor_content_spike': { action: 'Action conseill\u00e9e : un concurrent intensifie ses publications. Maintenez votre présence pour ne pas perdre en partage d\'attention.', urgency: 'now' },
     'competitor_content_silent': { action: 'Action conseill\u00e9e : un concurrent est silencieux sur ses canaux. Prenez la parole maintenant pour occuper l\'espace d\'attention local.', urgency: 'now' },
@@ -4094,12 +4070,8 @@
           var _reserveOut = _rawIsObj ? _raw0.reserve : undefined;
           var _meta = ACTION_SENTENCES[key];
           if (!_meta) return _raw0;
-          // 06/09 (audit N3) - les six types concurrents sans terme reviennent sur Actions avec leur
-          // FAIT seul (nomme, chiffre, date). Leurs lignes ACTION_SENTENCES (ecrites avant la demotion
-          // du 28/07) echouent aux tests 8-12 du lexique (<< Votre positionnement tarifaire devient
-          // relativement plus attractif >>, << Ne vous alignez pas par reflexe >>...) : slot EN ATTENTE
-          // owner, signale dans l'audit du 06/09 - jamais reecrit ici. Les lignes restent en place.
-          if (window.MS_PERSISTENT_TYPES && window.MS_PERSISTENT_TYPES[key]) return _raw0;
+          // 07/09 (owner) - les six lignes concurrent sont reecrites en francais courant (regle 8 : un
+          // verbe ordinaire sur un objet qu'on tient) ; la porte << fait seul >> du 06/09 est levee.
           var _action = (typeof _meta.action === 'function') ? _meta.action(a, p, d) : _meta.action;
           return { context: _raw, reserve: _reserveOut, action: _action, urgency: _meta.urgency };
         };
