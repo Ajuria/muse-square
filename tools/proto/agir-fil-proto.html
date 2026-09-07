@@ -92,7 +92,7 @@ function full(c){
   let vis = '';
   if (isCA) { const pr = (c.group || [c]).map(x => { const m = String(x.sowhat || '').match(/CA (\d+) €.*?\((\d+) €\)/); return m ? { jour: +m[1], hab: +m[2], lbl: jour(x.date).slice(0, 3) + '.' } : null; }).filter(Boolean); if (pr.length) vis = bars(pr); }
   let ttl = c.what, fct = fact(c);
-  if (c.group) { const g = c.group; ttl = 'CA supérieur à votre habituel ' + g.length + ' jours cette semaine'; fct = g.map(x => eur(num(gapOf(x))) + ' ' + jour(x.date) + ' ' + dm(x.date)).join(', ') + '.'; const drv = [...new Set(g.map(driverOf).filter(Boolean))]; if (drv.length === 1) fct += ' La hausse vient du ' + drv[0] + ' les ' + g.length + ' fois.'; }
+  if (c.group) { const g = c.group; ttl = g.length + ' jours au-dessus de votre CA habituel cette semaine'; fct = g.map(x => eur(num(gapOf(x))) + ' ' + jour(x.date) + ' ' + dm(x.date)).join(', ') + '.'; const drv = [...new Set(g.map(driverOf).filter(Boolean))]; if (drv.length === 1) fct += ' La hausse vient du ' + drv[0] + ' les ' + g.length + ' fois.'; }
   const gs = gesture(c); const act = gs ? '<p class="act">' + esc(gs) + '</p>' : '';
   const foot = USER_TYPES[c.type]
     ? '<div class="foot"><button class="link" data-stop>Documenter →</button></div>'
