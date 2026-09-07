@@ -816,7 +816,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // max 2026-09-30 chez f10c3e58) — sans la borne haute la « fenêtre 30 j » compte 68 jours.
       bq.query({
         query: `SELECT location_id, item_category, ROUND(SUM(revenue), 0) AS ca30
-                FROM \`${PROJECT}.mart.fct_client_offering_daily\`
+                FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
                 WHERE location_id IN UNNEST(@locs)
                   AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()
                 GROUP BY 1, 2 ORDER BY 3 DESC`,
@@ -846,7 +846,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // group-by famille les perdrait). Même fenêtre/bornes que le bandeau. Aucun champ €.
       role === "member" ? bq.query({
         query: `SELECT location_id, CAST(transaction_date AS STRING) AS d, item_category, SUM(units) AS units
-                FROM \`${PROJECT}.mart.fct_client_offering_daily\`
+                FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
                 WHERE location_id IN UNNEST(@locs)
                   AND transaction_date < CURRENT_DATE()
                   AND transaction_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 120 DAY)

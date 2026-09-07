@@ -5,8 +5,8 @@
 "project": "muse-square-open-data",
 "region": "EU",
 "dbt_repo_sha_at_generation": "ebee861",
-"table_count": 530,
-"column_count": 9636
+"table_count": 532,
+"column_count": 9665
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -14256,6 +14256,14 @@
 {
 "name": "revenue_rank",
 "type": "INT64"
+},
+{
+"name": "invoice_count",
+"type": "INT64"
+},
+{
+"name": "ticket_revenue_avg",
+"type": "FLOAT64"
 }
 ]
 },
@@ -29371,6 +29379,55 @@
 }
 ]
 },
+"semantic.vw_insight_event_client_hourly_daily": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "client_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "transaction_hour",
+"type": "INT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "units",
+"type": "INT64"
+},
+{
+"name": "transactions",
+"type": "INT64"
+},
+{
+"name": "lines",
+"type": "INT64"
+},
+{
+"name": "visitors",
+"type": "INT64"
+},
+{
+"name": "avg_basket",
+"type": "FLOAT64"
+},
+{
+"name": "conversion_rate",
+"type": "FLOAT64"
+}
+]
+},
 "semantic.vw_insight_event_client_hourly_profile": {
 "type": "VIEW",
 "columns": [
@@ -29631,6 +29688,75 @@
 {
 "name": "enriched_competitor_count",
 "type": "INT64"
+}
+]
+},
+"semantic.vw_insight_event_client_offering_daily": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "client_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "item_category",
+"type": "STRING"
+},
+{
+"name": "line_count",
+"type": "INT64"
+},
+{
+"name": "units",
+"type": "INT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "avg_unit_price",
+"type": "FLOAT64"
+},
+{
+"name": "min_unit_price",
+"type": "FLOAT64"
+},
+{
+"name": "max_unit_price",
+"type": "FLOAT64"
+},
+{
+"name": "promo_count",
+"type": "INT64"
+},
+{
+"name": "revenue_share",
+"type": "FLOAT64"
+},
+{
+"name": "volume_share",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_rank",
+"type": "INT64"
+},
+{
+"name": "invoice_count",
+"type": "INT64"
+},
+{
+"name": "ticket_revenue_avg",
+"type": "FLOAT64"
 }
 ]
 },

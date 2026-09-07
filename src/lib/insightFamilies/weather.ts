@@ -124,7 +124,7 @@ export async function weatherFamily(bq: any, location_id: string, date: string, 
       query: `WITH tagged AS (
                 SELECT o.item_category AS cat, o.revenue AS rev,
                        IF(c.${lvlCol} >= ${BAND}, 'cond', 'base') AS band
-                FROM \`${PROJECT}.mart.fct_client_offering_daily\` o
+                FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\` o
                 JOIN \`${PROJECT}.semantic.vw_insight_event_location_context\` c
                   ON c.location_id = o.location_id AND c.date = o.transaction_date
                 WHERE o.location_id = @location_id

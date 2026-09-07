@@ -3030,7 +3030,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
               // Fenêtre BORNÉE à CURRENT_DATE : la graine porte des dates futures (vérifié 24/08).
               const [famRows] = await _bq.query({
                 query: `SELECT item_category, ROUND(SUM(revenue), 0) AS ca
-                        FROM \`muse-square-open-data.mart.fct_client_offering_daily\`
+                        FROM \`muse-square-open-data.semantic.vw_insight_event_client_offering_daily\`
                         WHERE location_id = @location_id
                           AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()${_dowFilter.sql}
                         GROUP BY 1 ORDER BY 2 DESC`,

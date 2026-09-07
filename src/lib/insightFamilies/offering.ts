@@ -14,7 +14,7 @@ import type { FamilyResult, FamilyFact } from "./types";
 import { fetchIdentityAggregates } from "../ai/facts/buildIdentityFacts";
 
 const PROJECT = "muse-square-open-data";
-const OFFERING_DAILY = `\`${PROJECT}.mart.fct_client_offering_daily\``;
+const OFFERING_DAILY = `\`${PROJECT}.semantic.vw_insight_event_client_offering_daily\``;
 // Partition-safe literal bounds (the daily table is date-partitioned; a literal range both satisfies
 // partition elimination and anchors on the data's own dates, never CURRENT_DATE — seeds are future-dated).
 const DATE_FLOOR = "2020-01-01";

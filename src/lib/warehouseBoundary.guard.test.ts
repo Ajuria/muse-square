@@ -19,6 +19,9 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 // Cliquet mesuré le 26/08 sur src/ (fichier -> nombre de références `mart.fct_*`).
+// 07/09 — bascule offering/hourly (PR ms_database#127, vues vw_insight_event_client_offering_daily et
+// vw_insight_event_client_hourly_daily EN BASE) : commitmentShape 2→0, dispositifFamille 1→0, offering 1→0,
+// sales 3→1, weather 3→2, dashboard 18→16, prompt 2→1, sales-report 9→7. Plus aucune lecture de ces deux marts.
 const CLIQUET: Record<string, number> = {
   "src/lib/ai/facts/buildDayPerformanceFacts.ts": 2,
   "src/lib/commitments/commitmentContext.ts": 4,
@@ -29,7 +32,7 @@ const CLIQUET: Record<string, number> = {
   // surface semantic horaire est vw_insight_event_client_hourly_profile — un PROFIL moyen par
   // jour de semaine × heure, pas des jours datés : aucune vue équivalente. Le même fichier lit
   // aussi raw.client_transactions (familles × produits) — hors de ce garde, dette notée.
-  "src/lib/commitments/commitmentShape.ts": 2,
+  "src/lib/commitments/commitmentShape.ts": 0,
   "src/lib/kpi/dayClassRegistry.ts": 10,
   "src/lib/context/dayContext.ts": 19,
   // 0 → 1 (04/09, I8 lecture dispositif × famille — spec explorer-dispositif-famille-spec.md) : la
@@ -39,7 +42,7 @@ const CLIQUET: Record<string, number> = {
   // grain jour — vue semantic À DEMANDER en passation dbt (dbt est actif, owner 04/09 ; voir mémoire
   // semantic-views-missing). Le reste du fichier lit raw.client_transactions (tickets par famille,
   // hors de ce garde, dette notée au module-index).
-  "src/lib/dispositifs/dispositifFamille.ts": 1,
+  "src/lib/dispositifs/dispositifFamille.ts": 0,
   "src/lib/insightFamilies/calendar.ts": 1,
   "src/lib/insightFamilies/channels.ts": 8,
   "src/lib/insightFamilies/competitor.ts": 3,
@@ -47,12 +50,12 @@ const CLIQUET: Record<string, number> = {
   "src/lib/insightFamilies/evenement.ts": 3,
   "src/lib/insightFamilies/events.ts": 4,
   "src/lib/insightFamilies/footfall.ts": 1,
-  "src/lib/insightFamilies/offering.ts": 1,
-  "src/lib/insightFamilies/sales.ts": 3,
+  "src/lib/insightFamilies/offering.ts": 0,
+  "src/lib/insightFamilies/sales.ts": 1,
   "src/lib/insightFamilies/salesDecomp.ts": 1,
   "src/lib/insightFamilies/salesDiscount.ts": 1,
   "src/lib/insightFamilies/tourism.ts": 2,
-  "src/lib/insightFamilies/weather.ts": 3,
+  "src/lib/insightFamilies/weather.ts": 2,
   "src/lib/kpi/kpiRegistry.ts": 1,
   "src/lib/profile/proposedFollows.ts": 2,
   "src/lib/commitments/trackRecordCore.ts": 1,
@@ -78,14 +81,14 @@ const CLIQUET: Record<string, number> = {
   // continue d'un pôle lit fct_client_offering_daily au grain JOUR × famille (30 j vendus vs
   // 90 précédents, bornés à today). vw_insight_event_client_offering est le profil 30 j par
   // article, sans grain jour : aucune vue équivalente tant que dbt n'en porte pas une.
-  "src/pages/api/insight/dashboard.ts": 18,
+  "src/pages/api/insight/dashboard.ts": 16,
   "src/pages/api/insight/monitor.ts": 1,
   // 1 → 2 (27/08, fusion K9 marges) : la réponse marge PAR FAMILLE lit fct_client_offering_daily
   // borné à CURRENT_DATE() — même justification que dashboard.ts ci-dessus (vue semantic non
   // bornée en haut + graine à dates futures ; « dbt gelé » écrit alors — faux depuis le 04/09, vue à demander).
-  "src/pages/api/insight/prompt.ts": 2,
+  "src/pages/api/insight/prompt.ts": 1,
   "src/pages/api/insight/reactions-today.ts": 3,
-  "src/pages/api/insight/sales-report.ts": 9,
+  "src/pages/api/insight/sales-report.ts": 7,
   "src/pages/api/insight/weather-window.ts": 2,
   "src/pages/profile.astro": 3,
 };
