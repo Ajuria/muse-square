@@ -361,15 +361,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // plus. L'ATTRIBUTION Google livrée avec chaque photo n'est pas stockée par le crawl : à ajouter
       // avant la prod (signalé à l'owner le 07/09). Vue absente ou en échec → [] : pas de photo.
       bq.query({
-        query: `SELECT competitor_name, google_photos
+        query: `SELECT competitor_name, google_photos, google_photo_attribution
                 FROM \`muse-square-open-data.semantic.vw_insight_event_competitors_followed\`
-                WHERE location_id = @location_id AND google_photos IS NOT NULL`,
+                WHERE location_id = @location_id AND google_photos IS NOT NULL AND google_photo_attribution IS NOT NULL`,
         params: { location_id },
         location: "EU",
       }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
     ]);
-    const competitorPhotoByName = new Map<string, string>(
-      (competitorPhotoRows as any[]).map((r: any) => [String(r?.competitor_name ?? ""), String(r?.google_photos ?? "")]).filter(([k, v]) => k && v) as [string, string][]
+    // 07/09 — la photo ne part vers la page QU'AVEC son attribution Google (conditions Places) : le crawl et
+    // le one-off 2026-09-07 la stockent en JSON {name, uri} ; sans elle, pas de photo.
+    const competitorPhotoByName = new Map<string, { photo: string; attribution: string }>(
+      (competitorPhotoRows as any[]).map((r: any) => [String(r?.competitor_name ?? ""), { photo: String(r?.google_photos ?? ""), attribution: String(r?.google_photo_attribution ?? "") }]).filter(([k, v]: any) => k && v.photo && v.attribution) as [string, { photo: string; attribution: string }][]
     );
 
     const _t2 = Date.now();
@@ -1115,7 +1117,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         data_payload:    ((pl: any) => {
           // 07/09 — photo du concurrent suivi sur les cartes concurrent (appariement par NOM du suivi : la clé
           // commune des payloads ; competitor_id absent de plusieurs d'entre eux).
-          if (pl && typeof pl === 'object' && pl.competitor_name && competitorPhotoByName.has(String(pl.competitor_name))) pl.competitor_photo = competitorPhotoByName.get(String(pl.competitor_name));
+          if (pl && typeof pl === 'object' && pl.competitor_name && competitorPhotoByName.has(String(pl.competitor_name))) { const ph = competitorPhotoByName.get(String(pl.competitor_name))!; pl.competitor_photo = ph.photo; pl.competitor_photo_attribution = ph.attribution; }
           return pl;
         })(r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null),
         suppression_key: r?.suppression_key ?? null,

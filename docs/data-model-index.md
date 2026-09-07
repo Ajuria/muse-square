@@ -364,6 +364,7 @@ App-activity chain (`int_user_*`, `int_publish_log`, `int_channel_performance`),
 
 | modèle | grain | lignage | colonnes clés |
 |---|---|---|---|
+| `raw.competitor_directory.google_photo_attribution` (07/09, colonne additive : attribution Google de la photo, JSON `{name, uri}` ; portée par stg → int → `fct_competitor_directory` → `fct_location_competitors_followed` → `vw_insight_event_competitors_followed`, dbt #125) |  |  |  |
 | `mart.fct_client_tickets` | site × jour × ticket | stg_client_transactions (is_invoiced, invoice_number) | lignes, articles, familles, unités (quantity_decimal), CA, remise, heure, canal, type client, paiement — LE grain facture (lot 06/09, ms_database#112) |
 | `mart.fct_client_tickets_daily` | site × jour | fct_client_tickets | lignes par ticket, part tickets à 1 article, unités par ticket, part remisée ; base 28 j, is_lines_move = tickets ≥ 20 ∧ base ≥ 14 j ∧ \|z\| ≥ 2 ∧ \|Δ\| ≥ 0,2 (porte 20 tickets ajoutée 06/09 : 13 tirs sur 13 venaient d'un grossiste à 3 factures/jour) ; carte `tickets_lines_move` (bloc candidat 06/09) |
 | `mart.fct_client_family_price_daily` (cartes `family_price_move` et `family_discount_move`, blocs candidats 06/09 : un tir par site et par jour, famille au \|z\| le plus fort ; is_discount_move exige units ≥ 10 depuis le 06/09) | site × jour × famille | stg_client_transactions | prix réalisé (CA/unités), taux de remise ; base 28 j ; is_price_move (units ≥ 10), is_discount_move |

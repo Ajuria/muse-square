@@ -15,7 +15,8 @@ const PLACES_API_BASE = "https://places.googleapis.com/v1/places";
 interface PlaceDetailsResult {
   rating?: number;
   userRatingCount?: number;
-  photos?: { name: string }[];
+  // 07/09 : authorAttributions = l'attribution Google à afficher avec la photo (conditions Places).
+  photos?: { name: string; authorAttributions?: { displayName?: string; uri?: string; photoUri?: string }[] }[];
   currentOpeningHours?: { weekdayDescriptions?: string[] };
   regularOpeningHours?: { weekdayDescriptions?: string[] };
   reviews?: { text?: { text?: string }; publishTime?: string }[];
@@ -161,6 +162,9 @@ async function runSnapshots() {
       const googleRating = details.rating ?? null;
       const googleRatingCount = details.userRatingCount ?? null;
       const googlePhotosCount = details.photos?.length ?? null;
+      // 07/09 — attribution de la première photo (celle que le crawl a retenue), JSON {name, uri} ; null si absente.
+      const _pa = details.photos?.[0]?.authorAttributions?.[0];
+      const googlePhotoAttribution = _pa?.displayName ? JSON.stringify({ name: String(_pa.displayName), uri: String(_pa.uri || "") }) : null;
 
       const hours =
         details.regularOpeningHours?.weekdayDescriptions ??
@@ -233,6 +237,7 @@ async function runSnapshots() {
           SET
             google_rating = @google_rating,
             google_rating_count = @google_rating_count,
+            google_photo_attribution = COALESCE(@google_photo_attribution, google_photo_attribution),
             updated_at = CURRENT_TIMESTAMP()
           WHERE competitor_id = @competitor_id
             AND deleted_at IS NULL
@@ -240,11 +245,13 @@ async function runSnapshots() {
         params: {
           google_rating: googleRating,
           google_rating_count: googleRatingCount,
+          google_photo_attribution: googlePhotoAttribution,
           competitor_id: competitorId,
         },
         types: {
           google_rating: "FLOAT64",
           google_rating_count: "INT64",
+          google_photo_attribution: "STRING",
           competitor_id: "STRING",
         },
         location: BQ_LOCATION,
