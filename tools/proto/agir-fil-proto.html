@@ -9,7 +9,9 @@
   titres et gestes ceux de la page. Photos Google Places des concurrents suivis.
   Grammaire d'une carte : 1. nature + urgence + valeur · 2. le titre arbitré · 3. UNE phrase, le chiffre qui
   décide (jamais la décomposition, jamais les familles : elles vivent sur la page de détail) · 4. le geste ·
-  5. « Voir le détail → ». Ce qui n'est pas urgent (« À noter ») devient une ligne, pas une carte.
+  5. la carte ENTIÈRE est le lien (carte système → page insight ; carte utilisateur → page engagement),
+     sans « Voir le détail » ; le geste est la proposition que « M'engager » engage en un geste depuis le fil
+     (owner 07/09, points 2, 4, 5). Ce qui n'est pas urgent (« À noter ») devient une ligne cliquable avec M'engager.
   Sacrifices : le corps complet quitte le fil (il reste sur la page de détail) ; les cartes « À noter »
   perdent leur corps et leurs gestes au profit d'une ligne cliquable.
 -->
@@ -19,15 +21,16 @@
   .wrap{max-width:620px;margin:0 auto;padding:20px 16px 80px}
   header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:4px 0 18px} header h1{font-size:22px;margin:0} header .day{color:var(--ink2);font-size:14px}
   h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);font-weight:600;margin:22px 0 8px 4px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px 12px;margin-bottom:10px;position:relative}
+  .card{display:block;color:inherit;text-decoration:none;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px 12px;margin-bottom:10px;position:relative;transition:box-shadow .15s,transform .15s} .card:hover{box-shadow:0 4px 16px rgba(17,24,39,.08);transform:translateY(-1px)} .card .chev{color:var(--ink3);margin-left:6px;flex:0 0 auto} .card .chev svg{width:16px;height:16px;display:block}
   .card.opp{border-left:4px solid #2E7D32} .card.thr{border-left:4px solid #B91C1C}
   .top{display:flex;align-items:center;gap:8px;margin-bottom:8px} .chip{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:999px} .chip.opp{background:var(--green-bg);color:var(--green)} .chip.thr{background:var(--red-bg);color:var(--red)} .chip.urg{background:#F3F4F6;color:var(--ink2);text-transform:none;letter-spacing:0;font-weight:600} .chip.urg.now{background:var(--red-bg);color:var(--red)}
   .top .when{color:var(--ink3);font-size:13px} .val{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700;font-size:17px;white-space:nowrap} .val.up{color:var(--green)} .val.down{color:var(--amber)} .val small{display:block;font-weight:500;font-size:11px;color:var(--ink3);text-align:right}
-  .ttl{font-size:16.5px;font-weight:650;line-height:1.3;margin:0 0 6px;letter-spacing:-.005em} .ttl a{color:inherit;text-decoration:none}
+  .ttl{font-size:16.5px;font-weight:650;line-height:1.3;margin:0 0 6px;letter-spacing:-.005em}
   .fact{margin:0;color:var(--ink);font-size:15px;line-height:1.5} .act{margin:8px 0 0;color:var(--ink2);font-size:14px} .act b{color:var(--ink);font-weight:600}
-  .foot{display:flex;align-items:center;gap:4px;margin-top:10px;padding-top:8px;border-top:1px solid var(--line)} .foot button{border:0;background:transparent;color:var(--ink3);font-size:13px;padding:5px 8px;border-radius:8px;cursor:pointer} .foot button:hover{background:var(--bg);color:var(--ink)} .foot a{margin-left:auto;color:var(--blue);font-weight:600;font-size:14px;text-decoration:none;padding:5px 8px;border-radius:8px} .foot a:hover{background:var(--blue-bg)}
+  .act{margin:8px 0 0;color:var(--ink);font-size:14px;padding-left:12px;border-left:2px solid var(--blue)}
+  .foot{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--line)} .foot button{border:0;background:transparent;color:var(--ink3);font-size:13px;padding:6px 10px;border-radius:8px;cursor:pointer} .foot button:hover{background:var(--bg);color:var(--ink)} .foot button.pri{margin-left:auto;background:var(--blue);color:#fff;font-weight:600;font-size:13.5px;padding:7px 14px} .foot button.pri:hover{background:#162c8a;color:#fff} .foot button.link{margin-left:auto;color:var(--blue);font-weight:600}
   .card .who{display:flex;align-items:center;gap:8px;color:var(--ink2);font-size:13px;margin-bottom:6px} .who img,.who .ic{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:0 0 28px} .who .ic{display:flex;align-items:center;justify-content:center;background:var(--blue-bg);color:var(--blue)} .who .ic svg{width:15px;height:15px}
-  .row{display:flex;align-items:center;gap:10px;padding:9px 14px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:6px;font-size:14px;text-decoration:none;color:var(--ink)} .row img,.row .ic{width:26px;height:26px;border-radius:50%;object-fit:cover;flex:0 0 26px} .row .ic{display:flex;align-items:center;justify-content:center;background:#F3F4F6;color:var(--ink2)} .row .ic svg{width:14px;height:14px} .row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .row .v{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap} .row .v.up{color:var(--green)} .row .v.down{color:var(--amber)} .row .go{color:var(--blue);font-size:13px;white-space:nowrap}
+  .row{display:flex;align-items:center;gap:10px;padding:9px 14px;background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:6px;font-size:14px;text-decoration:none;color:var(--ink);transition:box-shadow .15s} .row:hover{box-shadow:0 3px 12px rgba(17,24,39,.07)} .row .eng{color:var(--blue);font-size:13px;font-weight:600;white-space:nowrap;border:1px solid var(--blue-bg);background:var(--blue-bg);border-radius:999px;padding:3px 10px} .row img,.row .ic{width:26px;height:26px;border-radius:50%;object-fit:cover;flex:0 0 26px} .row .ic{display:flex;align-items:center;justify-content:center;background:#F3F4F6;color:var(--ink2)} .row .ic svg{width:14px;height:14px} .row .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .row .v{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap} .row .v.up{color:var(--green)} .row .v.down{color:var(--amber)} .row .go{color:var(--blue);font-size:13px;white-space:nowrap}
   .row.band .ic{background:var(--blue-bg);color:var(--blue)}
   .more{display:block;width:100%;border:1px dashed var(--line);background:transparent;border-radius:12px;padding:9px;color:var(--ink2);font-size:13px;cursor:pointer;margin-top:2px}
   .note{margin-top:28px;color:var(--ink3);font-size:12px;line-height:1.5}
@@ -65,18 +68,25 @@ function chip(c){ const n = c.nature; const u = (c.urgency && c.urgency.label) |
   return h; }
 function who(c){ const name = nameOf(c); const ph = D.photos[name]; const ic = (WHO[c.type] || ['', 'sales'])[1];
   return '<div class="who">' + (ph && ph.photo ? '<img src="' + ph.photo + '" alt="">' : '<span class="ic">' + I[ic] + '</span>') + '<span>' + esc(name) + '</span><span>·</span><span>' + fr(c.date) + '</span></div>'; }
+const CHEV = '<span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>';
+// 2 : la carte entière est le lien — carte système → page insight (type · date · site) ; carte utilisateur (résultat
+// d'un dispositif) → page engagement. 5 : plus de « Voir le détail ». 4 : le geste est la proposition de M'engager.
+const USER_TYPES = { event_measure: 1 };
+const href = (c) => USER_TYPES[c.type] ? '/app/insightevent/engagements?date=' + c.date : '/app/insightevent/insight?type=' + c.type + '&date=' + c.date;
+const gesture = (c) => String(c.action || '').replace(/^Actions? conseillées? :\s*/, '').replace(/\s*\([^)]*\)/g, '').replace(/\s+,/g, ',');
 function full(c){
   const cls = c.nature === 'opportunity' ? 'opp' : c.nature === 'threat' ? 'thr' : '';
   const val = c.amt ? '<span class="val ' + sign(c.amt) + '">' + esc(c.amt.replace(/ (le|à gagner|perdus).*$/, '')) + '<small>' + esc(c.amt_sub || c.amt.replace(/^[^ ]+ €(\/an)? ?/, '')) + '</small></span>' : '';
-  // teaser : la ligne d'action sans les parenthèses (elles répètent le fait, qui vit juste au-dessus)
-  const actTxt = String(c.action || '').replace(/\s*\([^)]*\)/g, '').replace(/\s+,/g, ',');
-  const act = actTxt ? '<p class="act">' + esc(actTxt).replace(/^(Actions? conseillées? :)/, '<b>$1</b>') + '</p>' : '';
-  return '<div class="card ' + cls + '"><div class="top">' + chip(c) + val + '</div>' + who(c)
-    + '<h3 class="ttl"><a href="#">' + esc(c.what) + '</a></h3><p class="fact">' + esc(fact(c)) + '</p>' + act
-    + '<div class="foot"><button>Pas pour moi</button><button>M’engager</button><a href="#">Voir le détail →</a></div></div>';
+  const g = gesture(c);
+  const act = g ? '<p class="act">' + esc(g) + '</p>' : '';
+  const foot = USER_TYPES[c.type]
+    ? '<div class="foot"><button class="link" data-stop>Ouvrir le dossier →</button></div>'
+    : '<div class="foot"><button data-stop>Pas pour moi</button><button class="pri" data-stop>M’engager</button></div>';
+  return '<a class="card ' + cls + '" href="' + href(c) + '"><div class="top">' + chip(c) + val + (val ? '' : '<span style="margin-left:auto"></span>') + CHEV + '</div>' + who(c)
+    + '<h3 class="ttl">' + esc(c.what) + '</h3><p class="fact">' + esc(fact(c)) + '</p>' + act + foot + '</a>';
 }
 function row(c){ const name = nameOf(c); const ph = D.photos[name]; const ic = (WHO[c.type] || ['', 'sales'])[1];
-  return '<a class="row" href="#">' + (ph && ph.photo ? '<img src="' + ph.photo + '" alt="">' : '<span class="ic">' + I[ic] + '</span>') + '<span class="t">' + esc(c.what) + '</span>' + (c.amt ? '<span class="v ' + sign(c.amt) + '">' + esc(c.amt.replace(/ (le|à gagner|perdus).*$/, '')) + '</span>' : '') + '<span class="go">Voir →</span></a>'; }
+  return '<a class="row" href="' + href(c) + '">' + (ph && ph.photo ? '<img src="' + ph.photo + '" alt="">' : '<span class="ic">' + I[ic] + '</span>') + '<span class="t">' + esc(c.what) + '</span>' + (c.amt ? '<span class="v ' + sign(c.amt) + '">' + esc(c.amt.replace(/ (le|à gagner|perdus).*$/, '')) + '</span>' : '') + (USER_TYPES[c.type] ? '' : '<span class="eng" data-stop>M’engager</span>') + '</a>'; }
 const ul = (c) => (c.urgency && c.urgency.label) || 'À noter';
 const isFull = (c) => c.nature === 'opportunity' || c.nature === 'threat' || /Aujourd|semaine/.test(ul(c));
 const cards = D.cards.slice().sort((a, b) => (b.date > a.date) - (b.date < a.date));
@@ -86,8 +96,10 @@ let h = '';
 if (grp.now.length) h += '<h2>Aujourd’hui</h2>' + grp.now.map(full).join('');
 if (grp.week.length) h += '<h2>Cette semaine</h2>' + grp.week.map(full).join('');
 if (grp.note.length) h += '<h2>À noter · ' + grp.note.length + '</h2>' + grp.note.map(row).join('');
-const bands = D.bands.map(b => '<a class="row band" href="#"><span class="ic">' + I.tool + '</span><span class="t">' + esc(b.title) + '</span><span class="v ' + sign(b.eur) + '">' + esc(b.eur) + '</span><span class="go">Voir →</span></a>');
+const bands = D.bands.map(b => '<a class="row band" href="/app/insightevent/pulse#chantiers"><span class="ic">' + I.tool + '</span><span class="t">' + esc(b.title) + '</span><span class="v ' + sign(b.eur) + '">' + esc(b.eur) + '</span><span class="eng" data-stop>M’engager</span></a>');
 h += '<h2>Chantiers · ' + bands.length + '</h2><div id="bl">' + bands.slice(0, 3).join('') + '</div>' + (bands.length > 3 ? '<button class="more" id="more">Voir les ' + (bands.length - 3) + ' autres chantiers</button>' : '');
 document.getElementById('feed').innerHTML = h;
 const m = document.getElementById('more'); if (m) m.onclick = function(){ document.getElementById('bl').innerHTML = bands.join(''); this.remove(); };
+// les gestes DANS la carte n'ouvrent pas la page (proto : ils ne font rien d'autre)
+document.getElementById('feed').addEventListener('click', function(e){ if (e.target.closest('[data-stop]')) { e.preventDefault(); e.stopPropagation(); } else if (e.target.closest('a.card, a.row')) { e.preventDefault(); } });
 </script></body></html>
