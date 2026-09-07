@@ -1430,7 +1430,7 @@
   );
 
   // #38 — competitor_price_drop
-  reg('competitor_price_drop', 'R\u00e9agissez \u00e0 la baisse de prix concurrente', 'CONCURRENCE', '\ud83d\udcc9', '#D32F2F', 'action', 'pulse#radar-threats',
+  reg('competitor_price_drop', 'R\u00e9agissez \u00e0 la baisse de prix de vos concurrents', 'CONCURRENCE', '\ud83d\udcc9', '#D32F2F', 'action', 'pulse#radar-threats',
     function(a, p, d) {
       var name = a.competitor_name || 'Un concurrent';
       var item = a.item || 'une offre';
