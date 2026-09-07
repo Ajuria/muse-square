@@ -138,6 +138,8 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "sales_competition_cannibalization",
   "proven_action_replication",
   "offering_mix_shift",
+  // 07/09 (owner) — le produit qui bouge : origine manquante alors que ses 3 plans existent (reco-library).
+  "item_share_move",
   // 06/09 — paniers à plusieurs articles (grain facture).
   "tickets_lines_move",
   "item_absent_regular",

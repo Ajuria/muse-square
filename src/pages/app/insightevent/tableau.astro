@@ -1317,7 +1317,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               '<span style="font-weight:600;">gagnés</span> — « ' + esc(trunc(j.met_recipe.text, 55)) + ' » a tenu sa cible',
               String(j.met_recipe.text || ""),
               (function () { var _pv = (j.practices || []).filter(function (p) { return p.tier === "prouvee"; })[0];
-                return '<a class="tb-link" href="#tb-sf" data-tb-open="sf"' + (_pv ? ' data-tb-goto="' + esc(_pv.practice_id) + '"' : "") + ' style="font-size:12px;white-space:nowrap;">Rejouer →</a>'; })());
+                return '<a class="tb-link" href="#tb-sf" data-tb-open="sf"' + (_pv ? ' data-tb-goto="' + esc(_pv.practice_id) + '"' : "") + ' style="font-size:12px;white-space:nowrap;">Reconduire →</a>'; })());
           }
           var depthMax = (j.sales_depth || []).reduce(function (a, x) { return Math.max(a, x.n_days || 0); }, 0);
           var ccBody = (function () {

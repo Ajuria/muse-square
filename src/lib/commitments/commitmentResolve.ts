@@ -293,7 +293,9 @@ export async function resolveCommitment(
     const expBkArr = rrows.map((r: any) => Number(flat(r.expected_basket))).filter((v: number) => Number.isFinite(v) && v > 0);
     const expBk = expBkArr.length ? expBkArr.reduce((a: number, b: number) => a + b, 0) / expBkArr.length : null;
     const [arows] = await bq.query({
-      query: `SELECT SUM(daily_transactions) AS tx, AVG(daily_avg_basket) AS bk, COUNT(*) AS n FROM \`${BQ_PROJECT}.mart.fct_client_daily_performance\` WHERE location_id=@loc AND transaction_date BETWEEN @minD AND @maxD`,
+      // 07/09 — frontière entrepôt : la fenêtre se lit sur la vue semantic du jour (mêmes colonnes que § 10),
+      // plus sur mart.fct_client_daily_performance (garde warehouseBoundary, cliquet à 1).
+      query: `SELECT SUM(daily_transactions) AS tx, AVG(daily_avg_basket) AS bk, COUNT(*) AS n FROM \`${BQ_PROJECT}.semantic.vw_insight_event_day_decomposition\` WHERE location_id=@loc AND date BETWEEN @minD AND @maxD`,
       params: { loc: snap.location_id, minD: bq.date(minDate), maxD: bq.date(maxDate) },
       location: "EU",
     });

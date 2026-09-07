@@ -2244,7 +2244,7 @@
     function(a) {
       return {
         context: msWkLine(a, 'spike'),
-        action: 'Action conseill\u00e9e : identifier ce qui a porté la semaine (client, opération, contexte) — et le noter pour le rejouer sciemment.'
+        action: 'Action conseill\u00e9e : identifier ce qui a porté la semaine (client, opération, contexte) — et le noter pour le reconduire sciemment.'
       };
     },
     {
@@ -3183,7 +3183,11 @@
       if (_regimeGated(ac)) continue;
       if (_perfTypes.indexOf(actionType) >= 0) {
         if (_todayN && target === _todayN) {
-          if (acDate !== _perfLatest[actionType]) continue;
+          // 07/09 (pulse, owner) : les cartes CA d'un site se REGROUPENT en une carte dans le pli — la page
+          // demande TOUTES leurs occurrences des 7 derniers jours (window.MS_PERF_KEEP_ALL, pose par pulse
+          // seul) ; les autres surfaces gardent le dernier par type.
+          var _keepAll = !!(window.MS_PERF_KEEP_ALL && window.MS_PERF_KEEP_ALL[actionType]);
+          if (!_keepAll && acDate !== _perfLatest[actionType]) continue;
           // Limite 7 jours (owner 24/08) : un fait CA de 27 jours n'est plus une « action du
           // jour » — même daté, il encombre. Au-delà, la carte ne remonte plus sur aujourd'hui ;
           // elle reste rendue sur SA date (branche ci-dessous) pour le travail rétrospectif.
@@ -3496,10 +3500,10 @@
       var hook = a.is_vacation ? 'les vacances scolaires' : (a.is_holiday ? 'le jour f\u00e9ri\u00e9' : (Number(a.weather_alert || 0) === 0 ? 'une m\u00e9t\u00e9o favorable' : ''));
       if (!pick) {
         return 'Action conseill\u00e9e : vous d\u00e9passez votre r\u00e9sultat habituel pour ce jour, sans que le volume ni le panier ne montent'
-          + chiffres + '. Notez ce que vous aviez en place ce jour-l\u00e0, pour pouvoir le rejouer.';
+          + chiffres + '. Notez ce que vous aviez en place ce jour-l\u00e0, pour pouvoir le reconduire.';
       }
       return 'Action conseill\u00e9e : la hausse vient ' + (pick === 'transactions' ? 'du volume' : 'du panier moyen')
-        + chiffres + (hook ? ', port\u00e9 par ' + hook : '') + '. \u00c0 rejouer sur vos prochaines journ\u00e9es comparables.';
+        + chiffres + (hook ? ', port\u00e9 par ' + hook : '') + '. \u00c0 reconduire sur vos prochaines journ\u00e9es comparables.';
     }, urgency: 'plan' },
     'sales_competition_cannibalization': { action: function(a, p, d) {
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
