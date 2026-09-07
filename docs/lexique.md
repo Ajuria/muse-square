@@ -28,6 +28,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Un écart de pourcentage affiché | **% (ou €)** (owner 27/08 — « pp » n'existe pas pour l'utilisateur ; un chiffre affiché est idiot-proof : des euros ou des pour cent, le référentiel dit dans la phrase) | pp, points de pourcentage |
 | Surveillance des concurrents | **veille** / **vos suivis** | couverture, tracking, crawl |
 | Fraîcheur de la veille | **lus cette nuit** | dernier passage, visités, crawlés |
+| Le motif d'une carte de calendrier (rentrée, soldes, férié) quand aucune classe n'est mesurée sur sa date | **saisonnalité** (owner 06/09 — « Motif du jour : saisonnalité — rentrée scolaire. » ; le nom du temps fort vient du mart, jamais du titre ; une classe mesurée sur la date garde la main) | aucun motif, ligne vide |
 | Un concurrent surveillé | **suivi** | tracké, monitored |
 | Zone autour d'un site | **votre périmètre** | catchment, zone de chalandise (à confirmer) |
 | Contexte favorable détecté (le volet du tableau) | **Opportunités** (owner 24/08 — titre du volet ; contenu = prospective chaleur + couverture, renvoi « les cartes des 7 prochains jours → Agir ») ; « occasion » reste le mot d'une occasion individuelle | Vos prochaines occasions (trop long, owner 24/08), fenêtre de la semaine, momentum, jour favorable |
@@ -78,7 +79,13 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Rôles d'un Service client | **Service au comptoir** (la personne sert le produit) · **Conseiller clientèle** (la personne conseille, le produit est ailleurs) · **Accueil** (accueil / billetterie) — owner 03/09 | Comptoir, Point conseil, Billetterie |
 | Sous-types de médiation | **Cartel** · **Dispositif multimédia** · **Signalétique** (owner 03/09) ; **panneau de salle : EN ATTENTE** (proposé, non validé — reste `provisoire`, non rendu) | Texte de salle, parcours fléché |
 | Ce qu'Explorer répond à une question qui ne porte sur rien du site (« qui est Jésus ? », « bonjour », l'heure, une blague) | **Aucune donnée pour cette question** (titre) — corps : « Je réponds sur vos ventes par jour, vos familles de produits (Coffee, Tea, Bakery…), vos pôles, vos opérations et vos suivis. Rien ici ne répond à « <la question, verbatim> ». Par exemple : « Pourquoi le JJ/MM ? » » (option A, owner 03/09 — miroir de l'élicitation « Je ne trouve ni pôle ni famille de ce nom sur ce site » ; familles réelles du compte, dernier jour mesuré ; foyer `src/lib/ai/horsPerimetre.ts`). Ne se rend QUE si aucun signal métier ne tire (garde déterministe) | Je ne comprends pas, Question hors sujet, Désolé, toute phrase de chatbot générique |
-| La part de chaque famille dans le CA du jour, lue pendant une opération (Explorer, lecture dispositif × famille) | **mix produits & services** (owner 04/09) ; lignes de la table : **Ventes/jour avec <famille>** (tickets contenant la famille) · **Panier moyen avec <famille>** (le ticket entier de ces tickets — owner 04/09) · **CA/jour <famille>** · **Part de <famille> dans le CA** ; l'écart d'une part s'écrit en RELATIF « +1,6 % » (owner 04/09) ; foyer `src/lib/dispositifFamille.ts`, doc `explorer-dispositif-famille-spec.md` | mix produit (au singulier, hors matcher), points de part, pp |
+| La part de chaque famille dans le CA du jour, lue pendant une opération (Explorer, lecture dispositif × famille) | **mix produits & services** (owner 04/09) ; lignes de la table : **Ventes/jour avec <famille>** (tickets contenant la famille) · **Panier moyen avec <famille>** (le ticket entier de ces tickets — owner 04/09) · **CA/jour <famille>** · **Part de <famille> dans le CA** ; l'écart d'une part s'écrit en RELATIF « +1,6 % » (owner 04/09) ; foyer `src/lib/dispositifs/dispositifFamille.ts`, doc `explorer-dispositif-famille-spec.md` | mix produit (au singulier, hors matcher), points de part, pp |
+| Le nombre moyen d'articles d'un ticket (indice de vente) et son mouvement | **articles par ticket** — « Moins / Plus d'articles par ticket que d'habitude » (owner 07/09 : « Moins d'articles par facture, or equivalent » ; « facture » = le même objet côté Crisalid) | paniers à plusieurs articles, lignes par ticket, UPT |
+| Un produit vendu presque tous les jours et absent un jour d'ouverture | **aucune vente** — « <produit> : aucune vente », « Aucune vente de <produit> le 30/08. Il se vend 58 jours sur 60, 18 € par jour. » (owner 07/09) | absent de vos ventes, rupture (jamais déduite de la caisse), « ces deux mois » |
+| Le CA divisé par les articles vendus, sur une famille et un jour | **prix moyen**, en **€ par article** — « Prix moyen en baisse / en hausse sur <famille> » (owner 07/09) | prix réalisé, l'unité, unités vendues |
+| La part remisée du CA d'une famille sur un jour | **remises** — « Plus / Moins de remises que d'habitude sur <famille> », « 5,9 % de remise le 09/08, contre 2,5 % d'habitude » (owner 07/09) | remisé plus que d'habitude, taux de remise, « % du CA » dans le titre |
+| La mesure du mix par famille | **part de CA ET articles** — « Coffee 45 % du CA (722 €, 239 articles) contre 39 % d'habitude (341 €, 216 articles) » (owner 07/09 : « We need both ») | des € de volume, une part sans son ordre de grandeur |
+| Une alerte chaleur de niveau 3 et plus (32 °C) | **forte chaleur** — « Alerte forte chaleur (niveau critique) » ; en dessous du niveau 3, « Alerte météo » (owner 07/09 ; même mot que la classe structurelle) | canicule (critère officiel IBM, jamais déduit de lvl_heat), chaleur seule |
 
 ## Les mots des interactions humaines (Slack — registre distinct, owner 28/08)
 
@@ -128,6 +135,7 @@ parler du commerce.**
 | « Les deux se compensent : c'est ce qui tient l'écart du jour à +39 € » | démonstration mathématique | « …, mais un panier de 5,57 € au lieu de 4,71 €. » |
 | « 1 événement(s) · 4 j de vacances » | pluriel entre parenthèses, abréviation | « 1 événement à proximité · 4 jours de vacances scolaires » |
 | « Vos jours frais : 1 166 € vs 1 346 € » posé sans lien avec la journée | statistique orpheline (« énigme ») | ne s'affiche QUE si l'opération a connu un jour perturbé |
+| « Ce vendredi, il a fait 0 € » (06/09, en prod depuis le 24/08, cité comme « voisin approuvé ») | « X a fait N € » n'est pas du français ; « il » pour un créneau | « Ce vendredi, ce créneau a généré 0 € » — formes owner : « vous avez généré … », « le CA de ce vendredi est … » ; `action-cards.js` entre dans le garde |
 
 **Ces tournures sont désormais MÉCANIQUES** : `src/lib/fr/tournures.fr.ts` les porte avec
 la phrase refusée qui les a fait naître, et `tournures.fr.guard.test.ts` échoue si l'une
@@ -152,6 +160,26 @@ quand l'owner refuse une phrase** ; en retirer une demande son accord.
    nuit ») — jamais un zéro nu ni une section vide.
 
 ## Arbitrages tranchés (owner 17/08)
+
+**07/09 — les quatre cartes du grain facture, la chaleur, le Fil, le mix.** Premier registre refusé
+(« NOT HUMAN LANGUAGE ») ; le registre courant est acté tel qu'il rend (compte owner) :
+- `tickets_lines_move` : « Moins d'articles par ticket que d'habitude » ; « 1,0 article par ticket le 30/08
+  contre 1,8 d'habitude : 97 % des tickets à un seul article contre 54 %, sur 322 tickets. » ; geste
+  « notez ce qui était à côté du produit ce jour-là. » (hausse : « — c'est l'association à reconduire »).
+- `item_absent_regular` : « Scottish Cream Scone : aucune vente » / « 2 produits sans vente » ; « Aucune
+  vente de Scottish Cream Scone le 30/08. Il se vend 58 jours sur 60, 18 € par jour. » ; geste « vérifiez
+  le stock de <produit> et sa place sur le linéaire. »
+- `family_price_move` : « Prix moyen en baisse / en hausse sur <famille> » ; « Drinking Chocolate : 3,87 €
+  par article le 30/08, contre 4,13 € d'habitude (−6 %). 43 articles vendus. » ; gestes « vérifiez les
+  tickets du 30/08 sur <famille> : remises, poids ou produits moins chers. » / « notez ce qui s'est vendu
+  dans <famille> le 09/08. »
+- `family_discount_move` : « Plus / Moins de remises que d'habitude sur <famille> » ; « Drinking Chocolate :
+  5,9 % de remise le 09/08, contre 2,5 % d'habitude (12 € sur 211 € de ventes). 51 articles vendus. » ;
+  gestes « vérifiez les tickets remisés du 09/08 sur <famille> : qui a remisé, sur quoi, et si c'était
+  prévu. » / « notez ce qui s'est vendu sans remise dans <famille> le 09/08. »
+- Chaleur : « forte chaleur » dès le niveau 3 (voir la table). `day_opportunity` va au Fil (décision 1 du
+  04/09). `foreign_tourism_signal` : sites de destination seulement (décision 2). Mix : part de CA ET
+  articles (« We need both »). Planchers : à tester le 11/09 (file À arbitrer).
 
 - « Documentez la recette » → **« Documentez vos résultats »** (proposition owner retenue ;
   « knowledge base » écarté — anglicisme). Le bouton reste « Documenter → ».
@@ -283,6 +311,40 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   owner (« or something ») : « très prudent · prudent · ambitieux · optimiste » — LES quatre
   mots à arbitrer avant le build commit-form.
 - « geste » (employé par la tuile prod « 6 gestes en attente ») — pas de mot d'interface arbitré.
+- **Planchers des cartes facture (20 tickets par jour pour les articles par ticket, 10 articles par jour
+  pour le prix moyen et les remises)** : NON arbitrés — l'owner les teste jeudi 11/09/2026 (« The floor
+  wasn't tested yet. Will be next Thursday »). Ce qu'ils font : rien sur un site à 300 tickets ; ils
+  éteignent les sites à 1-6 factures par jour (grossiste), où une moyenne par ticket décrit une commande.
+- **Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3) — BROUILLONS 07/09**
+  (owner : « What do you want from me? » → les chaînes écrites, à corriger, pas des slots vides). Le
+  corps de chaque carte dit déjà le fait (« <Concurrent> a augmenté le prix de <article> : 8 € → 9 € (+12 %)
+  le 04/09. ») ; manquent le titre (trois cartes) et la ligne d'action (six). Forme des titres = celle des
+  cartes concurrent en prod (« Nouvelle offre », « Horaires modifiés ») ; forme des gestes = règle 8 (verbe
+  ordinaire, objet qu'on tient) + test 11 (écrit depuis les nombres de la carte) :
+  · competitor_price_increase — titre « Prix en hausse chez <concurrent> » ; geste « Action conseillée :
+    comparez votre prix de <article> au nouveau prix de <concurrent> ; s'il est plus bas, affichez-le. »
+  · competitor_price_drop — geste « Action conseillée : notez votre prix et votre marge sur <article> ; suivez
+    vos ventes de <article> sur deux semaines avant de bouger. »
+  · competitor_repricing_event — titre « Plusieurs prix modifiés chez <concurrent> » ; geste « Action
+    conseillée : relevez les nouveaux prix de <concurrent> sur les articles que vous vendez aussi ; notez les écarts. »
+  · competitor_new_offering — geste « Action conseillée : si <article> a un équivalent chez vous, mettez-le
+    en avant cette semaine. »
+  · competitor_hours_change — geste « Action conseillée : comparez vos horaires aux nouveaux horaires de
+    <concurrent> ; signalez les créneaux où vous êtes seul ouvert (fiche Google, vitrine). »
+  · competitor_offering_removed — titre « Offre retirée chez <concurrent> » ; geste « Action conseillée : si
+    vous vendez <article>, mettez-le en avant — ses clients cherchent où l'acheter. »
+  Tests 8-13 relus sur les six : verbe + objet tenu (comparez / notez / relevez / mettez en avant /
+  signalez), condition nommée (l'article, le concurrent, deux semaines), écrits depuis les nombres de la
+  carte, aucune maxime. Rien n'est en prod : les cartes restent FAIT SEUL jusqu'à correction owner.
+- ~~Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3)~~ (remplacé ci-dessus) :
+  competitor_price_increase (« Saisissez la marge tarifaire »), competitor_price_drop,
+  competitor_repricing_event (« Analysez ce mouvement tarifaire »), competitor_new_offering,
+  competitor_hours_change, competitor_offering_removed (« Saisissez l'offre abandonnée ») —
+  rendues FAIT SEUL en attendant : leurs lignes échouent aux tests 8-12 (« Votre positionnement
+  tarifaire devient relativement plus attractif », « Ne vous alignez pas par réflexe »).
+- **P8 — trois plans par carte de fait (heure / produit / famille) dans `reco-library.js`** :
+  le formulaire « M'engager » de ces cartes ouvre sur une liste vide (clé absente). Gabarit
+  existant : `{ title, description, why, tag }` × 3, par type, `_default` ou par direction.
 - « Voir → » vs « Lire → » : deux mots en prod pour « ouvrir une carte » — un seul doit rester.
 - Le mot du pont rangée santé ↔ rangée pilotage (« dont +1 166 € mesurés de vos opérations »).
 - « Déclarer vos marges » (pluriel, marge par famille produit) — paraphrase, pas un mot acté.
@@ -346,7 +408,7 @@ conseil sur un abstrait.
 Verbes de conseil à proscrire : *aligner, capter, concentrer, activer* (sans objet),
 *surveiller, se positionner, optimiser, maximiser, adresser, **animer*** (owner 24/08 —
 « animer la clientèle » → « **cibler** » ; au MOTS_BANNIS). Le corpus de référence est
-`public/reco-library.js` — les entrées **écrites** (13), pas l'échafaudage commenté.
+`public/js/reco-library.js` — les entrées **écrites** (13), pas l'échafaudage commenté.
 
 **9. Test du retournement.** Écrire le contraire de la phrase. Si le contraire est absurde,
 la phrase n'affirme rien et doit sauter.

@@ -4,7 +4,7 @@
 reçue et approuvée le 07/08 : elle vit dans `src/lib/fr/factOrigins.fr.ts` (12 libellés, commentaire
 « Approuvés owner 07/08 »). L'attribution serveur est en place (`origin` sur `CitableFact`,
 `facts_catalog` + `sentence_provenance` dans l'enveloppe), le rendu à chips aussi
-(`public/card-kit.js`, bloc `sourced`), et les étapes 2 à 5 ont shippé les 07-08/08.
+(`public/js/card-kit.js`, bloc `sourced`), et les étapes 2 à 5 ont shippé les 07-08/08.
 Vérifié le 26/08. **La ligne « BLOQUÉ — aucun code avant réception » qui figurait ici était fausse
 depuis le 08/08** : 6 fichiers de code citent ce document, un lecteur pouvait en conclure qu'il ne
 fallait rien toucher.

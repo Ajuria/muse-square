@@ -14,7 +14,7 @@ une absence (contrôler sur un témoin connu) ; un compte qui change ne dit pas 
 
 - **SINGLE SOURCE OF TRUTH avant de créer.** Avant tout nouvel endpoint, module lib, script
   client ou modèle dbt : grep `docs/module-index.md` (code) et `docs/data-model-index.md`
-  (dbt, + `docs/bq-catalog.json` en snapshot) pour la capacité visée — étendre l'existant,
+  (dbt, + `docs/catalog/bq-catalog.json` en snapshot) pour la capacité visée — étendre l'existant,
   jamais forker. Quand un fichier change de handlers ou de sources, sa ligne d'index se met
   à jour dans le MÊME commit.
 - **Zéro nom deviné.** Toute colonne, table, champ, id, suffixe d'UUID se vérifie dans le
@@ -75,10 +75,10 @@ une absence (contrôler sur un témoin connu) ; un compte qui change ne dit pas 
 - `.ts` → `npx tsc --noEmit` ; scripts inline `.astro` et `public/*.js` → `node --check`
   (extraire le `<script>`). Syntaxe seulement : « done » = sortie réelle tracée (requête de
   l'endpoint + rendu confirmé sur `f10c3e58`).
-- Le rendu se prouve au HARNAIS, pas à l'œil : `public/card-harness.html` pour
+- Le rendu se prouve au HARNAIS, pas à l'œil : `tools/harness/card-harness.html` pour
   `card-kit.js` et les réponses Consulter ; harnais `vm` (bytes exacts de `pulse.astro` +
   `action-cards.js`) pour Pulse. Le harnais EST la page.
-- `public/action-cards.js` est statique mais cache-busté par `?v=` — bump sur les surfaces
+- `public/js/action-cards.js` est statique mais cache-busté par `?v=` — bump sur les surfaces
   consommatrices + hard-refresh. Astro dev ne recharge pas les routes API `.ts` : restart
   du serveur après édition serveur.
 - HTML injecté dynamiquement = styles inline (les `<style>` scopés ne l'atteignent pas).
@@ -110,7 +110,7 @@ une absence (contrôler sur un témoin connu) ; un compte qui change ne dit pas 
   tombe sur le X et repart avec la valeur périmée). Une spec dont la dernière instruction
   est appliquée se RÉÉCRIT en définitif, en re-vérifiant chaque affirmation gardée — elle
   ne se marque pas « terminé ».
-- Avant toute liste de priorités sur des cartes : ouvrir `docs/card-truth-audit.md` et
+- Avant toute liste de priorités sur des cartes : ouvrir `docs/audits/card-truth-audit.md` et
   CITER son verdict. Le volume de tirs n'est pas un critère — c'est souvent le symptôme
   inverse.
 

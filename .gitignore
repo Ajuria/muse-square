@@ -46,8 +46,9 @@ src/lib/Chat GPT/
 .vercel
 
 # Explorer battery run artifacts (local, per-run)
-explorer-battery-report.md
-explorer-battery-baseline.json
+data/shots/explorer-battery-report.md
+data/shots/explorer-battery-baseline.json
+__pycache__/
 
 # clerk configuration (can include secrets)
 /.clerk/

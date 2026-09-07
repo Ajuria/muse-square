@@ -1,14 +1,14 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { V1_ALERT_ACTION_TYPE_SET } from "../../../lib/internalAlertCards";
+import { V1_ALERT_ACTION_TYPE_SET } from "../../../lib/context/internalAlertCards";
 
 export const prerender = false;
 
 const BQ_PROJECT = "muse-square-open-data";
 
 // ── Barrier 2 — arm-time action_type allowlist ──
-// The 5-card allowlist is the single source of truth in src/lib/internalAlertCards.ts,
+// The 5-card allowlist is the single source of truth in src/lib/context/internalAlertCards.ts,
 // shared with the sweep so write-time and read-time can never drift.
 
 // ── Barrier 3 — internal-only channels ──

@@ -5,6 +5,6 @@
   "verbatimModuleSyntax": true,
   "skipLibCheck": true
     },
-  "include": [".astro/types.d.ts", "src"],
+  "include": [".astro/types.d.ts", "src", "tests"],
   "exclude": ["node_modules", "dist", ".astro"]
 }

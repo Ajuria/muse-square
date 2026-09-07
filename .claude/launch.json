@@ -4,21 +4,24 @@
     {
       "name": "dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 4321,
       "autoPort": true
     },
     {
-      "name": "proto-static",
+      "name": "harness",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "4173", "--directory", "public"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4173",
+        "--directory",
+        "."
+      ],
       "port": 4173
-    },
-    {
-      "name": "proto-static-2",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "4174", "--directory", "public"],
-      "port": 4174
     }
   ]
 }

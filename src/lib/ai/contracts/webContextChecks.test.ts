@@ -1,5 +1,5 @@
 // Lie-bait WEB (étape 5, 08/08) — le rendu « Web — non vérifié » ne peut ship que des liens SÛRS et
-// du texte INERTE. Chaque appât planté doit être neutralisé par le renderer réel (public/card-kit.js
+// du texte INERTE. Chaque appât planté doit être neutralisé par le renderer réel (public/js/card-kit.js
 // exécuté en vm — lire à la regex dirait ce qui est écrit, pas ce qui est rendu). Fait partie de la
 // porte de merge : npx vitest run src/lib/ai/contracts/.
 
@@ -10,7 +10,7 @@ import vm from "node:vm";
 let kit: any;
 
 beforeAll(() => {
-  const src = readFileSync("public/card-kit.js", "utf8");
+  const src = readFileSync("public/js/card-kit.js", "utf8");
   const sandbox: any = {
     console,
     URL,

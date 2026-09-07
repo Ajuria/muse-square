@@ -3,7 +3,7 @@
 // stale/missing cells, and ONLY for verticals that have ACTIVE commitments (real usage) — a cell is
 // stale when missing or older than TTL_DAYS (90). Usually a no-op. Bounded so it fits the serverless
 // timeout (each web_search cell ~20-30s). Fire it often (e.g. hourly/daily); it drains any backlog
-// gradually and the standalone script (src/scripts/crawl-best-in-class.cjs) does instant full builds.
+// gradually and the standalone script (tools/generators/crawl-best-in-class.mjs) does instant full builds.
 //
 // The crawl CONTRACT (prompt/validate/schema/vocab) is the shared core — no drift with the script.
 import type { APIRoute } from "astro";
@@ -13,7 +13,7 @@ import { writeFileSync, unlinkSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { waitUntil } from "@vercel/functions";
-import * as core from "../../../lib/bestInClassCrawlCore.mjs";
+import * as core from "../../../lib/bestInClass/bestInClassCrawlCore.mjs";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";

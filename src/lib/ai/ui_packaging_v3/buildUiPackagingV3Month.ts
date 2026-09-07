@@ -1,6 +1,6 @@
 // src/lib/ai/ui_packaging_v3/buildUiPackagingV3Month.ts
 import type { UiPackagingV3 } from "../contracts/uiPackagingV3";
-import { weatherNatureFr } from "../../contextCopy";
+import { weatherNatureFr } from "../../context/contextCopy";
 
 function ymd(v: any): string {
   if (typeof v === "string" && v.trim()) return v.trim().slice(0, 10);

@@ -3,7 +3,7 @@
 import { describe, it, expect } from "vitest";
 import { validatePhotoExtraction } from "./photoExtractionChecks";
 import { photoExtractionSchema, photoExtractionSystem, photoQuestions } from "../photoExtraction";
-import { ALL_CHECKLIST_KEYS } from "../../dispositifTypes";
+import { ALL_CHECKLIST_KEYS } from "../../dispositifs/dispositifTypes";
 
 const KEYS = photoQuestions({ type: "lineaire", role: "expert" }).map((q) => q.key);
 const CODES = ["CF-001", "CF-002"];

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """PreToolUse guard (Bash|Write|Edit) — block a BigQuery reference to a
-`muse-square-open-data.<dataset>.<table>` that is NOT in docs/bq-catalog.allowlist.json.
+`muse-square-open-data.<dataset>.<table>` that is NOT in docs/catalog/bq-catalog.allowlist.json.
 
 Enforces CLAUDE.md's zero-guessing rule for table/column names. Fails OPEN
 (allows) on any parse/IO ambiguity — a guard that false-positives gets disabled.
@@ -39,7 +39,7 @@ def main():
         allow()
 
     proj = os.environ.get("CLAUDE_PROJECT_DIR") or "."
-    allow_path = os.path.join(proj, "docs", "bq-catalog.allowlist.json")
+    allow_path = os.path.join(proj, "docs", "catalog", "bq-catalog.allowlist.json")
     try:
         with open(allow_path) as f:
             known = set(json.load(f)["tables"].keys())
@@ -63,9 +63,9 @@ def main():
 
     if unknown:
         deny(
-            "BigQuery reference(s) not in docs/bq-catalog.allowlist.json "
+            "BigQuery reference(s) not in docs/catalog/bq-catalog.allowlist.json "
             "(live INFORMATION_SCHEMA snapshot): " + ", ".join(sorted(unknown)) + ". "
-            "If the table was just created, regenerate docs/bq-catalog.json from "
+            "If the table was just created, regenerate docs/catalog/bq-catalog.json from "
             "INFORMATION_SCHEMA; otherwise verify the exact name via the bq-verify "
             "skill before querying. Zero-guessing rule (CLAUDE.md)."
         )

@@ -11,7 +11,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { FAMILIES, type FamilyFact } from "../../../lib/insightFamilies";
-import { assembleDayContext } from "../../../lib/dayContext";
+import { assembleDayContext } from "../../../lib/context/dayContext";
 import { toGroundedDayPayload } from "../../../lib/ai/groundedPayload";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
 import { sinkTelemetry } from "../../../lib/telemetrySink";

@@ -77,4 +77,10 @@ export const TOURNURES_LLM: TournureBannie[] = [
     faute: "voix de rapport scolaire",
     refusee: "(tic générique, absent du corpus owner)",
   },
+  {
+    // 06/09 (owner) : un montant se GÉNÈRE, il ne se « fait » pas ; « il » ne tient pas lieu d'un créneau.
+    motif: /\ba fait (un montant|\d)/,
+    faute: "« X a fait N € » n'est pas du français — le sujet génère un montant, ou le CA est de N €",
+    refusee: "Ce vendredi, il a fait 0 € (−100 %) contre 137 € votre vendredi habituel à cette heure",
+  },
 ];

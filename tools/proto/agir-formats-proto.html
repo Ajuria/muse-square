@@ -1,0 +1,137 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Agir — deux formats</title><style>
+*{box-sizing:border-box}
+body{margin:0;background:#F4F6F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,system-ui,sans-serif;color:#111827;-webkit-font-smoothing:antialiased}
+.wrap{max-width:860px;margin:0 auto;padding:26px 20px 70px}
+.note{font-size:12.5px;color:#4B5563;background:#fff;border:1px solid rgba(0,0,0,.07);border-left:3px solid #1D3BB3;border-radius:10px;padding:12px 14px;margin:0 0 22px;line-height:1.6}
+.note b{color:#111827}
+h2.sec-t{font-size:11.5px;font-weight:650;letter-spacing:.09em;text-transform:uppercase;color:#6B7280;margin:30px 0 9px 2px;display:flex;align-items:baseline;gap:9px}
+h2.sec-t span{font-size:11px;color:#9CA3AF;letter-spacing:0;text-transform:none;font-weight:500}
+.med{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.amt{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;border-radius:9px;padding:3px 9px;font-size:14px;letter-spacing:-.01em}
+.amt.gain{color:#047857;background:#ECFDF5}.amt.defend{color:#B45309;background:#FFF7ED}
+.amt-sub{font-size:11px;color:#6B7280;text-align:right}
+
+/* ═══ FORMAT A — CARTE (conjoncturel) : rectangle, 3 étages, respire ═══ */
+.stack{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:16px;overflow:hidden;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.carte{border-top:1px solid rgba(17,24,39,.07)}
+.carte:first-child{border-top:none}
+.carte:hover{background:#FCFDFF}
+.c-grid{display:grid;grid-template-columns:34px minmax(0,1fr) 150px;gap:0 15px;padding:18px 20px 0 18px}
+.c-titre{margin:0;font-size:15px;font-weight:650;line-height:1.34;letter-spacing:-.01em;cursor:pointer}
+.c-titre:hover{color:#1D3BB3}
+.c-faits{margin:6px 0 0;font-size:13px;line-height:1.6;color:#4B5563;max-width:60ch}
+.c-action{margin:9px 0 0;font-size:12.5px;line-height:1.55;font-weight:600;color:#1D3BB3;max-width:60ch}
+.c-eur{display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right}
+.c-meta{font-size:11px;color:#6B7280;white-space:nowrap}
+.c-foot{display:flex;align-items:center;gap:14px;justify-content:flex-end;padding:13px 20px 15px}
+button{font-family:inherit;cursor:pointer}
+.sec{background:none;border:none;font-size:12.5px;color:#6B7280;padding:4px 2px}
+.sec:hover{color:#111827}
+.pri{background:none;border:none;font-size:12.5px;font-weight:650;color:#1D3BB3;padding:4px 2px}
+
+/* ═══ FORMAT B — BANDEAU (structurel) : UNE ligne, hauteur fixe, pas de pied ═══ */
+.band{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:14px;overflow:hidden}
+.bnd{display:flex;align-items:center;gap:12px;padding:0 18px;height:62px;border-top:1px solid rgba(17,24,39,.07)}
+.bnd:first-child{border-top:none}
+.bnd:hover{background:#FAFBFD}
+.b-body{flex:1;min-width:0}
+.b-titre{font-size:13px;font-weight:620;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.b-titre:hover{color:#1D3BB3}
+.b-fait{font-size:11.5px;color:#8A93A0;line-height:1.3;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b-tail{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none;margin-left:14px}
+.b-line{display:flex;align-items:center;gap:12px}
+.b-site{font-size:10.5px;color:#9CA3AF;white-space:nowrap}
+.lien{background:none;border:none;font-size:12px;font-weight:650;color:#1D3BB3;padding:0;flex:none;white-space:nowrap}
+
+.b-fait{color:#6B7280}
+.var{font-size:11px;color:#1D3BB3;font-weight:650;letter-spacing:.06em;text-transform:uppercase;margin:26px 0 7px 2px}
+.q{font-size:12.5px;color:#4B5563;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:11px 13px;margin:9px 0 0;line-height:1.6}
+</style></head><body><div class="wrap">
+<div class="note"><b>Deux formats, deux fonctions — rien entre les deux.</b><br>
+<b>Carte</b> — rectangle, 3 étages, pied à 2 gestes = <b>conjoncturel</b> : daté, à traiter maintenant.<br>
+<b>Bandeau</b> — une ligne, hauteur fixe 58 px, 2 lignes de texte, un seul geste en lien = <b>structurel</b> : sans date, se pilote sur des mois.<br>
+<b>À arbitrer :</b> un motif structurel n'aurait plus qu'UNE forme — le bandeau. Fin de la promotion en carte pleine dans le fil du jour (doctrine 01/08).</div>
+
+<h2 class="sec-t">Actions du jour <span>4 cartes · conjoncturel</span></h2>
+<div class="stack"><article class="carte"><div class="c-grid"><div><span class="med" style="width:34px;height:34px;background:#E0F2FE;color:#0369A1;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M20 16.2A4.8 4.8 0 0016.5 8h-1A6.5 6.5 0 104 14.5"/><path d="M8 19l-1 2M12 19l-1 2M16 19l-1 2"/></svg></span></div>
+<div><h3 class="c-titre">Adaptez vos opérations — météo dégradée prolongée</h3><p class="c-faits">Météo dégradée aujourd’hui : averses, 28°C, vent 13 km/h.</p>
+<p class="c-action">Actions conseillées : repliez en intérieur si vous avez un espace couvert, sinon réduisez votre exposition extérieure.</p></div>
+<div class="c-eur"><span class="c-meta">25/08 · MS Test</span>
+<span class="amt defend">−12 112 €/an</span>
+<span class="amt-sub">perdus · pluie marquée</span></div></div>
+<div class="c-foot"><button class="sec">Pas pour moi</button><button class="pri">M’engager</button></div></article><article class="carte"><div class="c-grid"><div><span class="med" style="width:34px;height:34px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span></div>
+<div><h3 class="c-titre">Adaptez vos opérations — moins d’activité que d’habitude dans votre périmètre</h3><p class="c-faits">L’activité autour de vous sera inférieure à votre moyenne du mardi 25/08 au vendredi 28/08 (4 jours). Chez vous, ces journées rapportent plus que la moyenne. Motif du jour : jours à faible pression concurrentielle.</p>
+<p class="c-action">Action conseillée : mettez votre meilleure offre sur ces jours — ils vous réussissent mieux que la moyenne.</p></div>
+<div class="c-eur"><span class="c-meta">25/08 · Muse Square Occitanie</span>
+<span class="amt gain">+14 %</span>
+<span class="amt-sub">vos visiteurs · ces jours-là</span></div></div>
+<div class="c-foot"><button class="sec">Pas pour moi</button><button class="pri">M’engager</button></div></article><article class="carte"><div class="c-grid"><div><span class="med" style="width:34px;height:34px;background:#F6EED9;color:#92671E;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg></span></div>
+<div><h3 class="c-titre">Préparez une offre pour la rentrée scolaire</h3><p class="c-faits">Rentrée scolaire en cours dans votre région du mardi 25/08 au vendredi 28/08 (4 jours). Motif du jour : jours de vacances scolaires.</p>
+<p class="c-action">Actions conseillées : préparez une offre pour la rentrée scolaire. Briefez l&#x27;équipe dessus en début de service.</p></div>
+<div class="c-eur"><span class="c-meta">25/08 · MS Test</span>
+
+</div></div>
+<div class="c-foot"><button class="sec">Pas pour moi</button><button class="pri">M’engager</button></div></article><article class="carte"><div class="c-grid"><div><span class="med" style="width:34px;height:34px;background:#EEF2FF;color:#1D3BB3;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:17px;height:17px;"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span></div>
+<div><h3 class="c-titre">Adaptez vos opérations — moins d’activité que d’habitude dans votre périmètre</h3><p class="c-faits">L’activité autour de vous sera inférieure à votre moyenne du mardi 25/08 au vendredi 28/08 (4 jours). Chez vous, ces journées rapportent moins que la moyenne. Motif du jour : jours à faible pression concurrentielle.</p>
+<p class="c-action">Actions conseillées : commandez moins et ne prévoyez pas d’extra — ces jours vous rapportent moins.</p></div>
+<div class="c-eur"><span class="c-meta">25/08 · MS Test</span>
+<span class="amt defend">−11 %</span>
+<span class="amt-sub">vos ventes · ces jours-là</span></div></div>
+<div class="c-foot"><button class="sec">Pas pour moi</button><button class="pri">M’engager</button></div></article></div>
+
+<div class="var">Chantiers · variante 1 — une ligne par site</div>
+<div class="band"><div class="bnd"><span class="med" style="width:26px;height:26px;background:#E6F6F0;color:#059669;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+<div class="b-body"><div class="b-titre">Identifiez ce qui déclenche vos jours de pointe</div>
+<div class="b-fait">+243 €/j · ≈ 105 jours par an</div></div>
+<div class="b-tail"><span class="b-site">Muse Square Occitanie</span>
+<span class="b-line"><span class="amt gain">+25 390 €/an</span><button class="lien">M’engager</button></span></div></div><div class="bnd"><span class="med" style="width:26px;height:26px;background:#F6EED9;color:#92671E;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg></span>
+<div class="b-body"><div class="b-titre">Mettez en place votre dispositif vacances scolaires</div>
+<div class="b-fait">−271 €/j · ≈ 92 jours par an</div></div>
+<div class="b-tail"><span class="b-site">MS Test</span>
+<span class="b-line"><span class="amt defend">−24 965 €/an</span><button class="lien">M’engager</button></span></div></div><div class="bnd"><span class="med" style="width:26px;height:26px;background:#F6EED9;color:#92671E;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg></span>
+<div class="b-body"><div class="b-titre">Mettez en place votre dispositif vacances scolaires</div>
+<div class="b-fait">−266 €/j · ≈ 77 jours par an</div></div>
+<div class="b-tail"><span class="b-site">Muse Square Occitanie</span>
+<span class="b-line"><span class="amt defend">−20 379 €/an</span><button class="lien">M’engager</button></span></div></div><div class="bnd"><span class="med" style="width:26px;height:26px;background:#F6EED9;color:#92671E;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg></span>
+<div class="b-body"><div class="b-titre">Mettez en place votre dispositif vacances scolaires</div>
+<div class="b-fait">−211 €/j · ≈ 92 jours par an</div></div>
+<div class="b-tail"><span class="b-site">Muse Square</span>
+<span class="b-line"><span class="amt defend">−19 429 €/an</span><button class="lien">M’engager</button></span></div></div><div class="bnd"><span class="med" style="width:26px;height:26px;background:#E0F2FE;color:#0369A1;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20 16.2A4.8 4.8 0 0016.5 8h-1A6.5 6.5 0 104 14.5"/><path d="M8 19l-1 2M12 19l-1 2M16 19l-1 2"/></svg></span>
+<div class="b-body"><div class="b-titre">Mettez en place votre dispositif pluie</div>
+<div class="b-fait">−193 €/j · ≈ 51 jours par an</div></div>
+<div class="b-tail"><span class="b-site">Muse Square</span>
+<span class="b-line"><span class="amt defend">−9 851 €/an</span><button class="lien">M’engager</button></span></div></div><div class="bnd"><span class="med" style="width:26px;height:26px;background:#E0F2FE;color:#0369A1;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20 16.2A4.8 4.8 0 0016.5 8h-1A6.5 6.5 0 104 14.5"/><path d="M8 19l-1 2M12 19l-1 2M16 19l-1 2"/></svg></span>
+<div class="b-body"><div class="b-titre">Définissez votre dispositif pour les jours à 25–27 °C</div>
+<div class="b-fait">−101 €/j · ≈ 51 jours par an</div></div>
+<div class="b-tail"><span class="b-site">MS Test</span>
+<span class="b-line"><span class="amt defend">−5 175 €/an</span><button class="lien">M’engager</button></span></div></div></div>
+<div class="q">Le même chantier revient <b>trois fois</b> (vacances scolaires × 3 sites). Lisible, mais répétitif en vue compte.</div>
+
+<div class="var">Chantiers · variante 2 — une ligne par motif, sites regroupés</div>
+<div class="band"><div class="bnd"><span class="med" style="width:26px;height:26px;background:#E6F6F0;color:#059669;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span>
+<div class="b-body"><div class="b-titre">Identifiez ce qui déclenche vos jours de pointe</div>
+<div class="b-fait">+243 €/j · ≈ 105 jours par an</div></div>
+<div class="b-tail"><span class="b-site">Muse Square Occitanie</span>
+<span class="b-line"><span class="amt gain">+25 390 €/an</span><button class="lien">M’engager</button></span></div></div><div class="bnd"><span class="med" style="width:26px;height:26px;background:#F6EED9;color:#92671E;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg></span>
+<div class="b-body"><div class="b-titre">Mettez en place votre dispositif vacances scolaires</div>
+<div class="b-fait">3 sites · −271 €/j · ≈ 92 jours par an</div></div>
+<div class="b-tail"><span class="b-site">MS Test · Muse Square Occitanie · Muse Square</span>
+<span class="b-line"><span class="amt defend">−64 773 €/an</span><button class="lien">M’engager</button></span></div></div><div class="bnd"><span class="med" style="width:26px;height:26px;background:#E0F2FE;color:#0369A1;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20 16.2A4.8 4.8 0 0016.5 8h-1A6.5 6.5 0 104 14.5"/><path d="M8 19l-1 2M12 19l-1 2M16 19l-1 2"/></svg></span>
+<div class="b-body"><div class="b-titre">Mettez en place votre dispositif pluie</div>
+<div class="b-fait">3 sites · −193 €/j · ≈ 51 jours par an</div></div>
+<div class="b-tail"><span class="b-site">Muse Square · MS Test · Muse Square Occitanie</span>
+<span class="b-line"><span class="amt defend">−27 217 €/an</span><button class="lien">M’engager</button></span></div></div><div class="bnd"><span class="med" style="width:26px;height:26px;background:#E0F2FE;color:#0369A1;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20 16.2A4.8 4.8 0 0016.5 8h-1A6.5 6.5 0 104 14.5"/><path d="M8 19l-1 2M12 19l-1 2M16 19l-1 2"/></svg></span>
+<div class="b-body"><div class="b-titre">Définissez votre dispositif pour les jours à 25–27 °C</div>
+<div class="b-fait">2 sites · −101 €/j · ≈ 51 jours par an</div></div>
+<div class="b-tail"><span class="b-site">MS Test · Muse Square</span>
+<span class="b-line"><span class="amt defend">−14 802 €/an</span><button class="lien">M’engager</button></span></div></div><div class="bnd"><span class="med" style="width:26px;height:26px;background:#FEF3E2;color:#B45309;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M4 22V4M4 4h12l-2 4 2 4H4"/></svg></span>
+<div class="b-body"><div class="b-titre">Mettez en place votre dispositif jours calmes</div>
+<div class="b-fait">2 sites · −100 €/j · ≈ 51 jours par an</div></div>
+<div class="b-tail"><span class="b-site">MS Test · Muse Square</span>
+<span class="b-line"><span class="amt defend">−12 919 €/an</span><button class="lien">M’engager</button></span></div></div><div class="bnd"><span class="med" style="width:26px;height:26px;background:#FEF3E2;color:#B45309;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M4 22V4M4 4h12l-2 4 2 4H4"/></svg></span>
+<div class="b-body"><div class="b-titre">Mettez en place votre dispositif différenciation</div>
+<div class="b-fait">2 sites · −120 €/j · ≈ 89 jours par an</div></div>
+<div class="b-tail"><span class="b-site">Muse Square Occitanie · Muse Square</span>
+<span class="b-line"><span class="amt defend">−4 210 €/an</span><button class="lien">M’engager</button></span></div></div></div>
+<div class="q">Un motif = une ligne, € cumulé, sites nommés à droite. Plus court — mais « M'engager » doit alors demander <b>sur quel site</b>.</div>
+</div></body></html>

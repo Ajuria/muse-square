@@ -38,7 +38,7 @@ CTE `monthly_channel_latest` → `monthly_sales_hole` / `monthly_sales_spike` da
 `fct_location_daily_action_candidates.sql`. Priorité **4** / **3**, expiration à
 `last_day + 21 jours`, `channel_hint = 'note_interne'`.
 
-Côté app (`public/action-cards.js`) : copie au format MM/AAAA, nombres en fr-FR, ligne
+Côté app (`public/js/action-cards.js`) : copie au format MM/AAAA, nombres en fr-FR, ligne
 **« Porté par : »** alimentée par `top_parties`, et **« Données jusqu'au »** — la carte dit toujours
 jusqu'où va la donnée.
 
@@ -103,7 +103,7 @@ order by month_start
 ## Ce qui reste ouvert
 
 1. **Le rail « note interne » n'est pas branché** — `channel_hint = 'note_interne'` côté dbt, mais
-   les deux types sont absents de `V1_ALERT_ACTION_TYPES` (`src/lib/internalAlertCards.ts`). Les
+   les deux types sont absents de `V1_ALERT_ACTION_TYPES` (`src/lib/context/internalAlertCards.ts`). Les
    cartes ne surfacent donc que le jour de leur ingestion. **Jamais arbitré**, exactement comme en
    C2 — c'est une seule décision à prendre pour les quatre cartes.
 2. **La table mensuelle ne se reconstruit plus depuis le 07/08**, alors que ses voisines

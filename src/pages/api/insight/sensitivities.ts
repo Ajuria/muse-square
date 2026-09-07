@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
 import { makeBQClient } from '../../../lib/bq';
-import { type Tier } from '../../../lib/sensitivityStore';
-import { citeSensitivity, TIER_SECTION } from '../../../lib/sensitivityCopy';
-import { assembleDayContext } from '../../../lib/dayContext';
+import { type Tier } from '../../../lib/sensitivity/sensitivityStore';
+import { citeSensitivity, TIER_SECTION } from '../../../lib/sensitivity/sensitivityCopy';
+import { assembleDayContext } from '../../../lib/context/dayContext';
 
 export const prerender = false;
 

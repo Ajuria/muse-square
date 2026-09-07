@@ -21,7 +21,8 @@ const MIN_DAYS = 5;   // measured-impact floor
 const FEATS = ["heat", "rain", "cold", "wind", "snow"] as const;
 const LVL_COL: Record<string, string> = { heat: "lvl_heat", rain: "lvl_rain", cold: "lvl_cold", wind: "lvl_wind", snow: "lvl_snow" };
 const LABEL: Record<string, string> = { heat: "forte chaleur", rain: "pluie", cold: "grand froid", wind: "vent fort", snow: "neige" };
-const WINDOW_NOUN: Record<string, string> = { heat: "canicule", rain: "épisode pluvieux", cold: "vague de froid", wind: "coup de vent", snow: "épisode neigeux" };
+// 06/09 (owner, N8) : « canicule » est un critère officiel (3 jours et 3 nuits, seuils départementaux) que lvl_heat ne vérifie pas — le mot sort ; « forte chaleur » est celui de la classe structurelle.
+const WINDOW_NOUN: Record<string, string> = { heat: "épisode de forte chaleur", rain: "épisode pluvieux", cold: "vague de froid", wind: "coup de vent", snow: "épisode neigeux" };
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });

@@ -8,7 +8,7 @@ import {
   norm, extractNamedEntities, splitSentences,
   CAUSAL_ATTRIBUTION_PATTERNS, PREDICTED_OUTCOME_PATTERNS, verdictRegisterViolations,
 } from "./groundingChecks";
-import { TIER_TOKEN_FR } from "../../sensitivityCopy";
+import { TIER_TOKEN_FR } from "../../sensitivity/sensitivityCopy";
 
 
 

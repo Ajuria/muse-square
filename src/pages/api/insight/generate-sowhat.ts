@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { modelFor } from "../../../lib/ai/models";
-import { frActivity, frAudience, frVenueType, frObjective, frRegime, frWeatherSensitivity } from "../../../lib/profileLabels";
+import { frActivity, frAudience, frVenueType, frObjective, frRegime, frWeatherSensitivity } from "../../../lib/profile/profileLabels";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { rateLimit } from "../../../lib/rate-limit";
 

@@ -3,7 +3,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
 // NO import of ./publish — the manual internal-send rail has no path to any public handler.
-import { V1_ALERT_ACTION_TYPE_SET } from "../../../lib/internalAlertCards";
+import { V1_ALERT_ACTION_TYPE_SET } from "../../../lib/context/internalAlertCards";
 
 export const prerender = false;
 

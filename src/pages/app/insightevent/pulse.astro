@@ -169,7 +169,7 @@ if (!location_id) {
       /* ---- Action-card chips / action line / Agir / disposition ---- */
       .chip-n { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-source-low-bg); color:var(--color-pill-source-low-text); white-space:nowrap; }
       .chip-good { display:inline-flex; align-items:center; gap:4px; font-size:12px; padding:3px 9px; border-radius:20px; background:var(--color-pill-green-bg); color:var(--color-pill-green-text); white-space:nowrap; }
-      /* Restyle R4 (validé 26/07, proto cards-restyle-proto.html) : la ligne d'action est
+      /* Restyle R4 (validé 26/07, proto cards-restyle-proto.html (supprime le 05/09/2026 - surface livree, historique git)) : la ligne d'action est
          l'instruction de la carte — en gras pour porter la hiérarchie chiffre → action. */
       .aline { color:#1D3BB3; font-size:13px; font-weight:600; line-height:1.5; margin:8px 0 0; }
       /* Geste « Préciser ce compte » (carte client_dormant, spec client-patterns § R.3) —
@@ -224,6 +224,8 @@ if (!location_id) {
       .ab-what:hover { color:#1D3BB3; }
       .ab-what[data-consult-open]:hover { color:#1D3BB3; }
       .ab-sowhat { font-size:13px; color:#374151; line-height:1.65; max-width:58ch; }
+      /* 06/09 (audit P6) : réserve de régime, hors clamp, même colonne que le corps. */
+      .ab-reserve { font-size:12.5px; color:#6B7280; line-height:1.5; max-width:58ch; margin-top:4px; }
       /* Restyle R1/R5/R6 : montant (Enjeu €/an) dans la zone titre — chiffre d'abord. Libellé
          invariant deux mots (« Enjeu · estimé/mesuré », « Motif de fond · estimé » si hérité) ;
          « facteurs mêlés » + sens de la couleur en infobulle (title), signalée par le
@@ -383,12 +385,12 @@ if (!location_id) {
     <!-- leaflet/map-markers intentionally NOT loaded here: the radar map renders in an
          <iframe src="/app/insightevent/map"> which self-loads leaflet. Loading them on this
          page was ~166KB of dead render-blocking JS/CSS. -->
-    <script is:inline src="/ms-loader.js?v=2"></script>
-    <script is:inline src="/reco-library.js?v=12"></script>
-    <script is:inline src="/commit-form.js?v=15"></script>
-    <script is:inline src="/bp-form.js?v=1"></script>
-    <script is:inline src="/action-cards.js?v=100"></script>
-    <script is:inline src="/draft-workspace.js?v=5"></script>
+    <script is:inline src="/js/ms-loader.js?v=2"></script>
+    <script is:inline src="/js/reco-library.js?v=12"></script>
+    <script is:inline src="/js/commit-form.js?v=15"></script>
+    <script is:inline src="/js/bp-form.js?v=1"></script>
+    <script is:inline src="/js/action-cards.js?v=117"></script>
+    <script is:inline src="/js/draft-workspace.js?v=5"></script>
   
 
   </BaseLayout>
@@ -1213,7 +1215,7 @@ if (!location_id) {
   // Shared channel metadata — module scope so openBrouillonLibrary (and others) can reference it.
   var CHANNEL_DEFS = {gbp:{label:"Google Business Profile",max:1500,icon:"G",color:"#4285F4",cat:"pub"},instagram:{label:"Instagram",max:2200,icon:"IG",color:"#E1306C",cat:"pub"},facebook:{label:"Facebook",max:null,icon:"FB",color:"#0866FF",cat:"pub"},email:{label:"Email",max:null,icon:"@",color:"#6B7280",cat:"send"},sms:{label:"SMS",max:160,icon:"SM",color:"#059669",cat:"send"},whatsapp:{label:"WhatsApp",max:1000,icon:"WA",color:"#25D366",cat:"send"},slack:{label:"Slack",max:null,icon:"SL",color:"#4A154B",cat:"send"},internal:{label:"Note interne",max:null,icon:"N",color:"#374151",cat:"send"},phone:{label:"Appel téléphonique",max:null,icon:"T",color:"#0ea5e9",cat:"send"}};
   function openBrouillonLibrary(opts) { return window.MSDraftWorkspace.openLibrary(opts); }
-  // (corps déplacé dans public/draft-workspace.js — tiroir partagé, 18/07.)
+  // (corps déplacé dans public/js/draft-workspace.js — tiroir partagé, 18/07.)
 
   // ---- Render ----
   function renderDailyBrief(allFeed, profile, currentDay, selectedDate, locationId, days, followedCount, activeGoalKey) {
@@ -1564,7 +1566,7 @@ if (!location_id) {
           pills.push('<span class="ab-metric" style="background:' + o.bg + ';color:' + o.fg + ';font-weight:600;' + strikeCss + '"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="' + o.fg + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' + o.icon + '</svg>' + o.txt + '</span>');
         }
       }
-      // Enjeu \u20ac/an : depuis le restyle R1 (valid\u00e9 26/07, proto cards-restyle-proto.html) le
+      // Enjeu \u20ac/an : depuis le restyle R1 (valid\u00e9 26/07, proto cards-restyle-proto.html (supprime le 05/09/2026 - surface livree, historique git)) le
       // montant ne vit plus ici \u2014 il est rendu dans la zone titre (bloc .amt, cf. cardsHtml).
       // La strip garde : automation/\u00e9tat, r\u00e9putation, raison d'absence, disposition (R3).
       var enj = a && a.enjeu;
@@ -1606,7 +1608,7 @@ if (!location_id) {
       try {
         window.__msCardByIdx = window.__msCardByIdx || {};
         // "Mon action" proposes up to 3 driver-matched RECOMMENDED actions (spec.recos, from the
-        // owner reco library public/reco-library.js) — NOT the sowhat surveillance line (t.action,
+        // owner reco library public/js/reco-library.js) — NOT the sowhat surveillance line (t.action,
         // "À surveiller : confirmez si…"). User picks one -> fills the field (still editable).
         // Empty array when the card type has no reco, so the field is never wrong.
         var _akey = (t && t._spec_action_type) || entry.item.change_subtype || entry.item.action_type;
@@ -1658,7 +1660,10 @@ if (!location_id) {
       else if (typeof _sw === 'string') { _swText = _sw; }
       // Corps étendu PAR CARTE (gabarit owner 25/08, miroir d'action-cards.js) : le créneau
       // porte récurrence + fait + funnel + réserve de régime ; les autres restent à 2 / 200.
-      var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320] })[String(t._spec_action_type || '')] || [2, 200];
+      // 06/09 (trois couches) — COPIE de la carte du kit (renderActionCandidates, _swLim) : un jumeau de
+      // plus (vu au harnais : le kit rendait « Familles : Coffee +310 € … », la page le coupait à 2 phrases).
+      // sales_surge / down_wow disent fait + facteur + familles = 3 phrases.
+      var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], tickets_lines_move: [3, 320], item_absent_regular: [3, 320], family_price_move: [3, 320], family_discount_move: [3, 320], sales_surge: [3, 470], sales_revenue_down_wow: [3, 470] })[String(t._spec_action_type || '')] || [2, 200];
       var _sArr = String(_swText || '').split('. ');
       var _s1 = _sArr.slice(0, _swLim[0]).join('. ');
       if (_s1 && !_s1.endsWith('.')) _s1 += '.';
@@ -1671,18 +1676,18 @@ if (!location_id) {
       // consultable). Le pattern « Voir » n'existe que dans le fil d'actualité, jamais ici.
       var consultOpen = ' data-consult-open="' + cardIdx + '" style="cursor:pointer;"';
 
-      // Triage par site (validé 26/07, proto actions-triage-proto.html) : chaque carte porte ses
+      // Triage par site (validé 26/07, proto actions-triage-proto.html (supprime le 05/09/2026 - surface livree, historique git)) : chaque carte porte ses
       // clés de tri — site, horizon (0=aujourd'hui,1=semaine,2=autre), |enjeu|, nature.
       var _tSite = String(entry.item.location_label || '');
       var _tH = (t.urgencyPill && String(t.urgencyPill.label).indexOf('ujourd') >= 0) ? 0 : ((t.urgencyPill && String(t.urgencyPill.label).indexOf('semaine') >= 0) ? 1 : 2);
       var _tE = (entry.item.enjeu && entry.item.enjeu.eur_year) ? Math.abs(Math.round(Number(entry.item.enjeu.eur_year))) : 0;
       var _tN = (entry.item.enjeu && Number(entry.item.enjeu.eur_year)) ? (Number(entry.item.enjeu.eur_year) > 0 ? 'capture' : 'defend') : 'none';
 
-      // ---- Restyle R1-R6 (validé 26/07, proto cards-restyle-proto.html) ----
+      // ---- Restyle R1-R6 (validé 26/07, proto cards-restyle-proto.html (supprime le 05/09/2026 - surface livree, historique git)) ----
       // R2 : barre latérale sémantique = border-left de la carte (couleurs .ab-bar existantes :
       // rouge menace / ambre vigilance / vert opportunité, gris neutre sinon).
       // R2 : chip catégorie sobre — sans emoji, sans MAJUSCULES (le sémantique est sur la barre).
-      // R1/R5/R6 + code couleur lisible (proto engagement-cards-restyle-proto.html, validé
+      // R1/R5/R6 + code couleur lisible (proto engagement-cards-restyle-proto.html (supprime le 05/09/2026 - surface livree, historique git), validé
       // 27/07) : montant SIGNÉ (+/−) + mini-phrase en français courant — « à gagner »,
       // « perdus · <cause> ». La cause vient de label_fr (préfixe « jours de » retiré), jamais
       // écrite à la main. « estimé/mesuré », « motif de fond », « multifactorielle » → infobulle.
@@ -1699,6 +1704,10 @@ if (!location_id) {
         return meta;
       })();
       var _amtHtml = '';
+      // 06/09 (audit N1) — le coin est-il le chiffre de l'OBJET que la carte nomme (écart du
+      // jour, corner_day_mode) ? Un €/an de population ou de classe et un % funnel sont des
+      // chiffres EMPRUNTÉS : mesurés, mais pas sur cet objet. Le tri du pli lit la distinction.
+      var _amtOwn = false;
       if (entry.item.enjeu && Number(entry.item.enjeu.eur_year) && entry.item.enjeu.tier) {
         var _enj = entry.item.enjeu;
         var _aVal = Math.abs(Math.round(Number(_enj.eur_year))).toLocaleString('fr-FR');
@@ -1738,7 +1747,7 @@ if (!location_id) {
         // payload (delta_eur = réel − habituel de l'heure/produit ce jour), référentiel nommé.
         if (_dp0.delta_eur != null && isFinite(Number(_dp0.delta_eur))) {
           _dRev = Number(_dp0.delta_eur); _dRefV = 0;
-          _dRefLbl = _dp0.transaction_hour != null ? 'vs votre résultat habituel à cette heure' : (_dp0.item_description ? 'vs votre résultat habituel sur ce produit' : 'vs votre résultat habituel sur cette famille');
+          _dRefLbl = _dp0.transaction_hour != null ? 'vs votre résultat habituel à cette heure' : (_dp0.item_description ? 'vs votre résultat habituel sur ce produit' : (_dp0.lines_per_ticket != null ? 'vs vos paniers habituels (articles en plus ou en moins × € par article)' : (_dp0.discount_delta_points != null ? 'vs votre remise habituelle sur cette famille (points de remise × CA du jour)' : (_dp0.realized_price != null ? 'vs votre prix habituel sur cette famille (écart de prix × unités du jour)' : 'vs votre résultat habituel sur cette famille'))));
         }
         if (_dRev != null && _dRefV != null && isFinite(_dRev) && isFinite(_dRefV)) {
           var _dGap = Math.round(_dRev - _dRefV);
@@ -1746,11 +1755,29 @@ if (!location_id) {
           var _dRefTxt = _dp0.delta_eur != null
             ? ('Écart ' + _dRefLbl + (_dp0.expected_hour_revenue != null ? ' (' + Math.round(Number(_dp0.expected_hour_revenue)).toLocaleString('fr-FR') + ' €)' : '') + '.')
             : ('Écart du jour ' + _dRefLbl + ' (' + Math.round(_dRefV).toLocaleString('fr-FR') + ' €).');
-          _amtHtml = '<div class="amt ' + (_dGap >= 0 ? 'gain' : 'defend') + '" title="' + escapeHtml(_dRefTxt + ' Ce coin passera en €/an « au rythme constaté » dès 5 occurrences du même problème — jamais extrapolé d’un jour isolé.') + '">'
+          // 06/09 (audit N1) — event_measure (« Résultat d'hier ») n'a pas de population : la
+          // promesse « passera en €/an dès récurrence » y serait fausse. Infobulle et mini gardent
+          // le référentiel seul ; les autres cartes « € du jour » sont inchangées.
+          var _dNoPop = (String(t._spec_action_type || '') === 'event_measure');
+          // 06/09 (audit P4) — carte de FAIT (delta_eur) : le coin reste l'écart du jour de l'objet,
+          // il ne « passera » jamais en €/an — sa population vit ici, au ⓘ, avec sa fenêtre de
+          // mesure (mêmes mots que l'infobulle des coins €/an : « vos <motif> », « mesuré sur N j / M mois »).
+          var _dPop = (_dp0.delta_eur != null && entry.item.population_enjeu && Number(entry.item.population_enjeu.eur_year)) ? entry.item.population_enjeu : null;
+          var _dPopTxt = _dPop ? (' Vos ' + String(_dPop.label_fr || '') + ' : ' + (Number(_dPop.eur_year) > 0 ? '+' : '−') + Math.abs(Math.round(Number(_dPop.eur_year))).toLocaleString('fr-FR') + ' €/an' + (_dPop.n_days ? ', mesuré sur ' + _dPop.n_days + ' j / ' + _dPop.span_months + ' mois' : '') + '.') : '';
+          var _dNoPromise = _dNoPop || _dp0.delta_eur != null;
+          // 06/09 (audit P1) — l'écart du jour d'un fait à régime contredit (regime_mismatch_flag)
+          // est bien le chiffre de l'objet, mais son référentiel est fragile : il ne vaut pas le
+          // rang 2 du tri (« propre »), il reste au rang 1 avec les chiffres empruntés.
+          _amtOwn = !(_dp0.regime_mismatch_flag === true);
+          _amtHtml = '<div class="amt ' + (_dGap >= 0 ? 'gain' : 'defend') + '" title="' + escapeHtml(_dRefTxt + _dPopTxt + (_dNoPromise ? '' : ' Ce coin passera en €/an « au rythme constaté » dès 5 occurrences du même problème — jamais extrapolé d’un jour isolé.')) + '">'
             + '<div class="amt-val" style="color:' + _dFg + ';">' + (_dGap >= 0 ? '+' : '−') + Math.abs(_dGap).toLocaleString('fr-FR') + ' €</div>'
             // 24/08 — le fait est daté : « ce jour » lisait comme aujourd'hui alors que la carte
             // remonte en latest-per-type des jours après le fait (CA du 28/07 rendu un lundi 24/08).
-            + '<div class="amt-sub">' + ((function (iso) { var s = String(iso || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? 'le ' + s.slice(8, 10) + '/' + s.slice(5, 7) : 'ce jour'; })(entry.item.date)) + ' · passera en €/an dès récurrence</div>'
+            // 06/09 (P1, vu au harnais) : les cartes de faits n'ont pas de `date` sur l'item du kit,
+            // seulement `affected_date` — la mini disait « ce jour » pour un fait du 04/09.
+            // event_measure est datée AUJOURD'HUI (carte de cycle de vie) mais son fait est d'HIER :
+            // la mini porte la date du fait (payload occurrence_date), comme les autres cartes datées.
+            + '<div class="amt-sub">' + ((function (iso) { var s = String(iso || '').slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? 'le ' + s.slice(8, 10) + '/' + s.slice(5, 7) : 'ce jour'; })(_dNoPop ? _dp0.occurrence_date : (entry.item.date || entry.item.affected_date))) + (_dNoPromise ? '' : ' · passera en €/an dès récurrence') + '</div>'
           + '</div>';
         }
       }
@@ -1765,6 +1792,29 @@ if (!location_id) {
           + ' title="Ce montant existe. Il n’est pas calculable tant que le périmètre de mesure n’est pas déclaré — nous ne devinons pas un rayon.">'
           + '<div class="amt-val" style="color:#1D3BB3;">? €/an</div>'
           + '<div class="amt-sub">votre réponse le débloque</div>'
+        + '</div>';
+      }
+      // 06/09 (audit P4) — UNE UNITÉ PAR CARTE. Quand la carte porte son PROPRE motif environnemental
+      // (CARD_CONTEXT_CLASS : faible activité dans le périmètre, événements voisins, tourisme — jamais
+      // un motif hérité de la date), le coin dit ce que ces jours valent chez vous EN EUROS PAR JOUR
+      // (avg_gap_eur, la médiane du moteur — le même nombre que le geste : « ils vous rapportent
+      // 203 € de plus par jour »), et le % funnel descend au ⓘ. Avant : « +19 % · vos visiteurs » au
+      // coin et « 225 € de plus par jour » dans le geste — deux référentiels sur une carte (A1 du
+      // 04/09). Le €/an de la classe n'y revient jamais : il est celui du chantier structurel.
+      if (!_amtHtml && entry.item.context_motif && entry.item.context_motif.inherited !== true
+          && isFinite(Number(entry.item.context_motif.avg_gap_eur)) && Math.round(Number(entry.item.context_motif.avg_gap_eur)) !== 0) {
+        var _cx = entry.item.context_motif;
+        var _cxV = Math.round(Number(_cx.avg_gap_eur));
+        var _cxFg = _cxV > 0 ? 'var(--color-pill-green-text)' : '#B45309';
+        var _cxTip = 'Mesuré sur ' + (_cx.n_days || '?') + ' jours de ' + String(_cx.label_fr || '') + ' : ' + (_cxV > 0 ? '+' : '−') + Math.abs(_cxV).toLocaleString('fr-FR') + ' € par jour vs vos jours comparables.';
+        if (entry.item.funnel_corner && isFinite(Number(entry.item.funnel_corner.pct))) {
+          var _cxK = entry.item.funnel_corner.kpi, _cxP = Math.round(Number(entry.item.funnel_corner.pct) * 100);
+          var _cxSub = ({ footfall: 'Vos visiteurs', transactions: 'Vos ventes', basket: 'Votre panier moyen', conversion: 'Votre taux de conversion', busyness: 'Votre affluence estimée' })[_cxK];
+          if (_cxSub && _cxP !== 0) _cxTip += ' ' + _cxSub + ' ' + (_cxP > 0 ? '+' : '−') + Math.abs(_cxP) + ' % sur ces jours.';
+        }
+        _amtHtml = '<div class="amt ' + (_cxV > 0 ? 'gain' : 'defend') + '" title="' + escapeHtml(_cxTip) + '">'
+          + '<div class="amt-val" style="color:' + _cxFg + ';">' + (_cxV > 0 ? '+' : '−') + Math.abs(_cxV).toLocaleString('fr-FR') + ' €</div>'
+          + '<div class="amt-sub">par jour · ces jours-là</div>'
         + '</div>';
       }
       // BARREAU 2 du coin (owner 24/08) : ni enjeu €, ni € du jour, ni question de périmètre —
@@ -1817,8 +1867,13 @@ if (!location_id) {
         // donc toutes sous le pli, derrière des cartes à enjeu ZÉRO.
         //  · data-t-k = la carte porte-t-elle un chiffre MESURÉ au coin ? « pas encore chiffré »
         //    et « ? €/an » (périmètre) ne comptent pas : ce sont des absences, pas des mesures.
+        //    06/09 (audit N1) : TROIS niveaux — 2 = chiffre de l'OBJET nommé (écart du jour,
+        //    corner_day_mode) ; 1 = chiffre emprunté (€/an de population ou de classe, % funnel) ;
+        //    0 = rien. Mesuré le 06/09 : 15 cartes à chiffre emprunté passaient devant la seule
+        //    carte à résultat propre (« Résultat d'hier », +612 €). L'arbitrage du 25/08
+        //    (mesuré devant non mesuré) reste entier entre 1 et 0.
         //  · data-t-type = le type, pour regrouper les motifs identiques entre sites.
-        + ' data-t-k="' + ((_amtHtml && _amtHtml.indexOf('amt-val') >= 0 && _amtHtml.indexOf('? €/an') < 0) ? '1' : '0') + '"'
+        + ' data-t-k="' + (_amtOwn ? '2' : ((_amtHtml && _amtHtml.indexOf('amt-val') >= 0 && _amtHtml.indexOf('? €/an') < 0) ? '1' : '0')) + '"'
         // P2 (27/08) : 1 si le THÈME de la carte a déjà été écarté (« Pas pour moi ») sur CE
         // site — départage FINAL du tri seulement, clés arbitrées du 25/08 intouchées.
         + ' data-t-rej="' + (function () { var th = (typeof window._themeOfActionType === 'function') ? window._themeOfActionType(String(t._spec_action_type || '')) : null; var rej = (window._themeRejByLoc || {})[String(entry.item.location_id || '')] || {}; return (th && Number(rej[th]) > 0) ? '1' : '0'; })() + '"'
@@ -1842,6 +1897,14 @@ if (!location_id) {
                         // (context_motif) pour les seules cartes d'anomalie/conjonction.
                         + (function () {
                             var cm = entry.item.context_motif;
+                            // 06/09 (owner, P7) — une carte de CALENDRIER sans classe mesurée sur sa date ne
+                            // reste pas sans motif : son motif est le temps fort lui-même. Mot owner 06/09 :
+                            // « saisonnalité » (lexique, tableau des mots). Le nom vient du payload (mart),
+                            // jamais du titre.
+                            if (!cm && String(t._spec_action_type || '') === 'commercial_event_match') {
+                              var _cen = String((entry.item.data_payload || {}).commercial_event_name || '').trim();
+                              if (_cen) return ' ' + escapeHtml('Motif du jour : saisonnalité — ' + _cen.charAt(0).toLowerCase() + _cen.slice(1) + '.');
+                            }
                             if (!cm || !cm.label_fr || !Number(cm.eur_year)) return '';
                             var v = Math.abs(Math.round(Number(cm.eur_year))).toLocaleString('fr-FR');
                             // Streamline (owner 25/08) : le corps dit le motif SEUL — le chiffrage
@@ -1861,6 +1924,10 @@ if (!location_id) {
                             return line;
                           })()
                       + '</div>'
+                  // 06/09 (audit P6) — la phrase de réserve (« Comparé surtout à … — l'écart peut tenir
+                  // au calendrier ») vit HORS du clamp : elle était pliée sous « Voir plus » pendant
+                  // que le montant du coin restait visible — l'aveu caché, le chiffre gras non.
+                  + (t.reserve ? '<div class="ab-reserve">' + escapeHtml(t.reserve) + '</div>' : '')
                   + (t.action ? '<div class="aline">' + escapeHtml(t.action) + '</div>' : '')
                   + msPartyRoleStrip(entry.item)
           + '</div>'
@@ -1869,7 +1936,6 @@ if (!location_id) {
         + '<div class="ab-rfoot"'
               + ' data-ab-draft-sub="' + escapeHtml(String(entry.item.change_subtype||"")) + '"'
               + ' data-ab-draft-what="' + escapeHtml(String(t.what).replace(/<[^>]+>/g,"")) + '"'
-              + ' data-ab-draft-sowhat="' + escapeHtml(String(t.sowhat||"")) + '"'
               + ' data-ab-draft-affected="' + escapeHtml(normalizeYmd(entry.item.affected_date)||"") + '"'
               + ' data-ab-draft-location="' + escapeHtml(String(entry.item.location_id||"")) + '"'
               + ' data-ab-draft-signal=\'' + signalJson + '\'>'
@@ -1975,7 +2041,7 @@ if (!location_id) {
     // Triage par site (validé 26/07) : reconstruit blocs/tri/plis/filtres après chaque montage du brief.
     try { buildTriageLayout(); } catch (e) {}
     // (CHANNEL_DEFS/buildChannelDropdown/buildWorkspaceHtml/updateCharCount supprimés —
-    //  portés par le workspace partagé public/draft-workspace.js, 18/07.)
+    //  portés par le workspace partagé public/js/draft-workspace.js, 18/07.)
 
  
     function autoResizeTextarea(el) {
@@ -2103,7 +2169,7 @@ if (!location_id) {
               body: JSON.stringify({ practice_id: ws.getAttribute('data-bp-chain-practice'), location_id: card.location_id, replay_commitment_id: j.commitment_id }) }).catch(function(){});
             ws.removeAttribute('data-bp-chain-practice');
           }
-          // Redirection post-engagement (validé 26/07, proto evolution-j1-proto.html) : après le
+          // Redirection post-engagement (validé 26/07, proto evolution-j1-proto.html (supprime le 05/09/2026 - surface livree, historique git)) : après le
           // battement de succès (le temps de lire « notification envoyée »), la page évolution —
           // le contrat signé : ce qui sera suivi, l'enjeu, la fenêtre, la consigne de retour.
           // La carte système sort au retour via la suppression serveur Phase 1.
@@ -2114,7 +2180,7 @@ if (!location_id) {
         onCancel: function(){ ws.style.display = 'none'; ws.innerHTML = ''; ws.removeAttribute('data-bp-chain-practice'); }
       });
     }
-    // Branche POSITIVE de M'engager (validé 26/07, proto methode-proto.html) : sur une carte
+    // Branche POSITIVE de M'engager (validé 26/07, proto methode-proto.html (supprime le 05/09/2026 - surface livree, historique git)) : sur une carte
     // opportunité (nature du signal — data-agir-positive posé au build sur t.barClass), le
     // menu ouvre « Enrichir vos bonnes pratiques » (MSBpForm) au lieu du formulaire objectif.
     function _openBpForm(ws, card) {
@@ -2653,7 +2719,12 @@ if (!location_id) {
         el.classList.toggle("pls-clamp", !isClamped);
         more.textContent = isClamped ? "Voir moins" : "Voir plus";
       });
-      el.insertAdjacentElement("afterend", more);
+      // 06/09 (audit P6) — le GESTE avant le lien : « Voir plus » s'insérait entre le fait et la
+      // ligne d'action, qui tombait sous le lien à la place d'un pied. Le lien se place après la
+      // réserve et la ligne d'action quand elles existent ; il déplie toujours le corps.
+      var _anchor = el, _sib = el.nextElementSibling;
+      while (_sib && _sib.classList && (_sib.classList.contains("ab-reserve") || _sib.classList.contains("aline"))) { _anchor = _sib; _sib = _sib.nextElementSibling; }
+      _anchor.insertAdjacentElement("afterend", more);
     });
   }
 
@@ -2910,6 +2981,39 @@ if (!location_id) {
     var m = /^(\d+)d$/.exec(String(k || '')); return m ? m[1] + ' j' : '7 j';
   }
   function _cgEur(n){ return (Math.round(Number(n) || 0)).toLocaleString('fr-FR') + ' €'; }
+  // 06/09 (audit N6) — « (ventes +4 %, panier −2 %) » : un signe par delta (lexique règle 3), le
+  // référentiel est celui de la phrase (vs votre résultat habituel). Un seul des deux mesuré → lui seul.
+  // 06/09 (owner : familles au verdict) — « Familles : Coffee 44 % du CA (672 €) contre 39 % d'habitude
+  // (362 €), Tea 32 % (496 €) contre 28 % (263 €). » — même forme que les cartes ventes ; JSON du résolveur.
+  function _cgFams(r){
+    var raw = _cgFv(r.window_top_families); if (!raw) return '';
+    var fams; try { fams = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) { return ''; }
+    if (!Array.isArray(fams) || !fams.length) return '';
+    var pc = function(v){ return Math.round(Number(v) * 100) + ' %'; };
+    // 07/09 (owner : « we need both ») : unités à côté des €.
+    var eu = function(v, u){ if (v == null || !isFinite(Number(v))) return ''; var s = ' (' + Math.round(Number(v)).toLocaleString('fr-FR') + ' €'; if (u != null && isFinite(Number(u))) s += ', ' + Math.round(Number(u)).toLocaleString('fr-FR') + ' article' + (Math.round(Number(u)) > 1 ? 's' : ''); return s + ')'; };
+    return ' Familles : ' + fams.map(function(f, i){ return f.family + ' ' + pc(f.revenue_share) + (i === 0 ? ' du CA' : '') + eu(f.revenue, f.units) + ' contre ' + pc(f.baseline_share) + (i === 0 ? ' d\u2019habitude' : '') + eu(f.expected_revenue, f.baseline_units); }).join(', ') + '.';
+  }
+  function _cgTxBk(r){
+    // 06/09 — trois couches : quand les termes en € de la fenêtre existent (lot dbt ms_database#112),
+    // ils remplacent les % — « (volume +752 €, panier −33 €) », même référentiel que le CA.
+    // Owner 06/09 : le volume est un COMPTE, le panier des € PAR TICKET — jamais des euros de « volume ».
+    var wtx = r.window_transactions != null ? Number(_cgFv(r.window_transactions)) : null;
+    var wetx = r.window_expected_transactions != null ? Number(_cgFv(r.window_expected_transactions)) : null;
+    var wbk = r.window_avg_basket != null ? Number(_cgFv(r.window_avg_basket)) : null;
+    var webk = r.window_expected_basket != null ? Number(_cgFv(r.window_expected_basket)) : null;
+    if (wtx != null && wetx != null && wbk != null && webk != null && isFinite(wtx) && isFinite(wetx) && isFinite(wbk) && isFinite(webk)) {
+      var e2 = function(v){ return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'; };
+      return ' (' + Math.round(wtx).toLocaleString('fr-FR') + ' ventes contre ' + Math.round(wetx).toLocaleString('fr-FR') + ', panier ' + e2(wbk) + ' contre ' + e2(webk) + ')';
+    }
+    var tx = r.window_transactions_delta_pct != null ? Number(_cgFv(r.window_transactions_delta_pct)) : null;
+    var bk = r.window_basket_delta_pct != null ? Number(_cgFv(r.window_basket_delta_pct)) : null;
+    var f = function(v){ return (v >= 0 ? '+' : '−') + Math.abs(Math.round(v)) + ' %'; };
+    var parts = [];
+    if (tx != null && isFinite(tx)) parts.push('ventes ' + f(tx));
+    if (bk != null && isFinite(bk)) parts.push('panier ' + f(bk));
+    return parts.length ? ' (' + parts.join(', ') + ')' : '';
+  }
   // indicative % above "habituel" needed to validate the objective — the z threshold
   // translated through the location's noise band (~0.19 = CV × √VIF) over the window.
   function _cgTargetPct(z, days){ return Math.max(1, Math.round((Number(z) || 1) * 0.19 / Math.sqrt(days || 7) * 100)); }
@@ -2946,6 +3050,7 @@ if (!location_id) {
     var resolved = r.status === 'resolved';
     var amber = resolved && r.verdict === 'met' && r.ctx_any_school_holiday && Number(r.material_holiday_share) < 0.5;
     var chip = r.status === 'open' ? 'En cours' : r.status === 'pending' ? 'Dates pass\u00e9es' : r.status === 'expired' ? 'Clôturé' : 'Évalué';
+    // 06/09 : le % du verdict s'arrondit à l'entier (« +66.16 % » rendu tel quel depuis la base).
     var pct = r.window_residual_pct;
     // Measurable, card-specific objective vs past performance: a concrete € target above
     // "votre habituel" (the window baseline captured at creation), + the % to clear it.
@@ -2957,7 +3062,7 @@ if (!location_id) {
       ? Math.round(Number(_cgFv(r.threshold_value)))
       : _cgTargetPct(r.threshold_value, _days); // % vs CA habituel to validate
     var _uplift = _base != null ? Math.round((_base / _days) * _ypct / 100 / 10) * 10 : null; // €/day, rounded to 10
-    // R1 (proto engagement-cards-restyle-proto.html, validé 27/07) : le titre est l'ACTION
+    // R1 (proto engagement-cards-restyle-proto.html (supprime le 05/09/2026 - surface livree, historique git), validé 27/07) : le titre est l'ACTION
     // elle-même ; le chiffre (objectif ou résultat) vit en zone titre (bloc .amt, cf. _amt).
     // TITRE COURT, OBJECTIF EN DESSOUS (owner 25/08). `committed_action_text` est la saisie
     // BRUTE de l'exploitant : sur le compte owner, quarante mots avec leurs coquilles servaient
@@ -2972,7 +3077,10 @@ if (!location_id) {
     var sowhat = r.status === 'open' ? escapeHtml((r.window_kind === 'day_of' ? 'Mesure ' : 'Mesure sur ') + _cgWin(r.window_kind, r.window_start) + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'pending' ? escapeHtml('Ventes reçues ' + (r.window_days_resolved || 0) + ' / ' + r.window_days_expected + ' j' + (_base != null ? ' · CA habituel ' + _cgEur(_base) : '') + '.')
       : r.status === 'expired' ? escapeHtml('Aucune donnée de ventes reçue en 30 j.')
-      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel' + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind, r.window_start) + '.')
+      // 06/09 (audit N6) — ventes et panier de la fenêtre, même référentiel que le CA (résultat
+      // habituel). Forme approuvée de la ligne d'action sales_surge : « (ventes +3 %, panier −8 %) ».
+      // Absents (résolution antérieure au 06/09, ou mesure impossible) → rien, jamais un zéro.
+      : pct != null ? escapeHtml('CA ' + (Number(pct) >= 0 ? '+' : '−') + Math.abs(Math.round(Number(pct))) + ' % vs votre résultat habituel' + _cgTxBk(r) + (_base ? ' · habituel ' + _cgEur(_base) : '') + ' · fenêtre ' + _cgWin(r.window_kind, r.window_start) + '.' + _cgFams(r))
       : escapeHtml('Dates de l\u2019op\u00e9ration : ' + _cgWin(r.window_kind, r.window_start) + '.');
     // Code couleur lisible (proto 27/07) : montant signé + mini-phrase. Objectif bleu tant que
     // rien n'est mesuré ; résultat couleur verdict une fois résolu. Ligne legacy sans seuil et
@@ -2982,8 +3090,8 @@ if (!location_id) {
       var _rPos = Number(pct) >= 0;
       var _rFg = r.verdict === 'met' ? '#166534' : r.verdict === 'missed' ? '#B45309' : '#6b7280';
       var _rLbl = r.verdict === 'met' ? 'objectif atteint' : r.verdict === 'missed' ? 'objectif manqué' : 'non concluant';
-      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind, r.window_start) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' % vs votre résultat habituel.') + '">'
-        + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Number(pct)) + ' %</div>'
+      _amt = '<div class="amt" title="' + escapeHtml('Résultat mesuré sur ' + _cgWin(r.window_kind, r.window_start) + ' : CA ' + (_rPos ? '+' : '−') + Math.abs(Math.round(Number(pct))) + ' % vs votre résultat habituel.') + '">'
+        + '<div class="amt-val" style="color:' + _rFg + ';">' + (_rPos ? '+' : '−') + Math.abs(Math.round(Number(pct))) + ' %</div>'
         + '<div class="amt-sub">' + _rLbl + '</div>'
       + '</div>';
     } else if (r.status !== 'expired' && r.threshold_value != null) {
@@ -3206,7 +3314,7 @@ if (!location_id) {
     log.innerHTML = '<div style="margin-bottom:18px;"><p class="eb" style="margin:0 0 10px;">Vos engagements</p><div class="tl">' + rows + '</div></div>';
     log.querySelectorAll('[data-eng-evo]').forEach(function (b) { b.addEventListener('click', function (e) { e.stopPropagation(); window.location.href = '/app/insightevent/engagement?id=' + encodeURIComponent(b.getAttribute('data-eng-evo')); }); });
   }
-  // ══ TRIAGE PAR SITE (validé 26/07 — proto public/actions-triage-proto.html) ══════════════════
+  // ══ TRIAGE PAR SITE (validé 26/07 — proto tools/proto/actions-triage-proto.html (supprime le 05/09/2026 - surface livree, historique git)) ══════════════════
   // Doctrine (docs/pulse-actions-triage.md) : UNE page qui centralise l'action.
   //  - Blocs PAR SITE (un P&L, une équipe) : contextuel d'abord, chantiers structurels compacts après.
   //  - Tri défaut = HORIZON (aujourd'hui → semaine → structurel) puis |ENJEU| décroissant.
@@ -3775,7 +3883,10 @@ if (!location_id) {
       _dups.forEach(function (c) { holder.appendChild(c); });
     })();
     // TRI (owner 25/08) : une carte qui porte un chiffre MESURÉ passe devant une carte qui n'en
-    // porte pas — c'est ce qui séparait le signal du remplissage. À l'intérieur de chaque groupe
+    // porte pas — c'est ce qui séparait le signal du remplissage. 06/09 (audit N1) : data-t-k
+    // vaut 2 quand le chiffre est celui de l'OBJET nommé (écart du jour), 1 quand il est
+    // emprunté (population, classe, funnel) — la comparaison numérique ci-dessous ne change pas.
+    // À l'intérieur de chaque groupe
     // l'horizon garde la main (arbitrage owner : les prospectives chiffrées restent devant),
     // puis le montant. Avant : l'horizon écrasait tout, et un enjeu de 0 € battait 5 412 €.
     _mix.sort(function(a, b) {
@@ -3976,6 +4087,27 @@ if (!location_id) {
         if (_past.length) wireEngagementCards(pastMount);
       }
       renderEngagementFeedLog(items);
+      // 06/09 (audit N5) — RÉSOLUTION À LA LECTURE. Un engagement open/pending dont la fenêtre
+      // est close attend le cron de 02:00 UTC, qui peut avoir tourné AVANT l'ingestion des ventes
+      // (mesuré 06/09 : « Ventes reçues 0 / 1 j. » toute la journée sous un « Résultat d'hier » à
+      // +612 €). La page le demande UNE fois par chargement (window._engResolveTried), APRÈS le
+      // premier rendu — la résolution coûte ~3,5 s côté serveur, hors budget du premier écran.
+      // Une résolution qui change l'état re-rend le bloc ; sinon rien ne bouge.
+      var _today = todayYmd();
+      window._engResolveTried = window._engResolveTried || {};
+      var _toResolve = _active.filter(function (r) {
+        var we = String(_cgFv(r.window_end) || '').slice(0, 10);
+        return /^\d{4}-\d{2}-\d{2}$/.test(we) && we < _today && !window._engResolveTried[String(r.commitment_id)];
+      });
+      if (_toResolve.length) {
+        _toResolve.forEach(function (r) { window._engResolveTried[String(r.commitment_id)] = true; });
+        Promise.all(_toResolve.map(function (r) {
+          return fetch('/api/commitments/resolve', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ commitment_id: r.commitment_id, location_id: r.location_id }) })
+            .then(function (x) { return x.json(); })
+            .then(function (j) { return !!(j && j.ok && j.changed); })
+            .catch(function () { return false; });
+        })).then(function (flags) { if (flags.some(Boolean)) renderEngagements(locationIds); });
+      }
     });
   }
 

@@ -14,9 +14,9 @@
 // Borné à 5 fiches (les plus récentes, tests en cours d'abord) pour ne pas gonfler le prompt.
 // =====================================================
 import { makeBQClient } from "../../bq";
-import { listClassDispositifs, dispositifStateFr, type ClassDispositif } from "../../bestPractices";
+import { listClassDispositifs, dispositifStateFr, type ClassDispositif } from "../../dispositifs/bestPractices";
 import { classNounFr } from "../../insightFamilies/dispositif";
-import { themeForActionType, RECO_THEME_LABEL_FR } from "../../recoThemeMap";
+import { themeForActionType, RECO_THEME_LABEL_FR } from "../../recos/recoThemeMap";
 
 const PROJECT = "muse-square-open-data";
 

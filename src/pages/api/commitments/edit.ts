@@ -9,7 +9,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/actionCommitments";
+import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/commitments/actionCommitments";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";

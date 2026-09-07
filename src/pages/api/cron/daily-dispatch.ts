@@ -2,8 +2,8 @@ import type { APIRoute } from "astro";
 import crypto from "node:crypto";
 import { makeBQClient } from "../../../lib/bq";
 import { sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
-import { readMergeWrite, type CommitmentRow } from "../../../lib/actionCommitments";
-import { measureKpiBaseline, isKpiMeasurable } from "../../../lib/kpiRegistry";
+import { readMergeWrite, type CommitmentRow } from "../../../lib/commitments/actionCommitments";
+import { measureKpiBaseline, isKpiMeasurable } from "../../../lib/kpi/kpiRegistry";
 
 export const prerender = false;
 

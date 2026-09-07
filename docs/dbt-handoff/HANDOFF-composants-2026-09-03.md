@@ -190,7 +190,7 @@ Résultat : 37 → 39 modèles (l'int et son mart), aucune description existante
 --           plus bas : les consommateurs lisent des lignes, jamais du JSON.
 -- Contenu : dédup = int_client_commitment_latest (même tiebreak que l'app). Nature permanent
 --           seulement — une opération datée n'a pas de composant (components NULL).
---           type/role sont les CLÉS du registre app (src/lib/dispositifTypes.ts) ; les
+--           type/role sont les CLÉS du registre app (src/lib/dispositifs/dispositifTypes.ts) ; les
 --           libellés vivent dans les seeds dispositif_types / dispositif_roles, joints par
 --           la vue semantic. Aucun libellé ni dérivé ici.
 -- Source  : {{ ref('int_client_commitment_latest') }} — chaîne entière en VUES : un composant
@@ -362,7 +362,7 @@ select * from final
 ```
 
 ### B4. `ms_dbt/seeds/open_data/dispositifs/dispositif_types.csv`
-GÉNÉRÉ depuis `src/lib/dispositifTypes.ts` (app) — ne jamais éditer à la main.
+GÉNÉRÉ depuis `src/lib/dispositifs/dispositifTypes.ts` (app) — ne jamais éditer à la main.
 ```csv
 type_value,label_fr,provisoire
 vitrine,"Vitrine",false
@@ -378,7 +378,7 @@ autre,"Autre",false
 ```
 
 ### B5. `ms_dbt/seeds/open_data/dispositifs/dispositif_roles.csv`
-GÉNÉRÉ depuis `src/lib/dispositifTypes.ts` (app) — ne jamais éditer à la main.
+GÉNÉRÉ depuis `src/lib/dispositifs/dispositifTypes.ts` (app) — ne jamais éditer à la main.
 ```csv
 type_value,role_value,label_fr,provisoire
 lineaire,courant,"Produits courants",true
@@ -407,7 +407,7 @@ mediation,signaletique,"Signalétique",true
 version: 2
 
 # Registre des types et rôles de COMPOSANT d'un dispositif permanent — GÉNÉRÉ depuis le
-# registre app src/lib/dispositifTypes.ts (script gen-seed, 03/09). Ne jamais éditer à la
+# registre app src/lib/dispositifs/dispositifTypes.ts (script gen-seed, 03/09). Ne jamais éditer à la
 # main : la loi est le fichier TypeScript ; ce seed en est la copie pour la couche semantic.
 # `provisoire` = libellé sans mot owner arbitré (docs/lexique.md) — ne se rend pas à l'écran.
 
@@ -500,7 +500,7 @@ Décision owner 03/09 : la mémoire opérationnelle stocke ce qu'un dispositif e
   version courante, libellés et drapeau provisoire joints depuis les seeds.
 · vw_insight_event_commitment_memory : +components, +operation_cost_eur (contrat 57 colonnes).
 · seeds dispositif_types (10) / dispositif_roles (19) : copie générée du registre app
-  src/lib/dispositifTypes.ts — jamais éditée à la main.
+  src/lib/dispositifs/dispositifTypes.ts — jamais éditée à la main.
 · Tests : grain unique, not_null, relationships type→seed, rôle→type.
 
 Preuves app 03/09 : SQL compilé (stg → int → fct → vue) exécuté en BigQuery sur 2 versions sonde (5 lignes int,

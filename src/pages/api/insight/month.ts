@@ -4,7 +4,7 @@ import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { weatherNatureFr } from "../../../lib/contextCopy";
+import { weatherNatureFr } from "../../../lib/context/contextCopy";
 
 let BQ_CLIENT: BigQuery | null = null;
 function getBigQueryClient(projectId: string): BigQuery {

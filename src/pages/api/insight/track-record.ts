@@ -1,11 +1,11 @@
 // src/pages/api/insight/track-record.ts
-// SHARED card-detail block "Ce qui a marché" — WRAPPER MINCE sur src/lib/trackRecordCore.ts
+// SHARED card-detail block "Ce qui a marché" — WRAPPER MINCE sur src/lib/commitments/trackRecordCore.ts
 // depuis la journée dédiée 18/08 (le provider famille SALES lit le MÊME noyau : une seule
 // définition du track record). Réponse inchangée byte-compatible.
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { trackRecordFor } from "../../../lib/trackRecordCore";
+import { trackRecordFor } from "../../../lib/commitments/trackRecordCore";
 
 const PROJECT = "muse-square-open-data";
 

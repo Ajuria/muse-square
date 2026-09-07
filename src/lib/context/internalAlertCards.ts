@@ -1,0 +1,32 @@
+// Single source of truth for the v1 internal-alert allowlist (Barrier 2).
+//
+// Exactly the 5 performance RULE cards that emit rows and carry first-party-only payloads
+// (no external/competitor content). Deliberately NOT action-cards.js RULE_ONLY (9 cards,
+// incl. the dropped competitor_positioning_gap + 3 zero-row cards). A card joins this rail
+// only by editing this list — never by category, never by reusing RULE_ONLY.
+//
+// Both the arm endpoint (channels/internal-alert.ts, write-time) and the sweep
+// (cron/internal-alert-sweep.ts, read-time) import from here, so the allowlist can never
+// drift between the two rails.
+
+export const V1_ALERT_ACTION_TYPES: string[] = [
+  "sales_surge",
+  "sales_traffic_not_converting",
+  "sales_discount_no_lift",
+  "sales_revenue_down_wow",
+  "footfall_vs_basket_decomposition",
+  // 23/08 — famille et produit (fct_client_offering_signals_daily / fct_client_item_signals_daily) :
+  // cartes de performance first-party, payload = vos propres ventes, rien d'externe.
+  "offering_mix_shift",
+  "item_share_move",
+  "hour_share_move",
+  // 06/09 — grain FACTURE (fct_client_tickets_daily) : paniers à plusieurs articles, vos propres tickets.
+  "tickets_lines_move",
+  // 06/09 — produit régulier absent des ventes (fct_client_item_absence_daily).
+  "item_absent_regular",
+  // 06/09 — prix réalisé par famille (fct_client_family_price_daily).
+  "family_price_move",
+  "family_discount_move",
+];
+
+export const V1_ALERT_ACTION_TYPE_SET: ReadonlySet<string> = new Set(V1_ALERT_ACTION_TYPES);

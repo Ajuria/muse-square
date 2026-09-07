@@ -62,7 +62,7 @@ ne s'affiche jamais seul — il porte sa décomposition funnel (CA = passages ×
   `feat(day_residual): attendus par facteur funnel (visiteurs/ventes/panier/conversion + z) sur le référentiel d'expected_revenue ; étiquette de référentiel des baselines 28 j de sales_signals_daily`
 
 ## Après le build (app, dans l'ordre)
-1. `bq-verify` des nouvelles colonnes (le catalogue `docs/bq-catalog.json` est un snapshot).
+1. `bq-verify` des nouvelles colonnes (le catalogue `docs/catalog/bq-catalog.json` est un snapshot).
 2. Surface : ligne de décomposition sur les cartes d'opération de `tableau.astro`
    (grille « Opérations en cours », données `/api/insight/dashboard`) — maquette de
    référence : artboard « PalmaresV2 » du canvas « Piloter — trois pistes », carte

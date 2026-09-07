@@ -4,7 +4,7 @@
 > § Le test de valeur (un chiffre porte son référentiel ; une absence se dit et se chiffre).
 > Incrément **I8** du chantier `explorer-routage-inversion-spec.md`. Question owner 03/09, mots
 > et décisions owner 04/09, appliqué le 04/09 (dev, non commité au moment de l'écriture).
-> Foyer : `src/lib/dispositifFamille.ts` ; branche dans `src/pages/api/insight/prompt.ts`.
+> Foyer : `src/lib/dispositifs/dispositifFamille.ts` ; branche dans `src/pages/api/insight/prompt.ts`.
 
 ## 1. Ce que la lecture répond
 
@@ -102,9 +102,9 @@ Recoupé par une requête BQ indépendante (jointures, pas la requête du code) 
 
 ## 5. Portes (vertes le 04/09)
 
-- `src/lib/dispositifFamille.test.ts` (5 tests, blocs purs ; mutations vues rouges : format de
+- `src/lib/dispositifs/dispositifFamille.test.ts` (5 tests, blocs purs ; mutations vues rouges : format de
   la part, tri du mix).
-- Batterie `scripts/prompt-conversation-battery.mjs`, dialogue D11 : la phrase owner complète →
+- Batterie `tools/battery/prompt-conversation-battery.mjs`, dialogue D11 : la phrase owner complète →
   `deterministic_dispositif_famille_v1`, cadre opération + famille, quatre libellés, table mix
   avec Coffee en gras, phrase de tête sur le mix ; suite « et la famille Tea ? ».
 - Échelle de la vente inchangée (D2 et probe « Corner de vente producteur en août » : mêmes

@@ -2,8 +2,8 @@ import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { filterDisabledThemes, themeForActionType } from "../../../lib/recoThemeMap";
-import { V1_ALERT_ACTION_TYPES } from "../../../lib/internalAlertCards";
+import { filterDisabledThemes, themeForActionType, PERSISTENT_COMPETITOR_TYPES, PERSISTENT_VALIDITY_DAYS } from "../../../lib/recos/recoThemeMap";
+import { V1_ALERT_ACTION_TYPES } from "../../../lib/context/internalAlertCards";
 
 function requireString(v: string | undefined, name: string) {
   if (!v || !v.trim()) throw new Error(`Missing env var: ${name}`);
@@ -461,6 +461,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
         -- Performance cards carry an ingestion date (past); fetch them regardless of the
         -- window. The client (renderActionCandidates) surfaces the latest per type on today.
         OR action_type IN UNNEST(@perf_types)
+        -- 06/09 (audit N3) : changements concurrents sans terme (prix, offre, horaires) — servis
+        -- @persist_days jours en arrière ; le client les rend sur aujourd'hui, date du fait en méta.
+        OR (action_type IN UNNEST(@persist_types)
+            AND date BETWEEN DATE_SUB(CURRENT_DATE('Europe/Paris'), INTERVAL @persist_days DAY) AND CURRENT_DATE('Europe/Paris'))
       )
     ORDER BY action_priority DESC, action_type ASC
   `;
@@ -522,8 +526,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }),
       bq.query({
         query: actionCandidatesQuery,
-        params: { location_id, selected_dates, perf_types: V1_ALERT_ACTION_TYPES },
-        types: { selected_dates: ['STRING'], perf_types: ['STRING'] },
+        params: { location_id, selected_dates, perf_types: V1_ALERT_ACTION_TYPES, persist_types: [...PERSISTENT_COMPETITOR_TYPES], persist_days: PERSISTENT_VALIDITY_DAYS },
+        types: { selected_dates: ['STRING'], perf_types: ['STRING'], persist_types: ['STRING'], persist_days: 'INT64' },
       }),
       clerk_user_id ? bq.query({
         query: `

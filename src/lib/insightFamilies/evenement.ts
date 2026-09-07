@@ -14,9 +14,9 @@
 //    AVG(expected_revenue) 90 j (le même référentiel que M'engager) ;
 //  - l'Après lit le mesuré (residual + signals + famille) et le verdict de l'ENGAGEMENT ancré
 //    (saved_item_id) — jamais un verdict recalculé ici.
-import { eventTypeLabelFr } from "../eventTypes";
+import { eventTypeLabelFr } from "../events/eventTypes";
 // K9 (24/08) : profit estimé journalier — marges déclarées lues au moment de la mesure.
-import { profitEstimatedDaily, measureProfitEstimatedStats } from "../kpiRegistry";
+import { profitEstimatedDaily, measureProfitEstimatedStats } from "../kpi/kpiRegistry";
 
 const PROJECT = "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);

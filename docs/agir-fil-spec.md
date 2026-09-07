@@ -1,8 +1,8 @@
 # Agir — le fil de cartes (spec du chantier, maquette validée 14/08) — SPEC DE TRAVAIL
 
-> **Statut : maquette `public/agir-proto.html` VALIDÉE owner 14/08** (itérée ~10 tours sur les
+> **Statut : maquette `public/agir-proto.html (supprimé le 04/09/2026 — remplacé par la version -v3 ; historique git)` VALIDÉE owner 14/08** (itérée ~10 tours sur les
 > 13 cartes réelles du compte owner — corps générés par le VRAI `action-cards.js` exécuté au
-> harnais `scripts/agir-proto-harness.ts`). Build par incréments ; ce doc est la cible.
+> harnais `scripts/agir-proto-harness.ts (supprimé le 04/09/2026 — remplacé par la version -v3 ; historique git)`). Build par incréments ; ce doc est la cible.
 > Grande image : **Piloter = l'état** (héros, radar, carte, veille) · **Agir = l'action**
 > (vos engagements, cartes du jour triées par €, chantiers structurels).
 

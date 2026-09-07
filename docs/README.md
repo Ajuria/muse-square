@@ -91,3 +91,23 @@ Trois documents priment sur tous les autres, y compris sur celui-ci :
 
 Un document non qualifié (titre sans `— DÉFINITIF` ni `— SPEC DE TRAVAIL`) n'a pas encore été
 passé en revue : le lire avec méfiance, et le qualifier en le touchant.
+
+---
+
+## La place — le dossier dit la durée de vie (owner 04/09/2026)
+
+La nature est dans le titre ; la **place** est dans le dossier, et elle dit combien de temps le
+document vit et s'il fait partie de l'index.
+
+| Dossier | Contenu | Index (`head -1`) | Cycle de vie |
+|---|---|---|---|
+| `docs/` (racine) | les documents VIVANTS : doctrine, contrats, specs de travail | oui | réécrits, jamais archivés en l'état |
+| `docs/audits/` | instantanés datés : audits, diagnostics, revues (`<sujet>-AAAA-MM-JJ.md`) | oui | jamais mis à jour ; un rejeu = un nouveau fichier |
+| `docs/dbt-handoff/` | passations dbt Cloud (`HANDOFF-<sujet>-AAAA-MM-JJ.md`) | non | supprimée quand appliquée, l'état passe dans `data-model-index.md` |
+| `docs/catalog/` | catalogue BigQuery généré (`bq-catalog.json`, allowlist, script) | non | régénéré, jamais édité |
+| `docs/site/` | copie marketing et briefs du site | non | — |
+| `docs/archive/` | non re-vérifié depuis longtemps, cité par le code | non | à convertir en `— DÉFINITIF` ou à supprimer |
+
+L'index est `head -1 docs/*.md docs/audits/*.md`. Un document qui n'est ni vivant ni un instantané
+n'a pas sa place dans `docs/` : un prototype vit dans `tools/proto/`, un script dans `tools/`.
+Le garde `npm run placement:check` refuse un `.md` sans nature hors `dbt-handoff/`, `site/`, `archive/`.

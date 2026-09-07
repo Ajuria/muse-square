@@ -12,8 +12,8 @@
 // passés en paramètres, le foyer de chaque signal reste son fichier (insightFamilies, frPeriod,
 // entityResolver, prompt.ts pour les regex legacy).
 
-import { KPI_NOM_FR, KPI_LABEL_FR } from "../kpiRegistry";
-import type { SiteEntities } from "../entityResolver";
+import { KPI_NOM_FR, KPI_LABEL_FR } from "../kpi/kpiRegistry";
+import type { SiteEntities } from "../explorer/entityResolver";
 
 export interface GardeDetecteurs {
   familles: (q: string) => number;              // familiesForQuestion(q).length

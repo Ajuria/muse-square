@@ -6,7 +6,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
-import { getBestInClassPlays, leverForActionType } from "../../../lib/bestInClassStore";
+import { getBestInClassPlays, leverForActionType } from "../../../lib/bestInClass/bestInClassStore";
 
 const PROJECT = "muse-square-open-data";
 

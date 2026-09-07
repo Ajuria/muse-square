@@ -9,7 +9,7 @@
 // Données mix produit : requête VERBATIM de api/insight/sales-breakdown.ts (l'endpoint devient
 // un wrapper mince — réponse superset, rien de retiré).
 import type { FamilyResult, FamilyFact } from "./types";
-import { trackRecordFor } from "../trackRecordCore";
+import { trackRecordFor } from "../commitments/trackRecordCore";
 
 const PROJECT = "muse-square-open-data";
 const MIN_COMPARABLE_DAYS = 3;

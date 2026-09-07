@@ -44,14 +44,14 @@ Expiration à **J+13** de la semaine concernée. `channel_hint = 'note_interne'`
 
 ## Le rendu dans l'app
 
-`public/action-cards.js` : **« Semaine très en retrait »** (📉) et **« Semaine exceptionnelle »**
+`public/js/action-cards.js` : **« Semaine très en retrait »** (📉) et **« Semaine exceptionnelle »**
 (📈). Le sowhat lit le payload du mart (`week_start`/`week_end`, `ca`, `active_days`,
 `baseline_median`, `baseline_weeks`, `data_end`) — jamais de valeur re-dérivée côté client.
 
 Actions : *comprendre la semaine — contexte, achats, animation* (trou) ; *identifier ce qui a porté
 la semaine et le capturer* (pic).
 
-Thème `ventes`, déclaré des deux côtés (`action-cards.js` + `src/lib/recoThemeMap.ts`, parité
+Thème `ventes`, déclaré des deux côtés (`action-cards.js` + `src/lib/recos/recoThemeMap.ts`, parité
 testée). Trois plans dans `reco-library.js` par type, et les deux types sont inscrits dans
 `COUVERTS_ACQUIS` de `recoCoverage.guard.test.ts` — **liste qui ne fait que grandir** : le chantier
 ne peut plus régresser silencieusement. Origines d'engagement dans `commitmentOrigins.ts`.
@@ -114,7 +114,7 @@ order by week_start
 
 1. **Le rail « note interne » n'est pas branché.** Les deux cartes portent
    `channel_hint = 'note_interne'` côté dbt, mais **ne figurent pas** dans `V1_ALERT_ACTION_TYPES`
-   (`src/lib/internalAlertCards.ts`). Conséquence : elles ne bénéficient pas du contournement de
+   (`src/lib/context/internalAlertCards.ts`). Conséquence : elles ne bénéficient pas du contournement de
    fenêtre du monitor et ne surfacent que le jour de leur ingestion. Soit le `channel_hint` est
    trompeur, soit l'allowlist est incomplète — **jamais arbitré**, et la situation est identique
    pour les cartes mensuelles.

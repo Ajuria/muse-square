@@ -4,7 +4,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { modelFor } from "../../../lib/ai/models";
 import { mdInlineToSafeHtml } from "../../../lib/ai/safeMarkdown";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
-import { frAlertSubtype } from "../../../lib/contextCopy";
+import { frAlertSubtype } from "../../../lib/context/contextCopy";
 import { Resend } from "resend";
 
 export const prerender = false;

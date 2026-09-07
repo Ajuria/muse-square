@@ -17,7 +17,7 @@ if ! tsc_out=$(npx tsc --noEmit 2>&1); then
   msg="tsc --noEmit failed:
 $(printf '%s' "$tsc_out" | tail -n 15)"
 fi
-if ! ac_out=$(node --check public/action-cards.js 2>&1); then
+if ! ac_out=$(node --check public/js/action-cards.js 2>&1); then
   msg="${msg:+$msg
 }action-cards.js syntax error: $ac_out"
 fi

@@ -28,7 +28,7 @@
 // composition est prouvée par test unitaire (fixture), la requête par exécution réelle.
 // =====================================================
 import { makeBQClient } from "../../bq";
-import { themeForActionType, RECO_THEME_LABEL_FR } from "../../recoThemeMap";
+import { themeForActionType, RECO_THEME_LABEL_FR } from "../../recos/recoThemeMap";
 
 const PROJECT = "muse-square-open-data";
 

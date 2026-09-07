@@ -3,7 +3,7 @@
 Les libellés des types et rôles de composant sont désormais des mots owner (lexique, 03/09
 après-midi) : Îlot, Caisse, Espace dégustation, Service client, Produits du quotidien, Produits
 de connaisseur, Promotion, Service au comptoir, Conseiller clientèle, Accueil, Signalétique.
-Les deux seeds sont la COPIE du registre app (`src/lib/dispositifTypes.ts`) : ils se
+Les deux seeds sont la COPIE du registre app (`src/lib/dispositifs/dispositifTypes.ts`) : ils se
 régénèrent, ils ne s'éditent pas. Restent `provisoire` (aucun mot owner) : le rôle
 impulsion et le sous-type panneau de salle.
 
@@ -60,7 +60,7 @@ re-runner. Commit sur `Ajuria-branch`, PR vers `main`.
 ```
 chore(seeds): composants — les mots owner du 03/09 dans dispositif_types / dispositif_roles
 
-Copie régénérée du registre app src/lib/dispositifTypes.ts : Îlot, Caisse, Espace dégustation,
+Copie régénérée du registre app src/lib/dispositifs/dispositifTypes.ts : Îlot, Caisse, Espace dégustation,
 Service client, Produits du quotidien, Produits de connaisseur, Promotion, Service au comptoir,
 Conseiller clientèle, Accueil, Signalétique (provisoire = false). Restent provisoires :
 impulsion, panneau_de_salle. Mêmes clés, mêmes comptes (10 / 19).
