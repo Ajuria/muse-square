@@ -80,6 +80,12 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Sous-types de médiation | **Cartel** · **Dispositif multimédia** · **Signalétique** (owner 03/09) ; **panneau de salle : EN ATTENTE** (proposé, non validé — reste `provisoire`, non rendu) | Texte de salle, parcours fléché |
 | Ce qu'Explorer répond à une question qui ne porte sur rien du site (« qui est Jésus ? », « bonjour », l'heure, une blague) | **Aucune donnée pour cette question** (titre) — corps : « Je réponds sur vos ventes par jour, vos familles de produits (Coffee, Tea, Bakery…), vos pôles, vos opérations et vos suivis. Rien ici ne répond à « <la question, verbatim> ». Par exemple : « Pourquoi le JJ/MM ? » » (option A, owner 03/09 — miroir de l'élicitation « Je ne trouve ni pôle ni famille de ce nom sur ce site » ; familles réelles du compte, dernier jour mesuré ; foyer `src/lib/ai/horsPerimetre.ts`). Ne se rend QUE si aucun signal métier ne tire (garde déterministe) | Je ne comprends pas, Question hors sujet, Désolé, toute phrase de chatbot générique |
 | La part de chaque famille dans le CA du jour, lue pendant une opération (Explorer, lecture dispositif × famille) | **mix produits & services** (owner 04/09) ; lignes de la table : **Ventes/jour avec <famille>** (tickets contenant la famille) · **Panier moyen avec <famille>** (le ticket entier de ces tickets — owner 04/09) · **CA/jour <famille>** · **Part de <famille> dans le CA** ; l'écart d'une part s'écrit en RELATIF « +1,6 % » (owner 04/09) ; foyer `src/lib/dispositifs/dispositifFamille.ts`, doc `explorer-dispositif-famille-spec.md` | mix produit (au singulier, hors matcher), points de part, pp |
+| Le nombre moyen d'articles d'un ticket (indice de vente) et son mouvement | **articles par ticket** — « Moins / Plus d'articles par ticket que d'habitude » (owner 07/09 : « Moins d'articles par facture, or equivalent » ; « facture » = le même objet côté Crisalid) | paniers à plusieurs articles, lignes par ticket, UPT |
+| Un produit vendu presque tous les jours et absent un jour d'ouverture | **aucune vente** — « <produit> : aucune vente », « Aucune vente de <produit> le 30/08. Il se vend 58 jours sur 60, 18 € par jour. » (owner 07/09) | absent de vos ventes, rupture (jamais déduite de la caisse), « ces deux mois » |
+| Le CA divisé par les articles vendus, sur une famille et un jour | **prix moyen**, en **€ par article** — « Prix moyen en baisse / en hausse sur <famille> » (owner 07/09) | prix réalisé, l'unité, unités vendues |
+| La part remisée du CA d'une famille sur un jour | **remises** — « Plus / Moins de remises que d'habitude sur <famille> », « 5,9 % de remise le 09/08, contre 2,5 % d'habitude » (owner 07/09) | remisé plus que d'habitude, taux de remise, « % du CA » dans le titre |
+| La mesure du mix par famille | **part de CA ET articles** — « Coffee 45 % du CA (722 €, 239 articles) contre 39 % d'habitude (341 €, 216 articles) » (owner 07/09 : « We need both ») | des € de volume, une part sans son ordre de grandeur |
+| Une alerte chaleur de niveau 3 et plus (32 °C) | **forte chaleur** — « Alerte forte chaleur (niveau critique) » ; en dessous du niveau 3, « Alerte météo » (owner 07/09 ; même mot que la classe structurelle) | canicule (critère officiel IBM, jamais déduit de lvl_heat), chaleur seule |
 
 ## Les mots des interactions humaines (Slack — registre distinct, owner 28/08)
 
@@ -154,6 +160,26 @@ quand l'owner refuse une phrase** ; en retirer une demande son accord.
    nuit ») — jamais un zéro nu ni une section vide.
 
 ## Arbitrages tranchés (owner 17/08)
+
+**07/09 — les quatre cartes du grain facture, la chaleur, le Fil, le mix.** Premier registre refusé
+(« NOT HUMAN LANGUAGE ») ; le registre courant est acté tel qu'il rend (compte owner) :
+- `tickets_lines_move` : « Moins d'articles par ticket que d'habitude » ; « 1,0 article par ticket le 30/08
+  contre 1,8 d'habitude : 97 % des tickets à un seul article contre 54 %, sur 322 tickets. » ; geste
+  « notez ce qui était à côté du produit ce jour-là. » (hausse : « — c'est l'association à reconduire »).
+- `item_absent_regular` : « Scottish Cream Scone : aucune vente » / « 2 produits sans vente » ; « Aucune
+  vente de Scottish Cream Scone le 30/08. Il se vend 58 jours sur 60, 18 € par jour. » ; geste « vérifiez
+  le stock de <produit> et sa place sur le linéaire. »
+- `family_price_move` : « Prix moyen en baisse / en hausse sur <famille> » ; « Drinking Chocolate : 3,87 €
+  par article le 30/08, contre 4,13 € d'habitude (−6 %). 43 articles vendus. » ; gestes « vérifiez les
+  tickets du 30/08 sur <famille> : remises, poids ou produits moins chers. » / « notez ce qui s'est vendu
+  dans <famille> le 09/08. »
+- `family_discount_move` : « Plus / Moins de remises que d'habitude sur <famille> » ; « Drinking Chocolate :
+  5,9 % de remise le 09/08, contre 2,5 % d'habitude (12 € sur 211 € de ventes). 51 articles vendus. » ;
+  gestes « vérifiez les tickets remisés du 09/08 sur <famille> : qui a remisé, sur quoi, et si c'était
+  prévu. » / « notez ce qui s'est vendu sans remise dans <famille> le 09/08. »
+- Chaleur : « forte chaleur » dès le niveau 3 (voir la table). `day_opportunity` va au Fil (décision 1 du
+  04/09). `foreign_tourism_signal` : sites de destination seulement (décision 2). Mix : part de CA ET
+  articles (« We need both »). Planchers : à tester le 11/09 (file À arbitrer).
 
 - « Documentez la recette » → **« Documentez vos résultats »** (proposition owner retenue ;
   « knowledge base » écarté — anglicisme). Le bouton reste « Documenter → ».
@@ -285,31 +311,10 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   owner (« or something ») : « très prudent · prudent · ambitieux · optimiste » — LES quatre
   mots à arbitrer avant le build commit-form.
 - « geste » (employé par la tuile prod « 6 gestes en attente ») — pas de mot d'interface arbitré.
-- **Le mot des niveaux de chaleur — ARBITRÉ 07/09** : « **forte chaleur** » (mot de la classe structurelle,
-  28 °C et plus) sert aussi à l'alerte dès le niveau 3 (32 °C) : « Alerte forte chaleur (niveau critique),
-  … 15°C–35°C ». En dessous du niveau 3, le repli « Alerte météo ». « canicule » reste réservé au critère
-  officiel (IBM), jamais déduit de `lvl_heat`.
-- **Les quatre cartes du grain facture (06-07/09) — ARBITRÉES le 07/09** : l'owner a refusé le
-  premier registre (« NOT HUMAN LANGUAGE ») et donné la forme : « **Moins d'articles par facture** (ou
-  équivalent : les bonnes pratiques) ». Retenu « articles par ticket » (indice de vente = articles par
-  ticket, mot du lexique 03/09 ; « facture » = le même objet côté Crisalid). Chaînes en prod :
-  · `tickets_lines_move` : « Moins / Plus d'articles par ticket que d'habitude » ; corps « 1,0 article par
-    ticket le 30/08 contre 1,8 d'habitude : 97 % des tickets à un seul article contre 54 %, sur 322 tickets. »
-  · `item_absent_regular` : « Scottish Cream Scone : aucune vente » / « 2 produits sans vente » ; corps
-    « Aucune vente de Scottish Cream Scone le 30/08. Il se vend 58 jours sur 60, 18 € par jour. » ; geste
-    « vérifiez le stock de <produit> et sa place sur le linéaire. »
-  · `family_price_move` : « Prix moyen en baisse / en hausse sur <famille> » ; corps « Drinking Chocolate :
-    3,87 € par article le 30/08, contre 4,13 € d'habitude (−6 %). 43 articles vendus. » ; gestes « vérifiez
-    les tickets du 30/08 sur <famille> : remises, poids ou produits moins chers. » / « notez ce qui s'est
-    vendu dans <famille> le 09/08. »
-  · `family_discount_move` : « Plus / Moins de remises que d'habitude sur <famille> » ; corps « Drinking
-    Chocolate : 5,9 % de remise le 09/08, contre 2,5 % d'habitude (12 € sur 211 € de ventes). 51 articles
-    vendus. » ; gestes « vérifiez les tickets remisés du 09/08 sur <famille> : qui a remisé, sur quoi, et si
-    c'était prévu. » / « notez ce qui s'est vendu sans remise dans <famille> le 09/08. »
-  « prix réalisé », « l'unité », « ces deux mois », « paniers à plusieurs articles » ne s'affichent plus.
-  Planchers (20 tickets, 10 articles) : question owner 07/09 « what does 20 tickets do that is truthful? »
-  — réponse : rien sur un site à 300 tickets ; ils n'éteignent que les sites à 1-6 factures par jour
-  (grossiste), où une moyenne par ticket décrit une commande, pas une population. Gardés.
+- **Planchers des cartes facture (20 tickets par jour pour les articles par ticket, 10 articles par jour
+  pour le prix moyen et les remises)** : NON arbitrés — l'owner les teste jeudi 11/09/2026 (« The floor
+  wasn't tested yet. Will be next Thursday »). Ce qu'ils font : rien sur un site à 300 tickets ; ils
+  éteignent les sites à 1-6 factures par jour (grossiste), où une moyenne par ticket décrit une commande.
 - **Les six lignes d'action et trois titres des cartes concurrent sans terme (06/09, N3) — BROUILLONS 07/09**
   (owner : « What do you want from me? » → les chaînes écrites, à corriger, pas des slots vides). Le
   corps de chaque carte dit déjà le fait (« <Concurrent> a augmenté le prix de <article> : 8 € → 9 € (+12 %)
