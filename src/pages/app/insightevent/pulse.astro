@@ -1502,6 +1502,8 @@ if (!location_id) {
         var gk = _siteKey(ge) + '|' + gty;
         if (!byKey[gk]) { byKey[gk] = ge; ge.group = [ge]; out.push(ge); } else { byKey[gk].group.push(ge); }
       }
+      // du plus récent au plus ancien : le corps et le graphique lisent cet ordre
+      out.forEach(function (e) { if (e.group && e.group.length > 1) e.group.sort(function (a, b) { var da = normalizeYmd(a.item.affected_date) || '', db = normalizeYmd(b.item.affected_date) || ''; return db > da ? 1 : db < da ? -1 : 0; }); });
       top = out;
     })();
 

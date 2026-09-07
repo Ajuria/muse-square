@@ -59,6 +59,10 @@ const ACTION_LEVER: Record<string, Lever> = {
   sales_underperformance: "conversion",
   offre_appel: "conversion",
   offering_mix_shift: "conversion",
+  // 07/09 — grain produit / facture (origines ajoutées les 06-07/09)
+  item_share_move: "conversion",
+  item_absent_regular: "conversion",
+  tickets_lines_move: "panier",
   sales_discount_no_lift: "yield",
   structural_discount_no_lift: "yield",
   structural_traffic_high: "conversion",

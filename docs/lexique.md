@@ -195,6 +195,17 @@ quand l'owner refuse une phrase** ; en retirer une demande son accord.
   `high_competition_density` est un état ré-émis chaque jour (J..J+3) — le garder 14 jours le rendrait en
   quatre exemplaires ; `medal_change` est le changement de VOTRE médaille d'opportunité (change feed), une
   transition, pas un état. Ma description du 07/09 (« un concurrent a gagné une distinction ») était fausse.
+- **Le fil comme un teaser (proto agir-fil, arbitré 07/09, LIVRÉ dev)** : chaque carte = pastilles
+  « Opportunité » / « Menace » / « Résultat » (singulier des filtres « Menaces » / « Opportunités » du 25/08 ;
+  « Résultat » pour la carte « Résultat d'hier », dont la couleur menace venait de sa catégorie) + « Aujourd'hui » /
+  « Cette semaine » ; le titre arbitré ; le corps SANS la ligne Familles (elle vit sur la page insight) ; un média
+  (photo du suivi, graphique « votre CA habituel / ce jour-là », tuile de dates, tuile du dispositif) ; le geste
+  sans « Action conseillée : » (le bouton M'engager le dit), capitale initiale ; pied « Faire suivre · Pas pour moi ·
+  M'engager ». Les hausses de CA d'un même site en UNE carte : « 5 jours au-dessus de votre CA habituel cette
+  semaine » (owner 07/09 : « à votre habituel » refusé, l'adjectif garde son nom), corps « +708 € dimanche 06/09,
+  +752 € vendredi 04/09. La hausse vient du volume les 2 fois. », coin « +3 361 € sur 5 jours » (les € du jour,
+  jamais l'€/an d'une population — owner : « how is CA supérieur à mercredi habituel → +5 704 €/an ? »).
+  « À noter » (kit, priorité 2, nature info) = une ligne, mot du kit non arbitré.
 - Chaleur : « forte chaleur » dès le niveau 3 (voir la table). `day_opportunity` va au Fil (décision 1 du
   04/09). `foreign_tourism_signal` : sites de destination seulement (décision 2). Mix : part de CA ET
   articles (« We need both »). Planchers : à tester le 11/09 (file À arbitrer).
@@ -329,6 +340,9 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   owner (« or something ») : « très prudent · prudent · ambitieux · optimiste » — LES quatre
   mots à arbitrer avant le build commit-form.
 - « geste » (employé par la tuile prod « 6 gestes en attente ») — pas de mot d'interface arbitré.
+- **Photos Google Places sur les cartes concurrent (07/09)** : servies sur dev (`competitor_photo`, suivis avec photo :
+  Guimet, Pompidou, GL Events). Les conditions Google exigent l'ATTRIBUTION livrée avec chaque photo, que le crawl ne
+  stocke pas : à ajouter (crawl + légende) AVANT que la photo aille en prod.
 - **Planchers des cartes facture (20 tickets par jour pour les articles par ticket, 10 articles par jour
   pour le prix moyen et les remises)** : NON arbitrés — l'owner les teste jeudi 11/09/2026 (« The floor
   wasn't tested yet. Will be next Thursday »). Ce qu'ils font : rien sur un site à 300 tickets ; ils
