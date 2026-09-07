@@ -6,7 +6,7 @@
 "region": "EU",
 "dbt_repo_sha_at_generation": "ebee861",
 "table_count": 532,
-"column_count": 9665
+"column_count": 9667
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -888,6 +888,10 @@
 },
 {
 "name": "window_top_families",
+"type": "STRING"
+},
+{
+"name": "measured_scope",
 "type": "STRING"
 }
 ]
@@ -26829,6 +26833,10 @@
 },
 {
 "name": "consigne_deroule",
+"type": "STRING"
+},
+{
+"name": "measured_scope",
 "type": "STRING"
 }
 ]

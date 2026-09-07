@@ -7,7 +7,8 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
-import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureFamilyBaseline, measureProfitBaseline } from "../../../lib/kpi/kpiRegistry";
+import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureScopeBaseline, measureProfitBaseline } from "../../../lib/kpi/kpiRegistry";
+import { normalizeScope, parseScope, scopeFromFamily, serializeScope, type MeasuredScope } from "../../../lib/commitments/measuredScope";
 import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/commitments/actionCommitments";
 import { parseComponents } from "../../../lib/dispositifs/dispositifTypes";
@@ -271,6 +272,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
           dispositif_nature: "permanent",
           pole_families: fams.length ? JSON.stringify(fams) : ((_pParent as any)?.pole_families ?? null),
           components: _pComponents,
+          // 07/09 — ce que le pôle vend = ses familles (périmètre de nature pole), hérité à la V2.
+          measured_scope: body.measured_scope != null
+            ? serializeScope(normalizeScope(body.measured_scope))
+            : (fams.length ? serializeScope({ kind: "pole", familles: fams.map((n: string) => ({ nom: n })), pole_id: poleId, pole_nom: String(body.committed_action_text).trim() }) : ((_pParent as any)?.measured_scope ?? null)),
           committed_action_text: String(body.committed_action_text).trim(),
           owner_person_name: body.owner_person_name != null && String(body.owner_person_name).trim()
             ? String(body.owner_person_name).trim() : (_pParent?.owner_person_name ?? null),
@@ -432,6 +437,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       origin_card_instance_id: body.origin_card_instance_id ? String(body.origin_card_instance_id) : null,
       origin_affected_date: body.origin_affected_date ? String(body.origin_affected_date) : null,
       saved_item_id: body.saved_item_id ? String(body.saved_item_id).trim() : _lineage.inherited_saved_item_id,
+      // 07/09 (docs/dispositif-perimetre-mesure-spec.md) — ce que le dispositif vend : le body, sinon la
+      // version précédente, sinon l'opération ancrée (résolu plus bas, avec la baseline).
+      measured_scope: body.measured_scope != null ? serializeScope(normalizeScope(body.measured_scope)) : (_lineage.inherited_measured_scope ?? null),
       // Étape 3 (26/07) : measured_metric = kpi de la CARTE (type + driver), plus jamais codé en
       // dur — kpiKeyForOrigin (lib/kpiRegistry). 'revenue_residual' reste le défaut et garde toute
       // sa machinerie ; les KPIs non-K1 sont mesurés en colonnes kpi_* (baseline ci-dessous,
@@ -504,22 +512,23 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Baseline KPI (étape 3) : 30 j glissants avant la fenêtre, dans l'unité de measured_metric.
     // Non bloquant : échec/absence de données → null (jamais un chiffre inventé, jamais un 500).
     if (patch.measured_metric === "family_revenue") {
-      // K8 : baseline famille (30 j pré-fenêtre) — la famille arrive du client à la création
-      // (body.kpi_family) ; la résolution la relira sur l'événement ancré. Échec soft → null.
+      // 07/09 : baseline du PÉRIMÈTRE (30 j pré-fenêtre). Le périmètre : le body (measured_scope ou
+      // l'ancienne kpi_family), sinon la version précédente, sinon l'opération ancrée
+      // (raw.saved_items.measured_scope, à défaut kpi_family) — la MÊME source que la résolution.
+      // Échec soft → null ; famille nouvelle sans ventes → baseline null, verdict sur l'objectif en € (D7).
       try {
-        // V2 héritée : la famille ne voyage pas dans le body — on la relit sur l'événement
-        // ancré (raw.saved_items.kpi_family), la MÊME source que la résolution. Sinon la
-        // baseline de la V2 partait à null en silence.
-        let _fam = String(body.kpi_family || "").trim();
-        if (!_fam && patch.saved_item_id) {
+        let _scope: MeasuredScope | null = parseScope(patch.measured_scope as any) ?? scopeFromFamily(String(body.kpi_family || "").trim());
+        if (!_scope && patch.saved_item_id) {
           const [fr] = await bq.query({
-            query: `SELECT kpi_family FROM \`${process.env.BQ_PROJECT_ID || BQ_PROJECT}.raw.saved_items\` WHERE saved_item_id = @sid LIMIT 1`,
+            query: `SELECT kpi_family, measured_scope FROM \`${process.env.BQ_PROJECT_ID || BQ_PROJECT}.raw.saved_items\` WHERE saved_item_id = @sid LIMIT 1`,
             params: { sid: String(patch.saved_item_id) }, types: { sid: "STRING" }, location: "EU",
           });
-          const v = fr?.[0]?.kpi_family;
-          _fam = v != null ? String((v as any)?.value ?? v).trim() : "";
+          const it: any = fr?.[0] ?? null;
+          const flatv = (x: any): any => (x && typeof x === "object" && "value" in x ? x.value : x);
+          _scope = it ? (parseScope(flatv(it.measured_scope)) ?? scopeFromFamily(it.kpi_family != null ? String(flatv(it.kpi_family)) : null)) : null;
         }
-        patch.kpi_baseline = _fam ? await measureFamilyBaseline(bq, String(patch.location_id), _fam, String(patch.window_start)) : null;
+        if (_scope && !patch.measured_scope) patch.measured_scope = serializeScope(_scope);
+        patch.kpi_baseline = _scope ? await measureScopeBaseline(bq, String(patch.location_id), _scope, String(patch.window_start)) : null;
       } catch { patch.kpi_baseline = null; }
     } else if (patch.measured_metric === "profit_estimated") {
       // K9 (24/08) : baseline profit estimé (30 j pré-fenêtre, marges déclarées lues au moment

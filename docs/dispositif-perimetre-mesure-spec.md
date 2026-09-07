@@ -82,7 +82,7 @@ résultat habituel », « composant », « photo ». Manquent, mots owner : la Q
 que le dispositif vend » — trois réponses : des familles, un pôle, les articles de la photo), et le
 NOM du périmètre dans une phrase (« −50 % de CA de … »). « Périmètre » est pris (zone autour du site).
 
-## 5. Décisions owner — AVANT tout code
+## 5. Décisions owner — toutes ACTÉES le 07/09 (1 à 5 : oui ; 6 : mots conseillés, acceptés ; 7 : ajout owner)
 
 1. **Le périmètre est-il obligatoire ?** Conseil : obligatoire pour une opération ou un engagement
    né d'un dispositif (corner, îlot, tête de gondole — l'objet vend quelque chose de nommé) ;
@@ -98,16 +98,29 @@ NOM du périmètre dans une phrase (« −50 % de CA de … »). « Périmètre 
    référentiel diffère de l'en-tête et le dit, comme aujourd'hui.
 5. **Les engagements existants** : migration silencieuse de `kpi_family` vers `measured_scope`
    (conseil : oui, un seul engagement concerné sur Muse Square, aucun sur les comptes réels).
-6. **Les mots** (§ 4) : la question du formulaire et le nom du périmètre dans la phrase du verdict.
+6. **Les mots** (acceptés 07/09). La question du formulaire : **« Ce que le dispositif vend »**, trois
+   réponses « des familles » (multi-sélection des familles réelles du site), « les familles du pôle »
+   (pré-sélectionnées quand un pôle est rattaché, modifiables), « les articles de la photo » (présente
+   seulement quand une photo a des articles confirmés, jamais grisée). Le nom du périmètre dans la phrase
+   du verdict, prolongement de la règle du 27/08 : une famille « CA de la famille « Branded » » ; deux ou
+   trois « CA des familles « Branded » et « Coffee beans » » ; au-delà « CA des 4 familles du dispositif »
+   (la liste en infobulle) ; un pôle « CA du pôle « Épicerie fine » » ; les articles d'une photo « CA de
+   « Corner de vente producteur » » (le titre du dispositif). Toujours suivi de « vs votre résultat habituel ».
+7. **« Ajouter famille de produits »** (ajout owner 07/09) : une famille NOUVELLE, pas encore dans les
+   tickets, entre dans le périmètre par son nom. Tant qu'elle n'a pas de ventes, elle n'a pas d'habituel :
+   la mesure la dit (« aucun habituel : famille nouvelle ») et le verdict se rend sur l'objectif en € de
+   l'opération (« CA famille (€) », existe) — réalisé ≥ objectif ; sans objectif en €, verdict non
+   concluant, jamais un % sur un habituel qui n'existe pas. Dès qu'elle se vend, le nom saisi doit être
+   celui de la famille dans les tickets : le formulaire le dit, et la lecture joint sur le nom exact.
 
 ## 6. Incréments et portes (après § 5)
 
 | # | Livraison | Porte |
 |---|---|---|
-| P0 | Colonne `measured_scope` (STRING JSON) sur `analytics.action_commitments` et `raw.saved_items` ; migration des `kpi_family` ; `vw_insight_event_commitment_memory` l'expose (PR dbt depuis `main`, build déclenché après merge). | ALTER vérifié en base ; contrat de la vue ; rejeu du Corner : périmètre « Branded ». |
-| P1 | La mesure : résolution périmètre → articles (`stg_client_transactions`), `measureKpiBaseline` sur un ensemble, verdict `kpiVerdict` inchangé dans sa méthode. | Lie-bait : un périmètre vide ne rend jamais un chiffre ; test pur avant/après sur le Corner (28 € / 56,2 € retrouvés à l'identique). |
+| P0 — **APPLIQUÉ 07/09** (dbt : PR [ms_database#128](https://github.com/Ajuria/ms_database/pull/128) à merger) | Colonne `measured_scope` (STRING JSON) sur `analytics.action_commitments` et `raw.saved_items` ; migration des `kpi_family` ; `vw_insight_event_commitment_memory` l'expose (PR dbt depuis `main`, build déclenché après merge). Forme : `{ kind, familles?: [{ nom, nouvelle?: true }], pole_id?, item_codes? }`. | ALTER vérifié en base ; contrat de la vue ; rejeu du Corner : périmètre « Branded ». |
+| P1 — **APPLIQUÉ 07/09** (rejeu du Corner : 28 € / 56,2 € / −50,2 % à l'identique) | La mesure : résolution périmètre → articles (`stg_client_transactions`), `measureKpiBaseline` sur un ensemble, verdict `kpiVerdict` inchangé dans sa méthode. | Lie-bait : un périmètre vide ne rend jamais un chiffre ; test pur avant/après sur le Corner (28 € / 56,2 € retrouvés à l'identique). |
 | P2 | Les formulaires « M'engager » et « Créer opération » posent la question (mot owner) ; le pôle pré-remplit ; la version suivante hérite. | Harnais happy-dom ; écriture BQ réelle prouvée. |
-| P3 | La page de l'engagement : en-tête dans l'unité du verdict, décomposition restreinte + ligne magasin entier, infobulle rendue visible (native `title` : invisible au toucher, relevé owner 07/09). | Harnais card-kit sur le JSON réel du Corner : les trois chiffres parlent du même périmètre. |
+| P3 — **en-tête et explication APPLIQUÉS 07/09** ; décomposition restreinte à faire | La page de l'engagement : en-tête dans l'unité du verdict (« −78 % de CA de la famille « Branded » » sur le Corner du 22/08, harnais), explication ouvrable au clic et au toucher (`<details>` natif fermé par défaut — la décision 28/08 « une ligne chiffrée, le détail dans l'infobulle » reste vraie, le harnais le vérifie) ; RESTE la décomposition restreinte + la ligne magasin entier. | Harnais card-kit sur le JSON réel du Corner : les trois chiffres parlent du même périmètre. |
 | P4 | Articles confirmés depuis la photo → périmètre (typologie § 9 point 5). | Rejeu sur Épices et Tout quand ses photos existent. |
 
 ## 7. Requêtes et fenêtres des chiffres cités

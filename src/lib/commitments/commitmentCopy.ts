@@ -73,7 +73,7 @@ export const EVOL_COPY = {
   // Lead hierarchy (goal-first): primary status + progress-to-goal bar + attribution.
   // LE RÉSULTAT EN UNE LIGNE (owner 28/08) : le chiffre en gros, le verdict à sa droite,
   // le détail dans l'infobulle. « en-deçà de votre objectif » = mots owner.
-  q1_result: "{pct} de ventes",
+  q1_result: "{pct} de {kpi}",   // 07/09 (owner) : l'unité du verdict — « CA », « CA de la famille « Branded » », ou le KPI déclaré ; jamais « ventes » pour du CA
   q1_ontrack: "au-delà de votre objectif",
   q1_below: "en-deçà de votre objectif",
   q1_tip_split: "Situation {sit} % · dont vacances {hol} % sans action · effet de votre action {act} %. Mesuré sur {n} {jours}.",

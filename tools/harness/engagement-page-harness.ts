@@ -239,14 +239,16 @@ async function payload(id: string): Promise<any> {
     ok("mots bannis absents (l'attendu / la normale)", !/l’attendu|l'attendu/.test(out));
     // Lisibilité (owner 28/08) : pas de gris pour titrer, pas d'ambre sur le résultat,
     // le résultat en UNE ligne avec son infobulle, et le porteur mis en avant.
-    ok("le résultat tient en une ligne chiffrée", /font-size:26px;font-weight:700;color:#111827[^>]*>[^<]*% de ventes/.test(out));
+    // 07/09 : l'en-tête dit le KPI du verdict dans son unité (« de CA », « de CA de la famille « … » »), jamais « de ventes ».
+    ok("le résultat tient en une ligne chiffrée", /font-size:26px;font-weight:700;color:#111827[^>]*>[^<]*% de CA/.test(out) && !/% de ventes/.test(out));
     ok("le détail vit dans l'infobulle, pas à l'écran", /title="[^"]*Situation|title="[^"]*Écart à votre résultat habituel/.test(out));
     ok("aucun ambre sur le résultat", !/font-size:26px[^>]*#B45309/.test(out));
     ok("aucun bandeau ambre sous le résultat", !/background:#FFF8EC/.test(out));
     // Le partage vacances doit vivre dans l'INFOBULLE : on retire les title="…" avant de
     // chercher, sinon l'assertion attrape sa propre infobulle (faux rouge, 28/08).
     ok("le partage vacances vit dans l'infobulle, pas dans le texte visible",
-      !/Situation [+−]?[0-9]/.test(out.replace(/title="[^"]*"/g, "")) && /title="[^"]*Situation [+−][0-9]/.test(out));
+      // 07/09 : le détail vit aussi dans un <details> fermé (ouvrable au toucher) — retiré du texte visible comme les title.
+      !/Situation [+−]?[0-9]/.test(out.replace(/title="[^"]*"/g, "").replace(/<details[\s\S]*?<\/details>/g, "")) && /title="[^"]*Situation [+−][0-9]/.test(out));
     ok("titres de carte en encre", !/text-transform:uppercase;color:#6b7280/.test(out));
     // Lisibilité (owner 28/08, deux relances) : plus de gris clair dans cette page.
     ok("aucun gris clair (#9ca3af) dans le rendu", !/#9ca3af|#9CA3AF/.test(out),

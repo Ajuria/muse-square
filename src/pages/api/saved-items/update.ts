@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { normalizeScope, scopeFromFamily, serializeScope } from "../../../lib/commitments/measuredScope";
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 
@@ -100,6 +101,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const kpi_family = typeof body?.kpi_family === "string" && body.kpi_family.trim() ? body.kpi_family.trim().slice(0, 120) : null;
     const kpi_target_pct = body?.kpi_target_pct != null && Number.isFinite(Number(body.kpi_target_pct)) ? Number(body.kpi_target_pct) : null;
     const kpi_target_eur = body?.kpi_target_eur != null && Number.isFinite(Number(body.kpi_target_eur)) ? Number(body.kpi_target_eur) : null;
+    // 07/09 — ce que le dispositif vend : un périmètre envoyé remplace ; une famille unique envoyée sans
+    // périmètre devient un périmètre d'une famille (D5) ; rien d'envoyé → inchangé.
+    const measured_scope = body?.measured_scope != null ? serializeScope(normalizeScope(body.measured_scope)) : (kpi_family !== null ? serializeScope(scopeFromFamily(kpi_family)) : null);
     // Consigne d'opération (docs/automatisation-spec.md § 3) — textes libres, offset J-1..J-7,
     // enabled = BOOL explicite (absent ≠ false). Sémantique d'EFFACEMENT (inc. 6) : un champ
     // texte FOURNI vide ("") = SET NULL ; absent (undefined) = intact — le formulaire envoie
@@ -234,6 +238,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
       setClauses.push("kpi_family = @kpi_family");
       updateParams.kpi_family = kpi_family;
       updateTypes.kpi_family = "STRING";
+    }
+    if (measured_scope !== null) {
+      setClauses.push("measured_scope = @measured_scope");
+      updateParams.measured_scope = measured_scope;
+      updateTypes.measured_scope = "STRING";
     }
     if (kpi_target_pct !== null) {
       setClauses.push("kpi_target_pct = @kpi_target_pct");
