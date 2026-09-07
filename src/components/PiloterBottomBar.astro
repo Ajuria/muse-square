@@ -1,29 +1,43 @@
 ---
-// Refonte 3 onglets (04/08, owner) : Demander / Agir / Piloter — mêmes mots que la Nav.
-// Rétro-compat des anciens noms d'active ("veille" → agir, "evenements" → piloter).
-const raw = String(Astro.props.active ?? "agir");
-const active = raw === "veille" ? "agir" : raw === "evenements" ? "piloter" : raw;
+// Barre basse — TÉLÉPHONE SEULEMENT (< 768 px). Rendue par BaseLayout sur toute page app
+// (/app, /profile, /notifications). Jamais sur desktop : R8-nav (09/08) l'y avait retirée
+// parce qu'elle dupliquait la nav haute — sur un téléphone la nav haute est un burger, la
+// duplication n'existe plus (owner 07/09, Épices et Tout n'a pas d'ordinateur en boutique).
+// Onglet actif = règles de Nav.astro : Piloter (tableau, evenement) · Explorer (prompt) ·
+// Agir (toute autre page /app/insightevent hors suivis) · pages Compte : aucun.
+// Un MEMBRE (locals.role) ne voit pas Explorer : hors de son périmètre (vue-equipe-slack-spec).
+// Se cache quand le clavier est ouvert (owner 07/09 : « hide the bar when the keyboard is open »).
+const normalize = (p: string) => (p.replace(/\/+$/, "") || "/");
+const cur = normalize(Astro.url.pathname);
+const raw = Astro.props.active as string | undefined;
+const fromPath = cur.startsWith("/app/insightevent/prompt") ? "demander"
+  : (cur.startsWith("/app/insightevent/tableau") || cur.startsWith("/app/insightevent/evenement")) ? "piloter"
+  : (cur.startsWith("/app/insightevent") && !cur.startsWith("/app/insightevent/suivis")) ? "agir"
+  : "";
+const active = raw ? (raw === "veille" ? "agir" : raw === "evenements" ? "piloter" : raw) : fromPath;
+const role = (Astro.props.role as string | undefined) ?? (Astro.locals as any)?.role ?? null;
+const showExplorer = role !== "member";
 
 const hrefDemander = "/app/insightevent/prompt";
 const hrefAgir = "/app/insightevent/pulse";
 const hrefPiloter = "/app/insightevent/tableau";
 ---
 
-<div class="ms-bottombar" role="navigation" aria-label="Navigation">
-  <div class="ms-bottombar-nav">
+<div class="ms-bb" role="navigation" aria-label="Navigation" data-role={role || undefined}>
+  <div class="ms-bb-nav">
 
-    <a class={`ms-bottombar-item ${active === "piloter" ? "is-active" : ""}`} href={hrefPiloter} aria-label="Piloter" aria-current={active === "piloter" ? "page" : undefined}>
-      <div class="ms-bottombar-ico" aria-hidden="true">
+    <a class={`ms-bb-item ${active === "piloter" ? "is-active" : ""}`} href={hrefPiloter} aria-label="Piloter" aria-current={active === "piloter" ? "page" : undefined}>
+      <div class="ms-bb-ico" aria-hidden="true">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
           <circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/>
         </svg>
       </div>
-      <div class="ms-bottombar-label">PILOTER</div>
+      <div class="ms-bb-label">PILOTER</div>
     </a>
 
-    <a class={`ms-bottombar-item ${active === "agir" ? "is-active" : ""}`} href={hrefAgir} aria-label="Agir" aria-current={active === "agir" ? "page" : undefined}>
-      <div class="ms-bottombar-ico" aria-hidden="true">
+    <a class={`ms-bb-item ${active === "agir" ? "is-active" : ""}`} href={hrefAgir} aria-label="Agir" aria-current={active === "agir" ? "page" : undefined}>
+      <div class="ms-bb-ico" aria-hidden="true">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
           <circle cx="12" cy="12" r="3"/>
           <path d="M6.3 6.3a8 8 0 0 0 0 11.4"/>
@@ -32,55 +46,65 @@ const hrefPiloter = "/app/insightevent/tableau";
           <path d="M20.5 3.5a14 14 0 0 1 0 17"/>
         </svg>
       </div>
-      <div class="ms-bottombar-label">AGIR</div>
+      <div class="ms-bb-label">AGIR</div>
     </a>
 
-    <a class={`ms-bottombar-item ${active === "demander" ? "is-active" : ""}`} href={hrefDemander} aria-label="Explorer" aria-current={active === "demander" ? "page" : undefined}>
-      <div class="ms-bottombar-ico" aria-hidden="true">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-        </svg>
-      </div>
-      <div class="ms-bottombar-label">EXPLORER</div>
-    </a>
+    {showExplorer && (
+      <a class={`ms-bb-item ${active === "demander" ? "is-active" : ""}`} href={hrefDemander} aria-label="Explorer" aria-current={active === "demander" ? "page" : undefined}>
+        <div class="ms-bb-ico" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+        </div>
+        <div class="ms-bb-label">EXPLORER</div>
+      </a>
+    )}
 
   </div>
 </div>
 
 <style is:global>
-.ms-bottombar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 70;
-  background: #ffffff;
-  border-top: 1px solid rgba(17,24,39,0.10);
+/* Desktop : la barre n'existe pas (R8-nav). Sous 768 px : fixée en bas, --ms-bb-h dit sa
+   hauteur aux surfaces qui posent quelque chose au-dessus d'elle (input Explorer, barre
+   d'action de la carte). Clavier ouvert → :root.ms-bb-hidden → barre absente, --ms-bb-h 0. */
+.ms-bb { display: none; }
+@media (max-width: 767px) {
+  :root { --ms-bb-h: 74px; }
+  :root.ms-bb-hidden { --ms-bb-h: 0px; }
+  .ms-bb { display: block; position: fixed; bottom: 0; left: 0; right: 0; z-index: 70; background: #ffffff; border-top: 1px solid rgba(17,24,39,0.10); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  :root.ms-bb-hidden .ms-bb { display: none; }
+  body.ms-has-bb { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+  :root.ms-bb-hidden body.ms-has-bb { padding-bottom: 0; }
+  .ms-bb-nav { max-width: 620px; margin: 0 auto; display: flex; align-items: center; justify-content: space-around; height: 74px; }
+  .ms-bb-item { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 74px; text-decoration: none; color: rgba(17,24,39,0.55); line-height: 1; transition: color 120ms ease; }
+  .ms-bb-item.is-active { color: #1D3BB3; }
+  .ms-bb-ico { display: flex; align-items: center; justify-content: center; }
+  .ms-bb-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 }
-.ms-bottombar-nav {
-  max-width: 620px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  height: 74px;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-.ms-bottombar-item {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  text-decoration: none;
-  color: rgba(17,24,39,0.55);
-  padding: 8px 10px;
-  border-radius: 12px;
-  line-height: 1;
-  transition: color 120ms ease;
-}
-.ms-bottombar-item.is-active { color: #1D3BB3; }
-.ms-bottombar-item:hover { color: #1D3BB3; }
-.ms-bottombar-ico { display: flex; align-items: center; justify-content: center; }
-.ms-bottombar-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 </style>
+
+<script is:inline>
+  (function () {
+    var root = document.documentElement;
+    document.body.classList.add("ms-has-bb");
+    var timer = null;
+    function isField(el) {
+      return !!(el && el.matches && el.matches("input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]), textarea, select, [contenteditable=''], [contenteditable='true']"));
+    }
+    function hide() { root.classList.add("ms-bb-hidden"); }
+    function show() { root.classList.remove("ms-bb-hidden"); }
+    document.addEventListener("focusin", function (e) { if (isField(e.target)) { clearTimeout(timer); hide(); } });
+    document.addEventListener("focusout", function (e) {
+      if (!isField(e.target)) return;
+      clearTimeout(timer);
+      timer = setTimeout(function () { if (!isField(document.activeElement)) show(); }, 150);
+    });
+    var vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener("resize", function () {
+        if (vv.height < window.innerHeight * 0.75) hide();
+        else if (!isField(document.activeElement)) show();
+      });
+    }
+  })();
+</script>

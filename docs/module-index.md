@@ -454,4 +454,4 @@ Deterministic-first pipeline: build facts → decide → render (French) → opt
 
 ### Reusable components (`src/components/`)
 
-`Nav.astro`, `Footer.astro`, `InsightBottomBar.astro`, `PiloterBottomBar.astro`, `OfferCard.astro`, `SectionQuestionnaire.astro`; `ai/PackagerCard.astro`, `ai/ir/lookup_ir_v1.ts`, `ai/render/shared/render_points_cles_v1.ts`; `home/` (`Hero`, `MiniOffers`, `Proofs`, `SocialProof`).
+`Nav.astro`, `Footer.astro`, `InsightBottomBar.astro`, `PiloterBottomBar.astro` (**barre basse MOBILE, 07/09** : rendue par `BaseLayout` sur /app, /profile, /notifications sous 768 px seulement — R8-nav l'avait retirée du desktop ; onglet actif = règles de Nav ; membre sans Explorer via `locals.role` ; se cache clavier ouvert (`:root.ms-bb-hidden`, `--ms-bb-h`) ; harnais `npm run harness:bottombar` = `tools/harness/bottombar-render-verify.ts`), `OfferCard.astro`, `SectionQuestionnaire.astro`; `ai/PackagerCard.astro`, `ai/ir/lookup_ir_v1.ts`, `ai/render/shared/render_points_cles_v1.ts`; `home/` (`Hero`, `MiniOffers`, `Proofs`, `SocialProof`).
