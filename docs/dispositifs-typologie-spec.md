@@ -543,3 +543,7 @@ présente comme telle.
    sans photo, lecture non concluante.
 9. La marche filmée (5.1, le plus) : seulement quand le parcours (§ 7) est à l'ordre du jour.
 10. D4 (re-semer le compte de test), puis la spec du parcours avec le parcours idéal-type (D8).
+11. **Le périmètre de mesure d'un dispositif** (owner 07/09 : « the dispositif doesn't know what the corner
+    sells ») — spec `docs/dispositif-perimetre-mesure-spec.md` : ce que le dispositif vend (familles, pôle,
+    articles confirmés) porté par l'engagement et propagé au verdict, à l'en-tête et à la décomposition.
+    Débouché naturel du point 5 (confirmation des articles). Six décisions owner avant code.
