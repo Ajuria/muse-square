@@ -185,7 +185,8 @@ quand l'owner refuse une phrase** ; en retirer une demande son accord.
   équivalent à <article>, mettez-le en avant cette semaine. » · « comparez vos horaires aux siens ; indiquez sur
   votre fiche Google et en vitrine les heures où vous êtes le seul ouvert. » · « si vous vendez <article>,
   mettez-le en avant : ses clients cherchent maintenant où l'acheter. » La porte « fait seul » du 06/09 est levée.
-  Reste « Réagissez à la baisse de prix concurrente » (titre de competitor_price_drop, hors de la demande N3).
+  Titre de competitor_price_drop (owner 07/09) : « Réagissez à la baisse de prix de vos concurrents » — ce n'est pas
+  le prix qui est concurrent ; « baisse de prix concurrente » refusé.
 - P8 (même consigne) : 21 plans chargés dans `reco-library.js` (heure, produit, famille, articles par ticket,
   produit sans vente, prix moyen, remises) en français courant — un verbe ordinaire, un objet qu'on tient.
 - Cartes sans terme (owner 07/09, « all four ») : `competitor_reputation_strength` rejoint la classe 14 jours
