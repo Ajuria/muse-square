@@ -82,6 +82,10 @@ export interface DayNoteSlotRow {
   expected_revenue: number | null;
   residual_z: number | null;
   residual_pct: number | null;             // (réalisé − habituel) / habituel, en % — celui des faits du jour
+  /** Couche VOLUME (forme membre) : compte de ventes du jour et son attendu — vw_insight_event_tickets_daily × day_residual. */
+  tickets?: number | string | null;
+  expected_transactions?: number | string | null;
+  transactions_residual_z?: number | string | null;
 }
 
 export interface SlotCard {
@@ -240,19 +244,40 @@ export function alertCandidates(rows: AlertSlotRow[], todayIso: string, marks: R
 }
 
 /** E3 — les jours inexpliqués sans note : une carte par jour, la saisie sur la carte. */
-export function dayNoteCandidates(rows: DayNoteSlotRow[], todayIso: string): SlotCard[] {
+export type NoteUnit = "eur" | "ventes";
+export function dayNoteCandidates(rows: DayNoteSlotRow[], todayIso: string, unit: NoteUnit = "eur"): SlotCard[] {
   const out: SlotCard[] = [];
   for (const raw of rows) {
     const date = ymd(raw.date);
     const ca = num(raw.daily_revenue), exp = num(raw.expected_revenue), z = num(raw.residual_z), pct = num(raw.residual_pct);
-    if (!date || ca == null || exp == null || z == null || pct == null || Math.abs(z) < 2 || date >= todayIso) continue;
+    // Couche VOLUME (owner 08/09, forme membre) : le jour est « inexpliqué » dans SA couche — |z ventes| ≥ 2 —
+    // et la phrase dit le compte de ventes, jamais le CA. Le score de rang reste l'écart € quand il existe
+    // (jamais montré au membre), sinon l'écart de ventes.
+    const nTx = num(raw.tickets), expTx = num(raw.expected_transactions), zTx = num(raw.transactions_residual_z);
+    if (!date || date >= todayIso) continue;
     const jours = daysBetween(date, todayIso);
-    const ecart = Math.abs(ca - exp);
     const jour = jourFr(date);
+    const jourCap = jour.charAt(0).toUpperCase() + jour.slice(1);
+    if (unit === "ventes") {
+      if (nTx == null || expTx == null || zTx == null || expTx <= 0 || Math.abs(zTx) < 2) continue;
+      const pctTx = ((nTx - expTx) / expTx) * 100;
+      const ecart = ca != null && exp != null ? Math.abs(ca - exp) : Math.abs(nTx - expTx);
+      out.push({
+        nature: "memoire", kind: "note", key: "explorer_slot_note", date, objet_id: date,
+        score: ecart * jours, enjeu_eur: ecart, anciennete_jours: jours,
+        text: SLOTS_FR.note_titre_ventes(jourCap, frDate(date), frInt(nTx), frSignedPct(pctTx)),
+        sub: SLOTS_FR.note_sub,
+        cta: SLOTS_FR.note_cta,
+        href: "",
+      });
+      continue;
+    }
+    if (ca == null || exp == null || z == null || pct == null || Math.abs(z) < 2) continue;
+    const ecart = Math.abs(ca - exp);
     out.push({
       nature: "memoire", kind: "note", key: "explorer_slot_note", date, objet_id: date,
       score: ecart * jours, enjeu_eur: ecart, anciennete_jours: jours,
-      text: SLOTS_FR.note_titre(jour.charAt(0).toUpperCase() + jour.slice(1), frDate(date), frInt(ca), frSignedPct(pct)),
+      text: SLOTS_FR.note_titre(jourCap, frDate(date), frInt(ca), frSignedPct(pct)),
       sub: SLOTS_FR.note_sub,
       cta: SLOTS_FR.note_cta,
       href: "",

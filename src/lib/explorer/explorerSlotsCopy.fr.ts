@@ -32,6 +32,9 @@ export const SLOTS_FR = {
   bilan_cta: "Bilan →",
   // Nature 1 — jour inexpliqué (|residual_z| ≥ 2) sans note.
   note_titre: (jourCap: string, dateFr: string, caFr: string, pctFr: string) => `${jourCap} ${dateFr} : ${caFr} €, ${pctFr} vs votre CA habituel`,
+  // Forme MEMBRE (owner 08/09, unité « ventes ») : le même gabarit, l'unité échangée — un membre ne
+  // voit jamais un niveau de CA (vue-equipe-slack-spec), il voit le compte de ventes du jour.
+  note_titre_ventes: (jourCap: string, dateFr: string, nFr: string, pctFr: string) => `${jourCap} ${dateFr} : ${nFr} ventes, ${pctFr} vs vos ventes habituelles`,
   note_sub: "Un souvenir ? Notez-le · sinon, laissez",
   note_cta: "Enregistrer",
   // Nature 2 — verdict manqué, ni geste ni version suivante (≤ 14 j).

@@ -93,6 +93,26 @@ describe("dayNoteCandidates (E3)", () => {
     expect(plain(c.text)).toBe("Samedi 08/08 : 1 869 €, −13 % vs votre CA habituel");
     expect(c.enjeu_eur).toBe(282);
   });
+  // Forme MEMBRE (owner 08/09 : « x, y and z "ventes" ») — f10c3e58 au 08/09 : mardi 01/09, 350 tickets pour 198 attendus, z ventes 2,68.
+  const dayVol: DayNoteSlotRow = { ...day, tickets: 350, expected_transactions: 198, transactions_residual_z: 2.68 };
+  it("unité « ventes » : le même gabarit, le compte de ventes à la place du CA, l'écart en % dans la couche volume", () => {
+    const [c] = dayNoteCandidates([dayVol], TODAY, "ventes");
+    expect(plain(c.text)).toBe("Mardi 01/09 : 350 ventes, +77 % vs vos ventes habituelles");
+    expect(c.text).not.toMatch(/€/);
+    expect(c.kind).toBe("note"); expect(c.sub).toBe("Un souvenir ? Notez-le · sinon, laissez"); expect(c.cta).toBe("Enregistrer");
+    expect(c.enjeu_eur).toBe(683);
+  });
+  it("unité « ventes » : le seuil se lit dans SA couche — un jour inexpliqué en CA mais pas en ventes ne sort pas, et inversement", () => {
+    expect(dayNoteCandidates([{ ...dayVol, transactions_residual_z: 1.9 }], TODAY, "ventes")).toEqual([]);
+    expect(dayNoteCandidates([{ ...dayVol, tickets: null }], TODAY, "ventes")).toEqual([]);
+    const [c] = dayNoteCandidates([{ ...dayVol, residual_z: 0.4, residual_pct: 3 }], TODAY, "ventes");
+    expect(plain(c.text)).toBe("Mardi 01/09 : 350 ventes, +77 % vs vos ventes habituelles");
+    expect(dayNoteCandidates([{ ...dayVol, residual_z: 0.4, residual_pct: 3 }], TODAY, "eur")).toEqual([]);
+  });
+  it("unité « eur » par défaut : la forme owner ne bouge pas quand la couche volume est présente", () => {
+    const [c] = dayNoteCandidates([dayVol], TODAY);
+    expect(plain(c.text)).toBe("Mardi 01/09 : 1 603 €, +74 % vs votre CA habituel");
+  });
 });
 
 describe("decisionCandidates (E2 — mots du lexique et de la page de l'engagement)", () => {

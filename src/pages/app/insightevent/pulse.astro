@@ -516,13 +516,13 @@ if (!location_id) {
   // Le créneau « jour inexpliqué » d'Explorer (E3 : /api/insight/explorer-slots, chaînes SERVEUR
   // SLOTS_FR — rien n'est écrit ici) se pose EN TÊTE du fil, avant « Vos actions du jour », dans
   // la grammaire des rangées. Enregistrer → /api/insight/day-notes (le rail d'Explorer) et la
-  // rangée s'en va. RÈGLE MEMBRE (vue-equipe-slack-spec) : le titre cite un NIVEAU de CA
-  // (« 1 603 € ») → ni fetch ni rendu pour un membre, tant que l'owner n'a pas tranché la forme
-  // sans niveau. _noteScope : null = tous les sites, sinon le location_id du segment actif.
+  // rangée s'en va. RÈGLE MEMBRE (vue-equipe-slack-spec) : le SERVEUR sert au membre la forme en
+  // VENTES (owner 08/09, « x, y and z "ventes" ») — jamais un niveau de CA ; le client ne filtre rien.
+  // _noteScope : null = tous les sites, sinon le location_id du segment actif.
   var _noteSlotsByLoc = {}, _noteLocLabels = {}, _noteScope = null, _noteFetched = false;
   var NOTE_SVG = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v5.6l4 2.4-.8 1.3L11 13V7h2z"/></svg>';
   function fetchNoteSlots(locs) {
-    if (_noteFetched || window._msMemberView) return;
+    if (_noteFetched) return;
     _noteFetched = true;
     (locs || []).forEach(function (l) {
       if (!l || !l.location_id) return;
@@ -552,7 +552,7 @@ if (!location_id) {
   function renderNoteSlots() {
     var old = document.getElementById("pls-notes");
     var anchor = document.getElementById("daily-brief-section");
-    if (window._msMemberView || !anchor) { if (old) old.remove(); return; }
+    if (!anchor) { if (old) old.remove(); return; }
     var locIds = _noteScope ? [_noteScope] : Object.keys(_noteSlotsByLoc), rows = [];
     locIds.forEach(function (loc) { (_noteSlotsByLoc[loc] || []).forEach(function (x) { rows.push(noteRowHtml(loc, x)); }); });
     if (!rows.length) { if (old) old.remove(); return; }
