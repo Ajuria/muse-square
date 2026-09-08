@@ -146,7 +146,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
     <script is:inline src="/js/ms-loader.js?v=2"></script>
     <script is:inline src="/js/reco-library.js?v=13"></script>
-    <script is:inline src="/js/action-cards.js?v=121"></script>
+    <script is:inline src="/js/action-cards.js?v=122"></script>
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/card-kit.js?v=70"></script>
@@ -789,7 +789,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             + '<h1 style="font-size:21px;font-weight:600;margin:0;line-height:1.2;color:' + INK + ';">' + esc(m.title) + '</h1>'
             + '<span style="font-size:11px;font-weight:600;padding:3px 10px;background:' + m.badge.bg + ';color:' + m.badge.fg + ';">' + esc(m.badge.label) + '</span>'
             + (_siteNm ? '<span style="margin-left:auto;font-size:13px;font-weight:500;color:' + SUB + ';white-space:nowrap;">' + esc(_siteNm) + '</span>' : '')
-          + '</div>';
+          + '</div>'
+          // 08/09 (owner « Objectif », « ventes ») : l'objectif en ventes de la carte — le MÊME champ serveur et le
+          // MÊME formateur que la rangée Agir (action-cards.js msObjectifVentesHtml) : une source, jamais deux textes.
+          + (window.msObjectifVentesHtml && actionCandidate ? window.msObjectifVentesHtml(actionCandidate.objectif_ventes) : '');
 
         var synth = '<p id="fs-synth-ctx" style="font-size:15px;line-height:1.55;margin:0 0 10px;color:' + INK + ';">' + esc(ctx) + '</p>';
         if (rsv) synth += '<p id="fs-synth-reserve" style="font-size:13px;line-height:1.5;margin:-4px 0 10px;color:#6B7280;">' + esc(rsv) + '</p>';

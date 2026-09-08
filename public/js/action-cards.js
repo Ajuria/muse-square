@@ -3387,7 +3387,7 @@
       // 24/08 — funnel_corner copié ici : TROISIÈME occurrence de la ligne jumelle (enjeu 28/07,
       // context_motif 22/08) — tout champ serveur que pulse lit sur entry.item DOIT passer par
       // cette construction, sinon il meurt en silence entre monitor et le rendu.
-      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: _locLbl, action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType, enjeu: ac.enjeu || null, enjeu_reason_fr: ac.enjeu_reason_fr || null, needs_catchment: ac.needs_catchment === true, catchment_days: ac.catchment_days || null, context_motif: ac.context_motif || null, corner_day_mode: ac.corner_day_mode === true, funnel_corner: ac.funnel_corner || null, population_enjeu: ac.population_enjeu || null, decomposition: ac.decomposition || null, owner_only: ac.owner_only === true, data_payload: ac.data_payload || null };
+      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: _locLbl, action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType, enjeu: ac.enjeu || null, enjeu_reason_fr: ac.enjeu_reason_fr || null, needs_catchment: ac.needs_catchment === true, catchment_days: ac.catchment_days || null, context_motif: ac.context_motif || null, corner_day_mode: ac.corner_day_mode === true, funnel_corner: ac.funnel_corner || null, population_enjeu: ac.population_enjeu || null, decomposition: ac.decomposition || null, owner_only: ac.owner_only === true, data_payload: ac.data_payload || null , objectif_ventes: ac.objectif_ventes || null };
       if (ac.data_payload) { var dp2 = ac.data_payload; for (var k2 in dp2) { if (dp2.hasOwnProperty(k2) && !item.hasOwnProperty(k2)) item[k2] = dp2[k2]; } }
       var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, reserve: reserveText, action: actionText, actions: actions, _is_action_candidate: true, confidence_tier: ((item && item.residual_z != null) ? msSalesConfidence(item) : (ac.confidence_tier || (ac.data_payload && ac.data_payload.confidence_tier) || null)), _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
       // 06/09 (audit N1) - les cartes de cycle de vie (lib/events/eventLifecycleCards : event_threat 95,
@@ -4257,3 +4257,30 @@
   window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','tickets_lines_move','item_absent_regular','family_price_move','family_discount_move','hour_share_move'];
 
 })();
+
+// ── OBJECTIF EN VENTES (owner 08/09 : « Sell + w, x and y (total of z) », label « Objectif » — pas « Enjeu »,
+// ce n'est pas en €). UNE source : le champ `objectif_ventes` posé par monitor (lib insightFamilies/
+// objectifVentes.ts) ; UN formateur, ici, pour la rangée Agir ET la page Consulter. Estimation tant que
+// dbt n'a pas les unités attendues par famille et jour de semaine : le label le dit (« estimé »).
+// Carte groupée « sur N jours » (pulse regroupe les cartes CA d'une semaine) : les ventes se SOMMENT par
+// famille sur les jours du groupe, comme l'écart € du coin ; trois lignes, total = ces trois. Pur.
+window.msObjectifVentesMerge = function (list) {
+  var items = (list || []).filter(function (o) { return o && o.lignes && o.lignes.length; });
+  if (!items.length) return null;
+  if (items.length === 1) return items[0];
+  var by = {}, sens = items[0].sens;
+  items.forEach(function (o) { o.lignes.forEach(function (l) { by[l.label] = (by[l.label] || 0) + Number(l.ventes || 0); }); });
+  var lignes = Object.keys(by).map(function (k) { return { label: k, ventes: Math.round(by[k]) }; }).filter(function (l) { return l.ventes >= 1; }).sort(function (a, b) { return b.ventes - a.ventes; }).slice(0, 3);
+  if (!lignes.length) return null;
+  return { estime: true, sens: sens, total: lignes.reduce(function (s, l) { return s + l.ventes; }, 0), lignes: lignes };
+};
+window.msObjectifVentesHtml = function (o) {
+  if (!o || !o.lignes || !o.lignes.length) return '';
+  var esc = function (v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+  var n = function (v) { return Math.abs(Math.round(Number(v) || 0)).toLocaleString('fr-FR'); };
+  var parts = o.lignes.map(function (l, i) { return esc(l.label) + ' +' + n(l.ventes) + (i === 0 ? ' ventes' : ''); });
+  var total = o.lignes.length > 1 ? ' \u00b7 total +' + n(o.total) + ' ventes' : '';
+  return '<div class="ab-obj" data-ab-obj style="font-size:12.5px;color:#374151;line-height:1.45;margin-top:4px;">'
+    + '<span style="font-size:10.5px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#6B7280;margin-right:6px;">Objectif \u00b7 estim\u00e9</span>'
+    + parts.join(' \u00b7 ') + total + '</div>';
+};

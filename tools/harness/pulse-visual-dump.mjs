@@ -124,5 +124,26 @@ writeFileSync(OUT, html);
     console.log("note-cause : Enregistrer retire la rangée (" + n0 + " → " + n1 + "), champ vide inerte");
   }
 }
+// Objectif en ventes (08/09, owner) — vérité RENDU : pour chaque carte ventes qui porte le champ serveur
+// `objectif_ventes`, la rangée rendue porte la ligne [data-ab-obj] et son texte est EXACTEMENT celui du
+// formateur partagé (window.msObjectifVentesHtml) sur ce champ ; une carte sans champ n'a pas de ligne.
+{
+  const strip = (h) => String(h).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  let withField = 0, rendered = 0, exact = 0, orphan = 0, sample = "";
+  for (const lid of Object.keys(payloadBySite)) for (const c of (payloadBySite[lid].action_candidates || [])) {
+    const rows = [...doc.querySelectorAll('[data-ab-dispo-instance="' + c.card_instance_id + '"]')].map((e) => e.closest(".ab-card")).filter(Boolean);
+    if (!rows.length) continue;
+    const line = rows[0].querySelector("[data-ab-obj]");
+    // Rangée groupée (« sur N jours ») : l'attendu est la FUSION des champs des cartes du groupe.
+    const grp = (rows[0].querySelector("[data-ab-dispo-group]")?.getAttribute("data-ab-dispo-group") || "").split(",").filter(Boolean);
+    const all = Object.values(payloadBySite).flatMap((p) => p.action_candidates || []);
+    const fields = grp.length ? grp.map((id) => (all.find((x) => x.card_instance_id === id) || {}).objectif_ventes) : [c.objectif_ventes];
+    const merged = win.msObjectifVentesMerge(fields);
+    if (merged) { withField++; if (line) { rendered++; const want = strip(win.msObjectifVentesHtml(merged)); if (strip(line.outerHTML) === want) { exact++; if (!sample) sample = want + (grp.length > 1 ? " (" + grp.length + " jours)" : ""); } } }
+    else if (line) orphan++;
+  }
+  console.log("objectif ventes : " + withField + " carte(s) avec champ · " + rendered + " ligne(s) rendue(s) · " + exact + " exacte(s) · " + orphan + " orpheline(s)" + (sample ? " · ex. « " + sample + " »" : ""));
+  if (withField && (rendered !== withField || exact !== rendered || orphan)) { console.error("OBJECTIF : rendu ≠ champ"); process.exit(1); }
+}
 console.log("dump écrit :", OUT, "—", html.length, "octets");
 process.exit(0);
