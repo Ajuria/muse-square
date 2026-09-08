@@ -5,6 +5,7 @@ const {
   hideSurveyCta = false,
   hideFooter = false,
   hideNav = false,
+  noindex = false,
 } = Astro.props;
 
 import "../styles/global.css";
@@ -33,6 +34,7 @@ const canonicalHref = "https://www.musesquare.com" + canonicalPath;
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalHref} />
+    {noindex && <meta name="robots" content="noindex" />}
 
     <!-- Privacy-friendly analytics by Plausible -->
     <script async is:inline src="https://plausible.io/js/pa-LZhzpaLnNRnkmoZcXgUVK.js"></script>

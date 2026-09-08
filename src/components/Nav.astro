@@ -4,7 +4,7 @@ import { ADMIN_USER_IDS } from "../lib/admins";
 
 const items = [
   { href: "/offres", label: "Plateforme" },
-  { href: "/a-propos", label: "À propos" },
+  { href: "/contact", label: "Contact" },
 ];
 
 const ADMIN_IDS = ADMIN_USER_IDS;
@@ -148,7 +148,7 @@ const isAppShell = isApp;
         {/* Auth actions: only when signed out */}
         <Show when="signed-out" client:load>
           <div class="flex items-center gap-8 font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
-            <a href="/sign-up" class="ms-btn">
+            <a href="/contact" class="ms-btn">
               Nous contacter
             </a>
           </div>
@@ -241,7 +241,7 @@ const isAppShell = isApp;
               <a href="/sign-in" class="ms-nav-link relative block py-[12px] transition-opacity hover:opacity-80">Se connecter</a>
             </li>
             <li class="pt-[8px] pb-[12px]">
-              <a href="/sign-up" class="ms-btn w-full">Nous contacter</a>
+              <a href="/contact" class="ms-btn w-full">Nous contacter</a>
             </li>
           </Show>
         </>
