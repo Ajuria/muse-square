@@ -122,7 +122,10 @@ const id = Astro.url.searchParams.get("id") || "";
                 fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
                   body: JSON.stringify({ action: "confirm", dispositif_id: did, photo_id: pid, items_confirmed: codes }) })
                   .then(function (r) { return r.json(); })
-                  .then(function (j) { if (j && j.ok && j.photo) show(ckey, j.photo); else { cbtn.disabled = false; } })
+                  .then(function (j) {
+                    if (j && j.ok && j.photo) { show(ckey, j.photo); if (j.measured_scope_changed) setTimeout(load, 400); }   // P4 : le périmètre a changé → la page se relit
+                    else { cbtn.disabled = false; }
+                  })
                   .catch(function () { cbtn.disabled = false; });
                 return;
               }

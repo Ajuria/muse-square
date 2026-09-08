@@ -67,6 +67,26 @@ export function scopeFilter(s: MeasuredScope): { sql: string; params: Record<str
   return { sql: "item_category IN UNNEST(@scope_familles)", params: { scope_familles: (s.familles ?? []).map((f) => f.nom) }, types: { scope_familles: ["STRING"] } };
 }
 
+/** P4 (D3, owner 07/09) : une photo confirmée = un périmètre sans rien saisir. L'union des articles
+ *  confirmés des DERNIÈRES photos par composant de la version devient le périmètre `articles` — sauf
+ *  si l'exploitant a choisi des familles ou un pôle à la main (un choix explicite prime, D6). Sans
+ *  article confirmé, rien ne change (jamais un périmètre vide). Pur. */
+export function scopeFromConfirmedPhotos(
+  photos: Array<{ component_key: string; created_at: string; items_confirmed: Array<{ item_code: string }> | null }>,
+  current: MeasuredScope | null,
+): { scope: MeasuredScope | null; changed: boolean } {
+  const latest = new Map<string, { created_at: string; items_confirmed: Array<{ item_code: string }> | null }>();
+  for (const p of photos) {
+    const prev = latest.get(p.component_key);
+    if (!prev || p.created_at > prev.created_at) latest.set(p.component_key, p);
+  }
+  const codes = Array.from(new Set([...latest.values()].flatMap((p) => (p.items_confirmed ?? []).map((it) => clean(it.item_code)).filter(Boolean))));
+  if (!codes.length) return { scope: current, changed: false };
+  if (current && current.kind !== "articles") return { scope: current, changed: false };   // familles / pôle choisis à la main : on ne les écrase pas
+  const same = current?.kind === "articles" && current.item_codes && current.item_codes.length === codes.length && current.item_codes.every((c) => codes.includes(c));
+  return same ? { scope: current, changed: false } : { scope: { kind: "articles", item_codes: codes }, changed: true };
+}
+
 const guill = (n: string): string => `« ${n} »`;
 
 /** Le nom du CA du périmètre dans une phrase (mots owner 07/09). `titre` = le titre du dispositif (articles). */
