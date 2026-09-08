@@ -1,14 +1,14 @@
 /* MSInstall — « L'application Muse Square » sur le téléphone (owner 08/09).
-   Un seul bouton, « Installer », qui n'apparaît que là où il peut agir :
-   - navigateurs Chromium (Chrome, Edge, Samsung, Opera) : beforeinstallprompt → feuille native ;
-   - iPhone / iPad (tous navigateurs = WebKit, sans API) : un panneau qui ne porte que les deux
-     libellés d'Apple, « Partager » et « Sur l'écran d'accueil », avec leurs icônes ;
-   - Firefox (aucun événement d'installation) et app déjà installée (display-mode standalone) : rien.
-   Deux montages : la section Compte (mountButton) et la bandelette au-dessus de la barre basse
-   (mountStrip, < 768 px, fermeture mémorisée par appareil). Styles inline : HTML injecté. */
+   - Navigateurs Chromium (Chrome, Edge, Samsung, Opera) : un bouton « Installer » → feuille d'installation native.
+   - iPhone / iPad (WebKit, aucune API d'installation, aucun bouton possible) : PAS de bouton — les deux étapes
+     d'Apple, affichées telles quelles avec leurs icônes : 1 Partager · 2 Sur l'écran d'accueil (Chrome iOS :
+     « Ajouter à l'écran d'accueil »). Rien d'écrit par nous. C'est le motif standard des apps web sur iOS.
+   - Firefox (aucun événement) et app déjà installée (display-mode standalone) : rien.
+   Deux montages : la section Compte (mountButton) et la bandelette au-dessus de la barre basse (mountStrip,
+   < 768 px, fermeture mémorisée par appareil). Styles inline : HTML injecté. */
 (function () {
   "use strict";
-  var deferred = null, installed = false, forced = null, mounts = [], panel = null;
+  var deferred = null, installed = false, forced = null, mounts = [];
   var ua = navigator.userAgent || "";
   var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
@@ -33,39 +33,26 @@
     return '<button type="button" data-ms-install style="display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 18px;border:1px solid #111827;border-radius:2px;background:#111827;color:#fff;font:600 14px/1 inherit;cursor:pointer;' + (extra || "") + '">Installer</button>';
   }
 
-  function openPanel(anchor) {
-    closePanel();
-    var wrap = document.createElement("div");
-    wrap.setAttribute("data-ms-install-panel", "");
-    wrap.style.cssText = "position:fixed;inset:0;z-index:90;background:rgba(17,24,39,.35);display:flex;align-items:flex-end;justify-content:center;";
-    wrap.innerHTML =
-      '<div role="dialog" aria-label="Sur l\'écran d\'accueil" style="width:100%;max-width:480px;background:#fff;border-radius:14px 14px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 24px rgba(16,24,40,.12);">' +
-        '<div style="display:flex;align-items:center;gap:14px;padding:12px 6px;border-bottom:1px solid #F3F4F6;">' + SVG_SHARE + '<span style="font-size:16px;color:#111827;">Partager</span></div>' +
-        '<div style="display:flex;align-items:center;gap:14px;padding:12px 6px;">' + SVG_ADD + '<span style="font-size:16px;color:#111827;">Sur l\'écran d\'accueil</span></div>' +
-        '<button type="button" data-ms-install-close aria-label="Fermer" style="position:absolute;top:10px;right:10px;width:36px;height:36px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;">' + SVG_X + '</button>' +
-      '</div>';
-    wrap.firstChild.style.position = "relative";
-    wrap.addEventListener("click", function (e) { if (e.target === wrap || e.target.closest("[data-ms-install-close]")) closePanel(); });
-    document.body.appendChild(wrap);
-    panel = wrap;
-  }
-  function closePanel() { if (panel && panel.parentNode) panel.parentNode.removeChild(panel); panel = null; }
-
-  function onInstallClick(ev) {
-    var m = mode();
-    if (m === "prompt" && deferred) {
+  function onInstallClick() {
+    if (mode() === "prompt" && deferred) {
       var p = deferred; deferred = null;
       p.prompt();
       if (p.userChoice && p.userChoice.then) p.userChoice.then(function () { refresh(); });
-      return;
     }
-    if (m === "ios" || (forced === "ios")) { openPanel(ev.currentTarget); }
+  }
+
+  /* iPhone : les deux étapes d'Apple, numérotées, libellé du navigateur ouvert. compact = bandelette. */
+  function stepsHtml(compact) {
+    var step2 = /CriOS/.test(ua) ? "Ajouter à l'écran d'accueil" : "Sur l'écran d'accueil";
+    var num = function (n) { return '<span style="flex:none;width:20px;height:20px;border-radius:50%;background:#EEF2FF;color:#1D3BB3;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">' + n + '</span>'; };
+    var row = function (n, svg, txt) { return '<div style="display:flex;align-items:center;gap:10px;padding:' + (compact ? '3px 0' : '10px 0') + ';font-size:' + (compact ? '13px' : '15px') + ';color:#111827;">' + num(n) + svg + '<span>' + txt + '</span></div>'; };
+    return '<div style="display:flex;flex-direction:column;' + (compact ? 'gap:2px;' : 'gap:0;') + '">' + row(1, SVG_SHARE, "Partager") + row(2, SVG_ADD, step2) + '</div>';
   }
 
   function render(m) {
     var show = mode() !== "none";
     if (m.kind === "button") {
-      m.el.innerHTML = show ? buttonHtml() : "";
+      m.el.innerHTML = !show ? "" : (mode() === "ios" ? stepsHtml(false) : buttonHtml());
       if (m.section) m.section.hidden = !show;
     } else if (m.kind === "strip") {
       var dismissed = false;
@@ -77,8 +64,9 @@
       m.el.innerHTML =
         '<div style="position:fixed;left:0;right:0;bottom:calc(var(--ms-bb-h,0px) + env(safe-area-inset-bottom,0px));z-index:69;background:#fff;border-top:1px solid rgba(17,24,39,.1);padding:10px 12px 10px 16px;display:flex;align-items:center;gap:12px;">' +
           '<img src="' + (m.icon || "/icons/pwa/icon-192.png") + '" alt="" width="36" height="36" style="width:36px;height:36px;border-radius:8px;flex:none;" />' +
-          '<span style="flex:1;font-size:14px;color:#111827;font-weight:600;">Muse Square</span>' +
-          buttonHtml("height:36px;padding:0 16px;") +
+          (mode() === "ios"
+            ? '<div style="flex:1;min-width:0;">' + stepsHtml(true) + '</div>'
+            : '<span style="flex:1;font-size:14px;color:#111827;font-weight:600;">Muse Square</span>' + buttonHtml("height:36px;padding:0 16px;")) +
           '<button type="button" data-ms-install-dismiss aria-label="Fermer" style="width:36px;height:36px;border:0;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;">' + SVG_X + '</button>' +
         '</div>';
     }
