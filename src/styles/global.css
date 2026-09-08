@@ -189,6 +189,11 @@
   .ms-container { @apply max-w-[1140px] mx-auto px-[16px] lg:px-[24px]; }
   .ms-container { @apply max-w-[1140px] mx-auto px-[16px] lg:px-[24px]; }
   .ms-section   { @apply py-[40px] sm:py-[60px] lg:py-[100px]; }
+  /* Bandeau d'ouverture : même hauteur sur l'accueil, Plateforme et Contact (owner 08/09) — la valeur est
+     celle de l'accueil mesurée le 08/09 ; le contenu se centre, une page plus bavarde ne se coupe pas. */
+  .ms-hero { min-height: 535px; display: flex; align-items: center; }
+  .ms-hero > .ms-container { width: 100%; }
+  @media (max-width: 900px) { .ms-hero { min-height: 440px; } }
   .ms-divider   { @apply border-t border-border my-[32px] sm:my-[40px] lg:my-[60px] w-1/2 mx-auto; }
   .ms-divider--compact { @apply my-[20px] sm:my-[28px] lg:my-[36px]; }
   .ms-divider--tight   { @apply my-[14px] sm:my-[18px] lg:my-[24px]; }

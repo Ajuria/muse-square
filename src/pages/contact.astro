@@ -6,27 +6,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
 <BaseLayout title="Contact — Muse Square" description="Si mesurer ce qui marche chez vous est un enjeu, parlons-en. Couverture beta : Île-de-France, Occitanie, Provence-Alpes-Côte d'Azur.">
   <!-- Full-bleed hero with overlay title (streamlined with Services/Références) -->
-  <section class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] md:aspect-[1440/500]">
-    <!-- Background layer (placeholder; swap to <picture> if needed) -->
-    <picture class="absolute inset-0 block" aria-hidden="true">
-      <source srcset="/images/banner-contact-300k.png" type="image/png" />
-      <img
-        src="/images/banner-contact-300k.png"
-        alt=""
-        class="w-full h-full object-cover"
-        sizes="100vw"
-        loading="eager"
-        decoding="async"
-      />
-    </picture>
-
-    <!-- optional legibility overlay (same as Services) -->
-    <div class="absolute inset-0 bg-black/10 md:bg-black/15" aria-hidden="true"></div>
-
-    <!-- Overlay content: title only, aligned to the rail -->
-        <div class="relative py-[40px] md:py-0 md:absolute md:inset-0">
-      <div class="ms-container h-full flex items-center">
-        <h1 class="ms-h1 text-primary">Discutons de vos besoins</h1>
+  <section class="ms-hero hero relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-hidden">
+    <div class="hero-photo" aria-hidden="true"></div>
+    <div class="hero-veil" aria-hidden="true"></div>
+    <div class="ms-container">
+      <div class="hero-in">
+        <h1 class="ms-h1">Discutons de vos besoins</h1>
       </div>
     </div>
   </section>
@@ -102,6 +87,24 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     </div>
   </section>
 </BaseLayout>
+
+<style>
+  /* Bandeau : le gabarit de l'accueil et de Plateforme — photo à droite fondue vers le blanc, texte encre ;
+     sous 900 px l'image passe en fond à 55 % sous un voile blanc (3a75df29, owner 07/09). */
+  .hero{background:#fff}
+  .hero-photo{position:absolute;top:0;right:0;bottom:0;width:56%;background-image:url('/images/banner-contact-1440x500.webp');background-size:cover;background-position:right center;
+    -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.42) 38%,rgba(0,0,0,.95) 100%);mask-image:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.42) 38%,rgba(0,0,0,.95) 100%)}
+  .hero-in{position:relative;z-index:2;padding:88px 0 72px;max-width:620px}
+  .hero .ms-h1{color:var(--color-text-primary)}
+  .hero-veil{display:none}
+  @media (max-width:900px){
+    .hero-photo{width:100%;opacity:.55;background-position:center;-webkit-mask-image:none;mask-image:none}
+    .hero-veil{display:block;position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.94) 0%,rgba(255,255,255,.90) 42%,rgba(255,255,255,.62) 74%,rgba(255,255,255,.30) 100%)}
+    .hero-in{padding:56px 0 48px;max-width:none}
+    .hero .ms-h1{font-size:34px}
+  }
+</style>
+
 
 
 <button type="submit"
