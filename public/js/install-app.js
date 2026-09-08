@@ -12,7 +12,9 @@
   var ua = navigator.userAgent || "";
   var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
-  var STRIP_KEY = "ms-install-strip-dismissed";
+  /* Fermeture de la bandelette : mémorisée par appareil, expire après 14 jours (usage des invites d'installation).
+     Nouvelle clé le 08/09 : les fermetures de la première version ne comptent plus. */
+  var STRIP_KEY = "ms-install-strip-dismissed-at", STRIP_TTL = 14 * 24 * 3600 * 1000;
 
   window.addEventListener("beforeinstallprompt", function (e) { e.preventDefault(); deferred = e; refresh(); });
   window.addEventListener("appinstalled", function () { installed = true; deferred = null; refresh(); });
@@ -56,7 +58,7 @@
       if (m.section) m.section.hidden = !show;
     } else if (m.kind === "strip") {
       var dismissed = false;
-      try { dismissed = localStorage.getItem(STRIP_KEY) === "1"; } catch (e) {}
+      try { var at = parseInt(localStorage.getItem(STRIP_KEY) || "0", 10); dismissed = at > 0 && (Date.now() - at) < STRIP_TTL; } catch (e) {}
       var narrow = window.innerWidth < 768;
       var on = show && !dismissed && narrow;
       if (!on) { m.el.innerHTML = ""; m.el.hidden = true; return; }
@@ -71,7 +73,7 @@
         '</div>';
     }
     var b = m.el.querySelector("[data-ms-install]"); if (b) b.addEventListener("click", onInstallClick);
-    var d = m.el.querySelector("[data-ms-install-dismiss]"); if (d) d.addEventListener("click", function () { try { localStorage.setItem(STRIP_KEY, "1"); } catch (e) {} render(m); });
+    var d = m.el.querySelector("[data-ms-install-dismiss]"); if (d) d.addEventListener("click", function () { try { localStorage.setItem(STRIP_KEY, String(Date.now())); } catch (e) {} render(m); });
   }
   function refresh() { for (var i = 0; i < mounts.length; i++) render(mounts[i]); }
 
