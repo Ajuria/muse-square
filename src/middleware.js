@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { ADMIN_USER_IDS } from "./lib/admins";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/astro/server";
+import { sequence } from "astro:middleware";
 import { BigQuery } from "@google-cloud/bigquery";
 import { resolveOperationalScope } from "./lib/scope";
 import { getProfileContext, resolvePendingMembership } from "./lib/profile/profileContext";
@@ -131,7 +132,27 @@ function isAssetPath(path) {
   );
 }
 
-export const onRequest = clerkMiddleware(async (auth, context, next) => {
+// ---- Hôtes hors production : jamais indexés (Search Console 08/09) ----
+// dev.musesquare.com sert la branche dev en clair (200, robots Allow) et Google l'a crawlé
+// (page référente « https://dev.musesquare.com/?signup= » dans l'inspection de l'accueil) :
+// un doublon complet du site. X-Robots-Tag noindex sur tout hôte autre que www.musesquare.com
+// (l'apex redirige déjà en 308). Le robots.txt reste Allow : Google doit crawler pour lire le noindex.
+const HOTES_PRODUCTION = new Set(["www.musesquare.com", "musesquare.com"]);
+async function noindexHorsProduction(context, next) {
+  const res = await next();
+  const host = (context.request.headers.get("host") || "").toLowerCase();
+  if (HOTES_PRODUCTION.has(host)) return res;
+  try {
+    res.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return res;
+  } catch {
+    const h = new Headers(res.headers);
+    h.set("X-Robots-Tag", "noindex, nofollow");
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+  }
+}
+
+const clerkOnRequest = clerkMiddleware(async (auth, context, next) => {
   const url = new URL(context.request.url);
   const path = url.pathname;
 
@@ -283,3 +304,5 @@ export const onRequest = clerkMiddleware(async (auth, context, next) => {
   console.log("[MW] -> next()");
   return next();
 });
+
+export const onRequest = sequence(noindexHorsProduction, clerkOnRequest);
