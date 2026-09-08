@@ -37,10 +37,20 @@ const id = Astro.url.searchParams.get("id") || "";
       /* Titres de section en ENCRE (owner 28/08) : le gris clair était illisible. */
       .eg-uc { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #111827; font-weight: 700; margin-bottom: 10px; }
       .eg-sec { margin-bottom: 26px; }
+      /* TÉLÉPHONE (< 768 px, audit mobile 07/09) : c'est la page qu'ouvre le bouton « Ajuster »
+         des messages Slack. La mise en page tient déjà (rien ne déborde à 375 px) ; seuls les
+         gestes étaient sous le pouce (boutons 29 px, dépliants 15 px). Le desktop ne change pas. */
+      @media (max-width: 767px) {
+        #eng-root { padding: 12px 12px 16px; }
+        #eng-doc { padding: 18px 16px; }
+        #eng-doc button { min-height: 40px; }
+        #eng-doc summary:not([style*="border-radius:50%"]) { padding-top: 8px; padding-bottom: 8px; }
+      }
     </style>
 
     <script is:inline src="/js/ms-loader.js?v=2"></script>
-    <script is:inline src="/js/commit-form.js?v=15"></script>
+    <script is:inline src="/js/scope-form.js?v=1"></script>
+    <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/card-kit.js?v=70"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
@@ -76,7 +86,15 @@ const id = Astro.url.searchParams.get("id") || "";
             var say = function (key, msg) { var el = slot(key); if (el) el.textContent = msg; };
             fetch("/api/dispositifs/photos?dispositif_id=" + encodeURIComponent(did) + (ver ? "&version_no=" + encodeURIComponent(ver) : ""))
               .then(function (r) { return r.json(); })
-              .then(function (j) { if (j && j.ok) (j.photos || []).forEach(function (p) { show(p.component_key, p); }); })
+              .then(function (j) {
+                if (!(j && j.ok)) return;
+                (j.photos || []).forEach(function (p) { show(p.component_key, p); });
+                // Ce que le dispositif vend (07/09) : les articles CONFIRMÉS des photos nourrissent
+                // « les articles de la photo » du formulaire de la version suivante.
+                var items = [];
+                (j.photos || []).forEach(function (p) { (p.items_confirmed || []).forEach(function (it) { if (it && it.item_code) items.push({ item_code: it.item_code, item_description: it.item_description || it.item_code }); }); });
+                window._egPhotoItems = items;
+              })
               .catch(function () {});
             function shrink(file) {
               return new Promise(function (resolve, reject) {
@@ -104,7 +122,10 @@ const id = Astro.url.searchParams.get("id") || "";
                 fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
                   body: JSON.stringify({ action: "confirm", dispositif_id: did, photo_id: pid, items_confirmed: codes }) })
                   .then(function (r) { return r.json(); })
-                  .then(function (j) { if (j && j.ok && j.photo) show(ckey, j.photo); else { cbtn.disabled = false; } })
+                  .then(function (j) {
+                    if (j && j.ok && j.photo) { show(ckey, j.photo); if (j.measured_scope_changed) setTimeout(load, 400); }   // P4 : le périmètre a changé → la page se relit
+                    else { cbtn.disabled = false; }
+                  })
                   .catch(function () { cbtn.disabled = false; });
                 return;
               }
@@ -279,9 +300,10 @@ const id = Astro.url.searchParams.get("id") || "";
               var a = advice[i], pre = (a && a.prefill) || {};
               slot.style.display = "block";
               slot.innerHTML = window.MSCommitForm.buildHtml({ prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d" } });
+              var _scopePre = null; try { _scopePre = cm.measured_scope ? JSON.parse(cm.measured_scope) : null; } catch (e) { _scopePre = null; }
               window.MSCommitForm.wire(slot, {
                 location_id: cm.location_id,
-                prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d" },
+                prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d", measured_scope: _scopePre, photo_items: window._egPhotoItems || [] },
                 origin: { origin_action_type: pre.origin_action_type || null },
                 onCancel: function () { slot.style.display = "none"; slot.innerHTML = ""; },
                 onDone: function (j) { slot.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:'+(j&&j.ok?"#166534":"#b91c1c")+';">'+(j&&j.ok?"Engagement créé. Il sera évalué à l'échéance.":("Erreur : "+esc((j&&j.error)||"réessayez")))+'</div>'; }

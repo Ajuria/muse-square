@@ -1,6 +1,6 @@
 // Le périmètre de mesure — pur (docs/dispositif-perimetre-mesure-spec.md). Chaque assertion vue tomber par mutation.
 import { describe, it, expect } from "vitest";
-import { parseScope, normalizeScope, scopeFromFamily, scopeLabelFr, scopeFilter, scopeNewFamilies, serializeScope } from "./measuredScope";
+import { parseScope, normalizeScope, scopeFromFamily, scopeLabelFr, scopeFilter, scopeNewFamilies, serializeScope, scopeFromConfirmedPhotos } from "./measuredScope";
 
 describe("parse / normalize", () => {
   it("la migration du Corner : { familles: [Branded] }", () => {
@@ -21,6 +21,22 @@ describe("parse / normalize", () => {
     expect(normalizeScope({ kind: "autre", familles: ["Tea"] })).toBeNull();
     expect(parseScope("pas du json")).toBeNull();
     expect(parseScope(null)).toBeNull();
+  });
+});
+
+describe("scopeFromConfirmedPhotos (P4, D3 — une photo confirmée = un périmètre)", () => {
+  const ph = (component_key: string, created_at: string, codes: string[] | null) => ({ component_key, created_at, items_confirmed: codes ? codes.map((item_code) => ({ item_code })) : null });
+  it("l'union des articles confirmés des DERNIÈRES photos par composant devient le périmètre articles", () => {
+    const r = scopeFromConfirmedPhotos([ph("c1", "2026-09-01", ["A1", "B2"]), ph("c1", "2026-09-05", ["A1"]), ph("c2", "2026-09-03", ["C3", "A1"])], null);
+    expect(r).toEqual({ scope: { kind: "articles", item_codes: ["A1", "C3"] }, changed: true });
+  });
+  it("sans article confirmé : rien ne change ; un choix explicite de familles ou de pôle n'est jamais écrasé ; le même ensemble ne réécrit pas", () => {
+    expect(scopeFromConfirmedPhotos([ph("c1", "2026-09-01", null), ph("c2", "2026-09-01", [])], null)).toEqual({ scope: null, changed: false });
+    const fam = { kind: "familles" as const, familles: [{ nom: "Branded" }] };
+    expect(scopeFromConfirmedPhotos([ph("c1", "2026-09-01", ["A1"])], fam)).toEqual({ scope: fam, changed: false });
+    const art = { kind: "articles" as const, item_codes: ["A1"] };
+    expect(scopeFromConfirmedPhotos([ph("c1", "2026-09-01", ["A1"])], art)).toEqual({ scope: art, changed: false });
+    expect(scopeFromConfirmedPhotos([ph("c1", "2026-09-02", ["A1", "B2"])], art).changed).toBe(true);
   });
 });
 

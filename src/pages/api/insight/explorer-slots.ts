@@ -72,15 +72,18 @@ export const GET: APIRoute = async ({ url, locals }) => {
     });
     const daysP = bq.query({
       query: `
-        SELECT CAST(r.date AS STRING) AS date, r.daily_revenue, r.expected_revenue, r.residual_z, r.residual_pct
+        SELECT CAST(r.date AS STRING) AS date, r.daily_revenue, r.expected_revenue, r.residual_z, r.residual_pct,
+               r.expected_transactions, r.transactions_residual_z, t.tickets
         FROM \`${BQ_PROJECT}.semantic.vw_insight_event_day_residual\` r
+        LEFT JOIN \`${BQ_PROJECT}.semantic.vw_insight_event_tickets_daily\` t
+          ON t.location_id = r.location_id AND t.transaction_date = r.date
         LEFT JOIN (
           SELECT location_id, date FROM \`${BQ_PROJECT}.analytics.day_notes\` WHERE location_id = @locationId GROUP BY location_id, date
         ) n ON n.location_id = r.location_id AND n.date = r.date
         WHERE r.location_id = @locationId
           AND r.date >= DATE_SUB(CURRENT_DATE('Europe/Paris'), INTERVAL 30 DAY)
           AND r.date < CURRENT_DATE('Europe/Paris')
-          AND ABS(r.residual_z) >= 2
+          AND (ABS(r.residual_z) >= 2 OR ABS(COALESCE(r.transactions_residual_z, 0)) >= 2)
           AND n.date IS NULL
       `,
       params: { locationId },
@@ -139,7 +142,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const todayIso = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
     const candidates = [
       ...commitmentCandidates(visible as CommitmentSlotRow[], todayIso),
-      ...dayNoteCandidates(dayRows as DayNoteSlotRow[], todayIso),
+      // Forme membre (owner 08/09) : la note en VENTES — jamais un niveau de CA pour un membre.
+      ...dayNoteCandidates(dayRows as DayNoteSlotRow[], todayIso, isMember ? "ventes" : "eur"),
       ...decisionCandidates(visible as CommitmentSlotRow[], todayIso),
       ...occurrenceCandidates(occRows as OccurrenceSlotRow[], todayIso),
       ...alertCandidates(alertRows as AlertSlotRow[], todayIso, marks),

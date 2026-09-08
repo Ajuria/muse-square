@@ -3,6 +3,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { cardScope, memberCanSeeCard, redactPayloadForMember } from "../../../lib/profile/memberCardPolicy";
+import { objectifVentes } from "../../../lib/insightFamilies/objectifVentes";
 import { filterDisabledThemes, PERSISTENT_COMPETITOR_TYPES, PERSISTENT_VALIDITY_DAYS } from "../../../lib/recos/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/context/internalAlertCards";
 import { assembleDayContext } from "../../../lib/context/dayContext";
@@ -1122,7 +1123,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
         })(r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null),
         suppression_key: r?.suppression_key ?? null,
         expires_at:      (r?.expires_at?.value ?? r?.expires_at ?? null),
-      }))),
+      }))
+        // 08/09 (owner « Objectif », « ventes ») : l'objectif en ventes de la carte — UNE source pour la
+        // rangée Agir et la page Consulter (lib pure, estimation : écart € ÷ prix réalisé). Des comptes,
+        // jamais un niveau : un membre le voit tel quel.
+        .map((c: any) => ({ ...c, objectif_ventes: objectifVentes(c) }))),
       active_goal: activeGoal,
       activity: activity,
       // Membre : 8 jours de CA/transactions/panier absolus = état du business — bloc coupé.

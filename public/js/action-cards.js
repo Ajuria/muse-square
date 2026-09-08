@@ -2410,9 +2410,19 @@
   // << Familles : Coffee 44 % du CA contre 39 % d'habitude, Tea 32 % contre 28 %, Bakery 15 % contre 12 %. >> - le referentiel une fois, en tete.
   // Owner 06/09 : la part ET l'ordre de grandeur - << Coffee 44 % du CA (672 EUR) contre 39 % d'habitude (362 EUR),
   // Tea 32 % (496 EUR) contre 28 % (263 EUR) >>. Le EUR entre parentheses est le CA de la famille, un fait.
-  // 07/09 (owner : « we need both ») : les unités à côté des € — « (672 €, 150 articles) ».
-  function famEur(v, u) { if (v == null || !isFinite(Number(v))) return ''; var s = ' (' + frInt(Math.round(Number(v))) + ' \u20ac'; if (u != null && isFinite(Number(u))) s += ', ' + frInt(Math.round(Number(u))) + ' article' + (Math.round(Number(u)) > 1 ? 's' : ''); return s + ')'; }
-  function famsS(fams) { return fams.length ? ' Familles : ' + fams.map(function (f, i) { return f.family + ' ' + pctS(f.revenue_share) + (i === 0 ? ' du CA' : '') + famEur(f.revenue, f.units) + ' contre ' + pctS(f.baseline_share) + (i === 0 ? ' d\u2019habitude' : '') + famEur(f.expected_revenue, f.baseline_units_per_day != null ? f.baseline_units_per_day : f.baseline_units); }).join(', ') + '.' : ''; }
+  // 07/09 (owner : « we need both ») : les unités à côté des € — « (672 €, 150 ventes) ».
+  // 08/09 (owner) : le mot est « ventes » — « articles » se lisait comme des références produit. Et seules les
+  // ventes DU JOUR s'écrivent : `baseline_units_per_day` (moyenne de tous les jours) n'a pas le référent de
+  // l'€ attendu (jour de semaine + tendance) — « 214 d'habitude » contre 359 € attendus était un bug de
+  // référentiel ; l'incrément dbt « unités attendues par famille et jour de semaine » les ramènera.
+  // EMPLOYÉ (vue équipe) : le CA d'une famille est un NIVEAU — il ne s'écrit pas ; l'employé lit les ventes seules « (239 ventes) ».
+  function famEur(v, u) {
+    var hasU = (u != null && isFinite(Number(u))), uS = hasU ? frInt(Math.round(Number(u))) + ' vente' + (Math.round(Number(u)) > 1 ? 's' : '') : '';
+    if (window._msMemberView) return hasU ? ' (' + uS + ')' : '';
+    if (v == null || !isFinite(Number(v))) return '';
+    var s = ' (' + frInt(Math.round(Number(v))) + ' \u20ac'; if (hasU) s += ', ' + uS; return s + ')';
+  }
+  function famsS(fams) { return fams.length ? ' Familles : ' + fams.map(function (f, i) { return f.family + ' ' + pctS(f.revenue_share) + (i === 0 ? ' du CA' : '') + famEur(f.revenue, f.units) + ' contre ' + pctS(f.baseline_share) + (i === 0 ? ' d\u2019habitude' : '') + famEur(f.expected_revenue, null); }).join(', ') + '.' : ''; }
   function surgeDriverPick(a) {
     var dcp = surgeDecomp(a);
     if (dcp) return { tx: null, bk: null, pick: dcp.dom, decomp: dcp };
@@ -2802,7 +2812,7 @@
       var line = nom + ' : ' + frDec(px, 2) + ' € par article' + frDateFr(a.affected_date) + ', contre ' + frDec(pxB, 2) + ' € d’habitude';
       if (dp != null) line += ' (' + (dp >= 0 ? '+' : '−') + Math.abs(dp) + ' %)';
       line += '.';
-      if (un != null) line += ' ' + frInt(un) + ' articles vendus.';
+      if (un != null) line += ' ' + frInt(un) + ' ventes.';
       if (a.is_discount_move === true && a.discount_rate != null && a.discount_rate_baseline != null) {
         line += ' Remise ' + frDec(Number(a.discount_rate) * 100, 1) + ' % contre ' + frDec(Number(a.discount_rate_baseline) * 100, 1) + ' % d’habitude.';
       }
@@ -2827,7 +2837,7 @@
       var line = nom + ' : ' + frDec(dr, 1) + ' % de remise' + frDateFr(a.affected_date) + ', contre ' + frDec(drB, 1) + ' % d’habitude';
       if (dA != null && rev != null) line += ' (' + frInt(dA) + ' € sur ' + frInt(rev) + ' € de ventes)';
       line += '.';
-      if (un != null) line += ' ' + frInt(un) + ' articles vendus.';
+      if (un != null) line += ' ' + frInt(un) + ' ventes.';
       if (a.is_price_move === true && a.price_delta_pct != null) {
         var _pdp = Math.round(Number(a.price_delta_pct));
         line += ' Prix moyen ' + (_pdp >= 0 ? '+' : '−') + Math.abs(_pdp) + ' %.';
@@ -3387,7 +3397,7 @@
       // 24/08 — funnel_corner copié ici : TROISIÈME occurrence de la ligne jumelle (enjeu 28/07,
       // context_motif 22/08) — tout champ serveur que pulse lit sur entry.item DOIT passer par
       // cette construction, sinon il meurt en silence entre monitor et le rendu.
-      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: _locLbl, action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType, enjeu: ac.enjeu || null, enjeu_reason_fr: ac.enjeu_reason_fr || null, needs_catchment: ac.needs_catchment === true, catchment_days: ac.catchment_days || null, context_motif: ac.context_motif || null, corner_day_mode: ac.corner_day_mode === true, funnel_corner: ac.funnel_corner || null, population_enjeu: ac.population_enjeu || null, decomposition: ac.decomposition || null, owner_only: ac.owner_only === true, data_payload: ac.data_payload || null };
+      var item = { change_subtype: actionType, affected_date: ac.date, alert_level: ac.action_priority || 0, location_id: ac.location_id || null, location_label: _locLbl, action_category: ac.action_category, card_instance_id: ac.card_instance_id || null, suppression_key: ac.suppression_key, card_type: cardType, enjeu: ac.enjeu || null, enjeu_reason_fr: ac.enjeu_reason_fr || null, needs_catchment: ac.needs_catchment === true, catchment_days: ac.catchment_days || null, context_motif: ac.context_motif || null, corner_day_mode: ac.corner_day_mode === true, funnel_corner: ac.funnel_corner || null, population_enjeu: ac.population_enjeu || null, decomposition: ac.decomposition || null, owner_only: ac.owner_only === true, data_payload: ac.data_payload || null , objectif_ventes: ac.objectif_ventes || null };
       if (ac.data_payload) { var dp2 = ac.data_payload; for (var k2 in dp2) { if (dp2.hasOwnProperty(k2) && !item.hasOwnProperty(k2)) item[k2] = dp2[k2]; } }
       var tmpl = { type: barClass === 'ab-opportunity' ? 'opportunity' : barClass === 'ab-threat' ? 'threat' : barClass === 'ab-warning' ? 'threat' : 'info', barClass: barClass, urgencyPill: prioPill, typePill: typePill, what: escHtml(whatText), sowhat: sowhatText, reserve: reserveText, action: actionText, actions: actions, _is_action_candidate: true, confidence_tier: ((item && item.residual_z != null) ? msSalesConfidence(item) : (ac.confidence_tier || (ac.data_payload && ac.data_payload.confidence_tier) || null)), _card_type: cardType, _consulter_target: spec ? spec.consulter_target : null, _spec_action_type: actionType, _available_channels: channels, _draft_seeds: spec ? spec.draft_seeds : {} };
       // 06/09 (audit N1) - les cartes de cycle de vie (lib/events/eventLifecycleCards : event_threat 95,
@@ -4257,3 +4267,32 @@
   window.MS_INTERNAL_ALERT_TYPES = ['sales_surge','sales_traffic_not_converting','sales_discount_no_lift','sales_revenue_down_wow','footfall_vs_basket_decomposition','offering_mix_shift','item_share_move','tickets_lines_move','item_absent_regular','family_price_move','family_discount_move','hour_share_move'];
 
 })();
+
+// ── OBJECTIF EN VENTES (owner 08/09 : « Sell + w, x and y (total of z) », label « Objectif » — pas « Enjeu »,
+// ce n'est pas en €). UNE source : le champ `objectif_ventes` posé par monitor (lib insightFamilies/
+// objectifVentes.ts) ; UN formateur, ici, pour la rangée Agir ET la page Consulter. Estimation tant que
+// dbt n'a pas les unités attendues par famille et jour de semaine : le label le dit (« estimé »).
+// Carte groupée « sur N jours » (pulse regroupe les cartes CA d'une semaine) : les ventes se SOMMENT par
+// famille sur les jours du groupe, comme l'écart € du coin ; trois lignes, total = ces trois. Pur.
+window.msObjectifVentesMerge = function (list) {
+  var items = (list || []).filter(function (o) { return o && o.lignes && o.lignes.length; });
+  if (!items.length) return null;
+  if (items.length === 1) return items[0];
+  var by = {}, sens = items[0].sens;
+  items.forEach(function (o) { o.lignes.forEach(function (l) { by[l.label] = (by[l.label] || 0) + Number(l.ventes || 0); }); });
+  var lignes = Object.keys(by).map(function (k) { return { label: k, ventes: Math.round(by[k]) }; }).filter(function (l) { return l.ventes >= 1; }).sort(function (a, b) { return b.ventes - a.ventes; }).slice(0, 3);
+  if (!lignes.length) return null;
+  return { estime: true, sens: sens, total: lignes.reduce(function (s, l) { return s + l.ventes; }, 0), lignes: lignes };
+};
+window.msObjectifVentesHtml = function (o) {
+  // EMPLOYÉS seulement (owner 08/09) : le gérant lit l'écart en € ; l'employé, qui ne voit pas de niveau, lit les ventes.
+  if (!window._msMemberView) return '';
+  if (!o || !o.lignes || !o.lignes.length) return '';
+  var esc = function (v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
+  var n = function (v) { return Math.abs(Math.round(Number(v) || 0)).toLocaleString('fr-FR'); };
+  var parts = o.lignes.map(function (l, i) { return esc(l.label) + ' +' + n(l.ventes) + (i === 0 ? ' ventes' : ''); });
+  var total = o.lignes.length > 1 ? ' \u00b7 total +' + n(o.total) + ' ventes' : '';
+  return '<div class="ab-obj" data-ab-obj style="font-size:12.5px;color:#374151;line-height:1.45;margin-top:4px;">'
+    + '<span style="font-size:10.5px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#6B7280;margin-right:6px;">Objectif \u00b7 estim\u00e9</span>'
+    + parts.join(' \u00b7 ') + total + '</div>';
+};

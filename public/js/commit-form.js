@@ -72,6 +72,11 @@
       // inscrit l'opération dans la mémoire du pôle.
       + '<div data-cm-pole-wrap style="display:none;margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Rattacher \u00e0 un p\u00f4le</div>'
         + '<select data-cm-pole style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;box-sizing:border-box;cursor:pointer;"><option value="">Aucun</option></select></div>'
+      // Ce que le dispositif vend (07/09, docs/dispositif-perimetre-mesure-spec.md) : le bloc partagé
+      // MSScopeForm (scope-form.js), rempli avec les familles du goal_context ; rien de coché = le CA du
+      // lieu, comme avant ; un pôle rattaché pré-choisit ses familles ; les articles confirmés d'une photo
+      // arrivent par opts.prefill.photo_items (page de l'engagement).
+      + '<div data-cm-scope style="margin-bottom:14px;"></div>'
       + '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:600;color:#6b7280;margin-bottom:7px;">Levier</div>'
         + suggestionsHtml(opts.suggestions)
         + '<textarea data-cm-action placeholder="' + (Array.isArray(opts.suggestions) && opts.suggestions.length ? "Choisissez une suggestion ci-dessus ou décrivez votre action" : "Ce que vous allez faire") + '" style="width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:7px 10px;font-size:12px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:52px;box-sizing:border-box;">' + escapeHtml(action) + "</textarea></div>"
@@ -242,17 +247,30 @@
       applyGoal(start, "init");
     }
     // La liste des pôles, remplie UNE fois (le contexte d'objectif se re-fetch à chaque fenêtre).
-    var _polesFilled = false;
+    var _polesFilled = false, _polesById = {};
     function fillPoles(poles) {
       var wrap = gEl("[data-cm-pole-wrap]"), sel = gEl("[data-cm-pole]");
       if (!wrap || !sel || _polesFilled) return;
       if (!poles.length) { wrap.style.display = "none"; return; }
       _polesFilled = true;
+      poles.forEach(function (pp) { _polesById[pp.dispositif_id] = pp; });
       sel.innerHTML = '<option value="">Aucun</option>' + poles.map(function (pp) {
         return '<option value="' + escapeHtml(pp.dispositif_id) + '">' + escapeHtml(pp.name)
           + (pp.families && pp.families.length ? ' \u2014 ' + escapeHtml(pp.families.join(', ')) : '') + '</option>';
       }).join('');
       wrap.style.display = "";
+      sel.addEventListener("change", function () {
+        var pp = _polesById[sel.value]; var m = gEl("[data-cm-scope]");
+        if (m && window.MSScopeForm) window.MSScopeForm.setPole(m, pp ? { id: pp.dispositif_id, nom: pp.name, families: pp.families || [] } : null);
+      });
+    }
+    // Le bloc « Ce que le dispositif vend », rendu UNE fois avec les familles du site.
+    var _scopeFilled = false;
+    function fillScope(families) {
+      var m = gEl("[data-cm-scope]");
+      if (!m || _scopeFilled || !window.MSScopeForm) return;
+      _scopeFilled = true;
+      window.MSScopeForm.render(m, { families: families || [], photoItems: Array.isArray(pre.photo_items) ? pre.photo_items : [], selected: pre.measured_scope || null });
     }
     function refreshGoalCtx() {
       goalCtx = null;
@@ -261,6 +279,7 @@
       fetch("/api/commitments?goal_context=1&location_id=" + encodeURIComponent(opts.location_id) + "&window_kind=" + encodeURIComponent(state.window))
         .then(function (r) { return r.json(); })
         .then(function (j) {
+          if (j && j.ok && Array.isArray(j.families)) fillScope(j.families);
           if (j && j.ok && Array.isArray(j.poles)) fillPoles(j.poles);
           if (j && j.ok && j.window_kind === state.window) {
             goalCtx = j;
@@ -424,6 +443,8 @@
           committed_action_text: action, owner_person_name: owner,
           // Rattachement au pôle (03/09) — validé côté API (site + nature permanent), null sinon.
           attached_pole_id: (function () { var el = container.querySelector('[data-cm-pole]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),
+          // Ce que le dispositif vend (07/09) — null = le CA du lieu, comme avant.
+          measured_scope: (function () { var m = container.querySelector('[data-cm-scope]'); return m && window.MSScopeForm ? window.MSScopeForm.read(m) : null; })(),
           // Contexte de la version (étape 3, 27/08) — vide -> null (une V2 hérite du parent côté API)
           dispositif_plus: (function () { var el = container.querySelector('[data-cm-plus]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),
           dispositif_why: (function () { var el = container.querySelector('[data-cm-why]'); var v = el && el.value ? String(el.value).trim() : ''; return v || null; })(),

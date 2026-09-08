@@ -7,7 +7,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
-import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureScopeBaseline, measureProfitBaseline } from "../../../lib/kpi/kpiRegistry";
+import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureScopeBaseline, measureProfitBaseline, listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
 import { normalizeScope, parseScope, scopeFromFamily, serializeScope, type MeasuredScope } from "../../../lib/commitments/measuredScope";
 import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/commitments/actionCommitments";
@@ -137,6 +137,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Pôles du site (03/09, « Je m'engage » rattaché à un pôle) : LE foyer listPoles, amorcé en
       // parallèle du contexte d'objectif — un aller-retour de plus en parallèle, jamais en série.
       const polesP = listPoles(bq, locationId).catch(() => []);
+      // Ce que le dispositif vend (07/09) : les familles du site pour le bloc MSScopeForm — LE foyer
+      // listSiteFamilies, en parallèle comme les pôles.
+      const familiesP = listSiteFamilies(bq, locationId).catch(() => []);
       const [gRows] = await bq.query({
         query: `
           WITH base AS (
@@ -182,6 +185,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         preset_net_pct: pctForZ(1.5),
         // La liste des pôles ouverts pour « Rattacher à un pôle » (mêmes champs que create_context).
         poles: (await polesP).map((p) => ({ dispositif_id: p.dispositif_id, name: p.name, families: p.families })),
+        families: await familiesP,
       });
     }
 
@@ -509,6 +513,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       creation_enjeu_inherited: typeof body.creation_enjeu_inherited === "boolean" ? body.creation_enjeu_inherited : null,
     };
 
+    // Ce que le dispositif vend (07/09) : un périmètre déclaré sur un engagement mesuré au CA du lieu
+    // bascule la mesure sur le CA du périmètre — c'est ce que le formulaire promet.
+    if (patch.measured_scope && patch.measured_metric === "revenue_residual") patch.measured_metric = "family_revenue";
     // Baseline KPI (étape 3) : 30 j glissants avant la fenêtre, dans l'unité de measured_metric.
     // Non bloquant : échec/absence de données → null (jamais un chiffre inventé, jamais un 500).
     if (patch.measured_metric === "family_revenue") {

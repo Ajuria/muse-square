@@ -477,6 +477,13 @@ if (!location_id) {
       :root{ --ie-bottom-nav-h: 0px; } /* R8-nav : barre de nav basse supprimée */
       /* Barre basse MOBILE (07/09) : l'input se pose dessus ; --ms-bb-h tombe à 0 quand le clavier est ouvert (PiloterBottomBar). */
       @media (max-width: 767px) { #ie-prompt-input-wrap { bottom: var(--ms-bb-h, 0px); } }
+      /* Capture sur téléphone (audit mobile 08/09) : la carte « jour inexpliqué » (E3) porte sa
+         note — champ à 16 px (le 13 px inline déclenchait le zoom iOS au focus, d'où !important)
+         et bouton à 40 px sous le pouce. Le desktop ne change pas. */
+      @media (max-width: 767px) {
+        .ie-prompt-card[data-kind="note"] [data-note-input] { font-size: 16px !important; min-height: 40px; }
+        .ie-prompt-card[data-kind="note"] [data-note-save] { min-height: 40px; }
+      }
       #ie-bottom-nav{ position:fixed; left:0; right:0; bottom:0; z-index:50; background: #ffffff; border-top:1px solid rgba(0,0,0,0.10); height: var(--ie-bottom-nav-h); padding-bottom: env(safe-area-inset-bottom, 0px); }
       #ie-bottom-nav-inner{ max-width:620px; margin:0 auto; height: var(--ie-bottom-nav-h); display:flex; align-items:center; justify-content:space-around; }
 
@@ -2090,7 +2097,8 @@ if (!location_id) {
 
     <script is:inline src="/js/ms-loader.js?v=2"></script>
 <script is:inline src="/js/card-kit.js?v=70"></script>
-    <script is:inline src="/js/commit-form.js?v=15"></script>
+    <script is:inline src="/js/scope-form.js?v=1"></script>
+    <script is:inline src="/js/commit-form.js?v=16"></script>
     <script type="module" src="/js/ie-prompt.js?v=55" defer></script>
 
   </BaseLayout>

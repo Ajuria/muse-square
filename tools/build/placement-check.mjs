@@ -11,7 +11,7 @@ const staged = process.argv.includes("--staged");
 const cmd = staged ? "git diff --cached --name-only --diff-filter=ACR" : "git ls-files";
 const files = execSync(cmd, { encoding: "utf8" }).split("\n").filter(Boolean);
 
-const RACINE_OK = new Set(["CLAUDE.md", "README.md", "package.json", "package-lock.json", "astro.config.mjs",
+const RACINE_OK = new Set(["CLAUDE.md", "README.md", "package.json", "package-lock.json", "astro.config.mjs", "vercel.json",
   "tailwind.config.cjs", "tsconfig.json", "vitest.config.ts", ".gitignore", ".env.example"]);
 const PROTO = /-proto(-data)?(-v\d+)?\.(html|js)$|-proto-[a-z0-9-]+\.(html|js)$/;
 const HARNESS = /-harness\.(html|ts|mjs|mts)$|-verify\.(ts|mjs|mts)$|-dump\.(mjs|ts)$/;

@@ -546,4 +546,5 @@ présente comme telle.
 11. **Le périmètre de mesure d'un dispositif** (owner 07/09 : « the dispositif doesn't know what the corner
     sells ») — spec `docs/dispositif-perimetre-mesure-spec.md` : ce que le dispositif vend (familles, pôle,
     articles confirmés) porté par l'engagement et propagé au verdict, à l'en-tête et à la décomposition.
-    Débouché naturel du point 5 (confirmation des articles). Six décisions owner avant code.
+    Débouché naturel du point 5 (confirmation des articles). Sept décisions owner actées le 07/09 ;
+    P0-P4 LIVRÉS dev les 07-08/09 : une photo confirmée devient le périmètre de la version (P4).

@@ -88,7 +88,7 @@
         : '<input data-ef="owner" placeholder="Prénom Nom" style="' + inp + '">')
       + '</div><div style="flex:1;"><label style="' + lbl + '">Objectif — le KPI que le verdict jugera</label><select data-ef="kpi" style="' + inp + 'cursor:pointer;">'
       + '<option value="revenue_residual">CA du jour vs votre résultat habituel — mesuré, verdict fort</option>'
-      + (fams.length ? '<option value="family_revenue">CA d’une famille produits & services vs sa moyenne — mesuré</option>' : '')
+      + (fams.length ? '<option value="family_revenue">CA de ce que le dispositif vend vs votre résultat habituel — mesuré</option>' : '')
       + '<option value="tickets">Tickets vs votre résultat habituel (base 30 j) — verdict plus faible</option>'
       + '<option value="basket">Panier moyen vs votre résultat habituel (base 30 j) — verdict plus faible</option>'
       // 27/08 (audit menu KPI) : flux et conversion n'apparaissent que si le SITE porte la donnée
@@ -100,8 +100,10 @@
         ? '<option value="profit_estimated">Profit estimé vs votre résultat habituel (base 30 j) — sur vos marges déclarées</option>'
         : '<option value="profit_estimated" disabled>Profit estimé — indisponible : marge non déclarée</option>')
       + '</select></div></div>'
-      + '<div data-ef-famwrap style="display:none;margin-top:10px;"><label style="' + lbl + '">Famille produits & services</label><select data-ef="family" style="' + inp + 'cursor:pointer;">'
-      + fams.map(function (f) { return '<option value="' + esc(f.category) + '" data-avg="' + Number(f.avg_day_eur) + '">' + esc(f.category) + ' — ' + frInt(f.avg_day_eur) + ' €/j en moyenne</option>'; }).join("") + '</select></div>'
+      // Ce que le dispositif vend (07/09, docs/dispositif-perimetre-mesure-spec.md) : le bloc partagé
+      // MSScopeForm remplace la famille unique ; data-ef="family" reste (caché) = la première famille,
+      // le libellé « CA famille « X » » de la page Opération et kpi_family en dépendent.
+      + '<div data-ef-famwrap style="display:none;margin-top:10px;"><div data-ef-scope></div><input type="hidden" data-ef="family" value=""></div>'
       + ((Array.isArray(ctx.poles) && ctx.poles.length)
         ? '<div style="margin-top:10px;"><label style="' + lbl + '">Rattacher \u00e0 un p\u00f4le \u2014 l\u2019op\u00e9ration se mesure sur ses familles</label><select data-ef="pole" style="' + inp + 'cursor:pointer;">'
           + '<option value="">Aucun</option>'
@@ -375,9 +377,16 @@
       if (d1) { var d = new Date(d1 + "T00:00:00Z"); if (!isNaN(d.getTime())) return d.getUTCDay(); }
       return 6;
     }
+    // Le CA habituel du périmètre = la somme des familles connues cochées (une famille nouvelle vaut 0).
+    var _famAvgByName = {}; fams.forEach(function (f) { _famAvgByName[f.category] = Number(f.avg_day_eur) || 0; });
+    function scopeRead() { var m = q("[data-ef-scope]"); return m && window.MSScopeForm ? window.MSScopeForm.read(m) : null; }
+    function syncFamilyInput() {
+      var s = scopeRead(); var el = q('[data-ef="family"]');
+      if (el) el.value = s && s.familles && s.familles.length ? s.familles[0].nom : "";
+    }
     function famAvg() {
-      var el = q('[data-ef="family"]'); if (!el || !el.selectedOptions || !el.selectedOptions[0]) return null;
-      return Number(el.selectedOptions[0].getAttribute("data-avg") || 0);
+      var s = scopeRead(); if (!s || !s.familles || !s.familles.length) return null;
+      return s.familles.reduce(function (a, f) { return a + (_famAvgByName[f.nom] || 0); }, 0);
     }
     function refreshCible() {
       var kpi = val("kpi");
@@ -393,7 +402,7 @@
         var avg = famAvg();
         if (avg != null && isFinite(t) && t > 0) {
           var apport = Math.round(t - avg);
-          out = "<strong>L’événement</strong> : famille " + esc(val("family")) + " — " + frInt(avg) + " € un jour ordinaire → vous visez <strong>" + frInt(t) + " €</strong> (apport " + (apport >= 0 ? "+" : "−") + frInt(apport) + " €)"
+          out = "<strong>L’événement</strong> : " + esc(scopeLabel()) + " — " + frInt(avg) + " € un jour ordinaire → vous visez <strong>" + frInt(t) + " €</strong> (apport " + (apport >= 0 ? "+" : "−") + frInt(apport) + " €)"
             + (exp != null ? "<br><strong>Au total</strong> : " + dayLabel + " habituel ≈ " + frInt(exp) + " € (vos ventes réelles) + l’apport → ≈ <strong>" + frInt(exp + apport) + " €</strong> de journée" : "");
         }
       } else if (kpi === "revenue_residual") {
@@ -447,25 +456,31 @@
     // Héritage KPI pôle→opération (spec pôles) : rattacher un pôle bascule le KPI sur le CA
     // famille et RESTREINT la liste aux familles DU pôle (mono-famille = présélectionnée) ;
     // « Aucun » restaure la liste complète. Le KPI reste modifiable — un choix explicite prime.
-    var _famAllHtml = (function () { var el = q('[data-ef="family"]'); return el ? el.innerHTML : ''; })();
+    // Le bloc « Ce que le dispositif vend » (07/09) — rendu une fois ; tout clic dedans resynchronise
+    // la famille cachée et la cible.
+    var _scopeMount = q("[data-ef-scope]");
+    if (_scopeMount && window.MSScopeForm) {
+      window.MSScopeForm.render(_scopeMount, { families: fams });
+      _scopeMount.addEventListener("click", function () { syncFamilyInput(); refreshCible(); });
+      _scopeMount.addEventListener("change", function () { syncFamilyInput(); refreshCible(); });
+    }
+    function scopeLabel() {
+      var s = scopeRead(); if (!s || !s.familles) return "";
+      var noms = s.familles.map(function (f) { return f.nom; });
+      if (s.kind === "pole" && s.pole_nom) return "p\u00f4le \u00ab " + s.pole_nom + " \u00bb";
+      return (noms.length > 1 ? "familles " : "famille ") + noms.map(function (n) { return "\u00ab " + n + " \u00bb"; }).join(", ");
+    }
     var poleEl = q('[data-ef="pole"]');
     if (poleEl) poleEl.addEventListener('change', function () {
-      var famEl = q('[data-ef="family"]'); var kpiEl = q('[data-ef="kpi"]');
-      if (!famEl || !kpiEl) return;
+      var kpiEl = q('[data-ef="kpi"]');
       var opt = poleEl.selectedOptions && poleEl.selectedOptions[0];
       var famsPole = [];
       try { famsPole = JSON.parse((opt && opt.getAttribute('data-fams')) || '[]'); } catch (e) { famsPole = []; }
-      if (poleEl.value && famsPole.length) {
-        famEl.innerHTML = '';
-        var kept = 0;
-        var tmp = document.createElement('select'); tmp.innerHTML = _famAllHtml;
-        Array.prototype.forEach.call(tmp.options, function (o) {
-          if (famsPole.indexOf(o.value) >= 0) { famEl.appendChild(o.cloneNode(true)); kept++; }
-        });
-        if (kept) { kpiEl.value = 'family_revenue'; famEl.selectedIndex = 0; }
-      } else {
-        famEl.innerHTML = _famAllHtml;
+      if (_scopeMount && window.MSScopeForm) {
+        window.MSScopeForm.setPole(_scopeMount, poleEl.value && famsPole.length ? { id: poleEl.value, nom: opt.textContent.split(' \u2014 ')[0], families: famsPole } : null);
       }
+      if (poleEl.value && famsPole.length && kpiEl) kpiEl.value = 'family_revenue';
+      syncFamilyInput();
       refreshCible();
     });
     ["kpi", "family", "target", "dow"].forEach(function (n) {
@@ -502,6 +517,7 @@
         author_person_name: owner || null, event_nature: state.nature,
         hour_start: parseInt(val("h1"), 10), hour_end: parseInt(val("h2"), 10),
         kpi: kpi, kpi_family: kpi === "family_revenue" ? val("family") : null,
+        measured_scope: kpi === "family_revenue" ? scopeRead() : null,
         kpi_target_pct: kpi === "family_revenue" ? null : t,
         kpi_target_eur: kpi === "family_revenue" ? t : null,
         recurrence: state.recurrence,
@@ -535,6 +551,7 @@
               body: JSON.stringify({
                 location_id: loc, origin_action_type: "event_" + val("type"), saved_item_id: j.saved_item_id,
                 event_kpi: kpi, kpi_family: kpi === "family_revenue" ? val("family") : null,
+                measured_scope: kpi === "family_revenue" ? scopeRead() : null,
                 attached_pole_id: val("pole") || null,
                 operation_cost_eur: (function () { var n = parseFloat(val("cost")); return isFinite(n) && n >= 0 ? n : null; })(),
                 window_kind: "day_of", window_start_date: j.occurrences[0],

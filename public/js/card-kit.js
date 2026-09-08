@@ -870,7 +870,9 @@
       // qui ne soit une somme de la caisse (owner 28/08).
       var v = shape.volume;
       if (!membre) {
-        h += '<div style="' + card + '">' + cardTitle(t('shape_vol_title'));
+        // P3 (08/09) : avec un périmètre, la décomposition porte SON nom (« Décomposition des ventes de la
+        // famille « Branded » ») et le lieu entier ne reste qu'une ligne de contexte.
+        h += '<div style="' + card + '">' + cardTitle(t('shape_vol_title') + (shape.scope_label_fr ? ' ' + shape.scope_label_fr : ''));
         if (v && v.days.length && v.ref.length) {
           var jourRef = WX_DOW_FR[new Date(String(v.ref[v.ref.length - 1].date) + 'T00:00:00Z').getUTCDay()] || 'jours';
           var pc = function (p2) { return p2 == null ? '—' : (p2 >= 0 ? '+' : '−') + fr(Math.abs(p2)) + ' %'; };
@@ -902,6 +904,7 @@
             + ligne(t('shape_vol_l_price'), eu2(v.price_avg), eu2(v.ref_price_avg), v.price_pct)
             + '</div>'
             + '<div style="font-size:12.5px;color:#111827;margin-top:10px;font-weight:600;">' + esc(t('shape_vol_total', { pct: pc(v.total_pct) })) + '</div>'
+            + (shape.scope_label_fr && shape.store_total_pct != null ? '<div style="font-size:12px;color:#6b7280;margin-top:4px;">' + esc(t('shape_vol_store', { pct: pc(shape.store_total_pct) })) + '</div>' : '')
             + note(t('shape_vol_types'));
         } else {
           h += body(t('shape_vol_none'));

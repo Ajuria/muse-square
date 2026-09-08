@@ -19,14 +19,20 @@ const FORM_URL =
 const isApp = Astro.url.pathname.startsWith("/app");
 // Barre basse mobile : les pages app + le compte (même périmètre que isApp de Nav.astro).
 const showBottomBar = isApp || Astro.url.pathname.startsWith("/profile") || Astro.url.pathname === "/notifications";
+// Canonique (08/09) : Search Console montrait l'apex sans www ET /offres comme /offres/ indexés à part
+// (aucune règle trailingSlash, les deux formes répondent 200). Une seule adresse par page : www + la
+// forme du sitemap (barre finale hors racine), sans query.
+const canonicalPath = Astro.url.pathname === "/" ? "/" : Astro.url.pathname.replace(/\/+$/, "") + "/";
+const canonicalHref = "https://www.musesquare.com" + canonicalPath;
 ---
 <!doctype html>
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content={showBottomBar ? "width=device-width, initial-scale=1, viewport-fit=cover" : "width=device-width, initial-scale=1"} />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalHref} />
 
     <!-- Privacy-friendly analytics by Plausible -->
     <script async is:inline src="https://plausible.io/js/pa-LZhzpaLnNRnkmoZcXgUVK.js"></script>
@@ -43,8 +49,8 @@ const showBottomBar = isApp || Astro.url.pathname.startsWith("/profile") || Astr
         "name": "Muse Square",
         "url": "https://www.musesquare.com/",
         "logo": "https://www.musesquare.com/images/muse-square-logo.png",
-        "description": "Mémoire opérationnelle des organisations dont l'activité dépend de la fréquentation.",
-        "sameAs": ["https://www.linkedin.com/in/julen-de-ajuriaguerra/"]
+        "description": "Muse Square est la mémoire opérationnelle de votre organisation. Elle mesure les effets de votre environnement opérationnel sur vos ventes et vous propose chaque jour des actions prioritaires à mener. L'impact des dispositifs déployés est mesuré pour vous permettre d'ajuster votre stratégie selon leurs résultats sur le volume de transactions, le panier moyen ou le mix produits. Tout ce qui est appris est centralisé dans une mémoire commune et immédiatement réutilisable par vos équipes.",
+        "sameAs": ["https://www.linkedin.com/company/67123910/", "https://www.facebook.com/profile.php?id=100083664834187"]
       }
     </script>
 
@@ -52,7 +58,20 @@ const showBottomBar = isApp || Astro.url.pathname.startsWith("/profile") || Astr
     <link rel="icon" href="/images/favicon.png?v=2" type="image/png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=2" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-16.png?v=2" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=4" />
+
+    {/* Icône sur l'écran d'accueil (08/09) : manifest + mode plein écran, pages app + compte seulement
+        (même périmètre que la barre basse). scope "/" dans le manifest pour que /sign-in reste dans la fenêtre installée. */}
+    {showBottomBar && (
+      <>
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#FFFFFF" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Muse Square" />
+      </>
+    )}
     <link rel="shortcut icon" href="/favicon-32.png?v=2" />
 
     <!-- Page Loader (BaseLayout) -->

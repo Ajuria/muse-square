@@ -16,6 +16,8 @@
 // table analytics. Écriture = owner du site (requireLocationOwnership) ; lecture = owner ou
 // membre (requireLocationAccess).
 import type { APIRoute } from "astro";
+import { parseScope, serializeScope, scopeFromConfirmedPhotos } from "../../../lib/commitments/measuredScope";
+import { readMergeWrite } from "../../../lib/commitments/actionCommitments";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { readComponents, dispositifTypeLabelFr, checklistFor } from "../../../lib/dispositifs/dispositifTypes";
@@ -37,7 +39,7 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
 // Le dispositif tel que la couche semantic le connaît : site, version courante, composants.
 async function readDispositif(bq: any, dispositif_id: string, version_no: number | null) {
   const rows = await bq.query({
-    query: `SELECT commitment_id, location_id, version_no, components
+    query: `SELECT commitment_id, location_id, version_no, components, measured_scope
             FROM \`${BQ_PROJECT}.semantic.vw_insight_event_commitment_memory\`
             WHERE dispositif_id = @d AND dispositif_nature = 'permanent'
             ORDER BY version_no DESC LIMIT 20`,
@@ -47,9 +49,11 @@ async function readDispositif(bq: any, dispositif_id: string, version_no: number
   const pick = version_no != null ? rows.find((r: any) => Number(flat(r.version_no)) === version_no) : rows[0];
   if (!pick) return null;
   return {
+    commitment_id: String(flat(pick.commitment_id)),
     location_id: String(flat(pick.location_id)),
     version_no: Number(flat(pick.version_no)),
     components: readComponents(flat(pick.components)),
+    measured_scope: pick.measured_scope != null ? String(flat(pick.measured_scope)) : null,   // P4 : le périmètre de la version
   };
 }
 
@@ -126,7 +130,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
       if (!current) return json({ ok: false, error: "photo introuvable" }, 404);
       const confirmed = withConfirmedItems(current, body.items_confirmed.map((c: any) => String(c)), items0.map((i) => i.item_code), new Date().toISOString());
       await insertPhotoRow(bq0, confirmed);
-      return json({ ok: true, photo: publicRow(confirmed, byCode(items0)) });
+      // P4 (owner 07/09, D3 — docs/dispositif-perimetre-mesure-spec.md) : une photo confirmée = un
+      // périmètre sans rien saisir. L'union des articles confirmés des dernières photos par composant
+      // de CETTE version devient measured_scope { articles } — sauf familles ou pôle choisis à la main.
+      let measured_scope_changed = false;
+      try {
+        const versionRows = rows0.filter((r) => r.version_no === disp0.version_no && r.photo_id !== photo_id).concat([confirmed]);
+        const next = scopeFromConfirmedPhotos(versionRows, parseScope(disp0.measured_scope));
+        if (next.changed && disp0.commitment_id) {
+          await readMergeWrite(bq0, { commitmentId: disp0.commitment_id, transitionType: "edited", create: false, patch: { measured_scope: serializeScope(next.scope) } as any });
+          measured_scope_changed = true;
+        }
+      } catch (e: any) { console.warn("[photos] measured_scope non mis à jour:", e?.message); }
+      return json({ ok: true, photo: publicRow(confirmed, byCode(items0)), measured_scope_changed });
     }
 
     const component_key = String(body.component_key || "").trim();

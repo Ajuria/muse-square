@@ -52,7 +52,27 @@ const KPI_DAY_COL: Record<string, string> = {
 const KPI_LABEL: Record<string, string> = KPI_LABEL_FR;
 const kpiRound = (v: number): number => (Math.abs(v) < 10 ? Math.round(v * 1000) / 1000 : Math.round(v * 10) / 10);
 
-async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], today: string) {
+// Le périmètre de l'engagement (07/09) — UNE résolution pour toute la page : l'engagement
+// (measured_scope), sinon l'opération ancrée (measured_scope, à défaut kpi_family). Rend aussi la
+// famille unique de l'opération (libellé « CA famille « X » » de la page).
+async function resolveScope(bq: any, snap: any): Promise<{ scope: MeasuredScope | null; family: string | null }> {
+  let scope: MeasuredScope | null = parseScope((snap as any).measured_scope);
+  let family: string | null = null;
+  if (snap.saved_item_id) {
+    const [f] = await bq.query({ query: `SELECT kpi_family, measured_scope FROM \`${BQ_PROJECT}.raw.saved_items\` WHERE saved_item_id = @s LIMIT 1`, params: { s: String(snap.saved_item_id) }, location: "EU" }).catch(() => [[]]);
+    family = f[0] ? String(flat((f[0] as any).kpi_family) || "") || null : null;
+    if (!scope && f[0]) scope = parseScope(flat((f[0] as any).measured_scope)) ?? scopeFromFamily(family);
+  }
+  return { scope, family };
+}
+// « de la famille « Branded » » — le nom du périmètre sans son « CA » (titres des cartes de la lecture).
+const scopeSuffixFr = (scope: MeasuredScope | null, titre: string | null): string | null => {
+  if (!scope) return null;
+  const l = scopeLabelFr(scope, titre);
+  return l.startsWith("CA ") ? l.slice(3) : l;
+};
+
+async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], today: string, resolved: { scope: MeasuredScope | null; family: string | null }) {
   const metric = String(snap.measured_metric || "revenue_residual");
   const loc = String(snap.location_id);
   // FENÊTRE STOCKÉE, jamais la convention legacy « jour de création » du bloc series : un
@@ -68,13 +88,9 @@ async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], 
   let daily: { date: string; v: number }[] = [];
   let peers: { date: string; v: number }[] = [];
 
-  let scope: MeasuredScope | null = parseScope((snap as any).measured_scope);
+  const scope: MeasuredScope | null = resolved.scope;
   if (metric === "family_revenue") {
-    if (snap.saved_item_id) {
-      const [f] = await bq.query({ query: `SELECT kpi_family, measured_scope FROM \`${BQ_PROJECT}.raw.saved_items\` WHERE saved_item_id = @s LIMIT 1`, params: { s: String(snap.saved_item_id) }, location: "EU" });
-      family = f[0] ? String(flat((f[0] as any).kpi_family) || "") || null : null;
-      if (!scope && f[0]) scope = parseScope(flat((f[0] as any).measured_scope)) ?? scopeFromFamily(family);
-    }
+    family = resolved.family;
     if (!scope) return null; // pas de périmètre -> pas de bloc (jamais un chiffre d'une autre famille)
     // 07/09 : la série se lit sur le PÉRIMÈTRE (familles ou articles), plus sur une famille seule.
     family = scope.familles?.length === 1 ? scope.familles[0].nom : family;
@@ -280,10 +296,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const _shapeDates = (snap.window_kind === "day_of" && _weSnap)
       ? [_weSnap]
       : (rrows as any[]).map((r) => String(flat(r.date)));   // (series et shape sont alignées)
+    // P3 (08/09) : avec un périmètre, la lecture « Comprendre le résultat » est restreinte à ce que
+    // le dispositif vend ; son habituel = kpi_baseline × jours mesurés, le référentiel du verdict.
+    const _resolved = String(snap.measured_metric || "revenue_residual") === "family_revenue"
+      ? await resolveScope(bq, snap).catch(() => ({ scope: null, family: null }))
+      : { scope: null as MeasuredScope | null, family: null as string | null };
+    const _scopeBase = snap.kpi_baseline != null ? Number(flat(snap.kpi_baseline)) : null;
     const shapeP = buildWindowShape(bq, {
       location_id: String(snap.location_id),
       measured_dates: _shapeDates,
       window_start: _wsSnap || minD,
+      scope: _resolved.scope,
+      scope_label_fr: scopeSuffixFr(_resolved.scope, String(snap.committed_action_text || "").split(" — ")[0] || null),
+      scope_expected_eur: _resolved.scope && _scopeBase != null && Number.isFinite(_scopeBase) ? _scopeBase * _shapeDates.length : null,
     }).catch(() => null);
 
     const [crows] = await bq.query({
@@ -351,6 +376,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Contexte de la version (étape 3, 27/08) — le sous-formulaire « La version suivante »
       // pré-remplit depuis la version courante ; measured_metric dérive l'étape de la vente.
       measured_metric: snap.measured_metric ?? null,
+      measured_scope: (snap as any).measured_scope ?? null,   // 07/09 : la version suivante repart du périmètre
       dispositif_plus: (snap as any).dispositif_plus ?? null,
       dispositif_why: (snap as any).dispositif_why ?? null,
       dispositif_resources: (snap as any).dispositif_resources ?? null,
@@ -364,7 +390,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // DÉCLARÉ (measured_metric) — jauge tricolore + points pairs + courbe en unité KPI. Jours
     // FUTURS toujours exclus (le seed démo porte des ventes au-delà d'aujourd'hui : un jour
     // futur n'est jamais « mesuré »). Échec de mesure → champs null, jamais un chiffre inventé.
-    const kpi = await buildKpiBlock(bq, snap, dates, rrows as any[], asOf).catch(() => null);
+    const kpi = await buildKpiBlock(bq, snap, dates, rrows as any[], asOf, _resolved).catch(() => null);
 
     // Move "how" hit-rates for this action type (fct_location_action_moves) — feeds the diagnosis advice.
     let move_stats: { move: string; attempts: number; hits: number }[] = [];
