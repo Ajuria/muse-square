@@ -247,6 +247,8 @@ if (!location_id) {
       .ab-pills { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:6px; }
       .ab-pill { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:0.03em; }
       .ab-what { font-size:15.5px; font-weight:650; color:#111827; line-height:1.35; margin-bottom:7px; letter-spacing:-0.01em; cursor:pointer; }
+      /* Rangée note-cause (08/09) : pas de pied → 12 px sous le champ (owner : « a little empty space below input field »). */
+      .ab-note .ab-rgrid { padding-bottom:12px; }
       .ab-what:hover { color:#1D3BB3; }
       .ab-what[data-consult-open]:hover { color:#1D3BB3; }
       .ab-sowhat { font-size:13px; color:#374151; line-height:1.65; max-width:58ch; }
@@ -415,6 +417,9 @@ if (!location_id) {
         /* Gestes du pied : un geste ne se coupe jamais en deux lignes ; la rangée passe à la ligne. */
         .ab-rfoot .pls-cta-sec, .ab-rfoot .pls-cta-pri { white-space:nowrap; }
         .ab-rfoot > span { flex-wrap:wrap; max-width:100%; }
+        /* Rangée note-cause : champ 16 px (zoom iOS, taille inline → !important), bouton 40 px. */
+        .ab-note [data-note-input] { font-size:16px !important; min-height:40px; }
+        .ab-note [data-note-save] { min-height:40px; }
       }
     </style>
 
@@ -506,6 +511,72 @@ if (!location_id) {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
   }
+
+  // ── NOTE-CAUSE DANS LE FIL (owner 08/09 : « Go with B ») ──────────────────────────────
+  // Le créneau « jour inexpliqué » d'Explorer (E3 : /api/insight/explorer-slots, chaînes SERVEUR
+  // SLOTS_FR — rien n'est écrit ici) se pose EN TÊTE du fil, avant « Vos actions du jour », dans
+  // la grammaire des rangées. Enregistrer → /api/insight/day-notes (le rail d'Explorer) et la
+  // rangée s'en va. RÈGLE MEMBRE (vue-equipe-slack-spec) : le titre cite un NIVEAU de CA
+  // (« 1 603 € ») → ni fetch ni rendu pour un membre, tant que l'owner n'a pas tranché la forme
+  // sans niveau. _noteScope : null = tous les sites, sinon le location_id du segment actif.
+  var _noteSlotsByLoc = {}, _noteLocLabels = {}, _noteScope = null, _noteFetched = false;
+  var NOTE_SVG = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor;"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v5.6l4 2.4-.8 1.3L11 13V7h2z"/></svg>';
+  function fetchNoteSlots(locs) {
+    if (_noteFetched || window._msMemberView) return;
+    _noteFetched = true;
+    (locs || []).forEach(function (l) {
+      if (!l || !l.location_id) return;
+      _noteLocLabels[l.location_id] = l.company_name || "";
+      fetch("/api/insight/explorer-slots?location_id=" + encodeURIComponent(l.location_id), { cache: "no-store" })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          _noteSlotsByLoc[l.location_id] = ((j && j.ok && j.cards) || []).filter(function (x) { return x && x.kind === "note" && x.date; });
+          renderNoteSlots();
+        })
+        .catch(function () {});
+    });
+  }
+  function noteRowHtml(loc, x) {
+    var d = String(x.date || ""), dfr = d.length >= 10 ? d.slice(8, 10) + "/" + d.slice(5, 7) : d;
+    return '<div class="ab-card ab-note" data-note-loc="' + escapeHtml(loc) + '" data-note-date="' + escapeHtml(d) + '"><div class="ab-rgrid">'
+      + '<div><div class="ab-disc" style="margin-top:2px;background:#EEF2FF;color:#1D3BB3;">' + NOTE_SVG + '</div></div>'
+      + '<div style="min-width:0;"><div class="ab-what" style="cursor:default;">' + escapeHtml(x.text || "") + '</div>'
+        + '<div style="font-size:13px;color:#374151;line-height:1.4;margin-top:2px;">' + escapeHtml(x.sub || "") + '</div>'
+        + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;">'
+          + '<input type="text" data-note-input maxlength="500" style="flex:1;min-width:0;font:inherit;font-size:13px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;">'
+          + '<button type="button" data-note-save style="font:inherit;font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;border:0;border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap;">' + escapeHtml(x.cta || "Enregistrer") + '</button>'
+        + '</div></div>'
+      + '<div class="ab-eur"><span class="ab-meta">' + escapeHtml(dfr) + ' \u00b7 <span style="color:#374151;font-weight:600;">' + escapeHtml(_noteLocLabels[loc] || "") + '</span></span></div>'
+    + '</div></div>';
+  }
+  function renderNoteSlots() {
+    var old = document.getElementById("pls-notes");
+    var anchor = document.getElementById("daily-brief-section");
+    if (window._msMemberView || !anchor) { if (old) old.remove(); return; }
+    var locIds = _noteScope ? [_noteScope] : Object.keys(_noteSlotsByLoc), rows = [];
+    locIds.forEach(function (loc) { (_noteSlotsByLoc[loc] || []).forEach(function (x) { rows.push(noteRowHtml(loc, x)); }); });
+    if (!rows.length) { if (old) old.remove(); return; }
+    if (old) { old.innerHTML = rows.join(""); return; }
+    var blockEl = document.createElement("div"); blockEl.id = "pls-notes"; blockEl.style.marginBottom = "20px"; blockEl.innerHTML = rows.join("");
+    anchor.parentNode.insertBefore(blockEl, anchor);
+  }
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target && ev.target.closest ? ev.target.closest("#pls-notes [data-note-save]") : null;
+    if (!btn) return;
+    var row = btn.closest(".ab-note"), input = row && row.querySelector("[data-note-input]");
+    var text = input ? String(input.value || "").trim() : "";
+    if (!text) { if (input) input.focus(); return; }
+    var loc = row.getAttribute("data-note-loc"), date = row.getAttribute("data-note-date");
+    btn.disabled = true;
+    fetch("/api/insight/day-notes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ location_id: loc, date: date, note_text: text }) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!(j && j.ok)) { btn.disabled = false; return; }
+        _noteSlotsByLoc[loc] = (_noteSlotsByLoc[loc] || []).filter(function (x) { return String(x.date || "") !== date; });
+        renderNoteSlots();
+      })
+      .catch(function () { btn.disabled = false; });
+  });
 
   function getToday() {
     const d = new Date();
@@ -5080,6 +5151,7 @@ if (!location_id) {
     }
 
     // Feed CTA handlers — links navigate directly, no JS needed
+    renderNoteSlots();
   }
 
   // ----------------------------------------------------------------
@@ -5383,6 +5455,7 @@ if (!location_id) {
           locs.map(l => pulseFor(l.location_id).then(d => ({ data: d, loc: l })).catch(() => null))
         );
         const valid = results.filter(Boolean);
+        _noteScope = null; fetchNoteSlots(locs);
         // Track page view (fire-and-forget)
         fetch("/api/analytics/track", {
           method: "POST",
@@ -5438,6 +5511,7 @@ if (!location_id) {
           siteSegs.style.display = "";
           var switchSite = function(id){
             siteSegs.querySelectorAll(".pls-seg").forEach(function(b){ b.classList.toggle("is-on", b.getAttribute("data-seg-site") === id); });
+            _noteScope = (!id || id === "__all__") ? null : id;
             if (!id || id === "__all__") {
               currentLocationId = _sessionLocationId;
               if (addrEl) addrEl.textContent = locs.length + " sites surveillés";
@@ -5486,6 +5560,7 @@ if (!location_id) {
         }
 
         const data = await primaryPulse;
+        _noteScope = currentLocationId; fetchNoteSlots(locs);
 
         if (nameEl) nameEl.textContent = currentLoc?.company_name || data.profile?.city_name || "Mon site";
         if (addrEl) addrEl.textContent = currentLoc?.company_address || "";

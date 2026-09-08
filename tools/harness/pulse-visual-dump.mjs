@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { Window } from "happy-dom";
 import { makeBQClient } from "../../src/lib/bq";
 import { GET as monitorGET } from "../../src/pages/api/insight/monitor";
+import { GET as slotsGET } from "../../src/pages/api/insight/explorer-slots";
 
 const PROJECT = "muse-square-open-data";
 const OWNER = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
@@ -51,16 +52,20 @@ doc.body.innerHTML = '<div class="pls-loc-row" style="margin-bottom:16px;"><div>
   + '<div id="pls-subtitle" style="font-size:11px;font-weight:600;letter-spacing:0.10em;text-transform:uppercase;color:#9CA3AF;margin-top:4px;"></div>'
   + '</div></div><div id="pls-root"></div>';
 const locationsPayload = { ok: true, locations: sites };
-const fetchStub = (url) => {
+const fetchStub = async (url, init) => {
   const u2 = String(url);
   let body = { ok: true };
+  // Note-cause dans le fil (08/09) : créneaux RÉELS par site ; l'écriture est un stub (aucune ligne écrite).
+  if (u2.includes("/api/insight/explorer-slots")) { const m3 = u2.match(/location_id=([0-9a-f-]+)/); const lid = m3 ? m3[1] : OWNER; const r3 = await slotsGET({ url: new URL("http://l" + u2), locals: { clerk_user_id: uid, location_id: lid, all_location_ids: sites.map((x) => x.location_id), role: "owner" } }); body = JSON.parse(await r3.text()); console.log("  slots", lid.slice(0, 8), "ok=" + body.ok, body.error || "", "n=" + ((body.cards || []).length), "note=" + ((body.cards || []).filter((x) => x.kind === "note").length)); }
+  else if (u2.includes("/api/insight/day-notes")) { body = { ok: true }; console.log("  day-notes POST", String(init && init.body || "").slice(0, 120)); }
+  else
   if (u2.includes("/api/insight/monitor")) { const m2 = u2.match(/location_id=([0-9a-f-]+)/); body = payloadBySite[m2 ? m2[1] : OWNER] || { ok: false }; }
   else if (u2.includes("/api/profile/locations")) body = locationsPayload;
   else if (u2.includes("/api/commitments")) body = { ok: true, commitments: [] };
   else if (u2.includes("/api/competitive/competitor-signals")) body = { ok: true, signals: [], followed_count: 0, followed_competitors: [], top_threats: [] };
   else if (u2.includes("/api/channels/config")) body = { ok: true, channels: [] };
   else if (u2.includes("/api/channels/team")) body = { ok: true, members: [] };
-  return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body), text: () => Promise.resolve(JSON.stringify(body)) });
+  return { ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) };
 };
 win.fetch = fetchStub;
 // Horloge GELÉE sur la date rejouée : les cartes de performance (MS_INTERNAL_ALERT_TYPES, dont la
@@ -89,6 +94,11 @@ await new Promise((r) => setTimeout(r, 900));
   await new Promise((r) => setTimeout(r, 400));
   console.log("segments : " + segs.length + " rendus · clic site OK (blocs=" + blocksSingle + ") · retour Tous OK");
 }
+// Note-cause (08/09) : les créneaux arrivent par BigQuery (un aller-retour par site) — on attend le bloc
+// jusqu'à 10 s avant l'instantané ; un compte sans jour inexpliqué attend les 10 s, c'est voulu.
+for (let w = 0; w < 50 && !doc.getElementById("pls-notes"); w++) await new Promise((r) => setTimeout(r, 200));
+// … puis on laisse les autres sites répondre : compte de rangées stable pendant 1,5 s.
+{ let last = -1, stable = 0; for (let w = 0; w < 60 && stable < 3; w++) { await new Promise((r) => setTimeout(r, 500)); const n = doc.querySelectorAll("#pls-notes .ab-note").length; stable = n === last ? stable + 1 : 0; last = n; } }
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>pulse — dump visuel</title>
 <style>
 body{font-family:system-ui,-apple-system,sans-serif;background:#F9FAFB;margin:0;padding:24px;color:#111827;
@@ -98,5 +108,21 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#F9FAFB;margin:0;
 ${css}
 </style></head><body><div id="wrap">${doc.body.querySelector(".pls-loc-row").outerHTML}${doc.getElementById("pls-root").outerHTML}</div></body></html>`;
 writeFileSync(OUT, html);
+// Note-cause (08/09) — vérité COMPORTEMENT : la rangée existe avant « Vos actions du jour », le geste
+// Enregistrer (champ rempli) la retire ; champ vide → rien ne part. Échec = sortie 1 (le dump est écrit).
+{
+  const notes = doc.querySelectorAll("#pls-notes .ab-note");
+  const brief = doc.getElementById("daily-brief-section"), blk = doc.getElementById("pls-notes");
+  const before = !!(blk && brief && (blk.compareDocumentPosition(brief) & 4));
+  console.log("note-cause : " + notes.length + " rangée(s)" + (notes.length ? (before ? " · avant Vos actions du jour" : " · MAL PLACÉE") : ""));
+  if (notes.length) {
+    const row = notes[0], n0 = notes.length; row.querySelector("[data-note-save]").click(); await new Promise((r) => setTimeout(r, 200));
+    if (doc.querySelectorAll("#pls-notes .ab-note").length !== n0) { console.error("NOTE : champ vide, la rangée est partie"); process.exit(1); }
+    row.querySelector("[data-note-input]").value = "sonde harnais"; row.querySelector("[data-note-save]").click(); await new Promise((r) => setTimeout(r, 400));
+    const n1 = doc.querySelectorAll("#pls-notes .ab-note").length;
+    if (n1 !== n0 - 1) { console.error("NOTE : Enregistrer n'a pas retiré la rangée (" + n0 + " → " + n1 + ")"); process.exit(1); }
+    console.log("note-cause : Enregistrer retire la rangée (" + n0 + " → " + n1 + "), champ vide inerte");
+  }
+}
 console.log("dump écrit :", OUT, "—", html.length, "octets");
 process.exit(0);
