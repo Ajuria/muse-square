@@ -14,7 +14,7 @@
 //     factures (une ligne par ticket, graine) ; une caisse réelle porte plusieurs lignes par ticket.
 //     Même source que le KPI déclaré family_revenue (kpiRegistry.measureFamilyRevenueMean) : le
 //     chat et le verdict lisent la même table. Limite héritée : is_invoiced n'est pas appliqué.
-//   - mart.fct_client_offering_daily : revenue_share INTRA-JOUR par famille (en-tête du modèle),
+//   - semantic.vw_insight_event_client_offering_daily : revenue_share INTRA-JOUR par famille (en-tête du modèle),
 //     jamais recalculée ici.
 
 import type { SiteEntity } from "../explorer/entityResolver";
@@ -132,7 +132,7 @@ export async function readDispositifFamille(
       WITH ${OCC_CTE},
       od AS (
         SELECT DATE(transaction_date) AS d, item_category, revenue_share
-        FROM \`${PROJECT}.mart.fct_client_offering_daily\`
+        FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
         WHERE location_id = @loc
           AND transaction_date BETWEEN DATE_SUB(@pStart, INTERVAL ${COMPARABLE_LOOKBACK_DAYS} DAY) AND @pEnd
       ),

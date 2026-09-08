@@ -107,7 +107,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         { loc, s: start, e: end }),
       // category mix (offering)
       q(`SELECT item_category AS cat, ROUND(SUM(revenue),0) AS rev
-         FROM \`${PROJECT}.mart.fct_client_offering_daily\`
+         FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
          WHERE location_id=@loc AND transaction_date BETWEEN @s AND @e AND item_category IS NOT NULL
          GROUP BY 1 ORDER BY rev DESC LIMIT 6`,
         { loc, s: start, e: end }),
@@ -171,7 +171,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         { loc, s: start, e: end }),
       // per-day category revenue for the stacked composition chart
       q(`SELECT transaction_date AS d, item_category AS cat, ROUND(SUM(revenue),0) AS rev
-         FROM \`${PROJECT}.mart.fct_client_offering_daily\`
+         FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
          WHERE location_id=@loc AND transaction_date BETWEEN @s AND @e AND item_category IS NOT NULL
          GROUP BY 1, 2`,
         { loc, s: start, e: end }),

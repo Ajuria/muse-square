@@ -18,8 +18,9 @@
 //     that day, it goes pending — it NEVER resolves against an adjacent/wrong day.
 
 import { GRACE_DAYS, MATERIAL_SHARE, RHO_FLOOR, WINDOW_FACTOR_SHARE } from "./commitmentConstants";
-import { isKpiMeasurable, measureKpiWindow, measureFamilyRevenueMean, measureKpiDailySd, measureFamilyDailySd, measureProfitEstimatedStats, kpiDeltaPct as kpiDeltaPctFn, kpiVerdict } from "../kpi/kpiRegistry";
+import { isKpiMeasurable, measureKpiWindow, measureScopeRevenueMean, measureKpiDailySd, measureScopeDailySd, measureProfitEstimatedStats, kpiDeltaPct as kpiDeltaPctFn, kpiVerdict } from "../kpi/kpiRegistry";
 import { readMergeWrite, type CommitmentRow } from "./actionCommitments";
+import { parseScope, scopeFromFamily, scopeNewFamilies, type MeasuredScope } from "./measuredScope";
 import { sendSlack, loadChannelConfig } from "../channels/internalSend";
 import { readDispositifChannel } from "../channels/slackRouting";
 import { verdictMessageFr } from "../channels/slackMessagesFr";
@@ -219,20 +220,26 @@ export async function resolveCommitment(
   let kpiDeltaPct: number | null = null;
   let kpiDailySd: number | null = null;
   const kpiKey = String(snap.measured_metric || "revenue_residual") as any;
+  let scope: MeasuredScope | null = null;
+  let scopeTargetEur: number | null = null;
   if (kpiKey === "family_revenue") {
-    // K8 (événements, 03/08) : la famille vit sur l'ÉVÉNEMENT ancré (saved_items.kpi_family,
-    // rejoint par saved_item_id) — jamais une colonne dupliquée sur le commitment. Échec soft.
+    // 07/09 (docs/dispositif-perimetre-mesure-spec.md, P1) : le PÉRIMÈTRE vit sur l'engagement
+    // (measured_scope) ; à défaut, l'ancienne famille unique de l'événement ancré
+    // (saved_items.kpi_family, K8 03/08) — jamais deux définitions. Échec soft.
     try {
-      const [famRows] = snap.saved_item_id ? await bq.query({
-        query: `SELECT kpi_family FROM \`${process.env.BQ_PROJECT_ID || "muse-square-open-data"}.raw.saved_items\` WHERE saved_item_id = @sid LIMIT 1`,
+      scope = parseScope((snap as any).measured_scope);
+      const [itemRows] = snap.saved_item_id ? await bq.query({
+        query: `SELECT kpi_family, measured_scope, kpi_target_eur FROM \`${process.env.BQ_PROJECT_ID || "muse-square-open-data"}.raw.saved_items\` WHERE saved_item_id = @sid LIMIT 1`,
         params: { sid: String(snap.saved_item_id) }, location: "EU",
       }) : [[]];
-      const famName = famRows?.[0]?.kpi_family != null ? String(famRows[0].kpi_family) : null;
-      if (famName) {
-        const win = await measureFamilyRevenueMean(bq, String(snap.location_id), famName, String(snap.window_start), String(snap.window_end));
+      const item: any = itemRows?.[0] ?? null;
+      if (!scope && item) scope = parseScope(flat(item.measured_scope)) ?? scopeFromFamily(item.kpi_family != null ? String(flat(item.kpi_family)) : null);
+      scopeTargetEur = item && item.kpi_target_eur != null && Number.isFinite(Number(flat(item.kpi_target_eur))) ? Number(flat(item.kpi_target_eur)) : null;
+      if (scope) {
+        const win = await measureScopeRevenueMean(bq, String(snap.location_id), scope, String(snap.window_start), String(snap.window_end));
         kpiWindowValue = win ? win.value : null;
         kpiDeltaPct = kpiDeltaPctFn(snap.kpi_baseline ?? null, kpiWindowValue);
-        kpiDailySd = await measureFamilyDailySd(bq, String(snap.location_id), famName, String(snap.window_start)).catch(() => null);
+        kpiDailySd = await measureScopeDailySd(bq, String(snap.location_id), scope, String(snap.window_start)).catch(() => null);
       }
     } catch { kpiWindowValue = null; kpiDeltaPct = null; }
   } else if (kpiKey === "profit_estimated") {
@@ -276,6 +283,15 @@ export async function resolveCommitment(
       se: kpiNoiseSe, materialConfound: materialShare >= MATERIAL_SHARE,
     });
     verdictBasis = "kpi";
+  } else if (
+    kpiKey === "family_revenue" && snap.kpi_baseline == null && kpiWindowValue != null &&
+    scopeNewFamilies(scope).length > 0 && scopeTargetEur != null && scopeTargetEur > 0
+  ) {
+    // D7 (owner 07/09) : une famille NOUVELLE n'a pas d'habituel — le verdict se rend sur l'objectif
+    // en € de l'opération (« CA famille (€) », par jour de fenêtre), jamais un % sur un habituel absent.
+    // Sans objectif en € (garde ci-dessus), le verdict CA du lieu reste et verdict_basis le dit.
+    verdict = kpiWindowValue >= scopeTargetEur ? "met" : "missed";
+    verdictBasis = "kpi_target_eur";
   }
 
   // 9. 06/09 (audit N6) — la proposition de valeur promet « le volume de transactions, le panier

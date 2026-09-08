@@ -1,6 +1,6 @@
 // I9 (owner 04/09) — le fait d'un jour PASSÉ non mesuré. Pur ; chaque assertion vue tomber par mutation.
 import { describe, it, expect } from "vitest";
-import { unmeasuredPastDayFacts, nextDailyRunFr } from "./buildDayPerformanceFacts";
+import { unmeasuredPastDayFacts, nextDailyRunFr, dayNoteFacts } from "./buildDayPerformanceFacts";
 // toLocaleString("fr-FR") écrit les milliers en U+202F : on compare sur l'espace simple.
 const plain = (s: string) => s.replace(/[\u202f\u00a0]/g, " ");
 
@@ -33,5 +33,18 @@ describe("nextDailyRunFr — l'heure du job dbt (05:10 UTC, lundi-samedi), en he
   });
   it("l'hiver, le même run UTC tombe à 6 h 10 à Paris — l'heure est calculée, jamais écrite en dur", () => {
     expect(nextDailyRunFr(new Date("2026-12-03T10:00:00Z"))).toBe("demain matin, à partir de 6 h 10");
+  });
+});
+
+describe("dayNoteFacts (E3, owner 07/09)", () => {
+  it("la note du jour entre comme un fait OBSERVÉ, citée telle quelle, jamais causal", () => {
+    const f = dayNoteFacts("2026-09-06", "  Marché annulé,   rue barrée ");
+    expect(f).toHaveLength(1);
+    expect(f[0].fact_fr).toBe("Note du 06/09/2026 : « Marché annulé, rue barrée »");
+    expect(f[0].claim_type).toBe("observed");
+  });
+  it("sans note → aucun fait, jamais une note inventée", () => {
+    expect(dayNoteFacts("2026-09-06", null)).toEqual([]);
+    expect(dayNoteFacts("2026-09-06", "   ")).toEqual([]);
   });
 });

@@ -108,6 +108,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
       .fs-source-icon { font-size:16px; color:#9198ae; flex-shrink:0; }
       /* Action bar */
       .fs-action-bar { position:fixed; bottom:56px; left:0; right:0; z-index:80; display:flex; justify-content:center; }
+      @media (max-width: 767px) { .fs-action-bar { bottom: var(--ms-bb-h, 0px); } }
       .fs-action-bar-inner { width:100%; max-width:680px; background:#fff; border-top:1px solid #edf0f7; padding:10px 20px; display:flex; align-items:center; gap:10px; }
       .fs-btn-comm { flex:1; padding:12px 0; border-radius:10px; border:none; background:#4361ee; color:#fff; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:6px; }
       .fs-btn-send { flex:1; padding:12px 0; border-radius:10px; border:1px solid #e5e7eb; background:#f7f8fb; color:#4a4d5e; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:6px; }

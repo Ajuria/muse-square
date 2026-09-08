@@ -32,14 +32,14 @@ export async function salesFamily(bq: any, location_id: string, date: string): P
       query: `
         WITH day AS (
           SELECT item_category AS category, revenue AS sig_rev, revenue_share, revenue_rank
-          FROM \`${PROJECT}.mart.fct_client_offering_daily\`
+          FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
           WHERE location_id = @location_id AND transaction_date = PARSE_DATE('%Y-%m-%d', @date)
         ),
         base AS (
           SELECT item_category AS category,
                  APPROX_QUANTILES(revenue, 2)[OFFSET(1)] AS med_rev,
                  COUNT(*) AS n_days
-          FROM \`${PROJECT}.mart.fct_client_offering_daily\`
+          FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
           WHERE location_id = @location_id
             AND EXTRACT(DAYOFWEEK FROM transaction_date) = EXTRACT(DAYOFWEEK FROM PARSE_DATE('%Y-%m-%d', @date))
             AND transaction_date < PARSE_DATE('%Y-%m-%d', @date)

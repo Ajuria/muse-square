@@ -6,6 +6,7 @@
 // field (window_residual_z, _raw, applied_rho/vif, threshold_value, creation_residual_z)
 // and the per-day series returns residual_pct only — so the render cannot leak z.
 import type { APIRoute } from "astro";
+import { parseScope, scopeFromFamily, scopeFilter, scopeLabelFr, type MeasuredScope } from "../../../lib/commitments/measuredScope";
 import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpi/kpiRegistry";
 import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifs/dispositifTypes";
 import { makeBQClient } from "../../../lib/bq";
@@ -67,18 +68,23 @@ async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], 
   let daily: { date: string; v: number }[] = [];
   let peers: { date: string; v: number }[] = [];
 
+  let scope: MeasuredScope | null = parseScope((snap as any).measured_scope);
   if (metric === "family_revenue") {
     if (snap.saved_item_id) {
-      const [f] = await bq.query({ query: `SELECT kpi_family FROM \`${BQ_PROJECT}.raw.saved_items\` WHERE saved_item_id = @s LIMIT 1`, params: { s: String(snap.saved_item_id) }, location: "EU" });
+      const [f] = await bq.query({ query: `SELECT kpi_family, measured_scope FROM \`${BQ_PROJECT}.raw.saved_items\` WHERE saved_item_id = @s LIMIT 1`, params: { s: String(snap.saved_item_id) }, location: "EU" });
       family = f[0] ? String(flat((f[0] as any).kpi_family) || "") || null : null;
+      if (!scope && f[0]) scope = parseScope(flat((f[0] as any).measured_scope)) ?? scopeFromFamily(family);
     }
-    if (!family) return null; // pas de famille rattachée -> pas de bloc (jamais un chiffre d'une autre famille)
-    const [dr] = await bq.query({ query: `SELECT CAST(transaction_date AS STRING) d, SUM(revenue) v FROM \`${BQ_PROJECT}.raw.client_transactions\` WHERE location_id=@l AND item_category=@f AND transaction_date BETWEEN @a AND @b GROUP BY 1 ORDER BY 1`,
-      params: { l: loc, f: family, a: bq.date(ws), b: bq.date(we) }, location: "EU" });
+    if (!scope) return null; // pas de périmètre -> pas de bloc (jamais un chiffre d'une autre famille)
+    // 07/09 : la série se lit sur le PÉRIMÈTRE (familles ou articles), plus sur une famille seule.
+    family = scope.familles?.length === 1 ? scope.familles[0].nom : family;
+    const _sf = scopeFilter(scope);
+    const [dr] = await bq.query({ query: `SELECT CAST(transaction_date AS STRING) d, SUM(revenue) v FROM \`${BQ_PROJECT}.raw.client_transactions\` WHERE location_id=@l AND ${_sf.sql} AND transaction_date BETWEEN @a AND @b GROUP BY 1 ORDER BY 1`,
+      params: { l: loc, ..._sf.params, a: bq.date(ws), b: bq.date(we) }, types: _sf.types, location: "EU" });
     daily = (dr as any[]).map((x) => ({ date: String(flat(x.d)), v: Number(flat(x.v)) }));
     if (dayOf) {
-      const [pr] = await bq.query({ query: `SELECT CAST(transaction_date AS STRING) d, SUM(revenue) v FROM \`${BQ_PROJECT}.raw.client_transactions\` WHERE location_id=@l AND item_category=@f AND transaction_date < @a AND transaction_date <= @t AND EXTRACT(DAYOFWEEK FROM transaction_date) = EXTRACT(DAYOFWEEK FROM @a) GROUP BY 1 ORDER BY 1 DESC LIMIT 8`,
-        params: { l: loc, f: family, a: bq.date(ws), t: bq.date(today) }, location: "EU" });
+      const [pr] = await bq.query({ query: `SELECT CAST(transaction_date AS STRING) d, SUM(revenue) v FROM \`${BQ_PROJECT}.raw.client_transactions\` WHERE location_id=@l AND ${_sf.sql} AND transaction_date < @a AND transaction_date <= @t AND EXTRACT(DAYOFWEEK FROM transaction_date) = EXTRACT(DAYOFWEEK FROM @a) GROUP BY 1 ORDER BY 1 DESC LIMIT 8`,
+        params: { l: loc, ..._sf.params, a: bq.date(ws), t: bq.date(today) }, types: _sf.types, location: "EU" });
       peers = (pr as any[]).map((x) => ({ date: String(flat(x.d)), v: Number(flat(x.v)) })).reverse();
     }
   } else if (metric === "profit_estimated") {
@@ -134,7 +140,8 @@ async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], 
   if (basis === "pct" && thr != null && baseline != null) { goal_pct = thr; goal = kpiRound(baseline * (1 + thr / 100)); }
   else if (basis === "residual_z" && thr != null && baseline != null) { goal_pct = Math.max(1, Math.round(thr * 0.19 / Math.sqrt(days) * 100)); goal = kpiRound(baseline * (1 + goal_pct / 100)); }
 
-  return { metric, label_fr: KPI_LABEL[metric] || metric, family, day_of: dayOf, baseline, realized, goal, goal_pct, daily, peers };
+  // 07/09 : le nom du périmètre dans la phrase (mots owner) — la page l'affiche au-dessus du verdict.
+  return { metric, label_fr: KPI_LABEL[metric] || metric, family, scope_label_fr: metric === "family_revenue" ? scopeLabelFr(scope, String(snap.committed_action_text || "").split(" — ")[0]) : null, day_of: dayOf, baseline, realized, goal, goal_pct, daily, peers };
 }
 
 // Chaîne de versions du dispositif (étape 2, 27/08) — partagée entre le flux daté et le rendu
@@ -328,6 +335,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       threshold_value: snap.threshold_value, threshold_basis: snap.threshold_basis,
       // Verdict par KPI (15/08) : le référentiel qui a JUGÉ + la bande de bruit — la page le dit.
       verdict_basis: snap.verdict_basis ?? null,
+      kpi_delta_pct: snap.kpi_delta_pct != null ? Number(flat(snap.kpi_delta_pct)) : null,   // 07/09 : l'en-tête dit l'écart du KPI du verdict
       kpi_noise_se: snap.kpi_noise_se != null ? Number(flat(snap.kpi_noise_se)) : null,
       execution_quality: snap.execution_quality,  // self-reported run quality (routes the advice)
       // Coût de l'opération (ROI, 27/08) : saisi, affiché tel quel — le net se dit sur la page.

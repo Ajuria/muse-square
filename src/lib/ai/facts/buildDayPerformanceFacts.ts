@@ -103,13 +103,22 @@ export function unmeasuredPastDayFacts(
   }];
 }
 
+/** E3 (owner 07/09, docs/explorer-etat-vide-spec.md § 6.3) — la note-cause écrite par l'exploitant sur
+ *  ce jour (analytics.day_notes, la dernière fait foi) entre dans la liste blanche comme un fait
+ *  OBSERVÉ : c'est ce que la personne a noté, jamais une cause mesurée. Pur ; testé par mutation. */
+export function dayNoteFacts(date: string, noteText: string | null | undefined): DayPerfFact[] {
+  const t = String(noteText ?? "").replace(/\s+/g, " ").trim();
+  if (!t) return [];
+  return [{ fact_fr: `Note du ${frDay(date)} : « ${t} »`, claim_type: "observed" }];
+}
+
 export async function buildDayPerformanceFacts(location_id: string, date: string, todayIso?: string): Promise<{ facts: DayPerfFact[] }> {
   const today = todayIso ?? new Date().toISOString().slice(0, 10);
   const facts: DayPerfFact[] = [];
   try {
     const bq = makeBQClient(process.env.BQ_PROJECT_ID || PROJECT);
     const dow = dowOf(date);
-    const [dayRes, ctxRes] = await Promise.all([
+    const [dayRes, ctxRes, noteRes] = await Promise.all([
       // The asked day, if it is measured: residual + analogs + component deltas in one row.
       bq.query({
         query: `
@@ -149,6 +158,14 @@ export async function buildDayPerformanceFacts(location_id: string, date: string
         params: { location_id, date, bq_dow: dow + 1 },
         types: { location_id: "STRING", date: "STRING", bq_dow: "INT64" }, location: "EU",
       }),
+      // E3 — la note-cause de ce jour, s'il y en a une (append-only : la dernière fait foi).
+      bq.query({
+        query: `
+          SELECT note_text FROM \`${process.env.BQ_PROJECT_ID || PROJECT}.analytics.day_notes\`
+          WHERE location_id = @location_id AND date = DATE(@date)
+          ORDER BY created_at DESC LIMIT 1`,
+        params: { location_id, date }, types: { location_id: "STRING", date: "STRING" }, location: "EU",
+      }).catch(() => [[]] as any),
     ]);
 
     const d: any = (dayRes[0] ?? [])[0];
@@ -219,6 +236,8 @@ export async function buildDayPerformanceFacts(location_id: string, date: string
         });
       }
     }
+    const note: any = (noteRes[0] ?? [])[0];
+    facts.push(...dayNoteFacts(date, note ? String(note.note_text ?? "") : null));
   } catch (e: any) {
     console.warn("[day-perf-facts] skipped:", e?.message);
   }

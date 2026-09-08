@@ -192,9 +192,9 @@ export async function buildWindowShape(
       .catch(() => []);
 
   const [hRows, fpRows, vRows, dRows] = await Promise.all([
-    // 1. Grain horaire (mart.fct_client_hourly_sales — colonnes vérifiées 28/08).
+    // 1. Grain horaire (semantic.vw_insight_event_client_hourly_daily — colonnes vérifiées 28/08).
     q(`SELECT ${setCase("transaction_date")} AS s, transaction_hour AS h, SUM(revenue) AS rev
-        FROM \`${PROJECT}.mart.fct_client_hourly_sales\`
+        FROM \`${PROJECT}.semantic.vw_insight_event_client_hourly_daily\`
         WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
           AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))
         GROUP BY 1, 2`),
@@ -212,7 +212,7 @@ export async function buildWindowShape(
     //    jamais une moyenne de moyennes.
     q(`SELECT ${setCase("transaction_date")} AS s, CAST(transaction_date AS STRING) AS d,
               SUM(transactions) AS tx, SUM(units) AS units, SUM(revenue) AS rev
-        FROM \`${PROJECT}.mart.fct_client_hourly_sales\`
+        FROM \`${PROJECT}.semantic.vw_insight_event_client_hourly_daily\`
         WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
           AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))
         GROUP BY 1, 2`),

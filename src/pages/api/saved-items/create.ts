@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { normalizeScope, scopeFromFamily, serializeScope } from "../../../lib/commitments/measuredScope";
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import crypto from "node:crypto";
@@ -113,6 +114,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const asNum = (v: any): number | null => (v != null && Number.isFinite(Number(v)) ? Number(v) : null);
     const kpi_target_pct = asNum(body?.kpi_target_pct);
     const kpi_target_eur = asNum(body?.kpi_target_eur);
+    // 07/09 — ce que le dispositif vend (docs/dispositif-perimetre-mesure-spec.md) : JSON validé ; à défaut
+    // l'ancienne famille unique devient un périmètre d'une famille (D5).
+    const measured_scope = serializeScope(normalizeScope(body?.measured_scope) ?? scopeFromFamily(kpi_family));
     // Durée en jours (04/08, proto v4) : l'événement peut durer N jours consécutifs — les
     // candidates restent des jours de LANCEMENT ; au Choisir, la fenêtre de mesure et
     // event_end_date se calent sur [lancement, lancement+durée−1]. NULL = 1 jour (historique).
@@ -183,6 +187,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         kpi_family,
         kpi_target_pct,
         kpi_target_eur,
+        measured_scope,
         recurrence,
         recurrence_dow,
         recurrence_start,
@@ -211,6 +216,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         @kpi_family,
         @kpi_target_pct,
         @kpi_target_eur,
+        @measured_scope,
         @recurrence,
         @recurrence_dow,
         IF(@recurrence_start = '', NULL, PARSE_DATE('%F', @recurrence_start)),
@@ -260,6 +266,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     kpi_family,
     kpi_target_pct,
     kpi_target_eur,
+    measured_scope,
     recurrence,
     recurrence_dow,
     recurrence_start: recurrence_start ?? "",
@@ -286,6 +293,7 @@ types: {
     kpi_family: "STRING",
     kpi_target_pct: "FLOAT64",
     kpi_target_eur: "FLOAT64",
+    measured_scope: "STRING",
     recurrence: "STRING",
     recurrence_dow: "INT64",
     duration_days: "INT64",

@@ -625,6 +625,98 @@ non invités, Slack non posé, import Crisalid non validé (`vue-equipe-slack-sp
 `poles-dispositifs-permanents-spec.md`). Le scénario se raconte sur un compte qui n'existe pas
 encore en base. [à instruire]
 
+### 12.8 Quand l'agent est banalisé — ce qui reste, et à quelle condition
+
+Ouvert le 07/09 sur une question owner : une fois l'agent marchand livré gratuitement dans la caisse
+(Shopify, Square, le schéma Anthropic du 02/09), Muse Square reste-t-il pertinent ?
+
+**Où la menace est réelle.** [vérifié 07/09] La caisse détient l'ÉVÉNEMENT D'ÉCRITURE. Quand
+Alexis change un prix dans Shopify ou Square, la plateforme connaît la date, l'ancien et le nouveau
+prix, et chaque vente qui suit : son agent calcule un avant/après sans que personne ne déclare
+rien. Muse Square, lui, doit être prévenu. Le § 10.3 l'admet déjà : la référence est bon marché,
+« n'importe qui sait calculer une moyenne glissante et un écart-type ». Toast publie déjà un
+écart de cohorte, Google Merchant Center simule déjà l'effet d'un prix. **Pour tout ce qui est un
+événement de caisse, en ligne ou en rayon, le verdict deviendra une fonction gratuite du POS.**
+C'est la part du discours qui meurt.
+
+**Ce qui tient structurellement — pas une avance, une position :**
+
+- **Les dispositifs que la caisse ne voit jamais.** Un producteur invité, un stand, un pôle avec
+  son responsable, un tract, un changement d'horaires, une exposition, une animation de camping.
+  Pour « un lieu qui reçoit du public », l'essentiel de ce que l'exploitant met en place pour
+  vendre n'est pas un événement de caisse. L'agent du POS mesure SES actions ; il ne mesure pas
+  la boutique.
+- **Le contexte que la caisse ignore.** Météo, vacances scolaires, événements locaux, mouvements
+  concurrents, tourisme. Un avant/après sur le poivre pendant une semaine de forte chaleur est
+  faux, et le POS n'a pas de classe de jour pour le savoir. C'est le « stock d'arbitrages sur
+  quand se taire » du § 10.3 : ce qui rend le verdict VRAI et pas seulement calculé.
+- **Un juge indépendant.** Un agent qui recommande un prix puis note sa propre recommandation est
+  juge et partie. Toast publie « +8 % » ; personne ne publie « non concluant ». Un verdict ne vaut
+  pour l'exploitant que s'il vient de quelque chose qui ne gagne rien quand la réponse est oui.
+  C'est l'axe « juge de paix » déjà acquis pour le marketing — la banalisation le renforce.
+- **La mémoire dans le temps et entre les sites.** Quelle pratique, pour quel métier, sur quelle
+  classe de jour, a prouvé quoi : le palier réseau du § 6. Le POS a plus de sites, mais il a des
+  transactions, pas des dispositifs avec leur verdict.
+
+**Les deux conditions.** (1) La mémoire doit s'accumuler AVANT l'arrivée des agents de caisse en
+France. Le § 8.1 a mesuré le stock : 18 dispositifs sur 4 sites, un seul client réel avec des
+données de caisse — aujourd'hui la mémoire ne vaut pas plus qu'un tableur, et aucun argument de
+fossé ne tient tant qu'une poignée de sites réels n'a pas une année de dispositifs jugés.
+(2) Le produit doit être là où l'agent du POS n'est pas : Square et Toast sont US-only, les caisses
+françaises n'ont pas d'assistant, musées et campings tournent sur des billetteries sans agent
+(§ 12.1). C'est une fenêtre, de quelques années, pas une position. [à instruire : la dater]
+
+**Trois options, chacune avec son sacrifice** (l'espace, pas la conclusion) :
+
+1. **Système de référence du lieu physique, indépendant de la caisse** — la thèse actuelle,
+   affûtée : mesurer TOUT ce que l'exploitant fait, événements de caisse compris, contre le
+   contexte. Sacrifice : ne jamais revendiquer l'agent qui agit, et s'intégrer à chaque POS en
+   lecteur.
+2. **La couche de verdict pour les agents des autres** — exposer faits et verdicts (§ 10.5) pour
+   que l'agent du POS demande à Muse Square si son action a marché. Sacrifice : l'acheteur devient
+   une plateforme, ce que le § 5 a rejeté comme middleware ; et une plateforme peut le rebâtir.
+3. **Se replier là où aucun agent ne viendra bientôt** — culture, campings, réseaux de lieux
+   physiques, avec le rail d'équipe comme produit. Sacrifice : un marché plus petit, une preuve
+   plus lente.
+
+**Recommandation [analyse 07/09, à arbitrer owner] : l'option 1, le palier réseau comme preuve.**
+C'est la seule où la banalisation travaille POUR nous : le schéma Anthropic rend notre propre
+agent bon marché à construire, et ce qui reste rare est le registre sur lequel il agit. Le
+paragraphe du plan doit dire que l'agent est une commodité et la mémoire l'actif — avec les
+chiffres du § 8.1 à côté, parce qu'un lecteur posera la question de ce paragraphe.
+
+**Ce qui rendrait Muse Square non pertinent :** un éditeur de caisse qui ajoute un objet
+« dispositif » déclaré par le commerçant, avec des classes de jour et un refus honnête. Rien de
+technique ne l'empêche ; seule son incitation l'en retient, et le fait que le registre n'est pas
+ce qu'il vend.
+
+### 12.9 « Mémoire opérationnelle » : ce que le mot recouvre, et ce qui en est copiable
+
+Précision owner 07/09 (« a structured memory vs a list of data rows — doesn't hold ? »). Le
+positionnement TIENT ; ce qui doit être dit avec précision, c'est où se trouve l'actif. Une
+mémoire est trois choses, et une seule des trois est copiable :
+
+| Composant | Ce que c'est | Où il vit | Copiable ? |
+|---|---|---|---|
+| **La structure** | dispositif, version, verdict, provenance, couverture. Un POS a des LIGNES (transactions, un changement de prix, une remise créée) ; il n'a aucun objet pour « ce que j'ai mis en place pour vendre, et ce que ça a prouvé ». C'est ce que « mémoire » veut dire contre « liste de lignes » | les 36 tables `analytics` que l'app ÉCRIT (dbt ne fait que les stager : `stg_client_commitments`, `stg_best_practices`) | **oui** — une structure est un schéma, une semaine de travail pour qui décide de le bâtir |
+| **Le jugement** | ce qui entre dans la mémoire, et sur quelle preuve : contre le résultat habituel, avec classes de jour, facteurs confondus, planchers, refus de conclure dans le bruit. C'est ce qui fait d'une ligne une ENTRÉE de mémoire et non une ligne de journal | l'app, pas dbt — `commitmentResolve.ts` (471 lignes : VIF, portes asymétriques, `confounded`), `dayClassRegistry.ts` (1 641 lignes), `kpiRegistry.ts`, `facts_v1` + validateurs + lie-bait, lexique + gardes | **non à court terme** — deux ans d'arbitrages ; et un agent de POS qui note ses propres recommandations ne le bâtira pas, son incitation est de montrer des gains |
+| **L'accumulation** | les entrées elles-mêmes, entre sites, métiers et classes de jour | les mêmes tables, remplies | **le seul fossé qui grandit avec le temps** — et presque vide aujourd'hui (§ 8.1) |
+
+Corollaire mesuré [vérifié 07/09] : **dbt est le substrat, pas l'actif.** 347 modèles qui disent ce
+qui s'est passé (références, résidus, signaux jour et article, mouvements concurrents, cadences
+client) — la partie que le § 10.3 dit bon marché à refaire. L'app (101 099 lignes TS/Astro,
+12 255 lignes JS client) dit ce qui a été fait et ce que ça a prouvé : le jugement, les objets, la
+langue, les rails (Slack, consignes, assignation, crawl). Les deux forment UN système — sans dbt
+pas de référence, sans l'app rien à retenir — mais l'actif transportable du § 5 (« leur IA avec
+les paramètres MS ») est la logique de l'app, pas les modèles dbt liés à notre schéma.
+
+**Le test pour le deck.** Si la couverture dit « mémoire structurée » et s'arrête là, elle ne tient
+pas : la structure se copie. Si elle dit **une mémoire dont chaque entrée porte un verdict contre
+votre résultat habituel, tenue par un juge qui ne gagne rien quand la réponse est oui**, elle
+tient — et personne dans le scan ne le dit. Le § 5 le formule déjà : « Le stockage se commoditise
+en 2026. Savoir QUOI garder et sur quelle preuve, non. » La vulnérabilité du § 12.8 est une
+question de CALENDRIER, pas de concept. [formulation à valider owner — pas une chaîne de deck]
+
 ### Sources du § 12 (lues le 07/09/2026)
 
 - Shopify, centre d'aide Sidekick — https://help.shopify.com/en/manual/ai-powered-tools/sidekick/help-and-guidance [page lue]

@@ -44,6 +44,8 @@ export const ACTION_LOG = { marks: [] as any[], posts: [] as any[] };
 // Le guichet de la mémoire (07/09) : les cartes SERVEUR de l'état vide (/api/insight/explorer-slots),
 // posées par le fichier de test AVANT bootOnce ; vide par défaut (rien ne manque au compte).
 export const SLOTS = { cards: [] as any[] };
+// E3 : les notes de jour écrites depuis une carte (POST /api/insight/day-notes).
+export const DAY_NOTES = { posts: [] as any[] };
 
 export function stubFetch(days: any[]): void {
   (globalThis as any).fetch = (url: any, init?: any) => {
@@ -53,6 +55,10 @@ export function stubFetch(days: any[]): void {
     if (u.includes("competitor-signals")) return json({ ok: true, signals: [], followed_count: 0 });
     if (u.includes("/api/insight/corrections")) return json({ ok: true, corrections: [] });
     if (u.includes("/api/insight/explorer-slots")) return json({ ok: true, cards: SLOTS.cards });
+    if (u.includes("/api/insight/day-notes")) {
+      try { DAY_NOTES.posts.push(JSON.parse(String(init && init.body))); } catch { DAY_NOTES.posts.push(null); }
+      return json({ ok: true, note_id: "n1" });
+    }
     if (u.includes("/api/insight/action-log")) {
       if (init && init.method === "POST") {
         try { ACTION_LOG.posts.push(JSON.parse(String(init.body))); } catch { ACTION_LOG.posts.push(null); }

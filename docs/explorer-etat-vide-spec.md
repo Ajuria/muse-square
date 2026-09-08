@@ -78,7 +78,7 @@ aucune quand il n'y en a pas (§ 6.5).
 | Engagement résolu sans bilan | `analytics.action_commitments` : status `resolved`, `retro_worked` nul (dernier instantané par engagement) | La page de l'engagement (`engagement?id=`), dont le rail Documenter (`POST /api/commitments/retro`) ne se câble que sur une opération terminée — le « Bilan → » du lexique. **Livré E1.** |
 | ~~Engagement fini sans « fait / pas fait »~~ | Retiré 07/09 : le silence vaut « action menée » (doctrine owner 05/08, § 2). La page de l'engagement n'a plus de bloc « Action menée ? » (owner 28/08) ; le geste vit dans Pulse, Insight et Slack sur les engagements OUVERTS seulement. | — |
 | Opération sans cible | `raw.saved_items` : `kpi_target_pct` et `kpi_target_eur` nuls, `event_end_date` ≥ aujourd'hui − 30 j | `POST /api/saved-items/update` (existe) |
-| Jour inexpliqué sans note | `semantic.vw_insight_event_day_residual` : \|`residual_z`\| ≥ 2, ≤ 30 j, ET aucune note | **rail à créer** (§ 4) |
+| Jour inexpliqué sans note | `semantic.vw_insight_event_day_residual` : \|`residual_z`\| ≥ 2, ≤ 30 j, ET aucune ligne dans `analytics.day_notes` (même site, même jour) | La carte porte SA saisie : `POST /api/insight/day-notes` (E3, **livré 07/09**) — forme owner « Un souvenir ? Notez-le · sinon, laissez », bouton « Enregistrer ». Un jour = une carte : quand la question mesurée (nature 3) porte la même date, elle cède. |
 | Valeur déclarée ancienne | `analytics.consulter_correction_events` : dernière `correction_type` > 90 j (nombre de clients : 53 j au 07/09, sous le seuil) | Explorer, pré-rempli « <valeur> : » — le chat déclare déjà (`declared_capture`) |
 | Pôle sans photo, photo sans articles confirmés | `action_commitments.pole_families` non nul sans ligne `dispositif_photos` ; `items_matched` non nul et `items_confirmed` nul | « Documenter → » (existe, page du pôle) |
 
@@ -86,10 +86,10 @@ aucune quand il n'y en a pas (§ 6.5).
 
 | Candidat | Source | Écriture |
 |---|---|---|
-| Verdict rendu, pas d'ajustement | `action_commitments` status `resolved`, verdict `met`/`missed`, `adjustment_move` nul, résolu ≤ 14 j | « Ajuster » (existe, `commitments/evolution`) |
-| Dispositif prouvé jamais reconduit | verdict `met`, aucun `parent_commitment_id` postérieur | « Reproduire le dispositif » (existe, mode enquête d'Explorer) |
-| Occurrence sous 7 jours sans préparation | `saved_item_dates` sous 7 j ; « préparé » = une consigne (`consigne_*`) ou un engagement lié (`saved_item_id`) | « Préparer → » (existe, `evenement.astro`) |
-| Alerte concurrent non traitée | `raw.competitor_alerts` ≤ 7 j, `alert_level` max — **« traitée » n'existe pas** : un événement `action_log` à créer (§ 4) | Explorer, pré-rempli sur l'entité (chemin `entite_exterieure`, existe) |
+| Verdict rendu, pas d'ajustement — **livré E2 07/09** | `action_commitments` status `resolved`, verdict `met`/`missed`, `adjustment_move` nul, AUCUNE version suivante (`parent_commitment_id` = cet id), résolu ≤ 14 j. Manqué → « à ajuster » ; atteint → « à reconduire » (ligne suivante). Un objet = une carte : son bilan (nature 1) passe avant. | « Ajuster » (lexique) vers la page de l'engagement ; ligne « Choisissez votre prochaine action : Poursuivre · Doubler la mise · Pivoter » (commitmentCopy) |
+| Dispositif prouvé jamais reconduit — **livré E2 07/09** | verdict `met`, aucune version suivante, ≤ 14 j (même lecture) | « Répliquer » (bouton de la bande engagements, pulse.astro) vers la page de l'engagement ; ligne « Garder ce qui a marché — et le reconduire » (pulse.astro) |
+| Occurrence sous 7 jours sans préparation — **livré E2 07/09** | `raw.saved_item_dates` × `raw.saved_items` sous 7 j ; « préparé » = `consigne_enabled` OU un engagement ouvert/en attente lié dont la fenêtre couvre la date ; € = `kpi_target_eur`, à défaut le CA moyen des occurrences passées ; ancienneté = 8 − jours restants | « Préparer → » (lexique) vers `evenement?saved_item_id=` ; titre « Préparer — <titre> » (en-tête de l'étape avant, evenement.astro), ligne « <jour> — sans action » (lexique, jour non couvert) |
+| Alerte concurrent non traitée — **livré E4 07/09** | `semantic.vw_insight_event_competitor_alerts` ≤ 7 j (nom par `vw_insight_event_competitors_followed`), niveau maximal, sans marque « consulté » — la marque `explorer_consulted` sur la clé `explorer_slot_alerte:<id>` VAUT « traitée » (même rail que les autres cartes, aucun événement nouveau) ; sans € : `entity_threat_score` classe | « Consulter → » (lexique) vers `competitor?id=` ; titre = la ligne du fil Agir « <Concurrent> — <événement>, à <distance>. » (action-cards.js), ligne « Menace : <sous-type> » (pulse.astro feedLine4) |
 
 Aucun rang de nature : le € de chaque objet classe (§ 6.2).
 
@@ -107,13 +107,14 @@ carte répondue disparaît — sa source ne la produit plus).
 
 Manque :
 
-1. **Le rail de la note-cause d'un jour.** « Un souvenir ? Notez-le · sinon, laissez » n'existe que
-   comme commentaire dans `pulse.astro` ; aucun endpoint n'écrit une note de jour, aucune table ne
-   la porte (vérifié : `INSERT` de l'app = drafts, snapshots, alerts, members, goal_state, triggers).
-   C'est le chantier ouvert « Notez ce qui a changé » (mémoire `notez-ce-qui-a-change-chantier`) et la
-   porte manquante « mise en test depuis une cause ». Proposition : une note = un événement
-   `consulter_correction_events` de `correction_type = "day_note"` avec `raw_turn` = la date
-   (rail append-only existant, zéro DDL) — à arbitrer (§ 6).
+1. **Le rail de la note-cause d'un jour — EXISTE depuis le 07/09 (E3, décision § 6.3).** Table
+   `analytics.day_notes` (six colonnes REQUIRED, créée en base le 07/09), `POST /api/insight/day-notes`
+   (append-only, 500 caractères au plus, accès site), lecture par `explorer-slots` (un jour noté ne
+   redemande plus) et par `buildDayPerformanceFacts` (« Note du JJ/MM/AAAA : « … » », fait `observed`,
+   jamais causal). Côté dbt : PR [ms_database#126](https://github.com/Ajuria/ms_database/pull/126) mergée le 07/09 (`cbde545`),
+   `stg_day_notes` et `semantic.vw_insight_event_day_notes` EN BASE (build ponctuel, run 70471896420048). Avant le 07/09 la forme
+   « Un souvenir ? Notez-le · sinon, laissez » n'existait que comme commentaire dans `pulse.astro`
+   (chantier « Notez ce qui a changé », mémoire `notez-ce-qui-a-change-chantier`).
 2. **« Alerte traitée ».** Un événement `action_log` `alert_consulted` (même table, même GET que
    `explorer_consulted`).
 3. **Le lecteur qui classe.** Un endpoint GET `insight/explorer-slots.ts` (à créer — `grep
@@ -180,10 +181,10 @@ date est une question d'Explorer.
 | # | Incrément | Porte |
 |---|---|---|
 | E0 — **APPLIQUÉ 07/09** | États B et C, « Trouver une date » (carte, formulaire, pickers, endpoint `find-dates` et sa lib — seul consommateur) et « Générer un rapport » retirés ; l'état vide vaut titre + composer quand rien n'est mesuré ; placeholder tournant (§ 6bis, questions de la batterie). Proto supprimé (règle de placement : le proto meurt dans le commit qui livre). | Harnais client instruit : `explorer-ui` (aucune carte, label masqué, placeholder), `explorer-slots-anomaly` (la question seule), `explorer-slots-server` (fusion, cap, rail), `explorer-consulted` (marque sur une carte serveur). |
-| E1 — **APPLIQUÉ 07/09** | `insight/explorer-slots.ts` + `lib/explorer/explorerSlots.ts` (pur) + `explorerSlotsCopy.fr.ts` (mots, garde) : nature 1 = l'engagement résolu sans bilan, score = \|écart de la fenêtre\| × jours, jamais trois de même nature, jamais de remplissage. La carte « fait / pas fait » n'est PAS livrée (doctrine 05/08, § 2). | Test pur 8 cas (mutations vues rouges) ; rejeu de la requête + lib sur f10c3e58 (§ 8) : 5 candidats, 2 cartes rendues (garde de nature) — Corner du 08/08 (−394 €, 10 j), Dispositif vacances scolaires (+904 €, 3 j) ; batterie conversation verte. |
-| E2 | Nature 2 : verdict à ajuster, prouvé à reconduire, occurrence à préparer. | Idem, sur les lignes réelles. |
-| E3 | Rail note-cause (§ 6.3) + nature 1 « jour inexpliqué » ; la note nourrit `buildDayPerformanceFacts` (le fait « Note du JJ/MM : … » cité par le packager). | Lie-bait : une note est un fait `observed`, jamais causal ; batterie qualité ≥ baseline. |
-| E4 | `alert_consulted` + nature 2 « alerte concurrent ». | Harnais client + rejeu. |
-| E5 | Marques : une carte consultée sans réponse redescend au score suivant ; disparaît une fois la source vide. | Harnais client (marques stubbées). |
+| E1 — **APPLIQUÉ 07/09** | `insight/explorer-slots.ts` + `lib/explorer/explorerSlots.ts` (pur) + `explorerSlotsCopy.fr.ts` (mots, garde) : nature 1 = l'engagement résolu sans bilan, score = \|écart de la fenêtre\| × jours, jamais trois de même nature, jamais de remplissage. **Mots du verdict (owner 07/09, oui sur 1 et 2)** : quand l'objectif est un % déclaré (`threshold_basis` = pct), le verdict le dit — « objectif de +20 % manqué, +904 € sur 7 jours » (l'objectif de la page de l'engagement, « Objectif : +20 % de CA vs votre résultat habituel ») ; l'objectif nomme son KPI : le CA va sans le dire, une famille se dit « objectif de +11 % de CA de la famille « Coffee » manqué » (owner 27/08), un KPI sans mot owner (ventes, panier, visiteurs — lexique § À arbitrer) garde le verdict nu, jamais un % sur un KPI innommé ; une action déclarée non menée (`action_done_status` = pas_encore) remplace le verdict par « action non menée » (mot de Pulse), un verdict sans action étant inattribuable. Même `verdictFr` pour les cartes de décision. La carte « fait / pas fait » n'est PAS livrée (doctrine 05/08, § 2). | Test pur 8 cas (mutations vues rouges) ; rejeu de la requête + lib sur f10c3e58 (§ 8) : 5 candidats, 2 cartes rendues (garde de nature) — Corner du 08/08 (−394 €, 10 j), Dispositif vacances scolaires (+904 €, 3 j) ; batterie conversation verte. |
+| E2 — **APPLIQUÉ 07/09** | Nature 2 : verdict à ajuster, prouvé à reconduire, occurrence à préparer — tous les mots viennent du lexique, de la page de l'engagement et du fil Agir (owner 07/09 : « don't you have all you need in lexique + in agir page? »). Sur f10c3e58 : le Corner du 08/08 est « à ajuster » mais son bilan passe avant (un objet = une carte) ; le Corner du 05/09 a déjà sa version suivante ; l'occurrence du 12/09 a son engagement lié → aucune de ces trois cartes aujourd'hui ; la troisième carte serveur est l'alerte (E4), et la question mesurée la remplace au client quand il y en a une. Les cinq lectures en parallèle : 2,6 s à froid sur f10c3e58 (budget 3 s). | Tests purs (chaque garde vue rouge par mutation) ; rejeu des cinq requêtes sur f10c3e58 (§ 8). |
+| E3 — **APPLIQUÉ 07/09** (dbt : PR [ms_database#126](https://github.com/Ajuria/ms_database/pull/126) mergée et buildée, vues en base) | Rail note-cause (§ 6.3) : table + endpoint + carte « jour inexpliqué » avec sa saisie + le fait « Note du JJ/MM/AAAA : « … » » dans `buildDayPerformanceFacts` (`dayNoteFacts`, pur). Sur f10c3e58 au 07/09 : 5 jours à \|z\| ≥ 2 sans note → la carte du mardi 01/09 (+683 €, 6 j) passe première, devant le bilan du Corner. | Test pur (candidat, seuil, signe, fait `observed` — mutations vues rouges) ; harnais client `explorer-slots-note` (saisie, écriture site × jour × texte, carte retirée, question du même jour cédée) ; rejeu de la requête sur f10c3e58. |
+| E4 — **APPLIQUÉ 07/09** | Nature 2 « alerte concurrent » ; « traitée » = la marque « consulté » existante sur la clé de l'alerte (pas d'événement `alert_consulted` : un seul rail de marques). Sur f10c3e58 : 15 alertes de niveau 2 en 7 jours (Musée de l'Orangerie, proximité) ; sans €, elles passent derrière les cartes chiffrées — la première : « Musée de l'Orangerie — Chefs-d'œuvre, de Monet à Picasso, à 4,2 km. » | Test pur (niveau maximal, marque = traitée) ; rejeu. |
+| E5 — **APPLIQUÉ 07/09** | Marques : `explorer-slots` lit les marques `explorer_consulted` de l'utilisateur (même lecture que `action-log` GET, clés `explorer_slot_*`) et `rankSlots` fait redescendre une carte consultée sans réponse derrière celles qui ne l'ont pas été — elle sort du top 3 s'il y a mieux ; répondue, sa source ne la produit plus. Le client ne réordonne rien, il affiche « Consulté le JJ/MM ». Une carte note ne se marque pas (sa saisie EST la réponse ; « laissez » = rien). | Harnais client (marques stubbées). |
 
 — SPEC DE TRAVAIL

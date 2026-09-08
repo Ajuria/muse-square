@@ -20,6 +20,20 @@ import { randomUUID } from "crypto";
 
 export const prerender = false;
 
+// Le client BigQuery Node rend une DATE comme { value: "YYYY-MM-DD" } — interpolée
+// telle quelle, elle s'écrit « [object Object] » (15 lignes sur f10c3e58, 01/09 → 07/09).
+// Même paire d'aides que daily-dispatch.ts : aplatir, puis rendre en JJ/MM/AAAA (jamais ISO visible).
+const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+const frDfull = (iso: string) => iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4);
+
+/** new_value de l'alerte : « <concurrent> détecté le JJ/MM/AAAA ». Exportée pour le rejeu. */
+export function competitorAlertNewValue(row: { competitor_name?: string | null; competitor_event_date: any }): string {
+  const dateFr = frDfull(String(flat(row.competitor_event_date) ?? ""));
+  return row.competitor_name
+    ? `${row.competitor_name} détecté le ${dateFr}`
+    : `Concurrent détecté le ${dateFr}`;
+}
+
 export const GET: APIRoute = async ({ request }) => {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -169,9 +183,7 @@ export const GET: APIRoute = async ({ request }) => {
         const oldValue = row.watched_event_name
           ? `Pas de concurrent connu sur "${row.watched_event_name}"`
           : null;
-        const newValue = row.competitor_name
-          ? `${row.competitor_name} détecté le ${row.competitor_event_date}`
-          : `Concurrent détecté le ${row.competitor_event_date}`;
+        const newValue = competitorAlertNewValue(row);
 
         await bq.query({
           query: `

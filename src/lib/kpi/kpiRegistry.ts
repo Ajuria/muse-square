@@ -41,6 +41,7 @@ const PERF = `${PROJECT}.mart.fct_client_daily_performance`;
 
 // K9 : les marges déclarées viennent du propriétaire du log (jamais re-dérivées ici).
 import { getDeclaredFamilyMargins, getDeclaredMarginPct, familySlug } from "../ai/corrections";
+import { scopeFilter, scopeFromFamily, type MeasuredScope } from "../commitments/measuredScope";
 
 // CLÉS = le vocabulaire EXISTANT de l'app (DRIVER_SET de /api/commitments + metrics du moteur
 // Type B : footfall/conversion/basket) — jamais un 3e vocabulaire (audit anti-duplication 26/07).
@@ -291,15 +292,21 @@ export async function listSiteFamilies(bq: any, location_id: string, limit = 12)
   return (rows as any[]).map((r) => ({ category: String(flat(r.item_category)), avg_day_eur: Number(flat(r.avg_day_eur) ?? 0) }));
 }
 
-export async function measureFamilyRevenueMean(bq: any, location_id: string, family: string, start: string, end: string): Promise<{ value: number; n_days: number } | null> {
+// 07/09 (docs/dispositif-perimetre-mesure-spec.md, P1) : le CA d'un PÉRIMÈTRE (familles, pôle → ses
+// familles, articles confirmés) se mesure avec la méthode de la famille — mêmes lignes
+// (raw.client_transactions), même moyenne par jour, même bande de bruit. La famille unique est le
+// périmètre d'une famille (scopeFromFamily) : une seule requête, jamais deux définitions.
+export async function measureScopeRevenueMean(bq: any, location_id: string, scope: MeasuredScope, start: string, end: string): Promise<{ value: number; n_days: number } | null> {
+  const f = scopeFilter(scope);
   const rows = await bq.query({
     query: `
       SELECT SUM(revenue) / COUNT(DISTINCT transaction_date) AS v, COUNT(DISTINCT transaction_date) AS n
       FROM \`${PROJECT}.raw.client_transactions\`
-      WHERE location_id = @location_id AND item_category = @family
+      WHERE location_id = @location_id AND ${f.sql}
         AND transaction_date BETWEEN @start AND @end
     `,
-    params: { location_id, family, start: bq.date(start), end: bq.date(end) },
+    params: { location_id, ...f.params, start: bq.date(start), end: bq.date(end) },
+    types: f.types,
     location: "EU",
   }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
   const row = (rows as any[])[0];
@@ -307,6 +314,10 @@ export async function measureFamilyRevenueMean(bq: any, location_id: string, fam
   const n = Number(row?.n ?? 0);
   if (!Number.isFinite(v) || n < 1) return null;
   return { value: Math.round(v * 1000) / 1000, n_days: n };
+}
+export async function measureFamilyRevenueMean(bq: any, location_id: string, family: string, start: string, end: string): Promise<{ value: number; n_days: number } | null> {
+  const s = scopeFromFamily(family);
+  return s ? measureScopeRevenueMean(bq, location_id, s, start, end) : null;
 }
 
 // ── K9 — profit estimé (24/08, marges par famille) ──────────────────────────────────────────
@@ -381,13 +392,17 @@ export async function measureProfitBaseline(bq: any, location_id: string, window
 }
 
 /** Baseline famille = 30 j glissants AVANT la fenêtre (même convention que measureKpiBaseline). */
-export async function measureFamilyBaseline(bq: any, location_id: string, family: string, window_start: string): Promise<number | null> {
+export async function measureScopeBaseline(bq: any, location_id: string, scope: MeasuredScope, window_start: string): Promise<number | null> {
   const end = new Date(window_start + "T00:00:00Z");
   end.setUTCDate(end.getUTCDate() - 1);
   const start = new Date(end);
   start.setUTCDate(start.getUTCDate() - 29);
-  const res = await measureFamilyRevenueMean(bq, location_id, family, start.toISOString().slice(0, 10), end.toISOString().slice(0, 10));
+  const res = await measureScopeRevenueMean(bq, location_id, scope, start.toISOString().slice(0, 10), end.toISOString().slice(0, 10));
   return res && res.n_days >= 5 ? res.value : null;
+}
+export async function measureFamilyBaseline(bq: any, location_id: string, family: string, window_start: string): Promise<number | null> {
+  const s = scopeFromFamily(family);
+  return s ? measureScopeBaseline(bq, location_id, s, window_start) : null;
 }
 
 // kpi = f(type de carte, driver). Drivers = DRIVER_SET de /api/commitments (conversion, basket,
@@ -513,21 +528,27 @@ export async function measureKpiDailySd(bq: any, location_id: string, key: KpiKe
 }
 
 /** Variante K8 : écart-type des CA JOURNALIERS d'une famille sur les 30 j pré-fenêtre. */
-export async function measureFamilyDailySd(bq: any, location_id: string, family: string, window_start: string): Promise<number | null> {
+export async function measureScopeDailySd(bq: any, location_id: string, scope: MeasuredScope, window_start: string): Promise<number | null> {
   const end = new Date(window_start + "T00:00:00Z"); end.setUTCDate(end.getUTCDate() - 1);
   const start = new Date(end); start.setUTCDate(start.getUTCDate() - 29);
+  const f = scopeFilter(scope);
   const rows = await bq.query({
     query: `SELECT STDDEV_SAMP(v) AS sd, COUNT(*) AS n FROM (
               SELECT SUM(revenue) AS v FROM \`${PROJECT}.raw.client_transactions\`
-              WHERE location_id = @location_id AND item_category = @family
+              WHERE location_id = @location_id AND ${f.sql}
                 AND transaction_date BETWEEN @start AND @end
               GROUP BY transaction_date)`,
-    params: { location_id, family, start: bq.date(start.toISOString().slice(0, 10)), end: bq.date(end.toISOString().slice(0, 10)) },
+    params: { location_id, ...f.params, start: bq.date(start.toISOString().slice(0, 10)), end: bq.date(end.toISOString().slice(0, 10)) },
+    types: f.types,
     location: "EU",
   }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
   const row = (rows as any[])[0];
   const sd = Number(row?.sd ?? NaN), n = Number(row?.n ?? 0);
   return Number.isFinite(sd) && n >= 5 ? sd : null;
+}
+export async function measureFamilyDailySd(bq: any, location_id: string, family: string, window_start: string): Promise<number | null> {
+  const s = scopeFromFamily(family);
+  return s ? measureScopeDailySd(bq, location_id, s, window_start) : null;
 }
 
 /** Verdict par KPI (chantier 15/08) — PURE, miroir exact de la structure K1 :

@@ -41,7 +41,7 @@ const isAppShell = isApp;
       class="flex items-center gap-[16px]"
     >
       <img
-        src={isAppShell ? "/images/muse-square-logo.png?v=2" : "/images/muse-square-logo.png?v=2"}
+        src="/images/muse-square-logo-600.png"
         alt="Muse Square"
         class="block h-8 md:h-10 w-auto object-contain"
         loading="lazy"
@@ -158,61 +158,55 @@ const isAppShell = isApp;
           <Show when="signed-in" client:load>
             <div class="flex items-center font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
               <a href="/app/insightevent/prompt" class="ms-nav-link relative inline-block pb-1 after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[2px] after:h-[2px] after:bg-transparent">
-                Insight
+                Muse Square
               </a>
             </div>
           </Show>
         )}
       </div>
       
+  </nav>
+
   <!-- Mobile nav -->
   <div id="mobileMenu" class="md:hidden hidden border-t border-border bg-background">
-    <ul class="ms-container py-4 grid gap-[24px] font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
+    <ul class="ms-container py-2 grid gap-0 font-heading text-[15px] font-medium uppercase tracking-[0.5px] text-primary">
       {isApp ? (
         <>
           <li>
-            <a href="/app/insightevent/tableau" class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Piloter</a>
+            <a href="/app/insightevent/tableau" class="block py-[12px] font-heading transition-opacity hover:opacity-80">Piloter</a>
           </li>
           <li>
-            <a href="/app/insightevent/pulse" class="font-heading relative inline-block pb-2 transition-opacity hover:opacity-80">Agir</a>
+            <a href="/app/insightevent/pulse" class="block py-[12px] font-heading transition-opacity hover:opacity-80">Agir</a>
           </li>
           <li>
             <a
               href="/app/insightevent/prompt"
               aria-current={isDemander ? "page" : undefined}
-              class={`font-heading relative inline-block pb-2 transition-opacity
+              class={`font-heading relative block py-[12px] transition-opacity
                 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
-                after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
-                ${isDemander ? "after:bg-primary" : "after:bg-transparent"}`}
+                ${isDemander ? "underline underline-offset-4" : ""}`}
             >
               Explorer
             </a>
           </li>
 
-          <li>
-            <a href="/profile?tab=profil" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Profil</a>
-          </li>
-          <li>
-            <a href="/profile?tab=sites" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Sites</a>
-          </li>
-          <li>
-            <a href="/profile?tab=poles" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Pôles</a>
-          </li>
-          <li>
-            <a href="/profile?tab=comm" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Communication</a>
-          </li>
-          <li>
-            <a href="/profile?tab=reco" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Signaux</a>
-          </li>
-          <li>
-            <a href="/app/insightevent/suivis" class="font-heading relative inline-block pb-2 italic normal-case transition-opacity hover:opacity-80">Compte — Établissements suivis</a>
+          <li class="mt-[8px] pt-[8px] border-t border-border">
+            <span class="block py-[8px] text-[12px] text-secondary tracking-[0.5px]">Compte</span>
+            <ul class="pl-[16px]">
+              <li><a href="/profile?tab=profil" class="block py-[10px] font-heading italic normal-case transition-opacity hover:opacity-80">Profil</a></li>
+              <li><a href="/profile?tab=sites" class="block py-[10px] font-heading italic normal-case transition-opacity hover:opacity-80">Sites</a></li>
+              <li><a href="/profile?tab=poles" class="block py-[10px] font-heading italic normal-case transition-opacity hover:opacity-80">Pôles</a></li>
+              <li><a href="/profile?tab=comm" class="block py-[10px] font-heading italic normal-case transition-opacity hover:opacity-80">Communication</a></li>
+              <li><a href="/profile?tab=reco" class="block py-[10px] font-heading italic normal-case transition-opacity hover:opacity-80">Signaux</a></li>
+              <li><a href="/app/insightevent/suivis" class="block py-[10px] font-heading italic normal-case transition-opacity hover:opacity-80">Établissements suivis</a></li>
+            </ul>
           </li>
 
           <Show when="signed-in" client:load>
             <li>
               <button
                 type="button"
-                class="logoutBtn font-heading relative inline-block pb-2 italic normal-case transition-opacity
+                class="logoutBtn block w-full text-left py-[12px] mt-[8px] border-t border-border font-heading italic normal-case transition-opacity
                       hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >
                 Se déconnecter
@@ -226,15 +220,31 @@ const isAppShell = isApp;
             <a
               href={i.href}
               aria-current={isActive(i.href) ? "page" : undefined}
-              class={`ms-nav-link relative inline-block pb-2 transition-opacity
+              class={`ms-nav-link relative block py-[12px] transition-opacity
                 hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2
-                after:content-[''] after:absolute after:left-0 after:right-0 after:-bottom-[1px] after:h-[2px]
-                ${isActive(i.href) ? "after:bg-primary" : "after:bg-transparent"}`}
+                ${isActive(i.href) ? "underline underline-offset-4" : ""}`}
             >
               {i.label}
             </a>
           </li>
         ))
+      )}
+      {!isApp && (
+        <>
+          <Show when="signed-in" client:load>
+            <li>
+              <a href="/app/insightevent/prompt" class="ms-nav-link relative block py-[12px] transition-opacity hover:opacity-80">Muse Square</a>
+            </li>
+          </Show>
+          <Show when="signed-out" client:load>
+            <li>
+              <a href="/sign-in" class="ms-nav-link relative block py-[12px] transition-opacity hover:opacity-80">Se connecter</a>
+            </li>
+            <li class="pt-[8px] pb-[12px]">
+              <a href="/sign-up" class="ms-btn w-full">Nous contacter</a>
+            </li>
+          </Show>
+        </>
       )}
     </ul>
   </div>

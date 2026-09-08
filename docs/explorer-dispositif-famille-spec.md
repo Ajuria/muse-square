@@ -115,7 +115,7 @@ Recoupé par une requête BQ indépendante (jointures, pas la requête du code) 
 - La lecture `raw` ne passe pas par `is_invoiced` (devis/bons) — le précédent
   `measureFamilyRevenueMean` non plus. La source cible est une vue `semantic` au grain jour ×
   famille portant `invoice_count` (tickets contenant la famille) et le panier du ticket entier :
-  **passation écrite le 04/09** : `docs/dbt-handoff/HANDOFF-offering-daily-hourly-2026-09-04.md`
+  **passation écrite le 04/09** : la PR [ms_database#127](https://github.com/Ajuria/ms_database/pull/127) (07/09, ex-passation du 04/09)
   (mart `fct_client_offering_daily` + `invoice_count`/`ticket_revenue_avg`, vue
   `vw_insight_event_client_offering_daily` bornée à aujourd'hui, SQL prouvé sur BQ), en attente
   du collage owner. Quand la vue existe, la source bascule sans changer le rendu.

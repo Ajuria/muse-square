@@ -4,7 +4,7 @@ export const prerender = true;
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 <BaseLayout title="Solutions — Muse Square">
-  <section>
+  <section class="pt-[24px] md:pt-0">
     <h1 class="ms-h1">Solutions</h1>
     <p class="ms-lead mt-4">Nos solutions pour transformer vos données en leviers de décision et de développement.</p>
   </section>
@@ -20,9 +20,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <li>Tracking propre & gouvernance</li>
         <li>Dashboard exécutif</li>
       </ul>
-      <p class="mt-4 font-heading text-[16px]"><a class="hover:underline" href="/contact">Contactez-nous</a> · <a class="hover:underline" href="/docs/blueprint.pdf">Télécharger notre brochure</a></p>
+      <p class="mt-4 font-heading text-[16px]"><a class="inline-block md:inline py-[10px] md:py-0 hover:underline" href="/contact">Contactez-nous</a> · <a class="inline-block md:inline py-[10px] md:py-0 hover:underline" href="/docs/blueprint.pdf">Télécharger notre brochure</a></p>
     </div>
-    <div class="max-w-[500px]"><div class="w-full aspect-[5/4] bg-muted" aria-hidden="true"></div></div>
+    <div class="hidden lg:block max-w-[500px]"><div class="w-full aspect-[5/4] bg-muted" aria-hidden="true"></div></div>
   </section>
 
   <div class="ms-divider"></div>
@@ -36,8 +36,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <li>Expérimentations & A/B tests</li>
         <li>Quick wins mesurables</li>
       </ul>
-      <p class="mt-4 font-heading text-[16px]"><a class="hover:underline" href="/contact">Contactez-nous</a> · <a class="hover:underline" href="/docs/engagement-lift.pdf">Télécharger notre brochure</a></p>
+      <p class="mt-4 font-heading text-[16px]"><a class="inline-block md:inline py-[10px] md:py-0 hover:underline" href="/contact">Contactez-nous</a> · <a class="inline-block md:inline py-[10px] md:py-0 hover:underline" href="/docs/engagement-lift.pdf">Télécharger notre brochure</a></p>
     </div>
-    <div class="max-w-[500px]"><div class="w-full aspect-[5/4] bg-muted" aria-hidden="true"></div></div>
+    <div class="hidden lg:block max-w-[500px]"><div class="w-full aspect-[5/4] bg-muted" aria-hidden="true"></div></div>
   </section>
 </BaseLayout>

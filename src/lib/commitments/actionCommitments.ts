@@ -145,6 +145,10 @@ const COLUMN_SPEC: ReadonlyArray<readonly [string, string]> = [
   // est stable dans la chaîne de versions (la photo s'y rattache). NULL sur une opération datée.
   // Hérité du parent à la V2 si absent au POST. Position 80 (ALTER vérifié live le 03/09).
   ["components", "STRING"],
+  // 07/09 (docs/dispositif-perimetre-mesure-spec.md, P0) — ce que le dispositif vend : JSON { kind familles|pole|articles,
+  // familles [{nom, nouvelle?}], pole_id, pole_nom, item_codes }. ALTER ADD COLUMN IF NOT EXISTS vérifié live le 07/09
+  // sur les deux tables ; les engagements family_revenue migrés depuis saved_items.kpi_family (22 lignes, 8 engagements).
+  ["measured_scope", "STRING"],
   // 06/09 (audit N6) — ventes et panier de la fenêtre vs résultat habituel (commitmentResolve
   // § 9). ALTER ADD COLUMN IF NOT EXISTS vérifié live le 06/09 (positions 82-83).
   ["window_transactions_delta_pct", "FLOAT64"],
@@ -260,6 +264,7 @@ export interface CommitmentRow {
   attached_pole_id: string | null;
   operation_cost_eur: number | null;  // coût saisi (€) — jamais déduit
   components: string | null;          // JSON array {key,type,role,label} — permanents seulement
+  measured_scope: string | null;      // JSON MeasuredScope (lib/commitments/measuredScope.ts) — ce que le dispositif vend
 }
 
 // The columns that make a commitment a commitment. Any write (create OR later
@@ -300,13 +305,14 @@ export function isKeptVerdict(verdict: string | null | undefined): boolean {
 export function lineageFor(
   parentSnap: Pick<CommitmentRow, "commitment_id" | "dispositif_id" | "version_no" | "measured_metric" | "saved_item_id"> | null,
   commitmentId: string,
-): { dispositif_id: string; version_no: number; inherited_metric: string | null; inherited_saved_item_id: string | null } {
+): { dispositif_id: string; version_no: number; inherited_measured_scope: string | null; inherited_metric: string | null; inherited_saved_item_id: string | null } {
   if (!parentSnap) {
-    return { dispositif_id: commitmentId, version_no: 1, inherited_metric: null, inherited_saved_item_id: null };
+    return { dispositif_id: commitmentId, version_no: 1, inherited_measured_scope: null, inherited_metric: null, inherited_saved_item_id: null };
   }
   return {
     dispositif_id: (parentSnap.dispositif_id && String(parentSnap.dispositif_id)) || String(parentSnap.commitment_id),
     version_no: (Number(parentSnap.version_no) || 1) + 1,
+    inherited_measured_scope: (parentSnap as any).measured_scope != null ? String((parentSnap as any).measured_scope) : null,   // 07/09 : la V2 hérite du périmètre
     inherited_metric: parentSnap.measured_metric != null ? String(parentSnap.measured_metric) : null,
     inherited_saved_item_id: parentSnap.saved_item_id != null ? String(parentSnap.saved_item_id) : null,
   };

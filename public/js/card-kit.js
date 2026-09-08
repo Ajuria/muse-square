@@ -1258,7 +1258,7 @@
       var _vbTip = '';
       if (!open && cm.verdict) {
         _vbTip = cm.verdict_basis === 'kpi'
-          ? ' title="' + esc('Verdict rendu sur votre KPI d\u00e9clar\u00e9 (' + ((K && K.label_fr) || 'KPI') + ')' + (cm.kpi_noise_se != null ? ', bande de bruit \u00b1' + cm.kpi_noise_se : '') + '. Un objectif d\u00e9pass\u00e9 de moins que le bruit du lieu reste \u00ab non concluant \u00bb.') + '"'
+          ? ' title="' + esc('Verdict rendu sur votre KPI d\u00e9clar\u00e9 (' + ((K && (K.scope_label_fr || K.label_fr)) || 'KPI') + ')' + (cm.kpi_noise_se != null ? ', bande de bruit \u00b1' + fr(Math.round(Number(cm.kpi_noise_se))) + ((K && (K.metric === 'family_revenue' || K.metric === 'revenue_residual')) ? ' \u20ac' : '') : '') + '. Un objectif d\u00e9pass\u00e9 de moins que le bruit du lieu reste \u00ab non concluant \u00bb.') + '"'
           : ' title="' + esc('Verdict rendu sur le CA vs normale (machinerie historique).') + '"';
       }
       // LE RÉSULTAT EN UNE LIGNE (owner 28/08) : « +1,8 % de ventes » en gros et en gras,
@@ -1266,6 +1266,12 @@
       // mesurés) dans l'infobulle du ⓘ. Avant : quatre lignes de décomposition empilées,
       // dont une en ambre — « trop compliqué », « ne pas utiliser d'ambre pour le résultat ».
       var _resPct = (_basePct >= 0 ? '+' : '−') + fr(Math.abs(_basePct)) + ' %';
+      // 07/09 (owner) : le gros chiffre parle du KPI du verdict, dans SON unité — le CA du lieu quand le
+      // verdict est rendu sur le CA, le périmètre (« CA de la famille « Branded » ») quand il est rendu
+      // dessus, le KPI déclaré sinon. Le chiffre suit : sur un verdict KPI, c'est l'écart du KPI.
+      var _kpiOn = !!(_kSub && _kSub.metric && _kSub.metric !== 'revenue_residual' && cm.verdict_basis === 'kpi' && cm.kpi_delta_pct != null);
+      if (_kpiOn) { _basePct = Number(cm.kpi_delta_pct); _resPct = (_basePct >= 0 ? '+' : '−') + fr(Math.abs(_basePct)) + ' %'; }
+      var _resUnit = _kpiOn ? (_kSub.scope_label_fr || _kSub.label_fr || 'CA') : 'CA';
       var _verdictTxt = (!open && cm.verdict === 'met') ? t('q1_objectif_met')
         : (!open && cm.verdict === 'missed') ? t('q1_objectif_missed')
         : (!open && cm.verdict === 'confounded') ? t('q1_objectif_confounded')
@@ -1275,8 +1281,13 @@
         : t('q1_tip_plain', { n: received.length, jours: received.length > 1 ? 'journées mesurées' : 'journée mesurée', goal: '+' + fr(_goalPct) + ' %' });
       if (!open && cm.verdict && _vbTip) _tip += ' ' + String(_vbTip).replace(/^ title="|"$/g, '');
       headline = '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">'
-        + '<span style="font-size:26px;font-weight:700;color:#111827;line-height:1.2;">' + esc(t('q1_result', { pct: _resPct })) + '</span>'
-        + '<span title="' + esc(_tip) + '" style="font-size:12px;color:#6b7280;cursor:help;border:1px solid #e5e7eb;border-radius:50%;width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;">i</span>'
+        + '<span style="font-size:26px;font-weight:700;color:#111827;line-height:1.2;">' + esc(t('q1_result', { pct: _resPct, kpi: _resUnit })) + '</span>'
+        // 07/09 (owner : « tooltip doesn't show anything ») — le détail reste HORS écran par défaut
+        // (décision 28/08 : une ligne chiffrée, le détail dans l'infobulle) mais s'OUVRE au clic et au
+        // toucher : <details> natif, comme les familles dépliables — pas une ligne de JavaScript. Le
+        // title reste pour le survol au bureau.
+        + '<details style="display:inline-block;"><summary title="' + esc(_tip) + '" style="font-size:12px;color:#6b7280;cursor:pointer;border:1px solid #e5e7eb;border-radius:50%;width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;list-style:none;">i</summary>'
+        + '<div style="font-size:12px;color:#6b7280;margin-top:6px;line-height:1.45;max-width:520px;">' + esc(_tip) + '</div></details>'
         + '<span style="margin-left:auto;font-size:14px;color:#111827;">' + esc(_verdictTxt) + '</span>'
         + '</div>'
         + (_kpiActive ? '' : _bar);

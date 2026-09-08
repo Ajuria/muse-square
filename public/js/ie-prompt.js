@@ -313,16 +313,59 @@ if (!root) {
 
   // Les cartes serveur d'abord (déjà classées), la question mesurée en dernier ; trois au plus,
   // jamais trois de la même nature (owner 07/09, § 6.1 et § 6.5). Aucun candidat → aucune carte.
+  // E3 : un jour = une carte — quand une carte serveur porte la date de la question, la question cède.
   function mergeSlots(serverCards, anomaly) {
     var out = [];
+    var sameDay = !!(anomaly && serverCards.some(function (c) { return c.date === anomaly.date; }));
+    var keepAnomaly = anomaly && !sameDay;
     for (var i = 0; i < serverCards.length; i++) {
       var c = serverCards[i];
       var same = out.filter(function (x) { return x.nature === c.nature; }).length;
-      if (out.length >= (anomaly ? 2 : 3) || same >= 2) continue;
-      out.push({ nature: c.nature, svg: c.nature === 'decision' ? SVG_SLOT_DECISION : SVG_SLOT_MEMOIRE, text: c.text, sub: c.sub, cta: c.cta, href: c.href, key: c.key, date: c.date });
+      if (out.length >= (keepAnomaly ? 2 : 3) || same >= 2) continue;
+      out.push({ nature: c.nature, kind: c.kind || '', svg: c.nature === 'decision' ? SVG_SLOT_DECISION : SVG_SLOT_MEMOIRE, text: c.text, sub: c.sub, cta: c.cta, href: c.href, key: c.key, date: c.date });
     }
-    if (anomaly) out.push(anomaly);
+    if (keepAnomaly) out.push(anomaly);
     return out;
+  }
+
+  // E3 — la carte « jour inexpliqué » porte SA saisie : la note part vers /api/insight/day-notes et la
+  // carte s'en va (sa source ne la produit plus). Champ vide : rien ne part. Styles en ligne : HTML injecté.
+  function noteCardHtml(s) {
+    return '<div class="ie-prompt-card ie-dynamic-suggestion" data-nature="memoire" data-kind="note" data-note-date="' + escapeHtml(s.date || '') + '"'
+      + (s.key ? ' data-sugg-key="' + escapeHtml(s.key) + '" data-sugg-date="' + escapeHtml(s.date || '') + '"' : '') + ' style="cursor:default;">'
+      + '<div class="ie-prompt-card-icon">' + s.svg + '</div>'
+      + '<div class="ie-prompt-card-content">'
+        + '<p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">' + escapeHtml(s.text) + '</p>'
+        + '<p style="font-size:13px;color:#374151;margin:0;line-height:1.4;">' + escapeHtml(s.sub) + '</p>'
+        + '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;">'
+          + '<input type="text" data-note-input maxlength="500" style="flex:1;min-width:0;font:inherit;font-size:13px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;">'
+          + '<button type="button" data-note-save style="font:inherit;font-size:13px;font-weight:600;color:#fff;background:#0b37e5;border:0;border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap;">' + escapeHtml(s.cta || 'Enregistrer') + '</button>'
+        + '</div>'
+      + '</div>'
+    + '</div>';
+  }
+
+  function wireNoteCards() {
+    document.querySelectorAll('.ie-prompt-card[data-kind="note"]').forEach(function (card) {
+      var input = card.querySelector('[data-note-input]'), save = card.querySelector('[data-note-save]');
+      if (!input || !save) return;
+      var send = function () {
+        var text = String(input.value || '').replace(/\s+/g, ' ').trim();
+        if (!text) { input.focus(); return; }
+        save.disabled = true;
+        fetch('/api/insight/day-notes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ location_id: LOCATION_ID, date: card.getAttribute('data-note-date'), note_text: text }) })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (!(j && j.ok)) { save.disabled = false; return; }
+            card.remove();
+            var label = document.getElementById('ie-prompt-actions-label');
+            if (label && !document.querySelector('.ie-prompt-card')) label.style.display = 'none';
+          })
+          .catch(function () { save.disabled = false; });
+      };
+      save.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); send(); });
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); send(); } });
+    });
   }
 
   function renderDynamicSuggestions(suggestions) {
@@ -348,7 +391,8 @@ if (!root) {
     var cardHtmls = [];
     for (var i = 0; i < suggestions.length; i++) {
       var s = suggestions[i];
-      cardHtmls.push('<a href="' + (s.href ? escapeHtml(s.href) : '#') + '" class="ie-prompt-card ie-dynamic-suggestion"' + (s.q ? ' data-dynamic-q="' + escapeHtml(s.q) + '"' : '') + (s.href ? ' data-dynamic-href="' + escapeHtml(s.href) + '"' : '') + ' data-nature="' + escapeHtml(s.nature || 'question') + '"'
+      if (s.kind === 'note') { cardHtmls.push(noteCardHtml(s)); continue; }
+      cardHtmls.push('<a href="' + (s.href ? escapeHtml(s.href) : '#') + '" class="ie-prompt-card ie-dynamic-suggestion"' + (s.kind ? ' data-kind="' + escapeHtml(s.kind) + '"' : '') + (s.q ? ' data-dynamic-q="' + escapeHtml(s.q) + '"' : '') + (s.href ? ' data-dynamic-href="' + escapeHtml(s.href) + '"' : '') + ' data-nature="' + escapeHtml(s.nature || 'question') + '"'
         + (s.key ? ' data-sugg-key="' + escapeHtml(s.key) + '" data-sugg-date="' + escapeHtml(s.date || '') + '"' : '') + '>'
         + '<div class="ie-prompt-card-icon">' + s.svg + '</div>'
         + '<div class="ie-prompt-card-content">'
@@ -373,7 +417,8 @@ if (!root) {
       document.querySelectorAll('.ie-dynamic-suggestion').forEach(function(c) { c.style.display = 'none'; });
     }
 
-    document.querySelectorAll('.ie-dynamic-suggestion').forEach(function(card) {
+    wireNoteCards();
+    document.querySelectorAll('a.ie-dynamic-suggestion').forEach(function(card) {
       var marked = _consultedMarks[_markId(card.getAttribute('data-sugg-key'), card.getAttribute('data-sugg-date'))];
       if (marked) _applyConsultedMark(card, marked);
       card.addEventListener('click', function(e) {

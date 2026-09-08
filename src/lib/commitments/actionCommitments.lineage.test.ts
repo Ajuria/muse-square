@@ -4,7 +4,7 @@ import { lineageFor } from "./actionCommitments";
 describe("lineageFor — l'identité du dispositif et l'héritage de version", () => {
   it("une racine s'auto-désigne : dispositif_id = son propre id, V1, rien d'hérité", () => {
     expect(lineageFor(null, "c-root")).toEqual({
-      dispositif_id: "c-root", version_no: 1, inherited_metric: null, inherited_saved_item_id: null,
+      dispositif_id: "c-root", version_no: 1, inherited_measured_scope: null, inherited_metric: null, inherited_saved_item_id: null,
     });
   });
 
@@ -14,7 +14,7 @@ describe("lineageFor — l'identité du dispositif et l'héritage de version", (
       measured_metric: "family_revenue", saved_item_id: "evt-1",
     };
     expect(lineageFor(parent, "c-v2")).toEqual({
-      dispositif_id: "c-v1", version_no: 2, inherited_metric: "family_revenue", inherited_saved_item_id: "evt-1",
+      dispositif_id: "c-v1", version_no: 2, inherited_measured_scope: null, inherited_metric: "family_revenue", inherited_saved_item_id: "evt-1",
     });
   });
 
@@ -28,7 +28,7 @@ describe("lineageFor — l'identité du dispositif et l'héritage de version", (
   it("parent d'AVANT les colonnes (dispositif_id/version_no nuls) : la racine se reconstruit", () => {
     const legacy: any = { commitment_id: "c-old", dispositif_id: null, version_no: null, measured_metric: "family_revenue", saved_item_id: "evt-9" };
     expect(lineageFor(legacy, "c-new")).toEqual({
-      dispositif_id: "c-old", version_no: 2, inherited_metric: "family_revenue", inherited_saved_item_id: "evt-9",
+      dispositif_id: "c-old", version_no: 2, inherited_measured_scope: null, inherited_metric: "family_revenue", inherited_saved_item_id: "evt-9",
     });
   });
 
