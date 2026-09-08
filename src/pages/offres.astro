@@ -9,8 +9,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 <BaseLayout title="Plateforme — Muse Square">
 
 <!-- A. BANNIÈRE -->
-<section class="hero">
+<section class="hero relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-hidden">
   <div class="hero-photo" aria-hidden="true"></div>
+  <div class="hero-veil" aria-hidden="true"></div>
   <div class="ms-container">
     <div class="hero-in">
       <h1 class="ms-h1">Faites de votre expérience un actif opérationnel</h1>
@@ -467,7 +468,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   .hero-in{position:relative;z-index:2;padding:88px 0 72px;max-width:620px}
   .hero .ms-h1{color:var(--color-text-primary)}
   .hero p{color:#374151;font-size:19px;line-height:1.55;margin:22px 0 0;max-width:560px}
-  @media (max-width:860px){.hero-photo{display:none}.hero-in{padding:64px 0 48px}}
+  /* Sous 900 px : l'image reste en fond, un voile la calme sous le texte — mêmes valeurs que le héros de l'accueil (3a75df29, owner 07/09) */
+  .hero-veil{display:none}
+  @media (max-width:900px){
+    .hero-photo{width:100%;opacity:.55;background-position:center;-webkit-mask-image:none;mask-image:none}
+    .hero-veil{display:block;position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.94) 0%,rgba(255,255,255,.90) 42%,rgba(255,255,255,.62) 74%,rgba(255,255,255,.30) 100%)}
+    .hero-in{padding:56px 0 48px;max-width:none}
+    .hero .ms-h1{font-size:34px}
+    .hero p{font-size:17px}
+  }
   /* --- maquettes d'écran : valeurs reprises de pulse.astro (.ab-*) --- */
   .mock{background:#fff;border:1px solid var(--color-border);border-radius:10px;box-shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);overflow:hidden;font-size:13px;width:100%;max-width:680px}
   .mock-top{padding:18px 20px 8px}
