@@ -5,6 +5,7 @@ const {
   hideSurveyCta = false,
   hideFooter = false,
   hideNav = false,
+  noindex = false,
 } = Astro.props;
 
 import "../styles/global.css";
@@ -33,6 +34,7 @@ const canonicalHref = "https://www.musesquare.com" + canonicalPath;
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalHref} />
+    {noindex && <meta name="robots" content="noindex" />}
 
     <!-- Privacy-friendly analytics by Plausible -->
     <script async is:inline src="https://plausible.io/js/pa-LZhzpaLnNRnkmoZcXgUVK.js"></script>
@@ -70,6 +72,7 @@ const canonicalHref = "https://www.musesquare.com" + canonicalPath;
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Muse Square" />
+        <script is:inline src="/js/install-app.js?v=1"></script>
       </>
     )}
     <link rel="shortcut icon" href="/favicon-32.png?v=2" />

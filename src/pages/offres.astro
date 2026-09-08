@@ -6,7 +6,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 // Page Plateforme — copie et maquettes de l'owner (01/09/2026, session « Learning loop landing page copy »),
 // livrée depuis tools/proto/offres-proto.html le 08/09/2026 sans réécriture : le proto meurt dans ce commit.
 ---
-<BaseLayout title="Plateforme — Muse Square">
+<BaseLayout title="Plateforme — Muse Square" description="Agissez sur vos priorités, mesurez l'impact de vos actions et conservez les dispositifs qui ont fonctionné.">
 
 <!-- A. BANNIÈRE -->
 <section class="hero relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] overflow-hidden">
@@ -390,6 +390,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <p class="ms-body">Appels via l'API Anthropic (Claude), pas le produit grand public. Données supprimées sous 30 jours. Aucun entraînement sur vos données.</p>
       </div>
     </div>
+    <p style="font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--color-text-muted);margin:20px 0 0">RGPD : DPA formalisé avant toute intégration de données client. Isolation des accès par client, accès restreint par rôle.</p>
   </div>
 </section>
 

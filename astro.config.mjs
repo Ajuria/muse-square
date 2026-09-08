@@ -38,7 +38,11 @@ export default defineConfig({
         !page.includes("/onboarding") &&
         !page.includes("/profile") &&
         !page.includes("/sign-in") &&
-        !page.includes("/sign-up"),
+        !page.includes("/sign-up") &&
+        // pages legacy (ère conseil) gardées mais hors index tant qu'elles ne sont pas réécrites (owner 08/09)
+        !page.includes("/solutions") &&
+        !page.includes("/references") &&
+        !page.includes("/a-propos"),
     }),
     clerk({
       localization: frFR,

@@ -1624,6 +1624,16 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
             </div>
           </div>
         </section>
+        <section class="space-y-6" id="ms-install-section" hidden>
+          <h2 class="text-base font-medium text-black uppercase tracking-wider">L'application Muse Square</h2>
+          <div id="ms-install-mount"></div>
+        </section>
+        <script is:inline>
+          (function () {
+            var el = document.getElementById("ms-install-mount"), sec = document.getElementById("ms-install-section");
+            if (el && window.MSInstall) window.MSInstall.mountButton(el, { section: sec });
+          })();
+        </script>
       </div>
       <div class="pt-4 flex items-center justify-between gap-4">
         <p class="text-xs text-gray-400">Chaque email contient un lien de désinscription conforme RGPD.</p>
