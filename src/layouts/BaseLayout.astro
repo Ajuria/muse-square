@@ -19,6 +19,11 @@ const FORM_URL =
 const isApp = Astro.url.pathname.startsWith("/app");
 // Barre basse mobile : les pages app + le compte (même périmètre que isApp de Nav.astro).
 const showBottomBar = isApp || Astro.url.pathname.startsWith("/profile") || Astro.url.pathname === "/notifications";
+// Canonique (08/09) : Search Console montrait l'apex sans www ET /offres comme /offres/ indexés à part
+// (aucune règle trailingSlash, les deux formes répondent 200). Une seule adresse par page : www + la
+// forme du sitemap (barre finale hors racine), sans query.
+const canonicalPath = Astro.url.pathname === "/" ? "/" : Astro.url.pathname.replace(/\/+$/, "") + "/";
+const canonicalHref = "https://www.musesquare.com" + canonicalPath;
 ---
 <!doctype html>
 <html lang="fr">
@@ -27,6 +32,7 @@ const showBottomBar = isApp || Astro.url.pathname.startsWith("/profile") || Astr
     <meta name="viewport" content={showBottomBar ? "width=device-width, initial-scale=1, viewport-fit=cover" : "width=device-width, initial-scale=1"} />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalHref} />
 
     <!-- Privacy-friendly analytics by Plausible -->
     <script async is:inline src="https://plausible.io/js/pa-LZhzpaLnNRnkmoZcXgUVK.js"></script>
