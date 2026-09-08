@@ -11,6 +11,9 @@
   var deferred = null, installed = false, forced = null, mounts = [];
   var ua = navigator.userAgent || "";
   var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  /* Les deux étapes ne se montrent que dans Safari : « Sur l'écran d'accueil » n'existe pas dans le menu de
+     Chrome sur iPhone (vérifié par l'owner le 08/09), ni dans les navigateurs intégrés (Slack, Mail…). */
+  var isSafariIOS = isIOS && !/CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|DuckDuckGo|Slack|FBAN|FBAV|Instagram|Line\//.test(ua);
   var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
   /* Fermeture de la bandelette : mémorisée par appareil, expire après 14 jours (usage des invites d'installation).
      Nouvelle clé le 08/09 : les fermetures de la première version ne comptent plus. */
@@ -23,7 +26,7 @@
     if (forced) return forced;
     if (standalone || installed) return "none";
     if (deferred) return "prompt";
-    if (isIOS) return "ios";
+    if (isSafariIOS) return "ios";
     return "none";
   }
 
@@ -49,9 +52,8 @@
      fait sur le bouton Partager de Safari (bas de l'écran) ou de Chrome (en haut à droite). */
   function stepsHtml(compact) {
     var en = /^en/i.test(navigator.language || "");
-    var isChrome = /CriOS/.test(ua);
     var step1 = en ? "Share" : "Partager";
-    var step2 = en ? "Add to Home Screen" : (isChrome ? "Ajouter à l'écran d'accueil" : "Sur l'écran d'accueil");
+    var step2 = en ? "Add to Home Screen" : "Sur l'écran d'accueil";
     var num = function (n) { return '<span style="flex:none;width:20px;height:20px;border-radius:50%;background:#EEF2FF;color:#1D3BB3;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">' + n + '</span>'; };
     var base = 'display:flex;align-items:center;gap:10px;padding:' + (compact ? '3px 0' : '10px 0') + ';font-size:' + (compact ? '13px' : '15px') + ';color:#111827;';
     return '<div style="display:flex;flex-direction:column;' + (compact ? 'gap:2px;' : 'gap:0;') + '">' +
