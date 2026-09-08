@@ -2422,7 +2422,7 @@
     if (v == null || !isFinite(Number(v))) return '';
     var s = ' (' + frInt(Math.round(Number(v))) + ' \u20ac'; if (hasU) s += ', ' + uS; return s + ')';
   }
-  function famsS(fams) { return fams.length ? ' Familles : ' + fams.map(function (f, i) { return f.family + ' ' + pctS(f.revenue_share) + (i === 0 ? ' du CA' : '') + famEur(f.revenue, f.units) + ' contre ' + pctS(f.baseline_share) + (i === 0 ? ' d\u2019habitude' : '') + famEur(f.expected_revenue, null); }).join(', ') + '.' : ''; }
+  function famsS(fams) { return fams.length ? ' Familles : ' + fams.map(function (f, i) { return f.family + ' ' + pctS(f.revenue_share) + (i === 0 ? ' du CA' : '') + famEur(f.revenue, f.units) + ' contre ' + pctS(f.baseline_share) + (i === 0 ? ' d\u2019habitude' : '') + famEur(f.expected_revenue, f.expected_units != null ? f.expected_units : null); }).join(', ') + '.' : ''; }
   function surgeDriverPick(a) {
     var dcp = surgeDecomp(a);
     if (dcp) return { tx: null, bk: null, pick: dcp.dom, decomp: dcp };
@@ -4293,6 +4293,6 @@ window.msObjectifVentesHtml = function (o) {
   var parts = o.lignes.map(function (l, i) { return esc(l.label) + ' +' + n(l.ventes) + (i === 0 ? ' ventes' : ''); });
   var total = o.lignes.length > 1 ? ' \u00b7 total +' + n(o.total) + ' ventes' : '';
   return '<div class="ab-obj" data-ab-obj style="font-size:12.5px;color:#374151;line-height:1.45;margin-top:4px;">'
-    + '<span style="font-size:10.5px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#6B7280;margin-right:6px;">Objectif \u00b7 estim\u00e9</span>'
+    + '<span style="font-size:10.5px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#6B7280;margin-right:6px;">Objectif' + (o.estime === false ? '' : ' \u00b7 estim\u00e9') + '</span>'
     + parts.join(' \u00b7 ') + total + '</div>';
 };
