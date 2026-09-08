@@ -24,6 +24,8 @@
 // savoir si la journée sort de la variation ordinaire du lieu, et n'en rend qu'un COMPTE de
 // jours — aucun z ne sort d'ici.
 
+import { scopeFilter, type MeasuredScope } from "./measuredScope";
+
 const PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
 const num = (v: any): number => Number(flat(v)) || 0;
@@ -73,6 +75,13 @@ export interface ShapeVolume {
 // reste dans bestInClassStore, seul foyer des leviers.
 export type ShapeWeakFactor = "tx" | "items" | "price";
 export interface WindowShape {
+  // 08/09 (docs/dispositif-perimetre-mesure-spec.md, P3) : quand l'engagement a un périmètre, TOUTE la
+  // lecture est restreinte à ce qu'il vend — achats CONTENANT un article du périmètre, articles du
+  // périmètre par achat, € par article du périmètre, heures et familles du périmètre — et la
+  // référence (les 4 mêmes jours de semaine) l'est de même. Le lieu entier ne reste qu'UNE ligne
+  // de contexte (store_total_pct), jamais le verdict.
+  scope_label_fr: string | null;    // « de la famille « Branded » » — null sans périmètre
+  store_total_pct: number | null;   // le lieu entier vs ses jours comparables (contexte, périmètre seulement)
   weak_factor: ShapeWeakFactor | null;
   ref_days: number;                 // jours comparables réellement trouvés
   measured_days: number;            // jours de l'opération avec des ventes
@@ -171,7 +180,12 @@ function bestRun(hours: ShapeHour[], sign: 1 | -1): { from: number; to: number; 
 
 export async function buildWindowShape(
   bq: any,
-  args: { location_id: string; measured_dates: string[]; window_start: string },
+  args: {
+    location_id: string; measured_dates: string[]; window_start: string;
+    // P3 : le périmètre (measuredScope) et son habituel sur les jours mesurés (kpi_baseline × jours),
+    // pour que « votre résultat habituel » reste UN référentiel dans la page.
+    scope?: MeasuredScope | null; scope_label_fr?: string | null; scope_expected_eur?: number | null;
+  },
 ): Promise<WindowShape | null> {
   const days = [...new Set(args.measured_dates)].sort();
   if (!days.length) return null;
@@ -186,49 +200,81 @@ export async function buildWindowShape(
   const bounds = { lo: bq.date(lo), hi: bq.date(hi) };
   const setCase = (col: string) => `IF(CAST(${col} AS STRING) IN UNNEST(@days), 'w', 'r')`;
 
+  const scope = args.scope ?? null;
+  const sf = scope ? scopeFilter(scope) : null;
   const q = (query: string, extra: Record<string, unknown> = {}) =>
-    bq.query({ query, params: { loc: args.location_id, days, refs, ...bounds, ...extra }, location: "EU" })
+    bq.query({ query, params: { loc: args.location_id, days, refs, ...bounds, ...(sf ? sf.params : {}), ...extra }, ...(sf ? { types: sf.types } : {}), location: "EU" })
       .then((r: any) => (Array.isArray(r?.[0]) ? r[0] : []))
       .catch(() => []);
+  const scopeAnd = sf ? ` AND ${sf.sql}` : "";
 
-  const [hRows, fpRows, vRows, dRows] = await Promise.all([
-    // 1. Grain horaire (semantic.vw_insight_event_client_hourly_daily — colonnes vérifiées 28/08).
-    q(`SELECT ${setCase("transaction_date")} AS s, transaction_hour AS h, SUM(revenue) AS rev
-        FROM \`${PROJECT}.semantic.vw_insight_event_client_hourly_daily\`
-        WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
-          AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))
-        GROUP BY 1, 2`),
-    // 2. Familles ET produits en UNE lecture (raw.client_transactions — `item_category` est le
-    //    MÊME champ que le KPI family_revenue et que la lecture des pôles ; `item_description`
-    //    est le cran en dessous). La famille est la SOMME de ses lignes : un produit sans
-    //    libellé compte dans sa famille sans jamais s'afficher comme produit.
-    q(`SELECT ${setCase("transaction_date")} AS s, item_category AS f,
-              COALESCE(item_description, '') AS p, SUM(revenue) AS rev
-        FROM \`${PROJECT}.raw.client_transactions\`
-        WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
-          AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))
-        GROUP BY 1, 2, 3`),
-    // 3. Achats + CA (mart.fct_client_daily_performance) — le panier se recompose CA/achats,
-    //    jamais une moyenne de moyennes.
-    q(`SELECT ${setCase("transaction_date")} AS s, CAST(transaction_date AS STRING) AS d,
+  // Le bloc des trois facteurs, sur le lieu entier (sans périmètre : LA lecture ; avec : la ligne
+  // de contexte). Achats + CA au grain heure × jour daté — le panier se recompose CA/achats,
+  // jamais une moyenne de moyennes.
+  const storeVolumeQ = `SELECT ${setCase("transaction_date")} AS s, CAST(transaction_date AS STRING) AS d,
               SUM(transactions) AS tx, SUM(units) AS units, SUM(revenue) AS rev
         FROM \`${PROJECT}.semantic.vw_insight_event_client_hourly_daily\`
         WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
           AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))
-        GROUP BY 1, 2`),
+        GROUP BY 1, 2`;
+  const [hRows, fpRows, vRows, dRows, storeRows] = await Promise.all([
+    // 1. Grain horaire : la vue heure × jour daté sur le lieu entier ; avec un périmètre, les LIGNES
+    //    de caisse du périmètre par heure (raw.client_transactions.transaction_hour, le même champ).
+    scope
+      ? q(`SELECT ${setCase("transaction_date")} AS s, transaction_hour AS h, SUM(revenue) AS rev
+            FROM \`${PROJECT}.raw.client_transactions\`
+            WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi AND transaction_hour IS NOT NULL
+              AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))${scopeAnd}
+            GROUP BY 1, 2`)
+      : q(`SELECT ${setCase("transaction_date")} AS s, transaction_hour AS h, SUM(revenue) AS rev
+            FROM \`${PROJECT}.semantic.vw_insight_event_client_hourly_daily\`
+            WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
+              AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))
+            GROUP BY 1, 2`),
+    // 2. Familles ET produits en UNE lecture (raw.client_transactions — `item_category` est le
+    //    MÊME champ que le KPI family_revenue et que la lecture des pôles ; `item_description`
+    //    est le cran en dessous). La famille est la SOMME de ses lignes : un produit sans
+    //    libellé compte dans sa famille sans jamais s'afficher comme produit. Avec un périmètre :
+    //    ses familles (ou ses articles) seulement.
+    q(`SELECT ${setCase("transaction_date")} AS s, item_category AS f,
+              COALESCE(item_description, '') AS p, SUM(revenue) AS rev
+        FROM \`${PROJECT}.raw.client_transactions\`
+        WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
+          AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))${scopeAnd}
+        GROUP BY 1, 2, 3`),
+    // 3. Achats + CA. Avec un périmètre : les achats CONTENANT un article du périmètre (facture
+    //    distincte, repli transaction_count — la règle du mart offering), les articles et le CA du
+    //    périmètre dans ces achats.
+    scope
+      ? q(`SELECT ${setCase("transaction_date")} AS s, CAST(transaction_date AS STRING) AS d,
+                  COALESCE(NULLIF(COUNT(DISTINCT invoice_number), 0), SUM(COALESCE(transaction_count, 1))) AS tx,
+                  SUM(COALESCE(quantity, 1)) AS units, SUM(revenue) AS rev
+            FROM \`${PROJECT}.raw.client_transactions\`
+            WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
+              AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))${scopeAnd}
+            GROUP BY 1, 2`)
+      : q(storeVolumeQ),
     // 4. Le référentiel de l'en-tête + les jours qui sortent de la variation ordinaire.
     q(`SELECT SUM(daily_revenue) AS actual, SUM(expected_revenue) AS expected,
               COUNT(*) AS n, COUNTIF(ABS(residual_z) >= 1) AS notable
         FROM \`${PROJECT}.semantic.vw_insight_event_day_residual\`
         WHERE location_id = @loc AND date BETWEEN @lo AND @hi
           AND CAST(date AS STRING) IN UNNEST(@days)`),
+    // 5. Avec un périmètre seulement : le lieu entier, pour la ligne de contexte.
+    scope ? q(storeVolumeQ) : Promise.resolve([]),
   ]);
 
-  // ── Le référentiel de l'en-tête. ──
+  // ── Le référentiel de l'en-tête : le lieu (réalisé, habituel) — ou, avec un périmètre, le CA du
+  //    périmètre sur les jours mesurés et son habituel (kpi_baseline × jours), le même que le verdict. ──
   const d0 = (dRows as any[])[0] || {};
   const measured_days = num(d0.n);
-  const actual_eur = d0.actual != null ? Math.round(num(d0.actual)) : null;
-  const expected_eur = d0.expected != null ? Math.round(num(d0.expected)) : null;
+  let actual_eur = d0.actual != null ? Math.round(num(d0.actual)) : null;
+  let expected_eur = d0.expected != null ? Math.round(num(d0.expected)) : null;
+  if (scope) {
+    const scopeActual = (vRows as any[]).filter((r) => String(flat(r.s)) === "w").reduce((a, r) => a + num(r.rev), 0);
+    actual_eur = Math.round(scopeActual);
+    expected_eur = args.scope_expected_eur != null && Number.isFinite(Number(args.scope_expected_eur)) ? Math.round(Number(args.scope_expected_eur)) : null;
+  }
 
   // ── UN SEUL RÉFÉRENTIEL DANS LA PAGE (owner 28/08) — heures et familles se comparent
   //    à VOTRE RÉSULTAT HABITUEL, comme l'en-tête, le verdict, l'objectif et la carte
@@ -304,8 +350,11 @@ export async function buildWindowShape(
 
   // ── D'où vient la fluctuation : trois facteurs observés dont le produit EST la
   //    variation du CA (CA = achats × articles/achat × €/article). ──
-  let volume: ShapeVolume | null = null;
-  const pts = (side: "w" | "r"): ShapeVolumePoint[] => (vRows as any[])
+  // UNE seule recomposition des trois facteurs — pour la lecture (vRows : le lieu, ou le périmètre)
+  // et, avec un périmètre, pour la ligne de contexte du lieu entier (storeRows) : même code, mêmes
+  // arrondis, jamais deux définitions.
+  const volumeOf = (rows: any[]): ShapeVolume | null => {
+  const pts = (side: "w" | "r"): ShapeVolumePoint[] => (rows as any[])
     .filter((r) => String(flat(r.s)) === side && num(r.tx) > 0)
     .map((r) => ({
       date: String(flat(r.d)), tx: Math.round(num(r.tx)), units: Math.round(num(r.units)),
@@ -313,6 +362,7 @@ export async function buildWindowShape(
     }))
     .sort((a, b) => (a.date < b.date ? -1 : 1));
   const vDays = pts("w"), vRef = pts("r");
+  let volume: ShapeVolume | null = null;
   if (vDays.length && vRef.length) {
     // Les moyennes d'un ensemble se recomposent sur les TOTAUX (jamais une moyenne de
     // moyennes) : c'est ce qui garantit que les trois facteurs se multiplient exactement.
@@ -341,6 +391,9 @@ export async function buildWindowShape(
       total_pct: pct(A.tx_j * A.basket, R.tx_j * R.basket),
     };
   }
+  return volume;
+  };
+  const volume = volumeOf(vRows as any[]);
 
   // Le plus faible des trois écarts : là où il reste de la marge.
   let weak_factor: ShapeWeakFactor | null = null;
@@ -352,7 +405,13 @@ export async function buildWindowShape(
     weak_factor = trio[0][0];
   }
 
+  // Le lieu entier vs ses jours comparables — la ligne de contexte du périmètre, recomposée
+  // EXACTEMENT comme la lecture non restreinte (volumeOf).
+  const store_total_pct: number | null = scope ? (volumeOf(storeRows as any[])?.total_pct ?? null) : null;
+
   return {
+    scope_label_fr: scope ? (args.scope_label_fr ?? null) : null,
+    store_total_pct,
     weak_factor,
     ref_days: refs.length, measured_days, notable_days: num(d0.notable),
     actual_eur, expected_eur, hours, best_run, worst_run, families, volume,

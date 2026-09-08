@@ -7,6 +7,7 @@
 import { makeBQClient } from "../../src/lib/bq";
 import { readLatestSnapshot } from "../../src/lib/commitments/actionCommitments";
 import { buildWindowShape, comparableDates } from "../../src/lib/commitments/commitmentShape";
+import { parseScope, scopeFromFamily } from "../../src/lib/commitments/measuredScope";
 
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const OPEN_ID = "2d99694a-17fa-4486-92e1-548ce588e1f5";   // vacances scolaires, 7 j ouverts
@@ -136,6 +137,51 @@ function measuredDatesOf(bq: any, snap: any): Promise<string[]> {
   ok("aucun jour comparable → null", noRef === null, noRef);
   const noDay = await buildWindowShape(bq, { location_id: LOC, measured_dates: [], window_start: "2026-08-27" });
   ok("aucun jour mesuré → null", noDay === null, noDay);
+
+  // ── Phase 4 (P3, 08/09) : la lecture RESTREINTE AU PÉRIMÈTRE — le Corner (famille « Branded ») ──
+  console.log(`\n— Phase 4 : périmètre (Corner, famille « Branded ») —`);
+  {
+    const snap: any = await readLatestSnapshot(bq, DONE_ID);
+    const ws = String(snap.window_start?.value ?? snap.window_start).slice(0, 10);
+    const measured = await measuredDatesOf(bq, snap);
+    const scope = parseScope(snap.measured_scope) ?? scopeFromFamily("Branded");
+    const base = snap.kpi_baseline != null ? Number(snap.kpi_baseline?.value ?? snap.kpi_baseline) : null;
+    const whole = await buildWindowShape(bq, { location_id: LOC, measured_dates: measured, window_start: ws });
+    const sc = await buildWindowShape(bq, { location_id: LOC, measured_dates: measured, window_start: ws, scope, scope_label_fr: "de la famille « Branded »", scope_expected_eur: base != null ? base * measured.length : null });
+    ok("lecture restreinte rendue", !!sc && !!whole, { sc: !!sc, whole: !!whole });
+    if (sc && whole) {
+      console.log("   " + JSON.stringify({ actual: sc.actual_eur, expected: sc.expected_eur, families: sc.families.map((f) => f.family), volume: sc.volume && { tx: sc.volume.tx_avg, ref_tx: sc.volume.ref_tx_avg, total: sc.volume.total_pct }, store: sc.store_total_pct, hours: sc.hours.length }));
+      ok("le nom du périmètre est porté", sc.scope_label_fr === "de la famille « Branded »", sc.scope_label_fr);
+      ok("familles = celles du périmètre seulement", sc.families.length === 1 && sc.families[0].family === "Branded", sc.families.map((f) => f.family));
+      ok("le réalisé du périmètre = la somme des lignes Branded des jours mesurés (autre requête)", await (async () => {
+        const [r] = await bq.query({ query: `SELECT ROUND(SUM(revenue)) v FROM \`muse-square-open-data.raw.client_transactions\` WHERE location_id=@l AND item_category='Branded' AND CAST(transaction_date AS STRING) IN UNNEST(@ds)`, params: { l: LOC, ds: measured }, location: "EU" });
+        return Math.abs(Number(r[0]?.v ?? NaN) - (sc.actual_eur ?? -1)) <= 1;
+      })(), sc.actual_eur);
+      ok("habituel du périmètre = kpi_baseline × jours (le référentiel du verdict)", base != null && sc.expected_eur === Math.round(base * measured.length), { base, expected: sc.expected_eur });
+      const gap = (sc.actual_eur ?? 0) - (sc.expected_eur ?? 0);
+      const fSum = sc.families.reduce((s, x) => s + x.delta, 0);
+      ok("familles : somme des écarts = écart du périmètre", Math.abs(fSum - gap) <= 3, { somme: Math.round(fSum), gap });
+      const hSum = sc.hours.reduce((s, x) => s + (x.rev - x.ref), 0);
+      ok("heures : somme des écarts = écart du périmètre", sc.hours.length === 0 || Math.abs(hSum - gap) <= Math.max(3, sc.hours.length), { somme: Math.round(hSum), gap });
+      if (sc.volume) {
+        const v = sc.volume;
+        // 2 sources : les achats CONTENANT Branded par jour = invoice_count de la vue offering (mart offering daily, 07/09)
+        const rows: any[] = await bq.query({
+          query: `SELECT CAST(transaction_date AS STRING) d, invoice_count tx FROM \`muse-square-open-data.semantic.vw_insight_event_client_offering_daily\`
+                  WHERE location_id=@l AND item_category='Branded' AND CAST(transaction_date AS STRING) IN UNNEST(@ds)`,
+          params: { l: LOC, ds: [...v.ref, ...v.days].map((p) => p.date) }, location: "EU",
+        }).then((r: any) => r[0] || []);
+        const enBase = new Map(rows.map((r: any) => [String(r.d?.value ?? r.d), Number(r.tx?.value ?? r.tx)]));
+        const faux = [...v.ref, ...v.days].filter((p) => enBase.get(p.date) !== p.tx);
+        ok("achats du périmètre = invoice_count de la vue offering, jour par jour (2 sources)", faux.length === 0, faux.map((p) => [p.date, p.tx, enBase.get(p.date)]));
+        const f = (p: number | null) => 1 + (p ?? 0) / 100;
+        const produit = (f(v.tx_pct) * f(v.items_pct) * f(v.price_pct) - 1) * 100;
+        ok("achats × articles/achat × €/article = variation du CA du périmètre", v.total_pct != null && Math.abs(produit - v.total_pct) <= 0.6, { produit: Math.round(produit * 10) / 10, total: v.total_pct });
+      } else ok("achats/panier du périmètre : absence honnête", sc.volume === null);
+      ok("le lieu entier reste UNE ligne de contexte = la lecture non restreinte", sc.store_total_pct != null && whole.volume != null && sc.store_total_pct === whole.volume.total_pct, { store: sc.store_total_pct, whole: whole.volume && whole.volume.total_pct });
+      ok("sans périmètre : aucun nom, aucune ligne de contexte", whole.scope_label_fr === null && whole.store_total_pct === null);
+    }
+  }
 
   console.log(`\n${pass} vert · ${fail} rouge`);
   process.exit(fail ? 1 : 0);

@@ -320,6 +320,10 @@ export const EVOL_COPY = {
   shape_vol_l_price: "Prix moyen d’un article",
   shape_vol_val: "{v} contre {ref}",
   shape_vol_total: "Chiffre du jour : {pct} vs vos jours comparables.",
+  // P3 (08/09, périmètre) : le lieu entier ne reste qu'une ligne de contexte sous la décomposition
+  // du périmètre — « votre lieu » (copie de l'engagement), « ce jour-là » (page Opération),
+  // « vs vos jours comparables » (lexique).
+  shape_vol_store: "Votre lieu, ce jour-là : {pct} vs vos jours comparables.",
   shape_vol_lead_1: "Ce qui bouge : {f}.",
   shape_vol_lead_2: "Ce qui bouge : {f1}, puis {f2}.",
   shape_vol_f_tx: "le nombre d’achats",
