@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { BigQuery } from "@google-cloud/bigquery";
 import { makeBQClient } from "../../../lib/bq";
+import { CANDIDATES_WITH_MANUAL_SQL } from "../../../lib/recos/manualCandidates";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { filterDisabledThemes, themeForActionType, PERSISTENT_COMPETITOR_TYPES, PERSISTENT_VALIDITY_DAYS } from "../../../lib/recos/recoThemeMap";
 import { V1_ALERT_ACTION_TYPES } from "../../../lib/context/internalAlertCards";
@@ -449,7 +450,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
       data_payload,
       suppression_key,
       expires_at
-    FROM \`muse-square-open-data.semantic.vw_insight_event_action_candidates\`
+    -- 08/09 : vue ∪ cartes DÉCLARÉES à la main (raw.action_candidates_manual, lib/recos/manualCandidates.ts)
+    FROM ${CANDIDATES_WITH_MANUAL_SQL} c
     WHERE location_id = @location_id
       -- Retired: redundant with sales_surge. Excluded at the feed boundary; dbt CTE removal is the permanent fix.
       AND action_type != 'footfall_vs_basket_decomposition'
