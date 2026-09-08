@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-09-07",
+"generated_date": "2026-09-08",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "ebee861",
-"table_count": 532,
-"column_count": 9667
+"dbt_repo_sha_at_generation": "3e779ce",
+"table_count": 533,
+"column_count": 9691
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -13405,7 +13405,7 @@
 },
 {
 "name": "top_families",
-"type": "ARRAY<STRUCT<family STRING, revenue FLOAT64, expected_revenue FLOAT64, delta_eur FLOAT64, revenue_share FLOAT64, baseline_share FLOAT64, units FLOAT64, baseline_units_per_day FLOAT64>>"
+"type": "ARRAY<STRUCT<family STRING, revenue FLOAT64, expected_revenue FLOAT64, delta_eur FLOAT64, revenue_share FLOAT64, baseline_share FLOAT64, units FLOAT64, baseline_units_per_day FLOAT64, expected_units FLOAT64, delta_units FLOAT64>>"
 },
 {
 "name": "families_delta_eur",
@@ -13474,6 +13474,18 @@
 },
 {
 "name": "baseline_units_per_day",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_unit_price",
+"type": "FLOAT64"
+},
+{
+"name": "expected_units",
+"type": "FLOAT64"
+},
+{
+"name": "delta_units",
 "type": "FLOAT64"
 }
 ]
@@ -22373,6 +22385,67 @@
 }
 ]
 },
+"raw.action_candidates_manual": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "action_type",
+"type": "STRING"
+},
+{
+"name": "action_priority",
+"type": "INT64"
+},
+{
+"name": "action_category",
+"type": "STRING"
+},
+{
+"name": "channel_hint",
+"type": "STRING"
+},
+{
+"name": "headline_fr",
+"type": "STRING"
+},
+{
+"name": "detail_fr",
+"type": "STRING"
+},
+{
+"name": "data_payload",
+"type": "STRING"
+},
+{
+"name": "valid_from",
+"type": "DATE"
+},
+{
+"name": "valid_to",
+"type": "DATE"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "created_by",
+"type": "STRING"
+},
+{
+"name": "deleted_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "raw.agenda_occitanie": {
 "type": "BASE TABLE",
 "columns": [
@@ -30041,6 +30114,10 @@
 "type": "STRING"
 },
 {
+"name": "measured_scope",
+"type": "STRING"
+},
+{
 "name": "window_kind",
 "type": "STRING"
 },
@@ -30956,7 +31033,7 @@
 },
 {
 "name": "top_families",
-"type": "ARRAY<STRUCT<family STRING, revenue FLOAT64, expected_revenue FLOAT64, delta_eur FLOAT64, revenue_share FLOAT64, baseline_share FLOAT64>>"
+"type": "ARRAY<STRUCT<family STRING, revenue FLOAT64, expected_revenue FLOAT64, delta_eur FLOAT64, revenue_share FLOAT64, baseline_share FLOAT64, units FLOAT64, baseline_units_per_day FLOAT64, expected_units FLOAT64, delta_units FLOAT64>>"
 },
 {
 "name": "families_delta_eur",
@@ -31017,6 +31094,26 @@
 },
 {
 "name": "day_expected_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "units",
+"type": "INT64"
+},
+{
+"name": "baseline_units_per_day",
+"type": "FLOAT64"
+},
+{
+"name": "baseline_unit_price",
+"type": "FLOAT64"
+},
+{
+"name": "expected_units",
+"type": "FLOAT64"
+},
+{
+"name": "delta_units",
 "type": "FLOAT64"
 }
 ]
@@ -34817,6 +34914,10 @@
 },
 {
 "name": "components",
+"type": "STRING"
+},
+{
+"name": "measured_scope",
 "type": "STRING"
 },
 {
