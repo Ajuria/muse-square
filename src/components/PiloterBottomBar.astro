@@ -23,6 +23,7 @@ const hrefAgir = "/app/insightevent/pulse";
 const hrefPiloter = "/app/insightevent/tableau";
 ---
 
+<div id="ms-install-strip" hidden></div>
 <div class="ms-bb" role="navigation" aria-label="Navigation" data-role={role || undefined}>
   <div class="ms-bb-nav">
 
@@ -93,6 +94,8 @@ const hrefPiloter = "/app/insightevent/tableau";
     }
     function hide() { root.classList.add("ms-bb-hidden"); }
     function show() { root.classList.remove("ms-bb-hidden"); }
+    var strip = document.getElementById("ms-install-strip");
+    if (strip && window.MSInstall) window.MSInstall.mountStrip(strip);
     document.addEventListener("focusin", function (e) { if (isField(e.target)) { clearTimeout(timer); hide(); } });
     document.addEventListener("focusout", function (e) {
       if (!isField(e.target)) return;
