@@ -212,6 +212,8 @@ export const CARD_FUNNEL_STEP: Record<string, KpiKey> = {
   same_bucket_saturation: "footfall",
   competition_pressure_spike: "footfall",
   audience_shift_opportunity: "footfall",
+  // 08/09 — vacances à venir : le geste (une offre pour ceux qui restent) fait venir du monde, miroir audience_shift_opportunity.
+  vacation_underperformance_ahead: "footfall",
   calendar_audience_shift: "footfall",
   top_day_approaching: "footfall",
   weekend_opportunity: "footfall",
@@ -244,6 +246,8 @@ export const CARD_FUNNEL_STEP: Record<string, KpiKey> = {
   hour_share_move: "transactions",
   item_share_move: "transactions",
   offering_mix_shift: "transactions",
+  // 08/09 — famille qui pèse presque rien : la place en rayon joue sur les ventes, miroir offering_mix_shift.
+  family_space_underuse: "transactions",
   item_absent_regular: "transactions",
   client_dormant: "transactions",
   // K1 — chiffre d'affaires (la carte mesure le résultat final)

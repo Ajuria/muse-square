@@ -480,6 +480,26 @@ window.MS_SALES_RECO_LIB.offering_mix_shift = {
   ],
 };
 
+// ── family_space_underuse ── « Une famille qui ne pèse presque rien dans vos ventes » ; corps en € et part du CA sur 60 jours, rang de la famille.
+// 08/09 — plans PROVISOIRES (écrits pour la carte déclarée de la démo Maison Sèvres, voix owner à valider).
+window.MS_SALES_RECO_LIB.family_space_underuse = {
+  _default: [
+    { title: "Réduisez la place en rayon de la famille qui ne vend pas", description: "Un linéaire ramené à ce qu'elle vend, le reste rendu à une famille qui fait la journée.", why: "Une famille sous 1 % du CA n'a pas besoin d'un mètre de rayon.", tag: "Rayon" },
+    { title: "Regroupez ses articles en caisse", description: "Les articles à la pièce près de la caisse, proposés au moment de payer.", why: "Un article à moins d'un euro se vend à l'impulsion, pas au rayon.", tag: "Caisse" },
+    { title: "Donnez la place libérée à la famille qui porte le CA", description: "Plus de linéaire à la première famille, le jour du réassort.", why: "Le passage est le même : la place va à ce qui se vend.", tag: "Réassort" },
+  ],
+};
+
+// ── vacation_underperformance_ahead ── « Vacances de la Toussaint : vos clients réguliers partent » ; corps en % sous le résultat habituel sur les vacances passées.
+// 08/09 — plans PROVISOIRES (démo Maison Sèvres, voix owner à valider).
+window.MS_SALES_RECO_LIB.vacation_underperformance_ahead = {
+  _default: [
+    { title: "Préparez une offre pour les touristes avant les vacances", description: "Un produit à emporter, un coffret, une carte en anglais, prêts le premier jour.", why: "Vos clients réguliers partent ; ceux qui restent viennent de plus loin.", tag: "Offre" },
+    { title: "Calez vos commandes de frais sur la période", description: "Des quantités alignées sur un CA en retrait, pas sur une semaine normale.", why: "Deux semaines sous l'habituel se lisent d'abord dans la casse.", tag: "Achats" },
+    { title: "Prévenez vos clients réguliers avant leur départ", description: "Un mot en caisse la semaine d'avant sur ce qui les attend au retour.", why: "Deux semaines sans passage, c'est le moment où l'habitude se perd.", tag: "Caisse" },
+  ],
+};
+
 // ── tickets_lines_move ── « Moins / Plus d'articles par ticket que d'habitude » ; corps en articles par ticket et part des tickets à un seul article.
 window.MS_SALES_RECO_LIB.tickets_lines_move = {
   _default: [

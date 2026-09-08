@@ -59,6 +59,8 @@ const ACTION_LEVER: Record<string, Lever> = {
   sales_underperformance: "conversion",
   offre_appel: "conversion",
   offering_mix_shift: "conversion",
+  // 08/09 — famille qui pèse presque rien (place en rayon) : même levier que offering_mix_shift.
+  family_space_underuse: "conversion",
   // 07/09 — grain produit / facture (origines ajoutées les 06-07/09)
   item_share_move: "conversion",
   item_absent_regular: "conversion",
@@ -119,6 +121,8 @@ const ACTION_LEVER: Record<string, Lever> = {
   perfect_storm: "frequentation",
   calendar_audience_shift: "frequentation",
   audience_shift_opportunity: "frequentation",
+  // 08/09 — vacances à venir : une offre pour ceux qui restent joue sur le flux.
+  vacation_underperformance_ahead: "frequentation",
   chat_decision_calendar: "frequentation",
   chat_decision_events: "frequentation",
   chat_decision_audience: "frequentation",
