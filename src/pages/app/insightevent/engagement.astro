@@ -51,7 +51,7 @@ const id = Astro.url.searchParams.get("id") || "";
     <script is:inline src="/js/ms-loader.js?v=2"></script>
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
-    <script is:inline src="/js/card-kit.js?v=70"></script>
+    <script is:inline src="/js/card-kit.js?v=72"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -158,6 +158,31 @@ const id = Astro.url.searchParams.get("id") || "";
           wireCapture(cm, open);
           wireDispo(cm);
           wireDiag(cm);
+          wirePermanent(cm);
+        }
+
+        // « Rendre permanent → » (08/09) : le kit rend le bouton sur une opération TERMINÉE dont le
+        // périmètre porte des familles (owner seul). La page crée le pôle — POST /api/commitments,
+        // nature permanent, MÊME corps que pole-form.js — puis ouvre sa page. Aucun
+        // parent_commitment_id : l'API ne l'accepte que d'un parent déjà permanent.
+        function wirePermanent(cm) {
+          var btn = docEl.querySelector("[data-eg-permanent]"); if (!btn) return;
+          var msg = docEl.querySelector("[data-eg-permanent-msg]");
+          btn.addEventListener("click", function () {
+            var fams = []; try { fams = JSON.parse(btn.getAttribute("data-eg-permanent-fams") || "[]"); } catch (e) { fams = []; }
+            if (!fams.length) return;
+            var label = btn.textContent; btn.disabled = true; btn.textContent = "…"; if (msg) msg.textContent = "";
+            var fail = function (j) { btn.disabled = false; btn.textContent = label; if (msg) msg.textContent = "Erreur : " + ((j && j.error) || "réessayez"); };
+            fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+              dispositif_nature: "permanent", location_id: cm.location_id,
+              committed_action_text: cm.committed_action_text, pole_families: fams,
+              owner_person_name: cm.owner_person_name || null,
+              dispositif_why: btn.getAttribute("data-eg-permanent-why") || null
+            }) }).then(function (r) { return r.json(); }).then(function (j) {
+              if (!j || !j.ok || !j.commitment_id) { fail(j); return; }
+              window.location.href = MSCardKit.msEngagementUrl(j.commitment_id);
+            }).catch(function () { fail(); });
+          });
         }
 
         // Description du dispositif (deux états, owner 28/08) — éditable tant que l'opération

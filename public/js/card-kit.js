@@ -19,6 +19,9 @@
   function msRate(n) { return n == null ? '—' : ((Number(n) * 100).toFixed(1).replace('.', ',') + ' %'); }
   function msEur2(n) { return n == null ? '—' : (Number(n).toFixed(2).replace('.', ',') + ' €'); }
   function msDateFr(iso) { try { var pp = String(iso).split('-'); return pp[2] + '/' + pp[1] + '/' + pp[0]; } catch (e) { return String(iso); } }
+  // L'adresse de la page d'un engagement (opération ou pôle) — une seule forme, la même que les
+  // liens « Opérations sur ce pôle » du kit et « Ouvrir le pôle → » de pole-form.js.
+  function msEngagementUrl(id) { return '/app/insightevent/engagement?id=' + encodeURIComponent(String(id == null ? '' : id)); }
   // Family-aware "what changed" placeholder for the Ajuster move-note (structure universal, hint bespoke).
   function _moveHint(at) {
     var s = String(at || '');
@@ -1731,9 +1734,35 @@
         + partie(t('part_comprendre')) + q1 + shapeB
         + partie(t('part_decider')) + moveForm + bicRef + lineageB + sources;
     }
+    // ── « Rendre permanent → » (08/09) — une opération TERMINÉE dont le périmètre porte des
+    // familles peut devenir un pôle (dispositif permanent, lexique l.19-20). Le kit rend le
+    // bouton et porte en data-attributs les familles du périmètre et la phrase d'origine
+    // (« Pourquoi ça va marcher » du pôle) ; la page POSTe et ouvre le pôle (engagement.astro).
+    // Owner seul : rien en vue membre. Jamais sur un permanent (il l'est déjà), jamais sans
+    // famille (un pôle se définit par ses familles réelles — l'API le refuse).
+    var permanentB = '';
+    if (cm.status === 'resolved' && cm.dispositif_nature !== 'permanent') {
+      var _pMembre = data.role === 'member' || (typeof window !== 'undefined' && window && window._msMemberView === true);
+      var _pScope = null;
+      try { _pScope = typeof cm.measured_scope === 'string' ? JSON.parse(cm.measured_scope) : (cm.measured_scope || null); } catch (e) { _pScope = null; }
+      var _pFams = (_pScope && (_pScope.kind === 'familles' || _pScope.kind === 'pole') && Array.isArray(_pScope.familles))
+        ? _pScope.familles.map(function (f) { return typeof f === 'string' ? f : ((f && f.nom) || ''); }).filter(Boolean) : [];
+      if (!_pMembre && _pFams.length) {
+        var _pDate = function (iso) { var d = String(iso || '').slice(0, 10); return d ? msDateFr(d) : ''; };
+        var _pS = _pDate(cm.window_start), _pE = _pDate(cm.window_end);
+        var _pDates = (_pS && _pE && _pS !== _pE) ? 'du ' + _pS + ' au ' + _pE : ((_pE || _pS) ? 'du ' + (_pE || _pS) : '');
+        // Le verdict TEL QU'AFFICHÉ en tête de page (mêmes clés), en minuscule de phrase.
+        var _pV = cm.verdict === 'met' ? t('q1_objectif_met') : cm.verdict === 'missed' ? t('q1_objectif_missed') : cm.verdict === 'confounded' ? t('q1_objectif_confounded') : '';
+        _pV = _pV ? _pV.charAt(0).toLowerCase() + _pV.slice(1) : '';
+        var _pWhy = [t('permanent_why', { title: String(cm.committed_action_text || '').trim() }), _pDates].filter(Boolean).join(' ') + (_pV ? ' : ' + _pV : '') + '.';
+        permanentB = '<div class="eg-sec" data-eg-permanent-sec style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+          + '<button type="button" data-eg-permanent data-eg-permanent-fams="' + esc(JSON.stringify(_pFams)) + '" data-eg-permanent-why="' + esc(_pWhy) + '" style="font-size:12px;font-weight:600;color:#1D3BB3;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:6px;padding:6px 12px;cursor:pointer;font-family:inherit;">' + esc(t('permanent_cta')) + '</button>'
+          + '<span data-eg-permanent-msg style="font-size:12px;color:#b91c1c;"></span></div>';
+      }
+    }
     return head
       + partie(t('part_comprendre')) + q1 + shapeB + dispoBlock(cm, false)
-      + partie(t('part_conclure')) + q4 + q3 + lineageB + bicRef + sources;
+      + partie(t('part_conclure')) + q4 + permanentB + q3 + lineageB + bicRef + sources;
   }
 
 
@@ -2142,7 +2171,7 @@
 
   window.MSCardKit = { renderComponentPhoto: renderComponentPhoto,
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
-    msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msSortTable: msSortTable, msDecision: msDecision,
+    msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msEngagementUrl: msEngagementUrl, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
     mdBlockToSafeHtml: mdBlockToSafeHtml, renderAnswerBlocks: renderAnswerBlocks,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,

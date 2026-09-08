@@ -5,9 +5,9 @@ import * as vm from "node:vm";
 import { beforeAll, expect, it } from "vitest";
 import { EVOL_COPY } from "./commitments/commitmentCopy";
 
-let kit: any;
+let kit: any, sandbox: any;
 beforeAll(() => {
-  const sandbox: any = { window: {}, console };
+  sandbox = { window: {}, console };
   sandbox.window.window = sandbox.window;
   vm.createContext(sandbox);
   vm.runInContext(readFileSync("public/js/card-kit.js", "utf8"), sandbox, { filename: "card-kit.js" });
@@ -205,6 +205,38 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
   for (const banned of ["objectif", "verdict", "Ajuster le dispositif", "La version suivante"]) {
     expect(html.toLowerCase()).not.toContain(banned.toLowerCase());
   }
+});
+
+// ── « Rendre permanent → » (08/09) : opération TERMINÉE + familles dans le périmètre, owner seul ──
+it("« Rendre permanent → » : présent sur une opération terminée dont le périmètre porte des familles ; absent en cours, sur un permanent, sans famille, en vue membre", () => {
+  const done = (over: Record<string, unknown> = {}, top: Record<string, unknown> = {}) => {
+    const d: any = baseData();
+    Object.assign(d.commitment, {
+      status: "resolved", verdict: "met", location_id: "loc-1", owner_person_name: "Camille Robin",
+      window_start: "2026-08-22", window_end: "2026-08-22",
+      measured_scope: JSON.stringify({ kind: "familles", familles: [{ nom: "Coffee" }, { nom: "Bakery" }] }),
+    }, over);
+    Object.assign(d, top);
+    return String(kit.renderEvolution(d, EVOL_COPY));
+  };
+  const has = (h: string) => h.includes("Rendre permanent →") && h.includes("data-eg-permanent ");
+  const ok = done();
+  expect(has(ok)).toBe(true);
+  expect(ok).toContain('data-eg-permanent-fams="[&quot;Coffee&quot;,&quot;Bakery&quot;]"');
+  // La phrase d'origine : le titre, la date de l'opération (forme de l'historique), le verdict tel qu'affiché en tête.
+  expect(ok).toContain('data-eg-permanent-why="Ce pôle vient de l\'opération « Corner de vente producteur — X » du 22/08/2026 : objectif atteint."');
+  expect(done({ verdict: "confounded", window_start: "2026-08-20" })).toContain("du 20/08/2026 au 22/08/2026 : objectif non concluant (vacances).");
+  expect(has(done({ status: "open", verdict: null }))).toBe(false);
+  expect(has(done({ dispositif_nature: "permanent", status: "open", pole_families: '["Coffee"]' }, { pole: { families: [], operations: [] } }))).toBe(false);
+  expect(has(done({ measured_scope: null }))).toBe(false);
+  expect(has(done({ measured_scope: JSON.stringify({ kind: "articles", item_codes: ["A1"] }) }))).toBe(false);
+  expect(has(done({}, { role: "member" }))).toBe(false);
+  // Annulée : ni en cours ni terminée — le chemin « Conclure » est rendu, le CTA ne l'est pas.
+  expect(has(done({ status: "cancelled" }))).toBe(false);
+  // Vue membre posée par la page (window._msMemberView, comme les autres gestes d'écriture) : absent.
+  sandbox.window._msMemberView = true;
+  try { expect(has(done())).toBe(false); } finally { delete sandbox.window._msMemberView; }
+  expect(has(done())).toBe(true);
 });
 
 it("coût de l'opération (ROI) : la ligne rend le coût, et le net SEULEMENT quand la fenêtre est mesurée", () => {

@@ -186,6 +186,12 @@ export const EVOL_COPY = {
   // Photos des composants (étape 4, 03/09). « Documenter » = le CTA owner qui mène ici ; « photo »
   // = le mot employé par l'owner (D6, 03/09). Les réponses sont celles du formulaire de lecture.
   pole_photo_cta: "Documenter →",
+  // « Rendre permanent → » (08/09) : sur une opération TERMINÉE dont le périmètre porte des
+  // familles, le CTA crée un pôle (dispositif permanent, lexique l.19-20). La phrase d'origine
+  // devient le « Pourquoi ça va marcher » du pôle : le kit y ajoute les dates de l'opération
+  // (forme de l'historique : « du JJ/MM/AAAA au JJ/MM/AAAA ») puis « : <verdict tel qu'affiché> ».
+  permanent_cta: "Rendre permanent →",
+  permanent_why: "Ce pôle vient de l'opération « {title} »",
   pole_photo_none: "Aucune photo pour l'instant.",
   pole_photo_yes: "oui",
   pole_photo_no: "non",
