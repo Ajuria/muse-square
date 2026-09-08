@@ -26,6 +26,7 @@ function stubFetch(): void {
 // fichiers ; et le libellé des familles est le mot owner « Familles de produits & services »
 // (28/08, ddbf3d4), rendu `&amp;` dans le innerHTML.
 beforeAll(() => {
+  (0, eval)(readFileSync("public/js/scope-form.js", "utf8"));   // 07/09 : le bloc « Ce que le dispositif vend » (module partagé)
   (0, eval)(readFileSync("public/js/event-form.js", "utf8"));
   (0, eval)(readFileSync("public/js/pole-form.js", "utf8"));
 });
@@ -99,18 +100,23 @@ it("héritage KPI : rattacher un pôle bascule sur CA famille et restreint aux f
 
   const pole = mount.querySelector('[data-ef="pole"]') as HTMLSelectElement;
   const kpi = mount.querySelector('[data-ef="kpi"]') as HTMLSelectElement;
-  const fam = mount.querySelector('[data-ef="family"]') as HTMLSelectElement;
+  const fam = mount.querySelector('[data-ef="family"]') as HTMLInputElement;
+  const scope = mount.querySelector("[data-ef-scope]") as HTMLElement;
   expect(pole).toBeTruthy();
   expect(pole.innerHTML).toContain("Pôle périssables — Coffee, Bakery");
 
+  // 07/09 (docs/dispositif-perimetre-mesure-spec.md, D2/D6) : la famille unique est devenue le bloc
+  // « Ce que le dispositif vend » — le pôle pré-choisit SES familles (kind pole, figées), la famille
+  // cachée = la première (libellé de la page Opération) ; « Aucun » rend la main.
   pole.value = "pole-1";
   pole.dispatchEvent(new Event("change"));
   expect(kpi.value).toBe("family_revenue");
-  const opts = Array.from(fam.options).map((o) => o.value);
-  expect(opts).toEqual(["Coffee", "Bakery"]);   // Kitchen exclu — le périmètre est celui du pôle
+  expect((window as any).MSScopeForm.read(scope)).toEqual({ kind: "pole", familles: [{ nom: "Coffee" }, { nom: "Bakery" }], pole_id: "pole-1", pole_nom: "Pôle périssables" });
   expect(fam.value).toBe("Coffee");
+  expect(scope.querySelectorAll("[data-sc-fam]").length).toBe(3);   // Kitchen reste proposable : l'exploitant peut élargir
 
   pole.value = "";
   pole.dispatchEvent(new Event("change"));
-  expect(Array.from(fam.options).map((o) => o.value)).toEqual(["Coffee", "Bakery", "Kitchen"]);
+  expect((window as any).MSScopeForm.read(scope)).toBeNull();
+  expect(fam.value).toBe("");
 });

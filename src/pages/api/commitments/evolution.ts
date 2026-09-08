@@ -351,6 +351,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Contexte de la version (étape 3, 27/08) — le sous-formulaire « La version suivante »
       // pré-remplit depuis la version courante ; measured_metric dérive l'étape de la vente.
       measured_metric: snap.measured_metric ?? null,
+      measured_scope: (snap as any).measured_scope ?? null,   // 07/09 : la version suivante repart du périmètre
       dispositif_plus: (snap as any).dispositif_plus ?? null,
       dispositif_why: (snap as any).dispositif_why ?? null,
       dispositif_resources: (snap as any).dispositif_resources ?? null,

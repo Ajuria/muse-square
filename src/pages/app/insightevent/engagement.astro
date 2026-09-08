@@ -49,7 +49,8 @@ const id = Astro.url.searchParams.get("id") || "";
     </style>
 
     <script is:inline src="/js/ms-loader.js?v=2"></script>
-    <script is:inline src="/js/commit-form.js?v=15"></script>
+    <script is:inline src="/js/scope-form.js?v=1"></script>
+    <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/card-kit.js?v=70"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
@@ -85,7 +86,15 @@ const id = Astro.url.searchParams.get("id") || "";
             var say = function (key, msg) { var el = slot(key); if (el) el.textContent = msg; };
             fetch("/api/dispositifs/photos?dispositif_id=" + encodeURIComponent(did) + (ver ? "&version_no=" + encodeURIComponent(ver) : ""))
               .then(function (r) { return r.json(); })
-              .then(function (j) { if (j && j.ok) (j.photos || []).forEach(function (p) { show(p.component_key, p); }); })
+              .then(function (j) {
+                if (!(j && j.ok)) return;
+                (j.photos || []).forEach(function (p) { show(p.component_key, p); });
+                // Ce que le dispositif vend (07/09) : les articles CONFIRMÉS des photos nourrissent
+                // « les articles de la photo » du formulaire de la version suivante.
+                var items = [];
+                (j.photos || []).forEach(function (p) { (p.items_confirmed || []).forEach(function (it) { if (it && it.item_code) items.push({ item_code: it.item_code, item_description: it.item_description || it.item_code }); }); });
+                window._egPhotoItems = items;
+              })
               .catch(function () {});
             function shrink(file) {
               return new Promise(function (resolve, reject) {
@@ -288,9 +297,10 @@ const id = Astro.url.searchParams.get("id") || "";
               var a = advice[i], pre = (a && a.prefill) || {};
               slot.style.display = "block";
               slot.innerHTML = window.MSCommitForm.buildHtml({ prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d" } });
+              var _scopePre = null; try { _scopePre = cm.measured_scope ? JSON.parse(cm.measured_scope) : null; } catch (e) { _scopePre = null; }
               window.MSCommitForm.wire(slot, {
                 location_id: cm.location_id,
-                prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d" },
+                prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d", measured_scope: _scopePre, photo_items: window._egPhotoItems || [] },
                 origin: { origin_action_type: pre.origin_action_type || null },
                 onCancel: function () { slot.style.display = "none"; slot.innerHTML = ""; },
                 onDone: function (j) { slot.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:'+(j&&j.ok?"#166534":"#b91c1c")+';">'+(j&&j.ok?"Engagement créé. Il sera évalué à l'échéance.":("Erreur : "+esc((j&&j.error)||"réessayez")))+'</div>'; }
