@@ -43,22 +43,21 @@
     }
   }
 
-  /* iPhone : les deux étapes d'Apple, numérotées, libellé du navigateur ouvert. compact = bandelette.
-     Étape 1 ACTIVE quand le navigateur expose la feuille de partage (Web Share API) : un tap l'ouvre.
-     Étape 2 : consigne — aucune API ne pose l'icône, c'est l'utilisateur qui la choisit dans la feuille. */
+  /* iPhone : les deux étapes d'Apple, numérotées, dans la langue du téléphone et avec le libellé du navigateur
+     ouvert. Consignes SEULEMENT : la feuille de partage ouverte depuis la page n'est pas celle du bouton du
+     navigateur et ne contient pas « Sur l'écran d'accueil » (vérifié par l'owner le 08/09) — le geste se
+     fait sur le bouton Partager de Safari (bas de l'écran) ou de Chrome (en haut à droite). */
   function stepsHtml(compact) {
-    var step2 = /CriOS/.test(ua) ? "Ajouter à l'écran d'accueil" : "Sur l'écran d'accueil";
-    var canShare = typeof navigator.share === "function";
+    var en = /^en/i.test(navigator.language || "");
+    var isChrome = /CriOS/.test(ua);
+    var step1 = en ? "Share" : "Partager";
+    var step2 = en ? "Add to Home Screen" : (isChrome ? "Ajouter à l'écran d'accueil" : "Sur l'écran d'accueil");
     var num = function (n) { return '<span style="flex:none;width:20px;height:20px;border-radius:50%;background:#EEF2FF;color:#1D3BB3;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">' + n + '</span>'; };
     var base = 'display:flex;align-items:center;gap:10px;padding:' + (compact ? '3px 0' : '10px 0') + ';font-size:' + (compact ? '13px' : '15px') + ';color:#111827;';
-    var row1 = canShare
-      ? '<button type="button" data-ms-install-share style="' + base + 'width:100%;background:transparent;border:0;text-align:left;font-family:inherit;cursor:pointer;">' + num(1) + SVG_SHARE + '<span style="text-decoration:underline;text-underline-offset:3px;">Partager</span></button>'
-      : '<div style="' + base + '">' + num(1) + SVG_SHARE + '<span>Partager</span></div>';
-    var row2 = '<div style="' + base + '">' + num(2) + SVG_ADD + '<span>' + step2 + '</span></div>';
-    return '<div style="display:flex;flex-direction:column;' + (compact ? 'gap:2px;' : 'gap:0;') + '">' + row1 + row2 + '</div>';
-  }
-  function onShareClick() {
-    try { navigator.share({ title: "Muse Square", url: location.origin + "/app" }).catch(function () {}); } catch (e) {}
+    return '<div style="display:flex;flex-direction:column;' + (compact ? 'gap:2px;' : 'gap:0;') + '">' +
+      '<div style="' + base + '">' + num(1) + SVG_SHARE + '<span>' + step1 + '</span></div>' +
+      '<div style="' + base + '">' + num(2) + SVG_ADD + '<span>' + step2 + '</span></div>' +
+    '</div>';
   }
 
   function render(m) {
@@ -83,7 +82,6 @@
         '</div>';
     }
     var b = m.el.querySelector("[data-ms-install]"); if (b) b.addEventListener("click", onInstallClick);
-    var sh = m.el.querySelector("[data-ms-install-share]"); if (sh) sh.addEventListener("click", onShareClick);
     var d = m.el.querySelector("[data-ms-install-dismiss]"); if (d) d.addEventListener("click", function () { try { localStorage.setItem(STRIP_KEY, String(Date.now())); } catch (e) {} render(m); });
   }
   function refresh() { for (var i = 0; i < mounts.length; i++) render(mounts[i]); }
