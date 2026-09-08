@@ -3391,6 +3391,11 @@
         else if (actionType === 'vacation_underperformance_ahead') {
           whatText = (feedItem.vacation_name || 'Vacances scolaires') + ' : vos clients r\u00e9guliers partent';
         }
+        // 08/09 (owner : \u00ab You MUST say which one \u00bb) \u2014 la famille est NOMM\u00c9E au titre, m\u00eame forme que
+        // \u00ab La famille Traiteur en hausse \u00bb ; repli = libell\u00e9 statique du registre.
+        else if (actionType === 'family_space_underuse' && feedItem.item_category) {
+          whatText = 'La famille ' + String(feedItem.item_category) + ' g\u00e9n\u00e8re un chiffre d\u2019affaires n\u00e9gligeable';
+        }
         else if (actionType === 'hour_share_move' || actionType === 'item_share_move' || actionType === 'offering_mix_shift') {
           var _fd = feedItem.direction || (Number(feedItem.delta_eur || 0) < 0 ? 'collapse' : 'surge');
           // Lot 1 copie (owner 25/08) : le titre porte le FAIT sp\u00e9cifique — le cr\u00e9neau nomm\u00e9
