@@ -1515,6 +1515,10 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
             var tLine = Array.isArray(prof.nearest_transit_line_name) ? prof.nearest_transit_line_name.join(', ') : (prof.nearest_transit_line_name || '');
             heroTitle = 'Perturbation' + (tLine ? ' ligne ' + tLine : '') + ' \u2014 ' + prof.nearest_transit_stop_name;
           }
+          // 08/09 \u2014 carte d\u00e9clar\u00e9e \u00ab vacances \u00e0 venir \u00bb : le titre porte le nom des vacances (m\u00eame forme que la carte du fil).
+          if (signal_type === 'vacation_underperformance_ahead' && feedItem && feedItem.vacation_name) {
+            heroTitle = String(feedItem.vacation_name) + ' : vos clients r\u00e9guliers partent';
+          }
           var _siteNmH = String(prof.site_name || prof.location_label || '');
           var _siteNmSpan = _siteNmH ? '<span style="margin-left:auto;font-size:13px;font-weight:500;letter-spacing:normal;text-transform:none;color:#6b7280;white-space:nowrap;">' + esc(_siteNmH) + '</span>' : '';
           html += '<div class="fs-hero ' + catClass + '">'
