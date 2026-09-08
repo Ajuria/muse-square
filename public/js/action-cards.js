@@ -611,6 +611,31 @@
     }
   );
 
+  // 08/09 — vacation_underperformance_ahead : les vacances scolaires à venir, quand les
+  // précédentes du même nom ont pesé sur le CA du lieu. Payload (mart, date = jour d'émission) :
+  // vacation_name, vacation_start, vacation_end, hist_vacation_name, hist_delta_pct (négatif),
+  // hist_days, audience_primary_fr, audience_secondary_fr. Voisine de forme : audience_shift_opportunity
+  // (OPPORTUNITÉ, même couleur, même cible Consulter). Le titre nommé vit dans renderActionCandidates
+  // (branche whatText) ; ce libellé statique est le repli (page Consulter, brand_label_fr).
+  // Copie PROVISOIRE (08/09) — tableau 8-13 dans le rapport de livraison ; mots owner à arbitrer.
+  reg('vacation_underperformance_ahead', 'Vacances scolaires : vos clients r\u00e9guliers partent', 'OPPORTUNIT\u00c9', '\ud83d\udc65', '#1565C0', 'action', 'pulse#radar-changes',
+    function(a, p, d) {
+      var s = frDayDate(a.vacation_start), e = frDayDate(a.vacation_end);
+      var parts = [];
+      if (s && e) parts.push('Du ' + s + ' au ' + e + ', vacances scolaires.');
+      var dp = a.hist_delta_pct != null ? Math.round(Math.abs(Number(a.hist_delta_pct))) : null;
+      var nd = a.hist_days != null ? Math.round(Number(a.hist_days)) : null;
+      if (dp != null && a.hist_vacation_name) {
+        parts.push('Sur les ' + a.hist_vacation_name + ', votre CA s\u2019est \u00e9tabli ' + dp + ' % sous votre r\u00e9sultat habituel' + (nd != null ? ' (' + nd + ' jours mesur\u00e9s)' : '') + '.');
+      }
+      if (a.audience_primary_fr && a.audience_secondary_fr) {
+        parts.push('Vos ' + a.audience_primary_fr + ' partent ; les ' + a.audience_secondary_fr + ', eux, restent.');
+      }
+      return parts.join(' ');
+    },
+    {}
+  );
+
   // foreign_tourism_signal — foreign tourist nationalities on holiday (OpenHolidays + INSEE whitelist).
   // Payload: countries_on_school_holiday / countries_on_public_holiday (arrays of {country_name_en}),
   // has_foreign_*_signal, location_access_pattern. FR map = display whitelist (mirror dbt whitelist).
@@ -2742,6 +2767,44 @@
       }
     }
   );
+  // 08/09 — family_space_underuse : une famille qui pèse presque rien dans le CA du lieu sur
+  // 60 jours (mart, date = jour d'émission ; pas une anomalie d'un jour). Payload : item_category,
+  // revenue_60d, revenue_share_pct (0-100), rank, n_families, units_60d, avg_unit_price, top_family,
+  // top_family_share_pct, window_start, window_end. Voisine de forme : offering_mix_shift (icône, couleur,
+  // INTELLIGENCE). Formes reprises du rendu approuvé : « X a généré N € » (offering_mix_shift),
+  // « N ventes » et « N € par article » (family_price_move, owner 07-08/09). revenue_60d est un NIVEAU :
+  // memberCardPolicy le retire pour un membre — la phrase dégrade sur la part seule.
+  // Copie PROVISOIRE (08/09) — tableau 8-13 dans le rapport de livraison ; mots owner à arbitrer.
+  reg('family_space_underuse', 'Une famille qui ne p\u00e8se presque rien dans vos ventes', 'INTELLIGENCE', '\ud83e\uddfa', '#1565C0', 'action', 'pulse#day-detail',
+    function(a, p, d) {
+      var nom = a.item_category || 'Une famille';
+      var rev = a.revenue_60d != null ? Math.round(Number(a.revenue_60d)) : null;
+      var sh = a.revenue_share_pct != null ? Number(a.revenue_share_pct) : null;
+      var pctFr = function (v) { return v < 1 ? frDec(v, 1) : String(Math.round(v)); };
+      var rk = a.rank != null ? Math.round(Number(a.rank)) : null;
+      var nf = a.n_families != null ? Math.round(Number(a.n_families)) : null;
+      var un = a.units_60d != null ? Math.round(Number(a.units_60d)) : null;
+      var px = a.avg_unit_price != null ? Number(a.avg_unit_price) : null;
+      var line = nom;
+      if (rev != null) line += ' a g\u00e9n\u00e9r\u00e9 ' + frInt(rev) + ' \u20ac sur 60 jours' + (sh != null ? ', soit ' + pctFr(sh) + ' % de votre CA' : '');
+      else if (sh != null) line += ' : ' + pctFr(sh) + ' % de votre CA sur 60 jours';
+      else line += ' : presque rien dans votre CA sur 60 jours';
+      if (rk != null && nf != null) line += ' \u2014 ' + (rk === 1 ? '1re' : rk + 'e') + ' famille sur ' + nf;
+      line += '.';
+      if (un != null || px != null) {
+        var bits = [];
+        if (un != null) bits.push(frInt(un) + ' ventes');
+        if (px != null) bits.push(frDec(px, 2) + ' \u20ac par article');
+        line += ' ' + bits.join(', ') + '.';
+      }
+      if (a.top_family) {
+        line += ' \u00c0 vous de juger la place qu\u2019elle occupe en rayon face \u00e0 \u00ab ' + a.top_family + ' \u00bb'
+          + (a.top_family_share_pct != null ? ' (' + pctFr(Number(a.top_family_share_pct)) + ' % de votre CA)' : '') + '.';
+      }
+      return line;
+    },
+    {}
+  );
   // 06/09 — tickets_lines_move : le grain FACTURE (fct_client_tickets_daily). Owner : « Paniers à
   // plusieurs articles : ce sera la situation courante. » Chaque couche dans SON unité (loi owner
   // 06/09) : articles par ticket, part des tickets à un seul article, nombre de tickets — jamais
@@ -3046,7 +3109,7 @@
   var PRIO_SCORE = { 4: 95, 3: 80, 2: 60, 1: 40 };
 
   var AWARENESS_ONLY = { regime_c_warning:1, weather_worsened:1, weather_hazard_onset:1, extended_bad_weather:1, extended_bad_weather_3d:1, saturated_bad_weather:1, ft_peak_bad_weather:1, weather_mobility_double:1, mobility_comp_squeeze:1, tourism_mobility_hit:1, ft_peak_mobility:1 };
-  var RULE_ONLY = { sales_missed_opportunity:1, sales_surge:1, sales_traffic_not_converting:1, sales_discount_no_lift:1, sales_revenue_down_wow:1, footfall_vs_basket_decomposition:1, proven_action_replication:1, competitor_positioning_gap:1, offering_mix_shift:1 };
+  var RULE_ONLY = { sales_missed_opportunity:1, sales_surge:1, sales_traffic_not_converting:1, sales_discount_no_lift:1, sales_revenue_down_wow:1, footfall_vs_basket_decomposition:1, proven_action_replication:1, competitor_positioning_gap:1, offering_mix_shift:1, family_space_underuse:1 };
 
   // ─── CHANNEL AVAILABILITY ────────────────────────────────────────────────
   function getAvailableChannels(actionType, prof, channelConfig) {
@@ -3260,7 +3323,7 @@
         // Corps \u00e9tendu PAR CARTE (gabarit owner 25/08) : le cr\u00e9neau dit r\u00e9currence + fait +
         // funnel + r\u00e9serve de r\u00e9gime — 4 phrases ; les autres cartes gardent 2 phrases / 200.
         // 06/09 (trois couches) : sales_surge / down_wow disent fait + facteur + familles = 3 phrases.
-        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], tickets_lines_move: [3, 320], item_absent_regular: [3, 320], family_price_move: [3, 320], family_discount_move: [3, 320], sales_surge: [3, 470], sales_revenue_down_wow: [3, 470] })[actionType] || [2, 200];
+        var _swLim = ({ hour_share_move: [4, 420], item_share_move: [3, 320], offering_mix_shift: [3, 320], tickets_lines_move: [3, 320], item_absent_regular: [3, 320], family_price_move: [3, 320], family_discount_move: [3, 320], sales_surge: [3, 470], sales_revenue_down_wow: [3, 470], family_space_underuse: [3, 320], vacation_underperformance_ahead: [3, 360] })[actionType] || [2, 200];
         try { var _swObj = spec.sowhat(feedItem, prof, mergedDay, mode || 'veille'); if (_swObj && typeof _swObj === 'object') { if (_swObj.action) actionText = String(_swObj.action); if (_swObj.reserve) reserveText = String(_swObj.reserve); sowhatText = _swObj.context != null ? String(_swObj.context) : ''; } else { sowhatText = String(_swObj == null ? '' : _swObj); } var _sArr = String(sowhatText || '').split('. '); var _s1 = _sArr.slice(0, _swLim[0]).join('. '); if (_s1 && !_s1.endsWith('.')) _s1 += '.'; sowhatText = trunc(_s1, _swLim[1]); } catch (e) { sowhatText = actionType + ' \u2014 donn\u00e9es indisponibles.'; }
         whatText = spec.brand_label_fr;
         // Name the actual weekday on the sales movement cards — never "jours comparables".
@@ -3323,6 +3386,10 @@
           whatText = ((feedItem.direction || (Number(feedItem.lines_per_ticket_delta || 0) < 0 ? 'collapse' : 'surge')) === 'collapse')
             ? 'Moins d\u2019articles par ticket que d\u2019habitude'
             : 'Plus d\u2019articles par ticket que d\u2019habitude';
+        }
+        // 08/09 — vacances à venir : le titre nomme les vacances (règle 4 du lexique) ; repli = libellé statique.
+        else if (actionType === 'vacation_underperformance_ahead') {
+          whatText = (feedItem.vacation_name || 'Vacances scolaires') + ' : vos clients r\u00e9guliers partent';
         }
         else if (actionType === 'hour_share_move' || actionType === 'item_share_move' || actionType === 'offering_mix_shift') {
           var _fd = feedItem.direction || (Number(feedItem.delta_eur || 0) < 0 ? 'collapse' : 'surge');
@@ -3686,6 +3753,12 @@
       s += 'Adaptez votre message, votre offre et votre accueil au public du jour plutôt qu\'à votre cible habituelle.';
       return s;
     }, urgency: 'soon' },
+    // 08/09 — vacances à venir : forme owner « Préparez une offre pour <temps fort> » (lexique règle 8), infinitif.
+    'vacation_underperformance_ahead': { action: function(a, p, d) {
+      var s = frDayDate(a && a.vacation_start);
+      var qui = (a && a.audience_secondary_fr) || 'ceux qui restent';
+      return 'Action conseill\u00e9e : pr\u00e9parer une offre pour les ' + qui + (s ? ' avant le ' + s : '') + '.';
+    }, urgency: 'plan' },
     'foreign_tourism_signal': { action: function(a, p, d) {
       // Le pays de tête est DANS la carte ; le geste le nomme, et nomme sa langue.
       var pp = premierPays(a && a.countries_named);
@@ -3965,6 +4038,12 @@
         ? 'Action conseill\u00e9e : revoyez sa visibilité et son prix avant que ça s\'installe.'
         : 'Action conseill\u00e9e : gardez en avant ce qui a porté la hausse sur cette famille.';
     }, urgency: 'soon' },
+    // 08/09 — famille qui pèse presque rien : le geste est la PLACE en rayon (ce que l'exploitant tient), jamais le stock.
+    'family_space_underuse': { action: function(a, p, d) {
+      var nom = (a && a.item_category) || 'cette famille';
+      if (!(a && a.top_family)) return 'Action conseill\u00e9e : r\u00e9duire la place en rayon de \u00ab ' + nom + ' \u00bb.';
+      return 'Action conseill\u00e9e : r\u00e9duire la place en rayon de \u00ab ' + nom + ' \u00bb au profit de \u00ab ' + a.top_family + ' \u00bb.';
+    }, urgency: 'plan' },
     'item_share_move': { action: function(a, p, d) {
       if (a && a.regime_mismatch_flag === true) return '';
       var _rs2 = reportOuSurplus(a);
@@ -4116,7 +4195,8 @@
           'best_day_of_week', 'top_day_approaching', 'weekend_vacation_low_comp', 'ft_quiet_good_weather', 'ft_peak_low_comp'] },
         { id: 'calendrier', label: 'Calendrier & affluence', gate: null, action_types: [
           'audience_shift_opportunity', 'calendar_audience_shift', 'commercial_event_match', 'holiday_high_comp',
-          'mega_event_activation', 'mega_event_end', 'institution_campaign_detected', 'media_mention_detected', 'ft_peak_tourism_vacation', 'foreign_tourism_signal'] },
+          'mega_event_activation', 'mega_event_end', 'institution_campaign_detected', 'media_mention_detected', 'ft_peak_tourism_vacation', 'foreign_tourism_signal',
+          'vacation_underperformance_ahead'] },
         { id: 'tourisme', label: 'Tourisme', gate: 'tourism_source', action_types: [
           'tourist_high_season', 'tourist_surge_vacation', 'tourism_peak_window', 'tourism_weather_vacation',
           'tourism_comp_squeeze', 'low_tourism_local_opp'] },
@@ -4137,7 +4217,7 @@
           'sales_traffic_not_converting', 'sales_discount_no_lift', 'sales_revenue_down_wow', 'offering_mix_shift',
           'tickets_lines_move', 'item_absent_regular', 'family_price_move', 'family_discount_move',
           'footfall_vs_basket_decomposition', 'client_dormant', 'weekly_sales_hole', 'weekly_sales_spike',
-          'monthly_sales_hole', 'monthly_sales_spike'] },
+          'monthly_sales_hole', 'monthly_sales_spike', 'family_space_underuse'] },
         { id: 'apprentissage', label: 'Apprentissage', gate: 'measured_actions', action_types: [
           'proven_action_replication', 'weekly_briefing'] },
       ]},
@@ -4156,11 +4236,11 @@
       'holiday_high_comp','mega_event_activation','mega_event_end','institution_campaign_detected',
       'media_mention_detected','ft_peak_tourism_vacation','tourist_high_season','tourist_surge_vacation',
       'tourism_peak_window','tourism_weather_vacation','tourism_comp_squeeze','low_tourism_local_opp',
-      'foreign_tourism_signal'
+      'foreign_tourism_signal','vacation_underperformance_ahead'
     ],
     augmenter_panier: [
       'sales_underperformance','sales_missed_opportunity','sales_competition_cannibalization',
-      'offering_mix_shift','proven_action_replication'
+      'offering_mix_shift','proven_action_replication','family_space_underuse'
     ],
     plus_avis: [
       'competitor_review_surge','competitor_review_drop','competitor_reputation_strength','review_solicitation'
@@ -4282,7 +4362,8 @@ window.msObjectifVentesMerge = function (list) {
   items.forEach(function (o) { o.lignes.forEach(function (l) { by[l.label] = (by[l.label] || 0) + Number(l.ventes || 0); }); });
   var lignes = Object.keys(by).map(function (k) { return { label: k, ventes: Math.round(by[k]) }; }).filter(function (l) { return l.ventes >= 1; }).sort(function (a, b) { return b.ventes - a.ventes; }).slice(0, 3);
   if (!lignes.length) return null;
-  return { estime: true, sens: sens, total: lignes.reduce(function (s, l) { return s + l.ventes; }, 0), lignes: lignes };
+  // Exact seulement si CHAQUE jour du groupe l'est (delta_units du mart) ; un jour estimé rend le total estimé.
+  return { estime: items.some(function (o) { return o.estime !== false; }), sens: sens, total: lignes.reduce(function (s, l) { return s + l.ventes; }, 0), lignes: lignes };
 };
 window.msObjectifVentesHtml = function (o) {
   // EMPLOYÉS seulement (owner 08/09) : le gérant lit l'écart en € ; l'employé, qui ne voit pas de niveau, lit les ventes.
