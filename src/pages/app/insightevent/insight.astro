@@ -146,7 +146,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
 
     <script is:inline src="/js/ms-loader.js?v=2"></script>
     <script is:inline src="/js/reco-library.js?v=13"></script>
-    <script is:inline src="/js/action-cards.js?v=122"></script>
+    <script is:inline src="/js/action-cards.js?v=123"></script>
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/card-kit.js?v=70"></script>
@@ -1439,6 +1439,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
               }
               if (!ac) ac = data.action_candidates.find(function(c) { return c.action_type === signal_type; }) || null;
             }
+            // 08/09 — rôle du lecteur (vue équipe) : la ligne Objectif en ventes ne se rend que pour un employé.
+            if (data && data.role === 'member') window._msMemberView = true;
             renderPage(day, prof, ac);
           })
           .catch(function(err) {

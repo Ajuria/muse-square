@@ -20,13 +20,16 @@ const uid = String(flat(u.clerk_user_id));
 const today = process.env.PULSE_DUMP_DATES ? new Date(process.env.PULSE_DUMP_DATES.split(",")[0] + "T00:00:00Z") : new Date();
 const dates = process.env.PULSE_DUMP_DATES ? process.env.PULSE_DUMP_DATES.split(",") : [];
 if (!dates.length) for (let i = 0; i < 7; i++) dates.push(new Date(today.getTime() + i * 86_400_000).toISOString().slice(0, 10));
-const locals = { clerk_user_id: uid, location_id: OWNER, all_location_ids: [OWNER] };
+// PULSE_DUMP_ROLE=member rejoue le fil tel qu'un EMPLOYÉ le lit (vue équipe : niveaux coupés par monitor,
+// ligne « Objectif · estimé … ventes » rendue) ; sans la variable, le fil du gérant.
+const MEMBER = process.env.PULSE_DUMP_ROLE === "member";
+const locals = MEMBER ? { clerk_user_id: uid, location_id: null, all_location_ids: [], member_location_ids: [OWNER], member_poles: {}, role: "member" } : { clerk_user_id: uid, location_id: OWNER, all_location_ids: [OWNER] };
 // MULTI-SITE réel (owner 25/08 : le dump mono cachait chips site, vue agrégée, périodes taguées).
 const [siteRows] = await bq.query({ query: `SELECT location_id, ANY_VALUE(company_name) AS label FROM \`${PROJECT}.raw.insight_event_user_location_profile\` WHERE clerk_user_id = @u GROUP BY 1`, params: { u: uid }, location: "EU" });
 const sites = siteRows.map((r) => ({ location_id: String(flat(r.location_id)), company_name: String(flat(r.label) || "") }));
 const payloadBySite = {};
 for (const s of sites) {
-  const r2 = await monitorGET({ url: new URL(`http://l/api/insight/monitor?location_id=${s.location_id}&selected_dates=${dates.join(",")}&light=1`), locals: { clerk_user_id: uid, location_id: s.location_id, all_location_ids: sites.map((x) => x.location_id) } });
+  const r2 = await monitorGET({ url: new URL(`http://l/api/insight/monitor?location_id=${s.location_id}&selected_dates=${dates.join(",")}&light=1`), locals: MEMBER ? { clerk_user_id: uid, location_id: null, all_location_ids: [], member_location_ids: sites.map((x) => x.location_id), member_poles: {}, role: "member" } : { clerk_user_id: uid, location_id: s.location_id, all_location_ids: sites.map((x) => x.location_id) } });
   payloadBySite[s.location_id] = JSON.parse(await r2.text());
   // PULSE_DUMP_TYPES=hour_share_move[,…] ne garde que ces cartes (07/09 : isoler une carte que le
   // plafond du fil masque — 7 rendues sur 33 le 28/08 — pour la montrer telle que Pulse la rend).
@@ -142,8 +145,9 @@ writeFileSync(OUT, html);
     if (merged) { withField++; if (line) { rendered++; const want = strip(win.msObjectifVentesHtml(merged)); if (strip(line.outerHTML) === want) { exact++; if (!sample) sample = want + (grp.length > 1 ? " (" + grp.length + " jours)" : ""); } } }
     else if (line) orphan++;
   }
-  console.log("objectif ventes : " + withField + " carte(s) avec champ · " + rendered + " ligne(s) rendue(s) · " + exact + " exacte(s) · " + orphan + " orpheline(s)" + (sample ? " · ex. « " + sample + " »" : ""));
-  if (withField && (rendered !== withField || exact !== rendered || orphan)) { console.error("OBJECTIF : rendu ≠ champ"); process.exit(1); }
+  console.log("objectif ventes (" + (MEMBER ? "employé" : "gérant") + ") : " + withField + " carte(s) avec champ · " + rendered + " ligne(s) rendue(s) · " + exact + " exacte(s) · " + orphan + " orpheline(s)" + (sample ? " · ex. « " + sample + " »" : ""));
+  // Employé : chaque champ rendu, exact. Gérant : AUCUNE ligne (il lit l'écart en €).
+  if (MEMBER ? (withField && (rendered !== withField || exact !== rendered || orphan)) : (rendered || orphan)) { console.error("OBJECTIF : rendu ≠ règle du rôle"); process.exit(1); }
 }
 console.log("dump écrit :", OUT, "—", html.length, "octets");
 process.exit(0);
