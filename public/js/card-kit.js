@@ -181,21 +181,37 @@
         if (_feat === 'rain' || _feat === 'snow') return f.rain_prob != null ? Math.round(f.rain_prob) + ' %' : '';
         return f.tmax != null ? Math.round(f.tmax) + '°' : '';
       };
-      html += msStrip(j.forecast.map(function (f) { return { top: wxDayLabel(f.date), mid: wxStripVal(f), highlight: !!f.is_extreme, tone: 'danger' }; }));
+      // 08/09 (lisibilité) : la bande 7 jours est repliée par défaut — le <summary> reprend le texte
+      // de la zone qui rend ce bloc (insight.astro « Votre réponse à la météo »), aucun mot nouveau.
+      html += '<details style="margin-bottom:16px;"><summary style="font-size:12px;color:#6B7280;cursor:pointer;">Votre réponse à la météo</summary><div style="margin-top:10px;">'
+        + msStrip(j.forecast.map(function (f) { return { top: wxDayLabel(f.date), mid: wxStripVal(f), highlight: !!f.is_extreme, tone: 'danger' }; }))
+        + '</div></details>';
     }
     if (j.chain) {
       var ch = j.chain;
-      html += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;">Vos journées de ' + esc(condFr) + ' (niveau 2+, ' + ch.n_cond + ' j) vs votre jour type :</div>'
+      // 08/09 (lisibilité) : la ligne CA reste visible ; Fréquentation / Conversion / Panier se replient
+      // derrière l'en-tête existant du tableau (devenu <summary>). La phrase « L'effet passe par la
+      // fréquentation » ne se rend que si la fréquentation est mesurée (cond non nul, jour type > 0).
+      var _wxCols = [{ label: '' }, { label: 'jours ' + condFr }, { label: 'jour type' }, { label: 'écart' }];
+      html += '<details><summary style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;cursor:pointer;">Vos journées de ' + esc(condFr) + ' (niveau 2+, ' + ch.n_cond + ' j) vs votre jour type :</summary>'
         + msTable(
-            [{ label: '' }, { label: 'jours ' + condFr }, { label: 'jour type' }, { label: 'écart' }],
+            _wxCols,
             [
               { cells: [{ v: 'Fréquentation', bold: true }, { v: frInt(ch.visitors.cond), bold: true }, { v: frInt(ch.visitors.typical), color: '#9CA3AF' }, msDeltaCell(ch.visitors.pct, null)] },
               { cells: [{ v: 'Conversion' }, { v: msRate(ch.conversion.cond) }, { v: msRate(ch.conversion.typical), color: '#9CA3AF' }, msDeltaCell(null, null)] },
-              { cells: [{ v: 'Panier moyen' }, { v: msEur2(ch.basket.cond) }, { v: msEur2(ch.basket.typical), color: '#9CA3AF' }, msDeltaCell(null, null)] },
+              { cells: [{ v: 'Panier moyen' }, { v: msEur2(ch.basket.cond) }, { v: msEur2(ch.basket.typical), color: '#9CA3AF' }, msDeltaCell(null, null)] }
+            ]
+          )
+        + '</details>'
+        + msTable(
+            _wxCols,
+            [
               { cells: [{ v: 'CA', bold: true }, { v: frInt(ch.revenue.cond) + ' €', bold: true }, { v: frInt(ch.revenue.typical) + ' €', color: '#9CA3AF' }, msDeltaCell(ch.revenue.pct, ch.revenue.eur_per_day)] }
             ]
           )
-        + '<div style="font-size:11px;color:#9CA3AF;margin-top:7px;line-height:1.5;">L\'effet passe par la fréquentation, pas le panier. ' + ch.n_cond + ' jours mesurés' + (ch.n_extreme < 5 ? ' · palier extrême quasi sans historique (' + ch.n_extreme + ' j)' : '') + '.</div>';
+        + ((ch.visitors && ch.visitors.cond != null && Number(ch.visitors.typical) > 0)
+            ? '<div style="font-size:11px;color:#9CA3AF;margin-top:7px;line-height:1.5;">L\'effet passe par la fréquentation, pas le panier. ' + ch.n_cond + ' jours mesurés' + (ch.n_extreme < 5 ? ' · palier extrême quasi sans historique (' + ch.n_extreme + ' j)' : '') + '.</div>'
+            : '');
     } else {
       html += '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Historique trop court pour chiffrer l\'effet de ' + esc(condFr) + ' — prévisions seules ci-dessus.</div>';
     }
@@ -207,9 +223,12 @@
     }
     var peakExtreme = j.peak && j.peak.lvl >= 3;
     var decLines = [];
-    if (j.condition && j.condition.feature === 'heat') decLines.push({ head: 'Testez une offre froide', body: 'Une boisson fraîche capte une demande que votre carte chaude ignore — quasi pas d\'historique, à tester.' });
-    if (down.length) decLines.push({ head: 'Activez ' + down[0].category, body: 'Ne profite pas de ' + condFr + ' (' + msPct(down[0].pct) + ') : remise ou mise en avant plutôt que stagnation.' });
-    if (peakExtreme && j.chain && j.chain.n_extreme < 5) decLines.push({ head: 'Le ' + wxDayLabel(j.peak.date) + ' (' + (j.peak.tmax != null ? Math.round(j.peak.tmax) + '°' : '') + ')', body: 'Votre palier le plus chaud, quasi sans historique (' + j.chain.n_extreme + ' j) — n\'extrapolez pas.' });
+    // 08/09 : miroir du plancher serveur (weather.ts MIN_COND_DAYS = 5) — sous 5 jours de condition,
+    // aucune ligne de décision, le bloc « La décision » ne se rend pas.
+    var _decFloorOk = Number(j.cond_days) >= 5;
+    if (_decFloorOk && j.condition && j.condition.feature === 'heat') decLines.push({ head: 'Testez une offre froide', body: 'Une boisson fraîche capte une demande que votre carte chaude ignore — quasi pas d\'historique, à tester.' });
+    if (_decFloorOk && down.length) decLines.push({ head: 'Activez ' + down[0].category, body: 'Ne profite pas de ' + condFr + ' (' + msPct(down[0].pct) + ') : remise ou mise en avant plutôt que stagnation.' });
+    if (_decFloorOk && peakExtreme && j.chain && j.chain.n_extreme < 5) decLines.push({ head: 'Le ' + wxDayLabel(j.peak.date) + ' (' + (j.peak.tmax != null ? Math.round(j.peak.tmax) + '°' : '') + ')', body: 'Votre palier le plus chaud, quasi sans historique (' + j.chain.n_extreme + ' j) — n\'extrapolez pas.' });
     if (decLines.length) html += msDecision('La décision', decLines);
     return html;
   }
@@ -1715,25 +1734,6 @@
           }).join('')
         + '</div>';
     }
-    // ── LES DEUX ÉTATS (owner 28/08) ────────────────────────────────────────────────────
-    // EN COURS — la page PILOTE : ce que le dispositif est → où il en est → d'où vient
-    //   l'écart → quoi ajuster. Aucun feedback ici (le rail refuse déjà le rétro avant
-    //   résolution : la page dit enfin la même chose que la mécanique).
-    // TERMINÉE — la page CONCLUT : le verdict → d'où il vient → ce qui a été fait →
-    //   Documenter → la suite (conseils, historique, dispositifs comparables).
-    var shapeB = shapeBlock(data.shape || null, ctxCard, received.length, series.length, received.length ? received[0].date : null, data.role === 'member');
-    // LES DEUX TEMPS DE LA PAGE (owner 28/08) — on comprend, PUIS on décide. Rien ne change
-    // de place : une frontière nommée sépare les deux, sinon tous les blocs se ressemblent.
-    var partie = function (titre) {
-      return '<div style="display:flex;align-items:center;gap:12px;margin:34px 0 20px;">'
-        + '<span style="font-size:15px;font-weight:700;color:#111827;white-space:nowrap;">' + esc(titre) + '</span>'
-        + '<span style="flex:1;height:2px;background:#111827;opacity:.12;"></span></div>';
-    };
-    if (open) {
-      return head + dispoBlock(cm, true)
-        + partie(t('part_comprendre')) + q1 + shapeB
-        + partie(t('part_decider')) + moveForm + bicRef + lineageB + sources;
-    }
     // ── « Rendre permanent → » (08/09) — une opération TERMINÉE dont le périmètre porte des
     // familles peut devenir un pôle (dispositif permanent, lexique l.19-20). Le kit rend le
     // bouton et porte en data-attributs les familles du périmètre et la phrase d'origine
@@ -1759,6 +1759,25 @@
           + '<button type="button" data-eg-permanent data-eg-permanent-fams="' + esc(JSON.stringify(_pFams)) + '" data-eg-permanent-why="' + esc(_pWhy) + '" style="font-size:12px;font-weight:600;color:#1D3BB3;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:6px;padding:6px 12px;cursor:pointer;font-family:inherit;">' + esc(t('permanent_cta')) + '</button>'
           + '<span data-eg-permanent-msg style="font-size:12px;color:#b91c1c;"></span></div>';
       }
+    }
+    // ── LES DEUX ÉTATS (owner 28/08) ────────────────────────────────────────────────────
+    // EN COURS — la page PILOTE : ce que le dispositif est → où il en est → d'où vient
+    //   l'écart → quoi ajuster. Aucun feedback ici (le rail refuse déjà le rétro avant
+    //   résolution : la page dit enfin la même chose que la mécanique).
+    // TERMINÉE — la page CONCLUT : le verdict → d'où il vient → ce qui a été fait →
+    //   Documenter → la suite (conseils, historique, dispositifs comparables).
+    var shapeB = shapeBlock(data.shape || null, ctxCard, received.length, series.length, received.length ? received[0].date : null, data.role === 'member');
+    // LES DEUX TEMPS DE LA PAGE (owner 28/08) — on comprend, PUIS on décide. Rien ne change
+    // de place : une frontière nommée sépare les deux, sinon tous les blocs se ressemblent.
+    var partie = function (titre) {
+      return '<div style="display:flex;align-items:center;gap:12px;margin:34px 0 20px;">'
+        + '<span style="font-size:15px;font-weight:700;color:#111827;white-space:nowrap;">' + esc(titre) + '</span>'
+        + '<span style="flex:1;height:2px;background:#111827;opacity:.12;"></span></div>';
+    };
+    if (open) {
+      return head + dispoBlock(cm, true)
+        + partie(t('part_comprendre')) + q1 + shapeB
+        + partie(t('part_decider')) + moveForm + bicRef + lineageB + sources;
     }
     return head
       + partie(t('part_comprendre')) + q1 + shapeB + dispoBlock(cm, false)
