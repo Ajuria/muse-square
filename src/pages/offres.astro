@@ -2,322 +2,399 @@
 export const prerender = true;
 
 import BaseLayout from '../layouts/BaseLayout.astro';
+
+// Page Plateforme — copie et maquettes de l'owner (01/09/2026, session « Learning loop landing page copy »),
+// livrée depuis tools/proto/offres-proto.html le 08/09/2026 sans réécriture : le proto meurt dans ce commit.
 ---
 <BaseLayout title="Plateforme — Muse Square">
 
-  <!-- Hero banner — existing image kept -->
-  <section class="relative w-screen left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] md:aspect-[1440/500]">
-    <picture class="absolute inset-0 block" aria-hidden="true">
-      <source srcset="/images/banner-services-300k.webp" type="image/webp" />
-      <img src="/images/banner-services-300k.webp" alt="" class="w-full h-full object-cover object-top" loading="eager" decoding="async" />
-    </picture>
-    <div class="absolute inset-0" style="background:linear-gradient(90deg,rgba(17,24,39,.82) 0%,rgba(17,24,39,.65) 35%,rgba(17,24,39,.20) 100%)" aria-hidden="true"></div>
-    <div class="relative py-[40px] md:py-0 md:absolute md:inset-0">
-      <div class="ms-container h-full flex items-center">
+<!-- A. BANNIÈRE -->
+<section class="hero">
+  <div class="hero-photo" aria-hidden="true"></div>
+  <div class="ms-container">
+    <div class="hero-in">
+      <h1 class="ms-h1">Faites de votre expérience un actif opérationnel</h1>
+      <p>Agissez sur vos priorités, mesurez l'impact de vos actions et conservez les dispositifs qui ont fonctionné.</p>
+    </div>
+  </div>
+</section>
+
+<!-- B. COMMENT ÇA MARCHE -->
+<section class="ms-section">
+  <div class="ms-container">
+    <h2 class="ms-h2" style="text-transform:uppercase;letter-spacing:.5px;text-align:center;margin:0 0 32px">Comment ça marche ?</h2>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <p style="font-size:17px;line-height:26px;color:var(--color-text-secondary);margin:0">
+        Chaque jour, des dizaines de facteurs impactent votre activité — concurrence, météo, mobilité, calendrier. Les collecter prend du temps. Les croiser avec vos résultats est impossible manuellement. S'en souvenir d'une saison à l'autre est aléatoire.
+      </p>
+      <p style="font-size:17px;line-height:26px;color:var(--color-text-secondary);margin:0">
+        <strong style="color:var(--color-text-primary)">Agir.</strong>
+        Chaque matin, ce qui a bougé autour de vos sites est croisé avec vos ventes de la veille. Cinq actions priorisées vous attendent. Pas vingt. Chacune porte le fait qui la déclenche, son enjeu en euros, et une action que vous pouvez mener.
+      </p>
+      <p style="font-size:17px;line-height:26px;color:var(--color-text-secondary);margin:0">
+        <strong style="color:var(--color-text-primary)">Explorer.</strong>
+        Vous posez votre question en français, sur vos données. L'application répond en citant les faits qu'elle a utilisés, et dit quand elle ne sait pas plutôt que d'inventer un chiffre.
+      </p>
+      <p style="font-size:17px;line-height:26px;color:var(--color-text-secondary);margin:0">
+        <strong style="color:var(--color-text-primary)">Piloter.</strong>
+        Ce que vous engagez est mesuré chaque jour contre votre résultat habituel. À l'échéance, le verdict : atteint, manqué ou non concluant. Le tableau de bord montre ce que vos opérations ont rapporté, et lesquelles sont prouvées.
+      </p>
+      <p style="font-size:17px;line-height:26px;color:var(--color-text-secondary);margin:0">
+        <strong style="color:var(--color-text-primary)">Ce qui reste.</strong>
+        Un dispositif prouvé se réutilise. Un dispositif qui a coûté est écarté, et ne vous sera plus proposé. Au bout de quelques mois, vous n'avez plus des conseils : vous avez un historique.
+      </p>
+    </div>
+  </div>
+</section>
+
+<div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+
+<!-- C + D. LES TROIS ONGLETS -->
+<section class="ms-section tight">
+  <div class="ms-container">
+    <div class="sec-head">
+      <span class="eyebrow">Agir</span>
+      <h2 class="sec-title">Vos priorités opérationnelles</h2>
+    </div>
+    <p class="ms-body">Trois onglets : où vous en êtes, ce qu'il y a à faire aujourd'hui, et ce que vos données savent déjà.</p>
+  </div>
+</section>
+
+<section style="padding-bottom:40px">
+  <div class="ms-container">
+    <div class="serie">
+      <div class="row2">
         <div>
-          <h1 class="ms-h1 text-white">Détectez, agissez, automatisez.</h1>
-          <p class="mt-[16px] ms-lead text-[20px]" style="color:rgba(255,255,255,.92);max-width:720px">Veille opérationnelle, réponses prêtes à exécuter et distribution aux bonnes personnes — sur chaque site, chaque jour.</p>
+          <p class="num">01</p>
+          <p class="kicker">IMPACT</p>
+          <h3>Vos cartes d'action isolent ce qui impacte votre activité</h3>
+          <p class="ms-body">Concurrence, météo, mobilité et calendrier sont croisés avec vos ventes pour faire ressortir les événements de votre périmètre.</p>
+        </div>
+        <div>
+          <div class="mock">
+            <div class="mock-top">
+              <div class="mk-pills"><span class="mk-pill">Calendrier</span><span class="mk-pill n">Ce week-end</span></div>
+              <div class="mk-grid">
+                <div>
+                  <p class="mk-what">Vos week-ends de vacances rapportent moins</p>
+                  <p class="mk-sowhat">1 980 € par jour au lieu de 2 340 €, alors qu'il y a moins d'événements que d'habitude autour de vous.</p>
+                </div>
+                <div class="mk-eur">
+                  <span class="mk-meta">perdus · vacances scolaires</span>
+                  <span class="mk-amt">−5 760 €</span>
+                  <span class="mk-sub">sur l'année</span>
+                </div>
+              </div>
+              <p class="mk-act"><b>Action conseillée :</b> Une offre valable ce week-end uniquement — le public de vacances décide tard et se décide sur place.</p>
+            </div>
+            <div class="mk-foot"><span class="mk-pri">M’engager</span><span class="mk-sec">Pas pour moi</span></div>
+          </div>
+          <p class="mk-cap">Maquette — la carte du matin</p>
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <p class="num">02</p>
+          <p class="kicker">RÉPONSE</p>
+          <h3>Plusieurs dispositifs vous sont proposés pour y répondre</h3>
+          <p class="ms-body">L'application sélectionne les actions les plus adaptées parmi votre historique et une sélection de dispositifs éprouvés.</p>
+        </div>
+        <div>
+          <div class="mock">
+            <div class="mock-top">
+              <div style="font-size:11px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:#1D3BB3;">Calendrier</div>
+              <div style="display:flex;align-items:center;gap:10px;margin:8px 0 4px;flex-wrap:wrap;">
+                <div style="font-size:21px;font-weight:600;margin:0;line-height:1.2;color:#111827;">Vos week-ends de vacances rapportent moins</div>
+                <span style="margin-left:auto;font-size:13px;font-weight:500;color:#6B7280;white-space:nowrap;">Esprit de Fabrique</span>
+              </div>
+            </div>
+            <div style="padding:0 20px 18px">
+              <div class="pl-kick">Plan à reprendre</div>
+              <div class="pr-box">
+                <div class="pr-l1">La dernière fois : « Une offre valable ce week-end uniquement » <span class="pr-eff">→ +9,4 % vs référence</span></div>
+                <div class="pr-l2">Dispositif : Offre datée sur les week-ends de vacances</div>
+                <div class="pr-l3">Ce qui a marché : l'échéance courte, annoncée en boutique dès le jeudi.</div>
+                <div class="pr-date">Mesuré le 14/04/2026</div>
+                <span class="pr-btn">Reconduire ce plan <span style="opacity:.85">→ M'engager</span></span>
+              </div>
+            </div>
+          </div>
+          <p class="mk-cap">Maquette — la même carte, ouverte</p>
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <p class="num">03</p>
+          <p class="kicker">PRIORITÉS</p>
+          <h3>Gérez vos priorités avec l'ensemble de votre équipe</h3>
+          <p class="ms-body">Vos équipes accèdent aux cartes de leur périmètre. Vous pouvez aussi leur <strong style="color:var(--color-text-primary)">Faire suivre</strong> ou <strong style="color:var(--color-text-primary)">Automatiser</strong> l'envoi de leurs consignes.</p>
+        </div>
+        <div>
+          <div class="mock">
+            <div class="mock-top">
+              <div class="mk-pills"><span class="mk-pill">Calendrier</span><span class="mk-pill n">Ce week-end</span></div>
+              <p class="mk-what">Vos week-ends de vacances rapportent moins</p>
+              <p class="mk-sowhat">1 980 € par jour au lieu de 2 340 €, alors qu'il y a moins d'événements que d'habitude autour de vous.</p>
+              <p class="mk-act"><b>Action conseillée :</b> Une offre valable ce week-end uniquement — le public de vacances décide tard et se décide sur place.</p>
+            </div>
+            <div class="mk-row" style="background:#F6F8FE">
+              <span class="mk-dot" style="background:#1D3BB3"></span>
+              <div class="mk-rt"><b>Assigné à Camille — Slack</b><span>« Julien vous a assigné une tâche » · Fait · Pas pour moi</span></div>
+            </div>
+            <div class="mk-foot"><span class="mk-pri">M’engager</span><span class="mk-sec">Faire suivre</span><span class="mk-sec">Pas pour moi</span></div>
+          </div>
+          <p class="mk-cap">Maquette — la carte confiée à l'équipe</p>
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <p class="num">04</p>
+          <p class="kicker">Mesure &amp; verdict</p>
+          <h3>Chaque dispositif est mesuré contre votre résultat habituel</h3>
+          <p class="ms-body">Chaque jour, l'application isole l'impact de votre action sur votre chiffre d'affaires ou votre panier moyen. À l'échéance, le verdict tombe.</p>
+          <p class="ms-body" style="margin-top:12px">Atteint, manqué ou non concluant : vous savez si le résultat vient de votre équipe ou du bruit contextuel. Ce qui a fonctionné intègre votre mémoire.</p>
+        </div>
+        <div>
+          <div class="mock">
+            <div class="mock-top">
+              <div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:12px;">Offre datée sur les week-ends de vacances · version 2 · 4 jours mesurés</div>
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><span style="font-size:22px;font-weight:650;color:#111827;">+12 % de ventes</span><span style="font-size:14px;font-weight:600;color:#059669;">Objectif atteint</span></div>
+              <div style="margin-top:14px;"><div style="position:relative;height:15px;font-size:11.5px;color:#6b7280;"><span style="position:absolute;left:83.3%;transform:translateX(-50%);bottom:0;white-space:nowrap;">objectif +10 %</span></div><div style="position:relative;height:10px;background:#f0f2f5;"><div style="position:absolute;left:0;top:0;height:10px;width:83.3%;background:#10B981;"></div><div style="position:absolute;left:83.3%;top:0;height:10px;width:16.7%;background:#065F46;"></div><div style="position:absolute;left:83.3%;top:-3px;height:16px;width:2px;background:#111827;transform:translateX(-1px);"></div></div><div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:#374151;"><span>habituel</span><span><strong style="color:#111827;font-weight:600;">+12 %</strong> vs votre résultat habituel</span></div></div>
+              <div style="margin-top:12px;font-size:12.5px;color:#6B7280;line-height:1.55;">Votre action : +12 % au-dessus du CA habituel. La version 1 avait mesuré +9,4 %.</div>
+            </div>
+            <div class="mk-foot"><span class="mk-pri">Documenter →</span><span class="mk-sec">Ajuster →</span></div>
+          </div>
+          <p class="mk-cap">Maquette — le verdict de la reconduction</p>
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <p class="num">05</p>
+          <p class="kicker">Recalibrage</p>
+          <h3>Recalibrez vos dispositifs d'une opération à l'autre</h3>
+          <p class="ms-body">L'application conserve l'historique de vos opérations pour vous permettre de recalibrer vos dispositifs selon vos nouveaux objectifs.</p>
+          <p class="ms-body" style="margin-top:12px">À la fin de chaque période de test, vous choisissez la suite à donner parmi trois routes : Poursuivre, Doubler la mise ou Pivoter.</p>
+        </div>
+        <div>
+          <div class="mock">
+            <div class="mock-top">
+              <div class="mk-pills"><span class="mk-pill">Version 3</span></div>
+              <p class="mk-what">La version 2 a mesuré +12 % — objectif proposé : +14 %</p>
+              <p class="mk-sowhat">Offre datée sur les week-ends de vacances. Le dispositif garde son chiffre observé et ses dates de vacances. Vous choisissez la suite.</p>
+            </div>
+            <div class="mk-row"><span class="mk-dot" style="background:#1D3BB3"></span><div class="mk-rt"><b>Poursuivre</b><span>garder le plan, mieux le tenir</span></div></div>
+            <div class="mk-row"><span class="mk-dot" style="background:#047857"></span><div class="mk-rt"><b>Doubler la mise</b><span>plus de ce qui marche</span></div></div>
+            <div class="mk-row"><span class="mk-dot" style="background:#B45309"></span><div class="mk-rt"><b>Pivoter</b><span>changer l'approche, puis remesurer sur de nouvelles dates</span></div></div>
+          </div>
+          <p class="mk-cap">Maquette — la version suivante</p>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- Comment ça marche -->
-  <section class="ms-section">
-    <h2 class="ms-h2 uppercase tracking-[0.5px] text-center text-primary mb-[32px]">Comment ça marche ?</h2>
+<div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
 
-    <div class="space-y-[20px]">
-
-      <p class="font-body text-[17px] leading-[26px] text-secondary">
-        <strong>Votre veille.</strong> Chaque matin, prenez connaissance de votre contexte opérationnel — les concurrents que vous suivez, la météo, les événements, la mobilité, le calendrier — croisé avec les résultats de la journée précédente. Cinq actions priorisées vous attendent. Pas vingt.
-      </p>
-
-      <p class="font-body text-[17px] leading-[26px] text-secondary">
-        <strong>Vos actions et leur automatisation.</strong> Chaque carte d'action vous propose trois options : <strong>Consulter la source</strong>, <strong>Communiquer</strong> avec un brouillon prêt à publier sur Google Business, Instagram, Email ou Slack, ou <strong>Faire suivre</strong> le signal en interne avec l'action recommandée. Vous gardez la main sur le niveau d'automatisation, du manuel au tout-automatique. Cinq minutes, c'est traité.
-      </p>
-
-      <p class="font-body text-[17px] leading-[26px] text-secondary">
-        <strong>Vos événements et vos questions.</strong> Pour vos événements à venir, <strong>PLANIFIER</strong> compare vos dates candidates. Pour vos questions précises, le <strong>prompt</strong> répond sur vos données — pas sur Internet.
-      </p>
-
-      <p class="font-body text-[17px] leading-[26px] text-secondary">
-        <strong>Vos décideurs.</strong> Chaque semaine, deux briefs par email : le récap de ce qui a bougé sur vos sites, et la semaine à venir pour anticiper. Pas besoin d'ouvrir l'app.
-      </p>
-
+<!-- EXPLORER -->
+<section class="ms-section tight">
+  <div class="ms-container">
+    <div class="sec-head">
+      <span class="eyebrow">Explorer</span>
+      <h2 class="sec-title">Interrogez la mémoire de votre organisation</h2>
     </div>
-  </section>
+    <p class="ms-body">Posez votre question en français. L'application répond sur vos données, cite les faits qu'elle a utilisés, et dit quand elle ne sait pas.</p>
+  </div>
+</section>
+<section style="padding-bottom:80px">
+  <div class="ms-container">
+    <img src="/images/insight_app/explorer.png" alt="Explorer — poser une question en langage naturel sur ses propres données" style="width:100%;height:auto;display:block;border:1px solid var(--color-border);border-radius:12px" loading="lazy" decoding="async" />
+  </div>
+</section>
 
-  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+<div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
 
-  <!-- ── PLANIFIER ── -->
-  <section class="ms-section pb-[48px]">
-    <div class="flex items-center gap-[16px] mb-[20px]">
-      <span class="inline-block text-[18px] font-medium tracking-[0.12em] uppercase text-primary pl-[12px] border-l-[2px] border-[var(--color-brand-blue)]">Planifier</span>
-      <h2 class="font-heading font-semibold text-[20px] md:text-[24px] leading-[1.2] text-primary">Anticipez avant de vous engager</h2>
+<!-- PILOTER -->
+<section class="ms-section tight">
+  <div class="ms-container">
+    <div class="sec-head">
+      <span class="eyebrow">Piloter</span>
+      <h2 class="sec-title">Suivez les résultats de vos opérations et de vos équipes</h2>
     </div>
-    <p class="ms-body text-secondary">
-      Avant de bloquer un budget, réserver un lieu ou envoyer des invitations, identifiez les risques contextuels qui impacteront votre activité sur les 30 prochains jours.
-    </p>
-  </section>
-
-  <!-- Steps grid -->
-  <section class="mx-auto max-w-[1140px] px-[24px] pb-[80px]">
-    <div class="grid grid-cols-1 md:grid-cols-3 border border-border rounded-[10px] overflow-hidden items-start">
-
-      <!-- Explorer -->
-      <div class="p-[40px] border-b md:border-b-0 md:border-r border-border">
-        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">01</p>
-        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Explorer</p>
-        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">Posez votre question en langage naturel</h3>
-        <p class="ms-body text-secondary">L'IA puise dans notre base de données contextuelle pour vous proposer des réponses fondées sur des données réelles, pas sur des hallucinations</p>
-        <div class="mt-[24px] rounded-[8px] overflow-hidden border border-border">
-          <img src="/images/insight_app/explorer.png" alt="Explorer — assistant IA" class="w-full block" loading="lazy" decoding="async" />
+    <p class="ms-body">Le suivi en euros de vos opérations en cours, et l'évolution de votre environnement : concurrence, météo, mobilité, calendrier.</p>
+  </div>
+</section>
+<section style="padding-bottom:80px">
+  <div class="ms-container">
+    <div class="mock wide">
+      <div class="mock-top" style="padding:18px 20px 20px">
+        <div class="tb-card" style="padding:16px 18px;margin-bottom:10px;">
+          <p class="tb-eb">CA multi-site</p>
+          <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-top:4px;">
+            <div style="flex:none;">
+              <div style="font-size:32px;font-weight:700;line-height:1;color:#111827;letter-spacing:-.01em;">34 620 €</div>
+              <div style="font-size:11.5px;margin-top:5px;color:#047857;">+5,7 % vs votre résultat habituel</div>
+            </div>
+            <svg viewBox="0 0 320 62" style="flex:1;min-width:180px;height:62px;"><polyline points="6.0,40.2 29.7,40.2 53.4,40.2 77.1,40.2 100.8,40.2 124.5,40.2 148.2,40.2 171.8,40.2 195.5,40.2 219.2,40.2 242.9,40.2 266.6,40.2 290.3,40.2 314.0,40.2" fill="none" stroke="#D1D5DB" stroke-width="1.2" stroke-dasharray="4,3"><title>votre résultat habituel, jour par jour</title></polyline><polyline points="6.0,43.7 29.7,36.2 53.4,48.8 77.1,39.6 100.8,44.8 124.5,32.2 148.2,41.9 171.8,29.9 195.5,20.7 219.2,43.1 242.9,17.2 266.6,24.1 290.3,9.2 314.0,24.7" fill="none" stroke="#059669" stroke-width="2"/><circle cx="314.0" cy="24.7" r="3" fill="#059669"/><text x="6" y="61" font-size="8.5" fill="#9CA3AF">08/09</text><text x="314" y="61" font-size="8.5" fill="#9CA3AF" text-anchor="end">21/09</text></svg>
+          </div>
         </div>
-      </div>
 
-      <!-- Sélectionner -->
-      <div class="p-[40px] border-b md:border-b-0 md:border-r border-border">
-        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">02</p>
-        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Sélectionner</p>
-        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">Identifiez les bonnes fenêtres d'opportunité</h3>
-        <p class="ms-body text-secondary">En un coup d'œil, visualisez les jours à risque, les vacances, les jours fériés et les événements régionaux avant de vous engager sur une date ou un budget</p>
-        <div class="mt-[24px] rounded-[8px] overflow-hidden border border-border">
-          <img src="/images/insight_app/selectioner.png" alt="Sélectionner — calendrier 30 jours" class="w-full block" loading="lazy" decoding="async" />
+        <div class="tb-hero">
+          <div class="tb-t2"><p class="tb-eb">Impact 30 jours</p><span class="tb-n2" style="color:#047857">+4 180 €</span><span class="tb-s2">écarts mesurés</span></div>
+          <div class="tb-t2"><p class="tb-eb">CA 7 jours</p><span class="tb-n2">16 940 €</span><span class="tb-s2">2 sites</span></div>
+          <div class="tb-t2"><p class="tb-eb">Signaux traités</p><span class="tb-n2">31</span><span class="tb-s2">sur 44 reçus</span></div>
+          <div class="tb-t2"><p class="tb-eb">Opérations en cours</p><span class="tb-n2">3</span><span class="tb-s2">prochain verdict le 28/09</span></div>
+          <div class="tb-t2"><p class="tb-eb">Dispositifs prouvés</p><span class="tb-n2">7</span><span class="tb-s2">réutilisables</span></div>
         </div>
-      </div>
 
-      <!-- Comparer -->
-      <div class="p-[32px]">
-        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">03</p>
-        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Comparer</p>
-        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">Comparez jusqu'à 7 dates côte à côte</h3>
-        <p class="ms-body text-secondary">Analysez chaque date en détail — indice de faisabilité, signaux clés, disponibilité de votre audience — et choisissez celle qui concentre le moins de risques</p>
-        <div class="mt-[24px] rounded-[8px] overflow-hidden border border-border">
-          <img src="/images/insight_app/comparer.png" alt="Comparer — analyse détaillée des dates" class="w-full block" loading="lazy" decoding="async" />
+        <p class="tb-eb" style="margin:22px 2px 6px;">À faire <span style="font-size:12px;font-weight:600;color:#1D3BB3;letter-spacing:0;text-transform:none;">4</span></p>
+        <div class="tb-af">
+          <div class="tb-afrow">Reconduire « Offre datée sur les week-ends de vacances »<span class="tb-afval">+9,4 % la dernière fois</span></div>
+          <div class="tb-afrow">Confier la carte du jour à un membre de l'équipe<span class="tb-afval">−5 760 €/an</span></div>
+          <div class="tb-afrow">Documenter les résultats de la version 2<span class="tb-afval">objectif atteint</span></div>
         </div>
-      </div>
 
-    </div>
-  </section>
+        <p class="tb-eb" style="margin:22px 2px 6px;">Opérations en cours</p>
+        <div class="tb-rbgrid">
+          <div class="tb-rb"><span class="tb-chip" style="background:#ECFDF5;color:#047857;font-weight:600;">Dispositif actif</span><p class="tb-rbt">Offre datée sur les week-ends de vacances · version 2</p><div class="tb-jg"><div style="position:absolute;left:0;top:0;height:8px;width:100%;background:#10B981;"></div></div><p class="tb-rbs">+12 % <span style="color:#9CA3AF;">· sur 4 jours mesurés</span></p></div>
+          <div class="tb-rb"><span class="tb-chip" style="background:#EEF2FF;color:#1D3BB3;font-weight:600;">En test</span><p class="tb-rbt">Montée en gamme proposée en caisse</p><div class="tb-jg"><div style="position:absolute;left:0;top:0;height:8px;width:38%;background:#1D3BB3;"></div></div><p class="tb-rbs">+3,1 % <span style="color:#9CA3AF;">· sur 2 jours mesurés sur 10</span></p></div>
+          <div class="tb-rb"><span class="tb-chip" style="background:#F3F4F6;color:#6B7280;font-weight:600;">Prochain verdict</span><p class="tb-rbt">Nocturne du jeudi</p><div class="tb-jg"><div style="position:absolute;left:0;top:0;height:8px;width:60%;background:#9CA3AF;"></div></div><p class="tb-rbs">le 28/09 <span style="color:#9CA3AF;">· 6 jours mesurés sur 10</span></p></div>
+        </div>
 
-  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+        <p class="tb-eb" style="margin:22px 2px 6px;">Vos pôles</p>
+        <div class="tb-rbgrid" style="grid-template-columns:repeat(2,1fr);">
+          <div class="tb-rb"><p class="tb-eb">Pôle · Boutique</p><div style="display:flex;gap:18px;margin-top:8px;"><div><p class="tb-eb">CA du pôle</p><span class="tb-n2" style="font-size:18px;">+6,2 %</span></div><div><p class="tb-eb">poids du CA</p><span class="tb-n2" style="font-size:18px;">64 %</span></div></div><p class="tb-rbs">Dispositif en continu · 2 opérations rattachées</p></div>
+          <div class="tb-rb"><p class="tb-eb">Pôle · Restauration</p><div style="display:flex;gap:18px;margin-top:8px;"><div><p class="tb-eb">CA du pôle</p><span class="tb-n2" style="font-size:18px;color:#B45309;">−1,4 %</span></div><div><p class="tb-eb">poids du CA</p><span class="tb-n2" style="font-size:18px;">36 %</span></div></div><p class="tb-rbs">Dispositif en continu · 1 opération rattachée</p></div>
+        </div>
 
-  <!-- ── PILOTER ── -->
-  <section class="ms-section pb-[48px]">
-    <div class="flex items-center gap-[16px] mb-[20px]">
-      <span class="inline-block text-[18px] font-medium tracking-[0.12em] uppercase text-primary pl-[12px] border-l-[2px] border-[var(--color-brand-blue)]">Piloter</span>
-      <h2 class="font-heading font-semibold text-[20px] md:text-[24px] leading-[1.2] text-primary">Suivez vos risques chaque jour</h2>
-    </div>
-    <p class="ms-body text-secondary">
-      Une fois votre date choisie, vous êtes informé  des nouveaux risques apparus depuis votre décision sur l'ensemble de vos sites. Soyez prêt le jour J pour faire face aux impondérables!
-    </p>
-  </section>
+        <p class="tb-eb" style="margin:22px 2px 6px;">Processus métiers</p>
+        <div class="tb-af">
+          <div class="tb-afrow"><span style="width:7px;height:7px;border-radius:50%;background:#047857;display:inline-block;"></span>Mes dispositifs<span class="tb-afval" style="font-weight:500;color:#374151;">7 prouvés · 2 en test · 1 écarté</span></div>
+          <div class="tb-afrow"><span style="width:7px;height:7px;border-radius:50%;background:#9CA3AF;display:inline-block;"></span>Connaissances créées<span class="tb-afval" style="font-weight:500;color:#374151;">12 fiches</span></div>
+          <div class="tb-afrow"><span style="width:7px;height:7px;border-radius:50%;background:#9CA3AF;display:inline-block;"></span>Automatisations<span class="tb-afval" style="font-weight:500;color:#374151;">2 actives</span></div>
+        </div>
+        <div style="font-size:12.5px;color:#374151;margin:10px 2px 0;">Mes dispositifs, jugés selon leurs résultats — <span style="font-weight:650;">7 prouvés · 2 en test · 1 écarté</span>. Prouvé = réutilisable ; écarté = à ajuster avant de retester.</div>
 
-  <!-- Piloter grid -->
-  <section class="mx-auto max-w-[1140px] px-[24px] pb-[64px]">
-    <div class="grid md:grid-cols-2 gap-[56px] items-start mb-[64px]">
-      <div class="self-start pt-[8px]">
-        <h3 class="font-heading font-semibold text-[22px] md:text-[26px] leading-[1.25] text-primary mb-[16px]">
-          Chaque matin, soyez informé des signaux qui ont changé autour de vos sites
-        </h3>
-        <p class="ms-body text-secondary">
-          Tableau de bord quotidien par site: points de vigilance, signaux critiques, évolution de votre contexte opérationnel
-        </p>
-        <p class="mt-[12px] ms-body text-secondary">
-          Gérez plusieurs sites depuis une interface unique. Chaque site a son propre niveau de risque journalier, visible en un coup d'œil
-        </p>
-      </div>
-      <img src="/images/insight_app/piloter.png" alt="Piloter — tableau de bord quotidien" class="w-full rounded-[12px] border border-border shadow-sm" loading="lazy" decoding="async" />
-    </div>
-
-    <!-- Map row — reversed -->
-    <div class="grid md:grid-cols-2 gap-[40px] items-start">
-      <img src="/images/insight_app/map.png" alt="Carte — pression concurrentielle" class="w-full rounded-[12px] border border-border shadow-sm" loading="lazy" decoding="async" />
-      <div class="self-start pt-[8px]">
-        <h3 class="font-heading font-semibold text-[22px] md:text-[26px] leading-[1.25] text-primary mb-[16px]">
-          Visualisez la pression concurrentielle autour de votre site
-        </h3>
-        <p class="ms-body text-secondary">
-          Cartographiez les événements concurrents dans un rayon de 500m à 10km. Filtrez par type d'événement et évaluez l'impact sur votre fréquentation
-        </p>
+        <p class="tb-eb" style="margin:22px 2px 6px;">Mon environnement</p>
+        <div class="tb-af">
+          <div class="tb-afrow"><span style="width:7px;height:7px;border-radius:50%;background:#B45309;display:inline-block;"></span>Activité dans votre périmètre<span class="tb-afval" style="font-weight:500;color:#374151;">12 événements au lieu de 31</span></div>
+          <div class="tb-afrow"><span style="width:7px;height:7px;border-radius:50%;background:#9CA3AF;display:inline-block;"></span>Opportunités<span class="tb-afval" style="font-weight:500;color:#374151;">3 sur 7 jours</span></div>
+          <div class="tb-afrow"><span style="width:7px;height:7px;border-radius:50%;background:#9CA3AF;display:inline-block;"></span>Veille<span class="tb-afval" style="font-weight:500;color:#374151;">4 suivis · lus cette nuit</span></div>
+        </div>
       </div>
     </div>
-  </section>
+    <p class="mk-cap" style="width:100%">Maquette du tableau de bord — libellés et styles repris de la page Piloter</p>
+  </div>
+</section>
 
-  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
-
-  <!-- ── ALERTES ── -->
-  <section class="ms-section pb-[48px]">
-    <div class="flex items-center gap-[16px] mb-[20px]">
-      <span class="inline-block text-[18px] font-medium tracking-[0.12em] uppercase text-primary pl-[12px] border-l-[2px] border-[var(--color-brand-blue)]">Alertes</span>
-      <h2 class="font-heading font-semibold text-[20px] md:text-[24px] leading-[1.2] text-primary">Restez informé sans ouvrir l'application</h2>
+<!-- F. ALERTES -->
+<section class="ms-section tight">
+  <div class="ms-container">
+    <div class="sec-head">
+      <span class="eyebrow">Alertes</span>
+      <h2 class="sec-title">Restez informé sans ouvrir l'application</h2>
     </div>
-    <p class="ms-body text-secondary">
-      Recevez vos alertes contextuelles par email — à la fréquence de votre choix et jusqu'à 3 destinataires.
-    </p>
-  </section>
+    <p class="ms-body">Vos équipes savent ce qui a changé autour de vos sites sans se connecter — les envois partent par email et sur vos canaux.</p>
+  </div>
+</section>
 
-  <section class="mx-auto max-w-[1140px] px-[24px] pb-[80px]">
-    <div class="grid md:grid-cols-2 gap-[40px] items-start">
-      <div class="self-start space-y-[12px]">
-        <div class="rounded-[8px] border border-border p-[18px]">
-          <p class="font-heading font-semibold text-[14px] text-primary mb-[4px]">Résumé hebdomadaire</p>
-          <p class="ms-body text-secondary text-[13px]">Un email par semaine avec l'état de vos dates — scores, alertes, météo à 7 jours. Jour et heure configurables.</p>
+<section style="padding-bottom:80px">
+  <div class="ms-container">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start">
+      <div class="cards">
+        <div class="card">
+          <p>Le brief de la semaine</p>
+          <p>Le récap de ce qui a bougé sur vos sites, et la semaine à venir. Sans ouvrir l'app.</p>
         </div>
-        <div class="rounded-[8px] border border-border p-[18px]">
-          <p class="font-heading font-semibold text-[14px] text-primary mb-[4px]">Alerte immédiate niveau 3–4</p>
-          <p class="ms-body text-secondary text-[13px]">Notification immédiate dès qu'un risque fort est détecté — concurrence directe, météo sévère, mobilité bloquée.</p>
+        <div class="card">
+          <p>Alertes contextuelles par email</p>
+          <p>Vous êtes averti quand un signal important apparaît dans votre périmètre : perturbation RATP/SNCF, alerte Météo-France, nouvel événement chez un suivi.</p>
         </div>
-        <div class="rounded-[8px] border border-border p-[18px]">
-          <p class="font-heading font-semibold text-[14px] text-primary mb-[4px]">Email quotidien J–7</p>
-          <p class="ms-body text-secondary text-[13px]">À partir de 7 jours avant votre date, un email quotidien avec les prévisions météo, mobilité et concurrence en temps réel.</p>
+        <div class="card">
+          <p>Transmission directe aux équipes</p>
+          <p>Communiquer et Faire suivre envoient l'action à vos collaborateurs sur Google Business, Instagram, Email ou Slack.</p>
         </div>
       </div>
-      <img src="/images/insight_app/alertes.png" alt="Alertes — configuration des notifications" class="w-full rounded-[12px] border border-border shadow-sm" loading="lazy" decoding="async" />
+      <img src="/images/insight_app/alertes.png" alt="Alertes — configuration des notifications" style="width:100%;height:auto;display:block;border:1px solid var(--color-border);border-radius:12px" loading="lazy" decoding="async" />
     </div>
-  </section>
+  </div>
+</section>
 
-  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+<div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
 
-  <!-- ── NOTRE APPROCHE DE L'IA ── -->
-  <section class="ms-section pb-[48px]">
-    <div class="flex items-center gap-[16px] mb-[20px]">
-      <span class="inline-block text-[18px] font-medium tracking-[0.12em] uppercase text-primary pl-[12px] border-l-[2px] border-[var(--color-brand-blue)]">Intelligence artificielle</span>
-      <h2 class="font-heading font-semibold text-[20px] md:text-[24px] leading-[1.2] text-primary">Notre approche de l'IA</h2>
+<!-- G. LES 4 SIGNAUX -->
+<section class="ms-section tight">
+  <div class="ms-container">
+    <h2 class="ms-h2" style="margin:0 0 32px">Les 4 signaux de risque</h2>
+    <div class="grid22">
+      <div>
+        <h3 class="sig-title">Activité dans votre périmètre</h3>
+        <p class="ms-body">Densité d'événements de 500 m à 50 km autour de votre site, et la veille de vos suivis relue chaque nuit : prix, offres, avis, horaires, actualité commerciale.</p>
+        <div class="chip"><span class="dot"></span><span class="txt">87 événements ce week-end — dans la moyenne</span></div>
+        <div class="chip"><span class="dot"></span><span class="txt">1 nouvel événement détecté à moins de 500 m</span></div>
+      </div>
+      <div>
+        <h3 class="sig-title">Mobilité</h3>
+        <p class="ms-body">Perturbations RATP/SNCF, grèves, travaux, préavis déposés. Impact attendu sur les flux entrants vers vos sites le jour J.</p>
+        <div class="chip"><span class="dot"></span><span class="txt">Accès au site fluide par la route</span></div>
+        <div class="chip"><span class="dot"></span><span class="txt">Travaux sur la ligne 4 du métro</span></div>
+      </div>
+      <div>
+        <h3 class="sig-title">Calendrier contextuel</h3>
+        <p class="ms-body">Jours fériés, vacances scolaires par académie, soldes, événements régionaux. Disponibilité réelle de votre audience cible.</p>
+        <div class="chip"><span class="dot"></span><span class="txt">Fashion week — pas d'impact sur clientèle professionnelle</span></div>
+        <div class="chip"><span class="dot"></span><span class="txt">Jour férié — résidents locaux peu disponibles</span></div>
+      </div>
+      <div>
+        <h3 class="sig-title">Météo</h3>
+        <p class="ms-body">Précipitations horaires, température, vent, alertes Météo-France. Impact sur la faisabilité extérieure et sur la décision de déplacement de votre audience.</p>
+        <div class="chip"><span class="dot"></span><span class="txt">Pluie faible — sans impact sur la fréquentation</span></div>
+        <div class="chip"><span class="dot"></span><span class="txt">Vent fort — impact sur les conditions d'exploitation</span></div>
+      </div>
     </div>
-    <p class="ms-body text-secondary">
-      L'IA de Muse Square est connectée à sa propre base de données. Ses réponses sont sourcées, vérifiables et limitées à ce qu'elle peut prouver.
-    </p>
-  </section>
+  </div>
+</section>
 
-  <section class="mx-auto max-w-[1140px] px-[24px] pb-[40px]">
-    <div class="grid grid-cols-1 md:grid-cols-3 border border-border rounded-[10px] overflow-hidden">
+<div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
 
-      <div class="p-[40px] border-b md:border-b-0 md:border-r border-border">
-        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">01</p>
-        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Data-driven</p>
-        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">Une IA basée sur des données sourcées</h3>
-        <p class="ms-body text-secondary">L'IA interroge notre base de données contextuelle et vous les restitue fidèlement. Elle ne génère pas de réponses ou de recommendations ad-hoc</p>
-      </div>
-
-      <div class="p-[40px] border-b md:border-b-0 md:border-r border-border">
-        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">02</p>
-        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Vérifiable</p>
-        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">Recoupez vous-même les données utilisées par l'IA</h3>
-        <p class="ms-body text-secondary">Chaque recommandation s'appuie sur des données que vous pouvez consulter directement. Aucune boîte noire. Les données sources sont accessibles. Vous vérifiez, vous décidez.</p>
-      </div>
-
-      <div class="p-[40px]">
-        <p class="text-[36px] font-heading text-border leading-none mb-[16px]">03</p>
-        <p class="text-[11px] font-semibold tracking-[0.12em] uppercase text-secondary mb-[8px]">Rigoureuse</p>
-        <h3 class="font-heading font-semibold text-[19px] leading-[1.3] text-primary mb-[10px]">La fiabilité avant l'exhaustivité</h3>
-        <p class="ms-body text-secondary">Les décisions qui engagent un budget n'ont pas droit à l'approximation. C'est pourquoi nous avons développé une IA spécialisée sur un nombre limité de régions — Île-de-France, Occitanie, PACA — avant d'élargir sa couverture territoriale</p>
-      </div>
-
+<!-- SÉCURITÉ & DONNÉES -->
+<section class="ms-section tight">
+  <div class="ms-container">
+    <div class="sec-head">
+      <span class="eyebrow">Sécurité</span>
+      <h2 class="sec-title">Vos données restent chez vous, en Europe</h2>
     </div>
-  </section>
+    <p class="ms-body">Vos ventes et votre historique d'exploitation ne sont partagés avec personne. Voici où ils sont, qui y accède, et ce que l'IA en voit.</p>
+  </div>
+</section>
 
-  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
-
-  <!-- ── 4 SIGNAUX ── -->
-  <section class="ms-section">
-    <h2 class="ms-h2 mb-[32px]">Les 4 signaux de risque</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 border border-border rounded-[8px] overflow-hidden">
-
-      <div class="p-[28px] border-b border-r border-border">
-        <div class="flex items-start gap-[12px] mb-[16px]">
-          <div class="shrink-0 mt-[2px] text-[var(--color-brand-blue)]">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 2v2M16 2v2"/></svg>
-          </div>
-          <div>
-            <h3 class="font-heading font-semibold text-[17px] text-primary mb-[8px]">Concurrence événementielle</h3>
-            <p class="ms-body text-secondary">Densité d'activations concurrentes de 500m à 50km autour de votre site. Saturation de l'attention locale et impact estimé sur votre fréquentation.</p>
-          </div>
-        </div>
-        <div class="flex flex-col gap-[6px]">
-          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
-            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
-            <span class="text-[12px] text-[#0b37e5] font-medium">87 événements ce week-end — dans la moyenne</span>
-          </div>
-          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
-            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
-            <span class="text-[12px] text-[#0b37e5] font-medium">1 nouvel événement détecté à moins de 500m</span>
-          </div>
-        </div>
+<section style="padding-bottom:40px">
+  <div class="ms-container">
+    <div class="grid3 boxed">
+      <div>
+        <p class="num">01</p>
+        <p class="kicker">Hébergement</p>
+        <h3 class="c-title">Hébergement en Europe, étanchéité entre clients</h3>
+        <p class="ms-body">Données hébergées en Europe sur Google BigQuery EU. Chiffrement en transit et au repos. Aucune donnée n'est partagée entre clients.</p>
       </div>
-
-      <div class="p-[28px] border-b border-border">
-        <div class="flex items-start gap-[12px] mb-[16px]">
-          <div class="shrink-0 mt-[2px] text-[var(--color-brand-blue)]">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>
-          </div>
-          <div>
-            <h3 class="font-heading font-semibold text-[17px] text-primary mb-[8px]">Mobilité</h3>
-            <p class="ms-body text-secondary">Perturbations RATP/SNCF, grèves, travaux, préavis déposés. Impact attendu sur les flux entrants vers vos sites le jour J.</p>
-          </div>
-        </div>
-        <div class="flex flex-col gap-[6px]">
-          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
-            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
-            <span class="text-[12px] text-[#0b37e5] font-medium">Accès au site fluide par la route</span>
-          </div>
-          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
-            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
-            <span class="text-[12px] text-[#0b37e5] font-medium">Travaux sur la ligne 4 du métro</span>
-          </div>
-        </div>
+      <div>
+        <p class="num">02</p>
+        <p class="kicker">Protection</p>
+        <h3 class="c-title">Ce que nous ne reprenons pas de vos ventes</h3>
+        <p class="ms-body">Seules les ventes facturées portent un nom de client, repris avec l'historique de commandes — sans coordonnées ni moyen de paiement.</p>
       </div>
-
-      <div class="p-[28px] border-r border-border">
-        <div class="flex items-start gap-[12px] mb-[16px]">
-          <div class="shrink-0 mt-[2px] text-[var(--color-brand-blue)]">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 2v2M16 2v2M8 14h2M12 14h2M16 14h2M8 18h2M12 18h2"/></svg>
-          </div>
-          <div>
-            <h3 class="font-heading font-semibold text-[17px] text-primary mb-[8px]">Calendrier contextuel</h3>
-            <p class="ms-body text-secondary">Jours fériés, vacances scolaires par académie, soldes nationaux, événements à fort impact. Disponibilité réelle de votre audience cible.</p>
-          </div>
-        </div>
-        <div class="flex flex-col gap-[6px]">
-          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
-            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
-            <span class="text-[12px] text-[#0b37e5] font-medium">Fashion week — pas d'impact sur clientèle professionnelle</span>
-          </div>
-          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
-            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
-            <span class="text-[12px] text-[#0b37e5] font-medium">Jour férié — résidents locaux peu disponibles</span>
-          </div>
-        </div>
+      <div>
+        <p class="num">03</p>
+        <p class="kicker">Intelligence</p>
+        <h3 class="c-title">Modèles bornés, sans entraînement sur vos données</h3>
+        <p class="ms-body">Appels via l'API Anthropic (Claude), pas le produit grand public. Données supprimées sous 30 jours. Aucun entraînement sur vos données.</p>
       </div>
-
-      <div class="p-[28px]">
-        <div class="flex items-start gap-[12px] mb-[16px]">
-          <div class="shrink-0 mt-[2px] text-[var(--color-brand-blue)]">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-          </div>
-          <div>
-            <h3 class="font-heading font-semibold text-[17px] text-primary mb-[8px]">Météo</h3>
-            <p class="ms-body text-secondary">Précipitations horaires, température, vent, alertes Météo-France. Impact sur la faisabilité outdoor/indoor et sur la décision de déplacement de votre audience.</p>
-          </div>
-        </div>
-        <div class="flex flex-col gap-[6px]">
-          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
-            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
-            <span class="text-[12px] text-[#0b37e5] font-medium">Pluie faible — sans impact sur la fréquentation</span>
-          </div>
-          <div class="flex items-start gap-[8px] bg-[#e8eeff] rounded-[4px] px-[10px] py-[6px]">
-            <span class="mt-[5px] shrink-0 w-[6px] h-[6px] rounded-full bg-[var(--color-brand-blue)]"></span>
-            <span class="text-[12px] text-[#0b37e5] font-medium">Vent fort — impact sur les conditions d'exploitation</span>
-          </div>
-        </div>
-      </div>
-
     </div>
-  </section>
+  </div>
+</section>
 
-  <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
+<div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
 
-  <!-- ── CTA ── -->
+  <!-- H. CLÔTURE — markup de la page actuelle, copie du proto -->
   <section class="ms-section" aria-labelledby="cta-title">
     <div class="max-w-[980px] mx-auto">
       <div class="flex justify-center">
@@ -337,7 +414,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           Vous avez des besoins spécifiques ?
         </h2>
         <p class="ms-body text-secondary max-w-[520px] mx-auto mb-[8px]">
-          Nous travaillons avec un nombre limité d'organisations pour affiner la plateforme. Si la gestion des risques contextuels est un enjeu pour vous, parlons-en.
+          Nous travaillons avec un nombre limité d'organisations pour affiner la plateforme. Si mesurer ce qui marche chez vous est un enjeu, parlons-en.
         </p>
         <p class="ms-eyebrow text-muted mb-[32px]">
           Couverture beta : Île-de-France, Occitanie, Provence-Alpes-Côte d'Azur.
@@ -352,3 +429,122 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <div class="ms-divider my-[6px] sm:my-[8px] lg:my-[12px]"></div>
 
 </BaseLayout>
+
+<style>
+  .eyebrow{display:inline-block;font-size:18px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--color-text-primary);padding-left:12px;border-left:2px solid var(--color-brand-blue)}
+  .sec-head{display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+  .sec-title{font-weight:600;font-size:24px;line-height:1.2}
+  .serie{border:1px solid var(--color-border);border-radius:10px;overflow:hidden}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);align-items:start;border-bottom:1px solid var(--color-border)}
+  .grid3 > div{padding:40px;border-right:1px solid var(--color-border)}
+  .grid3 > div:last-child{border-right:0}
+  .serie .row2{grid-template-columns:1fr;gap:24px;padding:40px;margin:0;border-bottom:1px solid var(--color-border)}
+  .serie .row2 > div:first-child{max-width:760px}
+  .serie .row2:last-child{border-bottom:0}
+  .num{font-size:36px;color:var(--color-border);line-height:1;margin:0 0 16px}
+  .kicker{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--color-text-secondary);margin:0 0 8px}
+  .c-title{font-weight:600;font-size:19px;line-height:1.3;margin:0 0 10px}
+  .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:56px;align-items:start;margin-bottom:64px}
+  .row2 > div{min-width:0}
+  .row2 h3{font-weight:600;font-size:26px;line-height:1.25;margin:0 0 16px}
+  .cards{display:flex;flex-direction:column;gap:12px}
+  .card{border:1px solid var(--color-border);border-radius:8px;padding:18px}
+  .card p:first-child{font-weight:600;font-size:14px;margin:0 0 4px;color:var(--color-text-primary)}
+  .card p:last-child{font-size:13px;line-height:1.55;color:var(--color-text-secondary);margin:0}
+  .grid3.boxed{border:1px solid var(--color-border);border-radius:10px;overflow:hidden;border-bottom:1px solid var(--color-border)}
+  .grid22{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--color-border);border-radius:8px;overflow:hidden}
+  .grid22 > div{padding:28px;border-right:1px solid var(--color-border);border-bottom:1px solid var(--color-border)}
+  .grid22 > div:nth-child(2n){border-right:0}
+  .grid22 > div:nth-child(n+3){border-bottom:0}
+  .sig-title{font-weight:600;font-size:17px;margin:0 0 8px}
+  .chip{display:flex;align-items:flex-start;gap:8px;background:#e8eeff;border-radius:4px;padding:6px 10px;margin-top:6px}
+  .chip span.dot{margin-top:5px;flex:0 0 auto;width:6px;height:6px;border-radius:50%;background:var(--color-brand-blue)}
+  .chip span.txt{font-size:12px;color:#0b37e5;font-weight:500}
+  .hero{position:relative;background:#fff;overflow:hidden}
+  .hero-photo{position:absolute;top:0;right:0;bottom:0;width:56%;background-image:url('/images/home-hero-1440x500.webp');background-size:cover;background-position:right center;
+    -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.42) 38%,rgba(0,0,0,.95) 100%);
+    mask-image:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.42) 38%,rgba(0,0,0,.95) 100%)}
+  .hero-in{position:relative;z-index:2;padding:88px 0 72px;max-width:620px}
+  .hero .ms-h1{color:var(--color-text-primary)}
+  .hero p{color:#374151;font-size:19px;line-height:1.55;margin:22px 0 0;max-width:560px}
+  @media (max-width:860px){.hero-photo{display:none}.hero-in{padding:64px 0 48px}}
+  /* --- maquettes d'écran : valeurs reprises de pulse.astro (.ab-*) --- */
+  .mock{background:#fff;border:1px solid var(--color-border);border-radius:10px;box-shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04);overflow:hidden;font-size:13px;width:100%;max-width:680px}
+  .mock-top{padding:18px 20px 8px}
+  .mk-pills{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:7px}
+  .mk-pill{font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;background:#EEF2FF;color:#1D3BB3}
+  .mk-pill.g{background:#ECFDF5;color:#047857}.mk-pill.a{background:#FFF7ED;color:#B45309}.mk-pill.n{background:#F3F4F6;color:#6B7280}
+  .mk-grid{display:grid;grid-template-columns:minmax(0,1fr) 156px;gap:0 14px;align-items:start}
+  .mk-what{font-size:15px;font-weight:650;color:#111827;line-height:1.35;letter-spacing:-.01em;margin:0 0 6px}
+  .mk-sowhat{font-size:12.5px;color:#374151;line-height:1.6;margin:0}
+  .mk-eur{text-align:right}
+  .mk-meta{display:block;font-size:10.5px;color:#6B7280;margin-bottom:2px}
+  .mk-amt{font-size:19px;font-weight:600;color:#B45309;line-height:1.1;font-variant-numeric:tabular-nums}
+  .mk-amt.up{color:#047857}
+  .mk-sub{display:block;font-size:10.5px;color:#9CA3AF;margin-top:2px}
+  .mk-act{margin-top:10px;padding-top:10px;border-top:.5px solid #F3F4F6;font-size:12.5px;color:#111827;line-height:1.5}
+  .mk-foot{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 20px 14px;border-top:.5px solid #F3F4F6}
+  .mk-pri{font-size:12.5px;font-weight:650;color:#1D3BB3}
+  .mk-sec{font-size:12.5px;font-weight:500;color:#6B7280}
+  .mk-row{display:flex;align-items:center;gap:10px;padding:10px 20px;border-top:.5px solid #F3F4F6}
+  .mk-row:first-of-type{border-top:0}
+  .mk-dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .mk-rt{flex:1;min-width:0}
+  .mk-rt b{display:block;font-size:12.5px;font-weight:620;color:#111827}
+  .mk-rt span{display:block;font-size:11px;color:#6B7280;margin-top:1px}
+  .mk-cap{font-size:10.5px;color:var(--color-text-muted);margin-top:6px;font-style:italic;width:100%;max-width:680px}
+  /* --- bloc « Plan à essayer » : valeurs reprises de insight.astro --- */
+  /* --- bloc « Plan à reprendre » : valeurs reprises de insight.astro --- */
+  /* --- Explorer : pastille de registre + chips de source (card-kit.js) --- */
+  .ex-q{font-size:15px;font-weight:500;color:#111827;line-height:1.4;margin:0 0 14px}
+  .ex-pill{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:#0b37e5;color:#fff;margin-bottom:10px;letter-spacing:.04em}
+  .ex-lead{font-size:18px;font-weight:650;line-height:1.35;margin:0 0 10px;color:#111827}
+  .ex-p{font-size:14px;line-height:1.6;color:#374151;margin:0 0 14px}
+  .ex-chips{margin:-9px 0 12px}
+  .ex-chip{display:inline-block;font-size:10px;font-weight:600;padding:1px 8px;border-radius:20px;background:#F3F4F6;color:#6b7280;letter-spacing:.03em;margin-right:4px}
+  /* --- Piloter : tuiles héros (tableau.astro) --- */
+  .mock.wide{width:100%}
+  .tb-card{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:10px;box-shadow:0 1px 3px rgba(16,24,40,.06),0 1px 2px rgba(16,24,40,.04)}
+  .tb-rbgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+  .tb-rb{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:12px;padding:11px 13px;box-shadow:0 1px 2px rgba(16,24,40,.04);text-align:left}
+  .tb-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:20px;white-space:nowrap}
+  .tb-rbt{font-size:12.5px;font-weight:620;color:#111827;line-height:1.35;margin:6px 0 0}
+  .tb-rbs{font-size:11.5px;color:#374151;line-height:1.6;margin-top:4px}
+  .tb-jg{position:relative;height:8px;background:#f0f2f5;border-radius:4px;margin-top:8px;overflow:hidden}
+  @media (max-width:860px){.tb-rbgrid{grid-template-columns:repeat(2,1fr)}}
+  .tb-af{border:1px solid rgba(0,0,0,.08);border-radius:10px;padding:10px 16px 14px;background:#fff;box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  .tb-afrow{display:flex;align-items:baseline;gap:10px;padding:8px 0;border-top:1px solid rgba(17,24,39,.06);font-size:13px;color:#111827}
+  .tb-afrow:first-of-type{border-top:0}
+  .tb-afval{margin-left:auto;font-weight:650;white-space:nowrap}
+  .tb-hero{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  .tb-t2{background:#F8FAFC;border:1px solid rgba(0,0,0,.06);border-radius:10px;padding:12px 14px;min-width:0;display:flex;flex-direction:column;gap:5px}
+  .tb-eb{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:rgba(17,24,39,.45);font-weight:500;margin:0}
+  .tb-n2{font-size:22px;font-weight:700;line-height:1.15;letter-spacing:-.01em;white-space:nowrap}
+  .tb-s2{font-size:10.5px;color:#6B7280}
+  @media (max-width:860px){.tb-hero{grid-template-columns:repeat(2,1fr)}}
+  .pr-box{border:1px solid #DBEAFE;background:#F5F8FF;border-radius:10px;padding:14px}
+  .pr-l1{font-size:14px;line-height:1.5;color:#111827}
+  .pr-eff{color:#166534;font-weight:600;white-space:nowrap}
+  .pr-l2{font-size:12.5px;color:#6B7280;line-height:1.5;margin-top:6px}
+  .pr-l3{font-size:12.5px;color:#6B7280;line-height:1.5;margin-top:4px}
+  .pr-date{font-size:11px;color:#9CA3AF;margin-top:6px}
+  .pr-btn{display:inline-block;margin-top:12px;padding:10px 14px;font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;border-radius:9px}
+  .pl-kick{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9CA3AF;margin-bottom:12px}
+  .pl-intro{font-size:12.5px;color:#6B7280;margin-bottom:14px;line-height:1.5}
+  .pl-card{border:1px solid #E3E9F2;background:#fff;border-radius:12px;padding:16px 18px;margin-bottom:12px}
+  .pl-t{font-size:14.5px;font-weight:600;color:#111827;line-height:1.35}
+  .pl-d{font-size:13px;color:#6B7280;line-height:1.55;margin-top:6px}
+  .pl-w{font-size:12.5px;color:#6B7280;line-height:1.55;margin-top:10px}
+  .pl-w b{font-weight:600;color:#4B5563}
+  .pl-how{margin-top:12px;border-top:1px solid #F1F1F1;padding-top:10px;font-size:12.5px;font-weight:600;color:#374151}
+  .pl-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;flex-wrap:wrap}
+  .pl-tag{font-size:11px;font-weight:600;color:#1D3BB3;background:#EEF2FF;border-radius:20px;padding:4px 11px}
+  .pl-pick{padding:8px 14px;font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border-radius:8px}
+  .pl-own{display:inline-block;padding:8px 14px;font-size:12.5px;font-weight:600;color:#1D3BB3;background:#fff;border:1px dashed #C7D2FE;border-radius:8px}
+  .mock.clip{max-height:430px;overflow:hidden;position:relative}
+  .mock.clip::after{content:"";position:absolute;left:0;right:0;bottom:0;height:90px;background:linear-gradient(to bottom,rgba(255,255,255,0),#fff)}
+  .pl-note{font-size:11px;color:#9CA3AF;line-height:1.5;margin-top:12px;font-style:italic}
+  @media (max-width:860px){.grid3,.row2,.grid22{grid-template-columns:1fr}.grid3>div{border-right:0;border-bottom:1px solid var(--color-border)}}
+  @media (max-width:860px){.serie .row2{padding:24px 16px}.grid3 > div{padding:24px 16px}.grid22 > div{padding:20px 16px}.row2{gap:28px;margin-bottom:40px}}
+  @media (max-width:480px){.mk-grid{grid-template-columns:1fr}.mk-eur{text-align:left;margin-top:8px}.tb-hero{grid-template-columns:1fr 1fr}}
+</style>

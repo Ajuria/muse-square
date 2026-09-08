@@ -135,8 +135,9 @@ Une règle écrite se relit ; une règle exécutée s'applique. Les trois portes
 - **`docs/archive/features/`** (4 as-built anglais, juillet) : convertir ce qui est vrai en `— DÉFINITIF`,
   supprimer le reste — 822 lignes à re-vérifier contre le code.
 - **`tools/proto/`** : les 40 protos des surfaces livrées sont SUPPRIMÉS le 05/09/2026 (avec 13 données et
-  12 générateurs). Reste `onboarding-proto.html` (à valider owner) et trois protos non suivis d'une autre session
-  (`agir-formats`, `agir-respiration`, `offres`) — à commiter puis supprimer, ou supprimer, selon leur sort.
+  12 générateurs). Reste `onboarding-proto.html` (à valider owner) et deux protos non suivis d'une autre session
+  (`agir-formats`, `agir-respiration`) — à commiter puis supprimer, ou supprimer, selon leur sort. `offres-proto.html`
+  ÉTAIT la page Plateforme réécrite par l'owner (01/09) : livrée dans `src/pages/offres.astro` le 08/09, proto supprimé.
 - **`tools/proto/schema-4-questions.svg`** (session du 04/09) : aucune référence dans `src/`, `content/`,
   `tools/` — rangé avec les protos ; à mettre dans `public/images/` s'il est destiné au site.
 
