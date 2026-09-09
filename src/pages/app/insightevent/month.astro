@@ -454,8 +454,8 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
             function initMap(lat, lon, label, date) {
               __locMap = L.map("ms-loc-map", { zoomControl: false }).setView([lat, lon], 14);
-              L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-                attribution: "© OpenStreetMap contributors"
+              L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                attribution: "© OpenStreetMap contributors", maxZoom: 19
               }).addTo(__locMap);
               __locMarker = L.circleMarker([lat, lon], {
                 radius: 8, fillColor: "#0b37e5", color: "#fff", weight: 2, fillOpacity: 1

@@ -1120,7 +1120,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var n5k = evsAll.filter(function (m) { return m.m != null && m.m <= 5000; }).length;
             var mapSite = evsAll[0] ? (j.sites || []).filter(function (sx) { return sx.location_id === evsAll[0].location_id; }).map(function (sx) { return sx.label; })[0] : null;
             html += '<div style="padding:10px 0 4px;">'
-              + '<a href="/app/insightevent/map?mode=concurrence" style="width:100%;display:block;text-align:left;background:none;border:1px solid rgba(0,0,0,0.10);border-radius:10px;overflow:hidden;cursor:pointer;text-decoration:none;color:inherit;" title="Ouvre la carte (les concurrents que vous suivez et les événements autour de votre site)">'
+              + '<a href="/app/insightevent/map?mode=concurrence&location_id=' + encodeURIComponent((evsAll[0] && evsAll[0].location_id) || locFilter || loc || "") + '" style="width:100%;display:block;text-align:left;background:none;border:1px solid rgba(0,0,0,0.10);border-radius:10px;overflow:hidden;cursor:pointer;text-decoration:none;color:inherit;" title="Ouvre la carte (les concurrents que vous suivez et les événements autour de votre site)">'
               + '<div style="position:relative;height:110px;background:#EBEEF2;">'
                 + '<svg viewBox="0 0 400 110" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;">'
                   + '<circle cx="200" cy="55" r="48" fill="#1D3BB3" fill-opacity="0.05" stroke="#1D3BB3" stroke-opacity="0.30" stroke-width="1.2"/>'
@@ -1233,7 +1233,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 + '<button type="button" class="tb-chip" data-ep-flt="tous" style="cursor:pointer;border:1px solid #1D3BB3;color:#1D3BB3;background:#EEF2FF;font-family:inherit;">Votre zone · ' + radLbl2 + ' (' + nZoneVrai + ')</button>'
                 + '<button type="button" class="tb-chip" data-ep-flt="commun" style="cursor:pointer;border:1px solid rgba(0,0,0,0.08);color:#6b7280;background:#fff;font-family:inherit;">Même public que vous (' + nCommun + ')</button></div>'
                 + '<div data-ep-list="' + loc2 + '">' + zone2.slice(0, 8).map(function (e2) { return epRow(e2, declared, false); }).join("") + '</div>';
-              if (nZoneVrai > 8) html += '<div style="padding:6px 0 0;"><a class="tb-link" href="/app/insightevent/map?mode=concurrence">Les ' + nZoneVrai + ' de votre zone → carte</a></div>';
+              if (nZoneVrai > 8) html += '<div style="padding:6px 0 0;"><a class="tb-link" href="/app/insightevent/map?mode=concurrence&location_id=' + encodeURIComponent(loc2 || "") + '">Les ' + nZoneVrai + ' de votre zone → carte</a></div>';
               html += beyondHtml;
               html += '<div style="padding:8px 0 0;font-size:11px;color:#9CA3AF;">' + nLus + ' événement' + (nLus > 1 ? 's ont' : ' a') + ' son public lu — la lecture s’étoffe chaque nuit, en commençant par les plus proches de vous.</div>';
             });

@@ -19,8 +19,15 @@ if (!locals_location_id) {
 }
 
 const is_embed = Astro.url?.searchParams?.get("embed") === "1";
-const url_location_id = Astro.url?.searchParams?.get("location_id") ?? "";
-const location_id = (is_embed && url_location_id) ? url_location_id : locals_location_id;
+const url_location_id = (Astro.url?.searchParams?.get("location_id") ?? "").trim();
+// 09/09 (owner, capture : carte centrée sur Nîmes alors que Piloter regardait Sèvres) — le site de l'URL
+// n'était honoré qu'en mode intégré ; hors intégration la page retombait sur le site de session (cookie
+// ms_active_location ou site principal). Le site de l'URL est honoré dès qu'il est POSSÉDÉ ou en membership
+// (mêmes listes que le middleware) ; sinon, site de session — jamais un site hors compte.
+const _ownedIds: string[] = Array.isArray((Astro.locals as any).all_location_ids) ? (Astro.locals as any).all_location_ids.map(String) : [];
+const _memberIds: string[] = Array.isArray((Astro.locals as any).member_location_ids) ? (Astro.locals as any).member_location_ids.map(String) : [];
+const _urlSiteAllowed = !!url_location_id && (is_embed || _ownedIds.includes(url_location_id) || _memberIds.includes(url_location_id));
+const location_id = _urlSiteAllowed ? url_location_id : locals_location_id;
 // 09/09 (owner : « the map doesn't work for Sèvres ») — le lien de Piloter (`map?mode=concurrence`) ne porte
 // pas de date ; la page envoyait `date=` vide à /api/insight/map, qui refusait (« Invalid date format ») et
 // la carte restait vide. Sans date dans l'URL : AUJOURD'HUI, heure de Paris (le jour que Piloter regarde).
@@ -250,10 +257,12 @@ async function init(){
 
 map = L.map('map').setView([48.86, 2.35], 14)
 
+// 09/09 (owner, capture : « API KEY REQUIRED » sur chaque tuile) — le fond CARTO basemaps exige
+// désormais une clé ; fond OpenStreetMap standard, sans clé, même attribution.
 L.tileLayer(
-'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
 {
-attribution:'© OpenStreetMap contributors'
+attribution:'© OpenStreetMap contributors', maxZoom: 19
 }
 ).addTo(map)
 
