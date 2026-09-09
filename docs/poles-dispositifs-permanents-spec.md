@@ -115,10 +115,18 @@ l'espace » ?
    mapping des dispositifs »). C'est un RENVERSEMENT de la proposition initiale, qui tolérait des
    familles orphelines. Le mapping famille → pôle doit être total.
 
-### Le pôle de reste — mécanique à trancher
+### « Non rattaché » — le mot est tranché, la mécanique est recommandée
 
-Le mot n'est pas arbitré (owner : « Divers ou quelque chose ») ; il est en file au lexique. Mais la
-mécanique se décide avant le mot, et les deux options ne se valent pas :
+**Le mot est « Non rattaché »** (owner 09/09, au lexique). C'est celui que la caisse imprime déjà :
+le relevé Crisalid d'Épices et Tout porte `NON RATTACHE (CA)` pour le chiffre d'affaires qui
+n'appartient à aucune famille (215,80 € sur la période, vérifié) — nous le reprenons un cran
+au-dessus, pour les familles qui n'appartiennent à aucun pôle. Même relation, même mot, mot que
+l'exploitant lit tous les mois. Le libellé est INVARIABLE : c'est un intitulé de ligne, il ne
+s'accorde pas avec « familles ». Écartés : « Divers » (se lit comme un pôle de plus dans une liste
+de pôles), « Sans pôle » (constate un état durable quand la règle veut qu'il se vide), « le reste du
+magasin » (c'est le reste du rangement).
+
+La mécanique, elle, reste à confirmer au build — les deux options ne se valent pas :
 
 - **(a) un pôle DÉCLARÉ** — l'exploitant crée un pôle « Divers » et y range les familles qui n'ont
   pas de place. Il a un responsable, un canal, une lecture continue, une chaîne de versions.
@@ -130,10 +138,13 @@ mécanique se décide avant le mot, et les deux options ne se valent pas :
   vendue. Elle porte son CA et son poids comme les autres lignes, sans responsable ni verdict —
   ce qui est juste, personne ne répond d'un reste.
 
-**Recommandation : (b).** Le seul argument pour (a) est de pouvoir documenter ce reste comme un
-pôle ; il tombe dès qu'on remarque qu'un reste qu'on documente est un pôle, et qu'il suffit alors
-de le créer. Reste à trancher par l'owner, avec son mot et l'endroit où le reste s'affiche (onglet
-Pôles du compte, section « Vos pôles » du tableau, ou les deux).
+**Recommandation : (b), non contestée.** Le seul argument pour (a) est de pouvoir documenter ce
+reste comme un pôle ; il tombe dès qu'on remarque qu'un reste qu'on documente EST un pôle, et qu'il
+suffit alors de le créer. Ligne rendue, telle qu'elle s'afficherait sur le découpage proposé pour
+Épices et Tout : **« Non rattaché · SUCRE, CONFITURE MIEL, APÉRITIF · 93 046 € · 11,3 % du CA »**.
+
+Reste UNE question owner avant de construire : **où la ligne s'affiche** — onglet Pôles du compte,
+section « Vos pôles » du tableau, ou les deux.
 
 ## Ce qui reste à faire
 
