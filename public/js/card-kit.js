@@ -901,10 +901,12 @@
           var nb2 = function (n2) { return (Math.round(Number(n2) * 100) / 100).toString().replace('.', ','); };
           var eu2 = function (n2) { return (Math.round(Number(n2) * 100) / 100).toFixed(2).replace('.', ',') + ' €'; };
           // La phrase d'abord : QUEL facteur porte la fluctuation (le ou les deux plus forts).
+          // 09/09 (owner : « Prix moyen d'un article is a non-sense — Panier moyen okay ») : DEUX facteurs,
+          // le nombre d'achats et le panier moyen (€ par achat) ; articles par achat × prix d'un article
+          // restent lisibles en infobulle sur la ligne du panier (leur produit EST le panier).
           var fs = [
             { key: 'tx', p: Math.abs(v.tx_pct || 0), lib: t('shape_vol_f_tx') },
-            { key: 'items', p: Math.abs(v.items_pct || 0), lib: t('shape_vol_f_items') },
-            { key: 'price', p: Math.abs(v.price_pct || 0), lib: t('shape_vol_f_price') },
+            { key: 'basket', p: Math.abs(v.basket_pct || 0), lib: t('shape_vol_f_basket') },
           ].sort(function (a, b) { return b.p - a.p; });
           h += lead(fs[1].p >= fs[0].p * 0.5
             ? t('shape_vol_lead_2', { f1: fs[0].lib, f2: fs[1].lib })
@@ -914,16 +916,17 @@
             n: v.ref.length, jour: jourRef,
             dates: v.ref.map(function (p2) { return msDateFr(p2.date); }).join(', '),
           });
-          var ligne = function (lab, val, ref, pct2) {
+          var ligne = function (lab, val, ref, pct2, tip2) {
             return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #f5f6f8;font-size:13px;">'
               + '<span style="min-width:0;"><span style="font-weight:600;color:#111827;">' + esc(lab) + '</span>'
-              + '<span style="display:block;color:#374151;font-size:11.5px;margin-top:1px;">' + esc(t('shape_vol_val', { v: val, ref: ref })) + info(tipRef) + '</span></span>'
+              + '<span style="display:block;color:#374151;font-size:11.5px;margin-top:1px;">' + esc(t('shape_vol_val', { v: val, ref: ref })) + info(tip2 || tipRef) + '</span></span>'
               + '<span style="font-weight:600;white-space:nowrap;color:' + (pct2 != null && pct2 < 0 ? '#B45309' : '#0F6E56') + ';">' + pc(pct2) + '</span></div>';
           };
+          var tipBasket = tipRef + ' ' + t('shape_vol_l_items') + ' : ' + t('shape_vol_val', { v: nb2(v.items_avg), ref: nb2(v.ref_items_avg) })
+            + ' · ' + t('shape_vol_l_price') + ' : ' + t('shape_vol_val', { v: eu2(v.price_avg), ref: eu2(v.ref_price_avg) }) + '.';
           h += '<div style="margin-top:10px;">'
             + ligne(t('shape_vol_l_tx'), intfr(v.tx_avg), intfr(v.ref_tx_avg), v.tx_pct)
-            + ligne(t('shape_vol_l_items'), nb2(v.items_avg), nb2(v.ref_items_avg), v.items_pct)
-            + ligne(t('shape_vol_l_price'), eu2(v.price_avg), eu2(v.ref_price_avg), v.price_pct)
+            + ligne(t('shape_vol_l_basket'), eu2(v.basket_avg), eu2(v.ref_basket_avg), v.basket_pct, tipBasket)
             + '</div>'
             + '<div style="font-size:12.5px;color:#111827;margin-top:10px;font-weight:600;">' + esc(t('shape_vol_total', { pct: pc(v.total_pct) })) + '</div>'
             + (shape.scope_label_fr && shape.store_total_pct != null ? '<div style="font-size:12px;color:#6b7280;margin-top:4px;">' + esc(t('shape_vol_store', { pct: pc(shape.store_total_pct) })) + '</div>' : '')
@@ -1717,7 +1720,8 @@
     var lineageB = '';
     var _lin = Array.isArray(data.lineage) ? data.lineage : [];
     if (_lin.length > 1) {
-      var _linVerdict = { met: 'objectif atteint', missed: 'objectif manqu\u00e9', confounded: 'objectif non concluant' };
+      // 09/09 (owner) : \u00ab non concluant \u00bb dit sa cause \u2014 m\u00eame mot que l'en-t\u00eate (q1_objectif_confounded).
+      var _linVerdict = { met: 'objectif atteint', missed: 'objectif manqu\u00e9', confounded: 'objectif non concluant (vacances)' };
       var _linFrD = function (iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : ''; };
       var _linPct = function (n) { if (n == null) return ''; var v = Math.round(Math.abs(Number(n)) * 10) / 10; return (Number(n) >= 0 ? '+' : '\u2212') + String(v).replace('.', ',') + ' %'; };
       lineageB = '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;">'
@@ -1730,7 +1734,11 @@
               var eff = v.effect_pct != null ? ' \u2014 ' + _linPct(v.effect_pct) + (v.kpi_mention_fr ? ' ' + v.kpi_mention_fr : '') + ' vs votre r\u00e9sultat habituel' + (v.effect_proven ? ' (effet prouv\u00e9)' : '') : '';
               line += ' : ' + vd + eff + '.';
             }
-            return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + esc(line) + (v.is_current ? ' <span style="color:#6B7280;font-weight:500;">(ce test)</span>' : '') + '</div>';
+            // 09/09 (owner : « versions are not clickable ») : chaque autre version ouvre SA page d'engagement.
+            var _linInner = v.is_current || !v.commitment_id
+              ? esc(line)
+              : '<a href="' + esc(msEngagementUrl(String(v.commitment_id))) + '" style="color:#1D3BB3;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;">' + esc(line) + '</a>';
+            return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + _linInner + (v.is_current ? ' <span style="color:#6B7280;font-weight:500;">(ce test)</span>' : '') + '</div>';
           }).join('')
         + '</div>';
     }
