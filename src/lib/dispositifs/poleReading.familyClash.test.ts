@@ -32,3 +32,26 @@ describe("familyTakenByAnotherPole", () => {
       .toBe("FRAIS appartient déjà au pôle « Périssables » — une famille vit dans un seul pôle.");
   });
 });
+
+// « Non rattaché » : le complément des familles prises. Ce que le test attrape — une famille prise
+// laissée dans le reste, l'ordre par CA perdu, un doublon. Les trois vus rougir avant d'être remis.
+import { unassignedFamilies } from "./poleReading";
+
+describe("unassignedFamilies", () => {
+  const SITE = [
+    { category: "FRUITS ET LEGUMES" }, { category: "ARTS DE LA TABLE" }, { category: "FRAIS" },
+    { category: "SUCRE" }, { category: "CONFITURE MIEL" }, { category: "APERITIF" },
+  ];
+  it("rend ce qu'aucun pôle ne porte, dans l'ordre du CA", () => {
+    expect(unassignedFamilies(SITE, POLES)).toEqual(["SUCRE", "CONFITURE MIEL", "APERITIF"]);
+  });
+  it("aucun pôle : tout est non rattaché", () => {
+    expect(unassignedFamilies(SITE, [])).toHaveLength(6);
+  });
+  it("tout est rangé : la ligne n'existe pas", () => {
+    expect(unassignedFamilies([{ category: "FRAIS" }], [{ families: ["FRAIS"] }])).toEqual([]);
+  });
+  it("une famille en double dans les ventes n'apparaît qu'une fois", () => {
+    expect(unassignedFamilies([{ category: "SUCRE" }, { category: "SUCRE" }], [])).toEqual(["SUCRE"]);
+  });
+});

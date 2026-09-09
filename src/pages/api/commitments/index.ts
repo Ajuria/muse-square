@@ -139,7 +139,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       const polesP = listPoles(bq, locationId).catch(() => []);
       // Ce que le dispositif vend (07/09) : les familles du site pour le bloc MSScopeForm — LE foyer
       // listSiteFamilies, en parallèle comme les pôles.
-      const familiesP = listSiteFamilies(bq, locationId).catch(() => []);
+      const familiesP = listSiteFamilies(bq, locationId, 50).catch(() => []);   // limite explicite : voir evenement.ts (aucune famille cachée)
       const [gRows] = await bq.query({
         query: `
           WITH base AS (

@@ -393,3 +393,18 @@ export function familyTakenByAnotherPole(
 export function familyClashMessageFr(clash: { famille: string; pole: string }): string {
   return `${clash.famille} appartient déjà au pôle « ${clash.pole} » — une famille vit dans un seul pôle.`;
 }
+
+// « Non rattaché » (owner 09/09) : les familles RÉELLES du site que plus aucun pôle ne porte.
+// PUR, donc testable. L'ordre des familles réelles est conservé (elles arrivent triées par CA
+// décroissant, foyer `listSiteFamilies`) : la ligne lit comme les autres.
+export function unassignedFamilies(
+  siteFamilies: ReadonlyArray<{ category: string }>,
+  poles: ReadonlyArray<{ families: string[] }>,
+): string[] {
+  const taken = new Set<string>();
+  for (const p of poles) for (const f of p.families) taken.add(f);
+  const seen = new Set<string>();
+  return siteFamilies
+    .map((f) => f.category)
+    .filter((c) => c && !taken.has(c) && !seen.has(c) && (seen.add(c), true));
+}

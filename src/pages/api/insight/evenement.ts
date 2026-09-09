@@ -63,7 +63,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
         }),
         // Familles produits (KPI famille) : LE foyer kpiRegistry.listSiteFamilies (extrait le
         // 27/08 — même lecture que le résolveur d'entités, jamais recopiée).
-        listSiteFamilies(bq, location_id).then((f) => [f] as any),
+        // Limite EXPLICITE (défaut 12) : depuis « aucune famille hors pôle » (owner 09/09), une
+        // liste tronquée cache une famille au formulaire ET au calcul de « Non rattaché ».
+        // Épices et Tout en porte 13 — le défaut en aurait mangé une, sans erreur.
+        listSiteFamilies(bq, location_id, 50).then((f) => [f] as any),
         // Couverture flux/conversion (27/08, audit menu KPI) : le menu n'offre un KPI que si le
         // SITE porte la donnée — même mécanisme que le KPI famille (fams.length). La lecture vit
         // dans kpiRegistry (measureKpiCoverage : foyer du mart PERF, cliquet frontière respecté).

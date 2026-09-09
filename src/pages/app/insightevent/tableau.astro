@@ -931,6 +931,30 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   : '<div style="font-size:11px;font-weight:600;color:#9CA3AF;margin-top:3px;cursor:help;" title="' + (rd.n30 || 0) + ' jour' + ((rd.n30 || 0) > 1 ? 's' : '') + ' vendu' + ((rd.n30 || 0) > 1 ? 's' : '') + ' sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté.">Données insuffisantes ⓘ</div>')
                 + '<div class="rs2">' + rs.join(" · ") + '</div></button>';
             });
+            // « Non rattaché » (owner 09/09) : les familles qu'aucun pôle ne porte, dans la MÊME
+            // grille — sinon le trou reste invisible, ce que la règle interdit. Une DIV, jamais un
+            // bouton : rien à ouvrir, aucun volet, aucun responsable, aucun verdict — personne ne
+            // répond d'un reste. Chiffres = même foyer poleReading que les cartes voisines.
+            (J.poles_unassigned || []).forEach(function (u) {
+              var dot2 = u.delta_pct == null ? GREY : u.delta_pct >= 0 ? GREEN : AMBER;
+              var lbl = "";
+              if (J.multi_site) {
+                for (var k = 0; k < polesJ.length; k++) {
+                  if (polesJ[k].location_id === u.location_id && polesJ[k].site_label) { lbl = polesJ[k].site_label; break; }
+                }
+              }
+              var rs2 = [];
+              if (lbl) rs2.push(esc(lbl));
+              if (u.share_pct != null) rs2.push(String(u.share_pct).replace(".", ",") + " % du CA");
+              rs2.push(esc((u.families || []).join(", ")));
+              html += '<div class="tb-rb" style="cursor:default;">'
+                + '<span class="hd"><span style="width:7px;height:7px;border-radius:50%;background:' + dot2 + ';flex:none;display:inline-block;"></span>Non rattaché</span>'
+                + '<div class="num">' + (u.rev30_eur != null ? frInt(u.rev30_eur) + ' €' : '—') + '<span class="u">sur 30 j</span></div>'
+                + (u.delta_pct != null
+                  ? '<div style="font-size:11px;font-weight:600;color:' + dot2 + ';margin-top:3px;">' + pDeltaFr(u.delta_pct) + ' vs les 90 jours précédents</div>'
+                  : '<div style="font-size:11px;font-weight:600;color:#9CA3AF;margin-top:3px;cursor:help;" title="' + (u.n30 || 0) + ' jour' + ((u.n30 || 0) > 1 ? 's' : '') + ' vendu' + ((u.n30 || 0) > 1 ? 's' : '') + ' sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté.">Données insuffisantes \u24D8</div>')
+                + '<div class="rs2">' + rs2.join(" \u00B7 ") + '</div></div>';
+            });
             html += '</div><div id="tb-pole-panel" class="tb-card" style="display:none;padding:14px 16px;margin-bottom:12px;"></div>';
           }
 

@@ -3702,6 +3702,28 @@ window.toggleAutomationCard = function() {
           });
         }
 
+        // « Non rattaché » (owner 09/09) : les familles réelles qu'aucun pôle ne porte, listées
+        // ICI aussi — c'est la page où l'on range, le trou doit y être visible. La ligne se DÉDUIT
+        // du contexte déjà chargé (ctx.families = foyer listSiteFamilies, ctx.poles = listPoles) :
+        // aucun appel de plus, et une famille nouvelle y tombe seule. Ni canal, ni membre, ni
+        // responsable — personne ne répond d'un reste. Rien sans pôle déclaré : sans mapping,
+        // il n'y a pas de trou.
+        if (poles.length) {
+          var takenFam = {};
+          poles.forEach(function (p) { (p.families || []).forEach(function (f) { takenFam[f] = 1; }); });
+          var libres = (Array.isArray(ctx.families) ? ctx.families : [])
+            .map(function (f) { return f.category; })
+            .filter(function (c) { return c && !takenFam[c]; });
+          if (libres.length) {
+            list.innerHTML += '<div style="padding:12px 0;border-bottom:1px solid #f3f4f6;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;align-items:start;">'
+              + '<div><div style="font-weight:600;font-size:13px;color:#111827;">Non rattaché</div>'
+              + '<div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + esc(libres.join(', ')) + '</div></div>'
+              + '<div style="grid-column:2 / span 2;font-size:11px;color:#9ca3af;align-self:center;">'
+              + libres.length + ' famille' + (libres.length > 1 ? 's' : '') + ' sans pôle — rattachez-les en créant ou en ajustant un pôle.</div>'
+              + '</div>';
+          }
+        }
+
         if (mount && window.MSPoleForm) {
           var taken = {};
           poles.forEach(function (p) { (p.families || []).forEach(function (f) { taken[f] = p.name; }); });

@@ -19,7 +19,10 @@ import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpi/kpiRegistry";
 import { familySlug, MARGIN_FAMILY_PREFIX } from "../../../lib/ai/corrections";
 // Pôles (build 28/08, protos validés) : lecture = LE foyer poleReading (mêmes chiffres que
 // journal/plan/fiche — jamais un 3e calcul) ; Historique = poleActivity (1er lecteur des traces).
-import { listPoles, buildPoleReading, type PoleComponentRow } from "../../../lib/dispositifs/poleReading";
+import { listPoles, buildPoleReading, unassignedFamilies, type PoleComponentRow } from "../../../lib/dispositifs/poleReading";
+// « Non rattaché » (owner 09/09) : les familles réelles du site MOINS celles que les pôles portent.
+// Le foyer des familles réelles est kpiRegistry.listSiteFamilies — jamais une liste recopiée.
+import { listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
 import { buildPoleActivity, resolveMemberNames } from "../../../lib/dispositifs/poleActivity";
 
 const PROJECT = "muse-square-open-data";
@@ -84,7 +87,26 @@ export const GET: APIRoute = async ({ url, locals }) => {
       ]);
       const activity: Record<string, any[]> = Object.assign({}, ...activityByLoc);
       const names: Record<string, string> = Object.assign({}, ...namesByLoc);
-      return { poleList, readings, weeks, activity, names, week_window: { ws: wkStart, we: wkEnd } } as any;
+      // ── « Non rattaché » (owner 09/09) — aucune famille hors mapping. La ligne se DÉDUIT
+      // (familles réelles moins celles déjà prises), elle ne se déclare pas : une catégorie
+      // nouvelle dans la caisse y tombe seule, là où un pôle déclaré se périmerait. Jamais pour
+      // un membre (il ne répond pas du rangement du magasin) ; jamais sans pôle déclaré (sans
+      // mapping, il n'y a pas de trou). Lecture par LE MÊME foyer buildPoleReading : mêmes
+      // chiffres, même bande de bruit, mêmes planchers que les pôles voisins.
+      let unassigned: Array<{ location_id: string; families: string[]; reading: any }> = [];
+      if (role !== "member") {
+        const perLoc = await Promise.all(locsOfPoles.map(async (l) => {
+          const fams = unassignedFamilies(
+            await listSiteFamilies(bq, l, 50).catch(() => []),
+            poleList.filter((p) => p.location_id === l),
+          );
+          if (!fams.length) return null;
+          const reading = await buildPoleReading(bq, l, "non_rattache", fams, todayIso).catch(() => null);
+          return reading ? { location_id: l, families: fams, reading } : null;
+        }));
+        unassigned = perLoc.filter(Boolean) as any[];
+      }
+      return { poleList, readings, weeks, activity, names, unassigned, week_window: { ws: wkStart, we: wkEnd } } as any;
     })();
 
     const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows], [famCaRows], [bandeauRows], [poleUnitsRows]] = await Promise.all([
@@ -1300,6 +1322,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
       period_days: period,
       // Bloc pôles (28/08) — section « Vos pôles » du tableau (grille + volet, Historique).
       poles,
+      // « Non rattaché » : JAMAIS dans `poles` — tout ce qui itère les pôles (volet, périmètre
+      // membre, routage Slack, rattachement d'opération) traiterait un reste comme un dispositif.
+      poles_unassigned: ((polesRaw.unassigned || []) as any[]).map((u) => ({
+        location_id: u.location_id, families: u.families,
+        rev30_eur: u.reading.totals.rev30_eur, share_pct: u.reading.totals.share_pct,
+        delta_pct: u.reading.totals.delta_pct, n30: u.reading.totals.n30,
+      })),
       impact: {
         gap_eur: gapSum,
         eur_windows: martRows.length,
