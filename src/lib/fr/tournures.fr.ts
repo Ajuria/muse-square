@@ -105,6 +105,15 @@ export const TOURNURES_LLM: TournureBannie[] = [
     faute: "calque de « address your audience » — on PARLE À ses clients, on s'adresse à eux",
     refusee: "Adressez directement votre public partagé avant l'échéance (relevé 09/09, même calque)",
   },
+  // 09/09 (owner : « on a dit 500 fois que l'on ne se mêle pas des commandes ») : AUCUN geste sur les
+  // commandes, les achats, le stock, le réassort. L'app ne connaît que ce qui s'est VENDU ; ce que
+  // l'exploitant commande est SON affaire. Abroge « les achats = le levier à 2-3 jours » (28/07).
+  {
+    // « achat » au sens du CLIENT (nombre d'achats, déclencher l'achat) reste permis : c'est une mesure, pas un geste.
+    motif: /\bcommandez\b|\bcommander\b|\brecommandez\b|\bvos commandes\b|\bcommandes? de (frais|la semaine)\b|\bla prochaine commande\b|\bgrosses commandes\b|\b(vos|les|ses|aux) achats\b|\bstocks?\b|\br[ée]assort|\bapprovisionn/,
+    faute: "geste sur les commandes / achats / stock — interdit : l'app ne voit que les ventes, la commande est l'affaire de l'exploitant",
+    refusee: "Commandez « Pâtisserie fine » sur ses jours de hausse, pas sur sa moyenne (owner 09/09 : « on a dit 500 fois que l'on ne se mêle pas des commandes »)",
+  },
   {
     motif: /\b(boost(ez|er)|monitor(ez|er)|check(ez|er)|switch(ez|er)|challeng(ez|er)|focus(ez|er)|impact(ez|er)|support(ez|er)|d[ée]livr(ez|er)|perform(ez|er)|forward(ez|er)|updat(ez|er)|upgrad(ez|er))\b/,
     faute: "franglais — verbe anglais francisé",
