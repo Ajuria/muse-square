@@ -30,3 +30,35 @@ export function matchSiteInQuestion(question: string, sites: SiteLabel[]): strin
   const winners = best.filter((b) => b.score === top);
   return winners.length === 1 ? winners[0].id : null;
 }
+
+// 09/09 après-midi (owner : « Wrong location again in Explorer ») — la résolution ne vivait que sur le
+// renvoi rapport : « quels produits je vends le plus sur mon site Sèvres » répondait le mix du site de
+// session en l'appelant Sèvres. Désormais UNE résolution en tête de la route, pour toutes les branches.
+// Un aller-retour BQ (libellés des sites du compte), seulement sur un compte à plusieurs sites ; le site
+// désigné doit être POSSÉDÉ (jamais un site hors compte) ; toute erreur → null = site de la session.
+export interface NamedSite { location_id: string; label: string }
+
+export async function resolveNamedSite(opts: {
+  question: string;
+  sessionLocationId: string;
+  ownedLocationIds: string[];
+  bq: { query: (o: any) => Promise<any> };
+  projectId: string;
+}): Promise<NamedSite | null> {
+  try {
+    const ids = Array.from(new Set([opts.sessionLocationId, ...opts.ownedLocationIds.map(String)].filter(Boolean)));
+    if (ids.length < 2) return null;
+    const [rows] = await opts.bq.query({
+      query: `SELECT location_id, ANY_VALUE(COALESCE(site_name, company_name)) AS label
+              FROM \`${opts.projectId}.raw.insight_event_user_location_profile\`
+              WHERE location_id IN UNNEST(@ids) GROUP BY 1`,
+      params: { ids }, types: { ids: ["STRING"] }, location: "EU",
+    });
+    const sites: SiteLabel[] = (Array.isArray(rows) ? rows : []).map((r: any) => ({ location_id: String(r.location_id), label: String(r.label || "") }));
+    const hit = matchSiteInQuestion(opts.question, sites);
+    if (!hit || !ids.includes(hit)) return null;
+    return { location_id: hit, label: (sites.find((s) => s.location_id === hit) || { label: "" }).label };
+  } catch {
+    return null;
+  }
+}

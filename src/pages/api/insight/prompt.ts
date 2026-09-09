@@ -1,6 +1,6 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
-import { matchSiteInQuestion } from "../../../lib/explorer/siteFromQuestion";
+import { resolveNamedSite } from "../../../lib/explorer/siteFromQuestion";
 import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredFamilyMarginAnswerFr, declaredClientCountAnswerFr } from "../../../lib/context/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
@@ -2308,9 +2308,22 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
       : requireString(l.clerk_user_id, "locals.clerk_user_id");
 
     // location_id: required in both modes, but source differs
-    const location_id = bypass
+    const session_location_id = bypass
       ? requireString(body?.thread_context?.location_id, "thread_context.location_id")
       : requireString(l.location_id, "locals.location_id");
+    // 09/09 (owner : « Wrong location again in Explorer ») — le site NOMMÉ dans la question (« sur mon
+    // site Sèvres ») l'emporte sur le site de la session pour TOUTES les branches ; sans nom, égalité ou
+    // site hors compte → site de la session. Sites du compte : locals (prod) ; en bypass dev,
+    // thread_context.all_location_ids. Un aller-retour BQ, sur un compte à plusieurs sites seulement.
+    const _ownedForNaming: string[] = Array.isArray((l as any).all_location_ids)
+      ? (l as any).all_location_ids.map(String)
+      : (bypass && Array.isArray(body?.thread_context?.all_location_ids) ? body.thread_context.all_location_ids.map(String) : []);
+    const _namedSite = await resolveNamedSite({
+      question: qRaw, sessionLocationId: session_location_id, ownedLocationIds: _ownedForNaming,
+      bq: makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data"),
+      projectId: process.env.BQ_PROJECT_ID || "muse-square-open-data",
+    });
+    const location_id = _namedSite ? _namedSite.location_id : session_location_id;
     
     if (clerk_user_id && !rateLimit(clerk_user_id, "prompt", 20, 60_000)) return rateLimitResponse();
 
@@ -2897,27 +2910,9 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           // 09/09 (owner : « the wrong location report ») — le site NOMMÉ dans la question (« pour Sèvres »)
           // l'emporte sur le site de la session ; sans nom, ou en cas d'égalité, le site de la session reste.
           // Un aller-retour BQ (libellés des sites du compte), seulement sur cette branche.
-          let _repLoc = location_id;
-          let _repSiteLabel: string | null = null;
-          try {
-            const _ownedIds: string[] = Array.isArray((l as any).all_location_ids) ? (l as any).all_location_ids.map(String) : [];
-            const _idsForLabels = Array.from(new Set([location_id, ..._ownedIds]));
-            if (_idsForLabels.length > 1) {
-              const _bqSites = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-              const [_siteRows] = await _bqSites.query({
-                query: `SELECT location_id, ANY_VALUE(COALESCE(site_name, company_name)) AS label
-                        FROM \`${process.env.BQ_PROJECT_ID || "muse-square-open-data"}.raw.insight_event_user_location_profile\`
-                        WHERE location_id IN UNNEST(@ids) GROUP BY 1`,
-                params: { ids: _idsForLabels }, types: { ids: ["STRING"] }, location: "EU",
-              });
-              const _sites = (Array.isArray(_siteRows) ? _siteRows : []).map((r: any) => ({ location_id: String(r.location_id), label: String(r.label || "") }));
-              const _hit = matchSiteInQuestion(qRaw, _sites);
-              if (_hit && _idsForLabels.includes(_hit)) {
-                _repLoc = _hit;
-                _repSiteLabel = (_sites.find((x) => x.location_id === _hit) || { label: null }).label || null;
-              }
-            }
-          } catch { /* résolution impossible → site de la session, jamais une erreur */ }
+          // Le site nommé est résolu UNE fois en tête de route (_namedSite) : location_id le porte déjà.
+          const _repLoc = location_id;
+          const _repSiteLabel: string | null = _namedSite ? _namedSite.label : null;
           const _repUrl = `/app/insightevent/rapport?start=${encodeURIComponent(_repStart)}&end=${encodeURIComponent(_repEnd)}&loc=${encodeURIComponent(_repLoc)}`;
           return sysDialogueResponse(
             "Rapport de ventes",
