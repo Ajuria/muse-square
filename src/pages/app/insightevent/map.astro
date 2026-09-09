@@ -21,7 +21,11 @@ if (!locals_location_id) {
 const is_embed = Astro.url?.searchParams?.get("embed") === "1";
 const url_location_id = Astro.url?.searchParams?.get("location_id") ?? "";
 const location_id = (is_embed && url_location_id) ? url_location_id : locals_location_id;
-const date = Astro.url?.searchParams?.get("date") ?? "";
+// 09/09 (owner : « the map doesn't work for Sèvres ») — le lien de Piloter (`map?mode=concurrence`) ne porte
+// pas de date ; la page envoyait `date=` vide à /api/insight/map, qui refusait (« Invalid date format ») et
+// la carte restait vide. Sans date dans l'URL : AUJOURD'HUI, heure de Paris (le jour que Piloter regarde).
+const _todayParis = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const date = (Astro.url?.searchParams?.get("date") || "").trim() || _todayParis;
 const selected_dates = Astro.url?.searchParams?.get("selected_dates") ?? "";
 const mode = Astro.url?.searchParams?.get("mode") ?? "concurrence";
 ---
