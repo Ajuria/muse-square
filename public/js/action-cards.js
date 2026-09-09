@@ -3554,7 +3554,7 @@
       var pr = a.pressure_ratio != null ? Number(a.pressure_ratio) : null;
       var alert = Number(a.weather_alert || 0);
       var lever = (pr != null && pr > 1.3) ? 'renforcez votre visibilité face à la concurrence' : (alert >= 2) ? 'communiquez vos conditions adaptées à la météo' : 'vérifiez vos leviers internes (effectif, horaires, communication)';
-      return 'Action conseill\u00e9e : CA ' + (pctBelow != null ? '-' + pctBelow + ' % ' : '') + 'sous la moyenne — ' + lever + ', et tracez la cause pour ne pas la répéter.';
+      return 'Action conseill\u00e9e : CA ' + (pctBelow != null ? '-' + pctBelow + ' % ' : '') + 'sous la moyenne — ' + lever + ', et identifiez la cause pour ne pas la répéter.';
     }, urgency: 'plan' },
     'sales_surge': { action: function(a, p, d) {
       var tx = a.transactions_delta_pct != null ? Math.round(Number(a.transactions_delta_pct)) : null;
@@ -3602,7 +3602,7 @@
       var _sfx = a.top_competitor ? ' ; gardez un œil sur ' + a.top_competitor : '';
       return 'Action conseill\u00e9e : baisse concomitante à une pression ×' + (pr != null ? frDec(pr) : '?') + '. '
         + (_mot ? 'Engagez-vous sur le motif, pas sur la journée'
-                : 'Aucun motif mesuré sur cette date, tracez la cause avant d\'agir')
+                : 'Aucun motif mesuré sur cette date, identifiez la cause avant d\'agir')
         + _sfx + '.';
     }, urgency: 'plan' },
     'high_competition_density': { action: function(a, p, d) {
@@ -3692,7 +3692,7 @@
       // Même constat déjà posé dans insight.astro:627 ; competitor_event_launch (2545)
       // et les lectures 196 / 850 le lisaient brut : ces deux sites étaient les orphelins.
       var ov = a.audience_overlap_pct != null ? Math.round(Number(a.audience_overlap_pct)) : null;
-      return 'Action conseill\u00e9e : conflit d\'audience' + (name ? ' avec ' + name : '') + (ov != null ? ' (audience estimée commune ' + ov + ' %)' : '') + '. Adressez directement votre public partagé avant l\'échéance pour sécuriser votre fréquentation.';
+      return 'Action conseill\u00e9e : conflit d\'audience' + (name ? ' avec ' + name : '') + (ov != null ? ' (audience estimée commune ' + ov + ' %)' : '') + '. Parlez à vos clients avant l\'échéance pour garder votre fréquentation ce jour-là.';
     }, urgency: 'now' },
     'competitor_review_surge': { action: 'Communiquer : sollicitez des avis clients pour \u00e9quilibrer.', urgency: 'soon', channel: 'communiquer' },
     'competitor_review_drop': { action: 'Communiquer : capitalisez sur votre r\u00e9putation.', urgency: 'plan', channel: 'communiquer' },
@@ -3710,7 +3710,7 @@
     }, urgency: 'plan' },
     'competitor_price_drop': { action: function(a, p, d) {
       var item = a.item || 'ce produit';
-      return 'Action conseill\u00e9e : notez votre prix et votre marge sur ' + item + ', puis regardez vos ventes pendant deux semaines avant de changer quoi que ce soit.';
+      return 'Action conseill\u00e9e : comparez votre prix et votre marge sur ' + item + ' à ceux de ' + (a.competitor_name || 'ce concurrent') + ', puis regardez vos ventes pendant deux semaines avant de changer quoi que ce soit.';
     }, urgency: 'soon' },
     'competitor_offering_removed': { action: function(a, p, d) {
       var item = a.item || 'ce produit';
@@ -4010,7 +4010,7 @@
       var _lev = driver ? ' — levier : ' + driver : '';
       return _mot
         ? 'Action conseill\u00e9e : engagez-vous sur le motif, pas sur la journée' + _lev + '.'
-        : 'Action conseill\u00e9e : aucun motif mesuré sur cette date, tracez la cause pour comparer aux prochaines semaines' + _lev + '.';
+        : 'Action conseill\u00e9e : aucun motif mesuré sur cette date, identifiez la cause pour comparer aux prochaines semaines' + _lev + '.';
     }, urgency: 'soon' },
     'footfall_vs_basket_decomposition': { action: function(a, p, d) {
       var revPct = a.revenue_vs_30d_avg_pct != null ? Number(a.revenue_vs_30d_avg_pct) : null;
