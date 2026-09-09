@@ -4,6 +4,7 @@ export const prerender = false;
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
 import InsightBottomBar from "../../../components/InsightBottomBar.astro";
+import { makeBQClient } from "../../../lib/bq";
 
 // --------------------
 // Server-side guards
@@ -28,6 +29,30 @@ const _ownedIds: string[] = Array.isArray((Astro.locals as any).all_location_ids
 const _memberIds: string[] = Array.isArray((Astro.locals as any).member_location_ids) ? (Astro.locals as any).member_location_ids.map(String) : [];
 const _urlSiteAllowed = !!url_location_id && (is_embed || _ownedIds.includes(url_location_id) || _memberIds.includes(url_location_id));
 const location_id = _urlSiteAllowed ? url_location_id : locals_location_id;
+
+// 09/09 (owner : « still Nîmes ») — la carte ne DISAIT PAS quel site elle montrait, et rien ne
+// permettait d'en changer : ouverte sans site dans l'adresse, elle prend celui de la session, qui
+// n'est pas forcément celui qu'on regarde. Le nom du site s'affiche donc, et un compte à plusieurs
+// sites peut basculer ici même. Une requête BQ, seulement quand le compte a plusieurs sites.
+let _siteOptions: Array<{ location_id: string; label: string }> = [];
+{
+  const _ids = Array.from(new Set([location_id, ..._ownedIds, ..._memberIds].filter(Boolean)));
+  if (!is_embed && _ids.length > 1) {
+    try {
+      const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const [_rows] = await _bq.query({
+        query: `SELECT location_id, ANY_VALUE(COALESCE(site_name, company_name)) AS label
+                FROM \`${process.env.BQ_PROJECT_ID || "muse-square-open-data"}.raw.insight_event_user_location_profile\`
+                WHERE location_id IN UNNEST(@ids) GROUP BY 1`,
+        params: { ids: _ids }, types: { ids: ["STRING"] }, location: "EU",
+      });
+      _siteOptions = (Array.isArray(_rows) ? _rows : [])
+        .map((r: any) => ({ location_id: String(r.location_id), label: String(r.label || "") }))
+        .filter((r) => r.label);
+    } catch { _siteOptions = []; }
+  }
+}
+const _siteLabel = (_siteOptions.find((s) => s.location_id === location_id) || { label: "" }).label;
 // 09/09 (owner : « the map doesn't work for Sèvres ») — le lien de Piloter (`map?mode=concurrence`) ne porte
 // pas de date ; la page envoyait `date=` vide à /api/insight/map, qui refusait (« Invalid date format ») et
 // la carte restait vide. Sans date dans l'URL : AUJOURD'HUI, heure de Paris (le jour que Piloter regarde).
@@ -53,6 +78,18 @@ window.location.href="/sign-in";
   <a href="#" id="breadcrumb-back">Mes dates</a>
   <span>/</span>
   <span>Carte</span>
+  {_siteLabel && (
+    <>
+      <span>/</span>
+      {_siteOptions.length > 1
+        ? <select id="map-site" style="font:inherit;color:inherit;border:0;background:transparent;cursor:pointer;padding:0;">
+            {_siteOptions.map((s) => (
+              <option value={s.location_id} selected={s.location_id === location_id}>{s.label}</option>
+            ))}
+          </select>
+        : <span>{_siteLabel}</span>}
+    </>
+  )}
 </nav>
 
 <div style="max-width:720px;margin:12px auto 0 auto;border:0.5px solid #E5E7EB;border-radius:8px;overflow:hidden;">
@@ -253,16 +290,35 @@ document.getElementById('breadcrumb-back').addEventListener('click', function(e)
   history.back();
 });
 
+var _siteSel = document.getElementById('map-site')
+if (_siteSel) {
+  _siteSel.addEventListener('change', function () {
+    var u = new URL(window.location.href)
+    u.searchParams.set('location_id', this.value)
+    window.location.href = u.pathname + u.search
+  })
+}
+
 async function init(){
 
 map = L.map('map').setView([48.86, 2.35], 14)
 
-// 09/09 (owner, capture : « API KEY REQUIRED » sur chaque tuile) — le fond CARTO basemaps exige
-// désormais une clé ; fond OpenStreetMap standard, sans clé, même attribution.
+// 09/09 (owner, capture : « API KEY REQUIRED » sur chaque tuile) — CARTO basemaps filigrane
+// désormais tout usage sans clé (la tuile revient bien en light_all, avec la mention en travers).
+// Fond de REMPLACEMENT à la même tonalité GRIS CLAIR : Esri Light Gray Canvas, sans clé, en deux
+// couches comme le fournisseur les publie — le fond puis ses libellés. Un OSM standard (coloré)
+// avait été essayé et refusé par l'owner : la carte doit rester grise.
 L.tileLayer(
-'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
 {
-attribution:'© OpenStreetMap contributors', maxZoom: 19
+attribution:'© OpenStreetMap contributors, © Esri', maxZoom: 16
+}
+).addTo(map)
+
+L.tileLayer(
+'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+{
+maxZoom: 16, pane: 'overlayPane'
 }
 ).addTo(map)
 
