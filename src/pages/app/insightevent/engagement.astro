@@ -165,6 +165,19 @@ const id = Astro.url.searchParams.get("id") || "";
         // périmètre porte des familles (owner seul). La page crée le pôle — POST /api/commitments,
         // nature permanent, MÊME corps que pole-form.js — puis ouvre sa page. Aucun
         // parent_commitment_id : l'API ne l'accepte que d'un parent déjà permanent.
+        // 09/09 (owner : « go back went to Agir instead of the dispositif ») : « ← Retour » revient à la page
+        // d'où l'on vient quand elle est à nous (une autre version du dispositif, Piloter, Agir) ; sans
+        // provenance connue, le lien garde sa cible historique (Agir).
+        (function wireBack() {
+          var a = document.getElementById("eng-back");
+          if (!a) return;
+          a.addEventListener("click", function (e) {
+            var ref = "";
+            try { ref = String(document.referrer || ""); } catch (_) { ref = ""; }
+            var sameOrigin = ref && ref.indexOf(window.location.origin + "/") === 0;
+            if (sameOrigin && window.history.length > 1) { e.preventDefault(); window.history.back(); }
+          });
+        })();
         function wirePermanent(cm) {
           var btn = docEl.querySelector("[data-eg-permanent]"); if (!btn) return;
           var msg = docEl.querySelector("[data-eg-permanent-msg]");
