@@ -432,15 +432,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 JOIN \`${PROJECT}.raw.competitor_directory\` cd
                   ON cd.competitor_id = tp.competitor_id AND cd.deleted_at IS NULL
                 WHERE tp.location_id IN UNNEST(@locs) AND NOT tp.is_followed AND tp.threat_level = 'high'
-                  -- 09/09 (owner : « pour Sèvres, on me propose de suivre des musées ») — le geste
-                  -- « Suivez X » ne propose QUE le même secteur que le site : le mart calcule déjà
-                  -- industry_match_tier ('direct' = même code secteur, 'partial' = autre secteur),
-                  -- la requête l'ignorait. Une épicerie fine se voyait proposer le musée d'Orsay
-                  -- avec « 100 % de public commun ». Mesuré sur le mart : Sèvres 7 → 0, f10c3e58
-                  -- 3 → 0, ff2aeb35 1 → 0, d1c40076 7 098 → 5 — les lignes retirées sont des
-                  -- entrées 'culture'/'unknown' proposées à des sites 'commercial'. La justesse
-                  -- de 'high' sur une paire d'un AUTRE secteur reste un défaut du mart (dbt).
-                  AND tp.industry_match_tier = 'direct'
+                  -- Pas de filtre secteur ici : depuis le 09/09 (PR ms_database #131, construite),
+                  -- threat_level = 'high' EXIGE industry_match_tier = 'direct' dans le modèle
+                  -- lui-même. Le filtre applicatif posé le matin du 09/09 est retiré — une règle
+                  -- écrite à deux endroits finit par diverger. Si des musées réapparaissent dans
+                  -- « Suivez X », le défaut est dans le modèle, pas ici.
                   -- Vérité LIVE (16/08) : le mart est nocturne — un suivi créé aujourd'hui, ou un
                   -- doublon fusionné, ne doit pas laisser un « trou » fantôme. Exclusion si un
                   -- suivi VIVANT du même site existe sur CETTE entrée ou sur une entrée vivante
