@@ -1523,7 +1523,24 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           // ne sert que de repli.
           try {
             if (actionCandidate && typeof window.renderActionCandidates === 'function') {
-              var _hEntries = window.renderActionCandidates([actionCandidate], prof, null, signal_date, 'pulse', null, signal_date) || [];
+              // La carte arrive sous DEUX formes : la ligne brute du monitor (action_type, date, data_payload
+              // texte) ou, depuis Agir via le cache de session, l'item du fil (change_subtype, affected_date,
+              // payload déjà aplati). Le kit n'accepte que la première : on la reconstruit depuis feedItem,
+              // qui porte déjà tout (payload + colonnes) — sinon l'appel rend vide et le repli s'affiche
+              // (constaté par l'owner le 09/09 : « Bascule de votre mix still as before »).
+              var _hRow = {
+                action_type: String(actionCandidate.action_type || actionCandidate.change_subtype || signal_type),
+                date: String(actionCandidate.date || actionCandidate.affected_date || signal_date).slice(0, 10),
+                card_instance_id: actionCandidate.card_instance_id || signal_instance || '',
+                action_priority: actionCandidate.action_priority != null ? actionCandidate.action_priority : 3,
+                action_category: actionCandidate.action_category || '',
+                suppression_key: actionCandidate.suppression_key || '',
+                expires_at: actionCandidate.expires_at || null,
+                location_id: actionCandidate.location_id || location_id,
+                // OBJET, pas texte : le kit itère les clés du payload (action-cards.js ~3288).
+                data_payload: feedItem || {}
+              };
+              var _hEntries = window.renderActionCandidates([_hRow], prof, null, _hRow.date, 'pulse', null, _hRow.date) || [];
               var _hWhat = _hEntries[0] && _hEntries[0].tmpl ? String(_hEntries[0].tmpl.what || '').trim() : '';
               // le titre du fil est du HTML (échappé) — la page l'échappe elle-même : on décode d'abord.
               if (_hWhat) heroTitle = _hWhat.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
