@@ -1,5 +1,6 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
+import { matchSiteInQuestion } from "../../../lib/explorer/siteFromQuestion";
 import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredFamilyMarginAnswerFr, declaredClientCountAnswerFr } from "../../../lib/context/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
@@ -2893,10 +2894,34 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           const _repEnd = _repPeriod ? _repPeriod.end : addDaysYmd(_todayRep, -1);
           const _repStart = _repPeriod ? _repPeriod.start : addDaysYmd(_repEnd, -29);
           const _frR = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
-          const _repUrl = `/app/insightevent/rapport?start=${encodeURIComponent(_repStart)}&end=${encodeURIComponent(_repEnd)}&loc=${encodeURIComponent(location_id)}`;
+          // 09/09 (owner : « the wrong location report ») — le site NOMMÉ dans la question (« pour Sèvres »)
+          // l'emporte sur le site de la session ; sans nom, ou en cas d'égalité, le site de la session reste.
+          // Un aller-retour BQ (libellés des sites du compte), seulement sur cette branche.
+          let _repLoc = location_id;
+          let _repSiteLabel: string | null = null;
+          try {
+            const _ownedIds: string[] = Array.isArray((l as any).all_location_ids) ? (l as any).all_location_ids.map(String) : [];
+            const _idsForLabels = Array.from(new Set([location_id, ..._ownedIds]));
+            if (_idsForLabels.length > 1) {
+              const _bqSites = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+              const [_siteRows] = await _bqSites.query({
+                query: `SELECT location_id, ANY_VALUE(COALESCE(site_name, company_name)) AS label
+                        FROM \`${process.env.BQ_PROJECT_ID || "muse-square-open-data"}.raw.insight_event_user_location_profile\`
+                        WHERE location_id IN UNNEST(@ids) GROUP BY 1`,
+                params: { ids: _idsForLabels }, types: { ids: ["STRING"] }, location: "EU",
+              });
+              const _sites = (Array.isArray(_siteRows) ? _siteRows : []).map((r: any) => ({ location_id: String(r.location_id), label: String(r.label || "") }));
+              const _hit = matchSiteInQuestion(qRaw, _sites);
+              if (_hit && _idsForLabels.includes(_hit)) {
+                _repLoc = _hit;
+                _repSiteLabel = (_sites.find((x) => x.location_id === _hit) || { label: null }).label || null;
+              }
+            }
+          } catch { /* résolution impossible → site de la session, jamais une erreur */ }
+          const _repUrl = `/app/insightevent/rapport?start=${encodeURIComponent(_repStart)}&end=${encodeURIComponent(_repEnd)}&loc=${encodeURIComponent(_repLoc)}`;
           return sysDialogueResponse(
             "Rapport de ventes",
-            `Période : du ${_frR(_repStart)} au ${_frR(_repEnd)} — le document complet, imprimable et partageable.`,
+            `Période : du ${_frR(_repStart)} au ${_frR(_repEnd)}${_repSiteLabel ? ` — ${_repSiteLabel}` : ""} — le document complet, imprimable et partageable.`,
             "deterministic_report_nav_v1",
             { type: "redirect", url: _repUrl, label: "Générer le rapport pour cette période →" },
           );
