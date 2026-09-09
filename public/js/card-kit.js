@@ -19,12 +19,15 @@
   function msRate(n) { return n == null ? '—' : ((Number(n) * 100).toFixed(1).replace('.', ',') + ' %'); }
   function msEur2(n) { return n == null ? '—' : (Number(n).toFixed(2).replace('.', ',') + ' €'); }
   function msDateFr(iso) { try { var pp = String(iso).split('-'); return pp[2] + '/' + pp[1] + '/' + pp[0]; } catch (e) { return String(iso); } }
+  // L'adresse de la page d'un engagement (opération ou pôle) — une seule forme, la même que les
+  // liens « Opérations sur ce pôle » du kit et « Ouvrir le pôle → » de pole-form.js.
+  function msEngagementUrl(id) { return '/app/insightevent/engagement?id=' + encodeURIComponent(String(id == null ? '' : id)); }
   // Family-aware "what changed" placeholder for the Ajuster move-note (structure universal, hint bespoke).
   function _moveHint(at) {
     var s = String(at || '');
     if (/^(sales_|footfall_vs_basket|offering_)/.test(s)) return 'ex. offre, créneau, prix, mise en avant en caisse…';
     if (/^(competit|competition|same_bucket)/.test(s)) return 'ex. canal de visibilité, différenciateur, cible…';
-    if (/^(weather|extended_bad)/.test(s)) return 'ex. stock, staffing, mise en avant…';
+    if (/^(weather|extended_bad)/.test(s)) return 'ex. staffing, mise en avant…';
     if (/^(tourist|tourism|foreign)/.test(s)) return 'ex. offre, langues, canaux touristiques…';
     if (/^(commercial_event|mega_event)/.test(s)) return 'ex. activation, offre, communication…';
     if (/^(ft_|best_day)/.test(s)) return 'ex. staffing, offre, communication…';
@@ -163,7 +166,7 @@
     if (!pos.length) return '';
     var s2 = 'La hausse est portée par ' + pos[0].category + ' (+' + eur(pos[0].delta_eur) + ')';
     if (pos[1]) s2 += ' et ' + pos[1].category + ' (+' + eur(pos[1].delta_eur) + ')';
-    return s2 + '. Vérifiez le stock de ' + pos[0].category + ' — elle ne doit pas manquer — et mettez-la en avant sur vos prochains ' + jour + '.';
+    return s2 + '. Mettez ' + pos[0].category + ' en avant sur vos prochains ' + jour + '.';
   }
 
   // ---- Renderers (pure: json -> HTML) ----
@@ -178,21 +181,37 @@
         if (_feat === 'rain' || _feat === 'snow') return f.rain_prob != null ? Math.round(f.rain_prob) + ' %' : '';
         return f.tmax != null ? Math.round(f.tmax) + '°' : '';
       };
-      html += msStrip(j.forecast.map(function (f) { return { top: wxDayLabel(f.date), mid: wxStripVal(f), highlight: !!f.is_extreme, tone: 'danger' }; }));
+      // 08/09 (lisibilité) : la bande 7 jours est repliée par défaut — le <summary> reprend le texte
+      // de la zone qui rend ce bloc (insight.astro « Votre réponse à la météo »), aucun mot nouveau.
+      html += '<details style="margin-bottom:16px;"><summary style="font-size:12px;color:#6B7280;cursor:pointer;">Votre réponse à la météo</summary><div style="margin-top:10px;">'
+        + msStrip(j.forecast.map(function (f) { return { top: wxDayLabel(f.date), mid: wxStripVal(f), highlight: !!f.is_extreme, tone: 'danger' }; }))
+        + '</div></details>';
     }
     if (j.chain) {
       var ch = j.chain;
-      html += '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;">Vos journées de ' + esc(condFr) + ' (niveau 2+, ' + ch.n_cond + ' j) vs votre jour type :</div>'
+      // 08/09 (lisibilité) : la ligne CA reste visible ; Fréquentation / Conversion / Panier se replient
+      // derrière l'en-tête existant du tableau (devenu <summary>). La phrase « L'effet passe par la
+      // fréquentation » ne se rend que si la fréquentation est mesurée (cond non nul, jour type > 0).
+      var _wxCols = [{ label: '' }, { label: 'jours ' + condFr }, { label: 'jour type' }, { label: 'écart' }];
+      html += '<details><summary style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;cursor:pointer;">Vos journées de ' + esc(condFr) + ' (niveau 2+, ' + ch.n_cond + ' j) vs votre jour type :</summary>'
         + msTable(
-            [{ label: '' }, { label: 'jours ' + condFr }, { label: 'jour type' }, { label: 'écart' }],
+            _wxCols,
             [
               { cells: [{ v: 'Fréquentation', bold: true }, { v: frInt(ch.visitors.cond), bold: true }, { v: frInt(ch.visitors.typical), color: '#9CA3AF' }, msDeltaCell(ch.visitors.pct, null)] },
               { cells: [{ v: 'Conversion' }, { v: msRate(ch.conversion.cond) }, { v: msRate(ch.conversion.typical), color: '#9CA3AF' }, msDeltaCell(null, null)] },
-              { cells: [{ v: 'Panier moyen' }, { v: msEur2(ch.basket.cond) }, { v: msEur2(ch.basket.typical), color: '#9CA3AF' }, msDeltaCell(null, null)] },
+              { cells: [{ v: 'Panier moyen' }, { v: msEur2(ch.basket.cond) }, { v: msEur2(ch.basket.typical), color: '#9CA3AF' }, msDeltaCell(null, null)] }
+            ]
+          )
+        + '</details>'
+        + msTable(
+            _wxCols,
+            [
               { cells: [{ v: 'CA', bold: true }, { v: frInt(ch.revenue.cond) + ' €', bold: true }, { v: frInt(ch.revenue.typical) + ' €', color: '#9CA3AF' }, msDeltaCell(ch.revenue.pct, ch.revenue.eur_per_day)] }
             ]
           )
-        + '<div style="font-size:11px;color:#9CA3AF;margin-top:7px;line-height:1.5;">L\'effet passe par la fréquentation, pas le panier. ' + ch.n_cond + ' jours mesurés' + (ch.n_extreme < 5 ? ' · palier extrême quasi sans historique (' + ch.n_extreme + ' j)' : '') + '.</div>';
+        + ((ch.visitors && ch.visitors.cond != null && Number(ch.visitors.typical) > 0)
+            ? '<div style="font-size:11px;color:#9CA3AF;margin-top:7px;line-height:1.5;">L\'effet passe par la fréquentation, pas le panier. ' + ch.n_cond + ' jours mesurés' + (ch.n_extreme < 5 ? ' · palier extrême quasi sans historique (' + ch.n_extreme + ' j)' : '') + '.</div>'
+            : '');
     } else {
       html += '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Historique trop court pour chiffrer l\'effet de ' + esc(condFr) + ' — prévisions seules ci-dessus.</div>';
     }
@@ -204,9 +223,12 @@
     }
     var peakExtreme = j.peak && j.peak.lvl >= 3;
     var decLines = [];
-    if (j.condition && j.condition.feature === 'heat') decLines.push({ head: 'Testez une offre froide', body: 'Une boisson fraîche capte une demande que votre carte chaude ignore — quasi pas d\'historique, à tester.' });
-    if (down.length) decLines.push({ head: 'Activez ' + down[0].category, body: 'Ne profite pas de ' + condFr + ' (' + msPct(down[0].pct) + ') : remise ou mise en avant plutôt que stagnation.' });
-    if (peakExtreme && j.chain && j.chain.n_extreme < 5) decLines.push({ head: 'Le ' + wxDayLabel(j.peak.date) + ' (' + (j.peak.tmax != null ? Math.round(j.peak.tmax) + '°' : '') + ')', body: 'Votre palier le plus chaud, quasi sans historique (' + j.chain.n_extreme + ' j) — n\'extrapolez pas.' });
+    // 08/09 : miroir du plancher serveur (weather.ts MIN_COND_DAYS = 5) — sous 5 jours de condition,
+    // aucune ligne de décision, le bloc « La décision » ne se rend pas.
+    var _decFloorOk = Number(j.cond_days) >= 5;
+    if (_decFloorOk && j.condition && j.condition.feature === 'heat') decLines.push({ head: 'Testez une offre froide', body: 'Une boisson fraîche capte une demande que votre carte chaude ignore — quasi pas d\'historique, à tester.' });
+    if (_decFloorOk && down.length) decLines.push({ head: 'Activez ' + down[0].category, body: 'Ne profite pas de ' + condFr + ' (' + msPct(down[0].pct) + ') : remise ou mise en avant plutôt que stagnation.' });
+    if (_decFloorOk && peakExtreme && j.chain && j.chain.n_extreme < 5) decLines.push({ head: 'Le ' + wxDayLabel(j.peak.date) + ' (' + (j.peak.tmax != null ? Math.round(j.peak.tmax) + '°' : '') + ')', body: 'Votre palier le plus chaud, quasi sans historique (' + j.chain.n_extreme + ' j) — n\'extrapolez pas.' });
     if (decLines.length) html += msDecision('La décision', decLines);
     return html;
   }
@@ -879,10 +901,12 @@
           var nb2 = function (n2) { return (Math.round(Number(n2) * 100) / 100).toString().replace('.', ','); };
           var eu2 = function (n2) { return (Math.round(Number(n2) * 100) / 100).toFixed(2).replace('.', ',') + ' €'; };
           // La phrase d'abord : QUEL facteur porte la fluctuation (le ou les deux plus forts).
+          // 09/09 (owner : « Prix moyen d'un article is a non-sense — Panier moyen okay ») : DEUX facteurs,
+          // le nombre d'achats et le panier moyen (€ par achat) ; articles par achat × prix d'un article
+          // restent lisibles en infobulle sur la ligne du panier (leur produit EST le panier).
           var fs = [
             { key: 'tx', p: Math.abs(v.tx_pct || 0), lib: t('shape_vol_f_tx') },
-            { key: 'items', p: Math.abs(v.items_pct || 0), lib: t('shape_vol_f_items') },
-            { key: 'price', p: Math.abs(v.price_pct || 0), lib: t('shape_vol_f_price') },
+            { key: 'basket', p: Math.abs(v.basket_pct || 0), lib: t('shape_vol_f_basket') },
           ].sort(function (a, b) { return b.p - a.p; });
           h += lead(fs[1].p >= fs[0].p * 0.5
             ? t('shape_vol_lead_2', { f1: fs[0].lib, f2: fs[1].lib })
@@ -892,16 +916,17 @@
             n: v.ref.length, jour: jourRef,
             dates: v.ref.map(function (p2) { return msDateFr(p2.date); }).join(', '),
           });
-          var ligne = function (lab, val, ref, pct2) {
+          var ligne = function (lab, val, ref, pct2, tip2) {
             return '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid #f5f6f8;font-size:13px;">'
               + '<span style="min-width:0;"><span style="font-weight:600;color:#111827;">' + esc(lab) + '</span>'
-              + '<span style="display:block;color:#374151;font-size:11.5px;margin-top:1px;">' + esc(t('shape_vol_val', { v: val, ref: ref })) + info(tipRef) + '</span></span>'
+              + '<span style="display:block;color:#374151;font-size:11.5px;margin-top:1px;">' + esc(t('shape_vol_val', { v: val, ref: ref })) + info(tip2 || tipRef) + '</span></span>'
               + '<span style="font-weight:600;white-space:nowrap;color:' + (pct2 != null && pct2 < 0 ? '#B45309' : '#0F6E56') + ';">' + pc(pct2) + '</span></div>';
           };
+          var tipBasket = tipRef + ' ' + t('shape_vol_l_items') + ' : ' + t('shape_vol_val', { v: nb2(v.items_avg), ref: nb2(v.ref_items_avg) })
+            + ' · ' + t('shape_vol_l_price') + ' : ' + t('shape_vol_val', { v: eu2(v.price_avg), ref: eu2(v.ref_price_avg) }) + '.';
           h += '<div style="margin-top:10px;">'
             + ligne(t('shape_vol_l_tx'), intfr(v.tx_avg), intfr(v.ref_tx_avg), v.tx_pct)
-            + ligne(t('shape_vol_l_items'), nb2(v.items_avg), nb2(v.ref_items_avg), v.items_pct)
-            + ligne(t('shape_vol_l_price'), eu2(v.price_avg), eu2(v.ref_price_avg), v.price_pct)
+            + ligne(t('shape_vol_l_basket'), eu2(v.basket_avg), eu2(v.ref_basket_avg), v.basket_pct, tipBasket)
             + '</div>'
             + '<div style="font-size:12.5px;color:#111827;margin-top:10px;font-weight:600;">' + esc(t('shape_vol_total', { pct: pc(v.total_pct) })) + '</div>'
             + (shape.scope_label_fr && shape.store_total_pct != null ? '<div style="font-size:12px;color:#6b7280;margin-top:4px;">' + esc(t('shape_vol_store', { pct: pc(shape.store_total_pct) })) + '</div>' : '')
@@ -1695,7 +1720,8 @@
     var lineageB = '';
     var _lin = Array.isArray(data.lineage) ? data.lineage : [];
     if (_lin.length > 1) {
-      var _linVerdict = { met: 'objectif atteint', missed: 'objectif manqu\u00e9', confounded: 'objectif non concluant' };
+      // 09/09 (owner) : \u00ab non concluant \u00bb dit sa cause \u2014 m\u00eame mot que l'en-t\u00eate (q1_objectif_confounded).
+      var _linVerdict = { met: 'objectif atteint', missed: 'objectif manqu\u00e9', confounded: 'objectif non concluant (vacances)' };
       var _linFrD = function (iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : ''; };
       var _linPct = function (n) { if (n == null) return ''; var v = Math.round(Math.abs(Number(n)) * 10) / 10; return (Number(n) >= 0 ? '+' : '\u2212') + String(v).replace('.', ',') + ' %'; };
       lineageB = '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;">'
@@ -1708,9 +1734,39 @@
               var eff = v.effect_pct != null ? ' \u2014 ' + _linPct(v.effect_pct) + (v.kpi_mention_fr ? ' ' + v.kpi_mention_fr : '') + ' vs votre r\u00e9sultat habituel' + (v.effect_proven ? ' (effet prouv\u00e9)' : '') : '';
               line += ' : ' + vd + eff + '.';
             }
-            return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + esc(line) + (v.is_current ? ' <span style="color:#6B7280;font-weight:500;">(ce test)</span>' : '') + '</div>';
+            // 09/09 (owner : « versions are not clickable ») : chaque autre version ouvre SA page d'engagement.
+            var _linInner = v.is_current || !v.commitment_id
+              ? esc(line)
+              : '<a href="' + esc(msEngagementUrl(String(v.commitment_id))) + '" style="color:#1D3BB3;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;">' + esc(line) + '</a>';
+            return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + _linInner + (v.is_current ? ' <span style="color:#6B7280;font-weight:500;">(ce test)</span>' : '') + '</div>';
           }).join('')
         + '</div>';
+    }
+    // ── « Rendre permanent → » (08/09) — une opération TERMINÉE dont le périmètre porte des
+    // familles peut devenir un pôle (dispositif permanent, lexique l.19-20). Le kit rend le
+    // bouton et porte en data-attributs les familles du périmètre et la phrase d'origine
+    // (« Pourquoi ça va marcher » du pôle) ; la page POSTe et ouvre le pôle (engagement.astro).
+    // Owner seul : rien en vue membre. Jamais sur un permanent (il l'est déjà), jamais sans
+    // famille (un pôle se définit par ses familles réelles — l'API le refuse).
+    var permanentB = '';
+    if (cm.status === 'resolved' && cm.dispositif_nature !== 'permanent') {
+      var _pMembre = data.role === 'member' || (typeof window !== 'undefined' && window && window._msMemberView === true);
+      var _pScope = null;
+      try { _pScope = typeof cm.measured_scope === 'string' ? JSON.parse(cm.measured_scope) : (cm.measured_scope || null); } catch (e) { _pScope = null; }
+      var _pFams = (_pScope && (_pScope.kind === 'familles' || _pScope.kind === 'pole') && Array.isArray(_pScope.familles))
+        ? _pScope.familles.map(function (f) { return typeof f === 'string' ? f : ((f && f.nom) || ''); }).filter(Boolean) : [];
+      if (!_pMembre && _pFams.length) {
+        var _pDate = function (iso) { var d = String(iso || '').slice(0, 10); return d ? msDateFr(d) : ''; };
+        var _pS = _pDate(cm.window_start), _pE = _pDate(cm.window_end);
+        var _pDates = (_pS && _pE && _pS !== _pE) ? 'du ' + _pS + ' au ' + _pE : ((_pE || _pS) ? 'du ' + (_pE || _pS) : '');
+        // Le verdict TEL QU'AFFICHÉ en tête de page (mêmes clés), en minuscule de phrase.
+        var _pV = cm.verdict === 'met' ? t('q1_objectif_met') : cm.verdict === 'missed' ? t('q1_objectif_missed') : cm.verdict === 'confounded' ? t('q1_objectif_confounded') : '';
+        _pV = _pV ? _pV.charAt(0).toLowerCase() + _pV.slice(1) : '';
+        var _pWhy = [t('permanent_why', { title: String(cm.committed_action_text || '').trim() }), _pDates].filter(Boolean).join(' ') + (_pV ? ' : ' + _pV : '') + '.';
+        permanentB = '<div class="eg-sec" data-eg-permanent-sec style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+          + '<button type="button" data-eg-permanent data-eg-permanent-fams="' + esc(JSON.stringify(_pFams)) + '" data-eg-permanent-why="' + esc(_pWhy) + '" style="font-size:12px;font-weight:600;color:#1D3BB3;background:#F5F7FF;border:1px solid #DBEAFE;border-radius:6px;padding:6px 12px;cursor:pointer;font-family:inherit;">' + esc(t('permanent_cta')) + '</button>'
+          + '<span data-eg-permanent-msg style="font-size:12px;color:#b91c1c;"></span></div>';
+      }
     }
     // ── LES DEUX ÉTATS (owner 28/08) ────────────────────────────────────────────────────
     // EN COURS — la page PILOTE : ce que le dispositif est → où il en est → d'où vient
@@ -1733,7 +1789,7 @@
     }
     return head
       + partie(t('part_comprendre')) + q1 + shapeB + dispoBlock(cm, false)
-      + partie(t('part_conclure')) + q4 + q3 + lineageB + bicRef + sources;
+      + partie(t('part_conclure')) + q4 + permanentB + q3 + lineageB + bicRef + sources;
   }
 
 
@@ -2142,7 +2198,7 @@
 
   window.MSCardKit = { renderComponentPhoto: renderComponentPhoto,
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
-    msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msSortTable: msSortTable, msDecision: msDecision,
+    msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msEngagementUrl: msEngagementUrl, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
     mdBlockToSafeHtml: mdBlockToSafeHtml, renderAnswerBlocks: renderAnswerBlocks,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,

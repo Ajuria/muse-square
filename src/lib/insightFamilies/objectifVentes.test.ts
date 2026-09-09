@@ -29,6 +29,19 @@ describe("objectifVentes — l'objectif en ventes d'une carte ventes (owner 08/0
     const o = objectifVentes(down)!;
     expect(o.sens).toBe("baisse"); expect(o.lignes).toEqual([{ label: "Tea", ventes: 106 }]); expect(o.total).toBe(106);
   });
+  it("dbt 08/09 : delta_units présent → EXACT (pas « estimé »), la valeur vient du mart, pas du prix réalisé", () => {
+    const exact = { decomposition: { gap_eur: 500, top_families: [
+      { family: "Coffee", revenue: 685.9, expected_revenue: 358.66, delta_eur: 327.24, units: 228, expected_units: 119.4, delta_units: 108.6 },
+      { family: "Tea", revenue: 450, expected_revenue: 261, delta_eur: 189, units: 161, expected_units: 93.2, delta_units: 67.8 },
+    ] } };
+    const o = objectifVentes(exact)!;
+    expect(o.estime).toBe(false);
+    expect(o.lignes).toEqual([{ label: "Coffee", ventes: 109 }, { label: "Tea", ventes: 68 }]);
+    expect(o.total).toBe(177);
+    // une famille sans delta_units dans le même payload → l'objectif redevient estimé
+    const mixed = { decomposition: { gap_eur: 500, top_families: [exact.decomposition.top_families[0], { family: "Bakery", revenue: 192, expected_revenue: 113, delta_eur: 79, units: 55 }] } };
+    expect(objectifVentes(mixed)!.estime).toBe(true);
+  });
   it("carte produit : une ligne, prix unitaire du payload", () => {
     const item = { action_type: "item_share_move", data_payload: { item_description: "Our Old Time Diner Blend Lg", item_revenue: 78, expected_item_revenue: 30, unit_price: 3, units: 26 } };
     expect(objectifVentes(item)).toEqual({ estime: true, sens: "hausse", total: 16, lignes: [{ label: "Our Old Time Diner Blend Lg", ventes: 16 }] });

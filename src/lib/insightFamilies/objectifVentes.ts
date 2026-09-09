@@ -17,7 +17,7 @@
 // - sinon null (offering_mix_shift, item_absent_regular : le payload n'a ni unités ni prix — après
 //   l'incrément dbt).
 export interface ObjectifVentesLigne { label: string; ventes: number }
-export interface ObjectifVentes { estime: true; sens: "hausse" | "baisse"; total: number; lignes: ObjectifVentesLigne[] }
+export interface ObjectifVentes { estime: boolean; sens: "hausse" | "baisse"; total: number; lignes: ObjectifVentesLigne[] }
 
 const num = (v: unknown): number | null => {
   const x = v && typeof v === "object" && "value" in (v as any) ? (v as any).value : v;
@@ -33,20 +33,25 @@ export function objectifVentes(candidate: any): ObjectifVentes | null {
     const gapDay = num(dec.gap_eur);
     const sens: "hausse" | "baisse" = gapDay != null ? (gapDay >= 0 ? "hausse" : "baisse") : "hausse";
     const lignes: ObjectifVentesLigne[] = [];
+    // EXACT dès que la décomposition porte delta_units (dbt 08/09 : unités attendues au référent de
+    // l'€ attendu) ; sinon l'ESTIMATION écart € ÷ prix réalisé. Une famille sans delta_units dans un
+    // payload qui en porte ailleurs reste estimée : l'objectif entier est alors marqué estimé.
+    let estime = false;
     for (const f of fams) {
-      const rev = num(f.revenue), units = num(f.units), delta = num(f.delta_eur);
+      const rev = num(f.revenue), units = num(f.units), delta = num(f.delta_eur), dUnits = num(f.delta_units);
       const label = String(f.family || "").trim();
-      if (!label || rev == null || units == null || delta == null || units <= 0 || rev <= 0) continue;
+      if (!label || delta == null) continue;
       if (sens === "hausse" ? delta <= 0 : delta >= 0) continue;
-      const prix = rev / units;
-      const ventes = Math.round(Math.abs(delta) / prix);
+      let ventes: number;
+      if (dUnits != null) ventes = Math.round(Math.abs(dUnits));
+      else { if (rev == null || units == null || units <= 0 || rev <= 0) continue; ventes = Math.round(Math.abs(delta) / (rev / units)); estime = true; }
       if (ventes >= 1) lignes.push({ label, ventes });
     }
     if (!lignes.length) return null;
     lignes.sort((a, b) => b.ventes - a.ventes);
     // « total of z » (owner) = le total de w, x et y — les lignes montrées, jamais plus que ce qu'on lit.
     const shown = lignes.slice(0, 3);
-    return { estime: true, sens, total: shown.reduce((s, l) => s + l.ventes, 0), lignes: shown };
+    return { estime, sens, total: shown.reduce((s, l) => s + l.ventes, 0), lignes: shown };
   }
   const dp = candidate.data_payload || {};
   const itemRev = num(dp.item_revenue), itemExp = num(dp.expected_item_revenue), prix = num(dp.unit_price);

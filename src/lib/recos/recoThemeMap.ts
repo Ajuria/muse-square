@@ -42,6 +42,9 @@ export const RECO_THEME_ACTION_TYPES: Record<string, string[]> = {
     // Le bouton aurait menti. Entré côté client le 15/06 (096a015), jamais côté serveur —
     // la dérive était rouge dans recoThemeMap.parity.test.ts depuis.
     "foreign_tourism_signal",
+    // 08/09 — vacances scolaires à venir sous le résultat habituel (mart, date = jour d'émission) ;
+    // même thème que audience_shift_opportunity ; parité client (RECO_TAXONOMY) testée.
+    "vacation_underperformance_ahead",
   ],
   tourisme: [
     "tourist_high_season", "tourist_surge_vacation", "tourism_peak_window",
@@ -67,6 +70,8 @@ export const RECO_THEME_ACTION_TYPES: Record<string, string[]> = {
     "sales_discount_no_lift", "sales_revenue_down_wow", "offering_mix_shift",
     // 06/09 — paniers à plusieurs articles (grain facture, fct_client_tickets_daily) ; parité client testée.
     "tickets_lines_move", "item_absent_regular", "family_price_move", "family_discount_move",
+    // 08/09 — famille qui pèse presque rien dans le CA sur 60 j (mart) ; même thème que offering_mix_shift.
+    "family_space_underuse",
     // 31/07/2026 — même dérive, côté « Performance ventes » (entré client le 10/06, 832b294).
     // Portée réelle plus faible : monitor.ts l'exclut déjà à la frontière de sa requête
     // (« Retired: redundant with sales_surge »). On l'aligne quand même — un vocabulaire qui

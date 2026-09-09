@@ -454,8 +454,11 @@ const location_id_for_dev = location_id ?? "les_costieres_de_l_art";
 
             function initMap(lat, lon, label, date) {
               __locMap = L.map("ms-loc-map", { zoomControl: false }).setView([lat, lon], 14);
-              L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-                attribution: "© OpenStreetMap contributors"
+              L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
+                attribution: "© OpenStreetMap contributors, © Esri", maxZoom: 16
+              }).addTo(__locMap);
+              L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}", {
+                maxZoom: 16
               }).addTo(__locMap);
               __locMarker = L.circleMarker([lat, lon], {
                 radius: 8, fillColor: "#0b37e5", color: "#fff", weight: 2, fillOpacity: 1

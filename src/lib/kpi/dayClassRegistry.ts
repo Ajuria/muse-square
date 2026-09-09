@@ -1370,6 +1370,13 @@ const MOTIF_INHERIT_TYPES = new Set([
   // ou « jours fériés ». Défaut préexistant, relevé en câblant leurs voisines.
   "audience_shift_opportunity",
   "calendar_audience_shift",
+  // 08/09 — vacation_underperformance_ahead : miroir d'audience_shift_opportunity. La carte porte
+  // son propre chiffre (hist_delta_pct des précédentes vacances, dans le corps) ; le calendrier de
+  // sa date d'émission est son CONTEXTE, jamais son coin (CARD_POPULATION sans entrée ⇒ enjeu null).
+  // family_space_underuse n'entre NULLE PART ici, délibérément : son payload est un NIVEAU sur
+  // 60 j (revenue_60d, part), sans delta_eur ni direction — CARD_POPULATION_BY_DIRECTION lui
+  // aurait prêté « pop_family_carry » par défaut, et corner_day_mode n'aurait rien à lire.
+  "vacation_underperformance_ahead",
   // 21/08 — weekend_opportunity entre ici, et l'ensemble perd son préfixe SALES_ qui l'aurait
   // interdite. Motif : la carte affirmait « Conditions favorables » en chaîne CONSTANTE, puis
   // accolait météo et densité d'événements sans jamais les évaluer — « conditions favorables
@@ -1476,7 +1483,7 @@ const CARD_VALUE_TYPES = new Set([
  *  une ligne de texte : la classe la plus lourde parmi météo/calendrier de la date affectée,
  *  ou la classe environnementale citée par la carte (CARD_CONTEXT_CLASS). Jamais le coin. */
 // 06/09 (audit P7) — cartes dont la VARIABLE est le calendrier : héritage calendaire seul.
-const CALENDAR_INHERIT_ONLY = new Set<string>(["commercial_event_match", "audience_shift_opportunity", "calendar_audience_shift"]);
+const CALENDAR_INHERIT_ONLY = new Set<string>(["commercial_event_match", "audience_shift_opportunity", "calendar_audience_shift", "vacation_underperformance_ahead"]);
 
 export function motifContextForCandidate(result: DayClassResult, candidate: { action_type?: any; date?: any; data_payload?: any }): DayClassImpact | null {
   const actionType = String(candidate?.action_type || "");

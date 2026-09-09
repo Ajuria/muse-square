@@ -22,6 +22,8 @@ export const COMMITMENT_ORIGIN_ACTION_TYPES: ReadonlySet<string> = new Set<strin
   "weekly_sales_spike",            // C2 (07/08/2026)
   "monthly_sales_hole",            // C3 (07/08/2026) — s'engager après un mois extrême (canal)
   "monthly_sales_spike",           // C3 (07/08/2026)
+  "family_space_underuse",         // 08/09/2026 — carte déclarée (raw.action_candidates_manual) : la place en rayon d'une famille qui ne pèse rien
+  "vacation_underperformance_ahead", // 08/09/2026 — carte déclarée : vacances à venir, CA sous l'habituel sur les vacances passées
 
   // Weather — verified present in public/js/action-cards.js SPECS (the four types that route to
   // the weather deep page / drill-down in insight.astro `_isWeather`).

@@ -168,7 +168,7 @@ async function buildLineage(bq: any, snap: any): Promise<any[]> {
   if ((snap as any).dispositif_id) {
     const [lrows] = await bq.query({
 
-      query: `SELECT commitment_id, version_no, status, verdict, measured_metric,
+      query: `SELECT commitment_id, version_no, status, verdict, measured_metric, measured_scope,
                      window_residual_pct, window_residual_z,
                      kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
                      CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end
@@ -187,7 +187,11 @@ async function buildLineage(bq: any, snap: any): Promise<any[]> {
     });
     const flatv = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
     lineage = (Array.isArray(lrows) ? lrows : []).map((r: any) => {
-      const eff = commitmentEffect(r);
+      // 09/09 (owner) : la mention KPI NOMME la famille du périmètre (« sur le CA de la famille
+      // Fromages & crèmerie »), plus jamais le libellé générique « CA famille produits & services ».
+      const _sc = parseScope(flatv(r.measured_scope));
+      const _fam = _sc && _sc.kind === "familles" && Array.isArray(_sc.familles) && _sc.familles.length === 1 ? String(_sc.familles[0].nom || "") : "";
+      const eff = commitmentEffect(_fam ? { ...r, kpi_family: _fam } : r);
       return {
         commitment_id: String(flatv(r.commitment_id)),
         version_no: Number(flatv(r.version_no)) || 1,

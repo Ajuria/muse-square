@@ -1,6 +1,7 @@
 // src/pages/api/insight/monitor.ts
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
+import { CANDIDATES_WITH_MANUAL_SQL } from "../../../lib/recos/manualCandidates";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { cardScope, memberCanSeeCard, redactPayloadForMember } from "../../../lib/profile/memberCardPolicy";
 import { objectifVentes } from "../../../lib/insightFamilies/objectifVentes";
@@ -297,7 +298,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
             confidence_tier,
             data_payload,
             suppression_key, expires_at
-          FROM \`muse-square-open-data.semantic.vw_insight_event_action_candidates\`
+          -- 08/09 : vue ∪ cartes DÉCLARÉES à la main (raw.action_candidates_manual, lib/recos/manualCandidates.ts)
+          FROM ${CANDIDATES_WITH_MANUAL_SQL} c
           WHERE location_id = @location_id
             -- Retired: redundant with sales_surge (same volume-vs-basket read). Excluded
             -- at the feed boundary; the dbt CTE removal is the permanent fix.

@@ -32,8 +32,10 @@ function loadKit(): any {
   ctx.self = ctx; ctx.globalThis = ctx;
   vm.createContext(ctx);
   vm.runInContext(src, ctx, { filename: "card-kit.js" });
+  kitWindow = ctx.window;
   return ctx.window.MSCardKit;
 }
+let kitWindow: any = null;   // le `window` du kit (vm) — pour poser window._msMemberView comme la page le fait
 
 async function payload(id: string): Promise<any> {
   const locals = { clerk_user_id: "harness", all_location_ids: [LOC] };
@@ -44,9 +46,58 @@ async function payload(id: string): Promise<any> {
   return res.json();
 }
 
+// ── « Rendre permanent → » (08/09) — les cinq états, SANS BigQuery (`--pure`) ────────────
+// Le CTA n'existe que sur une opération TERMINÉE dont le périmètre porte des familles, hors vue
+// membre. Payloads synthétiques minimaux (le rendu est pur) ; le vrai payload est vérifié plus
+// bas, sur le compte réel, quand le harnais tourne sans `--pure`.
+function permanentCases(kit: any) {
+  console.log("\n— « Rendre permanent → » : les cinq états —");
+  const base = (over: Record<string, unknown>, top: Record<string, unknown> = {}) => ({
+    ok: true,
+    commitment: {
+      commitment_id: "c-1", location_id: LOC, status: "resolved", verdict: "met", window_kind: "day_of",
+      committed_action_text: "Corner de vente producteur — fromages", owner_person_name: "Camille Robin",
+      window_start: "2026-08-22", window_end: "2026-08-22", created_at: "2026-08-15T10:00:00Z",
+      measured_scope: JSON.stringify({ kind: "familles", familles: [{ nom: "Coffee" }, { nom: "Bakery" }] }),
+      ...over,
+    },
+    series: [], kpi: null, move_stats: [], best_in_class: [], site_name: "Muse Square", lineage: [],
+    ...top,
+  });
+  const render = (d: any) => String(kit.renderEvolution(d, EVOL_COPY));
+  const has = (h: string) => h.includes("Rendre permanent →") && h.includes("data-eg-permanent ");
+
+  const done = render(base({}));
+  ok("TERMINÉE + familles : CTA présent", has(done));
+  ok("les familles du périmètre voyagent avec le bouton", done.includes('data-eg-permanent-fams="[&quot;Coffee&quot;,&quot;Bakery&quot;]"'));
+  ok("la phrase d'origine porte le titre, la date et le verdict tel qu'affiché",
+    done.includes('data-eg-permanent-why="Ce pôle vient de l\'opération « Corner de vente producteur — fromages » du 22/08/2026 : objectif atteint."'),
+    (done.match(/data-eg-permanent-why="[^"]*"/) || [])[0]);
+  ok("le CTA vit dans « Conclure », après Documenter", done.indexOf(">Conclure<") < done.indexOf("Rendre permanent →") && done.indexOf(">Documenter<") < done.indexOf("Rendre permanent →"));
+  const multi = render(base({ window_start: "2026-08-20", window_end: "2026-08-22", verdict: "missed" }));
+  ok("plusieurs jours : « du … au … » et le verdict manqué",
+    multi.includes("du 20/08/2026 au 22/08/2026 : objectif non atteint."), (multi.match(/data-eg-permanent-why="[^"]*"/) || [])[0]);
+  const pole = render(base({ measured_scope: JSON.stringify({ kind: "pole", familles: [{ nom: "Coffee" }], pole_id: "p1", pole_nom: "Épicerie fine" }) }));
+  ok("périmètre de nature pôle : les familles comptent aussi", has(pole));
+
+  ok("EN COURS : absent", !has(render(base({ status: "open", verdict: null }))));
+  ok("PERMANENT : absent (il l'est déjà)",
+    !has(render(base({ dispositif_nature: "permanent", status: "open", pole_families: '["Coffee"]' }, { pole: { families: [], operations: [] } }))));
+  ok("SANS FAMILLE (périmètre nul) : absent", !has(render(base({ measured_scope: null }))));
+  ok("SANS FAMILLE (périmètre articles) : absent", !has(render(base({ measured_scope: JSON.stringify({ kind: "articles", item_codes: ["A1"] }) }))));
+  ok("VUE MEMBRE (data.role) : absent", !has(render(base({}, { role: "member" }))));
+  ok("ANNULÉE : absent", !has(render(base({ status: "cancelled" }))));
+  kitWindow._msMemberView = true;
+  try { ok("VUE MEMBRE (window._msMemberView) : absent", !has(render(base({})))); } finally { delete kitWindow._msMemberView; }
+  ok("owner à nouveau : présent", has(render(base({}))));
+}
+
 (async () => {
   const kit = loadKit();
   ok("MSCardKit.renderEvolution exposé", typeof kit?.renderEvolution === "function");
+  ok("MSCardKit.msEngagementUrl exposé", typeof kit?.msEngagementUrl === "function" && kit.msEngagementUrl("a b") === "/app/insightevent/engagement?id=a%20b");
+  permanentCases(kit);
+  if (process.argv.includes("--pure")) { console.log(`\n${pass} vert · ${fail} rouge`); process.exit(fail ? 1 : 0); }
 
   const cases: { label: string; id: string; open: boolean }[] = [
     { label: "EN COURS (vacances scolaires)", id: OPEN_ID, open: true },

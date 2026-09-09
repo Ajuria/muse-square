@@ -88,4 +88,35 @@ export const TOURNURES_LLM: TournureBannie[] = [
     faute: "« X a fait N € » n'est pas du français — le sujet génère un montant, ou le CA est de N €",
     refusee: "Ce vendredi, il a fait 0 € (−100 %) contre 137 € votre vendredi habituel à cette heure",
   },
+  // 09/09 (owner : « please write in French not in frenglish — it drives me mad ») : LE FRANGLAIS EST
+  // INTERDIT. Un calque de l'anglais n'est pas du français même quand chaque mot existe en français.
+  {
+    motif: /\btrac(ez|er|é|ée|ons) (la|une|sa|votre) cause\b/,
+    faute: "calque de « trace the cause » — en français on IDENTIFIE ou on RETROUVE une cause",
+    refusee: "Aucun motif mesuré sur cette date, tracez la cause avant d'agir (owner 09/09 : « Not trace the cause ! Identifiez la cause avant d'agir »)",
+  },
+  {
+    motif: /\bnot(ez|er) vo(tre|s) prix\b/,
+    faute: "calque de « note your price » — on COMPARE ses prix à ceux du concurrent (on fait le benchmark)",
+    refusee: "notez votre prix et votre marge sur Zaatar 40 g (owner 09/09 : « Comparez vos prix à celui de… ou Faites le benchmark »)",
+  },
+  {
+    motif: /\badress(ez|er) (directement )?(votre|vos|le|la|les|ce|cette|un|une)\b/,
+    faute: "calque de « address your audience » — on PARLE À ses clients, on s'adresse à eux",
+    refusee: "Adressez directement votre public partagé avant l'échéance (relevé 09/09, même calque)",
+  },
+  // 09/09 (owner : « on a dit 500 fois que l'on ne se mêle pas des commandes ») : AUCUN geste sur les
+  // commandes, les achats, le stock, le réassort. L'app ne connaît que ce qui s'est VENDU ; ce que
+  // l'exploitant commande est SON affaire. Abroge « les achats = le levier à 2-3 jours » (28/07).
+  {
+    // « achat » au sens du CLIENT (nombre d'achats, déclencher l'achat) reste permis : c'est une mesure, pas un geste.
+    motif: /\bcommandez\b|\bcommander\b|\brecommandez\b|\bvos commandes\b|\bcommandes? de (frais|la semaine)\b|\bla prochaine commande\b|\bgrosses commandes\b|\b(vos|les|ses|aux) achats\b|\bstocks?\b|\br[ée]assort|\bapprovisionn/,
+    faute: "geste sur les commandes / achats / stock — interdit : l'app ne voit que les ventes, la commande est l'affaire de l'exploitant",
+    refusee: "Commandez « Pâtisserie fine » sur ses jours de hausse, pas sur sa moyenne (owner 09/09 : « on a dit 500 fois que l'on ne se mêle pas des commandes »)",
+  },
+  {
+    motif: /\b(boost(ez|er)|monitor(ez|er)|check(ez|er)|switch(ez|er)|challeng(ez|er)|focus(ez|er)|impact(ez|er)|support(ez|er)|d[ée]livr(ez|er)|perform(ez|er)|forward(ez|er)|updat(ez|er)|upgrad(ez|er))\b/,
+    faute: "franglais — verbe anglais francisé",
+    refusee: "(règle owner 09/09 : le franglais est interdit, aucune chaîne visible n'en porte)",
+  },
 ];
