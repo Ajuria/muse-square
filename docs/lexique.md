@@ -165,6 +165,16 @@ quand l'owner refuse une phrase** ; en retirer une demande son accord.
 6. **Jours de semaine en toutes lettres** (« votre jeudi habituel »), dates `JJ/MM`.
 7. **Absence dite et chiffrée** (« Prix stables — 10 tarifs comparés, rien à la lecture de cette
    nuit ») — jamais un zéro nu ni une section vide.
+7 bis. **LE FRANGLAIS EST INTERDIT** (owner 09/09 : « please write in French not in frenglish — it
+   drives me mad »). Un calque de l'anglais n'est pas du français, même quand chaque mot existe :
+   on n'écrit pas ce qu'on traduit, on écrit ce que dirait le commerçant à son comptable.
+   Refusés le 09/09 : « tracez la cause » (trace) → **identifiez la cause** ; « notez votre prix
+   sur X » (note) → **comparez vos prix à ceux de Y** / **faites le benchmark** ; « adressez votre
+   public » (address) → **parlez à vos clients**. Les verbes anglais francisés (booster, monitorer,
+   checker, impacter, supporter, délivrer, performer, updater…) n'entrent jamais dans une chaîne
+   visible. Attrapé mécaniquement par `tournures.fr.ts` (calques listés) ; le reste se vérifie à la
+   relecture, comme les règles 8-13 : la question n'est pas « est-ce du français ? » mais « est-ce
+   ce qu'un commerçant français DIRAIT ? ».
 
 ## Arbitrages tranchés (owner 17/08)
 
