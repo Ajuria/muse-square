@@ -1,31 +1,28 @@
-# Handoff dbt Cloud IDE — la menace concurrentielle dit enfin ce qu'elle mesure (09/09/2026)
+# Handoff dbt Cloud IDE — « menace forte » exige le même secteur que le site (09/09/2026)
 
-Une épicerie fine (Maison Sèvres) se voyait proposer « Suivez Musée d'Orsay » avec
-« 100 % de public commun ». Le chiffre est arithmétiquement juste et sémantiquement vide :
-le site est étiqueté local + tourists, le musée aussi, donc deux correspondances sur deux
-étiquettes distinctes. À Paris, tout établissement sert des habitants et des touristes.
+Une épicerie fine (Maison Sèvres) se voyait proposer « Suivez Musée d'Orsay ». Le niveau
+`threat_level = 'high'` se construisait sur le secteur et la distance SEULS dès que le public
+du concurrent est inconnu, ce qui est le cas de 187 573 paires sur 188 414. « Menace forte »
+voulait donc dire « c'est à côté ».
 
-Deux corrections, mesurées sur les données réelles :
+**Une seule correction :** `threat_level = 'high'` exige désormais `industry_match_tier = 'direct'`,
+c'est-à-dire le même code secteur que le site. Un score élevé hors secteur reste `moderate` :
+le signal n'est pas perdu, il n'est plus promu.
 
-1. **`threat_level` = high exige le MÊME code secteur que le site** (`industry_match_tier = 'direct'`).
-   Sans cette porte, le score se fabriquait sur le secteur et la distance seuls dès que le public
-   est inconnu — 99,6 % des paires — et « menace forte » voulait dire « c'est à côté ».
-   Mesuré : **7 218 high → 12**, tous les retirés étant de secteur `partial`.
-2. **Nouvelle colonne `audience_overlap_basis`** : sur quoi repose `audience_overlap_pct`.
-   `none` (aucun public renseigné côté concurrent), `wildcard` (le rapprochement passe par
-   `mixed`, joker des deux côtés, votre règle du 23/08), `declared` (étiquettes explicites).
+Ce qui n'est PAS touché : la formule du chevauchement de public, le grain, les colonnes.
+Le mart `fct_competitor_threat_profile` n'a aucune modification à recevoir — le modèle rend
+exactement les mêmes 22 colonnes qu'aujourd'hui.
 
-La formule du chevauchement n'est PAS touchée : votre règle `mixed` du 23/08 reste en place.
-Le grain n'est pas touché non plus — les paires non suivies alimentent le geste « Suivez X »,
-les retirer tuerait la fonction.
+**Preuves d'exécution** — modèle compilé (refs remplacées par les tables réelles) et exécuté
+sur BigQuery avant envoi :
 
-**Preuves d'exécution** (modèle compilé et exécuté sur BigQuery avant envoi, refs remplacées
-par les tables réelles) : 188 414 lignes rendues, identique à la table actuelle ; Halle Odéon
-et Comptoir Fénelon (suivis, secteur direct) restent `high` ; Orsay, Louvre, Pompidou,
-Orangerie, Cité des Sciences et Galeries Lafayette passent à `moderate`.
+| Lignes rendues | 188 414, identique à la table actuelle |
+| Colonnes rendues | 22, aucune ajoutée, aucune supprimée |
+| Menaces fortes | 7 218 avant, 12 après |
+| Halle Odéon et Comptoir Fénelon, suivis, secteur direct | restent `high` |
+| Orsay, Louvre, Pompidou, Orangerie, Cité des Sciences, Galeries Lafayette | passent à `moderate` |
 
-**Quatre fichiers, dans l'ordre du DAG** : le modèle intermédiaire, puis le mart qui le lit,
-puis les deux `schema.yml` qui les déclarent.
+**Deux fichiers, dans l'ordre du DAG** : le modèle, puis le `schema.yml` qui le déclare.
 
 ---
 
@@ -205,26 +202,6 @@ with_overlap as (
         )
         * 100.0                             as audience_overlap_pct,
 
-        -- ── audience_overlap_basis ────────────────────────────────────────────
-        -- 09/09 (owner : « le public overlapping est faux ») — sur QUOI repose le
-        -- chevauchement, pour qu'aucune surface ne le présente comme une mesure quand
-        -- ce n'est qu'une étiquette. 'none' : le concurrent n'a aucun public renseigné
-        -- (21 257 entrées d'annuaire sur 21 288). 'wildcard' : le rapprochement passe
-        -- par 'mixed', joker des deux côtés (règle owner 23/08). 'declared' : les deux
-        -- côtés portent des étiquettes explicites — ce qui reste grossier, le
-        -- vocabulaire tenant en quatre mots (local, tourists, professionals, families).
-        CASE
-            WHEN p.competitor_primary_audience IS NULL
-                 AND p.competitor_secondary_audience IS NULL              THEN 'none'
-            WHEN p.primary_audience_1 IS NULL
-                 AND p.primary_audience_2 IS NULL                         THEN 'none'
-            WHEN 'mixed' IN UNNEST(ARRAY(SELECT a FROM UNNEST([
-                     p.primary_audience_1, p.primary_audience_2,
-                     p.competitor_primary_audience, p.competitor_secondary_audience
-                 ]) AS a WHERE a IS NOT NULL))                            THEN 'wildcard'
-            ELSE                                                               'declared'
-        END                                                           as audience_overlap_basis,
-
         -- ── seasonality_alignment ─────────────────────────────────────────────
         (p.user_seasonality = p.competitor_seasonality)               as seasonality_alignment,
 
@@ -320,20 +297,19 @@ select
         THEN NULL
         ELSE ROUND(COALESCE(audience_overlap_pct, 0.0), 2)
     END                                              as audience_overlap_pct,
-    audience_overlap_basis,
     industry_match_tier,
     seasonality_alignment,
     programming_rhythm_match,
     ROUND(distance_km, 3)                           as distance_km,
     ROUND(threat_score, 4)                          as threat_score,
 
-    -- 09/09 (owner) : « high » exige désormais le MÊME SECTEUR que le site
-    -- (industry_match_tier = 'direct'). Sans cette porte, le niveau se fabriquait sur
-    -- le secteur et la distance SEULS dès que le public est inconnu — 99,6 % des
-    -- paires — et une épicerie fine sortait le musée d'Orsay en menace forte à 2,4 km.
-    -- Mesuré sur le mart : 7 218 'high' → 12, tous les retirés étant des paires de
-    -- secteur 'partial'. Un score élevé hors secteur reste 'moderate' : le signal
-    -- n'est pas perdu, il n'est plus promu.
+    -- 09/09 (owner) : « high » exige le MÊME code secteur que le site
+    -- (industry_match_tier = 'direct'). Sans cette porte, le niveau se construisait sur
+    -- le secteur et la distance SEULS dès que le public du concurrent est inconnu —
+    -- 187 573 paires sur 188 414 — et une épicerie fine sortait le musée d'Orsay en
+    -- menace forte à 2,4 km. Mesuré sur le mart : 7 218 'high' → 12, tous les retirés
+    -- étant de secteur 'partial'. Un score élevé hors secteur reste 'moderate' : le
+    -- signal n'est pas perdu, il n'est plus promu.
     CASE
         WHEN threat_score >= 0.6 AND industry_match_tier = 'direct' THEN 'high'
         WHEN threat_score >= 0.3                                    THEN 'moderate'
@@ -364,80 +340,10 @@ from with_threat
 
 ---
 
-## 2. `ms_dbt/models/ms_open_data/mart/fct_competitor_threat_profile.sql`
-
-Ouvrir ce fichier, **tout sélectionner**, puis coller le bloc ci-dessous à la place.
-Une seule ligne change (`audience_overlap_basis` ajoutée au pass-through).
-
-```sql
-/*
-  PATH
-    models/ms_open_data/mart/fct_competitor_threat_profile.sql
-
-  MODEL
-    fct_competitor_threat_profile
-
-  PURPOSE
-    Profil de menace concurrentielle au niveau paire location × concurrent.
-    Pass-through depuis int_competitor_threat_profile.
-    Consommé par la vue sémantique et optionnellement jointé dans les
-    modèles event-level.
-
-  AUTHORITATIVE SOURCES (truth)
-    - {{ ref('int_competitor_threat_profile') }}   -- location_id × competitor_id
-
-  OUTPUT GRAIN
-    location_id × competitor_id
-
-  MATERIALIZATION
-    Table, schéma mart, clusterisée sur location_id et competitor_id.
-*/
-
-{{ config(
-    materialized = 'table',
-    schema       = 'mart',
-    cluster_by   = ['location_id', 'competitor_id'],
-    tags         = ['daily']
-) }}
-
-with source as (
-    select *
-    from {{ ref('int_competitor_threat_profile') }}
-)
-
-select
-    location_id,
-    competitor_id,
-    competitor_name,
-    is_followed,
-    audience_overlap_pct,
-    audience_overlap_basis,
-    industry_match_tier,
-    seasonality_alignment,
-    programming_rhythm_match,
-    distance_km,
-    threat_score,
-    threat_level,
-    competitor_google_rating,
-    competitor_google_rating_count,
-    location_primary_audience_1,
-    location_primary_audience_2,
-    location_industry_code,
-    competitor_primary_audience,
-    competitor_secondary_audience,
-    competitor_industry_code,
-    competitor_seasonality,
-    competitor_event_time_profile,
-    dbt_updated_at
-from source
-```
-
----
-
-## 3. `ms_dbt/models/ms_open_data/intermediate/schema.yml`
+## 2. `ms_dbt/models/ms_open_data/intermediate/schema.yml`
 
 Un seul geste. Chercher `int_competitor_threat_profile` (ligne 404 sur votre branche),
-puis remplacer **la ligne `description:` qui la suit** :
+puis remplacer **la ligne `description:` qui la suit**.
 
 Ligne à remplacer :
 ```yaml
@@ -446,24 +352,7 @@ Ligne à remplacer :
 
 Ligne de remplacement :
 ```yaml
-    description: "Profil de menace concurrentielle au grain site x entrée d annuaire, pour toute entrée située à 50 km ou moins du site ; is_followed marque les suivis réels (29 suivis sur 188 414 paires, mesuré le 09/09/2026). threat_level vaut high seulement si l entrée porte le MÊME code secteur que le site (industry_match_tier = direct) : sans cette porte le niveau se fabriquait sur le secteur et la distance seuls dès que le public est inconnu, soit 99,6 % des paires, et une épicerie fine sortait le musée d Orsay en menace forte à 2,4 km. audience_overlap_basis dit sur quoi repose audience_overlap_pct : none (aucun public renseigné côté concurrent, 21 257 entrées d annuaire sur 21 288), wildcard (rapprochement passant par mixed, joker des deux côtés, règle owner 23/08) ou declared. Doublons d annuaire non résolus, test unicité non implémenté."
-```
-
----
-
-## 4. `ms_dbt/models/ms_open_data/mart/schema.yml`
-
-Un seul geste. Chercher `fct_competitor_threat_profile` (ligne 717 sur votre branche),
-puis remplacer **la ligne `description:` qui la suit** :
-
-Ligne à remplacer :
-```yaml
-    description: "Profil de menace concurrentielle par location."
-```
-
-Ligne de remplacement :
-```yaml
-    description: "Profil de menace concurrentielle au grain site x concurrent — pass-through de int_competitor_threat_profile, dont l en-tête fait foi. Porte le chevauchement de public ET sa base : une surface ne présente audience_overlap_pct comme un fait que si audience_overlap_basis vaut declared."
+    description: "Profil de menace concurrentielle au grain site x entrée d annuaire, pour toute entrée située à 50 km ou moins du site ; is_followed marque les suivis réels (29 suivis sur 188 414 paires, mesuré le 09/09/2026). threat_level vaut high seulement si l entrée porte le MÊME code secteur que le site (industry_match_tier = direct) : sans cette porte le niveau se construisait sur le secteur et la distance seuls dès que le public du concurrent est inconnu, soit 187 573 paires sur 188 414, et une épicerie fine sortait le musée d Orsay en menace forte à 2,4 km. Doublons d annuaire non résolus, test unicité non implémenté."
 ```
 
 ---
@@ -471,40 +360,33 @@ Ligne de remplacement :
 ## Message de commit
 
 ```
-fix(menace): « menace forte » exige le même secteur que le site, et le chevauchement de public dit sur quoi il repose
+fix(menace): « menace forte » exige le même code secteur que le site
 
-threat_level = high seulement si industry_match_tier = 'direct'. Sans cette porte le
-score se construisait sur le secteur et la distance seuls dès que le public est inconnu
-(187 573 paires sur 188 414), et une épicerie fine sortait le musée d'Orsay en menace
-forte à 2,4 km avec « 100 % de public commun ». Mesuré : 7 218 high -> 12, tous les
-retirés de secteur 'partial' ; les suivis réels de secteur direct restent high.
+threat_level = high seulement si industry_match_tier = 'direct'. Sans cette porte, le
+niveau se construisait sur le secteur et la distance seuls dès que le public du
+concurrent est inconnu (187 573 paires sur 188 414), et une épicerie fine sortait le
+musée d'Orsay en menace forte à 2,4 km. Mesuré : 7 218 high -> 12, tous les retirés de
+secteur 'partial' ; les suivis réels de secteur direct restent high.
 
-Nouvelle colonne audience_overlap_basis (none | wildcard | declared) : aucune surface ne
-présente audience_overlap_pct comme un fait quand il repose sur rien. 21 257 entrées
-d'annuaire sur 21 288 n'ont aucun public renseigné, et le vocabulaire tient en quatre
-mots, donc le chiffre ne prend que six valeurs (0, 25, 33, 50, 67, 100).
-
-La formule du chevauchement et le grain ne changent pas : la règle 'mixed' du 23/08 reste,
-et les paires non suivies restent (elles alimentent le geste « Suivez X »).
+Aucune autre modification : la formule du chevauchement de public, le grain et les 22
+colonnes rendues sont inchangés, donc le mart n'a rien à recevoir.
 ```
 
 ## Après le run
-
-Construire dans l'ordre :
 
 ```
 dbt run --select int_competitor_threat_profile+
 ```
 
-Puis vérifier en base — la première requête doit rendre 12, la seconde doit montrer
-Halle Odéon et Comptoir Fénelon en `high` et les musées en `moderate` :
+Puis vérifier en base. La première requête doit rendre 12 sur 188 414. La seconde doit
+montrer Halle Odéon et Comptoir Fénelon en `high`, les musées en `moderate` :
 
 ```sql
 SELECT COUNTIF(threat_level = 'high') AS high, COUNT(*) AS lignes
 FROM `muse-square-open-data.mart.fct_competitor_threat_profile`;
 
 SELECT competitor_name, industry_match_tier, audience_overlap_pct,
-       audience_overlap_basis, threat_level, is_followed, ROUND(distance_km, 1) AS km
+       threat_level, is_followed, ROUND(distance_km, 1) AS km
 FROM `muse-square-open-data.mart.fct_competitor_threat_profile`
 WHERE location_id = '29383776-bd7a-4401-ac26-f2e6efe1f58c'
   AND threat_level IN ('high', 'moderate')
@@ -514,13 +396,15 @@ LIMIT 10;
 
 ## Ce que cette passation ne corrige PAS
 
+- **Le chevauchement de public reste tel quel.** Il compare les étiquettes du site à celles
+  du concurrent, sans tenir compte du rang principal ou secondaire, et le vocabulaire tient
+  en six valeurs déclarables (local, tourists, mixed, professionals, students, families).
+  Deux commerces parisiens porteront souvent les mêmes étiquettes.
+- **Le public du concurrent peut être hérité de son secteur.** `int_competitor_directory`
+  fait un `coalesce` vers le seed `competitor_industry_profile_defaults` quand la fiche n'a
+  pas de public à elle. Distinguer une valeur observée d'une valeur héritée demanderait
+  d'exposer la valeur d'avant le `coalesce` — non fait ici.
+- **Le public manque presque partout.** 21 257 entrées d'annuaire sur 21 288 n'ont aucun
+  public renseigné, leur code secteur étant un libellé français que le seed ne rejoint pas.
 - **Les doublons d'annuaire.** Le musée d'Orsay existe en deux entrées, l'une en secteur
-  `culture` avec local + tourists, l'autre en `unknown` avec mixed + local. La description
-  du modèle le signalait déjà, le test d'unicité n'est toujours pas écrit.
-- **Le public manquant.** 21 257 entrées d'annuaire sur 21 288 n'ont aucun public renseigné.
-  Tant que c'est le cas, `audience_overlap_pct` reste calculable sur une poignée de paires.
-- **Le vocabulaire d'audience.** Quatre mots (local, tourists, professionals, families) plus
-  le joker `mixed`, et quelques entrées en texte libre du type « Parisiens 55 ans et plus ».
-  Deux commerces parisiens porteront toujours les mêmes étiquettes.
-- **Côté application.** La phrase « X % de public commun » doit ne s'afficher que si
-  `audience_overlap_basis = 'declared'`. Ce sera un commit à part, après ce run.
+  `culture`, l'autre en `unknown`. Le test d'unicité n'est toujours pas écrit.
