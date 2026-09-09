@@ -443,12 +443,12 @@ window.MS_SALES_RECO_LIB.item_share_move = {
     { title: "Proposez « {produit} » avec son complément en caisse", description: "Le produit et ce qui va avec, proposés ensemble au moment de payer.", why: "Un complément choisi vaut mieux qu'un « et avec ceci ? » réflexe.", tag: "Panier" },
   ],
   collapse: [
-    { title: "Changez « {produit} » de place et vérifiez son prix", description: "Un autre emplacement, une étiquette lisible, un regard sur le produit voisin moins cher.", why: "Quand le passage est le même et que seul « {produit} » baisse, la cause est dans le rayon.", tag: "Rayon" },
+    { title: "Changez « {produit} » de place en rayon et vérifiez son prix", description: "Un autre emplacement, une étiquette lisible, un regard sur le produit voisin moins cher.", why: "Quand le passage est le même et que seul « {produit} » baisse, la cause est dans le rayon.", tag: "Rayon" },
     { title: "Comparez le prix de « {produit} » à celui de vos concurrents suivis", description: "Le même article, relevé chez eux cette semaine.", why: "Un produit qui baisse seul se compare d'abord au prix d'à côté.", tag: "Benchmark" },
     { title: "Notez ce qui a changé sur « {produit} » ce jour-là", description: "Rupture, produit retiré, emplacement déplacé.", why: "Une baisse sans cause notée se répète.", tag: "Mémoire" },
   ],
   _default: [
-    { title: "Changez « {produit} » de place et vérifiez son prix", description: "Un autre emplacement, une étiquette lisible, un regard sur le produit voisin moins cher.", why: "Quand le passage est le même et que seul « {produit} » bouge, la cause est dans le rayon.", tag: "Rayon" },
+    { title: "Changez « {produit} » de place en rayon et vérifiez son prix", description: "Un autre emplacement, une étiquette lisible, un regard sur le produit voisin moins cher.", why: "Quand le passage est le même et que seul « {produit} » bouge, la cause est dans le rayon.", tag: "Rayon" },
     { title: "Proposez « {produit} » avec son complément en caisse", description: "Le produit et ce qui va avec, proposés ensemble au moment de payer.", why: "Un complément choisi vaut mieux qu'un « et avec ceci ? » réflexe.", tag: "Panier" },
     { title: "Notez ce qui a changé sur « {produit} » ce jour-là", description: "Mise en avant, rupture, emplacement : le souvenir du jour.", why: "Un écart sans cause notée se répète.", tag: "Mémoire" },
   ],
