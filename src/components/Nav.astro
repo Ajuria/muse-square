@@ -24,7 +24,9 @@ const isApp = Astro.url.pathname.startsWith("/app") || Astro.url.pathname.starts
 // chaque onglet est une liste FERMÉE ; toute autre page /app/insightevent est une vue de
 // détail du hub du jour et surligne AGIR (month/days/map comprises : démises du menu, elles
 // restent des surfaces de détail). Une nouvelle page ne déclare rien : elle retombe sur Agir.
-const isDemander = currentPath.startsWith("/app/insightevent/prompt");
+// 09/09 (owner) : les DOCUMENTS d'Explorer (rapport de ventes, rapport de famille) restent sous Explorer —
+// la page rapport s'ouvre depuis une réponse d'Explorer et y revient (« ← Retour »).
+const isDemander = currentPath.startsWith("/app/insightevent/prompt") || currentPath.startsWith("/app/insightevent/rapport") || currentPath.startsWith("/app/insightevent/family-report");
 const isPiloterTab = currentPath.startsWith("/app/insightevent/tableau") || currentPath.startsWith("/app/insightevent/evenement");
 const isAgir = currentPath.startsWith("/app/insightevent") && !isDemander && !isPiloterTab && !currentPath.startsWith("/app/insightevent/suivis");
 const isProfile = currentPath === "/profile" || currentPath === "/notifications" || currentPath.startsWith("/app/insightevent/suivis");
