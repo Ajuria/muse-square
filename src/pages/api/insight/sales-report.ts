@@ -94,6 +94,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // prior-period + prior-year revenue (yoy_days=0 => no history yet)
       q(`SELECT
            SUM(IF(transaction_date BETWEEN @ps AND @pe, daily_revenue, 0)) AS prev_rev,
+           SUM(IF(transaction_date BETWEEN @ps AND @pe, daily_transactions, 0)) AS prev_txns,
            SUM(IF(transaction_date BETWEEN @ys AND @ye, daily_revenue, 0)) AS yoy_rev,
            COUNT(DISTINCT IF(transaction_date BETWEEN @ys AND @ye, transaction_date, NULL)) AS yoy_days
          FROM \`${PROJECT}.mart.fct_client_daily_performance\`
@@ -106,11 +107,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
          WHERE location_id=@loc AND transaction_date BETWEEN @s AND @e`,
         { loc, s: start, e: end }),
       // category mix (offering)
-      q(`SELECT item_category AS cat, ROUND(SUM(revenue),0) AS rev
+      // 09/09 (owner : « le mix produits ») — la période précédente dans la même requête : part de CA
+      // de chaque famille avant / après, pour dire quelle famille a pris ou perdu de la place.
+      q(`SELECT item_category AS cat,
+                ROUND(SUM(IF(transaction_date BETWEEN @s AND @e, revenue, 0)),0) AS rev,
+                ROUND(SUM(IF(transaction_date BETWEEN @ps AND @pe, revenue, 0)),0) AS prev_rev
          FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
-         WHERE location_id=@loc AND transaction_date BETWEEN @s AND @e AND item_category IS NOT NULL
-         GROUP BY 1 ORDER BY rev DESC LIMIT 6`,
-        { loc, s: start, e: end }),
+         WHERE location_id=@loc AND transaction_date BETWEEN @ps AND @e AND item_category IS NOT NULL
+         GROUP BY 1 HAVING rev > 0 ORDER BY rev DESC LIMIT 6`,
+        { loc, s: start, e: end, ps: prevStart, pe: prevEnd }),
       // context scalars: weather type, tourism, holidays, event density
       q(`SELECT
            COUNTIF(lvl_heat>=2) AS hot_days, MAX(lvl_heat) AS max_heat,
@@ -134,6 +139,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
            action_type,
            ANY_VALUE(data_payload HAVING MAX action_priority) AS data_payload,
            ANY_VALUE(date HAVING MAX action_priority) AS affected_date,
+           ANY_VALUE(card_instance_id HAVING MAX action_priority) AS card_instance_id,
            MAX(action_priority) AS action_priority
          FROM \`${PROJECT}.mart.fct_location_daily_action_candidates\`
          WHERE location_id=@loc AND date BETWEEN @s AND @e
@@ -233,6 +239,29 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }));
 
     const prevRev = Number(prior[0]?.prev_rev) || 0;
+    const prevTxns = Number(prior[0]?.prev_txns) || 0;
+    const prevBasket = prevTxns > 0 ? prevRev / prevTxns : 0;
+    // 09/09 (owner : « No distinction between le volume de transactions, le panier moyen ou le mix produits »)
+    // — les TROIS couches d'un écart de CA, chacune dans son unité (loi owner 06/09) : volume = nombre de
+    // ventes, panier = € par vente, mix = part de CA par famille. volume_term = Δventes × panier précédent ;
+    // basket_term = Δpanier × ventes de la période ; les deux termes somment à l'écart de CA.
+    const catsTot = cats.reduce((a, c) => a + (Number(c.rev) || 0), 0);
+    const catsPrevTot = cats.reduce((a, c) => a + (Number(c.prev_rev) || 0), 0);
+    const mixMoves = cats.map((c) => {
+      const share = catsTot > 0 ? (Number(c.rev) || 0) / catsTot * 100 : null;
+      const prevShare = catsPrevTot > 0 ? (Number(c.prev_rev) || 0) / catsPrevTot * 100 : null;
+      return { label: String(c.cat), share_pct: share == null ? null : Math.round(share * 10) / 10, prev_share_pct: prevShare == null ? null : Math.round(prevShare * 10) / 10,
+               delta_pt: share != null && prevShare != null ? Math.round((share - prevShare) * 10) / 10 : null };
+    });
+    const layers = prevTxns > 0 && prevRev > 0 ? {
+      volume_pct: Math.round(((totalTxns - prevTxns) / prevTxns) * 1000) / 10,
+      basket_pct: prevBasket > 0 ? Math.round(((basket - prevBasket) / prevBasket) * 1000) / 10 : null,
+      volume_term_eur: Math.round((totalTxns - prevTxns) * prevBasket),
+      basket_term_eur: Math.round((basket - prevBasket) * totalTxns),
+      prev_transactions: prevTxns,
+      prev_avg_basket: Math.round(prevBasket * 100) / 100,
+      mix: mixMoves.filter((m) => m.delta_pt != null).sort((a, b) => Math.abs(b.delta_pt!) - Math.abs(a.delta_pt!)).slice(0, 2),
+    } : null;
     const yoyRev = Number(prior[0]?.yoy_rev) || 0;
     const yoyDays = Number(prior[0]?.yoy_days) || 0;
     const pct = (cur: number, base: number) => (base > 0 ? Math.round(((cur - base) / base) * 1000) / 10 : null);
@@ -251,6 +280,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         revenue: Math.round(totalRev),
         transactions: totalTxns,
         avg_basket: Math.round(basket * 100) / 100,
+        layers,
         vs_prev_pct: pct(totalRev, prevRev),
         vs_yoy_pct: yoyDays > 0 ? pct(totalRev, yoyRev) : null,
         yoy_available: yoyDays > 0,
@@ -298,6 +328,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // motor as pulse/monitor (public/js/action-cards.js → window.ACTION_CARDS), no duplicate copy.
       actions: actions.map((a) => ({
         action_type: a.action_type,
+        card_instance_id: a.card_instance_id ? String(a.card_instance_id) : null,
         data_payload: typeof a.data_payload === 'string' ? a.data_payload : JSON.stringify(a.data_payload ?? {}),
         affected_date: a.affected_date ? String(a.affected_date.value ?? a.affected_date) : null,
       })),
