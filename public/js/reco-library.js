@@ -71,7 +71,6 @@ window.MS_SALES_RECO_LIB = {
   sales_surge: {
     basket: [
       { title: "Reconduisez le levier qui a fait monter le panier", description: "Mise en avant, formule — et mesurez l'effet la semaine suivante.", why: "Ce qui a marché une fois est votre meilleur pari — encore faut-il le rejouer sciemment.", tag: "Panier" },
-      { title: "Vérifiez le stock des produits à forte marge", description: "Ceux qui ont porté la hausse ne doivent pas manquer.", why: "Une rupture sur un produit qui tire la marge transforme une hausse en occasion manquée.", tag: "Marge" },
       { title: "Poussez la montée en gamme tant que la demande est là", description: "Option supérieure proposée pendant que le flux achète.", why: "La demande chaude accepte plus facilement le premium — la fenêtre est courte.", tag: "Panier" },
     ],
     footfall: [
@@ -81,7 +80,6 @@ window.MS_SALES_RECO_LIB = {
     ],
     _default: [
       { title: "Reconduisez le levier qui a porté la hausse", description: "Et mesurez-le sur la semaine suivante.", why: "Ce qui a marché une fois est votre meilleur pari — encore faut-il le rejouer sciemment.", tag: "À reconduire" },
-      { title: "Sécurisez staffing et stock", description: "Tenir le pic sans dégrader l'expérience ni rompre les produits clés.", why: "Un pic mal servi ou en rupture transforme une hausse en occasion manquée.", tag: "Opérations" },
       { title: "Capitalisez sur la satisfaction", description: "Avis clients et incitation au retour.", why: "La satisfaction chaude est le meilleur moment pour récolter avis et prochaine visite.", tag: "Fidélisation" },
     ],
   },
@@ -158,14 +156,6 @@ window.MS_SALES_RECO_LIB = {
 
     // Le lieu gagne MOINS ces jours-là.
     enjeu_negatif: [
-      { title: "Commandez moins, et occupez l'équipe autrement",
-        description: "Ces jours-là, vous servez moins que d'habitude.",
-        why: "Vos chiffres montrent que ces journées rapportent moins. Ce que vous maîtrisez à 2 jours, c'est ce que vous achetez et ce que vous faites faire — pas le planning, qui suppose un délai de prévenance.",
-        tag: "Achats",
-        steps: ["Réduisez vos commandes de frais pour ces jours.",
-                "Ne prévoyez pas d'extra.",
-                "Basculez l'équipe déjà planifiée sur l'inventaire, la mise en place ou la formation.",
-                "Regardez si votre marge du jour s'améliore."] },
       { title: "Donnez une raison de venir ce jour précis",
         description: "Une offre valable uniquement ce jour-là.",
         why: "Un jour creux le reste tant que rien ne pousse à venir. Une date limite fait bouger.",
@@ -175,7 +165,7 @@ window.MS_SALES_RECO_LIB = {
                 "Annoncez-la 2 jours avant.",
                 "Comptez combien de clients viennent avec."] },
       { title: "Ne lancez rien ce jour-là",
-        description: "Reportez les nouveautés et les grosses commandes après la période.",
+        description: "Reportez les nouveautés après la période.",
         why: "Lancer quelque chose le jour où vous faites le moins, c'est lui donner sa pire chance.",
         tag: "Report",
         steps: ["Regardez ce qui est prévu sur ces jours.",
@@ -231,13 +221,6 @@ window.MS_SALES_RECO_LIB = {
         steps: ["À la fermeture du premier jour, notez ce qui est parti le mieux et à quelle heure.",
                 "À l'ouverture suivante, mettez-le en avant — première place, visible de l'entrée.",
                 "Confiez l'ajustement à l'équipe déjà en poste, rien d'autre ne change."] },
-      { title: "Sécurisez ce qui se vend le mieux avant samedi",
-        description: "Stock, consommables, capacité : le frein d'un bon week-end, c'est la rupture.",
-        why: "Un week-end favorable perdu sur une rupture ne se rattrape pas. Vos achats se décident à 2-3 jours — c'est le levier que vous maîtrisez encore.",
-        tag: "Achats",
-        steps: ["Vérifiez jeudi le stock de vos 3 meilleures ventes.",
-                "Recommandez vendredi si besoin.",
-                "Ne lancez rien de nouveau : servez ce qui marche."] },
       { title: "Réservez les prochains week-ends de vacances sur votre calendrier",
         description: "Ces fenêtres se connaissent des mois à l'avance — le calendrier scolaire est public.",
         why: "Ce week-end favorable n'est pas un hasard isolé : chaque période de vacances en contient. Anticipé, vous préparez cette fois offre, communication et planning sans contrainte de délai.",
@@ -264,14 +247,6 @@ window.MS_SALES_RECO_LIB = {
                 "Affichez « ce week-end uniquement » — pas de prolongation.",
                 "Annoncez jeudi ou vendredi.",
                 "Comptez les clients venus avec."] },
-      { title: "Ajustez les achats, pas le planning",
-        description: "Ce que vous maîtrisez à deux jours : ce que vous achetez et ce que fait l'équipe en poste.",
-        why: "Vos chiffres disent que ces week-ends rapportent moins. Le planning du week-end est déjà fixé (délai de prévenance) — la marge se défend sur les achats et l'emploi du temps de l'équipe.",
-        tag: "Achats",
-        steps: ["Réduisez ce que vous achetez pour ce week-end (frais, consommables).",
-                "N'appelez pas d'extra.",
-                "Donnez à l'équipe en poste une tâche de fond : inventaire, mise en place, formation.",
-                "Regardez si la marge du week-end s'améliore."] }
     ],
 
     // AUCUNE mesure sur ce lieu — gestes valables dans les deux sens.
@@ -307,7 +282,7 @@ window.MS_SALES_RECO_LIB = {
   client_dormant: {
     _default: [
       { title: "Reprenez contact en direct — un appel, pas une relance écrite", description: "La personne qui connaît ce client l'appelle et pose la question ouvertement.", why: "Un compte régulier qui s'arrête a une raison — saisonnalité, friction, concurrent — et seul un échange direct la donne.", tag: "Relation", steps: ["Identifier qui, dans l'équipe, tient la relation avec ce client.", "L'appeler : demander simplement où il en est (pause saisonnière ? un souci ? un autre fournisseur ?).", "Noter la raison donnée — c'est elle qui décide de la suite."] },
-      { title: "Donnez-lui une raison datée de recommander", description: "Nouveautés, retour en stock de ses références habituelles, fenêtre de livraison proche.", why: "Une relance sans objet s'ignore ; une raison concrète et datée remet le compte dans son rythme.", tag: "Réactivation", steps: ["Repérer ses références récurrentes dans vos dernières factures.", "Proposer un retour en stock ou la nouveauté la plus proche de ce qu'il achète.", "Donner une échéance concrète (prochaine tournée, fenêtre de livraison)."] },
+      { title: "Donnez-lui une raison datée de recommander", description: "Nouveautés, fenêtre de livraison proche.", why: "Une relance sans objet s'ignore ; une raison concrète et datée remet le compte dans son rythme.", tag: "Réactivation", steps: ["Repérer ses références récurrentes dans vos dernières factures.", "Proposer la nouveauté la plus proche de ce qu'il achète.", "Donner une échéance concrète (prochaine tournée, fenêtre de livraison)."] },
       { title: "Si une friction sort de l'échange, traitez-la avant le volume", description: "Délais, transport, tarif, litige — régler d'abord, recommander ensuite.", why: "Relancer du volume sur une friction non traitée grille la relation ; la friction réglée, la commande revient d'elle-même.", tag: "Rétention", steps: ["Qualifier la friction exacte donnée par le client.", "La traiter ou proposer un geste — puis le dire explicitement au client.", "Reproposer ensuite une commande simple, sans pression."] },
     ],
   },
@@ -318,7 +293,6 @@ window.MS_SALES_RECO_LIB = {
   weekly_sales_hole: {
     _default: [
       { title: "Reconstituez la semaine avant d'agir", description: "Fermetures, absence, travaux, contexte local — poser les faits de la semaine.", why: "Un trou de moitié a presque toujours une cause concrète ; agir sans elle, c'est corriger au hasard.", tag: "Diagnostic", steps: ["Lister les jours ouverts/fermés de la semaine et qui était présent.", "Noter tout événement local ou contrainte (travaux, météo marquante, panne).", "Trancher : cause interne, externe, ou inexpliquée — c'est elle qui décide de la suite."] },
-      { title: "Ajustez les achats au creux identifié", description: "Si le creux est saisonnier ou récurrent, caler les commandes dessus.", why: "Les achats sont le levier qu'un exploitant maîtrise à ce terme — pas l'affluence.", tag: "Achats" },
       { title: "Planifiez une animation sur le prochain creux du même type", description: "Mise en avant, offre datée, prise de parole locale — testée et mesurée.", why: "Un creux récurrent identifié devient une fenêtre d'action planifiable, pas une surprise.", tag: "Animation" },
     ],
   },
@@ -327,7 +301,6 @@ window.MS_SALES_RECO_LIB = {
   weekly_sales_spike: {
     _default: [
       { title: "Identifiez ce qui a porté la semaine", description: "Grosse vente, client, opération, contexte — le nommer précisément.", why: "Un pic a une cause ; non identifiée, elle ne se rejouera que par hasard.", tag: "Diagnostic", steps: ["Regarder les plus grosses ventes de la semaine et qui les a faites.", "Noter ce qui différait : opération en cours, contexte, visite particulière.", "Écrire la cause en une phrase — c'est votre bonne pratique candidate."] },
-      { title: "Vérifiez le stock de ce qui s'est vendu", description: "Les références qui ont porté le pic ne doivent pas manquer ensuite.", why: "Une rupture après un pic transforme la demande captée en frustration.", tag: "Réassort" },
       { title: "Rejouez la cause sciemment — et mesurez", description: "Si c'est reproductible (opération, mise en avant), la reprogrammer avec un objectif.", why: "Ce qui a marché une fois est votre meilleur pari — encore faut-il le rejouer en le mesurant.", tag: "À reconduire" },
     ],
   },
@@ -346,7 +319,6 @@ window.MS_SALES_RECO_LIB = {
   monthly_sales_spike: {
     _default: [
       { title: "Comprenez chaque gros compte du mois", description: "Commande unique, projet, ou nouveau rythme ? Le qualifier compte par compte.", why: "Un pic pro porté par 2-3 comptes n'a de suite que si on sait lequel va recommander.", tag: "Diagnostic", steps: ["Reprendre les comptes de la carte (top_parties) un par un.", "Qualifier : ponctuel (projet) ou début de rythme (réachat attendu ?).", "Pour les rythmes naissants : noter la cadence attendue — le grain client la surveillera."] },
-      { title: "Vérifiez le stock de ce qu'ils achètent", description: "Les références des gros comptes du mois ne doivent pas manquer au réachat.", why: "Une rupture au moment du réachat casse un rythme naissant.", tag: "Réassort" },
       { title: "Capitalisez sur la référence", description: "Un gros compte satisfait est un argument commercial — demander le témoignage ou la mise en relation.", why: "Dans le B2B, la preuve par un pair ouvre plus de portes que la prospection froide.", tag: "Développement" },
     ],
   },
@@ -468,7 +440,6 @@ window.MS_SALES_RECO_LIB.item_share_move = {
   // 09/09 (owner) — les plans NOMMENT le produit ({produit}, rempli par le kit) et suivent le SENS du signal ; sans « stock ».
   surge: [
     { title: "Mettez « {produit} » en avant, à l'entrée", description: "Bien visible, à hauteur de main, avec son prix lisible.", why: "« {produit} » a généré plus que d'habitude : ce qui a marché une fois se reconduit sciemment.", tag: "Rayon" },
-    { title: "Commandez « {produit} » sur ses jours de hausse", description: "La prochaine commande calée sur ce que le produit vend un bon jour.", why: "Un produit qui monte et qui manque en rayon est une vente perdue.", tag: "Achats" },
     { title: "Proposez « {produit} » avec son complément en caisse", description: "Le produit et ce qui va avec, proposés ensemble au moment de payer.", why: "Un complément choisi vaut mieux qu'un « et avec ceci ? » réflexe.", tag: "Panier" },
   ],
   collapse: [
@@ -489,7 +460,6 @@ window.MS_SALES_RECO_LIB.offering_mix_shift = {
   // rempli par le kit) et suivent le SENS du signal ; ni « stock » ni « réassort » (lexique l.50).
   surge: [
     { title: "Donnez plus de place en rayon à « {famille} »", description: "Un linéaire à la hauteur de ce que la famille vend ses bons jours.", why: "« {famille} » a généré plus que d'habitude plusieurs fois de suite : la place doit suivre la demande.", tag: "Rayon" },
-    { title: "Commandez « {famille} » sur ses jours de hausse, pas sur sa moyenne", description: "La prochaine commande calée sur ce que la famille vend un bon jour.", why: "Ce qui manque en rayon un jour de hausse est une vente perdue.", tag: "Achats" },
     { title: "Notez ce qui a fait monter « {famille} » ce jour-là", description: "Mise en avant, dégustation, client de passage, événement à côté : le souvenir du jour.", why: "Une hausse dont on connaît la cause se reconduit ; les autres reviennent par hasard.", tag: "Mémoire" },
   ],
   collapse: [
@@ -510,7 +480,7 @@ window.MS_SALES_RECO_LIB.family_space_underuse = {
   _default: [
     { title: "Réduisez la place en rayon de « {famille} »", description: "Un linéaire ramené à ce qu'elle vend, le reste rendu à « {principale} ».", why: "« {famille} » pèse moins de 1 % de votre CA : elle n'a pas besoin d'un mètre de rayon.", tag: "Rayon" },
     { title: "Regroupez « {famille} » en caisse", description: "Ses articles près de la caisse, proposés au moment de payer.", why: "Un article à moins d'un euro se vend à l'impulsion, pas au rayon.", tag: "Caisse" },
-    { title: "Donnez la place libérée à « {principale} »", description: "Plus de linéaire à votre première famille, dès la prochaine commande.", why: "Le passage est le même : la place va à ce qui se vend.", tag: "Rayon" },
+    { title: "Donnez la place libérée à « {principale} »", description: "Plus de linéaire à votre première famille, dès cette semaine.", why: "Le passage est le même : la place va à ce qui se vend.", tag: "Rayon" },
   ],
 };
 
@@ -519,7 +489,6 @@ window.MS_SALES_RECO_LIB.family_space_underuse = {
 window.MS_SALES_RECO_LIB.vacation_underperformance_ahead = {
   _default: [
     { title: "Préparez une offre pour les touristes avant les vacances", description: "Un produit à emporter, un coffret, une carte en anglais, prêts le premier jour.", why: "Vos clients réguliers partent ; ceux qui restent viennent de plus loin.", tag: "Offre" },
-    { title: "Calez vos commandes de frais sur la période", description: "Des quantités alignées sur un CA en retrait, pas sur une semaine normale.", why: "Deux semaines sous l'habituel se lisent d'abord dans la casse.", tag: "Achats" },
     { title: "Prévenez vos clients réguliers avant leur départ", description: "Un mot en caisse la semaine d'avant sur ce qui les attend au retour.", why: "Deux semaines sans passage, c'est le moment où l'habitude se perd.", tag: "Caisse" },
   ],
 };
@@ -536,8 +505,6 @@ window.MS_SALES_RECO_LIB.tickets_lines_move = {
 // ── item_absent_regular ── « Scottish Cream Scone : aucune vente » ; « Aucune vente de … le 30/08. Il se vend 58 jours sur 60, 18 € par jour. »
 window.MS_SALES_RECO_LIB.item_absent_regular = {
   _default: [
-    { title: "Vérifiez le stock et le rayon du produit sans vente", description: "Le produit est-il en réserve, en rayon, à sa place ?", why: "Un produit qui se vend tous les jours et qui manque un jour, c'est une journée de ventes perdue sans que personne ne l'ait décidé.", tag: "Réassort" },
-    { title: "Commandez en priorité les produits vendus tous les jours", description: "D'abord ceux qui rapportent le plus, dans la commande de la semaine.", why: "Une rupture sur un produit qui rapporte coûte plus qu'un surstock.", tag: "Achats" },
     { title: "Proposez un produit de remplacement quand il manque", description: "Un produit proche, proposé à sa place en rayon et en caisse.", why: "Le client venu pour un produit repart sans rien si personne ne lui en propose un autre.", tag: "Conversion" },
   ],
 };

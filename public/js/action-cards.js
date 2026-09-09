@@ -2314,7 +2314,7 @@
     function(a) {
       return {
         context: msMoLine(a, 'spike'),
-        action: 'Action conseill\u00e9e : comprendre chaque gros compte du mois (commande unique ou nouveau rythme ?) — et ce que vous devrez commander si le rythme se confirme.'
+        action: 'Action conseill\u00e9e : comprendre chaque gros compte du mois (commande unique ou nouveau rythme ?).'
       };
     },
     {
@@ -3678,7 +3678,7 @@
         ? Math.abs(Math.round(Number(_dc.avg_gap_eur))) : null;
       var _cbn = _gj != null ? ' \u2014 ' + frInt(_gj) + ' \u20ac par jour sur ces journ\u00e9es' : '';
       if (eur != null && eur > 0) return 'Action conseill\u00e9e : mettez votre meilleure offre sur ces jours' + (_gj != null ? ', ils vous rapportent ' + frInt(_gj) + ' \u20ac de plus par jour' : ' — ils vous réussissent mieux que la moyenne') + '.';
-      if (eur != null && eur < 0) return 'Action conseill\u00e9e : commandez moins et ne pr\u00e9voyez pas d\u2019extra' + (_gj != null ? ' — ces jours vous co\u00fbtent ' + frInt(_gj) + ' \u20ac par jour' : ' — ces jours vous rapportent moins') + '.';
+      if (eur != null && eur < 0) return 'Action conseill\u00e9e : ne pr\u00e9voyez pas d\u2019extra' + (_gj != null ? ' — ces jours vous co\u00fbtent ' + frInt(_gj) + ' \u20ac par jour' : ' — ces jours vous rapportent moins') + '.';
       return 'Action conseill\u00e9e : fixez-vous un objectif sur ces jours pour savoir s’ils vous rapportent ou vous coûtent.';
     }, urgency: 'now' },
     'competition_pressure_spike': { action: function(a, p, d) {
@@ -4100,8 +4100,9 @@
     }, urgency: 'soon' },
     'item_absent_regular': { action: function(a, p, d) {
       var _nAb2 = Number(a.n_items || (Array.isArray(a.items) ? a.items.length : 1));
-      var _obj = (_nAb2 > 1 || !a.item_description) ? 'de ces produits et leur place' : 'de ' + a.item_description + ' et sa place';
-      return 'Action conseill\u00e9e : v\u00e9rifiez le stock ' + _obj + ' sur le lin\u00e9aire.';
+      var _obj = (_nAb2 > 1 || !a.item_description) ? 'de ces produits' : 'de ' + a.item_description;
+      // 09/09 (owner) : aucun geste sur le stock — la place en rayon, seule chose que l'app peut désigner.
+      return 'Action conseill\u00e9e : v\u00e9rifiez la place ' + _obj + ' sur le lin\u00e9aire.';
     }, urgency: 'soon' },
     'tickets_lines_move': { action: function(a, p, d) {
       var _dirT = a.direction || (Number(a.lines_per_ticket_delta || 0) < 0 ? 'collapse' : 'surge');

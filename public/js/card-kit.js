@@ -27,7 +27,7 @@
     var s = String(at || '');
     if (/^(sales_|footfall_vs_basket|offering_)/.test(s)) return 'ex. offre, créneau, prix, mise en avant en caisse…';
     if (/^(competit|competition|same_bucket)/.test(s)) return 'ex. canal de visibilité, différenciateur, cible…';
-    if (/^(weather|extended_bad)/.test(s)) return 'ex. stock, staffing, mise en avant…';
+    if (/^(weather|extended_bad)/.test(s)) return 'ex. staffing, mise en avant…';
     if (/^(tourist|tourism|foreign)/.test(s)) return 'ex. offre, langues, canaux touristiques…';
     if (/^(commercial_event|mega_event)/.test(s)) return 'ex. activation, offre, communication…';
     if (/^(ft_|best_day)/.test(s)) return 'ex. staffing, offre, communication…';
@@ -166,7 +166,7 @@
     if (!pos.length) return '';
     var s2 = 'La hausse est portée par ' + pos[0].category + ' (+' + eur(pos[0].delta_eur) + ')';
     if (pos[1]) s2 += ' et ' + pos[1].category + ' (+' + eur(pos[1].delta_eur) + ')';
-    return s2 + '. Vérifiez le stock de ' + pos[0].category + ' — elle ne doit pas manquer — et mettez-la en avant sur vos prochains ' + jour + '.';
+    return s2 + '. Mettez ' + pos[0].category + ' en avant sur vos prochains ' + jour + '.';
   }
 
   // ---- Renderers (pure: json -> HTML) ----
