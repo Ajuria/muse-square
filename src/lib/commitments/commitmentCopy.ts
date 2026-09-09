@@ -320,8 +320,11 @@ export const EVOL_COPY = {
   // LE mot du lexique pour ce référentiel (docs/lexique.md) : « vos jours comparables ».
   // « habituel » est réservé au résultat appris sur des mois — 4 occurrences n’en font pas un.
   shape_vol_caption: "vs vos jours comparables",
-  shape_vol_caption_tip: "Vos {n} derniers {jour}s : {dates}. Les trois facteurs se multiplient : leur produit est la variation du chiffre.",
+  shape_vol_caption_tip: "Vos {n} derniers {jour}s : {dates}. Les deux facteurs se multiplient : leur produit est la variation du chiffre.",
   shape_vol_l_tx: "Nombre d’achats",
+  // 09/09 (owner) : le panier moyen (€ par achat) remplace les deux sous-facteurs à l'écran ;
+  // articles par achat et prix d'un article restent en infobulle (leur produit est le panier).
+  shape_vol_l_basket: "Panier moyen",
   shape_vol_l_items: "Articles par achat",
   shape_vol_l_price: "Prix moyen d’un article",
   shape_vol_val: "{v} contre {ref}",
@@ -333,6 +336,7 @@ export const EVOL_COPY = {
   shape_vol_lead_1: "Ce qui bouge : {f}.",
   shape_vol_lead_2: "Ce qui bouge : {f1}, puis {f2}.",
   shape_vol_f_tx: "le nombre d’achats",
+  shape_vol_f_basket: "le panier moyen",
   shape_vol_f_items: "le nombre d’articles par achat",
   shape_vol_f_price: "le prix moyen des articles",
   shape_vol_types: "Quels articles : ouvrez une famille plus bas.",
