@@ -145,8 +145,8 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
     </div>
 
     <script is:inline src="/js/ms-loader.js?v=2"></script>
-    <script is:inline src="/js/reco-library.js?v=13"></script>
-    <script is:inline src="/js/action-cards.js?v=126"></script>
+    <script is:inline src="/js/reco-library.js?v=14"></script>
+    <script is:inline src="/js/action-cards.js?v=127"></script>
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/card-kit.js?v=73"></script>
@@ -709,7 +709,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var LABELS = {
           discount_rate_delta_pct:'Remise vs votre résultat habituel', revenue_vs_30d_avg_pct:'CA vs 30 jours', daily_discount_total:'Total des remises', daily_promo_line_count:'Articles en promo', daily_revenue:'CA du jour',
           events_500m:'\u00c9v\u00e9nements \u00e0 500 m', events_1km:'\u00c9v\u00e9nements \u00e0 1 km', events_5km:'\u00c9v\u00e9nements \u00e0 5 km', events_10km:'\u00c9v\u00e9nements \u00e0 10 km',
-          pressure_ratio:'Pression vs moyenne', pct_same_sector:'M\u00eame secteur', score_driver:'Facteur dominant', score:'Score', regime:'R\u00e9gime', rank:'Rang',
+          pressure_ratio:'Activit\u00e9 autour de vous vs votre jour ordinaire (tous secteurs, 5 km)', pct_same_sector:'M\u00eame secteur', score_driver:'Facteur dominant', score:'Score', regime:'R\u00e9gime', rank:'Rang',
           weather_alert:'Niveau d\u2019alerte m\u00e9t\u00e9o', alert_level:'Niveau d\u2019alerte', today_alert:'Alerte aujourd\u2019hui', yesterday_alert:'Alerte hier',
           tourism_index:'Indice touristique', is_peak:'Pic touristique', is_holiday:'Jour f\u00e9ri\u00e9', is_vacation:'Vacances scolaires', is_commercial:'\u00c9v\u00e9nement commercial', is_weekend:'Week-end',
           site_sensitivity:'Sensibilit\u00e9 m\u00e9t\u00e9o du site', consecutive_bad_days:'Jours d\u00e9grad\u00e9s cons\u00e9cutifs', preceding_bad_days:'Jours d\u00e9grad\u00e9s pr\u00e9c\u00e9dents',
@@ -777,7 +777,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         var _isMov = (signal_type === 'sales_surge' || signal_type === 'sales_revenue_down_wow');
         var _isWeather = (signal_type === 'weather_hazard_onset' || signal_type === 'weather_worsened' || signal_type === 'weather_improved' || signal_type === 'extended_bad_weather_3d');
         var _isEvent = (signal_type === 'commercial_event_match' || signal_type === 'mega_event_activation' || signal_type === 'mega_event_end');
-        var _isCompetitor = (signal_type === 'competition_proximity' || signal_type === 'high_competition_density' || signal_type === 'competitor_threat_direct' || signal_type === 'competition_pressure_spike' || signal_type === 'same_bucket_saturation' || signal_type === 'competitor_price_drop' || signal_type === 'competitor_price_increase' || signal_type === 'competitor_new_offering' || signal_type === 'competitor_offering_removed');
+        var _isCompetitor = (signal_type === 'sales_competition_cannibalization' /* 09/09 (owner) : la page dit QUI est le concurrent — bloc Concurrence */ || signal_type === 'competition_proximity' || signal_type === 'high_competition_density' || signal_type === 'competitor_threat_direct' || signal_type === 'competition_pressure_spike' || signal_type === 'same_bucket_saturation' || signal_type === 'competitor_price_drop' || signal_type === 'competitor_price_increase' || signal_type === 'competitor_new_offering' || signal_type === 'competitor_offering_removed');
         var _isTourism = (signal_type === 'tourist_high_season' || signal_type === 'tourist_surge_vacation' || signal_type === 'tourism_peak_window' || signal_type === 'tourism_weather_vacation' || signal_type === 'tourism_comp_squeeze' || signal_type === 'low_tourism_local_opp' || signal_type === 'foreign_tourism_signal');
         var _isDecomp = (signal_type === 'footfall_vs_basket_decomposition');
         var _isDiscount = (signal_type === 'sales_discount_no_lift');
@@ -1326,6 +1326,13 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           .catch(function() { container.innerHTML = contextEmptyHtml(); });
       }
       function contextEmptyHtml() {
+        // 09/09 (owner : « Context empty ») : une zone sans contenu ne s'affiche pas — le conteneur se
+        // replie et sa zone (le bloc avec le kicker) avec lui ; le texte reste le repli si la zone est introuvable.
+        try {
+          var _cz = document.getElementById('fs-context-zone');
+          var _zone = _cz ? _cz.parentElement : null;
+          if (_zone) { _zone.hidden = true; return ''; }
+        } catch (_eC) { /* repli texte */ }
         return '<div style="font-size:13px;color:#6B7280;line-height:1.55;">Aucun contexte particulier trouvé pour cette journée.</div>';
       }
       function contextHost(u) { try { return String(u).replace(/^https?:\/\//, '').split('/')[0]; } catch(e) { return String(u); } }
@@ -1511,6 +1518,17 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var catColor = CAT_COLOR[cat] || '#1e3a5f';
           // For mobility: dynamic title with transport info
           var heroTitle = spec.brand_label_fr;
+          // 09/09 (owner : « Bascule de votre mix → means nothing ») : le titre de la page est CELUI du fil
+          // (même kit, même carte) — la famille, le produit, le concurrent nommés ; le libellé du registre
+          // ne sert que de repli.
+          try {
+            if (actionCandidate && typeof window.renderActionCandidates === 'function') {
+              var _hEntries = window.renderActionCandidates([actionCandidate], prof, null, signal_date, 'pulse', null, signal_date) || [];
+              var _hWhat = _hEntries[0] && _hEntries[0].tmpl ? String(_hEntries[0].tmpl.what || '').trim() : '';
+              // le titre du fil est du HTML (échappé) — la page l'échappe elle-même : on décode d'abord.
+              if (_hWhat) heroTitle = _hWhat.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+            }
+          } catch (_eH) { /* repli : libellé du registre */ }
           if (mode === 'mobilite' && prof.nearest_transit_stop_name) {
             var tLine = Array.isArray(prof.nearest_transit_line_name) ? prof.nearest_transit_line_name.join(', ') : (prof.nearest_transit_line_name || '');
             heroTitle = 'Perturbation' + (tLine ? ' ligne ' + tLine : '') + ' \u2014 ' + prof.nearest_transit_stop_name;
