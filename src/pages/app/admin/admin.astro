@@ -36,7 +36,8 @@ if (!isAdmin(userId)) {
           <input type="email" id="iv-email" placeholder="email@exemple.fr" style="flex:1;min-width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
           <input type="text" id="iv-act" placeholder="activit\u00e9 pressentie (ex. \u00e9picerie fine)" style="width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
           <input type="text" id="iv-pos" placeholder="caisse pressentie (ex. Sage 100)" style="width:180px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
-          <button type="button" id="iv-go" style="padding:7px 14px;border-radius:6px;border:none;background:#1D3BB3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Inviter</button>
+          <button type="button" id="iv-prep" style="padding:7px 14px;border-radius:6px;border:none;background:#1D3BB3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Pr\u00e9parer le compte</button>
+          <button type="button" id="iv-go" style="padding:7px 14px;border-radius:6px;border:1px solid #1D3BB3;background:#fff;color:#1D3BB3;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Inviter</button>
           <span id="iv-msg" style="font-size:12px;color:#6b7280;"></span>
         </div>
         <!-- C2 : pr\u00e9-remplissage du profil de l'invit\u00e9 (facultatif \u2014 tout champ pos\u00e9 ici lui \u00e9vite une saisie). -->
@@ -69,6 +70,7 @@ if (!isAdmin(userId)) {
             <span id="ivc-msg" style="font-size:12px;color:#6b7280;"></span>
           </div>
         </div>
+        <div id="iv-prepared" style="margin-top:10px;padding-top:8px;border-top:1px dashed #e5e7eb;font-size:12px;color:#6b7280;"></div>
         <div id="iv-list" style="margin-top:8px;font-size:12px;color:#6b7280;"></div>
       </div>
       <div id="tw" style="background:#fff;border-radius:8px;border:1px solid #e5e7eb;overflow:hidden;"></div>
@@ -80,10 +82,61 @@ if (!isAdmin(userId)) {
   var D=[],S=null;
   // P3.1-a — invitations.
   function ivList(){fetch("/api/admin/invite").then(function(r){return r.json()}).then(function(j){var el=document.getElementById("iv-list");if(!j.ok){el.textContent="";return}if(!j.invitations.length){el.textContent="Aucune invitation en attente.";return}el.innerHTML=j.invitations.map(function(i){return '<div style="display:flex;gap:8px;align-items:center;padding:3px 0;"><span>'+es(i.email)+'</span><span style="color:#9ca3af;">'+(i.metadata&&i.metadata.pos_hint?es(i.metadata.pos_hint)+" \u00b7 ":"")+fd(i.created_at)+'</span><a href="#" data-iv-rev="'+es(i.id)+'" style="color:#B91C1C;font-size:11px;text-decoration:none;">R\u00e9voquer</a></div>'}).join("");el.querySelectorAll("[data-iv-rev]").forEach(function(a){a.addEventListener("click",function(ev){ev.preventDefault();fetch("/api/admin/invite",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({revoke_id:a.getAttribute("data-iv-rev")})}).then(function(){ivList()})})})}).catch(function(){})}
-  document.getElementById("iv-go").addEventListener("click",function(){var em=document.getElementById("iv-email").value.trim();var ms=document.getElementById("iv-msg");if(!em){ms.textContent="Email requis";return}ms.textContent="\u2026";var gv=function(id){var el=document.getElementById(id);return el&&el.value?String(el.value).trim()||null:null};fetch("/api/admin/invite",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:em,activity_hint:gv("iv-act"),pos_hint:gv("iv-pos"),site_name:gv("iv-site"),company_address:gv("iv-addr"),website_url:gv("iv-web"),activity:gv("iv-sec"),audience_1:gv("iv-aud1"),audience_2:gv("iv-aud2")})}).then(function(r){return r.json()}).then(function(j){var extra="";if(j.ok&&j.provision){if(j.provision.location_id){var cv=j.provision.events_within_15km_30d;extra=" \u00b7 profil pr\u00e9-provisionn\u00e9"+(cv!=null?" \u00b7 "+cv+" \u00e9v\u00e9nement"+(cv>1?"s":"")+" public"+(cv>1?"s":"")+" \u00e0 moins de 15 km sur 30 jours"+(cv===0?" \u2014 base pauvre : pensez \u00e0 suivre des concurrents pour ce compte":""):"");window._ivProvLoc=j.provision.location_id;document.getElementById("iv-comp").style.display="block"}else{extra=" \u00b7 profil non provisionn\u00e9 : "+(j.provision.error||"")}}ms.textContent=j.ok?"Invitation envoy\u00e9e \u00e0 "+em+extra:"Erreur : "+(j.error||"");if(j.ok){["iv-email","iv-site","iv-addr","iv-web"].forEach(function(id){document.getElementById(id).value=""});ivList()}}).catch(function(){ms.textContent="Erreur r\u00e9seau"})});
-  // C4 : Suivre \u2192 le rail add-competitor existant, point\u00e9 sur la location PR\u00c9-PROVISIONN\u00c9E
-  // (target_location_id, garde admin c\u00f4t\u00e9 serveur). R\u00e9p\u00e9table \u2014 un concurrent \u00e0 la fois.
-  document.getElementById("ivc-go").addEventListener("click",function(){var nm=document.getElementById("ivc-name").value.trim();var cm=document.getElementById("ivc-msg");if(!window._ivProvLoc){cm.textContent="Aucun compte pr\u00e9-provisionn\u00e9 dans cette session";return}if(!nm){cm.textContent="Nom requis";return}var bt=document.getElementById("ivc-go");bt.disabled=true;cm.textContent="Ajout\u2026 (lecture du site du concurrent, ~1 min)";fetch("/api/competitive/add-competitor",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({target_location_id:window._ivProvLoc,competitor_name:nm,city:document.getElementById("ivc-city").value.trim()})}).then(function(r){return r.json()}).then(function(j){bt.disabled=false;if(j.ok){cm.textContent="Suivi \u2713 "+nm+" \u2014 premi\u00e8re lecture cette nuit";document.getElementById("ivc-name").value=""}else{cm.textContent="Erreur : "+(j.error||"")}}).catch(function(){bt.disabled=false;cm.textContent="Erreur r\u00e9seau"})});
+  // PRÉPARER n'est pas INVITER (owner 09/09) : préparer provisionne tout et ne contacte personne ;
+  // inviter part quand le compte est prêt, en REPRENANT la clé d'attente de la préparation.
+  function ivSend(prepOnly){
+    var em=document.getElementById("iv-email").value.trim();var ms=document.getElementById("iv-msg");
+    if(!em){ms.textContent="Email requis";return}
+    if(!prepOnly&&!window._ivProvKey&&!confirm("Aucun compte pr\u00e9par\u00e9 s\u00e9lectionn\u00e9 : l'invitation ET la demande d'export partent maintenant \u00e0 "+em+". Continuer ?"))return;
+    var bt=document.getElementById(prepOnly?"iv-prep":"iv-go");bt.disabled=true;
+    ms.textContent=prepOnly?"Pr\u00e9paration\u2026 (g\u00e9ocodage + cha\u00eene dbt)":"Envoi de l'invitation\u2026";
+    var gv=function(id){var el=document.getElementById(id);return el&&el.value?String(el.value).trim()||null:null};
+    var payload={email:em,activity_hint:gv("iv-act"),pos_hint:gv("iv-pos"),site_name:gv("iv-site"),company_address:gv("iv-addr"),website_url:gv("iv-web"),activity:gv("iv-sec"),audience_1:gv("iv-aud1"),audience_2:gv("iv-aud2")};
+    if(prepOnly)payload.provision_only=true;else if(window._ivProvKey)payload.provision_key=window._ivProvKey;
+    fetch("/api/admin/invite",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)})
+      .then(function(r){return r.json()}).then(function(j){
+        bt.disabled=false;
+        if(!j.ok){ms.textContent="Erreur : "+(j.error||"");return}
+        if(prepOnly){
+          var cv=j.provision&&j.provision.events_within_15km_30d;
+          ms.textContent="Compte pr\u00e9par\u00e9 \u2014 personne n'a \u00e9t\u00e9 contact\u00e9"+(cv!=null?" \u00b7 "+cv+" \u00e9v\u00e9nement"+(cv>1?"s":"")+" public"+(cv>1?"s":"")+" \u00e0 moins de 15 km sur 30 jours"+(cv===0?" \u2014 base pauvre : pensez \u00e0 suivre des concurrents":""):"");
+          if(j.provision&&j.provision.location_id){window._ivProvLoc=j.provision.location_id;window._ivProvKey=j.provision_key;document.getElementById("iv-comp").style.display="block"}
+          else ms.textContent="Pr\u00e9paration incompl\u00e8te : "+((j.provision&&j.provision.error)||"");
+        } else {
+          ms.textContent="Invitation envoy\u00e9e \u00e0 "+em+" \u00b7 demande d'export : "+(j.file_request_email||"");
+          window._ivProvKey=null;
+          ["iv-email","iv-site","iv-addr","iv-web"].forEach(function(id){document.getElementById(id).value=""});
+          ivList();
+        }
+        ivPrepared();
+      }).catch(function(){bt.disabled=false;ms.textContent="Erreur r\u00e9seau"})
+  }
+  document.getElementById("iv-prep").addEventListener("click",function(){ivSend(true)});
+  document.getElementById("iv-go").addEventListener("click",function(){ivSend(false)});
+
+  // Les comptes préparés et pas encore invités — la préparation survit au rechargement, sinon une
+  // page rafraîchie obligerait à tout refaire (et le bloc concurrents redeviendrait inutilisable).
+  function ivPrepared(){
+    fetch("/api/admin/invite?prepared=1").then(function(r){return r.json()}).then(function(j){
+      var el=document.getElementById("iv-prepared");if(!el)return;
+      if(!j.ok||!j.prepared||!j.prepared.length){el.textContent="Aucun compte pr\u00e9par\u00e9 en attente d'invitation.";return}
+      el.innerHTML='<div style="font-weight:600;margin-bottom:5px;">Pr\u00e9par\u00e9s, pas encore invit\u00e9s</div>'+j.prepared.map(function(pp){
+        var sel=window._ivProvKey===pp.provision_key;
+        return '<div data-iv-prep-key="'+es(pp.provision_key)+'" data-iv-prep-loc="'+es(pp.location_id)+'" data-iv-prep-mail="'+es(pp.email||"")+'" style="display:flex;gap:8px;align-items:center;padding:4px 0;cursor:pointer;color:'+(sel?"#1D3BB3":"#6b7280")+';font-weight:'+(sel?"600":"400")+';">'
+          +'<span style="flex:1;">'+es(pp.name||pp.location_id)+(pp.email?' \u00b7 '+es(pp.email):"")+'</span>'
+          +'<span style="font-size:11px;">'+(sel?"s\u00e9lectionn\u00e9 \u2713":"s\u00e9lectionner")+'</span></div>';
+      }).join("");
+      el.querySelectorAll("[data-iv-prep-key]").forEach(function(row){row.addEventListener("click",function(){
+        window._ivProvKey=row.getAttribute("data-iv-prep-key");
+        window._ivProvLoc=row.getAttribute("data-iv-prep-loc");
+        var mail=row.getAttribute("data-iv-prep-mail");if(mail)document.getElementById("iv-email").value=mail;
+        document.getElementById("iv-comp").style.display="block";
+        document.getElementById("iv-msg").textContent="Compte pr\u00e9par\u00e9 s\u00e9lectionn\u00e9 \u2014 concurrents et invitation porteront sur lui.";
+        ivPrepared();
+      })});
+    }).catch(function(){})
+  }
+  ivPrepared();
   ivList();
   function fm(d){if(!d)return"\u2014";var t=new Date(d);return t.toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})+" "+t.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
   function fd(d){if(!d)return"\u2014";return new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"short",year:"numeric"})}

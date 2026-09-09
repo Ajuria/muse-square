@@ -4,8 +4,19 @@
 // l'instance passée en Restricted (GESTE OWNER au Dashboard), seul l'invité peut s'inscrire.
 // Les métadonnées (activité pressentie, caisse pressentie) suivent l'invité : le profil les
 // pré-remplira (P3.1-b) et le routage d'import s'en servira (P3.1-c).
-// POST { email, activity_hint?, pos_hint? } → crée ; POST { revoke_id } → révoque ;
-// GET → liste des invitations en attente (l'UI admin s'en nourrit).
+// ── PRÉPARER n'est pas INVITER (owner 09/09, dit deux fois) ────────────────────────────────────
+// « Je ne ferai l'invitation que quand tout est prêt » — vaut pour TOUS les premiers clients. Le
+// pré-provisionnement était soudé à l'invitation : un clic créait la ligne profil ET envoyait deux
+// emails au client (invitation Clerk `notify: true` + demande d'export). Les deux gestes sont
+// SÉPARÉS depuis le 09/09 :
+//   POST { provision_only: true, … }        → prépare TOUT, ne contacte PERSONNE. Rend la clé
+//                                             d'attente `invite:<uuid>` et le location_id.
+//   POST { email, provision_key?, … }       → invite. Avec une clé préparée, elle est REPRISE
+//                                             (aucune seconde ligne profil) ; sans elle, geste
+//                                             historique inchangé (prépare + invite d'un coup).
+//   GET ?prepared=1                         → les comptes préparés et pas encore invités, avec
+//                                             leur clé — la préparation survit au rechargement.
+// POST { revoke_id } → révoque ; GET → invitations Clerk en attente.
 import type { APIRoute } from "astro";
 // Client backend EXPLICITE (clé secrète) : indépendant du runtime Astro — le même code
 // tourne en prod et sous le harnais d'invocation directe (clerkClient(context) exigeait
@@ -73,6 +84,9 @@ async function eventCoverage(lat: number, lon: number): Promise<number | null> {
   }
 }
 
+// Sortie douce du bloc email pendant une préparation — jamais une erreur remontée à l'admin.
+class SkipEmail extends Error {}
+
 export const prerender = false;
 
 const json = (status: number, body: unknown) =>
@@ -86,6 +100,32 @@ const gate = (locals: any): string | null => {
 export const GET: APIRoute = async (context) => {
   try {
     if (!gate(context.locals)) return json(403, { ok: false, error: "Forbidden" });
+    // Comptes PRÉPARÉS et pas encore invités : la clé d'attente est la marque (`invite:<uuid>` ne
+    // peut pas être un id Clerk réel — même garde que claimProvisionedProfile). Sans cette liste,
+    // une préparation perdue au rechargement de page obligerait à tout refaire.
+    if (new URL(context.request.url).searchParams.get("prepared") === "1") {
+      const bq = makeBQClient("muse-square-open-data");
+      const [rows] = await bq.query({
+        query: `SELECT clerk_user_id AS provision_key, location_id, site_name, company_name, email,
+                       pos_system, company_address, created_at
+                FROM \`muse-square-open-data.raw.insight_event_user_location_profile\`
+                WHERE STARTS_WITH(clerk_user_id, 'invite:')
+                ORDER BY created_at DESC LIMIT 50`,
+        location: "EU",
+      });
+      const flat = (v: any) => (v && typeof v === "object" && "value" in v ? v.value : v);
+      return json(200, {
+        ok: true,
+        prepared: (rows as any[]).map((r) => ({
+          provision_key: String(flat(r.provision_key)),
+          location_id: String(flat(r.location_id)),
+          name: String(flat(r.site_name) || flat(r.company_name) || ""),
+          email: r.email != null ? String(flat(r.email)) : null,
+          pos_system: r.pos_system != null ? String(flat(r.pos_system)) : null,
+          created_at: r.created_at != null ? String(flat(r.created_at)) : null,
+        })),
+      });
+    }
     const list = await clerk().invitations.getInvitationList({ status: "pending" });
     return json(200, {
       ok: true,
@@ -146,9 +186,24 @@ export const POST: APIRoute = async (context) => {
     // C3 : la clé en attente n'existe que si on peut provisionner (adresse fournie).
     // Générée AVANT l'invitation pour voyager dans ses métadonnées (Clerk les recopie sur
     // l'utilisateur à l'inscription — c'est le fil que la réclamation suivra).
-    const provision_key = company_address ? `invite:${randomUUID()}` : null;
+    // 09/09 : une clé DÉJÀ PRÉPARÉE est reprise telle quelle — c'est ce qui permet d'inviter des
+    // jours après avoir préparé, sans créer une seconde ligne profil orpheline.
+    const reused_key = typeof body?.provision_key === "string" && /^invite:[0-9a-f-]{36}$/.test(body.provision_key.trim())
+      ? body.provision_key.trim() : null;
+    const provision_only = body?.provision_only === true;
+    if (provision_only && !company_address) {
+      return json(400, { ok: false, error: "Préparer un compte demande l'adresse professionnelle — c'est elle qui géocode le site." });
+    }
+    if (provision_only && reused_key) {
+      return json(400, { ok: false, error: "Ce compte est déjà préparé — invitez-le, ou préparez-en un autre." });
+    }
+    const provision_key = reused_key || (company_address ? `invite:${randomUUID()}` : null);
 
-    const inv = await clerk().invitations.createInvitation({
+    // PRÉPARATION : rien ne part. Le provisionnement tourne plus bas comme d'habitude ; ni
+    // invitation Clerk, ni demande d'export. C'est le geste par défaut d'un premier client.
+    const inv: { id: string | null; emailAddress: string; status: string } = provision_only
+      ? { id: null, emailAddress: email, status: "prepared" }
+      : await clerk().invitations.createInvitation({
       emailAddress: email,
       publicMetadata: {
         invited_by: adminId,
@@ -172,8 +227,10 @@ export const POST: APIRoute = async (context) => {
     // chaîne dbt J0 (isNewAccount) — exactement le chemin d'une inscription, identité injectée.
     // Une seule résolution de caisse — partagée entre le provisionnement et l'email de demande.
     const posInfo = await fileRequestNote(pos_hint);
-    let provision: any = null;
-    if (provision_key && company_address) {
+    // Une clé REPRISE = la ligne profil existe déjà : la re-provisionner écraserait le travail
+    // fait entre la préparation et l'invitation (concurrents suivis, pôles, photos).
+    let provision: any = reused_key ? { reused: true, provision_key: reused_key } : null;
+    if (provision_key && company_address && !reused_key) {
       try {
         const pos_key = posInfo.pos_key;
         const req = new Request("http://internal/api/profile/save", {
@@ -210,9 +267,11 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
-    // Demande de fichier de ventes, envoyée dans la foulée de l'invitation.
-    let file_request_email = "not_sent";
+    // Demande de fichier de ventes, envoyée dans la foulée de l'invitation — et JAMAIS pendant une
+    // préparation : préparer ne contacte personne (owner 09/09).
+    let file_request_email = provision_only ? "not_sent: préparation" : "not_sent";
     try {
+      if (provision_only) throw new SkipEmail();
       const { label, note } = posInfo;
       const inviter = await clerk().users.getUser(adminId).catch(() => null);
       const inviterEmail =
@@ -238,10 +297,17 @@ export const POST: APIRoute = async (context) => {
       });
       file_request_email = sent.ok ? "sent" : `not_sent: ${sent.error || "erreur"}`;
     } catch (e: any) {
-      file_request_email = `not_sent: ${e?.message || "erreur"}`;
+      if (!(e instanceof SkipEmail)) file_request_email = `not_sent: ${e?.message || "erreur"}`;
     }
 
-    return json(200, { ok: true, invitation: { id: inv.id, email: inv.emailAddress, status: inv.status }, file_request_email, provision });
+    return json(200, {
+      ok: true,
+      mode: provision_only ? "prepared" : "invited",
+      invitation: { id: inv.id, email: inv.emailAddress, status: inv.status },
+      provision_key,
+      file_request_email,
+      provision,
+    });
   } catch (err: any) {
     // Clerk renvoie des erreurs typées (déjà invité, déjà inscrit…) — les remonter lisibles.
     return json(400, { ok: false, error: err?.errors?.[0]?.message || err?.message || "Erreur Clerk" });
