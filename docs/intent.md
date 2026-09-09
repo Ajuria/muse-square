@@ -34,8 +34,9 @@ avec son résultat — pour que le lieu apprenne de lui-même.
 - **composant** : l'objet physique d'un dispositif, celui qu'on photographie — vitrine, linéaire,
   comptoir, QR code. C'est lui qui porte la PLACE dans le magasin ; un dispositif en a plusieurs,
   discontinus s'il le faut. Un composant peut être **interactif** : le client y fait un geste
-  délibéré — scanner un QR code — qui dit son intérêt pour un produit ou une famille SANS achat.
-  L'intérêt et la vente sont deux mesures distinctes ; leur écart est ce qu'aucune caisse ne voit.
+  délibéré — scanner un QR code — et ce geste compte dans l'**attractivité** du produit ou de la
+  famille, sans achat. L'attractivité et la vente sont deux mesures distinctes ; leur écart est ce
+  qu'aucune caisse ne voit.
 
 ## Le test de valeur
 

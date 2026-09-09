@@ -549,12 +549,12 @@ présente comme telle.
     Débouché naturel du point 5 (confirmation des articles). Sept décisions owner actées le 07/09 ;
     P0-P4 LIVRÉS dev les 07-08/09 : une photo confirmée devient le périmètre de la version (P4).
 12. **Les composants interactifs** (§ 10, demande owner 09/09) : le QR code et ce qui mesure
-    l'intérêt sans passer par la caisse. Quatre décisions owner en attente ; rien n'est écrit au
+    l'attractivité sans passer par la caisse. Une décision owner en attente ; rien n'est écrit au
     registre tant que les mots ne sont pas arbitrés.
 
 ---
 
-## 10. Les composants interactifs — le QR code et la mesure d'intérêt [demande owner 09/09]
+## 10. Les composants interactifs — le QR code et l'attractivité [demande owner 09/09]
 
 > Demande owner 09/09, verbatim : « QR codes et autres qui permettent d'interagir avec le client
 > et par exemple mesurer l'intérêt pour un produit ou une famille de produits ».
@@ -565,7 +565,7 @@ présente comme telle.
 
 Les types du § 4 se PHOTOGRAPHIENT : ce qu'ils prouvent, une image le dit, une fois. Un composant
 interactif produit en plus un ÉVÉNEMENT : le client fait devant lui un geste délibéré, et cet
-événement se compte tous les jours. **Le signal n'est pas une vente : c'est un intérêt.**
+événement se compte tous les jours. **Le signal n'est pas une vente : c'est de l'attractivité.**
 
 ### 10.2 Pourquoi ça vaut quelque chose
 
