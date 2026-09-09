@@ -353,10 +353,11 @@ window.MS_SALES_RECO_LIB = {
 
   // (Report-only — pas un origin d'engagement v1, mais lu par le rapport.)
   sales_competition_cannibalization: {
+    // 09/09 (owner) — les plans NOMMENT le concurrent ({concurrent} = concurrent le plus proche du payload).
     _default: [
-      { title: "Renforcez une différenciation que le concurrent n'a pas", description: "Offre signature ou expérience propre.", why: "On ne gagne pas une guerre de proximité en imitant, mais en offrant ce que l'autre n'a pas.", tag: "Différenciation" },
-      { title: "Gagnez en visibilité là où la concurrence capte", description: "Google, réseaux, sur les créneaux disputés.", why: "À offre comparable, c'est le plus visible au bon moment qui capte la visite.", tag: "Visibilité" },
-      { title: "Fidélisez pour réduire la sensibilité à l'offre concurrente", description: "Programme, relation client.", why: "Un client fidélisé compare moins — la fidélité est la meilleure barrière à la cannibalisation.", tag: "Fidélisation" },
+      { title: "Comparez vos prix à ceux de « {concurrent} » sur vos meilleures ventes", description: "Les articles que vous vendez tous les deux, relevés chez lui cette semaine.", why: "Un client qui compare a deux prix sous les yeux : le vôtre et celui d'à côté.", tag: "Benchmark" },
+      { title: "Identifiez la cause de la baisse avant d'agir", description: "Météo, travaux, événement à côté, vendeur absent : le souvenir du jour, noté.", why: "Une baisse dont on connaît la cause ne se traite pas comme une menace concurrente.", tag: "Mémoire" },
+      { title: "Parlez à vos clients réguliers avant le prochain rendez-vous de « {concurrent} »", description: "Un mot en caisse, une offre pour ce jour-là.", why: "Vos clients communs vont là où on leur a parlé en dernier.", tag: "Clients" },
     ],
   },
 
@@ -464,19 +465,42 @@ window.MS_SALES_RECO_LIB.hour_share_move = {
 
 // ── item_share_move ── « Le produit X sous-performe / surperforme » ; corps en € du produit.
 window.MS_SALES_RECO_LIB.item_share_move = {
+  // 09/09 (owner) — les plans NOMMENT le produit ({produit}, rempli par le kit) et suivent le SENS du signal ; sans « stock ».
+  surge: [
+    { title: "Mettez « {produit} » en avant, à l'entrée", description: "Bien visible, à hauteur de main, avec son prix lisible.", why: "« {produit} » a généré plus que d'habitude : ce qui a marché une fois se reconduit sciemment.", tag: "Rayon" },
+    { title: "Commandez « {produit} » sur ses jours de hausse", description: "La prochaine commande calée sur ce que le produit vend un bon jour.", why: "Un produit qui monte et qui manque en rayon est une vente perdue.", tag: "Achats" },
+    { title: "Proposez « {produit} » avec son complément en caisse", description: "Le produit et ce qui va avec, proposés ensemble au moment de payer.", why: "Un complément choisi vaut mieux qu'un « et avec ceci ? » réflexe.", tag: "Panier" },
+  ],
+  collapse: [
+    { title: "Changez « {produit} » de place et vérifiez son prix", description: "Un autre emplacement, une étiquette lisible, un regard sur le produit voisin moins cher.", why: "Quand le passage est le même et que seul « {produit} » baisse, la cause est dans le rayon.", tag: "Rayon" },
+    { title: "Comparez le prix de « {produit} » à celui de vos concurrents suivis", description: "Le même article, relevé chez eux cette semaine.", why: "Un produit qui baisse seul se compare d'abord au prix d'à côté.", tag: "Benchmark" },
+    { title: "Notez ce qui a changé sur « {produit} » ce jour-là", description: "Rupture, produit retiré, emplacement déplacé.", why: "Une baisse sans cause notée se répète.", tag: "Mémoire" },
+  ],
   _default: [
-    { title: "Mettez en avant le produit qui monte", description: "À l'entrée, bien visible, avec assez de stock.", why: "Ce qui a marché une fois est votre meilleur pari — encore faut-il le rejouer sciemment.", tag: "À reconduire" },
-    { title: "Changez de place le produit qui baisse et vérifiez son prix", description: "Un autre emplacement, une étiquette lisible, un regard sur le produit voisin moins cher.", why: "Quand le passage est le même et qu'un seul produit baisse, la cause est dans le rayon.", tag: "Diagnostic" },
-    { title: "Proposez ce produit avec un complément en caisse", description: "Le produit et ce qui va avec, proposés ensemble.", why: "Un complément pertinent vaut mieux qu'un « et avec ceci ? » réflexe.", tag: "Panier" },
+    { title: "Changez « {produit} » de place et vérifiez son prix", description: "Un autre emplacement, une étiquette lisible, un regard sur le produit voisin moins cher.", why: "Quand le passage est le même et que seul « {produit} » bouge, la cause est dans le rayon.", tag: "Rayon" },
+    { title: "Proposez « {produit} » avec son complément en caisse", description: "Le produit et ce qui va avec, proposés ensemble au moment de payer.", why: "Un complément choisi vaut mieux qu'un « et avec ceci ? » réflexe.", tag: "Panier" },
+    { title: "Notez ce qui a changé sur « {produit} » ce jour-là", description: "Mise en avant, rupture, emplacement : le souvenir du jour.", why: "Un écart sans cause notée se répète.", tag: "Mémoire" },
   ],
 };
 
 // ── offering_mix_shift ── « La famille X sous-performe / surperforme » ; corps en € de la famille.
 window.MS_SALES_RECO_LIB.offering_mix_shift = {
+  // 09/09 (owner : « What is going up exactly? Which ones? ») — les plans NOMMENT la famille ({famille},
+  // rempli par le kit) et suivent le SENS du signal ; ni « stock » ni « réassort » (lexique l.50).
+  surge: [
+    { title: "Donnez plus de place en rayon à « {famille} »", description: "Un linéaire à la hauteur de ce que la famille vend ses bons jours.", why: "« {famille} » a généré plus que d'habitude plusieurs fois de suite : la place doit suivre la demande.", tag: "Rayon" },
+    { title: "Commandez « {famille} » sur ses jours de hausse, pas sur sa moyenne", description: "La prochaine commande calée sur ce que la famille vend un bon jour.", why: "Ce qui manque en rayon un jour de hausse est une vente perdue.", tag: "Achats" },
+    { title: "Notez ce qui a fait monter « {famille} » ce jour-là", description: "Mise en avant, dégustation, client de passage, événement à côté : le souvenir du jour.", why: "Une hausse dont on connaît la cause se reconduit ; les autres reviennent par hasard.", tag: "Mémoire" },
+  ],
+  collapse: [
+    { title: "Vérifiez le rayon « {famille} » le jour même", description: "Produits manquants, prix affichés, mise en avant.", why: "Quand le passage est le même et que seule « {famille} » baisse, la cause est dans le rayon.", tag: "Rayon" },
+    { title: "Comparez vos prix sur « {famille} » à ceux de vos concurrents suivis", description: "Les trois articles les plus vendus de la famille, relevés chez eux cette semaine.", why: "Une famille qui baisse seule se compare d'abord au prix d'à côté.", tag: "Benchmark" },
+    { title: "Notez ce qui a changé sur « {famille} » ce jour-là", description: "Rupture, produit retiré, emplacement déplacé, vendeur absent.", why: "Une baisse sans cause notée se répète.", tag: "Mémoire" },
+  ],
   _default: [
-    { title: "Donnez plus de place et de stock à la famille qui monte", description: "Plus de linéaire et une commande à la hauteur de la demande.", why: "Une famille qui fait la journée et qui manque en rayon, c'est une hausse perdue.", tag: "Réassort" },
-    { title: "Vérifiez en rayon la famille qui baisse", description: "Produits manquants, prix affichés, mise en avant, le jour même.", why: "Quand le passage est le même et qu'une seule famille baisse, la cause est dans le rayon.", tag: "Diagnostic" },
-    { title: "Vendez les deux familles ensemble", description: "Une formule qui associe la famille qui marche à celle qui baisse, proposée en caisse.", why: "Le panier monte sans trafic supplémentaire — la marge la plus rapide à récupérer.", tag: "Panier" },
+    { title: "Vérifiez le rayon « {famille} » le jour même", description: "Produits manquants, prix affichés, mise en avant.", why: "Quand le passage est le même et que seule « {famille} » bouge, la cause est dans le rayon.", tag: "Rayon" },
+    { title: "Comparez vos prix sur « {famille} » à ceux de vos concurrents suivis", description: "Les trois articles les plus vendus de la famille, relevés chez eux cette semaine.", why: "Une famille qui bouge seule se compare d'abord au prix d'à côté.", tag: "Benchmark" },
+    { title: "Notez ce qui a changé sur « {famille} » ce jour-là", description: "Mise en avant, rupture, emplacement, vendeur absent : le souvenir du jour.", why: "Un écart sans cause notée se répète.", tag: "Mémoire" },
   ],
 };
 
@@ -484,9 +508,9 @@ window.MS_SALES_RECO_LIB.offering_mix_shift = {
 // 08/09 — plans PROVISOIRES (écrits pour la carte déclarée de la démo Maison Sèvres, voix owner à valider).
 window.MS_SALES_RECO_LIB.family_space_underuse = {
   _default: [
-    { title: "Réduisez la place en rayon de la famille qui ne vend pas", description: "Un linéaire ramené à ce qu'elle vend, le reste rendu à une famille qui fait la journée.", why: "Une famille sous 1 % du CA n'a pas besoin d'un mètre de rayon.", tag: "Rayon" },
-    { title: "Regroupez ses articles en caisse", description: "Les articles à la pièce près de la caisse, proposés au moment de payer.", why: "Un article à moins d'un euro se vend à l'impulsion, pas au rayon.", tag: "Caisse" },
-    { title: "Donnez la place libérée à la famille qui porte le CA", description: "Plus de linéaire à la première famille, le jour du réassort.", why: "Le passage est le même : la place va à ce qui se vend.", tag: "Réassort" },
+    { title: "Réduisez la place en rayon de « {famille} »", description: "Un linéaire ramené à ce qu'elle vend, le reste rendu à « {principale} ».", why: "« {famille} » pèse moins de 1 % de votre CA : elle n'a pas besoin d'un mètre de rayon.", tag: "Rayon" },
+    { title: "Regroupez « {famille} » en caisse", description: "Ses articles près de la caisse, proposés au moment de payer.", why: "Un article à moins d'un euro se vend à l'impulsion, pas au rayon.", tag: "Caisse" },
+    { title: "Donnez la place libérée à « {principale} »", description: "Plus de linéaire à votre première famille, dès la prochaine commande.", why: "Le passage est le même : la place va à ce qui se vend.", tag: "Rayon" },
   ],
 };
 
