@@ -717,6 +717,96 @@ tient — et personne dans le scan ne le dit. Le § 5 le formule déjà : « Le 
 en 2026. Savoir QUOI garder et sur quelle preuve, non. » La vulnérabilité du § 12.8 est une
 question de CALENDRIER, pas de concept. [formulation à valider owner — pas une chaîne de deck]
 
+### 12.10 Se placer en amont, et remplir le registre sans déclaration facultative
+
+Ouvert le 09/09 sur deux questions owner, posées après la comparaison Salesforce (§ 12.8 :
+« Salesforce utilise Anthropic et n'a pas été remplacé ») : comment se placer en AMONT de la donnée
+comme Salesforce l'est de son pipeline, et comment faire que le registre se remplisse comme le CRM
+se remplit — parce que saisir le pipeline est le travail du commercial, alors que déclarer un
+dispositif est aujourd'hui un geste facultatif de l'exploitant. Un registre qui dépend d'une
+déclaration facultative n'est pas encore un fossé.
+
+**Ce que Salesforce a subi, et ce qu'il a fait** [vérifié 09/09] : la vente massive de logiciels
+de janvier-février 2026 (« SaaSpocalypse », environ 2 000 Md$ de capitalisation, Salesforce à −28 %
+malgré un CA en hausse) a frappé le modèle AU SIÈGE, pas le registre : des agents qui font le
+travail des commerciaux, ce sont moins de sièges. La réponse du 26/08/2026, Claudeforce, met le CRM
+À L'INTÉRIEUR de Claude — « data, workflows, business logic, actions, and governance » servis à
+l'agent là où il travaille. Salesforce n'a pas combattu le modèle : il a fait de son registre ce
+dont le modèle a besoin. Muse Square n'a pas de sièges (prix par site, § 11) ; le § 12 est ce
+même mouvement — le registre servi à l'agent, où qu'il tourne.
+
+#### L'amont : posséder la DÉCISION, jamais la transaction
+
+Salesforce n'a jamais possédé l'ERP. Il possède le pipeline parce que le travail du commercial s'y
+fait AVANT que la vente existe. L'équivalent pour un lieu n'est pas la caisse : ce sont les trois
+gestes que l'exploitant fait avant et autour de la caisse, et qu'aucun POS ne représente.
+
+| Geste de l'exploitant | L'objet Muse Square | État [vérifié 09/09] |
+|---|---|---|
+| **Décider** — un prix, une opération, une cible, avant que la caisse le voie | l'engagement : promesse, fenêtre, KPI ; le tarif déclaré et le coût (§ 12.7 item 2) | engagement livré ; tarif et coût à construire |
+| **Organiser le lieu** — quelle famille est où, sur quoi, avec qui | pôle → dispositifs → composants, photos lues sous schéma (D1, 03/09) | modèle, semantic, lecture des photos livrés ; onboarding D6 non livré |
+| **Donner l'instruction** — à qui, quoi, quand ; et savoir si c'est fait | consigne, responsable, boutons Slack « Fait / Pas pour moi / Ajuster », trace `consigne_sends` | livré pour une occurrence ou un signal ; consigne libre à construire (§ 12.7 item 4) |
+
+Aucun de ces trois gestes n'est facultatif pour l'exploitant : il décide ses prix, il arrange sa
+boutique, il parle à son équipe. Ils ne sont facultatifs DANS Muse Square que parce qu'il peut
+les faire ailleurs. **Être en amont, c'est être l'endroit où ces trois gestes se font** — et la
+consigne est celui qui est déjà câblé : un exploitant qui brief son équipe par Muse Square crée
+le dispositif comme sous-produit d'un travail qu'il fait de toute façon. Le cas du poivre le
+montre : décidé le 10 dans Muse Square, en caisse le 12, Muse Square est en amont de cet
+événement — le POS voit un changement de prix, Muse Square sait que c'est une opération, avec sa
+cause et sa cible. La limite est nette : amont des décisions et de l'organisation physique,
+jamais des transactions.
+
+#### Le remplissage : trois sources, dans cet ordre
+
+**1. L'inférence depuis la caisse, confirmée par l'exploitant — la plus forte.** C'est le mécanisme
+Salesforce transposé. Les marts détectent déjà ce qui a changé : mouvement de prix par article et
+par famille (`fct_client_item_signals_daily.is_price_move`, `fct_client_family_price_daily.is_price_move`),
+promotions (`promo_count_30d`), part qui bouge (`is_share_move`), articles nouveaux et morts
+(`is_dead_item`), écarts heure × famille. Aujourd'hui ces signaux alimentent des CARTES ; ils doivent
+alimenter des PROPOSITIONS : l'agent voit le prix du poivre bouger le 12 et demande si c'est une
+opération. Un geste confirme ; l'opération s'ouvre avec la bonne fenêtre et l'article comme
+périmètre mesuré (`measured_scope`, livré 07/09). Non confirmé, le changement reste au registre
+comme fait observé, jamais comme dispositif. **La déclaration devient une confirmation**, et le
+registre se remplit de ce qui s'est passé, que l'exploitant ait pensé ou non à le déclarer. C'est
+l'état « proposition » du § 12 pointé sur la caisse au lieu d'Explorer. [à instruire : le chemin
+signal → proposition, et le mot]
+
+**2. Les sections du lieu en pôles, à l'onboarding.** Proposition owner 09/09 (« l'utilisateur
+documente le lieu en sections, l'agent crée un dispositif par section »), avec une correction : une
+section est un PÔLE — dispositif permanent, familles, responsable, jamais de verdict — et les
+opérations se font dedans, créées par la source 1. L'agent ne crée donc pas « un dispositif par
+section » mais un pôle par section, depuis les photos, familles lues et confirmées. C'est D6 de
+`dispositifs-typologie-spec.md` § 9 point 5 : conçu, non livré. Une section re-photographiée est
+une version suivante — le registre se remplit aussi des changements du lieu lui-même, la mémoire
+que personne d'autre ne tient.
+
+**3. Le canal d'équipe.** Quand le brief passe par Muse Square, l'occurrence, le responsable et la
+trace d'exécution s'écrivent sans formulaire. Les interactions Slack existent ; il manque la
+consigne libre hors occurrence (§ 12.7 item 4), pour que toute instruction, pas seulement une
+instruction programmée, laisse une trace.
+
+À quoi s'ajoute la note-cause sur Agir (livrée 08/09) : quand une carte tire, la mémoire se
+remplit de causes.
+
+#### Le prérequis qui conditionne les trois : l'entrée quotidienne des données de caisse
+
+La source 1 ne remplit rien sans un flux de caisse QUOTIDIEN. Le § 8.1 a mesuré un seul client
+réel avec des données de caisse, dernière date 27/07/2026 ; le § 8.3 dit que l'entrée reste un
+mapping à la main par famille de caisse (quatre overrides déclarés, tous vides). L'inférence
+depuis la caisse suppose que le flux arrive chaque nuit. **Tant que cette ingestion automatisée
+n'existe pas, le registre ne peut pas se remplir seul, et la comparaison Salesforce reste un
+dessin, pas une propriété du produit.** C'est l'item qui passe devant les trois sources.
+[à instruire : par famille de caisse — Crisalid pour Épices et Tout, Sage 100 pour Les Olivades]
+
+#### Ce que ça change à l'argument du fossé
+
+Avec les trois sources, le registre se remplit depuis trois entrées qu'un POS ne combine jamais :
+ce qui a changé en caisse, à quoi ressemble la boutique, ce qui a été dit à l'équipe. Cette
+combinaison est ce qu'un agent de caisse ne peut pas calculer depuis sa seule donnée — et c'est le
+contenu concret derrière « mémoire opérationnelle » au § 12.9 : la structure se copie, le
+remplissage à trois sources ne se copie pas sans posséder les trois.
+
 ### Sources du § 12 (lues le 07/09/2026)
 
 - Shopify, centre d'aide Sidekick — https://help.shopify.com/en/manual/ai-powered-tools/sidekick/help-and-guidance [page lue]
@@ -732,5 +822,7 @@ question de CALENDRIER, pas de concept. [formulation à valider owner — pas un
 - Engage3, clients indépendants, 07/2021 — https://www.engage3.com/2021/07/leading-independent-retailers-leverage-engage3-to-track-their-competitive-price-position-and-optimize-prices-to-drive-traffic-and-margin/ [page lue] ; Hypersonix / Carlie C's (25 magasins) — https://progressivegrocer.com/independent-grocers-adopt-ai-solution [recherche]
 - Boardfy — https://www.boardfy.com/ [page lue] ; Paarly — https://paarly.com/ [page lue] ; Minderest InStore — https://www.minderest.com/ [page lue] ; Prisync, tarifs — https://prisync.com/compare-plans/ [recherche]
 - Grocery Dive, « The promise and peril of AI-driven pricing », 23/02/2026 — https://www.grocerydive.com/news/promise-peril-artificial-intelligence-driven-pricing-retailers/812037/ [page lue]
+- Salesforce, « Salesforce and Anthropic Announce Claudeforce », 26/08/2026 — https://www.salesforce.com/news/press-releases/2026/08/26/salesforce-and-anthropic-announce-claudeforce/ [page lue 09/09] ; Anthropic, « Expanded Salesforce partnership » — https://www.anthropic.com/news/salesforce-anthropic-expanded-partnership [recherche 09/09]
+- The SaaS Sentinel, « SaaSpocalypse 2026 », 03/07/2026 — https://saassentinel.com/2026/07/03/saaspocalypse-2026-what-happened-to-saas-and-where-the-market-stands-now/ [recherche 09/09] ; FinancialContent, 24/03/2026 — https://markets.financialcontent.com/stocks/article/marketminute-2026-3-24-the-2026-saaspocalypse-why-b2b-software-stocks-are-plunging-20 [recherche 09/09]
 - INC, « L'information sur les prix » (L112-1, arrêté 3/12/1987, sanctions L131-5) — https://www.inc-conso.fr/content/linformation-sur-les-prix-generalites [page lue] ; art. L112-1-1 C. conso — https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000044549592 [recherche] ; DGCCRF, revente à perte — https://www.economie.gouv.fr/dgccrf/les-fiches-pratiques/revente-perte-quelles-sont-les-obligations-du-vendeur [recherche]
 - Caisses françaises sans assistant (Zelty, L'Addition, Hiboutik, Cashpad, SumUp) : blog Zelty, independant.io, tool-advisor.fr, practicalecommerce.com (28/04/2026) [recherche]
