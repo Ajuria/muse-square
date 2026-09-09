@@ -548,3 +548,127 @@ présente comme telle.
     articles confirmés) porté par l'engagement et propagé au verdict, à l'en-tête et à la décomposition.
     Débouché naturel du point 5 (confirmation des articles). Sept décisions owner actées le 07/09 ;
     P0-P4 LIVRÉS dev les 07-08/09 : une photo confirmée devient le périmètre de la version (P4).
+12. **Les composants interactifs** (§ 10, demande owner 09/09) : le QR code et ce qui mesure
+    l'intérêt sans passer par la caisse. Quatre décisions owner en attente ; rien n'est écrit au
+    registre tant que les mots ne sont pas arbitrés.
+
+---
+
+## 10. Les composants interactifs — le QR code et la mesure d'intérêt [demande owner 09/09]
+
+> Demande owner 09/09, verbatim : « QR codes et autres qui permettent d'interagir avec le client
+> et par exemple mesurer l'intérêt pour un produit ou une famille de produits ».
+> Sert : `intent.md` § Les objets (le composant interactif y est inscrit le 09/09) et
+> § Le test de valeur.
+
+### 10.1 Ce que c'est, et ce qui le sépare des dix types existants
+
+Les types du § 4 se PHOTOGRAPHIENT : ce qu'ils prouvent, une image le dit, une fois. Un composant
+interactif produit en plus un ÉVÉNEMENT : le client fait devant lui un geste délibéré, et cet
+événement se compte tous les jours. **Le signal n'est pas une vente : c'est un intérêt.**
+
+### 10.2 Pourquoi ça vaut quelque chose
+
+La caisse dit ce qui s'est vendu ; elle ne dit jamais ce qui a été regardé sans être acheté. Un
+article scanné 40 fois et vendu 3 fois, et un article scanné 3 fois et vendu 3 fois, ne demandent
+pas le même geste — et rien aujourd'hui ne les sépare. C'est le test de valeur d'`intent.md` mot
+pour mot : vrai, invisible autrement, et l'exploitant peut le bouger.
+
+C'est aussi l'axe **expérience client** demandé le 09/09 pour le conseil d'espace. Ce conseil tient
+à trois nombres par zone : ce qu'elle occupe (le composant), ce qu'elle vend (ses articles), ce
+qu'elle attire (ses interactions). Le troisième n'existe nulle part aujourd'hui.
+
+### 10.3 Ce qui existe déjà — et ce qui manque [vérifié 09/09]
+
+| Brique | État | Où |
+|---|---|---|
+| Clé stable du composant dans la chaîne de versions | ✅ | `DispositifComponent.key` (`dispositifTypes.ts`) |
+| Articles rattachés à un composant | ✅ | photo confirmée → `items_confirmed` → `measured_scope {articles}` (P4, 07/09) |
+| Familles rattachées au pôle qui porte le composant | ✅ | `pole_families` |
+| Une route PUBLIQUE, sans compte | ❌ | tout `/app(.*)`, `/api/insight(.*)`, `/profile(.*)` est gardé par Clerk (`middleware.js`, `isProtectedRoute`) — aucune page publique hors marketing |
+| Une table d'événements d'interaction | ❌ | `analytics.dispositif_photos` stocke des photos ; rien ne stocke un geste client |
+| Une lecture « regardé vs acheté » | ❌ | — |
+| Un type de composant pour ça | ❌ | les dix types du registre n'en portent aucun ; `mediation` existe mais la garde interdit de le proposer au commerce (`dispositifTypes.guard.test.ts`) |
+
+**L'ancrage, qui était la question difficile, est déjà résolu** : un scan sur le composant X hérite
+des articles confirmés de X et des familles du pôle qui le porte. Ce qui manque est un tuyau, pas
+un modèle.
+
+### 10.4 La frontière — ce qui tient ça hors de la surveillance
+
+`intent.md` l'écrit depuis le 09/09 : **on compte l'événement, jamais le visiteur.** En clair :
+
+- aucun cookie, aucun identifiant de session, aucune adresse IP conservée ;
+- l'événement retenu est `{composant, horodatage}` — rien d'autre ;
+- ni durée, ni retour, ni enchaînement entre deux composants : reconstituer un parcours suppose un
+  identifiant, fût-il déguisé ;
+- conséquence juridique : une page qui ne dépose rien et ne conserve aucun identifiant n'appelle
+  ni bandeau ni consentement, le geste étant à l'initiative du client. **La première ligne qui
+  compterait des « visiteurs uniques » change la nature du dispositif** et rouvre le RGPD.
+
+Le débit brut suffit, parce que ce qui se lit est un RAPPORT — scans contre ventes du même
+périmètre — et jamais une audience.
+
+### 10.5 L'entrée au registre — proposée, pas écrite
+
+Le mot **QR code** est de l'owner (09/09). Les rôles et les questions de check-list ne le sont pas :
+rien n'entre dans `dispositifTypes.ts` tant qu'ils ne sont pas arbitrés (lexique, règle de
+procédure 2 — un mot en attente se signale, il ne s'invente pas).
+
+Forme proposée :
+
+    { value: "qr_code", label_fr: "QR code" }   // avant « autre » dans les listes métier
+    ROLES_BY_TYPE.qr_code = []                  // aucun rôle en v1
+
+Questions proposées pour la check-list (ce qu'une PHOTO prouve d'un QR code — le scan, lui, se
+compte ailleurs) : le code est-il net et non masqué ? est-il à hauteur d'œil ? une phrase dit-elle
+ce qu'on obtient en scannant ? quels articles de la liste vendue sont à côté ? a-t-il changé depuis
+la photo précédente ? Aucune de ces cinq phrases n'est arbitrée.
+
+Contraintes de la garde à respecter : valeurs uniques, chaque liste métier finit par « autre », une
+entrée `ROLES_BY_TYPE` et `CHECKLIST_BY_TYPE` même vide, aucun mot banni dans un libellé.
+
+### 10.6 Les autres dispositifs d'interaction — la liste ouverte
+
+Ce que le magasin peut tendre au client pour qu'il dise quelque chose, sans compte et sans caisse.
+Aucun n'a de mot arbitré, donc aucun n'entre au registre aujourd'hui :
+
+- l'étiquette qui renvoie à une page — QR code, étiquette sans contact ;
+- l'écran ou la tablette — le registre a déjà `mediation` / `multimedia`, fermé au commerce ;
+- le bouton ou l'urne — satisfaction, choix entre deux produits ;
+- la demande d'échantillon ou de dégustation — le registre a déjà `espace_experience` ;
+- l'ardoise « dites-nous » — à écarter tant que rien ne se compte : un composant interactif dont
+  le geste ne produit pas d'événement n'est qu'un composant.
+
+### 10.7 Ce qu'il faut construire, dans l'ordre
+
+1. **La route publique et le format du code** — un identifiant opaque par composant ; jamais le
+   `location_id` ni l'UUID du dispositif en clair dans une URL affichée au public.
+2. **La table d'événements** et son écriture, avec la garde de débit (un même code scanné en
+   rafale ne compte pas mille fois).
+3. **La page d'atterrissage** — son contenu est de la copie visible : lexique AVANT écriture.
+4. **La lecture « regardé vs acheté »** sur le périmètre du composant, avec sa bande de bruit :
+   un rapport sur trois scans ne conclut rien.
+5. **L'entrée au registre et sa check-list**, une fois les mots arbitrés.
+
+### 10.8 Décisions owner attendues
+
+1. **Un type `qr_code` à part, ou `mediation` ouverte au commerce ?** La garde affirme aujourd'hui
+   que le commerce ne voit pas la médiation ; l'ouvrir se décide, ne se contourne pas.
+2. **Que voit le client en scannant ?** SEULE DÉCISION ENCORE OUVERTE des quatre. Le choix décide
+   de ce que la mesure veut dire : une offre datée mesure l'attente d'une remise, l'origine et le
+   mode d'emploi mesurent l'attention au produit. **Recommandation** : le mode d'emploi et
+   l'origine — parce que le registre POSE DÉJÀ la question sur le linéaire de « Produits de
+   connaisseur » (`ls_usage_explique` : « Un support dit-il à quoi sert le produit ou comment le
+   choisir, et pas seulement d'où il vient ? », dont le `proves_fr` nomme le cas des poivres). Le
+   QR code est la réponse à une question que la check-list cherche déjà. Son libellé côté
+   exploitant se calque sur « Ce que le dispositif vend » (owner 07/09) : **« Ce que le QR code
+   montre »** puis des réponses — forme proposée, lexique § À arbitrer.
+3. ~~Le mot de la mesure.~~ **TRANCHÉ owner 09/09 : `attractivité`** — un seul mot pour le dehors
+   (recherches, itinéraires, appels) et le dedans (le geste sur un composant). Il nomme la
+   RUBRIQUE ; il ne nomme jamais un nombre : « 40 scans, 3 ventes », jamais « attractivité : 40 »
+   (règle des couches dans leur unité, owner 06/09). « Engagement », proposé, est écarté par
+   collision : le mot désigne déjà ce que l'exploitant promet de faire et de mesurer (lexique
+   l. 18, objet d'`intent.md`). Inscrit au lexique le 09/09.
+4. **La maille des étiquettes** : une par article, une par composant, une par famille ? Elle décide
+   de ce qu'on peut lire, et de qui imprime et colle.

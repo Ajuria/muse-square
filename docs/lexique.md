@@ -92,6 +92,8 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Demander à l'exploitant ce que la mesure ne voit pas sur un jour (carte « jour inexpliqué », état vide d'Explorer, E3 07/09) | **Un souvenir ? Notez-le · sinon, laissez** (forme owner relevée en prod le 22/08, CLAUDE.md règle 4 ; bouton **Enregistrer**, mot de la page de l'engagement) | Qu'est-ce qui se passait chez vous ce jour-là ? (refusé 22/08 : « is not a phrase for a human ») ; toute prose qui étale les vérifications |
 | Ce que mesure un dispositif — ses familles, son pôle ou les articles de sa photo (question du formulaire « M'engager » / « Créer opération ») | **Ce que le dispositif vend** (owner 07/09) ; réponses **des familles** · **les familles du pôle** · **les articles de la photo** ; option **Ajouter famille de produits** (famille nouvelle, pas encore dans les tickets) | périmètre (mot pris : la zone autour du site), scope |
 | Le nom du CA d'un périmètre dans la phrase du verdict | **CA de la famille « Branded »** (27/08) · **CA des familles « A » et « B »** (jusqu'à trois) · **CA des 4 familles du dispositif** · **CA du pôle « Épicerie fine »** · **CA de « <titre du dispositif> »** (articles d'une photo) — toujours suivi de « vs votre résultat habituel » (owner 07/09) | « de ventes » pour du CA (retiré de l'en-tête de la page de l'engagement le 07/09) |
+| L'attention portée au commerce — AVANT l'arrivée (recherches, itinéraires, appels ; `interet-etablissement-spec.md`) comme SUR PLACE (le geste sur un composant interactif ; `dispositifs-typologie-spec.md` § 10) | **attractivité** (owner 09/09) — nomme la RUBRIQUE, **jamais un nombre** : chaque mesure garde son unité (« 40 scans, 3 ventes », « 38 itinéraires demandés »), règle des couches dans leur unité (owner 06/09) | **engagement** (mot PRIS l. 18 : ce que l'utilisateur promet de faire et mesurer) ; intérêt, notoriété, visibilité, affinité, désirabilité ; « attractivité : 40 » — un nombre sans unité |
+| Un composant que le client peut actionner — il fait un geste délibéré qui dit son intérêt, sans acheter (spec `dispositifs-typologie-spec.md` § 10) | **composant interactif** ; le premier type est le **QR code** (mot owner 09/09) ; la rubrique de sa mesure est l'**attractivité** (ligne au-dessus) | borne, totem, tag ; « scan » employé seul comme nom de la mesure ; toute formule qui compte des visiteurs plutôt que des gestes |
 | Le lieu entier sous la décomposition restreinte au périmètre (page de l'engagement, une ligne de contexte) | **Votre lieu, ce jour-là : +38,8 % vs vos jours comparables.** (composé le 08/09 de « votre lieu » (copie de l'engagement), « ce jour-là » (page Opération) et « vs vos jours comparables » (lexique) — owner okay 08/09) | le magasin (pas le mot du produit : cafés, musées), tout le lieu |
 
 ## Les mots des interactions humaines (Slack — registre distinct, owner 28/08)
@@ -341,6 +343,15 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
 - « **produits** » vs « **famille** » : l'owner a écrit « CA produits « Branded » » — renommage
   GLOBAL du mot arbitré « famille » (prod : « CA famille » jusque dans les KPI) à confirmer.
 - « palier » (crans de la jauge Signaux traités) — retirés en attendant LE mot.
+- **Ce que le QR code montre** (le choix, côté exploitant, de la page publique) : forme PROPOSÉE,
+  calquée sur « Ce que le dispositif vend » (owner 07/09, rendu `scope-form.js` l. 38) — une
+  question, puis des réponses au lieu d'un nom abstrait. Réponses à arbitrer avec le CONTENU
+  (`dispositifs-typologie-spec.md` § 10.8, décision 2) : le choix de ce que le client voit décide
+  de ce que la mesure veut dire. Écartés en l'état : « Preview » (anglais, règle 7 bis) ;
+  « fiche » seule (mot pris — la fiche est ce que l'EXPLOITANT ouvre : fiche membre, fiche du
+  dispositif) ; « Destination », « Ressource » (mots de système, pas de commerçant).
+- **La copie de la page publique elle-même** (ce que le client lit après avoir scanné) :
+  entièrement à écrire, lexique avant premier jet.
 - **Pied des rangées Agir à DEUX gestes (owner 25/08, maquette v3.1)** : « Communiquer » quitte
   les rangées du fil (il vit sur la page Consulter) — INVERSION de l'arbitrage antérieur
   (« Communiquer associé à M'engager sur Agir ») ; « Écarter » remplacé par « **Pas pour moi** »

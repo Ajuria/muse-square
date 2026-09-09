@@ -31,6 +31,11 @@ avec son résultat — pour que le lieu apprenne de lui-même.
 - **suivi** : un lieu extérieur que la veille lit ; `competitor_tracking` est la vérité.
 - **famille de produits & services** : le grain déclaré d'un pôle ; l'article est le grain en
   dessous.
+- **composant** : l'objet physique d'un dispositif, celui qu'on photographie — vitrine, linéaire,
+  comptoir, QR code. C'est lui qui porte la PLACE dans le magasin ; un dispositif en a plusieurs,
+  discontinus s'il le faut. Un composant peut être **interactif** : le client y fait un geste
+  délibéré — scanner un QR code — qui dit son intérêt pour un produit ou une famille SANS achat.
+  L'intérêt et la vente sont deux mesures distinctes ; leur écart est ce qu'aucune caisse ne voit.
 
 ## Le test de valeur
 
@@ -51,7 +56,8 @@ s'affiche pas. Corollaires qui ne se négocient pas :
 - pas un CRM : il ne connaît pas le client, il connaît le dispositif et son résultat ;
 - pas un middleware entre serveurs [owner 30/08] ;
 - pas un outil de surveillance : aucune captation des clients en magasin, aucune donnée
-  personnelle dans une photo ;
+  personnelle dans une photo ; un signal d'interaction n'existe que si le client fait le geste
+  lui-même — on compte l'événement, jamais le visiteur ;
 - pas un conseil générique : ce qu'on peut écrire sans ouvrir le compte ne s'écrit pas ;
 - pas un verdict sur ce qui n'a pas de terme.
 
