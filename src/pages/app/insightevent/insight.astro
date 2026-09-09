@@ -694,10 +694,35 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
         };
       }
 
+      // 09/09 (owner : « Bascule de votre mix still as before ») — LE titre d'une carte est celui du fil, calculé
+      // par le kit (renderActionCandidates → tmpl.what). La page reçoit la carte aplatie (payload + colonnes,
+      // depuis le monitor ou le cache de session d'Agir) : on reconstruit la ligne que le kit attend, payload
+      // en OBJET (le kit itère ses clés). Vide → l'appelant garde son repli (libellé du registre).
+      function feedTitle(a, prof) {
+        try {
+          if (!a || typeof window.renderActionCandidates !== 'function') return '';
+          var row = {
+            action_type: String(a.action_type || a.change_subtype || signal_type),
+            date: String(a.date || a.affected_date || signal_date).slice(0, 10),
+            card_instance_id: a.card_instance_id || signal_instance || '',
+            action_priority: a.action_priority != null ? a.action_priority : 3,
+            action_category: a.action_category || '',
+            suppression_key: a.suppression_key || '',
+            expires_at: a.expires_at || null,
+            location_id: a.location_id || location_id,
+            data_payload: a
+          };
+          var entries = window.renderActionCandidates([row], prof || {}, null, row.date, 'pulse', null, row.date) || [];
+          var what = entries[0] && entries[0].tmpl ? String(entries[0].tmpl.what || '').trim() : '';
+          // le fil rend du HTML échappé ; la page échappe elle-même : on décode d'abord.
+          return what ? what.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'") : '';
+        } catch (e) { return ''; }
+      }
+
       function genericClaimMap(a, prof, day) {
         var spec = window.ACTION_CARDS ? window.ACTION_CARDS[signal_type] : null;
         var cat = (spec && spec.category_label_fr) ? spec.category_label_fr : 'Signal';
-        var title = (spec && spec.brand_label_fr) ? spec.brand_label_fr : String(signal_type).replace(/_/g, ' ');
+        var title = feedTitle(a, prof) || ((spec && spec.brand_label_fr) ? spec.brand_label_fr : String(signal_type).replace(/_/g, ' '));
         var SKIP = { signal_type:1, change_subtype:1, direction:1, distance_m:1, radius_bucket:1, industry_code:1, score_driver_label:1, competitor_id:1, score_delta:1, event_label:1,
           // Internal plumbing — never surface as an operator-facing claim. These leak
           // in via the flattened candidate (action_type/location_id/instance/etc.).
@@ -1518,34 +1543,7 @@ const signal_instance = Astro.url?.searchParams?.get("card_instance_id") ?? "";
           var catColor = CAT_COLOR[cat] || '#1e3a5f';
           // For mobility: dynamic title with transport info
           var heroTitle = spec.brand_label_fr;
-          // 09/09 (owner : « Bascule de votre mix → means nothing ») : le titre de la page est CELUI du fil
-          // (même kit, même carte) — la famille, le produit, le concurrent nommés ; le libellé du registre
-          // ne sert que de repli.
-          try {
-            if (actionCandidate && typeof window.renderActionCandidates === 'function') {
-              // La carte arrive sous DEUX formes : la ligne brute du monitor (action_type, date, data_payload
-              // texte) ou, depuis Agir via le cache de session, l'item du fil (change_subtype, affected_date,
-              // payload déjà aplati). Le kit n'accepte que la première : on la reconstruit depuis feedItem,
-              // qui porte déjà tout (payload + colonnes) — sinon l'appel rend vide et le repli s'affiche
-              // (constaté par l'owner le 09/09 : « Bascule de votre mix still as before »).
-              var _hRow = {
-                action_type: String(actionCandidate.action_type || actionCandidate.change_subtype || signal_type),
-                date: String(actionCandidate.date || actionCandidate.affected_date || signal_date).slice(0, 10),
-                card_instance_id: actionCandidate.card_instance_id || signal_instance || '',
-                action_priority: actionCandidate.action_priority != null ? actionCandidate.action_priority : 3,
-                action_category: actionCandidate.action_category || '',
-                suppression_key: actionCandidate.suppression_key || '',
-                expires_at: actionCandidate.expires_at || null,
-                location_id: actionCandidate.location_id || location_id,
-                // OBJET, pas texte : le kit itère les clés du payload (action-cards.js ~3288).
-                data_payload: feedItem || {}
-              };
-              var _hEntries = window.renderActionCandidates([_hRow], prof, null, _hRow.date, 'pulse', null, _hRow.date) || [];
-              var _hWhat = _hEntries[0] && _hEntries[0].tmpl ? String(_hEntries[0].tmpl.what || '').trim() : '';
-              // le titre du fil est du HTML (échappé) — la page l'échappe elle-même : on décode d'abord.
-              if (_hWhat) heroTitle = _hWhat.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-            }
-          } catch (_eH) { /* repli : libellé du registre */ }
+          heroTitle = feedTitle(feedItem, prof) || heroTitle;   // 09/09 — même helper que le <h1> des cartes (feedTitle)
           if (mode === 'mobilite' && prof.nearest_transit_stop_name) {
             var tLine = Array.isArray(prof.nearest_transit_line_name) ? prof.nearest_transit_line_name.join(', ') : (prof.nearest_transit_line_name || '');
             heroTitle = 'Perturbation' + (tLine ? ' ligne ' + tLine : '') + ' \u2014 ' + prof.nearest_transit_stop_name;
