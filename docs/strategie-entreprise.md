@@ -807,6 +807,52 @@ combinaison est ce qu'un agent de caisse ne peut pas calculer depuis sa seule do
 contenu concret derrière « mémoire opérationnelle » au § 12.9 : la structure se copie, le
 remplissage à trois sources ne se copie pas sans posséder les trois.
 
+### 12.11 Le contexte d'usage : la caisse qu'on subit, l'équipe qui ne remplira pas un formulaire
+
+Ouvert le 09/09 sur une observation owner : Épices et Tout et Les Olivades ont les mêmes
+difficultés d'usage avec leur caisse (Crisalid) et leur ERP (Sage 100), et la génération Z qui
+arrive dans les équipes n'utilisera pas une application à l'ergonomie pénible.
+
+#### L'observation, avec son statut
+
+- **Deux clients réels, deux outils subis** — Crisalid chez Épices et Tout, Sage 100 aux Olivades.
+  [owner 09/09, observation sur deux comptes — pas un fait de marché]
+- **Épices et Tout n'a aucun ordinateur en boutique** : pour les cinq managers et le gérant, le
+  téléphone EST l'application. [vérifié 07/09, chantier mobile]
+- **Génération Z** : l'enquête Deloitte 2026 décrit une fatigue numérique liée à des outils « mal
+  intégrés aux systèmes existants » ; une source secondaire donne la messagerie instantanée comme
+  canal préféré de 78,9 % des employés Z et l'email à 0 %. [Deloitte : citable ; le chiffre
+  messagerie : à revérifier à la source avant usage commercial]
+
+#### Ce que ça change au plan — deux arguments existants, renforcés
+
+1. **L'amont (§ 12.10) est plus facile à prendre.** Les trois gestes de l'exploitant — décider,
+   organiser le lieu, instruire l'équipe — migrent vers la surface la moins pénible. Une caisse
+   subie ne recevra jamais un geste de plus ; le brief et la photo du rayon iront au téléphone,
+   donc à Muse Square si Muse Square s'ouvre en un geste.
+2. **L'ingestion (§ 8.3) est le même verrou vu de l'autre côté.** La caisse pénible à utiliser est
+   pénible à exporter : les 25 types de document de Crisalid, le HT/TTC, les lignes au poids. Posséder
+   l'export automatisé, c'est devenir le visage lisible de la donnée de caisse — le prérequis du
+   § 12.10 devient un argument de vente.
+3. **Le créneau se précise : « ne changez pas votre caisse ».** Changer de POS ou d'ERP coûte des
+   mois et de la comptabilité ; ajouter une couche que l'équipe utilise coûte un export. Le segment
+   est défini par l'ÂGE de la caisse. Contre-argument à garder en face : SumUp, Square, Zettle,
+   Lightspeed sont déjà mobile-first et ajouteront l'assistant (§ 12.1) — là, le créneau est étroit.
+
+#### Le boomerang : la même barre s'applique à Muse Square
+
+Le formulaire d'engagement porte aujourd'hui **dix champs** (`public/js/commit-form.js`, vérifié
+09/09 : indicateur, fenêtre, objectif, responsable, pôle, levier, coût, ressources, le plus,
+pourquoi). Un vendeur de 22 ans ne le remplira pas plus qu'il ne remplit Crisalid. Les réponses
+sont déjà au plan : la confirmation au lieu de la déclaration (§ 12.10 source 1), la conversation
+comme interface (§ 12.6), le rail Slack et les boutons « Fait / Pas pour moi », la barre basse et
+l'icône d'écran d'accueil livrées le 08/09.
+
+**La contrainte de produit qui en découle** [à instruire, à poser comme porte] : un membre de
+l'équipe fait sa part depuis son téléphone en moins d'une minute, sans formulaire. Ce qui ne
+passe pas cette porte ne s'adresse pas à l'équipe ; ça s'adresse au gérant, sur laptop, et ça se
+dit.
+
 ### Sources du § 12 (lues le 07/09/2026)
 
 - Shopify, centre d'aide Sidekick — https://help.shopify.com/en/manual/ai-powered-tools/sidekick/help-and-guidance [page lue]
@@ -824,5 +870,6 @@ remplissage à trois sources ne se copie pas sans posséder les trois.
 - Grocery Dive, « The promise and peril of AI-driven pricing », 23/02/2026 — https://www.grocerydive.com/news/promise-peril-artificial-intelligence-driven-pricing-retailers/812037/ [page lue]
 - Salesforce, « Salesforce and Anthropic Announce Claudeforce », 26/08/2026 — https://www.salesforce.com/news/press-releases/2026/08/26/salesforce-and-anthropic-announce-claudeforce/ [page lue 09/09] ; Anthropic, « Expanded Salesforce partnership » — https://www.anthropic.com/news/salesforce-anthropic-expanded-partnership [recherche 09/09]
 - The SaaS Sentinel, « SaaSpocalypse 2026 », 03/07/2026 — https://saassentinel.com/2026/07/03/saaspocalypse-2026-what-happened-to-saas-and-where-the-market-stands-now/ [recherche 09/09] ; FinancialContent, 24/03/2026 — https://markets.financialcontent.com/stocks/article/marketminute-2026-3-24-the-2026-saaspocalypse-why-b2b-software-stocks-are-plunging-20 [recherche 09/09]
+- Deloitte, « Global Gen Z and Millennial Survey 2026 » — https://www.deloitte.com/global/en/about/press-room/deloitte-2026-gen-z-and-millennial-survey.html [recherche 09/09] ; Cake.com, « Gen Z workforce statistics 2026 » — https://cake.com/blog/gen-z-workforce-statistics/ [source secondaire, chiffre messagerie à revérifier] ; Yooz, enquête 2025 sur la résistance aux outils — https://www.getyooz.com/blog/yooz-survey-technology-resistance-in-the-workplace [recherche 09/09]
 - INC, « L'information sur les prix » (L112-1, arrêté 3/12/1987, sanctions L131-5) — https://www.inc-conso.fr/content/linformation-sur-les-prix-generalites [page lue] ; art. L112-1-1 C. conso — https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000044549592 [recherche] ; DGCCRF, revente à perte — https://www.economie.gouv.fr/dgccrf/les-fiches-pratiques/revente-perte-quelles-sont-les-obligations-du-vendeur [recherche]
 - Caisses françaises sans assistant (Zelty, L'Addition, Hiboutik, Cashpad, SumUp) : blog Zelty, independant.io, tool-advisor.fr, practicalecommerce.com (28/04/2026) [recherche]
