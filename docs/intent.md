@@ -21,8 +21,10 @@ avec son résultat — pour que le lieu apprenne de lui-même.
 
 - **site** : le lieu, unité de tout suivi et de toute sauvegarde ; jamais l'utilisateur seul.
 - **dispositif** : ce que l'exploitant met en place pour vendre, à n'importe quel état
-  (en test · prouvé · écarté). Trois natures : **pôle** (permanent : familles, responsable,
-  ressources ; lecture continue, jamais de verdict), **opération** (datée : KPI déclaré, cible,
+  (en test · prouvé · écarté). Trois natures : **pôle** (permanent : 1..n
+  familles — celles de la caisse, jamais du texte libre — plus ses composants, un responsable, des
+  ressources ; lecture continue, jamais de verdict. Une famille vit dans UN SEUL pôle, et aucune ne
+  reste hors pôle : le mapping des familles est complet ou il ment), **opération** (datée : KPI déclaré, cible,
   verdict atteint · manqué · non concluant), **série** (récurrente : occurrences).
 - **version** : changer l'organisation d'un dispositif est une version suivante ; la mémoire
   s'accumule par dispositif, jamais par personne.

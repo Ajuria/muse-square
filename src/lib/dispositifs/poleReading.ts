@@ -365,3 +365,31 @@ export async function buildPoleItemsReading(bq: any, location_id: string, dispos
   }));
   return classifyPoleItems({ photos, items, families });
 }
+
+// ── « Une famille vit dans un seul pôle » (owner 27/08, RATIFIÉ 09/09) ──────────────────────────
+// PUR, donc testable : la règle vivait dans `pole-form.js` seul — contournable par l'API, et une
+// règle écrite à un seul endroit du chemin d'écriture n'est pas une règle. Rend la PREMIÈRE famille
+// déjà prise et le nom du pôle qui la porte, ou null. La chaîne de versions de CE dispositif est
+// exclue : une V2 hérite légitimement de ses propres familles.
+export function familyTakenByAnotherPole(
+  poles: ReadonlyArray<{ dispositif_id: string; name: string; families: string[] }>,
+  families: readonly string[],
+  selfDispositifId: string | null,
+): { famille: string; pole: string } | null {
+  const taken = new Map<string, string>();
+  for (const p of poles) {
+    if (selfDispositifId && p.dispositif_id === selfDispositifId) continue;
+    for (const f of p.families) if (!taken.has(f)) taken.set(f, p.name);
+  }
+  for (const f of families) {
+    const held = taken.get(f);
+    if (held) return { famille: f, pole: held };
+  }
+  return null;
+}
+
+// La phrase du refus — IDENTIQUE à celle du formulaire (`pole-form.js`, chaîne rendue) : une seule
+// formulation, quelle que soit la porte qui refuse.
+export function familyClashMessageFr(clash: { famille: string; pole: string }): string {
+  return `${clash.famille} appartient déjà au pôle « ${clash.pole} » — une famille vit dans un seul pôle.`;
+}

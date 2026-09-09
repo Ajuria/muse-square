@@ -343,6 +343,11 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
 - « **produits** » vs « **famille** » : l'owner a écrit « CA produits « Branded » » — renommage
   GLOBAL du mot arbitré « famille » (prod : « CA famille » jusque dans les KPI) à confirmer.
 - « palier » (crans de la jauge Signaux traités) — retirés en attendant LE mot.
+- **Le pôle de reste** — les familles réelles qu'aucun pôle ne porte, affichées pour qu'aucune ne
+  soit hors mapping (owner 09/09 : « Divers ou quelque chose pour qu'il n'y ait pas de trou »).
+  « Divers » est PROPOSÉ, pas arbitré. La mécanique se décide avec le mot :
+  `poles-dispositifs-permanents-spec.md` § Le pôle de reste (recommandation : un reste calculé, qui
+  absorbe seul les familles nouvelles, et non un pôle déclaré qui se périme).
 - **Ce que le QR code montre** (le choix, côté exploitant, de la page publique) : forme PROPOSÉE,
   calquée sur « Ce que le dispositif vend » (owner 07/09, rendu `scope-form.js` l. 38) — une
   question, puis des réponses au lieu d'un nom abstrait. Réponses à arbitrer avec le CONTENU

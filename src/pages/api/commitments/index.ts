@@ -12,7 +12,7 @@ import { normalizeScope, parseScope, scopeFromFamily, serializeScope, type Measu
 import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/commitments/actionCommitments";
 import { parseComponents } from "../../../lib/dispositifs/dispositifTypes";
-import { listPoles } from "../../../lib/dispositifs/poleReading";
+import { listPoles, familyTakenByAnotherPole, familyClashMessageFr } from "../../../lib/dispositifs/poleReading";
 import { assignmentMessageFr } from "../../../lib/channels/slackMessagesFr";
 import { themeForActionType } from "../../../lib/recos/recoThemeMap";
 import { vif } from "../../../lib/commitments/commitmentResolve";
@@ -260,6 +260,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
         }
       }
       const _pLineage = lineageFor(_pParent, poleId);
+      // « Une famille vit dans un seul pôle » (owner 27/08, RATIFIÉ 09/09) : la règle ne vivait que
+      // dans le formulaire (`pole-form.js`) — donc contournable par l'API, et une règle écrite à un
+      // seul endroit du chemin d'écriture n'est pas une règle. Le tri est PUR et testé
+      // (`familyTakenByAnotherPole`) ; la lecture passe par LE foyer `listPoles`, à sa limite haute
+      // EXPLICITE (défaut 12 : au-delà, un pôle non lu laisserait passer une famille déjà prise —
+      // un trou silencieux, jamais une erreur). La chaîne de versions de CE dispositif est exclue.
+      if (fams.length) {
+        const _pOthers = await listPoles(bqP, String(body.location_id).trim(), 50).catch(() => []);
+        const _pClash = familyTakenByAnotherPole(_pOthers, fams, _pLineage.dispositif_id);
+        if (_pClash) return json({ ok: false, error: familyClashMessageFr(_pClash) }, 400);
+      }
       // Composants (03/09, spec dispositifs-typologie § 3) : type/rôle du registre, clé stable,
       // libellé libre. Absents au POST → hérités du parent (même règle que le contexte de version).
       const _pComps = parseComponents(body.components, () => crypto.randomUUID().slice(0, 8));
