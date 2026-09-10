@@ -159,7 +159,7 @@ Materialization notes captured verbatim (incremental / insert_overwrite / partit
 | `dim_ai_context_location` | view | location_id | dim_client_company_profile, dim_client_location, dim_client_transit_proximity, geo_commune_to_region, **int_client_besttime_daily**, **int_client_offering_profile** | location_id, company_name, company_activity_type, location_type, event_time_profile, primary_audience_1/2, origin_city_id_1/2/3, origin_city_label_1 |
 | `dim_audience_availability` | table | audience × day_type | audience_availability_base | audience, day_type, availability_score, delta_pct, source_note, rationale_fr |
 | `dim_calendar` | table | date | stg_holidays_daily | date, year, quarter, month(_name), year_month, week_iso, dow_iso, is_weekend, is_holiday_fr, holiday_name_fr |
-| `dim_calendar_region` | table | date × region_id | dim_calendar, src raw.school_vacations_periods, dim_holiday_zones | date, region_id, country_code, holiday_zone_code |
+| `dim_calendar_region` | table | date × region_id | dim_calendar, stg_school_vacations_periods, dim_holiday_zones | date, region_id, country_code, holiday_zone_code |
 | `dim_city_to_region` | table | city_id | geo_commune_to_region, regions_map | city_id, region_code_insee/nuts2, department_id, location_uid, lat, lon, city_geo_point, active_flag |
 | `dim_client_company_profile` | view | location_id | client_company_profile, int_client_website_profiles | location_id, company_name, company_activity_type, position, location_type, event_time_profile, primary_audience_1/2, origin_city_id_1/2/3, origin_city_labels |
 | `dim_client_goal` 🆕 | table | goal | (static UNION ALL) | goal, goal_label_fr, goal_bucket, primary_kpi, primary_kpi_source, primary_kpi_is_live, serving_action_families |
@@ -167,7 +167,7 @@ Materialization notes captured verbatim (incremental / insert_overwrite / partit
 | `dim_client_locations_weather` | view | location_id | dim_client_location | location_id, location_label, active_flag, lat, lon |
 | `dim_client_transit_proximity` | table | location_id | int_client_website_profiles, dim_idf_transportation_stops, dim_idf_stops_lines | location_id, location_access_pattern, nearest_transit_stop(_id/_name/_distance_m), town_name, transit_network, nearest_transit_line_name |
 | `dim_event_city_label` | view | location_uid | event_location_city_map | location_uid, city_id/name, region_code_insee, zip_code, source_system, active_flag, lat, lon, geo_point |
-| `dim_holiday_zones` | table | region_id | src raw.school_vacations_periods | region_id, holiday_zone_code |
+| `dim_holiday_zones` | table | region_id | stg_school_vacations_periods | region_id, holiday_zone_code |
 | `dim_idf_stops_lines` | table | route_id × stop_id | stg_idf_stops_lines_ref | route_id, stop_id, route_long_name, stop_name, stop_lon/lat, operator_name, short_name, mode, nom_commune, code_insee |
 | `dim_idf_transportation_lines` | table | line_id | stg_idf_lines_referentiel | line_id/sk, group_id, line_name/short_name, transport_mode/submode, operator_id/name, network_name |
 | `dim_idf_transportation_stops` | table | stop_id | stg_idf_stops_referentiel | stop_id/sk, stop_version, stop_name(_norm), stop_type, town_name, postal_region, accessibility, fare_zone, zda_id |
@@ -239,7 +239,7 @@ Thin views over `raw` / `raw_airbyte` / `raw_crawl` / `analytics` sources. Forma
 | `stg_raw_events_by_agenda_occitanie` | view | int_event_location_city_map, stg_raw_locations_by_agenda_occitanie, src:raw_airbyte.raw_events_by_agenda_occitanie |
 | `stg_raw_events_paris` | view | src:raw_airbyte.raw_events_paris |
 | `stg_raw_locations_by_agenda_occitanie` | view | src:raw_airbyte.raw_locations_by_agenda_occitanie |
-| `stg_school_vacations_periods` | view | src:raw.school_vacations_periods |
+| `stg_school_vacations_periods` | view | src:raw.school_vacations_periods — LA source unique des vacances scolaires (réactivée 10/09, ms_database#139) ; end_date = dernier jour de vacances, bornes incluses |
 | `stg_top_museum_attendance` | view | src:raw.top_museum_attendance |
 | `stg_tourism_annual_idf_exhibitions_summary` | view | src:raw.tourism_annual_idf_exhibitions_summary |
 | `stg_tourism_annual_idf_sites` | view | src:raw.tourism_annual_idf_sites |
@@ -323,7 +323,7 @@ App-activity chain (`int_user_*`, `int_publish_log`, `int_channel_performance`),
 | `int_events_region_daily__aligned` | view | dim_calendar, dim_region, int_events_region_daily |
 | `int_events_region_monthly` | view | int_events_region_daily |
 | `int_holidays_fr_daily_named` | view | — |
-| `int_holidays_region_daily` | view | dim_calendar_region, src:raw.holidays_daily, src:raw.school_vacations_periods |
+| `int_holidays_region_daily` | view | dim_calendar_region, stg_holidays_daily, stg_school_vacations_periods |
 | `int_location_id_map` | table | stg_weather_history_daily |
 | `int_location_nearest_weather_history` | view | dim_client_locations_weather, int_weather_history_daily |
 | `int_location_opportunity_components_daily` | table | int_attendance_effects_daily |
@@ -338,8 +338,8 @@ App-activity chain (`int_user_*`, `int_publish_log`, `int_channel_performance`),
 | `int_region_day_grid` | table | dim_calendar, dim_region |
 | `int_region_foreign_tourism_mix` 🆕 | view | stg_insee_flash_country_mix, stg_insee_tourisme_frequentation |
 | `int_region_opportunity_components_daily` | table | int_weather_region_daily__aligned |
-| `int_school_holidays_region_daily` | view | departments_map, vacation_zones_france |
-| `int_school_vacations_region_daily_named` | view | — |
+| `int_school_holidays_region_daily` | view, DÉSACTIVÉ 10/09 (ms_database#139 : calcul parallèle du drapeau vacances depuis le seed, aucun lecteur ; l'objet BigQuery reste en base tant qu'il n'est pas supprimé à la main) | departments_map, vacation_zones_france |
+| `int_school_vacations_region_daily_named` | view | stg_school_vacations_periods (10/09 ; lisait raw.school_vacations_periods par son nom écrit en dur) — le is_school_holiday_flag du produit, zone → régions INSEE (94 Corse → Zone A, approximation documentée) |
 | `int_site_visits_country_annual` | view | — |
 | `int_tourism_country_monthly` | view | stg_tourism_occupancy_monthly |
 | `int_tourism_region_daily` | view | int_commercial_events_daily, int_holidays_region_daily, int_region_day_grid, int_tourism_region_monthly |
