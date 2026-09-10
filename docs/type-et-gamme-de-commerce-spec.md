@@ -14,6 +14,8 @@ Arbitrages owner 10/09 :
 - les deux champs ne s'affichent que pour **Commerce & Retail** et **Marchés & Halles** ;
 - **Épices et Tout = Commerce & Retail, Généraliste.** Bee-Fruit (primeur) et Cave Saint Matthieu
   (caviste) sont des spécialistes ;
+- la gamme est **graduée** : un niveau d'écart laisse une paire directe, deux niveaux ou plus la
+  font passer « partielle » ;
 - conséquence acceptée : face à un généraliste, un spécialiste voisin passe « partiel » —
   l'exposition se lit alors au **pôle**, par les familles confirmées ;
 - « Ce sont les familles confirmées qui disent sur quoi porte la concurrence » ; aucun seuil.
@@ -81,7 +83,9 @@ sites concurrents (`brand_positioning`, 25 concurrents sur 39, adjectifs libres)
 Elle ne joue que si **les deux côtés sont dans Commerce & Retail ou Marchés & Halles**. Une paire
 n'est alors « directe » que si, en plus des conditions actuelles :
 - les deux **types** sont égaux, ou l'un des deux est inconnu ;
-- **et** les deux **gammes** sont égales, ou l'une des deux est inconnue.
+- **et** les deux **gammes** sont à **moins de deux niveaux** l'une de l'autre, ou l'une des deux est
+  inconnue — dans l'ordre Entrée de gamme < Milieu de gamme < Haut de gamme < Luxe (owner 10/09 : un haut
+  de gamme et un luxe partagent une partie de leurs clients ; une entrée de gamme et un haut de gamme, non).
 
 Sinon elle est au plus « partielle » : le signal reste, il n'est plus promu — même doctrine que la
 porte du 09/09. Dans tous les autres cas, le calcul est inchangé.
