@@ -59,11 +59,9 @@ colonnes existantes ; CTE contre production, 20/20 identiques ; modèle des cand
   seulement), colonne raw additive, staging, puis un `unit_label` au mart prix ; la carte dira alors « le kilo »,
   mot à arbitrer. Sans colonne unité dans l'export : déclaration par famille à l'onboarding, proposée par
   `has_fractional_units`, confirmée par l'exploitant.
-- **Quatre modèles comptent les ventes sur l'entier arrondi par l'import** (`Math.round`,
-  `src/pages/api/import/sales-csv.ts:26`) : `int_client_offering_profile` (`units_30d`),
-  `fct_client_hourly_sales` (`units`), `fct_client_item_signals_daily` (`units`, `unit_price`),
-  `fct_client_offering_daily` (`units` → décomposition par famille, objectif en ventes, « N ventes » des
-  synthèses). Six pesées du ticket du 09/09 y font « 4 ventes » quand Crisalid imprime « TOTAL ( 6) ».
-  **Décision owner 10/09 : une pesée compte pour une vente** (lexique). Correctif à construire AVANT le premier
-  import Crisalid (`fct_client_offering_daily` est incrémental) : une colonne de staging qui vaut 1 par pesée et
-  `quantity` sinon, lue par les quatre modèles à la place de `quantity`.
+- **Le comptage des ventes au poids est corrigé** (décision owner 10/09 : une pesée compte pour une vente) par
+  `Ajuria/ms_database` #134, fusionnée (c0fa0cc) et construite (run 70471896860859) : `stg_client_transactions.units_sold`
+  (1 par pesée, −1 pour un retour pesé, sinon `quantity`) est lu par `int_client_offering_profile`, `fct_client_hourly_sales`,
+  `fct_client_item_signals_daily` et `fct_client_offering_daily`. Six pesées du ticket du 09/09 comptent 6 ventes, et non 4.
+  Reste hors dbt : `src/lib/commitments/commitmentShape.ts` lit `raw.client_transactions.quantity` directement — la règle
+  « l'app ne lit jamais raw » (CLAUDE.md, garde `CLIQUET_BRUT`) le range dans la dette à migrer vers semantic.
