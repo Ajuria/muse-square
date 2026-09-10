@@ -178,7 +178,9 @@ function countBrutReads(file: string): number {
 const CLIQUET_BRUT: Record<string, number> = {
   "src/lib/ai/webContext.ts": 1,
   "src/lib/commitments/commitmentResolve.ts": 1,
-  "src/lib/commitments/commitmentShape.ts": 4,
+  // 4 → 0 (10/09) : les quatre lectures de lignes de caisse passent par semantic.vw_insight_event_client_sales_lines
+  // (ms_database#135) — factures seules, site rattaché, une pesée = une vente.
+  "src/lib/commitments/commitmentShape.ts": 0,
   "src/lib/context/dayContext.ts": 2,
   "src/lib/dispositifs/dispositifFamille.ts": 2,
   "src/lib/dispositifs/ideaPlacement.ts": 1,

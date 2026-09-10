@@ -112,6 +112,9 @@ export interface PriceLadder {
   above_share_pct: number;      // part du chiffre qu'elles font
 }
 
+// 10/09 (owner : l'app ne lit JAMAIS raw) : les quatre lectures de lignes de caisse passent par
+// semantic.vw_insight_event_client_sales_lines (ms_database#135) — factures seules, site rattaché, units =
+// une pesée compte pour une vente. Elles lisaient raw.client_transactions.quantity, l'entier arrondi par l'import.
 export async function buildPriceLadder(
   bq: any, location_id: string, endIso: string, days = 30,
 ): Promise<PriceLadder | null> {
@@ -121,11 +124,11 @@ export async function buildPriceLadder(
     query: `
       WITH a AS (
         SELECT item_description AS nom,
-               SUM(revenue) / NULLIF(SUM(quantity), 0) AS prix,
-               SUM(quantity) AS qte, SUM(revenue) AS ca
-        FROM \`${PROJECT}.raw.client_transactions\`
+               SUM(revenue) / NULLIF(SUM(units), 0) AS prix,
+               SUM(units) AS qte, SUM(revenue) AS ca
+        FROM \`${PROJECT}.semantic.vw_insight_event_client_sales_lines\`
         WHERE location_id = @loc AND transaction_date BETWEEN @a AND @b
-          AND quantity > 0 AND item_description IS NOT NULL AND TRIM(item_description) != ''
+          AND units > 0 AND item_description IS NOT NULL AND TRIM(item_description) != ''
         GROUP BY 1
       ),
       m AS (SELECT SUM(ca) / NULLIF(SUM(qte), 0) AS moy FROM a)
@@ -219,10 +222,10 @@ export async function buildWindowShape(
         GROUP BY 1, 2`;
   const [hRows, fpRows, vRows, dRows, storeRows] = await Promise.all([
     // 1. Grain horaire : la vue heure × jour daté sur le lieu entier ; avec un périmètre, les LIGNES
-    //    de caisse du périmètre par heure (raw.client_transactions.transaction_hour, le même champ).
+    //    de caisse du périmètre par heure (vw_insight_event_client_sales_lines.transaction_hour, le même champ).
     scope
       ? q(`SELECT ${setCase("transaction_date")} AS s, transaction_hour AS h, SUM(revenue) AS rev
-            FROM \`${PROJECT}.raw.client_transactions\`
+            FROM \`${PROJECT}.semantic.vw_insight_event_client_sales_lines\`
             WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi AND transaction_hour IS NOT NULL
               AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))${scopeAnd}
             GROUP BY 1, 2`)
@@ -231,14 +234,14 @@ export async function buildWindowShape(
             WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
               AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))
             GROUP BY 1, 2`),
-    // 2. Familles ET produits en UNE lecture (raw.client_transactions — `item_category` est le
+    // 2. Familles ET produits en UNE lecture (vw_insight_event_client_sales_lines — `item_category` est le
     //    MÊME champ que le KPI family_revenue et que la lecture des pôles ; `item_description`
     //    est le cran en dessous). La famille est la SOMME de ses lignes : un produit sans
     //    libellé compte dans sa famille sans jamais s'afficher comme produit. Avec un périmètre :
     //    ses familles (ou ses articles) seulement.
     q(`SELECT ${setCase("transaction_date")} AS s, item_category AS f,
               COALESCE(item_description, '') AS p, SUM(revenue) AS rev
-        FROM \`${PROJECT}.raw.client_transactions\`
+        FROM \`${PROJECT}.semantic.vw_insight_event_client_sales_lines\`
         WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
           AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))${scopeAnd}
         GROUP BY 1, 2, 3`),
@@ -248,8 +251,8 @@ export async function buildWindowShape(
     scope
       ? q(`SELECT ${setCase("transaction_date")} AS s, CAST(transaction_date AS STRING) AS d,
                   COALESCE(NULLIF(COUNT(DISTINCT invoice_number), 0), SUM(COALESCE(transaction_count, 1))) AS tx,
-                  SUM(COALESCE(quantity, 1)) AS units, SUM(revenue) AS rev
-            FROM \`${PROJECT}.raw.client_transactions\`
+                  SUM(COALESCE(units, 1)) AS units, SUM(revenue) AS rev
+            FROM \`${PROJECT}.semantic.vw_insight_event_client_sales_lines\`
             WHERE location_id = @loc AND transaction_date BETWEEN @lo AND @hi
               AND CAST(transaction_date AS STRING) IN UNNEST(ARRAY_CONCAT(@days, @refs))${scopeAnd}
             GROUP BY 1, 2`)
@@ -330,6 +333,8 @@ export async function buildWindowShape(
   const fScale = fTotRef > 0 ? fCible / fTotRef : 0;
   // Au plus 6 produits listés par famille — les autres ne disparaissent pas : leur écart
   // cumulé est rendu dans products_hidden_eur, que la page DIT (jamais de troncature muette).
+  // 10/09 : départage par le NOM à écart égal — sans lui, l'ordre d'arrivée des lignes BigQuery (arbitraire)
+  // choisissait le produit affiché : deux exécutions identiques montraient « Morning Sunrise Chai » ou « Lemon Grass ».
   const PRODUCTS_PER_FAMILY = 6;
   const families: ShapeFamily[] = fScale > 0
     ? [...new Set([...fDay.keys(), ...fRef.keys()])].map((f) => {
@@ -338,14 +343,14 @@ export async function buildWindowShape(
         const all: ShapeProduct[] = [...new Set([...dm.keys(), ...rm.keys()])].map((name) => {
           const pr = Math.round(dm.get(name) ?? 0), pf = Math.round((rm.get(name) ?? 0) * fScale);
           return { name, rev: pr, ref: pf, delta: pr - pf };
-        }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
-        const shown = all.slice(0, PRODUCTS_PER_FAMILY).sort((a, b) => b.delta - a.delta);
+        }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+        const shown = all.slice(0, PRODUCTS_PER_FAMILY).sort((a, b) => b.delta - a.delta || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
         const hidden = all.slice(PRODUCTS_PER_FAMILY).reduce((s, p) => s + p.delta, 0);
         return {
           family: f, rev, ref, delta: rev - ref,
           products: shown, products_total: all.length, products_hidden_eur: Math.round(hidden),
         };
-      }).sort((a, b) => b.delta - a.delta)
+      }).sort((a, b) => b.delta - a.delta || (a.family < b.family ? -1 : a.family > b.family ? 1 : 0))
     : [];
 
   // ── D'où vient la fluctuation : trois facteurs observés dont le produit EST la
