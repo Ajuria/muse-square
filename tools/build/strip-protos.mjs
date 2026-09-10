@@ -10,6 +10,10 @@ import { join, relative } from "node:path";
 
 const MOTIF = /-(?:proto(?:-data)?(?:-v\d+)?|harness)\.(?:html|js)$|-proto-[a-z0-9-]+\.(?:html|js)$/;
 const DOSSIERS_INTERDITS = /^(tools|data|tests)(\/|$)/;   // public/scripts et public/docs sont LIVRÉS
+// Données d'un client (plan du magasin, photos) : jamais dans public/, servi sans authentification
+// (10/09 : 1,4 Go d'Épices et Tout y était posé). Leur place : hors du dépôt ; les photos entrent
+// par l'app (dispositifs/photos.ts, bucket privé).
+const DONNEES_CLIENT = /^clients(\/|$)/;
 const RACINES = [".vercel/output/static", "dist/client"].filter((d) => existsSync(d));
 if (!RACINES.length) {
   console.error("strip-protos: aucun dossier de build trouvé (.vercel/output/static ni dist/client) — lancer après `astro build`.");
@@ -25,7 +29,7 @@ for (const racine of RACINES) {
       if (statSync(chemin).isDirectory()) { marche(chemin); continue; }
       vus++;
       const rel = relative(racine, chemin);
-      if (MOTIF.test(nom) || DOSSIERS_INTERDITS.test(rel)) fautes.push(chemin);
+      if (MOTIF.test(nom) || DOSSIERS_INTERDITS.test(rel) || DONNEES_CLIENT.test(rel)) fautes.push(chemin);
     }
   };
   marche(racine);
@@ -33,7 +37,8 @@ for (const racine of RACINES) {
 if (!vus) { console.error("strip-protos: artefact vide — le build n'a rien produit ?"); process.exit(1); }
 if (fautes.length) {
   console.error("strip-protos: ÉCHEC — de l'outillage a atteint l'artefact de build :\n" + fautes.join("\n") +
-    "\nCes fichiers doivent vivre dans tools/ (CLAUDE.md § Placement), jamais dans public/.");
+    "\nCes fichiers doivent vivre dans tools/ (CLAUDE.md § Placement), jamais dans public/." +
+    "\nDonnées d'un client (public/clients/) : hors du dépôt ; les photos entrent par l'app.");
   process.exit(1);
 }
 console.log(`strip-protos: OK — ${vus} fichier(s) dans l'artefact, aucun outillage.`);
