@@ -145,3 +145,125 @@ describe("frontière entrepôt : l'app lit semantic, pas mart", () => {
     expect(baisses, "Progrès non enregistré : baissez ces nombres dans CLIQUET.").toEqual([]);
   });
 });
+
+// ── 10/09 (owner) : L'APP NE LIT JAMAIS raw, NI staging, NI intermediate ─────────────────────────
+// « Il faut arrêter de lire les fichiers raws — c'est une erreur de code récurrente impardonnable :
+//   l'app DOIT lire les mart ou le semantic layer selon cas d'usage. It MUST stop. » (owner 10/09)
+// Cas déclencheur : commitmentShape.ts lisait raw.client_transactions.quantity — l'entier arrondi par
+// l'import — alors que la règle « une pesée = une vente » vit en staging (units_sold, ms_database#134).
+// Une lecture brute contourne TOUT ce que dbt applique : routage de site, factures exclues
+// (is_invoiced), canal, unités vendues, bornes de dates. La règle de lecture de l'app est donc :
+// `semantic` d'abord ; `mart` seulement sous le cliquet ci-dessus ; `raw`, `staging`, `intermediate`
+// JAMAIS. Une vue qui manque se crée dans dbt (passation / PR) AVANT la lecture, pas après.
+// Même mécanique de CLIQUET : l'état du 10/09 est figé ; un fichier nouveau ou une hausse échoue ;
+// une baisse doit être reportée. ÉCRIRE dans une table raw que l'app produit (INSERT, MERGE, UPDATE,
+// DELETE, load) reste permis : c'est le côté producteur, que dbt lit ensuite comme source.
+// Compté : `FROM` / `JOIN` suivi, sur la même ligne, d'un nom complet `<projet>.raw|staging|
+// intermediate.<table>` (casse indifférente). ANGLE MORT CONNU : un nom de table rangé dans une
+// variable puis lu par `FROM ${var}` n'est pas compté (saved-items/*.ts, recos/manualCandidates.ts) —
+// ce n'est pas une porte de sortie : la règle vaut aussi là.
+const BRUT_READ = /\b(?:from|join)\s+\\?`?(?:\$\{[^}]+\}|muse-square-open-data)\.(?:raw|staging|intermediate)\.[a-z_0-9]+/gi;
+
+function countBrutReads(file: string): number {
+  let n = 0;
+  for (const raw of readFileSync(file, "utf8").split("\n")) {
+    const line = raw.trim();
+    if (line.startsWith("//") || line.startsWith("*")) continue;   // commentaire : pas une lecture
+    n += (line.match(BRUT_READ) ?? []).length;
+  }
+  return n;
+}
+
+// Cliquet mesuré le 10/09 sur src/ (fichier -> lectures raw + staging + intermediate).
+const CLIQUET_BRUT: Record<string, number> = {
+  "src/lib/ai/webContext.ts": 1,
+  "src/lib/commitments/commitmentResolve.ts": 1,
+  "src/lib/commitments/commitmentShape.ts": 4,
+  "src/lib/context/dayContext.ts": 2,
+  "src/lib/dispositifs/dispositifFamille.ts": 2,
+  "src/lib/dispositifs/ideaPlacement.ts": 1,
+  "src/lib/dispositifs/poleReading.ts": 1,
+  "src/lib/events/eventLifecycleCards.ts": 2,
+  "src/lib/explorer/entityReading.ts": 3,
+  "src/lib/explorer/planPeriod.ts": 2,
+  "src/lib/explorer/siteFromQuestion.ts": 1,
+  "src/lib/explorer/topFamilles.ts": 1,
+  "src/lib/insightFamilies/channels.ts": 4,
+  "src/lib/insightFamilies/dispositif.ts": 6,
+  "src/lib/insightFamilies/evenement.ts": 8,
+  "src/lib/kpi/kpiRegistry.ts": 6,
+  "src/lib/profile/proposedFollows.ts": 5,
+  "src/pages/api/admin/invite.ts": 2,
+  "src/pages/api/admin/users.ts": 1,
+  "src/pages/api/channels/members.ts": 1,
+  "src/pages/api/channels/slack-interact.ts": 1,
+  "src/pages/api/commitments/evolution.ts": 3,
+  "src/pages/api/commitments/index.ts": 1,
+  "src/pages/api/competitive/add-competitor.ts": 6,
+  "src/pages/api/competitive/add-event.ts": 1,
+  "src/pages/api/competitive/check-competitor.ts": 1,
+  "src/pages/api/competitive/competitor-crawl-history.ts": 2,
+  "src/pages/api/competitive/competitor-events.ts": 1,
+  "src/pages/api/competitive/competitor-profile.ts": 4,
+  "src/pages/api/competitive/competitor-signals.ts": 1,
+  "src/pages/api/competitive/discover-competitors.ts": 3,
+  "src/pages/api/competitive/search-db.ts": 2,
+  "src/pages/api/competitive/suivis.ts": 4,
+  "src/pages/api/competitive/unfollow-competitor.ts": 1,
+  "src/pages/api/competitive/update-competitor-url.ts": 1,
+  "src/pages/api/cron/alerts.ts": 6,
+  "src/pages/api/cron/bilan.ts": 4,
+  "src/pages/api/cron/competitor-alerts.ts": 3,
+  "src/pages/api/cron/competitor-surveillance.ts": 8,
+  "src/pages/api/cron/daily-briefing.ts": 3,
+  "src/pages/api/cron/daily-dispatch.ts": 2,
+  "src/pages/api/cron/daily.ts": 3,
+  "src/pages/api/cron/digest.ts": 6,
+  "src/pages/api/cron/event-occurrences.ts": 5,
+  "src/pages/api/cron/snapshot-competitors.ts": 9,
+  "src/pages/api/cron/snapshot-homepage.ts": 2,
+  "src/pages/api/cron/snapshot-own-locations.ts": 1,
+  "src/pages/api/cron/sync-fb-performance.ts": 1,
+  "src/pages/api/cron/sync-gbp-performance.ts": 1,
+  "src/pages/api/import/locations.ts": 1,
+  "src/pages/api/insight/dashboard.ts": 48,
+  "src/pages/api/insight/evenement.ts": 3,
+  "src/pages/api/insight/explorer-slots.ts": 4,
+  "src/pages/api/insight/monitor.ts": 2,
+  "src/pages/api/insight/prompt.ts": 1,
+  "src/pages/api/profile/locations.ts": 1,
+  "src/pages/api/saved-items/snapshot.ts": 2,
+  "src/pages/app/insightevent/map.astro": 1,
+};
+
+describe("frontière entrepôt : l'app ne lit jamais raw, staging ni intermediate", () => {
+  const actual = new Map<string, number>();
+  for (const f of walk("src")) {
+    const n = countBrutReads(f);
+    if (n > 0) actual.set(f, n);
+  }
+
+  it("aucun fichier NOUVEAU ne lit raw, staging ou intermediate", () => {
+    const nouveaux = [...actual.keys()].filter((f) => !(f in CLIQUET_BRUT)).map((f) => `${f} : ${actual.get(f)}`);
+    expect(
+      nouveaux,
+      `Ces fichiers lisent une couche BRUTE (raw / staging / intermediate). Lisez la vue \`semantic\` ` +
+        `(docs/data-model-index.md) — ou \`mart\` sous le cliquet ci-dessus. Si la vue manque, créez-la ` +
+        `dans dbt AVANT d'écrire la lecture (owner 10/09 : « It MUST stop »).`,
+    ).toEqual([]);
+  });
+
+  it("aucun fichier n'augmente ses lectures brutes", () => {
+    const regressions = [...actual.entries()]
+      .filter(([f, n]) => f in CLIQUET_BRUT && n > CLIQUET_BRUT[f])
+      .map(([f, n]) => `${f} : ${CLIQUET_BRUT[f]} -> ${n}`);
+    expect(regressions, "Lectures brutes en hausse — lisez semantic.").toEqual([]);
+  });
+
+  it("le cliquet brut ne rouille pas (baisses reportées)", () => {
+    const baisses = [...Object.entries(CLIQUET_BRUT)]
+      .filter(([f, n]) => (actual.get(f) ?? 0) < n)
+      .map(([f, n]) => `${f} : ${n} -> ${actual.get(f) ?? 0} (mettez CLIQUET_BRUT à jour)`);
+    expect(baisses, "Progrès non enregistré : baissez ces nombres dans CLIQUET_BRUT.").toEqual([]);
+  });
+});
