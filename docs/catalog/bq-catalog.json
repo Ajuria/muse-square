@@ -4,7 +4,7 @@
 "generated_date": "2026-09-10",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "7f0ba65",
+"dbt_repo_sha_at_generation": "4d1e80b",
 "table_count": 542,
 "column_count": 9809
 },
