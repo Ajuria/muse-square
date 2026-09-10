@@ -69,10 +69,20 @@ describe("sales_surge — les trois couches quand la décomposition du jour est 
 });
 
 // 07/09 (owner : « we need both ») : les unités à côté des € dans la ligne Familles.
+// 08/09 (5caff6e6, owner) : le mot est « ventes », et `baseline_units_per_day` (moyenne de tous les
+// jours) ne s'écrit plus — il n'a pas le référent de l'€ attendu (jour de semaine + tendance).
+// 08/09 (65bcbd5a) : les ventes d'habitude reviennent par `expected_units`, au même référent que l'€.
 describe("sales_surge — familles avec leurs unités quand le mart les porte", () => {
-  it("« Tea 36 % du CA (579 €, 177 articles) contre 28 % d’habitude (245 €, 169 articles) »", () => {
+  it("« Tea 36 % du CA (579 €, 177 ventes) contre 28 % d’habitude (245 €, 169 ventes) »", () => {
+    const fams = (DECOMP_0409.top_families as any[]).map((f, i) => i === 0 ? { ...f, units: 177, expected_units: 168.9 } : f);
+    const t = render(P_0409, "2026-09-04", { decomposition: { ...DECOMP_0409, top_families: fams } });
+    expect(t.sowhat).toContain("Tea 36 % du CA (579 €, 177 ventes) contre 28 % d’habitude (245 €, 169 ventes)");
+    expect(t.sowhat).not.toMatch(/article/);
+  });
+  it("baseline_units_per_day (tous les jours) reste muet : « (245 €) » sans ventes d'habitude", () => {
     const fams = (DECOMP_0409.top_families as any[]).map((f, i) => i === 0 ? { ...f, units: 177, baseline_units_per_day: 168.9 } : f);
     const t = render(P_0409, "2026-09-04", { decomposition: { ...DECOMP_0409, top_families: fams } });
-    expect(t.sowhat).toContain("Tea 36 % du CA (579 €, 177 articles) contre 28 % d’habitude (245 €, 169 articles)");
+    expect(t.sowhat).toContain("Tea 36 % du CA (579 €, 177 ventes) contre 28 % d’habitude (245 €),");
+    expect(t.sowhat).not.toMatch(/169/);
   });
 });
