@@ -164,9 +164,16 @@ d'événement n'est jamais un concurrent direct » (`audits/seeds-secteur-audit-
 4. **B** : proposition des familles à la lecture, confirmation sur la fiche du suivi, table au grain
    site × concurrent × famille, mart.
 
-## 7. Décisions owner restantes
+## 7. Déclarations d'Épices et Tout et de ses voisins (owner 10/09, écrites en raw le 10/09)
 
-1. **La gamme d'Épices et Tout.**
-2. Le type et la gamme de La Cave à Fromages et de La Marnière ; la gamme de Bee-Fruit et de Cave
-   Saint Matthieu.
-3. Le libellé du champ « Gamme ».
+| Site | Secteur | Type de commerce | Gamme |
+|---|---|---|---|
+| Épices et Tout | Commerce & Retail | Généraliste | Milieu de gamme |
+| Bee-Fruit | Commerce & Retail | Spécialiste | Milieu de gamme |
+| Cave Saint Matthieu | Commerce & Retail | Spécialiste | Milieu de gamme |
+| La Cave à Fromages | Commerce & Retail | Spécialiste | Haut de gamme |
+| La Marnière | Marchés & Halles | Généraliste | Milieu de gamme |
+
+## 8. Décision owner restante
+
+1. Le libellé du champ « Gamme ».
