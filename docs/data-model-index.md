@@ -238,6 +238,7 @@ Thin views over `raw` / `raw_airbyte` / `raw_crawl` / `analytics` sources. Forma
 | `stg_raw_agenda_occitanie_musees` | view | — |
 | `stg_raw_events_by_agenda_occitanie` | view | int_event_location_city_map, stg_raw_locations_by_agenda_occitanie, src:raw_airbyte.raw_events_by_agenda_occitanie |
 | `stg_raw_events_paris` | view | src:raw_airbyte.raw_events_paris |
+| `stg_webscraping_events` 🆕 | view | src:raw.webscraping_events — événements scrappés des offices de tourisme (Pays Houdanais, 52 lignes chargées le 03/09, aucun job de rafraîchissement connu) ; `scrape_uid` = source_system + event_id (ms_database#142, 10/09) |
 | `stg_raw_locations_by_agenda_occitanie` | view | src:raw_airbyte.raw_locations_by_agenda_occitanie |
 | `stg_school_vacations_periods` | view | src:raw.school_vacations_periods — LA source unique des vacances scolaires (réactivée 10/09, ms_database#139) ; end_date = dernier jour de vacances, bornes incluses |
 | `stg_top_museum_attendance` | view | src:raw.top_museum_attendance |
@@ -313,7 +314,8 @@ App-activity chain (`int_user_*`, `int_publish_log`, `int_channel_performance`),
 | `int_events_city_daily_enriched` | view | dim_city_to_region, dim_event_city_label, int_events_event_daily_enriched |
 | `int_events_daily` | view | int_events_daily_{admin,idf,occitanie,user} |
 | `int_events_daily_admin` | incremental | dim_event_city_label, int_event_industry_keywords_normalized, stg_events_manual, stg_mega_events, stg_nimes_2026_events_manual |
-| `int_events_daily_idf` | incremental | dim_event_city_label, int_event_industry_keywords_normalized, stg_raw_events_paris |
+| `int_events_daily_idf` | incremental | dim_event_city_label, int_event_industry_keywords_normalized, stg_raw_events_paris, int_webscraping_events_enriched (région 11 — `source_system = 'OT_pays_houdanais'` à côté de `paris`, ms_database#142, 10/09) |
+| `int_webscraping_events_enriched` 🆕 | view | stg_webscraping_events, dim_event_city_label — commune résolue par nom NORMALISÉ (sans accent ni tiret) + code postal, repli sur le nom seul ; grain scrape_uid (ms_database#142, 10/09) |
 | `int_events_daily_occitanie` | incremental | dim_event_city_label, int_event_industry_keywords_normalized, stg_events_occitanie_{musees,participatif}, stg_raw_events_by_agenda_occitanie, stg_raw_locations_by_agenda_occitanie |
 | `int_events_daily_user` | incremental | dim_event_city_label, stg_events_user_contributed |
 | `int_events_event_daily_enriched` | view | int_event_location_city_map, int_events_daily, int_events_industry_code_normalization, src:dims.dim_event_enrichment |
