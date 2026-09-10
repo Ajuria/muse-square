@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-09-08",
+"generated_date": "2026-09-10",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "3e779ce",
-"table_count": 533,
-"column_count": 9691
+"dbt_repo_sha_at_generation": "7f0ba65",
+"table_count": 542,
+"column_count": 9809
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -459,6 +459,51 @@
 {
 "name": "timezone_abbreviation",
 "type": "STRING"
+}
+]
+},
+"airbyte_internal.rawraw_locaccitanie02abc8eef1686222857f9c72a1f6ebc3": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "_airbyte_raw_id",
+"type": "STRING"
+},
+{
+"name": "_airbyte_extracted_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "_airbyte_meta",
+"type": "JSON"
+},
+{
+"name": "_airbyte_generation_id",
+"type": "INT64"
+},
+{
+"name": "uid",
+"type": "NUMERIC"
+},
+{
+"name": "name",
+"type": "STRING"
+},
+{
+"name": "state",
+"type": "NUMERIC"
+},
+{
+"name": "address",
+"type": "STRING"
+},
+{
+"name": "latitude",
+"type": "NUMERIC"
+},
+{
+"name": "longitude",
+"type": "NUMERIC"
 }
 ]
 },
@@ -13797,6 +13842,10 @@
 "type": "FLOAT64"
 },
 {
+"name": "has_fractional_units",
+"type": "BOOL"
+},
+{
 "name": "price_z",
 "type": "FLOAT64"
 },
@@ -14651,6 +14700,83 @@
 {
 "name": "is_competition_cannibalization",
 "type": "BOOL"
+}
+]
+},
+"mart.fct_client_sales_lines": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "client_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "transaction_hour",
+"type": "INT64"
+},
+{
+"name": "invoice_number",
+"type": "STRING"
+},
+{
+"name": "transaction_count",
+"type": "INT64"
+},
+{
+"name": "item_code",
+"type": "STRING"
+},
+{
+"name": "item_description",
+"type": "STRING"
+},
+{
+"name": "item_category",
+"type": "STRING"
+},
+{
+"name": "units",
+"type": "INT64"
+},
+{
+"name": "quantity_decimal",
+"type": "FLOAT64"
+},
+{
+"name": "unit_price",
+"type": "FLOAT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "discount_amount",
+"type": "FLOAT64"
+},
+{
+"name": "discount_flag",
+"type": "BOOL"
+},
+{
+"name": "channel",
+"type": "STRING"
+},
+{
+"name": "customer_type",
+"type": "STRING"
+},
+{
+"name": "payment_method",
+"type": "STRING"
 }
 ]
 },
@@ -30018,6 +30144,83 @@
 }
 ]
 },
+"semantic.vw_insight_event_client_sales_lines": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "client_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "transaction_hour",
+"type": "INT64"
+},
+{
+"name": "invoice_number",
+"type": "STRING"
+},
+{
+"name": "transaction_count",
+"type": "INT64"
+},
+{
+"name": "item_code",
+"type": "STRING"
+},
+{
+"name": "item_description",
+"type": "STRING"
+},
+{
+"name": "item_category",
+"type": "STRING"
+},
+{
+"name": "units",
+"type": "INT64"
+},
+{
+"name": "quantity_decimal",
+"type": "FLOAT64"
+},
+{
+"name": "unit_price",
+"type": "FLOAT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "discount_amount",
+"type": "FLOAT64"
+},
+{
+"name": "discount_flag",
+"type": "BOOL"
+},
+{
+"name": "channel",
+"type": "STRING"
+},
+{
+"name": "customer_type",
+"type": "STRING"
+},
+{
+"name": "payment_method",
+"type": "STRING"
+}
+]
+},
 "semantic.vw_insight_event_commitment_memory": {
 "type": "VIEW",
 "columns": [
@@ -32010,6 +32213,10 @@
 {
 "name": "discount_rate_sd",
 "type": "FLOAT64"
+},
+{
+"name": "has_fractional_units",
+"type": "BOOL"
 },
 {
 "name": "price_z",
@@ -34673,6 +34880,51 @@
 }
 ]
 },
+"staging.stg_channel_performance_daily": {
+"type": "VIEW",
+"columns": [
+{
+"name": "platform",
+"type": "STRING"
+},
+{
+"name": "entity_type",
+"type": "STRING"
+},
+{
+"name": "entity_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "metric_date",
+"type": "DATE"
+},
+{
+"name": "metric_name",
+"type": "STRING"
+},
+{
+"name": "metric_period",
+"type": "STRING"
+},
+{
+"name": "metric_value",
+"type": "INT64"
+},
+{
+"name": "data_provenance",
+"type": "STRING"
+},
+{
+"name": "fetched_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "staging.stg_client_commitments": {
 "type": "VIEW",
 "columns": [
@@ -35139,6 +35391,10 @@
 "type": "FLOAT64"
 },
 {
+"name": "units_sold",
+"type": "INT64"
+},
+{
 "name": "customer_type",
 "type": "STRING"
 },
@@ -35472,6 +35728,31 @@
 {
 "name": "deleted_at",
 "type": "TIMESTAMP"
+}
+]
+},
+"staging.stg_competitor_event_crawls": {
+"type": "VIEW",
+"columns": [
+{
+"name": "competitor_id",
+"type": "STRING"
+},
+{
+"name": "crawled_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "run_id",
+"type": "STRING"
+},
+{
+"name": "event_name",
+"type": "STRING"
+},
+{
+"name": "source_url",
+"type": "STRING"
 }
 ]
 },
@@ -36113,6 +36394,79 @@
 {
 "name": "created_at",
 "type": "TIMESTAMP"
+}
+]
+},
+"staging.stg_event_enrichment": {
+"type": "VIEW",
+"columns": [
+{
+"name": "enrichment_id",
+"type": "STRING"
+},
+{
+"name": "event_uid",
+"type": "STRING"
+},
+{
+"name": "event_label",
+"type": "STRING"
+},
+{
+"name": "city_id",
+"type": "STRING"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "enriched_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "confirmed_dates",
+"type": "STRING"
+},
+{
+"name": "venue_name",
+"type": "STRING"
+},
+{
+"name": "venue_address",
+"type": "STRING"
+},
+{
+"name": "venue_capacity",
+"type": "STRING"
+},
+{
+"name": "organizer",
+"type": "STRING"
+},
+{
+"name": "estimated_attendance",
+"type": "STRING"
+},
+{
+"name": "audience_profile",
+"type": "STRING"
+},
+{
+"name": "source_url",
+"type": "STRING"
+},
+{
+"name": "business_takeaway",
+"type": "STRING"
+},
+{
+"name": "primary_audience",
+"type": "STRING"
+},
+{
+"name": "secondary_audience",
+"type": "STRING"
 }
 ]
 },
@@ -37700,6 +38054,43 @@
 }
 ]
 },
+"staging.stg_insee_communes_bocp": {
+"type": "VIEW",
+"columns": [
+{
+"name": "code_commune_insee",
+"type": "STRING"
+},
+{
+"name": "nom_commune",
+"type": "STRING"
+},
+{
+"name": "code_postal",
+"type": "STRING"
+},
+{
+"name": "libelle_acheminement",
+"type": "STRING"
+},
+{
+"name": "ligne_5",
+"type": "STRING"
+},
+{
+"name": "geopoint",
+"type": "STRING"
+},
+{
+"name": "latitude",
+"type": "FLOAT64"
+},
+{
+"name": "longitude",
+"type": "FLOAT64"
+}
+]
+},
 "staging.stg_insee_flash_country_mix": {
 "type": "VIEW",
 "columns": [
@@ -38681,6 +39072,67 @@
 }
 ]
 },
+"staging.stg_party_directory": {
+"type": "VIEW",
+"columns": [
+{
+"name": "source_location_id",
+"type": "STRING"
+},
+{
+"name": "party_code",
+"type": "STRING"
+},
+{
+"name": "party_name",
+"type": "STRING"
+},
+{
+"name": "channel",
+"type": "STRING"
+},
+{
+"name": "party_role",
+"type": "STRING"
+},
+{
+"name": "wave",
+"type": "STRING"
+},
+{
+"name": "party_type",
+"type": "STRING"
+},
+{
+"name": "postal_code",
+"type": "STRING"
+},
+{
+"name": "city",
+"type": "STRING"
+},
+{
+"name": "region",
+"type": "STRING"
+},
+{
+"name": "country",
+"type": "STRING"
+},
+{
+"name": "match_status",
+"type": "STRING"
+},
+{
+"name": "source_file",
+"type": "STRING"
+},
+{
+"name": "loaded_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "staging.stg_poi_categories_unified": {
 "type": "VIEW",
 "columns": [
@@ -38751,6 +39203,71 @@
 },
 {
 "name": "_ingested_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"staging.stg_publish_log": {
+"type": "VIEW",
+"columns": [
+{
+"name": "publish_id",
+"type": "STRING"
+},
+{
+"name": "draft_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "user_id",
+"type": "STRING"
+},
+{
+"name": "channel",
+"type": "STRING"
+},
+{
+"name": "action_type",
+"type": "STRING"
+},
+{
+"name": "signal_type",
+"type": "STRING"
+},
+{
+"name": "affected_date",
+"type": "DATE"
+},
+{
+"name": "external_post_id",
+"type": "STRING"
+},
+{
+"name": "permalink",
+"type": "STRING"
+},
+{
+"name": "config_id",
+"type": "STRING"
+},
+{
+"name": "published_text",
+"type": "STRING"
+},
+{
+"name": "publish_status",
+"type": "STRING"
+},
+{
+"name": "error_detail",
+"type": "STRING"
+},
+{
+"name": "published_at",
 "type": "TIMESTAMP"
 }
 ]
