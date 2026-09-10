@@ -2872,10 +2872,30 @@
       var un = a.units != null ? Math.round(Number(a.units)) : null;
       var dp = a.price_delta_pct != null ? Math.round(Number(a.price_delta_pct)) : null;
       if (px == null || pxB == null) return nom + ' : prix moyen inhabituel ce jour-là.';
-      var line = nom + ' : ' + frDec(px, 2) + ' € par article' + frDateFr(a.affected_date) + ', contre ' + frDec(pxB, 2) + ' € d’habitude';
+      // 10/09 — L'UNITÉ NE S'AFFIRME QUE SI ELLE EST PROUVÉE. realized_price = CA / unités et
+      // unités = somme de quantity_decimal : sur une famille vendue AU POIDS (Crisalid imprime
+      // « kg » et « €/kg » sur le ticket), ce nombre est un prix par kilo et « ventes » compte des
+      // kilos — « par article » y est faux, et cette phrase part aussi dans les faits citables de
+      // l'IA (headline_fr → dayContext → groundedPayload). Le mart porte désormais le fait MESURÉ
+      // has_fractional_units (une quantité qui n'est pas entière n'est pas un article) ; sans lui
+      // on ne devine pas : drapeau absent = comportement d'avant, mot à mot.
+      // Le kilo ne se nomme pas tant que l'export de détail n'a pas donné l'unité : la variante dit
+      // ce qui est mesurable sans unité de quantité — l'écart en %, et le CA du jour.
+      var line;
+      // Copie PROVISOIRE (10/09) — mots repris des chaînes déjà rendues : « votre prix habituel » (référence
+      // de cette carte, pulse.astro day-detail) et « sur N € de ventes » (family_discount_move, 07/09).
+      if (a.has_fractional_units === true) {
+        if (dp == null) return nom + ' : prix moyen inhabituel ce jour-là.';
+        var rev = a.revenue != null ? Math.round(Number(a.revenue)) : null;
+        line = nom + ' : prix moyen ' + (dp >= 0 ? '+' : '−') + Math.abs(dp) + ' %'
+             + frDateFr(a.affected_date) + ' par rapport à votre prix habituel'
+             + (rev != null ? ', sur ' + frInt(rev) + ' € de ventes' : '') + '.';
+      } else {
+      line = nom + ' : ' + frDec(px, 2) + ' € par article' + frDateFr(a.affected_date) + ', contre ' + frDec(pxB, 2) + ' € d’habitude';
       if (dp != null) line += ' (' + (dp >= 0 ? '+' : '−') + Math.abs(dp) + ' %)';
       line += '.';
       if (un != null) line += ' ' + frInt(un) + ' ventes.';
+      }
       if (a.is_discount_move === true && a.discount_rate != null && a.discount_rate_baseline != null) {
         line += ' Remise ' + frDec(Number(a.discount_rate) * 100, 1) + ' % contre ' + frDec(Number(a.discount_rate_baseline) * 100, 1) + ' % d’habitude.';
       }

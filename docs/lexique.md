@@ -375,6 +375,14 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   pour le prix moyen et les remises)** : NON arbitrés — l'owner les teste jeudi 11/09/2026 (« The floor
   wasn't tested yet. Will be next Thursday »). Ce qu'ils font : rien sur un site à 300 tickets ; ils
   éteignent les sites à 1-6 factures par jour (grossiste), où une moyenne par ticket décrit une commande.
+- **Le prix moyen d'une famille vendue au poids** (carte `family_price_move`, 10/09) : « par article » y
+  est faux — `realized_price` y est un prix au kilo et `units` une somme de kilos. Forme PROVISOIRE livrée
+  sur `dev`, faite de chaînes déjà rendues : « <famille> : prix moyen −6 % le 30/08 par rapport à votre prix
+  habituel, sur 954 € de ventes. » (« votre prix habituel » = la référence de cette carte au day-detail de
+  Pulse ; « sur N € de ventes » = `family_discount_move`). À arbitrer : (1) nommer l'unité — « le kilo » —
+  quand l'export de détail Crisalid la donnera : elle n'est pas dans la caisse importée ; (2) garder ou
+  couper « sur N € de ventes », qui est un niveau et non un écart (test 13). Passation
+  `docs/dbt-handoff/HANDOFF-prix-moyen-unite-2026-09-10.md`.
 - ~~Les six lignes d'action et trois titres des cartes concurrent (N3)~~ et ~~P8, les plans des cartes de
   fait~~ : CHARGÉS le 07/09 sur consigne owner (« make changes yourself ») — voir Arbitrages tranchés 07/09.
 - « Voir → » vs « Lire → » : deux mots en prod pour « ouvrir une carte » — un seul doit rester.
