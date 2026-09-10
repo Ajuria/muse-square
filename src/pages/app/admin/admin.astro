@@ -70,11 +70,14 @@ if (!isAdmin(userId)) {
             <option value="">Gamme…</option>
             {COMMERCE_GAMME_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}
           </select>
-        </div> (visible après un pré-provisionnement). -->
+        </div>
+        <!-- C4 : veille posée par l'owner pour le compte invité (visible après un pré-provisionnement). -->
         <div id="iv-comp" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;">
           <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Suivre des concurrents pour ce compte</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <input type="text" id="ivc-name" placeholder="nom du concurrent" style="flex:1;min-width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />            <select id="ivc-ctype" style="width:170px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;"><option value="">Type de commerce…</option>{COMMERCE_TYPE_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}</select>
+            <input type="text" id="ivc-name" placeholder="nom du concurrent" style="flex:1;min-width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+            <input type="text" id="ivc-city" placeholder="ville (sinon celle du site invité)" style="width:210px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+            <select id="ivc-ctype" style="width:170px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;"><option value="">Type de commerce…</option>{COMMERCE_TYPE_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}</select>
             <select id="ivc-cgamme" style="width:150px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;"><option value="">Gamme…</option>{COMMERCE_GAMME_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}</select>
             <button type="button" id="ivc-go" style="padding:7px 14px;border-radius:6px;border:none;background:#1D3BB3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Suivre</button>
             <span id="ivc-msg" style="font-size:12px;color:#6b7280;"></span>
