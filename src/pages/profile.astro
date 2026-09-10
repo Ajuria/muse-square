@@ -9,6 +9,7 @@ import { RECO_BUCKETS } from "../lib/recos/reco-taxonomy";
 // C3 : réclamation du profil pré-provisionné à l'invitation (clé « invite:<uuid> » dans les
 // métadonnées Clerk) — cette page est le passage obligé de tout nouveau compte (middleware).
 import { claimProvisionedProfile } from "../lib/profile/onboardingClaim";
+import { COMMERCE_AXIS_SECTORS, COMMERCE_TYPE_OPTIONS, COMMERCE_GAMME_OPTIONS } from "../lib/profile/profileLabels";
 
 if (import.meta.env.DEV) {
   console.log("PROFILE SSR locals (safe):", {
@@ -205,6 +206,8 @@ type LocationRow = {
   is_primary: boolean;
   company_activity_type: string;
   pos_system: string;
+  commerce_type: string;
+  commerce_gamme: string;
   location_type: string;
   location_access_pattern: string;
   client_catchment: string;
@@ -248,6 +251,8 @@ const loadAllLocations = async (): Promise<LocationRow[]> => {
         is_primary,
         company_activity_type,
         pos_system,
+        commerce_type,
+        commerce_gamme,
         location_type,
         location_access_pattern,
         client_catchment,
@@ -286,6 +291,8 @@ const loadAllLocations = async (): Promise<LocationRow[]> => {
         is_primary: r.is_primary === true,
         company_activity_type: String(r.company_activity_type || ""),
         pos_system: String(r.pos_system || ""),
+        commerce_type: String(r.commerce_type || ""),
+        commerce_gamme: String(r.commerce_gamme || ""),
         location_type: String(r.location_type || ""),
         location_access_pattern: String(r.location_access_pattern || ""),
         client_catchment: String(r.client_catchment || ""),
@@ -999,6 +1006,30 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
               </div>
             </div>
 
+            <div class="field-group ms-commerce-axes" style={COMMERCE_AXIS_SECTORS.includes(loc.company_activity_type) ? "" : "display:none"}>
+              <label class="field-label">Type de commerce</label>
+              <div class="field-select-wrap">
+                <select name="commerce_type" class="field-select">
+                  <option value="">Sélectionner…</option>
+                  {COMMERCE_TYPE_OPTIONS.map((o) => (
+                    <option value={o.value} selected={loc.commerce_type === o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div class="field-group ms-commerce-axes" style={COMMERCE_AXIS_SECTORS.includes(loc.company_activity_type) ? "" : "display:none"}>
+              <label class="field-label">Gamme</label>
+              <div class="field-select-wrap">
+                <select name="commerce_gamme" class="field-select">
+                  <option value="">Sélectionner…</option>
+                  {COMMERCE_GAMME_OPTIONS.map((o) => (
+                    <option value={o.value} selected={loc.commerce_gamme === o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div class="field-group">
               <label class="field-label">Caisse / logiciel de vente</label>
               <div class="field-select-wrap">
@@ -1687,6 +1718,7 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
 
 <!-- Liste des caisses (analytics.pos_systems) pour le gabarit JS « Nouveau site » — même SST que le select SSR. -->
 <script type="application/json" id="pos-options-json" set:html={JSON.stringify(pos_options)}></script>
+<script type="application/json" id="commerce-options-json" set:html={JSON.stringify({ sectors: COMMERCE_AXIS_SECTORS, types: COMMERCE_TYPE_OPTIONS, gammes: COMMERCE_GAMME_OPTIONS })}></script>
 
 <script>
 // @ts-nocheck
@@ -2358,7 +2390,7 @@ window.saveLocation = async function(idx) {
   // Named inputs/selects/textareas
   ['site_name','venue_capacity','location_description','website_url','review_link','google_place_id','company_address',
    'company_activity_type','pos_system','location_type','weather_sensitivity','seasonality',
-   'location_access_pattern','nearest_transit_stop'].forEach(name => {
+   'location_access_pattern','nearest_transit_stop','commerce_type','commerce_gamme'].forEach(name => {
     const el = body.querySelector(`[name="${name}"]`);
     if (el) data[name] = el.value;
   });
@@ -2456,6 +2488,32 @@ window.setAsPrimary = async function(locationId) {
 // ADD SITE
 // ============================================================
 // Options caisse du gabarit « Nouveau site » — lues depuis le JSON SSR (jamais en dur ici).
+// 10/09 (owner) : « Type de commerce » et « Gamme » — options lues depuis le JSON SSR (profileLabels),
+// affichées seulement pour les secteurs du commerce, vidées si le secteur change : une valeur cachée ne part jamais.
+function _commerceOpts() {
+  try { var el = document.getElementById('commerce-options-json'); return el ? JSON.parse(el.textContent || '{}') : {}; }
+  catch (_) { return {}; }
+}
+function _commerceOptionsHtml(kind) {
+  var o = _commerceOpts();
+  var list = (kind === 'type' ? o.types : o.gammes) || [];
+  return list.map(function (x) {
+    return '<option value="' + String(x.value).replace(/"/g, '&quot;') + '">' + String(x.label).replace(/</g, '&lt;') + '</option>';
+  }).join('');
+}
+document.addEventListener('change', function (e) {
+  var sel = e.target;
+  if (!sel || sel.name !== 'company_activity_type') return;
+  var scope = sel.parentElement;
+  while (scope && !scope.querySelector('.ms-commerce-axes')) scope = scope.parentElement;
+  if (!scope) return;
+  var on = (_commerceOpts().sectors || []).indexOf(sel.value) >= 0;
+  scope.querySelectorAll('.ms-commerce-axes').forEach(function (g) {
+    g.style.display = on ? '' : 'none';
+    if (!on) g.querySelectorAll('select').forEach(function (s) { s.value = ''; });
+  });
+});
+
 function _posOptionsHtml() {
   try {
     var el = document.getElementById('pos-options-json');
@@ -2578,6 +2636,24 @@ document.getElementById('addSiteBtn')?.addEventListener('click', function() {
             <option value="transport_mobility">Transport & Mobilité locale</option>
             <option value="nightlife">Vie nocturne</option>
             <option value="unknown">Autre</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group ms-commerce-axes" style="display:none">
+        <label class="field-label">Type de commerce</label>
+        <div class="field-select-wrap">
+          <select name="commerce_type" class="field-select">
+            <option value="">Sélectionner…</option>
+            ${_commerceOptionsHtml('type')}
+          </select>
+        </div>
+      </div>
+      <div class="field-group ms-commerce-axes" style="display:none">
+        <label class="field-label">Gamme</label>
+        <div class="field-select-wrap">
+          <select name="commerce_gamme" class="field-select">
+            <option value="">Sélectionner…</option>
+            ${_commerceOptionsHtml('gamme')}
           </select>
         </div>
       </div>

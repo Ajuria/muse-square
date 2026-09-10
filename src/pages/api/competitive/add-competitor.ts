@@ -10,6 +10,7 @@ import { audiencesFromProse } from "../../../lib/competitive/constants";
 import { lookupPlace } from "../../../lib/competitive/places";
 import { VALID_INDUSTRY, BUCKET_MAP } from "../../../lib/competitive/constants";
 import { isAdmin } from "../../../lib/admins";
+import { commerceTypeOrNull, commerceGammeOrNull } from "../../../lib/profile/profileLabels";
 
 export const prerender = false;
 
@@ -176,6 +177,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const industry_bucket     = industry_code ? (BUCKET_MAP[industry_code] ?? null) : null;
     const primary_audience    = String(body?.primary_audience    || "").trim() || null;
     const secondary_audience  = String(body?.secondary_audience  || "").trim() || null;
+    // 10/09 (owner) : type de commerce et gamme DÉCLARÉS ; hors liste = NULL. Le calcul de menace ne les
+    // lit que si site et concurrent sont du commerce : sur un autre secteur, ils restent inertes.
+    const commerce_type       = commerceTypeOrNull(body?.commerce_type);
+    const commerce_gamme      = commerceGammeOrNull(body?.commerce_gamme);
     const address             = String(body?.address             || "").trim() || null;
     const source_url          = String(body?.source_url          || "").trim() || null;
     const description         = String(body?.description         || "").trim() || null;
@@ -256,12 +261,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
             is_user_vetted   = TRUE,
             vetted_at        = CURRENT_TIMESTAMP(),
             vetted_by        = @clerk_user_id,
+            commerce_type    = COALESCE(@commerce_type, commerce_type),
+            commerce_gamme   = COALESCE(@commerce_gamme, commerce_gamme),
             updated_at       = CURRENT_TIMESTAMP()
           WHERE competitor_id = @competitor_id
             AND deleted_at IS NULL
         `,
-        params: { confidence_score, clerk_user_id, competitor_id },
-        types:  { confidence_score: "FLOAT64", clerk_user_id: "STRING", competitor_id: "STRING" },
+        params: { confidence_score, clerk_user_id, competitor_id, commerce_type, commerce_gamme },
+        types:  { confidence_score: "FLOAT64", clerk_user_id: "STRING", competitor_id: "STRING", commerce_type: "STRING", commerce_gamme: "STRING" },
         location: BQ_LOCATION,
       });
     } else {
@@ -279,6 +286,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             google_rating, google_rating_count,
             description, source_url,
             confidence_score, is_user_vetted, vetted_at, vetted_by,
+            commerce_type, commerce_gamme,
             created_at, updated_at, deleted_at
           ) VALUES (
             @competitor_id, @competitor_name, @address, @city,
@@ -290,6 +298,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
             @google_rating, @google_rating_count,
             @description, @source_url,
             @confidence_score, TRUE, CURRENT_TIMESTAMP(), @clerk_user_id,
+            @commerce_type, @commerce_gamme,
             CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), NULL
           )
         `,
@@ -312,6 +321,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           source_url:           source_url           ?? null,
           confidence_score,
           clerk_user_id,
+          commerce_type,
+          commerce_gamme,
         },
         types: {
           competitor_id: "STRING", competitor_name: "STRING", city: "STRING",
@@ -323,6 +334,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           google_rating: "FLOAT64", google_rating_count: "INT64",
           description: "STRING", source_url: "STRING",
           confidence_score: "FLOAT64", clerk_user_id: "STRING",
+          commerce_type: "STRING", commerce_gamme: "STRING",
         },
         location: BQ_LOCATION,
       });

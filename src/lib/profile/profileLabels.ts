@@ -121,3 +121,39 @@ export const frWeatherSensitivity = (v?: number | string | null): string | null 
 
 export const frRegime = (v?: string | null): string | null =>
   v ? (REGIME_FR[String(v).trim().toUpperCase()] ?? v) : null;
+
+// ── Type de commerce et gamme (owner 10/09 — docs/type-et-gamme-de-commerce-spec.md) ───────────────
+// Deux axes DÉCLARÉS, jamais déduits, qui ne valent que pour les secteurs du commerce. Une valeur hors
+// liste donne NULL (inconnu) ; un secteur hors commerce aussi : le champ se vide si le secteur change.
+// Libellés = mots du lexique (valeurs owner 10/09 ; « Gamme », nom du champ, est proposé).
+export const COMMERCE_AXIS_SECTORS: readonly string[] = ["commercial", "market_hall"];
+
+export const COMMERCE_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "specialiste", label: "Spécialiste" },
+  { value: "generaliste", label: "Généraliste" },
+];
+
+export const COMMERCE_GAMME_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "entree", label: "Entrée de gamme" },
+  { value: "milieu", label: "Milieu de gamme" },
+  { value: "haut", label: "Haut de gamme" },
+  { value: "luxe", label: "Luxe" },
+];
+
+const pickCommerce = (opts: Array<{ value: string }>, v: unknown): string | null => {
+  const s = String(v ?? "").trim();
+  return s && opts.some((o) => o.value === s) ? s : null;
+};
+export const commerceTypeOrNull = (v: unknown): string | null => pickCommerce(COMMERCE_TYPE_OPTIONS, v);
+export const commerceGammeOrNull = (v: unknown): string | null => pickCommerce(COMMERCE_GAMME_OPTIONS, v);
+
+// PUR : ce que le profil d'un SITE stocke. Hors secteur du commerce, les deux valeurs tombent à NULL.
+export function normalizeCommerceAxes(
+  sector: unknown, type: unknown, gamme: unknown,
+): { commerce_type: string | null; commerce_gamme: string | null } {
+  const inCommerce = COMMERCE_AXIS_SECTORS.includes(String(sector ?? "").trim());
+  return {
+    commerce_type: inCommerce ? commerceTypeOrNull(type) : null,
+    commerce_gamme: inCommerce ? commerceGammeOrNull(gamme) : null,
+  };
+}

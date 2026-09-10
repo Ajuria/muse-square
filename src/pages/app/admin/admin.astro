@@ -3,7 +3,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { isAdmin } from "../../../lib/admins";
 // C2 : le formulaire d'invitation porte les enums du PROFIL (mêmes SST que le formulaire profil).
 import { INDUSTRY_LABEL } from "../../../lib/competitive/constants";
-import { PROFILE_AUDIENCE_OPTIONS } from "../../../lib/profile/profileLabels";
+import { PROFILE_AUDIENCE_OPTIONS, COMMERCE_AXIS_SECTORS, COMMERCE_TYPE_OPTIONS, COMMERCE_GAMME_OPTIONS } from "../../../lib/profile/profileLabels";
 export const prerender = false;
 const userId = Astro.locals.clerk_user_id;
 
@@ -60,12 +60,22 @@ if (!isAdmin(userId)) {
             {PROFILE_AUDIENCE_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}
           </select>
         </div>
-        <!-- C4 : veille posée par l'owner pour le compte invité (visible après un pré-provisionnement). -->
+        <!-- 10/09 (owner) : type de commerce et gamme — seulement pour les secteurs du commerce (profileLabels). -->
+        <div id="iv-commerce" data-sectors={COMMERCE_AXIS_SECTORS.join(",")} style="display:none;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">
+          <select id="iv-ctype" style="width:190px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;">
+            <option value="">Type de commerce…</option>
+            {COMMERCE_TYPE_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}
+          </select>
+          <select id="iv-cgamme" style="width:190px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;">
+            <option value="">Gamme…</option>
+            {COMMERCE_GAMME_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}
+          </select>
+        </div> (visible après un pré-provisionnement). -->
         <div id="iv-comp" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;">
           <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Suivre des concurrents pour ce compte</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <input type="text" id="ivc-name" placeholder="nom du concurrent" style="flex:1;min-width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
-            <input type="text" id="ivc-city" placeholder="ville (sinon celle du site invité)" style="width:210px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+            <input type="text" id="ivc-name" placeholder="nom du concurrent" style="flex:1;min-width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />            <select id="ivc-ctype" style="width:170px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;"><option value="">Type de commerce…</option>{COMMERCE_TYPE_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}</select>
+            <select id="ivc-cgamme" style="width:150px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;"><option value="">Gamme…</option>{COMMERCE_GAMME_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}</select>
             <button type="button" id="ivc-go" style="padding:7px 14px;border-radius:6px;border:none;background:#1D3BB3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Suivre</button>
             <span id="ivc-msg" style="font-size:12px;color:#6b7280;"></span>
           </div>
@@ -91,7 +101,7 @@ if (!isAdmin(userId)) {
     var bt=document.getElementById(prepOnly?"iv-prep":"iv-go");bt.disabled=true;
     ms.textContent=prepOnly?"Pr\u00e9paration\u2026 (g\u00e9ocodage + cha\u00eene dbt)":"Envoi de l'invitation\u2026";
     var gv=function(id){var el=document.getElementById(id);return el&&el.value?String(el.value).trim()||null:null};
-    var payload={email:em,activity_hint:gv("iv-act"),pos_hint:gv("iv-pos"),site_name:gv("iv-site"),company_address:gv("iv-addr"),website_url:gv("iv-web"),activity:gv("iv-sec"),audience_1:gv("iv-aud1"),audience_2:gv("iv-aud2")};
+    var payload={email:em,activity_hint:gv("iv-act"),pos_hint:gv("iv-pos"),site_name:gv("iv-site"),company_address:gv("iv-addr"),website_url:gv("iv-web"),activity:gv("iv-sec"),audience_1:gv("iv-aud1"),audience_2:gv("iv-aud2"),commerce_type:gv("iv-ctype"),commerce_gamme:gv("iv-cgamme")};
     if(prepOnly)payload.provision_only=true;else if(window._ivProvKey)payload.provision_key=window._ivProvKey;
     fetch("/api/admin/invite",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)})
       .then(function(r){return r.json()}).then(function(j){
@@ -113,6 +123,11 @@ if (!isAdmin(userId)) {
   }
   document.getElementById("iv-prep").addEventListener("click",function(){ivSend(true)});
   document.getElementById("iv-go").addEventListener("click",function(){ivSend(false)});
+  // Bloc « Suivre des concurrents » — gestionnaire RÉTABLI le 10/09 : ee9677a9 l'avait supprimé par erreur
+  // (la réécriture PRÉPARER/INVITER couvrait sa ligne). Il envoie désormais aussi type de commerce et gamme.
+  document.getElementById("ivc-go").addEventListener("click",function(){var nm=document.getElementById("ivc-name").value.trim();var cm=document.getElementById("ivc-msg");if(!window._ivProvLoc){cm.textContent="Aucun compte pr\u00e9-provisionn\u00e9 dans cette session";return}if(!nm){cm.textContent="Nom requis";return}var bt=document.getElementById("ivc-go");bt.disabled=true;cm.textContent="Ajout\u2026 (lecture du site du concurrent, ~1 min)";fetch("/api/competitive/add-competitor",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({target_location_id:window._ivProvLoc,competitor_name:nm,city:document.getElementById("ivc-city").value.trim(),commerce_type:(document.getElementById("ivc-ctype").value||null),commerce_gamme:(document.getElementById("ivc-cgamme").value||null)})}).then(function(r){return r.json()}).then(function(j){bt.disabled=false;if(j.ok){cm.textContent="Suivi \u2713 "+nm+" \u2014 premi\u00e8re lecture cette nuit";document.getElementById("ivc-name").value=""}else{cm.textContent="Erreur : "+(j.error||"")}}).catch(function(){bt.disabled=false;cm.textContent="Erreur r\u00e9seau"})});
+  // 10/09 (owner) : type de commerce et gamme — affichés seulement pour les secteurs du commerce, vidés sinon.
+  (function(){var sec=document.getElementById("iv-sec"),box=document.getElementById("iv-commerce");if(!sec||!box)return;var list=(box.getAttribute("data-sectors")||"").split(",");function sync(){var on=list.indexOf(sec.value)>=0;box.style.display=on?"flex":"none";if(!on){document.getElementById("iv-ctype").value="";document.getElementById("iv-cgamme").value=""}}sec.addEventListener("change",sync);sync()})();
 
   // Les comptes préparés et pas encore invités — la préparation survit au rechargement, sinon une
   // page rafraîchie obligerait à tout refaire (et le bloc concurrents redeviendrait inutilisable).

@@ -26,7 +26,7 @@ import { createClerkClient } from "@clerk/backend";
 const clerk = () => createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY || "" });
 import { isAdmin } from "../../../lib/admins";
 import { INDUSTRY_LABEL } from "../../../lib/competitive/constants";
-import { PROFILE_AUDIENCE_OPTIONS } from "../../../lib/profile/profileLabels";
+import { PROFILE_AUDIENCE_OPTIONS, normalizeCommerceAxes, commerceTypeOrNull, commerceGammeOrNull } from "../../../lib/profile/profileLabels";
 // P3.1-c : la demande de fichier part À L'INVITATION (le goulot mesuré est humain — J+9 chez
 // Les Olivades pour obtenir le fichier ; on le demande donc au plus tôt). Rail Resend interne,
 // réponses routées vers l'inviteur (reply_to). Consigne d'export par caisse pressentie
@@ -171,6 +171,17 @@ export const POST: APIRoute = async (context) => {
     for (const a of [audience_1, audience_2]) {
       if (a && !audienceKeys.includes(a)) return json(400, { ok: false, error: `Public inconnu : ${a}` });
     }
+    // 10/09 (owner) : type de commerce et gamme — mêmes listes que le formulaire de profil ; une valeur
+    // inconnue est une ERREUR lisible, comme le secteur et le public. Hors secteur du commerce : ignorés.
+    const commerce_type_raw = body?.commerce_type ? String(body.commerce_type).trim() : null;
+    const commerce_gamme_raw = body?.commerce_gamme ? String(body.commerce_gamme).trim() : null;
+    if (commerce_type_raw && !commerceTypeOrNull(commerce_type_raw)) {
+      return json(400, { ok: false, error: `Type de commerce inconnu : ${commerce_type_raw}` });
+    }
+    if (commerce_gamme_raw && !commerceGammeOrNull(commerce_gamme_raw)) {
+      return json(400, { ok: false, error: `Gamme inconnue : ${commerce_gamme_raw}` });
+    }
+    const commerceAxes = normalizeCommerceAxes(activity, commerce_type_raw, commerce_gamme_raw);
     let website_url: string | null = null;
     if (body?.website_url) {
       const raw = String(body.website_url).trim().slice(0, 240);
@@ -244,6 +255,8 @@ export const POST: APIRoute = async (context) => {
             ...(website_url ? { website_url } : {}),
             ...(pos_key ? { pos_system: pos_key } : {}),
             primary_audience_1: [audience_1, audience_2].filter(Boolean),
+            ...(commerceAxes.commerce_type ? { commerce_type: commerceAxes.commerce_type } : {}),
+            ...(commerceAxes.commerce_gamme ? { commerce_gamme: commerceAxes.commerce_gamme } : {}),
           }),
         });
         const res = await (saveProfilePOST as any)({
