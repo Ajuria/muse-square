@@ -78,9 +78,25 @@ export const SOURCE_OVERRIDES: Record<string, ColumnMapping> = {
   // French document vocabulary) until the exact headers come from their FIRST REAL export.
   // TODO: fill from Les Olivades' first file at onboarding — never hand-type from documentation.
   sage100: {},
+  // Caisse d'Épices et Tout (NF525, confirmée au profil du site le 09/09 : pos_system = 'crisalid').
+  // Override VIDE tant que l'export de DÉTAIL n'est pas lu — le relevé financier et le ticket du
+  // 09/09 donnent les familles et le grain au poids, jamais la ligne d'en-têtes. La clé existe pour
+  // que source_system s'écrive 'crisalid' : sans elle l'import tombe sur 'csv_manual', le seau
+  // partagé de tous les dépôts manuels, et le delete-supersede d'un compte efface celui d'un autre.
+  // TODO : remplir depuis le PREMIER export réel — jamais depuis la documentation.
+  crisalid: {},
 };
 
 export type SourceId = 'generic' | keyof typeof SOURCE_OVERRIDES;
+
+// Les sources acceptées par POST /api/import/sales-csv, DÉRIVÉES des overrides — jamais
+// retapées. La liste vivait en double dans la route ; crisalid y a été ajoutée ici le 10/09
+// alors que la route ne la connaissait pas, et un dépôt Crisalid retombait donc sur 'generic'
+// (source_system = 'csv_manual', le seau partagé de tous les dépôts manuels).
+export const VALID_SOURCES: ReadonlySet<SourceId> = new Set<SourceId>([
+  'generic',
+  ...(Object.keys(SOURCE_OVERRIDES) as Array<keyof typeof SOURCE_OVERRIDES>),
+]);
 
 // Merge generic + source overrides, CONCATENATING candidate lists per field so a
 // source adds its real headers without dropping the generic synonyms. Overrides

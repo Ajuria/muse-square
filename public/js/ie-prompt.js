@@ -1636,6 +1636,7 @@ if (!root) {
 
       var SOURCES = [
         { id: "sage100", label: "Sage 100" },
+        { id: "crisalid", label: "Crisalid" },
         { id: "isavigne", label: "ISAVIGNE" },
         { id: "tpvin", label: "TP'vin" },
         { id: "sumup", label: "SumUp" },
