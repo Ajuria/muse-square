@@ -28,7 +28,8 @@ describe("cartes concurrent — six lignes d'action, trois titres (owner 07/09)"
   });
   it("prix en baisse : deux semaines de ventes avant de bouger", () => {
     const t = render("competitor_price_drop", { ...BASE, new_price_raw: "7,00 €", price_pct_change: -12.5 });
-    expect(t.action).toBe("Actions conseillées : notez votre prix et votre marge sur le thé Earl Grey 100 g, puis regardez vos ventes pendant deux semaines avant de changer quoi que ce soit.");
+    // 09/09 (bc41dfe8, owner) : « notez votre prix » est un calque — « comparez … à ceux de <concurrent> ».
+    expect(t.action).toBe("Actions conseillées : comparez votre prix et votre marge sur le thé Earl Grey 100 g à ceux de Maison Dupont, puis regardez vos ventes pendant deux semaines avant de changer quoi que ce soit.");
   });
   it("plusieurs prix modifiés : titre nommé, relevé des écarts", () => {
     const t = render("competitor_repricing_event", { competitor_name: "Maison Dupont", price_change_count: 5, increase_count: 3, decrease_count: 2, detected_date: "2026-09-04" });

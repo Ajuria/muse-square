@@ -2,6 +2,7 @@
 // mart fct_client_family_price_daily, bloc candidat ms_database). Payloads PRODUITS par le bloc sur
 // BigQuery (06/09) pour le compte owner (STARTS_WITH(location_id,"f10c3e58")) : 30/08 baisse, 09/08 hausse.
 // Le sujet est public/js/action-cards.js → tests/ (CLAUDE.md § Tests).
+// 08/09 (5caff6e6, owner) : « N articles vendus » → « N ventes » — « articles » se lisait comme des références produit.
 //
 // 10/09 — deux corrections dans le même passage.
 // (a) Deux assertions étaient ROUGES depuis le 08/09 : la carte dit « 43 ventes » depuis que

@@ -3,6 +3,7 @@
 // tir sur 30 j après le plancher (ses 3 tirs portaient sur 1 à 4 unités) ; le payload est celui que le bloc
 // a PRODUIT sur BigQuery (06/09) pour le site Muse Square Occitanie — fixture de rendu, jamais une preuve
 // sur la page owner. Le sujet est public/js/action-cards.js → tests/ (CLAUDE.md § Tests).
+// 08/09 (5caff6e6, owner) : « N articles vendus » → « N ventes » — « articles » se lisait comme des références produit.
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -27,7 +28,7 @@ describe("family_discount_move — le taux en % du CA (forme de la carte site), 
   it("hausse : titre au sens, corps taux contre taux avec les €, geste tickets remisés", () => {
     const t = render(UP_0809, "2026-08-09");
     expect(t.what).toBe("Plus de remises que d’habitude sur Drinking Chocolate");
-    expect(t.sowhat).toBe("Drinking Chocolate : 5,9 % de remise le 09/08, contre 2,5 % d’habitude (12 € sur 211 € de ventes). 51 articles vendus.");
+    expect(t.sowhat).toBe("Drinking Chocolate : 5,9 % de remise le 09/08, contre 2,5 % d’habitude (12 € sur 211 € de ventes). 51 ventes.");
     expect(t.action).toBe("Action conseillée : vérifiez les tickets remisés du 09/08 sur Drinking Chocolate : qui a remisé, sur quoi, et si c’était prévu.");
   });
   it("baisse : « remisé moins », geste d'observation", () => {
@@ -41,6 +42,6 @@ describe("family_discount_move — le taux en % du CA (forme de la carte site), 
   });
   it("membre (clés « revenue » retirées) : la phrase tient sans les €", () => {
     const { revenue: _r, ...member } = UP_0809;
-    expect(render(member, "2026-08-09").sowhat).toBe("Drinking Chocolate : 5,9 % de remise le 09/08, contre 2,5 % d’habitude. 51 articles vendus.");
+    expect(render(member, "2026-08-09").sowhat).toBe("Drinking Chocolate : 5,9 % de remise le 09/08, contre 2,5 % d’habitude. 51 ventes.");
   });
 });

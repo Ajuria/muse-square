@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-// Suite CLIENT 2/3 — expiration 1 h du fil + état vide B (alerte météo). Fichier dédié : l'expiration
+// Suite CLIENT 2/3 — expiration 1 h du fil + alerte météo sans carte (état B retiré). Fichier dédié : l'expiration
 // se joue AU chargement du module (un seul eval par fichier — voir explorerTestKit).
 
 import { it, expect, beforeAll } from "vitest";
@@ -15,9 +15,10 @@ it("échange PÉRIMÉ (> 1 h) → pas de restauration, store purgé", () => {
   expect(sessionStorage.getItem(THREAD_KEY)).toBeNull();
 });
 
-it("état vide B (alerte météo, pas d'anomalie) → question effet-chaleur", () => {
-  const cards = slotCards();
-  expect(cards.length).toBe(2);
-  expect(cards[0].textContent).toContain("chaleur");
-  expect(cards[0].getAttribute("data-dynamic-q")).toBe("Quel est l’effet de la chaleur sur mes ventes ?");
+// 07/09 (d4fbf73c, E0 owner validé — docs/explorer-etat-vide-spec.md § E0) : les états météo B/C sont
+// retirés. Une alerte chaleur sans anomalie ni carte serveur ne produit AUCUNE carte : jamais de remplissage.
+it("alerte météo sans anomalie ni carte serveur → aucune carte, aucun label (état B retiré)", () => {
+  expect(slotCards().length).toBe(0);
+  expect(document.body.textContent).not.toMatch(/chaleur|météo/);
+  expect(document.getElementById("ie-prompt-actions-label")!.style.display).toBe("none");
 });
