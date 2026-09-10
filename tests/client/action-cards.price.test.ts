@@ -2,6 +2,7 @@
 // mart fct_client_family_price_daily, bloc candidat ms_database). Payloads PRODUITS par le bloc sur
 // BigQuery (06/09) pour le compte owner (STARTS_WITH(location_id,"f10c3e58")) : 30/08 baisse, 09/08 hausse.
 // Le sujet est public/js/action-cards.js → tests/ (CLAUDE.md § Tests).
+// 08/09 (5caff6e6, owner) : « N articles vendus » → « N ventes » — « articles » se lisait comme des références produit.
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -29,13 +30,13 @@ describe("family_price_move — le prix dans son unité (€ par unité), la cau
   it("baisse : titre au sens, corps prix contre prix, geste tickets sans cause nommée", () => {
     const t = render(DOWN_0830, "2026-08-30");
     expect(t.what).toBe("Prix moyen en baisse sur Drinking Chocolate");
-    expect(t.sowhat).toBe("Drinking Chocolate : 3,87 € par article le 30/08, contre 4,13 € d’habitude (−6 %). 43 articles vendus.");
+    expect(t.sowhat).toBe("Drinking Chocolate : 3,87 € par article le 30/08, contre 4,13 € d’habitude (−6 %). 43 ventes.");
     expect(t.action).toBe("Action conseillée : vérifiez les tickets du 30/08 sur Drinking Chocolate : remises, poids ou produits moins chers.");
   });
   it("hausse : « vendu plus cher », geste d'observation du mix", () => {
     const t = render(UP_0809, "2026-08-09");
     expect(t.what).toBe("Prix moyen en hausse sur Bakery");
-    expect(t.sowhat).toBe("Bakery : 4,19 € par article le 09/08, contre 3,51 € d’habitude (+20 %). 48 articles vendus.");
+    expect(t.sowhat).toBe("Bakery : 4,19 € par article le 09/08, contre 3,51 € d’habitude (+20 %). 48 ventes.");
     expect(t.action).toBe("Action conseillée : notez ce qui s’est vendu dans Bakery le 09/08.");
   });
   it("la remise n'entre que si le mart l'a vue bouger (is_discount_move)", () => {
