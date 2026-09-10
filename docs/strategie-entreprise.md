@@ -853,6 +853,55 @@ l'équipe fait sa part depuis son téléphone en moins d'une minute, sans formul
 passe pas cette porte ne s'adresse pas à l'équipe ; ça s'adresse au gérant, sur laptop, et ça se
 dit.
 
+### 12.12 Le critère d'achat du premier client réel est le profit, pas le CA
+
+Ouvert le 10/09 sur deux faits owner, Épices et Tout : (1) Crisalid ne donne pas la lecture que
+l'exploitant veut — **le CA net HT** — et c'est ainsi qu'il veut lire ses rapports ; (2) la faiblesse
+principale de l'affaire est le résultat net : **1,2 M€ de CA par an, 15 k€ de profit**, et il ne sait
+pas pourquoi. Les prix d'achat arrivent dans les prochains jours. **Le critère d'achat est le profit :
+si le produit l'améliore, il devient client payant.** [owner 10/09]
+
+#### « CA net HT » : une définition que le produit n'a pas encore
+
+[vérifié 10/09] `raw.client_transactions` porte UNE colonne `revenue` (26 colonnes, aucun statut
+fiscal, aucun type de document). Le mapping d'import (`src/lib/import/sourceMappings.ts`) envoie
+« ca ttc », « ca ht », « montant net », « total » dans cette même colonne : l'app affiche « CA » sans
+savoir s'il est HT ou TTC, brut ou net des annulations. Les quatre overrides nommés sont vides, et
+aucun mapping Crisalid n'existe. Le correctif est une règle d'ingestion et un libellé : le mapping
+Crisalid prend le montant net HT, annulations soustraites, et les surfaces disent ce qu'elles
+montrent. **C'est la convention de tout compte professionnel français** — personne qui tient une
+boutique ne raisonne en TTC. Ça se promet sans risque : c'est une définition, pas une fonction.
+
+#### Le profit : ce que le produit peut expliquer, et la ligne honnête
+
+15 k€ sur 1,2 M€ = **1,25 % de marge nette**. Aujourd'hui aucun coût d'achat en base : la marge est
+DÉCLARÉE par famille (K9 `profit_estimated`, 24/08) et appliquée au CA. Avec les prix d'achat, la
+question se coupe en deux, et la ligne honnête passe entre les deux.
+
+| Côté | Ce que Muse Square peut dire | Avec quoi |
+|---|---|---|
+| **Marge brute** — expliquable avec les prix d'achat | marge réelle par famille et par article, à la place de la marge déclarée ; et **quatre fuites** : (a) les remises accordées, (b) les articles vendus sous ou près du coût, (c) les articles morts, (d) la casse et les invendus | (a) `fct_client_family_price_daily` porte déjà le taux de remise par famille et par jour ; (b) `avg_unit_price` par article + le catalogue de coûts à créer ; (c) `is_dead_item` ; (d) les types de document Crisalid `IVD` invendus, `SST` sortie stock, `RUP` rupture — que l'ingestion JETTE aujourd'hui (§ 9.2 : aucune colonne pour les recevoir). Pour un pôle périssables, c'est l'endroit le plus probable où 1,2 M€ de ventes perdent leur marge, et c'est une donnée qu'il exporte déjà |
+| **Charges fixes** — hors de la base | rien : salaires, loyer, charges. Le résultat net = marge brute − charges fixes, et rien ne les porte | **un paramètre déclaré**, les charges fixes mensuelles, ferme l'arithmétique brut → net comme la marge déclarée le fait aujourd'hui. Sans lui, le produit répond « où part votre marge », pas « pourquoi 15 k€ » — et la démo doit le dire |
+
+#### Ce que ça change au plan
+
+- **Le prix d'achat entre comme un CATALOGUE de coûts** — article × date d'effet × prix d'achat HT —
+  pas comme un champ sur chaque engagement. Ça remplace la moitié « coût » du § 12.7 item 2 et fait
+  de K9 un KPI mesuré au lieu d'une estimation (repli déclaré quand le coût manque).
+- **Le prérequis d'ingestion du § 12.10 reçoit trois règles de ce seul compte** : le CA net HT comme
+  définition du revenu, le type de document conservé, les quantités de mouvement de stock conservées
+  au lieu d'être filtrées.
+- **L'ordre des builds pour Épices et Tout devient** : (1) ingestion Crisalid avec ces trois règles ;
+  (2) le catalogue de coûts ; (3) la marge brute par famille et par article, les quatre fuites
+  nommées ; (4) les charges fixes déclarées pour atteindre le net. Tout le reste du § 12, l'agent
+  compris, vient APRÈS : il paiera pour la réponse sur la marge, et pour rien avant elle.
+
+**Garde pour la démo et l'onboarding** : tant que les prix d'achat ne sont pas en base, aucun
+chiffre de marge ne se montre. Le test de valeur (`intent.md`) interdit une estimation présentée
+comme une mesure — et un chiffre de marge faux devant le seul client dont la décision en dépend
+est la phrase la plus chère que le produit puisse dire. [à instruire : DDL du catalogue de coûts,
+règles d'ingestion Crisalid, mart de marge, paramètre charges fixes — passation dbt à écrire]
+
 ### Sources du § 12 (lues le 07/09/2026)
 
 - Shopify, centre d'aide Sidekick — https://help.shopify.com/en/manual/ai-powered-tools/sidekick/help-and-guidance [page lue]
