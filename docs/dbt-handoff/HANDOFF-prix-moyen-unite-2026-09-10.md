@@ -6,6 +6,10 @@ fct_location_daily_action_candidates` (job refresh_industry, environnement de pr
 succès en 1 min 9 s : 3 modèles construits, 19 tests passés). Ce document n'est plus une consigne à coller : il
 dit ce qui EST. Les blocs collés vivent dans l'historique de `main` (commit fef4741).
 
+**Suite le même jour.** PR #133 fusionnée (commit de fusion b21f274) : la branche non-poids de `detail_fr`
+dit « ventes », le mot de la carte depuis le 08/09 ; construction `dbt build --select
+fct_location_daily_action_candidates` (run 70471896858219, succès en 1 min 4 s, 13 tests passés).
+
 Sert : `intent.md` § Le test de valeur (« un chiffre porte son référentiel ») et `strategie-entreprise.md`
 § 12.12 (Épices et Tout : FRUITS ET LEGUMES pèse 32,7 % du CA net HT et se vend au poids).
 
@@ -19,7 +23,7 @@ jour ou dans les 28 jours précédents. Sur une telle famille, `units` est une s
 - `fct_location_daily_action_candidates`, CTE `family_price_move` : au poids, `headline_fr` = « Prix moyen en
   baisse sur <famille> le 30/08 : −6 % par rapport à votre prix habituel » et `detail_fr` = « Sur 954 € de
   ventes. » (+ la phrase remise quand elle a bougé) ; le payload porte `has_fractional_units`. Sinon, le texte
-  d'avant, octet pour octet.
+  d'avant, à un mot près : « 51 ventes, +20 % sur le prix moyen. » au lieu de « 51 articles vendus, … » (#133).
 - `vw_insight_event_family_price_daily` (`select *` sous `contract: enforced`) : la colonne est déclarée à son
   contrat (`schema_app_surfaces.yml`), en 14ᵉ position.
 - `schema_grain.yml` : description et `not_null` sur la colonne du mart.
@@ -40,7 +44,8 @@ un prix à l'unité, et « N articles vendus » une somme de kilos.
 | `has_fractional_units` | BOOL dans `mart.fct_client_family_price_daily` et `semantic.vw_insight_event_family_price_daily` |
 | Vue famille-prix | 5 048 lignes, 4 sites ; 0 `true`, 0 `null` — aucune caisse au poids importée |
 | Candidats `family_price_move` | 21 ; `has_fractional_units` = `false` dans les 21 |
-| Témoin `f10c3e58` au 09/09 | inchangé : « Prix moyen en hausse sur Bakery le 09/09 : 4,21 € par article contre 3,51 € d'habitude » |
+| Témoin `f10c3e58` au 09/09 | titre inchangé : « Prix moyen en hausse sur Bakery le 09/09 : 4,21 € par article contre 3,51 € d'habitude » ; détail « 51 ventes, +20 % sur le prix moyen. » |
+| `detail_fr` après #133 | 21/21 « N ventes, … » ; 0 « articles vendus » |
 | Chemin réel de Pulse (`monitor` + vue semantic), payloads d'après le build | 8 rendus identiques sur 8 |
 | Test en avertissement | `accepted_values` sur `action_type` des candidats — la liste du yml, désynchronisée depuis le 06/06 ; ce changement n'ajoute aucun type |
 
@@ -54,9 +59,6 @@ colonnes existantes ; CTE contre production, 20/20 identiques ; modèle des cand
   seulement), colonne raw additive, staging, puis un `unit_label` au mart prix ; la carte dira alors « le kilo »,
   mot à arbitrer. Sans colonne unité dans l'export : déclaration par famille à l'onboarding, proposée par
   `has_fractional_units`, confirmée par l'exploitant.
-- **« articles vendus » dans la branche non-poids de `detail_fr`** : corrigé en « ventes » par la PR
-  `Ajuria/ms_database` #133, **ouverte, en attente de fusion** (20/20 égaux au seul mot près contre la
-  production). Après fusion : `dbt build --select fct_location_daily_action_candidates`.
 - **Quatre modèles comptent les ventes sur l'entier arrondi par l'import** (`Math.round`,
   `src/pages/api/import/sales-csv.ts:26`) : `int_client_offering_profile` (`units_30d`),
   `fct_client_hourly_sales` (`units`), `fct_client_item_signals_daily` (`units`, `unit_price`),
