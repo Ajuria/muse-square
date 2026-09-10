@@ -77,6 +77,7 @@ What API routes query. Full column truth in `bq-catalog.json`.
 | `vw_insight_eventcalendar_event_lookup` | view | calendar_item_uid (span) | fct_region_event_calendar_spans | calendar_item_uid, calendar_item_type, event_name, event_start_date, event_end_date, scope_type, city_id, city_name, region_id, industry_code, theme, keyword_priority_rank |
 | `vw_ms_insight_ai_decision_policy_rules` | view | rule_key × rule_value | (inline only — no refs) | rule_key, rule_value, base_priority_dimensions, boost_priority_dimensions, blocker_focus, auto_constraints, rule_version |
 | `vw_insight_event_client_item_signals` | view | celui du mart : location_id × transaction_date × item_description (+ articles morts) | fct_client_item_signals_daily | projection fidèle colonne pour colonne, dbt_updated_at exclu — 35 colonnes ; la surface semantic au grain ARTICLE × jour (dispositifs-typologie-spec § 6). Lecteurs app : lib/dispositifs/poleReading.ts (10/09 : ligne ajoutée) |
+| `vw_insight_event_client_sales_lines` 🆕 | view | une ligne de caisse facturée (clé non unique), BORNÉE à aujourd'hui | fct_client_sales_lines | location_id, client_id, transaction_date, transaction_hour, invoice_number, transaction_count, item_code, item_description, item_category, units (une pesée = une vente), quantity_decimal, unit_price, revenue, discount_amount, discount_flag, channel, customer_type, payment_method — contrat enforced, 18 colonnes. **EN BASE 10/09 (ms_database#135, run 70471896869003) : 171 248 lignes.** Lecteur : lib/commitments/commitmentShape.ts — la surface au grain LIGNE pour que l'app ne lise jamais raw.client_transactions |
 
 ---
 
@@ -147,6 +148,7 @@ Materialization notes captured verbatim (incremental / insert_overwrite / partit
 | `fct_trends_keywords` | incr. (uk: date,keyword_id,geo), part. date, clustered | date × keyword_id × geo | int_trends_keywords__dedup, stg_trends_keywords__plan | date, geo, keyword_id, category, keyword_text, interest_value, batch_id, retrieved_at |
 | `test` / `test_fct` | default | **scratch/test — not production** | test → fct_foreign_tourism_context_daily | (ignore) |
 | `fct_client_item_signals_daily` | table, part. transaction_date | location_id × transaction_date × item_description (+ une ligne par article mort au dernier jour vendu) ; sites ≥ 20 jours de vente, article renseigné | stg_client_transactions, fct_client_day_residual, fct_location_context_daily | revenue, units (Σ units_sold — une pesée = une vente, #134), unit_price (CA ÷ unités), revenue_share / baseline_share / share_robust_z / is_share_move (articles quotidiens), price_baseline / price_delta_pct / is_price_move, days_since_last_sale / is_dead_item, expected_item_revenue / delta_eur / delta_z / is_eur_move, régime (is_school_holiday_flag, baseline_same_regime_n, regime_mismatch_flag), récurrence (n_occurrences_60d, first_occurrence_date) — 36 colonnes (10/09 : ligne ajoutée, le modèle n'en avait pas) |
+| `fct_client_sales_lines` 🆕 | table, part. transaction_date, cluster location_id | une ligne de caisse facturée (clé non unique : 441 doublons légitimes, cf. staging) | stg_client_transactions | la staging WHERE is_invoiced (site rattaché, devis exclus, canal par facture) ; units = units_sold. Reconstruite par le job après dépôt (stg_client_transactions+). **EN BASE 10/09 (#135) : 202 444 lignes = lignes facturées de la staging.** |
 
 ---
 
@@ -255,6 +257,12 @@ Thin views over `raw` / `raw_airbyte` / `raw_crawl` / `analytics` sources. Forma
 | `stg_watched_competitors` | view | src:raw_crawl.watched_competitors |
 | `stg_weather_alerts_daily_all` | view | city_map, communes_coords, src:raw_airbyte.new_weather_forecast_10d |
 | `stg_weather_history_daily` | view | src:raw.weather_history_daily |
+| `stg_channel_performance_daily` 🆕 | view | src:raw.channel_performance_daily — la couche de typage sortie telle quelle de int_channel_performance (ms_database#137, 10/09) |
+| `stg_publish_log` 🆕 | view | src:analytics.publish_log — la couche de typage sortie telle quelle de int_publish_log (#137) |
+| `stg_insee_communes_bocp` 🆕 | view | src:staging.insee_communes_bocp — typage à l'identique (39 192 lignes = la source), lu par int_event_location_city_map (#137) |
+| `stg_event_enrichment` 🆕 | view | src:dims.dim_event_enrichment — cache d'enrichissement écrit par l'app, lu par int_events_event_daily_enriched (#137) |
+| `stg_party_directory` 🆕 | view | src:analytics.party_directory — lu par fct_location_channel_monthly et fct_location_client_patterns (#137) |
+| `stg_competitor_event_crawls` 🆕 | view | src:raw.competitor_events — TOUTES les lignes de crawl (4 369 = la source), lu par fct_competitor_directory ; stg_competitor_events ne garde que les événements valides (1 168) et aurait faussé les statistiques de crawl (#137) |
 
 ---
 
