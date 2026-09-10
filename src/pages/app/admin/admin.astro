@@ -34,29 +34,29 @@ if (!isAdmin(userId)) {
         <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Inviter un compte</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <input type="email" id="iv-email" placeholder="email@exemple.fr" style="flex:1;min-width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
-          <input type="text" id="iv-act" placeholder="activit\u00e9 pressentie (ex. \u00e9picerie fine)" style="width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+          <input type="text" id="iv-act" placeholder="activité pressentie (ex. épicerie fine)" style="width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
           <input type="text" id="iv-pos" placeholder="caisse pressentie (ex. Sage 100)" style="width:180px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
-          <button type="button" id="iv-prep" style="padding:7px 14px;border-radius:6px;border:none;background:#1D3BB3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Pr\u00e9parer le compte</button>
+          <button type="button" id="iv-prep" style="padding:7px 14px;border-radius:6px;border:none;background:#1D3BB3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Préparer le compte</button>
           <button type="button" id="iv-go" style="padding:7px 14px;border-radius:6px;border:1px solid #1D3BB3;background:#fff;color:#1D3BB3;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Inviter</button>
           <span id="iv-msg" style="font-size:12px;color:#6b7280;"></span>
         </div>
-        <!-- C2 : pr\u00e9-remplissage du profil de l'invit\u00e9 (facultatif \u2014 tout champ pos\u00e9 ici lui \u00e9vite une saisie). -->
+        <!-- C2 : pré-remplissage du profil de l'invité (facultatif — tout champ posé ici lui évite une saisie). -->
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">
           <input type="text" id="iv-site" placeholder="nom du site" style="width:170px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
           <input type="text" id="iv-addr" placeholder="adresse professionnelle" style="flex:1;min-width:220px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
-          <input type="url" id="iv-web" placeholder="site web (https://\u2026)" style="width:190px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+          <input type="url" id="iv-web" placeholder="site web (https://…)" style="width:190px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">
           <select id="iv-sec" style="width:230px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;">
-            <option value="">Secteur d'activit\u00e9\u2026</option>
+            <option value="">Secteur d'activité…</option>
             {Object.entries(INDUSTRY_LABEL).map(([val, lbl]) => (<option value={val}>{lbl}</option>))}
           </select>
           <select id="iv-aud1" style="width:190px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;">
-            <option value="">Public principal\u2026</option>
+            <option value="">Public principal…</option>
             {PROFILE_AUDIENCE_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}
           </select>
           <select id="iv-aud2" style="width:190px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;">
-            <option value="">Public secondaire\u2026</option>
+            <option value="">Public secondaire…</option>
             {PROFILE_AUDIENCE_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}
           </select>
         </div>
@@ -70,11 +70,13 @@ if (!isAdmin(userId)) {
             <option value="">Gamme…</option>
             {COMMERCE_GAMME_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}
           </select>
-        </div> (visible après un pré-provisionnement). -->
+        </div>
+        <!-- C4 : veille posée par l'owner pour le compte invité (visible après un pré-provisionnement). -->
         <div id="iv-comp" style="display:none;margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;">
           <div style="font-size:12px;font-weight:600;margin-bottom:6px;">Suivre des concurrents pour ce compte</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <input type="text" id="ivc-name" placeholder="nom du concurrent" style="flex:1;min-width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />            <select id="ivc-ctype" style="width:170px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;"><option value="">Type de commerce…</option>{COMMERCE_TYPE_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}</select>
+            <input type="text" id="ivc-name" placeholder="nom du concurrent" style="flex:1;min-width:200px;padding:7px 12px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;" />
+            <select id="ivc-ctype" style="width:170px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;"><option value="">Type de commerce…</option>{COMMERCE_TYPE_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}</select>
             <select id="ivc-cgamme" style="width:150px;padding:7px 10px;border-radius:6px;border:1px solid #e5e7eb;font-size:12px;font-family:inherit;outline:none;background:#fff;"><option value="">Gamme…</option>{COMMERCE_GAMME_OPTIONS.map((o) => (<option value={o.value}>{o.label}</option>))}</select>
             <button type="button" id="ivc-go" style="padding:7px 14px;border-radius:6px;border:none;background:#1D3BB3;color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Suivre</button>
             <span id="ivc-msg" style="font-size:12px;color:#6b7280;"></span>
