@@ -76,6 +76,7 @@ What API routes query. Full column truth in `bq-catalog.json`.
 | `vw_insight_event_user_activity` 🆕 | view | user_id × location_id | fct_user_activity_summary | user_id, location_id, cards_done, cards_already_done, cards_not_done, cards_ignored, total_attempted, total_succeeded, acceptance_rate_pct |
 | `vw_insight_eventcalendar_event_lookup` | view | calendar_item_uid (span) | fct_region_event_calendar_spans | calendar_item_uid, calendar_item_type, event_name, event_start_date, event_end_date, scope_type, city_id, city_name, region_id, industry_code, theme, keyword_priority_rank |
 | `vw_ms_insight_ai_decision_policy_rules` | view | rule_key × rule_value | (inline only — no refs) | rule_key, rule_value, base_priority_dimensions, boost_priority_dimensions, blocker_focus, auto_constraints, rule_version |
+| `vw_insight_event_client_item_signals` | view | celui du mart : location_id × transaction_date × item_description (+ articles morts) | fct_client_item_signals_daily | projection fidèle colonne pour colonne, dbt_updated_at exclu — 35 colonnes ; la surface semantic au grain ARTICLE × jour (dispositifs-typologie-spec § 6). Lecteurs app : lib/dispositifs/poleReading.ts (10/09 : ligne ajoutée) |
 
 ---
 
@@ -145,6 +146,7 @@ Materialization notes captured verbatim (incremental / insert_overwrite / partit
 | `fct_signal_accuracy_daily` 🆕 | table (schema `analytics`) | date × location_id × signal_type | fct_location_weather_forecast_snapshot, fct_location_weather_alerts_daily, fct_location_change_feed | date, location_id, signal_type, forecast_horizon_days, predicted/actual_value_code, predicted/actual_precipitation, predicted/actual_wind, predicted/actual_temp_max, accuracy_composite |
 | `fct_trends_keywords` | incr. (uk: date,keyword_id,geo), part. date, clustered | date × keyword_id × geo | int_trends_keywords__dedup, stg_trends_keywords__plan | date, geo, keyword_id, category, keyword_text, interest_value, batch_id, retrieved_at |
 | `test` / `test_fct` | default | **scratch/test — not production** | test → fct_foreign_tourism_context_daily | (ignore) |
+| `fct_client_item_signals_daily` | table, part. transaction_date | location_id × transaction_date × item_description (+ une ligne par article mort au dernier jour vendu) ; sites ≥ 20 jours de vente, article renseigné | stg_client_transactions, fct_client_day_residual, fct_location_context_daily | revenue, units (Σ units_sold — une pesée = une vente, #134), unit_price (CA ÷ unités), revenue_share / baseline_share / share_robust_z / is_share_move (articles quotidiens), price_baseline / price_delta_pct / is_price_move, days_since_last_sale / is_dead_item, expected_item_revenue / delta_eur / delta_z / is_eur_move, régime (is_school_holiday_flag, baseline_same_regime_n, regime_mismatch_flag), récurrence (n_occurrences_60d, first_occurrence_date) — 36 colonnes (10/09 : ligne ajoutée, le modèle n'en avait pas) |
 
 ---
 
