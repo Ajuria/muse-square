@@ -81,6 +81,20 @@ async function fetchBestTimeWeek(venueId: string): Promise<any[] | null> {
   }
 }
 
+// 12/09 (perf) — la prévision HEBDOMADAIRE BestTime d'un lieu gardée 1 h en mémoire du processus : la plupart des
+// chargements n'appellent plus l'API. Un échec (null) n'est jamais gardé : le chargement suivant réessaie.
+const _btWeekCache = new Map<string, { ts: number; data: any[] }>();
+const BT_WEEK_TTL_MS = 3_600_000;
+// L'id BestTime d'un site, gardé 1 h aussi : un chargement « chaud » ne relit pas le profil pour le connaître.
+const _btVenueByLoc = new Map<string, { ts: number; id: string | null }>();
+async function fetchBestTimeWeekCached(venueId: string): Promise<any[] | null> {
+  const hit = _btWeekCache.get(venueId);
+  if (hit && Date.now() - hit.ts < BT_WEEK_TTL_MS) return hit.data;
+  const data = await fetchBestTimeWeek(venueId).catch(() => null);
+  if (data) _btWeekCache.set(venueId, { ts: Date.now(), data });
+  return data;
+}
+
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const _t0 = Date.now();
@@ -211,14 +225,25 @@ export const GET: APIRoute = async ({ url, locals }) => {
       params: { location_id }, types: { location_id: "STRING" }, location: "EU",
     });
     activeSuppP.catch(() => {});
-    const btEarlyP: Promise<{ venueId: string | null; data: any[] | null }> = bq.query({
-      query: `SELECT besttime_venue_id FROM \`muse-square-open-data.semantic.vw_insight_event_ai_location_context\` WHERE location_id = @location_id LIMIT 1`,
-      params: { location_id },
-      location: "EU",
-    }).then(async (r: any) => {
-      const id = r?.[0]?.[0]?.besttime_venue_id ?? null;
-      return { venueId: id, data: id ? await fetchBestTimeWeek(id).catch(() => null) : null };
-    }).catch(() => ({ venueId: null, data: null }));
+    // BestTime (12/09) — AMORCÉE au début, jamais en série après la vague. Chaud (id du site et prévision connus depuis
+    // moins d'1 h dans ce processus) : aucune lecture, aucun appel. Froid : l'id est lu dans la vue du profil du
+    // cerveau (vw_insight_event_ai_location_context), en parallèle de la vague. S'il diffère du profil plus bas,
+    // l'appel suit le profil (même résultat qu'avant, en toutes circonstances).
+    const btEarlyP: Promise<{ venueId: string | null; data: any[] | null }> = (async () => {
+      const known = _btVenueByLoc.get(location_id);
+      let id: string | null;
+      if (known && Date.now() - known.ts < BT_WEEK_TTL_MS) id = known.id;
+      else {
+        const r: any = await bq.query({
+          query: `SELECT besttime_venue_id FROM \`muse-square-open-data.semantic.vw_insight_event_ai_location_context\` WHERE location_id = @location_id LIMIT 1`,
+          params: { location_id },
+          location: "EU",
+        });
+        id = r?.[0]?.[0]?.besttime_venue_id ?? null;
+        _btVenueByLoc.set(location_id, { ts: Date.now(), id });
+      }
+      return { venueId: id, data: id ? await fetchBestTimeWeekCached(String(id)) : null };
+    })().catch(() => ({ venueId: null, data: null }));
 
     // ----------------------------------------------------------------
     // 3. Change feed query
@@ -488,10 +513,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     // Fetch BestTime foot traffic if venue is registered
     const btVenueId = profile?.besttime_venue_id ?? null;
-    // 12/09 (perf) — BestTime AMORCÉE au début (btEarlyP), id lu dans la MÊME vue que le profil du cerveau ; si
-    // les deux ids diffèrent, l'appel suit le profil comme avant. Mesuré avant : 124-619 ms EN SÉRIE après la vague.
+    // BestTime : btEarlyP (plus haut). Si l'id retenu diffère de celui du profil, le profil gagne (et devient l'id retenu).
     const btEarly = await btEarlyP;
-    const btWeekData = btVenueId ? (btEarly.venueId === btVenueId ? btEarly.data : await fetchBestTimeWeek(btVenueId).catch(() => null)) : null;
+    if (btVenueId && btEarly.venueId !== btVenueId) _btVenueByLoc.set(location_id, { ts: Date.now(), id: String(btVenueId) });
+    const btWeekData = btVenueId ? (btEarly.venueId === btVenueId ? btEarly.data : await fetchBestTimeWeekCached(String(btVenueId))) : null;
     const btByDayInt = new Map<number, any>();
     if (btWeekData) {
       for (const d of btWeekData) {

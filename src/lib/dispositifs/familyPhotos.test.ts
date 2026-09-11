@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pickFamilyPhoto, familyPhotoPayload, photoProxyUrl, FAMILY_PHOTO_CARD_TYPES, type FamilyPhotoRow } from "./familyPhotos";
+import { pickFamilyPhoto, familyPhotoPayload, photoProxyUrl, joinFamilyPhotos, FAMILY_PHOTO_CARD_TYPES, type FamilyPhotoRow, type FamilyPhotoCandidate } from "./familyPhotos";
 const row = (o: Partial<FamilyPhotoRow>): FamilyPhotoRow => ({ dispositif_id: "d1", photo_id: "p1", component_label: "Étagère du fond", created_at: "2026-09-11 10:00:00+00", families_present: ["Thé"], fixture_no: 7, ...o });
 
 describe("pickFamilyPhoto — la photo d'une carte famille", () => {
@@ -43,5 +43,17 @@ describe("familyPhotoPayload — ce que la carte reçoit", () => {
   it("l'URL entière n'a pas de paramètre variant ; les quatre cartes famille, et elles seules", () => {
     expect(photoProxyUrl("d", "p")).toBe("/api/dispositifs/photos?dispositif_id=d&file=p");
     expect([...FAMILY_PHOTO_CARD_TYPES].sort()).toEqual(["family_discount_move", "family_price_move", "family_space_underuse", "offering_mix_shift"]);
+  });
+});
+
+describe("joinFamilyPhotos — la photo et son composant ouvert", () => {
+  const ph = (o: Partial<FamilyPhotoCandidate>): FamilyPhotoCandidate => ({ dispositif_id: "d1", version_no: 2, component_key: "c1", photo_id: "p1", created_at: "2026-09-11 10:00:00+00", families_present: ["Thé"], fixture_no: 7, ...o });
+  it("jointure sur (dispositif, version, composant) ; le nom vient du composant", () => {
+    const out = joinFamilyPhotos([ph({})], [{ dispositif_id: "d1", version_no: 2, component_key: "c1", label: "Étagère du fond" }]);
+    expect(out).toEqual([{ dispositif_id: "d1", photo_id: "p1", component_label: "Étagère du fond", created_at: "2026-09-11 10:00:00+00", families_present: ["Thé"], fixture_no: 7 }]);
+  });
+  it("une photo d'une ANCIENNE version, d'un autre composant ou d'un pôle fermé ne sort pas", () => {
+    const comps = [{ dispositif_id: "d1", version_no: 2, component_key: "c1", label: null }];
+    expect(joinFamilyPhotos([ph({ version_no: 1 }), ph({ photo_id: "p2", component_key: "c9" }), ph({ photo_id: "p3", dispositif_id: "d2" })], comps)).toEqual([]);
   });
 });
