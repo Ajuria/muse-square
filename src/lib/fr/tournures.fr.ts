@@ -95,6 +95,20 @@ export const TOURNURES_LLM: TournureBannie[] = [
     faute: "« X font N € » n'est pas du français — les familles génèrent un montant, ou leur CA est de N €",
     refusee: "Coffee et Tea font à eux deux 1 154 € par jour",
   },
+  {
+    // 11/09 (owner : « llm crap that means NOTHING to a human ») : une métaphore n'est pas une phrase de
+    // commerçant — on dit ce qui est mesuré et ce qui manque.
+    motif: /\bangle mort\b|\bqui (les|la|le|vous) tient\b/,
+    faute: "image de machine (« angle mort », « qui les tient ») — dire ce qui est mesuré et ce qui manque",
+    refusee: "c'est le même angle mort qui les tient",
+  },
+  {
+    // 11/09 (owner : « etagere -> Not proper french -> étagère ») : les accents font partie du mot ; une
+    // clé lisible par un humain (sujet de mémoire, libellé) les garde. Mots courants, forme sans accent.
+    motif: /\b(etagere|etageres|epicerie|epiceries|epice|epices|cereale|cereales|deja|derniere|dernieres|premiere|premieres|apres|des que|a cote|cote gauche|cote droit|ete|hotel|hotels|the vert|the noir|marche couvert|reglement|prevu|prevue)\b/,
+    faute: "mot sans son accent (« etagere », « epicerie », « deja »…) — le français s'écrit avec ses accents, y compris dans une clé",
+    refusee: "Les paquets de café sont sur une etagere du fond",
+  },
   // 09/09 (owner : « please write in French not in frenglish — it drives me mad ») : LE FRANGLAIS EST
   // INTERDIT. Un calque de l'anglais n'est pas du français même quand chaque mot existe en français.
   {

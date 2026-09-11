@@ -34,6 +34,10 @@ describe("siteMemory — la ligne à écrire", () => {
     expect(row.memory_id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  it("garde les accents du sujet — « étagère du fond », jamais « etagere du fond » (owner 11/09)", () => {
+    expect(normalizeSubject("  Étagère  du fond ")).toBe("étagère du fond");
+    expect(normalizeSubject("Épicerie fine")).toBe("épicerie fine");
+  });
   it("refuse une ligne sans sujet, sans corps, sans auteur ou avec un rôle inconnu", () => {
     expect(() => newSiteMemoryRow({ ...base, subject: "  " })).toThrow(/subject/);
     expect(() => newSiteMemoryRow({ ...base, body: "" })).toThrow(/body/);
