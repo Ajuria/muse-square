@@ -26,6 +26,7 @@ import { salesFamily } from "./sales";
 import { calendarFamily } from "./calendar";
 import { channelsProvider } from "./channels";
 import { engagementsProvider } from "./engagements";
+import { margeFamily } from "./marge";
 
 export const FAMILIES: Record<string, FamilyProvider> = {
   // WEATHER / what the venue's OWN weather actually moves ("la pluie fait-elle baisser mon CA ?").
@@ -49,6 +50,22 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /\b(pluie|chaleur|canicule|froid|neige|vent)\b.{0,50}(fait fuir|fuir|dissuade|empeche|retenu).{0,25}(clients?|visiteurs?|public|monde)/,
     ],
     run: weatherFamily,
+  },
+  // MARGE BRUTE MESURÉE (11/09, docs/catalogue-de-couts-et-marge.md) — « quelle est ma marge brute ? »,
+  // « ma rentabilité », « mon bénéfice ». Avant footfall/sales : un mot de marge est un sujet de marge.
+  // Les figures de style (« marge de manœuvre / de progression / d'erreur ») ne sont pas des questions de
+  // marge — même garde que detectMissingDimension (prompt.ts). Le chat déterministe (mesure d'abord,
+  // sinon marge déclarée) répond avant ce provider ; ici : le rapport et la carte.
+  marge: {
+    key: "marge",
+    title: "Marge brute · 30 derniers jours",
+    render: "renderMarge",
+    match: [
+      /\bmarge brute\b/, /\btaux de marge\b/,
+      /\bmarges?\b(?! (de man(oe|œ)uvre|de progression|d'erreur|d erreur))/,
+      /\brentabilit/, /\bbenefices?\b/, /\bprofits?\b/, /\bprix d'?achat\b/,
+    ],
+    run: margeFamily,
   },
   footfall: {
     key: "footfall",

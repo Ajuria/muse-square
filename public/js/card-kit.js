@@ -1857,6 +1857,37 @@
     return html;
   }
 
+  // Marge brute MESURÉE (11/09, provider insightFamilies/marge.ts — docs/catalogue-de-couts-et-marge.md
+  // M7-M9). Mots owner : marge brute, taux de marge brute, « calculée sur X % de votre CA · prix d'achat
+  // manquants sur Y % », « vendu sous son prix d'achat ». Absence dite quand aucun prix d'achat ne couvre
+  // assez de CA — jamais une estimation ici.
+  function renderMarge(j) {
+    if (!j || !j.ok || !j.found) {
+      return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Aucune marge brute mesur\u00e9e pour l\u2019instant \u2014 vos prix d\u2019achat couvrent trop peu de votre CA.</div>';
+    }
+    function d(n) { return n == null ? '\u2014' : String(n).replace('.', ','); }
+    var html = '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
+    html += '<div style="font-size:12px;color:#9CA3AF;margin-bottom:10px;">Calcul\u00e9e sur ' + d(j.coverage_pct) + ' % de votre CA \u00b7 prix d\u2019achat manquants sur ' + d(j.missing_pct) + ' %</div>';
+    html += msStrip([
+      { top: 'Marge brute', mid: frInt(j.gross_margin_ht) + ' \u20ac', highlight: true, tone: 'ok' },
+      { top: 'Taux de marge brute', mid: j.margin_rate_pct != null ? d(j.margin_rate_pct) + ' %' : '\u2014' },
+      { top: 'CA \u00b7 30 jours', mid: frInt(j.revenue) + ' \u20ac' }
+    ]);
+    if (j.families && j.families.length) {
+      html += '<div style="font-size:12px;color:#6B7280;margin:6px 0 0;">Par famille :</div>';
+      html += msSortTable([
+        { label: 'Famille', render: function (f) { return { v: f.family, bold: true }; } },
+        { label: 'Marge brute', key: 'gross_margin_ht', render: function (f) { return { v: frInt(f.gross_margin_ht) + ' \u20ac', bold: true }; } },
+        { label: 'Taux', key: 'margin_rate_pct', render: function (f) { return { v: f.margin_rate_pct != null ? d(f.margin_rate_pct) + ' %' : '\u2014', color: '#6B7280' }; } },
+        { label: 'Part du CA', key: 'revenue_share_pct', render: function (f) { return { v: f.revenue_share_pct != null ? d(f.revenue_share_pct) + ' %' : '\u2014', color: '#6B7280' }; } },
+        { label: 'Part de la marge', key: 'margin_share_pct', render: function (f) { return { v: f.margin_share_pct != null ? d(f.margin_share_pct) + ' %' : '\u2014', color: '#6B7280' }; } }
+      ], j.families, 'gross_margin_ht');
+    }
+    if (j.heavy_light) html += '<div style="font-size:12px;color:#B45309;margin-top:8px;line-height:1.5;">' + esc(j.heavy_light) + ' p\u00e8se plus dans votre CA que dans votre marge brute.</div>';
+    if (j.below_cost_lines > 0) html += '<div style="font-size:12px;color:#B91C1C;margin-top:6px;line-height:1.5;">' + j.below_cost_lines + ' ligne' + (j.below_cost_lines > 1 ? 's' : '') + ' de vente vendue' + (j.below_cost_lines > 1 ? 's' : '') + ' sous son prix d\u2019achat sur la p\u00e9riode.</div>';
+    return html;
+  }
+
   // extended_bad_weather — the extended weather WINDOW as a planning frame: the run of days, the venue's
   // OWN measured CA response to that condition (heat can be an OPPORTUNITY, not a threat), + next steps.
   function renderWeatherWindow(j) {
@@ -2220,6 +2251,6 @@
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
     mdBlockToSafeHtml: mdBlockToSafeHtml, renderAnswerBlocks: renderAnswerBlocks,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,
-    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow, renderChannels: renderChannels
+    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderMarge: renderMarge, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow, renderChannels: renderChannels
   };
 })();

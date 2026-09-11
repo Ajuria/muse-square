@@ -1,7 +1,7 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
 import { resolveNamedSite } from "../../../lib/explorer/siteFromQuestion";
-import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredFamilyMarginAnswerFr, declaredClientCountAnswerFr } from "../../../lib/context/contextCopy";
+import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredFamilyMarginAnswerFr, declaredClientCountAnswerFr, measuredMarginAnswerFr } from "../../../lib/context/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
@@ -24,6 +24,7 @@ import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declar
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profile/profileLabels";
 import { familyForQuestion, familiesForQuestion, FAMILIES } from "../../../lib/insightFamilies";
+import { readMeasuredMargin30d } from "../../../lib/kpi/margin";
 import { competitorImpactFacts } from "../../../lib/insightFamilies/competitor";
 import { getWebDayContext } from "../../../lib/ai/webContext";
 import { eventDensityImpactFacts, dayEventLandscapeFacts } from "../../../lib/insightFamilies/events";
@@ -72,6 +73,7 @@ type ProvenanceRegister = "vetted" | "web" | "model";
 // a family-wide « Vos ventes » chip would dress the estimate as measurement. No chip beats a wrong chip.
 const FAMILY_FACT_ORIGIN: Record<string, FactOrigin | null> = {
   weather: "meteo",
+  marge: "ventes",
   offering: "ventes",
   salesdiscount: "ventes",
   salesdecomp: "ventes",
@@ -3042,6 +3044,25 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           const hit = DOWS.find(([w]) => new RegExp(`\\b${w}s?\\b`).test(qn2));
           return hit ? { sql: ` AND EXTRACT(DAYOFWEEK FROM transaction_date) = ${hit[1]}`, fr: `vos ${hit[0]}s des 30 derniers jours` } : { sql: "", fr: "vos 30 derniers jours" };
         })();
+        // 11/09 — LA MESURE D'ABORD (docs/catalogue-de-couts-et-marge.md M7-M9) : quand les prix d'achat
+        // couvrent assez de CA (mode mesure ≥ 90 %, mixte ≥ 50 %), la marge brute MESURÉE répond — même
+        // foyer que Piloter et le provider marge (lib/kpi/margin.ts), même fenêtre de jours (_dowFilter).
+        // L'estimation déclarée ne parle qu'en dessous. Une marge déclarée DANS CE TOUR garde la main.
+        if (_missingDim === "marge" && !(_justDeclared && _justDeclared.correction_type === "declared_margin_pct")) {
+          try {
+            const _bqM = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+            const _today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+            const _mm = await readMeasuredMargin30d(_bqM, location_id, _today, _dowFilter.sql);
+            if ((_mm.mode === "mesure" || _mm.mode === "mixte") && _mm.gross_margin_ht != null && _mm.coverage_pct != null) {
+              sinkTelemetry(location_id, "measured-margin-answer", { mode: _mm.mode, coverage_pct: _mm.coverage_pct });
+              const ans = measuredMarginAnswerFr({
+                gross_margin_ht: _mm.gross_margin_ht, margin_rate_pct: _mm.margin_rate_pct, coverage_pct: _mm.coverage_pct, mode: _mm.mode,
+                window_fr: _dowFilter.fr, families: _mm.families, below_cost_lines: _mm.below_cost_lines,
+              });
+              return sysDialogueResponse(ans.headline, ans.answer, "deterministic_measured_margin_v1");
+            }
+          } catch (e) { console.warn("[measured-margin] read failed:", e); }
+        }
         if (_missingDim === "marge" && !(_justDeclared && _justDeclared.correction_type === "declared_margin_pct")) {
           try {
             const famMargins = await getDeclaredFamilyMargins(location_id);
