@@ -109,6 +109,13 @@ export const TOURNURES_LLM: TournureBannie[] = [
     faute: "mot sans son accent (« etagere », « epicerie », « deja »…) — le français s'écrit avec ses accents, y compris dans une clé",
     refusee: "Les paquets de café sont sur une etagere du fond",
   },
+  {
+    // 11/09 (owner, lexique l. 26 : « votre habituel » NU est banni depuis le 24/08 — la référence porte
+    // son nom entier, « votre résultat habituel ») : la forme nue est ressortie dans le chat le 11/09.
+    motif: /\b(sous|à|vs|au-dessus de|au-dessous de|contre) (leur|votre|son|sa|notre|ton) habituel\b/,
+    faute: "« habituel » nu — la référence porte son nom entier : sous leur RÉSULTAT habituel, votre CA habituel",
+    refusee: "Coffee et Tea vendent sous leur habituel",
+  },
   // 09/09 (owner : « please write in French not in frenglish — it drives me mad ») : LE FRANGLAIS EST
   // INTERDIT. Un calque de l'anglais n'est pas du français même quand chaque mot existe en français.
   {

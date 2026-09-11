@@ -240,7 +240,7 @@ permet à l'owner de relire chaque réponse rendue. Toute phrase refusée s'ajou
 
 Les cinq libellés sont composés sur la forme approuvée des étapes d'Explorer :
 `contextCopy.STAGE_FR` l. 138 « Lecture de vos ventes » (citée, rendue dans le chat Consulter). Le
-concept « ce que l'exploitant a dit de son espace » n'a PAS de mot au lexique (§ À arbitrer) — aucune
+concept « ce que l'exploitant a dit de son espace » se dit « Documentez l'espace » (owner 11/09, lexique) — aucune
 chaîne n'en invente un : elle dit la chose.
 
 Trois vérifications de LANGUE d'abord (sujet nommé · verbe du métier · unité et référentiel), puis les
@@ -303,11 +303,12 @@ conflit est dans la file owner.
    (`npm run dev` sur 4321 avec `MS_AUTH_BYPASS=1`, `npm run harness`, ouvrir
    `http://localhost:4173/tools/proto/explorer-agent-proto.html?location_id=f10c3e58-326e-4e38-947c-d59fcbe51df5`),
    et relire les réponses rendues : toute phrase refusée entre dans `tournures.fr.ts`.
-3. **Owner : arbitrer la surface** (dans Explorer, à côté du chat Consulter, ou une page à part) et LE
-   mot pour « ce que l'exploitant a dit de son espace ». Le proto meurt au commit qui livre.
+3. **Tranché par l'owner le 11/09** : la surface est **Explorer** (`prompt.astro`, la page où l'on pose
+   une question au site) ; le bloc et le geste se disent **« Documentez l'espace »** (lexique). Reste à
+   construire cette entrée dans Explorer ; le proto meurt au commit qui la livre.
 4. Owner : relire les deux réponses de la mesure du 11/09 (§ 6) et refuser ce qui n'est pas du français de commerçant — chaque refus entre dans `tournures.fr.ts`.
 5. Quand un lecteur naît pour la trace des tours, créer sa vue semantic AVANT d'écrire la lecture.
-6. Étendre le motif « X a fait N € » de `tournures.fr.ts` au pluriel (« font N € ») — attrapé au tour 1
-   à la relecture, pas par le garde.
+6. Fait le 11/09 : `tournures.fr.ts` attrape « X font N € » (pluriel), « angle mort » / « qui les tient »
+   (image), les mots courants sans accent et « habituel » nu.
 7. Décider si `normalizeSubject` retire les accents (« étagère » / « etagere » = un seul sujet) — le
    modèle a écrit un sujet sans accent au tour 2.

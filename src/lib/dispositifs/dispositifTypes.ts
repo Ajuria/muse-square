@@ -102,7 +102,7 @@ const CL_VITRINE: ChecklistQuestion[] = [
 
 // Partagée par linéaire, gondole, tête de gondole.
 const CL_LIBRE_SERVICE: ChecklistQuestion[] = [
-  { key: "ls_moyen_essai", question_fr: "Y a-t-il un moyen d'essayer : sentir, goûter, toucher, un échantillon ?", roles: ["expert"], lever: "conversion", proves_fr: "famille ou articles sous leur habituel + non = cause candidate (cas des poivres)" },
+  { key: "ls_moyen_essai", question_fr: "Y a-t-il un moyen d'essayer : sentir, goûter, toucher, un échantillon ?", roles: ["expert"], lever: "conversion", proves_fr: "famille ou articles sous leur résultat habituel + non = cause candidate (cas des poivres)" },
   { key: "ls_usage_explique", question_fr: "Un support dit-il à quoi sert le produit ou comment le choisir, et pas seulement d'où il vient ?", roles: ["expert"], lever: "conversion", proves_fr: "idem" },
   { key: "ls_prix_par_article", question_fr: "Chaque article porte-t-il son prix ?", roles: "all", lever: "conversion", proves_fr: "conformité ; article sans prix comparé à ses ventes" },
   { key: "ls_entree_gamme_oeil", question_fr: "Y a-t-il un article d'entrée de gamme à hauteur d'œil ?", roles: ["expert"], lever: "panier", proves_fr: "ventes des articles selon leur hauteur" },
