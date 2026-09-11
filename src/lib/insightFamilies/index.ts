@@ -28,8 +28,27 @@ import { channelsProvider } from "./channels";
 import { engagementsProvider } from "./engagements";
 import { margeFamily } from "./marge";
 import { espaceFamily } from "./espace";
+import { signauxFamilleFamily } from "./signauxFamille";
 
 export const FAMILIES: Record<string, FamilyProvider> = {
+  // SIGNAUX × FAMILLE (11/09, docs/reponse-aux-signaux-par-famille.md) — « quelles familles souffrent de la
+  // pluie ? », « qu'est-ce qui se vend pendant les vacances ? ». AVANT weather : une question qui nomme une
+  // famille, une catégorie ou un produit face à une classe de jours veut la réponse PAR FAMILLE, pas la
+  // sensibilité du site ; chaque motif exige les deux (un mot de famille ET un mot de classe), donc rien
+  // n'est volé à weather sur « quand il pleut, je vends moins ? ».
+  signaux: {
+    key: "signaux",
+    title: "Vos familles face aux jours (météo, calendrier, activité autour de vous)",
+    render: "renderSignauxFamille",
+    match: [
+      /\b(familles?|categories?|produits?|rayons?)\b.{0,60}\b(pluie|pleut|chaleur|canicule|froid|neige|vacances|feries?|meteo|touris|evenements?|concurren)/,
+      /\b(pluie|pleut|chaleur|canicule|froid|neige|vacances|feries?|meteo|touris|evenements?|concurren)[a-z]*\b.{0,60}\b(familles?|categories?|produits?|rayons?)\b/,
+      /\bquelles? (familles?|categories?|produits?)\b.{0,50}(sensible|souffre|profite|baisse|monte|resiste|marche|se vend)/,
+      /\bsensib.{0,30}(famille|categorie|produit)/,
+      /\b(qu'?est[- ]ce qui|quoi|que)\b.{0,20}(se vend|vend|marche).{0,40}(quand il (pleut|fait chaud|fait froid|neige)|pendant les vacances|les jours feries)/,
+    ],
+    run: signauxFamilleFamily,
+  },
   // WEATHER / what the venue's OWN weather actually moves ("la pluie fait-elle baisser mon CA ?").
   // FIRST on purpose: footfall's /(quand…).{0,35}(vend…)/ matcher otherwise swallows "quand il pleut,
   // je vends moins ?" and answers with a peak HOUR — the wrong card for a sensitivity question. Every

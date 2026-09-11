@@ -75,6 +75,7 @@ const FAMILY_FACT_ORIGIN: Record<string, FactOrigin | null> = {
   weather: "meteo",
   marge: "ventes",
   espace: "declarations",
+  signaux: "ventes",
   offering: "ventes",
   salesdiscount: "ventes",
   salesdecomp: "ventes",

@@ -1920,6 +1920,35 @@
     return html;
   }
 
+  // Signaux × famille (11/09, provider insightFamilies/signauxFamille.ts — docs/reponse-aux-signaux-par-famille.md).
+  // Mots owner : CA/jour <famille>, Panier moyen avec <famille>, Part de <famille> dans le CA, vs vos jours
+  // comparables ; paliers estim\u00e9 / mesur\u00e9 ; « \u00e0 saison \u00e9gale ».
+  function renderSignauxFamille(j) {
+    if (!j || !j.ok || !j.found || !j.lines || !j.lines.length) {
+      return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Aucune r\u00e9ponse famille \u00d7 jours mesurable pour l\u2019instant \u2014 moins de 5 jours par classe, ou un \u00e9cart sous le bruit.</div>';
+    }
+    function sgn(n) { return (n > 0 ? '+' : n < 0 ? '\u2212' : '') + frInt(Math.abs(Math.round(n))); }
+    var html = '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
+    html += '<div style="font-size:12px;color:#6B7280;margin:6px 0 0;">CA/jour de la famille vs vos jours comparables, \u00e0 saison \u00e9gale :</div>';
+    html += msSortTable([
+      { label: 'Famille', render: function (l) { return { v: l.family, bold: true }; } },
+      { label: 'Jours', render: function (l) { return { v: l.label_fr }; } },
+      { label: 'CA/jour', key: 'avg_gap_eur', render: function (l) { return { v: sgn(l.avg_gap_eur) + ' \u20ac', bold: true, color: l.avg_gap_eur < 0 ? '#B45309' : '#059669' }; } },
+      { label: 'Jours mesur\u00e9s', key: 'n_days', render: function (l) { return { v: String(l.n_days), color: '#6B7280' }; } },
+      { label: 'Par an', key: 'eur_year', render: function (l) { return { v: '\u2248 ' + sgn(l.eur_year) + ' \u20ac', color: '#6B7280' }; } },
+      { label: 'Niveau', render: function (l) { return { v: l.tier, color: '#9CA3AF' }; } }
+    ], j.lines, 'eur_year');
+    var extra = [];
+    for (var i = 0; i < Math.min(3, j.lines.length); i++) {
+      var l = j.lines[i];
+      if (l.basket_delta_eur != null) extra.push('Panier moyen avec ' + esc(l.family) + ' ' + esc(l.label_fr) + ' : ' + sgn(l.basket_delta_eur) + ' \u20ac');
+      if (l.share_delta_pt != null) extra.push('Part de ' + esc(l.family) + ' dans le CA ' + esc(l.label_fr) + ' : ' + sgn(l.share_delta_pt) + ' pt');
+    }
+    if (extra.length) html += '<div style="font-size:12px;color:#6B7280;margin-top:8px;line-height:1.6;">' + extra.join('<br>') + '</div>';
+    html += '<div style="font-size:11px;color:#9CA3AF;margin-top:8px;font-style:italic;line-height:1.5;">\u00c9carts observ\u00e9s sur vos jours comparables (m\u00eame mois, m\u00eame type de jour), pas des causes \u00e9tablies.</div>';
+    return html;
+  }
+
   // extended_bad_weather — the extended weather WINDOW as a planning frame: the run of days, the venue's
   // OWN measured CA response to that condition (heat can be an OPPORTUNITY, not a threat), + next steps.
   function renderWeatherWindow(j) {
@@ -2283,6 +2312,6 @@
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
     mdBlockToSafeHtml: mdBlockToSafeHtml, renderAnswerBlocks: renderAnswerBlocks,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,
-    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderMarge: renderMarge, renderEspace: renderEspace, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow, renderChannels: renderChannels
+    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderMarge: renderMarge, renderEspace: renderEspace, renderSignauxFamille: renderSignauxFamille, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow, renderChannels: renderChannels
   };
 })();
