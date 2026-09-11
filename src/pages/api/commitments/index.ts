@@ -11,9 +11,8 @@ import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureScopeBas
 import { normalizeScope, parseScope, scopeFromFamily, serializeScope, type MeasuredScope } from "../../../lib/commitments/measuredScope";
 import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/commitments/actionCommitments";
-import { parseComponents } from "../../../lib/dispositifs/dispositifTypes";
-import { parseSpaceMeasuresBody, appendSpaceMeasures, parseMeasureSource } from "../../../lib/dispositifs/spaceMeasures";
-import { listPoles, familyTakenByAnotherPole, familyClashMessageFr } from "../../../lib/dispositifs/poleReading";
+import { createPermanentPole } from "../../../lib/dispositifs/poleCreate";
+import { listPoles } from "../../../lib/dispositifs/poleReading";
 import { assignmentMessageFr } from "../../../lib/channels/slackMessagesFr";
 import { themeForActionType } from "../../../lib/recos/recoThemeMap";
 import { vif } from "../../../lib/commitments/commitmentResolve";
@@ -237,103 +236,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // versions (lineageFor) ; le responsable est un ATTRIBUT — le pôle demeure jusqu'à
     // fermeture (soft-cancel aujourd'hui, rendu « fermé » côté surface).
     if (String(body.dispositif_nature || "").trim() === "permanent") {
+      // LE chemin d'écriture d'un pôle vit dans lib/dispositifs/poleCreate.ts (11/09) — partagé avec le
+      // one-off qui déclare les pôles d'un site depuis son plan. Ici : le contrôle d'accès, puis l'appel.
       if (!body.location_id || !body.committed_action_text) {
         return json({ ok: false, error: "Champs requis manquants (pôle) : location_id, committed_action_text" }, 400);
       }
-      const fams = Array.isArray(body.pole_families)
-        ? body.pole_families.map((f: any) => String(f).trim()).filter(Boolean) : [];
-      if (!fams.length && !body.parent_commitment_id) {
-        return json({ ok: false, error: "pole_families requis : les familles réelles du pôle" }, 400);
-      }
       requireLocationOwnership(locals, body.location_id);
       const bqP = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
-      const poleId = crypto.randomUUID();
-      const _pParentId = body.parent_commitment_id ? String(body.parent_commitment_id).trim() : null;
-      let _pParent: Awaited<ReturnType<typeof readLatestSnapshot>> = null;
-      if (_pParentId) {
-        _pParent = await readLatestSnapshot(bqP, _pParentId);
-        if (!_pParent) return json({ ok: false, error: "parent_commitment_id introuvable" }, 400);
-        if (String(_pParent.location_id) !== String(body.location_id).trim()) {
-          return json({ ok: false, error: "parent_commitment_id d'un autre site" }, 403);
-        }
-        if ((_pParent as any).dispositif_nature !== "permanent") {
-          return json({ ok: false, error: "le parent n'est pas un dispositif permanent" }, 400);
-        }
-      }
-      const _pLineage = lineageFor(_pParent, poleId);
-      // « Une famille vit dans un seul pôle » (owner 27/08, RATIFIÉ 09/09) : la règle ne vivait que
-      // dans le formulaire (`pole-form.js`) — donc contournable par l'API, et une règle écrite à un
-      // seul endroit du chemin d'écriture n'est pas une règle. Le tri est PUR et testé
-      // (`familyTakenByAnotherPole`) ; la lecture passe par LE foyer `listPoles`, à sa limite haute
-      // EXPLICITE (défaut 12 : au-delà, un pôle non lu laisserait passer une famille déjà prise —
-      // un trou silencieux, jamais une erreur). La chaîne de versions de CE dispositif est exclue.
-      if (fams.length) {
-        const _pOthers = await listPoles(bqP, String(body.location_id).trim(), 50).catch(() => []);
-        const _pClash = familyTakenByAnotherPole(_pOthers, fams, _pLineage.dispositif_id);
-        if (_pClash) return json({ ok: false, error: familyClashMessageFr(_pClash) }, 400);
-      }
-      // Composants (03/09, spec dispositifs-typologie § 3) : type/rôle du registre, clé stable,
-      // libellé libre. Absents au POST → hérités du parent (même règle que le contexte de version).
-      const _pComps = parseComponents(body.components, () => crypto.randomUUID().slice(0, 8));
-      if (!_pComps.ok) return json({ ok: false, error: _pComps.error }, 400);
-      const _pComponents: string | null = body.components != null
-        ? (_pComps.components.length ? JSON.stringify(_pComps.components) : null)
-        : (((_pParent as any)?.components as string | null | undefined) ?? null);
-      // Mesures d'espace (11/09, docs/espace-et-pole.md E3) : longueur, faces de préhension, N° sur le
-      // plan, Part de linéaire par composant ; surface de vente au pôle. Elles vivent À PART
-      // (analytics.space_measures, append-only) — jamais dans le JSON components. Validées AVANT
-      // l'écriture du dispositif : une mesure sur un composant que la version ne porte pas est refusée,
-      // et un corps invalide ne laisse pas un pôle sans ses mesures.
-      const _pMeasures = parseSpaceMeasuresBody(body.space_measures);
-      if (!_pMeasures.ok) return json({ ok: false, error: _pMeasures.error }, 400);
-      if (_pMeasures.value.components.length) {
-        const _pKeys = new Set<string>();
-        try { for (const c of JSON.parse(_pComponents || "[]")) if (c && c.key) _pKeys.add(String(c.key)); } catch { /* composants illisibles → aucune clé */ }
-        const _pUnknown = _pMeasures.value.components.find((m) => !_pKeys.has(m.component_key));
-        if (_pUnknown) return json({ ok: false, error: `space_measures : le composant « ${_pUnknown.component_key} » n'est pas dans cette version du pôle` }, 400);
-      }
-      const row = await readMergeWrite(bqP, {
-        commitmentId: poleId, transitionType: "created", create: true,
-        patch: {
-          user_id: userId, location_id: String(body.location_id).trim(),
-          status: "open", verdict: null, authorship: "user_authored",
-          origin_kind: "pole", origin_action_type: "pole",
-          dispositif_nature: "permanent",
-          pole_families: fams.length ? JSON.stringify(fams) : ((_pParent as any)?.pole_families ?? null),
-          components: _pComponents,
-          // 07/09 — ce que le pôle vend = ses familles (périmètre de nature pole), hérité à la V2.
-          measured_scope: body.measured_scope != null
-            ? serializeScope(normalizeScope(body.measured_scope))
-            : (fams.length ? serializeScope({ kind: "pole", familles: fams.map((n: string) => ({ nom: n })), pole_id: poleId, pole_nom: String(body.committed_action_text).trim() }) : ((_pParent as any)?.measured_scope ?? null)),
-          committed_action_text: String(body.committed_action_text).trim(),
-          owner_person_name: body.owner_person_name != null && String(body.owner_person_name).trim()
-            ? String(body.owner_person_name).trim() : (_pParent?.owner_person_name ?? null),
-          dispositif_plus: body.dispositif_plus != null && String(body.dispositif_plus).trim()
-            ? String(body.dispositif_plus).trim() : ((_pParent as any)?.dispositif_plus ?? null),
-          dispositif_why: body.dispositif_why != null && String(body.dispositif_why).trim()
-            ? String(body.dispositif_why).trim() : ((_pParent as any)?.dispositif_why ?? null),
-          dispositif_resources: body.dispositif_resources != null && String(body.dispositif_resources).trim()
-            ? String(body.dispositif_resources).trim() : ((_pParent as any)?.dispositif_resources ?? null),
-          adjustment_move: body.adjustment_move ? String(body.adjustment_move).trim() : null,
-          adjustment_note: body.adjustment_note != null ? (String(body.adjustment_note).trim() || null) : null,
-          parent_commitment_id: _pParentId,
-          dispositif_id: _pLineage.dispositif_id,
-          version_no: _pLineage.version_no,
-          operation_cost_eur: body.operation_cost_eur != null && Number.isFinite(Number(body.operation_cost_eur)) && Number(body.operation_cost_eur) >= 0 && Number(body.operation_cost_eur) <= 1000000
-            ? Math.round(Number(body.operation_cost_eur) * 100) / 100 : null,
-        } as any,
-      } as any);
-      let _pWritten: string[] = [];
-      if (_pMeasures.value.components.length || _pMeasures.value.pole) {
-        _pWritten = await appendSpaceMeasures({
-          location_id: String(body.location_id).trim(), dispositif_id: _pLineage.dispositif_id, version_no: _pLineage.version_no,
-          components: _pMeasures.value.components, pole: _pMeasures.value.pole,
-          source: parseMeasureSource(body.space_measures?.source, "saisie"),
-          measured_at: typeof body.space_measures?.measured_at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.space_measures.measured_at) ? body.space_measures.measured_at : new Date().toISOString().slice(0, 10),
-          declarant_user_id: userId,
-        });
-      }
-      return json({ ok: true, commitment_id: row.commitment_id, dispositif_id: (row as any).dispositif_id, version_no: (row as any).version_no, space_measures_written: _pWritten.length });
+      const created = await createPermanentPole(bqP, userId, body);
+      return json(created.body, created.status);
     }
 
     if (!body.location_id || !body.origin_action_type ||
