@@ -7,10 +7,15 @@
 //   POST {action: "confirm", dispositif_id, photo_id, items_confirmed: [item_code]}
 //        → une NOUVELLE ligne de la même photo avec les articles confirmés (append-only, la
 //          dernière gagne) ; codes hors liste du site écartés. items_confirmed prime partout.
-//   POST {dispositif_id, version_no, component_key, image_base64, content_type}
+//   POST {dispositif_id, version_no, component_key, image_base64, content_type, fixture_no?}
 //        → écrit l'objet, LIT la photo (une consigne + un schéma générés depuis le registre,
 //          une porte qui rejette toute clé hors registre et tout code hors liste), écrit la ligne.
 //          Personne visible → l'objet est EFFACÉ, aucune ligne, réponse rejected: "person".
+//          v2 (owner 11/09) : toute photo dit aussi l'exposition du meuble (cinq mots owner), ses
+//          niveaux (meuble à niveaux seulement) et les familles présentes parmi les familles
+//          vendues du site (kpiRegistry.listSiteFamilies, 50 — le même foyer que evenement.ts et
+//          commitments/index.ts ; site sans vente → question non posée, tableau vide) ; le numéro
+//          sur le plan (fixture_no, entier > 0) vient du corps de la requête, jamais de l'image.
 //
 // Le dispositif et son site sont résolus par la couche SEMANTIC (vue mémoire), jamais par la
 // table analytics. Écriture = owner du site (requireLocationOwnership) ; lecture = owner ou
@@ -20,7 +25,8 @@ import { parseScope, serializeScope, scopeFromConfirmedPhotos } from "../../../l
 import { readMergeWrite } from "../../../lib/commitments/actionCommitments";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
-import { readComponents, dispositifTypeLabelFr, checklistFor } from "../../../lib/dispositifs/dispositifTypes";
+import { readComponents, dispositifTypeLabelFr, checklistFor, expositionLabelFr } from "../../../lib/dispositifs/dispositifTypes";
+import { listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
 import {
   PHOTO_MAX_BYTES, makeStorageClient, photoObjectPath, photoGcsUri, putPhotoObject, getPhotoObject, deletePhotoObject,
   insertPhotoRow, listPhotoRows, latestPerComponent, listSiteItems, withConfirmedItems, type PhotoRow,
@@ -71,6 +77,9 @@ function publicRow(r: PhotoRow, itemsByCode: Record<string, string>) {
     items_confirmed: r.items_confirmed ? r.items_confirmed.map((it) => ({ ...it, item_description: itemsByCode[it.item_code] ?? null })) : null,
     prices_seen: r.prices_seen, coverage_flag: r.coverage_flag, created_at: r.created_at,
     dispositif_type: r.dispositif_type, dispositif_type_label_fr: r.dispositif_type ? dispositifTypeLabelFr(r.dispositif_type) : null,
+    // v2 (11/09) : l'exposition et son libellé (registre), les niveaux, les familles, le numéro sur le plan.
+    exposition: r.exposition, exposition_label_fr: r.exposition ? expositionLabelFr(r.exposition) : null,
+    levels: r.levels, families_present: r.families_present ?? [], fixture_no: r.fixture_no,
   };
 }
 const byCode = (items: Array<{ item_code: string; item_description: string }>): Record<string, string> =>
@@ -153,6 +162,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!["image/jpeg", "image/png", "image/webp"].includes(content_type)) return json({ ok: false, error: "content_type non accepté (jpeg, png, webp)" }, 400);
     const bytes = Buffer.from(b64, "base64");
     if (!bytes.length || bytes.length > PHOTO_MAX_BYTES) return json({ ok: false, error: `image vide ou trop lourde (max ${Math.round(PHOTO_MAX_BYTES / 1e6 * 10) / 10} Mo après réduction)` }, 413);
+    // Le numéro du meuble sur le plan : facultatif ; s'il est donné, un entier > 0 — jamais lu sur l'image.
+    let fixture_no: number | null = null;
+    if (body.fixture_no != null && String(body.fixture_no).trim() !== "") {
+      const n = Number(body.fixture_no);
+      if (!Number.isInteger(n) || n < 1 || n > 9999) return json({ ok: false, error: "fixture_no : un entier positif" }, 400);
+      fixture_no = n;
+    }
 
     const bq = makeBQClient(BQ_PROJECT);
     const disp = await readDispositif(bq, dispositif_id, version_no);
@@ -166,24 +182,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const path = photoObjectPath(disp.location_id, dispositif_id, photo_id);
     const storage = makeStorageClient();
     const itemsP = listSiteItems(bq, disp.location_id);
+    // Les familles réellement vendues du site — le foyer listSiteFamilies (même limite 50 que
+    // evenement.ts et commitments/index.ts). Un site sans vente rend [] : la question n'est pas posée.
+    const familiesP = listSiteFamilies(bq, disp.location_id, 50).then((f) => f.map((x) => x.category)).catch(() => [] as string[]);
     await putPhotoObject(storage, path, bytes, content_type);
 
     // 2. La lecture — consigne + schéma générés depuis le registre, image en bloc base64.
     const questions = photoQuestions({ type: comp.type, role: comp.role });
-    const items = await itemsP;
+    const [items, families] = await Promise.all([itemsP, familiesP]);
     const model = modelFor("packager");
     const call = await callClaudeMessagesAPI({
       model, maxTokens: 2000, timeoutMs: 60_000, cacheSystem: true,
-      system: photoExtractionSystem({ type: comp.type, role: comp.role, items }, questions),
+      system: photoExtractionSystem({ type: comp.type, role: comp.role, items, families }, questions),
       userContent: [
         { type: "image", source: { type: "base64", media_type: content_type as any, data: b64 } },
         { type: "text", text: "Remplis le formulaire pour cette photo." },
       ],
-      outputSchema: photoExtractionSchema(questions),
+      outputSchema: photoExtractionSchema(questions, families),
     });
     let out: any = null;
     if (call.ok && call.rawText) { try { out = JSON.parse(call.rawText.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "")); } catch { out = null; } }
-    const gate = validatePhotoExtraction(out, questions.map((q) => q.key), items.map((i) => i.item_code));
+    const gate = validatePhotoExtraction(out, questions.map((q) => q.key), items.map((i) => i.item_code), families);
 
     // 3. Personne visible → l'image n'existe plus, aucune ligne (déviation acceptée owner 03/09).
     if (gate.rejected_person) {
@@ -202,6 +221,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       dispositif_type: comp.type, dispositif_role: comp.role, status: "read",
       checklist: out.checklist, items_matched: out.items, items_confirmed: null, prices_seen: out.prices,
       coverage_flag: out.coverage, model, prompt_version: PHOTO_PROMPT_VERSION, created_by: userId, created_at: new Date().toISOString(),
+      // v2 : les valeurs NORMALISÉES par la porte (niveaux hors meuble à niveaux → null, familles dédoublonnées).
+      exposition: gate.exposition, levels: gate.levels, families_present: gate.families_present, fixture_no,
     };
     await insertPhotoRow(bq, row);
     return json({ ok: true, photo: publicRow(row, byCode(items)), usage: call.usage });

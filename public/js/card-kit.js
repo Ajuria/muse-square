@@ -1053,6 +1053,9 @@
                 + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;">'
                 + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(c.label || c.type_label_fr || '') + '</span>'
                 + '<span style="display:inline-flex;align-items:center;gap:10px;"><span style="font-size:12px;color:#6b7280;">' + esc(meta) + '</span>'
+                // v2 (11/09) : le numero du meuble sur le plan, saisi par l'exploitant AVANT « Documenter » —
+                // la page le lit et l'envoie avec la photo (fixture_no) ; jamais lu sur l'image.
+                + (cm.status === 'open' ? '<input type="number" min="1" max="9999" step="1" inputmode="numeric" data-eg-fixture-no="' + esc(c.key || '') + '" placeholder="' + esc(t2('pole_photo_fixture_no')) + '" title="' + esc(t2('pole_photo_fixture_no')) + '" style="width:110px;font-size:12px;color:#111827;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:4px 8px;font-family:inherit;">' : '')
                 + (cm.status === 'open' ? '<button type="button" data-eg-photo-add="' + esc(c.key || '') + '" style="font-size:12px;font-weight:500;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit;">' + esc(t2('pole_photo_cta')) + '</button>' : '')
                 + '</span></div>'
                 + '<div data-eg-photo="' + esc(c.key || '') + '" style="margin-top:6px;font-size:12px;color:#6b7280;">' + esc(t2('pole_photo_none')) + '</div>'
@@ -2184,10 +2187,21 @@
     var d = String(photo.created_at || '').slice(0, 10); var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
     var qs = Array.isArray(photo.questions) ? photo.questions : [];
     var ans = { oui: t('pole_photo_yes'), non: t('pole_photo_no'), non_visible: t('pole_photo_nv') };
+    // v2 (11/09) : ce que la photo dit du meuble — exposition (libelle servi par l'API, registre),
+    // niveaux (meuble a niveaux seulement), numero sur le plan ; puis les familles reconnues.
+    // Absent = rien (la question n'a pas ete posee), jamais un zero nu.
+    var meuble = [];
+    if (photo.exposition_label_fr) meuble.push(esc(photo.exposition_label_fr));
+    if (photo.levels != null && Number(photo.levels) > 0) meuble.push(esc(String(t('pole_photo_levels')).split('{n}').join(String(photo.levels))));
+    if (photo.fixture_no != null && Number(photo.fixture_no) > 0) meuble.push(esc(t('pole_photo_fixture_no')) + ' : ' + esc(String(photo.fixture_no)));
+    var fams = Array.isArray(photo.families_present) ? photo.families_present.filter(function (f) { return !!f; }) : [];
+    var meubleHtml = (meuble.length ? '<div style="font-size:12px;color:#374151;margin-top:2px;">' + meuble.join(' \u00b7 ') + '</div>' : '')
+      + (fams.length ? '<div style="font-size:12px;color:#374151;margin-top:2px;">' + esc(t('pole_photo_families')) + ' ' + fams.map(esc).join(', ') + '</div>' : '');
     return '<div style="display:flex;gap:12px;align-items:flex-start;">'
       + '<img src="' + esc(photo.url) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;flex:none;">'
       + '<div style="flex:1;min-width:0;">'
       + '<div style="font-size:12px;color:#374151;">' + esc(dfr) + (keys.length ? ' \u00b7 ' + n.oui + ' ' + esc(ans.oui) + ' \u00b7 ' + n.non + ' ' + esc(ans.non) + ' \u00b7 ' + n.non_visible + ' ' + esc(ans.non_visible) : '') + '</div>'
+      + meubleHtml
       + (qs.length ? '<div style="margin-top:4px;">' + qs.map(function (q) {
           var v = cl[q.key]; var col = v === 'oui' ? '#0F6E56' : v === 'non' ? '#B45309' : '#9CA3AF';
           return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;border-bottom:1px solid #F3F4F6;"><span style="color:#374151;">' + esc(q.question_fr) + '</span><span style="color:' + col + ';font-weight:600;white-space:nowrap;">' + esc(ans[v] || '') + '</span></div>';

@@ -7,6 +7,7 @@ import { describe, it, expect } from "vitest";
 import {
   DISPOSITIF_TYPES, ROLES_BY_TYPE, CHECKLIST_BY_TYPE, ALL_CHECKLIST_KEYS,
   dispositifTypesFor, dispositifRolesFor, checklistFor, dispositifTypeLabelFr, dispositifRoleLabelFr,
+  EXPOSITION_KINDS, EXPOSITION_VALUES, EXPOSITION_WITH_LEVELS, EXPOSITION_QUESTION_FR, LEVELS_QUESTION_FR, FAMILIES_QUESTION_FR, expositionLabelFr,
 } from "./dispositifTypes";
 import { MOTS_BANNIS } from "../fr/evenement.fr";
 
@@ -110,11 +111,33 @@ describe("dispositifTypes — libellés", () => {
       ...DISPOSITIF_TYPES.map((o) => o.label_fr),
       ...Object.values(ROLES_BY_TYPE).flat().map((r) => r.label_fr),
       ...Object.values(CHECKLIST_BY_TYPE).flat().map((q) => q.question_fr),
+      // « Meuble à niveaux » est un mot OWNER du 11/09 (exposition) : le ban de « meuble » (03/09) vise
+      // mon brouillon pour « composant », pas ce libellé. Exemption de CE seul libellé, à ratifier
+      // (lexique § À arbitrer, 11/09) — toute autre occurrence de « meuble » reste attrapée.
+      ...EXPOSITION_KINDS.map((o) => o.label_fr).filter((l) => l !== "Meuble à niveaux"),
+      EXPOSITION_QUESTION_FR, LEVELS_QUESTION_FR, FAMILIES_QUESTION_FR,
     ];
     for (const s of strings) expect(hasBanned(s), s).toEqual([]);
+    expect(hasBanned("Meuble à niveaux")).toEqual(["meuble"]);   // le conflit est CONNU, pas masqué
   });
   it("les libellés sans mot owner sont marqués provisoires (et seulement eux)", () => {
     const owner = new Set(["vitrine", "lineaire", "gondole", "tete_de_gondole", "table_ilot", "point_assiste", "caisse", "espace_experience", "mediation", "autre"]);
     for (const o of DISPOSITIF_TYPES) expect(!!o.provisoire, o.value).toBe(!owner.has(o.value));
+  });
+});
+
+describe("dispositifTypes — exposition (owner 11/09)", () => {
+  it("les cinq mots owner, uniques, dans l'ordre owner ; le meuble à niveaux est le seul à porter des niveaux", () => {
+    expect(EXPOSITION_VALUES).toEqual(["comptoir", "vitrine", "meuble_a_niveaux", "caisses_au_sol", "ilot"]);
+    expect(Object.isFrozen(EXPOSITION_VALUES)).toBe(true);
+    expect(EXPOSITION_VALUES).toContain(EXPOSITION_WITH_LEVELS);
+    expect(EXPOSITION_KINDS.map((o) => o.label_fr)).toEqual(["Comptoir", "Vitrine", "Meuble à niveaux", "Caisses au sol", "Îlot"]);
+    for (const o of EXPOSITION_KINDS) expect(o.label_fr.trim().length, o.value).toBeGreaterThan(0);
+  });
+  it("libellé d'une valeur inconnue = passthrough lisible ; les questions sont des questions", () => {
+    expect(expositionLabelFr("caisses_au_sol")).toBe("Caisses au sol");
+    expect(expositionLabelFr("zz_inconnu")).toBe("zz inconnu");
+    expect(expositionLabelFr(null)).toBe("");
+    for (const q of [EXPOSITION_QUESTION_FR, LEVELS_QUESTION_FR, FAMILIES_QUESTION_FR]) expect(q.trim().endsWith("?"), q).toBe(true);
   });
 });

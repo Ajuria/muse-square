@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { latestPerComponent, photoObjectPath, photoGcsUri, withConfirmedItems, type PhotoRow } from "./dispositifPhotos";
-const row = (o: Partial<PhotoRow>): PhotoRow => ({ photo_id: "p", location_id: "l", dispositif_id: "d", version_no: 1, component_key: "c", walk_id: null, seq: null, t_offset_s: null, gcs_uri: "gs://x", dispositif_type: null, dispositif_role: null, status: "read", checklist: null, items_matched: null, items_confirmed: null, prices_seen: null, coverage_flag: null, model: null, prompt_version: null, created_by: null, created_at: "2026-09-03T10:00:00Z", ...o });
+const row = (o: Partial<PhotoRow>): PhotoRow => ({ photo_id: "p", location_id: "l", dispositif_id: "d", version_no: 1, component_key: "c", walk_id: null, seq: null, t_offset_s: null, gcs_uri: "gs://x", dispositif_type: null, dispositif_role: null, status: "read", checklist: null, items_matched: null, items_confirmed: null, prices_seen: null, coverage_flag: null, model: null, prompt_version: null, created_by: null, created_at: "2026-09-03T10:00:00Z", exposition: null, levels: null, families_present: [], fixture_no: null, ...o });
 describe("dispositifPhotos — pur", () => {
   it("latestPerComponent garde la plus récente par (version, composant), quel que soit l'ordre d'entrée", () => {
     const rows = [row({ photo_id: "old", component_key: "c1", created_at: "2026-09-01T10:00:00Z" }), row({ photo_id: "new", component_key: "c1", created_at: "2026-09-03T10:00:00Z" }), row({ photo_id: "v2", component_key: "c1", version_no: 2, created_at: "2026-09-02T10:00:00Z" }), row({ photo_id: "c2", component_key: "c2" })];
@@ -20,6 +20,11 @@ describe("withConfirmedItems — la confirmation de l'exploitant", () => {
     expect(c.photo_id).toBe(base.photo_id);
     expect(c.items_matched).toEqual(base.items_matched);
     expect(latestPerComponent([base, c])[0].items_confirmed).toEqual([{ item_code: "A" }, { item_code: "C" }]);
+  });
+  it("v2 — la ligne de confirmation PORTE l'exposition, les niveaux, les familles et le numéro sur le plan de la lecture", () => {
+    const base = row({ exposition: "meuble_a_niveaux", levels: 3, families_present: ["Épices", "Thés"], fixture_no: 7 });
+    const c = withConfirmedItems(base, ["A"], ["A"], "2026-09-11T09:00:00Z");
+    expect(c).toMatchObject({ exposition: "meuble_a_niveaux", levels: 3, families_present: ["Épices", "Thés"], fixture_no: 7, items_confirmed: [{ item_code: "A" }] });
   });
   it("une confirmation vide est une confirmation : aucun article", () => {
     expect(withConfirmedItems(row({}), [], ["A"], "2026-09-04T09:00:00Z").items_confirmed).toEqual([]);

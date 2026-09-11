@@ -346,6 +346,21 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
 
 - « **produits** » vs « **famille** » : l'owner a écrit « CA produits « Branded » » — renommage
   GLOBAL du mot arbitré « famille » (prod : « CA famille » jusque dans les KPI) à confirmer.
+- **Ce que toute photo dit du meuble (owner 11/09, lecture des photos v2 —
+  `dispositifs-typologie-spec.md` § 5.3)** : mots PROPOSÉS par l'owner, inscrits tels quels, à ratifier.
+  L'exposition, cinq valeurs : **Comptoir** · **Vitrine** · **Meuble à niveaux** · **Caisses au sol** ·
+  **Îlot** (clés `comptoir`, `vitrine`, `meuble_a_niveaux`, `caisses_au_sol`, `ilot` — registre
+  `EXPOSITION_KINDS`), à la question « Quelle exposition ? » ; les **niveaux** (« Combien de niveaux ? »,
+  meuble à niveaux seulement) ; **« N° sur le plan »** (le numéro du meuble sur le plan du magasin, saisi
+  par l'exploitant, jamais lu sur l'image). Motif owner : chez Épices et Tout, la plupart des meubles
+  sont des comptoirs, des vitrines réfrigérées, des caisses en bois au sol — compter des « étagères »
+  n'y veut rien dire. Rendus : `commitmentCopy.ts` (`pole_photo_fixture_no`, `pole_photo_levels`,
+  `pole_photo_families` = « Familles reconnues : », miroir de « Articles reconnus : »). Aucun autre mot
+  n'a été inventé : « Vitrine » et « Îlot » sont déjà des libellés de type de composant (§ 2 de la spec).
+  **Conflit à trancher** : « meuble » est au `MOTS_BANNIS` depuis le 03/09 (mon brouillon pour
+  « composant », l. 64 ci-dessus) ; « Meuble à niveaux » est un mot owner du 11/09. Le libellé est gardé
+  tel quel, le garde du registre exempte CE seul libellé (`dispositifTypes.guard.test.ts`, cité) ; le ban
+  n'est pas levé. Owner : ratifier « Meuble à niveaux », ou donner LE mot.
 - « palier » (crans de la jauge Signaux traités) — retirés en attendant LE mot.
 - **Le libellé du champ « Gamme »** : proposé, non validé. Ses quatre valeurs (Entrée de gamme ·
   Milieu de gamme · Haut de gamme · Luxe) et la définition du Type de commerce sont tranchées

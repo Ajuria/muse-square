@@ -51,7 +51,7 @@ const id = Astro.url.searchParams.get("id") || "";
     <script is:inline src="/js/ms-loader.js?v=2"></script>
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
-    <script is:inline src="/js/card-kit.js?v=74"></script>
+    <script is:inline src="/js/card-kit.js?v=75"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -138,9 +138,14 @@ const id = Astro.url.searchParams.get("id") || "";
                 var file = input.files && input.files[0]; input.remove();
                 if (!file) return;
                 btn.disabled = true; say(key, COPY.pole_photo_reading || "");
+                // v2 (11/09) : le numéro du meuble sur le plan, saisi à côté de « Documenter » — envoyé
+                // seulement s'il est rempli (entier > 0) ; l'API le garde sur la ligne, l'image ne le dit pas.
+                var fxEl = sec.querySelector('[data-eg-fixture-no="' + key + '"]');
+                var fxVal = fxEl && fxEl.value ? Number(fxEl.value) : null;
+                var fixtureNo = fxVal != null && isFinite(fxVal) && fxVal >= 1 ? Math.floor(fxVal) : null;
                 shrink(file).then(function (dataUrl) {
                   return fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
-                    body: JSON.stringify({ dispositif_id: did, version_no: ver ? Number(ver) : null, component_key: key, image_base64: dataUrl, content_type: "image/jpeg" }) })
+                    body: JSON.stringify({ dispositif_id: did, version_no: ver ? Number(ver) : null, component_key: key, image_base64: dataUrl, content_type: "image/jpeg", fixture_no: fixtureNo }) })
                     .then(function (r) { return r.json(); });
                 }).then(function (j) {
                   btn.disabled = false;

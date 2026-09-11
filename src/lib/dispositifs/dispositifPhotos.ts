@@ -49,6 +49,11 @@ export interface PhotoRow {
   prices_seen: Array<{ label: string; price_eur: number; item_code: string | null }> | null;
   coverage_flag: string | null; model: string | null; prompt_version: string | null;
   created_by: string | null; created_at: string;
+  // v2 (owner 11/09) : ce que TOUTE photo dit du meuble — l'exposition (cinq mots owner, registre
+  // EXPOSITION_KINDS), les niveaux (seulement meuble_a_niveaux, null sinon), les familles présentes
+  // (parmi les familles vendues du site, [] si aucune), et le numéro du meuble sur le plan, donné
+  // par le CLIENT de l'API (jamais lu sur l'image).
+  exposition: string | null; levels: number | null; families_present: string[] | null; fixture_no: number | null;
 }
 
 // INSERT DML typé (jamais streaming insert : une ligne doit être lisible — et effaçable — tout de suite).
@@ -66,11 +71,15 @@ export async function insertPhotoRow(bq: any, row: PhotoRow): Promise<void> {
     // et l'ordre append-only (la dernière gagne) est celui que l'app a décidé — jamais l'heure
     // d'insertion, qui avait fait gagner une vieille photo réinsérée en dernier (sonde lot 2).
     created_at: new Date(row.created_at),
+    exposition: row.exposition, levels: row.levels, fixture_no: row.fixture_no,
+    // ARRAY<STRING> : jamais NULL en BigQuery — une absence s'écrit [] (le type est donné pour un tableau vide).
+    families_present: Array.isArray(row.families_present) ? row.families_present.map((f) => String(f)) : [],
   };
-  const types: Record<string, string> = {
+  const types: Record<string, string | string[]> = {
     walk_id: "STRING", seq: "INT64", t_offset_s: "FLOAT64", dispositif_type: "STRING", dispositif_role: "STRING",
     checklist: "STRING", items_matched: "STRING", items_confirmed: "STRING", prices_seen: "STRING",
     coverage_flag: "STRING", model: "STRING", prompt_version: "STRING", created_by: "STRING", created_at: "TIMESTAMP",
+    exposition: "STRING", levels: "INT64", fixture_no: "INT64", families_present: ["STRING"],
   };
   const cols = Object.keys(params);
   const [job] = await bq.createQueryJob({
@@ -87,7 +96,8 @@ export async function listPhotoRows(bq: any, dispositif_id: string, version_no?:
   const rows = await bq.query({
     query: `SELECT photo_id, location_id, dispositif_id, version_no, component_key, walk_id, seq, t_offset_s, gcs_uri,
                    dispositif_type, dispositif_role, status, checklist, items_matched, items_confirmed, prices_seen,
-                   coverage_flag, model, prompt_version, created_by, CAST(created_at AS STRING) AS created_at
+                   coverage_flag, model, prompt_version, created_by, CAST(created_at AS STRING) AS created_at,
+                   exposition, levels, families_present, fixture_no
             FROM \`${PHOTO_TABLE}\`
             WHERE dispositif_id = @d ${version_no != null ? "AND version_no = @v" : ""}
             ORDER BY created_at DESC LIMIT 500`,
@@ -106,6 +116,10 @@ export async function listPhotoRows(bq: any, dispositif_id: string, version_no?:
     prices_seen: parseJson(r.prices_seen), coverage_flag: r.coverage_flag != null ? String(flat(r.coverage_flag)) : null,
     model: r.model != null ? String(flat(r.model)) : null, prompt_version: r.prompt_version != null ? String(flat(r.prompt_version)) : null,
     created_by: r.created_by != null ? String(flat(r.created_by)) : null, created_at: String(flat(r.created_at)),
+    exposition: r.exposition != null ? String(flat(r.exposition)) : null,
+    levels: r.levels != null ? Number(flat(r.levels)) : null,
+    families_present: Array.isArray(r.families_present) ? r.families_present.map((f: any) => String(flat(f))) : [],
+    fixture_no: r.fixture_no != null ? Number(flat(r.fixture_no)) : null,
   }));
 }
 
@@ -135,7 +149,8 @@ export async function listSiteItems(bq: any, location_id: string, limit = 500): 
 // PUR : la ligne de CONFIRMATION d'une photo — même photo_id, items_confirmed posé, created_at
 // maintenant. Append-only : on n'édite jamais une ligne, la dernière gagne (latestPerComponent).
 // Les codes hors liste du site sont écartés, jamais corrigés ; un code confirmé qui n'était pas
-// reconnu par la lecture est accepté (l'exploitant voit mieux que le modèle).
+// reconnu par la lecture est accepté (l'exploitant voit mieux que le modèle). Tout le reste de
+// la ligne — exposition, niveaux, familles, numéro sur le plan (v2) — est PORTÉ tel quel.
 export function withConfirmedItems(row: PhotoRow, codes: string[], allowedCodes: readonly string[], now: string): PhotoRow {
   const allowed = new Set(allowedCodes);
   const uniq = Array.from(new Set(codes.map((c) => String(c).trim()).filter((c) => c && allowed.has(c))));

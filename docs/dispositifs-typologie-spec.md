@@ -432,6 +432,27 @@ une réponse nette l'emporte sur « on ne voit pas » ; deux réponses contradic
 La reconnaissance des articles reste une proposition. Quand l'exploitant la confirme ou la
 corrige, c'est sa version qui compte partout ensuite.
 
+**Ce que toute photo dit du meuble, quel que soit le type (owner 11/09 — lecture v2,
+`photo_extract_v2`).** Chaque photo répond en plus à trois questions, hors check-list : « Quelle
+exposition ? » — une valeur parmi cinq mots owner, **comptoir, vitrine, meuble à niveaux, caisses au
+sol, îlot** (registre `EXPOSITION_KINDS` de `dispositifTypes.ts`, liste fermée) ; « Combien de
+niveaux ? » — un entier, demandé et gardé SEULEMENT pour un meuble à niveaux, null partout ailleurs
+(la porte normalise) ; et les **familles présentes** sur le meuble, choisies UNIQUEMENT parmi les
+familles réellement vendues du site (le foyer `kpiRegistry.listSiteFamilies`, 50 au plus — le même
+que `evenement.ts` et `commitments/index.ts`). Un site sans vente (Épices et Tout au 11/09 : 0 ligne)
+n'a pas la question : le schéma n'a pas la propriété, la ligne porte un tableau vide — jamais un texte
+inventé. Le motif owner : chez Épices et Tout, la plupart des meubles sont des comptoirs, des vitrines
+réfrigérées, des caisses en bois au sol ; compter des « étagères » n'y veut rien dire. La porte
+(`validatePhotoExtraction`) rejette une exposition hors des cinq mots et une famille hors liste, comme
+un code d'article hors liste (lie-bait : 5 tests v2, mutation vue rouge le 11/09). Un quatrième champ
+ne vient pas de l'image : le **numéro du meuble sur le plan** (`fixture_no`, libellé « N° sur le
+plan »), un entier saisi par l'exploitant à côté de « Documenter » et envoyé avec la photo. Les quatre
+colonnes existent sur `analytics.dispositif_photos` depuis le 11/09 (`exposition`, `levels`,
+`families_present ARRAY<STRING>`, `fixture_no` — 25 colonnes), sont rendues par GET et portées par la
+ligne de confirmation. La chaîne dbt (`stg_dispositif_photos` → `vw_insight_event_dispositif_photos`)
+ne les projette pas encore : liste de colonnes explicite, passation à venir. Les cinq mots, « niveaux »
+et « N° sur le plan » sont au lexique § À arbitrer, datés du 11/09.
+
 ### 5.4 Les références sectorielles par type de dispositif
 
 Le crawl des bonnes pratiques gagne une dimension : le type de dispositif et son rôle, en plus du
