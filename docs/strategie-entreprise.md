@@ -905,11 +905,9 @@ règles d'ingestion Crisalid, mart de marge, paramètre charges fixes — passat
 #### Les dix-sept KPI de santé de l'affaire, par ordre d'importance (owner 11/09)
 
 Arbitré en chat le 11/09 sur trois entrées DÉCLARÉES en plus de la caisse : le catalogue de coûts,
-les charges fixes mensuelles, la masse salariale mensuelle. Trois grains de lecture de la marge
-tiennent de l'owner : **pôle d'activité, famille de produits, mètre linéaire** ; le m² s'y ajoute
-une fois par site, jamais par pôle (deux mesures des mêmes composants — linéaire ET surface — se
-contrediraient ; le client achète sur la façade, et comptoirs comme vitrines comptent déjà dans le
-linéaire). Chaque chiffre se lit contre le résultat habituel du lieu et se rattache à un dispositif ;
+les charges fixes mensuelles, la masse salariale mensuelle. Quatre grains de lecture de la marge
+tiennent de l'owner : **pôle d'activité, famille de produits, mètre linéaire, m²** — la surface
+par pôle et par site est une colonne déclarée à créer, pas une limite. Chaque chiffre se lit contre le résultat habituel du lieu et se rattache à un dispositif ;
 un tableau de ratios nu est « ce qu'on peut écrire sans ouvrir le compte » (`intent.md`) et ne
 s'écrit pas. Les mots d'interface de « marge brute », « résultat net », « point mort », « masse
 salariale » ne sont PAS au lexique : à arbitrer avant toute surface, avec la décision (1) sur
@@ -928,7 +926,7 @@ salariale » ne sont PAS au lexique : à arbitrer avant toute surface, avec la d
 | 9 | Casse et invendus, en marge perdue | troisième fuite, la plus probable en périssables ; types de document Crisalid que l'ingestion jette aujourd'hui | IVD, SST, RUP (§ 9.2) |
 | 10 | Articles morts : part du catalogue sans aucune vente sur la fenêtre | quatrième fuite ; de la place et de l'argent immobilisés sans retour | `is_dead_item` |
 | 11 | Masse salariale ÷ CA net, par mois | le premier coût fixe de la plupart des commerces, et le ratio que l'exploitant compare à ses pairs | masse salariale déclarée, `daily_net_revenue` |
-| 12 | Marge brute par m², par site | le chiffre de référence du secteur ; UNE surface déclarée par site, jamais par pôle | surface déclarée (aucune colonne aujourd'hui, ni site ni pôle) × KPI 4 |
+| 12 | Marge brute par m², par pôle et par site | le chiffre de référence du secteur, et la lecture au sol quand le composant n'a pas de façade (îlots, frigos, zone traiteur) | surface déclarée par pôle et par site × KPI 4 |
 | 13 | Marge brute par heure d'ouverture | la productivité du temps ouvert sans juger les personnes | KPI 3 au grain horaire |
 | 14 | Panier moyen | la valeur d'un ticket ; bouge avec le prix et le mix, indépendamment du passage | K4 `daily_avg_basket` |
 | 15 | Ventes (compte) | la couche volume, un compte, jamais des euros | K5 `daily_transactions`, `units` |
@@ -942,8 +940,8 @@ bilan — le produit ne ferait que relayer l'expert-comptable (« pas un middlew
 ne pointe rien que l'exploitant bouge en boutique ; la masse salariale n'entre QUE comme montant
 mensuel — par heure ou par personne, elle ferait un outil de planning, la mémoire s'accumulerait par
 personne, et le délai de prévenance rend « réduire les heures » impraticable à l'horizon de
-l'exploitant. [à instruire : la surface déclarée par site ; les quatre mots ; le mart de marge par
-pôle × linéaire une fois le relevé de l'espace livré]
+l'exploitant. [à instruire : la surface déclarée par pôle et par site ; les quatre mots ; le mart de marge par
+pôle × linéaire × m² une fois le relevé de l'espace livré]
 
 ### Sources du § 12 (lues le 07/09/2026)
 
