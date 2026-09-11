@@ -81,7 +81,11 @@ sur le composant (formulaire de pôle), jamais pendant le relevé ; **faces de p
   ou « Aucune mesure d’espace pour l’instant. » — `listPoleSpace` lit `vw_insight_event_pole_space` (mesures en
   vigueur) puis `vw_insight_event_space_30d` (€ par mètre quand le site vend). « Vos pôles » du profil porte
   l'état « Pôle en projet ». Harnais `npm run harness:tableau-espace` (17 contrôles).
-- **Reste** : la déclaration de la surface de vente en chat (`sales_area_m2` dans `DECLARED_METRICS` écrit
-  aujourd'hui le journal des corrections, pas `declared_parameters`) ; la saisie des mesures sur la fiche du pôle
-  (page de l'engagement, à côté du N° sur le plan des photos) ; Explorer, rapport, cartes (audit § 6 A6-A8) ;
-  chez Épices et Tout, les n° 3, 6, 19, 49 à confirmer sur place et les familles à rapprocher de la caisse.
+- **Explorer (11/09, dev)** : `FAMILIES.espace` (`lib/insightFamilies/espace.ts`, `renderEspace`) — linéaire du
+  site, par pôle « N m de linéaire (Part de linéaire N %) · N € de CA par mètre · part de marge contre Part de
+  linéaire » ou « aucune vente rapportée à ce pôle », « X occupe N % de votre linéaire pour M % de votre CA » ;
+  vérifié sur Épices et Tout (7 pôles, 8 faits). La surface de vente se déclare aussi en chat (« ma surface de
+  vente est de 120 m² » → `analytics.declared_parameters`).
+- **Reste** : la saisie des mesures sur la fiche du pôle (page de l'engagement, à côté du N° sur le plan des
+  photos) ; les cartes Agir (composant façade forte marge faible) ; chez Épices et Tout, les n° 3, 6, 19, 49 à
+  confirmer sur place et les familles à rapprocher de la caisse.

@@ -70,11 +70,25 @@ Les sept nœuds dbt portent `tags: ['mart_dependent']` : le job `daily mart depe
   avec Coffee +0,40 € (t = 3,2), part −1,3 point (t = 1,8). Ce sont des agrégats sur une graine : ils
   prouvent la mécanique, pas un fait sur un commerce.
 
-## 4. Ce qui n'existe pas encore (état, pas instruction)
+## 4. Ce qui existe côté app, et ce qui reste (état au 11/09)
 
-- Aucune surface app ne lit les trois vues ; `dayClassMembersSql` (app) recalcule encore les jours
-  d'une classe ; le store app n'est pas repointé ; l'importeur n'écrit pas `document_type`.
-- Aucune chaîne visible n'est écrite pour ces lectures ; les mots existent au lexique (Ventes/jour avec
-  <famille>, Panier moyen avec <famille>, CA/jour <famille>, Part de <famille> dans le CA, prix moyen,
-  vs vos jours comparables) — la phrase d'une réponse se soumettra avec son tableau 8-13.
-- Les décisions owner ouvertes du chantier : RETOUR dans le brut (à l'export de détail), meubles 49, 3-6, 19.
+- **Le store des enjeux est repointé** (`lib/kpi/dayClassRegistry.ts`, `readDayClassStore`) : la vue
+  `vw_insight_event_day_class_impacts` d'abord, `analytics.day_class_impacts` pour ce que dbt ne porte pas
+  (populations de cartes `pop_*`, `discount_no_lift`, classes absentes de la vue pour le site). La politique de
+  lecture (`rowsToImpacts`) n'a pas changé d'une ligne. Mesuré sur f10c3e58 au 10/09 : 11 pastilles → 9 —
+  `events_high` (+13 745 €/an) et `followed_activity_high` (−2 434 €/an) passent sous |t| ≥ 1 avec la base
+  marginale dbt (31 j → 17 j ; 15 j → 13 j), les autres bougent de 2 à 27 % (`rain` −8 772 → −8 526 €/an,
+  `school_holiday` −14 788 → −13 226 €/an). C'est la conséquence attendue des terciles exacts (§ 2, § 3 :
+  54 / 89 lignes identiques sur les classes à terciles).
+- **Le provider dispositif** (`lib/insightFamilies/dispositif.ts`) lit `vw_insight_event_day_class_membership`
+  pour les jours d'une classe ; `dayClassMembersSql` n'existe plus. Parité mesurée : 9 classes sur 11 identiques,
+  les deux terciles à ±1-2 jours.
+- **Explorer** : `FAMILIES.signaux` (`lib/insightFamilies/signauxFamille.ts`) lit
+  `vw_insight_event_family_day_class_response` et applique la porte du site à chaque famille (matérialité sur le
+  CA annuel de la famille) ; faits « CA/jour <famille> sur vos <jours> : ±N € vs vos jours comparables, sur n
+  jours — ≈ ±N € par an (estimé, à saison égale) », panier moyen et part quand |t| ≥ 1 ; rendu
+  `renderSignauxFamille` (rapport de famille, chat). Sur f10c3e58 : 44 lignes, 9 familles.
+- **L'importeur** écrit `document_type` (code de la caisse, tel quel), `revenue_ht`, `vat_rate` quand l'export les
+  porte (`lib/import/salesCsv.ts`).
+- **Reste** : les décisions owner ouvertes (RETOUR dans le brut à l'export de détail ; composants 49, 3-6, 19) ;
+  les cartes Agir par famille × classe.

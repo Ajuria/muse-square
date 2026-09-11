@@ -72,11 +72,22 @@ Var dbt `margin_coverage_min: 0.9`. Les nœuds portent `mart_dependent` ; la cha
   cinq sans prix) : 0 fan-out (11 063 lignes avant et après sur f10c3e58), couverture 70 % en CA, taux 39,9 % ;
   3 lignes sous le prix d'achat détectées sur la démo, toutes remisées.
 
-## 4. Ce qui n'existe pas encore (état)
+## 4. Ce qui existe côté app, et ce qui reste (état au 11/09)
 
-- Aucun prix d'achat, aucun paramètre déclaré, aucun site à base HT/TTC connue (le seul site Crisalid n'a pas de
-  ventes) : toutes les marges sont NULL, ce qui est le comportement voulu.
-- Aucun lecteur app : importeur de coûts, paramètres déclarés à date d'effet, K9 sur la vue jour, drapeaux et tuiles
-  de Piloter (résultat net, point mort), provider Explorer, section du rapport, cartes — c'est le lot app de la marge
-  (voir `audits/profit-grains-sensibilite-audit-2026-09-11.md` § 6 A1, A2, A5, A6, A7, A8).
-- Le grain pôle (marge par pôle, par mètre linéaire, par m²) attend le mapping famille → pôle et les mesures d'espace.
+- **En base** : aucun prix d'achat, aucun paramètre déclaré, aucun site à base HT/TTC connue (le seul site Crisalid
+  n'a pas de ventes) : toutes les marges sont NULL, ce qui est le comportement voulu.
+- **Entrées (dev)** : l'importeur de prix d'achat (`api/import/costs-csv`, `lib/import/costCsv.ts`), les paramètres
+  déclarés à date d'effet (`api/insight/declared-parameters`, `lib/kpi/declaredParameters.ts` ; gestes inline de
+  Piloter), l'importeur de ventes qui écrit `document_type`, `revenue_ht`, `vat_rate` quand l'export les porte
+  (`lib/import/salesCsv.ts`, taux de TVA en fraction), la surface de vente déclarée en chat (« ma surface de vente
+  est de 120 m² » → `analytics.declared_parameters`, `lib/ai/declaredMetrics.ts`).
+- **Lecteurs (dev)** : Piloter (marge brute, résultat net, point mort dans la carte CA ; K9 mesuré d'abord) ; LE foyer
+  `lib/kpi/margin.ts` (`readMeasuredMargin30d`, 30 jours, site + familles, mode décidé une fois) partagé par le chat
+  (la mesure répond avant l'estimation déclarée dès le mode mixte, `measuredMarginAnswerFr`), par le provider
+  Explorer `FAMILIES.marge` (faits avec la couverture comme fait à part, famille lourde en CA légère en marge,
+  lignes vendues sous leur prix d'achat, `renderMarge`) et par la section « Marge brute · 30 derniers jours » du
+  rapport de ventes. Sur le compte owner (aucun prix d'achat) : mode « aucune », absence dite partout.
+- **Reste** : les cartes Agir (audit § 6 A7 : vendu sous son prix d'achat, remise qui efface la marge, marge du jour,
+  point mort atteint, famille lourde en CA légère en marge) ; le premier export de détail Crisalid (en-têtes réels de
+  l'override `crisalid`, décision RETOUR) ; le grain pôle de la marge lit déjà `vw_insight_event_space_30d` dès
+  qu'un site avec pôles vend.
