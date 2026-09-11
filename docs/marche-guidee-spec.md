@@ -198,7 +198,7 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
    s'ouvre au début du relevé. » · « Trop sombre » · « Photo floue » · « Touchez pour la garder quand
    même. » · « Caméra indisponible » · « Prenez la photo avec l'appareil du téléphone. » · « Photo avec
    l'appareil » · « Retirer » · « Garder » · « Aucune photo » · « 1 photo » · « n photos » · « Non
-   rattaché » · « Compte rendu ». Les trois mots owner du 11/09 restent à ratifier au lexique.
+   rattaché » · « Compte rendu ». Les mots owner du 11/09 sont au lexique depuis le 12/09.
    **Se sert** : `npm run harness:https` (`tools/harness/https-serve.mjs` : certificat auto-signé hors
    dépôt dans `~/.cache/muse-square/https/`, servi en HTTP sur :8080 pour l'installer sur le téléphone,
    proto en HTTPS sur :8443, `/images/*` depuis `public/images` ; entrée `proto-https` de
@@ -218,7 +218,7 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
    faux points focaux en marchant, problèmes affichés à tort ou manqués, netteté médiane, durée, repli
    iOS. Le compte rendu JSON se joint à l'arbitrage.
 1. **Typologie § 3** : la part des familles et la règle des deux faces (fait le 11/09, ce document).
-2. **Lexique** : les mots du § 10 (owner) — rien ne s'affiche avant.
+2. **Lexique** : fait le 12/09 — les mots du § 10 sont au tableau.
 3. **La page de marche** (`src/pages/app/…`, nouveau fichier dans son domaine ; `module-index.md`
    dans le même commit) : flux caméra, détection d'arrêt, repli fichier, viseur avec pôle courant,
    envoi. **Harnais** : rejouer la détection d'arrêt sur une vidéo de référence filmée dans le
@@ -241,15 +241,15 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
 9. **dbt** : passation des colonnes v2 + `families_share` + la vue des marches (une passation, ordre
    du DAG, compilée sur `origin/main`).
 
-## 10. Les mots — proposés par l'owner le 11/09, à ratifier au lexique
+## 10. Les mots — proposés par l'owner le 11/09, RATIFIÉS le 12/09 (lexique, tableau des mots)
 
 | Concept | Proposition owner | Recommandation (11/09) | État |
 |---|---|---|---|
-| La marche comme objet visible | « Relevé vidéo de l'espace » | **Relevé de l'espace**, sans « vidéo » : aucune vidéo n'est produite (M2) ; « relevé » n'a pas de collision au lexique | à ratifier |
-| L'arrêt devant un composant | « Point focal » | **Point focal** ; aucune collision | à ratifier |
+| La marche comme objet visible | « Relevé vidéo de l'espace » | **Relevé de l'espace**, sans « vidéo » : aucune vidéo n'est produite (M2) ; « relevé » n'a pas de collision au lexique | ratifié 12/09 |
+| L'arrêt devant un composant | « Point focal » | **Point focal** ; aucune collision | ratifié 12/09 |
 | Le changement de pôle | (même mot proposé) | pas un mot : un GESTE, le nom du pôle sur le bouton et le verbe choisi par l'owner | à écrire avec les chaînes |
-| La page de fin | « Fin du relevé » | **Fin du relevé**, UNE page à la fin de la boucle, une section par pôle (amendement M3) | à ratifier |
-| La part d'une famille sur un composant | « Part d'assortiment », « Share of Shelf », « Allocation par famille » | **Part de linéaire** : terme du métier, cohérent avec les mètres linéaires de façade mesurés le 11/09 ; « linéaire de façade » couvre comptoirs et caisses au sol. Refusés : Share of Shelf (anglais, règle 7 bis) ; part d'assortiment (autre mesure, et « assortiment » est déjà le mot de la largeur de l'offre, lexique l. 97) ; allocation (la décision, pas la mesure) | à ratifier |
+| La page de fin | « Fin du relevé » | **Fin du relevé**, UNE page à la fin de la boucle, une section par pôle (amendement M3) | ratifié 12/09 |
+| La part d'une famille sur un composant | « Part d'assortiment », « Share of Shelf », « Allocation par famille » | **Part de linéaire** : terme du métier, cohérent avec les mètres linéaires de façade mesurés le 11/09 ; « linéaire de façade » couvre comptoirs et caisses au sol. Refusés : Share of Shelf (anglais, règle 7 bis) ; part d'assortiment (autre mesure, et « assortiment » est déjà le mot de la largeur de l'offre, lexique l. 97) ; allocation (la décision, pas la mesure) | ratifié 12/09 |
 | L'état d'un pôle dont les familles ne sont pas encore celles de la caisse | « Projet » | **Pôle en projet** (owner 11/09) : UN état, la raison écrite dessous — « Aucune vente importée » (proposé ; « En attente de la caisse » refusé : un pôle n'attend pas) puis « À rapprocher de la caisse » (ventes importées, un geste : l'écran de correspondance). « À documenter » refusé (« Documenter » = la photo) | **tranché** |
 
 ## 11. Décisions owner du 11/09 (« Okay avec recommendations »)
@@ -260,5 +260,4 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
 | W2 | La part des familles : proposée par la lecture puis confirmée, ou saisie à la main seulement ? | **Proposée puis confirmée** ; une part non confirmée se lit « lue », jamais « déclarée ». |
 | W3 | Le signal « autre pôle ? » (M5) dès la première version, ou après mesure ? | **Après mesure** sur les familles de caisse (§ 9, point 6) : il double le coût de lecture. |
 
-Reste ouvert : la ratification des quatre autres mots du § 10 (l'état du pôle est tranché : « Pôle
-en projet », deux raisons).
+Rien ne reste ouvert sur les mots : les cinq sont au lexique (12/09).

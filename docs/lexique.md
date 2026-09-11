@@ -92,6 +92,11 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Une alerte chaleur de niveau 3 et plus (32 °C) | **forte chaleur** — « Alerte forte chaleur (niveau critique) » ; en dessous du niveau 3, « Alerte météo » (owner 07/09 ; même mot que la classe structurelle) | canicule (critère officiel IBM, jamais déduit de lvl_heat), chaleur seule |
 | Demander à l'exploitant ce que la mesure ne voit pas sur un jour (carte « jour inexpliqué », état vide d'Explorer, E3 07/09) | **Un souvenir ? Notez-le · sinon, laissez** (forme owner relevée en prod le 22/08, CLAUDE.md règle 4 ; bouton **Enregistrer**, mot de la page de l'engagement) | Qu'est-ce qui se passait chez vous ce jour-là ? (refusé 22/08 : « is not a phrase for a human ») ; toute prose qui étale les vérifications |
 | Ce que l'exploitant dit de son espace à Explorer et que l'assistant enregistre — le titre du bloc et du geste (mémoire de travail du site, `semantic.vw_insight_event_site_memory`, spec `explorer-agentique-spec.md` § 2.1) | **Documentez l'espace** (owner 11/09) | notes sur l'espace (mon brouillon du 11/09) |
+| La marche dans le lieu, le téléphone à la main, une photo par composant (spec `marche-guidee-spec.md`) | **Relevé de l'espace** (owner 11/09, ratifié 12/09) ; gestes : **Commencer le relevé** · **Fin du relevé** · **Reprendre le relevé** | Relevé vidéo (aucune vidéo n'est produite), marche guidée (nom de chantier, jamais à l'écran) |
+| L'arrêt devant un composant pendant le relevé | **Point focal** (owner 11/09, ratifié 12/09) | arrêt, pause, station |
+| La page qui clôt le relevé — UNE page, une section par pôle | **Fin du relevé** (owner 11/09, ratifié 12/09) | fin de pôle (le relevé traverse les pôles) |
+| La part d'une famille sur un composant, en % du linéaire de façade (comptoirs et caisses au sol compris) | **Part de linéaire** (owner 11/09, ratifié 12/09) | Share of Shelf (règle 7 bis), part d'assortiment (« assortiment » = largeur de l'offre), allocation (la décision, pas la mesure) |
+| L'état d'un pôle dont les familles ne sont pas encore celles de la caisse — UN état, sa raison écrite dessous | **Pôle en projet** (owner 11/09) ; raisons : **Aucune vente importée** puis **À rapprocher de la caisse** | à documenter (« Documenter » = la photo), déclaré (statut retiré le 17/08), En attente de la caisse (un pôle n'attend pas) |
 | Ce que mesure un dispositif — ses familles, son pôle ou les articles de sa photo (question du formulaire « M'engager » / « Créer opération ») | **Ce que le dispositif vend** (owner 07/09) ; réponses **des familles** · **les familles du pôle** · **les articles de la photo** ; option **Ajouter famille de produits** (famille nouvelle, pas encore dans les tickets) | périmètre (mot pris : la zone autour du site), scope |
 | Le nom du CA d'un périmètre dans la phrase du verdict | **CA de la famille « Branded »** (27/08) · **CA des familles « A » et « B »** (jusqu'à trois) · **CA des 4 familles du dispositif** · **CA du pôle « Épicerie fine »** · **CA de « <titre du dispositif> »** (articles d'une photo) — toujours suivi de « vs votre résultat habituel » (owner 07/09) | « de ventes » pour du CA (retiré de l'en-tête de la page de l'engagement le 07/09) |
 | La largeur de l'offre d'un commerce — un seul type de produit, ou plusieurs pôles très différents — déclarée pour le site ET pour chaque concurrent, lue par le calcul de menace (`type-et-gamme-de-commerce-spec.md`) ; champ affiché SEULEMENT si le secteur est Commerce & Retail ou Marchés & Halles, vidé si le secteur change | champ **Type de commerce** · valeurs **Spécialiste** (un seul type de produit : primeur, fromager, caviste) · **Généraliste** (plusieurs pôles très différents) — owner 10/09 | Format (dit la taille), Positionnement (marketing), Assortiment (centrale d'achat) ; enseigne, grande surface ; toute valeur déduite par l'app ou tirée d'un seed |
@@ -360,22 +365,9 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   reste le mot générique d'un module précis dans une phrase (owner 11/09 : « un mobilier » se dit en
   agencement) ; l'objet dans l'app reste « composant ». Rendus : `commitmentCopy.ts`
   (`pole_photo_fixture_no`, `pole_photo_levels`, `pole_photo_families` = « Familles reconnues : »,
-  miroir de « Articles reconnus : » — ce dernier libellé reste à ratifier).
+  miroir de « Articles reconnus : » — ratifié avec le lexique le 12/09).
 - « palier » (crans de la jauge Signaux traités) — retirés en attendant LE mot.
-- **La marche guidée (11/09, `marche-guidee-spec.md` § 10)** — mots PROPOSÉS par l'owner le 11/09,
-  à ratifier : **Relevé de l'espace** (la marche ; sans « vidéo », aucune vidéo n'est produite) ·
-  **Point focal** (l'arrêt devant un composant) · **Fin du relevé** (la page de fin, une section par
-  pôle) · **Part de linéaire** (la part d'une famille sur un composant, en % du linéaire de façade —
-  comptoirs et caisses au sol compris ; refusés : Share of Shelf, règle 7 bis ; part d'assortiment,
-  « assortiment » = largeur de l'offre l. 97 ; allocation). Le changement de pôle est un geste (verbe
-  + nom du pôle), pas un mot. **L'état d'un pôle dont les familles ne sont pas encore
-  celles de la caisse : « Pôle en projet » (owner 11/09), UN état, la RAISON écrite dessous et qui
-  change avec le moment** — « Aucune vente importée » (PROPOSÉ 11/09 — remplace « En attente de la caisse », refusé par l'owner : « a pole doesn't wait » ; le fait, pas l'attente) puis
-  « À rapprocher de la caisse » (ventes importées, familles déclarées à rapprocher : un geste, l'écran
-  de correspondance). L'état tombe quand toutes les familles sont rapprochées ; aucune carte ne tire
-  sur un pôle en projet. Refusés : « à documenter » (« Documenter » = la photo ; un pôle en projet peut
-  être entièrement photographié), « déclaré » (statut retiré le 17/08). Les quatre autres mots restent
-  à ratifier ; rien ne s'affiche avant.
+- **La marche guidée** : les mots du 11/09 sont RATIFIÉS le 12/09 (owner : « lexique is done ») et vivent dans le tableau (Relevé de l'espace · Point focal · Fin du relevé · Part de linéaire · Pôle en projet). Rien ne reste à arbitrer ici.
 - **Le libellé du champ « Gamme »** : proposé, non validé. Ses quatre valeurs (Entrée de gamme ·
   Milieu de gamme · Haut de gamme · Luxe) et la définition du Type de commerce sont tranchées
   (owner 10/09). `type-et-gamme-de-commerce-spec.md` § 2.
