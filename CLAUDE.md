@@ -4,9 +4,9 @@
 - Astro SSR + TypeScript, Vercel deployment
 - BigQuery EU (project: `muse-square-open-data`) — all data lives here
 - `ms-database-472505` is billing-only — never query it for app data
-- dbt Cloud IDE (never run dbt CLI commands — all dbt work happens in dbt Cloud IDE)
+- dbt : dépôt `Ajuria/ms_database` (clone `~/Documents/ms_database`). Je n'exécute JAMAIS de commande dbt ; je livre les fichiers par PR (voir § Où committer) ; le build est lancé par l'owner ou par un job dbt Cloud ciblé
 - Clerk v3 for auth
-- Repo: git@github.com:Ajuria/muse-square.git, branch: `dev`
+- Repo app ET site web : git@github.com:Ajuria/muse-square.git, branch: `dev` (voir § Où committer)
 - INTENT : `docs/intent.md` (une page, DÉFINITIF) dit ce que le produit est POUR, ses objets et le test de valeur ; tout chantier s'ouvre par la ligne qu'il sert (« Sert : intent § … »).
 
 ## Code Discipline
@@ -96,11 +96,18 @@
 - **Le job dbt Cloud n'est PAS un run complet et ne tire PAS les ancêtres.** Mesuré le 26/08 : 127 modèles construits sur 315, et un ancêtre DAG d'un modèle construit peut ne jamais être construit. Avant de conclure qu'un modèle « tourne », le vérifier dans l'historique : les runs dbt Cloud sont facturés au projet `ms-database-472505` (compte `dbt-cloud@…`), et chaque requête porte un en-tête `/* {"app":"dbt", … "node_id": "model.ms_dbt.X"} */` — c'est là que se lisent le périmètre réel et la cible (`target_name`).
 - Always verify schema via `INFORMATION_SCHEMA` before writing queries.
 
-## Git
-- `git status` before committing to confirm exact file paths.
-- Push to `dev` branch only.
-- Never merge to `main` without confirming the latest commit is pushed to GitHub from dbt Cloud IDE.
-- dbt Cloud IDE changes are local until explicitly synced — always confirm sync status.
+## Où committer — par dépôt (owner 11/09 : « tu ne sais toujours pas dans quelle repo et branche committer ? C'est inacceptable »)
+**Trois natures de travail, deux dépôts, une règle chacune. Un livrable qui n'est pas commité au bon endroit n'est pas livré.**
+
+| Nature | Dépôt | Branche | Geste, dans l'ordre |
+|---|---|---|---|
+| **App** (`src/`, `public/`, `tools/`, `docs/` y compris audits, specs et passations dbt) | `Ajuria/muse-square` — `~/Documents/Muse_Square/Muse_Square_Website/muse-square` | `dev` | `git status` → stage explicite (jamais `git add .`) → commit sur `dev` → `git push origin dev`. Prod = § App-repo Git flow. |
+| **Site web** (`src/pages/index.astro`, `offres`, `solutions`, `a-propos`, `references`, mentions légales… — c'est le MÊME dépôt Astro que l'app ; `dev.musesquare.com` sert `dev`) | idem | `dev` | idem |
+| **dbt** (modèles, seeds, yml, tests, macros) | `Ajuria/ms_database` — `~/Documents/ms_database` | branche `feat/…` ou `fix/…` créée depuis **`origin/main`** (`Ajuria-branch` est périmée : elle ne contient plus `main`, ne jamais s'y baser) | écrire les fichiers DANS LE CLONE LOCAL → vérifs § Passation (ancres uniques, LF, yml qui parse, ordre des `ref()` par programme, SQL compilé sur BQ) → commit (message + preuves + `Co-Authored-By`) → `git push -u origin <branche>` → `gh pr create --base main` avec les preuves dans le corps → **l'owner fusionne** → build : l'owner `git pull` sur `main` puis ses commandes, OU je lance un run ciblé du job `refresh_industry` (70471823595526) avec `steps_override` → je vérifie en base (`bq-verify`, `catalog:refresh`) → la passation `docs/dbt-handoff/` (dépôt app, `dev`) porte le bandeau « fichiers dans la PR ms_database#N » puis « EN BASE (run) ». |
+
+- **Une passation dbt ne demande JAMAIS de coller dans l'IDE.** Échec du 11/09 : passation « collez les 13 fichiers », l'owner colle dans l'IDE web et lance le dbt Cloud CLI, qui envoie SON CLONE LOCAL (`~/Documents/ms_database`) où rien n'existe → « No nodes selected », deux builds pour rien — alors que les PR #144 et #145 du même jour avaient été faites depuis le clone local. Le document de passation DOCUMENTE et pointe la PR ; les fichiers voyagent par git.
+- **Les documents app d'un lot dbt (audit, spec, passation) se commitent sur `dev` dans la foulée**, jamais laissés non suivis pendant qu'on attend la fusion.
+- Ne jamais fusionner `main` de l'app sans que le dernier commit de `dev` soit poussé ; ne jamais ouvrir une PR dbt sur une base autre que `origin/main` fraîchement récupérée (`git fetch`).
 
 ## Frontend
 - Inline styles required for dynamically injected HTML (scoped `<style>` blocks don't reach dynamic content).
@@ -147,7 +154,7 @@
 
 - **PASSATION « allez voir la page » = un portail à part entière (échec 15/08).** Avant de donner une URL à l'owner : (1) `lsof -nP -iTCP:4321 -sTCP:LISTEN` — si le process écoute et a démarré AVANT la dernière édition (`ps -o lstart`), c'est un zombie qui sert l'ancien code : kill + restart ; (2) `curl` une EMPREINTE du code corrigé depuis LE port de l'owner (4321) — une chaîne qui n'existe que dans la nouvelle version ; (3) jamais de port éphémère : « 4321 was in use » est un symptôme à élucider, pas une contrainte à contourner. La valeur de retour de `preview_start` n'est pas une preuve que ça sert.
 
-- **PASSATION « colle ce bloc » = un portail, au même titre que l'URL (échec 26/08 : une heure perdue sur un geste de 5 minutes).** Toute consigne d'édition dans un outil hors de ma portée (dbt Cloud IDE en premier lieu) se vérifie AVANT envoi, en cinq points. Les cinq viennent d'échecs de la même journée, empilés sur un seul changement.
+- **PASSATION dbt = une PR depuis le clone local (§ Où committer), JAMAIS « colle ce bloc » (échec 11/09) — et son contenu se vérifie AVANT le push comme un portail, au même titre que l'URL (échec 26/08 : une heure perdue sur un geste de 5 minutes).** Les six points ci-dessous valent pour les fichiers de la PR ; « coller » y désigne désormais ce que git applique. Les cinq viennent d'échecs de la même journée, empilés sur un seul changement.
   1. **La première ligne nomme LE FICHIER À OUVRIR, chemin complet — et le nom d'un modèle n'est JAMAIS le sujet d'une consigne.** `vw_x` désigne à la fois `vw_x.sql` et une entrée de `schema.yml` : mes fichiers d'instruction s'appelaient `vw_insight_event_30d_day_surface.txt`, l'owner a ouvert le `.sql`, le bloc n'y était pas. Écrire « dans `schema.yml` » dans le corps ne suffit pas : c'est le TITRE qui dirige la main.
   2. **Générer depuis LA BRANCHE de l'owner** (`origin/Ajuria-branch`), jamais `main` — et vérifier les FINS DE LIGNE de la cible (`file <chemin>`). Le `schema.yml` était en CRLF, mes blocs en LF : le diff affichait « 145 lignes supprimées » sur un fichier de 144, et un collage LF dans un fichier CRLF le rend mixte.
   3. **REJOUER le geste par programme sur le fichier réel, puis RELIRE la sortie** — modèles perdus, descriptions modifiées, commentaires de section déplacés, diff ajouts/suppressions ligne à ligne. **« Le YAML parse » ne prouve rien** : mon générateur avait déplacé cinq titres de section À L'INTÉRIEUR de modèles (entre `config:` et `columns:`) et le fichier parsait parfaitement.
