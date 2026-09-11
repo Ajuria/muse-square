@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Explorer — conversation (proto)</title>
+<!--
+  PROTO — l'agent Explorer (docs/explorer-agentique-spec.md, owner 11/09). Une surface MINIMALE pour essayer
+  « décris-moi mon espace » sur le compte réel : une question, une photo ou un plan (PDF), et la liste de ce
+  que l'agent a lu et enregistré pendant sa réponse (les appels d'outils, tels que l'endpoint les rend).
+  Se sert avec `npm run harness` (4173) et appelle POST /api/explorer/agent sur le serveur de dev (4321) :
+  en `astro dev` avec MS_AUTH_BYPASS=1, le site vient du champ ci-dessous (?location_id= dans l'URL le
+  pré-remplit). Aucune page nouvelle : l'arbitrage owner décidera de la surface. Les mots du composer sont
+  ceux de prompt.astro (« Posez votre question, ou déposez un fichier… », « Envoyer ») ; les libellés des
+  outils viennent du serveur (agentSystem.fr.ts), jamais d'ici.
+-->
+<style>
+  :root{--ink:#111827;--ink2:#4B5563;--ink3:#9CA3AF;--line:#E5E7EB;--bg:#F9FAFB;--card:#fff;--blue:#1D3BB3;--blue-bg:#EEF2FF;--amber:#92400E;--amber-bg:#FEF3C7}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:720px;margin:0 auto;padding:20px 16px 120px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:4px 0 14px} header h1{font-size:22px;margin:0} header .sub{color:var(--ink3);font-size:13px}
+  .cfg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px} .cfg label{display:block;font-size:12px;color:var(--ink2);margin-bottom:2px}
+  .cfg input{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:inherit;font-size:13px}
+  .msg{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px;white-space:pre-wrap}
+  .msg.user{background:var(--blue-bg);border-color:transparent} .msg .who{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink3);margin-bottom:4px}
+  .tools{margin:6px 0 10px 8px;padding:0;list-style:none} .tools li{font-size:13px;color:var(--ink2);padding:3px 0;border-left:2px solid var(--line);padding-left:10px}
+  .tools li b{color:var(--ink);font-weight:600} .tools li .ms{color:var(--ink3)} .tools li.ko{border-left-color:var(--amber);color:var(--amber)}
+  .tools li.run{border-left-color:var(--blue)}
+  .err{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:9px 12px;margin-bottom:10px}
+  .composer{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 16px}
+  .composer .in{max-width:720px;margin:0 auto;display:flex;gap:8px;align-items:flex-end}
+  textarea{flex:1;border:1px solid var(--line);border-radius:12px;padding:9px 11px;font:inherit;min-height:44px;max-height:160px;resize:vertical}
+  button{border:0;background:var(--blue);color:#fff;border-radius:10px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer} button[disabled]{opacity:.5;cursor:default}
+  .file{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--ink2);max-width:720px;margin:0 auto 8px} .file input{font-size:12px}
+  .usage{font-size:11.5px;color:var(--ink3);margin:-4px 0 10px 8px}
+  .note{margin-top:20px;color:var(--ink3);font-size:12px;line-height:1.5}
+</style></head><body><div class="wrap">
+<header><h1>Explorer</h1><span class="sub">conversation — prototype du 11/09/2026</span></header>
+<div class="cfg">
+  <div><label for="api">Serveur</label><input id="api" value="http://localhost:4321"></div>
+  <div><label for="loc">Site (location_id)</label><input id="loc" placeholder="location_id du site"></div>
+</div>
+<div id="thread"></div>
+<p class="note">Prototype. Chaque tour envoie l'historique complet à POST /api/explorer/agent ; les fichiers ne sont joints qu'au tour en cours. Ce que l'agent lit et enregistre s'affiche sous sa réponse, avec le libellé rendu par le serveur.</p>
+</div>
+<div class="composer">
+  <div class="file"><input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"><span id="filename"></span></div>
+  <div class="in">
+    <textarea id="q" placeholder="Posez votre question, ou déposez un fichier…"></textarea>
+    <button id="send" aria-label="Envoyer">Envoyer</button>
+  </div>
+</div>
+<script>
+(function () {
+  var history = [];            // [{role, content}] — renvoyé en entier à chaque tour
+  var threadId = null;
+  var $ = function (id) { return document.getElementById(id); };
+  var params = new URLSearchParams(location.search);
+  if (params.get("location_id")) $("loc").value = params.get("location_id");
+  if (params.get("api")) $("api").value = params.get("api");
+  $("file").addEventListener("change", function () { $("filename").textContent = this.files[0] ? this.files[0].name : ""; });
+
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function addMsg(role, text) {
+    var m = el("div", "msg " + role); m.appendChild(el("div", "who", role === "user" ? "Vous" : "Explorer"));
+    m.appendChild(document.createTextNode(text)); $("thread").appendChild(m); m.scrollIntoView({ block: "end" }); return m;
+  }
+  function addErr(text) { var e = el("div", "err", text); $("thread").appendChild(e); e.scrollIntoView({ block: "end" }); }
+  function toolLine(list, r) {
+    var li = el("li", r.ok === false ? "ko" : "");
+    var b = el("b", null, r.label_fr || r.name); li.appendChild(b);
+    li.appendChild(document.createTextNode(" — " + (r.summary || "")));
+    if (typeof r.ms === "number") { var s = el("span", "ms", " · " + (r.ms / 1000).toFixed(1).replace(".", ",") + " s"); li.appendChild(s); }
+    list.appendChild(li); return li;
+  }
+  function readFile(f) {
+    return new Promise(function (res, rej) {
+      var r = new FileReader();
+      r.onload = function () { var s = String(r.result); res(s.slice(s.indexOf(",") + 1)); };
+      r.onerror = function () { rej(new Error("lecture du fichier impossible")); };
+      r.readAsDataURL(f);
+    });
+  }
+  function parseSse(chunk, state, onEvent) {
+    state.buf += chunk;
+    var parts = state.buf.split("\n\n"); state.buf = parts.pop();
+    parts.forEach(function (p) {
+      var ev = null, data = "";
+      p.split("\n").forEach(function (line) {
+        if (line.indexOf("event: ") === 0) ev = line.slice(7);
+        else if (line.indexOf("data: ") === 0) data += line.slice(6);
+      });
+      if (ev) { try { onEvent(ev, JSON.parse(data)); } catch (e) { /* ligne illisible */ } }
+    });
+  }
+
+  async function send() {
+    var q = $("q").value.trim(); var loc = $("loc").value.trim();
+    if (!q) return;
+    if (!loc) { addErr("location_id requis"); return; }
+    var files = [];
+    var f = $("file").files[0];
+    if (f) {
+      var mt = f.type || (/\.pdf$/i.test(f.name) ? "application/pdf" : "image/jpeg");
+      files.push({ kind: mt === "application/pdf" ? "pdf" : "image", media_type: mt, name: f.name, data_base64: await readFile(f) });
+    }
+    history.push({ role: "user", content: q });
+    addMsg("user", q + (f ? "\n[" + f.name + "]" : ""));
+    $("q").value = ""; $("file").value = ""; $("filename").textContent = "";
+    $("send").disabled = true;
+    var tools = el("ul", "tools"); $("thread").appendChild(tools);
+    var pending = el("li", "run", "…"); tools.appendChild(pending);
+    try {
+      var res = await fetch($("api").value.replace(/\/$/, "") + "/api/explorer/agent", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ location_id: loc, thread_id: threadId, messages: history, files: files, stream: true }),
+      });
+      if (!res.ok || !res.body) { addErr("HTTP " + res.status); history.pop(); return; }
+      var reader = res.body.getReader(); var dec = new TextDecoder(); var state = { buf: "" }; var result = null;
+      while (true) {
+        var chunk = await reader.read(); if (chunk.done) break;
+        parseSse(dec.decode(chunk.value, { stream: true }), state, function (ev, data) {
+          if (ev === "tool") { toolLine(tools, data); tools.appendChild(pending); }
+          if (ev === "result") result = data;
+        });
+      }
+      pending.remove();
+      if (!result || !result.body || result.body.ok !== true) {
+        addErr((result && result.body && result.body.error) || ("HTTP " + (result ? result.status : "?")));
+        history.pop(); return;
+      }
+      threadId = result.body.thread_id;
+      history.push({ role: "assistant", content: result.body.assistant.text });
+      addMsg("assistant", result.body.assistant.text || "(aucun texte)");
+      var u = result.body.usage || {};
+      var usage = el("div", "usage", "tokens : " + u.input_tokens + " en entrée (" + (u.cache_read_input_tokens || 0) + " en cache), " + u.output_tokens + " en sortie · " + (result.body.model || ""));
+      $("thread").appendChild(usage);
+    } catch (e) {
+      pending.remove(); addErr(String(e && e.message || e)); history.pop();
+    } finally {
+      $("send").disabled = false;
+    }
+  }
+  $("send").addEventListener("click", send);
+  $("q").addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) send(); });
+})();
+</script>
+</body></html>

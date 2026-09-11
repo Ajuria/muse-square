@@ -86,9 +86,16 @@ const isLocalsRoute = createRouteMatcher([
 const DEV_BYPASS_PROMPT =
   import.meta.env.DEV && process.env.MS_AUTH_BYPASS === "1";
 
+// 11/09 — l'agent Explorer (api/explorer/agent.ts, docs/explorer-agentique-spec.md § 5) entre dans le
+// MÊME contournement dev que /api/insight/prompt : l'owner l'essaie depuis le proto tools/proto/
+// explorer-agent-proto.html, servi par `npm run harness` (4173), donc sans cookie Clerk sur 4321.
+// L'endpoint fait ce que prompt.ts fait en bypass : le site vient du corps de la requête, jamais des
+// locals — et rien de tout cela n'existe hors `astro dev` avec MS_AUTH_BYPASS=1.
 const isPromptRoute = createRouteMatcher([
   "/api/insight/prompt",
   "/api/insight/prompt(.*)",
+  "/api/explorer/agent",
+  "/api/explorer/agent(.*)",
 ]);
 
 function mustGetEnv(name) {
