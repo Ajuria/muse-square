@@ -22,6 +22,18 @@
         "."
       ],
       "port": 4173
+    },
+    {
+      "name": "proto-https",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/harness/https-serve.mjs",
+        "tools/proto",
+        "8443",
+        "8080"
+      ],
+      "port": 8443,
+      "url": "https://localhost:8443"
     }
   ]
 }

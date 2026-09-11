@@ -212,6 +212,18 @@ règle :
 - par défaut, un pôle reçoit un dispositif créé avec lui et nommé comme lui ; un second n'existe
   que si l'exploitant le déclare.
 
+**Un composant porte ses familles avec leur part** [owner 11/09]. Le composant du plan est décrit
+par son N° sur le plan, sa longueur, ses faces accessibles et **ses familles avec la part de chacune**
+(en % de sa façade). Une famille vit dans un seul pôle (`intent.md`) : la part est ce qui rattache le
+composant à chaque pôle dans la lecture, sans que le lien composant → dispositif → pôle cesse d'être
+un à un. Cas d'Épices et Tout : une table où Cave et Épicerie sèche voisinent est UN composant, deux
+familles, deux parts. Un composant dont deux faces accessibles relèvent de deux pôles différents est
+**deux composants**, un par face (les n° 4/5 et 14/15 du plan, entre Cave et Cuisine, sont comptés
+ainsi). Le pôle d'un composant vient du geste de l'exploitant, jamais de sa position : sur le plan,
+Thé, Céréales et Couteaux se touchent et relèvent de deux pôles. La lecture v2 (§ 5.3) rend les
+familles présentes SANS part ; la colonne de la part (`families_share`) et son geste de confirmation
+sont à construire — `docs/marche-guidee-spec.md` § 7 et § 9.
+
 **Un second registre, construit comme celui des types d'opération.** Un fichier
 `src/lib/dispositifs/dispositifTypes.ts` liste les types de composant, leurs rôles, la liste de questions
 attachée à chaque type, et la sélection à proposer selon le métier du lieu. Chaque liste finit
@@ -361,7 +373,12 @@ l'exploitant choisit le dispositif, le composant, et dépose une ou plusieurs ph
 son téléphone. Une consigne à l'écran : le composant en entier, de face, sans personne dans le
 champ. Tout le reste du document fonctionne à partir de ces seules photos.
 
-**Le plus : une marche filmée.** L'exploitant filme une marche de deux minutes dans son magasin,
+**Le plus : une marche.** Spécifiée dans `docs/marche-guidee-spec.md` (owner 11/09 : une seule
+boucle du magasin avec changement de pôle, une photo par arrêt prise sur le flux de la caméra, aucune
+vidéo produite, le pôle vient du geste et le numéro du rang). Le paragraphe ci-dessous garde le
+principe du 03/09 ; là où les deux diffèrent, la spec de la marche fait foi.
+
+L'exploitant filme une marche de deux minutes dans son magasin,
 avant l'ouverture, quand il est vide, et s'arrête deux secondes devant chaque composant. La page
 enregistre avec la caméra, repère elle-même les moments où l'image est immobile, en tire des
 photos fixes et les envoie avec l'heure de chacune ; la vidéo ne quitte jamais le téléphone et
@@ -544,6 +561,11 @@ présente comme telle.
 | D7 | Les images chez nous ou chez le client ? | Chez nous : bucket `ms-dispositif-photo` (Cloud Storage, EU, privé — créé le 03/09), avec les trois règles de propriété, suppression et absence de personnes (5.2). |
 | D8 | Le parcours idéal-type reconstitué depuis le ticket entre-t-il dans la première spec du parcours ? | Oui. |
 
+Décisions du 11/09 [owner] : la lecture v2 de toute photo (§ 5.3 : exposition, niveaux, familles
+présentes, N° sur le plan) ; **un composant porte ses familles avec leur part, deux faces de deux
+pôles = deux composants** (§ 3) ; la marche guidée, huit décisions M1-M8 dans
+`docs/marche-guidee-spec.md` § 4.
+
 ## 9. Ce qui reste à faire, dans cet ordre
 
 1. (fait le 03/09 pour onze mots — § 2.) Restent : le rôle impulsion et le panneau de salle ;
@@ -556,13 +578,16 @@ présente comme telle.
    Compte / document du pôle basculés sur la vue et le mart, § 1.)
 4. (fait le 03/09 : bucket, table, transport image, lecture + porte avec lie-bait — § 1.)
 5. (fait le 03/09 : dépôt sur le document du pôle et confirmation des articles — § 1.) Reste
-   l'étape d'onboarding qui l'appelle pour chaque composant (D6).
+   l'étape d'onboarding qui l'appelle pour chaque composant (D6) : c'est la marche guidée,
+   `docs/marche-guidee-spec.md` § 8 et § 9 (W1 décidé le 11/09 : pôles en projet avant l'import).
 6. Livrer les résultats 1 et 2 sur Muse Square (80 articles, photos d'Épices et Tout), vérifiés
    par le harnais et non à l'œil.
 7. Ajouter le type et le rôle au crawl (5.4) ; livrer le résultat 3.
 8. Les demandes de précision de l'application (D6, second temps) : composant sans photo, version
    sans photo, lecture non concluante.
-9. La marche filmée (5.1, le plus) : seulement quand le parcours (§ 7) est à l'ordre du jour.
+9. La marche (5.1) : spécifiée le 11/09 dans `docs/marche-guidee-spec.md` — elle devient le chemin
+   de l'onboarding (point 5), pas seulement celui du parcours (§ 7). La part des familles d'un
+   composant (§ 3, `families_share`) se construit avec elle.
 10. D4 (re-semer le compte de test), puis la spec du parcours avec le parcours idéal-type (D8).
 11. **Le périmètre de mesure d'un dispositif** (owner 07/09 : « the dispositif doesn't know what the corner
     sells ») — spec `docs/dispositif-perimetre-mesure-spec.md` : ce que le dispositif vend (familles, pôle,

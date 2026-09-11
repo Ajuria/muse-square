@@ -362,6 +362,20 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   (`pole_photo_fixture_no`, `pole_photo_levels`, `pole_photo_families` = « Familles reconnues : »,
   miroir de « Articles reconnus : » — ce dernier libellé reste à ratifier).
 - « palier » (crans de la jauge Signaux traités) — retirés en attendant LE mot.
+- **La marche guidée (11/09, `marche-guidee-spec.md` § 10)** — mots PROPOSÉS par l'owner le 11/09,
+  à ratifier : **Relevé de l'espace** (la marche ; sans « vidéo », aucune vidéo n'est produite) ·
+  **Point focal** (l'arrêt devant un composant) · **Fin du relevé** (la page de fin, une section par
+  pôle) · **Part de linéaire** (la part d'une famille sur un composant, en % du linéaire de façade —
+  comptoirs et caisses au sol compris ; refusés : Share of Shelf, règle 7 bis ; part d'assortiment,
+  « assortiment » = largeur de l'offre l. 97 ; allocation). Le changement de pôle est un geste (verbe
+  + nom du pôle), pas un mot. **L'état d'un pôle dont les familles ne sont pas encore
+  celles de la caisse : « Pôle en projet » (owner 11/09), UN état, la RAISON écrite dessous et qui
+  change avec le moment** — « Aucune vente importée » (PROPOSÉ 11/09 — remplace « En attente de la caisse », refusé par l'owner : « a pole doesn't wait » ; le fait, pas l'attente) puis
+  « À rapprocher de la caisse » (ventes importées, familles déclarées à rapprocher : un geste, l'écran
+  de correspondance). L'état tombe quand toutes les familles sont rapprochées ; aucune carte ne tire
+  sur un pôle en projet. Refusés : « à documenter » (« Documenter » = la photo ; un pôle en projet peut
+  être entièrement photographié), « déclaré » (statut retiré le 17/08). Les quatre autres mots restent
+  à ratifier ; rien ne s'affiche avant.
 - **Le libellé du champ « Gamme »** : proposé, non validé. Ses quatre valeurs (Entrée de gamme ·
   Milieu de gamme · Haut de gamme · Luxe) et la définition du Type de commerce sont tranchées
   (owner 10/09). `type-et-gamme-de-commerce-spec.md` § 2.

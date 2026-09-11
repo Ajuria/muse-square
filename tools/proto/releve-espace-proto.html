@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Relevé de l'espace (proto)</title>
+<!--
+  PROTO v2 (12/09, feedback owner 11/09) — la prise de vue du relevé (docs/marche-guidee-spec.md § 9, point 0).
+  Une seule piste ; cette version REMPLACE la v1 (git garde l'histoire).
+  Cadre de l'app COPIÉ, pas inventé : l'en-tête et le logo de Nav.astro (header sticky, .ms-container,
+  logo 32 px), la barre basse de PiloterBottomBar.astro (markup + CSS, onglet Agir actif : la page
+  s'ouvre depuis le document du pôle, /app/insightevent/engagement = « agir »), le bouton .ms-btn de
+  global.css l. 178 (majuscules, bordure noire, sans arrondi), les couleurs de design-tokens.css.
+  Entrée : le document du pôle, bouton « Documenter → » (commitmentCopy.ts l. 188) — d'où le lien de
+  retour « ← <pôle> », même forme que « ← … » de engagement.astro (#eng-back).
+  Gestes : UN bouton « Commencer le relevé » qui devient « Fin du relevé » ; la caméra n'est demandée
+  qu'à Commencer, le chrono part là ; toucher le viseur = une photo ; un problème (trop sombre, photo
+  floue) s'affiche DANS le viseur, seulement quand il survient, et se règle d'un toucher ; aucun bouton
+  permanent de signalement. Réglages (seuils, pôles) : appui long sur le chrono ou ?reglages=1.
+  Détection : inchangée depuis la v1 vérifiée le 11/09 (64 px gris / 120 ms, hystérésis 6 / 2,5,
+  1 500 ms cumulées, fenêtre 1 200 ms, photo gardée si reprise, image identique jamais gardée deux fois)
+  + un plancher de qualité : luminosité < brightMin ou netteté < sharpMin = problème, pas de photo
+  automatique. Aucun envoi, aucun stockage hors de l'onglet ; compte rendu JSON sans image à la fin.
+  Harnais : window.__releveSource (canvas), __releveStep(dt), __releveState(), __releveAttach(stream).
+-->
+<style>
+  :root{ --color-bg-page:#f5f6f8; --color-bg-card:#ffffff; --color-border:rgba(0,0,0,0.08); --color-text-primary:#111827; --color-text-secondary:#6b7280; --color-text-muted:rgba(17,24,39,0.45); --color-brand-blue:#0b37e5; --data-blue:#1D3BB3; --color-pill-warn-bg:#FDE8D8; --color-pill-warn-text:#C2410C; --color-pill-green-bg:#E6F6F0; --color-pill-green-text:#059669; }
+  *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
+  html,body{ margin:0; background:var(--color-bg-page); color:var(--color-text-primary); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-size:14px; -webkit-text-size-adjust:100%; }
+  /* ── copié de Nav.astro : header sticky + logo ───────────────────────────── */
+  header.ms-top{ position:sticky; top:0; z-index:50; width:100%; background:#fff; border-bottom:1px solid var(--color-border); }
+  .ms-container{ max-width:1140px; margin:0 auto; padding:0 16px; }
+  header.ms-top nav{ padding:12px 0; display:flex; align-items:center; justify-content:space-between; }
+  header.ms-top img{ display:block; height:32px; width:auto; object-fit:contain; }
+  /* ── copié de engagement.astro : lien retour, document ──────────────────── */
+  #rl-toolbar{ display:flex; justify-content:space-between; align-items:center; margin:16px 0 12px; }
+  #rl-back{ font-size:14px; color:var(--color-text-secondary); text-decoration:none; }
+  #rl-clock{ font-size:14px; color:var(--color-text-secondary); font-variant-numeric:tabular-nums; user-select:none; -webkit-user-select:none; }
+  #rl-title{ font-size:20px; font-weight:600; margin:0 0 12px; }
+  /* ── copié de global.css l. 178 : .ms-btn ───────────────────────────────── */
+  .ms-btn{ display:inline-flex; align-items:center; justify-content:center; font-size:15px; font-weight:500; line-height:1.2; text-transform:uppercase; letter-spacing:.2px; padding:8px 16px; border:1px solid #000; border-radius:0; color:#000; background:transparent; font-family:inherit; cursor:pointer; }
+  .ms-btn:active{ background:#000; color:#fff; }
+  .ms-btn[disabled]{ opacity:.35; }
+  /* ── la page ────────────────────────────────────────────────────────────── */
+  #rl-doc{ background:var(--color-bg-card); border:1px solid rgba(0,0,0,0.10); border-radius:10px; padding:12px; }
+  #stage{ position:relative; background:#111; border-radius:10px; overflow:hidden; aspect-ratio:3/4; max-height:56vh; }
+  #cam{ width:100%; height:100%; object-fit:cover; display:block; }
+  #ring{ position:absolute; inset:10px; border:3px solid rgba(255,255,255,.28); border-radius:8px; pointer-events:none; transition:border-color .15s; }
+  #ring.settling{ border-color:#f59e0b; }
+  #ring.kept{ border-color:#22c55e; }
+  #ring.problem{ border-color:#C2410C; }
+  #poleChip{ position:absolute; top:12px; left:12px; right:12px; display:flex; justify-content:space-between; gap:8px; pointer-events:none; }
+  #poleChip span{ background:rgba(17,24,39,.72); color:#fff; padding:6px 10px; border-radius:999px; font-size:12px; max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #overlay{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:6px; background:rgba(17,24,39,.55); color:#fff; text-align:center; padding:24px; cursor:pointer; }
+  #overlay b{ font-size:22px; font-weight:600; }
+  #overlay span{ font-size:14px; opacity:.9; }
+  #overlay .ms-btn{ margin-top:14px; border-color:#fff; color:#fff; }
+  #overlay input{ display:none; }
+  #idle{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.55); font-size:14px; }
+  #poles{ display:flex; gap:8px; overflow-x:auto; padding:12px 0 4px; -webkit-overflow-scrolling:touch; }
+  #poles button{ flex:0 0 auto; border:1px solid var(--color-border); background:#fff; border-radius:999px; padding:8px 12px; font-size:13px; color:var(--color-text-primary); font-family:inherit; }
+  #poles button.on{ background:var(--color-brand-blue); border-color:var(--color-brand-blue); color:#fff; }
+  #mainBtn{ width:100%; height:56px; margin-top:8px; }
+  #strip{ display:flex; gap:8px; overflow-x:auto; padding:12px 0 0; -webkit-overflow-scrolling:touch; }
+  #strip:empty{ display:none; }
+  .shot{ flex:0 0 auto; width:96px; background:#fff; border:1px solid #e5e7eb; border-radius:6px; overflow:hidden; font-size:11px; }
+  .shot img{ width:96px; height:120px; object-fit:cover; display:block; }
+  .shot .m{ padding:4px 6px; color:var(--color-text-secondary); line-height:1.35; }
+  .shot .m b{ color:var(--color-text-primary); font-weight:600; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .shot button{ width:100%; border:0; border-top:1px solid #e5e7eb; background:#fff; padding:6px; font-size:11px; color:var(--color-text-secondary); font-family:inherit; }
+  .shot.removed img{ opacity:.3; }
+  /* ── réglages (calibrage, appui long sur le chrono) ─────────────────────── */
+  #settings{ display:none; position:fixed; inset:0; background:#fff; z-index:80; overflow:auto; padding:16px; }
+  #settings h2{ font-size:16px; margin:0 0 12px; }
+  #settings label{ display:block; margin:12px 0 4px; font-size:13px; color:var(--color-text-secondary); }
+  #settings input[type=number]{ width:100%; border:1px solid var(--color-border); border-radius:6px; padding:10px; font-size:15px; }
+  #settings textarea{ width:100%; min-height:150px; border:1px solid var(--color-border); border-radius:6px; padding:10px; font-size:14px; font-family:inherit; }
+  .row{ display:flex; gap:8px; margin-top:16px; }
+  .row .ms-btn{ flex:1; height:44px; }
+  /* ── fin du relevé ──────────────────────────────────────────────────────── */
+  #summary{ display:none; }
+  .sec{ margin:0 0 18px; }
+  .sec h3{ font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--color-text-primary); font-weight:700; margin:0 0 8px; }
+  .sec .n{ font-size:13px; color:var(--color-text-secondary); margin:0 0 6px; }
+  .sec .imgs{ display:flex; gap:6px; flex-wrap:wrap; }
+  .sec .imgs img{ width:64px; height:80px; object-fit:cover; border-radius:6px; border:1px solid #e5e7eb; }
+  .note{ color:var(--color-text-muted); font-size:12px; margin:12px 0 0; }
+  a.ms-btn{ text-decoration:none; }
+  /* ── copié de PiloterBottomBar.astro ─────────────────────────────────────── */
+  .ms-bb { display: none; }
+  @media (max-width: 767px) {
+    :root { --ms-bb-h: 74px; }
+    .ms-bb { display: block; position: fixed; bottom: 0; left: 0; right: 0; z-index: 70; background: #ffffff; border-top: 1px solid rgba(17,24,39,0.10); padding-bottom: env(safe-area-inset-bottom, 0px); }
+    body.ms-has-bb { padding-bottom: calc(74px + env(safe-area-inset-bottom, 0px)); }
+    .ms-bb-nav { max-width: 620px; margin: 0 auto; display: flex; align-items: center; justify-content: space-around; height: 74px; }
+    .ms-bb-item { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 74px; text-decoration: none; color: rgba(17,24,39,0.55); line-height: 1; }
+    .ms-bb-item.is-active { color: #1D3BB3; }
+    .ms-bb-ico { display: flex; align-items: center; justify-content: center; }
+    .ms-bb-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  }
+</style></head>
+<body class="ms-has-bb">
+<header class="ms-top"><nav class="ms-container"><a href="#" aria-label="Muse Square"><img src="/images/muse-square-logo-600.png" alt="Muse Square" onerror="this.onerror=null;this.src='/public/images/muse-square-logo-600.png';"></a></nav></header>
+
+<main class="ms-container">
+  <div id="rl-toolbar"><a id="rl-back" href="#">← Pôle</a><span id="rl-clock" title="">0:00</span></div>
+  <h1 id="rl-title">Relevé de l'espace</h1>
+  <div id="rl-doc">
+    <section id="stage">
+      <video id="cam" playsinline muted autoplay></video>
+      <div id="idle">La caméra s'ouvre au début du relevé.</div>
+      <div id="ring"></div>
+      <div id="poleChip"><span id="poleName">—</span><span id="poleCount" hidden></span></div>
+      <div id="overlay"><b id="ovTitle"></b><span id="ovText"></span><label id="ovFile" class="ms-btn" hidden>Photo avec l'appareil<input id="fileIn" type="file" accept="image/*" capture="environment"></label></div>
+    </section>
+    <nav id="poles"></nav>
+    <button id="mainBtn" type="button" class="ms-btn">Commencer le relevé</button>
+    <div id="strip"></div>
+    <div id="summary">
+      <div id="sumBody"></div>
+      <div class="row"><button id="sumBack" type="button" class="ms-btn">Reprendre le relevé</button><a id="sumDl" class="ms-btn" download="releve-espace.json" href="#">Compte rendu</a></div>
+      <p class="note">Le compte rendu ne contient aucune image. Les photos restent dans cet onglet.</p>
+    </div>
+  </div>
+</main>
+
+<div class="ms-bb" role="navigation" aria-label="Navigation"><div class="ms-bb-nav">
+  <a class="ms-bb-item" href="#" aria-label="Piloter"><div class="ms-bb-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5" fill="currentColor" stroke="none"/></svg></div><div class="ms-bb-label">PILOTER</div></a>
+  <a class="ms-bb-item is-active" href="#" aria-label="Agir" aria-current="page"><div class="ms-bb-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4"/><path d="M17.7 6.3a8 8 0 0 1 0 11.4"/><path d="M3.5 3.5a14 14 0 0 0 0 17"/><path d="M20.5 3.5a14 14 0 0 1 0 17"/></svg></div><div class="ms-bb-label">AGIR</div></a>
+  <a class="ms-bb-item" href="#" aria-label="Explorer"><div class="ms-bb-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div><div class="ms-bb-label">EXPLORER</div></a>
+</div></div>
+
+<div id="settings">
+  <h2>Réglages (calibrage)</h2>
+  <label>Seuil « bouge »</label><input id="tMove" type="number" step="0.5" min="1" max="40">
+  <label>Seuil « immobile »</label><input id="tStill" type="number" step="0.5" min="0.5" max="20">
+  <label>Immobilité avant la photo (ms)</label><input id="stillMs" type="number" step="100" min="300" max="5000">
+  <label>Fenêtre d'une photo plus nette (ms)</label><input id="winMs" type="number" step="100" min="0" max="4000">
+  <label>Netteté minimale</label><input id="sharpMin" type="number" step="10" min="0" max="20000">
+  <label>Luminosité minimale (0-255)</label><input id="brightMin" type="number" step="5" min="0" max="255">
+  <label>Pôles (un par ligne)</label><textarea id="poleList"></textarea>
+  <div class="row"><button id="setCancel" type="button" class="ms-btn">Fermer</button><button id="setSave" type="button" class="ms-btn">Enregistrer</button></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var DEFAULT_POLES = ["Pôle Caisse","Pôle Produits frais","Pôle Epicerie sèche","Pôle Petit déjeuner","Pôle Cave","Pôle Cuisine","Pôle Maison"];
+  var DEFAULTS = { tMove: 6, tStill: 2.5, stillMs: 1500, winMs: 1200, sharpMin: 100, brightMin: 40 };
+  var LS = "ms-releve-proto";
+  var cfg = load();
+  var $ = function(id){ return document.getElementById(id); };
+  var video = $("cam"), ring = $("ring"), overlay = $("overlay"), idle = $("idle"), stage = $("stage"), mainBtn = $("mainBtn");
+
+  var run = { phase: "idle", startedAt: null, t0: 0, pole: null, items: [], switches: [], problems: [], seq: 0, camera: "none" };
+  var det = { prev: null, state: "moving", stillAcc: 0, keptAt: 0, armed: true, best: null, problem: null, lastM: 0, lastS: 0, tick: 0, ticks: 0, lastError: null };
+
+  function load(){
+    var c = {}; try { c = JSON.parse(localStorage.getItem(LS) || "{}"); } catch(e){ c = {}; }
+    return { tMove: num(c.tMove, DEFAULTS.tMove), tStill: num(c.tStill, DEFAULTS.tStill), stillMs: num(c.stillMs, DEFAULTS.stillMs), winMs: nonneg(c.winMs, DEFAULTS.winMs), sharpMin: nonneg(c.sharpMin, DEFAULTS.sharpMin), brightMin: nonneg(c.brightMin, DEFAULTS.brightMin), poles: Array.isArray(c.poles) && c.poles.length ? c.poles : DEFAULT_POLES.slice() };
+  }
+  function num(v, d){ var n = Number(v); return isFinite(n) && n > 0 ? n : d; }
+  function nonneg(v, d){ var n = Number(v); return isFinite(n) && n >= 0 ? n : d; }
+  function save(){ try { localStorage.setItem(LS, JSON.stringify(cfg)); } catch(e){} }
+  function now(){ return performance.now(); }
+  function tOff(){ return run.t0 ? Math.round((det.tick || now()) - run.t0) / 1000 : 0; }
+  function pad(n){ return n < 10 ? "0" + n : String(n); }
+  function fmtT(s){ var m = Math.floor(s / 60); return m + ":" + pad(Math.floor(s - m * 60)); }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { "&":"&amp;", "<":"&lt;", ">":"&gt;", "\"":"&quot;" }[c]; }); }
+
+  // ── pôles ──────────────────────────────────────────────────────────────────
+  function renderPoles(){
+    var nav = $("poles"); nav.innerHTML = "";
+    cfg.poles.forEach(function(p){
+      var b = document.createElement("button"); b.type = "button"; b.textContent = p;
+      if (p === run.pole) b.className = "on";
+      b.addEventListener("click", function(){ switchPole(p); });
+      nav.appendChild(b);
+    });
+    $("poleName").textContent = run.pole || "—";
+    $("rl-back").textContent = "← " + (run.pole || "Pôle");
+    var n = run.items.filter(function(i){ return !i.removed && i.pole === run.pole; }).length;
+    $("poleCount").hidden = !run.pole; $("poleCount").textContent = n === 0 ? "Aucune photo" : n === 1 ? "1 photo" : n + " photos";
+  }
+  function switchPole(p){
+    if (p === run.pole) return;
+    if (run.phase === "running") run.switches.push({ t: tOff(), from: run.pole, to: p });
+    run.pole = p; renderPoles();
+  }
+
+  // ── commencer / fin ────────────────────────────────────────────────────────
+  var stream = null, timer = null;
+  function start(){
+    run.phase = "running";
+    if (!run.startedAt) { run.startedAt = new Date().toISOString(); run.t0 = det.tick || now(); det.tick = run.t0; } else { det.tick = Math.max(det.tick || 0, now()); }
+    mainBtn.textContent = "Fin du relevé"; mainBtn.hidden = false; stage.hidden = false; $("poles").hidden = false; idle.style.display = "none"; $("summary").style.display = "none"; $("strip").style.display = ""; tickClock();
+    if (window.__releveSource) { stream = true; run.camera = "injected"; return; } // harnais : les pas viennent de __releveStep, pas de l'horloge
+    startCamera();
+  }
+  function stop(){
+    run.phase = "ended"; mainBtn.hidden = true; stage.hidden = true; $("poles").hidden = true;
+    if (timer) { clearInterval(timer); timer = null; }
+    if (stream && stream.getTracks) { stream.getTracks().forEach(function(t){ t.stop(); }); }
+    stream = null; video.srcObject = null; idle.style.display = "flex"; hideOverlay(); tickClock();
+    showSummary();
+  }
+  mainBtn.addEventListener("click", function(){ if (run.phase === "running") stop(); else start(); });
+  $("sumBack").addEventListener("click", function(){ start(); });
+
+  function startCamera(){
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ return useFallback("getUserMedia absent"); }
+    navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1440 } } })
+      .then(function(s){ attach(s); })
+      .catch(function(e){ useFallback(e && e.name ? e.name : String(e)); });
+  }
+  function attach(s){ stream = s; video.srcObject = s; run.camera = "stream"; video.play().catch(function(){}); hideOverlay(); requestWakeLock(); loop(); }
+  function useFallback(reason){
+    run.camera = "file:" + reason; ring.style.display = "none";
+    showOverlay("Caméra indisponible", "Prenez la photo avec l'appareil du téléphone.", true);
+  }
+  function requestWakeLock(){ try { if (navigator.wakeLock) navigator.wakeLock.request("screen").catch(function(){}); } catch(e){} }
+
+  // ── viseur : problème affiché dedans, réglé d'un toucher ───────────────────
+  function showOverlay(title, text, withFile){ $("ovTitle").textContent = title; $("ovText").textContent = text; $("ovFile").hidden = !withFile; overlay.style.display = "flex"; }
+  function hideOverlay(){ overlay.style.display = "none"; }
+  overlay.addEventListener("click", function(ev){
+    if (ev.target.closest("#ovFile")) return;
+    if (det.problem && det.best) { var b = det.best; commit(b, true, det.problem.reason); det.problem.kept = true; run.problems.push(det.problem); det.problem = null; det.best = null; det.armed = false; hideOverlay(); ring.className = "kept"; }
+  });
+  stage.addEventListener("click", function(ev){
+    if (ev.target.closest("#overlay") || ev.target.closest("#poleChip")) return;
+    if (run.phase !== "running" || !stream || !srcW()) return;
+    commit(grab(), true, null); det.armed = false; ring.className = "kept";
+  });
+
+  // ── analyse (inchangée v1, + plancher de qualité) ──────────────────────────
+  var work = document.createElement("canvas"), wctx = work.getContext("2d", { willReadFrequently: true });
+  var full = document.createElement("canvas"), fctx = full.getContext("2d");
+  var mid = document.createElement("canvas"), mctx = mid.getContext("2d", { willReadFrequently: true });
+  var W = 64;
+  function src(){ return window.__releveSource || video; }
+  function srcW(){ var v = src(); return v.videoWidth || v.width || 0; }
+  function srcH(){ var v = src(); return v.videoHeight || v.height || 0; }
+  function gray(ctx, w, h){ var d = ctx.getImageData(0, 0, w, h).data, out = new Float32Array(w * h); for (var i = 0, j = 0; i < d.length; i += 4, j++) out[j] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; return out; }
+  function motion(a, b){ if (!a || !b || a.length !== b.length) return 99; var s = 0; for (var i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; }
+  function lapVar(g, w, h){ var n = 0, s = 0, s2 = 0; for (var y = 1; y < h - 1; y++) for (var x = 1; x < w - 1; x++) { var i = y * w + x; var v = 4 * g[i] - g[i - 1] - g[i + 1] - g[i - w] - g[i + w]; s += v; s2 += v * v; n++; } var m = s / n; return s2 / n - m * m; }
+  function mean(g){ var s = 0; for (var i = 0; i < g.length; i++) s += g[i]; return s / g.length; }
+
+  function loop(){
+    if (timer) return;
+    timer = setInterval(function(){ if (run.phase !== "running" || !stream || !srcW()) return; var t = now(); var dt = det.tick ? t - det.tick : 0; det.tick = t; step(t, dt); }, 120);
+  }
+  function step(t, dt){
+    det.ticks += 1; tickClock();
+    try { analyse(t, dt); } catch (e) { det.lastError = String(e && e.message || e); if (window.console) console.error(e); }
+  }
+  function analyse(t, dt){
+    var vw = srcW(), vh = srcH(), h = Math.round(W * vh / vw);
+    work.width = W; work.height = h; wctx.drawImage(src(), 0, 0, W, h);
+    var g = gray(wctx, W, h);
+    var m = motion(det.prev, g); det.prev = g;
+    det.lastM = m; det.lastS = lapVar(g, W, h);
+
+    if (m > cfg.tMove) {
+      if (det.best && !det.problem) { commit(det.best, false, null); }
+      if (det.problem) { run.problems.push(det.problem); det.problem = null; hideOverlay(); }
+      det.best = null; det.armed = true; det.state = "moving"; det.stillAcc = 0; ring.className = ""; return;
+    }
+    if (!det.armed) return;
+    if (det.problem) return;
+    if (m < cfg.tStill) {
+      det.stillAcc += dt;
+      if (det.stillAcc < cfg.stillMs) { det.state = "settling"; ring.className = "settling"; return; }
+      if (!det.best) { det.best = grab(); det.keptAt = t; det.state = "window"; return; }
+      if (t - det.keptAt <= cfg.winMs) { var c = grab(); if (c.sharp > det.best.sharp * 1.1) det.best = c; return; }
+      var reason = det.best.bright < cfg.brightMin ? "sombre" : det.best.sharp < cfg.sharpMin ? "floue" : null;
+      if (reason) { det.problem = { t: tOff(), pole: run.pole, reason: reason, kept: false }; det.state = "problem"; ring.className = "problem"; showOverlay(reason === "sombre" ? "Trop sombre" : "Photo floue", "Touchez pour la garder quand même.", false); return; }
+      commit(det.best, false, null); det.best = null; det.armed = false; det.state = "captured"; ring.className = "kept";
+    } else {
+      det.state = det.stillAcc ? "settling" : "moving"; ring.className = det.stillAcc ? "settling" : "";
+    }
+  }
+  function grab(){
+    var vw = srcW(), vh = srcH(), k = Math.min(1, 1600 / Math.max(vw, vh));
+    full.width = Math.round(vw * k); full.height = Math.round(vh * k); fctx.drawImage(src(), 0, 0, full.width, full.height);
+    var mw = 320, mh = Math.round(mw * vh / vw); mid.width = mw; mid.height = mh; mctx.drawImage(src(), 0, 0, mw, mh);
+    var g = gray(mctx, mw, mh);
+    return { dataUrl: full.toDataURL("image/jpeg", 0.82), sharp: Math.round(lapVar(g, mw, mh)), bright: Math.round(mean(g)), w: full.width, h: full.height };
+  }
+
+  // ── photos ─────────────────────────────────────────────────────────────────
+  function commit(shot, manual, reason){
+    var last = run.items.length ? run.items[run.items.length - 1] : null;
+    if (last && !manual && last.dataUrl === shot.dataUrl) { if (window.console) console.warn("[releve] image identique ignorée"); return; }
+    run.seq += 1;
+    run.items.push({ seq: run.seq, t: tOff(), at: new Date().toISOString(), pole: run.pole, sharp: shot.sharp, bright: shot.bright, w: shot.w, h: shot.h, manual: !!manual, reason: reason || null, source: shot.source || run.camera, removed: false, dataUrl: shot.dataUrl });
+    renderStrip(); renderPoles();
+    if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) { try { navigator.vibrate(30); } catch(e){} }
+  }
+  function renderStrip(){
+    var strip = $("strip"); strip.innerHTML = "";
+    run.items.forEach(function(it){
+      var d = document.createElement("div"); d.className = "shot" + (it.removed ? " removed" : "");
+      d.innerHTML = "<img alt=\"\" src=\"" + it.dataUrl + "\"><div class=\"m\"><b>" + esc(it.pole || "—") + "</b>" + fmtT(it.t) + "</div>";
+      var b = document.createElement("button"); b.type = "button"; b.textContent = it.removed ? "Garder" : "Retirer";
+      b.addEventListener("click", function(){ it.removed = !it.removed; it.removedAt = it.removed ? tOff() : null; renderStrip(); renderPoles(); });
+      d.appendChild(b); strip.appendChild(d);
+    });
+    strip.scrollLeft = strip.scrollWidth;
+  }
+  $("fileIn").addEventListener("change", function(ev){
+    var f = ev.target.files && ev.target.files[0]; if (!f) return;
+    var img = new Image(), url = URL.createObjectURL(f);
+    img.onload = function(){
+      var k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      full.width = Math.round(img.naturalWidth * k); full.height = Math.round(img.naturalHeight * k); fctx.drawImage(img, 0, 0, full.width, full.height);
+      var mw = 320, mh = Math.round(mw * img.naturalHeight / img.naturalWidth); mid.width = mw; mid.height = mh; mctx.drawImage(img, 0, 0, mw, mh);
+      var g = gray(mctx, mw, mh);
+      commit({ dataUrl: full.toDataURL("image/jpeg", 0.82), sharp: Math.round(lapVar(g, mw, mh)), bright: Math.round(mean(g)), w: full.width, h: full.height, source: "file" }, true, null);
+      URL.revokeObjectURL(url); ev.target.value = "";
+    };
+    img.src = url;
+  });
+
+  // ── fin du relevé : une page, une section par pôle ─────────────────────────
+  function showSummary(){
+    var kept = run.items.filter(function(i){ return !i.removed; });
+    var order = cfg.poles.slice(); run.items.forEach(function(i){ if (i.pole && order.indexOf(i.pole) < 0) order.push(i.pole); });
+    var html = order.map(function(p){
+      var its = kept.filter(function(i){ return i.pole === p; });
+      var n = its.length === 0 ? "Aucune photo" : its.length === 1 ? "1 photo" : its.length + " photos";
+      return "<div class=\"sec\"><h3>" + esc(p) + "</h3><p class=\"n\">" + n + "</p><div class=\"imgs\">" + its.map(function(i){ return "<img alt=\"\" src=\"" + i.dataUrl + "\">"; }).join("") + "</div></div>";
+    }).join("");
+    var noPole = kept.filter(function(i){ return !i.pole; });
+    if (noPole.length) html += "<div class=\"sec\"><h3>Non rattaché</h3><p class=\"n\">" + noPole.length + " photo(s)</p><div class=\"imgs\">" + noPole.map(function(i){ return "<img alt=\"\" src=\"" + i.dataUrl + "\">"; }).join("") + "</div></div>";
+    $("sumBody").innerHTML = html;
+    var report = { proto: "releve-espace-proto", version: 2, startedAt: run.startedAt, endedAt: new Date().toISOString(), durationS: tOff(), camera: run.camera, ua: navigator.userAgent, viewport: [innerWidth, innerHeight],
+      settings: { tMove: cfg.tMove, tStill: cfg.tStill, stillMs: cfg.stillMs, winMs: cfg.winMs, sharpMin: cfg.sharpMin, brightMin: cfg.brightMin }, poles: cfg.poles,
+      items: run.items.map(function(i){ return { seq: i.seq, t: i.t, at: i.at, pole: i.pole, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, manual: i.manual, reason: i.reason, source: i.source, removed: i.removed, removedAt: i.removedAt || null }; }),
+      switches: run.switches, problems: run.problems };
+    var a = $("sumDl"); if (a.href && a.href.indexOf("blob:") === 0) URL.revokeObjectURL(a.href);
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(report, null, 1)], { type: "application/json" }));
+    $("strip").style.display = "none"; $("summary").style.display = "block";
+  }
+
+  // ── réglages : appui long sur le chrono, ou ?reglages=1 ────────────────────
+  function openSettings(){
+    $("tMove").value = cfg.tMove; $("tStill").value = cfg.tStill; $("stillMs").value = cfg.stillMs; $("winMs").value = cfg.winMs; $("sharpMin").value = cfg.sharpMin; $("brightMin").value = cfg.brightMin; $("poleList").value = cfg.poles.join("\n");
+    $("settings").style.display = "block";
+  }
+  var press = null;
+  $("rl-clock").addEventListener("pointerdown", function(){ press = setTimeout(openSettings, 700); });
+  ["pointerup","pointercancel","pointerleave"].forEach(function(ev){ $("rl-clock").addEventListener(ev, function(){ clearTimeout(press); }); });
+  if (/[?&]reglages=1/.test(location.search)) openSettings();
+  $("setCancel").addEventListener("click", function(){ $("settings").style.display = "none"; });
+  $("setSave").addEventListener("click", function(){
+    cfg.tMove = num($("tMove").value, DEFAULTS.tMove); cfg.tStill = num($("tStill").value, DEFAULTS.tStill); cfg.stillMs = num($("stillMs").value, DEFAULTS.stillMs); cfg.winMs = nonneg($("winMs").value, DEFAULTS.winMs); cfg.sharpMin = nonneg($("sharpMin").value, DEFAULTS.sharpMin); cfg.brightMin = nonneg($("brightMin").value, DEFAULTS.brightMin);
+    var poles = $("poleList").value.split("\n").map(function(s){ return s.trim(); }).filter(Boolean); if (poles.length) cfg.poles = poles;
+    save(); renderPoles(); $("settings").style.display = "none";
+  });
+
+  function tickClock(){ $("rl-clock").textContent = run.phase === "idle" ? "0:00" : fmtT(tOff()); }
+  setInterval(tickClock, 500);
+
+  // ── harnais ────────────────────────────────────────────────────────────────
+  window.__releveAttach = function(s){ if (run.phase !== "running") start(); attach(s); };
+  window.__releveStep = function(dt){ if (run.phase !== "running") start(); if (!stream) stream = true; var t = (det.tick || now()) + (dt || 120); det.tick = t; step(t, dt || 120); return window.__releveState(); };
+  window.__releveState = function(){ return { phase: run.phase, state: det.state, armed: det.armed, m: Math.round(det.lastM * 10) / 10, s: Math.round(det.lastS), stillAcc: Math.round(det.stillAcc), ticks: det.ticks, lastError: det.lastError, overlay: overlay.style.display === "flex" ? $("ovTitle").textContent : null, items: run.items.map(function(i){ return { seq: i.seq, t: i.t, pole: i.pole, sharp: i.sharp, bright: i.bright, manual: i.manual, reason: i.reason }; }), switches: run.switches.length, problems: run.problems.slice(), mainBtn: mainBtn.textContent, clock: $("rl-clock").textContent }; };
+
+  renderPoles();
+})();
+</script>
+</body></html>
