@@ -134,6 +134,92 @@ export const GET: APIRoute = async ({ url, locals }) => {
       ? String((locals as any).clerk_user_id).trim()
       : null;
 
+    // 12/09 (perf, mesuré le 11/09 sur Muse Square : lectures par utilisateur 835-1 055 ms, clés de suppression
+    // 421-606 ms, BestTime 124-619 ms — trois attentes EN SÉRIE après la vague principale). Leurs entrées
+    // (utilisateur, site) sont connues à l'arrivée : AMORCÉES ici, attendues à leur place. Mêmes requêtes, même
+    // traitement d'erreur : les lectures par utilisateur retombent chacune sur leur défaut ; les clés de suppression
+    // relancent leur erreur à l'attente, comme avant (le .catch vide n'évite que le rejet « non géré » avant l'attente).
+    const perUserReadsP: Promise<any[]> | null = clerk_user_id ? Promise.all([
+      bq.query({
+        query: `
+          SELECT goal, goal_label_fr, goal_scope
+          FROM \`muse-square-open-data.semantic.vw_insight_event_user_active_goal\`
+          WHERE user_id = @clerk_user_id
+            AND location_id = @location_id
+          LIMIT 1
+        `,
+        params: { clerk_user_id, location_id },
+        location: "EU",
+      }).catch(() => [[]] as any[]),
+      bq.query({
+        query: `
+          SELECT cards_done, cards_already_done, cards_not_done, total_succeeded, total_attempted
+          FROM \`muse-square-open-data.semantic.vw_insight_event_user_activity\`
+          WHERE user_id = @clerk_user_id
+            AND location_id = @location_id
+          LIMIT 1
+        `,
+        params: { clerk_user_id, location_id },
+        location: "EU",
+      }).catch(() => [[]] as any[]),
+      bq.query({
+        query: `
+          SELECT config_json, enabled
+          FROM (
+            SELECT config_json, enabled,
+                   -- Owner 19/07 : config niveau COMPTE — site d'abord, sinon compte
+                   ROW_NUMBER() OVER (ORDER BY (location_id = @location_id) DESC, updated_at DESC) AS rn
+            FROM \`muse-square-open-data.analytics.channel_configs\`
+            WHERE user_id = @clerk_user_id
+              AND channel = 'recommendations'
+          )
+          WHERE rn = 1
+        `,
+        params: { clerk_user_id, location_id },
+        location: "EU",
+      }).catch(() => [[]] as any[]),
+      bq.query({
+        query: `
+          SELECT
+            CAST(transaction_date AS STRING) AS date,
+            daily_revenue,
+            daily_transactions,
+            avg_basket,
+            revenue_30d_avg,
+            revenue_vs_30d_avg_pct,
+            revenue_same_weekday_last_week,
+            revenue_vs_last_week_pct,
+            revenue_robust_z
+          FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
+          WHERE location_id = @location_id
+          ORDER BY transaction_date DESC
+          LIMIT 8
+        `,
+        params: { location_id },
+        location: "EU",
+      }).catch(() => [[]] as any[]),
+    ]) : null;
+    const activeSuppP = bq.query({
+      query: `SELECT DISTINCT origin_suppression_key AS k
+              FROM (
+                SELECT origin_suppression_key, status,
+                  ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                FROM \`muse-square-open-data.analytics.action_commitments\`
+                WHERE location_id = @location_id AND origin_suppression_key IS NOT NULL
+              )
+              WHERE rn = 1 AND status IN ('open','pending')`,
+      params: { location_id }, types: { location_id: "STRING" }, location: "EU",
+    });
+    activeSuppP.catch(() => {});
+    const btEarlyP: Promise<{ venueId: string | null; data: any[] | null }> = bq.query({
+      query: `SELECT besttime_venue_id FROM \`muse-square-open-data.semantic.vw_insight_event_ai_location_context\` WHERE location_id = @location_id LIMIT 1`,
+      params: { location_id },
+      location: "EU",
+    }).then(async (r: any) => {
+      const id = r?.[0]?.[0]?.besttime_venue_id ?? null;
+      return { venueId: id, data: id ? await fetchBestTimeWeek(id).catch(() => null) : null };
+    }).catch(() => ({ venueId: null, data: null }));
+
     // ----------------------------------------------------------------
     // 3. Change feed query
     // ----------------------------------------------------------------
@@ -402,7 +488,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     // Fetch BestTime foot traffic if venue is registered
     const btVenueId = profile?.besttime_venue_id ?? null;
-    const btWeekData = btVenueId ? await fetchBestTimeWeek(btVenueId).catch(() => null) : null;
+    // 12/09 (perf) — BestTime AMORCÉE au début (btEarlyP), id lu dans la MÊME vue que le profil du cerveau ; si
+    // les deux ids diffèrent, l'appel suit le profil comme avant. Mesuré avant : 124-619 ms EN SÉRIE après la vague.
+    const btEarly = await btEarlyP;
+    const btWeekData = btVenueId ? (btEarly.venueId === btVenueId ? btEarly.data : await fetchBestTimeWeek(btVenueId).catch(() => null)) : null;
     const btByDayInt = new Map<number, any>();
     if (btWeekData) {
       for (const d of btWeekData) {
@@ -424,66 +513,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // with no CSV import simply have no rows — the volet renders its cold-start invite).
     let salesSummary: any = null;
     if (clerk_user_id) {
-      const [goalRes, actRes, recoRes, salesRes] = await Promise.all([
-        bq.query({
-          query: `
-            SELECT goal, goal_label_fr, goal_scope
-            FROM \`muse-square-open-data.semantic.vw_insight_event_user_active_goal\`
-            WHERE user_id = @clerk_user_id
-              AND location_id = @location_id
-            LIMIT 1
-          `,
-          params: { clerk_user_id, location_id },
-          location: "EU",
-        }).catch(() => [[]] as any[]),
-        bq.query({
-          query: `
-            SELECT cards_done, cards_already_done, cards_not_done, total_succeeded, total_attempted
-            FROM \`muse-square-open-data.semantic.vw_insight_event_user_activity\`
-            WHERE user_id = @clerk_user_id
-              AND location_id = @location_id
-            LIMIT 1
-          `,
-          params: { clerk_user_id, location_id },
-          location: "EU",
-        }).catch(() => [[]] as any[]),
-        bq.query({
-          query: `
-            SELECT config_json, enabled
-            FROM (
-              SELECT config_json, enabled,
-                     -- Owner 19/07 : config niveau COMPTE — site d'abord, sinon compte
-                     ROW_NUMBER() OVER (ORDER BY (location_id = @location_id) DESC, updated_at DESC) AS rn
-              FROM \`muse-square-open-data.analytics.channel_configs\`
-              WHERE user_id = @clerk_user_id
-                AND channel = 'recommendations'
-            )
-            WHERE rn = 1
-          `,
-          params: { clerk_user_id, location_id },
-          location: "EU",
-        }).catch(() => [[]] as any[]),
-        bq.query({
-          query: `
-            SELECT
-              CAST(transaction_date AS STRING) AS date,
-              daily_revenue,
-              daily_transactions,
-              avg_basket,
-              revenue_30d_avg,
-              revenue_vs_30d_avg_pct,
-              revenue_same_weekday_last_week,
-              revenue_vs_last_week_pct,
-              revenue_robust_z
-            FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
-            WHERE location_id = @location_id
-            ORDER BY transaction_date DESC
-            LIMIT 8
-          `,
-          params: { location_id },
-          location: "EU",
-        }).catch(() => [[]] as any[]),
-      ]);
+      const [goalRes, actRes, recoRes, salesRes] = await perUserReadsP!;
       const goalRows = goalRes?.[0];
       activeGoal = (Array.isArray(goalRows) && goalRows[0]) ? goalRows[0] : null;
       const actRows = actRes?.[0];
@@ -635,17 +665,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // brings the card back automatically. Computed BEFORE the feed merge so it now suppresses BOTH
     // rails: action candidates (below) AND change-feed cards (the view derives the same
     // change_subtype:location:date key since 16/07 — the last lifecycle hole).
-    const [activeSuppRows] = await bq.query({
-      query: `SELECT DISTINCT origin_suppression_key AS k
-              FROM (
-                SELECT origin_suppression_key, status,
-                  ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
-                FROM \`muse-square-open-data.analytics.action_commitments\`
-                WHERE location_id = @location_id AND origin_suppression_key IS NOT NULL
-              )
-              WHERE rn = 1 AND status IN ('open','pending')`,
-      params: { location_id }, types: { location_id: "STRING" }, location: "EU",
-    });
+    const [activeSuppRows] = await activeSuppP;
     const activeSuppressionKeys = new Set((activeSuppRows as any[]).map((r) => String(r.k)));
 
     const mergedFeed = [
