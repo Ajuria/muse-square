@@ -34,6 +34,7 @@
     "astro": "^5.13.3",
     "dotenv": "^17.2.3",
     "resend": "^6.9.4",
+    "sharp": "^0.34.5",
     "typescript": "^5.9.3",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },

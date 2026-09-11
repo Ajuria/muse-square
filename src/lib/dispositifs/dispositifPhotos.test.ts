@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { latestPerComponent, photoObjectPath, photoGcsUri, withConfirmedItems, type PhotoRow } from "./dispositifPhotos";
+import sharp from "sharp";
+import { latestPerComponent, photoObjectPath, photoGcsUri, withConfirmedItems, parsePhotoVariant, photoVariantPath, photoVariantContentType, renderPhotoVariants, PHOTO_VARIANTS, type PhotoRow } from "./dispositifPhotos";
 const row = (o: Partial<PhotoRow>): PhotoRow => ({ photo_id: "p", location_id: "l", dispositif_id: "d", version_no: 1, component_key: "c", walk_id: null, seq: null, t_offset_s: null, gcs_uri: "gs://x", dispositif_type: null, dispositif_role: null, status: "read", checklist: null, items_matched: null, items_confirmed: null, prices_seen: null, coverage_flag: null, model: null, prompt_version: null, created_by: null, created_at: "2026-09-03T10:00:00Z", exposition: null, levels: null, families_present: [], fixture_no: null, ...o });
 describe("dispositifPhotos — pur", () => {
   it("latestPerComponent garde la plus récente par (version, composant), quel que soit l'ordre d'entrée", () => {
@@ -28,5 +29,43 @@ describe("withConfirmedItems — la confirmation de l'exploitant", () => {
   });
   it("une confirmation vide est une confirmation : aucun article", () => {
     expect(withConfirmedItems(row({}), [], ["A"], "2026-09-04T09:00:00Z").items_confirmed).toEqual([]);
+  });
+});
+
+describe("variantes des photos — bande des cartes, vignette", () => {
+  it("?variant= : absent ou full = l'entière ; band, square ; tout autre = refus", () => {
+    expect(parsePhotoVariant(null)).toBe("full");
+    expect(parsePhotoVariant("")).toBe("full");
+    expect(parsePhotoVariant("full")).toBe("full");
+    expect(parsePhotoVariant("band")).toBe("band");
+    expect(parsePhotoVariant("square")).toBe("square");
+    expect(parsePhotoVariant("../x")).toBeNull();
+    expect(parsePhotoVariant("original")).toBeNull();
+  });
+  it("l'entière garde son chemin historique ; une variante vit à côté, en WebP", () => {
+    expect(photoVariantPath("loc", "disp", "ph", "full")).toBe(photoObjectPath("loc", "disp", "ph"));
+    expect(photoVariantPath("loc", "disp", "ph", "band")).toBe("loc/disp/ph.band.webp");
+    expect(photoVariantContentType("full")).toBe("image/jpeg");
+    expect(photoVariantContentType("square")).toBe("image/webp");
+  });
+  it("rend chaque variante à sa taille, en WebP, sans métadonnées, recadrée au CENTRE", async () => {
+    // 1 600 × 1 200 (4:3, comme le dépôt du navigateur) : 20 % du haut en rouge, le reste en vert. Au
+    // centre, la bande 16:7 garde les lignes 150-570 d'une image ramenée à 720 de haut — le rouge (0-144)
+    // n'y est pas. Un recadrage « nord » ou « saillance » le ferait entrer.
+    const red = await sharp({ create: { width: 1600, height: 240, channels: 3, background: "#ff0000" } }).png().toBuffer();
+    const src = await sharp({ create: { width: 1600, height: 1200, channels: 3, background: "#00a000" } })
+      .composite([{ input: red, top: 0, left: 0 }]).withMetadata({ exif: { IFD0: { Copyright: "sonde" } } }).jpeg({ quality: 85 }).toBuffer();
+    expect((await sharp(src).metadata()).exif).toBeDefined();
+    const out = await renderPhotoVariants(src);
+    for (const k of ["band", "square"] as const) {
+      const m = await sharp(out[k]).metadata();
+      expect(m.format).toBe("webp");
+      expect([m.width, m.height]).toEqual([PHOTO_VARIANTS[k].width, PHOTO_VARIANTS[k].height]);
+      expect(m.exif).toBeUndefined();
+    }
+    const { data } = await sharp(out.band).raw().toBuffer({ resolveWithObject: true });
+    const [r, g] = [data[0], data[1]];
+    expect(r).toBeLessThan(60);
+    expect(g).toBeGreaterThan(120);
   });
 });

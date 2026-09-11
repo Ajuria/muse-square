@@ -4,6 +4,10 @@
 //   GET  ?dispositif_id=&version_no=   → la dernière photo lue par composant (+ url de l'image)
 //   GET  ?dispositif_id=&file=<photo_id> → l'image elle-même (proxy authentifié — le bucket est privé,
 //                                       rien n'est signé ni public)
+//        &variant=band|square          → la variante à la taille de la surface (11/09 : bande 16:7 des
+//                                       cartes, vignette carrée) ; absente = l'image entière ; une
+//                                       variante manquante rend l'entière (cache court). Un photo_id
+//                                       n'est jamais réécrit : cache immuable d'un an.
 //   POST {action: "confirm", dispositif_id, photo_id, items_confirmed: [item_code]}
 //        → une NOUVELLE ligne de la même photo avec les articles confirmés (append-only, la
 //          dernière gagne) ; codes hors liste du site écartés. items_confirmed prime partout.
@@ -28,7 +32,7 @@ import { requireLocationOwnership, requireLocationAccess } from "../../../lib/re
 import { readComponents, dispositifTypeLabelFr, checklistFor, expositionLabelFr } from "../../../lib/dispositifs/dispositifTypes";
 import { listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
 import {
-  PHOTO_MAX_BYTES, makeStorageClient, photoObjectPath, photoGcsUri, putPhotoObject, getPhotoObject, deletePhotoObject,
+  PHOTO_MAX_BYTES, makeStorageClient, photoObjectPath, photoGcsUri, putPhotoObject, deletePhotoObject, putPhotoVariants, getPhotoVariant, parsePhotoVariant,
   insertPhotoRow, listPhotoRows, latestPerComponent, listSiteItems, withConfirmedItems, type PhotoRow,
 } from "../../../lib/dispositifs/dispositifPhotos";
 import { PHOTO_PROMPT_VERSION, photoQuestions, photoExtractionSchema, photoExtractionSystem } from "../../../lib/ai/photoExtraction";
@@ -97,11 +101,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const file = String(url.searchParams.get("file") || "").trim();
     if (file) {
       if (!/^[a-zA-Z0-9-]{8,64}$/.test(file)) return json({ ok: false, error: "file invalide" }, 400);
+      const variant = parsePhotoVariant(url.searchParams.get("variant"));
+      if (!variant) return json({ ok: false, error: "variant invalide (full, band, square)" }, 400);
       const rows = await listPhotoRows(bq, dispositif_id);
       const row = rows.find((r) => r.photo_id === file);
       if (!row) return json({ ok: false, error: "photo introuvable" }, 404);
-      const bytes = await getPhotoObject(makeStorageClient(), photoObjectPath(row.location_id, row.dispositif_id, row.photo_id));
-      return new Response(new Uint8Array(bytes), { status: 200, headers: { "content-type": "image/jpeg", "cache-control": "private, max-age=300" } });
+      const got = await getPhotoVariant(makeStorageClient(), row.location_id, row.dispositif_id, row.photo_id, variant);
+      const cache = got.variant === variant ? "private, max-age=31536000, immutable" : "private, max-age=300";
+      return new Response(new Uint8Array(got.bytes), { status: 200, headers: { "content-type": got.contentType, "cache-control": cache } });
     }
 
     const vParam = url.searchParams.get("version_no");
@@ -214,7 +221,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return json({ ok: false, rejected: "read", error: "La lecture de la photo a échoué — réessayez.", details: [...(call.errors ?? []), ...gate.errors].slice(0, 6) }, 502);
     }
 
-    // 4. La ligne.
+    // 4. Les variantes (bande des cartes, vignette) — seulement pour une photo gardée, en parallèle de la
+    // ligne. Un échec ne perd pas la photo : le proxy sert alors l'entière, et la réponse le dit.
+    const variantsP = putPhotoVariants(storage, disp.location_id, dispositif_id, photo_id, bytes)
+      .then(() => true)
+      .catch((e: any) => { console.error("[dispositifs/photos] variantes non écrites", photo_id, String(e?.message || e)); return false; });
+
+    // 5. La ligne.
     const row: PhotoRow = {
       photo_id, location_id: disp.location_id, dispositif_id, version_no: disp.version_no, component_key,
       walk_id: null, seq: null, t_offset_s: null, gcs_uri: photoGcsUri(path),
@@ -224,8 +237,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // v2 : les valeurs NORMALISÉES par la porte (niveaux hors rayonnage → null, familles dédoublonnées).
       exposition: gate.exposition, levels: gate.levels, families_present: gate.families_present, fixture_no,
     };
-    await insertPhotoRow(bq, row);
-    return json({ ok: true, photo: publicRow(row, byCode(items)), usage: call.usage });
+    const [variants] = await Promise.all([variantsP, insertPhotoRow(bq, row)]);
+    return json({ ok: true, photo: publicRow(row, byCode(items)), usage: call.usage, variants });
   } catch (e: any) {
     const msg = String(e?.message || e);
     return json({ ok: false, error: msg }, msg.startsWith("FORBIDDEN") ? 403 : 500);
