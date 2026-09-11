@@ -27,6 +27,7 @@ import { calendarFamily } from "./calendar";
 import { channelsProvider } from "./channels";
 import { engagementsProvider } from "./engagements";
 import { margeFamily } from "./marge";
+import { espaceFamily } from "./espace";
 
 export const FAMILIES: Record<string, FamilyProvider> = {
   // WEATHER / what the venue's OWN weather actually moves ("la pluie fait-elle baisser mon CA ?").
@@ -66,6 +67,20 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /\brentabilit/, /\bbenefices?\b/, /\bprofits?\b/, /\bprix d'?achat\b/,
     ],
     run: margeFamily,
+  },
+  // ESPACE (11/09, docs/espace-et-pole.md) — « combien rapporte mon linéaire ? », « quel pôle est le plus
+  // rentable au mètre ? », « ma surface de vente ». Mots de mesure d'espace seulement : rien à voler aux
+  // familles ventes (« mètre » n'y apparaît jamais).
+  espace: {
+    key: "espace",
+    title: "Espace · linéaire, surface de vente, CA par mètre",
+    render: "renderEspace",
+    match: [
+      /\blineaires?\b/, /\bmetres? lineaires?\b/, /\bpar metre\b/, /\b(par|au) m2\b/, /\bm²/,
+      /\bsurface de vente\b/, /\bpart de lineaire\b/,
+      /\b(mon |mes |quel |quels )?poles?\b.{0,40}(rentable|rapporte|rapportent|par metre|marge)/,
+    ],
+    run: espaceFamily,
   },
   footfall: {
     key: "footfall",

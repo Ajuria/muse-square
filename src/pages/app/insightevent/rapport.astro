@@ -381,6 +381,12 @@ const locParam = Astro.url.searchParams.get("loc") || "";
               + (data.channels_scope === 'group' ? ' — tous vos sites' : '') + '</div>'
               + window.MSCardKit.renderChannels(data.channels) + '</div>';
           }
+          // « Marge brute » (11/09) — rendu partagé card-kit (renderMarge), même provider qu'Explorer ;
+          // null sans couverture suffisante des prix d'achat (la section n'existe simplement pas).
+          if (data.marge && window.MSCardKit && window.MSCardKit.renderMarge) {
+            html += '<div style="break-inside:avoid;margin-top:24px;"><div class="rp-uc">Marge brute · 30 derniers jours</div>'
+              + window.MSCardKit.renderMarge(Object.assign({ ok: true }, data.marge)) + '</div>';
+          }
 
           docEl.innerHTML = html;
           docEl.style.display = "block";

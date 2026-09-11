@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { margeFamily } from '../../../lib/insightFamilies/marge';
 import { makeBQClient } from '../../../lib/bq';
 // Named-context assembly is shared with reactions-today via dayContext (one source, no fork).
 import { namedEventsRange, foreignVisitorsRange } from '../../../lib/context/dayContext';
@@ -85,6 +86,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const scope = body?.scope === 'group' && owned.length > 1 ? 'group' : 'site';
     const channelsPromise = channelsData(bq, scope === 'group' ? owned : [loc], start, end)
       .catch((e: any) => { console.error('sales-report channels section failed:', e?.message); return null; });
+    // « Marge brute » (11/09, docs/catalogue-de-couts-et-marge.md, audit § 6 A8) — AMORCÉE ici, attendue avec les
+    // canaux : LE provider marge (même lecture qu'Explorer et que le chat), fenêtre = les 30 jours qui finissent
+    // à la fin du rapport ; null sans couverture suffisante (la section n'existe simplement pas).
+    const margePromise = margeFamily(bq, loc, end)
+      .catch((e: any) => { console.error('sales-report marge section failed:', e?.message); return null; });
     const [series, prior, sig, cats, ctx, namedEvents, foreign, actions, radius, labelRows, assoc, compRows] = await Promise.all([
       // daily series (revenue + transactions) — totals/weekday/best-worst derived in JS
       q(`SELECT transaction_date AS d, SUM(daily_revenue) AS rev, SUM(daily_transactions) AS txns
@@ -267,12 +273,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const pct = (cur: number, base: number) => (base > 0 ? Math.round(((cur - base) / base) * 1000) / 10 : null);
 
     const channelsRes = await channelsPromise;
+    const margeRes = await margePromise;
 
     return json({
       ok: true,
       // « Vos canaux » — null si < 2 flux réels (décision 12 : jamais de section à flux unique).
       channels: channelsRes && channelsRes.data.found ? channelsRes.data : null,
       channels_scope: scope,
+      marge: margeRes && margeRes.found ? margeRes.data : null,
       location_id: loc,
       location_label: labelRows[0]?.location_label ?? 'Votre établissement',
       period: { start, end },

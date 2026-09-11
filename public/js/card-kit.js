@@ -1888,6 +1888,38 @@
     return html;
   }
 
+  // Espace du pôle (11/09, provider insightFamilies/espace.ts — docs/espace-et-pole.md E4-E6). Mots owner :
+  // linéaire, Part de linéaire, surface de vente, « part de marge contre Part de linéaire ». Un pôle sans
+  // vente n'a pas d'\u20ac par m\u00e8tre : la cellule le dit.
+  function renderEspace(j) {
+    if (!j || !j.ok || !j.found) {
+      return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Aucune mesure d\u2019espace pour l\u2019instant \u2014 les m\u00e8tres se saisissent sur le formulaire de p\u00f4le.</div>';
+    }
+    function m1(n) { return n == null ? '\u2014' : String(Math.round(Number(n) * 10) / 10).replace('.', ','); }
+    function pct(s) { return s == null ? '\u2014' : String(Math.round(Number(s) * 1000) / 10).replace('.', ',') + ' %'; }
+    var html = '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
+    var s = j.site || {};
+    html += msStrip([
+      { top: 'Lin\u00e9aire mesur\u00e9', mid: m1(s.linear_m) + ' m', highlight: true, tone: 'ok' },
+      { top: 'Surface de vente', mid: s.surface_m2 != null ? m1(s.surface_m2) + ' m\u00b2' : '\u2014' },
+      { top: 'CA par m\u00e8tre \u00b7 30 j', mid: s.revenue_per_m != null ? frInt(s.revenue_per_m) + ' \u20ac' : '\u2014' },
+      { top: 'Marge brute par m\u00e8tre \u00b7 30 j', mid: s.margin_per_m != null ? frInt(s.margin_per_m) + ' \u20ac' : '\u2014' }
+    ]);
+    if (j.poles && j.poles.length) {
+      html += '<div style="font-size:12px;color:#6B7280;margin:6px 0 0;">Par p\u00f4le :</div>';
+      html += msSortTable([
+        { label: 'P\u00f4le', render: function (p) { return { v: p.name, bold: true }; } },
+        { label: 'Lin\u00e9aire', key: 'linear_m', render: function (p) { return { v: m1(p.linear_m) + ' m', bold: true }; } },
+        { label: 'Part de lin\u00e9aire', key: 'linear_share', render: function (p) { return { v: pct(p.linear_share), color: '#6B7280' }; } },
+        { label: 'Part du CA', key: 'revenue_share', render: function (p) { return { v: p.revenue_share != null ? pct(p.revenue_share) : 'aucune vente', color: '#6B7280' }; } },
+        { label: 'CA par m\u00e8tre', key: 'revenue_per_m', render: function (p) { return { v: p.revenue_per_m != null ? frInt(p.revenue_per_m) + ' \u20ac' : '\u2014', color: '#6B7280' }; } },
+        { label: 'Part de la marge', key: 'margin_share', render: function (p) { return { v: p.margin_share != null ? pct(p.margin_share) : '\u2014', color: '#6B7280' }; } }
+      ], j.poles, 'linear_m');
+    }
+    if (j.heavy) html += '<div style="font-size:12px;color:#B45309;margin-top:8px;line-height:1.5;">' + esc(j.heavy) + ' occupe plus de lin\u00e9aire qu\u2019il ne g\u00e9n\u00e8re de CA.</div>';
+    return html;
+  }
+
   // extended_bad_weather — the extended weather WINDOW as a planning frame: the run of days, the venue's
   // OWN measured CA response to that condition (heat can be an OPPORTUNITY, not a threat), + next steps.
   function renderWeatherWindow(j) {
@@ -2251,6 +2283,6 @@
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
     mdBlockToSafeHtml: mdBlockToSafeHtml, renderAnswerBlocks: renderAnswerBlocks,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,
-    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderMarge: renderMarge, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow, renderChannels: renderChannels
+    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderMarge: renderMarge, renderEspace: renderEspace, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow, renderChannels: renderChannels
   };
 })();

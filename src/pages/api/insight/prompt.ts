@@ -74,6 +74,7 @@ type ProvenanceRegister = "vetted" | "web" | "model";
 const FAMILY_FACT_ORIGIN: Record<string, FactOrigin | null> = {
   weather: "meteo",
   marge: "ventes",
+  espace: "declarations",
   offering: "ventes",
   salesdiscount: "ventes",
   salesdecomp: "ventes",
