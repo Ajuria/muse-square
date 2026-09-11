@@ -65,12 +65,12 @@ PR (`CLAUDE.md` § Où committer) ; la passation `docs/dbt-handoff/` les documen
 |---|---|---|---|
 | M1 | **Le prix d'achat est un CATALOGUE à date d'effet**, app-write `analytics.item_cost_catalog` : `cost_id, location_id, item_code, item_description, unit_cost_ht, cost_unit ('piece' \| 'kg'), effective_from, supplier, source ('csv_import' \| 'saisie'), source_file, declarant_user_id, created_at`. Append-only ; le coût en vigueur à une date = la ligne de plus grand `effective_from` ≤ date, départagée par `created_at`. Clé de remplacement à l'import : `(location_id, item_code, effective_from)` (delete puis load, comme les ventes). Sans date d'effet dans le fichier, la date d'import fait foi (décision 3) | « article × date d'effet × prix » (§ 12.12) ; un prix qui change ne réécrit jamais l'historique | pas de coût moyen pondéré entre fournisseurs ; un article sans code ne se rapproche pas |
 | M2 | **Le coût d'une ligne = `unit_cost_ht × coalesce(quantity_decimal, quantity, 1)`**, jamais × `units_sold` | une pesée de 0,247 kg vaut une vente mais coûte 0,247 × le prix au kg | — |
-| M3 | **La marge se calcule sur du HT, ou ne se calcule pas.** Trois colonnes additives sur `raw.client_transactions` : `revenue_ht` (quand l'export le donne), `vat_rate` (taux à la ligne, 0,055 / 0,20, quand l'export le donne) ; et un paramètre déclaré par site `revenue_basis` ∈ {`HT`, `TTC`} (M5). Staging : `revenue_ht = coalesce(revenue_ht, safe_divide(revenue, 1 + vat_rate), if(basis = 'HT', revenue, null))`. `NULL` ⇒ la ligne est hors couverture | mêler un CA TTC à un coût HT fabrique 5,5 à 20 points de marge ; la couverture dit l'absence au lieu de la maquiller | la marge des sites sans base déclarée reste vide tant que le paramètre n'est pas posé ; c'est voulu |
+| M3 | **La marge se calcule sur du HT, ou ne se calcule pas.** Trois colonnes additives sur `raw.client_transactions` : `revenue_ht` (quand l'export le donne), `vat_rate` (taux à la ligne, 0,055 / 0,20, quand l'export le donne) ; et une base par site `revenue_basis` ∈ {`HT`, `TTC`} **déduite de la caisse quand la règle d'ingestion la fixe** (`pos_system = 'crisalid'` ⇒ `HT`, § 12.12), **sinon déclarée** (M5) — décision owner 3, 11/09. Staging : `revenue_ht = coalesce(revenue_ht, safe_divide(revenue, 1 + vat_rate), if(basis = 'HT', revenue, null))`. `NULL` ⇒ la ligne est hors couverture | mêler un CA TTC à un coût HT fabrique 5,5 à 20 points de marge ; la couverture dit l'absence au lieu de la maquiller | la marge des sites sans base déclarée reste vide tant que le paramètre n'est pas posé ; c'est voulu |
 | M4 | **Deux référentiels de CA, jamais dans la même phrase** : `revenue` (ce que la caisse imprime, brut) reste le CA de toutes les surfaces existantes ; `revenue_ht` n'apparaît que dans les surfaces de marge, sous le mot **CA net HT** | ADD, don't REPLACE : aucune carte, aucun verdict existant ne change | deux chiffres de CA possibles sur une même page, chacun avec son mot |
 | M5 | **Les paramètres déclarés à date d'effet** vivent dans `analytics.declared_parameters` : `parameter_id, location_id, param_key, value_num, value_text, unit, effective_from, declarant_user_id, source, created_at`. Clés du lot : `revenue_basis` (texte), `fixed_costs_month_eur`, `payroll_month_eur` (€ par mois). Le journal des corrections garde les marges % et le nombre de clients (inchangés) | un montant mensuel change ; le journal des corrections n'a ni unité, ni date d'effet, ni portée (audit § 3.1) | deux mécanismes de déclaration coexistent jusqu'à ce que les marges % migrent (hors lot) |
 | M6 | **Jours d'ouverture = jours avec ventes** (décision 4). Le point mort du jour utilise les jours de vente du dernier mois complet ; le résultat net ne se calcule que sur un mois complet | l'app ne voit que ce qui s'est vendu ; un planning déclaré serait un outil de planning | un jour ouvert à zéro vente compte fermé |
-| M7 | **Chaque mart de marge porte sa couverture** (`revenue_ht_costed`, `coverage_pct`) et ses lecteurs la disent (« coût connu sur X % de votre CA » — forme à arbitrer, calquée sur « calculé sur X % de votre CA », acté 24/08) | intent : une absence se dit et se chiffre | — |
-| M8 | **Le KPI mesuré remplace l'estimation quand la couverture ≥ 80 % du CA des 30 derniers jours** ; en dessous, la surface montre la mesure avec sa couverture ET l'estimation déclarée, chacune nommée ; sans catalogue, rien ne change à ce qui existe | un chiffre mesuré sur 30 % du CA ne peut pas s'appeler « votre profit » | le seuil de 80 % est un calibrage à confirmer par l'owner |
+| M7 | **Chaque mart de marge porte sa couverture** (`revenue_ht_costed`, `coverage_pct`) et ses lecteurs la disent (forme recommandée § 6 : « calculée sur X % de votre CA · prix d'achat manquants sur Y % », la première moitié actée le 24/08) | intent : une absence se dit et se chiffre | — |
+| M8 | **Le KPI mesuré remplace l'estimation quand la couverture ≥ 90 % du CA net HT des 30 derniers jours** (recommandation § 6, en attente owner) ; entre 50 et 90 %, la mesure s'affiche avec sa couverture ET l'estimation déclarée, chacune nommée ; sous 50 %, l'estimation mène ; sans catalogue, rien ne change à ce qui existe | un chiffre mesuré sur 30 % du CA ne peut pas s'appeler « votre profit » ; un inconnu de plus de 10 % de la base n'est pas négligeable (matérialité d'audit) | un fichier de prix partiel laisse le compte en « estimé » plus longtemps |
 | M9 | **Frontière** : l'app lit `semantic` ; K9 et le tableau de bord quittent `raw` pour `vw_insight_event_daily_margin` / `vw_insight_event_family_margin_daily` ; les vues manquantes se créent dans dbt AVANT toute lecture | règle owner 10/09 | — |
 
 ---
@@ -94,7 +94,7 @@ avant PR, comme le lot A).
 11. **`fct_client_hourly_margin`** (site × jour × heure : `revenue_ht, cost_ht, gross_margin_ht, coverage_pct`, `cum_gross_margin_ht` cumulé dans la journée).
 12. **`fct_client_daily_margin`** (site × jour : sommes + `coverage_pct` + `fixed_costs_month_eur`, `payroll_month_eur` en vigueur, `opening_days_ref` = jours de vente du dernier mois complet, `break_even_day_eur`, `break_even_hour` = première heure où `cum_gross_margin_ht ≥ (fixed + payroll) / opening_days_ref`, NULL sans les deux paramètres).
 13. **`fct_client_monthly_result`** (site × mois complet : `revenue_ht, gross_margin_ht, coverage_pct, fixed_costs_month_eur, payroll_month_eur, net_result_eur, payroll_to_revenue_pct`, NULL tant qu'un des trois manque).
-14. **Branches marge des classes de jour** : `fct_client_family_day_class_response` reçoit `family_margin` (marge brute HT de la famille, base marginal, jours où `coverage_pct ≥ 80 %`) ; `fct_location_day_class_impacts` reçoit `margin` (idem au site). Une branche `union all` chacun — ADD.
+14. **Branches marge des classes de jour** : `fct_client_family_day_class_response` reçoit `family_margin` (marge brute HT de la famille, base marginal, jours où `coverage_pct` ≥ le seuil M8) ; `fct_location_day_class_impacts` reçoit `margin` (idem au site). Une branche `union all` chacun — ADD.
 15. **Semantic, contrat enforced, tag `mart_dependent`** : `vw_insight_event_family_margin_daily`, `vw_insight_event_item_margin_daily`, `vw_insight_event_hourly_margin`, `vw_insight_event_daily_margin`, `vw_insight_event_monthly_result`, `vw_insight_event_declared_parameters` (valeurs en vigueur aujourd'hui, par site et par clé).
 16. **Tests** : unicité des grains ; `coverage_pct` entre 0 et 1 ; Σ marge famille = marge jour (fermeture exacte) ; `is_below_cost` ⇒ `cost_known` ; test singulier « aucune ligne de marge sans `revenue_ht` ».
 17. **Jobs** : `mart_dependent` sur tous ; les marts de marge se reconstruisent aussi par `client_sales_full_refresh` (descendants de la staging) après un dépôt de ventes ou de coûts.
@@ -108,7 +108,9 @@ avant PR, comme le lot A).
    code article / référence / ref, libellé / désignation, prix d'achat HT / PA HT / coût / prix d'achat,
    date d'effet / date, fournisseur ; unité kg si le libellé ou une colonne le dit, sinon pièce), même
    `resolveMapping` que les ventes, delete-supersede sur `(location_id, item_code, effective_from)`, load
-   job. Réponse = lignes chargées, rejetées (motif), et **la couverture** : part du CA des 30 derniers
+   job. **Standards français** (décision owner 5) : dates `JJ/MM/AAAA`, décimales à la virgule, séparateur `;`
+   accepté comme la virgule, UTF-8 (export Excel FR) — les ISO `AAAA-MM-JJ` et le point décimal restent lus, jamais
+   exigés. Réponse = lignes chargées, rejetées (motif), et **la couverture** : part du CA des 30 derniers
    jours dont l'article est au catalogue (requête sur `vw_insight_event_client_offering_daily` ×
    catalogue) — c'est le chiffre que l'exploitant lit en premier.
 3. **Paramètres déclarés** : `DECLARED_METRICS` (`src/lib/ai/declaredMetrics.ts`) gagne `fixed_costs_month_eur`,
@@ -116,13 +118,12 @@ avant PR, comme le lot A).
    (formulaire inline du tableau de bord, patron `tableau.astro:1975-2037` ; et la déclaration en chat).
    Importeur de ventes : écrit `revenue_ht` et `vat_rate` quand l'export les porte (mapping Crisalid).
 4. **KPI** : `kpiRegistry.ts` — `profit_estimated` lit `vw_insight_event_daily_margin` (`gross_margin_ht`,
-   `coverage_pct`) et ne retombe sur la marge déclarée que sous 80 % de couverture, en le disant ; nouvelle
+   `coverage_pct`) et ne retombe sur la marge déclarée que sous le seuil M8, en le disant ; nouvelle
    clé `gross_margin` (mesure, `KPI_DAILY_COL` étendu d'une source par clé) ; `kpiVerdict` inchangé.
-   `dashboard.ts` bloc `marges` : profit mesuré + couverture, estimation à côté tant que < 80 %.
+   `dashboard.ts` bloc `marges` : profit mesuré + couverture, estimation à côté sous le seuil M8.
 5. **Piloter** : drapeaux `debloquer` — `cost_catalog_missing` (avec la couverture), `revenue_basis_missing`,
    `fixed_costs_missing`, `payroll_missing` ; carte CA : le profit passe de « ≈ » à mesuré, avec
-   « coût connu sur X % de votre CA » ; résultat net et point mort = nouvelles tuiles **sur arbitrage
-   owner** (héros v11 : rangée 1 = mesures qui existent).
+   « coût connu sur X % de votre CA » ; **résultat net et point mort entrent au héros de Piloter** (décision owner 4, 11/09 : « aussi dans Piloter par construction ») — rangée 1, comme des mesures qui existent : la tuile n'apparaît que quand ses trois entrées existent (catalogue, charges, masse salariale) ; avant, son manque vit dans « À faire », jamais une tuile vide.
 6. **Explorer** : provider `marge` dans `FAMILIES` (patron `salesDecomp.ts`) : marge par famille et par
    article sur la période, ventes sous le coût, point mort du jour ; réutilisé par `family-report.ts` et
    par le rapport de ventes (section « Marge »). Réponses grounded, absence honnête chiffrée.
@@ -156,14 +157,29 @@ du prix médian rend un taux de 40 % là où le prix ne bouge pas, 29 % là où 
 trois lignes sous le coût sont des lignes remisées (KPI 8 se détecte à la ligne, M2). Les sites Sage 100
 n'apparaissent pas : dernière vente au 27/07, hors des 30 jours.
 
-## 6. Décisions owner attendues
+## 6. Décisions owner (11/09)
 
-1. Les mots d'interface de M7 (« coût connu sur X % de votre CA ») et de KPI 8 (« vendu sous le coût » /
-   « à perte ») — le lexique reçoit les cinq mots actés (CA net HT, marge brute, résultat net, point mort,
-   masse salariale) avec cette spec.
-2. Le seuil de couverture de M8 (80 %).
-3. `revenue_basis` : déclaré par site (M3), ou déduit de la caisse (`crisalid` ⇒ HT par la règle d'ingestion) avec repli déclaré.
-4. Tuiles Piloter : résultat net et point mort au héros, ou dans Explorer et le rapport seulement.
-5. Format des dates du fichier de prix d'achat (JJ/MM/AAAA attendu) et décimales (virgule).
+**Tranchées** : (3) `revenue_basis` déduite de la caisse quand la règle d'ingestion la fixe, sinon déclarée par
+site (M3) ; (4) résultat net et point mort entrent au héros de Piloter (§ 4.5) ; (5) fichier de prix d'achat aux
+standards français : dates `JJ/MM/AAAA`, décimales à la virgule (§ 4.2).
+
+**En attente, avec recommandation** (grep `MOTS_BANNIS`, `tournures.fr.ts`, colonne « interdits » : aucun des mots
+ci-dessous n'y figure, 11/09) :
+
+1. **Les mots.** (a) Couverture (M7) : reprendre la forme DÉJÀ actée le 24/08 pour la marge déclarée, **« calculée sur
+   70 % de votre CA »**, complétée par la cause en français de comptable : **« prix d'achat manquants sur 30 % »**
+   — jamais « coût connu » (un coût ne se « connaît » pas, un prix d'achat se renseigne) ni « couverture » à l'écran
+   (mot de conception). Le mot qui précède porte la différence : « marge déclarée » (estimation) / « marge brute »
+   (mesure). (b) KPI 8 : le concept est **« vente à perte »** — le terme légal (revente à perte, art. L442-5 du
+   Code de commerce, seuil = prix d'achat effectif) ; le fait mesuré se dit **« vendu sous son prix d'achat »**
+   (notre catalogue porte le prix d'achat déclaré, pas le prix effectif net de remises et de transport : l'infobulle
+   le dit). « Près du coût » se dit **« marge brute inférieure à N % »**, N à fixer par l'owner. « Sous le coût »
+   et « coût » nu sont écartés : le commerçant parle de prix d'achat.
+2. **Le seuil de couverture (M8).** Pratique de contrôle de gestion et d'audit : un inconnu au-delà de 10 % de la
+   base n'est pas négligeable (seuils de matérialité usuels 5-10 %) ; la classe A d'une analyse ABC (80 % du CA)
+   est un classement, pas un seuil de fiabilité d'un taux. Recommandation : **« mesuré » à ≥ 90 % du CA net HT
+   des 30 derniers jours** ; entre 50 et 90 %, la mesure s'affiche AVEC sa couverture et l'estimation déclarée à
+   côté, chacune nommée ; sous 50 %, l'estimation mène et la mesure vit dans l'infobulle. Sacrifice : un fichier
+   de prix d'achat partiel laisse Épices et Tout en « estimé » plus longtemps — c'est la bonne réponse.
 
 — SPEC DE TRAVAIL ; se réécrit en définitif quand la passation est buildée et les vues vérifiées.
