@@ -33,6 +33,12 @@ avec son résultat — pour que le lieu apprenne de lui-même.
 - **suivi** : un lieu extérieur que la veille lit ; `competitor_tracking` est la vérité.
 - **famille de produits & services** : le grain déclaré d'un pôle ; l'article est le grain en
   dessous.
+- **prix d'achat** : le coût HT d'un article à une date d'effet, déposé par l'exploitant ; il fait de la
+  **marge brute** (CA net HT − prix d'achat des articles vendus) une mesure, par famille, par article, par
+  heure — toujours dite avec la part du CA dont le prix d'achat est renseigné. Avec les **charges fixes**
+  et la **masse salariale** du mois, déclarées, elle donne le **résultat net** et le **point mort** du jour
+  [owner 11/09, `strategie-entreprise.md` § 12.12 : le critère d'achat du premier client réel est le
+  profit]. Sans prix d'achat en base, aucun chiffre de marge ne se montre.
 - **composant** : l'objet physique d'un dispositif, celui qu'on photographie — vitrine, linéaire,
   comptoir, QR code. C'est lui qui porte la PLACE dans le magasin ; un dispositif en a plusieurs,
   discontinus s'il le faut. Un composant peut être **interactif** : le client y fait un geste

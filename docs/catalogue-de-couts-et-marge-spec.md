@@ -70,7 +70,7 @@ PR (`CLAUDE.md` § Où committer) ; la passation `docs/dbt-handoff/` les documen
 | M5 | **Les paramètres déclarés à date d'effet** vivent dans `analytics.declared_parameters` : `parameter_id, location_id, param_key, value_num, value_text, unit, effective_from, declarant_user_id, source, created_at`. Clés du lot : `revenue_basis` (texte), `fixed_costs_month_eur`, `payroll_month_eur` (€ par mois). Le journal des corrections garde les marges % et le nombre de clients (inchangés) | un montant mensuel change ; le journal des corrections n'a ni unité, ni date d'effet, ni portée (audit § 3.1) | deux mécanismes de déclaration coexistent jusqu'à ce que les marges % migrent (hors lot) |
 | M6 | **Jours d'ouverture = jours avec ventes** (décision 4). Le point mort du jour utilise les jours de vente du dernier mois complet ; le résultat net ne se calcule que sur un mois complet | l'app ne voit que ce qui s'est vendu ; un planning déclaré serait un outil de planning | un jour ouvert à zéro vente compte fermé |
 | M7 | **Chaque mart de marge porte sa couverture** (`revenue_ht_costed`, `coverage_pct`) et ses lecteurs la disent (forme recommandée § 6 : « calculée sur X % de votre CA · prix d'achat manquants sur Y % », la première moitié actée le 24/08) | intent : une absence se dit et se chiffre | — |
-| M8 | **Le KPI mesuré remplace l'estimation quand la couverture ≥ 90 % du CA net HT des 30 derniers jours** (recommandation § 6, en attente owner) ; entre 50 et 90 %, la mesure s'affiche avec sa couverture ET l'estimation déclarée, chacune nommée ; sous 50 %, l'estimation mène ; sans catalogue, rien ne change à ce qui existe | un chiffre mesuré sur 30 % du CA ne peut pas s'appeler « votre profit » ; un inconnu de plus de 10 % de la base n'est pas négligeable (matérialité d'audit) | un fichier de prix partiel laisse le compte en « estimé » plus longtemps |
+| M8 | **Le KPI mesuré remplace l'estimation quand la couverture ≥ 90 % du CA net HT des 30 derniers jours** (owner 11/09 ; var dbt `margin_coverage_min = 0.9`) ; entre 50 et 90 %, la mesure s'affiche avec sa couverture ET l'estimation déclarée, chacune nommée ; sous 50 %, l'estimation mène ; sans catalogue, rien ne change à ce qui existe | un chiffre mesuré sur 30 % du CA ne peut pas s'appeler « votre profit » ; un inconnu de plus de 10 % de la base n'est pas négligeable (matérialité d'audit) | un fichier de prix partiel laisse le compte en « estimé » plus longtemps |
 | M9 | **Frontière** : l'app lit `semantic` ; K9 et le tableau de bord quittent `raw` pour `vw_insight_event_daily_margin` / `vw_insight_event_family_margin_daily` ; les vues manquantes se créent dans dbt AVANT toute lecture | règle owner 10/09 | — |
 
 ---
@@ -163,8 +163,7 @@ n'apparaissent pas : dernière vente au 27/07, hors des 30 jours.
 site (M3) ; (4) résultat net et point mort entrent au héros de Piloter (§ 4.5) ; (5) fichier de prix d'achat aux
 standards français : dates `JJ/MM/AAAA`, décimales à la virgule (§ 4.2).
 
-**En attente, avec recommandation** (grep `MOTS_BANNIS`, `tournures.fr.ts`, colonne « interdits » : aucun des mots
-ci-dessous n'y figure, 11/09) :
+**Tranchées le 11/09 aussi (« okay avec reco »)** — inscrites au lexique et à `intent.md` le même jour :
 
 1. **Les mots.** (a) Couverture (M7) : reprendre la forme DÉJÀ actée le 24/08 pour la marge déclarée, **« calculée sur
    70 % de votre CA »**, complétée par la cause en français de comptable : **« prix d'achat manquants sur 30 % »**
