@@ -902,6 +902,49 @@ comme une mesure — et un chiffre de marge faux devant le seul client dont la d
 est la phrase la plus chère que le produit puisse dire. [à instruire : DDL du catalogue de coûts,
 règles d'ingestion Crisalid, mart de marge, paramètre charges fixes — passation dbt à écrire]
 
+#### Les dix-sept KPI de santé de l'affaire, par ordre d'importance (owner 11/09)
+
+Arbitré en chat le 11/09 sur trois entrées DÉCLARÉES en plus de la caisse : le catalogue de coûts,
+les charges fixes mensuelles, la masse salariale mensuelle. Trois grains de lecture de la marge
+tiennent de l'owner : **pôle d'activité, famille de produits, mètre linéaire** ; le m² s'y ajoute
+une fois par site, jamais par pôle (deux mesures des mêmes composants — linéaire ET surface — se
+contrediraient ; le client achète sur la façade, et comptoirs comme vitrines comptent déjà dans le
+linéaire). Chaque chiffre se lit contre le résultat habituel du lieu et se rattache à un dispositif ;
+un tableau de ratios nu est « ce qu'on peut écrire sans ouvrir le compte » (`intent.md`) et ne
+s'écrit pas. Les mots d'interface de « marge brute », « résultat net », « point mort », « masse
+salariale » ne sont PAS au lexique : à arbitrer avant toute surface, avec la décision (1) sur
+« CA net HT » et la (4) sur les charges fixes.
+
+| # | KPI | Ce qu'il tranche | Source |
+|---|---|---|---|
+| 1 | Résultat net : marge brute − charges fixes − masse salariale, par mois | le chiffre sur lequel l'exploitant est jugé et le critère d'achat du premier client réel ; tout ce qui suit l'explique | KPI 3 + charges fixes déclarées + masse salariale déclarée |
+| 2 | CA net HT et son évolution contre le résultat habituel | la base de tous les ratios ; la première ligne qu'un banquier lit | `daily_net_revenue` (brut − remises ; HT à l'arrivée du mapping Crisalid), `revenue_30d_avg` |
+| 3 | Taux de marge brute réel, par famille et par article | le verdict d'un pôle passe du CA à la marge ; K9 devient une mesure | catalogue de coûts × `vw_insight_event_client_sales_lines` |
+| 4 | Marge brute par pôle et par famille, en € et en part de la marge du site | où la marge vit ; une famille à 33 % du CA cesse de dominer quand elle est lue en marge | KPI 3 sommé par le mapping famille → pôle (complet ou il ment) |
+| 5 | Marge brute par mètre linéaire, par pôle et par famille : part de marge contre Part de linéaire | la phrase qu'aucune caisse ne donne — « 12 % de la façade pour 4 % de la marge » — et le geste que l'exploitant maîtrise : ce qu'il met sur quel composant | KPI 4 × relevé de l'espace (Épices et Tout : 52 composants mesurés sur le plan ; n° 49, n° 3-6, n° 19 à confirmer sur place par l'owner) |
+| 6 | Point mort du jour et heure à laquelle il est atteint | (charges fixes + masse salariale) par jour d'ouverture ÷ taux de marge = le CA qu'une journée doit générer ; la vue horaire dit quand il est couvert | charges déclarées, jours d'ouverture, `vw_insight_event_client_hourly_daily` |
+| 7 | Taux de remise : remises ÷ CA brut | première fuite ; sur le relevé Crisalid, 1,75 % du brut, plus que le profit de l'année | `discount_amount`, K6 |
+| 8 | Ventes à perte ou près du coût | deuxième fuite ; illégale sous le coût en France (DGCCRF) | `avg_unit_price` contre le catalogue de coûts |
+| 9 | Casse et invendus, en marge perdue | troisième fuite, la plus probable en périssables ; types de document Crisalid que l'ingestion jette aujourd'hui | IVD, SST, RUP (§ 9.2) |
+| 10 | Articles morts : part du catalogue sans aucune vente sur la fenêtre | quatrième fuite ; de la place et de l'argent immobilisés sans retour | `is_dead_item` |
+| 11 | Masse salariale ÷ CA net, par mois | le premier coût fixe de la plupart des commerces, et le ratio que l'exploitant compare à ses pairs | masse salariale déclarée, `daily_net_revenue` |
+| 12 | Marge brute par m², par site | le chiffre de référence du secteur ; UNE surface déclarée par site, jamais par pôle | surface déclarée (aucune colonne aujourd'hui, ni site ni pôle) × KPI 4 |
+| 13 | Marge brute par heure d'ouverture | la productivité du temps ouvert sans juger les personnes | KPI 3 au grain horaire |
+| 14 | Panier moyen | la valeur d'un ticket ; bouge avec le prix et le mix, indépendamment du passage | K4 `daily_avg_basket` |
+| 15 | Ventes (compte) | la couche volume, un compte, jamais des euros | K5 `daily_transactions`, `units` |
+| 16 | Taux de conversion | sépare un problème de passage d'un problème de vente | K3 `daily_conversion_rate`, K2 `daily_visitors` |
+| 17 | Taux de retour : retours ÷ ventes | qualité et fuite de trésorerie ; les 29 680 € de RETOUR du relevé restent inexpliqués | `units_sold` compte un retour −1 |
+
+Les rangs 1 à 6 dépendent des entrées déclarées et ne se montrent pas avant les prix d'achat en base
+(garde ci-dessus). Les rangs 7 à 10 sont les quatre fuites déjà nommées : les seuls KPI de la liste
+qui pointent directement un geste. **Hors périmètre, et qui y reste** : trésorerie, créances, dettes,
+bilan — le produit ne ferait que relayer l'expert-comptable (« pas un middleware », owner 30/08) et
+ne pointe rien que l'exploitant bouge en boutique ; la masse salariale n'entre QUE comme montant
+mensuel — par heure ou par personne, elle ferait un outil de planning, la mémoire s'accumulerait par
+personne, et le délai de prévenance rend « réduire les heures » impraticable à l'horizon de
+l'exploitant. [à instruire : la surface déclarée par site ; les quatre mots ; le mart de marge par
+pôle × linéaire une fois le relevé de l'espace livré]
+
 ### Sources du § 12 (lues le 07/09/2026)
 
 - Shopify, centre d'aide Sidekick — https://help.shopify.com/en/manual/ai-powered-tools/sidekick/help-and-guidance [page lue]
