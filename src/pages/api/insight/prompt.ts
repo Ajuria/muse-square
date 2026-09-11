@@ -25,6 +25,7 @@ import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profile/profileLabels";
 import { familyForQuestion, familiesForQuestion, FAMILIES } from "../../../lib/insightFamilies";
 import { readMeasuredMargin30d } from "../../../lib/kpi/margin";
+import { parameterSpec, validateValue, appendDeclaredParameter, listDeclaredParameters, currentByKey } from "../../../lib/kpi/declaredParameters";
 import { competitorImpactFacts } from "../../../lib/insightFamilies/competitor";
 import { getWebDayContext } from "../../../lib/ai/webContext";
 import { eventDensityImpactFacts, dayEventLandscapeFacts } from "../../../lib/insightFamilies/events";
@@ -2940,7 +2941,31 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     let _justDeclared: { correction_type: string; value: number; declarant_name: string | null; corrected_at: string } | null = null;
     {
       const _decl = parseAnyDeclaration(q);
-      if (_decl != null) {
+      // 11/09 — un paramètre à date d'effet (surface de vente) s'écrit dans analytics.declared_parameters,
+      // le magasin que dbt et Piloter lisent — jamais dans le journal des corrections. Même confirmation
+      // (« Surface de vente notée : 120 m² »), même règle mixte déclare-et-demande.
+      if (_decl != null && _decl.spec.store === "declared_parameters" && _decl.spec.param_key) {
+        try {
+          const _pSpec = parameterSpec(_decl.spec.param_key);
+          if (_pSpec) {
+            const _pPrior = currentByKey(await listDeclaredParameters(location_id))[_pSpec.key] ?? null;
+            const _today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+            await appendDeclaredParameter({
+              location_id, key: _pSpec.key, value: validateValue(_pSpec, _decl.value), effective_from: _today,
+              declarant_user_id: (locals as any)?.clerk_user_id ?? null, source: "chat_declared",
+            });
+            sinkTelemetry(location_id, "declared-capture", { type: _pSpec.key, value: _decl.value, superseded: _pPrior != null, with_question: _decl.with_question });
+            if (!_decl.with_question) {
+              const cap = declaredCaptureFr({
+                label_fr: _decl.spec.label_fr, value_fr: _decl.spec.formatValue(String(_decl.value)),
+                prior_value_fr: _pPrior && _pPrior.value_num != null ? _decl.spec.formatValue(String(_pPrior.value_num)) : null,
+                declarant_name: typeof body?.declared_by === "string" && body.declared_by.trim() ? body.declared_by.trim().slice(0, 80) : null,
+              });
+              return sysDialogueResponse(cap.headline, cap.answer, "deterministic_declared_capture_v1");
+            }
+          }
+        } catch (e) { console.warn("[declared-parameter capture] failed:", e); }
+      } else if (_decl != null && _decl.spec.correction_type) {
         try {
           const prior = await getDeclaredMetric(location_id, _decl.spec.correction_type);
           const _declBy = typeof body?.declared_by === "string" && body.declared_by.trim()
@@ -3099,13 +3124,14 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
             }
           } catch (e) { console.warn("[declared-metric] family margins read failed:", e); }
         }
-        if (_metric) {
+        if (_metric && _metric.correction_type) {
+          const _metricType = _metric.correction_type;
           try {
             // A value declared THIS turn (mixed declare-and-ask) is used directly — fresher than any
             // stored row and immune to read-after-write timing.
             const decl = _justDeclared && _justDeclared.correction_type === _metric.correction_type
               ? { value: _justDeclared.value, raw: String(_justDeclared.value), declarant_name: _justDeclared.declarant_name, corrected_at: _justDeclared.corrected_at }
-              : await getDeclaredMetric(location_id, _metric.correction_type);
+              : await getDeclaredMetric(location_id, _metricType);
             if (decl != null) {
               const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
               const [rows] = await _bq.query({
