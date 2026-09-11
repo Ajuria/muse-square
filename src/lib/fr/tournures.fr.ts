@@ -88,6 +88,13 @@ export const TOURNURES_LLM: TournureBannie[] = [
     faute: "« X a fait N € » n'est pas du français — le sujet génère un montant, ou le CA est de N €",
     refusee: "Ce vendredi, il a fait 0 € (−100 %) contre 137 € votre vendredi habituel à cette heure",
   },
+  {
+    // 11/09 : la même faute au PLURIEL, sortie de l'agent Explorer sur f10c3e58 (« font à eux deux ») —
+    // le motif du 06/09 ne voyait que « a fait ».
+    motif: /\b(ont fait|font) (à (eux|elles) (deux|trois) )?(un montant|\d)/,
+    faute: "« X font N € » n'est pas du français — les familles génèrent un montant, ou leur CA est de N €",
+    refusee: "Coffee et Tea font à eux deux 1 154 € par jour",
+  },
   // 09/09 (owner : « please write in French not in frenglish — it drives me mad ») : LE FRANGLAIS EST
   // INTERDIT. Un calque de l'anglais n'est pas du français même quand chaque mot existe en français.
   {
