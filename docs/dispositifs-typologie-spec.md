@@ -174,7 +174,7 @@ premier enregistrement.
 
 | Ce qu'il faut nommer | Mot employé ou proposé par l'owner le 03/09 | Clé interne |
 |---|---|---|
-| Le composant d'un dispositif : l'objet physique qu'on photographie | proposition owner : les mots du merchandising — **linéaire** (la longueur d'étagère ou d'alignement de meubles dédiée à une catégorie), **gondole** (le meuble central double face), **tête de gondole** (l'extrémité d'un rayon, très utilisée pour les promotions). « Rayon » reste le mot courant de la zone d'une catégorie, plus proche du pôle que du meuble. | `dispositif_type` |
+| Le composant d'un dispositif : l'objet physique qu'on photographie | proposition owner : les mots du merchandising — **linéaire** (la longueur d'étagère ou d'alignement de composants dédiée à une catégorie), **gondole** (le composant central double face), **tête de gondole** (l'extrémité d'un rayon, très utilisée pour les promotions). « Rayon » reste le mot courant de la zone d'une catégorie, plus proche du pôle que du composant. | `dispositif_type` |
 | Ce que l'unité contient et comment on le choisit | aucun mot employé ; décrit par « courant », « expert », « impulsion », « promo » dans ce document | `dispositif_role` |
 | La présentation qu'on voit depuis la rue | « vitrine » | `vitrine` |
 | L'endroit où une personne sert ou conseille | « point service/vente avec une personne » | `point_assiste` |
@@ -432,20 +432,20 @@ une réponse nette l'emporte sur « on ne voit pas » ; deux réponses contradic
 La reconnaissance des articles reste une proposition. Quand l'exploitant la confirme ou la
 corrige, c'est sa version qui compte partout ensuite.
 
-**Ce que toute photo dit du meuble, quel que soit le type (owner 11/09 — lecture v2,
+**Ce que toute photo dit du composant, quel que soit le type (owner 11/09 — lecture v2,
 `photo_extract_v2`).** Chaque photo répond en plus à trois questions, hors check-list : « Quelle
-exposition ? » — une valeur parmi cinq mots owner, **comptoir, vitrine, meuble à niveaux, caisses au
+exposition ? » — une valeur parmi cinq mots owner, **comptoir, vitrine, rayonnage, caisses au
 sol, îlot** (registre `EXPOSITION_KINDS` de `dispositifTypes.ts`, liste fermée) ; « Combien de
-niveaux ? » — un entier, demandé et gardé SEULEMENT pour un meuble à niveaux, null partout ailleurs
-(la porte normalise) ; et les **familles présentes** sur le meuble, choisies UNIQUEMENT parmi les
+niveaux ? » — un entier, demandé et gardé SEULEMENT pour un rayonnage, null partout ailleurs
+(la porte normalise) ; et les **familles présentes** sur le composant, choisies UNIQUEMENT parmi les
 familles réellement vendues du site (le foyer `kpiRegistry.listSiteFamilies`, 50 au plus — le même
 que `evenement.ts` et `commitments/index.ts`). Un site sans vente (Épices et Tout au 11/09 : 0 ligne)
 n'a pas la question : le schéma n'a pas la propriété, la ligne porte un tableau vide — jamais un texte
-inventé. Le motif owner : chez Épices et Tout, la plupart des meubles sont des comptoirs, des vitrines
+inventé. Le motif owner : chez Épices et Tout, la plupart des composants sont des comptoirs, des vitrines
 réfrigérées, des caisses en bois au sol ; compter des « étagères » n'y veut rien dire. La porte
 (`validatePhotoExtraction`) rejette une exposition hors des cinq mots et une famille hors liste, comme
 un code d'article hors liste (lie-bait : 5 tests v2, mutation vue rouge le 11/09). Un quatrième champ
-ne vient pas de l'image : le **numéro du meuble sur le plan** (`fixture_no`, libellé « N° sur le
+ne vient pas de l'image : le **numéro du composant sur le plan** (`fixture_no`, libellé « N° sur le
 plan »), un entier saisi par l'exploitant à côté de « Documenter » et envoyé avec la photo. Les quatre
 colonnes existent sur `analytics.dispositif_photos` depuis le 11/09 (`exposition`, `levels`,
 `families_present ARRAY<STRING>`, `fixture_no` — 25 colonnes), sont rendues par GET et portées par la

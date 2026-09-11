@@ -62,7 +62,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Caisse dont le connecteur n'existe pas encore | **Connexion directe prévue — en attendant, export CSV…** (consigne `export_note_fr` de `analytics.pos_systems`, jamais réécrite en dur) | bientôt disponible, coming soon |
 | Suivi posé par le système à l'ouverture du compte (P3.1-f) | **suivi proposé — ajustez** (chip sur la fiche ; l'infobulle dit le critère : recouvrement mesuré) | suivi automatique, suggestion, recommandé pour vous |
 | L'objet physique d'un dispositif, celui qu'on photographie (un dispositif peut en avoir plusieurs ; un pôle peut avoir plusieurs dispositifs) | **composant** (owner 03/09, D1 — spec `dispositifs-typologie-spec.md` § 3) | meuble, unité typée, sous-type (brouillons du 03/09, attrapés à la relecture owner) |
-| La longueur d'étagère ou d'alignement de meubles dédiée à une catégorie de produits | **linéaire** (owner 03/09) | rayonnage (comme nom de type) |
+| La longueur d'étagère ou d'alignement de composants dédiée à une catégorie de produits | **linéaire** (owner 03/09) | rayonnage comme nom de TYPE de dispositif (03/09) — « Rayonnage » est depuis le 11/09 une EXPOSITION d'un composant, pas un type, voir § À arbitrer |
 | Le meuble central double face | **gondole** (owner 03/09) | — |
 | L'extrémité d'un rayon, très utilisée pour les promotions | **tête de gondole** (owner 03/09) | TG à l'écran (abréviation, règle 6 de tournure) |
 | La présentation qu'on voit depuis la rue | **vitrine** (owner 03/09 ; mot déjà en prod dans les champs mémoire) | — |
@@ -346,21 +346,20 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
 
 - « **produits** » vs « **famille** » : l'owner a écrit « CA produits « Branded » » — renommage
   GLOBAL du mot arbitré « famille » (prod : « CA famille » jusque dans les KPI) à confirmer.
-- **Ce que toute photo dit du meuble (owner 11/09, lecture des photos v2 —
-  `dispositifs-typologie-spec.md` § 5.3)** : mots PROPOSÉS par l'owner, inscrits tels quels, à ratifier.
-  L'exposition, cinq valeurs : **Comptoir** · **Vitrine** · **Meuble à niveaux** · **Caisses au sol** ·
-  **Îlot** (clés `comptoir`, `vitrine`, `meuble_a_niveaux`, `caisses_au_sol`, `ilot` — registre
+- **Ce que toute photo dit du composant (owner 11/09, lecture des photos v2 —
+  `dispositifs-typologie-spec.md` § 5.3)** : mots owner, TRANCHÉS le 11/09.
+  L'exposition, cinq valeurs : **Comptoir** · **Vitrine** · **Rayonnage** · **Caisses au sol** ·
+  **Îlot** (clés `comptoir`, `vitrine`, `rayonnage`, `caisses_au_sol`, `ilot` — registre
   `EXPOSITION_KINDS`), à la question « Quelle exposition ? » ; les **niveaux** (« Combien de niveaux ? »,
-  meuble à niveaux seulement) ; **« N° sur le plan »** (le numéro du meuble sur le plan du magasin, saisi
-  par l'exploitant, jamais lu sur l'image). Motif owner : chez Épices et Tout, la plupart des meubles
-  sont des comptoirs, des vitrines réfrigérées, des caisses en bois au sol — compter des « étagères »
-  n'y veut rien dire. Rendus : `commitmentCopy.ts` (`pole_photo_fixture_no`, `pole_photo_levels`,
-  `pole_photo_families` = « Familles reconnues : », miroir de « Articles reconnus : »). Aucun autre mot
-  n'a été inventé : « Vitrine » et « Îlot » sont déjà des libellés de type de composant (§ 2 de la spec).
-  **Conflit à trancher** : « meuble » est au `MOTS_BANNIS` depuis le 03/09 (mon brouillon pour
-  « composant », l. 64 ci-dessus) ; « Meuble à niveaux » est un mot owner du 11/09. Le libellé est gardé
-  tel quel, le garde du registre exempte CE seul libellé (`dispositifTypes.guard.test.ts`, cité) ; le ban
-  n'est pas levé. Owner : ratifier « Meuble à niveaux », ou donner LE mot.
+  rayonnage seulement — jamais « rayons », qui dit aussi le rayon du magasin) ; **« N° sur le plan »**
+  (le numéro du composant sur le plan du magasin, saisi par l'exploitant, jamais lu sur l'image). Motif
+  owner : chez Épices et Tout, la plupart des composants sont des comptoirs, des vitrines réfrigérées,
+  des caisses en bois au sol — compter des « étagères » n'y veut rien dire. « Rayonnage » a remplacé
+  « Meuble à niveaux » le 11/09 (« meuble » banni depuis le 03/09 : aucune exception). « Mobilier »
+  reste le mot générique d'un module précis dans une phrase (owner 11/09 : « un mobilier » se dit en
+  agencement) ; l'objet dans l'app reste « composant ». Rendus : `commitmentCopy.ts`
+  (`pole_photo_fixture_no`, `pole_photo_levels`, `pole_photo_families` = « Familles reconnues : »,
+  miroir de « Articles reconnus : » — ce dernier libellé reste à ratifier).
 - « palier » (crans de la jauge Signaux traités) — retirés en attendant LE mot.
 - **Le libellé du champ « Gamme »** : proposé, non validé. Ses quatre valeurs (Entrée de gamme ·
   Milieu de gamme · Haut de gamme · Luxe) et la définition du Type de commerce sont tranchées

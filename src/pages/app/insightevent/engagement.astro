@@ -138,7 +138,7 @@ const id = Astro.url.searchParams.get("id") || "";
                 var file = input.files && input.files[0]; input.remove();
                 if (!file) return;
                 btn.disabled = true; say(key, COPY.pole_photo_reading || "");
-                // v2 (11/09) : le numéro du meuble sur le plan, saisi à côté de « Documenter » — envoyé
+                // v2 (11/09) : le numéro du composant sur le plan, saisi à côté de « Documenter » — envoyé
                 // seulement s'il est rempli (entier > 0) ; l'API le garde sur la ligne, l'image ne le dit pas.
                 var fxEl = sec.querySelector('[data-eg-fixture-no="' + key + '"]');
                 var fxVal = fxEl && fxEl.value ? Number(fxEl.value) : null;

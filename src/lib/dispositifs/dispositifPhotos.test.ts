@@ -22,9 +22,9 @@ describe("withConfirmedItems — la confirmation de l'exploitant", () => {
     expect(latestPerComponent([base, c])[0].items_confirmed).toEqual([{ item_code: "A" }, { item_code: "C" }]);
   });
   it("v2 — la ligne de confirmation PORTE l'exposition, les niveaux, les familles et le numéro sur le plan de la lecture", () => {
-    const base = row({ exposition: "meuble_a_niveaux", levels: 3, families_present: ["Épices", "Thés"], fixture_no: 7 });
+    const base = row({ exposition: "rayonnage", levels: 3, families_present: ["Épices", "Thés"], fixture_no: 7 });
     const c = withConfirmedItems(base, ["A"], ["A"], "2026-09-11T09:00:00Z");
-    expect(c).toMatchObject({ exposition: "meuble_a_niveaux", levels: 3, families_present: ["Épices", "Thés"], fixture_no: 7, items_confirmed: [{ item_code: "A" }] });
+    expect(c).toMatchObject({ exposition: "rayonnage", levels: 3, families_present: ["Épices", "Thés"], fixture_no: 7, items_confirmed: [{ item_code: "A" }] });
   });
   it("une confirmation vide est une confirmation : aucun article", () => {
     expect(withConfirmedItems(row({}), [], ["A"], "2026-09-04T09:00:00Z").items_confirmed).toEqual([]);

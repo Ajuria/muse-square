@@ -243,21 +243,21 @@ export function dispositifRoleLabelFr(value: string | null | undefined): string 
   return v ? (ROLE_LABEL_BY_VALUE[v] ?? v.replace(/_/g, " ")) : "";
 }
 
-// ── L'exposition — ce que TOUTE photo dit du meuble, quel que soit le type (owner 11/09) ──────
-// Chez Épices et Tout, la plupart des meubles sont des comptoirs, des vitrines réfrigérées, des
+// ── L'exposition — ce que TOUTE photo dit du composant, quel que soit le type (owner 11/09) ──────
+// Chez Épices et Tout, la plupart des composants sont des comptoirs, des vitrines réfrigérées, des
 // caisses en bois au sol : compter des « étagères » n'y veut rien dire. Chaque photo répond donc
 // d'abord « Quelle exposition ? » parmi CINQ mots owner (liste fermée, jamais de texte libre), puis
-// « Combien de niveaux ? » SEULEMENT pour un meuble à niveaux (null sinon), puis les familles
+// « Combien de niveaux ? » SEULEMENT pour un rayonnage (null sinon), puis les familles
 // présentes parmi les familles réellement vendues du site (kpiRegistry.listSiteFamilies).
 export interface ExpositionOption { value: string; label_fr: string }
 export const EXPOSITION_KINDS: ExpositionOption[] = [
   { value: "comptoir", label_fr: "Comptoir" },
   { value: "vitrine", label_fr: "Vitrine" },
-  { value: "meuble_a_niveaux", label_fr: "Meuble à niveaux" },
+  { value: "rayonnage", label_fr: "Rayonnage" },
   { value: "caisses_au_sol", label_fr: "Caisses au sol" },
   { value: "ilot", label_fr: "Îlot" },
 ];
-export const EXPOSITION_WITH_LEVELS = "meuble_a_niveaux";
+export const EXPOSITION_WITH_LEVELS = "rayonnage";
 export const EXPOSITION_VALUES: readonly string[] = Object.freeze(EXPOSITION_KINDS.map((o) => o.value));
 export const EXPOSITION_QUESTION_FR = "Quelle exposition ?";
 export const LEVELS_QUESTION_FR = "Combien de niveaux ?";

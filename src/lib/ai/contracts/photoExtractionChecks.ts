@@ -3,7 +3,7 @@
 // site — une invention est rejetée, jamais corrigée. Une personne visible n'est pas une erreur du
 // modèle : c'est un signal que l'appelant traduit en effacement de l'image, sans aucune ligne.
 // v2 (owner 11/09) : l'exposition hors des cinq mots owner est rejetée ; des niveaux posés sur
-// autre chose qu'un meuble à niveaux sont NORMALISÉS à null (le champ n'a pas de sens ailleurs —
+// autre chose qu'un rayonnage sont NORMALISÉS à null (le champ n'a pas de sens ailleurs —
 // ce n'est pas une invention, c'est un champ hors sujet) ; une famille hors de la liste du site est
 // rejetée comme un code d'article hors liste. Les valeurs normalisées sont rendues dans le résultat :
 // l'appelant écrit CELLES-LÀ, jamais `out` tel quel.
@@ -32,7 +32,7 @@ export function validatePhotoExtraction(
   let exposition: string | null = null;
   if (!EXPOSITION_VALUES.includes(String(out.exposition))) errors.push(`exposition inconnue « ${out.exposition} »`);
   else exposition = String(out.exposition);
-  // Les niveaux : un entier > 0 seulement sur un meuble à niveaux ; null partout ailleurs (normalisé).
+  // Les niveaux : un entier > 0 seulement sur un rayonnage ; null partout ailleurs (normalisé).
   let levels: number | null = null;
   if (exposition === EXPOSITION_WITH_LEVELS && out.levels != null) {
     const n = Number(out.levels);

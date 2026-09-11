@@ -204,7 +204,7 @@ export const EVOL_COPY = {
   // déjà le mot des retours de signal (positive/negative/confirmed).
   pole_photo_confirm: "Confirmer →",
   pole_photo_confirmed: "Articles confirmés :",
-  // v2 (owner 11/09) : ce que toute photo dit du meuble. « N° sur le plan » et « niveaux » sont
+  // v2 (owner 11/09) : ce que toute photo dit du composant. « N° sur le plan » et « niveaux » sont
   // les mots owner du 11/09 (lexique § À arbitrer) ; « Familles reconnues : » est le miroir de
   // « Articles reconnus : » (déjà rendu sur cette surface) avec LE mot « famille ».
   pole_photo_fixture_no: "N° sur le plan",

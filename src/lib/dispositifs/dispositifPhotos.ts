@@ -49,9 +49,9 @@ export interface PhotoRow {
   prices_seen: Array<{ label: string; price_eur: number; item_code: string | null }> | null;
   coverage_flag: string | null; model: string | null; prompt_version: string | null;
   created_by: string | null; created_at: string;
-  // v2 (owner 11/09) : ce que TOUTE photo dit du meuble — l'exposition (cinq mots owner, registre
-  // EXPOSITION_KINDS), les niveaux (seulement meuble_a_niveaux, null sinon), les familles présentes
-  // (parmi les familles vendues du site, [] si aucune), et le numéro du meuble sur le plan, donné
+  // v2 (owner 11/09) : ce que TOUTE photo dit du composant — l'exposition (cinq mots owner, registre
+  // EXPOSITION_KINDS), les niveaux (seulement rayonnage, null sinon), les familles présentes
+  // (parmi les familles vendues du site, [] si aucune), et le numéro du composant sur le plan, donné
   // par le CLIENT de l'API (jamais lu sur l'image).
   exposition: string | null; levels: number | null; families_present: string[] | null; fixture_no: number | null;
 }

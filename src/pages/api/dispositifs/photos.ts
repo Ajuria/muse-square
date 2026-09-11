@@ -11,8 +11,8 @@
 //        → écrit l'objet, LIT la photo (une consigne + un schéma générés depuis le registre,
 //          une porte qui rejette toute clé hors registre et tout code hors liste), écrit la ligne.
 //          Personne visible → l'objet est EFFACÉ, aucune ligne, réponse rejected: "person".
-//          v2 (owner 11/09) : toute photo dit aussi l'exposition du meuble (cinq mots owner), ses
-//          niveaux (meuble à niveaux seulement) et les familles présentes parmi les familles
+//          v2 (owner 11/09) : toute photo dit aussi l'exposition du composant (cinq mots owner), ses
+//          niveaux (rayonnage seulement) et les familles présentes parmi les familles
 //          vendues du site (kpiRegistry.listSiteFamilies, 50 — le même foyer que evenement.ts et
 //          commitments/index.ts ; site sans vente → question non posée, tableau vide) ; le numéro
 //          sur le plan (fixture_no, entier > 0) vient du corps de la requête, jamais de l'image.
@@ -162,7 +162,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!["image/jpeg", "image/png", "image/webp"].includes(content_type)) return json({ ok: false, error: "content_type non accepté (jpeg, png, webp)" }, 400);
     const bytes = Buffer.from(b64, "base64");
     if (!bytes.length || bytes.length > PHOTO_MAX_BYTES) return json({ ok: false, error: `image vide ou trop lourde (max ${Math.round(PHOTO_MAX_BYTES / 1e6 * 10) / 10} Mo après réduction)` }, 413);
-    // Le numéro du meuble sur le plan : facultatif ; s'il est donné, un entier > 0 — jamais lu sur l'image.
+    // Le numéro du composant sur le plan : facultatif ; s'il est donné, un entier > 0 — jamais lu sur l'image.
     let fixture_no: number | null = null;
     if (body.fixture_no != null && String(body.fixture_no).trim() !== "") {
       const n = Number(body.fixture_no);
@@ -221,7 +221,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       dispositif_type: comp.type, dispositif_role: comp.role, status: "read",
       checklist: out.checklist, items_matched: out.items, items_confirmed: null, prices_seen: out.prices,
       coverage_flag: out.coverage, model, prompt_version: PHOTO_PROMPT_VERSION, created_by: userId, created_at: new Date().toISOString(),
-      // v2 : les valeurs NORMALISÉES par la porte (niveaux hors meuble à niveaux → null, familles dédoublonnées).
+      // v2 : les valeurs NORMALISÉES par la porte (niveaux hors rayonnage → null, familles dédoublonnées).
       exposition: gate.exposition, levels: gate.levels, families_present: gate.families_present, fixture_no,
     };
     await insertPhotoRow(bq, row);

@@ -8,8 +8,8 @@
 // hors registre et tout code hors liste — lie-bait dans le même commit.
 //
 // v2 (owner 11/09) : TOUTE photo, quel que soit le type ou le rôle, dit en plus l'EXPOSITION du
-// meuble (cinq mots owner : comptoir, vitrine, meuble à niveaux, caisses au sol, îlot), le nombre
-// de NIVEAUX seulement pour un meuble à niveaux (null sinon), et les FAMILLES présentes parmi
+// composant (cinq mots owner : comptoir, vitrine, rayonnage, caisses au sol, îlot), le nombre
+// de NIVEAUX seulement pour un rayonnage (null sinon), et les FAMILLES présentes parmi
 // les familles réellement vendues du site (liste fermée ; aucune famille → question non posée,
 // tableau vide). Le numéro sur le plan n'est PAS lu sur l'image : le client de l'API le donne.
 import {
@@ -27,7 +27,7 @@ export interface PhotoExtractionOutput {
   person_visible: boolean;
   coverage: "entier" | "partiel" | "non_visible";
   exposition: string;               // une valeur de EXPOSITION_VALUES
-  levels: number | null;            // entier, seulement si exposition = meuble_a_niveaux
+  levels: number | null;            // entier, seulement si exposition = rayonnage
   families_present?: string[];      // parmi `families` ; absent quand la liste du site est vide
   checklist: Record<string, PhotoAnswer>;
   items: Array<{ item_code: string; confidence: "haute" | "moyenne" | "faible" }>;
