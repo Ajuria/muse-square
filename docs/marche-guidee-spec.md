@@ -214,6 +214,16 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
    barre basse, calque de problème sans bouton parasite (`[hidden]` gagne sur `.ms-btn`), aucune erreur
    de script. Restent au harnais deux bruits sans effet : la vibration refusée sans geste réel, le 404
    du logo sur le premier chemin (le second chemin sert, `naturalWidth` 600).
+   **Bande des cartes (11/09)** : un guide passif dans le viseur montre la part de l'image que les
+   cartes afficheront, la variante « band » de l'API (960 × 420, pleine largeur, recadrée au centre).
+   Deux traits blancs et un voile léger hors de la bande, aucun texte ; le toucher passe au travers.
+   Sa hauteur se calcule depuis la taille réelle de l'image et le recadrage « cover » du viseur : 58 %
+   du viseur pour une image 4:3 couchée, 33 % pour une image debout. Vérifié le 11/09 au harnais
+   (375 × 812) : hauteur et position exactes dans les deux sens ; un toucher au centre de la bande
+   garde une photo ; « Fin du relevé » masque la bande ; mutation (échelle « contain » au lieu de
+   « cover ») vue rouge sur l'image couchée. Rendu sur deux photos d'Épices et Tout : debout, la bande
+   du viseur et celle de la carte coïncident. **Limite** : une image couchée est rognée sur les côtés
+   par le viseur debout lui-même ; la carte montre alors plus large que ce que l'exploitant a vu.
    **Reste à faire sur téléphone (owner)** : iPhone 17 + un Android, magasin vide, une boucle complète :
    faux points focaux en marchant, problèmes affichés à tort ou manqués, netteté médiane, durée, repli
    iOS. Le compte rendu JSON se joint à l'arbitrage.

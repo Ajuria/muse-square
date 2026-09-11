@@ -18,6 +18,9 @@
   1 500 ms cumulées, fenêtre 1 200 ms, photo gardée si reprise, image identique jamais gardée deux fois)
   + un plancher de qualité : luminosité < brightMin ou netteté < sharpMin = problème, pas de photo
   automatique. Aucun envoi, aucun stockage hors de l'onglet ; compte rendu JSON sans image à la fin.
+  Bande des cartes (11/09) : un guide passif dans le viseur montre la part de l'image que les cartes
+  afficheront (variante « band » de l'API, 960 × 420, recadrée au centre) — calculé depuis la taille
+  réelle de l'image et le recadrage « cover » du viseur ; aucun texte ; le toucher passe au travers.
   Harnais : window.__releveSource (canvas), __releveStep(dt), __releveState(), __releveAttach(stream).
 -->
 <style>
@@ -47,6 +50,7 @@
   #ring.settling{ border-color:#f59e0b; }
   #ring.kept{ border-color:#22c55e; }
   #ring.problem{ border-color:#C2410C; }
+  #band{ position:absolute; left:0; right:0; display:none; pointer-events:none; box-shadow:0 0 0 9999px rgba(0,0,0,.30); border-top:1px solid rgba(255,255,255,.75); border-bottom:1px solid rgba(255,255,255,.75); }
   #poleChip{ position:absolute; top:12px; left:12px; right:12px; display:flex; justify-content:space-between; gap:8px; pointer-events:none; }
   #poleChip span{ background:rgba(17,24,39,.72); color:#fff; padding:6px 10px; border-radius:999px; font-size:12px; max-width:70%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #overlay{ position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:6px; background:rgba(17,24,39,.55); color:#fff; text-align:center; padding:24px; cursor:pointer; }
@@ -106,6 +110,7 @@
   <div id="rl-doc">
     <section id="stage">
       <video id="cam" playsinline muted autoplay></video>
+      <div id="band"></div>
       <div id="idle">La caméra s'ouvre au début du relevé.</div>
       <div id="ring"></div>
       <div id="poleChip"><span id="poleName">—</span><span id="poleCount" hidden></span></div>
@@ -148,7 +153,7 @@
   var LS = "ms-releve-proto";
   var cfg = load();
   var $ = function(id){ return document.getElementById(id); };
-  var video = $("cam"), ring = $("ring"), overlay = $("overlay"), idle = $("idle"), stage = $("stage"), mainBtn = $("mainBtn");
+  var video = $("cam"), ring = $("ring"), overlay = $("overlay"), idle = $("idle"), stage = $("stage"), mainBtn = $("mainBtn"), band = $("band");
 
   var run = { phase: "idle", startedAt: null, t0: 0, pole: null, items: [], switches: [], problems: [], seq: 0, camera: "none" };
   var det = { prev: null, state: "moving", stillAcc: 0, keptAt: 0, armed: true, best: null, problem: null, lastM: 0, lastS: 0, tick: 0, ticks: 0, lastError: null };
@@ -199,7 +204,7 @@
     run.phase = "ended"; mainBtn.hidden = true; stage.hidden = true; $("poles").hidden = true;
     if (timer) { clearInterval(timer); timer = null; }
     if (stream && stream.getTracks) { stream.getTracks().forEach(function(t){ t.stop(); }); }
-    stream = null; video.srcObject = null; idle.style.display = "flex"; hideOverlay(); tickClock();
+    stream = null; video.srcObject = null; idle.style.display = "flex"; hideOverlay(); tickClock(); placeBand();
     showSummary();
   }
   mainBtn.addEventListener("click", function(){ if (run.phase === "running") stop(); else start(); });
@@ -244,12 +249,27 @@
   function lapVar(g, w, h){ var n = 0, s = 0, s2 = 0; for (var y = 1; y < h - 1; y++) for (var x = 1; x < w - 1; x++) { var i = y * w + x; var v = 4 * g[i] - g[i - 1] - g[i + 1] - g[i - w] - g[i + w]; s += v; s2 += v * v; n++; } var m = s / n; return s2 / n - m * m; }
   function mean(g){ var s = 0; for (var i = 0; i < g.length; i++) s += g[i]; return s / g.length; }
 
+  // ── bande des cartes : la part de l'image que les cartes afficheront ─────────
+  // La photo gardée est l'image ENTIÈRE (grab) ; la carte en montre la bande centrale, pleine largeur,
+  // hauteur = largeur × 420/960 (variante « band » de l'API). Le viseur montre l'image en « cover » :
+  // échelle k = max(viseur/image), centre sur centre. Sur l'écran, la bande fait donc largeur affichée
+  // de l'image × 420/960 de haut, centrée — 58 % du viseur pour un flux 4:3 couché, 33 % debout.
+  var BAND_RATIO = 420 / 960;
+  function placeBand(){
+    var vw = srcW(), vh = srcH(), sw = stage.clientWidth, sh = stage.clientHeight;
+    if (run.phase !== "running" || !stream || !vw || !vh || !sw || !sh) { band.style.display = "none"; return; }
+    var k = Math.max(sw / vw, sh / vh), bh = Math.min(sh, vw * k * BAND_RATIO);
+    band.style.top = Math.round((sh - bh) / 2) + "px"; band.style.height = Math.round(bh) + "px"; band.style.display = "block";
+  }
+  video.addEventListener("loadedmetadata", placeBand);
+  window.addEventListener("resize", placeBand);
+
   function loop(){
     if (timer) return;
     timer = setInterval(function(){ if (run.phase !== "running" || !stream || !srcW()) return; var t = now(); var dt = det.tick ? t - det.tick : 0; det.tick = t; step(t, dt); }, 120);
   }
   function step(t, dt){
-    det.ticks += 1; tickClock();
+    det.ticks += 1; tickClock(); placeBand();
     try { analyse(t, dt); } catch (e) { det.lastError = String(e && e.message || e); if (window.console) console.error(e); }
   }
   function analyse(t, dt){
