@@ -350,6 +350,12 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
 
 ## À arbitrer (owner) — file ouverte au 24/08
 
+- **Réponse aux signaux par famille (lot A dbt, 11/09)** : les métriques du mart `fct_client_family_day_class_response`
+  reprennent les mots DÉJÀ actés — **Ventes/jour avec <famille>** · **Panier moyen avec <famille>** · **CA/jour <famille>** ·
+  **Part de <famille> dans le CA** (owner 04/09, l. 83) · **prix moyen** en € par article (owner 07/09, l. 89 ; « prix réalisé »
+  reste interdit, c'est un nom de colonne) · **vs vos jours comparables** (l. 107). Aucune surface n'affiche encore ces
+  lectures : la phrase d'une réponse (« quand il pleut, … ») se soumet AVEC son tableau 8-13 au lot app, jamais avant.
+
 - « **produits** » vs « **famille** » : l'owner a écrit « CA produits « Branded » » — renommage
   GLOBAL du mot arbitré « famille » (prod : « CA famille » jusque dans les KPI) à confirmer.
 - **Ce que toute photo dit du composant (owner 11/09, lecture des photos v2 —
