@@ -18,7 +18,7 @@
 //    « journée écourtée » et « effet produit » AVANT de questionner l'exploitant ;
 //  - impact : la pilule du motif par LE chemin de politique réel (getDayClassImpacts —
 //    jamais une réimplémentation des portes).
-import { getDayClassImpacts, dayClassMembersSql, WEATHER_DAY_CLASSES, TERCILE_DAY_CLASSES, OTHER_DAY_CLASSES, type DayClassImpact } from "../kpi/dayClassRegistry";
+import { getDayClassImpacts, WEATHER_DAY_CLASSES, TERCILE_DAY_CLASSES, OTHER_DAY_CLASSES, type DayClassImpact } from "../kpi/dayClassRegistry";
 import { listClassDispositifs, dispositifStateFr, type ClassDispositif } from "../dispositifs/bestPractices";
 import type { FamilyFact } from "./types";
 
@@ -204,7 +204,10 @@ export interface DispositifFamilyResult {
 
 // 23/08 (arbitrage owner, point 5 du plan cartes) : la porte s'ouvre à TOUTE classe mesurée par
 // le moteur, pas seulement aux trois motifs d'identification. Pour une classe hors CLASS_CONFIG :
-//  - appartenance-jour = class_days du moteur lui-même (dayClassMembersSql) — aucun seuil recopié ;
+//  - appartenance-jour = semantic.vw_insight_event_day_class_membership (dbt, 11/09 — docs/
+//    reponse-aux-signaux-par-famille.md) : les jours d'une classe tels que l'entrepôt les tient,
+//    terciles EXACTS (percentile_disc) — le moteur app (approx_quantiles) en différait d'1 à 2 jours
+//    sur les classes terciles, 0 sur les 9 autres (mesuré f10c3e58, 11/09) ; aucun seuil recopié ;
 //  - nom = label_fr du registre (« jours de pluie marquée », s'insère après « vos ») ;
 //  - question de fond = les fragments déjà approuvés de cette page, sans présumer du signe.
 // Les cartes structurelles gardent leurs deux registres (identification / correctif,
@@ -230,7 +233,8 @@ function genericClassConfig(class_key: string): (ClassMeta & { days_sql: string 
         FROM \`${PROJECT}.semantic.vw_insight_event_location_context\` c
         JOIN \`${PROJECT}.semantic.vw_insight_event_day_residual\` r
           ON r.location_id = c.location_id AND r.date = c.date
-        JOIN (${dayClassMembersSql()}) cd ON cd.date = c.date
+        JOIN \`${PROJECT}.semantic.vw_insight_event_day_class_membership\` cd
+          ON cd.location_id = c.location_id AND cd.date = c.date AND cd.class_key = @class_key
         LEFT JOIN \`${PROJECT}.mart.fct_client_daily_performance\` perf
           ON perf.location_id = c.location_id AND perf.transaction_date = c.date
         ${DAY_TAIL}
