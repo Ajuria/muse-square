@@ -16,7 +16,8 @@
     "harness:https": "node tools/harness/https-serve.mjs tools/proto 8443 8080",
     "placement:check": "node tools/build/placement-check.mjs",
     "catalog:refresh": "bash tools/build/refresh-bq-catalog.sh",
-    "harness:bottombar": "vitest run --config tools/harness/bottombar-render-verify.vitest.ts"
+    "harness:bottombar": "vitest run --config tools/harness/bottombar-render-verify.vitest.ts",
+    "harness:family-photo": "npx tsx tools/harness/family-photo-harness.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

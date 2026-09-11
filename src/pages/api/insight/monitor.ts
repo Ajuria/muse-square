@@ -11,6 +11,7 @@ import { assembleDayContext } from "../../../lib/context/dayContext";
 import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/context/contextCopy";
 import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured, structuralFunnelLineFr, corrIndexFr, weatherAlertGone } from "../../../lib/kpi/dayClassRegistry";
 import { buildEventLifecycleCards } from "../../../lib/events/eventLifecycleCards";
+import { listFamilyPhotos, pickFamilyPhoto, familyPhotoPayload, FAMILY_PHOTO_CARD_TYPES, type FamilyPhotoRow } from "../../../lib/dispositifs/familyPhotos";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -184,7 +185,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // reader. Per selected date; the profile row is location-level (same across dates). day_surface_raw /
     // profile_raw are the full view rows (parity-verified against the old profileQuery/signalsQuery). The
     // brain memoizes per (location,date), so reactions-today / sensitivities on the same page share this read.
-    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult, eventLifecycleRows, decompositionRows, competitorPhotoRows] = await Promise.all([
+    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult, eventLifecycleRows, decompositionRows, competitorPhotoRows, familyPhotoRows] = await Promise.all([
       // Enrich only the PRIMARY date (selected_dates[0]) with the full brain context — that's the day
       // whose rich detail a client renders (pulse: today; monitor: its single selected date). The other
       // dates only feed the 7-day week-bar (opportunity_score) + selected-day detail, which the clients
@@ -370,6 +371,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
         params: { location_id },
         location: "EU",
       }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+      // 11/09 — les photos courantes des composants qui portent une famille (lib/dispositifs/familyPhotos.ts,
+      // couche semantic) : attachées aux cartes FAMILLE comme `family_photo`. Même vague, aucun aller-retour de plus.
+      listFamilyPhotos(bq, location_id),
     ]);
     // 07/09 — la photo ne part vers la page QU'AVEC son attribution Google (conditions Places) : le crawl et
     // le one-off 2026-09-07 la stockent en JSON {name, uri} ; sans elle, pas de photo.
@@ -1121,6 +1125,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
           // 07/09 — photo du concurrent suivi sur les cartes concurrent (appariement par NOM du suivi : la clé
           // commune des payloads ; competitor_id absent de plusieurs d'entre eux).
           if (pl && typeof pl === 'object' && pl.competitor_name && competitorPhotoByName.has(String(pl.competitor_name))) { const ph = competitorPhotoByName.get(String(pl.competitor_name))!; pl.competitor_photo = ph.photo; pl.competitor_photo_attribution = ph.attribution; }
+          // 11/09 — photo du composant qui porte la famille, sur les quatre cartes famille seulement (appariement
+          // par nom EXACT de famille : item_category ; la plus spécifique gagne — familyPhotos.ts).
+          if (pl && typeof pl === 'object' && pl.item_category && FAMILY_PHOTO_CARD_TYPES.includes(String(r?.action_type ?? ''))) { const fp = pickFamilyPhoto(familyPhotoRows as FamilyPhotoRow[], String(pl.item_category)); if (fp) Object.assign(pl, familyPhotoPayload(fp)); }
           return pl;
         })(r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null),
         suppression_key: r?.suppression_key ?? null,

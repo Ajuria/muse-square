@@ -3663,6 +3663,16 @@ if (!location_id) {
         + (dp.google_rating_count != null ? ' \u00b7 ' + Math.round(Number(dp.google_rating_count)).toLocaleString('fr-FR') + ' avis' : '');
       return '<div class="ab-media photo"><img src="' + escapeHtml(String(dp.competitor_photo)) + '" alt="" loading="lazy"><div class="cap"><span>' + cap + '</span><span>' + attrHtml + '</span></div></div>';
     }
+    // 11/09 — la photo du composant qui porte la famille (cartes famille ; monitor : family_photo, variante
+    // « band » servie par /api/dispositifs/photos). Legende : le composant (son nom, sinon son type) et son
+    // N° sur le plan (forme de card-kit) | la date de la photo en JJ/MM/AAAA. Aucune autre phrase.
+    if (dp.family_photo) {
+      var _fd = String(dp.family_photo_date || '').slice(0, 10);
+      var _fdFr = /^\d{4}-\d{2}-\d{2}$/.test(_fd) ? _fd.slice(8, 10) + '/' + _fd.slice(5, 7) + '/' + _fd.slice(0, 4) : '';
+      var _fNo = dp.family_photo_fixture_no != null && Number(dp.family_photo_fixture_no) > 0 ? 'N\u00b0 sur le plan : ' + escapeHtml(String(dp.family_photo_fixture_no)) : '';
+      var _fCap = (dp.family_photo_label ? '<b>' + escapeHtml(String(dp.family_photo_label)) + '</b>' : '') + (dp.family_photo_label && _fNo ? ' \u00b7 ' : '') + _fNo;
+      return '<div class="ab-media photo"><img src="' + escapeHtml(String(dp.family_photo)) + '" alt="" loading="lazy"><div class="cap"><span>' + _fCap + '</span><span>' + escapeHtml(_fdFr) + '</span></div></div>';
+    }
     if ((ty === 'sales_surge' || ty === 'sales_revenue_down_wow') && dp.daily_revenue != null && dp.expected_revenue != null) {
       var days = (entry.group && entry.group.length) ? entry.group : [entry];
       var pairs = days.map(function (e) { var d = (e.item && e.item.data_payload) || {}; return { hab: Number(d.expected_revenue) || 0, jour: Number(d.daily_revenue) || 0, lbl: (window.msWeekdayFrSing ? String(window.msWeekdayFrSing(e.item.affected_date)).slice(0, 3) + '. ' : '') + _ddmm(e.item.affected_date) }; }).reverse();
