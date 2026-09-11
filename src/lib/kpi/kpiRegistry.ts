@@ -280,15 +280,16 @@ export function kpiKeyForEventKpi(eventKpi: string | null | undefined): KpiKey |
 }
 
 // K8 — CA journalier moyen d'une famille produit sur une période (même référentiel que les
-// movers : lignes raw.client_transactions). NULL-safe ; < 1 jour de ventes → null.
+// movers : lignes de caisse facturées, semantic.vw_insight_event_client_sales_lines — 11/09, D8). NULL-safe ; < 1 jour de ventes → null.
 // Les familles RÉELLES du site avec leur €/j moyen — LE foyer (extrait de create_context le
 // 27/08, consommé par le formulaire ET le résolveur d'entités ; jamais recopié).
 export async function listSiteFamilies(bq: any, location_id: string, limit = 12): Promise<Array<{ category: string; avg_day_eur: number }>> {
   const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
   const rows = await bq.query({
-    query: `WITH td AS (SELECT COUNT(DISTINCT transaction_date) AS n FROM \`${PROJECT}.raw.client_transactions\` WHERE location_id = @location_id)
+    // 11/09 (D8, règle owner 10/09) : la vue semantic — factures seules, site rattaché — remplace raw.
+    query: `WITH td AS (SELECT COUNT(DISTINCT transaction_date) AS n FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\` WHERE location_id = @location_id)
             SELECT item_category, ROUND(SUM(revenue) / (SELECT n FROM td), 0) AS avg_day_eur
-            FROM \`${PROJECT}.raw.client_transactions\`
+            FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
             WHERE location_id = @location_id AND item_category IS NOT NULL
             GROUP BY 1 ORDER BY 2 DESC LIMIT ${Math.max(1, Math.min(50, limit))}`,
     params: { location_id }, location: "EU",
@@ -298,14 +299,14 @@ export async function listSiteFamilies(bq: any, location_id: string, limit = 12)
 
 // 07/09 (docs/dispositif-perimetre-mesure-spec.md, P1) : le CA d'un PÉRIMÈTRE (familles, pôle → ses
 // familles, articles confirmés) se mesure avec la méthode de la famille — mêmes lignes
-// (raw.client_transactions), même moyenne par jour, même bande de bruit. La famille unique est le
+// (semantic.vw_insight_event_client_sales_lines, D8 11/09), même moyenne par jour, même bande de bruit. La famille unique est le
 // périmètre d'une famille (scopeFromFamily) : une seule requête, jamais deux définitions.
 export async function measureScopeRevenueMean(bq: any, location_id: string, scope: MeasuredScope, start: string, end: string): Promise<{ value: number; n_days: number } | null> {
   const f = scopeFilter(scope);
   const rows = await bq.query({
     query: `
       SELECT SUM(revenue) / COUNT(DISTINCT transaction_date) AS v, COUNT(DISTINCT transaction_date) AS n
-      FROM \`${PROJECT}.raw.client_transactions\`
+      FROM \`${PROJECT}.semantic.vw_insight_event_client_sales_lines\`
       WHERE location_id = @location_id AND ${f.sql}
         AND transaction_date BETWEEN @start AND @end
     `,
@@ -328,11 +329,48 @@ export async function measureFamilyRevenueMean(bq: any, location_id: string, fam
 // Série JOURNALIÈRE du profit estimé sur [start, end] : marges FAMILLE d'abord (Σ CA_famille ×
 // marge/100 sur les familles déclarées, jointure par familySlug(item_category)), marge GLOBALE en
 // repli (CA du jour × marge/100). Aucune marge déclarée → null — jamais un profit inventé.
-// Même référentiel de lignes que K8 (raw.client_transactions) ; les marges sont lues au moment de
+// Même référentiel de lignes que K8 (semantic, D8 11/09) ; les marges sont lues au moment de
 // la mesure (baseline ET fenêtre au même barème — la comparaison reste cohérente).
+//
+// 11/09 (docs/catalogue-de-couts-et-marge.md M8, D8) : LA MESURE D'ABORD. Si la marge brute mesurée
+// couvre ≥ 90 % du CA de la fenêtre (semantic.vw_insight_event_daily_margin, prix d'achat en base),
+// la série est la marge brute HT mesurée par jour ; sinon l'estimation déclarée, comme avant.
+// `profitBasis` dit laquelle des deux a servi — un lecteur ne mêle jamais les deux dans une phrase.
+export async function measuredMarginDaily(
+  bq: any, location_id: string, start: string, end: string,
+): Promise<{ daily: Array<{ date: string; v: number }>; coverage: number } | null> {
+  const flat = (x: any): any => (x && typeof x === "object" && "value" in x ? x.value : x);
+  const rows = await bq.query({
+    query: `SELECT CAST(date AS STRING) AS d, gross_margin_ht, revenue, revenue_costed
+            FROM \`${PROJECT}.semantic.vw_insight_event_daily_margin\`
+            WHERE location_id = @location_id AND date BETWEEN @start AND @end ORDER BY 1`,
+    params: { location_id, start: bq.date(start), end: bq.date(end) }, location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  let rev = 0, costed = 0;
+  const daily: Array<{ date: string; v: number }> = [];
+  for (const r of rows as any[]) {
+    rev += Number(flat(r.revenue) ?? 0); costed += Number(flat(r.revenue_costed) ?? 0);
+    if (flat(r.gross_margin_ht) != null) daily.push({ date: String(flat(r.d)), v: Math.round(Number(flat(r.gross_margin_ht)) * 100) / 100 });
+  }
+  if (!(rev > 0) || !daily.length) return null;
+  return { daily, coverage: costed / rev };
+}
+export const PROFIT_MEASURED_COVERAGE_MIN = 0.9;   // = var dbt margin_coverage_min, lib/kpi/margin.ts
+
+export async function profitBasis(bq: any, location_id: string, start: string, end: string): Promise<"mesure" | "declare" | null> {
+  const m = await measuredMarginDaily(bq, location_id, start, end);
+  if (m && m.coverage >= PROFIT_MEASURED_COVERAGE_MIN) return "mesure";
+  const fams = await getDeclaredFamilyMargins(location_id).catch(() => []);
+  if (fams.length) return "declare";
+  const g = await getDeclaredMarginPct(location_id).catch(() => null);
+  return g ? "declare" : null;
+}
+
 export async function profitEstimatedDaily(
   bq: any, location_id: string, start: string, end: string,
 ): Promise<Array<{ date: string; v: number }> | null> {
+  const measured = await measuredMarginDaily(bq, location_id, start, end);
+  if (measured && measured.coverage >= PROFIT_MEASURED_COVERAGE_MIN) return measured.daily;
   const fams = await getDeclaredFamilyMargins(location_id).catch(() => []);
   const flat = (x: any): any => (x && typeof x === "object" && "value" in x ? x.value : x);
   if (fams.length) {
@@ -340,7 +378,7 @@ export async function profitEstimatedDaily(
     for (const f of fams) pctBySlug[f.slug] = f.pct;
     const rows = await bq.query({
       query: `SELECT CAST(transaction_date AS STRING) AS d, item_category, SUM(revenue) AS v
-              FROM \`${PROJECT}.raw.client_transactions\`
+              FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
               WHERE location_id = @location_id AND transaction_date BETWEEN @start AND @end
               GROUP BY 1, 2`,
       params: { location_id, start: bq.date(start), end: bq.date(end) },
@@ -359,7 +397,7 @@ export async function profitEstimatedDaily(
   if (!g) return null;
   const rows = await bq.query({
     query: `SELECT CAST(transaction_date AS STRING) AS d, SUM(revenue) AS v
-            FROM \`${PROJECT}.raw.client_transactions\`
+            FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
             WHERE location_id = @location_id AND transaction_date BETWEEN @start AND @end
             GROUP BY 1`,
     params: { location_id, start: bq.date(start), end: bq.date(end) },
@@ -538,7 +576,7 @@ export async function measureScopeDailySd(bq: any, location_id: string, scope: M
   const f = scopeFilter(scope);
   const rows = await bq.query({
     query: `SELECT STDDEV_SAMP(v) AS sd, COUNT(*) AS n FROM (
-              SELECT SUM(revenue) AS v FROM \`${PROJECT}.raw.client_transactions\`
+              SELECT SUM(revenue) AS v FROM \`${PROJECT}.semantic.vw_insight_event_client_sales_lines\`
               WHERE location_id = @location_id AND ${f.sql}
                 AND transaction_date BETWEEN @start AND @end
               GROUP BY transaction_date)`,

@@ -193,7 +193,9 @@ const CLIQUET_BRUT: Record<string, number> = {
   "src/lib/insightFamilies/channels.ts": 4,
   "src/lib/insightFamilies/dispositif.ts": 6,
   "src/lib/insightFamilies/evenement.ts": 8,
-  "src/lib/kpi/kpiRegistry.ts": 6,
+  // 6 → 0 (11/09, D8) : listSiteFamilies, K8 (périmètre) et K9 (profit) lisent semantic.vw_insight_event_client_offering_daily,
+  // vw_insight_event_client_sales_lines et vw_insight_event_daily_margin — factures seules, site rattaché, marge mesurée d'abord.
+  "src/lib/kpi/kpiRegistry.ts": 0,
   "src/lib/profile/proposedFollows.ts": 5,
   "src/pages/api/admin/invite.ts": 2,
   "src/pages/api/admin/users.ts": 1,
