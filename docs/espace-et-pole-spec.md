@@ -46,7 +46,7 @@ partent en PR depuis le clone `ms_database` (`CLAUDE.md` § Où committer).
 - **Les mètres d'Épices et Tout existent** : 52 meubles mesurés sur le plan vectoriel (1:100, 28,344 pt/m),
   `~/Documents/Muse_Square/Clients/epices-et-tout/map/metres_lineaires_epices_et_tout_v2_2026-09-11.csv`
   (colonnes N° ; Pôle ; Famille ; Longueur ; Profondeur ; Faces accessibles ; Mètres linéaires de façade ; Note).
-  Mètres linéaires de façade = longueur × faces accessibles (mur, autre meuble, zone non publique = face bloquée).
+  Mètres linéaires de façade = longueur × faces de préhension (mur, autre meuble, zone non publique = face bloquée).
 - **Les marts de marge existent** (`catalogue-de-couts-et-marge.md`) au grain famille, article, heure, jour ;
   **la lecture par classe de jour existe** au grain famille (`reponse-aux-signaux-par-famille.md`). Il manque le
   grain pôle des deux, et l'espace.
@@ -76,7 +76,7 @@ le 11/09. La colonne Famille du fichier porte les libellés du plan, pas encore 
 |---|---|---|---|
 | E1 | **Le mapping famille → pôle devient un modèle dbt** : `int_client_pole_family_map` (site × famille → `pole_id` = `dispositif_id` du pôle, nom, version courante), en dépliant `pole_families` de la version courante des pôles non annulés. Test d'unicité (site, famille) : une famille vit dans UN pôle (`intent.md`). Test singulier en `warn` : familles vendues sur 30 j sans pôle | le rapprochement vivait dans l'app ; les marts de marge, d'espace et de classes de jour en ont besoin dans l'entrepôt | deux foyers pendant la transition ; l'app se repointera sur la vue |
 | E2 | **« Non rattaché » est un pseudo-pôle** (`pole_id = 'non_rattache'`) dans tous les marts pôle : Σ pôles = site, toujours | owner 09/09 : pas de trou dans le mapping ; le mot est acté (lexique l. 105) | — |
-| E3 | **Les mesures d'espace vivent dans une table app-write à part**, `analytics.space_measures` : `measure_id, location_id, dispositif_id, version_no, component_key` (NULL = le pôle lui-même), `fixture_no`, `length_m`, `depth_m`, `faces` (1 ou 2), `linear_m_facade` (= `length_m × faces`, écrit par l'app), `surface_m2` (au pôle), `families_share` JSON `[{family, share}]` (parts 0-1 de la façade, Σ = 1), `measured_at` DATE, `source` (`plan` \| `ruban` \| `saisie`), `declarant_user_id`, `created_at`. Append-only ; la mesure en vigueur = la dernière `created_at` par (dispositif, version, composant). Pas un champ de plus dans le JSON `components` (il casserait `parseComponents` et le contrat de la vue) | décision owner 5 ; une mesure change sans re-versionner le dispositif (un ruban corrige un plan) ; `fixture_no` relie la mesure à la photo du même meuble | une table de plus ; la mesure d'une version ne se recopie pas automatiquement sur la suivante (l'app pré-remplit) |
+| E3 | **Les mesures d'espace vivent dans une table app-write à part**, `analytics.space_measures` : `measure_id, location_id, dispositif_id, version_no, component_key` (NULL = le pôle lui-même), `fixture_no`, `length_m`, `depth_m`, `faces` = **faces de préhension** (1 ou 2 — les faces où le client prend le produit ; mot owner 11/09), `linear_m_facade` (= `length_m × faces`, écrit par l'app), `surface_m2` (au pôle), `families_share` JSON `[{family, share}]` (parts 0-1 de la façade, Σ = 1), `measured_at` DATE, `source` (`plan` \| `ruban` \| `saisie`), `declarant_user_id`, `created_at`. Append-only ; la mesure en vigueur = la dernière `created_at` par (dispositif, version, composant). Pas un champ de plus dans le JSON `components` (il casserait `parseComponents` et le contrat de la vue) | décision owner 5 ; une mesure change sans re-versionner le dispositif (un ruban corrige un plan) ; `fixture_no` relie la mesure à la photo du même meuble | une table de plus ; la mesure d'une version ne se recopie pas automatiquement sur la suivante (l'app pré-remplit) |
 | E4 | **Surface m² = une mesure au grain pôle** (`component_key` NULL, `surface_m2`) ; surface de vente du site = paramètre déclaré `sales_area_m2` dans `analytics.declared_parameters` (clé ajoutée à la liste fermée) | décision owner 5 ; le site n'est pas la somme de ses pôles (allées, réserve) | — |
 | E5 | **Les mètres d'un composant se répartissent entre ses familles par `families_share`** ; sans part déclarée, un composant à une famille = 100 %, à plusieurs familles = parts égales, ÉTIQUETÉ `share_source = 'defaut'` | typologie § 3 (owner 11/09) ; une répartition par défaut se dit, ne se cache pas | — |
 | E6 | **Les ratios d'espace se lisent sur 30 jours glissants**, jamais au jour : `fct_client_space_30d` (site × pôle × famille, date de calcul = jour du build) : CA 30 j, marge 30 j (si couverture ≥ seuil), part de CA, part de marge, mètres linéaires, **Part de linéaire** (= ML famille ÷ ML site), CA/ML, marge/ML ; au pôle : idem + m², CA/m², marge/m² | la phrase owner est une part contre une part ; un jour isolé ne s'annualise ni ne se divise par un mètre | pas de série journalière du €/ML (le mart jour reste au grain famille) |
@@ -122,11 +122,11 @@ scratch (jamais en table de production).
 
 1. **DDL** `analytics.space_measures` (one-off daté) ; `sales_area_m2` dans `DECLARED_METRICS`.
 2. **Formulaire de pôle** (`public/js/pole-form.js`, ligne par composant) : trois champs de plus par composant —
-   N° sur le plan, longueur (m, virgule), faces accessibles (1 ou 2) — et, quand le composant porte plusieurs
+   N° sur le plan, longueur (m, virgule), **faces de préhension** (1 ou 2) — et, quand le composant porte plusieurs
    familles, la part de chacune (%) ; au pôle : surface (m²). Écriture dans `analytics.space_measures` à côté du
-   POST de l'engagement (jamais dans `components`). Mots : **Part de linéaire** (acté) ; « N° sur le plan »
-   (chaîne de la Fin du relevé) ; « longueur », « faces accessibles », « surface » : à passer au lexique avec
-   leur tableau 8-13 avant tout rendu.
+   POST de l'engagement (jamais dans `components`). Mots : **Part de linéaire** (acté), **face de préhension** (owner 11/09, au lexique) ; « N° sur le plan »
+   (chaîne de la Fin du relevé) ; « longueur », « surface de vente » : à passer au lexique avec leur tableau 8-13
+   avant tout rendu.
 3. **Déclaration des pôles d'Épices et Tout** : sept pôles depuis les zones du plan (Cuisine, Maison, Épicerie
    sèche, Produits frais, Cave, Petit déjeuner, Caisse), familles rattachées à la déclaration — « Pôle en projet »
    tant qu'aucune vente n'est importée (`marche-guidee-spec.md` § 8), rapprochement famille déclarée → famille
@@ -144,14 +144,29 @@ scratch (jamais en table de production).
 
 ---
 
-## 5. Décisions owner attendues
+## 5. Décisions owner (11/09)
 
-1. Les meubles 3-6, 19 et 49 (sur place).
-2. Les mots des champs du formulaire : « longueur », « faces accessibles », « surface » (m²), « N° sur le plan »
-   — ou les vôtres.
-3. Le site : surface de vente déclarée (`sales_area_m2`) ou somme des pôles ; recommandation : déclarée, la
-   somme des pôles en repli étiqueté.
-4. Le pseudo-pôle « Non rattaché » compte-t-il dans les parts de linéaire ? Recommandation : non pour le linéaire
-   (aucun mètre ne lui est mesuré), oui pour le CA et la marge (Σ pôles = site).
+**Tranchée** : (2) le nombre de faces d'un meuble se dit **faces de préhension** (mot owner ; « faces accessibles »
+retiré du fichier et des champs).
+
+**Précisées, en attente** :
+
+1. **Trois meubles du plan que le plan ne suffit pas à mesurer**, à regarder sur place : n° 3 et n° 6 (Cuisine,
+   « Récipients ») forment un meuble en L — le plan donne 4,61 m et 5,00 m × 2 faces = 10,00 m, mais la longueur
+   réelle d'un L dépend de ce qui est en angle (un mètre ruban tranche) ; n° 19 (Épicerie sèche, conserves) :
+   vrai meuble ou caisses posées au sol ? (0 face compté pour l'instant) ; n° 49 (Cuisine) : un meuble partagé
+   entre Couteaux et Céréales du Petit déjeuner — quelle part de sa façade (3,00 m) revient à chaque famille ?
+3. **Surface de vente du site** : rien à voir avec les faces de préhension. Les faces de préhension comptent
+   les côtés d'UN meuble où le client se sert (1 ou 2) et convertissent sa longueur en mètres linéaires de
+   façade — c'est le grain « par mètre » (KPI 5). La surface de vente est une aire au sol, en m², du magasin ou
+   d'un pôle — c'est le grain « par m² » (KPI 12), celui des îlots, des frigos et de la zone traiteur qui n'ont
+   pas de façade. Le site n'est pas la somme de ses pôles (allées, caisse, réserve) : recommandation, déclarer
+   une fois la surface de vente du magasin (le chiffre du bail) ; les m² des pôles se mesurent sur le plan
+   (zones tracées), je peux les mesurer comme les mètres linéaires.
+4. **« Non rattaché » dans les parts** : ce pseudo-pôle regroupe les familles de la caisse qu'aucun pôle ne
+   porte. Elles vendent, donc elles comptent dans le CA et la marge du site — sinon les parts des pôles feraient
+   moins de 100 % et mentiraient. Mais aucun meuble ne leur est mesuré : elles n'ont pas de mètres, donc pas de
+   Part de linéaire. Recommandation : dans le CA et la marge, hors du linéaire, et une ligne visible
+   « Non rattaché : X % du CA, aucun meuble » — c'est ce qui pousse à finir le mapping au lieu de le masquer.
 
 — SPEC DE TRAVAIL ; se réécrit en définitif quand la passation est buildée et les vues vérifiées.
