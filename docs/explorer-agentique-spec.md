@@ -303,9 +303,16 @@ conflit est dans la file owner.
    (`npm run dev` sur 4321 avec `MS_AUTH_BYPASS=1`, `npm run harness`, ouvrir
    `http://localhost:4173/tools/proto/explorer-agent-proto.html?location_id=f10c3e58-326e-4e38-947c-d59fcbe51df5`),
    et relire les réponses rendues : toute phrase refusée entre dans `tournures.fr.ts`.
-3. **Tranché par l'owner le 11/09** : la surface est **Explorer** (`prompt.astro`, la page où l'on pose
-   une question au site) ; le bloc et le geste se disent **« Documentez l'espace »** (lexique). Reste à
-   construire cette entrée dans Explorer ; le proto meurt au commit qui la livre.
+3. **Tranché par l'owner le 11/09, proto validé le 12/09** : la surface est **Explorer** (`prompt.astro`,
+   la page où l'on pose une question au site) ; le bloc se dit **« Documentez l'espace »** (lexique) et
+   c'est une **porte vers le Relevé de l'espace** (`marche-guidee-spec.md`), pas un champ : une carte de
+   suggestion d'Explorer (icône · titre · deux lignes · CTA « … → »). Chaînes validées par l'owner le
+   12/09 : « Faites le tour de votre lieu, le téléphone à la main : vous photographiez chaque composant,
+   Explorer reconnaît ses familles. » · « À votre rythme : arrêtez-vous et reprenez le relevé où vous en
+   étiez. » · « Commencer le relevé → ». Proto : `tools/proto/explorer-documentez-lespace-proto.html`.
+   **Ordre de livraison** : essai téléphone du proto du relevé → la page du relevé → la porte dans
+   `prompt.astro`, dans le MÊME commit que la page (une porte ne s'ouvre pas sur rien) ; le proto meurt là.
+   La conversation avec l'agent (ce qui ne se photographie pas) reste sous la porte, à concevoir après.
 4. Owner : relire les deux réponses de la mesure du 11/09 (§ 6) et refuser ce qui n'est pas du français de commerçant — chaque refus entre dans `tournures.fr.ts`.
 5. Quand un lecteur naît pour la trace des tours, créer sa vue semantic AVANT d'écrire la lecture.
 6. Fait le 11/09 : `tournures.fr.ts` attrape « X font N € » (pluriel), « angle mort » / « qui les tient »
