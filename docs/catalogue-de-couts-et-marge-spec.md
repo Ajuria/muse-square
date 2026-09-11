@@ -75,7 +75,16 @@ PR (`CLAUDE.md` § Où committer) ; la passation `docs/dbt-handoff/` les documen
 
 ---
 
-## 3. dbt — ce qui reste à faire, dans l'ordre du DAG
+## 3. dbt — livré dans la PR [ms_database#147](https://github.com/Ajuria/ms_database/pull/147) (11/09, branche `feat/marge-catalogue-couts`, à fusionner puis à builder)
+
+Les dix-sept étapes ci-dessous sont dans la PR ; les tables `analytics.item_cost_catalog` et `analytics.declared_parameters`
+(vides) et les colonnes raw `revenue_ht`, `vat_rate` sont EN BASE (DDL et ALTER exécutés le 11/09). Preuves BQ :
+staging 202 895 = raw, 202 444 facturées = avant ; lignes de marge 202 444 = `fct_client_sales_lines` ; couverture 0
+partout (catalogue vide) ; classes de jour inchangées (1 950 / 224). Différences avec le plan initial : la dérivation
+du HT vit dans `fct_client_sales_lines_margin` et non au staging (le staging passe `revenue_ht`, `vat_rate` tels
+quels) ; la base HT/TTC vient de `pos_system`, ajouté au staging du profil ; `fct_client_sales_lines_margin` lit la
+staging directement (pas `fct_client_sales_lines`), même filtre `is_invoiced`.
+
 
 Chaque `ref()` pointe sur un nœud présent sur `origin/main` ou livré plus haut (vérification par programme
 avant PR, comme le lot A).
