@@ -125,7 +125,7 @@ scratch (jamais en table de production).
    N° sur le plan, longueur (m, virgule), **faces de préhension** (1 ou 2) — et, quand le composant porte plusieurs
    familles, la part de chacune (%) ; au pôle : surface (m²). Écriture dans `analytics.space_measures` à côté du
    POST de l'engagement (jamais dans `components`). Mots : **Part de linéaire** (acté), **face de préhension** (owner 11/09, au lexique) ; « N° sur le plan »
-   (chaîne de la Fin du relevé) ; « longueur », « surface de vente » : à passer au lexique avec leur tableau 8-13
+   (chaîne de la Fin du relevé) ; **surface de vente** (owner 11/09, au lexique) ; « longueur » : à passer au lexique avec son tableau 8-13
    avant tout rendu.
 3. **Déclaration des pôles d'Épices et Tout** : sept pôles depuis les zones du plan (Cuisine, Maison, Épicerie
    sèche, Produits frais, Cave, Petit déjeuner, Caisse), familles rattachées à la déclaration — « Pôle en projet »
@@ -144,29 +144,13 @@ scratch (jamais en table de production).
 
 ---
 
-## 5. Décisions owner (11/09)
+## 5. Décisions owner (11/09) — actées
 
-**Tranchée** : (2) le nombre de faces d'un meuble se dit **faces de préhension** (mot owner ; « faces accessibles »
-retiré du fichier et des champs).
-
-**Précisées, en attente** :
-
-1. **Trois meubles du plan que le plan ne suffit pas à mesurer**, à regarder sur place : n° 3 et n° 6 (Cuisine,
-   « Récipients ») forment un meuble en L — le plan donne 4,61 m et 5,00 m × 2 faces = 10,00 m, mais la longueur
-   réelle d'un L dépend de ce qui est en angle (un mètre ruban tranche) ; n° 19 (Épicerie sèche, conserves) :
-   vrai meuble ou caisses posées au sol ? (0 face compté pour l'instant) ; n° 49 (Cuisine) : un meuble partagé
-   entre Couteaux et Céréales du Petit déjeuner — quelle part de sa façade (3,00 m) revient à chaque famille ?
-3. **Surface de vente du site** : rien à voir avec les faces de préhension. Les faces de préhension comptent
-   les côtés d'UN meuble où le client se sert (1 ou 2) et convertissent sa longueur en mètres linéaires de
-   façade — c'est le grain « par mètre » (KPI 5). La surface de vente est une aire au sol, en m², du magasin ou
-   d'un pôle — c'est le grain « par m² » (KPI 12), celui des îlots, des frigos et de la zone traiteur qui n'ont
-   pas de façade. Le site n'est pas la somme de ses pôles (allées, caisse, réserve) : recommandation, déclarer
-   une fois la surface de vente du magasin (le chiffre du bail) ; les m² des pôles se mesurent sur le plan
-   (zones tracées), je peux les mesurer comme les mètres linéaires.
-4. **« Non rattaché » dans les parts** : ce pseudo-pôle regroupe les familles de la caisse qu'aucun pôle ne
-   porte. Elles vendent, donc elles comptent dans le CA et la marge du site — sinon les parts des pôles feraient
-   moins de 100 % et mentiraient. Mais aucun meuble ne leur est mesuré : elles n'ont pas de mètres, donc pas de
-   Part de linéaire. Recommandation : dans le CA et la marge, hors du linéaire, et une ligne visible
-   « Non rattaché : X % du CA, aucun meuble » — c'est ce qui pousse à finir le mapping au lieu de le masquer.
+1. **Faces de préhension** : le mot du nombre de faces d'un meuble (1 ou 2).
+2. **Surface de vente** : le mot de l'aire au sol en m², du magasin (`sales_area_m2`, déclarée une fois) et du pôle
+   (mesure au grain pôle) ; le site n'est pas la somme de ses pôles.
+3. **« Non rattaché »** compte dans le CA et la marge, jamais dans le linéaire ; une ligne visible le dit.
+4. **Les meubles 3-6, 19 et 49** se confirment sur place (owner, 12 ou 15/09) ; jusque-là ils portent leur note
+   dans le fichier et la mesure chargée sera reprise par une nouvelle ligne (append-only).
 
 — SPEC DE TRAVAIL ; se réécrit en définitif quand la passation est buildée et les vues vérifiées.
