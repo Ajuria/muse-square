@@ -1,6 +1,8 @@
-# Handoff dbt — catalogue des prix d'achat et marge brute (11/09/2026) : PR ms_database#147 — SPEC DE TRAVAIL
+# Handoff dbt — catalogue des prix d'achat et marge brute (11/09/2026) : PR ms_database#147 — EN BASE — DÉFINITIF
 
-Sert : `docs/catalogue-de-couts-et-marge-spec.md` (M1-M9, décisions owner 1-5 du 11/09). Les fichiers voyagent par git
+> **11/09, 17 h 50 — EN BASE.** PR fusionnée (`9faf044`) ; run ponctuel `70471897065342` (job `refresh_industry`, étapes de remplacement, 4 étapes vertes, 1 min 14). Vérifié `INFORMATION_SCHEMA` 15 h 49 UTC : 16 objets (2 stagings, 2 intermédiaires, 6 marts, 6 vues) ; staging 202 895 = raw, 202 444 facturées ; `fct_client_sales_lines_margin` 202 444 lignes, `cost_known` 0 ; `fct_client_daily_margin` 975 jours, couverture 0 ; paramètres 975 jours, base connue 0 ; `fct_client_monthly_result` 47 mois dont 43 complets ; classes de jour 1 950 / 224 inchangées. Catalogue régénéré (572 tables, 10 273 colonnes). L'état vit dans `docs/catalogue-de-couts-et-marge.md` (DÉFINITIF).
+
+Sert : `docs/catalogue-de-couts-et-marge.md` (M1-M9, décisions owner 1-5 du 11/09). Les fichiers voyagent par git
 (`CLAUDE.md` § Où committer) : **PR [ms_database#147](https://github.com/Ajuria/ms_database/pull/147)**, branche
 `feat/marge-catalogue-couts` sur `origin/main` `813176f`, 25 fichiers (+993 / −1) + exposures.
 
