@@ -12,6 +12,7 @@ import { normalizeScope, parseScope, scopeFromFamily, serializeScope, type Measu
 import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/commitments/actionCommitments";
 import { parseComponents } from "../../../lib/dispositifs/dispositifTypes";
+import { parseSpaceMeasuresBody, appendSpaceMeasures, parseMeasureSource } from "../../../lib/dispositifs/spaceMeasures";
 import { listPoles, familyTakenByAnotherPole, familyClashMessageFr } from "../../../lib/dispositifs/poleReading";
 import { assignmentMessageFr } from "../../../lib/channels/slackMessagesFr";
 import { themeForActionType } from "../../../lib/recos/recoThemeMap";
@@ -278,6 +279,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
       const _pComponents: string | null = body.components != null
         ? (_pComps.components.length ? JSON.stringify(_pComps.components) : null)
         : (((_pParent as any)?.components as string | null | undefined) ?? null);
+      // Mesures d'espace (11/09, docs/espace-et-pole.md E3) : longueur, faces de préhension, N° sur le
+      // plan, Part de linéaire par composant ; surface de vente au pôle. Elles vivent À PART
+      // (analytics.space_measures, append-only) — jamais dans le JSON components. Validées AVANT
+      // l'écriture du dispositif : une mesure sur un composant que la version ne porte pas est refusée,
+      // et un corps invalide ne laisse pas un pôle sans ses mesures.
+      const _pMeasures = parseSpaceMeasuresBody(body.space_measures);
+      if (!_pMeasures.ok) return json({ ok: false, error: _pMeasures.error }, 400);
+      if (_pMeasures.value.components.length) {
+        const _pKeys = new Set<string>();
+        try { for (const c of JSON.parse(_pComponents || "[]")) if (c && c.key) _pKeys.add(String(c.key)); } catch { /* composants illisibles → aucune clé */ }
+        const _pUnknown = _pMeasures.value.components.find((m) => !_pKeys.has(m.component_key));
+        if (_pUnknown) return json({ ok: false, error: `space_measures : le composant « ${_pUnknown.component_key} » n'est pas dans cette version du pôle` }, 400);
+      }
       const row = await readMergeWrite(bqP, {
         commitmentId: poleId, transitionType: "created", create: true,
         patch: {
@@ -309,7 +323,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
             ? Math.round(Number(body.operation_cost_eur) * 100) / 100 : null,
         } as any,
       } as any);
-      return json({ ok: true, commitment_id: row.commitment_id, dispositif_id: (row as any).dispositif_id, version_no: (row as any).version_no });
+      let _pWritten: string[] = [];
+      if (_pMeasures.value.components.length || _pMeasures.value.pole) {
+        _pWritten = await appendSpaceMeasures({
+          location_id: String(body.location_id).trim(), dispositif_id: _pLineage.dispositif_id, version_no: _pLineage.version_no,
+          components: _pMeasures.value.components, pole: _pMeasures.value.pole,
+          source: parseMeasureSource(body.space_measures?.source, "saisie"),
+          measured_at: typeof body.space_measures?.measured_at === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.space_measures.measured_at) ? body.space_measures.measured_at : new Date().toISOString().slice(0, 10),
+          declarant_user_id: userId,
+        });
+      }
+      return json({ ok: true, commitment_id: row.commitment_id, dispositif_id: (row as any).dispositif_id, version_no: (row as any).version_no, space_measures_written: _pWritten.length });
     }
 
     if (!body.location_id || !body.origin_action_type ||
