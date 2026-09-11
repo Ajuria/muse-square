@@ -4,6 +4,8 @@ Sert : intent § Le test de valeur — une carte famille montre la photo du comp
 
 **Base vérifiée** : `origin/Ajuria-branch` (`1884bc7`). Les trois fichiers touchés y sont identiques à `origin/main` (`0293c5d`). Fins de ligne LF partout. dbt 1.10.11 (`target/manifest.json`).
 
+**État (11/09)** : les trois fichiers sont dans la PR [ms_database#144](https://github.com/Ajuria/ms_database/pull/144) (branche `feat/photos-v2-colonnes`, générée depuis `origin/main` `0293c5d` ; le yml de `main` porte en plus le bloc `vw_insight_event_site_memory`, l'insertion reste aux lignes 966-973, preuves refaites sur `main`). Restent la fusion, puis la reconstruction ciblée du § C. Les gestes du § B ne se collent plus dans l'IDE : ils sont dans la PR.
+
 ## A. Pourquoi
 
 Depuis le 11/09, l'app écrit quatre colonnes de plus dans `analytics.dispositif_photos` (25 colonnes) : `exposition`, `levels`, `families_present`, `fixture_no`. La chaîne dbt liste ses colonnes et ne les porte pas : `stg_dispositif_photos` en a 21, `int_client_dispositif_photos_latest` et `fct_client_dispositif_photos` 23, `vw_insight_event_dispositif_photos` 20 (INFORMATION_SCHEMA, 11/09). L'app lit la couche semantic, jamais `analytics` : sans ces colonnes dans la vue, une carte famille de Pulse ne peut pas trouver la photo du composant qui porte sa famille.
@@ -133,9 +135,9 @@ Dans le bloc `  - name: vw_insight_event_dispositif_photos`, la dernière colonn
 
 `ARRAY<STRING>` suit la syntaxe déjà employée dans ce fichier (`ARRAY<STRUCT<…>>`, ligne 1105 de la branche).
 
-## C. Les commandes dans l'IDE, dans cet ordre
+## C. La reconstruction ciblée, une fois, juste après la fusion
 
-L'IDE écrit en production (`muse-square-open-data`) : les vues sont recréées à la première commande.
+**Aucun job ne reconstruit `stg_dispositif_photos`.** Le job de 05:00 (`dbt build --select source_status:fresher+`) ne la prend pas : la source `analytics.dispositif_photos` n'a pas de fraîcheur déclarée et la table est vide. Le job de 05:09 (`dbt run --select tag:mart_dependent`) reconstruit l'intermédiaire, le fact et la vue, jamais la staging, qui n'a pas ce tag (historique BigQuery du 05/09 au 11/09 : 6 constructions de chacun des trois, aucune de la staging). **Sans cette commande, la vue lirait une staging à 21 colonnes et échouerait chaque matin à 05:09.** Elle se lance dans l'IDE, ou par l'API dbt Cloud (un run ponctuel sur `main` avec cette seule commande). L'IDE et l'API écrivent en production (`muse-square-open-data`).
 
 ```
 dbt run --select stg_dispositif_photos+
