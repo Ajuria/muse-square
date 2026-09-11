@@ -10,7 +10,8 @@ export type ModelRole =
   | "classifier"   // fast intent classification
   | "enrichment"   // context/event enrichment, search, sowhat (cheap/fast)
   | "web_search"   // web-search-tool-backed lookups
-  | "drafting";    // channel copy / profile generation / crawl reasoning
+  | "drafting"     // channel copy / profile generation / crawl reasoning
+  | "agent";       // Explorer agentique (11/09) — conversation à outils, fichiers en entrée, thinking adaptatif
 
 const REGISTRY: Record<ModelRole, string> = {
   packager: "claude-sonnet-5",             // Sonnet 5: structured outputs make the JSON shape schema-native
@@ -19,6 +20,7 @@ const REGISTRY: Record<ModelRole, string> = {
   enrichment: "claude-haiku-4-5-20251001",
   web_search: "claude-sonnet-4-6",
   drafting: "claude-sonnet-4-6",
+  agent: "claude-opus-5",                  // owner 11/09 : l'agent Explorer (api/explorer/agent.ts) — SDK tool runner, pas le transport claude.ts
 };
 
 // The one accessor. Callers pass a role, never a literal.
