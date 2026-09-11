@@ -4,9 +4,9 @@
 "generated_date": "2026-09-11",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "18c57cf",
-"table_count": 546,
-"column_count": 9871
+"dbt_repo_sha_at_generation": "12d42f0",
+"table_count": 554,
+"column_count": 9988
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -6027,6 +6027,22 @@
 "type": "TIMESTAMP"
 },
 {
+"name": "exposition",
+"type": "STRING"
+},
+{
+"name": "levels",
+"type": "INT64"
+},
+{
+"name": "families_present",
+"type": "ARRAY<STRING>"
+},
+{
+"name": "fixture_no",
+"type": "INT64"
+},
+{
 "name": "items_effective",
 "type": "STRING"
 },
@@ -9460,6 +9476,112 @@
 {
 "name": "last_geste_at",
 "type": "TIMESTAMP"
+}
+]
+},
+"intermediate.int_location_day_cells": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "month_num",
+"type": "INT64"
+},
+{
+"name": "weekend_flag",
+"type": "BOOL"
+},
+{
+"name": "weather_class",
+"type": "STRING"
+},
+{
+"name": "in_weather",
+"type": "BOOL"
+},
+{
+"name": "in_comp",
+"type": "BOOL"
+},
+{
+"name": "in_tour",
+"type": "BOOL"
+},
+{
+"name": "in_events",
+"type": "BOOL"
+},
+{
+"name": "in_mobility",
+"type": "BOOL"
+},
+{
+"name": "in_suivis",
+"type": "BOOL"
+},
+{
+"name": "in_school",
+"type": "BOOL"
+},
+{
+"name": "in_holiday",
+"type": "BOOL"
+},
+{
+"name": "in_traffic",
+"type": "BOOL"
+},
+{
+"name": "in_comp_low",
+"type": "BOOL"
+},
+{
+"name": "in_tour_low",
+"type": "BOOL"
+},
+{
+"name": "n_memberships",
+"type": "INT64"
+}
+]
+},
+"intermediate.int_location_day_class_membership": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "month_num",
+"type": "INT64"
+},
+{
+"name": "weekend_flag",
+"type": "BOOL"
+},
+{
+"name": "n_memberships",
+"type": "INT64"
+},
+{
+"name": "class_family",
+"type": "STRING"
+},
+{
+"name": "class_key",
+"type": "STRING"
 }
 ]
 },
@@ -13833,12 +13955,97 @@
 "type": "TIMESTAMP"
 },
 {
+"name": "exposition",
+"type": "STRING"
+},
+{
+"name": "levels",
+"type": "INT64"
+},
+{
+"name": "families_present",
+"type": "ARRAY<STRING>"
+},
+{
+"name": "fixture_no",
+"type": "INT64"
+},
+{
 "name": "items_effective",
 "type": "STRING"
 },
 {
 "name": "items_are_confirmed",
 "type": "BOOL"
+}
+]
+},
+"mart.fct_client_family_day_class_response": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "class_key",
+"type": "STRING"
+},
+{
+"name": "class_family",
+"type": "STRING"
+},
+{
+"name": "basis",
+"type": "STRING"
+},
+{
+"name": "metric",
+"type": "STRING"
+},
+{
+"name": "n_days",
+"type": "INT64"
+},
+{
+"name": "avg_gap",
+"type": "FLOAT64"
+},
+{
+"name": "sd_gap",
+"type": "FLOAT64"
+},
+{
+"name": "med_gap",
+"type": "FLOAT64"
+},
+{
+"name": "n_log",
+"type": "INT64"
+},
+{
+"name": "avg_log",
+"type": "FLOAT64"
+},
+{
+"name": "sd_log",
+"type": "FLOAT64"
+},
+{
+"name": "span_days",
+"type": "INT64"
+},
+{
+"name": "corr_r",
+"type": "FLOAT64"
+},
+{
+"name": "computed_at",
+"type": "TIMESTAMP"
 }
 ]
 },
@@ -17214,6 +17421,71 @@
 {
 "name": "expires_at",
 "type": "DATE"
+}
+]
+},
+"mart.fct_location_day_class_impacts": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "class_key",
+"type": "STRING"
+},
+{
+"name": "class_family",
+"type": "STRING"
+},
+{
+"name": "basis",
+"type": "STRING"
+},
+{
+"name": "metric",
+"type": "STRING"
+},
+{
+"name": "n_days",
+"type": "INT64"
+},
+{
+"name": "avg_gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "sd_gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "med_gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "n_log",
+"type": "INT64"
+},
+{
+"name": "avg_log",
+"type": "FLOAT64"
+},
+{
+"name": "sd_log",
+"type": "FLOAT64"
+},
+{
+"name": "span_days",
+"type": "INT64"
+},
+{
+"name": "corr_r",
+"type": "FLOAT64"
+},
+{
+"name": "computed_at",
+"type": "TIMESTAMP"
 }
 ]
 },
@@ -21676,6 +21948,31 @@
 }
 ]
 },
+"open_data.document_types": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "source_system",
+"type": "STRING"
+},
+{
+"name": "document_code",
+"type": "STRING"
+},
+{
+"name": "label_fr",
+"type": "STRING"
+},
+{
+"name": "kind",
+"type": "STRING"
+},
+{
+"name": "counts_as_sale",
+"type": "BOOL"
+}
+]
+},
 "open_data.event_impacts_coeffs": {
 "type": "BASE TABLE",
 "columns": [
@@ -23193,6 +23490,10 @@
 {
 "name": "quantity_decimal",
 "type": "FLOAT64"
+},
+{
+"name": "document_type",
+"type": "STRING"
 }
 ]
 },
@@ -31325,6 +31626,104 @@
 }
 ]
 },
+"semantic.vw_insight_event_day_class_impacts": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "class_key",
+"type": "STRING"
+},
+{
+"name": "class_family",
+"type": "STRING"
+},
+{
+"name": "basis",
+"type": "STRING"
+},
+{
+"name": "metric",
+"type": "STRING"
+},
+{
+"name": "n_days",
+"type": "INT64"
+},
+{
+"name": "avg_gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "sd_gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "med_gap_eur",
+"type": "FLOAT64"
+},
+{
+"name": "n_log",
+"type": "INT64"
+},
+{
+"name": "avg_log",
+"type": "FLOAT64"
+},
+{
+"name": "sd_log",
+"type": "FLOAT64"
+},
+{
+"name": "span_days",
+"type": "INT64"
+},
+{
+"name": "corr_r",
+"type": "FLOAT64"
+},
+{
+"name": "computed_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"semantic.vw_insight_event_day_class_membership": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "month_num",
+"type": "INT64"
+},
+{
+"name": "weekend_flag",
+"type": "BOOL"
+},
+{
+"name": "n_memberships",
+"type": "INT64"
+},
+{
+"name": "class_family",
+"type": "STRING"
+},
+{
+"name": "class_key",
+"type": "STRING"
+}
+]
+},
 "semantic.vw_insight_event_day_decomposition": {
 "type": "VIEW",
 "columns": [
@@ -32189,6 +32588,22 @@
 {
 "name": "created_at",
 "type": "TIMESTAMP"
+},
+{
+"name": "exposition",
+"type": "STRING"
+},
+{
+"name": "levels",
+"type": "INT64"
+},
+{
+"name": "families_present",
+"type": "ARRAY<STRING>"
+},
+{
+"name": "fixture_no",
+"type": "INT64"
 }
 ]
 },
@@ -32330,6 +32745,75 @@
 {
 "name": "arm_cooldown_days",
 "type": "INT64"
+}
+]
+},
+"semantic.vw_insight_event_family_day_class_response": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "class_key",
+"type": "STRING"
+},
+{
+"name": "class_family",
+"type": "STRING"
+},
+{
+"name": "basis",
+"type": "STRING"
+},
+{
+"name": "metric",
+"type": "STRING"
+},
+{
+"name": "n_days",
+"type": "INT64"
+},
+{
+"name": "avg_gap",
+"type": "FLOAT64"
+},
+{
+"name": "sd_gap",
+"type": "FLOAT64"
+},
+{
+"name": "med_gap",
+"type": "FLOAT64"
+},
+{
+"name": "n_log",
+"type": "INT64"
+},
+{
+"name": "avg_log",
+"type": "FLOAT64"
+},
+{
+"name": "sd_log",
+"type": "FLOAT64"
+},
+{
+"name": "span_days",
+"type": "INT64"
+},
+{
+"name": "corr_r",
+"type": "FLOAT64"
+},
+{
+"name": "computed_at",
+"type": "TIMESTAMP"
 }
 ]
 },
@@ -35630,6 +36114,14 @@
 "type": "STRING"
 },
 {
+"name": "document_type",
+"type": "STRING"
+},
+{
+"name": "document_kind",
+"type": "STRING"
+},
+{
 "name": "currency",
 "type": "STRING"
 },
@@ -36613,6 +37105,22 @@
 {
 "name": "created_at",
 "type": "TIMESTAMP"
+},
+{
+"name": "exposition",
+"type": "STRING"
+},
+{
+"name": "levels",
+"type": "INT64"
+},
+{
+"name": "families_present",
+"type": "ARRAY<STRING>"
+},
+{
+"name": "fixture_no",
+"type": "INT64"
 }
 ]
 },
