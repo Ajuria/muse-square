@@ -275,6 +275,48 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             link_fr: margeDone ? "Modifier" : "Déclarer",
             inline: "marge",
           });
+          // Marge brute MESURÉE (11/09, docs/catalogue-de-couts-et-marge.md § 4.5) : chaque geste n'existe que
+          // si le manque est RÉEL en base (drapeaux serveur) ; les chaînes reprennent les formes de cette
+          // surface (« → Importer vos ventes récentes », « débloque le KPI profit », « ici même », « modifiable à
+          // tout moment ») et les mots actés du lexique (prix d'achat, marge brute, charges fixes, masse
+          // salariale, surface de vente, résultat net, point mort, « calculée sur X % de votre CA », « prix
+          // d'achat manquants sur Y % »). PROVISOIRES jusqu'à ratification owner.
+          var pa = db.prix_achat_missing;
+          var mmAll = (j.marge_mesuree || []);
+          var mmDone = mmAll.length && !pa && mmAll.some(function (m) { return m.mode === "mesure"; });
+          if (pa || mmDone) {
+            var covP = pa && pa.coverage_pct != null ? Math.round(pa.coverage_pct) : null;
+            var partial = pa && covP != null && covP > 0;
+            goals.push({
+              kind: "prix",
+              aline: mmDone ? "→ Importer vos prix d'achat — modifiable à tout moment"
+                : partial ? "→ Compléter vos prix d'achat — prix d'achat manquants sur " + (100 - covP) + " % de votre CA"
+                : "→ Importer vos prix d'achat — débloque la marge brute",
+              sub: mmDone ? "marge brute calculée sur " + Math.round((mmAll.filter(function (m) { return m.mode === "mesure"; })[0] || {}).coverage_pct || 0) + " % de votre CA"
+                : partial ? "marge brute calculée sur " + covP + " % de votre CA" + (j.multi_site && pa.site_label ? " · " + pa.site_label : "")
+                : "un fichier code article · prix d'achat HT · date d'effet, ici même",
+              link_fr: mmDone ? "Importer vos prix d'achat" : partial ? "Compléter vos prix d'achat" : "Importer vos prix d'achat",
+              inline: "prix", location_id: pa ? pa.location_id : null,
+            });
+          }
+          if ((db.charges_missing || []).length) goals.push({
+            kind: "charges",
+            aline: "→ Déclarer vos charges fixes et votre masse salariale — débloque le résultat net et le point mort",
+            sub: "deux montants par mois, ici même" + (j.multi_site && db.charges_missing[0].site_label ? " · " + db.charges_missing[0].site_label : ""),
+            link_fr: "Déclarer", inline: "charges", location_id: db.charges_missing[0].location_id,
+          });
+          if ((db.surface_missing || []).length) goals.push({
+            kind: "surface",
+            aline: "→ Déclarer votre surface de vente — débloque la marge par m²",
+            sub: "un chiffre en m², ici même" + (j.multi_site && db.surface_missing[0].site_label ? " · " + db.surface_missing[0].site_label : ""),
+            link_fr: "Déclarer", inline: "surface", location_id: db.surface_missing[0].location_id,
+          });
+          if ((db.base_ca_missing || []).length) goals.push({
+            kind: "base",
+            aline: "→ Indiquer si votre caisse exporte le CA en HT ou en TTC — débloque la marge brute",
+            sub: "la base de tous les calculs de marge" + (j.multi_site && db.base_ca_missing[0].site_label ? " · " + db.base_ca_missing[0].site_label : ""),
+            link_fr: "Indiquer", inline: "base", location_id: db.base_ca_missing[0].location_id,
+          });
           return goals;
         }
 
@@ -501,6 +543,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           // Chip par geste : mots de la maquette (KPI profit, 2 min, réutilisable) — pas d'invention.
           var GOAL_CHIP = {
             marge: { t: "KPI profit", bg: "#EEF2FF", fg: BLUE },
+            prix: { t: "marge brute", bg: "#EEF2FF", fg: BLUE },
+            charges: { t: "résultat net", bg: "#EEF2FF", fg: BLUE },
+            surface: { t: "marge par m²", bg: "#EEF2FF", fg: BLUE },
+            base: { t: "marge brute", bg: "#EEF2FF", fg: BLUE },
             prouver: { t: "r\u00e9utilisable", bg: GOLD_BG, fg: GOLD_FG },
             bilan: { t: "2 min", bg: "#FEF3E2", fg: AMBER },
             equipe: { t: "2 min", bg: "#FEF3E2", fg: AMBER },
@@ -512,6 +558,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               titre: String(gg.aline || "").replace(/^→\s*/, ""), sub: gg.sub || "",
               geste: gg.inline === "marge"
                 ? '<button type="button" class="tb-link" data-tb-marge style="background:none;border:none;padding:0;font-family:inherit;cursor:pointer;">' + esc(trunc(gg.link_fr || "Faire", 26)) + ' →</button>'
+                : gg.inline
+                ? '<button type="button" class="tb-link" data-tb-param="' + esc(gg.inline) + '" data-tb-param-loc="' + esc(gg.location_id || "") + '" style="background:none;border:none;padding:0;font-family:inherit;cursor:pointer;">' + esc(trunc(gg.link_fr || "Faire", 26)) + ' →</button>'
                 : '<a class="tb-link" href="' + gg.href + '"' + (gg.open_volet ? ' data-tb-open="' + gg.open_volet + '"' : "") + (gg.goto ? ' data-tb-goto="' + esc(gg.goto) + '"' : "") + '>' + esc(trunc(gg.link_fr || "Faire", 26)) + ' →</a>' });
           });
           (g.trous || []).forEach(function (tr) {
@@ -666,8 +714,37 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 } else if (mgC.profit30 != null && mgC.couverture_pct != null) {
                   profE = mgC.profit30; covE = mgC.couverture_pct; decE = mgC.n_declarees || 0; famE = mgC.n_familles || 0;
                 }
-                if (profE == null) return "";
-                return '<div style="flex:none;" title="Profit estimé sur les 30 derniers jours : CA de chaque famille produits & services × sa marge déclarée, sommé sur les familles déclarées (' + decE + '/' + famE + ') — jamais extrapolé au CA non couvert. Marges modifiables dans À faire.">'
+                // Marge brute MESURÉE (11/09) — mode décidé serveur (lib/kpi/margin.ts, seuil 90 %) :
+                // « mesure » remplace l'estimation, « mixte » montre les deux nommées, « estime » garde
+                // l'estimation et met la mesure dans l'infobulle, « aucune » ne montre rien de plus.
+                var mmC = (J.marge_mesuree || []).filter(function (m) { return !locFilter || m.location_id === locFilter; });
+                var mmRev = 0, mmCosted = 0, mmMargin = null;
+                mmC.forEach(function (m) { mmRev += m.revenue_30d || 0; mmCosted += m.revenue_costed_30d || 0; if (m.gross_margin_ht_30d != null) mmMargin = (mmMargin || 0) + m.gross_margin_ht_30d; });
+                var mmCov = mmRev > 0 ? Math.round(mmCosted / mmRev * 100) : null;
+                var mmMode = mmCov == null || mmCov <= 0 ? "aucune" : mmCov >= 90 ? "mesure" : mmCov >= 50 ? "mixte" : "estime";
+                var one = mmC.length === 1 ? mmC[0] : null;
+                var mesH = "";
+                if (mmMargin != null && (mmMode === "mesure" || mmMode === "mixte")) {
+                  mesH = '<div style="flex:none;" title="Marge brute mesurée sur les 30 derniers jours : CA net HT moins le prix d’achat des articles vendus, sur la part du CA dont le prix d’achat est renseigné.">'
+                    + '<div style="font-size:20px;font-weight:700;line-height:1;color:#111827;">' + frInt(Math.round(mmMargin)) + ' €</div>'
+                    + '<div style="font-size:11.5px;margin-top:5px;color:#6b7280;">marge brute · 30 derniers jours · calculée sur ' + mmCov + ' % de votre CA' + (mmMode === "mixte" ? ' · prix d’achat manquants sur ' + (100 - mmCov) + ' %' : '') + '</div></div>';
+                }
+                if (one && one.resultat_net && one.resultat_net.net_result_eur != null) {
+                  var rn = one.resultat_net; var rnD = new Date(String(rn.month) + "T12:00:00Z");
+                  mesH += '<div style="flex:none;" title="Résultat net du dernier mois complet : marge brute moins charges fixes (' + frInt(Math.round(rn.fixed_costs_month_eur || 0)) + ' €) moins masse salariale (' + frInt(Math.round(rn.payroll_month_eur || 0)) + ' €), calculée sur ' + Math.round(rn.coverage_pct || 0) + ' % de votre CA.">'
+                    + '<div style="font-size:20px;font-weight:700;line-height:1;color:' + (rn.net_result_eur >= 0 ? '#111827' : AMBER) + ';">' + (rn.net_result_eur >= 0 ? '' : '−') + frInt(Math.abs(Math.round(rn.net_result_eur))) + ' €</div>'
+                    + '<div style="font-size:11.5px;margin-top:5px;color:#6b7280;">résultat net · ' + MOIS_FR[rnD.getUTCMonth()] + ' ' + rnD.getUTCFullYear() + '</div></div>';
+                }
+                if (one && one.point_mort && one.point_mort.break_even_revenue_ht != null) {
+                  var pm = one.point_mort;
+                  mesH += '<div style="flex:none;" title="Point mort du jour : (charges fixes + masse salariale du mois) ÷ jours de vente du dernier mois complet (' + (pm.opening_days_ref || '—') + ') ÷ taux de marge brute des 30 derniers jours = le CA net HT que la journée doit générer.">'
+                    + '<div style="font-size:20px;font-weight:700;line-height:1;color:#111827;">' + frInt(Math.round(pm.break_even_revenue_ht)) + ' €</div>'
+                    + '<div style="font-size:11.5px;margin-top:5px;color:#6b7280;">point mort du jour · ' + (pm.is_reached === true && pm.break_even_hour != null ? 'atteint à ' + pm.break_even_hour + ' h' : pm.is_reached === true ? 'atteint' : pm.is_reached === false ? 'non atteint le ' + frD(pm.date) : frD(pm.date)) + '</div></div>';
+                }
+                if (mmMode === "mesure") return mesH;
+                if (profE == null) return mesH;
+                var mesTip = mmMode === "estime" && mmMargin != null ? ' Marge brute mesurée sur ' + mmCov + ' % de votre CA : ' + frInt(Math.round(mmMargin)) + ' €.' : '';
+                return mesH + '<div style="flex:none;" title="Profit estimé sur les 30 derniers jours : CA de chaque famille produits & services × sa marge déclarée, sommé sur les familles déclarées (' + decE + '/' + famE + ') — jamais extrapolé au CA non couvert. Marges modifiables dans À faire.' + esc(mesTip) + '">'
                   + '<div style="font-size:20px;font-weight:700;line-height:1;color:#111827;">≈ ' + frInt(profE) + ' €</div>'
                   + '<div style="font-size:11.5px;margin-top:5px;color:#6b7280;">profit · 30 derniers jours · calculé sur ' + covE + ' % de votre CA</div></div>';
               })()
@@ -2033,6 +2110,81 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                       + '<span class="v"></span><span class="a"></span>';
                   } else { msg.style.color = "#B45309"; msg.textContent = (jj && jj.error) || "R\u00e9essayez."; }
                 }).catch(function () { msg.style.color = "#B45309"; msg.textContent = "R\u00e9essayez."; });
+              });
+            });
+          });
+          // Panneaux inline des paramètres déclarés et des prix d'achat (11/09) : même mécanique que la marge —
+          // le chiffre se déclare ICI, POST api/insight/declared-parameters (date d'effet JJ/MM/AAAA, défaut
+          // aujourd'hui) ou POST api/import/costs-csv (fichier), puis load() : la rangée devient la vérité relue.
+          body.querySelectorAll("[data-tb-param]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              var kind = b.getAttribute("data-tb-param");
+              var pLoc = b.getAttribute("data-tb-param-loc") || loc;
+              var row = b.closest(".tb-af"); if (!row) return;
+              var ex = row.nextElementSibling;
+              if (ex && ex.getAttribute && ex.getAttribute("data-tb-param-panel") != null) { ex.remove(); return; }
+              var pan = document.createElement("div");
+              pan.setAttribute("data-tb-param-panel", kind);
+              pan.style.cssText = "margin:6px 0 10px;border:1px solid rgba(29,59,179,0.25);border-radius:10px;padding:10px 12px;background:#fff;display:flex;align-items:center;gap:10px;flex-wrap:wrap;";
+              var inpS = 'padding:6px 9px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-family:inherit;';
+              var lab = function (t) { return '<span style="font-size:12.5px;color:#374151;">' + t + '</span>'; };
+              var btn = '<button type="button" data-tb-param-save style="font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border:none;border-radius:8px;padding:6px 13px;cursor:pointer;font-family:inherit;">Enregistrer</button><span data-tb-param-msg style="font-size:12px;color:#B45309;"></span>';
+              var dateF = lab('à partir du') + '<input data-tb-p="effective_from" placeholder="JJ/MM/AAAA" style="width:110px;' + inpS + '">';
+              if (kind === "charges") pan.innerHTML = lab('Charges fixes') + '<input data-tb-p="fixed_costs_month_eur" inputmode="decimal" placeholder="ex. 8 500" style="width:100px;' + inpS + '">' + lab('€ par mois')
+                + lab('Masse salariale') + '<input data-tb-p="payroll_month_eur" inputmode="decimal" placeholder="ex. 12 000" style="width:100px;' + inpS + '">' + lab('€ par mois') + dateF + btn;
+              else if (kind === "surface") pan.innerHTML = lab('Surface de vente') + '<input data-tb-p="sales_area_m2" inputmode="decimal" placeholder="ex. 120" style="width:90px;' + inpS + '">' + lab('m²') + dateF + btn;
+              else if (kind === "base") pan.innerHTML = lab('Votre caisse exporte le CA en :') + '<label style="font-size:12.5px;color:#374151;"><input type="radio" name="tb-base" value="HT"> HT</label><label style="font-size:12.5px;color:#374151;"><input type="radio" name="tb-base" value="TTC"> TTC</label>' + btn;
+              else if (kind === "prix") pan.innerHTML = lab('Votre fichier de prix d’achat :') + '<input type="file" data-tb-p="file" accept=".csv,.xlsx,.xls,text/csv" style="font-size:12.5px;font-family:inherit;">'
+                + '<button type="button" data-tb-param-save style="font-size:12.5px;font-weight:600;color:#fff;background:#1D3BB3;border:none;border-radius:8px;padding:6px 13px;cursor:pointer;font-family:inherit;">Importer</button><span data-tb-param-msg style="font-size:12px;color:#B45309;"></span>';
+              row.parentNode.insertBefore(pan, row.nextSibling);
+              var first = pan.querySelector("input"); if (first && first.type !== "file" && first.type !== "radio") first.focus();
+              pan.querySelector("[data-tb-param-save]").addEventListener("click", function () {
+                var msg = pan.querySelector("[data-tb-param-msg]");
+                var fail = function (t) { msg.style.color = "#B45309"; msg.textContent = t || "Réessayez."; };
+                var done = function (t) {
+                  pan.remove();
+                  row.innerHTML = '<span><span style="display:flex;justify-content:center;"><span style="width:9px;height:9px;border-radius:50%;background:#059669;display:inline-block;"></span></span></span>'
+                    + '<span style="min-width:0;"><span class="t">' + t + '</span><span class="u">modifiable à tout moment</span></span><span class="v"></span><span class="a"></span>';
+                  setTimeout(load, 1200);
+                };
+                var eff = (pan.querySelector('[data-tb-p="effective_from"]') || {}).value;
+                var post = function (key, value) {
+                  return fetch("/api/insight/declared-parameters", { method: "POST", headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ location_id: pLoc, key: key, value: value, effective_from: eff && String(eff).trim() ? String(eff).trim() : undefined }) }).then(function (r2) { return r2.json(); });
+                };
+                var frNum = function (v) { return frInt(Math.round(Number(String(v).replace(/\s/g, "").replace(",", ".")))); };
+                if (kind === "charges") {
+                  var fc = String((pan.querySelector('[data-tb-p="fixed_costs_month_eur"]') || {}).value || "").trim();
+                  var ms = String((pan.querySelector('[data-tb-p="payroll_month_eur"]') || {}).value || "").trim();
+                  if (!fc && !ms) return fail("Entrez un chiffre.");
+                  msg.style.color = "#6B7280"; msg.textContent = "Enregistrement…";
+                  Promise.all([fc ? post("fixed_costs_month_eur", fc) : null, ms ? post("payroll_month_eur", ms) : null].filter(Boolean)).then(function (rs) {
+                    var ko = rs.filter(function (r3) { return !(r3 && r3.ok); });
+                    if (ko.length) return fail(ko[0].error);
+                    done('Charges déclarées : ' + (fc ? frNum(fc) + ' € de charges fixes' : '') + (fc && ms ? ' et ' : '') + (ms ? frNum(ms) + ' € de masse salariale' : '') + ' par mois');
+                  }).catch(function () { fail(); });
+                } else if (kind === "surface") {
+                  var sv = String((pan.querySelector('[data-tb-p="sales_area_m2"]') || {}).value || "").trim();
+                  if (!sv) return fail("Entrez un chiffre.");
+                  msg.style.color = "#6B7280"; msg.textContent = "Enregistrement…";
+                  post("sales_area_m2", sv).then(function (r3) { if (!(r3 && r3.ok)) return fail(r3 && r3.error); done('Surface de vente déclarée : ' + String(r3.value).replace(".", ",") + ' m²'); }).catch(function () { fail(); });
+                } else if (kind === "base") {
+                  var rb = pan.querySelector('input[name="tb-base"]:checked');
+                  if (!rb) return fail("Choisissez HT ou TTC.");
+                  msg.style.color = "#6B7280"; msg.textContent = "Enregistrement…";
+                  post("revenue_basis", rb.value).then(function (r3) { if (!(r3 && r3.ok)) return fail(r3 && r3.error); done('Base déclarée : CA ' + r3.value); }).catch(function () { fail(); });
+                } else if (kind === "prix") {
+                  var fi = pan.querySelector('[data-tb-p="file"]');
+                  if (!fi || !fi.files || !fi.files.length) return fail("Choisissez un fichier.");
+                  msg.style.color = "#6B7280"; msg.textContent = "Import…";
+                  var fd = new FormData(); fd.append("location_id", pLoc); fd.append("file", fi.files[0]);
+                  fetch("/api/import/costs-csv", { method: "POST", body: fd }).then(function (r2) { return r2.json(); }).then(function (out) {
+                    if (!out || out.status === "rejected") return fail((out && out.errors && out.errors[0] && out.errors[0].reason) || (out && out.error) || "Fichier refusé.");
+                    var cov = out.coverage && out.coverage.pct != null ? Math.round(out.coverage.pct) : null;
+                    var errs = (out.errors || []).slice(0, 3).map(function (e) { return 'ligne ' + e.row + ' : ' + e.reason; }).join(' · ');
+                    done(out.rows_accepted + ' prix d’achat importés' + (out.rows_rejected ? ', ' + out.rows_rejected + ' ligne' + (out.rows_rejected > 1 ? 's' : '') + ' refusée' + (out.rows_rejected > 1 ? 's' : '') + (errs ? ' (' + errs + ')' : '') : '') + (cov != null ? ' — marge brute calculée sur ' + cov + ' % de votre CA' : ''));
+                  }).catch(function () { fail(); });
+                }
               });
             });
           });
