@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-09-10",
+"generated_date": "2026-09-11",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "4d1e80b",
-"table_count": 542,
-"column_count": 9809
+"dbt_repo_sha_at_generation": "18c57cf",
+"table_count": 546,
+"column_count": 9871
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -2353,6 +2353,22 @@
 {
 "name": "created_at",
 "type": "TIMESTAMP"
+},
+{
+"name": "exposition",
+"type": "STRING"
+},
+{
+"name": "levels",
+"type": "INT64"
+},
+{
+"name": "families_present",
+"type": "ARRAY<STRING>"
+},
+{
+"name": "fixture_no",
+"type": "INT64"
 }
 ]
 },
@@ -3911,6 +3927,14 @@
 },
 {
 "name": "besttime_venue_id",
+"type": "STRING"
+},
+{
+"name": "commerce_type",
+"type": "STRING"
+},
+{
+"name": "commerce_gamme",
 "type": "STRING"
 }
 ]
@@ -6688,6 +6712,14 @@
 "type": "STRING"
 },
 {
+"name": "commerce_type",
+"type": "STRING"
+},
+{
+"name": "commerce_gamme",
+"type": "STRING"
+},
+{
 "name": "location_type",
 "type": "STRING"
 },
@@ -7279,6 +7311,14 @@
 {
 "name": "updated_at",
 "type": "TIMESTAMP"
+},
+{
+"name": "commerce_type",
+"type": "STRING"
+},
+{
+"name": "commerce_gamme",
+"type": "STRING"
 }
 ]
 },
@@ -7750,6 +7790,22 @@
 },
 {
 "name": "competitor_event_time_profile",
+"type": "STRING"
+},
+{
+"name": "location_commerce_type",
+"type": "STRING"
+},
+{
+"name": "location_commerce_gamme",
+"type": "STRING"
+},
+{
+"name": "competitor_commerce_type",
+"type": "STRING"
+},
+{
+"name": "competitor_commerce_gamme",
 "type": "STRING"
 },
 {
@@ -15348,6 +15404,14 @@
 "type": "TIMESTAMP"
 },
 {
+"name": "commerce_type",
+"type": "STRING"
+},
+{
+"name": "commerce_gamme",
+"type": "STRING"
+},
+{
 "name": "first_crawled_at",
 "type": "TIMESTAMP"
 },
@@ -15724,6 +15788,22 @@
 },
 {
 "name": "competitor_event_time_profile",
+"type": "STRING"
+},
+{
+"name": "location_commerce_type",
+"type": "STRING"
+},
+{
+"name": "location_commerce_gamme",
+"type": "STRING"
+},
+{
+"name": "competitor_commerce_type",
+"type": "STRING"
+},
+{
+"name": "competitor_commerce_gamme",
 "type": "STRING"
 },
 {
@@ -23428,6 +23508,14 @@
 {
 "name": "google_photo_attribution",
 "type": "STRING"
+},
+{
+"name": "commerce_type",
+"type": "STRING"
+},
+{
+"name": "commerce_gamme",
+"type": "STRING"
 }
 ]
 },
@@ -24547,6 +24635,84 @@
 }
 ]
 },
+"raw.explorer_agent_turns": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "turn_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "thread_id",
+"type": "STRING"
+},
+{
+"name": "turn_index",
+"type": "INT64"
+},
+{
+"name": "role",
+"type": "STRING"
+},
+{
+"name": "content",
+"type": "STRING"
+},
+{
+"name": "user_id",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"raw.explorer_site_memory": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "memory_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "subject",
+"type": "STRING"
+},
+{
+"name": "body",
+"type": "STRING"
+},
+{
+"name": "author_user_id",
+"type": "STRING"
+},
+{
+"name": "author_role",
+"type": "STRING"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "superseded",
+"type": "BOOL"
+}
+]
+},
 "raw.fact_poi_unified": {
 "type": "BASE TABLE",
 "columns": [
@@ -25369,6 +25535,14 @@
 },
 {
 "name": "pos_system",
+"type": "STRING"
+},
+{
+"name": "commerce_type",
+"type": "STRING"
+},
+{
+"name": "commerce_gamme",
 "type": "STRING"
 }
 ]
@@ -33390,6 +33564,43 @@
 }
 ]
 },
+"semantic.vw_insight_event_site_memory": {
+"type": "VIEW",
+"columns": [
+{
+"name": "memory_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "subject",
+"type": "STRING"
+},
+{
+"name": "body",
+"type": "STRING"
+},
+{
+"name": "author_user_id",
+"type": "STRING"
+},
+{
+"name": "author_role",
+"type": "STRING"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "semantic.vw_insight_event_tickets_daily": {
 "type": "VIEW",
 "columns": [
@@ -35728,6 +35939,14 @@
 {
 "name": "deleted_at",
 "type": "TIMESTAMP"
+},
+{
+"name": "commerce_type",
+"type": "STRING"
+},
+{
+"name": "commerce_gamme",
+"type": "STRING"
 }
 ]
 },
@@ -37510,6 +37729,47 @@
 }
 ]
 },
+"staging.stg_explorer_site_memory": {
+"type": "VIEW",
+"columns": [
+{
+"name": "memory_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "subject",
+"type": "STRING"
+},
+{
+"name": "body",
+"type": "STRING"
+},
+{
+"name": "author_user_id",
+"type": "STRING"
+},
+{
+"name": "author_role",
+"type": "STRING"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "superseded",
+"type": "BOOL"
+}
+]
+},
 "staging.stg_fact_poi_unified": {
 "type": "VIEW",
 "columns": [
@@ -38556,6 +38816,14 @@
 },
 {
 "name": "place_id",
+"type": "STRING"
+},
+{
+"name": "commerce_type",
+"type": "STRING"
+},
+{
+"name": "commerce_gamme",
 "type": "STRING"
 }
 ]
