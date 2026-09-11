@@ -23,6 +23,7 @@ import { listPoles, buildPoleReading, unassignedFamilies, type PoleComponentRow 
 // « Non rattaché » (owner 09/09) : les familles réelles du site MOINS celles que les pôles portent.
 // Le foyer des familles réelles est kpiRegistry.listSiteFamilies — jamais une liste recopiée.
 import { listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
+import { marginDisplayMode, pctInt } from "../../../lib/kpi/margin";
 import { buildPoleActivity, resolveMemberNames } from "../../../lib/dispositifs/poleActivity";
 
 const PROJECT = "muse-square-open-data";
@@ -109,7 +110,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       return { poleList, readings, weeks, activity, names, unassigned, week_window: { ws: wkStart, we: wkEnd } } as any;
     })();
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows], [famCaRows], [bandeauRows], [poleUnitsRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows], [famCaRows], [bandeauRows], [poleUnitsRows], [mgSiteRows], [mgDayRows], [mgMonthRows], [mgParamRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         // Perf 25/08 : les 5 sous-requêtes corrélées (2,6-4,7 s de plan, 1 Mo scanné — coupable
@@ -880,12 +881,80 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 GROUP BY 1, 2, 3`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]) : Promise.resolve([[]]),
+      // ── MARGE BRUTE MESURÉE (11/09, docs/catalogue-de-couts-et-marge.md) — quatre lectures dans la
+      // même vague (coût = la plus lente, jamais la somme). Semantic seulement. Tout NULL sans prix
+      // d'achat : la couverture dit l'absence, jamais un chiffre inventé.
+      // (a) 30 derniers jours par site : CA brut, CA au prix d'achat connu, marge — la couverture en découle.
+      bq.query({
+        query: `SELECT location_id, SUM(revenue) AS revenue_30d, SUM(revenue_costed) AS revenue_costed_30d,
+                       SUM(gross_margin_ht) AS gross_margin_ht_30d, SUM(revenue_net_ht_costed) AS revenue_net_ht_costed_30d
+                FROM \`${PROJECT}.semantic.vw_insight_event_daily_margin\`
+                WHERE location_id IN UNNEST(@locs)
+                  AND date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()
+                GROUP BY 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // (b) le dernier jour de vente par site : point mort du jour et heure atteinte.
+      bq.query({
+        query: `SELECT location_id, CAST(date AS STRING) AS d, gross_margin_ht, coverage_pct, charges_day_eur,
+                       break_even_revenue_ht, break_even_hour, is_break_even_reached, margin_rate_30d, opening_days_ref
+                FROM \`${PROJECT}.semantic.vw_insight_event_daily_margin\`
+                WHERE location_id IN UNNEST(@locs) AND date <= CURRENT_DATE()
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY date DESC) = 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // (c) le dernier mois COMPLET par site : résultat net (NULL sans charges, sans masse salariale ou sous le seuil).
+      bq.query({
+        query: `SELECT location_id, CAST(month AS STRING) AS month, net_result_eur, coverage_pct, gross_margin_ht, revenue_net_ht,
+                       fixed_costs_month_eur, payroll_month_eur, payroll_to_revenue_pct
+                FROM \`${PROJECT}.semantic.vw_insight_event_monthly_result\`
+                WHERE location_id IN UNNEST(@locs) AND is_complete_month
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY month DESC) = 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // (d) les paramètres déclarés en vigueur au dernier jour de vente : ce qui manque se lit ici.
+      bq.query({
+        query: `SELECT location_id, revenue_basis, revenue_basis_source, fixed_costs_month_eur, payroll_month_eur, sales_area_m2
+                FROM \`${PROJECT}.semantic.vw_insight_event_declared_parameters\`
+                WHERE location_id IN UNNEST(@locs)
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY date DESC) = 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
     ]);
 
     const opsValue = (opsValRows as any[]).map((r) => ({ saved_item_id: str(r.saved_item_id), avg_gap: num(r.avg_gap), n: num(r.n) ?? 0 }));
 
     const siteLabel: Record<string, string> = {};
     for (const r of labelRows as any[]) siteLabel[String(str(r.location_id))] = String(str(r.label) ?? "");
+
+    // ── Marge brute mesurée : un bloc par site, le MODE d'affichage décidé ici (M8) et jamais côté client.
+    const margeMesuree = (() => {
+      const bySite: Record<string, any> = {};
+      for (const r of mgSiteRows as any[]) {
+        const lid = String(str(r.location_id)); const rev = num(r.revenue_30d); const costed = num(r.revenue_costed_30d);
+        const cov = rev && rev > 0 ? Math.min(1, (costed ?? 0) / rev) : null;
+        bySite[lid] = { location_id: lid, site_label: siteLabel[lid] || null, revenue_30d: rev, revenue_costed_30d: costed,
+          coverage_pct: cov == null ? null : Math.round(cov * 1000) / 10, mode: marginDisplayMode(cov),
+          gross_margin_ht_30d: num(r.gross_margin_ht_30d), margin_rate_pct: pctInt(num(r.gross_margin_ht_30d), num(r.revenue_net_ht_costed_30d)) };
+      }
+      for (const r of mgDayRows as any[]) {
+        const lid = String(str(r.location_id)); const e = (bySite[lid] = bySite[lid] || { location_id: lid, site_label: siteLabel[lid] || null, mode: "aucune" });
+        e.point_mort = { date: str(r.d), charges_day_eur: num(r.charges_day_eur), break_even_revenue_ht: num(r.break_even_revenue_ht),
+          break_even_hour: num(r.break_even_hour), is_reached: flat(r.is_break_even_reached) === true ? true : flat(r.is_break_even_reached) === false ? false : null,
+          gross_margin_ht: num(r.gross_margin_ht), coverage_pct: num(r.coverage_pct) == null ? null : Math.round(Number(num(r.coverage_pct)) * 1000) / 10, opening_days_ref: num(r.opening_days_ref) };
+      }
+      for (const r of mgMonthRows as any[]) {
+        const lid = String(str(r.location_id)); const e = (bySite[lid] = bySite[lid] || { location_id: lid, site_label: siteLabel[lid] || null, mode: "aucune" });
+        e.resultat_net = { month: str(r.month), net_result_eur: num(r.net_result_eur), coverage_pct: num(r.coverage_pct) == null ? null : Math.round(Number(num(r.coverage_pct)) * 1000) / 10,
+          gross_margin_ht: num(r.gross_margin_ht), revenue_net_ht: num(r.revenue_net_ht), fixed_costs_month_eur: num(r.fixed_costs_month_eur), payroll_month_eur: num(r.payroll_month_eur), payroll_to_revenue_pct: pctInt(num(r.payroll_month_eur), num(r.revenue_net_ht)) };
+      }
+      for (const r of mgParamRows as any[]) {
+        const lid = String(str(r.location_id)); const e = (bySite[lid] = bySite[lid] || { location_id: lid, site_label: siteLabel[lid] || null, mode: "aucune" });
+        e.params = { revenue_basis: str(r.revenue_basis), revenue_basis_source: str(r.revenue_basis_source), fixed_costs_month_eur: num(r.fixed_costs_month_eur), payroll_month_eur: num(r.payroll_month_eur), sales_area_m2: num(r.sales_area_m2) };
+      }
+      return Object.values(bySite);
+    })();
+
 
     const alerts = (alertRows as any[]).map((r) => ({ location_id: str(r.location_id), date: str(r.d), subtype: str(r.change_subtype), km: num(r.km) }));
     const alertKeys = new Set(alerts.map((a) => a.location_id + "|" + a.date));
@@ -1348,6 +1417,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // (le `ca30` serveur de la branche marges est REMPLACÉ par cette dérivation client — pas repris.)
       ca_daily: (caDailyRows as any[]).map((r) => ({ l: str(r.location_id), d: str(r.d), ca: num(r.ca) ?? 0, exp: num(r.exp) })),
       marges,
+      marge_mesuree: margeMesuree,
       ops_value: opsValue,
       last_verdict: lastVerdict,
       met_recipe: metRecipe,
@@ -1530,6 +1600,21 @@ export const GET: APIRoute = async ({ url, locals }) => {
         alerts_critical_on: flat((setupRows as any[])[0]?.alerts_on) === true,
         team_routing_set: Number(num((setupRows as any[])[0]?.routed_n) ?? 0) > 0,
         margin_declared: corrections.includes("declared_margin_pct"),
+        // Marge mesurée (11/09) : chaque manque est RÉEL en base, par site avec ventes. prix_achat = le pire
+        // site sous le seuil (sa couverture voyage) ; charges = un site sans charges fixes OU sans masse
+        // salariale ; surface = sans surface de vente ; base_ca = base HT/TTC ni fixée par la caisse ni déclarée.
+        ...(() => {
+          const withSales = margeMesuree.filter((m: any) => m.revenue_30d != null && m.revenue_30d > 0);
+          const worst = withSales.filter((m: any) => m.mode !== "mesure").sort((a: any, b: any) => (a.coverage_pct ?? 0) - (b.coverage_pct ?? 0))[0];
+          const missing = (k: string) => withSales.filter((m: any) => !m.params || m.params[k] == null).map((m: any) => ({ location_id: m.location_id, site_label: m.site_label }));
+          const baseMissing = withSales.filter((m: any) => !m.params || !m.params.revenue_basis).map((m: any) => ({ location_id: m.location_id, site_label: m.site_label }));
+          return {
+            prix_achat_missing: worst ? { location_id: worst.location_id, site_label: worst.site_label, coverage_pct: worst.coverage_pct, mode: worst.mode } : null,
+            charges_missing: missing("fixed_costs_month_eur").length ? missing("fixed_costs_month_eur") : (missing("payroll_month_eur").length ? missing("payroll_month_eur") : []),
+            surface_missing: missing("sales_area_m2"),
+            base_ca_missing: baseMissing,
+          };
+        })(),
         bilans_pending: bilans,
         to_document: toDocument,
         declared_no_replay: declaredNoReplay,
