@@ -85,7 +85,16 @@ le 11/09. La colonne Famille du fichier porte les libellés du plan, pas encore 
 
 ---
 
-## 3. dbt — ce qui reste à faire, dans l'ordre du DAG
+## 3. dbt — livré dans la PR [ms_database#148](https://github.com/Ajuria/ms_database/pull/148) (11/09, branche `feat/espace-et-pole`, à fusionner puis à builder)
+
+Les onze étapes ci-dessous sont dans la PR (19 fichiers) ; la table `analytics.space_measures` (16 colonnes,
+vide) est EN BASE. Preuves sur entrées SYNTHÉTIQUES en scratch (aucun pôle n'existe en base) : Σ pôles = site sur
+162/162 jours du compte owner, 8 familles → 3 pôles avec « Non rattaché », parts de linéaire sur les mètres
+mesurés, € par mètre et par m², une mesure au ruban qui remplace le plan, 151 lignes de réponse pôle × classe.
+Différences avec le plan initial : `int_client_family_space` et `int_client_pole_space` sont un seul modèle
+(`int_client_pole_space`, grains famille / pôle / site) ; le pôle d'un composant = `attached_pole_id` du
+dispositif, sinon le dispositif lui-même.
+
 
 1. **Source** (`staging/sources.yml`, bloc `analytics`) : `space_measures` (DDL côté app avant, colonnes E3).
 2. **`stg_declared_parameters`** : `sales_area_m2` entre dans la liste fermée des clés (yml) ;
