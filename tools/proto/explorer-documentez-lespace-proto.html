@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Explorer — Documentez l'espace (proto)</title>
+<!--
+  PROTO — le bloc « Documentez l'espace » dans Explorer (owner 11/09 : le mot, et la surface = prompt.astro).
+  Une seule piste. Tout le CSS est COPIÉ de prompt.astro (<style is:global>) et de ie-prompt.js (carte E3
+  « note ») : .ie-prompt-card, .ie-memory-item, .ie-load-stage, le trombone de la barre de saisie. Aucune
+  couleur inventée ; #1D3BB3 = data-blue (non tokenisé, littéral comme dans la page), #0b37e5 = brand-blue.
+  Le bloc se pose dans #ie-prompt-empty, sous le héros et avant les suggestions (E0-E5) : c'est un guichet
+  de plus, même grammaire que la carte E3 (icône · texte · sous-texte · champ + bouton).
+  Sert avec `npm run harness` (4173) et parle à POST /api/explorer/agent sur le serveur de dev (4321,
+  MS_AUTH_BYPASS=1) ; ?location_id= et ?api= dans l'URL. Les deux lignes déjà documentées sont celles
+  relevées en base le 11/09 sur f10c3e58 (vue semantic) — un exemple de rendu, le vrai bloc les lira.
+  Chaînes : « Documentez l'espace » (owner 11/09), « Enregistrer » (E3, lexique), « Nouvelle conversation »
+  (prompt.astro l. 210), « Joindre un fichier » (aria du trombone, prompt.astro l. 224, réduit) ;
+  PROPOSÉE : la ligne sous le titre. Le proto meurt au commit qui livre le bloc.
+-->
+<style>
+  /* ── copié de prompt.astro ─────────────────────────────────────────────── */
+  :root{ --color-brand-blue:#0b37e5; }
+  body{ margin:0; }
+  #ie-prompt-root { background: #ffffff; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  #ie-prompt-main{ max-width: 720px; margin: 0 auto; padding: 24px 16px 140px; }
+  #ie-prompt-hero{ margin-bottom: 48px; }
+  #ie-prompt-greeting{ font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#9ca3af;margin:0 0 8px 0; }
+  #ie-prompt-title{ font-size: 28px; font-weight: 300; line-height: 1.3; color: #111827; margin: 0; }
+  #ie-prompt-actions-label{ font-size:12px;letter-spacing:.08em;color:#9ca3af;font-weight:600;text-transform:uppercase;margin:0 0 16px 0; }
+  .ie-prompt-card{ background: #ffffff; border:1px solid rgba(0,0,0,0.12); border-radius: 0; padding: 16px; margin-bottom:16px; display:flex; align-items:center; gap:18px; cursor:pointer; transition: all 200ms ease; text-decoration:none; color:inherit; }
+  .ie-prompt-card:hover{ border-color: rgba(0,0,0,0.2); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+  .ie-prompt-card-icon{ width:40px; height:40px; border-radius:10px; background:#1D3BB3; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .ie-prompt-card-icon svg{ width:22px; height:22px; fill:white; stroke:none; }
+  .ie-prompt-card-content{ flex:1; min-width:0; }
+  .ie-prompt-card-text{ font-size:16px; line-height:1.5; color: #111827; margin:0; }
+  .ie-memory-item { display: flex; align-items: baseline; gap: 10px; font-size: 13px; line-height: 1.55; color: #374151; }
+  .ie-memory-item + .ie-memory-item { margin-top: 4px; }
+  #ie-prompt-result{ margin-top:14px; font-size:14px; line-height:1.5; color:#111827; }
+  @keyframes iePulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:.45}}
+  .ie-load-stage.on{opacity:1 !important;color:#111827;}
+  .ie-load-stage.on .ie-load-dot{animation:iePulse 1.1s ease-in-out infinite;}
+  .ie-load-stage.done{opacity:.55 !important;}
+  .ie-load-stage.done .ie-load-dot{animation:none;background:transparent;position:relative;}
+  .ie-load-stage.done .ie-load-dot::after{content:"\2713";position:absolute;top:-6px;left:-1px;font-size:11px;color:#0F6E56;}
+  @media (max-width: 767px) {
+    .ie-prompt-card[data-kind="espace"] [data-espace-input] { font-size: 16px !important; min-height: 40px; }
+    .ie-prompt-card[data-kind="espace"] [data-espace-save] { min-height: 40px; }
+  }
+  /* ── proto seulement ───────────────────────────────────────────────────── */
+  .proto-note{ max-width:720px; margin:0 auto; padding:0 16px 24px; font-size:12px; color:#9CA3AF; line-height:1.5; }
+  .proto-cfg{ display:none; gap:8px; max-width:720px; margin:0 auto 12px; padding:0 16px; font-size:12px; color:#6b7280; }
+  .proto-cfg.show{ display:flex; }
+  .proto-cfg input{ border:1px solid rgba(0,0,0,0.12); border-radius:8px; padding:5px 8px; font:inherit; font-size:12px; }
+</style></head><body>
+<div id="ie-prompt-root">
+  <div class="proto-cfg" id="cfg"><label>Serveur <input id="api" value="http://localhost:4321"></label><label>Site <input id="loc" placeholder="location_id"></label></div>
+  <div id="ie-prompt-main">
+    <div id="ie-prompt-hero"><p id="ie-prompt-greeting">Explorer</p><h1 id="ie-prompt-title">Bonjour Julen</h1></div>
+    <div id="ie-prompt-actions-label">Suggestions</div>
+
+    <!-- LE BLOC — même grammaire que la carte E3 « note » (ie-prompt.js noteCardHtml) -->
+    <div class="ie-prompt-card" data-nature="memoire" data-kind="espace" style="cursor:default;align-items:flex-start;">
+      <div class="ie-prompt-card-icon"><svg viewBox="0 0 24 24" style="fill:white;"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v5.6l4 2.4-.8 1.3L11 13V7h2z"/></svg></div>
+      <div class="ie-prompt-card-content">
+        <p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">Documentez l'espace</p>
+        <p style="font-size:13px;color:#374151;margin:0;line-height:1.4;">Dites-nous l'entrée, le comptoir, la vitrine ; joignez une photo ou le plan. Nous le gardons, avec votre nom et la date.</p>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+          <input type="file" id="espace-file" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none;" />
+          <button type="button" id="espace-attach" aria-label="Joindre un fichier" title="Joindre un fichier" style="width:36px;height:36px;border-radius:50%;background:transparent;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" style="width:20px;height:20px;stroke:#6b7280;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <input type="text" data-espace-input maxlength="500" style="flex:1;min-width:0;font:inherit;font-size:13px;padding:6px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;">
+          <button type="button" data-espace-save style="font:inherit;font-size:13px;font-weight:600;color:#fff;background:#0b37e5;border:0;border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap;">Enregistrer</button>
+        </div>
+        <div id="espace-filename" style="font-size:12px;color:#6b7280;margin-top:4px;min-height:14px;"></div>
+
+        <!-- Ce qui est déjà documenté : lignes .ie-memory-item (prompt.astro), sujet · contenu · auteur, date -->
+        <div id="espace-items" style="margin-top:12px;border-top:1px solid rgba(0,0,0,0.08);padding-top:10px;">
+          <div class="ie-memory-item"><span style="font-weight:600;color:#111827;flex:none;">comptoir</span><span style="flex:1;min-width:0;">Nous avons un seul comptoir, à gauche en entrant : la machine à café et la caisse y sont.</span><span style="font-size:12px;color:#9ca3af;flex:none;">Julen · 11/09</span></div>
+          <div class="ie-memory-item"><span style="font-weight:600;color:#111827;flex:none;">étagère du fond</span><span style="flex:1;min-width:0;">Les paquets de café en grains sont sur une étagère au fond, que le client ne voit pas depuis la porte.</span><span style="font-size:12px;color:#9ca3af;flex:none;">Julen · 11/09</span></div>
+        </div>
+
+        <!-- La réponse d'Explorer, sous le bloc : étapes (.ie-load-stage) puis texte (#ie-prompt-result) -->
+        <div id="espace-stages" style="display:none;margin-top:12px;"></div>
+        <div id="espace-thread"></div>
+        <div id="espace-new" style="display:none;justify-content:flex-end;margin-top:8px;"><button type="button" id="espace-new-btn" style="border:none;background:transparent;cursor:pointer;padding:2px 0;font-size:13px;font-weight:500;color:#0b37e5;font-family:inherit;">Nouvelle conversation</button></div>
+      </div>
+    </div>
+
+    <!-- Les autres suggestions (E0-E5) continuent ici, inchangées. -->
+    <div class="ie-prompt-card" style="opacity:.45;cursor:default;"><div class="ie-prompt-card-icon"><svg viewBox="0 0 24 24" style="fill:white;"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v5.6l4 2.4-.8 1.3L11 13V7h2z"/></svg></div><div class="ie-prompt-card-content"><p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">(les suggestions du jour, E0-E5, inchangées)</p></div></div>
+  </div>
+</div>
+<p class="proto-note">Prototype du 11/09/2026. Le bloc est un guichet de plus dans Explorer, avec la grammaire de la carte « note » : icône, titre, ligne, champ et bouton. Sous le champ, ce qui est déjà documenté (sujet, contenu, auteur, date) ; sous la liste, la réponse d'Explorer et les étapes qu'il a lues. Ajoutez <code>?location_id=…</code> à l'URL pour parler au serveur de dev.</p>
+<script>
+(function () {
+  var history = []; var threadId = null;
+  var $ = function (id) { return document.getElementById(id); };
+  var params = new URLSearchParams(location.search);
+  if (params.get("location_id")) $("loc").value = params.get("location_id");
+  if (params.get("api")) $("api").value = params.get("api");
+  if (!$("loc").value) $("cfg").classList.add("show");
+  var input = document.querySelector("[data-espace-input]"), save = document.querySelector("[data-espace-save]");
+  $("espace-attach").addEventListener("click", function () { $("espace-file").click(); });
+  $("espace-file").addEventListener("change", function () { $("espace-filename").textContent = this.files[0] ? this.files[0].name : ""; });
+  $("espace-new-btn").addEventListener("click", function () { history = []; threadId = null; $("espace-thread").innerHTML = ""; $("espace-new").style.display = "none"; });
+
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function stageRow(label) {
+    var d = document.createElement("div"); d.className = "ie-load-stage on";
+    d.setAttribute("style", "display:flex;align-items:center;gap:9px;transition:opacity .35s;font-size:13.5px;color:#6b7280;");
+    d.innerHTML = '<span class="ie-load-dot" style="width:8px;height:8px;border-radius:50%;background:var(--color-brand-blue,#0b37e5);flex:none;"></span><span>' + esc(label) + '</span>';
+    return d;
+  }
+  function addItem(subject, body) {
+    var d = document.createElement("div"); d.className = "ie-memory-item";
+    d.innerHTML = '<span style="font-weight:600;color:#111827;flex:none;">' + esc(subject) + '</span><span style="flex:1;min-width:0;">' + esc(body) + '</span><span style="font-size:12px;color:#9ca3af;flex:none;">vous · ' + esc(frToday()) + '</span>';
+    $("espace-items").appendChild(d);
+  }
+  function frToday() { var d = new Date(); return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0"); }
+  function addText(who, text) {
+    var d = document.createElement("div"); d.id = ""; d.setAttribute("style", "margin-top:14px;font-size:14px;line-height:1.5;color:#111827;white-space:pre-wrap;");
+    if (who === "user") d.setAttribute("style", "margin-top:14px;font-size:13px;line-height:1.5;color:#6b7280;white-space:pre-wrap;");
+    d.textContent = text; $("espace-thread").appendChild(d);
+  }
+  function readFile(f) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { var s = String(r.result); res(s.slice(s.indexOf(",") + 1)); }; r.onerror = function () { rej(new Error("lecture du fichier impossible")); }; r.readAsDataURL(f); }); }
+  function parseSse(chunk, state, onEvent) {
+    state.buf += chunk; var parts = state.buf.split("\n\n"); state.buf = parts.pop();
+    parts.forEach(function (p) { var ev = null, data = ""; p.split("\n").forEach(function (line) { if (line.indexOf("event: ") === 0) ev = line.slice(7); else if (line.indexOf("data: ") === 0) data += line.slice(6); }); if (ev) { try { onEvent(ev, JSON.parse(data)); } catch (e) {} } });
+  }
+  async function send() {
+    var q = String(input.value || "").replace(/\s+/g, " ").trim(); var loc = $("loc").value.trim();
+    var f = $("espace-file").files[0];
+    if (!q && !f) { input.focus(); return; }
+    if (!loc) { $("cfg").classList.add("show"); return; }
+    var files = [];
+    if (f) { var mt = f.type || (/\.pdf$/i.test(f.name) ? "application/pdf" : "image/jpeg"); files.push({ kind: mt === "application/pdf" ? "pdf" : "image", media_type: mt, name: f.name, data_base64: await readFile(f) }); }
+    var text = q || ("[" + f.name + "]");
+    history.push({ role: "user", content: text });
+    addText("user", text + (f && q ? " [" + f.name + "]" : ""));
+    input.value = ""; $("espace-file").value = ""; $("espace-filename").textContent = ""; save.disabled = true;
+    var stages = $("espace-stages"); stages.innerHTML = ""; stages.style.display = "flex"; stages.style.flexDirection = "column"; stages.style.gap = "7px";
+    var written = [];
+    try {
+      var res = await fetch($("api").value.replace(/\/$/, "") + "/api/explorer/agent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ location_id: loc, thread_id: threadId, messages: history, files: files, stream: true }) });
+      if (!res.ok || !res.body) { addText("assistant", "HTTP " + res.status); history.pop(); return; }
+      var reader = res.body.getReader(); var dec = new TextDecoder(); var state = { buf: "" }; var result = null;
+      while (true) {
+        var chunk = await reader.read(); if (chunk.done) break;
+        parseSse(dec.decode(chunk.value, { stream: true }), state, function (ev, data) {
+          if (ev === "tool") { var row = stageRow((data.label_fr || data.name) + (data.summary ? " — " + data.summary : "")); stages.appendChild(row); if (data.name === "ecrire_memoire" && data.ok !== false) written.push(data); }
+          if (ev === "result") result = data;
+        });
+      }
+      Array.prototype.forEach.call(stages.querySelectorAll(".ie-load-stage"), function (r) { r.classList.remove("on"); r.classList.add("done"); });
+      if (!result || !result.body || result.body.ok !== true) { addText("assistant", (result && result.body && result.body.error) || ("HTTP " + (result ? result.status : "?"))); history.pop(); return; }
+      threadId = result.body.thread_id; history.push({ role: "assistant", content: result.body.assistant.text });
+      addText("assistant", result.body.assistant.text || "");
+      written.forEach(function (w) { var m = /^(.+?)\s*[—:-]\s*(.*)$/.exec(w.summary || ""); addItem(m ? m[1] : (w.summary || ""), m ? m[2] : ""); });
+      $("espace-new").style.display = "flex";
+    } catch (e) { addText("assistant", String(e && e.message || e)); history.pop(); }
+    finally { save.disabled = false; }
+  }
+  save.addEventListener("click", send);
+  input.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); send(); } });
+})();
+</script>
+</body></html>
