@@ -97,6 +97,11 @@ function canonicalToBqRow(
     ingested_at: ingestedAt,
     // P3.1-d : traçabilité — le nom du fichier déposé suit chaque ligne.
     source_file: sourceFile,
+    // 11/09 (marge) — colonnes raw additives (ALTER 11/09) : type de document de la caisse (dbt seed
+    // document_types dit s'il compte comme vente), CA HT de la ligne, taux de TVA en fraction.
+    document_type: r.document_type ?? null,
+    revenue_ht: r.revenue_ht ?? null,
+    vat_rate: r.vat_rate ?? null,
   };
 }
 

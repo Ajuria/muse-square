@@ -64,6 +64,17 @@ export const GENERIC_MAPPING: ColumnMapping = {
   visitor_count: ['visiteurs', 'nb visiteurs', 'affluence', 'entrees', 'footfall', 'visitors', 'visitor count'],
   payment_method: ['mode de paiement', 'paiement', 'reglement', 'payment method', 'payment', 'moyen de paiement'],
   currency: ['devise', 'monnaie', 'currency'],
+  // 11/09 (marge, décision owner 2) — type de document, CA HT, taux de TVA. Candidats GÉNÉRIQUES
+  // (vocabulaire des caisses et suites françaises) ; les en-têtes EXACTS de Crisalid entreront dans
+  // l'override crisalid depuis le premier export de détail réel, jamais depuis la documentation.
+  // Ordre des champs = ordre de résolution : `revenue` (plus haut) prend « montant ht » en premier
+  // quand c'est la seule colonne de montant ; revenue_ht ne le reçoit que s'il reste une colonne HT
+  // à côté d'une colonne TTC déjà prise par revenue.
+  document_type: ['type de document', 'type document', 'type piece', 'type de piece', 'type de la piece',
+                  'code document', 'nature du document', 'document type', 'doc type', 'type'],
+  revenue_ht: ['montant ht', 'total ht', 'ca ht', 'net ht', 'montant net ht', 'total net ht', 'prix ht',
+               'ht', 'amount excl vat', 'net amount'],
+  vat_rate: ['tva', 'taux tva', 'taux de tva', 'tva %', 'taux de tva %', 'taux', 'vat', 'vat rate'],
 };
 
 // Per-source overrides: the EXACT headers from a real export, appended to the
