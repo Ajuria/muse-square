@@ -269,7 +269,12 @@ it("renderComponentPhoto : vignette servie par l'API, date, comptes, question �
     questions: [{ key: "ls_moyen_essai", question_fr: "Y a-t-il un moyen d'essayer : sentir, goûter, toucher, un échantillon ?" }, { key: "ls_prix_par_article", question_fr: "Chaque article porte-t-il son prix ?" }, { key: "ls_facing_vide", question_fr: "Un emplacement est-il vide au moment de la photo ?" }],
     items_matched: [{ item_code: "CF-1", confidence: "haute", item_description: "Ethiopia" }],
   }, EVOL_COPY));
-  expect(html).toContain('src="/api/dispositifs/photos?dispositif_id=d&amp;file=p"');
+  // 11/09 : la vignette lit la variante carrée servie par l'API, jamais l'image entière.
+  expect(html).toContain('src="/api/dispositifs/photos?dispositif_id=d&amp;file=p&amp;variant=square"');
+  const named = String(kit.renderComponentPhoto({ photo_id: "p1", url: "/api/dispositifs/photos?dispositif_id=d&file=p&variant=band", created_at: "2026-09-03T10:00:00Z", checklist: {}, questions: [] }, EVOL_COPY));
+  expect(named).toContain('src="/api/dispositifs/photos?dispositif_id=d&amp;file=p&amp;variant=band"');
+  const bare = String(kit.renderComponentPhoto({ photo_id: "p1", url: "/x", created_at: "2026-09-03T10:00:00Z", checklist: {}, questions: [] }, EVOL_COPY));
+  expect(bare).toContain('src="/x?variant=square"');
   expect(html).toContain("03/09/2026 · 1 oui · 1 non · 1 non visible");
   expect(html).toContain("Y a-t-il un moyen d'essayer");
   // Reconnus, pas encore confirmés : une case cochée par article + « Confirmer → »

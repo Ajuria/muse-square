@@ -2197,8 +2197,12 @@
     var fams = Array.isArray(photo.families_present) ? photo.families_present.filter(function (f) { return !!f; }) : [];
     var composantHtml = (composant.length ? '<div style="font-size:12px;color:#374151;margin-top:2px;">' + composant.join(' \u00b7 ') + '</div>' : '')
       + (fams.length ? '<div style="font-size:12px;color:#374151;margin-top:2px;">' + esc(t('pole_photo_families')) + ' ' + fams.map(esc).join(', ') + '</div>' : '');
+    // 11/09 : la vignette de 96 px lit la variante carree (192 px, WebP ~10 Ko) servie par l'API, au lieu
+    // de l'image entiere (~570 Ko) ; une photo sans variante est servie entiere par l'API (repli).
+    var thumb = String(photo.url || '');
+    if (thumb && thumb.indexOf('variant=') < 0) thumb += (thumb.indexOf('?') < 0 ? '?' : '&') + 'variant=square';
     return '<div style="display:flex;gap:12px;align-items:flex-start;">'
-      + '<img src="' + esc(photo.url) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;flex:none;">'
+      + '<img src="' + esc(thumb) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;flex:none;">'
       + '<div style="flex:1;min-width:0;">'
       + '<div style="font-size:12px;color:#374151;">' + esc(dfr) + (keys.length ? ' \u00b7 ' + n.oui + ' ' + esc(ans.oui) + ' \u00b7 ' + n.non + ' ' + esc(ans.non) + ' \u00b7 ' + n.non_visible + ' ' + esc(ans.non_visible) : '') + '</div>'
       + composantHtml
