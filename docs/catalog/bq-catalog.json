@@ -4,9 +4,9 @@
 "generated_date": "2026-09-11",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "af98112",
-"table_count": 572,
-"column_count": 10273
+"dbt_repo_sha_at_generation": "2151170",
+"table_count": 586,
+"column_count": 10485
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -3394,6 +3394,75 @@
 }
 ]
 },
+"analytics.space_measures": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "measure_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "fixture_no",
+"type": "INT64"
+},
+{
+"name": "length_m",
+"type": "FLOAT64"
+},
+{
+"name": "depth_m",
+"type": "FLOAT64"
+},
+{
+"name": "faces",
+"type": "INT64"
+},
+{
+"name": "linear_m_facade",
+"type": "FLOAT64"
+},
+{
+"name": "surface_m2",
+"type": "FLOAT64"
+},
+{
+"name": "families_share",
+"type": "STRING"
+},
+{
+"name": "measured_at",
+"type": "DATE"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "declarant_user_id",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "analytics.team_members": {
 "type": "BASE TABLE",
 "columns": [
@@ -5859,6 +5928,91 @@
 }
 ]
 },
+"intermediate.int_client_component_space": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "component_type",
+"type": "STRING"
+},
+{
+"name": "component_role",
+"type": "STRING"
+},
+{
+"name": "component_label",
+"type": "STRING"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "fixture_no",
+"type": "INT64"
+},
+{
+"name": "length_m",
+"type": "FLOAT64"
+},
+{
+"name": "depth_m",
+"type": "FLOAT64"
+},
+{
+"name": "faces",
+"type": "INT64"
+},
+{
+"name": "linear_m_facade",
+"type": "FLOAT64"
+},
+{
+"name": "families_share",
+"type": "STRING"
+},
+{
+"name": "measured_at",
+"type": "DATE"
+},
+{
+"name": "measure_source",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "share",
+"type": "FLOAT64"
+},
+{
+"name": "share_source",
+"type": "STRING"
+},
+{
+"name": "linear_m_family",
+"type": "FLOAT64"
+}
+]
+},
 "intermediate.int_client_daily_performance": {
 "type": "BASE TABLE",
 "columns": [
@@ -6376,6 +6530,76 @@
 {
 "name": "revenue_rank",
 "type": "INT64"
+}
+]
+},
+"intermediate.int_client_pole_family_map": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "pole_label",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+}
+]
+},
+"intermediate.int_client_pole_space": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "grain",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "pole_label",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "linear_m",
+"type": "FLOAT64"
+},
+{
+"name": "linear_share",
+"type": "FLOAT64"
+},
+{
+"name": "n_components",
+"type": "INT64"
+},
+{
+"name": "shares_declared",
+"type": "BOOL"
+},
+{
+"name": "surface_m2",
+"type": "FLOAT64"
 }
 ]
 },
@@ -9786,6 +10010,10 @@
 },
 {
 "name": "payroll_month_eur",
+"type": "FLOAT64"
+},
+{
+"name": "sales_area_m2",
 "type": "FLOAT64"
 }
 ]
@@ -15523,6 +15751,148 @@
 }
 ]
 },
+"mart.fct_client_pole_daily": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "pole_label",
+"type": "STRING"
+},
+{
+"name": "family_count",
+"type": "INT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "units",
+"type": "INT64"
+},
+{
+"name": "invoice_count",
+"type": "INT64"
+},
+{
+"name": "expected_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "delta_eur",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_net_ht",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_costed",
+"type": "FLOAT64"
+},
+{
+"name": "cost_ht",
+"type": "FLOAT64"
+},
+{
+"name": "gross_margin_ht",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_share",
+"type": "FLOAT64"
+},
+{
+"name": "coverage_pct",
+"type": "FLOAT64"
+},
+{
+"name": "is_unassigned",
+"type": "BOOL"
+}
+]
+},
+"mart.fct_client_pole_day_class_response": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "class_key",
+"type": "STRING"
+},
+{
+"name": "class_family",
+"type": "STRING"
+},
+{
+"name": "basis",
+"type": "STRING"
+},
+{
+"name": "metric",
+"type": "STRING"
+},
+{
+"name": "n_days",
+"type": "INT64"
+},
+{
+"name": "avg_gap",
+"type": "FLOAT64"
+},
+{
+"name": "sd_gap",
+"type": "FLOAT64"
+},
+{
+"name": "med_gap",
+"type": "FLOAT64"
+},
+{
+"name": "n_log",
+"type": "INT64"
+},
+{
+"name": "avg_log",
+"type": "FLOAT64"
+},
+{
+"name": "sd_log",
+"type": "FLOAT64"
+},
+{
+"name": "span_days",
+"type": "INT64"
+},
+{
+"name": "corr_r",
+"type": "FLOAT64"
+},
+{
+"name": "computed_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "mart.fct_client_sales_lines": {
 "type": "BASE TABLE",
 "columns": [
@@ -15891,6 +16261,95 @@
 {
 "name": "primary_revenue_driver",
 "type": "STRING"
+}
+]
+},
+"mart.fct_client_space_30d": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "grain",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "pole_label",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "window_start",
+"type": "DATE"
+},
+{
+"name": "window_end",
+"type": "DATE"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_costed",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_share",
+"type": "FLOAT64"
+},
+{
+"name": "margin_share",
+"type": "FLOAT64"
+},
+{
+"name": "linear_m",
+"type": "FLOAT64"
+},
+{
+"name": "linear_share",
+"type": "FLOAT64"
+},
+{
+"name": "surface_m2",
+"type": "FLOAT64"
+},
+{
+"name": "coverage_pct",
+"type": "FLOAT64"
+},
+{
+"name": "gross_margin_ht",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_per_m",
+"type": "FLOAT64"
+},
+{
+"name": "margin_per_m",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_per_m2",
+"type": "FLOAT64"
+},
+{
+"name": "margin_per_m2",
+"type": "FLOAT64"
+},
+{
+"name": "computed_at",
+"type": "TIMESTAMP"
 }
 ]
 },
@@ -32324,6 +32783,91 @@
 }
 ]
 },
+"semantic.vw_insight_event_component_space": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "component_type",
+"type": "STRING"
+},
+{
+"name": "component_role",
+"type": "STRING"
+},
+{
+"name": "component_label",
+"type": "STRING"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "fixture_no",
+"type": "INT64"
+},
+{
+"name": "length_m",
+"type": "FLOAT64"
+},
+{
+"name": "depth_m",
+"type": "FLOAT64"
+},
+{
+"name": "faces",
+"type": "INT64"
+},
+{
+"name": "linear_m_facade",
+"type": "FLOAT64"
+},
+{
+"name": "families_share",
+"type": "STRING"
+},
+{
+"name": "measured_at",
+"type": "DATE"
+},
+{
+"name": "measure_source",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "share",
+"type": "FLOAT64"
+},
+{
+"name": "share_source",
+"type": "STRING"
+},
+{
+"name": "linear_m_family",
+"type": "FLOAT64"
+}
+]
+},
 "semantic.vw_insight_event_daily_margin": {
 "type": "VIEW",
 "columns": [
@@ -33249,6 +33793,10 @@
 },
 {
 "name": "payroll_month_eur",
+"type": "FLOAT64"
+},
+{
+"name": "sales_area_m2",
 "type": "FLOAT64"
 }
 ]
@@ -34618,6 +35166,218 @@
 }
 ]
 },
+"semantic.vw_insight_event_pole_daily": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "date",
+"type": "DATE"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "pole_label",
+"type": "STRING"
+},
+{
+"name": "family_count",
+"type": "INT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "units",
+"type": "INT64"
+},
+{
+"name": "invoice_count",
+"type": "INT64"
+},
+{
+"name": "expected_revenue",
+"type": "FLOAT64"
+},
+{
+"name": "delta_eur",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_net_ht",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_costed",
+"type": "FLOAT64"
+},
+{
+"name": "cost_ht",
+"type": "FLOAT64"
+},
+{
+"name": "gross_margin_ht",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_share",
+"type": "FLOAT64"
+},
+{
+"name": "coverage_pct",
+"type": "FLOAT64"
+},
+{
+"name": "is_unassigned",
+"type": "BOOL"
+}
+]
+},
+"semantic.vw_insight_event_pole_day_class_response": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "class_key",
+"type": "STRING"
+},
+{
+"name": "class_family",
+"type": "STRING"
+},
+{
+"name": "basis",
+"type": "STRING"
+},
+{
+"name": "metric",
+"type": "STRING"
+},
+{
+"name": "n_days",
+"type": "INT64"
+},
+{
+"name": "avg_gap",
+"type": "FLOAT64"
+},
+{
+"name": "sd_gap",
+"type": "FLOAT64"
+},
+{
+"name": "med_gap",
+"type": "FLOAT64"
+},
+{
+"name": "n_log",
+"type": "INT64"
+},
+{
+"name": "avg_log",
+"type": "FLOAT64"
+},
+{
+"name": "sd_log",
+"type": "FLOAT64"
+},
+{
+"name": "span_days",
+"type": "INT64"
+},
+{
+"name": "corr_r",
+"type": "FLOAT64"
+},
+{
+"name": "computed_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"semantic.vw_insight_event_pole_family_map": {
+"type": "VIEW",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "pole_label",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+}
+]
+},
+"semantic.vw_insight_event_pole_space": {
+"type": "VIEW",
+"columns": [
+{
+"name": "grain",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "pole_label",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "linear_m",
+"type": "FLOAT64"
+},
+{
+"name": "linear_share",
+"type": "FLOAT64"
+},
+{
+"name": "n_components",
+"type": "INT64"
+},
+{
+"name": "shares_declared",
+"type": "BOOL"
+},
+{
+"name": "surface_m2",
+"type": "FLOAT64"
+}
+]
+},
 "semantic.vw_insight_event_selected_days_surface": {
 "type": "BASE TABLE",
 "columns": [
@@ -35201,6 +35961,95 @@
 },
 {
 "name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"semantic.vw_insight_event_space_30d": {
+"type": "VIEW",
+"columns": [
+{
+"name": "grain",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "pole_id",
+"type": "STRING"
+},
+{
+"name": "pole_label",
+"type": "STRING"
+},
+{
+"name": "family",
+"type": "STRING"
+},
+{
+"name": "window_start",
+"type": "DATE"
+},
+{
+"name": "window_end",
+"type": "DATE"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_costed",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_share",
+"type": "FLOAT64"
+},
+{
+"name": "margin_share",
+"type": "FLOAT64"
+},
+{
+"name": "linear_m",
+"type": "FLOAT64"
+},
+{
+"name": "linear_share",
+"type": "FLOAT64"
+},
+{
+"name": "surface_m2",
+"type": "FLOAT64"
+},
+{
+"name": "coverage_pct",
+"type": "FLOAT64"
+},
+{
+"name": "gross_margin_ht",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_per_m",
+"type": "FLOAT64"
+},
+{
+"name": "margin_per_m",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_per_m2",
+"type": "FLOAT64"
+},
+{
+"name": "margin_per_m2",
+"type": "FLOAT64"
+},
+{
+"name": "computed_at",
 "type": "TIMESTAMP"
 }
 ]
@@ -42354,6 +43203,75 @@
 },
 {
 "name": "feedback_text",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"staging.stg_space_measures": {
+"type": "VIEW",
+"columns": [
+{
+"name": "measure_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "version_no",
+"type": "INT64"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "fixture_no",
+"type": "INT64"
+},
+{
+"name": "length_m",
+"type": "FLOAT64"
+},
+{
+"name": "depth_m",
+"type": "FLOAT64"
+},
+{
+"name": "faces",
+"type": "INT64"
+},
+{
+"name": "linear_m_facade",
+"type": "FLOAT64"
+},
+{
+"name": "surface_m2",
+"type": "FLOAT64"
+},
+{
+"name": "families_share",
+"type": "STRING"
+},
+{
+"name": "measured_at",
+"type": "DATE"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "declarant_user_id",
 "type": "STRING"
 },
 {

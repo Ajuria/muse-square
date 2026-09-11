@@ -1,6 +1,8 @@
-# Handoff dbt — espace et pôle (11/09/2026) : PR ms_database#148 — SPEC DE TRAVAIL
+# Handoff dbt — espace et pôle (11/09/2026) : PR ms_database#148 — EN BASE — DÉFINITIF
 
-Sert : `docs/espace-et-pole-spec.md` (E1-E8, décisions owner du 11/09). Les fichiers voyagent par git (`CLAUDE.md`
+> **11/09, 19 h 50 — EN BASE.** PR fusionnée (`a36411c`) ; run ponctuel `70471897078124` (job `refresh_industry`, 4 étapes vertes, 1 min 10). Vérifié `INFORMATION_SCHEMA` 17 h 45 UTC : 13 objets (staging, 3 intermédiaires, 3 marts, 6 vues) ; `vw_insight_event_declared_parameters` porte `sales_area_m2`. Sans aucun pôle déclaré : mapping 0 ligne, `fct_client_pole_daily` 899 jours tous « Non rattaché » et Σ pôles = site sur 162/162 jours du compte owner, espace 30 j 50 lignes sur 6 sites, réponse pôle × classe 188 lignes. Catalogue régénéré. L'état vit dans `docs/espace-et-pole.md` (DÉFINITIF).
+
+Sert : `docs/espace-et-pole.md` (E1-E8, décisions owner du 11/09). Les fichiers voyagent par git (`CLAUDE.md`
 § Où committer) : **PR [ms_database#148](https://github.com/Ajuria/ms_database/pull/148)**, branche `feat/espace-et-pole`
 sur `origin/main` `9faf044` (après #147), 19 fichiers (+900 / −2).
 
