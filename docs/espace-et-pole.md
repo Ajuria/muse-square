@@ -56,12 +56,32 @@ sur le composant (formulaire de pôle), jamais pendant le relevé ; **faces de p
   (15,4 %), Cave 23,62 m (11,7 %), Petit déjeuner 20,41 m (10,1 %), Caisse 7,83 m (3,9 %). Trois meubles à confirmer
   sur place : n° 3 et 6 (le L « Récipients »), n° 19 (nature), n° 49 (part Couteaux / Céréales).
 
-## 4. Ce qui n'existe pas encore (état)
+## 4. Ce qui existe côté app, et ce qui reste (état au 11/09)
 
-- Aucun pôle déclaré sur aucun site ; aucune mesure ; aucune surface de vente déclarée. Les sept pôles d'Épices et
-  Tout se déclarent depuis les zones du plan (« Pôle en projet » tant que ses ventes ne sont pas importées), puis
-  les 52 meubles se chargent par un one-off (`fixture_no` = N°, `source = 'plan'`).
-- Aucun lecteur app : `sales_area_m2` dans les paramètres déclarés ; formulaire de pôle (N° sur le plan, longueur,
-  faces de préhension, Part de linéaire, surface de vente) ; Piloter (répartition par pôle, « Vos pôles » sur la
-  vue) ; document du pôle (mètres, m², € par mètre, « part de marge contre Part de linéaire ») ; Explorer ; rapport ;
-  cartes. Voir `audits/profit-grains-sensibilite-audit-2026-09-11.md` § 6 A3, A4, A6, A8.
+- **Entrées (11/09, dev)** : le formulaire de pôle (`public/js/pole-form.js`) saisit par composant « N° sur le plan »,
+  « Longueur (m) », « Faces de préhension » et, à plusieurs familles, la « Part de linéaire » (Σ = 100 %) ; au pôle
+  la « Surface de vente (m²) ». Les mesures partent sous `space_measures` du POST /api/commitments (jamais dans
+  `components`), écrites par `lib/dispositifs/spaceMeasures.ts` dans `analytics.space_measures` ; une mesure se
+  corrige sans re-version par `api/commitments/space-measures`. Sans vente importée, le formulaire dit « Pôle en
+  projet — Aucune vente importée » et les familles s'écrivent. La création du pôle vit dans
+  `lib/dispositifs/poleCreate.ts`, partagée par la route et le one-off.
+- **Épices et Tout (11/09)** : sept pôles déclarés depuis les zones du plan (Cave, Cuisine, Maison, Épicerie
+  sèche, Produits frais, Petit déjeuner, Caisse), 52 composants mesurés chargés (`source = 'plan'`,
+  `fixture_no` = N°, Part de linéaire = 100 % de la famille du plan), par
+  `tools/oneoff/2026-09-11-epices-et-tout-poles-et-mesures.mts`. En base après reconstruction ciblée (run dbt Cloud
+  70471897084223) : 7 lignes pôle et 24 lignes famille dans `vw_insight_event_pole_space`, site 202,21 m (le
+  tableau du plan dit 202,23 : arrondi au cm de longueur × faces), n° 19 sans faces donc sans mètre. Les familles
+  sont les libellés du plan, à rapprocher de la caisse à la première importation — cinq sont des noms de
+  composant plutôt que des familles (Ilot spiritueux, Ilot maison, Ilot varié, Ilot entrée, Frigidaires). Aucune
+  surface de vente de pôle (non mesurée). `vw_insight_event_space_30d` est vide pour ce site : la fenêtre 30 j se
+  cale sur le dernier jour vendu.
+- **Lecteurs (11/09, dev)** : Piloter, carte « Vos pôles » : « N m de linéaire · Part de linéaire N % » et
+  l'état « Pôle en projet — … » ; volet « Espace — 30 derniers jours » (mètres, Part de linéaire, m² de surface
+  de vente, € de CA et de marge brute par mètre, € de CA par m², « Part de marge N % contre Part de linéaire N % »)
+  ou « Aucune mesure d’espace pour l’instant. » — `listPoleSpace` lit `vw_insight_event_pole_space` (mesures en
+  vigueur) puis `vw_insight_event_space_30d` (€ par mètre quand le site vend). « Vos pôles » du profil porte
+  l'état « Pôle en projet ». Harnais `npm run harness:tableau-espace` (17 contrôles).
+- **Reste** : la déclaration de la surface de vente en chat (`sales_area_m2` dans `DECLARED_METRICS` écrit
+  aujourd'hui le journal des corrections, pas `declared_parameters`) ; la saisie des mesures sur la fiche du pôle
+  (page de l'engagement, à côté du N° sur le plan des photos) ; Explorer, rapport, cartes (audit § 6 A6-A8) ;
+  chez Épices et Tout, les n° 3, 6, 19, 49 à confirmer sur place et les familles à rapprocher de la caisse.

@@ -986,6 +986,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           // Chiffres = payload j.poles (foyer serveur poleReading — les mêmes que la fiche).
           var polesJ = j.poles || [];
           function pDeltaFr(v) { return (v >= 0 ? "+" : "−") + String(Math.abs(v)).replace(".", ",") + " %"; }
+          function m1Fr(v) { return String(Math.round(Number(v) * 10) / 10).replace(".", ","); }          // 23,6
+          function pctFr(share) { return String(Math.round(Number(share) * 1000) / 10).replace(".", ",") + " %"; }   // 0,117 → 11,7 %
           if (polesJ.length) {
             html += '<p class="tb-eb" style="margin:2px 0 8px;">Vos pôles</p><div class="tb-rbgrid" style="margin-bottom:10px;">';
             polesJ.forEach(function (p) {
@@ -997,6 +999,12 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               var rs = [];
               if (J.multi_site && p.site_label) rs.push(esc(p.site_label));
               if (rd.share_pct != null) rs.push(String(rd.share_pct).replace(".", ",") + " % du CA");
+              // Espace du pôle (11/09, docs/espace-et-pole.md E4-E6) : mètres de façade et Part de linéaire,
+              // lus sur vw_insight_event_space_30d (payload p.space) — absents sans mesure, jamais 0.
+              if (p.space && p.space.linear_m != null) {
+                rs.push(m1Fr(p.space.linear_m) + " m de linéaire" + (p.space.linear_share != null ? " · Part de linéaire " + pctFr(p.space.linear_share) : ""));
+              }
+              if (p.projet_fr) rs.push(esc(p.projet_fr));
               if (p.responsable) rs.push("Responsable(s) " + esc(p.responsable));
               rs.push(p.ops_open ? p.ops_open + " opération" + (p.ops_open > 1 ? "s" : "") : "aucune opération rattachée");
               if (lastFait) rs.push("Fait le " + frD(lastFait.d) + " — " + esc(lastFait.author));
@@ -1916,6 +1924,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">'
                 + '<span style="font-size:16px;font-weight:700;color:#111827;">' + esc(p.name) + '</span>'
                 + '<span style="font-size:11px;font-weight:600;color:#059669;background:#E6F6F0;padding:3px 10px;border-radius:999px;">Dispositif en continu</span>'
+                + (p.projet_fr ? '<span style="font-size:11px;font-weight:600;color:#B45309;background:#FEF3C7;padding:3px 10px;border-radius:999px;">' + esc(p.projet_fr) + '</span>' : '')
                 + (p.responsable
                   ? '<span style="display:inline-flex;align-items:center;gap:8px;"><span style="width:26px;height:26px;border-radius:50%;background:#EEF2FF;color:#1D3BB3;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:none;">' + esc(initials(p.responsable)) + '</span>'
                   + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(String(p.responsable).split("·")[0].trim()) + '</span></span>' : "")
@@ -1939,6 +1948,29 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   '<span style="font-size:12px;color:#6b7280;">' + (f.avg30_eur_day != null ? frInt(f.avg30_eur_day) + ' €/j' : '—')
                   + (f.base_eur_day != null ? ' · ' + (f.n30 || 0) + ' j vendus · habituel ' + frInt(f.base_eur_day) + ' €/j' : '') + '</span>', right);
               });
+              // Espace du pôle (11/09, docs/espace-et-pole.md E4-E6) — vw_insight_event_space_30d, grain pôle :
+              // mètres de façade, Part de linéaire, surface de vente, CA et marge brute par mètre, part de
+              // marge contre Part de linéaire. Absence dite (lexique règle 7), jamais une section vide.
+              h += '<div style="height:6px;"></div><p class="tb-eb" style="margin:0 0 6px;">Espace — 30 derniers jours</p>';
+              var sp = p.space || null;
+              if (sp && sp.linear_m != null) {
+                var l1 = m1Fr(sp.linear_m) + ' m de linéaire'
+                  + (sp.linear_share != null ? ' · Part de linéaire ' + pctFr(sp.linear_share) : '')
+                  + (sp.surface_m2 != null ? ' · ' + m1Fr(sp.surface_m2) + ' m² de surface de vente' : '');
+                h += '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">' + l1 + '</div>';
+                if (sp.revenue_per_m != null) {
+                  h += '<div style="font-size:12.5px;color:#374151;margin-bottom:4px;">' + frInt(sp.revenue_per_m) + ' € de CA par mètre'
+                    + (sp.margin_per_m != null ? ' · ' + frInt(sp.margin_per_m) + ' € de marge brute par mètre' : '')
+                    + (sp.revenue_per_m2 != null ? ' · ' + frInt(sp.revenue_per_m2) + ' € de CA par m²' : '') + '</div>';
+                }
+                if (sp.margin_share != null && sp.linear_share != null) {
+                  h += '<div style="font-size:12.5px;color:#374151;margin-bottom:4px;">Part de marge ' + pctFr(sp.margin_share) + ' contre Part de linéaire ' + pctFr(sp.linear_share) + '</div>';
+                } else if (sp.revenue_share != null && sp.linear_share != null) {
+                  h += '<div style="font-size:12.5px;color:#374151;margin-bottom:4px;">Part du CA ' + pctFr(sp.revenue_share) + ' contre Part de linéaire ' + pctFr(sp.linear_share) + '</div>';
+                }
+              } else {
+                h += '<div style="font-size:12.5px;color:#9CA3AF;margin-bottom:6px;">Aucune mesure d’espace pour l’instant.</div>';
+              }
               // Opérations sur ce pôle (chaînes fiche pôle : en cours / terminée + verdict).
               h += '<div style="height:6px;"></div><p class="tb-eb" style="margin:0 0 6px;">Opérations sur ce pôle</p>';
               if ((p.operations || []).length) {

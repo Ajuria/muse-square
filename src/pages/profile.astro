@@ -3758,6 +3758,8 @@ window.toggleAutomationCard = function() {
             return '<div style="padding:12px 0;border-bottom:1px solid #f3f4f6;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;align-items:start;">'
               + '<div><div style="font-weight:600;font-size:13px;color:#111827;">' + esc(p.name) + '</div>'
               + (famTxt ? '<div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + esc(famTxt) + '</div>' : '')
+              // « Pôle en projet » (11/09, mot owner) — l'état et sa raison, servis par create_context (projet_fr).
+              + (p.projet_fr ? '<div style="font-size:11px;font-weight:600;color:#B45309;margin-top:2px;">' + esc(p.projet_fr) + '</div>' : '')
               + (compTxt ? '<div style="font-size:11px;color:#6b7280;margin-top:2px;">Composants : ' + esc(compTxt) + '</div>' : '') + '</div>'
               + '<div><label style="display:block;font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Canal Slack</label>'
               + '<select data-pole-chan="' + esc(p.dispositif_id) + '" style="width:100%;font-size:12px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-family:inherit;color:#111827;background:#fff;">' + chanOpts + '</select></div>'

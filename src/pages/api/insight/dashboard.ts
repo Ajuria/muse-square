@@ -19,7 +19,7 @@ import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpi/kpiRegistry";
 import { familySlug, MARGIN_FAMILY_PREFIX } from "../../../lib/ai/corrections";
 // Pôles (build 28/08, protos validés) : lecture = LE foyer poleReading (mêmes chiffres que
 // journal/plan/fiche — jamais un 3e calcul) ; Historique = poleActivity (1er lecteur des traces).
-import { listPoles, buildPoleReading, unassignedFamilies, type PoleComponentRow } from "../../../lib/dispositifs/poleReading";
+import { listPoles, buildPoleReading, unassignedFamilies, listPoleSpace, poleProjectState, POLE_PROJECT_FR, type PoleComponentRow, type PoleSpaceRow } from "../../../lib/dispositifs/poleReading";
 // « Non rattaché » (owner 09/09) : les familles réelles du site MOINS celles que les pôles portent.
 // Le foyer des familles réelles est kpiRegistry.listSiteFamilies — jamais une liste recopiée.
 import { listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
@@ -71,7 +71,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       if (role === "member") {
         poleList = poleList.filter((p) => (memberPoles[p.location_id] || []).map(String).includes(p.dispositif_id));
       }
-      if (!poleList.length) return { poleList: [], readings: [], weeks: [], activity: {} as Record<string, any[]>, names: {} as Record<string, string> };
+      if (!poleList.length) return { poleList: [], readings: [], weeks: [], activity: {} as Record<string, any[]>, names: {} as Record<string, string>, space: {} as Record<string, PoleSpaceRow[]>, families: {} as Record<string, string[]> };
       // Semaine passée COMPLÈTE (lundi → dimanche strictement avant aujourd'hui) — la lecture
       // hebdo actée au proto (une lecture datée, jamais un verdict : un permanent n'est pas jugé).
       const t = new Date(todayIso + "T12:00:00Z");
@@ -80,12 +80,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
       const mon = new Date(sun.getTime() - 6 * 86_400_000);
       const wkStart = mon.toISOString().slice(0, 10), wkEnd = sun.toISOString().slice(0, 10);
       const locsOfPoles = [...new Set(poleList.map((p) => p.location_id))];
-      const [readings, weeks, activityByLoc, namesByLoc] = await Promise.all([
+      // 11/09 — deux lectures de plus dans LA MÊME vague (aucun aller-retour en série) : l'espace de
+      // chaque pôle (vw_insight_event_space_30d, foyer listPoleSpace) et les familles RÉELLES du site
+      // (foyer listSiteFamilies) — celles-ci servent « Non rattaché » ci-dessous ET l'état « Pôle en projet ».
+      const [readings, weeks, activityByLoc, namesByLoc, spaceByLoc, famsByLoc] = await Promise.all([
         Promise.all(poleList.map((p) => buildPoleReading(bq, p.location_id, p.dispositif_id, p.families, todayIso))),
         Promise.all(poleList.map((p) => buildPoleReading(bq, p.location_id, p.dispositif_id, p.families, todayIso, { start: wkStart, end: wkEnd }))),
         Promise.all(locsOfPoles.map((l) => buildPoleActivity(bq, l, poleList.filter((p) => p.location_id === l).map((p) => p.dispositif_id)))),
         Promise.all(locsOfPoles.map((l) => resolveMemberNames(bq, l))),
+        Promise.all(locsOfPoles.map((l) => listPoleSpace(bq, l).then((rows) => [l, rows] as const))),
+        Promise.all(locsOfPoles.map((l) => listSiteFamilies(bq, l, 50).then((f) => [l, f.map((x: any) => String(x.category))] as const).catch(() => [l, [] as string[]] as const))),
       ]);
+      const space: Record<string, PoleSpaceRow[]> = Object.fromEntries(spaceByLoc);
+      const families: Record<string, string[]> = Object.fromEntries(famsByLoc);
       const activity: Record<string, any[]> = Object.assign({}, ...activityByLoc);
       const names: Record<string, string> = Object.assign({}, ...namesByLoc);
       // ── « Non rattaché » (owner 09/09) — aucune famille hors mapping. La ligne se DÉDUIT
@@ -98,7 +105,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       if (role !== "member") {
         const perLoc = await Promise.all(locsOfPoles.map(async (l) => {
           const fams = unassignedFamilies(
-            await listSiteFamilies(bq, l, 50).catch(() => []),
+            (families[l] || []).map((category) => ({ category })),
             poleList.filter((p) => p.location_id === l),
           );
           if (!fams.length) return null;
@@ -107,7 +114,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         }));
         unassigned = perLoc.filter(Boolean) as any[];
       }
-      return { poleList, readings, weeks, activity, names, unassigned, week_window: { ws: wkStart, we: wkEnd } } as any;
+      return { poleList, readings, weeks, activity, names, unassigned, week_window: { ws: wkStart, we: wkEnd }, space, families } as any;
     })();
 
     const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows], [famCaRows], [bandeauRows], [poleUnitsRows], [mgSiteRows], [mgDayRows], [mgMonthRows], [mgParamRows]] = await Promise.all([
@@ -1306,6 +1313,20 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // La cible des CTA Ajuster/Documenter du volet : la fiche de la version courante.
         commitment_id: p.commitment_id,
         name: p.name, lever: p.lever, families: p.families, responsable: p.responsable,
+        // « Pôle en projet » (11/09, mot owner) : l'état se déduit, il ne se déclare pas — familles du
+        // pôle face aux familles réelles du site ; null quand le pôle vend.
+        projet: poleProjectState(p.families, (polesRaw.families || {})[p.location_id] || []),
+        projet_fr: (() => { const r = poleProjectState(p.families, (polesRaw.families || {})[p.location_id] || []); return r ? POLE_PROJECT_FR[r] : null; })(),
+        // Espace du pôle (11/09, E4-E6) : la ligne grain 'pole' de vw_insight_event_space_30d — mètres
+        // de façade, Part de linéaire, surface de vente, CA et marge par mètre et par m² ; null sans mesure.
+        space: (() => {
+          const s = ((polesRaw.space || {})[p.location_id] || []).find((r: PoleSpaceRow) => r.grain === "pole" && r.pole_id === p.dispositif_id) || null;
+          return s ? {
+            linear_m: s.linear_m, linear_share: s.linear_share, surface_m2: s.surface_m2,
+            revenue_per_m: s.revenue_per_m, margin_per_m: s.margin_per_m, revenue_per_m2: s.revenue_per_m2, margin_per_m2: s.margin_per_m2,
+            revenue_share: s.revenue_share, margin_share: s.margin_share, coverage_pct: s.coverage_pct,
+          } : null;
+        })(),
         // Composants de la version courante (03/09, § 5.5) — depuis la couche semantic via
         // listPoles ; les libellés provisoires (sans mot owner) sont omis au rendu.
         components: ((p.components ?? []) as PoleComponentRow[]).map((c) => ({

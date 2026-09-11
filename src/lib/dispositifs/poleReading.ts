@@ -408,3 +408,64 @@ export function unassignedFamilies(
     .map((f) => f.category)
     .filter((c) => c && !taken.has(c) && !seen.has(c) && (seen.add(c), true));
 }
+
+// ── L'espace d'un pôle (11/09, docs/espace-et-pole.md E4-E6) : mètres linéaires de façade, Part de
+// linéaire, surface de vente — LA vue semantic.vw_insight_event_pole_space (en vigueur, sans vente
+// nécessaire) — et, quand le site vend, CA et marge par mètre et par m² sur 30 jours glissants dans
+// semantic.vw_insight_event_space_30d (grain 'pole'). Deux lectures amorcées ensemble, jointes par pole_id ;
+// rien n'est recalculé ici. Un pôle sans mesure n'a pas de ligne : l'absence se dit, elle ne se remplit pas.
+// Pourquoi deux vues : fct_client_space_30d est bâti sur les ventes (fenêtre = 30 j avant le dernier jour
+// vendu) — un site sans vente importée (Épices et Tout, 11/09) n'y a aucune ligne, ses mètres existent.
+export interface PoleSpaceRow {
+  grain: "famille" | "pole" | "site";
+  pole_id: string | null; pole_label: string | null; family: string | null;
+  window_start: string | null; window_end: string | null;
+  linear_m: number | null; linear_share: number | null; surface_m2: number | null; n_components: number | null;
+  revenue: number | null; revenue_share: number | null; margin_share: number | null; coverage_pct: number | null;
+  revenue_per_m: number | null; margin_per_m: number | null; revenue_per_m2: number | null; margin_per_m2: number | null;
+}
+export async function listPoleSpace(bq: any, location_id: string): Promise<PoleSpaceRow[]> {
+  const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  const n = (v: any): number | null => (flat(v) == null ? null : Number(flat(v)));
+  const s = (v: any): string | null => (flat(v) == null ? null : String(flat(v)));
+  const rows = (q: string) => bq.query({ query: q, params: { location_id }, location: "EU" })
+    .then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const [space, sales] = await Promise.all([
+    rows(`SELECT grain, pole_id, pole_label, family, linear_m, linear_share, surface_m2, n_components
+          FROM \`${PROJECT}.semantic.vw_insight_event_pole_space\`
+          WHERE location_id = @location_id ORDER BY grain, pole_label, family`),
+    rows(`SELECT grain, pole_id, family, CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end,
+                 revenue, revenue_share, margin_share, coverage_pct, revenue_per_m, margin_per_m, revenue_per_m2, margin_per_m2
+          FROM \`${PROJECT}.semantic.vw_insight_event_space_30d\`
+          WHERE location_id = @location_id`),
+  ]);
+  const key = (g: any, p: any, f: any) => `${String(flat(g))}|${s(p) ?? ""}|${s(f) ?? ""}`;
+  const salesByKey = new Map<string, any>((sales as any[]).map((r) => [key(r.grain, r.pole_id, r.family), r]));
+  return (space as any[]).map((r) => {
+    const v = salesByKey.get(key(r.grain, r.pole_id, r.family)) || {};
+    return {
+      grain: String(flat(r.grain)) as PoleSpaceRow["grain"],
+      pole_id: s(r.pole_id), pole_label: s(r.pole_label), family: s(r.family),
+      window_start: s(v.window_start), window_end: s(v.window_end),
+      linear_m: n(r.linear_m), linear_share: n(r.linear_share), surface_m2: n(r.surface_m2), n_components: n(r.n_components),
+      revenue: n(v.revenue), revenue_share: n(v.revenue_share), margin_share: n(v.margin_share), coverage_pct: n(v.coverage_pct),
+      revenue_per_m: n(v.revenue_per_m), margin_per_m: n(v.margin_per_m), revenue_per_m2: n(v.revenue_per_m2), margin_per_m2: n(v.margin_per_m2),
+    };
+  });
+}
+
+// ── « Pôle en projet » (owner 11/09, lexique) : l'état d'un pôle dont les familles ne sont pas encore
+// celles de la caisse — UN état, sa raison dessous. PUR : les familles du pôle face aux familles
+// RÉELLES du site (foyer listSiteFamilies). Sans vente importée : « Aucune vente importée » ; des
+// ventes mais aucune famille du pôle parmi elles : « À rapprocher de la caisse » ; sinon le pôle
+// n'est pas en projet (une famille du pôle absente des ventes n'est qu'une famille qui ne vend pas).
+export type PoleProjectReason = "aucune_vente" | "a_rapprocher";
+export function poleProjectState(poleFamilies: string[], siteFamilies: string[]): PoleProjectReason | null {
+  if (!siteFamilies.length) return "aucune_vente";
+  const site = new Set(siteFamilies.map((f) => String(f).trim()).filter(Boolean));
+  return poleFamilies.some((f) => site.has(String(f).trim())) ? null : "a_rapprocher";
+}
+export const POLE_PROJECT_FR: Record<PoleProjectReason, string> = {
+  aucune_vente: "Pôle en projet — Aucune vente importée",
+  a_rapprocher: "Pôle en projet — À rapprocher de la caisse",
+};

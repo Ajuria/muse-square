@@ -18,7 +18,8 @@
     "catalog:refresh": "bash tools/build/refresh-bq-catalog.sh",
     "harness:bottombar": "vitest run --config tools/harness/bottombar-render-verify.vitest.ts",
     "harness:family-photo": "npx tsx tools/harness/family-photo-harness.ts",
-    "harness:tableau-marge": "npx tsx tools/harness/tableau-marge-render-verify.mjs"
+    "harness:tableau-marge": "npx tsx tools/harness/tableau-marge-render-verify.mjs",
+    "harness:tableau-espace": "npx tsx tools/harness/tableau-pole-espace-render-verify.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
