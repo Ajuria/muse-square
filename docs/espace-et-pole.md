@@ -72,9 +72,18 @@ sur le composant (formulaire de pôle), jamais pendant le relevé ; **faces de p
   70471897084223) : 7 lignes pôle et 24 lignes famille dans `vw_insight_event_pole_space`, site 202,21 m (le
   tableau du plan dit 202,23 : arrondi au cm de longueur × faces), n° 19 sans faces donc sans mètre. Les familles
   sont les libellés du plan, à rapprocher de la caisse à la première importation — cinq sont des noms de
-  composant plutôt que des familles (Ilot spiritueux, Ilot maison, Ilot varié, Ilot entrée, Frigidaires). Aucune
-  surface de vente de pôle (non mesurée). `vw_insight_event_space_30d` est vide pour ce site : la fenêtre 30 j se
-  cale sur le dernier jour vendu.
+  composant plutôt que des familles (Ilot spiritueux, Ilot maison, Ilot varié, Ilot entrée, Frigidaires).
+  `vw_insight_event_space_30d` est vide pour ce site : la fenêtre 30 j se cale sur le dernier jour vendu.
+- **Surfaces des pôles (12/09)** : le plan ne trace aucun contour de pôle (les pointillés sont des cotes) ; les sept
+  zones ont été CONSTRUITES depuis le vectoriel — sol de vente = intérieur des murs (trois portes fermées, vestibule
+  PMR exclu) moins les zones hachurées non accessibles au public, chaque pixel allant au pôle de l'étiquette du plan la
+  plus proche à pied (étiquettes « Pôle X » et familles posées sur les composants). Résultat : 308,71 m² de sol de
+  vente — Maison 60,32 · Cuisine 56,77 · Épicerie sèche 49,92 · Cave 48,58 · Petit déjeuner 46,59 · Produits frais
+  32,39 · Caisse 14,14 (la caisse et son entrée). Contours (points du plan, 1:100, 28,344 pt/m), image de contrôle et
+  générateur : `~/Documents/Muse_Square/Clients/epices-et-tout/map/zones_poles_epices_et_tout_2026-09-12.*`. Les
+  surfaces sont écrites au grain pôle dans `analytics.space_measures` (source `plan`, 12/09) sur Épices et Tout et sur
+  le compte de test owner (`tools/oneoff/2026-09-12-epices-et-tout-surfaces-poles.mts`). Le partage des allées entre
+  pôles est une convention (la plus proche à pied) : à faire valider par l'owner sur l'image de contrôle.
 - **Lecteurs (11/09, dev)** : Piloter, carte « Vos pôles » : « N m de linéaire · Part de linéaire N % » et
   l'état « Pôle en projet — … » ; volet « Espace — 30 derniers jours » (mètres, Part de linéaire, m² de surface
   de vente, € de CA et de marge brute par mètre, € de CA par m², « Part de marge N % contre Part de linéaire N % »)
