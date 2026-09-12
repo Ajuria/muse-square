@@ -197,20 +197,35 @@ par des flèches, pas des mots (owner 12/09) ; l'organisation et la hiérarchie 
   nom et `composer_rapport` le remplit sur la période courante.
 - Les rapports de ventes et de famille d'aujourd'hui sont les deux premiers modèles, livrés par défaut.
 
-### 6.4 L'envoi à cadence
+### 6.4 L'envoi à cadence (incrément 5, livré le 12/09)
 
-- Un envoi = `{ template_id, cadence (quotidien · hebdomadaire jour · mensuel jour), heure, destinataires,
-  canal }` — table app-write `analytics.report_schedules` ; chaque envoi effectué laisse une trace
-  (`analytics.report_sends` : `schedule_id × periode`) qui interdit le double envoi, le patron de la
-  consigne d'opération (`analytics.consigne_sends`).
-- Le cron compose le document depuis le modèle sur la période décalée, le passe au validateur, le rend en
-  HTML **côté serveur avec le même kit** (`renderAnswerBlocks` exécuté dans happy-dom, la technique des
-  harnais), et l'envoie par les rails existants (`lib/channels/internalSend.ts` : email Resend, Slack).
-- **Un rapport sans matière ne part pas** (la règle du point du jour : aucun envoi les jours calmes) ; un
-  bloc en absence ne déclenche rien.
-- **Destinataires** : l'équipe et les partenaires que Muse Square connaît (le même annuaire que les
-  consignes). Une lettre aux clients finaux suppose une liste avec consentement que l'app ne détient pas :
-  hors périmètre tant que l'owner n'en décide pas autrement.
+- Un envoi programmé = `{ modele_id (« ventes » ou un Modèle du site), cadence (quotidien · hebdomadaire jour ·
+  mensuel jour · trimestriel · annuel), heure (Paris), canal (email · slack), destinataires }` — table app-write
+  `analytics.report_schedules`, grain schedule_id × version, append-only ; « Arrêter » écrit la version suivante
+  avec `actif = false`. Chaque envoi effectué — ou RETENU faute de matière — laisse une trace dans
+  `analytics.report_sends` (schedule_id × période, `document_id` null quand rien n'est parti) qui interdit le
+  double envoi ; le rejeu de l'heure n'envoie rien (mesuré 12/09 : « déjà tracé hier, le 11/09/2026 »).
+- La période est celle de la CADENCE, décalée : chaque jour → hier ; chaque semaine → la semaine civile dernière ;
+  chaque mois → le mois civil dernier ; chaque trimestre / chaque année → le trimestre / l'année civils derniers.
+  La période relative du Modèle ne s'applique pas à l'envoi (ce qui part le lundi couvre la semaine finie).
+- Le cron `GET /api/cron/report-sends` (Bearer `CRON_SECRET`, `?dry=1` liste sans envoyer) est appelé CHAQUE
+  HEURE par cron-job.org (aucun cron dans `vercel.json`, le patron des autres crons) — **le job reste à créer par
+  l'owner sur la prod**. Il compose le document depuis le Modèle SANS la boucle (`lib/rapport/gestes.ts
+  composerSurPeriode` : les mêmes lectures que composer_rapport, déterministes, donc pas de Synthèse et rien
+  d'inventé), l'enregistre comme Rapport (`report_documents`, `modele_id` posé), le rend en HTML côté serveur PAR
+  LE MÊME KIT (`card-kit.js` importé comme chaîne : ses primitives sont des chaînes à styles inline, aucun DOM ni
+  happy-dom requis — les graphiques SVG sont retirés du courriel, chacun a son tableau à côté) et l'envoie par les
+  rails existants (`lib/channels/internalSend.ts` : email Resend avec `html` + `text`, Slack en texte). Le courriel
+  porte « Ouvrir le Rapport » vers `/app/insightevent/rapports?document_id=…`.
+- **Un rapport sans matière ne part pas** : un document dont aucune section ne porte un bloc à chiffres (tableau,
+  faits, carte, graphique) n'est pas envoyé — la trace le dit, le cron n'insiste pas le même jour.
+- **Destinataires** : l'utilisateur (son email Clerk, « Moi ») et les membres de l'équipe qui ont un email
+  (`analytics.team_members.channels_contact`, le même annuaire que les consignes) ; Slack : un canal, sinon le
+  canal par défaut de la configuration. Une lettre aux clients finaux suppose une liste avec consentement que l'app
+  ne détient pas : hors périmètre tant que l'owner n'en décide pas autrement.
+- « Envoyer maintenant » (route, `maintenant: true`) : le même chemin, tout de suite, tracé sans schedule_id — c'est
+  aussi l'essai réel. **Reste** : le PDF (owner 12/09 : « envoyer le PDF une fois ») demande un Chromium sans tête —
+  second temps ; l'organisation des envois sur la page (tout est sous « Vos envois », un formulaire par Modèle).
 
 ### 6.5 Le registre des sections
 
@@ -280,7 +295,7 @@ Ce qui ne rentre pas : `_hors_perimetre_v1` et `_objection_v1` restent des règl
 - Budget : première réponse utile sous 3 s sur le compte de test owner, mesuré, jamais déduit.
 - Le document : une version par enregistrement, relue après écriture (sonde réelle sur le compte de test,
   puis suppression), un déplacement de bloc qui ne change aucun chiffre (test pur sur `blocs[]`).
-- L'envoi : un envoi réel à l'owner, la trace en base, le rejeu qui n'envoie rien.
+- L'envoi : un envoi réel à l'owner, la trace en base, le rejeu qui n'envoie rien — fait le 12/09 (§ 9, 5).
 
 ---
 
@@ -338,10 +353,21 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    pôles ») — sa période et son indicateur s'appliquent sauf demande explicite. Le proto ne porte plus que la
    conversation. Sonde réelle : le Modèle « Hebdo pôles » tiré du document B ; harnais `npm run harness:rapports`.
    **Reste** : le Modèle « famille » (ses couches restent à migrer, § 7) ; l'organisation des actions sur la page.
-5. **Incrément 5 — l'envoi à cadence** : `report_schedules`, `report_sends`, le cron, le rendu serveur, les
-   rails ; l'essai réel vers l'owner. Owner 12/09 : envoyer le PDF une fois, ou le même modèle avec les données
-   actualisées à X (moi, ou des contacts du compte / de Communiquer) tous les Y (jour, semaine, trimestre,
-   année).
+5. **Incrément 5 — l'envoi à cadence — LIVRÉ le 12/09** (§ 6.4) : `lib/rapport/envois.ts` (période par cadence,
+   échéance à Paris, lignes, matière, texte, HTML par le kit, `envoyerRapport`, `tourDesEnvois` — 11 tests, mutés),
+   `report_schedules` + `report_sends` (nées au premier envoi ; pré-création avant de composer : une table neuve
+   refuse le flux plus de 30 s, la première trace s'est perdue — mesuré), la route `/api/explorer/envois` (GET liste
+   + destinataires connus ; POST programmer / arrêter / envoyer maintenant), le cron `/api/cron/report-sends`,
+   `sendEmail` avec `html`, `composerSurPeriode` partagé avec Actualiser, la page : « Envoyer chaque… » sous chaque
+   Modèle (cadence, heure, canal, destinataires, Enregistrer, Envoyer maintenant) et « Vos envois » (Arrêter, dernier
+   envoi). Preuves réelles (compte de test, 12/09) : « Envoyer maintenant » → document `d25698cf` + courriel à
+   l'owner ; envoi « chaque jour à 0 h » → cron à blanc « dû, partirait hier », cron réel « envoyé à 1
+   destinataire » en 3,6 s (document `a876b08a`), rejeu « déjà tracé », 401 sans Bearer ; « Arrêter » → version 2,
+   `actif = false`. Harnais `npm run harness:rapports` couvre le formulaire. Owner 12/09 : envoyer le PDF une fois,
+   ou le même modèle avec les données actualisées à X (moi, ou des contacts du compte / de Communiquer) tous les Y
+   (jour, semaine, trimestre, année). **Reste** : le job cron-job.org horaire sur la prod (owner) ; le PDF (Chromium
+   sans tête) ; les mots de la page à ratifier (« Vos envois », « Envoyer maintenant », « Arrêter », « par email /
+   sur Slack »).
 6. **Incrément 6 — la proposition d'opération** : `proposer_operation`, bloc `proposition_operation`,
    pré-remplissage d'`event-form.js`.
 7. **Incrément 7 — la migration** (§ 7), une couche par commit.

@@ -23,6 +23,10 @@ export interface InternalMessage {
   // Slack). Absents → comportement historique inchangé ; `text` reste toujours envoyé
   // (repli notification). Slack seulement — l'email les ignore.
   blocks?: any[];
+  // Rapport à cadence (12/09, docs/explorer-outil-spec.md § 6.4) : le corps HTML du courriel — le Rapport rendu par le
+  // kit, miroir de la page. Absent → comportement historique (texte seul) ; présent, `text` reste toujours envoyé
+  // (repli des clients qui ne lisent pas le HTML). Email seulement — Slack l'ignore.
+  html?: string;
 }
 
 // ── Slack (chat.postMessage) — mirror of publish.ts handleSlack ──
@@ -82,6 +86,7 @@ export async function sendEmail(
     },
     body: JSON.stringify({
       from, to: [to], subject, text,
+      ...(msg.html ? { html: msg.html } : {}),
       ...(msg.reply_to && msg.reply_to.includes("@") ? { reply_to: [msg.reply_to] } : {}),
     }),
   });

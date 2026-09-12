@@ -2,7 +2,8 @@
 // LA PAGE « RAPPORTS » (docs/explorer-outil-spec.md § 6, incrément 4 — owner 12/09, n3 : « le Rapport lui-même dans une
 // page dédiée qu'on peut relier au tableau de bord »). Trois choses, dans l'ordre : composer un Rapport (Nouveau
 // rapport — la boucle d'Explorer, POST /api/explorer/agent, les blocs vérifiés dès le retour de l'outil), vos Modèles
-// (GET /api/explorer/modeles — « Composer depuis ce modèle »), vos Rapports (GET /api/explorer/rapports). Un document
+// (GET /api/explorer/modeles — « Composer depuis ce modèle », « Envoyer chaque… » : incrément 5, GET/POST
+// /api/explorer/envois, la zone « Vos envois » avec « Arrêter »), vos Rapports (GET /api/explorer/rapports). Un document
 // ouvert porte ses actions (↑ ↓, Dupliquer, Retirer, Votre note, Approfondir ; Actualiser, Modifier la Synthèse,
 // Enregistrer comme modèle) et l'historique de ses versions — tout passe par les routes, rien n'est calculé ici.
 // Le rendu est celui du kit (renderAnswerBlocks), le même que la réponse d'Explorer et que le rapport de famille.
@@ -49,6 +50,11 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
       </div>
 
       <div class="rp-zone">
+        <div class="rp-zh">Vos envois</div>
+        <div id="rp-envois" class="rp-muted">Chargement…</div>
+      </div>
+
+      <div class="rp-zone">
         <div class="rp-zh">Vos rapports</div>
         <div id="rp-list" class="rp-muted">Chargement…</div>
       </div>
@@ -81,6 +87,10 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
       .rp-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
       .rp-versions { font-size: 12px; color: #6B7280; margin: 0 0 10px; }
       .rp-versions a { color: #1D3BB3; text-decoration: none; margin-right: 10px; }
+      .rp-form { flex-basis: 100%; margin-top: 6px; padding: 10px 12px; background: #F9FAFB; border-radius: 10px; font-size: 13px; }
+      .rp-form select, .rp-form input[type="text"] { border: 1px solid #E5E7EB; border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; background: #fff; }
+      .rp-form label { margin-right: 12px; white-space: nowrap; }
+      .rp-form .rp-row { margin-top: 6px; }
       .rp-err { background: #FEF3C7; color: #92400E; border-radius: 10px; padding: 9px 12px; margin: 0 0 10px; font-size: 13px; }
     </style>
 
@@ -225,9 +235,97 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
               var b = el("button", "rp-btn", "Composer depuis ce modèle"); b.type = "button";
               b.addEventListener("click", function () { lancerComposition({ modele: m.par_defaut ? "ventes" : m.nom, periode: m.periode_relative }); });
               row.appendChild(b);
+              // 12/09 (spec § 6.4, incrément 5) — « Envoyer chaque … » : le même Modèle, rempli sur la période de la cadence, à moi ou à l'équipe.
+              var be = el("button", "rp-btn", "Envoyer chaque…"); be.type = "button";
+              be.addEventListener("click", function () { var f = row.querySelector(".rp-form"); if (f) { f.remove(); return; } row.appendChild(formEnvoi(m)); });
+              row.appendChild(be);
               box.appendChild(row);
             });
           } catch (e) { box.textContent = "Modèles indisponibles : " + String(e.message || e); }
+        }
+
+        // ── Vos envois (spec § 6.4, incrément 5) : un Modèle, une cadence, une heure, un canal, des destinataires ──
+        var contacts = { moi: null, equipe: [] };
+        var JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+        function opt(sel, value, label) { var o = document.createElement("option"); o.value = value; o.textContent = label; sel.appendChild(o); return o; }
+        function formEnvoi(m) {
+          var f = el("div", "rp-form");
+          var modele_id = m.par_defaut ? "ventes" : m.template_id;
+          var r1 = el("div", "rp-row");
+          var cad = document.createElement("select"); cad.setAttribute("aria-label", "Cadence");
+          opt(cad, "quotidien", "chaque jour");
+          JOURS.forEach(function (j, i) { opt(cad, "hebdomadaire:" + (i + 1), "chaque " + j); });
+          opt(cad, "mensuel:1", "chaque 1er du mois"); opt(cad, "mensuel:15", "chaque 15 du mois");
+          opt(cad, "trimestriel", "chaque trimestre"); opt(cad, "annuel", "chaque année");
+          cad.value = "hebdomadaire:1";
+          var heure = document.createElement("select"); heure.setAttribute("aria-label", "Heure");
+          for (var h = 6; h <= 20; h++) opt(heure, String(h), "à " + h + " h");
+          heure.value = "8";
+          var canal = document.createElement("select"); canal.setAttribute("aria-label", "Canal");
+          opt(canal, "email", "par email"); opt(canal, "slack", "sur Slack");
+          r1.appendChild(cad); r1.appendChild(heure); r1.appendChild(canal);
+          f.appendChild(r1);
+          var r2 = el("div", "rp-row");
+          var dest = el("div"); r2.appendChild(dest);
+          var slackIn = document.createElement("input"); slackIn.type = "text"; slackIn.placeholder = "#canal Slack (vide : le canal par défaut)"; slackIn.setAttribute("aria-label", "Canal Slack"); slackIn.style.display = "none"; r2.appendChild(slackIn);
+          f.appendChild(r2);
+          var rendreDest = function () {
+            dest.innerHTML = "";
+            if (canal.value === "slack") { dest.style.display = "none"; slackIn.style.display = ""; return; }
+            dest.style.display = ""; slackIn.style.display = "none";
+            var liste = [];
+            if (contacts.moi) liste.push({ nom: "Moi (" + contacts.moi + ")", email: contacts.moi, coche: true });
+            contacts.equipe.forEach(function (c) { liste.push({ nom: c.nom, email: c.email, coche: false }); });
+            if (!liste.length) { dest.appendChild(el("span", "rp-muted", "Aucun destinataire connu : votre email n'est pas lisible et l'équipe n'a pas d'email (Communiquer → équipe).")); return; }
+            liste.forEach(function (c) { var lab = el("label"); var cb = document.createElement("input"); cb.type = "checkbox"; cb.value = c.email; cb.checked = c.coche; lab.appendChild(cb); lab.appendChild(document.createTextNode(" " + c.nom)); dest.appendChild(lab); });
+          };
+          canal.addEventListener("change", rendreDest); rendreDest();
+          var r3 = el("div", "rp-row"); var st = el("span", "rp-muted", "");
+          var lire = function () {
+            var parts = cad.value.split(":");
+            var body = { location_id: loc, modele_id: modele_id, cadence: parts[0], heure: Number(heure.value), canal: canal.value };
+            if (parts[1]) body.jour = Number(parts[1]);
+            if (canal.value === "slack") body.destinataires = slackIn.value.trim() ? [slackIn.value.trim()] : [];
+            else body.destinataires = Array.prototype.map.call(dest.querySelectorAll("input:checked"), function (cb) { return cb.value; });
+            return body;
+          };
+          var mk = function (label, cls, fn) { var b = el("button", cls, label); b.type = "button"; b.addEventListener("click", async function () { b.disabled = true; st.textContent = "…"; try { await fn(); } catch (e) { st.textContent = String(e.message || e); } b.disabled = false; }); return b; };
+          r3.appendChild(mk("Enregistrer", "rp-btn rp-btn-primary", async function () {
+            var j = await postJson("/api/explorer/envois", lire());
+            st.textContent = "Envoi programmé : " + j.cadence_fr + (j.destinataires.length ? " à " + j.destinataires.join(", ") : "");
+            loadEnvois();
+          }));
+          r3.appendChild(mk("Envoyer maintenant", "rp-btn", async function () {
+            var body = lire(); body.maintenant = true;
+            var j = await postJson("/api/explorer/envois", body);
+            st.textContent = (j.ok ? "Envoyé " + j.periode_fr + " à " + j.envoyes.join(", ") : j.raison) + (j.echecs && j.echecs.length ? " — échecs : " + j.echecs.join(" ; ") : "");
+            loadEnvois(); loadRapports();
+          }));
+          r3.appendChild(st);
+          f.appendChild(r3);
+          return f;
+        }
+        async function loadEnvois() {
+          var box = $("rp-envois");
+          try {
+            var j = await getJson("/api/explorer/envois" + q());
+            contacts = j.contacts || contacts;
+            box.innerHTML = "";
+            var actifs = j.envois.filter(function (s) { return s.actif; });
+            if (!actifs.length) { box.textContent = "Aucun envoi programmé — « Envoyer chaque… » sous un Modèle."; return; }
+            actifs.forEach(function (s) {
+              var row = el("div", "rp-item");
+              var left = el("div");
+              left.appendChild(el("div", null, s.modele_nom + " · " + s.cadence_fr + " · " + (s.canal === "slack" ? "sur Slack " + (s.destinataires.join(", ") || "(canal par défaut)") : "par email à " + s.destinataires.join(", "))));
+              var d = s.derniers && s.derniers[0];
+              left.appendChild(el("div", "rp-muted", d ? ("Dernier envoi : " + frD(d.sent_at) + (d.document_id ? " · " + d.n_recipients + " destinataire" + (d.n_recipients > 1 ? "s" : "") : " · retenu, sans matière du " + frD(d.periode_du) + " au " + frD(d.periode_au))) : "Aucun envoi encore"));
+              row.appendChild(left);
+              var b = el("button", "rp-btn", "Arrêter"); b.type = "button";
+              b.addEventListener("click", async function () { b.disabled = true; try { await postJson("/api/explorer/envois", { location_id: loc, schedule_id: s.schedule_id, actif: false }); loadEnvois(); } catch (e) { showErr(box, String(e.message || e)); b.disabled = false; } });
+              row.appendChild(b);
+              box.appendChild(row);
+            });
+          } catch (e) { box.textContent = "Envois indisponibles : " + String(e.message || e); }
         }
 
         // ── Nouveau rapport : la demande passe par la boucle ; le Rapport composé se rend, puis s'enregistre ──
@@ -259,7 +357,7 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
         $("rp-q").addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) lancerComposition({}); });
 
         if (!kit || typeof kit.renderAnswerBlocks !== "function") { docEl.textContent = "Rendu indisponible."; return; }
-        loadRapports().then(function () { loadModeles(); if (openId) openDocument(openId); });
+        loadRapports().then(function () { loadModeles(); loadEnvois(); if (openId) openDocument(openId); });
       })();
     </script>
   </BaseLayout>

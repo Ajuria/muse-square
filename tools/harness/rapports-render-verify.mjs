@@ -2,8 +2,9 @@
 // rapports.astro exécuté dans happy-dom, sur les documents et les Modèles RÉELS du compte de test owner (lus par les libs,
 // servis par un fetch de substitution qui rend ce que les routes rendent). Le harnais EST la page : liste des rapports,
 // liste des modèles, un document ouvert par le kit avec ses actions (flèches, Dupliquer, Retirer, Votre note, Approfondir,
-// Actualiser, Modifier la Synthèse, Enregistrer comme modèle), l'historique des versions. La composition (la boucle) n'est
-// pas rejouée ici : la batterie de l'agent la porte.
+// Actualiser, Modifier la Synthèse, Enregistrer comme modèle), l'historique des versions ; depuis l'incrément 5, le formulaire
+// « Envoyer chaque… » sous un Modèle et la zone « Vos envois ». La composition (la boucle) n'est pas rejouée ici : la
+// batterie de l'agent la porte ; l'envoi réel non plus : la route /api/explorer/envois (maintenant: true) le fait.
 // Usage : npm run harness:rapports
 import "dotenv/config";
 import { readFileSync } from "node:fs";
@@ -34,6 +35,8 @@ const fetchStub = async (url, init) => {
   const u = String(url);
   const json = (o) => ({ ok: true, status: 200, json: async () => o, body: null });
   if (u.startsWith("/api/explorer/modeles")) return json(modelesJson);
+  // Incrément 5 : les envois du site (aucun ici — le harnais ne programme rien) et les destinataires connus.
+  if (u.startsWith("/api/explorer/envois")) return json({ ok: true, location_id: LOC, envois: [], ponctuels: [], contacts: { moi: "owner@example.test", equipe: [{ nom: "Nadia Test", email: "nadia@example.test" }] } });
   if (u.startsWith("/api/explorer/rapports")) {
     const p = new URL("http://l" + u).searchParams;
     if (init && init.method === "POST") return json({ ok: true, document_id: first.document_id, version: first.version + 1, document: docFull });
@@ -57,7 +60,23 @@ await tick(); await tick(); await tick();
 const list = doc.getElementById("rp-list");
 check("« Vos rapports » liste chaque document avec période, sections, version, date", list.querySelectorAll(".rp-item").length === documents.length && /version \d+ · \d{2}\/\d{2}\/\d{4}/.test(list.textContent), list.textContent.slice(0, 120));
 const mod = doc.getElementById("rp-modeles");
-check("« Vos modèles » liste le Rapport de ventes par défaut puis les Modèles du site, chacun avec « Composer depuis ce modèle »", mod.textContent.includes("Rapport de ventes") && mod.querySelectorAll("button").length === modelesJson.modeles.length, mod.querySelectorAll("button").length);
+check("« Vos modèles » liste le Rapport de ventes par défaut puis les Modèles du site, chacun avec « Composer depuis ce modèle » et « Envoyer chaque… »", mod.textContent.includes("Rapport de ventes") && mod.querySelectorAll("button").length === 2 * modelesJson.modeles.length, mod.querySelectorAll("button").length);
+// Incrément 5 — « Envoyer chaque… » ouvre le formulaire : cadence (chaque jour, chaque lundi…), heure, canal, destinataires (moi coché, l'équipe), Enregistrer, Envoyer maintenant.
+const envBtn = [...mod.querySelectorAll("button")].find((b) => b.textContent === "Envoyer chaque…");
+envBtn.click(); await tick();
+const form = mod.querySelector(".rp-form");
+check("le formulaire d'envoi s'ouvre sous le Modèle", !!form);
+if (form) {
+  const cad = [...form.querySelector("select[aria-label='Cadence']").options].map((o) => o.textContent);
+  check("la cadence dit les mots du lexique : chaque jour · chaque lundi … dimanche · chaque 1er du mois · chaque trimestre · chaque année", cad[0] === "chaque jour" && cad[1] === "chaque lundi" && cad.includes("chaque 1er du mois") && cad.includes("chaque trimestre") && cad.includes("chaque année"), cad.join(" | "));
+  check("chaque lundi à 8 h par email est la valeur par défaut", form.querySelector("select[aria-label='Cadence']").value === "hebdomadaire:1" && form.querySelector("select[aria-label='Heure']").value === "8" && form.querySelector("select[aria-label='Canal']").value === "email");
+  const labels = [...form.querySelectorAll("label")].map((l) => l.textContent.trim());
+  check("les destinataires : Moi (coché) et les membres de l'équipe qui ont un email", labels[0] === "Moi (owner@example.test)" && labels[1] === "Nadia Test" && form.querySelector("input[type=checkbox]").checked, labels.join(" | "));
+  const btns = [...form.querySelectorAll("button")].map((b) => b.textContent);
+  check("les deux boutons : Enregistrer · Envoyer maintenant", JSON.stringify(btns) === JSON.stringify(["Enregistrer", "Envoyer maintenant"]), JSON.stringify(btns));
+}
+const env = doc.getElementById("rp-envois");
+check("« Vos envois » : sans envoi programmé, la zone renvoie à « Envoyer chaque… »", /Aucun envoi programmé/.test(env.textContent), env.textContent.slice(0, 80));
 const d = doc.getElementById("rp-doc");
 check("le document ouvert (?document_id) est rendu par le kit : titre, sections", d.textContent.includes(docFull.titre) && d.querySelectorAll("[data-rapport-section]").length === docFull.rapport.sections.length, d.querySelectorAll("[data-rapport-section]").length + " · " + d.textContent.slice(0, 120));
 if (!d.querySelector("[data-rapport-section='0']")) { console.log(fails + " échec(s) — le document ne s'est pas rendu, les contrôles suivants n'ont pas de sens."); process.exit(1); }

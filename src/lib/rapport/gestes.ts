@@ -9,7 +9,7 @@
 import type { AnswerBlock, RapportBlock, RapportSection, Register } from "../explorer/blocks";
 import { SECTION_BY_CLE, type SectionCle } from "../fr/rapport.fr";
 import { resolvePeriode, computeSalesReport, composeVentesFacts, type PeriodeMot } from "./ventes";
-import { composeRapport, SECTIONS_VENTES } from "./composer";
+import { composeRapport, SECTIONS_VENTES, type ComposeResult } from "./composer";
 import { readResultat, composeResultatFacts } from "../kpi/resultat";
 import { readPoleClassement, composePoleClassement, type Indicateur } from "../dispositifs/poleClassement";
 import { FAMILIES } from "../insightFamilies";
@@ -167,15 +167,14 @@ export function chiffresDuDocument(r: RapportBlock): string[] {
 }
 
 /**
- * Actualiser (lecture) : les sections à provenance se recomposent par les MÊMES lectures que composer_rapport, sur
- * la période actualisée, puis `actualiserAvec` fusionne. L'indicateur des pôles est celui de la provenance.
+ * Composer sur une période, SANS la boucle : les MÊMES lectures que composer_rapport (ventes, marge, résultat, espace,
+ * pôles, signaux), déterministes, puis `composeRapport`. C'est ce qu'Actualiser et l'envoi à cadence (envois.ts)
+ * partagent — un Modèle rempli sans le modèle de langue n'a pas de Synthèse, et n'en invente pas.
  */
-export async function actualiserDocument(bq: any, location_id: string, owned: string[], r: RapportBlock, today: string): Promise<RapportBlock> {
-  const per = periodeActualisee(r, today);
-  const cles = clesARecalculer(r);
+export async function composerSurPeriode(bq: any, location_id: string, owned: string[], inp: { cles: SectionCle[]; indicateur: Indicateur; titre: string | null; periode: { du: string; au: string; relative: string | null; libelle_fr: string } }, today: string): Promise<ComposeResult> {
+  const { cles, indicateur } = inp;
+  const per = inp.periode;
   const besoin = (k: string[]) => cles.some((c) => k.includes(c));
-  const polesProv = r.sections.find((s) => s.cle === "poles")?.provenance;
-  const indicateur = ((polesProv?.params as any)?.indicateur as Indicateur | undefined) ?? "ca";
   const [ventes, marge, resultat, espace, poles, signaux] = await Promise.all([
     besoin(SECTIONS_VENTES) ? computeSalesReport(bq, { location_id, owned, start: per.du, end: per.au }).then(composeVentesFacts) : null,
     besoin(["marge_brute"]) ? FAMILIES.marge.run(bq, location_id, today) : null,
@@ -184,6 +183,17 @@ export async function actualiserDocument(bq: any, location_id: string, owned: st
     besoin(["poles"]) ? readPoleClassement(bq, location_id, per.du, per.au).then((d) => composePoleClassement(d, indicateur, `sur ${per.libelle_fr}`)) : null,
     besoin(["contexte"]) ? FAMILIES.signaux.run(bq, location_id, today) : null,
   ]);
-  const nouveau = composeRapport({ cles, non_reconnu: [], periode: per, indicateur, titre: r.titre, calcule_le: new Date().toISOString(), lectures: { ventes, marge, resultat, espace, poles, signaux } });
+  return composeRapport({ cles, non_reconnu: [], periode: per, indicateur, titre: inp.titre, calcule_le: new Date().toISOString(), lectures: { ventes, marge, resultat, espace, poles, signaux } });
+}
+
+/**
+ * Actualiser (lecture) : les sections à provenance se recomposent par `composerSurPeriode` sur la période actualisée,
+ * puis `actualiserAvec` fusionne. L'indicateur des pôles est celui de la provenance.
+ */
+export async function actualiserDocument(bq: any, location_id: string, owned: string[], r: RapportBlock, today: string): Promise<RapportBlock> {
+  const per = periodeActualisee(r, today);
+  const polesProv = r.sections.find((s) => s.cle === "poles")?.provenance;
+  const indicateur = ((polesProv?.params as any)?.indicateur as Indicateur | undefined) ?? "ca";
+  const nouveau = await composerSurPeriode(bq, location_id, owned, { cles: clesARecalculer(r), indicateur, titre: r.titre, periode: per }, today);
   return actualiserAvec(r, nouveau.block);
 }
