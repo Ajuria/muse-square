@@ -72,7 +72,7 @@
     var segB = 'font-size:12px;font-family:inherit;border:none;padding:6px 12px;cursor:pointer;background:#fff;color:#1D3BB3;';
 
     var html = ''
-      + '<div style="display:flex;gap:12px;"><div style="flex:1;"><label style="' + lbl + '">Nom de l’événement</label><input data-ef="title" style="' + inp + '" maxlength="120"></div>'
+      + '<div style="display:flex;gap:12px;"><div style="flex:1;"><label style="' + lbl + '">Nom de l’opération</label><input data-ef="title" style="' + inp + '" maxlength="120"></div>'
       + '<div style="flex:1;"><label style="' + lbl + '">Type — selon votre métier</label><select data-ef="type" style="' + inp + 'cursor:pointer;">'
       + types.map(function (t) { return '<option value="' + esc(t.value) + '">' + esc(t.label_fr) + '</option>'; }).join("") + '</select></div></div>'
       + '<div style="display:flex;gap:12px;align-items:flex-end;margin-top:10px;"><div><label style="' + lbl + '">Nature — conditionne les menaces</label>'
@@ -149,7 +149,7 @@
       + '<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#374151;cursor:pointer;margin-top:8px;"><input data-ef="ddlcheck" type="checkbox" style="width:auto;"> Fixer une date limite de choix</label>'
       + '<div data-ef-ddlwrap style="display:none;margin-top:6px;max-width:170px;"><label style="' + lbl + '">Date limite</label><input data-ef="ddl" type="date" style="' + inp + '"></div></div>'
       + '<div data-ef-err style="display:none;color:#B91C1C;font-size:12px;margin-top:10px;"></div>'
-      + '<div style="display:flex;margin-top:12px;"><span style="margin-left:auto;"><button type="button" data-ef-submit style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;">Créer l’événement — l’engagement de mesure se crée avec</button></span></div>';
+      + '<div style="display:flex;margin-top:12px;"><span style="margin-left:auto;"><button type="button" data-ef-submit style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;">Créer l’opération — l’engagement de mesure se crée avec</button></span></div>';
 
     // ── Pôle / dispositif permanent (spec poles-dispositifs-permanents, owner 27/08) ──
     // Un commutateur de nature en tête : « Opération datée » = TOUT l'existant, intact ;
@@ -579,7 +579,7 @@
           setTimeout(function () { window.location.href = dossierUrl; }, 1400);
           if (opts && typeof opts.onDone === "function") opts.onDone(res);
         })
-        .catch(function (e) { btn.disabled = false; btn.textContent = "Créer l’événement — l’engagement de mesure se crée avec"; fail(e && e.message ? e.message : "Erreur, réessayez."); });
+        .catch(function (e) { btn.disabled = false; btn.textContent = "Créer l’opération — l’engagement de mesure se crée avec"; fail(e && e.message ? e.message : "Erreur, réessayez."); });
     });
   }
 

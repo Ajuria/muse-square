@@ -361,7 +361,7 @@ const locParam = Astro.url.searchParams.get("loc") || "";
           + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;">'+prevChip+yoyChip+'</div>'
           + '<div class="rp-uc">Points clés</div><ul style="margin:0 0 24px;padding-left:20px;font-size:14px;line-height:1.7;color:#374151;list-style:disc;">'+takeaways.map(function(t){return '<li style="margin-bottom:2px;">'+t+"</li>";}).join("")+'</ul>'
           + '<div style="margin-bottom:24px;break-inside:avoid;"><div class="rp-uc">Chiffre d\'affaires</div>'+totalChart(data.daily, data.composition && data.composition.granularity)+'</div>'
-          + '<div style="margin-bottom:24px;break-inside:avoid;max-width:520px;"><div class="rp-uc">Répartition par catégorie</div>'+mixBars(data.category_mix)+'</div>'
+          + '<div style="margin-bottom:24px;break-inside:avoid;max-width:520px;"><div class="rp-uc">Répartition par famille</div>'+mixBars(data.category_mix)+'</div>'
           + midSection
           + '<div style="break-inside:avoid;margin-bottom:22px;"><div class="rp-uc">Contexte externe</div>'
           +   '<div style="border:1px solid #B5D4F4;border-radius:8px;overflow:hidden;margin-bottom:8px;">'
