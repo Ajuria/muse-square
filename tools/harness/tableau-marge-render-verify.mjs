@@ -62,12 +62,19 @@ async function render(p) {
   btnC.click(); await tick();
   const panC = body.querySelector('[data-tb-param-panel="charges"]');
   check("panneau charges : 2 montants + date d'effet", panC && panC.querySelectorAll("input").length === 3 && panC.textContent.indexOf("Charges fixes") >= 0 && panC.textContent.indexOf("Masse salariale") >= 0 && panC.textContent.indexOf("à partir du") >= 0);
-  const btnB = [...body.querySelectorAll("[data-tb-param]")].find((b) => b.getAttribute("data-tb-param") === "base"); btnB.click(); await tick();
-  const panB = body.querySelector('[data-tb-param-panel="base"]');
-  check("panneau base : HT / TTC", panB && panB.querySelectorAll('input[type="radio"]').length === 2);
-  const btnP = [...body.querySelectorAll("[data-tb-param]")].find((b) => b.getAttribute("data-tb-param") === "prix"); btnP.click(); await tick();
-  const panP = body.querySelector('[data-tb-param-panel="prix"]');
-  check("panneau prix d'achat : un champ fichier + Importer", panP && panP.querySelector('input[type="file"]') && panP.textContent.indexOf("Importer") >= 0);
+  const btnB = [...body.querySelectorAll("[data-tb-param]")].find((b) => b.getAttribute("data-tb-param") === "base");
+  if (btnB) {
+    btnB.click(); await tick();
+    const panB = body.querySelector('[data-tb-param-panel="base"]');
+    check("panneau base : HT / TTC", panB && panB.querySelectorAll('input[type="radio"]').length === 2);
+  } else check("panneau base : absent parce que la base est connue", !!(mm.params && mm.params.revenue_basis));
+  const btnP = [...body.querySelectorAll("[data-tb-param]")].find((b) => b.getAttribute("data-tb-param") === "prix");
+  check("le geste prix d'achat garde son panneau (fait ou à faire)", !!btnP);
+  if (btnP) {
+    btnP.click(); await tick();
+    const panP = body.querySelector('[data-tb-param-panel="prix"]');
+    check("panneau prix d'achat : un champ fichier + Importer", panP && panP.querySelector('input[type="file"]') && panP.textContent.indexOf("Importer") >= 0);
+  }
   panC.querySelector("[data-tb-param-save]").click(); await tick();
   check("charges sans chiffre : « Entrez un chiffre. »", panC.querySelector("[data-tb-param-msg]").textContent === "Entrez un chiffre.");
 }
