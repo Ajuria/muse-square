@@ -18,7 +18,22 @@ export type AnswerBlock =
   | { type: "card"; render: string; data: Record<string, unknown> }
   | { type: "sources"; items: string[] }
   // 12/09 — l'absence est un résultat : ce qui manque, et le geste qui le débloque (le mot de Piloter).
-  | { type: "absence"; manque: string; geste?: { label_fr: string; url: string } | null };
+  | { type: "absence"; manque: string; geste?: { label_fr: string; url: string } | null }
+  // 12/09 — LE RAPPORT (spec § 6) : un document de sections, chacune faite de blocs, avec sa Synthèse (le texte vérifié
+  // du tour, posé par la route) et la provenance de chaque section (l'outil, ses paramètres, la période, la date).
+  | RapportBlock;
+
+export interface RapportProvenance { outil: string; params: Record<string, unknown>; periode: { du: string; au: string }; calcule_le: string }
+export interface RapportSection { cle: string; titre: string; definition?: string; blocs: AnswerBlock[]; provenance: RapportProvenance | null }
+export interface RapportBlock {
+  type: "rapport";
+  titre: string;
+  periode: { du: string; au: string; relative: string | null; libelle_fr: string };
+  sections: RapportSection[];
+  synthese: { text: string; register: Register } | null;
+  /** Les morceaux de la demande qu'aucune section ne couvre — dits, jamais inventés. */
+  non_reconnu: string[];
+}
 
 /** Le mot d'absence de chaque lecteur — les chaînes déjà rendues par le kit, jamais réécrites. */
 export const ABSENCE_FR: Record<string, { manque: string; geste?: { label_fr: string; url: string } }> = {

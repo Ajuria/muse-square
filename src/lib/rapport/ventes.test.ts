@@ -84,7 +84,7 @@ describe("composeVentesFacts — les phrases du rapport et du chat, les tableaux
   it("NO_DATA et rapport mono-canal : rien à lire, absence dite", () => {
     expect(composeVentesFacts({ body: { ok: false, error: "NO_DATA" }, prev_revenue: null }).found).toBe(false);
     expect(composeVentesFacts({ body: { ok: true, channel_report: true }, prev_revenue: null }).found).toBe(false);
-    expect(ventesToText({ found: false, facts: [], blocks: [] })).toBe(VENTES_ABSENCE_FR);
+    expect(ventesToText({ found: false, facts: [], blocks: [], parts: {}, tables: {} })).toBe(VENTES_ABSENCE_FR);
   });
   it("chaque nombre des tableaux existe dans les faits : la porte de l'agent les laisse passer", () => {
     const l = composeVentesFacts(rapport());

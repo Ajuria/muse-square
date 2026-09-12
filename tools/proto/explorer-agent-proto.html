@@ -129,7 +129,9 @@
       }
       threadId = result.body.thread_id;
       history.push({ role: "assistant", content: result.body.assistant.text });
-      var msgEl = addMsg("assistant", result.body.assistant.text || "(aucun texte)");
+      // 12/09 (spec § 6) : quand la réponse porte un Rapport, la Synthèse EST le texte du tour — il ne s'affiche pas deux fois.
+      var aRapport = Array.isArray(result.body.blocks) && result.body.blocks.some(function (b) { return b && b.type === "rapport"; });
+      var msgEl = addMsg("assistant", aRapport ? "" : (result.body.assistant.text || "(aucun texte)"));
       // 12/09 (docs/explorer-outil-spec.md § 5) : les BLOCS de la réponse — pastille de registre puis cartes du kit,
       // rendus par renderAnswerBlocks, le même rendu que le rapport de famille et le chat.
       if (Array.isArray(result.body.blocks) && result.body.blocks.length && window.MSCardKit && window.MSCardKit.renderAnswerBlocks) {

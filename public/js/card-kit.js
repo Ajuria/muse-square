@@ -2232,6 +2232,31 @@
         + (g ? ' <a href="' + esc(g.url) + '" style="color:#0b37e5;font-weight:500;text-decoration:none;">' + esc(g.label_fr) + ' \u2192</a>' : '')
         + '</div>';
     },
+    // 12/09 — LE RAPPORT (docs/explorer-outil-spec.md § 6) : titre, période, la Synthèse (texte vérifié du tour, avec sa
+    // pastille), puis une zone par section — les valeurs de .fr-zone / .fr-zh de family-report.astro, le même kit pour
+    // les blocs de chaque section. La définition de la section vit au survol du titre (kitchen au survol, règle owner).
+    rapport: function (b) {
+      if (!b || !Array.isArray(b.sections)) return '';
+      var zone = function (titre, tip, body) {
+        return '<div style="background:#fff;border:0.5px solid #E5E7EB;border-radius:12px;padding:16px 18px;margin:0 0 16px;">'
+          + '<div' + (tip ? ' title="' + esc(tip) + '"' : '') + ' style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#1D3BB3;margin:0 0 12px;">' + esc(titre) + '</div>' + body + '</div>';
+      };
+      var html = '<div class="ie-rapport">'
+        + '<div style="font-size:17px;font-weight:650;color:#111827;line-height:1.35;margin:0 0 2px;">' + esc(b.titre || 'Rapport') + '</div>'
+        + '<div style="font-size:12px;color:#9CA3AF;margin:0 0 14px;">' + esc(b.periode && b.periode.libelle_fr ? b.periode.libelle_fr : '') + '</div>';
+      if (b.synthese && b.synthese.text) {
+        html += zone('Synth\u00e8se', null, abRegister(b.synthese.register || 'model') + '<div style="font-size:13.5px;color:#374151;line-height:1.6;">' + mdBlockToSafeHtml(b.synthese.text) + '</div>');
+      }
+      for (var i = 0; i < b.sections.length; i++) {
+        var s = b.sections[i];
+        if (!s) continue;
+        html += zone(s.titre || s.cle || '', s.definition || null, renderBlockList(Array.isArray(s.blocs) ? s.blocs : []));
+      }
+      if (Array.isArray(b.non_reconnu) && b.non_reconnu.length) {
+        html += AB_PRIMITIVES.absence({ manque: 'Aucune section du Rapport ne correspond \u00e0 : ' + b.non_reconnu.map(function (x) { return '\u00ab ' + x + ' \u00bb'; }).join(', ') + '.', geste: null });
+      }
+      return html + '</div>';
+    },
     // Phase 2 clarification chips (same inline styles as the ie-prompt.js originals)
     clarification: function (b) {
       var chips = (b.chips || []).filter(function (c) { return c && typeof c.label_fr === 'string' && typeof c.send === 'string'; })
@@ -2255,6 +2280,11 @@
       try { console.error('[MSCardKit] blocks[] without register — rendering least-trusted pill'); } catch (e) {}
       html += abRegister('model');
     }
+    return html + renderBlockList(list);
+  }
+  // 12/09 : la boucle de rendu seule — les sections d'un Rapport la réutilisent (leur registre est celui de la Synthèse).
+  function renderBlockList(list) {
+    var html = '';
     for (var i = 0; i < list.length; i++) {
       var b = list[i];
       var fn = AB_PRIMITIVES[b && b.type];

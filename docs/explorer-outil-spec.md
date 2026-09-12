@@ -286,10 +286,15 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    **Reste** : le `grain` de `lire_ventes`. Preuve : les cinq questions du 12/09 de l'owner (« montre-moi comment mes pôles performent
    au m² », « ordonne les familles les plus profitables vs m² vs mètres linéaires », « quelles familles sont
    sensibles à la météo ? »…) répondent en blocs, et une question composée aussi.
-2. **Incrément 2 — le Rapport** : `rapport.fr.ts`, `composer_rapport`, bloc `rapport`, le document
-   persistant (`analytics.report_documents`, Enregistrer, versions), les rapports de ventes et de famille
-   recomposés par les outils ; « génère le rapport des ventes de la semaine dernière, volume, panier, mix, et
-   les pôles les plus et les moins performants en nombre de ventes ».
+2. **Incrément 2 — le Rapport** (en cours, 12/09) : **faits** — le registre `src/lib/fr/rapport.fr.ts`
+   (quinze sections, alias en mot entier), `composer_rapport` (une vague de lectures, un bloc `rapport` avec la
+   provenance de chaque section, l'inconnu dit), le bloc `rapport` rendu par le kit (?v=81, Synthèse = le texte
+   vérifié du tour posé par la route). Mesuré sur le compte de test : « Génère le rapport des ventes de la
+   semaine dernière : volume, panier, mix, et les pôles les plus et les moins performants en nombre de
+   ventes. » → un outil, un bloc rapport, 14,7 s, registre vérifié (batterie, porte `blocs`). **Restent** : le
+   document persistant (`analytics.report_documents`, Enregistrer, versions), les rapports de ventes et de
+   famille recomposés par les outils, les sections Contexte externe et Actions recommandées (aujourd'hui une
+   absence qui renvoie au rapport imprimable).
 3. **Incrément 3 — les gestes sur le document** : déplacer, retirer, dupliquer, Actualiser ; Votre note ;
    Approfondir (dépend de l'incrément 1).
 4. **Incrément 4 — le Modèle de rapport** : Enregistrer comme modèle, la bibliothèque, l'appel par nom

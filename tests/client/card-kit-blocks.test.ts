@@ -40,3 +40,27 @@ it("table (12/09, lire_ventes) : msTable rend colonnes et cellules du format row
   expect(rows).toEqual([["Chiffre d’affaires", "51 851 €", "42 541 €", "+21,9 %"], ["Volume de ventes", "10 688", "8 971", "+19,1 %"], ["Panier moyen", "4,85 €", "4,74 €", "+2,3 %"]]);
   expect(el.textContent).toContain("Vérifié");
 });
+it("rapport (12/09, spec § 6) : titre, période, Synthèse avec sa pastille, une zone par section rendue par le kit, l'inconnu dit", () => {
+  const html = (window as any).MSCardKit.renderAnswerBlocks([
+    { type: "register", register: "vetted", facts_cited: 3 },
+    { type: "rapport", titre: "Rapport — la semaine dernière, du 31/08/2026 au 06/09/2026", periode: { du: "2026-08-31", au: "2026-09-06", relative: "semaine_derniere", libelle_fr: "la semaine dernière, du 31/08/2026 au 06/09/2026" },
+      synthese: { text: "Vous avez généré 11 015 € de chiffre d’affaires.", register: "vetted" },
+      sections: [
+        { cle: "volume", titre: "Volume de ventes", definition: "Le nombre de ventes de la période et son écart à la période précédente.", provenance: null,
+          blocs: [{ type: "table", cols: [{ label: "" }, { label: "Du 31/08/2026 au 06/09/2026" }], rows: [{ cells: [{ v: "Volume de ventes", bold: true }, { v: "2 426" }] }] }, { type: "facts", items: ["Vous avez réalisé 2 426 ventes."] }] },
+        { cle: "poles", titre: "Vos pôles · du plus au moins performant", provenance: null, blocs: [{ type: "absence", manque: "Aucune vente rattachée à un pôle sur cette période.", geste: null }] },
+      ],
+      non_reconnu: ["la couleur des murs"] },
+  ]);
+  const el = document.createElement("div"); el.innerHTML = html; const t = el.textContent || "";
+  expect(t).toContain("Rapport — la semaine dernière, du 31/08/2026 au 06/09/2026");
+  expect(t).toContain("Synthèse"); expect(t).toContain("Vous avez généré 11 015 € de chiffre d’affaires.");
+  expect((t.match(/Vérifié/g) || []).length).toBe(2); // la pastille du tour + celle de la Synthèse
+  const zones = [...el.querySelectorAll(".ie-rapport > div[style*='border-radius:12px']")];
+  expect(zones.length).toBe(3);
+  expect(zones[1].getAttribute("title")).toBeNull();
+  expect(zones[1].querySelector("div")?.getAttribute("title")).toBe("Le nombre de ventes de la période et son écart à la période précédente.");
+  expect(el.querySelectorAll(".ie-rapport table").length).toBe(1);
+  expect(t).toContain("Aucune vente rattachée à un pôle sur cette période.");
+  expect(t).toContain("Aucune section du Rapport ne correspond à : « la couleur des murs ».");
+});

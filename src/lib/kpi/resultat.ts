@@ -80,7 +80,9 @@ const frDate = (iso: string): string => { const m = /^(\d{4})-(\d{2})-(\d{2})/.e
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 export type ResultatAbsence = "charges" | "couverture" | "aucun_mois";
-export interface ResultatLecture { found: boolean; absence?: ResultatAbsence; facts: string[]; blocks: AnswerBlock[]; mois_lu: string | null }
+/** Les blocs NOMMÉS (12/09, composer_rapport les range par section) : le tableau des mois, le fait du seuil. */
+export interface ResultatParts { mois?: AnswerBlock; seuil?: AnswerBlock; seuil_fact?: string }
+export interface ResultatLecture { found: boolean; absence?: ResultatAbsence; facts: string[]; blocks: AnswerBlock[]; mois_lu: string | null; parts: ResultatParts }
 
 /**
  * `mois` (AAAA-MM) : le mois demandé ; défaut = le dernier mois complet. Les mots sont ceux que Piloter rend
@@ -93,9 +95,10 @@ export function composeResultatFacts(r: Resultat, mois?: string | null): Resulta
   const wanted = mois ? r.mois.find((m) => m.month.slice(0, 7) === mois) ?? null : complets[0] ?? null;
   const facts: string[] = [];
   const blocks: AnswerBlock[] = [];
+  const parts: ResultatParts = {};
 
   if (!wanted && !complets.length) {
-    return { found: false, absence: "aucun_mois", facts: [], blocks: [], mois_lu: null };
+    return { found: false, absence: "aucun_mois", facts: [], blocks: [], mois_lu: null, parts };
   }
   const principal = wanted ?? complets[0];
   const enCours = !principal.is_complete_month;
@@ -107,7 +110,7 @@ export function composeResultatFacts(r: Resultat, mois?: string | null): Resulta
   if (!lisible.length) {
     const ref = lus[0] ?? principal;
     const absence: ResultatAbsence = ref.fixed_costs_month_eur == null || ref.payroll_month_eur == null ? "charges" : "couverture";
-    return { found: false, absence, facts: [], blocks: [], mois_lu: ref.month };
+    return { found: false, absence, facts: [], blocks: [], mois_lu: ref.month, parts };
   }
   for (const m of lisible) {
     facts.push(
@@ -118,7 +121,7 @@ export function composeResultatFacts(r: Resultat, mois?: string | null): Resulta
   if (p.payroll_to_revenue_pct != null && p.revenue_net_ht != null) {
     facts.push(`En ${moisFr(p.month)}, votre masse salariale représente ${pct1(p.payroll_to_revenue_pct)} de votre CA net HT (${eur(p.revenue_net_ht)}).`);
   }
-  blocks.push({
+  parts.mois = {
     type: "table",
     cols: [{ label: "Mois" }, { label: "CA net HT" }, { label: "Marge brute" }, { label: "Charges fixes" }, { label: "Masse salariale" }, { label: "Résultat net" }],
     rows: lisible.map((m) => ({ cells: [
@@ -126,7 +129,8 @@ export function composeResultatFacts(r: Resultat, mois?: string | null): Resulta
       { v: eur(m.fixed_costs_month_eur as number) }, { v: eur(m.payroll_month_eur as number) },
       { v: eurS(m.net_result_eur as number), bold: true, ...((m.net_result_eur as number) < 0 ? { color: "#B45309" } : {}) },
     ] })),
-  });
+  };
+  blocks.push(parts.mois);
 
   const j = r.jour;
   if (j && j.break_even_revenue_ht != null) {
@@ -138,10 +142,11 @@ export function composeResultatFacts(r: Resultat, mois?: string | null): Resulta
     else if (j.is_break_even_reached === false) s += j.gross_margin_ht != null ? ` ; il n'est pas atteint (${eur(j.gross_margin_ht)} de marge brute sur la journée).` : " ; il n'est pas atteint.";
     else s += ".";
     facts.push(s);
-    blocks.push({ type: "facts", items: [s] });
+    parts.seuil = { type: "facts", items: [s] }; parts.seuil_fact = s;
+    blocks.push(parts.seuil);
   }
   blocks.push({ type: "sources", items: ["Votre marge brute mesurée (caisse et prix d'achat) et vos charges fixes et masse salariale déclarées — mois complets ; seuil de rentabilité du dernier jour de vente"] });
-  return { found: true, facts, blocks, mois_lu: p.month };
+  return { found: true, facts, blocks, mois_lu: p.month, parts };
 }
 
 export function resultatToText(l: ResultatLecture, absenceFr: string): string {

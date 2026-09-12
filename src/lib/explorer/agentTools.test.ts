@@ -63,7 +63,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -253,5 +253,21 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     const none = await tool.run({ indicateur: "ca_par_m2" });
     expect(none).toBe("Aucune mesure d’espace pour l’instant — les mètres se saisissent sur le formulaire de pôle.");
     expect(d.records[1].blocks?.[0]).toMatchObject({ type: "absence", geste: { label_fr: "Vos pôles", url: "/profile?tab=poles" } });
+  });
+  it("composer_rapport lit en une vague ce que les sections demandent et rend UN bloc rapport avec la provenance ; l'inconnu est dit", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "composer_rapport").run({ sections: "volume, panier, mix, résultat net, et les pôles en nombre de ventes, la couleur des murs", periode: "30_derniers_jours", indicateur: "ventes" });
+    expect(out).toContain("Rapport composé, vos 30 derniers jours, du 13/08/2026 au 11/09/2026 : Volume de ventes · Panier moyen · Mix produits & services · Résultat net · Vos pôles · du plus au moins performant · Sources et fiabilité.");
+    expect(out).toContain("Aucune section du Rapport ne correspond à : « la couleur des murs ».");
+    const rec = d.records[0];
+    expect(rec).toMatchObject({ name: "composer_rapport", ok: true, summary: "6 sections composées, vos 30 derniers jours, du 13/08/2026 au 11/09/2026 ; 1 demande non reconnue" });
+    expect(rec.blocks?.length).toBe(1);
+    const b = rec.blocks?.[0] as any;
+    expect(b.type).toBe("rapport"); expect(b.synthese).toBeNull();
+    expect(b.sections.map((s: any) => s.cle)).toEqual(["volume", "panier", "mix", "resultat_net", "poles", "sources"]);
+    expect(b.sections[0].provenance.outil).toBe("lire_ventes");
+    expect(b.sections[4].provenance.params).toEqual({ indicateur: "ventes", du: "2026-08-13", au: "2026-09-11" });
+    expect(b.sections[4].blocs[0].type).toBe("table");
+    expect(rec.facts?.some((f) => f.startsWith("Cuisine réalise"))).toBe(true);
   });
 });

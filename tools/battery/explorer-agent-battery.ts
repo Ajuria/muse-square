@@ -7,7 +7,7 @@
 // parts de son cru et la porte rend « model » — la porte fait son travail ; la consigne ou le modèle reste à durcir).
 // Budget owner : 3 s par réponse — MESURÉ ici, jamais déduit ; au 12/09 la boucle rend en 10-22 s avec claude-opus-5
 // (l'outil lui-même : 0,6-1,3 s). Le rapport va dans data/shots/explorer-agent-battery-report.md.
-// Usage : npm run battery:agent   (ANTHROPIC_API_KEY et les identifiants BigQuery dans .env)
+// Usage : npm run battery:agent   (ANTHROPIC_API_KEY et les identifiants BigQuery dans .env) ; BATTERY_ONLY=rapport pour un cas.
 import fs from "node:fs";
 import Anthropic from "@anthropic-ai/sdk";
 import { makeBQClient } from "../../src/lib/bq";
@@ -24,8 +24,10 @@ import { modelFor } from "../../src/lib/ai/models";
 
 const LOC = process.env.BATTERY_LOCATION_ID || "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const MAX_SECONDS = Number(process.env.BATTERY_MAX_SECONDS || 30);
+// BATTERY_ONLY=<mot> : ne rejoue que les cas dont la question contient ce mot (mise au point d'un outil).
+const ONLY = String(process.env.BATTERY_ONLY || "").trim().toLowerCase();
 
-type Case = { q: string; tools: string[]; answerMatch: RegExp; vetted: boolean; maxSeconds?: number };
+type Case = { q: string; tools: string[]; answerMatch: RegExp; vetted: boolean; maxSeconds?: number; blocks?: string[] };
 const BATTERY: Case[] = [
   // § 2.3 — deux sujets dans une question : deux outils dans le même tour.
   { q: "Quelles familles souffrent de la pluie, et quelle est ma marge brute ?", tools: ["lire_familles_face_aux_jours", "lire_marge"], answerMatch: /marge brute/i, vetted: true },
@@ -35,6 +37,8 @@ const BATTERY: Case[] = [
   // Owner 12/09 — le classement des pôles ; le registre est rapporté, pas exigé (voir l'en-tête).
   { q: "Montre-moi comment mes pôles performent au m².", tools: ["lire_poles_classement"], answerMatch: /m²/, vetted: false },
   { q: "Classe mes pôles par marge brute sur le mois dernier.", tools: ["lire_poles_classement"], answerMatch: /marge brute/i, vetted: false },
+  // § 9, incrément 2 — le Rapport composé : UN outil, un bloc rapport, la Synthèse vérifiée.
+  { q: "Génère le rapport des ventes de la semaine dernière : volume, panier, mix, et les pôles les plus et les moins performants en nombre de ventes.", tools: ["composer_rapport"], answerMatch: /ventes/i, vetted: true, blocks: ["rapport"] },
 ];
 
 const bq = makeBQClient("muse-square-open-data");
@@ -71,7 +75,7 @@ async function ask(q: string) {
   if (!process.env.ANTHROPIC_API_KEY) { console.error("ANTHROPIC_API_KEY absente"); process.exit(2); }
   const rows: string[] = [];
   let hardFails = 0;
-  for (const c of BATTERY) {
+  for (const c of BATTERY.filter((c) => !ONLY || c.q.toLowerCase().includes(ONLY))) {
     let r: Awaited<ReturnType<typeof ask>> | null = null; let err = "";
     try { r = await ask(c.q); } catch (e: any) { err = String(e?.message || e); }
     const used = r ? r.calls.map((x) => x.name) : [];
@@ -80,6 +84,7 @@ async function ask(q: string) {
       ["fait", !!r && c.answerMatch.test(r.text)],
       ["durée", !!r && r.seconds <= (c.maxSeconds ?? MAX_SECONDS)],
       ["registre", !c.vetted || (!!r && r.grounding.register === "vetted")],
+      ["blocs", !c.blocks || (!!r && c.blocks.every((t) => r.blocks.some((b: any) => b.type === t)))],
     ];
     const failed = gates.filter(([, ok]) => !ok).map(([n]) => n);
     if (failed.length) hardFails++;

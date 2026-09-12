@@ -207,6 +207,9 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
   const toolFacts = tool_calls.flatMap((r) => r.facts ?? []);
   const grounding = groundAgentText(text, toolFacts);
   const blocks = assembleAnswerBlocks(tool_calls.map((r) => r.blocks ?? []), grounding);
+  // 12/09 (spec § 6.1) — la Synthèse d'un Rapport est le texte vérifié du tour, avec son registre : la route la pose,
+  // le composeur laisse la place ; le document enregistré la porte.
+  for (const b of blocks) if (b.type === "rapport" && text) b.synthese = { text, register: grounding.register };
 
   // La trace : le tour reçu (texte + noms des fichiers, jamais les octets) et le tour rendu.
   const lastIdx = pm.messages.length - 1;

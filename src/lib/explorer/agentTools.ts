@@ -37,6 +37,8 @@ import { blocksFromFamilyResult, factsToText, ABSENCE_FR, type AnswerBlock } fro
 import { composeVentesFacts, resolvePeriode, ventesToText, type PeriodeMot, type SalesReportResult } from "../rapport/ventes";
 import { composeResultatFacts, resultatToText, type Resultat } from "../kpi/resultat";
 import { composePoleClassement, poleClassementToText, POLES_ABSENCE_FR, type Indicateur, type PoleClassementData } from "../dispositifs/poleClassement";
+import { composeRapport, rapportToText, SECTIONS_VENTES } from "../rapport/composer";
+import { resolveSections, SECTIONS } from "../fr/rapport.fr";
 import { frDate, memoryToText, newSiteMemoryRow, type AuthorRole, type SiteMemoryEntry, type SiteMemoryRow } from "./siteMemory";
 
 const PROJECT = "muse-square-open-data";
@@ -381,5 +383,43 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement];
+  // ── 12/09 — composer_rapport : LE Rapport (spec § 6) — les sections demandées, lues par les outils ci-dessus en une
+  // vague, composées en un bloc `rapport` avec la provenance de chaque section ; la Synthèse est le texte du tour, posé
+  // par la route après la porte. Une section inconnue est dite, jamais inventée (registre src/lib/fr/rapport.fr.ts).
+  const composerRapport = outil({
+    name: "composer_rapport",
+    description: "Composer un Rapport : une période (comme lire_ventes) et la liste des sections demandées, en mots libres — " + SECTIONS.map((s) => `« ${s.titre} »`).join(", ") + ". Chaque section est lue par l'outil qui la porte et rendue avec sa provenance ; « indicateur » sert au classement des pôles (ca par défaut). Le texte que tu écris ensuite est la Synthèse du Rapport : quelques phrases vérifiées à partir des faits rendus, rien d'autre. Ne lis pas séparément ce que le Rapport contient déjà.",
+    inputSchema: z.object({
+      sections: z.string().min(1).describe("Les sections demandées, en mots libres, séparées par des virgules (ex. « volume, panier, mix, pôles »)."),
+      periode: z.enum(["30_derniers_jours", "semaine_derniere", "mois_dernier"]).optional().describe("Le mot de la période (défaut : 30 derniers jours). Ignoré si du/au sont donnés."),
+      du: z.string().optional().describe("Premier jour, AAAA-MM-JJ."),
+      au: z.string().optional().describe("Dernier jour, AAAA-MM-JJ (défaut : du)."),
+      indicateur: z.enum(["ca", "ventes", "marge_brute", "ca_par_metre", "ca_par_m2", "marge_par_metre"]).optional().describe("L'indicateur du classement des pôles (défaut : ca)."),
+      titre: z.string().max(120).optional().describe("Le titre du Rapport, si l'exploitant l'a donné."),
+    }),
+    run: (args) => timed("composer_rapport", args, async () => {
+      const p = resolvePeriode({ periode: (args.periode as PeriodeMot | undefined) ?? null, du: args.du ?? null, au: args.au ?? null }, deps.today());
+      if (!p) return { out: "Période invalide : donne deux dates AAAA-MM-JJ, la première avant la seconde.", summary: "période invalide" };
+      const { cles, inconnues } = resolveSections(args.sections);
+      const indicateur = (args.indicateur as Indicateur | undefined) ?? "ca";
+      const besoin = (k: string[]) => cles.some((c) => k.includes(c));
+      const [ventes, marge, resultat, espace, poles] = await Promise.all([
+        besoin(SECTIONS_VENTES) ? deps.runVentes(p.start, p.end).then(composeVentesFacts) : null,
+        besoin(["marge_brute"]) ? deps.runFamily("marge", deps.today()) : null,
+        besoin(["resultat_net", "seuil_rentabilite"]) ? deps.runResultat().then((r) => composeResultatFacts(r)) : null,
+        besoin(["espace"]) ? deps.runFamily("espace", deps.today()) : null,
+        besoin(["poles"]) ? deps.runPolesClassement(p.start, p.end).then((d) => composePoleClassement(d, indicateur, `sur ${p.libelle_fr}`)) : null,
+      ]);
+      const r = composeRapport({
+        cles, non_reconnu: inconnues,
+        periode: { du: p.start, au: p.end, relative: args.du || args.au ? null : (args.periode ?? "30_derniers_jours"), libelle_fr: p.libelle_fr },
+        indicateur, titre: args.titre ?? null, calcule_le: new Date().toISOString(),
+        lectures: { ventes, marge, resultat, espace, poles },
+      });
+      const n = r.block.sections.length;
+      return { out: rapportToText(r), summary: `${plural(n, "section composée", "sections composées")}, ${p.libelle_fr}${inconnues.length ? ` ; ${plural(inconnues.length, "demande non reconnue", "demandes non reconnues")}` : ""}`, blocks: [r.block], facts: r.facts };
+    }),
+  });
+
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport];
 }

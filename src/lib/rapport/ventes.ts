@@ -401,7 +401,11 @@ function frDateFr(iso: string): string {
 }
 const jourFr = (iso: string): string => `le ${JOURS[new Date(`${iso}T00:00:00Z`).getUTCDay()]} ${frDateFr(iso)}`;
 
-export interface VentesLecture { facts: string[]; blocks: AnswerBlock[]; found: boolean }
+/** Les faits NOMMÉS (12/09, composer_rapport les range par section) — les mêmes chaînes que `facts`, jamais d'autres. */
+export interface VentesParts { ca?: string; an_dernier?: string; volume_panier?: string; couches?: string; journees?: string; jours?: string; repartition?: string; signaux?: string }
+/** Les tableaux NOMMÉS — `couches` (les trois couches), `mix` (par famille), `jours` (profil par jour de semaine). */
+export interface VentesTables { couches?: AnswerBlock; mix?: AnswerBlock; jours?: AnswerBlock }
+export interface VentesLecture { facts: string[]; blocks: AnswerBlock[]; found: boolean; parts: VentesParts; tables: VentesTables }
 
 /**
  * Les mots sont ceux que rapport.astro rend déjà (« Points clés », « Ce qui a bougé par rapport à la période
@@ -411,20 +415,22 @@ export interface VentesLecture { facts: string[]; blocks: AnswerBlock[]; found: 
  */
 export function composeVentesFacts(res: SalesReportResult): VentesLecture {
   const b = res.body as any;
-  if (!b || b.ok !== true || b.channel_report || !b.summary) return { found: false, facts: [], blocks: [] };
+  if (!b || b.ok !== true || b.channel_report || !b.summary) return { found: false, facts: [], blocks: [], parts: {}, tables: {} };
   const s = b.summary;
   const start = String(b.period.start), end = String(b.period.end);
   const facts: string[] = [];
+  const named: VentesParts = {};
+  const tables: VentesTables = {};
 
   let f1 = `Du ${frDateFr(start)} au ${frDateFr(end)}, vous avez généré ${eur(s.revenue)} de chiffre d'affaires`;
   f1 += s.vs_prev_pct != null
     ? `, ${s.vs_prev_pct >= 0 ? 'en hausse de' : 'en baisse de'} ${pct1(Math.abs(s.vs_prev_pct))} par rapport à la période précédente` + (res.prev_revenue != null ? ` (${eur(res.prev_revenue)})` : '') + '.'
     : ' sur la période.';
-  facts.push(f1);
+  facts.push(named.ca = f1);
   if (s.yoy_available && s.vs_yoy_pct != null) {
-    facts.push(`Par rapport à la même période l'an dernier, votre chiffre d'affaires est ${s.vs_yoy_pct >= 0 ? 'en hausse de' : 'en baisse de'} ${pct1(Math.abs(s.vs_yoy_pct))}.`);
+    facts.push(named.an_dernier = `Par rapport à la même période l'an dernier, votre chiffre d'affaires est ${s.vs_yoy_pct >= 0 ? 'en hausse de' : 'en baisse de'} ${pct1(Math.abs(s.vs_yoy_pct))}.`);
   }
-  facts.push(`Vous avez réalisé ${frInt(s.transactions)} ventes, pour un panier moyen de ${eur2(s.avg_basket)} par vente.`);
+  facts.push(named.volume_panier = `Vous avez réalisé ${frInt(s.transactions)} ventes, pour un panier moyen de ${eur2(s.avg_basket)} par vente.`);
 
   const L = s.layers;
   if (L) {
@@ -436,27 +442,29 @@ export function composeVentesFacts(res: SalesReportResult): VentesLecture {
     } else if (L.mix && L.mix.length) {
       lay += ' ; le mix par famille reste stable (aucune famille ne bouge de plus d’un point de part de CA)';
     }
-    facts.push(lay + '.');
+    facts.push(named.couches = lay + '.');
   }
 
   if (b.best_day && b.worst_day) {
-    facts.push(`Votre meilleure journée a été ${jourFr(b.best_day.date)}, avec ${eur(b.best_day.revenue)} ; la plus faible, ${jourFr(b.worst_day.date)}, avec ${eur(b.worst_day.revenue)}.`);
+    facts.push(named.journees = `Votre meilleure journée a été ${jourFr(b.best_day.date)}, avec ${eur(b.best_day.revenue)} ; la plus faible, ${jourFr(b.worst_day.date)}, avec ${eur(b.worst_day.revenue)}.`);
   }
   if (Array.isArray(b.weekday) && b.weekday.length) {
     const wd = [...b.weekday].sort((a: any, c: any) => c.avg - a.avg);
-    facts.push(`Votre meilleur jour de la semaine : le ${wd[0].label} (${eur(wd[0].avg)} en moyenne) ; le plus calme, le ${wd[wd.length - 1].label} (${eur(wd[wd.length - 1].avg)} en moyenne).`);
+    facts.push(named.jours = `Votre meilleur jour de la semaine : le ${wd[0].label} (${eur(wd[0].avg)} en moyenne) ; le plus calme, le ${wd[wd.length - 1].label} (${eur(wd[wd.length - 1].avg)} en moyenne).`);
+    // Le profil, dans l'ordre de la semaine (lundi → dimanche, comme rapport.astro) — CA moyen par jour.
+    tables.jours = { type: 'table', cols: [{ label: 'Jour' }, { label: 'CA moyen par jour' }], rows: (b.weekday as Array<{ label: string; avg: number }>).map((w) => ({ cells: [{ v: w.label, bold: true }, { v: eur(w.avg) }] })) };
   }
   const mix: Array<{ label: string; revenue: number }> = Array.isArray(b.category_mix) ? b.category_mix : [];
   const mixTot = mix.reduce((a, m) => a + (Number(m.revenue) || 0), 0);
   if (mix.length && mixTot > 0) {
-    facts.push('Répartition par famille : ' + mix.map((m) => `${m.label} ${eur(m.revenue)} (${pct1((Number(m.revenue) || 0) / mixTot * 100)} de votre CA)`).join(', ') + '.');
+    facts.push(named.repartition = 'Répartition par famille : ' + mix.map((m) => `${m.label} ${eur(m.revenue)} (${pct1((Number(m.revenue) || 0) / mixTot * 100)} de votre CA)`).join(', ') + '.');
   }
   const sig = b.signals || {};
   if ((Number(sig.surge_days) || 0) + (Number(sig.down_days) || 0) > 0) {
     const parts: string[] = [];
     if (sig.surge_days > 0) parts.push(`${sig.surge_days} journée${sig.surge_days > 1 ? 's' : ''} nettement au-dessus de votre résultat habituel`);
     if (sig.down_days > 0) parts.push(`${sig.down_days} en dessous`);
-    facts.push(parts.join(', ') + '.');
+    facts.push(named.signaux = parts.join(', ') + '.');
   }
 
   // Bloc TABLE du kit (msTable : cols + rows[].cells) — les trois couches, chacune dans son unité.
@@ -467,16 +475,18 @@ export function composeVentesFacts(res: SalesReportResult): VentesLecture {
     { cells: [cell('Volume de ventes', true), cell(frInt(s.transactions)), cell(L ? frInt(L.prev_transactions) : '—'), cell(L ? `${sgn(L.volume_pct, true)} %` : '—')] },
     { cells: [cell('Panier moyen', true), cell(eur2(s.avg_basket)), cell(L ? eur2(L.prev_avg_basket) : '—'), cell(L && L.basket_pct != null ? `${sgn(L.basket_pct, true)} %` : '—')] },
   ];
-  const blocks: AnswerBlock[] = [{ type: 'table', cols, rows }];
+  tables.couches = { type: 'table', cols, rows };
+  const blocks: AnswerBlock[] = [tables.couches];
   if (mix.length && mixTot > 0) {
-    blocks.push({
+    tables.mix = {
       type: 'table',
       cols: [{ label: 'Mix produits & services' }, { label: 'CA' }, { label: 'Part de votre CA' }],
       rows: mix.map((m) => ({ cells: [cell(m.label, true), cell(eur(m.revenue)), cell(pct1((Number(m.revenue) || 0) / mixTot * 100))] })),
-    });
+    };
+    blocks.push(tables.mix);
   }
   blocks.push({ type: 'sources', items: ['Vos ventes par jour et par famille (caisse), la période précédente de même longueur et la même période l’an dernier'] });
-  return { found: true, facts, blocks };
+  return { found: true, facts, blocks, parts: named, tables };
 }
 
 /** Le texte rendu AU MODÈLE : un fait par ligne, ou l'absence. */
