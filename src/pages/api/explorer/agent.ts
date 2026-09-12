@@ -30,6 +30,7 @@ import { newAgentTurnRow, writeAgentTurns } from "../../../lib/explorer/agentTur
 import { OUTILS_FR, SYSTEME_FR } from "../../../lib/explorer/agentSystem.fr";
 import { FAMILIES } from "../../../lib/insightFamilies";
 import { assembleAnswerBlocks, groundAgentText } from "../../../lib/explorer/blocks";
+import { computeSalesReport } from "../../../lib/rapport/ventes";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -133,6 +134,7 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
   let user_id: string;
   let role: AuthorRole;
   let internalLocals: any;
+  let ownedIds: string[] = [location_id];
   if (DEV_BYPASS && !l?.clerk_user_id) {
     user_id = String(body.dev_user_id || "dev-bypass").slice(0, 80);
     role = "owner";
@@ -143,6 +145,7 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
     requireLocationAccess(locals, location_id);
     const owned: string[] = Array.isArray(l?.all_location_ids) ? l.all_location_ids.map(String) : [];
     role = owned.includes(location_id) ? "owner" : "member";
+    ownedIds = owned;
     internalLocals = locals;
   }
   if (!rateLimit(user_id, "explorer-agent", 10, 60_000)) return rateLimitResponse();
@@ -166,6 +169,8 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
     writeMemory: (row) => writeSiteMemory(bq, row),
     // 12/09 — les lecteurs chiffrés : LE registre FAMILIES, jamais une copie (docs/explorer-outil-spec.md § 4).
     runFamily: (key, date) => FAMILIES[key].run(bq, location_id, date),
+    // 12/09 — lire_ventes : LE cœur du rapport de ventes (même lecture que /api/insight/sales-report).
+    runVentes: (start, end) => computeSalesReport(bq, { location_id, owned: ownedIds, start, end }),
     today: () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
     record: (r) => { tool_calls.push(r); onTool?.({ ...r, label_fr: OUTILS_FR[r.name] ?? r.name }); },
   });

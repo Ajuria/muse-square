@@ -58,6 +58,10 @@ const CLIQUET: Record<string, number> = {
   "src/lib/insightFamilies/weather.ts": 2,
   "src/lib/kpi/kpiRegistry.ts": 1,
   "src/lib/profile/proposedFollows.ts": 2,
+  // 12/09 (Explorer, un outil — incrément 1) : le cœur de insight/sales-report.ts (7 lectures mart) est
+  // DÉPLACÉ dans lib/rapport/ventes.ts, partagé par la route et l'outil lire_ventes de l'agent. Aucune
+  // lecture nouvelle : la route tombe à 0, la lib porte les 7 (mêmes requêtes, sortie identique à l'octet).
+  "src/lib/rapport/ventes.ts": 7,
   "src/lib/commitments/trackRecordCore.ts": 1,
   "src/pages/api/analytics/admin-dashboard.ts": 1,
   "src/pages/api/analytics/party-role.ts": 1,
@@ -88,7 +92,6 @@ const CLIQUET: Record<string, number> = {
   // bornée en haut + graine à dates futures ; « dbt gelé » écrit alors — faux depuis le 04/09, vue à demander).
   "src/pages/api/insight/prompt.ts": 1,
   "src/pages/api/insight/reactions-today.ts": 3,
-  "src/pages/api/insight/sales-report.ts": 7,
   "src/pages/api/insight/weather-window.ts": 2,
   "src/pages/profile.astro": 3,
 };

@@ -32,6 +32,12 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
       : key === "signaux"
         ? { found: true, data: { found: true, date: "2026-09-12", lead: "CA/jour Tea sur vos jours de pluie marquée : −52 €", lines: [{ family: "Tea", class_key: "rain" }, { family: "Coffee", class_key: "school_holiday" }] }, facts: [{ fact_fr: "CA/jour Tea sur vos jours de pluie marquée : −52 € vs vos jours comparables, sur 20 jours.", claim_type: "observed_difference" }, { fact_fr: "CA/jour Coffee sur vos jours de vacances scolaires : −64 € vs vos jours comparables, sur 36 jours.", claim_type: "observed_difference" }], sources: ["Vos ventes par famille face aux classes de jours"] }
         : { found: false, data: { found: false, date: "2026-09-12" }, facts: [], sources: [] },
+    // 12/09 : lire_ventes — le rapport de ventes tel que computeSalesReport le rend (champs lus par composeVentesFacts).
+    runVentes: async (start, end) => start > "2026-09-01"
+      ? { body: { ok: false, error: "NO_DATA" }, prev_revenue: null }
+      : { prev_revenue: 33_400, body: { ok: true, period: { start, end },
+          summary: { revenue: 34_512, transactions: 2_410, avg_basket: 14.32, vs_prev_pct: 3.3, vs_yoy_pct: null, yoy_available: false, layers: null },
+          best_day: { date: "2026-09-05", revenue: 1_620 }, worst_day: { date: "2026-09-08", revenue: 410 }, weekday: [], category_mix: [], signals: {} } },
     today: () => "2026-09-12",
     record: (r) => records.push(r),
     ...over,
@@ -43,7 +49,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -69,6 +75,9 @@ describe("agentTools — cinq outils, chacun enregistré avec un résumé en fra
     expect(out).toContain("du 12/08/2026 au 10/09/2026");
     expect(out).toMatch(/Épices — 12\s?000 € sur 26 jours, soit 462 € par jour/);
     expect(d.records[0].summary).toBe("1 famille sur 30 jours mesurés (du 12/08/2026 au 10/09/2026)");
+    // 12/09 : les lignes rendues sont des faits pour la porte — « sur 26 jours » du modèle n'est pas un nombre non fondé.
+    expect(d.records[0].facts?.length).toBeGreaterThan(0);
+    expect(d.records[0].facts?.some((f) => /Épices — 12\s?000 € sur 26 jours/.test(f))).toBe(true);
   });
 
   it("lire_photos rend le texte de la photo, l'image en bloc, et compte les composants sans photo", async () => {
@@ -188,5 +197,21 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     expect((d.records[0].blocks?.[0] as any).data.lines.length).toBe(1);
     const none = await tool.run({ famille: "Bougies" });
     expect(none).toContain("Aucune réponse famille × jours mesurable");
+  });
+  it("lire_ventes lit la période demandée (30 derniers jours par défaut), rend les faits, deux blocs table + sources, et l'absence sur une période sans vente", async () => {
+    const d = deps();
+    const tool = byName(buildAgentTools(d), "lire_ventes");
+    const out = await tool.run({});
+    expect(out).toContain("Période lue : vos 30 derniers jours, du 13/08/2026 au 11/09/2026.");
+    expect(out.replace(/[\u202f\u00a0]/g, " ")).toContain("• Du 13/08/2026 au 11/09/2026, vous avez généré 34 512 € de chiffre d'affaires, en hausse de 3,3 % par rapport à la période précédente (33 400 €).");
+    expect(d.records[0]).toMatchObject({ name: "lire_ventes", ok: true, summary: "3 faits lus, vos 30 derniers jours, du 13/08/2026 au 11/09/2026" });
+    expect(d.records[0].blocks?.map((b) => b.type)).toEqual(["table", "sources"]);
+    expect(d.records[0].facts?.length).toBe(4); // la période lue + 3 faits : le « 30 » du modèle est fondé
+    expect(d.records[0].facts?.[0]).toBe("Période lue : vos 30 derniers jours, du 13/08/2026 au 11/09/2026.");
+    const none = await tool.run({ du: "2026-09-02", au: "2026-09-04" });
+    expect(none).toBe("Aucune vente du 02/09/2026 au 04/09/2026.");
+    expect(d.records[1].blocks).toEqual([{ type: "absence", manque: "Aucune vente du 02/09/2026 au 04/09/2026.", geste: null }]);
+    const bad = await tool.run({ du: "2026-09-04", au: "2026-09-02" });
+    expect(bad).toContain("Période invalide");
   });
 });

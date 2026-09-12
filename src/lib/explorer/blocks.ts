@@ -13,7 +13,8 @@ export type AnswerBlock =
   | { type: "register"; register: Register; facts_cited?: number }
   | { type: "prose"; md: string }
   | { type: "facts"; items: string[] }
-  | { type: "table"; cols: Array<{ label: string; align?: "left" | "right" }>; rows: Array<Array<{ v: string; bold?: boolean; color?: string }>> }
+  // Le format de msTable (card-kit.js) : rows[].cells[] — jamais un second rendu de table.
+  | { type: "table"; cols: Array<{ label: string; align?: "left" | "right" }>; rows: Array<{ cells: Array<{ v: string; bold?: boolean; color?: string; sub?: string; tip?: string }> }> }
   | { type: "card"; render: string; data: Record<string, unknown> }
   | { type: "sources"; items: string[] }
   // 12/09 — l'absence est un résultat : ce qui manque, et le geste qui le débloque (le mot de Piloter).

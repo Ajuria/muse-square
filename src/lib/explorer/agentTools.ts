@@ -34,6 +34,7 @@ function outil<S extends z.ZodObject<any>>(o: {
 import type { PoleListRow } from "../dispositifs/poleReading";
 import type { FamilyResult } from "../insightFamilies/types";
 import { blocksFromFamilyResult, factsToText, ABSENCE_FR, type AnswerBlock } from "./blocks";
+import { composeVentesFacts, resolvePeriode, ventesToText, type PeriodeMot, type SalesReportResult } from "../rapport/ventes";
 import { frDate, memoryToText, newSiteMemoryRow, type AuthorRole, type SiteMemoryEntry, type SiteMemoryRow } from "./siteMemory";
 
 const PROJECT = "muse-square-open-data";
@@ -75,6 +76,8 @@ export interface AgentToolDeps {
   // 12/09 : LES lecteurs par famille d'Explorer (registre FAMILIES, src/lib/insightFamilies) — un outil est un
   // adaptateur d'une ligne autour du provider, jamais une copie. `date` = le jour de référence (AAAA-MM-JJ).
   runFamily: (key: "marge" | "espace" | "signaux", date: string) => Promise<FamilyResult>;
+  // 12/09 : LE cœur du rapport de ventes (lib/rapport/ventes.ts computeSalesReport) sur une période.
+  runVentes: (start: string, end: string) => Promise<SalesReportResult>;
   today: () => string;   // AAAA-MM-JJ, Europe/Paris — injecté pour être testable
   record: (r: ToolCallRecord) => void;
 }
@@ -168,7 +171,10 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     run: () => timed("lire_poles", {}, async () => {
       const poles = await deps.listPoles();
       const nComp = poles.reduce((n, p) => n + p.components.length, 0);
-      return { out: polesToText(poles), summary: poles.length ? `${plural(poles.length, "pôle", "pôles")}, ${plural(nComp, "composant", "composants")}` : "aucun pôle déclaré" };
+      const out = polesToText(poles);
+      // 12/09 : le texte rendu au modèle EST le fait — sans lui, la porte compterait comme non fondé un nombre
+      // que l'outil a bel et bien rendu (mesuré : « Branded sur 19 jours » de lire_familles → registre « model »).
+      return { out, summary: poles.length ? `${plural(poles.length, "pôle", "pôles")}, ${plural(nComp, "composant", "composants")}` : "aucun pôle déclaré", facts: poles.length ? out.split("\n") : [] };
     }),
   });
 
@@ -181,7 +187,8 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
       const summary = fams.length
         ? `${plural(fams.length, "famille", "familles")} sur 30 jours mesurés (du ${frDate(fams.reduce((a, f) => (a && a < f.first_day ? a : f.first_day), ""))} au ${frDate(fams.reduce((a, f) => (a > f.last_day ? a : f.last_day), ""))})`
         : "aucune vente lue";
-      return { out: familiesToText(fams), summary };
+      const out = familiesToText(fams);
+      return { out, summary, facts: fams.length ? out.split("\n") : [] };
     }),
   });
 
@@ -299,5 +306,33 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
       return { ...r, data: { ...r.data, lines, lead: facts[0]?.fact_fr ?? r.data.lead }, facts };
     });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours];
+  // ── 12/09 — lire_ventes : LE cœur du rapport de ventes (lib/rapport/ventes.ts), sur la période demandée ──
+  // Au modèle les faits (les phrases que rapport.astro et le chat rendent déjà), à l'exploitant deux tableaux du
+  // kit (les trois couches ; le mix par famille), au validateur les mêmes faits.
+  const lireVentes = outil({
+    name: "lire_ventes",
+    description: "Vos ventes sur une période : chiffre d'affaires, nombre de ventes, panier moyen, ce qui a bougé par rapport à la période précédente (ventes, panier, mix par famille), meilleure et plus faible journée, profil par jour de semaine (à partir de 4 semaines), répartition par famille. Période : « 30_derniers_jours » (défaut, les 30 jours qui finissent hier), « semaine_derniere » (du lundi au dimanche précédents), « mois_dernier » (le mois civil précédent), ou deux dates du/au au format AAAA-MM-JJ.",
+    inputSchema: z.object({
+      periode: z.enum(["30_derniers_jours", "semaine_derniere", "mois_dernier"]).optional().describe("Le mot de la période. Ignoré si du/au sont donnés."),
+      du: z.string().optional().describe("Premier jour, AAAA-MM-JJ."),
+      au: z.string().optional().describe("Dernier jour, AAAA-MM-JJ (défaut : du)."),
+    }),
+    run: (args) => timed("lire_ventes", args, async () => {
+      const p = resolvePeriode({ periode: (args.periode as PeriodeMot | undefined) ?? null, du: args.du ?? null, au: args.au ?? null }, deps.today());
+      if (!p) return { out: "Période invalide : donne deux dates AAAA-MM-JJ, la première avant la seconde.", summary: "période invalide" };
+      const res = await deps.runVentes(p.start, p.end);
+      const l = composeVentesFacts(res);
+      const blocks: AnswerBlock[] = l.found ? l.blocks : [{ type: "absence", manque: `Aucune vente ${p.libelle_fr}.`, geste: null }];
+      // La période lue est un fait de l'outil (« vos 30 derniers jours ») : sans elle, le « 30 » du modèle
+      // serait un nombre non fondé pour la porte (mesuré sur le compte de test, 12/09).
+      const periode = `Période lue : ${p.libelle_fr}.`;
+      return {
+        out: l.found ? `${periode}\n` + ventesToText(l) : `Aucune vente ${p.libelle_fr}.`,
+        summary: l.found ? `${plural(l.facts.length, "fait", "faits")} lus, ${p.libelle_fr}` : `aucune vente ${p.libelle_fr}`,
+        blocks, facts: l.found ? [periode, ...l.facts] : [],
+      };
+    }),
+  });
+
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes];
 }
