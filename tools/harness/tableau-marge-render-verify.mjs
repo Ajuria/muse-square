@@ -51,15 +51,21 @@ async function render(p) {
     check("mode " + mode + " : bloc « marge brute · 30 derniers jours » avec le chiffre réel", hasEur(t, frIntFr(mm.gross_margin_ht_30d)) && t.indexOf("marge brute · 30 derniers jours · calculée sur " + Math.round(mm.coverage_pct) + " % de votre CA") >= 0, t.slice(t.indexOf("marge brute"), t.indexOf("marge brute") + 90));
     check("mode " + mode + " : le geste prix d'achat passe en « modifiable à tout moment » (fait, jamais retiré)", t.indexOf("Importer vos prix d'achat — modifiable à tout moment") >= 0 && t.indexOf("débloque la marge brute") < 0);
   }
-  check("geste charges rendu", t.indexOf("Déclarer vos charges fixes et votre masse salariale") >= 0 && t.indexOf("résultat net et le point mort") >= 0);
+  const chargesKnown = mm.params && mm.params.fixed_costs_month_eur != null && mm.params.payroll_month_eur != null;
+  if (chargesKnown) {
+    check("charges déclarées : blocs « résultat net · <mois> » et « point mort du jour » rendus avec les chiffres réels",
+      (mm.resultat_net && hasEur(t, frIntFr(mm.resultat_net.net_result_eur)) && t.indexOf("résultat net ·") >= 0) && (!mm.point_mort || t.indexOf("point mort du jour") >= 0),
+      t.slice(t.indexOf("résultat net"), t.indexOf("résultat net") + 60));
+    check("charges déclarées : plus de geste charges", t.indexOf("Déclarer vos charges fixes et votre masse salariale") < 0);
+  } else check("geste charges rendu", t.indexOf("Déclarer vos charges fixes et votre masse salariale") >= 0 && t.indexOf("résultat net et le point mort") >= 0);
   check("geste surface rendu", t.indexOf("Déclarer votre surface de vente") >= 0 && t.indexOf("marge par m²") >= 0);
   const baseKnown = mm.params && mm.params.revenue_basis;
   check(baseKnown ? "base du CA connue (" + mm.params.revenue_basis + ") : geste base absent" : "geste base rendu", baseKnown ? t.indexOf("exporte le CA en HT ou en TTC") < 0 : t.indexOf("exporte le CA en HT ou en TTC") >= 0);
-  check("aucun bloc résultat net / point mort sans paramètres", (mm.params && mm.params.fixed_costs_month_eur != null) || (t.indexOf("résultat net ·") < 0 && t.indexOf("point mort du jour") < 0));
+  if (!chargesKnown) check("aucun bloc résultat net / point mort sans paramètres", t.indexOf("résultat net ·") < 0 && t.indexOf("point mort du jour") < 0);
   check("le geste marge déclarée existant est toujours là (ADD, don't REPLACE)", t.indexOf("Déclarer votre marge") >= 0);
   // 3. Panneaux inline.
   const btnC = [...body.querySelectorAll("[data-tb-param]")].find((b) => b.getAttribute("data-tb-param") === "charges");
-  btnC.click(); await tick();
+  if (btnC) { btnC.click(); await tick(); }
   const panC = body.querySelector('[data-tb-param-panel="charges"]');
   check("panneau charges : 2 montants + date d'effet", panC && panC.querySelectorAll("input").length === 3 && panC.textContent.indexOf("Charges fixes") >= 0 && panC.textContent.indexOf("Masse salariale") >= 0 && panC.textContent.indexOf("à partir du") >= 0);
   const btnB = [...body.querySelectorAll("[data-tb-param]")].find((b) => b.getAttribute("data-tb-param") === "base");
