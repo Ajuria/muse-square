@@ -37,6 +37,7 @@
   <div><label for="api">Serveur</label><input id="api" value="http://localhost:4321"></div>
   <div><label for="loc">Site (location_id)</label><input id="loc" placeholder="location_id du site"></div>
 </div>
+<div id="rapports" class="note" style="margin:0 0 12px;"></div>
 <div id="thread"></div>
 <p class="note">Prototype. Chaque tour envoie l'historique complet à POST /api/explorer/agent ; les fichiers ne sont joints qu'au tour en cours. Ce que l'agent lit et enregistre s'affiche sous sa réponse, avec le libellé rendu par le serveur.</p>
 </div>
@@ -92,6 +93,33 @@
     });
   }
 
+  // 12/09 (spec § 6.1) : les Rapports enregistrés du site — la liste (GET), un clic rend le document par le kit.
+  async function loadRapports() {
+    var loc = $("loc").value.trim(); var box = $("rapports"); if (!loc) { box.textContent = ""; return; }
+    try {
+      var r = await fetch($("api").value.replace(/\/$/, "") + "/api/explorer/rapports?location_id=" + encodeURIComponent(loc));
+      var j = await r.json(); if (!r.ok || !j.ok) { box.textContent = ""; return; }
+      box.textContent = "";
+      if (!j.documents.length) { box.textContent = "Aucun Rapport enregistré sur ce site."; return; }
+      box.appendChild(el("div", null, "Vos rapports"));
+      j.documents.forEach(function (d) {
+        var a = el("a", null, d.titre + " · version " + d.version + " · " + String(d.created_at).slice(0, 10).split("-").reverse().join("/"));
+        a.href = "#"; a.style.cssText = "display:block;color:#1D3BB3;text-decoration:none;margin:2px 0;";
+        a.addEventListener("click", async function (ev) {
+          ev.preventDefault();
+          var rr = await fetch($("api").value.replace(/\/$/, "") + "/api/explorer/rapports?location_id=" + encodeURIComponent(loc) + "&document_id=" + encodeURIComponent(d.document_id));
+          var jj = await rr.json(); if (!rr.ok || !jj.ok) { addErr(jj && jj.error || ("HTTP " + rr.status)); return; }
+          var m = addMsg("assistant", ""); var bl = el("div", "blocks"); bl.style.cssText = "margin-top:10px;";
+          var reg = jj.document.rapport.synthese ? jj.document.rapport.synthese.register : "model";
+          bl.innerHTML = window.MSCardKit.renderAnswerBlocks([{ type: "register", register: reg }, jj.document.rapport]); m.appendChild(bl);
+        });
+        box.appendChild(a);
+      });
+    } catch (e) { box.textContent = ""; }
+  }
+  $("loc").addEventListener("change", loadRapports);
+  if ($("loc").value) loadRapports();
+
   async function send() {
     var q = $("q").value.trim(); var loc = $("loc").value.trim();
     if (!q) return;
@@ -136,6 +164,23 @@
       // rendus par renderAnswerBlocks, le même rendu que le rapport de famille et le chat.
       if (Array.isArray(result.body.blocks) && result.body.blocks.length && window.MSCardKit && window.MSCardKit.renderAnswerBlocks) {
         var bl = el("div", "blocks"); bl.style.cssText = "margin-top:10px;"; bl.innerHTML = window.MSCardKit.renderAnswerBlocks(result.body.blocks); msgEl.appendChild(bl);
+        // 12/09 (spec § 6.1) : « Enregistrer » garde le Rapport — une version dans analytics.report_documents, par le
+        // même serveur (POST /api/explorer/rapports). Le mot est celui de la spec (« Enregistrer en PDF » reste au rapport imprimable).
+        result.body.blocks.filter(function (b) { return b && b.type === "rapport"; }).forEach(function (rb) {
+          var bar = el("div", "save"); bar.style.cssText = "margin-top:8px;display:flex;gap:10px;align-items:center;";
+          var btn = el("button", null, "Enregistrer"); var st = el("span", "usage", ""); st.style.margin = "0";
+          btn.addEventListener("click", async function () {
+            btn.disabled = true; st.textContent = "…";
+            try {
+              var r = await fetch($("api").value.replace(/\/$/, "") + "/api/explorer/rapports", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ location_id: loc, rapport: rb, document_id: rb._document_id || null }) });
+              var j = await r.json();
+              if (!r.ok || !j.ok) { st.textContent = j && j.error ? j.error : "HTTP " + r.status; btn.disabled = false; return; }
+              rb._document_id = j.document_id; st.textContent = "Rapport enregistré · version " + j.version; btn.disabled = false; btn.textContent = "Enregistrer une nouvelle version";
+              loadRapports();
+            } catch (e) { st.textContent = String(e && e.message || e); btn.disabled = false; }
+          });
+          bar.appendChild(btn); bar.appendChild(st); msgEl.appendChild(bar);
+        });
       }
       var u = result.body.usage || {};
       var usage = el("div", "usage", "tokens : " + u.input_tokens + " en entrée (" + (u.cache_read_input_tokens || 0) + " en cache), " + u.output_tokens + " en sortie · " + (result.body.model || ""));
