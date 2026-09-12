@@ -54,7 +54,8 @@ export function composeEspaceFamily(
   for (const r of rows.slice(0, 7)) {
     let f = `${r.name} : ${m1(r.linear_m as number)} m de linéaire` + (r.linear_share != null ? ` (Part de linéaire ${pct1(r.linear_share)})` : "");
     if (r.revenue_per_m != null) {
-      f += ` · ${frInt(r.revenue_per_m)} € de CA par mètre sur 30 jours` + (r.revenue_net_ht_per_m != null ? ` (${frInt(r.revenue_net_ht_per_m)} € net HT)` : "") + (r.revenue_share != null ? ` · ${pct1(r.revenue_share)} du CA` : "");
+      f += ` · ${frInt(r.revenue_per_m)} € de CA par mètre sur 30 jours` + (r.revenue_net_ht_per_m != null ? ` (${frInt(r.revenue_net_ht_per_m)} € net HT)` : "")
+        + (r.margin_per_m != null ? ` · ${frInt(r.margin_per_m)} € de marge brute par mètre` : "") + (r.revenue_share != null ? ` · ${pct1(r.revenue_share)} du CA` : "");
       if (r.margin_share != null && r.linear_share != null) f += ` · part de marge ${pct1(r.margin_share)} contre Part de linéaire ${pct1(r.linear_share)}`;
     } else {
       f += " · aucune vente rapportée à ce pôle sur 30 jours";

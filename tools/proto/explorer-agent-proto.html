@@ -47,6 +47,7 @@
     <button id="send" aria-label="Envoyer">Envoyer</button>
   </div>
 </div>
+<script src="/public/js/card-kit.js"></script>
 <script>
 (function () {
   var history = [];            // [{role, content}] — renvoyé en entier à chaque tour
@@ -128,7 +129,12 @@
       }
       threadId = result.body.thread_id;
       history.push({ role: "assistant", content: result.body.assistant.text });
-      addMsg("assistant", result.body.assistant.text || "(aucun texte)");
+      var msgEl = addMsg("assistant", result.body.assistant.text || "(aucun texte)");
+      // 12/09 (docs/explorer-outil-spec.md § 5) : les BLOCS de la réponse — pastille de registre puis cartes du kit,
+      // rendus par renderAnswerBlocks, le même rendu que le rapport de famille et le chat.
+      if (Array.isArray(result.body.blocks) && result.body.blocks.length && window.MSCardKit && window.MSCardKit.renderAnswerBlocks) {
+        var bl = el("div", "blocks"); bl.style.cssText = "margin-top:10px;"; bl.innerHTML = window.MSCardKit.renderAnswerBlocks(result.body.blocks); msgEl.appendChild(bl);
+      }
       var u = result.body.usage || {};
       var usage = el("div", "usage", "tokens : " + u.input_tokens + " en entrée (" + (u.cache_read_input_tokens || 0) + " en cache), " + u.output_tokens + " en sortie · " + (result.body.model || ""));
       $("thread").appendChild(usage);

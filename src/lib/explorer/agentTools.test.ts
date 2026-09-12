@@ -26,6 +26,13 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
     readPhotoBytes: async () => ({ media_type: "image/jpeg", base64: "AAAA", bytes: 4 }),
     readMemory: async () => [],
     writeMemory: async (row) => { written.push(row); },
+    // 12/09 : les lecteurs chiffrés — un résultat de provider simulé par famille (found / absence).
+    runFamily: async (key) => key === "marge"
+      ? { found: true, data: { found: true, lead: "Marge brute : 19 845 € sur vos 30 derniers jours", gross_margin_ht: 19845, coverage_pct: 92 }, facts: [{ fact_fr: "Sur vos 30 derniers jours, votre marge brute est de 19 845 €, soit un taux de marge brute de 40 %.", claim_type: "observed" }], sources: ["Votre caisse et vos prix d'achat"] }
+      : key === "signaux"
+        ? { found: true, data: { found: true, date: "2026-09-12", lead: "CA/jour Tea sur vos jours de pluie marquée : −52 €", lines: [{ family: "Tea", class_key: "rain" }, { family: "Coffee", class_key: "school_holiday" }] }, facts: [{ fact_fr: "CA/jour Tea sur vos jours de pluie marquée : −52 € vs vos jours comparables, sur 20 jours.", claim_type: "observed_difference" }, { fact_fr: "CA/jour Coffee sur vos jours de vacances scolaires : −64 € vs vos jours comparables, sur 36 jours.", claim_type: "observed_difference" }], sources: ["Vos ventes par famille face aux classes de jours"] }
+        : { found: false, data: { found: false, date: "2026-09-12" }, facts: [], sources: [] },
+    today: () => "2026-09-12",
     record: (r) => records.push(r),
     ...over,
   };
@@ -34,9 +41,9 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
 const byName = (tools: any[], name: string) => tools.find((t) => t.name === name);
 
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
-  it("expose exactement lire_poles, lire_familles, lire_photos, lire_memoire, ecrire_memoire — et chacun a son libellé", () => {
+  it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -152,5 +159,34 @@ describe("agentTools — les chaînes visibles passent les gardes du français",
       const re = new RegExp(`(^|[^\\p{L}])${mot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^\\p{L}]|$)`, "iu");
       expect(re.test(s), `${s} — « ${mot} » : ${MOTS_BANNIS[mot]}`).toBe(false);
     }
+  });
+});
+
+describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, blocs à l'exploitant, absence dite", () => {
+  it("lire_marge rend les faits du provider, un bloc card + sources, et les mêmes faits pour la porte", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "lire_marge").run({});
+    expect(out).toBe("• Sur vos 30 derniers jours, votre marge brute est de 19 845 €, soit un taux de marge brute de 40 %.");
+    const rec = d.records[0];
+    expect(rec).toMatchObject({ name: "lire_marge", ok: true, summary: "1 fait lus" });
+    expect(rec.blocks?.map((b) => b.type)).toEqual(["card", "sources"]);
+    expect((rec.blocks?.[0] as any).render).toBe("renderMarge");
+    expect(rec.facts).toEqual(["Sur vos 30 derniers jours, votre marge brute est de 19 845 €, soit un taux de marge brute de 40 %."]);
+  });
+  it("lire_espace sans pôle mesuré : l'absence est un résultat (bloc absence, aucun fait)", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "lire_espace").run({});
+    expect(out).toContain("Aucune mesure d’espace pour l’instant");
+    expect(d.records[0].blocks).toEqual([{ type: "absence", manque: "Aucune mesure d’espace pour l’instant — les mètres se saisissent sur le formulaire de pôle.", geste: { label_fr: "Vos pôles", url: "/profile?tab=poles" } }]);
+    expect(d.records[0].facts).toEqual([]);
+  });
+  it("lire_familles_face_aux_jours filtre par famille (accents ignorés) et dit l'absence quand la famille n'y est pas", async () => {
+    const d = deps();
+    const tool = byName(buildAgentTools(d), "lire_familles_face_aux_jours");
+    const out = await tool.run({ famille: "tea" });
+    expect(out).toContain("Tea"); expect(out).not.toContain("Coffee");
+    expect((d.records[0].blocks?.[0] as any).data.lines.length).toBe(1);
+    const none = await tool.run({ famille: "Bougies" });
+    expect(none).toContain("Aucune réponse famille × jours mesurable");
   });
 });

@@ -32,6 +32,8 @@ function outil<S extends z.ZodObject<any>>(o: {
   return betaZodTool({ name: o.name, description: o.description, inputSchema: o.inputSchema as unknown as ZodV3Type, run: o.run as any });
 }
 import type { PoleListRow } from "../dispositifs/poleReading";
+import type { FamilyResult } from "../insightFamilies/types";
+import { blocksFromFamilyResult, factsToText, ABSENCE_FR, type AnswerBlock } from "./blocks";
 import { frDate, memoryToText, newSiteMemoryRow, type AuthorRole, type SiteMemoryEntry, type SiteMemoryRow } from "./siteMemory";
 
 const PROJECT = "muse-square-open-data";
@@ -43,6 +45,10 @@ export interface ToolCallRecord {
   ok: boolean;
   summary: string;   // français, affiché par le proto
   ms: number;
+  // 12/09 (docs/explorer-outil-spec.md § 4-5) : ce que l'outil rend à l'EXPLOITANT (blocs du kit) et au
+  // VALIDATEUR (faits) — la boucle assemble les blocs, et vérifie le texte du modèle contre les faits.
+  blocks?: AnswerBlock[];
+  facts?: string[];
 }
 
 export interface FamilyRow { category: string; revenue_30d: number; n_days: number; avg_day_eur: number; first_day: string; last_day: string }
@@ -66,6 +72,10 @@ export interface AgentToolDeps {
   readPhotoBytes: (dispositif_id: string, photo_id: string) => Promise<PhotoBytes | null>;
   readMemory: (subject?: string) => Promise<SiteMemoryEntry[]>;
   writeMemory: (row: SiteMemoryRow) => Promise<void>;
+  // 12/09 : LES lecteurs par famille d'Explorer (registre FAMILIES, src/lib/insightFamilies) — un outil est un
+  // adaptateur d'une ligne autour du provider, jamais une copie. `date` = le jour de référence (AAAA-MM-JJ).
+  runFamily: (key: "marge" | "espace" | "signaux", date: string) => Promise<FamilyResult>;
+  today: () => string;   // AAAA-MM-JJ, Europe/Paris — injecté pour être testable
   record: (r: ToolCallRecord) => void;
 }
 
@@ -139,11 +149,11 @@ function photoToText(poleName: string, p: PhotoInfo): string {
 
 // ── Les outils ─────────────────────────────────────────────────────────────────────────────────────
 export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
-  const timed = async <T>(name: string, input: unknown, fn: () => Promise<{ out: T; summary: string }>): Promise<T> => {
+  const timed = async <T>(name: string, input: unknown, fn: () => Promise<{ out: T; summary: string; blocks?: AnswerBlock[]; facts?: string[] }>): Promise<T> => {
     const t0 = Date.now();
     try {
-      const { out, summary } = await fn();
-      deps.record({ name, input, ok: true, summary, ms: Date.now() - t0 });
+      const { out, summary, blocks, facts } = await fn();
+      deps.record({ name, input, ok: true, summary, ms: Date.now() - t0, ...(blocks ? { blocks } : {}), ...(facts ? { facts } : {}) });
       return out;
     } catch (e: any) {
       deps.record({ name, input, ok: false, summary: `échec : ${String(e?.message || e)}`, ms: Date.now() - t0 });
@@ -253,5 +263,41 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire];
+  // ── 12/09 — les lecteurs chiffrés, adaptateurs des providers FAMILIES (docs/explorer-outil-spec.md § 4) ──
+  // Chaque outil rend au modèle les FAITS du provider (une ligne par fait), à l'exploitant la carte du kit
+  // (bloc `card`, même rendu que le rapport de famille) ou l'absence, et au validateur les mêmes faits.
+  const familyTool = (name: string, key: "marge" | "espace" | "signaux", render: string, description: string, schema: z.ZodObject<any>, filter?: (r: FamilyResult, args: any) => FamilyResult) =>
+    outil({
+      name, description, inputSchema: schema,
+      run: (args) => timed(name, args, async () => {
+        const raw = await deps.runFamily(key, deps.today());
+        const r = filter ? filter(raw, args) : raw;
+        const facts = r.found ? r.facts.map((f) => f.fact_fr) : [];
+        const blocks = blocksFromFamilyResult(key, render, r);
+        const absence = ABSENCE_FR[key]?.manque ?? "Aucune donnée pour l’instant.";
+        return { out: factsToText(r, absence), summary: r.found ? `${plural(facts.length, "fait", "faits")} lus` : "rien à lire — absence dite", blocks, facts };
+      }),
+    });
+
+  const lireMarge = familyTool("lire_marge", "marge", "renderMarge",
+    "La marge brute MESURÉE du site sur les 30 derniers jours : montant, taux de marge brute, part du CA couverte par les prix d'achat, marge par famille, lignes vendues sous leur prix d'achat. Ne rend rien si les prix d'achat couvrent moins de la moitié du CA : l'absence se dit.",
+    z.object({}));
+
+  const lireEspace = familyTool("lire_espace", "espace", "renderEspace",
+    "L'espace du site : mètres linéaires de façade et surface de vente par pôle, Part de linéaire, CA, CA net HT et marge brute par mètre et par m² sur 30 jours, part de marge contre Part de linéaire. Ne rend rien sans pôle mesuré.",
+    z.object({}));
+
+  const lireFamillesFaceAuxJours = familyTool("lire_familles_face_aux_jours", "signaux", "renderSignauxFamille",
+    "Ce que chaque classe de jours (pluie, chaleur, vacances scolaires, jours fériés, forte activité autour du site…) déplace sur le CA/jour de chaque famille de produits & services, vs vos jours comparables, à saison égale — avec le panier moyen et la part de la famille quand ils bougent. Filtre possible par famille.",
+    z.object({ famille: z.string().optional().describe("Le nom (ou une partie du nom) d'une famille. Vide = toutes.") }),
+    (r, args) => {
+      if (!args?.famille || !r.found) return r;
+      const want = norm(String(args.famille));
+      const lines = (r.data.lines as any[] || []).filter((l) => norm(String(l.family)).includes(want));
+      const facts = r.facts.filter((f) => norm(f.fact_fr).includes(want));
+      if (!lines.length) return { found: false, data: { found: false, date: r.data.date }, facts: [], sources: [] };
+      return { ...r, data: { ...r.data, lines, lead: facts[0]?.fact_fr ?? r.data.lead }, facts };
+    });
+
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours];
 }

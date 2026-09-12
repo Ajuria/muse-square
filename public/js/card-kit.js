@@ -2221,6 +2221,15 @@
       if (typeof fn !== 'function') return '';
       return '<div class="ie-family-card">' + fn(Object.assign({ ok: true }, b.data)) + '</div>';
     },
+    // 12/09 — l'absence est un résultat (docs/explorer-outil-spec.md § 5) : ce qui manque, et le geste qui le
+    // débloque (le mot de Piloter). Aucun chiffre : rien à vérifier, rien à inventer.
+    absence: function (b) {
+      if (!b || !b.manque) return '';
+      var g = b.geste && typeof b.geste.label_fr === 'string' && typeof b.geste.url === 'string' && b.geste.url.charAt(0) === '/' ? b.geste : null;
+      return '<div style="border:1px solid #e5e7eb;background:#f9fafb;border-radius:10px;padding:10px 12px;margin:0 0 10px;font-size:13px;color:#6B7280;line-height:1.5;">' + esc(b.manque)
+        + (g ? ' <a href="' + esc(g.url) + '" style="color:#0b37e5;font-weight:500;text-decoration:none;">' + esc(g.label_fr) + ' \u2192</a>' : '')
+        + '</div>';
+    },
     // Phase 2 clarification chips (same inline styles as the ie-prompt.js originals)
     clarification: function (b) {
       var chips = (b.chips || []).filter(function (c) { return c && typeof c.label_fr === 'string' && typeof c.send === 'string'; })

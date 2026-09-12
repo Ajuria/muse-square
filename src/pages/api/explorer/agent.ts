@@ -28,6 +28,8 @@ import { buildAgentTools, readSiteFamilies30d, type PhotoBytes, type PhotoInfo, 
 import { readSiteMemory, writeSiteMemory, type AuthorRole } from "../../../lib/explorer/siteMemory";
 import { newAgentTurnRow, writeAgentTurns } from "../../../lib/explorer/agentTurns";
 import { OUTILS_FR, SYSTEME_FR } from "../../../lib/explorer/agentSystem.fr";
+import { FAMILIES } from "../../../lib/insightFamilies";
+import { assembleAnswerBlocks, groundAgentText } from "../../../lib/explorer/blocks";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -162,6 +164,9 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
     readPhotoBytes: (d, p) => readPhotoBytes(internalLocals, d, p),
     readMemory: (subject) => readSiteMemory(bq, location_id, subject ? { subject } : {}),
     writeMemory: (row) => writeSiteMemory(bq, row),
+    // 12/09 — les lecteurs chiffrés : LE registre FAMILIES, jamais une copie (docs/explorer-outil-spec.md § 4).
+    runFamily: (key, date) => FAMILIES[key].run(bq, location_id, date),
+    today: () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
     record: (r) => { tool_calls.push(r); onTool?.({ ...r, label_fr: OUTILS_FR[r.name] ?? r.name }); },
   });
 
@@ -186,6 +191,11 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
   }
   const text = final.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
   const refused = final.stop_reason === "refusal";
+  // 12/09 — LA porte (docs/explorer-outil-spec.md § 3) : chaque nombre du texte doit venir des faits des outils
+  // du tour ; sinon la réponse porte la pastille « Non vérifié » et les nombres fautifs voyagent avec elle.
+  const toolFacts = tool_calls.flatMap((r) => r.facts ?? []);
+  const grounding = groundAgentText(text, toolFacts);
+  const blocks = assembleAnswerBlocks(tool_calls.map((r) => r.blocks ?? []), grounding);
 
   // La trace : le tour reçu (texte + noms des fichiers, jamais les octets) et le tour rendu.
   const lastIdx = pm.messages.length - 1;
@@ -198,8 +208,9 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
   return json({
     ok: true,
     thread_id,
-    assistant: { text, stop_reason: final.stop_reason ?? null, refused },
-    tool_calls: tool_calls.map((r) => ({ ...r, label_fr: OUTILS_FR[r.name] ?? r.name })),
+    assistant: { text, stop_reason: final.stop_reason ?? null, refused, register: grounding.register, ungrounded_numbers: grounding.ungrounded_numbers },
+    blocks,
+    tool_calls: tool_calls.map((r) => ({ name: r.name, input: r.input, ok: r.ok, summary: r.summary, ms: r.ms, label_fr: OUTILS_FR[r.name] ?? r.name })),
     usage: {
       input_tokens: final.usage.input_tokens,
       output_tokens: final.usage.output_tokens,
