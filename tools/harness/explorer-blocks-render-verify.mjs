@@ -98,5 +98,23 @@ const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" 
     check("surface en m² sur chaque ligne", t2[0]?.rows.every((r) => / m²$/.test(r[2])), JSON.stringify(t2[0]?.rows[0]));
   }
 }
+// 12/09 (incrément 6) — le bloc proposition_operation : la carte « Proposition d'opération » et son « Préparer l'opération → »
+// vers le formulaire pré-rempli (lib pure composerProposition, sur un fait réel de lire_ventes ci-dessus).
+{
+  const { composerProposition } = await import("../../src/lib/explorer/proposition");
+  const { EVENT_TYPES_ALL } = await import("../../src/lib/events/eventTypes");
+  const p = resolvePeriode({ periode: "30_derniers_jours" }, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }));
+  const faits = composeVentesFacts(await computeSalesReport(bq, { location_id: LOC, owned: [LOC], start: p.start, end: p.end })).facts;
+  const r = composerProposition({ titre: "Samedi gourmand", dispositif: "Une table de dégustation à l'entrée", type: "degustation", dates: ["2099-01-02"], pourquoi: [faits[0]] },
+    { location_id: LOC, today: "2026-09-12", familles_site: [], types: EVENT_TYPES_ALL, faits_du_tour: faits });
+  check("composerProposition compose depuis un fait réel de lire_ventes", !("erreur" in r), r.erreur);
+  if (!("erreur" in r)) {
+    const el = render(assembleAnswerBlocks([[r.block]], groundAgentText("", r.facts)));
+    const card = el.querySelector("[data-proposition]");
+    check("la carte « Proposition d'opération » se rend : titre, dispositif, dates, objectif, le fait lu", !!card && /Proposition d’opération/.test(card.textContent) && card.textContent.includes("Samedi gourmand") && card.textContent.includes("le 02/01/2099") && card.textContent.includes("CA du jour vs votre résultat habituel") && card.textContent.includes(faits[0]), card?.textContent.slice(0, 200));
+    const a = card?.querySelector("a");
+    check("« Préparer l'opération → » ouvre le formulaire pré-rempli (evenement?new=1&titre&dispositif&type&dates&kpi&cible)", a?.textContent === "Préparer l’opération →" && /^\/app\/insightevent\/evenement\?location_id=.*&new=1&titre=Samedi\+gourmand&dispositif=.*&type=degustation&dates=2099-01-02&kpi=revenue_residual&cible=15$/.test(a?.getAttribute("href") || ""), a?.getAttribute("href"));
+  }
+}
 console.log(fails ? `\n${fails} échec(s).` : "\nTout vert.");
 process.exit(fails ? 1 : 0);

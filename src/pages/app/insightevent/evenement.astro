@@ -61,7 +61,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
 
 <script is:inline src="/js/pole-form.js?v=4"></script>
 <script is:inline src="/js/scope-form.js?v=1"></script>
-<script is:inline src="/js/event-form.js?v=17"></script>
+<script is:inline src="/js/event-form.js?v=18"></script>
     <script is:inline src="/js/draft-workspace.js?v=5"></script>
     <script is:inline>
       (function () {
@@ -1184,7 +1184,10 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
         if (!item && wantForm) {
           if (!loc) { body.textContent = "Lieu manquant — ouvrez cette page depuis l’application."; return; }
           if (!window.MSEventForm) { body.textContent = "Formulaire indisponible — rechargez la page."; return; }
-          window.MSEventForm.open(body, { location_id: loc, dates: preDates, titre: qs.get("titre") || "", dispositif: qs.get("dispositif") || "" });
+          // 12/09 (incrément 6) — une Proposition d'opération d'Explorer arrive par la requête : type, kpi, cible, familles.
+          window.MSEventForm.open(body, { location_id: loc, dates: preDates, titre: qs.get("titre") || "", dispositif: qs.get("dispositif") || "",
+            type: qs.get("type") || "", kpi: qs.get("kpi") || "", cible: qs.get("cible") || null,
+            familles: String(qs.get("familles") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean) });
         }
       })();
     </script>

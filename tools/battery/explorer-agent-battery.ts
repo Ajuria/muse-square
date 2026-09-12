@@ -46,6 +46,8 @@ const BATTERY: Case[] = [
   { q: "Fais-moi mon rapport de ventes du mois dernier.", tools: ["composer_rapport"], answerMatch: /chiffre d'affaires|CA/i, vetted: true, blocks: ["rapport"] },
   // § 9, incrément 4 — un Modèle enregistré du site, nommé (« Hebdo pôles » existe sur le compte de test depuis le 12/09).
   { q: "Compose mon rapport « Hebdo pôles ».", tools: ["composer_rapport"], answerMatch: /pôle|ventes/i, vetted: true, blocks: ["rapport"] },
+  // § 9 incrément 6 — une question COMPOSÉE : lire (familles face aux jours) puis préparer une Proposition d'opération sur ce qui a été lu.
+  { q: "Quelle famille souffre le plus de la pluie ? Propose-moi une opération sur cette famille pour samedi prochain.", tools: ["lire_familles_face_aux_jours", "proposer_operation"], answerMatch: /Préparer l'opération|proposition/i, vetted: true, blocks: ["proposition_operation"], maxSeconds: 40 },
 ];
 
 const bq = makeBQClient("muse-square-open-data");
@@ -66,6 +68,7 @@ async function ask(q: string) {
     runPolesClassement: (s, e) => readPoleClassement(bq, LOC, s, e),
     listModeles: () => listReportTemplates(bq, LOC),
     today, record: (r) => { calls.push(r); if (firstBlockAt == null && r.blocks && r.blocks.length) firstBlockAt = (Date.now() - t0) / 1000; },
+    faitsDuTour: () => calls.flatMap((c) => c.facts ?? []),
   });
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const runner = client.beta.messages.toolRunner({

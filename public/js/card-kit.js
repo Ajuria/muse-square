@@ -2311,6 +2311,24 @@
       }
       return html + '</div>';
     },
+    // 12/09 (incrément 6, docs/explorer-outil-spec.md § 5) — LA PROPOSITION D'OPÉRATION (lexique l. 127) : ce que l'agent
+    // a préparé à partir de faits lus, jamais créé — le nom, le dispositif, les dates, l'objectif et sa cible, les faits
+    // qui la motivent, puis « Préparer l'opération → » qui ouvre le formulaire pré-rempli (le CTA de création reste le sien).
+    proposition_operation: function (b) {
+      if (!b || !b.titre || !Array.isArray(b.dates) || !b.url || String(b.url).charAt(0) !== '/') return '';
+      var row = function (label, val) { return val ? '<div style="display:flex;gap:10px;font-size:13px;line-height:1.5;margin:3px 0;"><span style="flex:none;width:92px;color:#6B7280;">' + esc(label) + '</span><span style="color:#111827;">' + val + '</span></div>' : ''; };
+      var pourquoi = (Array.isArray(b.pourquoi) ? b.pourquoi : []).map(function (f) { return '<li style="margin:2px 0;">' + esc(f) + '</li>'; }).join('');
+      return '<div data-proposition style="border:1px solid #C7D2FE;background:#F5F7FF;border-radius:12px;padding:14px 16px;margin:0 0 12px;">'
+        + '<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#1D3BB3;margin:0 0 8px;">Proposition d\u2019op\u00e9ration</div>'
+        + '<div style="font-size:15px;font-weight:650;color:#111827;margin:0 0 8px;">' + esc(b.titre) + (b.event_type && b.event_type.label_fr ? ' <span style="font-size:12px;font-weight:400;color:#6B7280;">\u00b7 ' + esc(b.event_type.label_fr) + '</span>' : '') + '</div>'
+        + row('Dispositif', esc(b.dispositif || ''))
+        + row('Dates', esc(b.dates_fr || b.dates.join(', ')))
+        + row('Familles', (Array.isArray(b.familles) && b.familles.length) ? esc(b.familles.join(', ')) : '')
+        + row('Objectif', b.objectif && b.objectif.libelle_fr ? esc(b.objectif.libelle_fr) + (b.cible && b.cible.libelle_fr ? ' \u2014 ' + esc(b.cible.libelle_fr) : '') : '')
+        + (pourquoi ? '<div style="font-size:12px;color:#6B7280;margin:10px 0 2px;">Pourquoi \u2014 ce qui a \u00e9t\u00e9 lu</div><ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;line-height:1.5;">' + pourquoi + '</ul>' : '')
+        + '<div style="display:flex;justify-content:flex-end;"><a href="' + esc(b.url) + '" style="display:inline-block;font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;text-decoration:none;padding:8px 13px;border-radius:8px;margin-top:12px;">Pr\u00e9parer l\u2019op\u00e9ration \u2192</a></div>'
+        + '</div>';
+    },
     // Phase 2 clarification chips (same inline styles as the ie-prompt.js originals)
     clarification: function (b) {
       var chips = (b.chips || []).filter(function (c) { return c && typeof c.label_fr === 'string' && typeof c.send === 'string'; })

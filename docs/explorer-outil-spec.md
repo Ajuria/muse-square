@@ -112,7 +112,7 @@ et — nouveau — `blocs` (ce qu'elle rend à l'exploitant) et `facts` (ce qu'e
 | `lire_familles_face_aux_jours` | `famille?`, `classe?` | `composeSignauxFamille` | CA/jour famille vs vos jours comparables, panier, part | carte `renderSignauxFamille` |
 | `lire_poles_classement` — **livré 12/09** | `indicateur` (`ca`, `ventes`, `marge_brute`, `ca_par_metre`, `ca_par_m2`, `marge_par_metre`), période comme `lire_ventes` | `lib/dispositifs/poleClassement.ts` : `vw_insight_event_pole_daily` sommée sur la période (« Non rattaché » compris) ; par mètre et par m² : le foyer `listPoleSpace` (30 jours des mesures, dit) | du plus au moins performant, un fait par pôle : indicateur, part du CA ou de la marge, écart au résultat habituel, jours vendus | `tableau` + `sources` ; `absence` (aucun pôle vendu, aucune mesure, aucune marge) |
 | `composer_rapport` | `période`, `sections[]` (clés du registre § 6), `indicateur?` | appelle les outils de lecture ci-dessus, assemble, puis le résumé passe au validateur | un rapport | rapport |
-| `proposer_operation` | `familles`, `objectif` (KPI), `dates`, `levier`, `pourquoi` (les faits qui la motivent) | aucune écriture : rend le corps prêt pour le formulaire existant (`event-form.js`) | une proposition | proposition_operation |
+| `proposer_operation` — **livré 12/09 (incrément 6)** | `titre`, `dispositif`, `type?`, `familles?` (noms exacts, lire_familles), `objectif?` (revenue_residual · family_revenue · tickets · basket), `cible?` (€ pour family_revenue, % sinon, défaut 15), `dates[]` (à venir, 7 au plus), `pourquoi[]` (les phrases des outils du tour, telles quelles) | `lib/explorer/proposition.ts` `composerProposition` (PUR) : aucune écriture ; le « pourquoi » ne garde que les phrases dont chaque nombre est dans les faits du tour (`deps.faitsDuTour`), sans fait retenu l'outil refuse (« lis d'abord ») ; nom et dispositif passent la relecture (mots bannis, tournures, commandes/stock) ; familles du site, dates ≥ aujourd'hui, type du registre `EVENT_TYPES_ALL` | une proposition (le fait de tête + les faits retenus) | `proposition_operation`, avec l'URL du formulaire pré-rempli |
 | `pont_de_marge` | `période A`, `période B` | `fct_client_family_margin_daily` → effets volume, panier, mix, remises, prix d'achat (méthode de conseil : pont prix-volume-mix) — **après les premiers prix d'achat réels** | faits chiffrés | tableau |
 | `lire_plan` | — | contours des pôles (à stocker : § 9) + `lire_espace` | le plan coloré | plan |
 
@@ -139,15 +139,15 @@ par la page Explorer, le rapport de famille et le rapport de ventes.
 | `tableau` | `colonnes[]`, `lignes[]`, `titre`, `tri` | `msSortTable` | vérifié (données d'outil) |
 | `carte` | `render` (nom du kit), `data` | `MSCardKit[render](data)` — comme le rapport de famille | vérifié |
 | `rapport` | `sections[]` = `{ cle, titre, blocs[] }`, `synthese` (texte vérifié) | une zone par section, comme `family-report.astro` | vérifié |
-| `proposition_operation` | `corps` (le body de POST /api/commitments prêt), `pourquoi[]` (faits) | carte « Proposition d'opération » + CTA « Préparer l'opération → » qui ouvre le formulaire pré-rempli | vérifié |
+| `proposition_operation` — **livré 12/09** | `titre`, `dispositif`, `event_type`, `familles[]`, `objectif {kpi, libelle_fr}`, `cible {valeur, unite, libelle_fr}`, `dates[]`, `dates_fr`, `pourquoi[]` (faits), `url` | carte « Proposition d'opération » (kit `?v=84`) + « Préparer l'opération → » = `/app/insightevent/evenement?new=1&titre&dispositif&type&dates&kpi&cible&familles` — le formulaire pré-rempli, son CTA « Créer l'opération — … » inchangé | vérifié (faits d'outil) |
 | `plan` | `zones[]` (contours en points du plan, valeur, libellé), `mesure` | SVG en ligne, une teinte par valeur | vérifié |
 | `absence` | `manque`, `geste` | phrase courte + lien vers le geste Piloter | — |
 | `barres` · `barres_h` · `parts` (12/09, owner : « add tables and graphs ») | `items[]` = valeurs d'outil avec leurs libellés formatés | SVG / div du kit, grammaire de rapport.astro | vérifié (données d'outil) |
 | `note` (12/09) | `text`, `auteur`, `date` | pastille « Votre note » | Votre note (jamais vérifié) |
 
-Le formulaire d'opération (`event-form.js`) apprend à **recevoir un corps pré-rempli** (familles,
-objectif, dates, levier) — la seule modification d'une surface existante que cette spec demande ; le
-CTA final reste celui du formulaire (« Créer l'opération — … »).
+Le formulaire d'opération (`event-form.js` `?v=18`) **reçoit un corps pré-rempli** (12/09) : titre, dispositif,
+type, dates, objectif (KPI), cible, familles (cochées dans « Ce que le dispositif vend ») — par la requête
+d'`evenement.astro`, tout reste modifiable ; le CTA final reste celui du formulaire (« Créer l'opération — … »).
 
 ---
 
@@ -368,8 +368,15 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    (jour, semaine, trimestre, année). **Reste** : le job cron-job.org horaire sur la prod (owner) ; le PDF (Chromium
    sans tête) ; les mots de la page à ratifier (« Vos envois », « Envoyer maintenant », « Arrêter », « par email /
    sur Slack »).
-6. **Incrément 6 — la proposition d'opération** : `proposer_operation`, bloc `proposition_operation`,
-   pré-remplissage d'`event-form.js`.
+6. **Incrément 6 — la proposition d'opération — LIVRÉ le 12/09** : `lib/explorer/proposition.ts` (pur, 4 tests + 3 sur
+   l'outil, mutés), `proposer_operation` (le « pourquoi » = faits du tour seulement, `deps.faitsDuTour`), bloc
+   `proposition_operation` rendu par le kit (`?v=84`, harnais `harness:explorer-blocks`), `event-form.js` pré-rempli par
+   la requête (type, kpi, cible, familles). Batterie (question composée « Quelle famille souffre le plus de la pluie ?
+   Propose-moi une opération sur cette famille pour samedi prochain. ») : 39,9 s, vérifiée, lire_familles_face_aux_jours
+   → lire_familles → proposer_operation refusé une fois (une phrase sans fait) puis accepté — la porte tient.
+   **Reste** : la cible proposée par le modèle est parfois le résultat habituel lui-même (667 € = l'habituel, mesuré à
+   la batterie) — une règle « la cible dépasse l'habituel » côté outil demanderait le référentiel du jour (event-form le
+   lit via /api/insight/evenement) ; l'essai owner sur la page Explorer suppose que la boucle y soit branchée (§ 7).
 7. **Incrément 7 — la migration** (§ 7), une couche par commit.
 8. **Incrément 8 — le pont de marge**, dès les premiers prix d'achat réels ; **le plan coloré**, dès que
    les contours vivent en base (les sept zones d'Épices et Tout sont relevées :

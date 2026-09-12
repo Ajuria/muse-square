@@ -6,6 +6,7 @@
 // — c'est `groundAgentText` qui le vérifie (la porte, pas une promesse). Tout ici est PUR et testé sans réseau.
 import type { FamilyResult } from "../insightFamilies/types";
 import { extractNumbers } from "../ai/contracts/groundingChecks";
+import type { PropositionBlock } from "./proposition";
 
 // « note » (12/09) : un texte écrit par l'exploitant lui-même — la Synthèse qu'il a reprise ; pastille « Votre note », jamais vérifié.
 export type Register = "vetted" | "web" | "model" | "note";
@@ -30,7 +31,10 @@ export type AnswerBlock =
   | { type: "parts"; items: Array<{ label: string; value: number; value_fr: string; part_fr: string }> }
   // 12/09 — LE RAPPORT (spec § 6) : un document de sections, chacune faite de blocs, avec sa Synthèse (le texte vérifié
   // du tour, posé par la route) et la provenance de chaque section (l'outil, ses paramètres, la période, la date).
-  | RapportBlock;
+  | RapportBlock
+  // 12/09 (incrément 6, spec § 5) — LA PROPOSITION D'OPÉRATION : préparée par proposer_operation à partir de faits lus
+  // dans le tour, jamais créée ; « Préparer l'opération → » ouvre le formulaire pré-rempli (lib/explorer/proposition.ts).
+  | PropositionBlock;
 
 export interface RapportProvenance { outil: string; params: Record<string, unknown>; periode: { du: string; au: string }; calcule_le: string }
 export interface RapportSection { cle: string; titre: string; definition?: string; blocs: AnswerBlock[]; provenance: RapportProvenance | null }

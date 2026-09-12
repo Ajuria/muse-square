@@ -41,6 +41,8 @@ import { composeRapport, rapportToText, SECTIONS_VENTES } from "../rapport/compo
 import { resolveSections, SECTIONS, MODELE_VENTES, type SectionCle } from "../fr/rapport.fr";
 import { findTemplateByName, type ReportTemplate } from "../rapport/modeles";
 import { frDate, memoryToText, newSiteMemoryRow, type AuthorRole, type SiteMemoryEntry, type SiteMemoryRow } from "./siteMemory";
+import { composerProposition, OBJECTIF_FR } from "./proposition";
+import { EVENT_TYPES_ALL } from "../events/eventTypes";
 
 const PROJECT = "muse-square-open-data";
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
@@ -91,6 +93,9 @@ export interface AgentToolDeps {
   listModeles: () => Promise<ReportTemplate[]>;
   today: () => string;   // AAAA-MM-JJ, Europe/Paris — injecté pour être testable
   record: (r: ToolCallRecord) => void;
+  // 12/09 (incrément 6) — les faits rendus par les outils déjà appelés dans CE tour : ce que proposer_operation
+  // accepte comme « pourquoi » (une phrase dont un chiffre n'y est pas tombe).
+  faitsDuTour: () => string[];
 }
 
 export const MAX_IMAGES_PER_CALL = 8;
@@ -444,5 +449,29 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport];
+  // ── 12/09 — proposer_operation : LA Proposition d'opération (spec § 4-5, incrément 6 ; lexique l. 127). Aucune écriture :
+  // le corps prêt pour le formulaire existant, une carte avec « Préparer l'opération → ». Le « pourquoi » n'est fait que de
+  // faits lus dans ce tour (lib/explorer/proposition.ts, pur) ; les familles sont celles du site (lire_familles).
+  const proposerOperation = outil({
+    name: "proposer_operation",
+    description: "Préparer une Proposition d'opération à partir de faits LUS dans ce tour (appelle d'abord les lecteurs). Rien n'est créé : l'exploitant ouvre le formulaire pré-rempli et décide. Les phrases de « pourquoi » sont reprises telles quelles des outils ; une phrase dont un chiffre ne vient d'aucun outil est écartée. Types d'opération : " + EVENT_TYPES_ALL.map((t) => `${t.value} (${t.label_fr})`).join(", ") + ".",
+    inputSchema: z.object({
+      titre: z.string().max(120).describe("Le nom de l'opération, en français, sans mot de commande ni de stock."),
+      dispositif: z.string().max(240).describe("Ce que l'exploitant va faire ce jour-là, en une phrase (le dispositif de vente, la mise en avant, l'animation)."),
+      type: z.string().max(60).optional().describe("Le type d'opération (valeur de la liste ; défaut : autre)."),
+      familles: z.array(z.string()).optional().describe("Les familles de produits & services concernées, par leur nom exact (lire_familles)."),
+      objectif: z.enum(["revenue_residual", "family_revenue", "tickets", "basket"]).optional().describe("Le KPI jugé : " + Object.entries(OBJECTIF_FR).map(([k, v]) => `${k} = ${v}`).join(" ; ") + ". Défaut : family_revenue si des familles sont données, sinon revenue_residual."),
+      cible: z.number().optional().describe("La cible : en € (CA des familles visé sur la journée) pour family_revenue, en % au-dessus du résultat habituel sinon (défaut 15)."),
+      dates: z.array(z.string()).min(1).max(7).describe("Les dates candidates, AAAA-MM-JJ, à venir (7 au plus)."),
+      pourquoi: z.array(z.string()).min(1).describe("Les faits qui motivent la proposition : les phrases rendues par tes outils dans ce tour, reprises telles quelles."),
+    }),
+    run: (args) => timed("proposer_operation", args, async () => {
+      const familles_site = (await deps.readFamilies()).map((f) => f.category);
+      const r = composerProposition(args, { location_id: deps.location_id, today: deps.today(), familles_site, types: EVENT_TYPES_ALL, faits_du_tour: deps.faitsDuTour() });
+      if ("erreur" in r) return { out: r.erreur, summary: "proposition refusée : " + r.erreur.slice(0, 80) };
+      return { out: r.texte, summary: `Proposition d'opération « ${r.block.titre} » ${r.block.dates_fr}${r.non_retenu.length ? ` ; ${plural(r.non_retenu.length, "phrase écartée", "phrases écartées")}` : ""}`, blocks: [r.block], facts: r.facts };
+    }),
+  });
+
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation];
 }

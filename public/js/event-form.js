@@ -170,6 +170,13 @@
     // titre + dispositif posés, l'utilisateur choisit sa récurrence et ses dates.
     if (opts.titre) { var _t = q('[data-ef="title"]'); if (_t && !_t.value) _t.value = String(opts.titre).slice(0, 120); }
     if (opts.dispositif) { var _d = q('[data-ef="dispositif"]'); if (_d && !_d.value) _d.value = String(opts.dispositif).slice(0, 240); }
+    // 12/09 (incrément 6, docs/explorer-outil-spec.md § 5) — une PROPOSITION D'OPÉRATION d'Explorer arrive pré-remplie :
+    // type, objectif (KPI), cible, familles (« Ce que le dispositif vend », posées plus bas quand le bloc est rendu).
+    // Tout reste modifiable ; le CTA de création est le même.
+    if (opts.type) { var _ty = q('[data-ef="type"]'); if (_ty && Array.prototype.some.call(_ty.options, function (o) { return o.value === String(opts.type); })) _ty.value = String(opts.type); }
+    if (opts.kpi) { var _k = q('[data-ef="kpi"]'); if (_k && Array.prototype.some.call(_k.options, function (o) { return o.value === String(opts.kpi) && !o.disabled; })) _k.value = String(opts.kpi); }
+    if (opts.cible != null && isFinite(Number(opts.cible)) && Number(opts.cible) > 0) { var _tg = q('[data-ef="target"]'); if (_tg) _tg.value = String(Number(opts.cible)); }
+    var _prefam = Array.isArray(opts.familles) ? opts.familles.map(function (f) { return String(f || "").trim(); }).filter(Boolean) : [];
     var val = function (name) { var el = q('[data-ef="' + name + '"]'); return el ? String(el.value || "").trim() : ""; };
     // Bascule de nature ; le panneau pôle se rend au premier passage via MSPoleForm
     // (familles/responsables/pôles du ctx ; une famille déjà portée par un pôle est refusée).
@@ -460,7 +467,10 @@
     // la famille cachée et la cible.
     var _scopeMount = q("[data-ef-scope]");
     if (_scopeMount && window.MSScopeForm) {
-      window.MSScopeForm.render(_scopeMount, { families: fams });
+      // Les familles d'une Proposition d'opération : cochées d'avance parmi celles du site (une famille inconnue est ignorée).
+      var _known = fams.map(function (f) { return String(f.category || f.nom || f); });
+      var _sel = _prefam.filter(function (n) { return _known.indexOf(n) >= 0; }).map(function (n) { return { nom: n }; });
+      window.MSScopeForm.render(_scopeMount, _sel.length ? { families: fams, selected: { kind: "familles", familles: _sel } } : { families: fams });
       _scopeMount.addEventListener("click", function () { syncFamilyInput(); refreshCible(); });
       _scopeMount.addEventListener("change", function () { syncFamilyInput(); refreshCible(); });
     }
@@ -486,6 +496,7 @@
     ["kpi", "family", "target", "dow"].forEach(function (n) {
       var el = q('[data-ef="' + n + '"]'); if (el) { el.addEventListener("change", refreshCible); el.addEventListener("input", refreshCible); }
     });
+    if (_prefam.length || opts.kpi || opts.cible != null) { syncFamilyInput(); refreshCible(); }
     var dureeEl = q('[data-ef="duree"]');
     if (dureeEl) dureeEl.addEventListener("input", function () { renderGrid(); renderPicked(); });
     q("[data-ef-mprev]").addEventListener("click", function () {

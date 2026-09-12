@@ -56,6 +56,7 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
     listModeles: async () => [{ template_id: "t1", version: 1, location_id: "loc-1", author_user_id: "u", author_role: "owner", nom: "Hebdo pôles", periode_relative: "semaine_derniere", indicateur: "ventes", source_document_id: null, created_at: "x", sections: [{ cle: "poles", params: { indicateur: "ventes" } }, { cle: "volume", params: {} }] }],
     today: () => "2026-09-12",
     record: (r) => records.push(r),
+    faitsDuTour: () => records.flatMap((r) => r.facts ?? []),
     ...over,
   };
   return Object.assign(base, { records, written });
@@ -65,7 +66,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -297,5 +298,41 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     const out = await tool.run({ modele: "trimestriel" });
     expect(out).toBe("Aucun Modèle de rapport nommé « trimestriel » sur ce site. Modèles disponibles : Rapport de ventes, Hebdo pôles.");
     expect(d.records[1].summary).toBe("modèle « trimestriel » inconnu");
+  });
+});
+
+describe("proposer_operation — une Proposition d'opération faite de faits lus dans le tour, jamais créée (12/09, incrément 6)", () => {
+  it("sans lecture préalable, refuse : aucun fait ne motive la proposition", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "proposer_operation").run({ titre: "Samedi des épices", dispositif: "Une dégustation de mélanges à l'entrée", dates: ["2026-09-19"], pourquoi: ["Épices génère 462 € par jour."] });
+    expect(out).toMatch(/^Aucun fait lu ne motive cette proposition \(1 phrase\(s\) écartée\(s\)/);
+    expect(d.records[0]).toMatchObject({ name: "proposer_operation", ok: true });
+    expect(d.records[0].blocks).toBeUndefined();
+  });
+  it("après lire_familles, une phrase reprise de l'outil motive la proposition ; la famille, les dates, l'objectif et la cible sont dans le bloc et l'URL du formulaire", async () => {
+    const d = deps();
+    const tools = buildAgentTools(d);
+    await byName(tools, "lire_familles").run({});
+    const fait = d.records[0].facts?.find((f) => f.includes("462")) ?? "";
+    expect(fait).toBeTruthy();
+    const out = await byName(tools, "proposer_operation").run({ titre: "Samedi des épices", dispositif: "Une dégustation de mélanges à l'entrée, de 10 h à 13 h", type: "degustation", familles: ["Épices"], cible: 600, dates: ["2026-09-19", "2026-09-26"], pourquoi: [fait, "Le samedi, Épices génère 900 € par jour."] });
+    const rec = d.records[1];
+    expect(rec.summary).toBe("Proposition d'opération « Samedi des épices » les 19/09/2026 et 26/09/2026 ; 1 phrase écartée");
+    const b = rec.blocks?.[0] as any;
+    expect(b).toMatchObject({ type: "proposition_operation", titre: "Samedi des épices", event_type: { value: "degustation", label_fr: "Dégustation" }, familles: ["Épices"], objectif: { kpi: "family_revenue" }, cible: { valeur: 600, unite: "€" }, dates: ["2026-09-19", "2026-09-26"], pourquoi: [fait] });
+    expect(b.url).toBe("/app/insightevent/evenement?location_id=loc-1&new=1&titre=Samedi+des+%C3%A9pices&dispositif=Une+d%C3%A9gustation+de+m%C3%A9langes+%C3%A0+l%27entr%C3%A9e%2C+de+10+h+%C3%A0+13+h&type=degustation&dates=2026-09-19%2C2026-09-26&kpi=family_revenue&cible=600&familles=%C3%89pices");
+    expect(rec.facts?.[0]).toBe("Proposition d'opération « Samedi des épices » (Dégustation) les 19/09/2026 et 26/09/2026, sur la famille « Épices » — objectif : CA de ce que le dispositif vend vs votre résultat habituel, cible 600 € visés sur la journée.");
+    expect(out).toContain("Non retenu (chiffres absents des lectures de ce tour) : « Le samedi, Épices génère 900 € par jour. »");
+    expect(out).toContain("Rien n'est créé");
+  });
+  it("refuse une famille inconnue, une date passée, un mot de commande dans le dispositif", async () => {
+    const d = deps();
+    const tools = buildAgentTools(d);
+    await byName(tools, "lire_familles").run({});
+    const fait = d.records[0].facts?.[0] ?? "";
+    const tool = byName(tools, "proposer_operation");
+    expect(await tool.run({ titre: "x", dispositif: "y", familles: ["Thés"], dates: ["2026-09-19"], pourquoi: [fait] })).toBe("Famille inconnue sur ce site : « Thés ». Familles vendues : Épices.");
+    expect(await tool.run({ titre: "x", dispositif: "y", dates: ["2026-09-11"], pourquoi: [fait] })).toMatch(/^La date 11\/09\/2026 est passée/);
+    expect(await tool.run({ titre: "x", dispositif: "Commandez plus de stock pour le week-end", dates: ["2026-09-19"], pourquoi: [fait] })).toMatch(/^Le nom ou le dispositif ne passe pas la relecture/);
   });
 });

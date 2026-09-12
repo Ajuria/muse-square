@@ -200,6 +200,8 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
     listModeles: () => listReportTemplates(bq, location_id),
     today: () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
     record: (r) => { tool_calls.push(r); onTool?.({ ...r, label_fr: OUTILS_FR[r.name] ?? r.name }); },
+    // 12/09 (incrément 6) — proposer_operation ne motive une Proposition que par les faits déjà rendus dans ce tour.
+    faitsDuTour: () => tool_calls.flatMap((c) => c.facts ?? []),
   });
 
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

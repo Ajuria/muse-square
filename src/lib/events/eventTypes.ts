@@ -92,6 +92,8 @@ export function eventTypesFor(industryCode: string | null | undefined): EventTyp
 
 // Le libellé d'UNE valeur, pour tous les rendus (dossier, cartes, feed) — union historique +
 // nouveaux. Valeur inconnue → passthrough lisible, jamais un libellé inventé.
+/** 12/09 (incrément 6) — tous les types, tous métiers : ce que proposer_operation accepte (le formulaire garde sa liste par métier). */
+export const EVENT_TYPES_ALL: EventTypeOption[] = [...EVENT_TYPES_GENERIC, ...EXTRA_TYPES];
 const LABEL_BY_VALUE: Record<string, string> = Object.fromEntries(
   [...EVENT_TYPES_GENERIC, ...EXTRA_TYPES].map((o) => [o.value, o.label_fr]),
 );
