@@ -35,6 +35,7 @@ import type { PoleListRow } from "../dispositifs/poleReading";
 import type { FamilyResult } from "../insightFamilies/types";
 import { blocksFromFamilyResult, factsToText, ABSENCE_FR, type AnswerBlock } from "./blocks";
 import { composeVentesFacts, resolvePeriode, ventesToText, type PeriodeMot, type SalesReportResult } from "../rapport/ventes";
+import { composeResultatFacts, resultatToText, type Resultat } from "../kpi/resultat";
 import { frDate, memoryToText, newSiteMemoryRow, type AuthorRole, type SiteMemoryEntry, type SiteMemoryRow } from "./siteMemory";
 
 const PROJECT = "muse-square-open-data";
@@ -78,6 +79,8 @@ export interface AgentToolDeps {
   runFamily: (key: "marge" | "espace" | "signaux", date: string) => Promise<FamilyResult>;
   // 12/09 : LE cœur du rapport de ventes (lib/rapport/ventes.ts computeSalesReport) sur une période.
   runVentes: (start: string, end: string) => Promise<SalesReportResult>;
+  // 12/09 : le résultat net par mois et le seuil de rentabilité du dernier jour (lib/kpi/resultat.ts readResultat).
+  runResultat: () => Promise<Resultat>;
   today: () => string;   // AAAA-MM-JJ, Europe/Paris — injecté pour être testable
   record: (r: ToolCallRecord) => void;
 }
@@ -334,5 +337,22 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes];
+  // ── 12/09 — lire_resultat : le résultat net d'un mois complet et le seuil de rentabilité du jour (lib/kpi/resultat.ts) ──
+  const lireResultat = outil({
+    name: "lire_resultat",
+    description: "Le résultat net d'un mois complet (marge brute moins charges fixes moins masse salariale, avec la couverture des prix d'achat et la part de la masse salariale dans le CA net HT), les deux mois complets précédents, et le seuil de rentabilité du dernier jour de vente (le CA net HT que la journée doit générer, l'heure où il est atteint). Sans « mois », le dernier mois complet. Le mois en cours n'a pas de résultat net.",
+    inputSchema: z.object({ mois: z.string().optional().describe("Le mois demandé, AAAA-MM. Vide = le dernier mois complet.") }),
+    run: (args) => timed("lire_resultat", args, async () => {
+      const mois = args.mois && /^\d{4}-\d{2}$/.test(args.mois) ? args.mois : null;
+      const r = await deps.runResultat();
+      const l = composeResultatFacts(r, mois);
+      if (!l.found) {
+        const a = l.absence === "couverture" ? ABSENCE_FR.resultat_couverture : l.absence === "charges" ? ABSENCE_FR.resultat : { manque: "Aucun mois de vente lu pour l’instant.", geste: undefined };
+        return { out: a.manque, summary: "rien à lire — absence dite", blocks: [{ type: "absence", manque: a.manque, geste: a.geste ?? null }] as AnswerBlock[], facts: [] };
+      }
+      return { out: resultatToText(l, ABSENCE_FR.resultat.manque), summary: `${plural(l.facts.length, "fait", "faits")} lus`, blocks: l.blocks, facts: l.facts };
+    }),
+  });
+
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat];
 }

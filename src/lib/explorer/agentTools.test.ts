@@ -38,6 +38,11 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
       : { prev_revenue: 33_400, body: { ok: true, period: { start, end },
           summary: { revenue: 34_512, transactions: 2_410, avg_basket: 14.32, vs_prev_pct: 3.3, vs_yoy_pct: null, yoy_available: false, layers: null },
           best_day: { date: "2026-09-05", revenue: 1_620 }, worst_day: { date: "2026-09-08", revenue: 410 }, weekday: [], category_mix: [], signals: {} } },
+    // 12/09 : lire_resultat — un mois complet lisible et le seuil du jour ; `over` peut vider les charges.
+    runResultat: async () => ({
+      mois: [{ month: "2026-08-01", is_complete_month: true, sales_days: 31, revenue_net_ht: 50499.2, gross_margin_ht: 36503.09, coverage_pct: 1, fixed_costs_month_eur: 6500, payroll_month_eur: 17000, net_result_eur: 13003.09, payroll_to_revenue_pct: 0.3366 }],
+      jour: { date: "2026-09-12", gross_margin_ht: 1368.97, charges_day_eur: 758.06, break_even_revenue_ht: 1051.63, break_even_hour: 10, is_break_even_reached: true, margin_rate_30d: 0.7208, opening_days_ref: 31 },
+    }),
     today: () => "2026-09-12",
     record: (r) => records.push(r),
     ...over,
@@ -49,7 +54,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -213,5 +218,17 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     expect(d.records[1].blocks).toEqual([{ type: "absence", manque: "Aucune vente du 02/09/2026 au 04/09/2026.", geste: null }]);
     const bad = await tool.run({ du: "2026-09-04", au: "2026-09-02" });
     expect(bad).toContain("Période invalide");
+  });
+  it("lire_resultat rend le résultat net du dernier mois complet et le seuil du jour ; sans charges déclarées, l'absence avec le geste de Piloter", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "lire_resultat").run({});
+    expect(out.replace(/[  ]/g, " ")).toContain("• En août 2026, votre résultat net est de 13 003 € : 36 503 € de marge brute sur 50 499 € de CA net HT, moins 6 500 € de charges fixes et 17 000 € de masse salariale, calculé sur 100 % de votre CA.");
+    expect(out).toContain("il est atteint à 10 h.");
+    expect(d.records[0]).toMatchObject({ name: "lire_resultat", ok: true, summary: "3 faits lus" });
+    expect(d.records[0].blocks?.map((b) => b.type)).toEqual(["table", "facts", "sources"]);
+    const sans = deps({ runResultat: async () => ({ mois: [{ month: "2026-08-01", is_complete_month: true, sales_days: 31, revenue_net_ht: 50499.2, gross_margin_ht: 36503.09, coverage_pct: 1, fixed_costs_month_eur: null, payroll_month_eur: null, net_result_eur: null, payroll_to_revenue_pct: null }], jour: null }) });
+    const none = await byName(buildAgentTools(sans), "lire_resultat").run({});
+    expect(none).toBe("Aucun résultat net pour l’instant — vos charges fixes et votre masse salariale ne sont pas déclarées.");
+    expect(sans.records[0].blocks).toEqual([{ type: "absence", manque: "Aucun résultat net pour l’instant — vos charges fixes et votre masse salariale ne sont pas déclarées.", geste: { label_fr: "Déclarer vos charges fixes et votre masse salariale", url: "/app/insightevent/tableau" } }]);
   });
 });

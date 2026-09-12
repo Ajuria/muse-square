@@ -25,6 +25,9 @@ export const ABSENCE_FR: Record<string, { manque: string; geste?: { label_fr: st
   marge: { manque: "Aucune marge brute mesurée pour l’instant — vos prix d’achat couvrent trop peu de votre CA.", geste: { label_fr: "Importer vos prix d'achat", url: "/app/insightevent/tableau" } },
   espace: { manque: "Aucune mesure d’espace pour l’instant — les mètres se saisissent sur le formulaire de pôle.", geste: { label_fr: "Vos pôles", url: "/profile?tab=poles" } },
   signaux: { manque: "Aucune réponse famille × jours mesurable pour l’instant — moins de 5 jours par classe, ou un écart sous le bruit." },
+  // 12/09 — le geste est celui de Piloter (tableau.astro : « Déclarer vos charges fixes et votre masse salariale — débloque le résultat net et le seuil de rentabilité »).
+  resultat: { manque: "Aucun résultat net pour l’instant — vos charges fixes et votre masse salariale ne sont pas déclarées.", geste: { label_fr: "Déclarer vos charges fixes et votre masse salariale", url: "/app/insightevent/tableau" } },
+  resultat_couverture: { manque: "Aucun résultat net pour l’instant — vos prix d’achat couvrent moins de 90 % de votre CA sur ce mois.", geste: { label_fr: "Importer vos prix d'achat", url: "/app/insightevent/tableau" } },
 };
 
 /** Un résultat de provider → ses blocs : la carte du kit quand il y a matière, l'absence sinon. */

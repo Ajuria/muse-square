@@ -100,7 +100,7 @@ et — nouveau — `blocs` (ce qu'elle rend à l'exploitant) et `facts` (ce qu'e
 | `lire_poles`, `lire_familles`, `lire_photos`, `lire_memoire`, `ecrire_memoire` | existants | — | — | texte_verifie |
 | `lire_ventes` — **livré 12/09** | `periode` (`30_derniers_jours` défaut, `semaine_derniere`, `mois_dernier`) ou `du`/`au` (AAAA-MM-JJ) ; `grain` (jour de semaine) reste à faire | `lib/rapport/ventes.ts` `computeSalesReport` = le cœur de `insight/sales-report.ts`, déplacé (la route est un habillage, sortie identique à l'octet) : CA, ventes, panier moyen, `layers` (volume, panier, mix), meilleure et plus faible journée, profil par jour de semaine, répartition par famille, période précédente et an dernier | faits (`composeVentesFacts`, les phrases de `rapport.astro` et du chat ; la période lue est un fait) | deux `tableau` (les trois couches ; le mix par famille) + `sources` ; `absence` sur une période sans vente |
 | `lire_marge` | `période`, `jours` (week-end, un jour de semaine) | `readMeasuredMargin30d` généralisé à une période (`lib/kpi/margin.ts`) | marge brute, taux, couverture, familles, lignes sous prix d'achat | carte `renderMarge` |
-| `lire_resultat` | `mois` | `vw_insight_event_monthly_result`, `vw_insight_event_daily_margin` | résultat net, seuil de rentabilité du jour | carte (bloc CA de Piloter) |
+| `lire_resultat` — **livré 12/09** | `mois` (AAAA-MM ; défaut = le dernier mois complet) | `lib/kpi/resultat.ts` `readResultat` : `vw_insight_event_monthly_result` (6 mois), `vw_insight_event_daily_margin` (dernier jour) — les mêmes lectures que Piloter | résultat net du mois et des deux mois complets précédents (marge brute sur CA net HT, charges fixes, masse salariale, couverture), part de la masse salariale, seuil de rentabilité du jour et heure atteinte ; le mois en cours se dit en cours ; absences typées (charges, couverture) avec le geste de Piloter | `tableau` (les mois) + `faits` (le seuil) + `sources` ; `absence` |
 | `lire_espace` | — | `listPoleSpace` (`vw_insight_event_pole_space` + `vw_insight_event_space_30d`) | linéaire, surface de vente, CA, CA net HT et marge brute par mètre et par m², part de marge contre Part de linéaire | carte `renderEspace` |
 | `lire_familles_face_aux_jours` | `famille?`, `classe?` | `composeSignauxFamille` | CA/jour famille vs vos jours comparables, panier, part | carte `renderSignauxFamille` |
 | `lire_poles_classement` | `indicateur` (ventes, CA, marge brute, par mètre, par m²), `période` | `listPoles` + `lire_ventes` par pôle (mapping famille → pôle de `vw_insight_event_pole_daily`) | du plus au moins performant | tableau |
@@ -272,8 +272,9 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    dans `lib/rapport/ventes.ts`, route inchangée à l'octet ; blocs `tableau`), la boucle rend des blocs,
    le kit rend `carte`, `tableau`, `absence`. **Mesuré sur le compte de test** : « Combien ai-je vendu sur
    mes 30 derniers jours, et qu'est-ce qui a bougé ? » → lire_ventes 0,9 s, 8 faits, deux tableaux, réponse
-   en 13,1 s ; « Mon CA de la semaine dernière ? » → 9,9 s, registre vérifié. **Restent** : `lire_resultat`,
-   `lire_poles_classement`, le `grain` de `lire_ventes`. Preuve : les cinq questions du 12/09 de l'owner (« montre-moi comment mes pôles performent
+   en 13,1 s ; « Mon CA de la semaine dernière ? » → 9,9 s, registre vérifié. `lire_resultat` (lib/kpi/resultat.ts ; « Quel est mon résultat net du mois dernier, et mon seuil de
+   rentabilité est-il atteint aujourd'hui ? » → 0,8 s d'outil, 5 faits, réponse en 10,0 s, registre vérifié).
+   **Restent** : `lire_poles_classement`, le `grain` de `lire_ventes`. Preuve : les cinq questions du 12/09 de l'owner (« montre-moi comment mes pôles performent
    au m² », « ordonne les familles les plus profitables vs m² vs mètres linéaires », « quelles familles sont
    sensibles à la météo ? »…) répondent en blocs, et une question composée aussi.
 2. **Incrément 2 — le Rapport** : `rapport.fr.ts`, `composer_rapport`, bloc `rapport`, le document
