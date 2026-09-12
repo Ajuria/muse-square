@@ -35,6 +35,7 @@ import { readResultat } from "../../../lib/kpi/resultat";
 import { readPoleClassement } from "../../../lib/dispositifs/poleClassement";
 import { newReportDocumentRow, readReportDocument, writeReportDocument } from "../../../lib/rapport/documents";
 import { approfondirPrompt, approfondirSection } from "../../../lib/rapport/gestes";
+import { relireTexte } from "../../../lib/fr/relecture";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -217,7 +218,12 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
     const status = e instanceof Anthropic.RateLimitError ? 429 : e instanceof Anthropic.APIError ? 502 : 500;
     return json({ ok: false, error: String(e?.message || e), thread_id, tool_calls }, status);
   }
-  const text = final.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
+  const brut = final.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
+  // 12/09 (owner : « language isn't always precise nor proper ») — LA RELECTURE : les phrases du modèle passent les gardes
+  // du lexique (mots bannis, tournures de machine) ; une phrase fautive est retirée du texte montré, la faute voyage
+  // avec la réponse (`assistant.relecture`) et la batterie la compte. Même foyer que les tests de mes chaînes.
+  const relecture = relireTexte(brut);
+  const text = relecture.texte;
   const refused = final.stop_reason === "refusal";
   // 12/09 — LA porte (docs/explorer-outil-spec.md § 3) : chaque nombre du texte doit venir des faits des outils
   // du tour ; sinon la réponse porte la pastille « Non vérifié » et les nombres fautifs voyagent avec elle.
@@ -232,7 +238,7 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
   const lastIdx = pm.messages.length - 1;
   const rows = [
     newAgentTurnRow({ location_id, thread_id, turn_index: lastIdx, role: "user", user_id, content: { text: pm.messages[lastIdx].content, files: pf.files.map((f) => ({ name: f.name, kind: f.kind, media_type: f.media_type })) } }),
-    newAgentTurnRow({ location_id, thread_id, turn_index: lastIdx + 1, role: "assistant", content: { text, tool_calls, stop_reason: final.stop_reason ?? null } }),
+    newAgentTurnRow({ location_id, thread_id, turn_index: lastIdx + 1, role: "assistant", content: { text: brut, tool_calls, stop_reason: final.stop_reason ?? null } }),
   ];
   await writeAgentTurns(bq, rows).catch((e: any) => console.error("[explorer/agent] turns non écrits :", e?.message || e));
 
@@ -250,7 +256,7 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
     ok: true,
     thread_id,
     ...(document ? { document } : {}),
-    assistant: { text, stop_reason: final.stop_reason ?? null, refused, register: grounding.register, ungrounded_numbers: grounding.ungrounded_numbers },
+    assistant: { text, stop_reason: final.stop_reason ?? null, refused, register: grounding.register, ungrounded_numbers: grounding.ungrounded_numbers, relecture: { phrases_retirees: relecture.phrases_retirees, fautes: relecture.fautes.map((f) => ({ motif: f.motif, faute: f.faute })) } },
     blocks,
     tool_calls: tool_calls.map((r) => ({ name: r.name, input: r.input, ok: r.ok, summary: r.summary, ms: r.ms, label_fr: OUTILS_FR[r.name] ?? r.name })),
     usage: {

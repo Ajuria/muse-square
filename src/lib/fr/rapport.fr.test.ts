@@ -21,6 +21,9 @@ describe("rapport.fr — le registre des sections (spec § 6.5)", () => {
     expect(resolveSections("au m²").cles).toEqual(["espace"]);
     expect(resolveSections("les vacances")).toEqual({ cles: [], inconnues: ["les vacances"] }); // « ca » en mot entier seulement
     expect(resolveSections("les pôles en nombre de ventes").cles).toEqual(["poles", "volume"]);
+    // Le titre d'une section est toujours reconnu (mesuré 12/09 : la section jours se perdait quand le modèle reprenait son titre).
+    expect(resolveSections("CA moyen par jour de la semaine").cles).toEqual(["chiffre_affaires", "jours"]); // « CA » puis le titre entier
+    expect(resolveSections("Vos pôles · du plus au moins performant").cles).toEqual(["poles"]);
     expect(resolveSections("").cles).toEqual([]);
   });
   it("les titres et définitions passent les gardes du français", () => {

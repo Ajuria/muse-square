@@ -34,9 +34,9 @@ describe("composeRapport — la demande de l'owner (§ 9) : volume, panier, mix,
     expect(r.block.type).toBe("rapport");
     expect(r.block.titre).toBe("Rapport — la semaine dernière, du 31/08/2026 au 06/09/2026");
     expect(r.block.sections.map((s) => s.cle)).toEqual(["volume", "panier", "mix", "poles", "sources"]);
-    expect(r.block.sections.map((s) => s.titre)).toEqual(["Volume de ventes", "Panier moyen", "Mix produits & services", "Vos pôles · du plus au moins performant", "Sources et fiabilité"]);
+    expect(r.block.sections.map((s) => s.titre)).toEqual(["Nombre de ventes", "Panier moyen", "Mix produits & services", "Vos pôles · du plus au moins performant", "Sources et fiabilité"]);
     const types = r.block.sections.map((s) => s.blocs.map((b) => b.type));
-    expect(types).toEqual([["table", "facts"], ["facts"], ["table", "facts"], ["table"], ["sources"]]);
+    expect(types).toEqual([["table", "facts"], ["facts"], ["parts", "table", "facts"], ["table", "barres_h"], ["sources"]]);
     expect(r.block.sections[0].provenance).toEqual({ outil: "lire_ventes", params: { periode: "semaine_derniere", du: "2026-08-31", au: "2026-09-06" }, periode: { du: "2026-08-31", au: "2026-09-06" }, calcule_le: "2026-09-12T10:00:00.000Z" });
     expect(r.block.sections[3].provenance?.params).toEqual({ indicateur: "ventes", du: "2026-08-31", au: "2026-09-06" });
     expect(r.block.synthese).toBeNull();
@@ -73,6 +73,6 @@ describe("composeRapport — la demande de l'owner (§ 9) : volume, panier, mix,
   it("le titre demandé l'emporte ; la synthèse reste à la route", () => {
     const r = composeRapport(input({ titre: "Rapport hebdomadaire" }));
     expect(r.block.titre).toBe("Rapport hebdomadaire");
-    expect(rapportToText(r)).toMatch(/^Rapport composé, la semaine dernière, du 31\/08\/2026 au 06\/09\/2026 : Volume de ventes · Panier moyen · Mix produits & services · Vos pôles · du plus au moins performant · Sources et fiabilité\./);
+    expect(rapportToText(r)).toMatch(/^Rapport composé, la semaine dernière, du 31\/08\/2026 au 06\/09\/2026 : Nombre de ventes · Panier moyen · Mix produits & services · Vos pôles · du plus au moins performant · Sources et fiabilité\./);
   });
 });

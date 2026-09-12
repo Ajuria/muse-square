@@ -6,7 +6,7 @@ const doc = (): RapportBlock => ({
   type: "rapport", titre: "Rapport — la semaine dernière, du 31/08/2026 au 06/09/2026",
   periode: { du: "2026-08-31", au: "2026-09-06", relative: "semaine_derniere", libelle_fr: "la semaine dernière, du 31/08/2026 au 06/09/2026" },
   sections: [
-    { cle: "volume", titre: "Volume de ventes", blocs: [{ type: "table", cols: [{ label: "" }, { label: "P" }], rows: [{ cells: [{ v: "Volume de ventes" }, { v: "2 426" }] }] }, { type: "facts", items: ["Vous avez réalisé 2 426 ventes."] }], provenance: { outil: "lire_ventes", params: {}, periode: { du: "2026-08-31", au: "2026-09-06" }, calcule_le: "2026-09-12T10:00:00.000Z" } },
+    { cle: "volume", titre: "Nombre de ventes", blocs: [{ type: "table", cols: [{ label: "" }, { label: "P" }], rows: [{ cells: [{ v: "Nombre de ventes" }, { v: "2 426" }] }] }, { type: "facts", items: ["Vous avez réalisé 2 426 ventes."] }], provenance: { outil: "lire_ventes", params: {}, periode: { du: "2026-08-31", au: "2026-09-06" }, calcule_le: "2026-09-12T10:00:00.000Z" } },
     { cle: "panier", titre: "Panier moyen", blocs: [{ type: "facts", items: ["Panier moyen 4,54 €."] }], provenance: { outil: "lire_ventes", params: {}, periode: { du: "2026-08-31", au: "2026-09-06" }, calcule_le: "2026-09-12T10:00:00.000Z" } },
     { cle: "sources", titre: "Sources et fiabilité", blocs: [{ type: "sources", items: ["Vos ventes"] }], provenance: null },
   ],
@@ -48,7 +48,7 @@ describe("gestes — Votre note : sous la section, registre distinct, jamais mê
 describe("gestes — Approfondir : le message à la boucle porte la période de la section ; le résultat s'insère après elle, vérifié", () => {
   it("le message dit la section, les dates du/au et la question", () => {
     const p = approfondirPrompt(doc(), 0, "Pourquoi le volume a-t-il tenu ?") as string;
-    expect(p).toContain("Approfondir la section « Volume de ventes » du Rapport « Rapport — la semaine dernière, du 31/08/2026 au 06/09/2026 », période du 31/08/2026 au 06/09/2026.");
+    expect(p).toContain("Approfondir la section « Nombre de ventes » du Rapport « Rapport — la semaine dernière, du 31/08/2026 au 06/09/2026 », période du 31/08/2026 au 06/09/2026.");
     expect(p).toContain("(du=2026-08-31, au=2026-09-06)");
     expect(p).toContain("• Vous avez réalisé 2 426 ventes.");
     expect(p).toContain("Question de l'exploitant : Pourquoi le volume a-t-il tenu ?");
@@ -75,7 +75,7 @@ describe("gestes — Actualiser : les sections à provenance se recalculent sur 
     const nouveau: RapportBlock = { ...doc(), periode: { du: "2026-09-07", au: "2026-09-13", relative: "semaine_derniere", libelle_fr: "la semaine dernière, du 07/09/2026 au 13/09/2026" },
       sections: [
         { cle: "panier", titre: "Panier moyen", blocs: [{ type: "facts", items: ["Panier moyen 4,90 €."] }], provenance: { outil: "lire_ventes", params: {}, periode: { du: "2026-09-07", au: "2026-09-13" }, calcule_le: "2026-09-19T08:00:00.000Z" } },
-        { cle: "volume", titre: "Volume de ventes", blocs: [{ type: "facts", items: ["Vous avez réalisé 2 600 ventes."] }], provenance: { outil: "lire_ventes", params: {}, periode: { du: "2026-09-07", au: "2026-09-13" }, calcule_le: "2026-09-19T08:00:00.000Z" } },
+        { cle: "volume", titre: "Nombre de ventes", blocs: [{ type: "facts", items: ["Vous avez réalisé 2 600 ventes."] }], provenance: { outil: "lire_ventes", params: {}, periode: { du: "2026-09-07", au: "2026-09-13" }, calcule_le: "2026-09-19T08:00:00.000Z" } },
       ] };
     const r = actualiserAvec(ancien, nouveau);
     expect(r.sections.map((s) => s.cle)).toEqual(["volume", "panier", "sources"]);

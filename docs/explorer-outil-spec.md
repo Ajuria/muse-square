@@ -135,6 +135,8 @@ par la page Explorer, le rapport de famille et le rapport de ventes.
 | `proposition_operation` | `corps` (le body de POST /api/commitments prêt), `pourquoi[]` (faits) | carte « Proposition d'opération » + CTA « Préparer l'opération → » qui ouvre le formulaire pré-rempli | vérifié |
 | `plan` | `zones[]` (contours en points du plan, valeur, libellé), `mesure` | SVG en ligne, une teinte par valeur | vérifié |
 | `absence` | `manque`, `geste` | phrase courte + lien vers le geste Piloter | — |
+| `barres` · `barres_h` · `parts` (12/09, owner : « add tables and graphs ») | `items[]` = valeurs d'outil avec leurs libellés formatés | SVG / div du kit, grammaire de rapport.astro | vérifié (données d'outil) |
+| `note` (12/09) | `text`, `auteur`, `date` | pastille « Votre note » | Votre note (jamais vérifié) |
 
 Le formulaire d'opération (`event-form.js`) apprend à **recevoir un corps pré-rempli** (familles,
 objectif, dates, levier) — la seule modification d'une surface existante que cette spec demande ; le
@@ -209,12 +211,12 @@ sans section ne s'invente pas : elle rend un bloc `absence`.
 |---|---|---|
 | `synthese` | Synthèse | owner 12/09 (remplace « Résumé exécutif » du rapport de famille) |
 | `chiffre_affaires` | Chiffre d'affaires | rapport de ventes |
-| `volume` · `panier` · `mix` | Volume de ventes · Panier moyen · Mix produits & services | lexique l.83, `couches-dans-leur-unite` |
+| `volume` · `panier` · `mix` | Nombre de ventes (owner 12/09) · Panier moyen · Mix produits & services | lexique l.83, `couches-dans-leur-unite` |
 | `marge_brute` · `resultat_net` · `seuil_rentabilite` | Marge brute · Résultat net · Seuil de rentabilité | lexique (owner 11/09, 12/09) |
 | `poles` | Vos pôles · du plus au moins performant (indicateur nommé) | Piloter « Vos pôles » |
 | `familles` | Vos familles · du plus au moins performant (indicateur nommé) | lexique « famille » |
 | `espace` | Espace · linéaire, surface de vente, CA par mètre | titre du provider |
-| `jours` | Profil par jour de semaine | rapport de ventes |
+| `jours` | CA moyen par jour de la semaine (proposé 12/09, à ratifier — « Profil par jour de semaine » jugé peu clair) | rapport de ventes |
 | `contexte` | Contexte externe | rapport de ventes |
 | `actions` | Actions recommandées | rapport de ventes |
 | `sources` | Sources et fiabilité | rapport de famille |
@@ -259,6 +261,9 @@ Ce qui ne rentre pas : `_hors_perimetre_v1` et `_objection_v1` restent des règl
   libs, données réelles du compte de test owner (il a attrapé le double `<table>` du kit, corrigé ?v=80) — le même
   rendu côté serveur servira l'email.
 - Chaque chiffre d'une réponse porte sa requête et sa fenêtre (dans les `sources` du tour).
+- Le texte du modèle passe la relecture mécanique (`lib/fr/relecture.ts`, 12/09) : mots bannis et tournures de
+  machine, phrase par phrase ; une phrase fautive ne se montre pas et la batterie la compte. La nuance (règles
+  8-13) reste à la relecture humaine : cette page d'arbitrage sert de page de relecture.
 - Budget : première réponse utile sous 3 s sur le compte de test owner, mesuré, jamais déduit.
 - Le document : une version par enregistrement, relue après écriture (sonde réelle sur le compte de test,
   puis suppression), un déplacement de bloc qui ne change aucun chiffre (test pur sur `blocs[]`).

@@ -74,8 +74,8 @@ export function composeRapport(inp: ComposeInput): ComposeResult {
       if (cle === "jours") { if (lv.parts.jours) items.push(lv.parts.jours); if (lv.parts.journees) items.push(lv.parts.journees); }
       // Le tableau des couches porte le CA : son fait l'accompagne, quelle que soit la section qui le rend (porte verte).
       if (porteCouches === cle && lv.tables.couches) { blocs.push(lv.tables.couches); if (cle !== "chiffre_affaires" && lv.parts.ca && !items.includes(lv.parts.ca)) items.unshift(lv.parts.ca); }
-      if (porteMix === cle && lv.tables.mix) blocs.push(lv.tables.mix);
-      if (cle === "jours" && lv.tables.jours) blocs.push(lv.tables.jours);
+      if (porteMix === cle && lv.tables.mix) { if (lv.tables.mix_graphique) blocs.push(lv.tables.mix_graphique); blocs.push(lv.tables.mix); }
+      if (cle === "jours" && lv.tables.jours) { if (lv.tables.jours_graphique) blocs.push(lv.tables.jours_graphique); blocs.push(lv.tables.jours); }
       if (items.length) blocs.push({ type: "facts", items });
       if (!blocs.length) {
         blocs.push({ type: "absence", manque: cle === "jours" ? "Le profil par jour de semaine se lit à partir de quatre semaines : la période demandée est plus courte." : `Rien à lire pour « ${SECTION_BY_CLE[cle].titre} » ${inp.periode.libelle_fr}.`, geste: null });
@@ -128,7 +128,7 @@ export function composeRapport(inp: ComposeInput): ComposeResult {
       }
       for (const s of r.blocks) if (s.type === "sources") s.items.forEach((x) => sources.add(x));
       addFacts(...r.facts);
-      push(cle, r.blocks.filter((b) => b.type !== "sources"), p);
+      push(cle, [...r.blocks.filter((b) => b.type !== "sources"), ...(r.graphique ? [r.graphique] : [])], p);
       continue;
     }
     if (SECTIONS_PAS_ENCORE.includes(cle)) {

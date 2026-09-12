@@ -64,7 +64,7 @@ describe("composeVentesFacts — les phrases du rapport et du chat, les tableaux
     expect(t.cols.map((c: any) => c.label)).toEqual(["", "Du 12/08/2026 au 10/09/2026", "Période précédente", "Écart"]);
     expect(t.rows.map((r: any) => r.cells.map((c: any) => nb(c.v)))).toEqual([
       ["Chiffre d’affaires", "34 512 €", "33 400 €", "+3,3 %"],
-      ["Volume de ventes", "2 410", "2 316", "+4,1 %"],
+      ["Nombre de ventes", "2 410", "2 316", "+4,1 %"],
       ["Panier moyen", "14,32 €", "14,42 €", "−0,7 %"],
     ]);
     expect((l.blocks[1] as any).cols[0].label).toBe("Mix produits & services");
@@ -73,7 +73,7 @@ describe("composeVentesFacts — les phrases du rapport et du chat, les tableaux
     const l = composeVentesFacts(rapport({ summary: { revenue: 34_512, transactions: 2_410, avg_basket: 14.32, vs_prev_pct: null, vs_yoy_pct: null, yoy_available: false, layers: null } }));
     expect(nb(l.facts[0])).toBe("Du 12/08/2026 au 10/09/2026, vous avez généré 34 512 € de chiffre d'affaires sur la période.");
     expect(l.facts.some((f) => f.startsWith("Ce qui a bougé"))).toBe(false);
-    expect((l.blocks[0] as any).rows[1].cells.map((c: any) => nb(c.v))).toEqual(["Volume de ventes", "2 410", "—", "—"]);
+    expect((l.blocks[0] as any).rows[1].cells.map((c: any) => nb(c.v))).toEqual(["Nombre de ventes", "2 410", "—", "—"]);
   });
   it("l'an dernier quand il existe ; mix stable dit stable", () => {
     const l = composeVentesFacts(rapport({ summary: { ...(rapport().body as any).summary, vs_yoy_pct: -2.5, yoy_available: true,

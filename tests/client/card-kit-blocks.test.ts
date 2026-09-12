@@ -77,3 +77,20 @@ it("note (12/09, Votre note) : pastille distincte, texte échappé, auteur et da
   expect(note.querySelector("div")?.getAttribute("title")).toBe("Nadia · 12/09/2026");
   expect(el.querySelector("[data-rapport-section='0']")).not.toBeNull();
 });
+it("graphiques (12/09) : barres, barres_h et parts dessinent les valeurs d'outil, libellés formatés, sans calcul", () => {
+  const html = (window as any).MSCardKit.renderAnswerBlocks([
+    { type: "register", register: "vetted" },
+    { type: "barres", items: [{ label: "lundi", value: 640, value_fr: "640 €" }, { label: "samedi", value: 1320, value_fr: "1 320 €" }], unite: "CA moyen par jour de la semaine" },
+    { type: "barres_h", items: [{ label: "Cuisine", value: 20805, value_fr: "20 805 €", part_fr: "40 %" }, { label: "Cave", value: 2405, value_fr: "2 405 €" }] },
+    { type: "parts", items: [{ label: "Coffee", value: 20014, value_fr: "20 014 €", part_fr: "38,6 %" }, { label: "Tea", value: 14617, value_fr: "14 617 €", part_fr: "28,2 %" }] },
+  ]);
+  const el = document.createElement("div"); el.innerHTML = html;
+  const svgs = el.querySelectorAll("svg");
+  expect(svgs.length).toBe(2);                                   // barres (verticales) + parts (anneau) ; barres_h est en div
+  expect(svgs[0].querySelectorAll("rect").length).toBe(2);
+  expect(svgs[0].textContent).toContain("1 320 €"); expect(svgs[0].textContent).toContain("samedi");
+  const tracks = [...el.querySelectorAll("div[style*='width:']")].filter((d) => /background:#1D3BB3/.test(d.getAttribute("style") || ""));
+  expect(tracks.length).toBe(2); expect(tracks[0].getAttribute("style")).toContain("width:100%");
+  expect(svgs[1].querySelectorAll("circle").length).toBe(2);
+  expect(el.textContent).toContain("38,6 %"); expect(el.textContent).toContain("CA moyen par jour de la semaine");
+});

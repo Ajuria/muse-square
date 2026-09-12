@@ -257,7 +257,7 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
   it("composer_rapport lit en une vague ce que les sections demandent et rend UN bloc rapport avec la provenance ; l'inconnu est dit", async () => {
     const d = deps();
     const out = await byName(buildAgentTools(d), "composer_rapport").run({ sections: "volume, panier, mix, résultat net, et les pôles en nombre de ventes, la couleur des murs", periode: "30_derniers_jours", indicateur: "ventes" });
-    expect(out).toContain("Rapport composé, vos 30 derniers jours, du 13/08/2026 au 11/09/2026 : Volume de ventes · Panier moyen · Mix produits & services · Résultat net · Vos pôles · du plus au moins performant · Sources et fiabilité.");
+    expect(out).toContain("Rapport composé, vos 30 derniers jours, du 13/08/2026 au 11/09/2026 : Nombre de ventes · Panier moyen · Mix produits & services · Résultat net · Vos pôles · du plus au moins performant · Sources et fiabilité.");
     expect(out).toContain("Aucune section du Rapport ne correspond à : « la couleur des murs ».");
     const rec = d.records[0];
     expect(rec).toMatchObject({ name: "composer_rapport", ok: true, summary: "6 sections composées, vos 30 derniers jours, du 13/08/2026 au 11/09/2026 ; 1 demande non reconnue" });

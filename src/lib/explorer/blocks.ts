@@ -22,6 +22,11 @@ export type AnswerBlock =
   // 12/09 — « Votre note » (spec § 6.2, lexique l. 123) : un texte écrit par l'exploitant sous un bloc, jamais vérifié par
   // le validateur, dit par sa pastille — jamais mêlé à un texte vérifié.
   | { type: "note"; text: string; auteur: string | null; date: string }
+  // 12/09 (owner : « ease reading — add tables and graphs ») — trois graphiques du kit, dessinés depuis des valeurs
+  // d'outil (jamais recalculées) : barres verticales (jours), barres horizontales (pôles, familles), parts (mix).
+  | { type: "barres"; items: Array<{ label: string; value: number; value_fr: string }>; unite?: string }
+  | { type: "barres_h"; items: Array<{ label: string; value: number; value_fr: string; part_fr?: string }>; unite?: string }
+  | { type: "parts"; items: Array<{ label: string; value: number; value_fr: string; part_fr: string }> }
   // 12/09 — LE RAPPORT (spec § 6) : un document de sections, chacune faite de blocs, avec sa Synthèse (le texte vérifié
   // du tour, posé par la route) et la provenance de chaque section (l'outil, ses paramètres, la période, la date).
   | RapportBlock;

@@ -55,7 +55,7 @@ const sgnEur = (n: number): string => `${Number(n) >= 0 ? "+" : "−"}${frInt(n)
 const pct1 = (ratio: number): string => `${String(Math.round(ratio * 1000) / 10).replace(".", ",")} %`;
 const frDate = (iso: string): string => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso); return m ? `${m[3]}/${m[2]}/${m[1]}` : iso; };
 
-export interface PoleClassementLecture { found: boolean; facts: string[]; blocks: AnswerBlock[]; indicateur: Indicateur; absence?: "aucun_pole" | "aucune_mesure" | "aucune_marge" }
+export interface PoleClassementLecture { found: boolean; facts: string[]; blocks: AnswerBlock[]; indicateur: Indicateur; absence?: "aucun_pole" | "aucune_mesure" | "aucune_marge"; graphique?: AnswerBlock }
 
 /**
  * Les mots sont ceux de Piloter (« N € sur 30 j », « X % du CA », « N jours vendus », « Non rattaché ») et du kit
@@ -89,8 +89,9 @@ export function composePoleClassement(d: PoleClassementData, indicateur: Indicat
         { v: p.linear_share != null ? pct1(p.linear_share) : "—" },
       ] })),
     });
+    const graphique: AnswerBlock = { type: "barres_h", items: poles.map((p) => ({ label: p.pole_label ?? "", value: p[key] as number, value_fr: eur(p[key] as number) })), unite: INDICATEUR_FR[indicateur] + ", sur les 30 jours des mesures" };
     blocks.push({ type: "sources", items: ["Vos pôles et vos mesures d'espace (mètres linéaires de façade, surface de vente) — CA et marge brute par mètre sur 30 jours"] });
-    return { found: true, facts, blocks, indicateur };
+    return { found: true, facts, blocks, indicateur, graphique };
   }
 
   const rows = d.rows.filter((r) => r.revenue > 0 || r.units > 0);
@@ -130,8 +131,9 @@ export function composePoleClassement(d: PoleClassementData, indicateur: Indicat
       ] };
     }),
   });
+  const graphique: AnswerBlock = { type: "barres_h", items: ranked.map((r) => { const v = val(r) as number; const part = indicateur === "marge_brute" ? (totalMarge > 0 ? pct1((r.gross_margin_ht ?? 0) / totalMarge) : undefined) : (total > 0 ? pct1(r.revenue / total) : undefined); return { label: label(r), value: v, value_fr: indicateur === "ventes" ? frInt(v) : eur(v), ...(part ? { part_fr: part } : {}) }; }), unite: INDICATEUR_FR[indicateur] + " par pôle, sur la période" };
   blocks.push({ type: "sources", items: ["Vos ventes par jour et par famille (caisse), rattachées à vos pôles ; écart au résultat habituel = la somme des écarts des familles du pôle"] });
-  return { found: true, facts, blocks, indicateur };
+  return { found: true, facts, blocks, indicateur, graphique };
 }
 
 export const POLES_ABSENCE_FR: Record<NonNullable<PoleClassementLecture["absence"]>, string> = {

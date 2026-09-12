@@ -4,7 +4,7 @@ import type { RapportBlock } from "../explorer/blocks";
 
 const rapport = (): RapportBlock => ({
   type: "rapport", titre: "  Rapport — la semaine dernière  ", periode: { du: "2026-08-31", au: "2026-09-06", relative: "semaine_derniere", libelle_fr: "la semaine dernière, du 31/08/2026 au 06/09/2026" },
-  sections: [{ cle: "volume", titre: "Volume de ventes", blocs: [{ type: "facts", items: ["Vous avez réalisé 2 426 ventes."] }], provenance: { outil: "lire_ventes", params: {}, periode: { du: "2026-08-31", au: "2026-09-06" }, calcule_le: "2026-09-12T10:00:00.000Z" } }],
+  sections: [{ cle: "volume", titre: "Nombre de ventes", blocs: [{ type: "facts", items: ["Vous avez réalisé 2 426 ventes."] }], provenance: { outil: "lire_ventes", params: {}, periode: { du: "2026-08-31", au: "2026-09-06" }, calcule_le: "2026-09-12T10:00:00.000Z" } }],
   synthese: { text: "Vous avez généré 11 015 €.", register: "vetted" }, non_reconnu: [],
 });
 

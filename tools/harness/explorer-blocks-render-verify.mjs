@@ -51,7 +51,7 @@ const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" 
   check("tableau 1 : colonnes « », période, « Période précédente », « Écart »", t[0]?.cols[1]?.startsWith("Du ") && t[0]?.cols[2] === "Période précédente" && t[0]?.cols[3] === "Écart", JSON.stringify(t[0]?.cols));
   const s = res.body.summary;
   check("ligne « Chiffre d’affaires » = le CA du rapport (" + frInt(s.revenue) + " €)", t[0]?.rows[0]?.[0] === "Chiffre d’affaires" && t[0]?.rows[0]?.[1] === frInt(s.revenue) + " €", JSON.stringify(t[0]?.rows[0]));
-  check("ligne « Volume de ventes » = les ventes du rapport (" + frInt(s.transactions) + ")", t[0]?.rows[1]?.[1] === frInt(s.transactions), JSON.stringify(t[0]?.rows[1]));
+  check("ligne « Nombre de ventes » = les ventes du rapport (" + frInt(s.transactions) + ")", t[0]?.rows[1]?.[1] === frInt(s.transactions), JSON.stringify(t[0]?.rows[1]));
   check("ligne « Panier moyen » en € à deux décimales", /^\d+,\d{2} €$/.test(t[0]?.rows[2]?.[1] || ""), t[0]?.rows[2]?.[1]);
   check("tableau 2 : « Mix produits & services » avec une ligne par famille (" + res.body.category_mix.length + ")", t[1]?.cols[0] === "Mix produits & services" && t[1]?.rows.length === res.body.category_mix.length, JSON.stringify(t[1]?.cols));
   check("sources dépliables présentes", el.querySelector("details summary")?.textContent === "Sources");

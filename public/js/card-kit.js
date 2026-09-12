@@ -2242,6 +2242,48 @@
         + '<div' + (tip ? ' title="' + esc(tip) + '"' : '') + ' style="display:inline-block;background:#FAEEDA;color:#633806;font-size:11px;font-weight:600;border-radius:999px;padding:2px 9px;margin-bottom:6px;">Votre note</div>'
         + '<div style="font-size:13.5px;line-height:1.55;color:#111827;white-space:pre-wrap;">' + esc(b.text) + '</div></div>';
     },
+    // 12/09 (owner : « ease reading — add tables and graphs ») — trois graphiques dessinés depuis des valeurs d'outil,
+    // aux teintes de rapport.astro (weekdayChart : #1D3BB3 par intensité ; CATCOL pour les parts). Aucun chiffre calculé ici
+    // hors la proportion des barres ; les libellés de valeur (value_fr, part_fr) arrivent formatés.
+    barres: function (b) {
+      var items = Array.isArray(b && b.items) ? b.items : [];
+      if (!items.length) return '';
+      var mx = 0; items.forEach(function (d) { if (d.value > mx) mx = d.value; }); if (!mx) mx = 1;
+      var W = 320, H = 160, bw = W / items.length, s = '';
+      items.forEach(function (d, i) {
+        var bh = (d.value / mx) * 100, x = i * bw + bw * 0.18, y = 128 - bh;
+        s += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + (bw * 0.64).toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="2" fill="#1D3BB3" fill-opacity="' + (0.45 + 0.55 * d.value / mx).toFixed(2) + '"/>'
+          + '<text x="' + (i * bw + bw / 2).toFixed(1) + '" y="' + (y - 4).toFixed(1) + '" font-size="8.5" fill="#111827" text-anchor="middle">' + esc(d.value_fr) + '</text>'
+          + '<text x="' + (i * bw + bw / 2).toFixed(1) + '" y="143" font-size="8.5" fill="#6B7280" text-anchor="middle">' + esc(d.label) + '</text>';
+      });
+      return '<div style="max-width:420px;margin:6px 0 10px;"><svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;" role="img" aria-label="' + esc(items.map(function (d) { return d.label + ' ' + d.value_fr; }).join(', ')) + '">' + s + '</svg>' + (b.unite ? '<div style="font-size:11px;color:#9CA3AF;">' + esc(b.unite) + '</div>' : '') + '</div>';
+    },
+    barres_h: function (b) {
+      var items = Array.isArray(b && b.items) ? b.items : [];
+      if (!items.length) return '';
+      var mx = 0; items.forEach(function (d) { if (d.value > mx) mx = d.value; }); if (!mx) mx = 1;
+      return '<div style="max-width:520px;margin:6px 0 10px;">' + items.map(function (d) {
+        var w = Math.max(1, Math.round((d.value / mx) * 100));
+        return '<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;gap:12px;font-size:12.5px;margin-bottom:3px;"><span style="color:#374151;">' + esc(d.label) + '</span><span style="color:#111827;white-space:nowrap;"><strong style="font-weight:600;">' + esc(d.value_fr) + '</strong>' + (d.part_fr ? ' <span style="color:#9CA3AF;">' + esc(d.part_fr) + '</span>' : '') + '</span></div>'
+          + '<div style="height:8px;background:#EEF2FF;border-radius:4px;"><div style="width:' + w + '%;height:8px;background:#1D3BB3;border-radius:4px;"></div></div></div>';
+      }).join('') + (b.unite ? '<div style="font-size:11px;color:#9CA3AF;">' + esc(b.unite) + '</div>' : '') + '</div>';
+    },
+    parts: function (b) {
+      var items = Array.isArray(b && b.items) ? b.items : [];
+      if (!items.length) return '';
+      var COL = ['#1D3BB3', '#2E7D32', '#B45309', '#7B1FA2', '#0891B2', '#9CA3AF', '#DB2777', '#4B5563'];
+      var total = 0; items.forEach(function (d) { total += d.value > 0 ? d.value : 0; }); if (!total) return '';
+      var r = 40, C = 2 * Math.PI * r, off = 0, segs = '';
+      items.forEach(function (d, i) {
+        var len = (Math.max(0, d.value) / total) * C;
+        segs += '<circle r="' + r + '" cx="60" cy="60" fill="none" stroke="' + COL[i % COL.length] + '" stroke-width="18" stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) + '" stroke-dashoffset="' + (-off).toFixed(2) + '" transform="rotate(-90 60 60)"/>';
+        off += len;
+      });
+      var legend = items.map(function (d, i) {
+        return '<div style="display:flex;align-items:baseline;gap:8px;font-size:12.5px;margin:3px 0;"><span style="width:9px;height:9px;border-radius:2px;background:' + COL[i % COL.length] + ';flex:none;display:inline-block;"></span><span style="color:#374151;flex:1;">' + esc(d.label) + '</span><span style="color:#111827;font-weight:600;">' + esc(d.part_fr) + '</span><span style="color:#9CA3AF;">' + esc(d.value_fr) + '</span></div>';
+      }).join('');
+      return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;margin:6px 0 10px;"><svg viewBox="0 0 120 120" style="width:120px;height:120px;flex:none;" role="img" aria-label="' + esc(items.map(function (d) { return d.label + ' ' + d.part_fr; }).join(', ')) + '">' + segs + '</svg><div style="flex:1;min-width:200px;">' + legend + '</div></div>';
+    },
     // 12/09 — LE RAPPORT (docs/explorer-outil-spec.md § 6) : titre, période, la Synthèse (texte vérifié du tour, avec sa
     // pastille), puis une zone par section — les valeurs de .fr-zone / .fr-zh de family-report.astro, le même kit pour
     // les blocs de chaque section. La définition de la section vit au survol du titre (kitchen au survol, règle owner).

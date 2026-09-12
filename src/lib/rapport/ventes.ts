@@ -404,7 +404,7 @@ const jourFr = (iso: string): string => `le ${JOURS[new Date(`${iso}T00:00:00Z`)
 /** Les faits NOMMÉS (12/09, composer_rapport les range par section) — les mêmes chaînes que `facts`, jamais d'autres. */
 export interface VentesParts { ca?: string; an_dernier?: string; volume_panier?: string; couches?: string; journees?: string; jours?: string; repartition?: string; signaux?: string; par_jour?: string[] }
 /** Les tableaux NOMMÉS — `couches` (les trois couches), `mix` (par famille), `jours` (profil par jour de semaine). */
-export interface VentesTables { couches?: AnswerBlock; mix?: AnswerBlock; jours?: AnswerBlock; par_jour?: AnswerBlock }
+export interface VentesTables { couches?: AnswerBlock; mix?: AnswerBlock; jours?: AnswerBlock; par_jour?: AnswerBlock; jours_graphique?: AnswerBlock; mix_graphique?: AnswerBlock }
 /** Le grain « jour » se lit jusqu'à 31 jours : au-delà, une ligne par jour n'est plus une lecture. */
 export const GRAIN_JOUR_MAX = 31;
 export interface VentesLecture { facts: string[]; blocks: AnswerBlock[]; found: boolean; parts: VentesParts; tables: VentesTables }
@@ -412,7 +412,7 @@ export interface VentesLecture { facts: string[]; blocks: AnswerBlock[]; found: 
 /**
  * Les mots sont ceux que rapport.astro rend déjà (« Points clés », « Ce qui a bougé par rapport à la période
  * précédente », « Votre meilleur jour de la semaine ») et ceux du chat (« Votre meilleure journée a été le … ») ;
- * les titres de colonnes sont les sections du Rapport au lexique (Chiffre d'affaires, Volume de ventes, Panier
+ * les titres de colonnes sont les sections du Rapport au lexique (Chiffre d'affaires, Nombre de ventes, Panier
  * moyen, Mix produits & services). Un montant a pour sujet celui qui le génère (« vous avez généré »).
  */
 export function composeVentesFacts(res: SalesReportResult, opts: { grain?: 'jour' | null } = {}): VentesLecture {
@@ -455,6 +455,7 @@ export function composeVentesFacts(res: SalesReportResult, opts: { grain?: 'jour
     facts.push(named.jours = `Votre meilleur jour de la semaine : le ${wd[0].label} (${eur(wd[0].avg)} en moyenne) ; le plus calme, le ${wd[wd.length - 1].label} (${eur(wd[wd.length - 1].avg)} en moyenne).`);
     // Le profil, dans l'ordre de la semaine (lundi → dimanche, comme rapport.astro) — CA moyen par jour.
     tables.jours = { type: 'table', cols: [{ label: 'Jour' }, { label: 'CA moyen par jour' }], rows: (b.weekday as Array<{ label: string; avg: number }>).map((w) => ({ cells: [{ v: w.label, bold: true }, { v: eur(w.avg) }] })) };
+    tables.jours_graphique = { type: 'barres', items: (b.weekday as Array<{ label: string; avg: number }>).map((w) => ({ label: w.label, value: Number(w.avg) || 0, value_fr: eur(w.avg) })), unite: 'CA moyen par jour de la semaine, sur la période' };
   }
   const mix: Array<{ label: string; revenue: number }> = Array.isArray(b.category_mix) ? b.category_mix : [];
   const mixTot = mix.reduce((a, m) => a + (Number(m.revenue) || 0), 0);
@@ -485,7 +486,7 @@ export function composeVentesFacts(res: SalesReportResult, opts: { grain?: 'jour
   const cell = (v: string, bold = false) => ({ v, ...(bold ? { bold: true } : {}) });
   const rows = [
     { cells: [cell('Chiffre d’affaires', true), cell(eur(s.revenue)), cell(res.prev_revenue != null ? eur(res.prev_revenue) : '—'), cell(s.vs_prev_pct != null ? `${sgn(s.vs_prev_pct, true)} %` : '—')] },
-    { cells: [cell('Volume de ventes', true), cell(frInt(s.transactions)), cell(L ? frInt(L.prev_transactions) : '—'), cell(L ? `${sgn(L.volume_pct, true)} %` : '—')] },
+    { cells: [cell('Nombre de ventes', true), cell(frInt(s.transactions)), cell(L ? frInt(L.prev_transactions) : '—'), cell(L ? `${sgn(L.volume_pct, true)} %` : '—')] },
     { cells: [cell('Panier moyen', true), cell(eur2(s.avg_basket)), cell(L ? eur2(L.prev_avg_basket) : '—'), cell(L && L.basket_pct != null ? `${sgn(L.basket_pct, true)} %` : '—')] },
   ];
   tables.couches = { type: 'table', cols, rows };
@@ -497,6 +498,7 @@ export function composeVentesFacts(res: SalesReportResult, opts: { grain?: 'jour
       rows: mix.map((m) => ({ cells: [cell(m.label, true), cell(eur(m.revenue)), cell(pct1((Number(m.revenue) || 0) / mixTot * 100))] })),
     };
     blocks.push(tables.mix);
+    tables.mix_graphique = { type: 'parts', items: mix.map((m) => ({ label: m.label, value: Number(m.revenue) || 0, value_fr: eur(m.revenue), part_fr: pct1((Number(m.revenue) || 0) / mixTot * 100) })) };
   }
   if (tables.par_jour) blocks.push(tables.par_jour);
   blocks.push({ type: 'sources', items: ['Vos ventes par jour et par famille (caisse), la période précédente de même longueur et la même période l’an dernier'] });

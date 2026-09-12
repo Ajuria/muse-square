@@ -30,7 +30,7 @@ export const SECTIONS: SectionDef[] = [
     alias: ["synthèse", "synthese", "résumé", "resume", "en bref", "l'essentiel"] },
   { cle: "chiffre_affaires", titre: "Chiffre d'affaires", definition: "Le chiffre d'affaires de la période, comparé à la période précédente et à la même période l'an dernier.", referentiel: "la période précédente, l'an dernier", unite: "€",
     alias: ["chiffre d'affaires", "chiffre d’affaires", "ca", "ventes en euros", "combien j'ai vendu", "recettes"] },
-  { cle: "volume", titre: "Volume de ventes", definition: "Le nombre de ventes de la période et son écart à la période précédente.", referentiel: "la période précédente", unite: "ventes",
+  { cle: "volume", titre: "Nombre de ventes", definition: "Le nombre de ventes de la période et son écart à la période précédente.", referentiel: "la période précédente", unite: "ventes",
     alias: ["volume", "volume de ventes", "nombre de ventes", "tickets", "transactions", "fréquentation en caisse"] },
   { cle: "panier", titre: "Panier moyen", definition: "Le chiffre d'affaires divisé par le nombre de ventes, et son écart à la période précédente.", referentiel: "la période précédente", unite: "€ par vente",
     alias: ["panier", "panier moyen", "ticket moyen", "dépense moyenne"] },
@@ -48,8 +48,8 @@ export const SECTIONS: SectionDef[] = [
     alias: ["familles", "mes familles", "classement des familles", "familles les plus vendues", "meilleures familles", "familles de produits"] },
   { cle: "espace", titre: "Espace · linéaire, surface de vente, CA par mètre", definition: "Les mètres linéaires et la surface de vente de chaque pôle, et ce qu'ils génèrent par mètre et par m².", referentiel: "les 30 jours des mesures d'espace", unite: "m, m², € par mètre",
     alias: ["espace", "linéaire", "lineaire", "surface de vente", "au mètre", "au m²", "par mètre", "par m2", "par m²", "mètres linéaires"] },
-  { cle: "jours", titre: "Profil par jour de semaine", definition: "Le chiffre d'affaires moyen de chaque jour de la semaine sur la période (à partir de quatre semaines).", referentiel: "la période demandée", unite: "€ par jour",
-    alias: ["jours", "jour de semaine", "jours de la semaine", "profil par jour", "quel jour", "meilleur jour"] },
+  { cle: "jours", titre: "CA moyen par jour de la semaine", definition: "Le chiffre d'affaires moyen de chaque jour de la semaine sur la période (à partir de quatre semaines).", referentiel: "la période demandée", unite: "€ par jour",
+    alias: ["jours", "jour de semaine", "jour de la semaine", "jours de la semaine", "par jour de la semaine", "ca moyen par jour", "profil par jour", "quel jour", "meilleur jour"] },
   { cle: "contexte", titre: "Contexte externe", definition: "La météo, le calendrier, le tourisme et l'activité autour du site sur la période.", referentiel: "la période demandée", unite: "jours",
     alias: ["contexte", "contexte externe", "météo", "meteo", "calendrier", "tourisme", "événements autour"] },
   { cle: "actions", titre: "Actions recommandées", definition: "Les actions issues de vos propres signaux de vente sur la période.", referentiel: "la période demandée", unite: "—",
@@ -91,7 +91,7 @@ export function resolveSections(demande: string[] | string | null | undefined): 
     for (const s of SECTIONS) {
       let pos = -1;
       if (n === s.cle) pos = 0;
-      for (const a of s.alias) { const i = indexOfMot(n, norm(a)); if (i >= 0 && (pos < 0 || i < pos)) pos = i; }
+      for (const a of [s.titre, ...s.alias]) { const i = indexOfMot(n, norm(a)); if (i >= 0 && (pos < 0 || i < pos)) pos = i; }
       if (pos >= 0) trouves.push({ cle: s.cle, pos });
     }
     trouves.sort((a, b) => a.pos - b.pos);

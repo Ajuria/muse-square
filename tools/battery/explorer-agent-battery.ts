@@ -21,6 +21,7 @@ import { computeSalesReport } from "../../src/lib/rapport/ventes";
 import { readResultat } from "../../src/lib/kpi/resultat";
 import { readPoleClassement } from "../../src/lib/dispositifs/poleClassement";
 import { modelFor } from "../../src/lib/ai/models";
+import { relireTexte } from "../../src/lib/fr/relecture";
 
 const LOC = process.env.BATTERY_LOCATION_ID || "f10c3e58-326e-4e38-947c-d59fcbe51df5";
 const MAX_SECONDS = Number(process.env.BATTERY_MAX_SECONDS || 30);
@@ -70,10 +71,12 @@ async function ask(q: string) {
     messages: [{ role: "user", content: q }], tools, max_iterations: 8,
   });
   const final = await runner.runUntilDone();
-  const text = final.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
+  const brut = final.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
+  const relecture = relireTexte(brut);   // la même relecture que la route : les phrases fautives ne se montrent pas
+  const text = relecture.texte;
   const g = groundAgentText(text, calls.flatMap((c) => c.facts ?? []));
   const blocks = assembleAnswerBlocks(calls.map((c) => c.blocks ?? []), g);
-  return { seconds: (Date.now() - t0) / 1000, firstBlockAt, model: final.model, text, calls, grounding: g, blocks };
+  return { seconds: (Date.now() - t0) / 1000, firstBlockAt, model: final.model, text, calls, grounding: g, blocks, relecture };
 }
 
 (async () => {
@@ -97,6 +100,7 @@ async function ask(q: string) {
     console.log(`\nQ: ${c.q}\n  ${line}`);
     if (r) console.log("  " + r.text.slice(0, 500).replace(/\n+/g, " / "));
     if (r && r.grounding.ungrounded_numbers.length) console.log("  nombres non fondés :", r.grounding.ungrounded_numbers.join(", "));
+    if (r && r.relecture.fautes.length) console.log("  relecture — phrases retirées :", r.relecture.phrases_retirees, "·", r.relecture.fautes.map((f) => f.motif).join(" ; "));
     rows.push(`| ${c.q} | ${r ? r.seconds.toFixed(1) : "—"} (1er bloc ${r && r.firstBlockAt != null ? r.firstBlockAt.toFixed(1) : "—"}) | ${r ? r.grounding.register : "erreur"} | ${used.join(", ")} | ${r ? r.blocks.map((b: any) => b.type).join(", ") : ""} | ${failed.length ? "FAIL " + failed.join(", ") : "OK"} |`);
   }
   const report = [
