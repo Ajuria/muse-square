@@ -22,6 +22,7 @@
 // commitments/space-measures) après le passage sur place.
 //
 // Usage : npx tsx tools/oneoff/2026-09-11-epices-et-tout-poles-et-mesures.mts            (charge)
+//         … --location=f10c3e58-326e-4e38-947c-d59fcbe51df5                             (sur un autre site)
 //         npx tsx tools/oneoff/2026-09-11-epices-et-tout-poles-et-mesures.mts --rollback (retire tout)
 // Refuse de charger si le site porte déjà un pôle. Vérifie APRÈS : 7 pôles, 52 mesures, mètres par pôle.
 import "dotenv/config";
@@ -32,7 +33,12 @@ import { listPoles } from "../../src/lib/dispositifs/poleReading";
 import { listSpaceMeasures } from "../../src/lib/dispositifs/spaceMeasures";
 
 const PROJECT = "muse-square-open-data";
-const LOCATION_ID = "a3b442c2-e7e5-43e8-b969-7b78e6c24bb0";   // Épices et Tout (dims.dim_client_location, vérifié 11/09)
+// Site cible : Épices et Tout par défaut (dims.dim_client_location, vérifié 11/09) ; `--location=<id>` charge les
+// MÊMES pôles ailleurs — demande owner 12/09 : sur son compte de test Muse Square (f10c3e58…, ventes Kaggle du
+// café) pour voir Piloter et Explorer avec des pôles mesurés. Ses familles de caisse ne sont pas celles du plan :
+// chaque pôle y sera « Pôle en projet — À rapprocher de la caisse », avec ses mètres, sans € par mètre.
+const LOCATION_ID = (process.argv.find((a) => a.startsWith("--location=")) || "").slice("--location=".length)
+  || "a3b442c2-e7e5-43e8-b969-7b78e6c24bb0";
 const CSV = `${process.env.HOME}/Documents/Muse_Square/Clients/epices-et-tout/map/metres_lineaires_epices_et_tout_v2_2026-09-11.csv`;
 const MEASURED_AT = "2026-09-11";
 const POLE_NAME: Record<string, string> = {
