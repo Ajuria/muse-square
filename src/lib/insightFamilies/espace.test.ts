@@ -5,8 +5,8 @@ import type { PoleSpaceRow } from "../dispositifs/poleReading";
 
 const row = (o: Partial<PoleSpaceRow>): PoleSpaceRow => ({
   grain: "pole", pole_id: null, pole_label: null, family: null, window_start: null, window_end: null,
-  linear_m: null, linear_share: null, surface_m2: null, n_components: null, revenue: null, revenue_share: null, margin_share: null,
-  coverage_pct: null, revenue_per_m: null, margin_per_m: null, revenue_per_m2: null, margin_per_m2: null, ...o,
+  linear_m: null, linear_share: null, surface_m2: null, n_components: null, revenue: null, revenue_net_ht: null, revenue_share: null, margin_share: null,
+  coverage_pct: null, revenue_per_m: null, revenue_net_ht_per_m: null, margin_per_m: null, revenue_per_m2: null, revenue_net_ht_per_m2: null, margin_per_m2: null, ...o,
 });
 const poles = [{ dispositif_id: "cave", name: "Cave" }, { dispositif_id: "cuisine", name: "Cuisine" }, { dispositif_id: "maison", name: "Maison" }];
 const plain = (s: string) => s.replace(/[  ]/g, " ");

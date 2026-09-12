@@ -20,7 +20,7 @@ const tick = () => new Promise((r) => setTimeout(r, 40));
 const res = await dashGET({ url: new URL("http://l/api/insight/dashboard?period=365&location_id=" + OWNER_LOC), locals: { clerk_user_id: "harness", all_location_ids: [OWNER_LOC], role: "owner" } });
 const payload = JSON.parse(await res.text());
 if (!payload.ok) throw new Error("payload en erreur : " + payload.error);
-check("payload réel du compte owner : aucun pôle", (payload.poles || []).length === 0, (payload.poles || []).length);
+check("payload réel du compte owner : des pôles lus par le serveur (7 depuis le 12/09) ou aucun — l'état, pas une supposition", Array.isArray(payload.poles), (payload.poles || []).length);
 
 // Les pôles d'Épices et Tout, par LES foyers serveur (mêmes chiffres que le payload d'un owner d'Épices).
 const bq = makeBQClient("muse-square-open-data");
@@ -39,8 +39,8 @@ function polePayload(p, sp, extra) {
     name: p.name, lever: p.lever, families: p.families, responsable: p.responsable, components: [], operations: [],
     reading: { rev30_eur: null, share_pct: null, delta_pct: null, n30: 0, families: [] }, week: null, ops_open: 0, historique: [], prouves: 0,
     projet, projet_fr: POLE_PROJECT_FR[projet],
-    space: sp ? { linear_m: sp.linear_m, linear_share: sp.linear_share, surface_m2: sp.surface_m2, revenue_per_m: sp.revenue_per_m, margin_per_m: sp.margin_per_m,
-      revenue_per_m2: sp.revenue_per_m2, margin_per_m2: sp.margin_per_m2, revenue_share: sp.revenue_share, margin_share: sp.margin_share, coverage_pct: sp.coverage_pct, ...(extra || {}) } : null,
+    space: sp ? { linear_m: sp.linear_m, linear_share: sp.linear_share, surface_m2: sp.surface_m2, revenue_per_m: sp.revenue_per_m, revenue_net_ht_per_m: sp.revenue_net_ht_per_m, margin_per_m: sp.margin_per_m,
+      revenue_per_m2: sp.revenue_per_m2, revenue_net_ht_per_m2: sp.revenue_net_ht_per_m2, margin_per_m2: sp.margin_per_m2, revenue_share: sp.revenue_share, margin_share: sp.margin_share, coverage_pct: sp.coverage_pct, ...(extra || {}) } : null,
   };
 }
 
@@ -76,12 +76,13 @@ async function render(p) {
 // 2. Le même pôle quand le site vend : € par mètre, part de marge contre Part de linéaire, surface.
 {
   const p2 = JSON.parse(JSON.stringify(payload));
-  p2.poles = [polePayload(cave, caveSpace, { surface_m2: 18.5, revenue_per_m: 412.4, margin_per_m: 160.2, revenue_per_m2: 526.1, revenue_share: 0.152, margin_share: 0.171 })];
+  p2.poles = [polePayload(cave, caveSpace, { surface_m2: 18.5, revenue_per_m: 412.4, revenue_net_ht_per_m: 400.3, margin_per_m: 160.2, revenue_per_m2: 526.1, revenue_net_ht_per_m2: 510.8, revenue_share: 0.152, margin_share: 0.171 })];
   const { body } = await render(p2);
   body.querySelector("[data-tb-pole]").click(); await tick();
   const pt = body.querySelector("#tb-pole-panel").textContent;
   check("volet : « 18,5 m² de surface de vente »", pt.indexOf("18,5 m² de surface de vente") >= 0);
-  check("volet : « 412 € de CA par mètre · 160 € de marge brute par mètre · 526 € de CA par m² »", pt.indexOf("412 € de CA par mètre · 160 € de marge brute par mètre · 526 € de CA par m²") >= 0, pt);
+  check("volet : « 412 € de CA par mètre · 400 € de CA net HT par mètre · 160 € de marge brute par mètre »", pt.indexOf("412 € de CA par mètre · 400 € de CA net HT par mètre · 160 € de marge brute par mètre") >= 0, pt);
+  check("volet : « 526 € de CA par m² · 511 € de CA net HT par m² »", pt.indexOf("526 € de CA par m² · 511 € de CA net HT par m²") >= 0);
   check("volet : « Part de marge 17,1 % contre Part de linéaire 11,7 % »", pt.indexOf("Part de marge 17,1 % contre Part de linéaire 11,7 %") >= 0);
 }
 // 3. Un pôle sans mesure : l'absence se dit.

@@ -1903,6 +1903,7 @@
       { top: 'Lin\u00e9aire mesur\u00e9', mid: m1(s.linear_m) + ' m', highlight: true, tone: 'ok' },
       { top: 'Surface de vente', mid: s.surface_m2 != null ? m1(s.surface_m2) + ' m\u00b2' : '\u2014' },
       { top: 'CA par m\u00e8tre \u00b7 30 j', mid: s.revenue_per_m != null ? frInt(s.revenue_per_m) + ' \u20ac' : '\u2014' },
+      { top: 'CA net HT par m\u00e8tre \u00b7 30 j', mid: s.revenue_net_ht_per_m != null ? frInt(s.revenue_net_ht_per_m) + ' \u20ac' : '\u2014' },
       { top: 'Marge brute par m\u00e8tre \u00b7 30 j', mid: s.margin_per_m != null ? frInt(s.margin_per_m) + ' \u20ac' : '\u2014' }
     ]);
     if (j.poles && j.poles.length) {
@@ -1913,6 +1914,7 @@
         { label: 'Part de lin\u00e9aire', key: 'linear_share', render: function (p) { return { v: pct(p.linear_share), color: '#6B7280' }; } },
         { label: 'Part du CA', key: 'revenue_share', render: function (p) { return { v: p.revenue_share != null ? pct(p.revenue_share) : 'aucune vente', color: '#6B7280' }; } },
         { label: 'CA par m\u00e8tre', key: 'revenue_per_m', render: function (p) { return { v: p.revenue_per_m != null ? frInt(p.revenue_per_m) + ' \u20ac' : '\u2014', color: '#6B7280' }; } },
+        { label: 'CA net HT par m\u00e8tre', key: 'revenue_net_ht_per_m', render: function (p) { return { v: p.revenue_net_ht_per_m != null ? frInt(p.revenue_net_ht_per_m) + ' \u20ac' : '\u2014', color: '#6B7280' }; } },
         { label: 'Part de la marge', key: 'margin_share', render: function (p) { return { v: p.margin_share != null ? pct(p.margin_share) : '\u2014', color: '#6B7280' }; } }
       ], j.poles, 'linear_m');
     }

@@ -1323,7 +1323,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
           const s = ((polesRaw.space || {})[p.location_id] || []).find((r: PoleSpaceRow) => r.grain === "pole" && r.pole_id === p.dispositif_id) || null;
           return s ? {
             linear_m: s.linear_m, linear_share: s.linear_share, surface_m2: s.surface_m2,
-            revenue_per_m: s.revenue_per_m, margin_per_m: s.margin_per_m, revenue_per_m2: s.revenue_per_m2, margin_per_m2: s.margin_per_m2,
+            revenue_per_m: s.revenue_per_m, revenue_net_ht_per_m: s.revenue_net_ht_per_m, margin_per_m: s.margin_per_m,
+            revenue_per_m2: s.revenue_per_m2, revenue_net_ht_per_m2: s.revenue_net_ht_per_m2, margin_per_m2: s.margin_per_m2,
             revenue_share: s.revenue_share, margin_share: s.margin_share, coverage_pct: s.coverage_pct,
           } : null;
         })(),

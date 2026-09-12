@@ -18,8 +18,9 @@ const pct1 = (share: number): string => String(Math.round(share * 1000) / 10).re
 
 export interface EspacePoleRow {
   pole_id: string; name: string; linear_m: number | null; linear_share: number | null; surface_m2: number | null; n_components: number | null;
-  revenue: number | null; revenue_share: number | null; margin_share: number | null;
-  revenue_per_m: number | null; margin_per_m: number | null; revenue_per_m2: number | null; margin_per_m2: number | null;
+  revenue: number | null; revenue_net_ht: number | null; revenue_share: number | null; margin_share: number | null;
+  revenue_per_m: number | null; revenue_net_ht_per_m: number | null; margin_per_m: number | null;
+  revenue_per_m2: number | null; revenue_net_ht_per_m2: number | null; margin_per_m2: number | null;
 }
 
 /** Composition PURE : pôles + espace → data + faits (testée sans BigQuery). */
@@ -34,8 +35,9 @@ export function composeEspaceFamily(
     return {
       pole_id: p.dispositif_id, name: p.name,
       linear_m: s?.linear_m ?? null, linear_share: s?.linear_share ?? null, surface_m2: s?.surface_m2 ?? null, n_components: s?.n_components ?? null,
-      revenue: s?.revenue ?? null, revenue_share: s?.revenue_share ?? null, margin_share: s?.margin_share ?? null,
-      revenue_per_m: s?.revenue_per_m ?? null, margin_per_m: s?.margin_per_m ?? null, revenue_per_m2: s?.revenue_per_m2 ?? null, margin_per_m2: s?.margin_per_m2 ?? null,
+      revenue: s?.revenue ?? null, revenue_net_ht: s?.revenue_net_ht ?? null, revenue_share: s?.revenue_share ?? null, margin_share: s?.margin_share ?? null,
+      revenue_per_m: s?.revenue_per_m ?? null, revenue_net_ht_per_m: s?.revenue_net_ht_per_m ?? null, margin_per_m: s?.margin_per_m ?? null,
+      revenue_per_m2: s?.revenue_per_m2 ?? null, revenue_net_ht_per_m2: s?.revenue_net_ht_per_m2 ?? null, margin_per_m2: s?.margin_per_m2 ?? null,
     };
   }).filter((r) => r.linear_m != null).sort((a, b) => (b.linear_m as number) - (a.linear_m as number));
   if (!rows.length || !site || site.linear_m == null) {
@@ -52,7 +54,7 @@ export function composeEspaceFamily(
   for (const r of rows.slice(0, 7)) {
     let f = `${r.name} : ${m1(r.linear_m as number)} m de linéaire` + (r.linear_share != null ? ` (Part de linéaire ${pct1(r.linear_share)})` : "");
     if (r.revenue_per_m != null) {
-      f += ` · ${frInt(r.revenue_per_m)} € de CA par mètre sur 30 jours` + (r.revenue_share != null ? ` · ${pct1(r.revenue_share)} du CA` : "");
+      f += ` · ${frInt(r.revenue_per_m)} € de CA par mètre sur 30 jours` + (r.revenue_net_ht_per_m != null ? ` (${frInt(r.revenue_net_ht_per_m)} € net HT)` : "") + (r.revenue_share != null ? ` · ${pct1(r.revenue_share)} du CA` : "");
       if (r.margin_share != null && r.linear_share != null) f += ` · part de marge ${pct1(r.margin_share)} contre Part de linéaire ${pct1(r.linear_share)}`;
     } else {
       f += " · aucune vente rapportée à ce pôle sur 30 jours";
@@ -68,7 +70,7 @@ export function composeEspaceFamily(
     found: true,
     data: {
       found: true, date, lead,
-      site: { linear_m: site.linear_m, surface_m2: site.surface_m2, revenue_per_m: site.revenue_per_m, margin_per_m: site.margin_per_m, revenue_per_m2: site.revenue_per_m2 },
+      site: { linear_m: site.linear_m, surface_m2: site.surface_m2, revenue_per_m: site.revenue_per_m, revenue_net_ht_per_m: site.revenue_net_ht_per_m, margin_per_m: site.margin_per_m, revenue_per_m2: site.revenue_per_m2, revenue_net_ht_per_m2: site.revenue_net_ht_per_m2 },
       window: site.window_start && site.window_end ? { start: site.window_start, end: site.window_end } : null,
       poles: rows, heavy: heavy ? heavy.name : null, best_per_m: bestPerM ? bestPerM.name : null,
     },

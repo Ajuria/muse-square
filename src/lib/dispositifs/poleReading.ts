@@ -421,8 +421,9 @@ export interface PoleSpaceRow {
   pole_id: string | null; pole_label: string | null; family: string | null;
   window_start: string | null; window_end: string | null;
   linear_m: number | null; linear_share: number | null; surface_m2: number | null; n_components: number | null;
-  revenue: number | null; revenue_share: number | null; margin_share: number | null; coverage_pct: number | null;
-  revenue_per_m: number | null; margin_per_m: number | null; revenue_per_m2: number | null; margin_per_m2: number | null;
+  revenue: number | null; revenue_net_ht: number | null; revenue_share: number | null; margin_share: number | null; coverage_pct: number | null;
+  revenue_per_m: number | null; revenue_net_ht_per_m: number | null; margin_per_m: number | null;
+  revenue_per_m2: number | null; revenue_net_ht_per_m2: number | null; margin_per_m2: number | null;
 }
 export async function listPoleSpace(bq: any, location_id: string): Promise<PoleSpaceRow[]> {
   const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
@@ -435,7 +436,8 @@ export async function listPoleSpace(bq: any, location_id: string): Promise<PoleS
           FROM \`${PROJECT}.semantic.vw_insight_event_pole_space\`
           WHERE location_id = @location_id ORDER BY grain, pole_label, family`),
     rows(`SELECT grain, pole_id, family, CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end,
-                 revenue, revenue_share, margin_share, coverage_pct, revenue_per_m, margin_per_m, revenue_per_m2, margin_per_m2
+                 revenue, revenue_net_ht, revenue_share, margin_share, coverage_pct, revenue_per_m, revenue_net_ht_per_m, margin_per_m,
+                 revenue_per_m2, revenue_net_ht_per_m2, margin_per_m2
           FROM \`${PROJECT}.semantic.vw_insight_event_space_30d\`
           WHERE location_id = @location_id`),
   ]);
@@ -448,8 +450,9 @@ export async function listPoleSpace(bq: any, location_id: string): Promise<PoleS
       pole_id: s(r.pole_id), pole_label: s(r.pole_label), family: s(r.family),
       window_start: s(v.window_start), window_end: s(v.window_end),
       linear_m: n(r.linear_m), linear_share: n(r.linear_share), surface_m2: n(r.surface_m2), n_components: n(r.n_components),
-      revenue: n(v.revenue), revenue_share: n(v.revenue_share), margin_share: n(v.margin_share), coverage_pct: n(v.coverage_pct),
-      revenue_per_m: n(v.revenue_per_m), margin_per_m: n(v.margin_per_m), revenue_per_m2: n(v.revenue_per_m2), margin_per_m2: n(v.margin_per_m2),
+      revenue: n(v.revenue), revenue_net_ht: n(v.revenue_net_ht), revenue_share: n(v.revenue_share), margin_share: n(v.margin_share), coverage_pct: n(v.coverage_pct),
+      revenue_per_m: n(v.revenue_per_m), revenue_net_ht_per_m: n(v.revenue_net_ht_per_m), margin_per_m: n(v.margin_per_m),
+      revenue_per_m2: n(v.revenue_per_m2), revenue_net_ht_per_m2: n(v.revenue_net_ht_per_m2), margin_per_m2: n(v.margin_per_m2),
     };
   });
 }
