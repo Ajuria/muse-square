@@ -158,6 +158,8 @@ export const MOTS_BANNIS: Record<string, string> = {
   // « composant » ; « meuble », « unité typée » et « sous-type » étaient mes brouillons, attrapés à
   // la relecture owner. Le second axe se dit « rôle ».
   "meuble": "composant",
+  // 12/09 (owner : « pas point mort mais seuil de rentabilité ») — le CA net HT qu'une journée doit générer.
+  "point mort": "seuil de rentabilité",
   "unité typée": "composant",
   "sous-type": "rôle",
 };

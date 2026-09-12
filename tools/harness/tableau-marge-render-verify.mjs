@@ -1,7 +1,7 @@
 // Vérité RENDU — marge brute mesurée sur le tableau de bord (11/09, docs/catalogue-de-couts-et-marge.md § 4.5).
 // Le script inline RÉEL de tableau.astro, exécuté dans happy-dom : (1) sur le payload RÉEL du compte owner
 // (aucun prix d'achat : quatre gestes « À faire », aucun bloc de marge) ; (2) sur le MÊME payload avec une
-// marge mesurée, un résultat net et un point mort injectés (les blocs de la carte CA) ; (3) les panneaux
+// marge mesurée, un résultat net et un seuil de rentabilité injectés (les blocs de la carte CA) ; (3) les panneaux
 // inline s'ouvrent avec leurs champs. Le harnais EST la page. Usage : npx tsx tools/harness/tableau-marge-render-verify.mjs
 import "dotenv/config";
 import { readFileSync } from "node:fs";
@@ -53,15 +53,15 @@ async function render(p) {
   }
   const chargesKnown = mm.params && mm.params.fixed_costs_month_eur != null && mm.params.payroll_month_eur != null;
   if (chargesKnown) {
-    check("charges déclarées : blocs « résultat net · <mois> » et « point mort du jour » rendus avec les chiffres réels",
-      (mm.resultat_net && hasEur(t, frIntFr(mm.resultat_net.net_result_eur)) && t.indexOf("résultat net ·") >= 0) && (!mm.point_mort || t.indexOf("point mort du jour") >= 0),
+    check("charges déclarées : blocs « résultat net · <mois> » et « seuil de rentabilité du jour » rendus avec les chiffres réels",
+      (mm.resultat_net && hasEur(t, frIntFr(mm.resultat_net.net_result_eur)) && t.indexOf("résultat net ·") >= 0) && (!mm.point_mort || t.indexOf("seuil de rentabilité du jour") >= 0),
       t.slice(t.indexOf("résultat net"), t.indexOf("résultat net") + 60));
     check("charges déclarées : plus de geste charges", t.indexOf("Déclarer vos charges fixes et votre masse salariale") < 0);
-  } else check("geste charges rendu", t.indexOf("Déclarer vos charges fixes et votre masse salariale") >= 0 && t.indexOf("résultat net et le point mort") >= 0);
+  } else check("geste charges rendu", t.indexOf("Déclarer vos charges fixes et votre masse salariale") >= 0 && t.indexOf("résultat net et le seuil de rentabilité") >= 0);
   check("geste surface rendu", t.indexOf("Déclarer votre surface de vente") >= 0 && t.indexOf("marge par m²") >= 0);
   const baseKnown = mm.params && mm.params.revenue_basis;
   check(baseKnown ? "base du CA connue (" + mm.params.revenue_basis + ") : geste base absent" : "geste base rendu", baseKnown ? t.indexOf("exporte le CA en HT ou en TTC") < 0 : t.indexOf("exporte le CA en HT ou en TTC") >= 0);
-  if (!chargesKnown) check("aucun bloc résultat net / point mort sans paramètres", t.indexOf("résultat net ·") < 0 && t.indexOf("point mort du jour") < 0);
+  if (!chargesKnown) check("aucun bloc résultat net / seuil de rentabilité sans paramètres", t.indexOf("résultat net ·") < 0 && t.indexOf("seuil de rentabilité du jour") < 0);
   check("le geste marge déclarée existant est toujours là (ADD, don't REPLACE)", t.indexOf("Déclarer votre marge") >= 0);
   // 3. Panneaux inline.
   const btnC = [...body.querySelectorAll("[data-tb-param]")].find((b) => b.getAttribute("data-tb-param") === "charges");
@@ -88,7 +88,7 @@ async function render(p) {
   }
 }
 
-// 2. Payload injecté : marge mesurée à 92 %, résultat net d'août, point mort atteint à 15 h.
+// 2. Payload injecté : marge mesurée à 92 %, résultat net d'août, seuil de rentabilité atteint à 15 h.
 {
   const p2 = JSON.parse(JSON.stringify(payload));
   p2.marge_mesuree = [{ location_id: OWNER_LOC, site_label: "Muse Square", revenue_30d: 53461, revenue_costed_30d: 49184, coverage_pct: 92, mode: "mesure", gross_margin_ht_30d: 19845.4, margin_rate_pct: 40,
@@ -101,7 +101,7 @@ async function render(p) {
   check("bloc marge brute mesurée : montant + « calculée sur 92 % de votre CA »", hasEur(t, "19 845") && t.indexOf("marge brute · 30 derniers jours · calculée sur 92 % de votre CA") >= 0);
   check("mode mesure : l'estimation « profit · 30 derniers jours » ne s'affiche plus", t.indexOf("profit · 30 derniers jours") < 0);
   check("bloc résultat net · août 2026", hasEur(t, "1 235") && t.indexOf("résultat net · août 2026") >= 0);
-  check("bloc point mort du jour · atteint à 15 h", hasEur(t, "1 653") && t.indexOf("point mort du jour · atteint à 15 h") >= 0);
+  check("bloc seuil de rentabilité du jour · atteint à 15 h", hasEur(t, "1 653") && t.indexOf("seuil de rentabilité du jour · atteint à 15 h") >= 0);
   check("geste prix d'achat à l'état d'entretien", t.indexOf("Importer vos prix d'achat — modifiable à tout moment") >= 0);
   check("plus de geste charges / surface / base quand tout est déclaré", t.indexOf("Déclarer vos charges fixes") < 0 && t.indexOf("Déclarer votre surface de vente") < 0 && t.indexOf("exporte le CA") < 0);
   // mixte : 70 % → les deux blocs, nommés

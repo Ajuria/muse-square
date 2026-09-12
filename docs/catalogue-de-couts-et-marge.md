@@ -8,7 +8,7 @@ _Réécrit en définitif le 11/09/2026 après la fusion de la PR [ms_database#14
 (`9faf044`) et le run dbt Cloud `70471897065342` ; chaque affirmation re-vérifiée en base à 15 h 49 UTC. Les modèles
 font foi (`~/Documents/ms_database/ms_dbt/models/ms_open_data/…`) ; le chemin parcouru vit dans
 `docs/dbt-handoff/HANDOFF-marge-2026-09-11.md` et `git log`. Décisions owner du 11/09 : mots (lexique + intent),
-seuil de couverture 90 %, base HT/TTC déduite de la caisse sinon déclarée, résultat net et point mort au héros de
+seuil de couverture 90 %, base HT/TTC déduite de la caisse sinon déclarée, résultat net et seuil de rentabilité au héros de
 Piloter, fichier de prix d'achat aux standards français._
 
 **La garde (§ 12.12) tient par construction** : sans prix d'achat en base, `cost_known` est faux sur chaque ligne,
@@ -54,7 +54,7 @@ Var dbt `margin_coverage_min: 0.9`. Les nœuds portent `mart_dependent` ; la cha
   de toutes les surfaces existantes ; `revenue_net_ht` n'apparaît que sous le mot **CA net HT**.
 - **M5** Charges fixes et masse salariale sont des montants mensuels à date d'effet ; le journal des corrections
   garde les marges % déclarées et le nombre de clients.
-- **M6** Jours d'ouverture = jours avec ventes ; point mort sur le dernier mois complet ; résultat net sur mois
+- **M6** Jours d'ouverture = jours avec ventes ; seuil de rentabilité sur le dernier mois complet ; résultat net sur mois
   complets seulement.
 - **M7** Chaque marge voyage avec sa couverture ; à l'écran : « calculée sur X % de votre CA · prix d'achat manquants
   sur Y % » (lexique).
@@ -81,13 +81,13 @@ Var dbt `margin_coverage_min: 0.9`. Les nœuds portent `mart_dependent` ; la cha
   Piloter), l'importeur de ventes qui écrit `document_type`, `revenue_ht`, `vat_rate` quand l'export les porte
   (`lib/import/salesCsv.ts`, taux de TVA en fraction), la surface de vente déclarée en chat (« ma surface de vente
   est de 120 m² » → `analytics.declared_parameters`, `lib/ai/declaredMetrics.ts`).
-- **Lecteurs (dev)** : Piloter (marge brute, résultat net, point mort dans la carte CA ; K9 mesuré d'abord) ; LE foyer
+- **Lecteurs (dev)** : Piloter (marge brute, résultat net, seuil de rentabilité dans la carte CA ; K9 mesuré d'abord) ; LE foyer
   `lib/kpi/margin.ts` (`readMeasuredMargin30d`, 30 jours, site + familles, mode décidé une fois) partagé par le chat
   (la mesure répond avant l'estimation déclarée dès le mode mixte, `measuredMarginAnswerFr`), par le provider
   Explorer `FAMILIES.marge` (faits avec la couverture comme fait à part, famille lourde en CA légère en marge,
   lignes vendues sous leur prix d'achat, `renderMarge`) et par la section « Marge brute · 30 derniers jours » du
   rapport de ventes. Sur le compte owner (aucun prix d'achat) : mode « aucune », absence dite partout.
 - **Reste** : les cartes Agir (audit § 6 A7 : vendu sous son prix d'achat, remise qui efface la marge, marge du jour,
-  point mort atteint, famille lourde en CA légère en marge) ; le premier export de détail Crisalid (en-têtes réels de
+  seuil de rentabilité atteint, famille lourde en CA légère en marge) ; le premier export de détail Crisalid (en-têtes réels de
   l'override `crisalid`, décision RETOUR) ; le grain pôle de la marge lit déjà `vw_insight_event_space_30d` dès
   qu'un site avec pôles vend.

@@ -901,7 +901,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 GROUP BY 1`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]),
-      // (b) le dernier jour de vente par site : point mort du jour et heure atteinte.
+      // (b) le dernier jour de vente par site : seuil de rentabilité du jour et heure atteinte.
       bq.query({
         query: `SELECT location_id, CAST(date AS STRING) AS d, gross_margin_ht, coverage_pct, charges_day_eur,
                        break_even_revenue_ht, break_even_hour, is_break_even_reached, margin_rate_30d, opening_days_ref

@@ -36,7 +36,7 @@ avec son résultat — pour que le lieu apprenne de lui-même.
 - **prix d'achat** : le coût HT d'un article à une date d'effet, déposé par l'exploitant ; il fait de la
   **marge brute** (CA net HT − prix d'achat des articles vendus) une mesure, par famille, par article, par
   heure — toujours dite avec la part du CA dont le prix d'achat est renseigné. Avec les **charges fixes**
-  et la **masse salariale** du mois, déclarées, elle donne le **résultat net** et le **point mort** du jour
+  et la **masse salariale** du mois, déclarées, elle donne le **résultat net** et le **seuil de rentabilité** du jour
   [owner 11/09, `strategie-entreprise.md` § 12.12 : le critère d'achat du premier client réel est le
   profit]. Sans prix d'achat en base, aucun chiffre de marge ne se montre.
 - **composant** : l'objet physique d'un dispositif, celui qu'on photographie — vitrine, linéaire,

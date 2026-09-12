@@ -279,7 +279,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           // si le manque est RÉEL en base (drapeaux serveur) ; les chaînes reprennent les formes de cette
           // surface (« → Importer vos ventes récentes », « débloque le KPI profit », « ici même », « modifiable à
           // tout moment ») et les mots actés du lexique (prix d'achat, marge brute, charges fixes, masse
-          // salariale, surface de vente, résultat net, point mort, « calculée sur X % de votre CA », « prix
+          // salariale, surface de vente, résultat net, seuil de rentabilité (owner 12/09 : jamais « point mort »), « calculée sur X % de votre CA », « prix
           // d'achat manquants sur Y % »). PROVISOIRES jusqu'à ratification owner.
           var pa = db.prix_achat_missing;
           var mmAll = (j.marge_mesuree || []);
@@ -301,7 +301,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           }
           if ((db.charges_missing || []).length) goals.push({
             kind: "charges",
-            aline: "→ Déclarer vos charges fixes et votre masse salariale — débloque le résultat net et le point mort",
+            aline: "→ Déclarer vos charges fixes et votre masse salariale — débloque le résultat net et le seuil de rentabilité",
             sub: "deux montants par mois, ici même" + (j.multi_site && db.charges_missing[0].site_label ? " · " + db.charges_missing[0].site_label : ""),
             link_fr: "Déclarer", inline: "charges", location_id: db.charges_missing[0].location_id,
           });
@@ -737,9 +737,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 }
                 if (one && one.point_mort && one.point_mort.break_even_revenue_ht != null) {
                   var pm = one.point_mort;
-                  mesH += '<div style="flex:none;" title="Point mort du jour : (charges fixes + masse salariale du mois) ÷ jours de vente du dernier mois complet (' + (pm.opening_days_ref || '—') + ') ÷ taux de marge brute des 30 derniers jours = le CA net HT que la journée doit générer.">'
+                  mesH += '<div style="flex:none;" title="Seuil de rentabilité du jour : (charges fixes + masse salariale du mois) ÷ jours de vente du dernier mois complet (' + (pm.opening_days_ref || '—') + ') ÷ taux de marge brute des 30 derniers jours = le CA net HT que la journée doit générer.">'
                     + '<div style="font-size:20px;font-weight:700;line-height:1;color:#111827;">' + frInt(Math.round(pm.break_even_revenue_ht)) + ' €</div>'
-                    + '<div style="font-size:11.5px;margin-top:5px;color:#6b7280;">point mort du jour · ' + (pm.is_reached === true && pm.break_even_hour != null ? 'atteint à ' + pm.break_even_hour + ' h' : pm.is_reached === true ? 'atteint' : pm.is_reached === false ? 'non atteint le ' + frD(pm.date) : frD(pm.date)) + '</div></div>';
+                    + '<div style="font-size:11.5px;margin-top:5px;color:#6b7280;">seuil de rentabilité du jour · ' + (pm.is_reached === true && pm.break_even_hour != null ? 'atteint à ' + pm.break_even_hour + ' h' : pm.is_reached === true ? 'atteint' : pm.is_reached === false ? 'non atteint le ' + frD(pm.date) : frD(pm.date)) + '</div></div>';
                 }
                 if (mmMode === "mesure") return mesH;
                 if (profE == null) return mesH;

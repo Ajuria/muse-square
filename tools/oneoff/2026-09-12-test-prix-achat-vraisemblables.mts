@@ -12,7 +12,7 @@
 // Owner 12/09 (« mets charges fixes et masse salariale vraisemblables ») : charges fixes 6 500 € par mois (loyer,
 // énergie, abonnements, assurance d'un coffee shop à ~55 k€ de CA mensuel, soit ~12 %) et masse salariale
 // 17 000 € par mois (~31 % du CA, l'ordre de grandeur de la restauration rapide en France) — pour voir le
-// résultat net et le point mort tourner. Repérables (source seed_test), retirables par --rollback.
+// résultat net et le seuil de rentabilité tourner. Repérables (source seed_test), retirables par --rollback.
 // Taux usuels retenus (marge brute sur prix de vente) : boissons chaudes 74-80 %, sirops 85 %, viennoiseries 62 %,
 // grains 42 %, thé en vrac 55 %, chocolat emballé 50 %, textile et mugs 45 %. Ce sont des ordres de grandeur de
 // la profession, pas une mesure : ils ne servent qu'à voir la chaîne marcher sur un compte de test.
