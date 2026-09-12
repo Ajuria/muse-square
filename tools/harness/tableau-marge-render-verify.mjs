@@ -67,7 +67,8 @@ async function render(p) {
   const btnC = [...body.querySelectorAll("[data-tb-param]")].find((b) => b.getAttribute("data-tb-param") === "charges");
   if (btnC) { btnC.click(); await tick(); }
   const panC = body.querySelector('[data-tb-param-panel="charges"]');
-  check("panneau charges : 2 montants + date d'effet", panC && panC.querySelectorAll("input").length === 3 && panC.textContent.indexOf("Charges fixes") >= 0 && panC.textContent.indexOf("Masse salariale") >= 0 && panC.textContent.indexOf("à partir du") >= 0);
+  if (btnC) check("panneau charges : 2 montants + date d'effet", panC && panC.querySelectorAll("input").length === 3 && panC.textContent.indexOf("Charges fixes") >= 0 && panC.textContent.indexOf("Masse salariale") >= 0 && panC.textContent.indexOf("à partir du") >= 0);
+  else check("panneau charges : absent parce que les charges sont déclarées", chargesKnown);
   const btnB = [...body.querySelectorAll("[data-tb-param]")].find((b) => b.getAttribute("data-tb-param") === "base");
   if (btnB) {
     btnB.click(); await tick();
@@ -81,8 +82,10 @@ async function render(p) {
     const panP = body.querySelector('[data-tb-param-panel="prix"]');
     check("panneau prix d'achat : un champ fichier + Importer", panP && panP.querySelector('input[type="file"]') && panP.textContent.indexOf("Importer") >= 0);
   }
-  panC.querySelector("[data-tb-param-save]").click(); await tick();
-  check("charges sans chiffre : « Entrez un chiffre. »", panC.querySelector("[data-tb-param-msg]").textContent === "Entrez un chiffre.");
+  if (panC) {
+    panC.querySelector("[data-tb-param-save]").click(); await tick();
+    check("charges sans chiffre : « Entrez un chiffre. »", panC.querySelector("[data-tb-param-msg]").textContent === "Entrez un chiffre.");
+  }
 }
 
 // 2. Payload injecté : marge mesurée à 92 %, résultat net d'août, point mort atteint à 15 h.
