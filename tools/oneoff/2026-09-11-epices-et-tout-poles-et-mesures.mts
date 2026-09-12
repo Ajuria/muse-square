@@ -23,6 +23,10 @@
 //
 // Usage : npx tsx tools/oneoff/2026-09-11-epices-et-tout-poles-et-mesures.mts            (charge)
 //         … --location=f10c3e58-326e-4e38-947c-d59fcbe51df5                             (sur un autre site)
+//         … --location=… --families=site   (owner 12/09 : les familles RÉELLES du site, réparties à parts égales
+//             entre les 7 pôles — rang de CA contre rang de mètres, en boucle ; les parts par composant ne sont
+//             pas déclarées : dbt répartit à parts égales entre les familles du pôle et le dit, share_source =
+//             'defaut', E5. Provisoire, pour voir des euros par mètre sur un compte de test.)
 //         npx tsx tools/oneoff/2026-09-11-epices-et-tout-poles-et-mesures.mts --rollback (retire tout)
 // Refuse de charger si le site porte déjà un pôle. Vérifie APRÈS : 7 pôles, 52 mesures, mètres par pôle.
 import "dotenv/config";
@@ -31,6 +35,7 @@ import { makeBQClient } from "../../src/lib/bq";
 import { createPermanentPole } from "../../src/lib/dispositifs/poleCreate";
 import { listPoles } from "../../src/lib/dispositifs/poleReading";
 import { listSpaceMeasures } from "../../src/lib/dispositifs/spaceMeasures";
+import { listSiteFamilies } from "../../src/lib/kpi/kpiRegistry";
 
 const PROJECT = "muse-square-open-data";
 // Site cible : Épices et Tout par défaut (dims.dim_client_location, vérifié 11/09) ; `--location=<id>` charge les
@@ -103,10 +108,22 @@ async function load() {
   const userId = await ownerUserId();
   const byPole = new Map<string, Fixture[]>();
   for (const f of fixtures) byPole.set(f.pole, [...(byPole.get(f.pole) ?? []), f]);
+  // --families=site : les familles réelles du site, à parts égales entre les pôles (boucle sur les pôles
+  // rangés par mètres décroissants, familles rangées par CA décroissant). Une famille vit dans un seul pôle.
+  const useSiteFamilies = process.argv.includes("--families=site");
+  const siteFamiliesByPole = new Map<string, string[]>();
+  if (useSiteFamilies) {
+    const fams = (await listSiteFamilies(bq, LOCATION_ID, 50)).sort((a, b) => b.avg_day_eur - a.avg_day_eur).map((f) => f.category);
+    if (!fams.length) throw new Error("--families=site : le site n'a aucune famille vendue");
+    const polesByMetres = [...byPole.keys()].sort((a, b) => (EXPECTED_M[b] ?? 0) - (EXPECTED_M[a] ?? 0));
+    fams.forEach((f, i) => { const pole = polesByMetres[i % polesByMetres.length]; siteFamiliesByPole.set(pole, [...(siteFamiliesByPole.get(pole) ?? []), f]); });
+    console.log("familles réelles réparties :", JSON.stringify(Object.fromEntries(siteFamiliesByPole)));
+  }
   const created: Array<{ pole: string; commitment_id: string; n: number }> = [];
   for (const [pole, fx] of byPole) {
     fx.sort((a, b) => a.no - b.no);
-    const families = Array.from(new Set(fx.map((f) => f.family)));
+    const families = useSiteFamilies ? (siteFamiliesByPole.get(pole) ?? []) : Array.from(new Set(fx.map((f) => f.family)));
+    if (!families.length) { console.log(`ignoré : ${pole} — aucune famille réelle ne lui revient`); continue; }
     const body = {
       location_id: LOCATION_ID, dispositif_nature: "permanent", committed_action_text: pole, pole_families: families,
       components: fx.map((f) => ({ key: `p${f.no}`, type: "autre", role: null, label: `N° ${f.no} — ${f.family}` })),
@@ -114,7 +131,7 @@ async function load() {
         source: "plan", measured_at: MEASURED_AT,
         components: fx.map((f) => ({
           component_key: `p${f.no}`, fixture_no: f.no, length_m: f.length_m, depth_m: f.depth_m, faces: f.faces,
-          families_share: [{ family: f.family, share: 1 }],
+          families_share: useSiteFamilies ? null : [{ family: f.family, share: 1 }],
         })),
       },
     };
@@ -126,8 +143,8 @@ async function load() {
   // Vérification après coup : relire, jamais conclure sur le seul « ok ».
   const after = await state();
   console.log(`APRÈS : ${after.poles.length} pôles, ${after.measures.length} mesures`);
-  if (after.poles.length !== 7) throw new Error(`7 pôles attendus, ${after.poles.length} relus`);
-  if (after.measures.length !== 52) throw new Error(`52 mesures attendues, ${after.measures.length} relues`);
+  if (after.poles.length !== created.length) throw new Error(`${created.length} pôles attendus, ${after.poles.length} relus`);
+  if (after.measures.length !== created.reduce((a, c) => a + c.n, 0)) throw new Error(`mesures relues : ${after.measures.length}, écrites : ${created.reduce((a, c) => a + c.n, 0)}`);
   const mByPole = new Map<string, number>();
   const labelOf = new Map(after.poles.map((p) => [p.dispositif_id, p.name]));
   for (const m of after.measures) {
