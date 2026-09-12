@@ -320,8 +320,12 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
 
 ## 10. Décisions owner attendues
 
-1. Le modèle de la boucle pour les questions chiffrées : `claude-opus-5` (celui de l'agent aujourd'hui)
-   ou un modèle plus rapide pour tenir 3 s — à mesurer sur l'incrément 1 avant de trancher.
+1. Le modèle de la boucle pour les questions chiffrées — **mesuré le 12/09 sur la batterie (8 questions,
+   compte de test)** : `claude-opus-5` 8,5-16,7 s, 8/8 portes ; `claude-sonnet-5` 4,8-10,5 s, 8/8 portes (le même
+   cas « Non vérifié » que opus, une somme de parts) ; `claude-haiku-4-5` 3,7-8,8 s mais 4 réponses sur 8 non
+   vérifiées (nombres de son cru). Aucun des trois ne rend le texte complet sous 3 s : la « première réponse utile
+   sous 3 s » passe par l'affichage des blocs vérifiés dès le retour de l'outil (≈ 1 s), la Synthèse arrivant
+   ensuite. Proposition : sonnet-5 pour la boucle + blocs streamés ; décision owner attendue.
 2. Le stockage des contours du plan (`analytics.space_zones`, grain site × pôle, polygone en points du
    plan) — à confirmer avant l'incrément 8.
 3. Les destinataires d'un envoi à cadence au-delà de l'équipe et des partenaires (§ 6.4).

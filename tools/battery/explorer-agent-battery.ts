@@ -26,6 +26,8 @@ const LOC = process.env.BATTERY_LOCATION_ID || "f10c3e58-326e-4e38-947c-d59fcbe5
 const MAX_SECONDS = Number(process.env.BATTERY_MAX_SECONDS || 30);
 // BATTERY_ONLY=<mot> : ne rejoue que les cas dont la question contient ce mot (mise au point d'un outil).
 const ONLY = String(process.env.BATTERY_ONLY || "").trim().toLowerCase();
+// BATTERY_MODEL=<id> : rejouer la batterie avec un autre modèle que celui du registre (mesure pour la décision owner, spec § 10).
+const MODEL = String(process.env.BATTERY_MODEL || "").trim() || modelFor("agent");
 
 type Case = { q: string; tools: string[]; answerMatch: RegExp; vetted: boolean; maxSeconds?: number; blocks?: string[] };
 const BATTERY: Case[] = [
@@ -61,7 +63,8 @@ async function ask(q: string) {
   });
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const runner = client.beta.messages.toolRunner({
-    model: modelFor("agent"), max_tokens: 16000, thinking: { type: "adaptive" },
+    // haiku-4-5 refuse le thinking adaptatif (400, mesuré 12/09) : on ne l'envoie qu'aux modèles qui le portent (models.ts capsFor).
+    model: MODEL, max_tokens: 16000, ...(/haiku/.test(MODEL) ? {} : { thinking: { type: "adaptive" as const } }),
     system: [{ type: "text", text: SYSTEME_FR, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: q }], tools, max_iterations: 8,
   });
@@ -96,12 +99,12 @@ async function ask(q: string) {
     rows.push(`| ${c.q} | ${r ? r.seconds.toFixed(1) : "—"} | ${r ? r.grounding.register : "erreur"} | ${used.join(", ")} | ${r ? r.blocks.map((b: any) => b.type).join(", ") : ""} | ${failed.length ? "FAIL " + failed.join(", ") : "OK"} |`);
   }
   const report = [
-    `# Batterie de l'agent Explorer — ${new Date().toISOString().slice(0, 16).replace("T", " ")} (compte ${LOC.slice(0, 8)}, modèle ${modelFor("agent")})`,
+    `# Batterie de l'agent Explorer — ${new Date().toISOString().slice(0, 16).replace("T", " ")} (compte ${LOC.slice(0, 8)}, modèle ${MODEL})`,
     "", "| Question | s | registre | outils | blocs | portes |", "|---|---|---|---|---|---|", ...rows, "",
     `${hardFails} cas en échec sur ${BATTERY.length}. Budget owner : 3 s (mesuré, pas atteint : décision modèle en attente, spec § 10).`,
   ].join("\n");
   fs.mkdirSync("data/shots", { recursive: true });
-  fs.writeFileSync("data/shots/explorer-agent-battery-report.md", report);
+  fs.writeFileSync(`data/shots/explorer-agent-battery-report${process.env.BATTERY_MODEL ? "-" + MODEL : ""}.md`, report);
   console.log(`\n${hardFails ? `${hardFails} cas en échec` : "Tout vert"} — rapport : data/shots/explorer-agent-battery-report.md`);
   process.exit(hardFails ? 1 : 0);
 })();
