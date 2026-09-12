@@ -9,6 +9,10 @@
 // première vente (2026-04-01), et une hausse de +6 % sur les grains de café au 2026-08-01 pour exercer la date
 // d'effet. Il déclare aussi la base du CA = HT (analytics.declared_parameters, source 'seed_test') : sans base
 // connue, dbt ne calcule aucun CA net HT, donc aucune marge (fct_client_sales_lines_margin).
+// Owner 12/09 (« mets charges fixes et masse salariale vraisemblables ») : charges fixes 6 500 € par mois (loyer,
+// énergie, abonnements, assurance d'un coffee shop à ~55 k€ de CA mensuel, soit ~12 %) et masse salariale
+// 17 000 € par mois (~31 % du CA, l'ordre de grandeur de la restauration rapide en France) — pour voir le
+// résultat net et le point mort tourner. Repérables (source seed_test), retirables par --rollback.
 // Taux usuels retenus (marge brute sur prix de vente) : boissons chaudes 74-80 %, sirops 85 %, viennoiseries 62 %,
 // grains 42 %, thé en vrac 55 %, chocolat emballé 50 %, textile et mugs 45 %. Ce sont des ordres de grandeur de
 // la profession, pas une mesure : ils ne servent qu'à voir la chaîne marcher sur un compte de test.
@@ -40,8 +44,8 @@ const [items] = await bq.query({
   params: { l: LOC }, location: "EU",
 });
 const [[existing]] = await bq.query({ query: `SELECT COUNT(*) AS n FROM \`${PROJECT}.analytics.item_cost_catalog\` WHERE location_id = @l`, params: { l: LOC }, location: "EU" });
-if (Number(flat((existing as any).n)) > 0) throw new Error(`le site porte déjà ${flat((existing as any).n)} prix d'achat — rien n'est écrit`);
 const rows: any[] = [];
+if (Number(flat((existing as any).n)) > 0) { console.log(`prix d'achat déjà présents (${flat((existing as any).n)} lignes) — non réécrits`); (items as any[]).length = 0; }
 for (const r of items as any[]) {
   const code = String(flat(r.item_code)), fam = String(flat(r.family) ?? ""), price = Number(flat(r.avg_price));
   const rate = RATE[fam]; if (rate == null) throw new Error(`famille sans taux : ${fam}`);
@@ -56,7 +60,7 @@ const params: Record<string, unknown> = { l: LOC, s: SOURCE, f: SOURCE_FILE };
 const types: Record<string, string> = { l: "STRING", s: "STRING", f: "STRING" };
 rows.forEach((r, i) => { params[`id${i}`] = randomUUID(); params[`c${i}`] = r.code; params[`d${i}`] = r.description; params[`u${i}`] = r.cost; params[`e${i}`] = r.effective_from;
   types[`id${i}`] = "STRING"; types[`c${i}`] = "STRING"; types[`d${i}`] = "STRING"; types[`u${i}`] = "FLOAT64"; types[`e${i}`] = "STRING"; });
-await bq.query({ query: `INSERT INTO \`${PROJECT}.analytics.item_cost_catalog\` (cost_id, location_id, item_code, item_description, unit_cost_ht, cost_unit, effective_from, supplier, source, source_file, declarant_user_id, created_at) VALUES ${values}`, params, types, location: "EU" });
+if (rows.length) await bq.query({ query: `INSERT INTO \`${PROJECT}.analytics.item_cost_catalog\` (cost_id, location_id, item_code, item_description, unit_cost_ht, cost_unit, effective_from, supplier, source, source_file, declarant_user_id, created_at) VALUES ${values}`, params, types, location: "EU" });
 console.log(`prix d'achat écrits : ${rows.length} lignes pour ${(items as any[]).length} articles (dont ${rows.length - (items as any[]).length} hausses au 01/08)`);
 // Base du CA = HT (sans elle, aucun CA net HT, donc aucune marge)
 const cur = (await listDeclaredParameters(LOC)).filter((p) => p.param_key === "revenue_basis");
@@ -65,5 +69,13 @@ if (!cur.length) {
   await appendDeclaredParameter({ location_id: LOC, key: "revenue_basis", value: validateValue(spec, "HT"), effective_from: "2026-04-01", declarant_user_id: null, source: SOURCE });
   console.log("base du CA déclarée : HT (seed_test, effet 01/04/2026)");
 } else console.log("base du CA déjà déclarée :", cur.map((c) => c.value_text).join(","));
+// Charges fixes et masse salariale mensuelles (owner 12/09), à date d'effet 01/04/2026
+for (const [key, value] of [["fixed_costs_month_eur", "6500"], ["payroll_month_eur", "17000"]] as const) {
+  const have = (await listDeclaredParameters(LOC)).filter((p) => p.param_key === key);
+  if (have.length) { console.log(`${key} déjà déclaré :`, have.map((h) => h.value_num).join(",")); continue; }
+  const spec = parameterSpec(key)!;
+  await appendDeclaredParameter({ location_id: LOC, key, value: validateValue(spec, value), effective_from: "2026-04-01", declarant_user_id: null, source: SOURCE });
+  console.log(`${spec.label_fr} déclarée : ${value} € par mois (seed_test, effet 01/04/2026)`);
+}
 const [[chk]] = await bq.query({ query: `SELECT COUNT(*) AS n, COUNT(DISTINCT item_code) AS codes, ROUND(MIN(unit_cost_ht),2) AS mn, ROUND(MAX(unit_cost_ht),2) AS mx FROM \`${PROJECT}.analytics.item_cost_catalog\` WHERE location_id = @l AND source = @s`, params: { l: LOC, s: SOURCE }, location: "EU" });
 console.log("relu :", JSON.stringify(chk));
