@@ -142,7 +142,62 @@ CTA final reste celui du formulaire (« Créer l'opération — … »).
 
 ---
 
-## 6. Le registre des sections du rapport
+## 6. Le rapport : un document de blocs, persistant
+
+Arbitrage owner du 12/09 : le rapport généré par Explorer n'est pas une page rendue à la volée mais **un
+document** que l'exploitant garde, réordonne, complète, réutilise et envoie. Les mots sont actés
+(lexique, 12/09) : **Rapport** (le document), **Modèle de rapport** (le document sans ses chiffres),
+**Enregistrer comme modèle**, **Synthèse** (la section de tête), **Approfondir** (creuser un bloc avec
+l'agent), **Votre note** (un texte écrit par l'exploitant, non vérifié), **Envoyer chaque …** (la cadence).
+
+### 6.1 Le document
+
+- Un Rapport = `{ titre, periode { du, au, relative? }, blocs[] (§ 5), modele_id?, version }`, par site,
+  avec l'auteur. Table app-write `analytics.report_documents` (grain : `document_id × version`,
+  append-only : chaque enregistrement est une version, la dernière fait foi, comme les journaux existants),
+  lue par le producteur seul (comme `declared_parameters`) ; une vue dbt naît le jour où un lecteur autre
+  que la page en a besoin.
+- Chaque bloc garde sa **provenance** : l'outil, ses paramètres, la période, la date de calcul. Un bloc est
+  donc **recalculable** (« Actualiser ») et un document déplacé reste vrai.
+- « Enregistrer en PDF » reste ; « Enregistrer » garde le document ; les deux rapports existants (ventes,
+  famille) deviennent des documents composés par les mêmes outils, sans changer leurs chaînes approuvées.
+
+### 6.2 Les gestes sur le document
+
+| Geste | Ce que ça fait | Règle |
+|---|---|---|
+| Déplacer un bloc | réordonne `blocs[]` (glisser-déposer, ou flèches) et enregistre une version | aucun recalcul |
+| Retirer · Dupliquer une section | idem | idem |
+| **Approfondir** | l'exploitant désigne un bloc et pose sa question ; la boucle relance les outils **avec la période et le périmètre de ce bloc** ; le résultat s'insère après lui, comme un bloc vérifié | le modèle ne réécrit jamais un bloc vérifié |
+| **Votre note** | l'exploitant écrit lui-même sous un bloc | registre « Votre note » (pastille distincte, non vérifiée) ; jamais mêlée à un texte vérifié |
+| Actualiser | recalcule les blocs à provenance sur la période relative | les blocs « Votre note » restent |
+
+### 6.3 Le Modèle de rapport
+
+- **Enregistrer comme modèle** retire les chiffres et garde la liste des sections, leurs paramètres et la
+  période **relative** (« la semaine dernière », « les 30 derniers jours », « le mois dernier »). Table
+  app-write `analytics.report_templates` (grain `template_id × version`, par site, avec l'auteur, `nom`).
+- Un modèle est une entrée de la bibliothèque du site (le patron d'interface de l'atelier Communiquer :
+  liste, choisir, appliquer) ; « génère mon rapport hebdomadaire » en Explorer nomme le modèle par son
+  nom et `composer_rapport` le remplit sur la période courante.
+- Les rapports de ventes et de famille d'aujourd'hui sont les deux premiers modèles, livrés par défaut.
+
+### 6.4 L'envoi à cadence
+
+- Un envoi = `{ template_id, cadence (quotidien · hebdomadaire jour · mensuel jour), heure, destinataires,
+  canal }` — table app-write `analytics.report_schedules` ; chaque envoi effectué laisse une trace
+  (`analytics.report_sends` : `schedule_id × periode`) qui interdit le double envoi, le patron de la
+  consigne d'opération (`analytics.consigne_sends`).
+- Le cron compose le document depuis le modèle sur la période décalée, le passe au validateur, le rend en
+  HTML **côté serveur avec le même kit** (`renderAnswerBlocks` exécuté dans happy-dom, la technique des
+  harnais), et l'envoie par les rails existants (`lib/channels/internalSend.ts` : email Resend, Slack).
+- **Un rapport sans matière ne part pas** (la règle du point du jour : aucun envoi les jours calmes) ; un
+  bloc en absence ne déclenche rien.
+- **Destinataires** : l'équipe et les partenaires que Muse Square connaît (le même annuaire que les
+  consignes). Une lettre aux clients finaux suppose une liste avec consentement que l'app ne détient pas :
+  hors périmètre tant que l'owner n'en décide pas autrement.
+
+### 6.5 Le registre des sections
 
 `src/lib/fr/rapport.fr.ts` (patron : `rapportCanaux.fr.ts`, un fichier de mots par surface, éditable par
 l'owner). Une entrée par section : `cle`, `titre`, `definition` (une ligne), `referentiel`, `unite`,
@@ -150,11 +205,9 @@ l'owner). Une entrée par section : `cle`, `titre`, `definition` (une ligne), `r
 `analytics.consulter_telemetry` et des cas d'usage). `composer_rapport` choisit par alias ; une demande
 sans section ne s'invente pas : elle rend un bloc `absence`.
 
-Sections et mots (lexique et intent ; les chaînes existantes du rapport sont gardées) :
-
-| Clé | Titre | Source du mot |
+| Clé | Titre (actés 12/09) | Source du mot |
 |---|---|---|
-| `synthese` | **à arbitrer** : « Synthèse » (proposé) ou « Résumé exécutif » (chaîne actuelle du rapport de famille) | aucun des deux au lexique |
+| `synthese` | Synthèse | owner 12/09 (remplace « Résumé exécutif » du rapport de famille) |
 | `chiffre_affaires` | Chiffre d'affaires | rapport de ventes |
 | `volume` · `panier` · `mix` | Volume de ventes · Panier moyen · Mix produits & services | lexique l.83, `couches-dans-leur-unite` |
 | `marge_brute` · `resultat_net` · `seuil_rentabilite` | Marge brute · Résultat net · Seuil de rentabilité | lexique (owner 11/09, 12/09) |
@@ -200,39 +253,56 @@ Ce qui ne rentre pas : `_hors_perimetre_v1` et `_objection_v1` restent des règl
 - La batterie Explorer (`tools/battery/explorer-quality-battery.ts`) gagne les questions composées du § 2.3
   ; la porte lie-bait (`npm run gate`) reste verte à chaque commit.
 - Un harnais par type de bloc (patron `tableau-pole-espace-render-verify.mjs`) : le kit rend le bloc sur
-  les données réelles du compte de test owner.
+  les données réelles du compte de test owner — et le même rendu côté serveur (happy-dom) pour l'email.
 - Chaque chiffre d'une réponse porte sa requête et sa fenêtre (dans les `sources` du tour).
 - Budget : première réponse utile sous 3 s sur le compte de test owner, mesuré, jamais déduit.
+- Le document : une version par enregistrement, relue après écriture (sonde réelle sur le compte de test,
+  puis suppression), un déplacement de bloc qui ne change aucun chiffre (test pur sur `blocs[]`).
+- L'envoi : un envoi réel à l'owner, la trace en base, le rejeu qui n'envoie rien.
 
 ---
 
 ## 9. Ordre de livraison
 
+Chaque incrément = des commits d'une fonction, sur `dev`, index des modules à jour, chaînes visibles avec
+leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de l'owner.
+
 1. **Incrément 1 — le registre et les blocs** : `lire_ventes` (extraction du cœur de `sales-report.ts` en
    lib), `lire_marge`, `lire_resultat`, `lire_espace`, `lire_familles_face_aux_jours`,
-   `lire_poles_classement` ; blocs `tableau`, `carte`, `absence` ; la boucle rend des blocs. Preuve : les
-   cinq questions du 12/09 de l'owner (« montre-moi comment mes pôles performent au m² », « ordonne les
-   familles les plus profitables vs m² vs mètres linéaires », « quelles familles sont sensibles à la
-   météo ? »…) répondent en blocs, et une question composée aussi.
-2. **Incrément 2 — le rapport à la demande** : `rapport.fr.ts`, `composer_rapport`, bloc `rapport` ;
-   « génère le rapport des ventes de la semaine dernière, volume, panier, mix, et les pôles les plus et
-   les moins performants en nombre de ventes ».
-3. **Incrément 3 — la proposition d'opération** : `proposer_operation`, bloc `proposition_operation`,
+   `lire_poles_classement` ; blocs `tableau`, `carte`, `absence` rendus par le kit ; la boucle de l'agent
+   rend des blocs. Preuve : les cinq questions du 12/09 de l'owner (« montre-moi comment mes pôles performent
+   au m² », « ordonne les familles les plus profitables vs m² vs mètres linéaires », « quelles familles sont
+   sensibles à la météo ? »…) répondent en blocs, et une question composée aussi.
+2. **Incrément 2 — le Rapport** : `rapport.fr.ts`, `composer_rapport`, bloc `rapport`, le document
+   persistant (`analytics.report_documents`, Enregistrer, versions), les rapports de ventes et de famille
+   recomposés par les outils ; « génère le rapport des ventes de la semaine dernière, volume, panier, mix, et
+   les pôles les plus et les moins performants en nombre de ventes ».
+3. **Incrément 3 — les gestes sur le document** : déplacer, retirer, dupliquer, Actualiser ; Votre note ;
+   Approfondir (dépend de l'incrément 1).
+4. **Incrément 4 — le Modèle de rapport** : Enregistrer comme modèle, la bibliothèque, l'appel par nom
+   depuis Explorer ; les deux modèles par défaut.
+5. **Incrément 5 — l'envoi à cadence** : `report_schedules`, `report_sends`, le cron, le rendu serveur, les
+   rails ; l'essai réel vers l'owner.
+6. **Incrément 6 — la proposition d'opération** : `proposer_operation`, bloc `proposition_operation`,
    pré-remplissage d'`event-form.js`.
-4. **Incrément 4 — la migration** (§ 7), une couche par commit.
-5. **Incrément 5 — le pont de marge**, dès les premiers prix d'achat réels ; **le plan coloré**, dès que
-   les contours vivent en base (les sept zones d'Épices et Tout sont relevées : `zones_poles_epices_et_tout_2026-09-12.json`
-   ; leur table `analytics.space_zones` et sa vue dbt se créent AVANT la lecture).
+7. **Incrément 7 — la migration** (§ 7), une couche par commit.
+8. **Incrément 8 — le pont de marge**, dès les premiers prix d'achat réels ; **le plan coloré**, dès que
+   les contours vivent en base (les sept zones d'Épices et Tout sont relevées :
+   `zones_poles_epices_et_tout_2026-09-12.json` ; leur table `analytics.space_zones` et sa vue dbt se
+   créent AVANT la lecture).
 
 ---
 
 ## 10. Décisions owner attendues
 
-1. Le titre de la section de tête du rapport : « Synthèse » ou « Résumé exécutif ».
-2. Le modèle de la boucle pour les questions chiffrées : `claude-opus-5` (celui de l'agent aujourd'hui)
+1. Le modèle de la boucle pour les questions chiffrées : `claude-opus-5` (celui de l'agent aujourd'hui)
    ou un modèle plus rapide pour tenir 3 s — à mesurer sur l'incrément 1 avant de trancher.
-3. Le stockage des contours du plan (une table app-write `analytics.space_zones`, grain site × pôle,
-   polygone en points du plan) — à confirmer avant l'incrément 5.
+2. Le stockage des contours du plan (`analytics.space_zones`, grain site × pôle, polygone en points du
+   plan) — à confirmer avant l'incrément 8.
+3. Les destinataires d'un envoi à cadence au-delà de l'équipe et des partenaires (§ 6.4).
+
+Actés le 12/09 : Synthèse ; Rapport ; Modèle de rapport ; Enregistrer comme modèle ; Approfondir ; Votre
+note ; Envoyer chaque … ; Proposition d'opération ; Préparer l'opération → ; les titres de sections du § 6.5.
 
 ---
 
@@ -241,3 +311,4 @@ Ce qui ne rentre pas : `_hors_perimetre_v1` et `_objection_v1` restent des règl
 - Aucune écriture d'opération, de pôle, de photo ou de note-cause par un outil.
 - Aucun calcul par le modèle ; aucune réponse sans faits d'outil.
 - Aucune couche nouvelle dans `prompt.ts` à compter du 12/09.
+- Aucun envoi à des clients finaux sans liste consentie (§ 6.4).

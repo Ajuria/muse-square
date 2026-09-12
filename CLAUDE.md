@@ -43,6 +43,13 @@
 - Never hardcode IDs, coordinates, or data. All solutions must be pipeline-driven and generic.
 - Never delete old functions until replacements are tested.
 
+## Explorer : une capacité est un OUTIL, jamais une couche (owner 12/09 — `docs/explorer-outil-spec.md`)
+- **Plus AUCUNE sortie anticipée nouvelle dans `src/pages/api/insight/prompt.ts`** (7 251 lignes, 28 sorties sous 20 producteurs au 12/09). Une capacité nouvelle d'Explorer (lecture, rapport, proposition, plan) est un outil déclaré dans `src/lib/explorer/agentTools.ts` — pur, `semantic` seulement, des faits typés + un bloc — choisi par la boucle de l'agent (`/api/explorer/agent`), jamais reconnu par un motif de mots dans une couche.
+- **Une réponse est une suite de blocs typés** (`texte_verifie`, `tableau`, `carte`, `rapport`, `proposition_operation`, `plan`, `absence`) rendus par `renderAnswerBlocks` ; le validateur reste l'unique porte ; le modèle choisit et raconte, il ne calcule jamais.
+- **Rien n'est livré sans qu'une question COMPOSÉE le mobilise** avec une autre capacité, prouvé par la batterie (`tools/battery`). Un outil = une fonction de composition pure testée + un adaptateur d'une ligne autour du provider existant (`FAMILIES.*`), jamais une copie.
+- **Le rapport est un document persistant de blocs** (`analytics.report_documents`, versions append-only, provenance par bloc), un Modèle de rapport est ce document sans ses chiffres ; l'envoi à cadence passe par les rails existants avec une trace anti-doublon. Les mots sont au lexique (Rapport, Modèle de rapport, Enregistrer comme modèle, Synthèse, Approfondir, Votre note, Proposition d'opération, Préparer l'opération →).
+- **L'ordre de travail est celui de la spec § 9** : registre + blocs → Rapport → gestes sur le document → Modèle → envoi à cadence → proposition d'opération → migration des couches une par commit → pont de marge et plan. Aucun outil n'écrit hors mémoire du site et déclarations ; l'opération se prépare, l'exploitant la crée.
+
 ## Placement des fichiers (règles owner 04/09 — `docs/organisation-depot.md` dit l'état et les phases)
 - **La PLACE dit si c'est livré et combien de temps ça vit ; le NOM d'un fichier ne dit ni l'un ni l'autre.** `src/` et `public/` sont livrés en prod, rien d'autre. `public/` ne contient QUE ce qui doit être servi : `npm run build` ÉCHOUE si un fichier d'outillage atteint l'artefact (tripwire `tools/build/strip-protos.mjs`).
 - **La racine du dépôt ne reçoit AUCUN fichier** hors configuration (`package.json`, `astro.config.mjs`, `tsconfig.json`, `vitest.config.ts`, `tailwind.config.cjs`, `vercel.json`) et les deux README.

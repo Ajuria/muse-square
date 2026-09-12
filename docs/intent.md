@@ -45,6 +45,11 @@ avec son résultat — pour que le lieu apprenne de lui-même.
   délibéré — scanner un QR code — et ce geste compte dans l'**attractivité** du produit ou de la
   famille, sans achat. L'attractivité et la vente sont deux mesures distinctes ; leur écart est ce
   qu'aucune caisse ne voit.
+- **rapport** : le document qu'Explorer compose à la demande — une liste ordonnée de blocs (texte vérifié,
+  tableau, carte, section), chacun avec les faits, l'outil et la période qui l'ont produit ; gardé par site
+  avec l'auteur, réordonnable, recalculable, jamais un texte que le modèle aurait écrit sans faits. Un
+  **modèle de rapport** est ce document sans ses chiffres : il se réutilise et s'envoie à cadence à l'équipe
+  et aux partenaires connus [owner 12/09, `explorer-outil-spec.md`].
 
 ## Le test de valeur
 
