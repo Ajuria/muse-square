@@ -14,6 +14,7 @@ const check = (label, cond, detail) => { console.log((cond ? "  OK " : "  FAIL "
 const tick = () => new Promise((r) => setTimeout(r, 40));
 // frInt rend l'espace des milliers en espace fine insécable (fr-FR) : on compare sur les chiffres, pas sur l'espace.
 const hasEur = (t, n) => new RegExp(String(n).replace(/ /g, "[\\s\\u202f\\u00a0]") + "[\\s\\u202f\\u00a0]?€").test(t);
+const frIntFr = (n) => Math.round(Number(n)).toLocaleString("fr-FR").replace(/[\u202f\u00a0]/g, " ");
 
 const res = await dashGET({ url: new URL("http://l/api/insight/dashboard?period=365&location_id=" + OWNER_LOC), locals: { clerk_user_id: "harness", all_location_ids: [OWNER_LOC], location_id: OWNER_LOC } });
 const payload = JSON.parse(await res.text());
@@ -33,17 +34,28 @@ async function render(p) {
   return { doc, body: doc.getElementById("tb-body"), calls };
 }
 
-// 1. Payload réel : aucun prix d'achat, aucun paramètre → gestes présents, aucun bloc de marge.
+// 1. Payload réel — l'état du compte owner tel qu'il est : sans prix d'achat (mode « aucune », jusqu'au 12/09) les
+//    gestes sont là et aucun bloc de marge ; avec des prix d'achat (mode mesure / mixte — depuis le 12/09, prix
+//    d'achat vraisemblables seed_test + base HT) le bloc de marge porte le chiffre réel et le geste prix d'achat
+//    a disparu. Le harnais lit l'état, il ne le suppose pas.
 {
   const { body } = await render(payload);
   const t = body.textContent;
-  check("payload réel : mode « aucune » sur le site owner", payload.marge_mesuree[0] && payload.marge_mesuree[0].mode === "aucune", payload.marge_mesuree[0] && payload.marge_mesuree[0].mode);
-  check("geste prix d'achat rendu", t.indexOf("Importer vos prix d'achat") >= 0 && t.indexOf("débloque la marge brute") >= 0);
+  const mm = payload.marge_mesuree[0] || {};
+  const mode = mm.mode;
+  check("payload réel : un mode de marge décidé serveur", ["aucune", "estime", "mixte", "mesure"].includes(mode), mode);
+  if (mode === "aucune" || mode === "estime") {
+    check("geste prix d'achat rendu (mode " + mode + ")", t.indexOf("Importer vos prix d'achat") >= 0 && t.indexOf("débloque la marge brute") >= 0);
+    check("aucun bloc « marge brute · 30 derniers jours » sans prix d'achat", t.indexOf("marge brute · 30 derniers jours") < 0);
+  } else {
+    check("mode " + mode + " : bloc « marge brute · 30 derniers jours » avec le chiffre réel", hasEur(t, frIntFr(mm.gross_margin_ht_30d)) && t.indexOf("marge brute · 30 derniers jours · calculée sur " + Math.round(mm.coverage_pct) + " % de votre CA") >= 0, t.slice(t.indexOf("marge brute"), t.indexOf("marge brute") + 90));
+    check("mode " + mode + " : le geste prix d'achat passe en « modifiable à tout moment » (fait, jamais retiré)", t.indexOf("Importer vos prix d'achat — modifiable à tout moment") >= 0 && t.indexOf("débloque la marge brute") < 0);
+  }
   check("geste charges rendu", t.indexOf("Déclarer vos charges fixes et votre masse salariale") >= 0 && t.indexOf("résultat net et le point mort") >= 0);
   check("geste surface rendu", t.indexOf("Déclarer votre surface de vente") >= 0 && t.indexOf("marge par m²") >= 0);
-  check("geste base rendu", t.indexOf("exporte le CA en HT ou en TTC") >= 0);
-  check("aucun bloc « marge brute · 30 derniers jours » sans prix d'achat", t.indexOf("marge brute · 30 derniers jours") < 0);
-  check("aucun bloc résultat net / point mort sans paramètres", t.indexOf("résultat net ·") < 0 && t.indexOf("point mort du jour") < 0);
+  const baseKnown = mm.params && mm.params.revenue_basis;
+  check(baseKnown ? "base du CA connue (" + mm.params.revenue_basis + ") : geste base absent" : "geste base rendu", baseKnown ? t.indexOf("exporte le CA en HT ou en TTC") < 0 : t.indexOf("exporte le CA en HT ou en TTC") >= 0);
+  check("aucun bloc résultat net / point mort sans paramètres", (mm.params && mm.params.fixed_costs_month_eur != null) || (t.indexOf("résultat net ·") < 0 && t.indexOf("point mort du jour") < 0));
   check("le geste marge déclarée existant est toujours là (ADD, don't REPLACE)", t.indexOf("Déclarer votre marge") >= 0);
   // 3. Panneaux inline.
   const btnC = [...body.querySelectorAll("[data-tb-param]")].find((b) => b.getAttribute("data-tb-param") === "charges");
