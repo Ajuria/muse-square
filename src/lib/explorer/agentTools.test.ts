@@ -43,6 +43,15 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
       mois: [{ month: "2026-08-01", is_complete_month: true, sales_days: 31, revenue_net_ht: 50499.2, gross_margin_ht: 36503.09, coverage_pct: 1, fixed_costs_month_eur: 6500, payroll_month_eur: 17000, net_result_eur: 13003.09, payroll_to_revenue_pct: 0.3366 }],
       jour: { date: "2026-09-12", gross_margin_ht: 1368.97, charges_day_eur: 758.06, break_even_revenue_ht: 1051.63, break_even_hour: 10, is_break_even_reached: true, margin_rate_30d: 0.7208, opening_days_ref: 31 },
     }),
+    // 12/09 : lire_poles_classement — deux pôles vendus, un Non rattaché, aucune mesure d'espace.
+    runPolesClassement: async (start, end) => ({
+      start, end, space: [],
+      rows: [
+        { pole_id: "p1", pole_label: "Cuisine", is_unassigned: false, n_days: 30, revenue: 20804.7, units: 6667, gross_margin_ht: 15520.59, revenue_costed: 20804.7, delta_eur: 2456.8, expected_revenue: 18347.9 },
+        { pole_id: "p2", pole_label: "Cave", is_unassigned: false, n_days: 22, revenue: 2562.85, units: 118, gross_margin_ht: 910.41, revenue_costed: 2562.85, delta_eur: 1005.8, expected_revenue: 1557.05 },
+        { pole_id: "nr", pole_label: "Non rattaché", is_unassigned: true, n_days: 10, revenue: 300, units: 40, gross_margin_ht: 100, revenue_costed: 300, delta_eur: -20, expected_revenue: 320 },
+      ],
+    }),
     today: () => "2026-09-12",
     record: (r) => records.push(r),
     ...over,
@@ -54,7 +63,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -222,7 +231,7 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
   it("lire_resultat rend le résultat net du dernier mois complet et le seuil du jour ; sans charges déclarées, l'absence avec le geste de Piloter", async () => {
     const d = deps();
     const out = await byName(buildAgentTools(d), "lire_resultat").run({});
-    expect(out.replace(/[  ]/g, " ")).toContain("• En août 2026, votre résultat net est de 13 003 € : 36 503 € de marge brute sur 50 499 € de CA net HT, moins 6 500 € de charges fixes et 17 000 € de masse salariale, calculé sur 100 % de votre CA.");
+    expect(out.replace(/[\u202f\u00a0]/g, " ")).toContain("• En août 2026, votre résultat net est de 13 003 € : 36 503 € de marge brute sur 50 499 € de CA net HT, moins 6 500 € de charges fixes et 17 000 € de masse salariale, calculé sur 100 % de votre CA.");
     expect(out).toContain("il est atteint à 10 h.");
     expect(d.records[0]).toMatchObject({ name: "lire_resultat", ok: true, summary: "3 faits lus" });
     expect(d.records[0].blocks?.map((b) => b.type)).toEqual(["table", "facts", "sources"]);
@@ -230,5 +239,19 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     const none = await byName(buildAgentTools(sans), "lire_resultat").run({});
     expect(none).toBe("Aucun résultat net pour l’instant — vos charges fixes et votre masse salariale ne sont pas déclarées.");
     expect(sans.records[0].blocks).toEqual([{ type: "absence", manque: "Aucun résultat net pour l’instant — vos charges fixes et votre masse salariale ne sont pas déclarées.", geste: { label_fr: "Déclarer vos charges fixes et votre masse salariale", url: "/app/insightevent/tableau" } }]);
+  });
+  it("lire_poles_classement classe sur l'indicateur et la période, Non rattaché compris ; par m² sans mesure → l'absence espace avec son geste", async () => {
+    const d = deps();
+    const tool = byName(buildAgentTools(d), "lire_poles_classement");
+    const out = await tool.run({ indicateur: "ventes", periode: "semaine_derniere" });
+    expect(out).toContain("Vos pôles du plus au moins performant en ventes, sur la semaine dernière, du 31/08/2026 au 06/09/2026 :");
+    expect(out.replace(/[\u202f\u00a0]/g, " ")).toContain("• Cuisine réalise 6 667 ventes");
+    expect(out).toContain("• Non rattaché réalise 40 ventes");
+    expect(d.records[0]).toMatchObject({ name: "lire_poles_classement", ok: true, summary: "3 pôles classés en ventes" });
+    expect(d.records[0].blocks?.map((b) => b.type)).toEqual(["table", "sources"]);
+    expect(d.records[0].facts?.length).toBe(4);
+    const none = await tool.run({ indicateur: "ca_par_m2" });
+    expect(none).toBe("Aucune mesure d’espace pour l’instant — les mètres se saisissent sur le formulaire de pôle.");
+    expect(d.records[1].blocks?.[0]).toMatchObject({ type: "absence", geste: { label_fr: "Vos pôles", url: "/profile?tab=poles" } });
   });
 });

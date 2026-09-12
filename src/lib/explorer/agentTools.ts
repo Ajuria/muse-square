@@ -36,6 +36,7 @@ import type { FamilyResult } from "../insightFamilies/types";
 import { blocksFromFamilyResult, factsToText, ABSENCE_FR, type AnswerBlock } from "./blocks";
 import { composeVentesFacts, resolvePeriode, ventesToText, type PeriodeMot, type SalesReportResult } from "../rapport/ventes";
 import { composeResultatFacts, resultatToText, type Resultat } from "../kpi/resultat";
+import { composePoleClassement, poleClassementToText, POLES_ABSENCE_FR, type Indicateur, type PoleClassementData } from "../dispositifs/poleClassement";
 import { frDate, memoryToText, newSiteMemoryRow, type AuthorRole, type SiteMemoryEntry, type SiteMemoryRow } from "./siteMemory";
 
 const PROJECT = "muse-square-open-data";
@@ -81,6 +82,8 @@ export interface AgentToolDeps {
   runVentes: (start: string, end: string) => Promise<SalesReportResult>;
   // 12/09 : le résultat net par mois et le seuil de rentabilité du dernier jour (lib/kpi/resultat.ts readResultat).
   runResultat: () => Promise<Resultat>;
+  // 12/09 : les pôles sur une période (lib/dispositifs/poleClassement.ts readPoleClassement : pole_daily + espace).
+  runPolesClassement: (start: string, end: string) => Promise<PoleClassementData>;
   today: () => string;   // AAAA-MM-JJ, Europe/Paris — injecté pour être testable
   record: (r: ToolCallRecord) => void;
 }
@@ -354,5 +357,29 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat];
+  // ── 12/09 — lire_poles_classement : vos pôles du plus au moins performant, l'indicateur nommé (lib/dispositifs/poleClassement.ts) ──
+  const lirePolesClassement = outil({
+    name: "lire_poles_classement",
+    description: "Vos pôles du plus au moins performant sur un indicateur : « ca », « ventes » (unités vendues), « marge_brute » (avec l'écart au résultat habituel et la part du CA ou de la marge, sur la période demandée), ou « ca_par_metre », « ca_par_m2 », « marge_par_metre » (sur les 30 jours des mesures d'espace, la période ne s'y applique pas). Les familles qu'aucun pôle ne porte apparaissent en « Non rattaché ». Période : comme lire_ventes.",
+    inputSchema: z.object({
+      indicateur: z.enum(["ca", "ventes", "marge_brute", "ca_par_metre", "ca_par_m2", "marge_par_metre"]).describe("L'indicateur du classement."),
+      periode: z.enum(["30_derniers_jours", "semaine_derniere", "mois_dernier"]).optional().describe("Le mot de la période (défaut : 30 derniers jours). Ignoré si du/au sont donnés."),
+      du: z.string().optional().describe("Premier jour, AAAA-MM-JJ."),
+      au: z.string().optional().describe("Dernier jour, AAAA-MM-JJ (défaut : du)."),
+    }),
+    run: (args) => timed("lire_poles_classement", args, async () => {
+      const p = resolvePeriode({ periode: (args.periode as PeriodeMot | undefined) ?? null, du: args.du ?? null, au: args.au ?? null }, deps.today());
+      if (!p) return { out: "Période invalide : donne deux dates AAAA-MM-JJ, la première avant la seconde.", summary: "période invalide" };
+      const d = await deps.runPolesClassement(p.start, p.end);
+      const l = composePoleClassement(d, args.indicateur as Indicateur, `sur ${p.libelle_fr}`);
+      if (!l.found) {
+        const manque = POLES_ABSENCE_FR[l.absence ?? "aucun_pole"];
+        const geste = l.absence === "aucune_mesure" ? ABSENCE_FR.espace.geste ?? null : l.absence === "aucune_marge" ? ABSENCE_FR.marge.geste ?? null : null;
+        return { out: manque, summary: "rien à lire — absence dite", blocks: [{ type: "absence", manque, geste }] as AnswerBlock[], facts: [] };
+      }
+      return { out: poleClassementToText(l), summary: `${plural(l.facts.length - 1, "pôle classé", "pôles classés")} en ${l.indicateur.replace(/_/g, " ")}`, blocks: l.blocks, facts: l.facts };
+    }),
+  });
+
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement];
 }

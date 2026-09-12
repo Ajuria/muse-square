@@ -4,7 +4,7 @@ import { groundAgentText } from "../explorer/blocks";
 import { TOURNURES_LLM } from "../fr/tournures.fr";
 import { MOTS_BANNIS } from "../fr/evenement.fr";
 
-const nb = (x: string): string => x.replace(/[  ]/g, " ");
+const nb = (x: string): string => x.replace(/[\u202f\u00a0]/g, " ");
 // Les lignes du compte de test (12/09) : septembre en cours, août et juillet complets, juin négatif.
 function resultat(over: Partial<Resultat> = {}): Resultat {
   const m = (month: string, complete: boolean, net: number | null, gm: number, rev: number, cov = 1, fc: number | null = 6500, pay: number | null = 17000) =>

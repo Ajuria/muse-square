@@ -32,6 +32,7 @@ import { FAMILIES } from "../../../lib/insightFamilies";
 import { assembleAnswerBlocks, groundAgentText } from "../../../lib/explorer/blocks";
 import { computeSalesReport } from "../../../lib/rapport/ventes";
 import { readResultat } from "../../../lib/kpi/resultat";
+import { readPoleClassement } from "../../../lib/dispositifs/poleClassement";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -174,6 +175,8 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
     runVentes: (start, end) => computeSalesReport(bq, { location_id, owned: ownedIds, start, end }),
     // 12/09 — lire_resultat : LE lecteur du résultat net et du seuil de rentabilité (lib/kpi/resultat.ts, mêmes vues que Piloter).
     runResultat: () => readResultat(bq, location_id),
+    // 12/09 — lire_poles_classement : pole_daily sommée sur la période + le foyer espace (lib/dispositifs/poleClassement.ts).
+    runPolesClassement: (start, end) => readPoleClassement(bq, location_id, start, end),
     today: () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
     record: (r) => { tool_calls.push(r); onTool?.({ ...r, label_fr: OUTILS_FR[r.name] ?? r.name }); },
   });
