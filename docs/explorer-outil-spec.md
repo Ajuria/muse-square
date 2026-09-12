@@ -283,7 +283,7 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    dis-moi lequel occupe trop de linéaire pour ce qu'il rapporte. » → 21,8 s — sur les deux, le modèle a
    additionné deux parts de son cru (« 21,8 % », « 4,3 % », « sous 1 500 € ») et la porte a rendu « Non vérifié » :
    la porte fait son travail, la consigne « tu ne calcules jamais » reste à durcir ou le modèle à changer).
-   **Reste** : le `grain` de `lire_ventes`. Preuve : les cinq questions du 12/09 de l'owner (« montre-moi comment mes pôles performent
+   Le grain « jour » de `lire_ventes` est livré (12/09 : une ligne par jour de vente, jusqu'à 31 jours). Preuve : les cinq questions du 12/09 de l'owner (« montre-moi comment mes pôles performent
    au m² », « ordonne les familles les plus profitables vs m² vs mètres linéaires », « quelles familles sont
    sensibles à la météo ? »…) répondent en blocs, et une question composée aussi.
 2. **Incrément 2 — le Rapport** (en cours, 12/09) : **faits** — le registre `src/lib/fr/rapport.fr.ts`
@@ -302,8 +302,15 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    le rapport imprimable inchangé (ses chaînes approuvées restent), les sections Contexte externe et
    Actions recommandées (aujourd'hui une absence qui renvoie au rapport imprimable), la surface définitive du
    Rapport (le proto porte le geste jusqu'à l'arbitrage owner).
-3. **Incrément 3 — les gestes sur le document** : déplacer, retirer, dupliquer, Actualiser ; Votre note ;
-   Approfondir (dépend de l'incrément 1).
+3. **Incrément 3 — les gestes sur le document** (12/09) : **faits** — `lib/rapport/gestes.ts` (purs, testés :
+   un déplacement ne change aucun chiffre), la route des rapports (`geste` : deplacer, retirer, dupliquer, note,
+   retirer_note, actualiser → version suivante), Approfondir par la boucle (`/api/explorer/agent` avec
+   `approfondir` : le message porte la section et ses dates, le résultat s'insère après elle, vérifié, version
+   suivante), le bloc `note` du kit (?v=82), les gestes sur le proto. Sonde réelle sur le document du compte de
+   test : v3 déplacer, v4 note, v5 actualiser (1,8 s, note gardée, Synthèse retirée), v6 approfondir (14,4 s ;
+   le modèle a dit honnêtement que le détail par jour manquait — d'où le grain « jour » de `lire_ventes`, livré
+   dans la foulée). **Restent** : le glisser-déposer (les flèches Monter / Descendre font le geste), la surface
+   définitive.
 4. **Incrément 4 — le Modèle de rapport** : Enregistrer comme modèle, la bibliothèque, l'appel par nom
    depuis Explorer ; les deux modèles par défaut.
 5. **Incrément 5 — l'envoi à cadence** : `report_schedules`, `report_sends`, le cron, le rendu serveur, les

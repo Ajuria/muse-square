@@ -81,6 +81,19 @@ describe("composeVentesFacts — les phrases du rapport et du chat, les tableaux
     expect(nb(l.facts[1])).toBe("Par rapport à la même période l'an dernier, votre chiffre d'affaires est en baisse de 2,5 %.");
     expect(nb(l.facts[3])).toContain("le mix par famille reste stable (aucune famille ne bouge de plus d’un point de part de CA)");
   });
+  it("grain jour : une ligne par jour de vente (CA, ventes, panier moyen), en toutes lettres, jusqu'à 31 jours", () => {
+    const l = composeVentesFacts(rapport({ daily: [{ d: "2026-08-31", rev: 1649.4, txns: 340 }, { d: "2026-09-02", rev: 1439, txns: 0 }] }), { grain: "jour" });
+    expect(l.parts.par_jour!.map(nb)).toEqual(["Le lundi 31/08/2026 : 1 649 € de CA, 340 ventes, panier moyen 4,85 €.", "Le mercredi 02/09/2026 : 1 439 € de CA, 0 ventes."]);
+    expect(l.facts).toEqual(expect.arrayContaining(l.parts.par_jour!));
+    const t = l.tables.par_jour as any;
+    expect(t.cols.map((c: any) => c.label)).toEqual(["Jour", "CA", "Ventes", "Panier moyen"]);
+    expect(t.rows.map((r: any) => r.cells.map((c: any) => nb(c.v)))).toEqual([["lundi 31/08/2026", "1 649 €", "340", "4,85 €"], ["mercredi 02/09/2026", "1 439 €", "0", "—"]]);
+    expect(l.blocks.map((b) => b.type)).toEqual(["table", "table", "table", "sources"]);
+    const long = composeVentesFacts(rapport({ daily: Array.from({ length: 40 }, (_, i) => ({ d: `2026-07-${String(1 + (i % 28)).padStart(2, "0")}`, rev: 100, txns: 10 })) }), { grain: "jour" });
+    expect(long.facts).toContain("Le détail par jour se lit jusqu'à 31 jours : la période en compte 40.");
+    expect(long.tables.par_jour).toBeUndefined();
+    expect(composeVentesFacts(rapport()).tables.par_jour).toBeUndefined(); // sans grain, rien de plus
+  });
   it("NO_DATA et rapport mono-canal : rien à lire, absence dite", () => {
     expect(composeVentesFacts({ body: { ok: false, error: "NO_DATA" }, prev_revenue: null }).found).toBe(false);
     expect(composeVentesFacts({ body: { ok: true, channel_report: true }, prev_revenue: null }).found).toBe(false);

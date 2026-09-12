@@ -2232,13 +2232,23 @@
         + (g ? ' <a href="' + esc(g.url) + '" style="color:#0b37e5;font-weight:500;text-decoration:none;">' + esc(g.label_fr) + ' \u2192</a>' : '')
         + '</div>';
     },
+    // 12/09 — « Votre note » (spec § 6.2, lexique l. 123) : le texte de l'exploitant, sous un bloc, avec sa pastille
+    // distincte (les teintes ambre des datecards), jamais mêlé à un texte vérifié ; l'auteur et la date au survol.
+    note: function (b) {
+      if (!b || !b.text) return '';
+      var when = b.date ? String(b.date).slice(0, 10).split('-').reverse().join('/') : '';
+      var tip = (b.auteur ? b.auteur + ' \u00b7 ' : '') + when;
+      return '<div data-rapport-note style="border:0.5px solid #FAC775;border-left:3px solid #BA7517;border-radius:0 8px 8px 0;padding:9px 12px;margin:8px 0 10px;background:#fff;">'
+        + '<div' + (tip ? ' title="' + esc(tip) + '"' : '') + ' style="display:inline-block;background:#FAEEDA;color:#633806;font-size:11px;font-weight:600;border-radius:999px;padding:2px 9px;margin-bottom:6px;">Votre note</div>'
+        + '<div style="font-size:13.5px;line-height:1.55;color:#111827;white-space:pre-wrap;">' + esc(b.text) + '</div></div>';
+    },
     // 12/09 — LE RAPPORT (docs/explorer-outil-spec.md § 6) : titre, période, la Synthèse (texte vérifié du tour, avec sa
     // pastille), puis une zone par section — les valeurs de .fr-zone / .fr-zh de family-report.astro, le même kit pour
     // les blocs de chaque section. La définition de la section vit au survol du titre (kitchen au survol, règle owner).
     rapport: function (b) {
       if (!b || !Array.isArray(b.sections)) return '';
-      var zone = function (titre, tip, body) {
-        return '<div style="background:#fff;border:0.5px solid #E5E7EB;border-radius:12px;padding:16px 18px;margin:0 0 16px;">'
+      var zone = function (titre, tip, body, idx) {
+        return '<div' + (idx != null ? ' data-rapport-section="' + idx + '"' : '') + ' style="background:#fff;border:0.5px solid #E5E7EB;border-radius:12px;padding:16px 18px;margin:0 0 16px;">'
           + '<div' + (tip ? ' title="' + esc(tip) + '"' : '') + ' style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#1D3BB3;margin:0 0 12px;">' + esc(titre) + '</div>' + body + '</div>';
       };
       var html = '<div class="ie-rapport">'
@@ -2250,7 +2260,7 @@
       for (var i = 0; i < b.sections.length; i++) {
         var s = b.sections[i];
         if (!s) continue;
-        html += zone(s.titre || s.cle || '', s.definition || null, renderBlockList(Array.isArray(s.blocs) ? s.blocs : []));
+        html += zone(s.titre || s.cle || '', s.definition || null, renderBlockList(Array.isArray(s.blocs) ? s.blocs : []), i);
       }
       if (Array.isArray(b.non_reconnu) && b.non_reconnu.length) {
         html += AB_PRIMITIVES.absence({ manque: 'Aucune section du Rapport ne correspond \u00e0 : ' + b.non_reconnu.map(function (x) { return '\u00ab ' + x + ' \u00bb'; }).join(', ') + '.', geste: null });

@@ -33,6 +33,8 @@ import { assembleAnswerBlocks, groundAgentText } from "../../../lib/explorer/blo
 import { computeSalesReport } from "../../../lib/rapport/ventes";
 import { readResultat } from "../../../lib/kpi/resultat";
 import { readPoleClassement } from "../../../lib/dispositifs/poleClassement";
+import { newReportDocumentRow, readReportDocument, writeReportDocument } from "../../../lib/rapport/documents";
+import { approfondirPrompt, approfondirSection } from "../../../lib/rapport/gestes";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -152,13 +154,28 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
   }
   if (!rateLimit(user_id, "explorer-agent", 10, 60_000)) return rateLimitResponse();
 
-  const pm = parseMessages(body.messages);
+  // 12/09 (spec § 6.2, incrément 3) — APPROFONDIR : { document_id, section, question } ; le message de la boucle est bâti
+  // depuis le document (la section, ses dates en du/au, la question) ; après le tour, le résultat s'insère après la
+  // section, vérifié, et la version suivante s'écrit — la réponse porte le document.
+  const bq = makeBQClient(BQ_PROJECT);
+  let approfondir: { document_id: string; section: number; question: string; prev: NonNullable<Awaited<ReturnType<typeof readReportDocument>>> } | null = null;
+  let messagesIn: unknown = body.messages;
+  if (body.approfondir && typeof body.approfondir === "object") {
+    const a = body.approfondir;
+    const document_id = String(a.document_id || "").trim();
+    const prev = document_id ? await readReportDocument(bq, location_id, document_id) : null;
+    if (!prev) return json({ ok: false, error: "Rapport introuvable sur ce site" }, 404);
+    const prompt = approfondirPrompt(prev.rapport, Number(a.section), String(a.question || ""));
+    if (typeof prompt !== "string") return json({ ok: false, error: prompt.erreur }, 400);
+    approfondir = { document_id, section: Number(a.section), question: String(a.question).trim(), prev };
+    messagesIn = [...(Array.isArray(body.messages) ? body.messages : []), { role: "user", content: prompt }];
+  }
+  const pm = parseMessages(messagesIn);
   if ("error" in pm) return json({ ok: false, error: pm.error }, 400);
   const pf = parseFiles(body.files);
   if ("error" in pf) return json({ ok: false, error: pf.error }, 400);
   const thread_id = /^[A-Za-z0-9_-]{1,80}$/.test(String(body.thread_id || "")) ? String(body.thread_id) : randomUUID();
 
-  const bq = makeBQClient(BQ_PROJECT);
   const tool_calls: ToolCallRecord[] = [];
   const tools = buildAgentTools({
     location_id,
@@ -219,9 +236,20 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
   ];
   await writeAgentTurns(bq, rows).catch((e: any) => console.error("[explorer/agent] turns non écrits :", e?.message || e));
 
+  // Approfondir : le résultat du tour entre dans le document, la version suivante s'écrit.
+  let document: unknown = undefined;
+  if (approfondir) {
+    const out = approfondirSection(approfondir.prev.rapport, approfondir.section, { blocks, text, register: grounding.register, question: approfondir.question });
+    if ("erreur" in out) return json({ ok: false, error: out.erreur }, 400);
+    const row = newReportDocumentRow({ location_id, author: { user_id, role }, rapport: out, document_id: approfondir.document_id, version: approfondir.prev.version + 1, modele_id: approfondir.prev.modele_id });
+    await writeReportDocument(bq, row);
+    document = { ...approfondir.prev, version: row.version, created_at: row.created_at, rapport: out };
+  }
+
   return json({
     ok: true,
     thread_id,
+    ...(document ? { document } : {}),
     assistant: { text, stop_reason: final.stop_reason ?? null, refused, register: grounding.register, ungrounded_numbers: grounding.ungrounded_numbers },
     blocks,
     tool_calls: tool_calls.map((r) => ({ name: r.name, input: r.input, ok: r.ok, summary: r.summary, ms: r.ms, label_fr: OUTILS_FR[r.name] ?? r.name })),

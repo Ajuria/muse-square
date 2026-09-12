@@ -402,9 +402,11 @@ function frDateFr(iso: string): string {
 const jourFr = (iso: string): string => `le ${JOURS[new Date(`${iso}T00:00:00Z`).getUTCDay()]} ${frDateFr(iso)}`;
 
 /** Les faits NOMMÉS (12/09, composer_rapport les range par section) — les mêmes chaînes que `facts`, jamais d'autres. */
-export interface VentesParts { ca?: string; an_dernier?: string; volume_panier?: string; couches?: string; journees?: string; jours?: string; repartition?: string; signaux?: string }
+export interface VentesParts { ca?: string; an_dernier?: string; volume_panier?: string; couches?: string; journees?: string; jours?: string; repartition?: string; signaux?: string; par_jour?: string[] }
 /** Les tableaux NOMMÉS — `couches` (les trois couches), `mix` (par famille), `jours` (profil par jour de semaine). */
-export interface VentesTables { couches?: AnswerBlock; mix?: AnswerBlock; jours?: AnswerBlock }
+export interface VentesTables { couches?: AnswerBlock; mix?: AnswerBlock; jours?: AnswerBlock; par_jour?: AnswerBlock }
+/** Le grain « jour » se lit jusqu'à 31 jours : au-delà, une ligne par jour n'est plus une lecture. */
+export const GRAIN_JOUR_MAX = 31;
 export interface VentesLecture { facts: string[]; blocks: AnswerBlock[]; found: boolean; parts: VentesParts; tables: VentesTables }
 
 /**
@@ -413,7 +415,7 @@ export interface VentesLecture { facts: string[]; blocks: AnswerBlock[]; found: 
  * les titres de colonnes sont les sections du Rapport au lexique (Chiffre d'affaires, Volume de ventes, Panier
  * moyen, Mix produits & services). Un montant a pour sujet celui qui le génère (« vous avez généré »).
  */
-export function composeVentesFacts(res: SalesReportResult): VentesLecture {
+export function composeVentesFacts(res: SalesReportResult, opts: { grain?: 'jour' | null } = {}): VentesLecture {
   const b = res.body as any;
   if (!b || b.ok !== true || b.channel_report || !b.summary) return { found: false, facts: [], blocks: [], parts: {}, tables: {} };
   const s = b.summary;
@@ -459,6 +461,17 @@ export function composeVentesFacts(res: SalesReportResult): VentesLecture {
   if (mix.length && mixTot > 0) {
     facts.push(named.repartition = 'Répartition par famille : ' + mix.map((m) => `${m.label} ${eur(m.revenue)} (${pct1((Number(m.revenue) || 0) / mixTot * 100)} de votre CA)`).join(', ') + '.');
   }
+  // Grain « jour » (12/09, le reste de l'incrément 1 ; Approfondir en a besoin : « quel jour a porté le volume ? ») —
+  // une ligne par jour de vente : CA, ventes, panier moyen ; jours en toutes lettres (lexique règle 6).
+  const daily: Array<{ d: string; rev: number; txns: number }> = Array.isArray(b.daily) ? b.daily : [];
+  if (opts.grain === 'jour' && daily.length && daily.length <= GRAIN_JOUR_MAX) {
+    named.par_jour = daily.map((r) => `${jourFr(r.d).charAt(0).toUpperCase()}${jourFr(r.d).slice(1)} : ${eur(r.rev)} de CA, ${frInt(r.txns)} ventes` + (r.txns > 0 ? `, panier moyen ${eur2(r.rev / r.txns)}` : '') + '.');
+    facts.push(...named.par_jour);
+    tables.par_jour = { type: 'table', cols: [{ label: 'Jour' }, { label: 'CA' }, { label: 'Ventes' }, { label: 'Panier moyen' }],
+      rows: daily.map((r) => ({ cells: [{ v: jourFr(r.d).replace(/^le /, ''), bold: true }, { v: eur(r.rev) }, { v: frInt(r.txns) }, { v: r.txns > 0 ? eur2(r.rev / r.txns) : '—' }] })) };
+  } else if (opts.grain === 'jour' && daily.length > GRAIN_JOUR_MAX) {
+    facts.push(`Le détail par jour se lit jusqu'à ${GRAIN_JOUR_MAX} jours : la période en compte ${daily.length}.`);
+  }
   const sig = b.signals || {};
   if ((Number(sig.surge_days) || 0) + (Number(sig.down_days) || 0) > 0) {
     const parts: string[] = [];
@@ -485,6 +498,7 @@ export function composeVentesFacts(res: SalesReportResult): VentesLecture {
     };
     blocks.push(tables.mix);
   }
+  if (tables.par_jour) blocks.push(tables.par_jour);
   blocks.push({ type: 'sources', items: ['Vos ventes par jour et par famille (caisse), la période précédente de même longueur et la même période l’an dernier'] });
   return { found: true, facts, blocks, parts: named, tables };
 }

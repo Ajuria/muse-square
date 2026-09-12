@@ -3,6 +3,10 @@
 //   GET  ?location_id=…[&document_id=…]  → la liste (dernière version de chaque Rapport) ou un Rapport.
 //   POST { location_id, rapport, document_id? }   → « Enregistrer » : une version de plus (append-only), la première
 //        pour un document nouveau. Le corps est le bloc `rapport` tel que /api/explorer/agent l'a rendu (Synthèse comprise).
+//   POST { location_id, document_id, geste, … }   → un GESTE sur le document (spec § 6.2, incrément 3) : `deplacer`
+//        { section, vers } · `retirer` { section } · `dupliquer` { section } · `note` { section, texte } · `retirer_note`
+//        { section, note } · `actualiser` {} — le document est relu, le geste appliqué (lib/rapport/gestes.ts, pur), la
+//        version suivante écrite ; la réponse porte le document. Approfondir passe par /api/explorer/agent (la boucle).
 // Auth : Clerk, requireLocationAccess (owner ou membre du site) ; en `astro dev` avec MS_AUTH_BYPASS=1, le proto
 // (4173) l'appelle — CORS ouvert en dev seulement, le geste d'agent.ts. Lib : src/lib/rapport/documents.ts.
 import type { APIRoute } from "astro";
@@ -10,6 +14,8 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { isRapportBlock, listReportDocuments, newReportDocumentRow, readReportDocument, writeReportDocument } from "../../../lib/rapport/documents";
+import { actualiserDocument, ajouterNote, deplacerSection, dupliquerSection, retirerNote, retirerSection } from "../../../lib/rapport/gestes";
+import type { RapportBlock } from "../../../lib/explorer/blocks";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -62,8 +68,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const w = who(locals, location_id, body.dev_user_id);
   if (w instanceof Response) return w;
   if (!rateLimit(w.user_id, "explorer-rapports", 30, 60_000)) return rateLimitResponse();
-  if (!isRapportBlock(body.rapport)) return json({ ok: false, error: "rapport : le document n'a pas la forme d'un Rapport" }, 400);
   const bq = makeBQClient(BQ_PROJECT);
+  if (typeof body.geste === "string") return geste(bq, locals, location_id, w, body);
+  if (!isRapportBlock(body.rapport)) return json({ ok: false, error: "rapport : le document n'a pas la forme d'un Rapport" }, 400);
   try {
     const document_id = typeof body.document_id === "string" && body.document_id.trim() ? body.document_id.trim() : null;
     let version = 1;
@@ -82,3 +89,38 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ ok: false, error: "Enregistrement impossible" }, 500);
   }
 };
+
+// ── Les gestes sur le document (spec § 6.2) ─────────────────────────────────────────────────────────
+const GESTES = new Set(["deplacer", "retirer", "dupliquer", "note", "retirer_note", "actualiser"]);
+
+async function geste(bq: any, locals: any, location_id: string, w: { user_id: string; role: "owner" | "member" }, body: any): Promise<Response> {
+  const document_id = String(body.document_id || "").trim();
+  if (!document_id) return json({ ok: false, error: "document_id requis" }, 400);
+  if (!GESTES.has(body.geste)) return json({ ok: false, error: "geste inconnu" }, 400);
+  try {
+    const prev = await readReportDocument(bq, location_id, document_id);
+    if (!prev) return json({ ok: false, error: "Rapport introuvable sur ce site" }, 404);
+    const i = Number(body.section);
+    let out: RapportBlock | { erreur: string };
+    switch (body.geste) {
+      case "deplacer": out = deplacerSection(prev.rapport, i, Number(body.vers)); break;
+      case "retirer": out = retirerSection(prev.rapport, i); break;
+      case "dupliquer": out = dupliquerSection(prev.rapport, i); break;
+      case "note": out = ajouterNote(prev.rapport, i, body.texte, typeof body.auteur === "string" ? body.auteur : null); break;
+      case "retirer_note": out = retirerNote(prev.rapport, i, Number(body.note)); break;
+      default: {
+        const owned: string[] = Array.isArray(locals?.all_location_ids) ? locals.all_location_ids.map(String) : [location_id];
+        out = await actualiserDocument(bq, location_id, owned, prev.rapport, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }));
+      }
+    }
+    if ("erreur" in out) return json({ ok: false, error: out.erreur }, 400);
+    const row = newReportDocumentRow({ location_id, author: w, rapport: out, document_id, version: prev.version + 1, modele_id: prev.modele_id });
+    await writeReportDocument(bq, row);
+    return json({ ok: true, document_id, version: row.version, document: { ...prev, version: row.version, author_user_id: row.author_user_id, author_role: row.author_role, titre: row.titre, periode_du: row.periode_du, periode_au: row.periode_au, periode_relative: row.periode_relative, created_at: row.created_at, rapport: out } });
+  } catch (e: any) {
+    const msg = String(e?.message || e);
+    if (/^rapport : /.test(msg)) return json({ ok: false, error: msg }, 400);
+    console.error("[explorer/rapports] geste :", msg);
+    return json({ ok: false, error: "Geste impossible" }, 500);
+  }
+}

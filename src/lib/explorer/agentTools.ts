@@ -319,17 +319,18 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
   // kit (les trois couches ; le mix par famille), au validateur les mêmes faits.
   const lireVentes = outil({
     name: "lire_ventes",
-    description: "Vos ventes sur une période : chiffre d'affaires, nombre de ventes, panier moyen, ce qui a bougé par rapport à la période précédente (ventes, panier, mix par famille), meilleure et plus faible journée, profil par jour de semaine (à partir de 4 semaines), répartition par famille. Période : « 30_derniers_jours » (défaut, les 30 jours qui finissent hier), « semaine_derniere » (du lundi au dimanche précédents), « mois_dernier » (le mois civil précédent), ou deux dates du/au au format AAAA-MM-JJ.",
+    description: "Vos ventes sur une période : chiffre d'affaires, nombre de ventes, panier moyen, ce qui a bougé par rapport à la période précédente (ventes, panier, mix par famille), meilleure et plus faible journée, profil par jour de semaine (à partir de 4 semaines), répartition par famille ; avec grain « jour », une ligne par jour de vente (jusqu'à 31 jours). Période : « 30_derniers_jours » (défaut, les 30 jours qui finissent hier), « semaine_derniere » (du lundi au dimanche précédents), « mois_dernier » (le mois civil précédent), ou deux dates du/au au format AAAA-MM-JJ.",
     inputSchema: z.object({
       periode: z.enum(["30_derniers_jours", "semaine_derniere", "mois_dernier"]).optional().describe("Le mot de la période. Ignoré si du/au sont donnés."),
       du: z.string().optional().describe("Premier jour, AAAA-MM-JJ."),
       au: z.string().optional().describe("Dernier jour, AAAA-MM-JJ (défaut : du)."),
+      grain: z.enum(["jour"]).optional().describe("« jour » : une ligne par jour de vente (CA, ventes, panier moyen), jusqu'à 31 jours — pour « quel jour a porté… »."),
     }),
     run: (args) => timed("lire_ventes", args, async () => {
       const p = resolvePeriode({ periode: (args.periode as PeriodeMot | undefined) ?? null, du: args.du ?? null, au: args.au ?? null }, deps.today());
       if (!p) return { out: "Période invalide : donne deux dates AAAA-MM-JJ, la première avant la seconde.", summary: "période invalide" };
       const res = await deps.runVentes(p.start, p.end);
-      const l = composeVentesFacts(res);
+      const l = composeVentesFacts(res, { grain: args.grain === "jour" ? "jour" : null });
       const blocks: AnswerBlock[] = l.found ? l.blocks : [{ type: "absence", manque: `Aucune vente ${p.libelle_fr}.`, geste: null }];
       // La période lue est un fait de l'outil (« vos 30 derniers jours ») : sans elle, le « 30 » du modèle
       // serait un nombre non fondé pour la porte (mesuré sur le compte de test, 12/09).

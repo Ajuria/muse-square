@@ -19,6 +19,9 @@ export type AnswerBlock =
   | { type: "sources"; items: string[] }
   // 12/09 — l'absence est un résultat : ce qui manque, et le geste qui le débloque (le mot de Piloter).
   | { type: "absence"; manque: string; geste?: { label_fr: string; url: string } | null }
+  // 12/09 — « Votre note » (spec § 6.2, lexique l. 123) : un texte écrit par l'exploitant sous un bloc, jamais vérifié par
+  // le validateur, dit par sa pastille — jamais mêlé à un texte vérifié.
+  | { type: "note"; text: string; auteur: string | null; date: string }
   // 12/09 — LE RAPPORT (spec § 6) : un document de sections, chacune faite de blocs, avec sa Synthèse (le texte vérifié
   // du tour, posé par la route) et la provenance de chaque section (l'outil, ses paramètres, la période, la date).
   | RapportBlock;

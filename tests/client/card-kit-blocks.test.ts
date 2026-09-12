@@ -64,3 +64,16 @@ it("rapport (12/09, spec § 6) : titre, période, Synthèse avec sa pastille, un
   expect(t).toContain("Aucune vente rattachée à un pôle sur cette période.");
   expect(t).toContain("Aucune section du Rapport ne correspond à : « la couleur des murs ».");
 });
+it("note (12/09, Votre note) : pastille distincte, texte échappé, auteur et date au survol ; les sections d'un rapport portent leur index", () => {
+  const html = (window as any).MSCardKit.renderAnswerBlocks([
+    { type: "register", register: "vetted" },
+    { type: "rapport", titre: "R", periode: { du: "2026-08-31", au: "2026-09-06", relative: null, libelle_fr: "x" }, synthese: null, non_reconnu: [],
+      sections: [{ cle: "volume", titre: "Volume de ventes", provenance: null, blocs: [{ type: "facts", items: ["2 426 ventes."] }, { type: "note", text: "Fermé le <lundi>.\nRentrée.", auteur: "Nadia", date: "2026-09-12T11:00:00.000Z" }] }] },
+  ]);
+  const el = document.createElement("div"); el.innerHTML = html;
+  const note = el.querySelector("[data-rapport-note]")!;
+  expect(note.textContent).toContain("Votre note"); expect(note.textContent).toContain("Fermé le <lundi>.");
+  expect(html).not.toContain("<lundi>");
+  expect(note.querySelector("div")?.getAttribute("title")).toBe("Nadia · 12/09/2026");
+  expect(el.querySelector("[data-rapport-section='0']")).not.toBeNull();
+});
