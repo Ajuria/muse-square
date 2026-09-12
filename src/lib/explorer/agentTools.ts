@@ -38,7 +38,8 @@ import { composeVentesFacts, resolvePeriode, ventesToText, type PeriodeMot, type
 import { composeResultatFacts, resultatToText, type Resultat } from "../kpi/resultat";
 import { composePoleClassement, poleClassementToText, POLES_ABSENCE_FR, type Indicateur, type PoleClassementData } from "../dispositifs/poleClassement";
 import { composeRapport, rapportToText, SECTIONS_VENTES } from "../rapport/composer";
-import { resolveSections, SECTIONS, MODELE_VENTES } from "../fr/rapport.fr";
+import { resolveSections, SECTIONS, MODELE_VENTES, type SectionCle } from "../fr/rapport.fr";
+import { findTemplateByName, type ReportTemplate } from "../rapport/modeles";
 import { frDate, memoryToText, newSiteMemoryRow, type AuthorRole, type SiteMemoryEntry, type SiteMemoryRow } from "./siteMemory";
 
 const PROJECT = "muse-square-open-data";
@@ -86,6 +87,8 @@ export interface AgentToolDeps {
   runResultat: () => Promise<Resultat>;
   // 12/09 : les pôles sur une période (lib/dispositifs/poleClassement.ts readPoleClassement : pole_daily + espace).
   runPolesClassement: (start: string, end: string) => Promise<PoleClassementData>;
+  // 12/09 (incrément 4) : les Modèles de rapport du site (lib/rapport/modeles.ts) — « génère mon rapport hebdo » les nomme.
+  listModeles: () => Promise<ReportTemplate[]>;
   today: () => string;   // AAAA-MM-JJ, Europe/Paris — injecté pour être testable
   record: (r: ToolCallRecord) => void;
 }
@@ -392,7 +395,7 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     description: "Composer un Rapport : une période (comme lire_ventes) et la liste des sections demandées, en mots libres — " + SECTIONS.map((s) => `« ${s.titre} »`).join(", ") + " — ou « modele » = « ventes » (le rapport de ventes complet : ses sections dans l'ordre du rapport imprimable). Chaque section est lue par l'outil qui la porte et rendue avec sa provenance ; « indicateur » sert au classement des pôles (ca par défaut). Le texte que tu écris ensuite est la Synthèse du Rapport : trois à cinq phrases, sans titre ni liste, à partir des faits rendus, sans réénumérer ce que les tableaux montrent. Ne lis pas séparément ce que le Rapport contient déjà.",
     inputSchema: z.object({
       sections: z.string().optional().describe("Les sections demandées, en mots libres, séparées par des virgules (ex. « volume, panier, mix, pôles »). Vide si « modele » est donné."),
-      modele: z.enum(["ventes"]).optional().describe("Un Modèle de rapport par défaut : « ventes » = le rapport de ventes (Synthèse, Chiffre d'affaires, Volume, Panier, Mix, CA moyen par jour de la semaine, Marge brute, Contexte externe, Actions recommandées, Sources)."),
+      modele: z.string().max(80).optional().describe("Un Modèle de rapport, par son nom : « ventes » (le rapport de ventes par défaut : Synthèse, Chiffre d'affaires, Nombre de ventes, Panier moyen, Mix, CA moyen par jour de la semaine, Marge brute, Contexte externe, Actions recommandées, Sources), ou le nom d'un Modèle que l'exploitant a enregistré (« Hebdo ventes », « Point mensuel pôles »…). La période du Modèle s'applique sauf si periode/du/au sont donnés."),
       periode: z.enum(["30_derniers_jours", "semaine_derniere", "mois_dernier"]).optional().describe("Le mot de la période (défaut : 30 derniers jours). Ignoré si du/au sont donnés."),
       du: z.string().optional().describe("Premier jour, AAAA-MM-JJ."),
       au: z.string().optional().describe("Dernier jour, AAAA-MM-JJ (défaut : du)."),
@@ -400,15 +403,27 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
       titre: z.string().max(120).optional().describe("Le titre du Rapport, si l'exploitant l'a donné."),
     }),
     run: (args) => timed("composer_rapport", args, async () => {
-      const p = resolvePeriode({ periode: (args.periode as PeriodeMot | undefined) ?? null, du: args.du ?? null, au: args.au ?? null }, deps.today());
-      if (!p) return { out: "Période invalide : donne deux dates AAAA-MM-JJ, la première avant la seconde.", summary: "période invalide" };
       // 12/09 (spec § 6.3) : « ventes » = les sections du rapport de ventes d'aujourd'hui, dans son ordre — le premier Modèle
       // par défaut, composé par les outils ; les sections demandées en plus s'ajoutent à la suite.
       const demande = resolveSections(args.sections ?? "");
-      const cles = args.modele === "ventes" ? [...MODELE_VENTES, ...demande.cles.filter((c) => !MODELE_VENTES.includes(c))] : demande.cles;
+      // Le Modèle : « ventes » (par défaut, MODELE_VENTES) ou un Modèle enregistré du site, par son nom ; sa période et son
+      // indicateur s'appliquent sauf demande explicite ; les sections demandées en plus s'ajoutent à la suite.
+      let modeleCles: SectionCle[] = []; let modeleNom: string | null = null; let modelePeriode: PeriodeMot | null = null; let modeleIndicateur: Indicateur | null = null;
+      const nomModele = (args.modele ?? "").trim();
+      if (nomModele) {
+        if (/^ventes?$/i.test(nomModele.normalize("NFD").replace(/[̀-ͯ]/g, "")) || /rapport de ventes/i.test(nomModele)) { modeleCles = [...MODELE_VENTES]; modeleNom = "Rapport de ventes"; }
+        else {
+          const t = findTemplateByName(await deps.listModeles(), nomModele);
+          if (!t) return { out: `Aucun Modèle de rapport nommé « ${nomModele} » sur ce site. Modèles disponibles : Rapport de ventes${(await deps.listModeles()).map((x) => `, ${x.nom}`).join("")}.`, summary: `modèle « ${nomModele} » inconnu` };
+          modeleCles = t.sections.map((s) => s.cle); modeleNom = t.nom; modelePeriode = t.periode_relative; modeleIndicateur = (t.indicateur as Indicateur | null) ?? null;
+        }
+      }
+      const cles = modeleCles.length ? [...modeleCles, ...demande.cles.filter((c) => !modeleCles.includes(c))] : demande.cles;
       const inconnues = demande.inconnues;
-      if (!cles.length && !inconnues.length) return { out: "Aucune section demandée : nomme des sections (« volume, panier, mix, pôles ») ou un modèle (« ventes »).", summary: "aucune section demandée" };
-      const indicateur = (args.indicateur as Indicateur | undefined) ?? "ca";
+      if (!cles.length && !inconnues.length) return { out: "Aucune section demandée : nomme des sections (« volume, panier, mix, pôles ») ou un Modèle (« ventes », ou le nom d'un Modèle enregistré).", summary: "aucune section demandée" };
+      const indicateur = (args.indicateur as Indicateur | undefined) ?? modeleIndicateur ?? "ca";
+      const p = resolvePeriode({ periode: (args.periode as PeriodeMot | undefined) ?? modelePeriode ?? null, du: args.du ?? null, au: args.au ?? null }, deps.today());
+      if (!p) return { out: "Période invalide : donne deux dates AAAA-MM-JJ, la première avant la seconde.", summary: "période invalide" };
       const besoin = (k: string[]) => cles.some((c) => k.includes(c));
       const [ventes, marge, resultat, espace, poles, signaux] = await Promise.all([
         besoin(SECTIONS_VENTES) ? deps.runVentes(p.start, p.end).then(composeVentesFacts) : null,
@@ -420,8 +435,8 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
       ]);
       const r = composeRapport({
         cles, non_reconnu: inconnues,
-        periode: { du: p.start, au: p.end, relative: args.du || args.au ? null : (args.periode ?? "30_derniers_jours"), libelle_fr: p.libelle_fr },
-        indicateur, titre: args.titre ?? (args.modele === "ventes" ? `Rapport de ventes — ${p.libelle_fr}` : null), calcule_le: new Date().toISOString(),
+        periode: { du: p.start, au: p.end, relative: args.du || args.au ? null : (args.periode ?? modelePeriode ?? "30_derniers_jours"), libelle_fr: p.libelle_fr },
+        indicateur, titre: args.titre ?? (modeleNom ? `${modeleNom} — ${p.libelle_fr}` : null), calcule_le: new Date().toISOString(),
         lectures: { ventes, marge, resultat, espace, poles, signaux },
       });
       const n = r.block.sections.length;

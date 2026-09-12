@@ -37,9 +37,8 @@
   <div><label for="api">Serveur</label><input id="api" value="http://localhost:4321"></div>
   <div><label for="loc">Site (location_id)</label><input id="loc" placeholder="location_id du site"></div>
 </div>
-<div id="rapports" class="note" style="margin:0 0 12px;"></div>
 <div id="thread"></div>
-<p class="note">Prototype. Chaque tour envoie l'historique complet à POST /api/explorer/agent ; les fichiers ne sont joints qu'au tour en cours. Ce que l'agent lit et enregistre s'affiche sous sa réponse, avec le libellé rendu par le serveur.</p>
+<p class="note">Prototype de la conversation (photos, plan, mémoire du site). Les Rapports vivent sur la page /app/insightevent/rapports depuis le 12/09. Chaque tour envoie l'historique complet à POST /api/explorer/agent ; les fichiers ne sont joints qu'au tour en cours. Ce que l'agent lit et enregistre s'affiche sous sa réponse, avec le libellé rendu par le serveur.</p>
 </div>
 <div class="composer">
   <div class="file"><input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"><span id="filename"></span></div>
@@ -93,99 +92,7 @@
     });
   }
 
-  // 12/09 (spec § 6.1) : les Rapports enregistrés du site — la liste (GET), un clic rend le document par le kit.
-  async function loadRapports() {
-    var loc = $("loc").value.trim(); var box = $("rapports"); if (!loc) { box.textContent = ""; return; }
-    try {
-      var r = await fetch($("api").value.replace(/\/$/, "") + "/api/explorer/rapports?location_id=" + encodeURIComponent(loc));
-      var j = await r.json(); if (!r.ok || !j.ok) { box.textContent = ""; return; }
-      box.textContent = "";
-      if (!j.documents.length) { box.textContent = "Aucun Rapport enregistré sur ce site."; return; }
-      box.appendChild(el("div", null, "Vos rapports"));
-      j.documents.forEach(function (d) {
-        var a = el("a", null, d.titre + " · version " + d.version + " · " + String(d.created_at).slice(0, 10).split("-").reverse().join("/"));
-        a.href = "#"; a.style.cssText = "display:block;color:#1D3BB3;text-decoration:none;margin:2px 0;";
-        a.addEventListener("click", async function (ev) {
-          ev.preventDefault();
-          var rr = await fetch($("api").value.replace(/\/$/, "") + "/api/explorer/rapports?location_id=" + encodeURIComponent(loc) + "&document_id=" + encodeURIComponent(d.document_id));
-          var jj = await rr.json(); if (!rr.ok || !jj.ok) { addErr(jj && jj.error || ("HTTP " + rr.status)); return; }
-          var m = addMsg("assistant", ""); var holder = el("div", null); m.appendChild(holder);
-          renderDocument(holder, loc, jj.document);
-        });
-        box.appendChild(a);
-      });
-    } catch (e) { box.textContent = ""; }
-  }
-  $("loc").addEventListener("change", loadRapports);
-  if ($("loc").value) loadRapports();
 
-  // 12/09 (spec § 6.2, incrément 3) — LES GESTES sur un document enregistré : Monter · Descendre (Déplacer), Retirer,
-  // Dupliquer, Votre note, Approfondir sous chaque section ; Actualiser en tête. Chaque geste POSTe
-  // /api/explorer/rapports (geste) ou /api/explorer/agent (approfondir), reçoit le document en version suivante et
-  // le rend à nouveau par le kit. Les mots : spec § 6.2 et lexique l. 122-123 ; Monter/Descendre = les flèches.
-  function api() { return $("api").value.replace(/\/$/, ""); }
-  async function posteGeste(loc, document_id, geste, params) {
-    var r = await fetch(api() + "/api/explorer/rapports", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Object.assign({ location_id: loc, document_id: document_id, geste: geste }, params || {})) });
-    var j = await r.json(); if (!r.ok || !j.ok) throw new Error(j && j.error || ("HTTP " + r.status)); return j.document;
-  }
-  function renderDocument(container, loc, doc) {
-    container.innerHTML = "";
-    var reg = doc.rapport.synthese ? doc.rapport.synthese.register : "vetted";
-    var bl = el("div", "blocks"); bl.style.cssText = "margin-top:10px;";
-    bl.innerHTML = window.MSCardKit.renderAnswerBlocks([{ type: "register", register: reg }, doc.rapport]); container.appendChild(bl);
-    var head = el("div", "save"); head.style.cssText = "display:flex;gap:10px;align-items:center;margin:0 0 10px;";
-    var v = el("span", "usage", "version " + doc.version); v.style.margin = "0"; head.appendChild(v);
-    var act = el("button", null, "Actualiser"); head.appendChild(act);
-    // La Synthèse reprise par l'exploitant (owner 12/09 : « User will edit it ») → registre « Votre note ».
-    var syn = el("button", null, "Modifier la Synthèse"); syn.style.cssText = "background:#fff;color:#1D3BB3;border:1px solid #E5E7EB;"; head.appendChild(syn);
-    syn.addEventListener("click", async function () {
-      var t = prompt("La Synthèse, dans vos mots", doc.rapport.synthese ? doc.rapport.synthese.text : ""); if (t == null || !t.trim()) return;
-      syn.disabled = true; try { var d2 = await posteGeste(loc, doc.document_id, "synthese", { texte: t }); renderDocument(container, loc, d2); loadRapports(); } catch (e) { addErr(String(e.message || e)); syn.disabled = false; }
-    });
-    var st = el("span", "usage", ""); st.style.margin = "0"; head.appendChild(st);
-    // L'historique des versions (owner 12/09 : oui, le montrer) — une ligne, chaque version se rouvre en lecture.
-    var hist = el("div", "usage", ""); hist.style.margin = "0 0 8px";
-    fetch(api() + "/api/explorer/rapports?location_id=" + encodeURIComponent(loc) + "&document_id=" + encodeURIComponent(doc.document_id) + "&versions=1").then(function (r) { return r.json(); }).then(function (j) {
-      if (!j || !j.ok || !j.versions || j.versions.length < 2) return;
-      hist.appendChild(document.createTextNode("Versions : "));
-      j.versions.forEach(function (v, k) {
-        var a = el("a", null, "v" + v.version + " · " + String(v.created_at).slice(0, 10).split("-").reverse().join("/")); a.href = "#"; a.style.cssText = "color:#1D3BB3;text-decoration:none;margin-right:10px;";
-        a.addEventListener("click", async function (ev) { ev.preventDefault(); var rr = await fetch(api() + "/api/explorer/rapports?location_id=" + encodeURIComponent(loc) + "&document_id=" + encodeURIComponent(doc.document_id) + "&version=" + v.version); var jj = await rr.json(); if (rr.ok && jj.ok) renderDocument(container, loc, jj.document); });
-        hist.appendChild(a);
-      });
-    }).catch(function () {});
-    act.addEventListener("click", async function () {
-      act.disabled = true; st.textContent = "…";
-      try { var d = await posteGeste(loc, doc.document_id, "actualiser", {}); renderDocument(container, loc, d); loadRapports(); } catch (e) { st.textContent = String(e.message || e); act.disabled = false; }
-    });
-    bl.insertBefore(hist, bl.firstChild);
-    bl.insertBefore(head, bl.firstChild);
-    var zones = bl.querySelectorAll("[data-rapport-section]");
-    zones.forEach(function (z) {
-      var i = Number(z.getAttribute("data-rapport-section"));
-      var bar = el("div", null); bar.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;";
-      var mk = function (label, fn, aria) { var b = el("button", null, label); if (aria) { b.setAttribute("aria-label", aria); b.title = aria; } b.style.cssText = "background:#fff;color:#1D3BB3;border:1px solid #E5E7EB;padding:5px 9px;font-size:12px;font-weight:500;"; b.addEventListener("click", async function () { b.disabled = true; try { await fn(); } catch (e) { addErr(String(e.message || e)); b.disabled = false; } }); bar.appendChild(b); return b; };
-      var apres = async function (d) { renderDocument(container, loc, d); loadRapports(); };
-      // Déplacer : des flèches, pas des mots (owner 12/09) — le sens est dans l'aria-label (Monter / Descendre, mots ratifiés).
-      if (i > 0) mk("\u2191", async function () { apres(await posteGeste(loc, doc.document_id, "deplacer", { section: i, vers: i - 1 })); }, "Monter");
-      if (i < zones.length - 1) mk("\u2193", async function () { apres(await posteGeste(loc, doc.document_id, "deplacer", { section: i, vers: i + 1 })); }, "Descendre");
-      mk("Dupliquer", async function () { apres(await posteGeste(loc, doc.document_id, "dupliquer", { section: i })); });
-      mk("Retirer", async function () { apres(await posteGeste(loc, doc.document_id, "retirer", { section: i })); });
-      mk("Votre note", async function () { var t = prompt("Votre note"); if (t == null || !t.trim()) return; apres(await posteGeste(loc, doc.document_id, "note", { section: i, texte: t })); });
-      mk("Approfondir", async function () {
-        var q = prompt("Approfondir — votre question sur cette section"); if (q == null || !q.trim()) return;
-        var tools = el("ul", "tools"); container.appendChild(tools); var pending = el("li", "run", "…"); tools.appendChild(pending);
-        var res = await fetch(api() + "/api/explorer/agent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ location_id: loc, approfondir: { document_id: doc.document_id, section: i, question: q }, stream: true }) });
-        if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
-        var reader = res.body.getReader(); var dec = new TextDecoder(); var state = { buf: "" }; var result = null;
-        while (true) { var chunk = await reader.read(); if (chunk.done) break; parseSse(dec.decode(chunk.value, { stream: true }), state, function (ev, data) { if (ev === "tool") { toolLine(tools, data); tools.appendChild(pending); } if (ev === "result") result = data; }); }
-        pending.remove();
-        if (!result || !result.body || !result.body.ok) throw new Error((result && result.body && result.body.error) || "réponse illisible");
-        tools.remove(); apres(result.body.document);
-      });
-      z.appendChild(bar);
-    });
-  }
 
   async function send() {
     var q = $("q").value.trim(); var loc = $("loc").value.trim();
@@ -249,26 +156,6 @@
         var toRender = streamed.length ? reg.concat(finalBlocks.filter(function (b) { return b && b.type === "rapport"; })) : finalBlocks;
         streamed.forEach(function (s) { if (s.name === "composer_rapport") s.el.remove(); });
         var bl = el("div", "blocks"); bl.style.cssText = "margin-top:10px;"; bl.innerHTML = window.MSCardKit.renderAnswerBlocks(toRender); msgEl.appendChild(bl);
-        // 12/09 (spec § 6.1) : « Enregistrer » garde le Rapport — une version dans analytics.report_documents, par le
-        // même serveur (POST /api/explorer/rapports). Le mot est celui de la spec (« Enregistrer en PDF » reste au rapport imprimable).
-        result.body.blocks.filter(function (b) { return b && b.type === "rapport"; }).forEach(function (rb) {
-          var bar = el("div", "save"); bar.style.cssText = "margin-top:8px;display:flex;gap:10px;align-items:center;";
-          var btn = el("button", null, "Enregistrer"); var st = el("span", "usage", ""); st.style.margin = "0";
-          btn.addEventListener("click", async function () {
-            btn.disabled = true; st.textContent = "…";
-            try {
-              var r = await fetch($("api").value.replace(/\/$/, "") + "/api/explorer/rapports", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ location_id: loc, rapport: rb, document_id: rb._document_id || null }) });
-              var j = await r.json();
-              if (!r.ok || !j.ok) { st.textContent = j && j.error ? j.error : "HTTP " + r.status; btn.disabled = false; return; }
-              rb._document_id = j.document_id; st.textContent = "Rapport enregistré · version " + j.version; btn.disabled = false; btn.textContent = "Enregistrer une nouvelle version";
-              loadRapports();
-              // Le document enregistré prend la place du rendu du tour : les gestes sont dessus.
-              var rr = await fetch(api() + "/api/explorer/rapports?location_id=" + encodeURIComponent(loc) + "&document_id=" + encodeURIComponent(j.document_id));
-              var jj = await rr.json(); if (rr.ok && jj.ok) { var holder = el("div", null); msgEl.appendChild(holder); renderDocument(holder, loc, jj.document); bar.remove(); if (bl) bl.remove(); }
-            } catch (e) { st.textContent = String(e && e.message || e); btn.disabled = false; }
-          });
-          bar.appendChild(btn); bar.appendChild(st); msgEl.appendChild(bar);
-        });
       }
       var u = result.body.usage || {};
       var usage = el("div", "usage", "tokens : " + u.input_tokens + " en entrée (" + (u.cache_read_input_tokens || 0) + " en cache), " + u.output_tokens + " en sortie · " + (result.body.model || ""));

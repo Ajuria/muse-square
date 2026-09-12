@@ -28,7 +28,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
     <div id="tb-root" data-loc={locParam}>
       <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin-bottom:12px;">
         <div style="font-size:20px;font-weight:600;color:#111827;">Tableau de bord</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+        <a id="tb-rapports" href="/app/insightevent/rapports" style="display:inline-flex;align-items:center;padding:8px 15px;background:transparent;border:1px solid #E5E7EB;border-radius:10px;font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;white-space:nowrap;">Rapports</a>
         <a id="tb-new" href="/app/insightevent/evenement?new=1" style="display:inline-flex;align-items:center;padding:8px 15px;background:transparent;border:1px solid #1D3BB3;border-radius:10px;font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;white-space:nowrap;">Nouvelle opération</a>
+        </div>
       </div>
       <div id="tb-body" style="font-size:13px;color:#9CA3AF;">Chargement…</div>
     </div>

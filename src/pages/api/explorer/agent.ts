@@ -33,6 +33,7 @@ import { assembleAnswerBlocks, groundAgentText } from "../../../lib/explorer/blo
 import { computeSalesReport } from "../../../lib/rapport/ventes";
 import { readResultat } from "../../../lib/kpi/resultat";
 import { readPoleClassement } from "../../../lib/dispositifs/poleClassement";
+import { listReportTemplates } from "../../../lib/rapport/modeles";
 import { newReportDocumentRow, readReportDocument, writeReportDocument } from "../../../lib/rapport/documents";
 import { approfondirPrompt, approfondirSection } from "../../../lib/rapport/gestes";
 import { relireTexte } from "../../../lib/fr/relecture";
@@ -195,6 +196,8 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
     runResultat: () => readResultat(bq, location_id),
     // 12/09 — lire_poles_classement : pole_daily sommée sur la période + le foyer espace (lib/dispositifs/poleClassement.ts).
     runPolesClassement: (start, end) => readPoleClassement(bq, location_id, start, end),
+    // 12/09 (incrément 4) — les Modèles de rapport du site, nommés dans « génère mon rapport hebdo ».
+    listModeles: () => listReportTemplates(bq, location_id),
     today: () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
     record: (r) => { tool_calls.push(r); onTool?.({ ...r, label_fr: OUTILS_FR[r.name] ?? r.name }); },
   });

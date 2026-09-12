@@ -20,6 +20,7 @@ import { assembleAnswerBlocks, groundAgentText } from "../../src/lib/explorer/bl
 import { computeSalesReport } from "../../src/lib/rapport/ventes";
 import { readResultat } from "../../src/lib/kpi/resultat";
 import { readPoleClassement } from "../../src/lib/dispositifs/poleClassement";
+import { listReportTemplates } from "../../src/lib/rapport/modeles";
 import { modelFor } from "../../src/lib/ai/models";
 import { relireTexte } from "../../src/lib/fr/relecture";
 
@@ -43,6 +44,8 @@ const BATTERY: Case[] = [
   // § 9, incrément 2 — le Rapport composé : UN outil, un bloc rapport, la Synthèse vérifiée.
   { q: "Génère le rapport des ventes de la semaine dernière : volume, panier, mix, et les pôles les plus et les moins performants en nombre de ventes.", tools: ["composer_rapport"], answerMatch: /ventes/i, vetted: true, blocks: ["rapport"] },
   { q: "Fais-moi mon rapport de ventes du mois dernier.", tools: ["composer_rapport"], answerMatch: /chiffre d'affaires|CA/i, vetted: true, blocks: ["rapport"] },
+  // § 9, incrément 4 — un Modèle enregistré du site, nommé (« Hebdo pôles » existe sur le compte de test depuis le 12/09).
+  { q: "Compose mon rapport « Hebdo pôles ».", tools: ["composer_rapport"], answerMatch: /pôle|ventes/i, vetted: true, blocks: ["rapport"] },
 ];
 
 const bq = makeBQClient("muse-square-open-data");
@@ -61,6 +64,7 @@ async function ask(q: string) {
     runVentes: (s, e) => computeSalesReport(bq, { location_id: LOC, owned: [LOC], start: s, end: e }),
     runResultat: () => readResultat(bq, LOC),
     runPolesClassement: (s, e) => readPoleClassement(bq, LOC, s, e),
+    listModeles: () => listReportTemplates(bq, LOC),
     today, record: (r) => { calls.push(r); if (firstBlockAt == null && r.blocks && r.blocks.length) firstBlockAt = (Date.now() - t0) / 1000; },
   });
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });

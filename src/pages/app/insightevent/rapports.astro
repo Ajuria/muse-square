@@ -1,0 +1,266 @@
+---
+// LA PAGE « RAPPORTS » (docs/explorer-outil-spec.md § 6, incrément 4 — owner 12/09, n3 : « le Rapport lui-même dans une
+// page dédiée qu'on peut relier au tableau de bord »). Trois choses, dans l'ordre : composer un Rapport (Nouveau
+// rapport — la boucle d'Explorer, POST /api/explorer/agent, les blocs vérifiés dès le retour de l'outil), vos Modèles
+// (GET /api/explorer/modeles — « Composer depuis ce modèle »), vos Rapports (GET /api/explorer/rapports). Un document
+// ouvert porte ses actions (↑ ↓, Dupliquer, Retirer, Votre note, Approfondir ; Actualiser, Modifier la Synthèse,
+// Enregistrer comme modèle) et l'historique de ses versions — tout passe par les routes, rien n'est calculé ici.
+// Le rendu est celui du kit (renderAnswerBlocks), le même que la réponse d'Explorer et que le rapport de famille.
+// Le site : ?location_id, sinon le site actif de la session (les routes le résolvent et le rendent).
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+
+const location_id = Astro.url.searchParams.get("location_id") || "";
+const document_id = Astro.url.searchParams.get("document_id") || "";
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Rapports — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div id="rp-root" data-location={location_id} data-document={document_id}>
+      <div class="rp-head">
+        <div class="rp-title">Rapports</div>
+        <a class="rp-back" href="/app/insightevent/prompt">Explorer</a>
+      </div>
+
+      <div class="rp-zone" id="rp-composer">
+        <div class="rp-zh">Nouveau rapport</div>
+        <textarea id="rp-q" rows="2" placeholder="Les sections que vous voulez voir : ventes, panier, mix, pôles, résultat net…"></textarea>
+        <div class="rp-row">
+          <select id="rp-periode" aria-label="Période">
+            <option value="30_derniers_jours">30 derniers jours</option>
+            <option value="semaine_derniere">La semaine dernière</option>
+            <option value="mois_dernier">Le mois dernier</option>
+          </select>
+          <button type="button" id="rp-compose" class="rp-btn rp-btn-primary">Composer</button>
+          <span id="rp-compose-status" class="rp-muted"></span>
+        </div>
+        <ul id="rp-tools" class="rp-tools"></ul>
+      </div>
+
+      <div class="rp-zone">
+        <div class="rp-zh">Vos modèles</div>
+        <div id="rp-modeles" class="rp-muted">Chargement…</div>
+      </div>
+
+      <div class="rp-zone">
+        <div class="rp-zh">Vos rapports</div>
+        <div id="rp-list" class="rp-muted">Chargement…</div>
+      </div>
+
+      <div id="rp-doc"></div>
+    </div>
+
+    <style is:global>
+      #rp-root { max-width: 760px; margin: 0 auto; padding: 16px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      .rp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 14px; }
+      .rp-title { font-size: 20px; font-weight: 600; color: #111827; }
+      .rp-back { font-size: 13px; color: #6b7280; text-decoration: none; }
+      .rp-zone { background: #fff; border: 0.5px solid #E5E7EB; border-radius: 12px; padding: 16px 18px; margin: 0 0 16px; }
+      .rp-zh { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1D3BB3; margin: 0 0 12px; }
+      .rp-muted { font-size: 12.5px; color: #9CA3AF; }
+      .rp-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+      #rp-q { width: 100%; box-sizing: border-box; border: 1px solid #E5E7EB; border-radius: 10px; padding: 9px 11px; font: inherit; font-size: 14px; resize: vertical; }
+      #rp-periode { border: 1px solid #E5E7EB; border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 13px; background: #fff; }
+      .rp-btn { border: 1px solid #E5E7EB; background: #fff; color: #1D3BB3; border-radius: 8px; padding: 6px 11px; font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; }
+      .rp-btn[disabled] { opacity: .5; cursor: default; }
+      .rp-btn-primary { background: #1D3BB3; color: #fff; border-color: #1D3BB3; }
+      .rp-tools { margin: 8px 0 0; padding: 0; list-style: none; }
+      .rp-tools li { font-size: 12.5px; color: #4B5563; padding: 3px 0 3px 10px; border-left: 2px solid #E5E7EB; }
+      .rp-tools li.run { border-left-color: #1D3BB3; }
+      .rp-item { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; padding: 8px 0; border-top: 0.5px solid #F3F4F6; font-size: 13.5px; }
+      .rp-item:first-child { border-top: 0; }
+      .rp-item a { color: #1D3BB3; text-decoration: none; font-weight: 500; }
+      .rp-item .rp-muted { font-size: 12px; }
+      .rp-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 0.5px dashed #E5E7EB; }
+      .rp-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
+      .rp-versions { font-size: 12px; color: #6B7280; margin: 0 0 10px; }
+      .rp-versions a { color: #1D3BB3; text-decoration: none; margin-right: 10px; }
+      .rp-err { background: #FEF3C7; color: #92400E; border-radius: 10px; padding: 9px 12px; margin: 0 0 10px; font-size: 13px; }
+    </style>
+
+    <script is:inline src="/js/card-kit.js?v=83"></script>
+    <script is:inline>
+      (function () {
+        var root = document.getElementById("rp-root");
+        var $ = function (id) { return document.getElementById(id); };
+        var loc = root.dataset.location || "";
+        var openId = root.dataset.document || "";
+        var kit = window.MSCardKit;
+
+        function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+        function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+        function frD(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || "")); return m ? (m[3] + "/" + m[2] + "/" + m[1]) : String(iso || ""); }
+        function q(extra) { return "?location_id=" + encodeURIComponent(loc) + (extra || ""); }
+        function showErr(container, msg) { var e = el("div", "rp-err", msg); container.insertBefore(e, container.firstChild); setTimeout(function () { e.remove(); }, 6000); }
+        async function getJson(url) { var r = await fetch(url); var j = await r.json().catch(function () { return null; }); if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || ("HTTP " + r.status)); return j; }
+        async function postJson(url, body) { var r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); var j = await r.json().catch(function () { return null; }); if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || ("HTTP " + r.status)); return j; }
+        function parseSse(chunk, state, onEvent) {
+          state.buf += chunk;
+          var parts = state.buf.split("\n\n"); state.buf = parts.pop();
+          parts.forEach(function (p) {
+            var ev = null, data = "";
+            p.split("\n").forEach(function (line) { if (line.indexOf("event: ") === 0) ev = line.slice(7); else if (line.indexOf("data: ") === 0) data += line.slice(6); });
+            if (ev) { try { onEvent(ev, JSON.parse(data)); } catch (e) { /* ligne illisible */ } }
+          });
+        }
+        function toolLine(list, r) {
+          var li = el("li", r.ok === false ? "ko" : "");
+          li.appendChild(el("b", null, r.label_fr || r.name)); li.appendChild(document.createTextNode(" — " + (r.summary || "")));
+          if (typeof r.ms === "number") li.appendChild(el("span", "rp-muted", " · " + (r.ms / 1000).toFixed(1).replace(".", ",") + " s"));
+          list.appendChild(li); return li;
+        }
+
+        // ── La boucle d'Explorer : une demande → les blocs vérifiés au fil des outils, puis le tour (Synthèse) ──
+        async function composer(body, tools, onBlocks) {
+          var pending = el("li", "run", "…"); tools.appendChild(pending);
+          var res = await fetch("/api/explorer/agent", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Object.assign({ location_id: loc, stream: true }, body)) });
+          if (!res.ok || !res.body) throw new Error("HTTP " + res.status);
+          var reader = res.body.getReader(), dec = new TextDecoder(), state = { buf: "" }, result = null;
+          while (true) {
+            var chunk = await reader.read(); if (chunk.done) break;
+            parseSse(dec.decode(chunk.value, { stream: true }), state, function (ev, data) {
+              if (ev === "tool") { toolLine(tools, data); tools.appendChild(pending); if (Array.isArray(data.blocks) && data.blocks.length && onBlocks) onBlocks(data); }
+              if (ev === "result") result = data;
+            });
+          }
+          pending.remove();
+          if (!result || !result.body || result.body.ok !== true) throw new Error((result && result.body && result.body.error) || "réponse illisible");
+          return result.body;
+        }
+
+        // ── Le document ouvert : le kit, les actions, l'historique ──
+        var docEl = $("rp-doc");
+        function renderDocument(doc) {
+          docEl.innerHTML = "";
+          var zone = el("div", "rp-zone");
+          var reg = doc.rapport.synthese ? doc.rapport.synthese.register : "vetted";
+          var bar = el("div", "rp-bar");
+          var head = el("div", "rp-zh", "Rapport · version " + doc.version); head.style.margin = "0"; bar.appendChild(head);
+          var st = el("span", "rp-muted", "");
+          var mk = function (label, fn, aria) { var b = el("button", "rp-btn", label); b.type = "button"; if (aria) { b.setAttribute("aria-label", aria); b.title = aria; } b.addEventListener("click", async function () { b.disabled = true; st.textContent = "…"; try { await fn(); st.textContent = ""; } catch (e) { showErr(zone, String(e.message || e)); st.textContent = ""; } b.disabled = false; }); return b; };
+          var geste = async function (g, params) { var j = await postJson("/api/explorer/rapports", Object.assign({ location_id: loc, document_id: doc.document_id, geste: g }, params || {})); renderDocument(j.document); loadRapports(); };
+          bar.appendChild(mk("Actualiser", function () { return geste("actualiser", {}); }));
+          bar.appendChild(mk("Modifier la Synthèse", async function () { var t = prompt("La Synthèse, dans vos mots", doc.rapport.synthese ? doc.rapport.synthese.text : ""); if (t == null || !t.trim()) return; await geste("synthese", { texte: t }); }));
+          bar.appendChild(mk("Enregistrer comme modèle", async function () {
+            var nom = prompt("Le nom du modèle", doc.titre.replace(/ — .*$/, "")); if (nom == null || !nom.trim()) return;
+            var j = await postJson("/api/explorer/modeles", { location_id: loc, document_id: doc.document_id, nom: nom });
+            st.textContent = "Modèle enregistré : " + j.nom + (j.periode_par_defaut ? " (période : les 30 derniers jours)" : "");
+            loadModeles();
+          }));
+          bar.appendChild(st);
+          zone.appendChild(bar);
+          var hist = el("div", "rp-versions", ""); zone.appendChild(hist);
+          getJson("/api/explorer/rapports" + q("&document_id=" + encodeURIComponent(doc.document_id) + "&versions=1")).then(function (j) {
+            if (!j.versions || j.versions.length < 2) return;
+            hist.appendChild(document.createTextNode("Versions : "));
+            j.versions.forEach(function (v) {
+              var a = el("a", null, "v" + v.version + " · " + frD(v.created_at)); a.href = "#";
+              if (v.version === doc.version) a.style.fontWeight = "700";
+              a.addEventListener("click", async function (ev) { ev.preventDefault(); try { var jj = await getJson("/api/explorer/rapports" + q("&document_id=" + encodeURIComponent(doc.document_id) + "&version=" + v.version)); renderDocument(jj.document); } catch (e) { showErr(zone, String(e.message || e)); } });
+              hist.appendChild(a);
+            });
+          }).catch(function () {});
+          var body = el("div"); body.innerHTML = kit.renderAnswerBlocks([{ type: "register", register: reg }, doc.rapport]); zone.appendChild(body);
+          var zones = body.querySelectorAll("[data-rapport-section]");
+          zones.forEach(function (z) {
+            var i = Number(z.getAttribute("data-rapport-section"));
+            var actions = el("div", "rp-actions");
+            // Déplacer : des flèches, pas des mots (owner 12/09) — Monter / Descendre sont les mots lus par un lecteur d'écran.
+            if (i > 0) actions.appendChild(mk("↑", function () { return geste("deplacer", { section: i, vers: i - 1 }); }, "Monter"));
+            if (i < zones.length - 1) actions.appendChild(mk("↓", function () { return geste("deplacer", { section: i, vers: i + 1 }); }, "Descendre"));
+            actions.appendChild(mk("Dupliquer", function () { return geste("dupliquer", { section: i }); }));
+            actions.appendChild(mk("Retirer", function () { return geste("retirer", { section: i }); }));
+            actions.appendChild(mk("Votre note", async function () { var t = prompt("Votre note"); if (t == null || !t.trim()) return; await geste("note", { section: i, texte: t }); }));
+            actions.appendChild(mk("Approfondir", async function () {
+              var question = prompt("Approfondir — votre question sur cette section"); if (question == null || !question.trim()) return;
+              var tools = el("ul", "rp-tools"); z.appendChild(tools);
+              var r = await composer({ approfondir: { document_id: doc.document_id, section: i, question: question } }, tools, null);
+              tools.remove(); renderDocument(r.document); loadRapports();
+            }));
+            z.appendChild(actions);
+          });
+          docEl.appendChild(zone);
+          if (typeof zone.scrollIntoView === "function") zone.scrollIntoView({ block: "start" });
+        }
+        async function openDocument(id, version) {
+          try { var j = await getJson("/api/explorer/rapports" + q("&document_id=" + encodeURIComponent(id) + (version ? "&version=" + version : ""))); renderDocument(j.document); }
+          catch (e) { showErr(docEl, String(e.message || e)); }
+        }
+
+        // ── Vos rapports ──
+        async function loadRapports() {
+          var box = $("rp-list");
+          try {
+            var j = await getJson("/api/explorer/rapports" + q());
+            if (!loc && j.location_id) loc = j.location_id;
+            box.innerHTML = "";
+            if (!j.documents.length) { box.textContent = "Aucun Rapport enregistré sur ce site — composez-en un ci-dessus."; return; }
+            j.documents.forEach(function (d) {
+              var row = el("div", "rp-item");
+              var a = el("a", null, d.titre); a.href = "#"; a.addEventListener("click", function (ev) { ev.preventDefault(); openDocument(d.document_id); });
+              row.appendChild(a);
+              row.appendChild(el("span", "rp-muted", "du " + frD(d.periode_du) + " au " + frD(d.periode_au) + " · " + d.n_sections + " sections · version " + d.version + " · " + frD(d.created_at)));
+              box.appendChild(row);
+            });
+          } catch (e) { box.textContent = "Rapports indisponibles : " + String(e.message || e); }
+        }
+
+        // ── Vos modèles ──
+        async function loadModeles() {
+          var box = $("rp-modeles");
+          try {
+            var j = await getJson("/api/explorer/modeles" + q());
+            if (!loc && j.location_id) loc = j.location_id;
+            box.innerHTML = "";
+            j.modeles.forEach(function (m) {
+              var row = el("div", "rp-item");
+              var left = el("div"); left.appendChild(el("div", null, m.nom)); left.appendChild(el("div", "rp-muted", (m.sections_fr || []).join(" · ")));
+              row.appendChild(left);
+              var b = el("button", "rp-btn", "Composer depuis ce modèle"); b.type = "button";
+              b.addEventListener("click", function () { lancerComposition({ modele: m.par_defaut ? "ventes" : m.nom, periode: m.periode_relative }); });
+              row.appendChild(b);
+              box.appendChild(row);
+            });
+          } catch (e) { box.textContent = "Modèles indisponibles : " + String(e.message || e); }
+        }
+
+        // ── Nouveau rapport : la demande passe par la boucle ; le Rapport composé se rend, puis s'enregistre ──
+        var PERIODE_FR = { "30_derniers_jours": "sur vos 30 derniers jours", "semaine_derniere": "sur la semaine dernière", "mois_dernier": "sur le mois dernier" };
+        async function lancerComposition(opts) {
+          var btn = $("rp-compose"), status = $("rp-compose-status"), tools = $("rp-tools");
+          var periode = opts.periode || $("rp-periode").value;
+          var sections = opts.modele ? "" : $("rp-q").value.trim();
+          if (!opts.modele && !sections) { status.textContent = "Dites ce que le rapport doit montrer."; return; }
+          var question = opts.modele
+            ? ("Compose mon rapport « " + opts.modele + " » " + (PERIODE_FR[periode] || "") + ".")
+            : ("Compose un rapport " + (PERIODE_FR[periode] || "") + " avec : " + sections + ".");
+          btn.disabled = true; status.textContent = "Composition…"; tools.innerHTML = ""; docEl.innerHTML = "";
+          var streamed = el("div", "rp-zone"); docEl.appendChild(streamed);
+          try {
+            var body = await composer({ messages: [{ role: "user", content: question }] }, tools, function (data) {
+              var bl = el("div"); bl.innerHTML = kit.renderAnswerBlocks([{ type: "register", register: "vetted" }].concat(data.blocks)); streamed.appendChild(bl);
+            });
+            var rapport = (body.blocks || []).filter(function (b) { return b && b.type === "rapport"; })[0];
+            if (!rapport) { streamed.innerHTML = kit.renderAnswerBlocks(body.blocks || []); status.textContent = "La réponse ne contient pas de Rapport."; btn.disabled = false; return; }
+            // Le Rapport composé s'enregistre (version 1) : le document ouvert porte alors ses actions.
+            var saved = await postJson("/api/explorer/rapports", { location_id: loc, rapport: rapport });
+            status.textContent = "Rapport enregistré";
+            await loadRapports(); await openDocument(saved.document_id);
+          } catch (e) { showErr(docEl, String(e.message || e)); status.textContent = ""; }
+          btn.disabled = false;
+        }
+        $("rp-compose").addEventListener("click", function () { lancerComposition({}); });
+        $("rp-q").addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) lancerComposition({}); });
+
+        if (!kit || typeof kit.renderAnswerBlocks !== "function") { docEl.textContent = "Rendu indisponible."; return; }
+        loadRapports().then(function () { loadModeles(); if (openId) openDocument(openId); });
+      })();
+    </script>
+  </BaseLayout>
+</Show>

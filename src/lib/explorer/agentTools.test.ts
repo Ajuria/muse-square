@@ -52,6 +52,8 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
         { pole_id: "nr", pole_label: "Non rattaché", is_unassigned: true, n_days: 10, revenue: 300, units: 40, gross_margin_ht: 100, revenue_costed: 300, delta_eur: -20, expected_revenue: 320 },
       ],
     }),
+    // 12/09 (incrément 4) : un Modèle enregistré du site.
+    listModeles: async () => [{ template_id: "t1", version: 1, location_id: "loc-1", author_user_id: "u", author_role: "owner", nom: "Hebdo pôles", periode_relative: "semaine_derniere", indicateur: "ventes", source_document_id: null, created_at: "x", sections: [{ cle: "poles", params: { indicateur: "ventes" } }, { cle: "volume", params: {} }] }],
     today: () => "2026-09-12",
     record: (r) => records.push(r),
     ...over,
@@ -282,5 +284,18 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     expect(b.sections.find((s: any) => s.cle === "actions").blocs[0]).toMatchObject({ type: "absence", manque: "Aucune action issue de vos signaux de vente le mois dernier, du 01/08/2026 au 31/08/2026." });
     expect(out).toContain("Sections sans matière");
     expect(await tool.run({})).toContain("Aucune section demandée");
+  });
+  it("composer_rapport avec un Modèle enregistré, par son nom : ses sections, sa période et son indicateur ; un nom inconnu liste les Modèles", async () => {
+    const d = deps();
+    const tool = byName(buildAgentTools(d), "composer_rapport");
+    await tool.run({ modele: "hebdo pôles" });
+    const b = d.records[0].blocks?.[0] as any;
+    expect(b.sections.map((s: any) => s.cle)).toEqual(["poles", "volume", "sources"]);
+    expect(b.periode).toMatchObject({ du: "2026-08-31", au: "2026-09-06", relative: "semaine_derniere" });
+    expect(b.titre).toBe("Hebdo pôles — la semaine dernière, du 31/08/2026 au 06/09/2026");
+    expect(b.sections[0].provenance.params.indicateur).toBe("ventes");
+    const out = await tool.run({ modele: "trimestriel" });
+    expect(out).toBe("Aucun Modèle de rapport nommé « trimestriel » sur ce site. Modèles disponibles : Rapport de ventes, Hebdo pôles.");
+    expect(d.records[1].summary).toBe("modèle « trimestriel » inconnu");
   });
 });

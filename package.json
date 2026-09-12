@@ -21,7 +21,8 @@
     "harness:family-photo": "npx tsx tools/harness/family-photo-harness.ts",
     "harness:tableau-marge": "npx tsx tools/harness/tableau-marge-render-verify.mjs",
     "harness:tableau-espace": "npx tsx tools/harness/tableau-pole-espace-render-verify.mjs",
-    "harness:explorer-blocks": "npx tsx tools/harness/explorer-blocks-render-verify.mjs"
+    "harness:explorer-blocks": "npx tsx tools/harness/explorer-blocks-render-verify.mjs",
+    "harness:rapports": "npx tsx tools/harness/rapports-render-verify.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

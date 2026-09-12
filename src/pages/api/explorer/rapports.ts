@@ -41,7 +41,8 @@ export const OPTIONS: APIRoute = async () =>
   DEV_BYPASS ? new Response(null, { status: 204, headers: corsHeaders() }) : new Response(null, { status: 404 });
 
 export const GET: APIRoute = async ({ url, locals }) => {
-  const location_id = String(url.searchParams.get("location_id") || "").trim();
+  // Sans location_id (la page ouverte depuis le menu), le site actif de la session — comme insight/sales-report.
+  const location_id = String(url.searchParams.get("location_id") || (locals as any)?.location_id || "").trim();
   if (!location_id) return json({ ok: false, error: "location_id requis" }, 400);
   const w = who(locals, location_id, url.searchParams.get("dev_user_id"));
   if (w instanceof Response) return w;
@@ -57,7 +58,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     }
     const documents = await listReportDocuments(bq, location_id);
     // La liste ne porte pas les blocs (légère) : le titre, la période, la version, la date — le document se lit par id.
-    return json({ ok: true, documents: documents.map(({ rapport, ...d }) => ({ ...d, n_sections: rapport.sections.length })) });
+    return json({ ok: true, location_id, documents: documents.map(({ rapport, ...d }) => ({ ...d, n_sections: rapport.sections.length })) });
   } catch (e: any) {
     console.error("[explorer/rapports] GET :", e?.message || e);
     return json({ ok: false, error: "Lecture des Rapports impossible" }, 500);
@@ -67,7 +68,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 export const POST: APIRoute = async ({ request, locals }) => {
   const body = await request.json().catch(() => null);
   if (!body) return json({ ok: false, error: "Champs requis manquants" }, 400);
-  const location_id = String(body.location_id || "").trim();
+  const location_id = String(body.location_id || (locals as any)?.location_id || "").trim();
   if (!location_id) return json({ ok: false, error: "location_id requis" }, 400);
   const w = who(locals, location_id, body.dev_user_id);
   if (w instanceof Response) return w;

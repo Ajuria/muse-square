@@ -329,8 +329,15 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    le modèle a dit honnêtement que le détail par jour manquait — d'où le grain « jour » de `lire_ventes`, livré
    dans la foulée). **Restent** : le glisser-déposer (les flèches Monter / Descendre font le geste), la surface
    définitive.
-4. **Incrément 4 — le Modèle de rapport** : Enregistrer comme modèle, la bibliothèque, l'appel par nom
-   depuis Explorer ; les deux modèles par défaut. (Owner 12/09 : c'est l'action qui manque sur le document.)
+4. **Incrément 4 — la page Rapports et le Modèle de rapport** (12/09) : **faits** — la page
+   `/app/insightevent/rapports` (Nouveau rapport par la boucle, blocs vérifiés au fil des outils, Vos modèles, Vos
+   rapports, le document ouvert avec ses actions et l'historique ; entrée « Rapports » sur Piloter, onglet
+   Explorer), `analytics.report_templates` (`lib/rapport/modeles.ts` : un Rapport sans ses chiffres — sections à
+   provenance, indicateur, période relative), la route `/api/explorer/modeles` (la liste avec le Rapport de ventes par
+   défaut, « Enregistrer comme modèle » depuis un document), `composer_rapport` avec `modele` par NOM (« Hebdo
+   pôles ») — sa période et son indicateur s'appliquent sauf demande explicite. Le proto ne porte plus que la
+   conversation. Sonde réelle : le Modèle « Hebdo pôles » tiré du document B ; harnais `npm run harness:rapports`.
+   **Reste** : le Modèle « famille » (ses couches restent à migrer, § 7) ; l'organisation des actions sur la page.
 5. **Incrément 5 — l'envoi à cadence** : `report_schedules`, `report_sends`, le cron, le rendu serveur, les
    rails ; l'essai réel vers l'owner. Owner 12/09 : envoyer le PDF une fois, ou le même modèle avec les données
    actualisées à X (moi, ou des contacts du compte / de Communiquer) tous les Y (jour, semaine, trimestre,
