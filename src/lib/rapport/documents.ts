@@ -143,11 +143,21 @@ export async function listReportDocuments(bq: any, location_id: string, limit = 
   return (rows as any[]).map(toDocument).filter((d): d is ReportDocument => !!d);
 }
 
-/** Un Rapport (sa dernière version) ; null s'il n'existe pas sur ce site. */
-export async function readReportDocument(bq: any, location_id: string, document_id: string): Promise<ReportDocument | null> {
+/** Un Rapport (sa dernière version, ou la version demandée) ; null s'il n'existe pas sur ce site. */
+export async function readReportDocument(bq: any, location_id: string, document_id: string, version?: number | null): Promise<ReportDocument | null> {
   const [rows] = await bq.query({
-    query: `${SELECT} WHERE location_id = @location_id AND document_id = @document_id ORDER BY version DESC, created_at DESC LIMIT 1`,
-    params: { location_id, document_id }, location: "EU",
+    query: `${SELECT} WHERE location_id = @location_id AND document_id = @document_id${version ? " AND version = @version" : ""} ORDER BY version DESC, created_at DESC LIMIT 1`,
+    params: { location_id, document_id, ...(version ? { version: Number(version) } : {}) }, location: "EU",
   }).catch((e: any) => { if (e?.code === 404 || /Not found/.test(String(e?.message || ""))) return [[]]; throw e; });
   return rows.length ? toDocument(rows[0]) : null;
+}
+
+/** L'historique d'un Rapport (owner 12/09 : « faut-il montrer cet historique ? Oui ») — une ligne par version, sans les blocs. */
+export async function listReportVersions(bq: any, location_id: string, document_id: string): Promise<Array<{ version: number; titre: string; author_user_id: string; created_at: string; n_sections: number }>> {
+  const [rows] = await bq.query({
+    query: `SELECT version, titre, author_user_id, CAST(created_at AS STRING) AS created_at, ARRAY_LENGTH(JSON_QUERY_ARRAY(rapport_json, '$.sections')) AS n_sections
+            FROM \`${PROJECT}.${DATASET}.${TABLE}\` WHERE location_id = @location_id AND document_id = @document_id ORDER BY version DESC`,
+    params: { location_id, document_id }, location: "EU",
+  }).catch((e: any) => { if (e?.code === 404 || /Not found/.test(String(e?.message || ""))) return [[]]; throw e; });
+  return (rows as any[]).map((r) => ({ version: Number(flat(r.version)), titre: String(flat(r.titre)), author_user_id: String(flat(r.author_user_id)), created_at: String(flat(r.created_at)), n_sections: Number(flat(r.n_sections) ?? 0) }));
 }

@@ -53,6 +53,13 @@ choisit, et la décision de ne plus rien ajouter devant elle.
 3. **Rien n'est ajouté dans la chaîne sans être accessible à une question qui ne l'a pas nommé** : une
    capacité n'est livrée que si une question composée (« … et … ») la mobilise avec une autre, et le
    test de la batterie le prouve.
+4. **Des modules que l'exploitant édite, et ses choix deviennent du contexte (owner 12/09, trois niveaux).**
+   n1 — une surface est faite de blocs de contenu que l'utilisateur déplace, retire, duplique, complète, pour
+   répondre au plus près à SON besoin ; ce principe se généralise aux pages d'engagement, puis au tableau de
+   bord. n2 — les choix qu'il fait (sections gardées, ordre, notes, questions posées) sont des éléments de
+   contexte — préférences, intérêts, priorités — que le modèle reçoit pour servir ses besoins réels, pas
+   inférés. n3 — le Rapport vit dans une page dédiée, reliée au tableau de bord (accès rapide pour un usage
+   récurrent).
 
 ---
 
@@ -172,7 +179,13 @@ l'agent), **Votre note** (un texte écrit par l'exploitant, non vérifié), **En
 | Retirer · Dupliquer une section | idem | idem |
 | **Approfondir** | l'exploitant désigne un bloc et pose sa question ; la boucle relance les outils **avec la période et le périmètre de ce bloc** ; le résultat s'insère après lui, comme un bloc vérifié | le modèle ne réécrit jamais un bloc vérifié |
 | **Votre note** | l'exploitant écrit lui-même sous un bloc | registre « Votre note » (pastille distincte, non vérifiée) ; jamais mêlée à un texte vérifié |
-| Actualiser | recalcule les blocs à provenance sur la période relative | les blocs « Votre note » restent |
+| Actualiser | recalcule les blocs à provenance sur la période relative | les blocs « Votre note » restent ; la Synthèse tombe (owner 12/09 : c'est bien, l'exploitant la reprend) |
+| Modifier la Synthèse (12/09) | l'exploitant reprend la Synthèse dans ses mots | registre « Votre note » (jamais vérifié, jamais mêlé) |
+| Historique | chaque geste écrit une version ; l'historique se montre et chaque version se rouvre (owner 12/09 : oui) | append-only, rien ne s'efface |
+
+Sur la surface : les mots des actions sont ceux du lexique (jamais « geste », mot de cuisine) ; Déplacer se fait
+par des flèches, pas des mots (owner 12/09) ; l'organisation et la hiérarchie des actions sur la page restent
+à faire avec la surface définitive.
 
 ### 6.3 Le Modèle de rapport
 
@@ -317,9 +330,11 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    dans la foulée). **Restent** : le glisser-déposer (les flèches Monter / Descendre font le geste), la surface
    définitive.
 4. **Incrément 4 — le Modèle de rapport** : Enregistrer comme modèle, la bibliothèque, l'appel par nom
-   depuis Explorer ; les deux modèles par défaut.
+   depuis Explorer ; les deux modèles par défaut. (Owner 12/09 : c'est l'action qui manque sur le document.)
 5. **Incrément 5 — l'envoi à cadence** : `report_schedules`, `report_sends`, le cron, le rendu serveur, les
-   rails ; l'essai réel vers l'owner.
+   rails ; l'essai réel vers l'owner. Owner 12/09 : envoyer le PDF une fois, ou le même modèle avec les données
+   actualisées à X (moi, ou des contacts du compte / de Communiquer) tous les Y (jour, semaine, trimestre,
+   année).
 6. **Incrément 6 — la proposition d'opération** : `proposer_operation`, bloc `proposition_operation`,
    pré-remplissage d'`event-form.js`.
 7. **Incrément 7 — la migration** (§ 7), une couche par commit.
@@ -343,6 +358,13 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
 2. Le stockage des contours du plan (`analytics.space_zones`, grain site × pôle, polygone en points du
    plan) — à confirmer avant l'incrément 8.
 3. Les destinataires d'un envoi à cadence au-delà de l'équipe et des partenaires (§ 6.4).
+
+**Tranché le 12/09 sur la page d'arbitrage (`Le Rapport d'Explorer`)** : les mots des sections (Nombre de ventes,
+CA moyen par jour de la semaine) ; la Synthèse tombe à Actualiser et l'exploitant la reprend ; Déplacer par des
+flèches ; Votre note et Approfondir tels quels ; Contexte externe et Actions recommandées SONT composés (le contexte
+qui pèse sur les performances est le différenciateur — un rapport opérationnel, pas un rapport financier) ;
+l'historique des versions se montre ; « geste » ne s'affiche jamais ; la surface : n1 modules éditables, n2 les
+choix comme contexte, n3 une page dédiée reliée au tableau de bord.
 
 Actés le 12/09 : Synthèse ; Rapport ; Modèle de rapport ; Enregistrer comme modèle ; Approfondir ; Votre
 note ; Envoyer chaque … ; Proposition d'opération ; Préparer l'opération → ; les titres de sections du § 6.5.

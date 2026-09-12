@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isRapportBlock, listReportDocuments, newReportDocumentRow, readReportDocument, writeReportDocument, SCHEMA_FIELDS } from "./documents";
+import { isRapportBlock, listReportDocuments, listReportVersions, newReportDocumentRow, readReportDocument, writeReportDocument, SCHEMA_FIELDS } from "./documents";
 import type { RapportBlock } from "../explorer/blocks";
 
 const rapport = (): RapportBlock => ({
@@ -69,5 +69,19 @@ describe("documents — écriture en flux dans analytics.report_documents, relec
     const absent = { query: async () => { const e: any = new Error("Not found: Table muse-square-open-data:analytics.report_documents"); e.code = 404; throw e; } };
     expect(await listReportDocuments(absent, "loc-1")).toEqual([]);
     expect(await readReportDocument(absent, "loc-1", "d1")).toBeNull();
+  });
+});
+
+describe("documents — l'historique des versions (owner 12/09 : le montrer)", () => {
+  it("liste les versions sans les blocs ; une version précise se lit par son numéro", async () => {
+    const calls: any[] = [];
+    const bq = { query: async (q: any) => { calls.push(q); return q.query.includes("JSON_QUERY_ARRAY") ? [[{ version: 2, titre: "Rapport", author_user_id: "u", created_at: "2026-09-12 11:00:00", n_sections: 5 }, { version: 1, titre: "Rapport", author_user_id: "u", created_at: "2026-09-12 10:00:00", n_sections: 5 }]] : [[]]; } };
+    const v = await listReportVersions(bq, "loc-1", "d1");
+    expect(v.map((x) => x.version)).toEqual([2, 1]); expect(v[0].n_sections).toBe(5);
+    expect(calls[0].query).toMatch(/analytics\.report_documents/); expect(calls[0].params).toEqual({ location_id: "loc-1", document_id: "d1" });
+    await readReportDocument(bq, "loc-1", "d1", 1);
+    expect(calls[1].query).toMatch(/AND version = @version/); expect(calls[1].params).toEqual({ location_id: "loc-1", document_id: "d1", version: 1 });
+    await readReportDocument(bq, "loc-1", "d1");
+    expect(calls[2].query).not.toMatch(/@version/);
   });
 });

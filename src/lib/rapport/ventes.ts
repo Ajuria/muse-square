@@ -44,6 +44,9 @@ export interface SalesReportResult {
   body: Record<string, unknown>;
   /** Le CA de la période précédente (la route ne le rend qu'en %) — pour le tableau de l'outil. */
   prev_revenue: number | null;
+  /** 12/09 (owner : « c'est un rapport opérationnel ») — les actions de la période en clair : le titre et le détail que le mart
+   *  porte (headline_fr, detail_fr), la date, le type. La route ne les rend pas (son payload passe par le moteur des cartes). */
+  actions_fr: Array<{ action_type: string; headline_fr: string; detail_fr: string | null; date: string | null }>;
 }
 
 export async function computeSalesReport(bq: any, args: SalesReportArgs): Promise<SalesReportResult> {
@@ -67,7 +70,7 @@ export async function computeSalesReport(bq: any, args: SalesReportArgs): Promis
   if (reqChannel) {
     const scopeC = body?.scope === 'group' && owned.length > 1 ? 'group' : 'site';
     const { data } = await channelsData(bq, scopeC === 'group' ? owned : [loc], start, end, { channel_key: reqChannel });
-    if (!data.found) return { body: { ok: false, error: 'NO_DATA' }, prev_revenue: null };
+    if (!data.found) return { body: { ok: false, error: 'NO_DATA' }, prev_revenue: null, actions_fr: [] };
     const labelRowsC = await q(
       `SELECT location_label FROM \`${PROJECT}.dims.dim_client_location\` WHERE location_id = @loc`,
       { loc }
@@ -82,7 +85,7 @@ export async function computeSalesReport(bq: any, args: SalesReportArgs): Promis
         location_label: labelRowsC[0]?.location_label ?? 'Votre établissement',
         period: { start, end },
       },
-      prev_revenue: null,
+      prev_revenue: null, actions_fr: [],
     };
   }
 
@@ -153,6 +156,8 @@ export async function computeSalesReport(bq: any, args: SalesReportArgs): Promis
          ANY_VALUE(data_payload HAVING MAX action_priority) AS data_payload,
          ANY_VALUE(date HAVING MAX action_priority) AS affected_date,
          ANY_VALUE(card_instance_id HAVING MAX action_priority) AS card_instance_id,
+         ANY_VALUE(headline_fr HAVING MAX action_priority) AS headline_fr,
+         ANY_VALUE(detail_fr HAVING MAX action_priority) AS detail_fr,
          MAX(action_priority) AS action_priority
        FROM \`${PROJECT}.mart.fct_location_daily_action_candidates\`
        WHERE location_id=@loc AND date BETWEEN @s AND @e
@@ -196,7 +201,7 @@ export async function computeSalesReport(bq: any, args: SalesReportArgs): Promis
       { loc, s: start, e: end }),
   ]);
 
-  if (series.length === 0) return { body: { ok: false, error: 'NO_DATA' }, prev_revenue: null };
+  if (series.length === 0) return { body: { ok: false, error: 'NO_DATA' }, prev_revenue: null, actions_fr: [] };
 
   // ── derive totals / weekday / best-worst from the series (no extra queries) ──
   // BigQuery returns DATE as a { value: 'YYYY-MM-DD' } object, not a string.
@@ -284,6 +289,7 @@ export async function computeSalesReport(bq: any, args: SalesReportArgs): Promis
 
   return {
     prev_revenue: prevRev > 0 ? prevRev : null,
+    actions_fr: actions.map((a: any) => ({ action_type: String(a.action_type), headline_fr: String(a.headline_fr ?? ''), detail_fr: a.detail_fr == null ? null : String(a.detail_fr), date: a.affected_date ? String(a.affected_date.value ?? a.affected_date).slice(0, 10) : null })),
     body: {
       ok: true,
       // « Vos canaux » — null si < 2 flux réels (décision 12 : jamais de section à flux unique).
@@ -402,7 +408,7 @@ function frDateFr(iso: string): string {
 const jourFr = (iso: string): string => `le ${JOURS[new Date(`${iso}T00:00:00Z`).getUTCDay()]} ${frDateFr(iso)}`;
 
 /** Les faits NOMMÉS (12/09, composer_rapport les range par section) — les mêmes chaînes que `facts`, jamais d'autres. */
-export interface VentesParts { ca?: string; an_dernier?: string; volume_panier?: string; couches?: string; journees?: string; jours?: string; repartition?: string; signaux?: string; par_jour?: string[] }
+export interface VentesParts { ca?: string; an_dernier?: string; volume_panier?: string; couches?: string; journees?: string; jours?: string; repartition?: string; signaux?: string; par_jour?: string[]; contexte?: string[]; actions?: string[] }
 /** Les tableaux NOMMÉS — `couches` (les trois couches), `mix` (par famille), `jours` (profil par jour de semaine). */
 export interface VentesTables { couches?: AnswerBlock; mix?: AnswerBlock; jours?: AnswerBlock; par_jour?: AnswerBlock; jours_graphique?: AnswerBlock; mix_graphique?: AnswerBlock }
 /** Le grain « jour » se lit jusqu'à 31 jours : au-delà, une ligne par jour n'est plus une lecture. */
@@ -473,6 +479,8 @@ export function composeVentesFacts(res: SalesReportResult, opts: { grain?: 'jour
   } else if (opts.grain === 'jour' && daily.length > GRAIN_JOUR_MAX) {
     facts.push(`Le détail par jour se lit jusqu'à ${GRAIN_JOUR_MAX} jours : la période en compte ${daily.length}.`);
   }
+  named.contexte = contexteFacts(b.context);
+  named.actions = actionsFacts(res.actions_fr ?? []);
   const sig = b.signals || {};
   if ((Number(sig.surge_days) || 0) + (Number(sig.down_days) || 0) > 0) {
     const parts: string[] = [];
@@ -503,6 +511,53 @@ export function composeVentesFacts(res: SalesReportResult, opts: { grain?: 'jour
   if (tables.par_jour) blocks.push(tables.par_jour);
   blocks.push({ type: 'sources', items: ['Vos ventes par jour et par famille (caisse), la période précédente de même longueur et la même période l’an dernier'] });
   return { found: true, facts, blocks, parts: named, tables };
+}
+
+// ── Contexte externe (12/09, owner : « tout ce qui impacte le business — c'est un rapport opérationnel ») ──
+// Les trois phrases de rapport.astro (weatherLine, tourismLine, eventsLine), sans balise, telles quelles : la météo et
+// son association mesurée aux ventes (même seuil assocOK : |corr| ≥ 0,2, 5 jours de chaque côté), la saison et le
+// tourisme, les événements à proximité et la mobilité. Descriptif (co-mouvement observé), jamais causal — la page le
+// dit ainsi. Rien de recalculé : les compteurs et moyennes viennent du rapport.
+const TOURFR: Record<string, string> = { high: 'élevé', medium: 'modéré', moderate: 'modéré', low: 'faible' };
+const COUNTRY_FR: Record<string, string> = { Portugal: 'Portugal', Switzerland: 'Suisse', Germany: 'Allemagne', Spain: 'Espagne', Italy: 'Italie', Belgium: 'Belgique', Netherlands: 'Pays-Bas', 'United Kingdom': 'Royaume-Uni', 'United States': 'États-Unis', China: 'Chine', Japan: 'Japon', Brazil: 'Brésil', Canada: 'Canada', Australia: 'Australie', Ireland: 'Irlande', Austria: 'Autriche', Sweden: 'Suède', Denmark: 'Danemark', Norway: 'Norvège', Poland: 'Pologne' };
+const frCountry = (c: string): string => COUNTRY_FR[c] || c;
+const assocOK = (a: any): boolean => !!a && a.corr != null && Math.abs(a.corr) >= 0.2 && a.with_n >= 5 && a.without_n >= 5 && a.with_avg > 0 && a.without_avg > 0;
+export function contexteFacts(c: any): string[] {
+  if (!c) return [];
+  const out: string[] = [];
+  const typ: string[] = [];
+  if (c.hot_days > 0) typ.push(`${c.hot_days} journée${c.hot_days > 1 ? 's' : ''} de forte chaleur` + (c.max_heat >= 3 ? ` (pic niveau ${c.max_heat})` : ''));
+  if (c.rain_days > 0) typ.push(`${c.rain_days} de pluie`);
+  if (c.cold_days > 0) typ.push(`${c.cold_days} de froid`);
+  const ah = c.assoc && c.assoc.heat;
+  if (assocOK(ah)) {
+    out.push(`Météo — vos ${ah.with_n} journées de forte chaleur tournent à ${eur(ah.with_avg)} en moyenne, ${ah.with_avg < ah.without_avg ? 'sous' : 'au-dessus de'} vos ${ah.without_n} journées tempérées (${eur(ah.without_avg)}).`);
+  } else {
+    out.push(`Météo — ${typ.length ? typ.join(', ') + '.' : 'sans particularité notable.'} Pas d'effet marqué sur vos ventes.`);
+  }
+  const bits: string[] = [];
+  if (c.tourism_status) bits.push(`Pic touristique (${c.tourism_peak_days} j, statut « ${TOURFR[c.tourism_status] || c.tourism_status} »)`);
+  bits.push(c.school_days > 0 ? 'pendant les vacances scolaires' : 'hors vacances scolaires françaises');
+  let st = `Saison & tourisme — ${bits.join(', ')}.`;
+  if (Array.isArray(c.foreign_visitors) && c.foreign_visitors.length) st += ` Clientèle internationale présente sur la période : ${c.foreign_visitors.map(frCountry).join(', ')}.`;
+  out.push(st);
+  const ae = c.assoc && c.assoc.events;
+  let se: string;
+  if (assocOK(ae)) {
+    se = `Événements à proximité — vos ${ae.with_n} journées de forte activité (plus d'événements que la moyenne) tournent à ${eur(ae.with_avg)}, contre ${eur(ae.without_avg)} les ${ae.without_n} autres.`;
+  } else {
+    se = `Événements à proximité — ${frInt(Math.round(Number(c.events_avg_5km) || 0))} événements/j en moyenne dans un rayon de 5 km, sans lien mesurable avec vos ventes sur la période.`;
+  }
+  if (Array.isArray(c.named_events) && c.named_events.length) se += ` À noter : ${c.named_events.map((e: any) => e.label).join(', ')}.`;
+  se += c.mobility_days > 0 ? ` ${c.mobility_days} j de perturbation de mobilité.` : ' Aucune perturbation de mobilité.';
+  out.push(se);
+  if (c.public_days > 0) out.push(`${c.public_days} jour${c.public_days > 1 ? 's' : ''} férié${c.public_days > 1 ? 's' : ''} sur la période.`);
+  return out;
+}
+
+/** Les actions de la période, en clair (le titre et le détail du mart) — le rapport imprimable les rend par le moteur des cartes. */
+export function actionsFacts(actions: SalesReportResult['actions_fr']): string[] {
+  return (actions ?? []).filter((a) => a.headline_fr).map((a) => a.headline_fr + (a.detail_fr ? ` — ${a.detail_fr}` : '') + (a.date ? ` (${frDateFr(a.date)})` : ''));
 }
 
 /** Le texte rendu AU MODÈLE : un fait par ligne, ou l'absence. */

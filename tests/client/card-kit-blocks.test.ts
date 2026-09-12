@@ -94,3 +94,8 @@ it("graphiques (12/09) : barres, barres_h et parts dessinent les valeurs d'outil
   expect(svgs[1].querySelectorAll("circle").length).toBe(2);
   expect(el.textContent).toContain("38,6 %"); expect(el.textContent).toContain("CA moyen par jour de la semaine");
 });
+it("registre « note » (12/09) : la Synthèse reprise par l'exploitant porte la pastille « Votre note »", () => {
+  const html = (window as any).MSCardKit.renderAnswerBlocks([{ type: "register", register: "note" }, { type: "prose", md: "Août : le nombre de ventes porte tout." }]);
+  const el = document.createElement("div"); el.innerHTML = html;
+  expect(el.textContent).toContain("Votre note"); expect(el.textContent).not.toContain("Non vérifié");
+});

@@ -7,7 +7,8 @@
 import type { FamilyResult } from "../insightFamilies/types";
 import { extractNumbers } from "../ai/contracts/groundingChecks";
 
-export type Register = "vetted" | "web" | "model";
+// « note » (12/09) : un texte écrit par l'exploitant lui-même — la Synthèse qu'il a reprise ; pastille « Votre note », jamais vérifié.
+export type Register = "vetted" | "web" | "model" | "note";
 
 export type AnswerBlock =
   | { type: "register"; register: Register; facts_cited?: number }
@@ -38,7 +39,7 @@ export interface RapportBlock {
   titre: string;
   periode: { du: string; au: string; relative: string | null; libelle_fr: string };
   sections: RapportSection[];
-  synthese: { text: string; register: Register } | null;
+  synthese: { text: string; register: Register; auteur?: string | null } | null;
   /** Les morceaux de la demande qu'aucune section ne couvre — dits, jamais inventés. */
   non_reconnu: string[];
 }

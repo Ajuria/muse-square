@@ -1,6 +1,7 @@
 // src/pages/api/explorer/rapports.ts — LES RAPPORTS ENREGISTRÉS d'un site (docs/explorer-outil-spec.md § 6.1, incrément 2).
 //
-//   GET  ?location_id=…[&document_id=…]  → la liste (dernière version de chaque Rapport) ou un Rapport.
+//   GET  ?location_id=…[&document_id=…[&version=N | &versions=1]]  → la liste (dernière version de chaque Rapport), un
+//        Rapport (dernière version ou version N), ou l'historique des versions d'un Rapport.
 //   POST { location_id, rapport, document_id? }   → « Enregistrer » : une version de plus (append-only), la première
 //        pour un document nouveau. Le corps est le bloc `rapport` tel que /api/explorer/agent l'a rendu (Synthèse comprise).
 //   POST { location_id, document_id, geste, … }   → un GESTE sur le document (spec § 6.2, incrément 3) : `deplacer`
@@ -13,8 +14,8 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
-import { isRapportBlock, listReportDocuments, newReportDocumentRow, readReportDocument, writeReportDocument } from "../../../lib/rapport/documents";
-import { actualiserDocument, ajouterNote, deplacerSection, dupliquerSection, retirerNote, retirerSection } from "../../../lib/rapport/gestes";
+import { isRapportBlock, listReportDocuments, listReportVersions, newReportDocumentRow, readReportDocument, writeReportDocument } from "../../../lib/rapport/documents";
+import { actualiserDocument, ajouterNote, deplacerSection, dupliquerSection, modifierSynthese, retirerNote, retirerSection } from "../../../lib/rapport/gestes";
 import type { RapportBlock } from "../../../lib/explorer/blocks";
 
 export const prerender = false;
@@ -48,7 +49,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const document_id = String(url.searchParams.get("document_id") || "").trim();
     if (document_id) {
-      const doc = await readReportDocument(bq, location_id, document_id);
+      // 12/09 (owner : montrer l'historique) — `&versions=1` liste les versions ; `&version=N` lit une version précise.
+      if (url.searchParams.get("versions") === "1") return json({ ok: true, versions: await listReportVersions(bq, location_id, document_id) });
+      const version = Number(url.searchParams.get("version") || 0) || null;
+      const doc = await readReportDocument(bq, location_id, document_id, version);
       return doc ? json({ ok: true, document: doc }) : json({ ok: false, error: "Rapport introuvable" }, 404);
     }
     const documents = await listReportDocuments(bq, location_id);
@@ -91,7 +95,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 };
 
 // ── Les gestes sur le document (spec § 6.2) ─────────────────────────────────────────────────────────
-const GESTES = new Set(["deplacer", "retirer", "dupliquer", "note", "retirer_note", "actualiser"]);
+const GESTES = new Set(["deplacer", "retirer", "dupliquer", "note", "retirer_note", "synthese", "actualiser"]);
 
 async function geste(bq: any, locals: any, location_id: string, w: { user_id: string; role: "owner" | "member" }, body: any): Promise<Response> {
   const document_id = String(body.document_id || "").trim();
@@ -108,6 +112,7 @@ async function geste(bq: any, locals: any, location_id: string, w: { user_id: st
       case "dupliquer": out = dupliquerSection(prev.rapport, i); break;
       case "note": out = ajouterNote(prev.rapport, i, body.texte, typeof body.auteur === "string" ? body.auteur : null); break;
       case "retirer_note": out = retirerNote(prev.rapport, i, Number(body.note)); break;
+      case "synthese": out = modifierSynthese(prev.rapport, body.texte, typeof body.auteur === "string" ? body.auteur : null); break;
       default: {
         const owned: string[] = Array.isArray(locals?.all_location_ids) ? locals.all_location_ids.map(String) : [location_id];
         out = await actualiserDocument(bq, location_id, owned, prev.rapport, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }));

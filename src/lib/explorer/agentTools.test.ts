@@ -34,8 +34,8 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
         : { found: false, data: { found: false, date: "2026-09-12" }, facts: [], sources: [] },
     // 12/09 : lire_ventes — le rapport de ventes tel que computeSalesReport le rend (champs lus par composeVentesFacts).
     runVentes: async (start, end) => start > "2026-09-01"
-      ? { body: { ok: false, error: "NO_DATA" }, prev_revenue: null }
-      : { prev_revenue: 33_400, body: { ok: true, period: { start, end },
+      ? { body: { ok: false, error: "NO_DATA" }, prev_revenue: null, actions_fr: [] }
+      : { prev_revenue: 33_400, actions_fr: [], body: { ok: true, period: { start, end },
           summary: { revenue: 34_512, transactions: 2_410, avg_basket: 14.32, vs_prev_pct: 3.3, vs_yoy_pct: null, yoy_available: false, layers: null },
           best_day: { date: "2026-09-05", revenue: 1_620 }, worst_day: { date: "2026-09-08", revenue: 410 }, weekday: [], category_mix: [], signals: {} } },
     // 12/09 : lire_resultat — un mois complet lisible et le seuil du jour ; `over` peut vider les charges.
@@ -270,14 +270,16 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     expect(b.sections[4].blocs[0].type).toBe("table");
     expect(rec.facts?.some((f) => f.startsWith("Cuisine réalise"))).toBe(true);
   });
-  it("composer_rapport avec modele « ventes » : les sections du rapport de ventes dans son ordre, Contexte et Actions dits « pas encore composés », titre par défaut", async () => {
+  it("composer_rapport avec modele « ventes » : les sections du rapport de ventes dans son ordre, Contexte composé (familles face aux jours), Actions dites absentes, titre par défaut", async () => {
     const d = deps();
     const tool = byName(buildAgentTools(d), "composer_rapport");
     const out = await tool.run({ modele: "ventes", periode: "mois_dernier" });
     const b = d.records[0].blocks?.[0] as any;
     expect(b.sections.map((s: any) => s.cle)).toEqual(["chiffre_affaires", "volume", "panier", "mix", "jours", "marge_brute", "contexte", "actions", "sources"]);
     expect(b.titre).toBe("Rapport de ventes — le mois dernier, du 01/08/2026 au 31/08/2026");
-    expect(b.sections.find((s: any) => s.cle === "contexte").blocs[0]).toMatchObject({ type: "absence", geste: { label_fr: "Rapport de ventes", url: "/app/insightevent/rapport" } });
+    // 12/09 (owner : le contexte est le différenciateur) — Contexte externe porte la carte « familles face aux jours » ; sans action sur la période, Actions dit l'absence.
+    expect(b.sections.find((s: any) => s.cle === "contexte").blocs[0]).toMatchObject({ type: "card", render: "renderSignauxFamille" });
+    expect(b.sections.find((s: any) => s.cle === "actions").blocs[0]).toMatchObject({ type: "absence", manque: "Aucune action issue de vos signaux de vente le mois dernier, du 01/08/2026 au 31/08/2026." });
     expect(out).toContain("Sections sans matière");
     expect(await tool.run({})).toContain("Aucune section demandée");
   });

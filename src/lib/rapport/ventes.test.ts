@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeVentesFacts, resolvePeriode, ventesToText, VENTES_ABSENCE_FR, type SalesReportResult } from "./ventes";
+import { composeVentesFacts, contexteFacts, actionsFacts, resolvePeriode, ventesToText, VENTES_ABSENCE_FR, type SalesReportResult } from "./ventes";
 import { groundAgentText } from "../explorer/blocks";
 // fr-FR sépare les milliers par U+202F : les attendus s'écrivent avec une espace, la comparaison les rapproche.
 const nb = (x: string): string => x.replace(/[\u202f\u00a0]/g, " ");
@@ -9,7 +9,7 @@ import { MOTS_BANNIS } from "../fr/evenement.fr";
 // Un rapport tel que computeSalesReport le rend (les champs que composeVentesFacts lit), chiffres du compte de test.
 function rapport(over: Record<string, unknown> = {}): SalesReportResult {
   return {
-    prev_revenue: 33_400,
+    prev_revenue: 33_400, actions_fr: [],
     body: {
       ok: true, location_id: "loc", location_label: "Muse Square", period: { start: "2026-08-12", end: "2026-09-10" },
       summary: { revenue: 34_512, transactions: 2_410, avg_basket: 14.32, vs_prev_pct: 3.3, vs_yoy_pct: null, yoy_available: false,
@@ -95,8 +95,8 @@ describe("composeVentesFacts — les phrases du rapport et du chat, les tableaux
     expect(composeVentesFacts(rapport()).tables.par_jour).toBeUndefined(); // sans grain, rien de plus
   });
   it("NO_DATA et rapport mono-canal : rien à lire, absence dite", () => {
-    expect(composeVentesFacts({ body: { ok: false, error: "NO_DATA" }, prev_revenue: null }).found).toBe(false);
-    expect(composeVentesFacts({ body: { ok: true, channel_report: true }, prev_revenue: null }).found).toBe(false);
+    expect(composeVentesFacts({ body: { ok: false, error: "NO_DATA" }, prev_revenue: null, actions_fr: [] }).found).toBe(false);
+    expect(composeVentesFacts({ body: { ok: true, channel_report: true }, prev_revenue: null, actions_fr: [] }).found).toBe(false);
     expect(ventesToText({ found: false, facts: [], blocks: [], parts: {}, tables: {} })).toBe(VENTES_ABSENCE_FR);
   });
   it("chaque nombre des tableaux existe dans les faits : la porte de l'agent les laisse passer", () => {
@@ -114,5 +114,28 @@ describe("composeVentesFacts — les phrases du rapport et du chat, les tableaux
         expect(re.test(s), `${s} — « ${mot} » : ${MOTS_BANNIS[mot]}`).toBe(false);
       }
     }
+  });
+});
+
+describe("contexte externe et actions (12/09, owner : « tout ce qui impacte le business ») — les phrases de rapport.astro, sans balise", () => {
+  it("météo avec association mesurée, saison et tourisme, événements, mobilité, fériés", () => {
+    const c = { hot_days: 6, max_heat: 3, rain_days: 4, cold_days: 0, school_days: 12, public_days: 1, mobility_days: 2, tourism_peak_days: 9, tourism_status: "high", events_avg_5km: 1239.7, events_peak_5km: 1800,
+      named_events: [{ label: "Fête de la musique", days: 1 }], foreign_visitors: ["Spain", "United Kingdom"],
+      assoc: { heat: { with_avg: 1500, with_n: 6, without_avg: 1700, without_n: 25, corr: -0.3 }, events: { with_avg: 1600, with_n: 10, without_avg: 1650, without_n: 21, corr: 0.05 } } };
+    const f = contexteFacts(c).map(nb);
+    expect(f[0]).toBe("Météo — vos 6 journées de forte chaleur tournent à 1 500 € en moyenne, sous vos 25 journées tempérées (1 700 €).");
+    expect(f[1]).toBe("Saison & tourisme — Pic touristique (9 j, statut « élevé »), pendant les vacances scolaires. Clientèle internationale présente sur la période : Espagne, Royaume-Uni.");
+    expect(f[2]).toBe("Événements à proximité — 1 240 événements/j en moyenne dans un rayon de 5 km, sans lien mesurable avec vos ventes sur la période. À noter : Fête de la musique. 2 j de perturbation de mobilité.");
+    expect(f[3]).toBe("1 jour férié sur la période.");
+    const sans = contexteFacts({ hot_days: 0, rain_days: 0, cold_days: 0, school_days: 0, public_days: 0, mobility_days: 0, events_avg_5km: 0, named_events: [], foreign_visitors: [], assoc: {} });
+    expect(sans[0]).toBe("Météo — sans particularité notable. Pas d'effet marqué sur vos ventes.");
+    expect(sans[1]).toBe("Saison & tourisme — hors vacances scolaires françaises.");
+    expect(contexteFacts(null)).toEqual([]);
+  });
+  it("les actions de la période en clair : titre, détail, date", () => {
+    expect(actionsFacts([{ action_type: "family_discount_move", headline_fr: "Vos remises sur Coffee ne rapportent pas", detail_fr: "Testez une remise plus courte.", date: "2026-08-20" }, { action_type: "x", headline_fr: "", detail_fr: null, date: null }]))
+      .toEqual(["Vos remises sur Coffee ne rapportent pas — Testez une remise plus courte. (20/08/2026)"]);
+    const l = composeVentesFacts({ ...rapport(), actions_fr: [{ action_type: "a", headline_fr: "Un titre", detail_fr: null, date: null }] });
+    expect(l.parts.actions).toEqual(["Un titre"]); expect(l.parts.contexte?.length).toBe(0);
   });
 });

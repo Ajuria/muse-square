@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actualiserAvec, ajouterNote, approfondirPrompt, approfondirSection, chiffresDuDocument, clesARecalculer, deplacerSection, dupliquerSection, periodeActualisee, retirerNote, retirerSection } from "./gestes";
+import { actualiserAvec, ajouterNote, approfondirPrompt, approfondirSection, chiffresDuDocument, clesARecalculer, deplacerSection, dupliquerSection, modifierSynthese, periodeActualisee, retirerNote, retirerSection } from "./gestes";
 import type { RapportBlock } from "../explorer/blocks";
 
 const doc = (): RapportBlock => ({
@@ -87,5 +87,14 @@ describe("gestes — Actualiser : les sections à provenance se recalculent sur 
     expect(r.titre).toBe("Rapport — la semaine dernière, du 07/09/2026 au 13/09/2026");
     expect(r.periode.du).toBe("2026-09-07");
     expect(actualiserAvec({ ...ancien, titre: "Mon hebdo" }, nouveau).titre).toBe("Mon hebdo");
+  });
+});
+
+describe("gestes — la Synthèse reprise par l'exploitant (owner 12/09 : « User will edit it »)", () => {
+  it("devient une Votre note : registre « note », son nom ; le vide est refusé ; les sections ne bougent pas", () => {
+    const r = modifierSynthese(doc(), "  Août : le nombre de ventes porte tout,\n\n\nle panier ne bouge pas.  ", "Julen") as RapportBlock;
+    expect(r.synthese).toEqual({ text: "Août : le nombre de ventes porte tout,\n\nle panier ne bouge pas.", register: "note", auteur: "Julen" });
+    expect(chiffresDuDocument(r)).toEqual(chiffresDuDocument(doc()));
+    expect(modifierSynthese(doc(), "  ", null)).toEqual({ erreur: "synthèse vide" });
   });
 });

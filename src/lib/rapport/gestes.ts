@@ -54,6 +54,16 @@ export function ajouterNote(r: RapportBlock, i: number, texte: unknown, auteur: 
   return out;
 }
 
+/** La Synthèse reprise par l'exploitant (owner 12/09 : « User will edit it ») : son texte, registre « note », son nom. */
+export function modifierSynthese(r: RapportBlock, texte: unknown, auteur: string | null): RapportBlock | GesteErreur {
+  const text = String(texte ?? "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  if (!text) return { erreur: "synthèse vide" };
+  if (text.length > NOTE_MAX) return { erreur: `synthèse : ${NOTE_MAX} caractères au plus` };
+  const out = clone(r);
+  out.synthese = { text, register: "note", auteur: auteur ? String(auteur).slice(0, 120) : null };
+  return out;
+}
+
 /** Retirer une note : la `n`-ième note de la section `i` (les autres blocs ne bougent pas). */
 export function retirerNote(r: RapportBlock, i: number, n: number): RapportBlock | GesteErreur {
   if (!dans(r, i)) return { erreur: "section inconnue" };
@@ -166,13 +176,14 @@ export async function actualiserDocument(bq: any, location_id: string, owned: st
   const besoin = (k: string[]) => cles.some((c) => k.includes(c));
   const polesProv = r.sections.find((s) => s.cle === "poles")?.provenance;
   const indicateur = ((polesProv?.params as any)?.indicateur as Indicateur | undefined) ?? "ca";
-  const [ventes, marge, resultat, espace, poles] = await Promise.all([
+  const [ventes, marge, resultat, espace, poles, signaux] = await Promise.all([
     besoin(SECTIONS_VENTES) ? computeSalesReport(bq, { location_id, owned, start: per.du, end: per.au }).then(composeVentesFacts) : null,
     besoin(["marge_brute"]) ? FAMILIES.marge.run(bq, location_id, today) : null,
     besoin(["resultat_net", "seuil_rentabilite"]) ? readResultat(bq, location_id).then((x) => composeResultatFacts(x)) : null,
     besoin(["espace"]) ? FAMILIES.espace.run(bq, location_id, today) : null,
     besoin(["poles"]) ? readPoleClassement(bq, location_id, per.du, per.au).then((d) => composePoleClassement(d, indicateur, `sur ${per.libelle_fr}`)) : null,
+    besoin(["contexte"]) ? FAMILIES.signaux.run(bq, location_id, today) : null,
   ]);
-  const nouveau = composeRapport({ cles, non_reconnu: [], periode: per, indicateur, titre: r.titre, calcule_le: new Date().toISOString(), lectures: { ventes, marge, resultat, espace, poles } });
+  const nouveau = composeRapport({ cles, non_reconnu: [], periode: per, indicateur, titre: r.titre, calcule_le: new Date().toISOString(), lectures: { ventes, marge, resultat, espace, poles, signaux } });
   return actualiserAvec(r, nouveau.block);
 }

@@ -136,20 +136,39 @@
     var head = el("div", "save"); head.style.cssText = "display:flex;gap:10px;align-items:center;margin:0 0 10px;";
     var v = el("span", "usage", "version " + doc.version); v.style.margin = "0"; head.appendChild(v);
     var act = el("button", null, "Actualiser"); head.appendChild(act);
+    // La Synthèse reprise par l'exploitant (owner 12/09 : « User will edit it ») → registre « Votre note ».
+    var syn = el("button", null, "Modifier la Synthèse"); syn.style.cssText = "background:#fff;color:#1D3BB3;border:1px solid #E5E7EB;"; head.appendChild(syn);
+    syn.addEventListener("click", async function () {
+      var t = prompt("La Synthèse, dans vos mots", doc.rapport.synthese ? doc.rapport.synthese.text : ""); if (t == null || !t.trim()) return;
+      syn.disabled = true; try { var d2 = await posteGeste(loc, doc.document_id, "synthese", { texte: t }); renderDocument(container, loc, d2); loadRapports(); } catch (e) { addErr(String(e.message || e)); syn.disabled = false; }
+    });
     var st = el("span", "usage", ""); st.style.margin = "0"; head.appendChild(st);
+    // L'historique des versions (owner 12/09 : oui, le montrer) — une ligne, chaque version se rouvre en lecture.
+    var hist = el("div", "usage", ""); hist.style.margin = "0 0 8px";
+    fetch(api() + "/api/explorer/rapports?location_id=" + encodeURIComponent(loc) + "&document_id=" + encodeURIComponent(doc.document_id) + "&versions=1").then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.ok || !j.versions || j.versions.length < 2) return;
+      hist.appendChild(document.createTextNode("Versions : "));
+      j.versions.forEach(function (v, k) {
+        var a = el("a", null, "v" + v.version + " · " + String(v.created_at).slice(0, 10).split("-").reverse().join("/")); a.href = "#"; a.style.cssText = "color:#1D3BB3;text-decoration:none;margin-right:10px;";
+        a.addEventListener("click", async function (ev) { ev.preventDefault(); var rr = await fetch(api() + "/api/explorer/rapports?location_id=" + encodeURIComponent(loc) + "&document_id=" + encodeURIComponent(doc.document_id) + "&version=" + v.version); var jj = await rr.json(); if (rr.ok && jj.ok) renderDocument(container, loc, jj.document); });
+        hist.appendChild(a);
+      });
+    }).catch(function () {});
     act.addEventListener("click", async function () {
       act.disabled = true; st.textContent = "…";
       try { var d = await posteGeste(loc, doc.document_id, "actualiser", {}); renderDocument(container, loc, d); loadRapports(); } catch (e) { st.textContent = String(e.message || e); act.disabled = false; }
     });
+    bl.insertBefore(hist, bl.firstChild);
     bl.insertBefore(head, bl.firstChild);
     var zones = bl.querySelectorAll("[data-rapport-section]");
     zones.forEach(function (z) {
       var i = Number(z.getAttribute("data-rapport-section"));
       var bar = el("div", null); bar.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;";
-      var mk = function (label, fn) { var b = el("button", null, label); b.style.cssText = "background:#fff;color:#1D3BB3;border:1px solid #E5E7EB;padding:5px 9px;font-size:12px;font-weight:500;"; b.addEventListener("click", async function () { b.disabled = true; try { await fn(); } catch (e) { addErr(String(e.message || e)); b.disabled = false; } }); bar.appendChild(b); return b; };
+      var mk = function (label, fn, aria) { var b = el("button", null, label); if (aria) { b.setAttribute("aria-label", aria); b.title = aria; } b.style.cssText = "background:#fff;color:#1D3BB3;border:1px solid #E5E7EB;padding:5px 9px;font-size:12px;font-weight:500;"; b.addEventListener("click", async function () { b.disabled = true; try { await fn(); } catch (e) { addErr(String(e.message || e)); b.disabled = false; } }); bar.appendChild(b); return b; };
       var apres = async function (d) { renderDocument(container, loc, d); loadRapports(); };
-      if (i > 0) mk("Monter", async function () { apres(await posteGeste(loc, doc.document_id, "deplacer", { section: i, vers: i - 1 })); });
-      if (i < zones.length - 1) mk("Descendre", async function () { apres(await posteGeste(loc, doc.document_id, "deplacer", { section: i, vers: i + 1 })); });
+      // Déplacer : des flèches, pas des mots (owner 12/09) — le sens est dans l'aria-label (Monter / Descendre, mots ratifiés).
+      if (i > 0) mk("\u2191", async function () { apres(await posteGeste(loc, doc.document_id, "deplacer", { section: i, vers: i - 1 })); }, "Monter");
+      if (i < zones.length - 1) mk("\u2193", async function () { apres(await posteGeste(loc, doc.document_id, "deplacer", { section: i, vers: i + 1 })); }, "Descendre");
       mk("Dupliquer", async function () { apres(await posteGeste(loc, doc.document_id, "dupliquer", { section: i })); });
       mk("Retirer", async function () { apres(await posteGeste(loc, doc.document_id, "retirer", { section: i })); });
       mk("Votre note", async function () { var t = prompt("Votre note"); if (t == null || !t.trim()) return; apres(await posteGeste(loc, doc.document_id, "note", { section: i, texte: t })); });

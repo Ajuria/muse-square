@@ -2048,6 +2048,8 @@
       bg = '#0b37e5'; color = '#ffffff';
     }
     else if (reg === 'web') { label = 'Web — non vérifié'; bg = '#F3F4F6'; color = '#6b7280'; }
+    // 12/09 : un texte repris par l'exploitant (la Synthèse qu'il a modifiée) — « Votre note », jamais vérifié, jamais mêlé.
+    else if (reg === 'note') { label = 'Votre note'; bg = '#FAEEDA'; color = '#633806'; }
     else { label = 'Non vérifié'; bg = '#FDE8D8'; color = '#C2410C'; }
     return '<div style="display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:' + bg + ';color:' + color + ';margin-bottom:10px;letter-spacing:.04em;">' + label + '</div>';
   }

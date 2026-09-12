@@ -410,18 +410,19 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
       if (!cles.length && !inconnues.length) return { out: "Aucune section demandée : nomme des sections (« volume, panier, mix, pôles ») ou un modèle (« ventes »).", summary: "aucune section demandée" };
       const indicateur = (args.indicateur as Indicateur | undefined) ?? "ca";
       const besoin = (k: string[]) => cles.some((c) => k.includes(c));
-      const [ventes, marge, resultat, espace, poles] = await Promise.all([
+      const [ventes, marge, resultat, espace, poles, signaux] = await Promise.all([
         besoin(SECTIONS_VENTES) ? deps.runVentes(p.start, p.end).then(composeVentesFacts) : null,
         besoin(["marge_brute"]) ? deps.runFamily("marge", deps.today()) : null,
         besoin(["resultat_net", "seuil_rentabilite"]) ? deps.runResultat().then((r) => composeResultatFacts(r)) : null,
         besoin(["espace"]) ? deps.runFamily("espace", deps.today()) : null,
         besoin(["poles"]) ? deps.runPolesClassement(p.start, p.end).then((d) => composePoleClassement(d, indicateur, `sur ${p.libelle_fr}`)) : null,
+        besoin(["contexte"]) ? deps.runFamily("signaux", deps.today()) : null,
       ]);
       const r = composeRapport({
         cles, non_reconnu: inconnues,
         periode: { du: p.start, au: p.end, relative: args.du || args.au ? null : (args.periode ?? "30_derniers_jours"), libelle_fr: p.libelle_fr },
         indicateur, titre: args.titre ?? (args.modele === "ventes" ? `Rapport de ventes — ${p.libelle_fr}` : null), calcule_le: new Date().toISOString(),
-        lectures: { ventes, marge, resultat, espace, poles },
+        lectures: { ventes, marge, resultat, espace, poles, signaux },
       });
       const n = r.block.sections.length;
       return { out: rapportToText(r), summary: `${plural(n, "section composée", "sections composées")}, ${p.libelle_fr}${inconnues.length ? ` ; ${plural(inconnues.length, "demande non reconnue", "demandes non reconnues")}` : ""}`, blocks: [r.block], facts: r.facts };

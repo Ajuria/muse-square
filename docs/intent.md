@@ -50,6 +50,11 @@ avec son résultat — pour que le lieu apprenne de lui-même.
   avec l'auteur, réordonnable, recalculable, jamais un texte que le modèle aurait écrit sans faits. Un
   **modèle de rapport** est ce document sans ses chiffres : il se réutilise et s'envoie à cadence à l'équipe
   et aux partenaires connus [owner 12/09, `explorer-outil-spec.md`].
+  Un Rapport est fait de blocs que l'exploitant déplace, retire, duplique, complète (Votre note) et creuse
+  (Approfondir) ; ses choix — sections gardées, ordre, notes, questions — sont du contexte pour Explorer (ses
+  préférences et priorités réelles, pas inférées). Ce principe vaut ensuite pour les pages d'engagement, puis le
+  tableau de bord (owner 12/09). Le Rapport est opérationnel : le contexte qui pèse sur les performances (météo,
+  saison, événements, familles face aux jours) en fait partie.
 
 ## Le test de valeur
 

@@ -10,7 +10,7 @@ const nb = (x: string): string => x.replace(/[  ]/g, " ");
 const periode = { du: "2026-08-31", au: "2026-09-06", relative: "semaine_derniere", libelle_fr: "la semaine dernière, du 31/08/2026 au 06/09/2026" };
 
 function ventes(): SalesReportResult {
-  return { prev_revenue: 12_574, body: { ok: true, period: { start: "2026-08-31", end: "2026-09-06" },
+  return { prev_revenue: 12_574, actions_fr: [], body: { ok: true, period: { start: "2026-08-31", end: "2026-09-06" },
     summary: { revenue: 11_015, transactions: 2_426, avg_basket: 4.54, vs_prev_pct: -12.4, vs_yoy_pct: null, yoy_available: false,
       layers: { volume_pct: 0.5, basket_pct: -12.8, volume_term_eur: 63, basket_term_eur: -1622, prev_transactions: 2_414, prev_avg_basket: 5.21, mix: [{ label: "Coffee", share_pct: 42.7, prev_share_pct: 39.6, delta_pt: 3.1 }] } },
     best_day: { date: "2026-09-05", revenue: 2_010 }, worst_day: { date: "2026-08-31", revenue: 1_120 }, weekday: [],
@@ -53,11 +53,10 @@ describe("composeRapport — la demande de l'owner (§ 9) : volume, panier, mix,
     expect(g.register, `nombres non fondés : ${g.ungrounded_numbers.join(", ")}`).toBe("vetted");
   });
   it("les sections sans lecture disent l'absence ; contexte et actions renvoient au rapport imprimable ; l'inconnu est dit", () => {
-    const r = composeRapport(input({ cles: ["chiffre_affaires", "marge_brute", "resultat_net", "contexte"], non_reconnu: ["la couleur des murs"], lectures: { ventes: composeVentesFacts({ body: { ok: false, error: "NO_DATA" }, prev_revenue: null }) } }));
+    const r = composeRapport(input({ cles: ["chiffre_affaires", "marge_brute", "resultat_net", "contexte"], non_reconnu: ["la couleur des murs"], lectures: { ventes: composeVentesFacts({ body: { ok: false, error: "NO_DATA" }, prev_revenue: null, actions_fr: [] }) } }));
     expect(r.block.sections.map((s) => [s.cle, s.blocs[0].type])).toEqual([["chiffre_affaires", "absence"], ["marge_brute", "absence"], ["resultat_net", "absence"], ["contexte", "absence"]]);
     expect((r.block.sections[0].blocs[0] as any).manque).toBe("Aucune vente la semaine dernière, du 31/08/2026 au 06/09/2026.");
     expect((r.block.sections[1].blocs[0] as any).geste.label_fr).toBe("Importer vos prix d'achat");
-    expect((r.block.sections[3].blocs[0] as any).geste).toEqual({ label_fr: "Rapport de ventes", url: "/app/insightevent/rapport" });
     expect(r.block.non_reconnu).toEqual(["la couleur des murs"]);
     const t = rapportToText(r);
     expect(t).toContain("Aucune section du Rapport ne correspond à : « la couleur des murs ».");
@@ -74,5 +73,21 @@ describe("composeRapport — la demande de l'owner (§ 9) : volume, panier, mix,
     const r = composeRapport(input({ titre: "Rapport hebdomadaire" }));
     expect(r.block.titre).toBe("Rapport hebdomadaire");
     expect(rapportToText(r)).toMatch(/^Rapport composé, la semaine dernière, du 31\/08\/2026 au 06\/09\/2026 : Nombre de ventes · Panier moyen · Mix produits & services · Vos pôles · du plus au moins performant · Sources et fiabilité\./);
+  });
+});
+
+describe("composeRapport — Contexte externe et Actions recommandées (12/09, owner : le contexte est le différenciateur)", () => {
+  it("contexte = les phrases de contexte + la carte « familles face aux jours » ; actions = les actions en clair, ou l'absence", () => {
+    const v = ventes(); (v.body as any).context = { hot_days: 0, rain_days: 3, cold_days: 0, school_days: 0, public_days: 0, mobility_days: 0, events_avg_5km: 12, named_events: [], foreign_visitors: [], assoc: {} };
+    v.actions_fr = [{ action_type: "a", headline_fr: "Vos remises sur Coffee ne rapportent pas", detail_fr: "Testez une remise plus courte.", date: "2026-09-02" }];
+    const signaux = { found: true, data: { found: true, lines: [{ family: "Tea", class_key: "rain" }] }, facts: [{ fact_fr: "CA/jour Tea sur vos jours de pluie marquée : −52 € vs vos jours comparables, sur 20 jours.", claim_type: "observed_difference" as const }], sources: ["Vos ventes par famille face aux classes de jours"] };
+    const r = composeRapport(input({ cles: ["contexte", "actions"], lectures: { ventes: composeVentesFacts(v), signaux } }));
+    expect(r.block.sections.map((s) => [s.cle, s.blocs.map((b) => b.type)])).toEqual([["contexte", ["card", "facts"]], ["actions", ["facts"]], ["sources", ["sources"]]]);
+    expect((r.block.sections[0].blocs[1] as any).items[0]).toBe("Météo — 3 de pluie. Pas d'effet marqué sur vos ventes.");
+    expect((r.block.sections[0].blocs[0] as any).render).toBe("renderSignauxFamille");
+    expect(r.facts).toContain("CA/jour Tea sur vos jours de pluie marquée : −52 € vs vos jours comparables, sur 20 jours.");
+    expect((r.block.sections[1].blocs[0] as any).items).toEqual(["Vos remises sur Coffee ne rapportent pas — Testez une remise plus courte. (02/09/2026)"]);
+    const sansAction = composeRapport(input({ cles: ["actions"], lectures: { ventes: composeVentesFacts(ventes()) } }));
+    expect(sansAction.block.sections[0].blocs[0]).toMatchObject({ type: "absence", manque: "Aucune action issue de vos signaux de vente la semaine dernière, du 31/08/2026 au 06/09/2026." });
   });
 });

@@ -21,6 +21,8 @@ export interface Lectures {
   resultat?: ResultatLecture | null;
   espace?: FamilyResult | null;
   poles?: PoleClassementLecture | null;
+  /** 12/09 — ce que les jours (pluie, chaleur, vacances, activité autour) déplacent sur chaque famille : la lecture de Contexte externe. */
+  signaux?: FamilyResult | null;
 }
 export interface ComposeInput {
   cles: SectionCle[];
@@ -34,8 +36,9 @@ export interface ComposeInput {
 export interface ComposeResult { block: RapportBlock; facts: string[]; sources: string[] }
 
 /** Les sections que `lire_ventes` nourrit — la lecture se fait une fois pour toutes. */
-export const SECTIONS_VENTES: SectionCle[] = ["chiffre_affaires", "volume", "panier", "mix", "familles", "jours"];
-export const SECTIONS_PAS_ENCORE: SectionCle[] = ["contexte", "actions"];
+export const SECTIONS_VENTES: SectionCle[] = ["chiffre_affaires", "volume", "panier", "mix", "familles", "jours", "contexte", "actions"];
+/** Plus aucune section « pas encore composée » depuis le 12/09 (owner : le contexte est le différenciateur) — la liste reste pour le test. */
+export const SECTIONS_PAS_ENCORE: SectionCle[] = [];
 
 const RAPPORT_VENTES_URL = "/app/insightevent/rapport";
 
@@ -72,6 +75,19 @@ export function composeRapport(inp: ComposeInput): ComposeResult {
       if (cle === "panier") { items.push(...[lv.parts.volume_panier].filter(Boolean) as string[]); if (!cles.includes("volume") && lv.parts.couches) items.push(lv.parts.couches); }
       if (cle === "mix" || cle === "familles") { if (lv.parts.repartition) items.push(lv.parts.repartition); }
       if (cle === "jours") { if (lv.parts.jours) items.push(lv.parts.jours); if (lv.parts.journees) items.push(lv.parts.journees); }
+      // 12/09 (owner : « tout ce qui impacte le business ») — Contexte externe : la météo, la saison, les événements et la
+      // mobilité de la période (les phrases de rapport.astro), puis ce que chaque classe de jours déplace sur chaque
+      // famille (la carte « familles face aux jours », mesurée) ; Actions recommandées : les actions de la période en clair.
+      if (cle === "contexte") {
+        items.push(...(lv.parts.contexte ?? []));
+        const sg = inp.lectures.signaux ?? null;
+        if (sg?.found) { blocs.push({ type: "card", render: "renderSignauxFamille", data: sg.data }); addFacts(...sg.facts.map((f) => f.fact_fr)); sg.sources.forEach((x) => sources.add(x)); }
+      }
+      if (cle === "actions") {
+        const acts = lv.parts.actions ?? [];
+        if (!acts.length) { push(cle, [{ type: "absence", manque: `Aucune action issue de vos signaux de vente ${inp.periode.libelle_fr}.`, geste: null }], p); continue; }
+        items.push(...acts);
+      }
       // Le tableau des couches porte le CA : son fait l'accompagne, quelle que soit la section qui le rend (porte verte).
       if (porteCouches === cle && lv.tables.couches) { blocs.push(lv.tables.couches); if (cle !== "chiffre_affaires" && lv.parts.ca && !items.includes(lv.parts.ca)) items.unshift(lv.parts.ca); }
       if (porteMix === cle && lv.tables.mix) { if (lv.tables.mix_graphique) blocs.push(lv.tables.mix_graphique); blocs.push(lv.tables.mix); }
