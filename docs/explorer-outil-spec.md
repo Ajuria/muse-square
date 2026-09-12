@@ -325,7 +325,9 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    cas « Non vérifié » que opus, une somme de parts) ; `claude-haiku-4-5` 3,7-8,8 s mais 4 réponses sur 8 non
    vérifiées (nombres de son cru). Aucun des trois ne rend le texte complet sous 3 s : la « première réponse utile
    sous 3 s » passe par l'affichage des blocs vérifiés dès le retour de l'outil (≈ 1 s), la Synthèse arrivant
-   ensuite. Proposition : sonnet-5 pour la boucle + blocs streamés ; décision owner attendue.
+   ensuite. **Tranché par l'owner le 12/09 : sonnet-5 pour la boucle (`models.ts`, rôle `agent`) et les blocs
+   vérifiés affichés dès le retour de l'outil, avant la Synthèse (proto : événement SSE `tool`).** Mesuré ensuite
+   sur la batterie avec sonnet-5 : premier bloc vérifié à 2,0-3,3 s, texte complet à 4,4-9,6 s, 8/8 portes.
 2. Le stockage des contours du plan (`analytics.space_zones`, grain site × pôle, polygone en points du
    plan) — à confirmer avant l'incrément 8.
 3. Les destinataires d'un envoi à cadence au-delà de l'équipe et des partenaires (§ 6.4).

@@ -143,10 +143,22 @@
       });
       if (!res.ok || !res.body) { addErr("HTTP " + res.status); history.pop(); return; }
       var reader = res.body.getReader(); var dec = new TextDecoder(); var state = { buf: "" }; var result = null;
+      // 12/09 (owner) : les blocs VÉRIFIÉS d'un outil s'affichent dès son retour (≈ 1 s), la Synthèse arrive ensuite —
+      // c'est la première réponse utile sous 3 s. Un bloc d'outil est vérifié par construction (spec § 5) : sa pastille
+      // est « Vérifié » ; celle du tour (texte du modèle) vient avec le résultat. Le bloc rapport est remplacé au résultat
+      // par sa version finale, qui porte la Synthèse.
+      var streamed = [];   // [{ name, el }]
       while (true) {
         var chunk = await reader.read(); if (chunk.done) break;
         parseSse(dec.decode(chunk.value, { stream: true }), state, function (ev, data) {
-          if (ev === "tool") { toolLine(tools, data); tools.appendChild(pending); }
+          if (ev === "tool") {
+            toolLine(tools, data); tools.appendChild(pending);
+            if (Array.isArray(data.blocks) && data.blocks.length && window.MSCardKit && window.MSCardKit.renderAnswerBlocks) {
+              var sb = el("div", "blocks"); sb.style.cssText = "margin:0 0 10px;";
+              sb.innerHTML = window.MSCardKit.renderAnswerBlocks([{ type: "register", register: "vetted" }].concat(data.blocks));
+              $("thread").appendChild(sb); streamed.push({ name: data.name, el: sb });
+            }
+          }
           if (ev === "result") result = data;
         });
       }
@@ -158,12 +170,18 @@
       threadId = result.body.thread_id;
       history.push({ role: "assistant", content: result.body.assistant.text });
       // 12/09 (spec § 6) : quand la réponse porte un Rapport, la Synthèse EST le texte du tour — il ne s'affiche pas deux fois.
-      var aRapport = Array.isArray(result.body.blocks) && result.body.blocks.some(function (b) { return b && b.type === "rapport"; });
+      var finalBlocks = Array.isArray(result.body.blocks) ? result.body.blocks : [];
+      var aRapport = finalBlocks.some(function (b) { return b && b.type === "rapport"; });
       var msgEl = addMsg("assistant", aRapport ? "" : (result.body.assistant.text || "(aucun texte)"));
       // 12/09 (docs/explorer-outil-spec.md § 5) : les BLOCS de la réponse — pastille de registre puis cartes du kit,
-      // rendus par renderAnswerBlocks, le même rendu que le rapport de famille et le chat.
-      if (Array.isArray(result.body.blocks) && result.body.blocks.length && window.MSCardKit && window.MSCardKit.renderAnswerBlocks) {
-        var bl = el("div", "blocks"); bl.style.cssText = "margin-top:10px;"; bl.innerHTML = window.MSCardKit.renderAnswerBlocks(result.body.blocks); msgEl.appendChild(bl);
+      // rendus par renderAnswerBlocks, le même rendu que le rapport de famille et le chat. Les blocs déjà streamés
+      // restent en place : le résultat n'ajoute que la pastille du tour, le texte, et remplace le Rapport par sa
+      // version finale (avec la Synthèse) ; sans flux préalable, tout se rend ici.
+      if (finalBlocks.length && window.MSCardKit && window.MSCardKit.renderAnswerBlocks) {
+        var reg = finalBlocks.filter(function (b) { return b && b.type === "register"; });
+        var toRender = streamed.length ? reg.concat(finalBlocks.filter(function (b) { return b && b.type === "rapport"; })) : finalBlocks;
+        streamed.forEach(function (s) { if (s.name === "composer_rapport") s.el.remove(); });
+        var bl = el("div", "blocks"); bl.style.cssText = "margin-top:10px;"; bl.innerHTML = window.MSCardKit.renderAnswerBlocks(toRender); msgEl.appendChild(bl);
         // 12/09 (spec § 6.1) : « Enregistrer » garde le Rapport — une version dans analytics.report_documents, par le
         // même serveur (POST /api/explorer/rapports). Le mot est celui de la spec (« Enregistrer en PDF » reste au rapport imprimable).
         result.body.blocks.filter(function (b) { return b && b.type === "rapport"; }).forEach(function (rb) {

@@ -84,7 +84,9 @@ function stripDatesAndHours(s: string): string {
     .replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, " ")     // JJ/MM/AAAA
     .replace(/\b\d{4}-\d{2}-\d{2}\b/g, " ")               // AAAA-MM-JJ
     .replace(/\b\d{1,2}\s?h(?:\s?\d{2})?\b/g, " ")        // 10 h, 10h30
-    .replace(/\b(19|20)\d{2}\b/g, " ");                   // années
+    .replace(/\b(19|20)\d{2}\b/g, " ")                    // années
+    // 12/09 (mesuré sur la batterie) : les numéros d'une liste (« 1. Cuisine… », « 2) Maison… ») ne sont pas des faits.
+    .replace(/^\s*\d{1,2}[.)]\s/gm, " ");
 }
 
 /** Les blocs d'une réponse d'agent : la pastille de registre d'abord, puis les blocs des outils dans l'ordre d'appel. */

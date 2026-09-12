@@ -20,7 +20,9 @@ const REGISTRY: Record<ModelRole, string> = {
   enrichment: "claude-haiku-4-5-20251001",
   web_search: "claude-sonnet-4-6",
   drafting: "claude-sonnet-4-6",
-  agent: "claude-opus-5",                  // owner 11/09 : l'agent Explorer (api/explorer/agent.ts) — SDK tool runner, pas le transport claude.ts
+  // owner 12/09 : sonnet-5 pour la boucle de l'agent Explorer — mesuré sur la batterie (8 questions, compte de test) : opus-5
+  // 8,5-16,7 s, sonnet-5 4,8-10,5 s, mêmes 8/8 portes ; haiku-4-5 3,7-8,8 s mais 4 réponses sur 8 non vérifiées.
+  agent: "claude-sonnet-5",                // owner 11/09 : l'agent Explorer (api/explorer/agent.ts) — SDK tool runner, pas le transport claude.ts
 };
 
 // The one accessor. Callers pass a role, never a literal.

@@ -50,6 +50,7 @@ const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/P
 async function ask(q: string) {
   const t0 = Date.now();
   const calls: ToolCallRecord[] = [];
+  let firstBlockAt: number | null = null;   // l'instant où le premier bloc vérifié est disponible (streamé au client)
   const tools = buildAgentTools({
     location_id: LOC, author: { user_id: "battery", role: "owner" },
     listPoles: () => listPoles(bq, LOC, 12), readFamilies: () => readSiteFamilies30d(bq, LOC),
@@ -59,7 +60,7 @@ async function ask(q: string) {
     runVentes: (s, e) => computeSalesReport(bq, { location_id: LOC, owned: [LOC], start: s, end: e }),
     runResultat: () => readResultat(bq, LOC),
     runPolesClassement: (s, e) => readPoleClassement(bq, LOC, s, e),
-    today, record: (r) => calls.push(r),
+    today, record: (r) => { calls.push(r); if (firstBlockAt == null && r.blocks && r.blocks.length) firstBlockAt = (Date.now() - t0) / 1000; },
   });
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const runner = client.beta.messages.toolRunner({
@@ -72,7 +73,7 @@ async function ask(q: string) {
   const text = final.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
   const g = groundAgentText(text, calls.flatMap((c) => c.facts ?? []));
   const blocks = assembleAnswerBlocks(calls.map((c) => c.blocks ?? []), g);
-  return { seconds: (Date.now() - t0) / 1000, model: final.model, text, calls, grounding: g, blocks };
+  return { seconds: (Date.now() - t0) / 1000, firstBlockAt, model: final.model, text, calls, grounding: g, blocks };
 }
 
 (async () => {
@@ -92,11 +93,11 @@ async function ask(q: string) {
     ];
     const failed = gates.filter(([, ok]) => !ok).map(([n]) => n);
     if (failed.length) hardFails++;
-    const line = `${failed.length ? "FAIL" : "OK  "} ${r ? r.seconds.toFixed(1).padStart(5) : "  —  "} s · ${r ? r.grounding.register.padEnd(6) : "erreur"} · ${used.map((n) => OUTILS_FR[n] ?? n).join(" ; ") || "aucun outil"}${failed.length ? " · portes : " + failed.join(", ") : ""}${err ? " · " + err : ""}`;
+    const line = `${failed.length ? "FAIL" : "OK  "} ${r ? r.seconds.toFixed(1).padStart(5) : "  —  "} s (premier bloc ${r && r.firstBlockAt != null ? r.firstBlockAt.toFixed(1) + " s" : "—"}) · ${r ? r.grounding.register.padEnd(6) : "erreur"} · ${used.map((n) => OUTILS_FR[n] ?? n).join(" ; ") || "aucun outil"}${failed.length ? " · portes : " + failed.join(", ") : ""}${err ? " · " + err : ""}`;
     console.log(`\nQ: ${c.q}\n  ${line}`);
     if (r) console.log("  " + r.text.slice(0, 500).replace(/\n+/g, " / "));
     if (r && r.grounding.ungrounded_numbers.length) console.log("  nombres non fondés :", r.grounding.ungrounded_numbers.join(", "));
-    rows.push(`| ${c.q} | ${r ? r.seconds.toFixed(1) : "—"} | ${r ? r.grounding.register : "erreur"} | ${used.join(", ")} | ${r ? r.blocks.map((b: any) => b.type).join(", ") : ""} | ${failed.length ? "FAIL " + failed.join(", ") : "OK"} |`);
+    rows.push(`| ${c.q} | ${r ? r.seconds.toFixed(1) : "—"} (1er bloc ${r && r.firstBlockAt != null ? r.firstBlockAt.toFixed(1) : "—"}) | ${r ? r.grounding.register : "erreur"} | ${used.join(", ")} | ${r ? r.blocks.map((b: any) => b.type).join(", ") : ""} | ${failed.length ? "FAIL " + failed.join(", ") : "OK"} |`);
   }
   const report = [
     `# Batterie de l'agent Explorer — ${new Date().toISOString().slice(0, 16).replace("T", " ")} (compte ${LOC.slice(0, 8)}, modèle ${MODEL})`,

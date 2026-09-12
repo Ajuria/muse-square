@@ -33,3 +33,9 @@ describe("groundAgentText — chaque nombre du texte vient d'un fait d'outil", (
     expect(assembleAnswerBlocks([[{ type: "absence", manque: "a" }], [{ type: "sources", items: ["s"] }]], g).map((b) => b.type)).toEqual(["register", "absence", "sources"]);
   });
 });
+
+it("groundAgentText ignore les numéros de liste (mesuré 12/09 : « 1. Cuisine… 7. Caisse » rendait le tour non vérifié)", () => {
+  const facts = ["Cuisine génère 15 430 € de marge brute.", "Maison génère 11 473 €."];
+  expect(groundAgentText("Vos pôles :\n1. Cuisine génère 15 430 € de marge brute.\n2. Maison génère 11 473 €.\n3) rien", facts).register).toBe("vetted");
+  expect(groundAgentText("3 pôles génèrent 15 430 €", facts).register).toBe("model"); // un « 3 » dans la phrase reste un chiffre
+});
