@@ -295,8 +295,11 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    persistant est en place** : `analytics.report_documents` (créée en base le 12/09, append-only, grain
    document_id × version), `lib/rapport/documents.ts`, route `/api/explorer/rapports` (Enregistrer = une version
    de plus, la liste, un document), le geste « Enregistrer » et « Vos rapports » sur le proto ; sonde réelle sur le
-   compte de test : v1 écrite et relue identique, v2 lue comme dernière. **Restent** : les rapports de ventes et
-   de famille recomposés par les outils (les deux premiers Modèles, § 6.3), les sections Contexte externe et
+   compte de test : v1 écrite et relue identique, v2 lue comme dernière. **Le rapport de ventes se compose par
+   les outils** : `composer_rapport` avec `modele` « ventes » (les sections de rapport.astro dans son ordre ;
+   « Fais-moi mon rapport de ventes du mois dernier. » → 10,3 s, vérifié). **Restent** : le rapport de famille
+   recomposé par les outils (ses familles météo, fréquentation, concurrents… sont des couches à migrer, § 7),
+   le rapport imprimable inchangé (ses chaînes approuvées restent), les sections Contexte externe et
    Actions recommandées (aujourd'hui une absence qui renvoie au rapport imprimable), la surface définitive du
    Rapport (le proto porte le geste jusqu'à l'arbitrage owner).
 3. **Incrément 3 — les gestes sur le document** : déplacer, retirer, dupliquer, Actualiser ; Votre note ;

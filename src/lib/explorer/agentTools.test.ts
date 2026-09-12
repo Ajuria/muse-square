@@ -270,4 +270,15 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     expect(b.sections[4].blocs[0].type).toBe("table");
     expect(rec.facts?.some((f) => f.startsWith("Cuisine réalise"))).toBe(true);
   });
+  it("composer_rapport avec modele « ventes » : les sections du rapport de ventes dans son ordre, Contexte et Actions dits « pas encore composés », titre par défaut", async () => {
+    const d = deps();
+    const tool = byName(buildAgentTools(d), "composer_rapport");
+    const out = await tool.run({ modele: "ventes", periode: "mois_dernier" });
+    const b = d.records[0].blocks?.[0] as any;
+    expect(b.sections.map((s: any) => s.cle)).toEqual(["chiffre_affaires", "volume", "panier", "mix", "jours", "marge_brute", "contexte", "actions", "sources"]);
+    expect(b.titre).toBe("Rapport de ventes — le mois dernier, du 01/08/2026 au 31/08/2026");
+    expect(b.sections.find((s: any) => s.cle === "contexte").blocs[0]).toMatchObject({ type: "absence", geste: { label_fr: "Rapport de ventes", url: "/app/insightevent/rapport" } });
+    expect(out).toContain("Sections sans matière");
+    expect(await tool.run({})).toContain("Aucune section demandée");
+  });
 });

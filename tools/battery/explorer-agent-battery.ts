@@ -39,6 +39,7 @@ const BATTERY: Case[] = [
   { q: "Classe mes pôles par marge brute sur le mois dernier.", tools: ["lire_poles_classement"], answerMatch: /marge brute/i, vetted: false },
   // § 9, incrément 2 — le Rapport composé : UN outil, un bloc rapport, la Synthèse vérifiée.
   { q: "Génère le rapport des ventes de la semaine dernière : volume, panier, mix, et les pôles les plus et les moins performants en nombre de ventes.", tools: ["composer_rapport"], answerMatch: /ventes/i, vetted: true, blocks: ["rapport"] },
+  { q: "Fais-moi mon rapport de ventes du mois dernier.", tools: ["composer_rapport"], answerMatch: /chiffre d'affaires|CA/i, vetted: true, blocks: ["rapport"] },
 ];
 
 const bq = makeBQClient("muse-square-open-data");
