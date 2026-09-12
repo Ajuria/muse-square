@@ -12,6 +12,7 @@
     "gate": "vitest run src/lib/ai/contracts/ src/lib/ai/honestAbsence.test.ts",
     "battery:explorer": "dotenv -e .env -- tsx tools/battery/explorer-quality-battery.ts",
     "battery:prompt": "dotenv -e .env -- node tools/battery/prompt-conversation-battery.mjs",
+    "battery:agent": "dotenv -e .env -- npx tsx tools/battery/explorer-agent-battery.ts",
     "harness": "python3 -m http.server 4173 --directory .",
     "harness:https": "node tools/harness/https-serve.mjs tools/proto 8443 8080",
     "placement:check": "node tools/build/placement-check.mjs",
@@ -19,7 +20,8 @@
     "harness:bottombar": "vitest run --config tools/harness/bottombar-render-verify.vitest.ts",
     "harness:family-photo": "npx tsx tools/harness/family-photo-harness.ts",
     "harness:tableau-marge": "npx tsx tools/harness/tableau-marge-render-verify.mjs",
-    "harness:tableau-espace": "npx tsx tools/harness/tableau-pole-espace-render-verify.mjs"
+    "harness:tableau-espace": "npx tsx tools/harness/tableau-pole-espace-render-verify.mjs",
+    "harness:explorer-blocks": "npx tsx tools/harness/explorer-blocks-render-verify.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

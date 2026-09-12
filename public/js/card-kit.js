@@ -2131,9 +2131,11 @@
     },
     // Bloc TABLE (27/08, entité×période — « montre la donnée », owner) : LE tableau du kit
     // (msTable), jamais un second rendu de table. items = { cols, rows } au format msTable.
+    // 12/09 : msTable rend DÉJÀ son <table> — l'envelopper d'un second <table> imbriquait deux tables (le
+    // navigateur refermait la première, vide ; mesuré au harnais explorer-blocks : 4 tables pour 2 blocs).
     table: function (b) {
       if (!b.cols || !b.rows || !b.rows.length) return '';
-      return '<div style="overflow-x:auto;margin:8px 0 12px;"><table style="border-collapse:collapse;font-size:13px;color:#111827;width:100%;">' + msTable(b.cols, b.rows) + '</table></div>';
+      return '<div style="overflow-x:auto;margin:8px 0 12px;">' + msTable(b.cols, b.rows) + '</div>';
     },
     // Bloc SOURCES dépliable (patron details du kit, comme les étapes best-in-class).
     sources: function (b) {

@@ -250,10 +250,14 @@ Ce qui ne rentre pas : `_hors_perimetre_v1` et `_objection_v1` restent des règl
 
 - Chaque outil : une fonction de composition pure et son test (patron `composeMargeFamily`,
   `composeEspaceFamily`), une mutation vue rouge.
-- La batterie Explorer (`tools/battery/explorer-quality-battery.ts`) gagne les questions composées du § 2.3
-  ; la porte lie-bait (`npm run gate`) reste verte à chaque commit.
-- Un harnais par type de bloc (patron `tableau-pole-espace-render-verify.mjs`) : le kit rend le bloc sur
-  les données réelles du compte de test owner — et le même rendu côté serveur (happy-dom) pour l'email.
+- La batterie de l'agent (`tools/battery/explorer-agent-battery.ts`, `npm run battery:agent` — 12/09) rejoue les
+  questions composées du § 2.3 et celles de l'owner sur la vraie boucle et le compte de test : outils attendus,
+  fait attendu, durée, registre ; 6/6 verts le 12/09, 8,5-16,7 s. La porte lie-bait (`npm run gate`) reste verte
+  à chaque commit.
+- Un harnais par type de bloc : `tools/harness/explorer-blocks-render-verify.mjs` (`npm run harness:explorer-blocks`,
+  12/09) rend `tableau`, `faits`, `absence`, `sources` et la pastille par le VRAI kit dans happy-dom sur les blocs des
+  libs, données réelles du compte de test owner (il a attrapé le double `<table>` du kit, corrigé ?v=80) — le même
+  rendu côté serveur servira l'email.
 - Chaque chiffre d'une réponse porte sa requête et sa fenêtre (dans les `sources` du tour).
 - Budget : première réponse utile sous 3 s sur le compte de test owner, mesuré, jamais déduit.
 - Le document : une version par enregistrement, relue après écriture (sonde réelle sur le compte de test,
