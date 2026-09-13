@@ -176,6 +176,7 @@ async function buildLineage(bq: any, snap: any): Promise<any[]> {
     const [lrows] = await bq.query({
 
       query: `SELECT commitment_id, version_no, status, verdict, measured_metric, measured_scope,
+                     dispositif_note,
                      window_residual_pct, window_residual_z,
                      kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
                      CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end,
@@ -213,6 +214,11 @@ async function buildLineage(bq: any, snap: any): Promise<any[]> {
         effect_pct: eff.pct,
         effect_proven: eff.z != null && Math.abs(eff.z) >= 1,
         kpi_mention_fr: eff.kpi_mention_fr,
+        // 13/09 — CE QUE L'EXPLOITANT A CHANGÉ à cette version. Le champ existait en base
+        // (`dispositif_note`) et n'avait AUCUNE surface sur un pôle : `dispoBlock` n'est assemblé que
+        // dans les deux branches d'opération. C'est ici qu'il vit désormais — dans l'historique, sous
+        // la ligne de sa version, à côté de ses photos : la photo montre, la note dit pourquoi.
+        note: r.dispositif_note != null ? String(flatv(r.dispositif_note)).trim() || null : null,
         is_current: String(flatv(r.commitment_id)) === String(snap.commitment_id),
       };
     });

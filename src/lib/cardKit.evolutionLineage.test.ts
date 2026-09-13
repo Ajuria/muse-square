@@ -474,6 +474,31 @@ it("un PÔLE à deux versions rend son historique AVEC les photos — c'est là 
   expect(html).not.toContain("/app/insightevent/engagement?id=c-v1");
 });
 
+// ── 13/09 — LA NOTE DE LA VERSION (owner : « on doit confirmer avec le user le changement réalisé »).
+// La réponse à « Qu'avez-vous changé ? » s'écrit dans `dispositif_note` ; sur un pôle, ce champ n'avait
+// AUCUNE surface (dispoBlock n'est assemblé que dans les deux branches d'opération) — la question aurait
+// promis ce que rien ne rendait (lexique règle 8, interdit d). La voici, sous la ligne de sa version.
+it("la note d'une version d'un PÔLE se lit sous sa ligne, à côté de ses photos", () => {
+  const data = poleAvecVersions();
+  data.lineage[0].note = "Couteaux descendus en bas, épices à hauteur d'œil";
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("data-lin-note");
+  expect(html).toContain("Couteaux descendus en bas, épices à hauteur d&#39;œil".replace("&#39;", "'"));
+  // La note se place APRÈS la ligne de sa version et AVANT la rangée de photos de cette version.
+  const ligne = html.indexOf("Version 1 — du 01/06/2026");
+  const note = html.indexOf("data-lin-note");
+  const photos = html.indexOf('data-lin-photos="1"');
+  expect(ligne).toBeGreaterThan(-1);
+  expect(note).toBeGreaterThan(ligne);
+  expect(photos).toBeGreaterThan(note);
+});
+
+it("une version SANS note ne rend aucun emplacement — un cadre vide ne raconte rien", () => {
+  const html = String(kit.renderEvolution(poleAvecVersions(), EVOL_COPY));
+  expect(html).toContain("Historique du dispositif");
+  expect(html).not.toContain("data-lin-note");
+});
+
 it("l'historique d'un PÔLE ne porte AUCUN mot de verdict ni de fenêtre (owner 27/08)", () => {
   const html = String(kit.renderEvolution(poleAvecVersions(), EVOL_COPY));
   const i = html.indexOf("Historique du dispositif");

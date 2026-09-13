@@ -1215,7 +1215,12 @@
               var inner = v.is_current || !v.commitment_id
                 ? esc(ligne)
                 : '<a href="' + esc(msPoleUrl(String(v.commitment_id))) + '" style="color:#1D3BB3;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;">' + esc(ligne) + '</a>';
+              // 13/09 — CE QUE L'EXPLOITANT A CHANGÉ à cette version (`dispositif_note`, servi par
+              // evolution.ts). La photo montre l'état, la note dit pourquoi il a changé : les deux se
+              // lisent sous la même ligne. Une version sans note ne rend RIEN — jamais un cadre vide.
+              var _pNote = v.note ? String(v.note).trim() : '';
               return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + inner + '</div>'
+                + (_pNote ? '<div data-lin-note style="font-size:12.5px;color:#6B7280;line-height:1.5;margin:1px 0 2px 0;white-space:pre-wrap;">' + esc(_pNote) + '</div>' : '')
                 + msLinPhotosRow(v, _pAvecPhoto, t2);
             }).join('')
           + '</div>';
