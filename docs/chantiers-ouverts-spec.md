@@ -114,11 +114,19 @@ ne pas insister le même jour. Le rejeu de la même heure n'envoie rien de plus.
 - **Fait le 13/09** : `lire_engagements` — le journal entier (cartes de pôles et d'opérations datées, faits
   de prose, jours à venir, un geste où la contre-indication prime). `_engagements_v1` et
   `_engagements_elicit_v1` sont TOMBÉES avec leur couche ; `prompt.ts` perd 106 lignes.
-- **Manque** : deux outils, `comparer_journees` (comparaison de journées v3) et `lire_entite_periode` (un
-  pôle ou une famille sur une période). Leurs élicitations restent tant qu'ils n'existent pas : les retirer
-  enverrait ces questions à un agent sans outil pour elles. La quatrième
-  (`_missing_dimension_elicit_v1` : stock, personnel, CA par client) n'a ni donnée ni outil — elle RESTE
-  une élicitation, et c'est la bonne réponse.
+- **Fait le 13/09 aussi** : `lire_entite_periode` — un pôle, une famille, une opération ou une personne sur
+  une période, la comparaison en table pour plusieurs entités ou deux périodes, et l'entité inconnue qui
+  rend les entités RÉELLES du site en puces. Trois sorties tombent d'un coup (`_entity_period_v1`,
+  `_entity_compare_v1`, `_entity_period_elicit_v1`).
+- **Manque** : UN outil, `comparer_journees` (comparaison de journées v3), dont dépend
+  `_missing_dates_v1`. La dernière élicitation (`_missing_dimension_elicit_v1` : stock, personnel, CA par
+  client) n'a ni donnée ni outil — elle RESTE une élicitation, et c'est la bonne réponse.
+- **Défaut ouvert, antérieur** : la question du plan coloré (« Montre-moi mon plan coloré par CA au m², et
+  dis-moi quel pôle a la plus forte marge brute par mètre. ») rend son registre en `model` au lieu de
+  `vetted` — un nombre du texte ne vient d'aucun fait d'outil. Constaté sur les deux runs du 13/09 au soir,
+  AVANT et APRÈS la migration du journal : ce n'est pas une régression, c'est l'incrément 8 du matin. La
+  question demande une marge par MÈTRE linéaire alors que `lire_plan` ne rend que des mesures par m² — la
+  piste est là, elle n'est pas vérifiée. À instruire, jamais à assouplir.
 - **Preuve exigée** (celle de la spec, inchangée) : pour chaque couche, sa question de référence dans la
   batterie, une réponse de l'agent jugée équivalente ou meilleure, et le retrait de la couche dans le MÊME
   commit. Écrire l'outil sans pouvoir lancer la batterie, c'est fabriquer un chantier de plus à moitié fait.

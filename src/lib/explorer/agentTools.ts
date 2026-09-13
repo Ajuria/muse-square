@@ -45,6 +45,8 @@ import { composerProposition, OBJECTIF_FR } from "./proposition";
 import { JOURS, margeToText, type JoursMot, type MargeLecture } from "../kpi/margeLecture";
 import { composeDispositifsDocumentes, dispositifsToText } from "../dispositifs/dispositifsDocumentes";
 import { composeJournalEngagements, journalToText, type JournalJour, type JournalSource } from "../commitments/journalEngagements";
+import { composeEntitePeriode, composeEntitesComparees, entiteToText } from "./entitePeriodeOutil";
+import type { EntityPeriodBlocks, EntityCompareBlocks } from "./entityReading";
 import type { ClassDispositif } from "../dispositifs/bestPractices";
 import type { SiteEntities, SiteEntity } from "./entityResolver";
 import { dispositifFamilleToBlocks, type DispositifFamilleReading } from "../dispositifs/dispositifFamille";
@@ -110,6 +112,10 @@ export interface AgentToolDeps {
   // 13/09 (§ 7, couche 6) — VOTRE JOURNAL : les engagements jugés (provider engagements) et les jours à venir
   // où les conditions d'un dispositif prouvé se reforment (journalPlan). Deux lectures, un seul outil.
   runJournal: () => Promise<{ source: JournalSource; jours: JournalJour[] }>;
+  // 13/09 (§ 7, couche 6) — une entité (pôle, famille, opération, personne) sur une période ; plusieurs
+  // entités ou deux périodes passent par la comparaison. Les deux lecteurs existants, jamais une copie.
+  runEntitePeriode: (entite: SiteEntity, du: string, au: string) => Promise<EntityPeriodBlocks>;
+  runEntitesComparees: (entites: SiteEntity[], periodes: Array<{ start: string; end: string }>) => Promise<EntityCompareBlocks>;
   // 13/09 (§ 7, couche 3) — vos dispositifs documentés (les fiches de l'atelier) et « une opération × des familles ».
   listDispositifsDocumentes: () => Promise<ClassDispositif[]>;
   siteEntities: () => Promise<SiteEntities>;
@@ -548,6 +554,48 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
+  // ── 13/09 (§ 7, couche 6) — lire_entite_periode : un pôle, une famille, une opération ou une personne sur
+  // une période (ex _entity_period_v1) ; plusieurs entités ou deux périodes → la comparaison en table
+  // (ex _entity_compare_v1). Une entité inconnue rend les entités RÉELLES du site en puces — l'élicitation
+  // devient un bloc de l'outil (ex _entity_period_elicit_v1), jamais une devinette.
+  const lireEntitePeriode = outil({
+    name: "lire_entite_periode",
+    description: "Ce qu'une ENTITÉ de ce site a fait sur une période : un pôle, une famille de produits & services, une opération ou une personne de l'équipe. Deux à quatre entités, ou une entité sur DEUX périodes, rendent une comparaison en table (cellules nues, aucun verdict fabriqué entre entités). Répond à « comment va le pôle Cuisine en août ? », « compare Coffee et Tea sur le mois dernier ».",
+    inputSchema: z.object({
+      entites: z.array(z.string()).min(1).max(4).describe("Une à quatre entités par leur nom (pôle, famille, opération, personne)."),
+      du: z.string().describe("Premier jour de la période, AAAA-MM-JJ."),
+      au: z.string().describe("Dernier jour de la période, AAAA-MM-JJ."),
+      du_comparaison: z.string().optional().describe("Premier jour de la période à comparer (facultatif)."),
+      au_comparaison: z.string().optional().describe("Dernier jour de la période à comparer."),
+    }),
+    run: (args) => timed("lire_entite_periode", args, async () => {
+      const site = await deps.siteEntities();
+      const KINDS: SiteEntity["kind"][] = ["pole", "famille", "operation", "personne"];
+      const trouvees: SiteEntity[] = [];
+      const inconnues: string[] = [];
+      for (const nom of args.entites) {
+        const e = KINDS.map((k) => trouve(site, k, nom)).find(Boolean) ?? null;
+        if (e) trouvees.push(e); else inconnues.push(nom);
+      }
+      if (!trouvees.length) {
+        // L'élicitation devient un bloc : les entités RÉELLES du site en puces (ex _entity_period_elicit_v1).
+        const choix = site.entities.filter((e) => e.kind === "pole" || e.kind === "famille").slice(0, 8);
+        const manque = `Je ne trouve ni pôle ni famille de ce nom sur ce site : ${inconnues.map((n) => `« ${n} »`).join(", ")}.${choix.length ? " Laquelle ?" : ""}`;
+        const chips = choix.map((e) => ({ label_fr: e.kind === "famille" ? `Famille ${e.name}` : e.name, send: `Comment va ${e.kind === "famille" ? `la famille ${e.name}` : e.name} du ${args.du} au ${args.au} ?` }));
+        return {
+          out: manque, summary: `entité introuvable — ${plural(choix.length, "choix", "choix")} proposés`,
+          blocks: chips.length ? [{ type: "prose", md: manque } as AnswerBlock, { type: "clarification", chips } as AnswerBlock] : [{ type: "absence", manque, geste: null } as AnswerBlock],
+          facts: [],
+        };
+      }
+      const cmp = args.du_comparaison && args.au_comparaison ? { start: args.du_comparaison, end: args.au_comparaison } : null;
+      const x = (trouvees.length >= 2 || cmp)
+        ? composeEntitesComparees(await deps.runEntitesComparees(trouvees, [{ start: args.du, end: args.au }, ...(cmp ? [cmp] : [])]))
+        : composeEntitePeriode(await deps.runEntitePeriode(trouvees[0], args.du, args.au));
+      return { out: entiteToText(x), summary: `${x.titre} — ${plural(x.facts.length, "fait", "faits")}`, blocks: x.blocks, facts: x.facts };
+    }),
+  });
+
   // ── 13/09 (§ 7, couche 3) — lire_dispositifs_documentes : les fiches de l'atelier (ex _dispositifs_v1), une ligne par fiche.
   const lireDispositifsDocumentes = outil({
     name: "lire_dispositifs_documentes",
@@ -692,5 +740,5 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireEngagements, lireDispositifsDocumentes, lireOperationFamille, composerPlan, ecrireDeclaration, lirePlan, pontDeMarge];
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireEngagements, lireEntitePeriode, lireDispositifsDocumentes, lireOperationFamille, composerPlan, ecrireDeclaration, lirePlan, pontDeMarge];
 }

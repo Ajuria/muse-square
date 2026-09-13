@@ -77,6 +77,9 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   // l'action conseillée et le geste n'ont pas le droit de se dissoudre (c'est ce que le packager faisait
   // en août, et c'est pour ça que cette couche était restée déterministe).
   { q: "Qu'est-ce qui a marché ?", expect: { producers: ["agent_lire_engagements"], maxSeconds: 30, answerMatch: /engagement|dispositif|objectif|pôle/i } },
+  // 13/09 (§ 7, couche 6) : une entité sur une période est servie par l'agent (lire_entite_periode) — la
+  // table ne change pas, chaque ligne chiffrée devient un fait citable pour la porte.
+  { q: "Comment va le pôle Cuisine sur le mois dernier ?", expect: { producers: ["agent_lire_entite_periode"], maxSeconds: 30, answerMatch: /Cuisine|pôle/i } },
   // 13/09 (§ 7, couche 3) : les fiches documentées et « une opération × une famille » sont servies par l'agent.
   { q: "Quelles bonnes pratiques ai-je documentées ?", expect: { producers: ["agent_lire_dispositifs_documentes"], maxSeconds: 25, answerMatch: /documenté/i } },
   { q: "Pendant le Corner de vente producteur, qu'a fait la famille Coffee ?", expect: { producers: ["agent_lire_operation_famille"], maxSeconds: 30, answerMatch: /Coffee/ } },

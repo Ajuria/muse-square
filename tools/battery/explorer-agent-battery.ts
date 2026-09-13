@@ -64,6 +64,10 @@ const BATTERY: Case[] = [
   // revient.
   { q: "Qu'est-ce qui a marché ?", tools: ["lire_engagements"], answerMatch: /engagement|dispositif|objectif|pôle/i, vetted: true },
   { q: "Qu'est-ce qui a marché, et quelles bonnes pratiques ai-je documentées ?", tools: ["lire_engagements", "lire_dispositifs_documentes"], answerMatch: /documenté|dispositif/i, vetted: true },
+  // § 7 couche 6 (13/09) — ex _entity_period_v1 / _entity_compare_v1 / _entity_period_elicit_v1 : une entité
+  // sur une période, la comparaison, et l'entité inconnue qui rend les entités réelles en puces.
+  { q: "Comment va le pôle Cuisine sur le mois dernier ?", tools: ["lire_entite_periode"], answerMatch: /Cuisine|pôle/i, vetted: true },
+  { q: "Compare Coffee et Tea sur le mois dernier.", tools: ["lire_entite_periode"], answerMatch: /Coffee/i, vetted: true },
   // § 7 couche 3 (13/09) — ex _dispositifs_v1 et _dispositif_famille_v1.
   { q: "Quelles bonnes pratiques ai-je documentées ?", tools: ["lire_dispositifs_documentes"], answerMatch: /documenté|dispositif/i, vetted: true },
   { q: "Pendant le Corner de vente producteur, qu'a fait la famille Coffee ?", tools: ["lire_operation_famille"], answerMatch: /Coffee/, vetted: true, blocks: ["table"] },

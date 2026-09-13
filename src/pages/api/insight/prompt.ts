@@ -43,7 +43,9 @@ import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
 // couche journal : elles sont lues par `agentTurn.ts` pour `lire_engagements` et `lire_dispositifs_documentes`.
 import { loadSiteEntities, matchEntities } from "../../../lib/explorer/entityResolver";
 import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
-import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, readEntityWhy, readKpiPeriod } from "../../../lib/explorer/entityReading";
+// 13/09 (§ 7, couche 6) — `readEntityPeriod`, `readEntitiesCompared` et leurs deux builders ont quitté ce
+// fichier avec la couche : `agentTurn.ts` les lit pour `lire_entite_periode`.
+import { readEntityWhy, readKpiPeriod } from "../../../lib/explorer/entityReading";
 import { readIdeaPlacement } from "../../../lib/dispositifs/ideaPlacement";
 import { signalMetier, horsPerimetreReponse } from "../../../lib/ai/horsPerimetre";
 import { operationLife } from "../../../lib/dispositifs/dispositifFamille";
@@ -2777,26 +2779,16 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         // de lectures unitaires (readEntitiesCompared), cellules nues, jamais un verdict
         // fabriqué entre entités. Une seule entité, une seule période → le chemin historique.
         const _epCompare = _rsv?.periode_comparaison ?? null;
-        if (_epMatches.length >= 2 || (_epMatches.length >= 1 && _epCompare)) {
-          const _cmpPeriods = [{ start: _epPeriod.start, end: _epPeriod.end }, ...(_epCompare ? [{ start: _epCompare.start, end: _epCompare.end }] : [])];
-          const _cmpGrid = await readEntitiesCompared(_bqe, location_id, _epMatches, _cmpPeriods, _epToday);
-          const _cmpB = buildEntityCompareBlocks(_cmpGrid);
-          return sysDialogueResponse(
-            _cmpB.headline, "", "deterministic_entity_compare_v1", null,
-            { plan_sections: _cmpB.sections, sources_list: _cmpB.sources },
-          );
-        }
+        // 13/09 (§ 7, couche 6) — RENTRÉES : `lire_entite_periode` sert les deux cas (une entité sur une
+        // période, et la comparaison de plusieurs entités ou de deux périodes). La composition est PURE et
+        // testée (`lib/explorer/entitePeriodeOutil.ts`) ; les lectures et la mise en table ne bougent pas
+        // (`readEntityPeriod` / `readEntitiesCompared`, `buildEntity*Blocks`). Ce que l'outil AJOUTE : chaque
+        // ligne de table redite comme un fait, pour que la porte puisse citer ses nombres.
         if (_epMatches.length) {
-          const _epEnt = _epMatches[0];
-          const _epReading = await readEntityPeriod(_bqe, location_id, _epEnt, _epPeriod.start, _epPeriod.end, _epToday);
-          const _epBlocks = buildEntityPeriodBlocks(_epReading);
-          return sysDialogueResponse(
-            _epBlocks.headline,
-            _epBlocks.prose,
-            "deterministic_entity_period_v1",
-            null,
-            { entity_table: _epBlocks.table, funnel_table: _epBlocks.funnel_table, sources_list: _epBlocks.sources },
-          );
+          const _epNoms = _epMatches.map((e) => `« ${e.name} »`).join(", ");
+          const _epCmpTxt = _epCompare ? `, à comparer au ${_epCompare.start} → ${_epCompare.end}` : "";
+          return repondreParAgent("lire_entite_periode",
+            `${qRaw}\n\n(Reconnu par Muse Square : ${_epMatches.length > 1 ? "entités" : "entité"} ${_epNoms}, période du ${_epPeriod.start} au ${_epPeriod.end}${_epCmpTxt} — appelle lire_entite_periode avec ces valeurs.)`);
         }
         // I2 — aucune entité : la période résolue par le résolveur passe au chemin legacy
         // (posée ici, lue plus bas par la fenêtre du renvoi rapport et l'extraction de dates).
@@ -2815,19 +2807,14 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         }
         // D2 — l'entité nommée est introuvable : élicitation avec les LISTES RÉELLES du site,
         // jamais une devinette. Seulement quand la question NOMME un pôle ou une famille.
+        // 13/09 (§ 7, couche 6) — RENTRÉE : l'entité nommée est introuvable. L'élicitation est devenue un
+        // BLOC de l'outil (`clarification` : les entités RÉELLES du site en puces) — c'est lui qui la rend,
+        // avec les noms qu'il a cherchés. Jamais une devinette, et plus une sortie de ce fichier.
         if (/\bp[oô]les?\b/i.test(qRaw) || /\bfamille\b/i.test(qRaw)
             || (_rsv?.intent === "entity_period" && _rsv.entity_names.length > 0 && !_rsv.entities.length)) {
-          const _poleNames = _epSite.entities.filter((e) => e.kind === "pole").map((e) => e.name);
-          const _famNames = _epSite.entities.filter((e) => e.kind === "famille").map((e) => e.name).slice(0, 8);
-          const _lists = [
-            _poleNames.length ? `Vos pôles : ${_poleNames.join(", ")}.` : "Vous n'avez pas encore de pôle déclaré.",
-            _famNames.length ? `Vos familles : ${_famNames.join(", ")}.` : "",
-          ].filter(Boolean).join(" ");
-          return sysDialogueResponse(
-            "Je ne trouve pas cette entité",
-            `Je ne trouve ni pôle ni famille de ce nom sur ce site. ${_lists}`,
-            "deterministic_entity_period_elicit_v1",
-          );
+          const _epNomsDits = (_rsv?.entity_names ?? []).filter(Boolean);
+          return repondreParAgent("lire_entite_periode",
+            `${qRaw}\n\n(Muse Square n'a reconnu aucune entité${_epNomsDits.length ? ` pour ${_epNomsDits.map((n) => `« ${n} »`).join(", ")}` : ""} ; période du ${_epPeriod.start} au ${_epPeriod.end} — appelle lire_entite_periode avec ces noms, il rendra les entités réelles du site.)`);
         }
       }
     }

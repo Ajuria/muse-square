@@ -353,9 +353,18 @@ par capacité, jamais par site.
    (`engagementsFamily`, `journalPlan`) partent désormais en PARALLÈLE. Les fiches documentées ne sont plus
    inlinées dans le journal : elles ont leur outil depuis le matin, et la description de `lire_engagements`
    dit au modèle d'appeler les deux. `prompt.ts` perd 106 lignes (7 251 → 7 145) et quatre imports.
-   **Restent trois chemins sans outil** : `_missing_dates_v1` (comparaison de journées),
-   `_entity_period_elicit_v1` (entité × période) et `_missing_dimension_elicit_v1` (stock, personnel, CA
-   par client — sans donnée, celle-là RESTE une élicitation).
+   **13/09, troisième passage — `lire_entite_periode` EXISTE**, et TROIS sorties tombent avec lui :
+   `_entity_period_v1` (une entité sur une période), `_entity_compare_v1` (plusieurs entités ou deux
+   périodes, en table) et `_entity_period_elicit_v1` (l'entité inconnue, devenue un bloc `clarification`
+   qui rend les entités RÉELLES du site en puces). Les lectures et la mise en table ne bougent pas
+   (`readEntityPeriod` / `readEntitiesCompared`, `buildEntity*Blocks`) ; ce que l'outil AJOUTE tient en une
+   règle — **chaque ligne de table est redite comme un fait**, sinon le modèle lit dans la table des
+   nombres que la porte ne trouve nulle part (`lib/explorer/entitePeriodeOutil.ts`, pur, 9 cas). Une
+   cellule vide (« — ») ne devient jamais un fait : une absence n'est pas un chiffre. `prompt.ts` :
+   7 145 → 7 132 lignes, quatre imports de plus retirés.
+   **Reste UN chemin sans outil** : `_missing_dates_v1` (comparaison de journées → `comparer_journees`).
+   `_missing_dimension_elicit_v1` (stock, personnel, CA par client) n'a ni donnée ni outil : elle RESTE une
+   élicitation, et c'est la bonne réponse.
 
 Ce qui ne rentre pas : `_hors_perimetre_v1` et `_objection_v1` restent des règles du prompt système.
 

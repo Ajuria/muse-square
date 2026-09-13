@@ -26,6 +26,23 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
     readPhotoBytes: async () => ({ media_type: "image/jpeg", base64: "AAAA", bytes: 4 }),
     readMemory: async () => [],
     writeMemory: async (row) => { written.push(row); },
+    // 13/09 (§ 7, couche 6) — une entité sur une période : l'en-tête, la ligne de contexte, une table.
+    runEntitePeriode: async (entite, du, au) => ({
+      headline: `${entite.name} — du ${du} au ${au}`,
+      prose: "Ce pôle pèse 40,1 % de votre CA sur la période.",
+      table: {
+        cols: [{ label: "Famille" }, { label: "Période" }, { label: "CA", align: "right" }],
+        rows: [{ cells: [{ v: "Coffee", bold: true }, { v: "août" }, { v: "21 064 €", sub: "30 j vendus" }] },
+               { cells: [{ v: "Loose Tea", bold: true }, { v: "août" }, { v: "—", sub: "3 j vendus" }] }],
+      },
+      funnel_table: null,
+      sources: ["Vos ventes"],
+    }),
+    runEntitesComparees: async (entites, periodes) => ({
+      headline: `${entites.map((e) => e.name).join(" vs ")} — ${periodes.length} période(s)`,
+      sections: [{ title: "Chiffre d'affaires", table: { cols: [{ label: "Entité" }, { label: "CA", align: "right" }], rows: [{ cells: [{ v: "Coffee" }, { v: "21 064 €" }] }] }, facts: ["Coffee : 702 €/jour (août) vs 640 €/jour (juillet)."] }],
+      sources: ["Vos ventes"],
+    }),
     // 13/09 (§ 7, couche 6) — le journal : un engagement jugé, un pôle en carte, un jour à venir prouvé.
     runJournal: async () => ({
       source: {
@@ -118,7 +135,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_engagements", "lire_dispositifs_documentes", "lire_operation_famille", "composer_plan", "ecrire_declaration", "lire_plan", "pont_de_marge"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_engagements", "lire_entite_periode", "lire_dispositifs_documentes", "lire_operation_famille", "composer_plan", "ecrire_declaration", "lire_plan", "pont_de_marge"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -420,6 +437,32 @@ describe("couche 6 (13/09) — lire_engagements : votre journal", () => {
     expect(out).toContain("Vous n'avez pas encore d'engagement jugé sur ce site");
     expect(d.records[0].blocks?.[0]).toMatchObject({ type: "absence", geste: { label_fr: "Vos opérations" } });
     expect(d.records[0].summary).toBe("aucun engagement jugé — absence dite");
+  });
+});
+
+describe("couche 6 (13/09) — lire_entite_periode : une entité sur une période", () => {
+  it("une entité reconnue : l'en-tête, la table, et chaque ligne chiffrée redite comme un fait", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "lire_entite_periode").run({ entites: ["épicerie fine"], du: "2026-08-01", au: "2026-08-31" });
+    expect(out).toContain("• Coffee : Période août · CA 21 064 € (30 j vendus).");
+    expect(out).not.toContain("Loose Tea");                       // cellule « — » : jamais un fait
+    expect(d.records[0].blocks?.map((b) => b.type)).toEqual(["prose", "facts", "table", "sources"]);
+  });
+
+  it("deux entités, ou une période de comparaison, passent par la comparaison en table", async () => {
+    const d = deps();
+    await byName(buildAgentTools(d), "lire_entite_periode").run({ entites: ["épicerie fine"], du: "2026-08-01", au: "2026-08-31", du_comparaison: "2026-07-01", au_comparaison: "2026-07-31" });
+    expect(d.records[0].summary).toContain("2 période(s)");
+  });
+
+  it("entité inconnue : les entités RÉELLES du site en puces — l'élicitation est un bloc, jamais une devinette", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "lire_entite_periode").run({ entites: ["Charcuterie"], du: "2026-08-01", au: "2026-08-31" });
+    expect(out).toContain("« Charcuterie »");
+    const blocks = d.records[0].blocks ?? [];
+    expect(blocks.map((b) => b.type)).toEqual(["prose", "clarification"]);
+    expect((blocks[1] as any).chips.length).toBeGreaterThan(0);
+    expect(d.records[0].facts).toEqual([]);
   });
 });
 

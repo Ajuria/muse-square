@@ -23,6 +23,7 @@ import { relireTexte, type Relecture } from "../fr/relecture";
 import { listClassDispositifs } from "../dispositifs/bestPractices";
 import { engagementsFamily } from "../insightFamilies/engagements";
 import { journalPlan } from "./journalPlan";
+import { readEntityPeriod, readEntitiesCompared, buildEntityPeriodBlocks, buildEntityCompareBlocks } from "./entityReading";
 import { loadSiteEntities } from "./entityResolver";
 import { operationLife, readDispositifFamille } from "../dispositifs/dispositifFamille";
 import { planPeriod } from "./planPeriod";
@@ -151,6 +152,9 @@ export function agentDeps(bq: any, inp: AgentTurnInput, tool_calls: ToolCallReco
       ]);
       return { source: source as any, jours: jours as any };
     },
+    // 13/09 (§ 7, couche 6) — une entité sur une période, et la comparaison : LES lecteurs existants.
+    runEntitePeriode: async (entite, du, au) => buildEntityPeriodBlocks(await readEntityPeriod(bq, location_id, entite, du, au, today())),
+    runEntitesComparees: async (entites, periodes) => buildEntityCompareBlocks(await readEntitiesCompared(bq, location_id, entites, periodes, today())),
     listDispositifsDocumentes: () => listClassDispositifs(bq, location_id, null, 6),
     siteEntities: () => loadSiteEntities(bq, location_id, inp.user_id),
     operationLife: (sid) => operationLife(bq, location_id, sid, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" })),
