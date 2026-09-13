@@ -251,8 +251,9 @@ it("coût de l'opération (ROI) : la ligne rend le coût, et le net SEULEMENT qu
   expect(measured).toContain("Coût de l’opération : 120 € · net après coût : −320 €");
 });
 
-// ── 13/09 (owner) — la photo dit ce qu'elle permet, une fois sous le titre ; « Documenter → » reste le CTA de chaque composant ──
-it("le bloc Composants porte le gain de la photo (une seule fois) et garde « Documenter → » par composant", () => {
+// ── 13/09 (owner, DEUX refus) — aucune ligne d'accroche sous le titre Composants tant que la mémoire visuelle n'existe
+// pas sur une surface qu'on peut ouvrir (CLAUDE.md § copie règle 8). Le bloc rend ses composants et son CTA, rien d'autre. ──
+it("le bloc Composants ne porte AUCUNE accroche sous son titre, et garde « Documenter → » par composant", () => {
   const data: any = baseData();
   data.commitment.dispositif_nature = "permanent"; data.commitment.dispositif_id = "d1"; data.commitment.version_no = 1; data.commitment.status = "open";
   data.commitment.pole_families = '["Épices"]';
@@ -262,7 +263,9 @@ it("le bloc Composants porte le gain de la photo (une seule fois) et garde « Do
   ];
   data.pole = { totals: { rev30_eur: 1000, share_pct: 10, avg30_eur_day: 33, base_eur_day: 30, delta_pct: 10, n30: 30 }, families: [], operations: [] };
   const html = String(kit.renderEvolution(data, EVOL_COPY));
-  expect((html.match(/Une photo par composant, et vous voyez ce qui est exposé sans se vendre/g) || []).length).toBe(1);
+  expect(html).not.toMatch(/Une photo par composant|garde votre agencement|hauteur d['’]œil/);
+  const titre = html.indexOf("Composants"), premier = html.indexOf("Vitrine entrée");
+  expect(html.slice(titre, premier)).not.toMatch(/[a-zà-ÿ]{4,}\s+[a-zà-ÿ]{4,}\s+[a-zà-ÿ]{4,}/);   // aucune phrase entre le titre et le premier composant
   expect((html.match(/Documenter →/g) || []).length).toBe(2);
   expect(html).not.toContain("Aucun composant déclaré");
 });
