@@ -154,11 +154,18 @@ async function ask(q: string) {
     if (r) console.log("  " + r.text.slice(0, 500).replace(/\n+/g, " / "));
     if (r && r.grounding.ungrounded_numbers.length) console.log("  nombres non fondés :", r.grounding.ungrounded_numbers.join(", "));
     if (r && r.relecture.fautes.length) console.log("  relecture — phrases retirées :", r.relecture.phrases_retirees, "·", r.relecture.fautes.map((f) => f.motif).join(" ; "));
-    rows.push(`| ${c.q} | ${r ? r.seconds.toFixed(1) : "—"} (1er bloc ${r && r.firstBlockAt != null ? r.firstBlockAt.toFixed(1) : "—"}) | ${r ? r.grounding.register : "erreur"} | ${used.join(", ")} | ${r ? r.blocks.map((b: any) => b.type).join(", ") : ""} | ${failed.length ? "FAIL " + failed.join(", ") : "OK"} |`);
+    // 13/09 — le POURQUOI de l'échec entre dans le RAPPORT, pas seulement dans la console : un « FAIL
+    // registre » sans les nombres fautifs oblige à relancer pour savoir lequel, et personne ne relance.
+    const pourquoi = [
+      r && r.grounding.ungrounded_numbers.length ? `nombres non fondés : ${r.grounding.ungrounded_numbers.join(", ")}` : "",
+      r && r.relecture.fautes.length ? `relecture : ${r.relecture.fautes.map((f) => f.motif).join(" ; ")}` : "",
+      err,
+    ].filter(Boolean).join(" · ");
+    rows.push(`| ${c.q} | ${r ? r.seconds.toFixed(1) : "—"} (1er bloc ${r && r.firstBlockAt != null ? r.firstBlockAt.toFixed(1) : "—"}) | ${r ? r.grounding.register : "erreur"} | ${used.join(", ")} | ${r ? r.blocks.map((b: any) => b.type).join(", ") : ""} | ${failed.length ? "FAIL " + failed.join(", ") : "OK"} | ${pourquoi || "—"} |`);
   }
   const report = [
     `# Batterie de l'agent Explorer — ${new Date().toISOString().slice(0, 16).replace("T", " ")} (compte ${LOC.slice(0, 8)}, modèle ${MODEL})`,
-    "", "| Question | s | registre | outils | blocs | portes |", "|---|---|---|---|---|---|", ...rows, "",
+    "", "| Question | s | registre | outils | blocs | portes | pourquoi |", "|---|---|---|---|---|---|---|", ...rows, "",
     `${hardFails} cas en échec sur ${BATTERY.length}. Budget owner : 3 s (mesuré, pas atteint : décision modèle en attente, spec § 10).`,
   ].join("\n");
   fs.mkdirSync("data/shots", { recursive: true });

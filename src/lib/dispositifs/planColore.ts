@@ -7,11 +7,18 @@ import type { AnswerBlock } from "../explorer/blocks";
 import type { PoleSpaceRow } from "./poleReading";
 import type { Point, SpaceZone } from "./spaceZones";
 
-export type PlanMesure = "ca_par_m2" | "marge_par_m2" | "ca" | "part_ca";
-export const PLAN_MESURES: PlanMesure[] = ["ca_par_m2", "marge_par_m2", "ca", "part_ca"];
+// 13/09 — LES MESURES PAR MÈTRE LINÉAIRE MANQUAIENT. La question de référence de la batterie demande
+// « quel pôle a la plus forte marge brute par mètre » face à un plan teinté par m² : le plan ne savait pas
+// teinter par mètre, l'agent devait donc joindre un second outil pour un chiffre que celui-ci porte déjà
+// (`PoleSpaceRow.revenue_per_m` / `margin_per_m`, les mêmes colonnes que le volet du pôle sur Piloter).
+// Une jointure de moins, c'est une occasion de moins d'écrire un nombre que la porte ne retrouve pas.
+export type PlanMesure = "ca_par_m2" | "marge_par_m2" | "ca_par_metre" | "marge_par_metre" | "ca" | "part_ca";
+export const PLAN_MESURES: PlanMesure[] = ["ca_par_m2", "marge_par_m2", "ca_par_metre", "marge_par_metre", "ca", "part_ca"];
 export const PLAN_MESURE_FR: Record<PlanMesure, string> = {
   ca_par_m2: "CA par m² sur 30 jours",
   marge_par_m2: "marge brute par m² sur 30 jours",
+  ca_par_metre: "CA par mètre sur 30 jours",
+  marge_par_metre: "marge brute par mètre sur 30 jours",
   ca: "CA sur 30 jours",
   part_ca: "Part du CA sur 30 jours",
 };
@@ -45,7 +52,11 @@ const ABSENCE = "Aucun contour de pôle pour l’instant — les zones se relèv
 
 function valeurDe(mesure: PlanMesure, r: PoleSpaceRow | undefined): { value: number | null; value_fr: string | null } {
   if (!r) return { value: null, value_fr: null };
-  const v = mesure === "ca_par_m2" ? r.revenue_per_m2 : mesure === "marge_par_m2" ? r.margin_per_m2 : mesure === "ca" ? r.revenue : r.revenue_share;
+  const v = mesure === "ca_par_m2" ? r.revenue_per_m2
+    : mesure === "marge_par_m2" ? r.margin_per_m2
+    : mesure === "ca_par_metre" ? r.revenue_per_m
+    : mesure === "marge_par_metre" ? r.margin_per_m
+    : mesure === "ca" ? r.revenue : r.revenue_share;
   if (v == null || !Number.isFinite(v)) return { value: null, value_fr: null };
   if (mesure === "part_ca") return { value: v, value_fr: `${frDec(v * 100, 1)} %` };
   return { value: v, value_fr: `${frInt(v)} €` };
