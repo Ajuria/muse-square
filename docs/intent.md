@@ -45,6 +45,12 @@ avec son résultat — pour que le lieu apprenne de lui-même.
   délibéré — scanner un QR code — et ce geste compte dans l'**attractivité** du produit ou de la
   famille, sans achat. L'attractivité et la vente sont deux mesures distinctes ; leur écart est ce
   qu'aucune caisse ne voit.
+- **plan coloré** : le plan du magasin, contours des pôles relevés sur le plan (`analytics.space_zones`), teintés par une
+  mesure de l'espace sur 30 jours — CA par m² d'abord ; ce que la caisse ne montre pas : où le CA se fait au sol
+  [owner 13/09].
+- **pont de marge** : l'écart de marge brute entre deux périodes décomposé en quatre effets (volume, mix, prix de vente,
+  prix d'achat) par famille, la somme des quatre étant l'écart ; seules les familles avec prix d'achat sur les deux
+  périodes comptent, la couverture est dite [owner 13/09].
 - **rapport** : le document qu'Explorer compose à la demande — une liste ordonnée de blocs (texte vérifié,
   tableau, carte, section), chacun avec les faits, l'outil et la période qui l'ont produit ; gardé par site
   avec l'auteur, réordonnable, recalculable, jamais un texte que le modèle aurait écrit sans faits. Un

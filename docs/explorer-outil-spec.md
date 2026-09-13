@@ -209,8 +209,8 @@ par des flèches, pas des mots (owner 12/09) ; l'organisation et la hiérarchie 
   chaque mois → le mois civil dernier ; chaque trimestre / chaque année → le trimestre / l'année civils derniers.
   La période relative du Modèle ne s'applique pas à l'envoi (ce qui part le lundi couvre la semaine finie).
 - Le cron `GET /api/cron/report-sends` (Bearer `CRON_SECRET`, `?dry=1` liste sans envoyer) est appelé CHAQUE
-  HEURE par cron-job.org (aucun cron dans `vercel.json`, le patron des autres crons) — **le job reste à créer par
-  l'owner sur la prod**. Il compose le document depuis le Modèle SANS la boucle (`lib/rapport/gestes.ts
+  HEURE par cron-job.org (aucun cron dans `vercel.json`, le patron des autres crons) — **créé par l'owner le 13/09
+  sur `dev.musesquare.com` (test : 200 en 810 ms) ; l'hôte passera à `www` à la mise en prod**. Il compose le document depuis le Modèle SANS la boucle (`lib/rapport/gestes.ts
   composerSurPeriode` : les mêmes lectures que composer_rapport, déterministes, donc pas de Synthèse et rien
   d'inventé), l'enregistre comme Rapport (`report_documents`, `modele_id` posé), le rend en HTML côté serveur PAR
   LE MÊME KIT (`card-kit.js` importé comme chaîne : ses primitives sont des chaînes à styles inline, aucun DOM ni
@@ -438,7 +438,7 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    `actif = false`. Harnais `npm run harness:rapports` couvre le formulaire. Owner 12/09 : envoyer le PDF une fois,
    ou le même modèle avec les données actualisées à X (moi, ou des contacts du compte / de Communiquer) tous les Y
    (jour, semaine, trimestre, année). **Reste** : le job cron-job.org horaire sur la prod (owner) ; le PDF (Chromium
-   sans tête) ; les mots de la page à ratifier (« Vos envois », « Envoyer maintenant », « Arrêter », « par email /
+   sans tête) ; les mots de la page RATIFIÉS par l'owner le 13/09 (« Vos envois », « Envoyer maintenant », « Arrêter », « par email /
    sur Slack »).
 6. **Incrément 6 — la proposition d'opération — LIVRÉ le 12/09** : `lib/explorer/proposition.ts` (pur, 4 tests + 3 sur
    l'outil, mutés), `proposer_operation` (le « pourquoi » = faits du tour seulement, `deps.faitsDuTour`), bloc
@@ -475,8 +475,8 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
      l'agent lit la vue (`listSpaceZonesEnVigueur`), le producteur garde sa lecture pour le one-off. Harnais `npm run harness:explorer-blocks` (le SVG : 11 polygones,
      14 textes, 8 faits) ; batterie agent « Montre-moi mon plan coloré par CA au m²… » vérifiée (Cuisine 371 € par m²,
      le plus fort). **Reste** : la validation owner des contours sur l'image de contrôle (le partage des allées au plus
-     proche à pied, `docs/espace-et-pole.md`) ; les libellés « Lecture de votre plan » et « Composition de votre pont de
-     marge » à ratifier ; le mot du bloc pour la page (« plan coloré » est le mot de la spec, pas encore du lexique).
+     proche à pied, `docs/espace-et-pole.md`) ; les libellés « Lecture de votre plan », « Composition de votre pont de
+     marge » et le mot du bloc « plan coloré » sont RATIFIÉS par l'owner le 13/09 (lexique, intent).
 ---
 
 ## 10. Décisions owner attendues
