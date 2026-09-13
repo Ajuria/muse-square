@@ -260,8 +260,10 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
   expect(html).toContain("Opérations sur ce pôle");
   expect(html).toContain('/app/insightevent/engagement?id=op-1');
   expect(html).toContain("14/09/2026");
-  // Aucun registre de verdict, aucune machinerie datée
-  for (const banned of ["objectif", "verdict", "Ajuster le dispositif", "La version suivante"]) {
+  // Aucun registre de verdict, aucune machinerie datée. « La version suivante » a quitté cette liste le 13/09 :
+  // un pôle A des versions (règle owner ratifiée ce jour-là — c'est ce qui fait exister l'historique et ses
+  // photos) ; ce qui reste interdit sur un pôle, c'est le vocabulaire du VERDICT d'une opération.
+  for (const banned of ["objectif", "verdict", "Ajuster le dispositif", "ce test"]) {
     expect(html.toLowerCase()).not.toContain(banned.toLowerCase());
   }
 });
@@ -477,4 +479,32 @@ it("l'historique d'un PÔLE ne porte AUCUN mot de verdict ni de fenêtre (owner 
 it("un pôle d'UNE seule version n'a pas d'historique à raconter", () => {
   const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
   expect(html).not.toContain("Historique du dispositif");
+});
+
+// ── 13/09 (owner : « aucune surface ne crée la version suivante d'un pôle ») — la section sur la page du PÔLE ──
+it("un pôle OUVERT, pour l'owner, porte « La version suivante » : la question, le plus courant pré-rempli, « Enregistrer → »", () => {
+  const data: any = polePhotos();
+  data.commitment.dispositif_plus = "Les fortes marges à hauteur d'œil";
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  const sec = html.indexOf("data-eg-nextversion-sec");
+  expect(sec).toBeGreaterThan(0);
+  const bloc = html.slice(sec, html.indexOf("</div></div>", sec) + 12);
+  expect(bloc).toContain("La version suivante");
+  expect(bloc).toContain("Qu&#39;avez-vous changé ?".replace("&#39;", "'"));   // le mot déjà en prod sur les opérations
+  expect(bloc).toContain("Les fortes marges à hauteur d&#39;œil".replace("&#39;", "'"));
+  expect(bloc).toContain('data-eg-nextversion');
+  expect(bloc).toContain("Enregistrer →");
+  // La section précède l'historique quand il existe : on décide d'abord, on relit ensuite.
+  const hist = html.indexOf("Historique du dispositif");
+  if (hist > 0) expect(sec).toBeLessThan(hist);
+});
+
+it("un MEMBRE ne voit pas la section — il ne crée pas de version", () => {
+  const data: any = polePhotos(); data.role = "member";
+  expect(String(kit.renderEvolution(data, EVOL_COPY))).not.toContain("data-eg-nextversion");
+});
+
+it("une OPÉRATION ne porte pas cette section (elle a son propre formulaire de version)", () => {
+  const data: any = baseData();
+  expect(String(kit.renderEvolution(data, EVOL_COPY))).not.toContain("data-eg-nextversion");
 });

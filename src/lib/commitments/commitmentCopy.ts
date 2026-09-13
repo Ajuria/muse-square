@@ -266,6 +266,9 @@ export const EVOL_COPY = {
   vform_plus: "Le plus du dispositif",
   vform_why: "Pourquoi ça va marcher",
   vform_cost: "Coût de l'opération (€) — optionnel",
+  // 13/09 — le bouton de la version suivante d'un PÔLE : « Enregistrer → », le verbe ratifié pour le Rapport
+  // le même jour (le clic ÉCRIT). Un verbe + flèche, ≤ 14 caractères (lexique règle 1).
+  vform_cta: "Enregistrer →",
   move_stop: "Arrêter",
   move_stop_d: "Abandonner cette action — clôture, la carte revient à piloter.",
   diag_move_note_q: "Qu'avez-vous changé ?",
