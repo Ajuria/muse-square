@@ -182,6 +182,11 @@ export const EVOL_COPY = {
   pole_fams_title: "Familles du pôle",
   // Composants (03/09, mot owner « composant » — lexique) : les unités physiques du dispositif.
   pole_components_title: "Composants",
+  // 13/09 (owner : une demande de saisie dit ce qu'elle permet) — « Documenter → » ne disait aucun gain. La ligne dit ce que
+  // la photo débloque, et c'est bâti (poleReading.classifyPoleItems → « En retrait sur votre résultat habituel » et
+  // « Vendus sans être vus sur une photo ») : ce qu'aucune caisse ne voit. Une fois sous le titre, jamais sur chaque
+  // composant. Proposée le 13/09, à ratifier.
+  pole_components_hint: "Une photo par composant, et vous voyez ce qui est exposé sans se vendre — et ce qui se vend sans être exposé.",
   pole_components_none: "Aucun composant déclaré pour l'instant.",
   // Photos des composants (étape 4, 03/09). « Documenter » = le CTA owner qui mène ici ; « photo »
   // = le mot employé par l'owner (D6, 03/09). Les réponses sont celles du formulaire de lecture.

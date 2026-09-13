@@ -251,6 +251,22 @@ it("coût de l'opération (ROI) : la ligne rend le coût, et le net SEULEMENT qu
   expect(measured).toContain("Coût de l’opération : 120 € · net après coût : −320 €");
 });
 
+// ── 13/09 (owner) — la photo dit ce qu'elle permet, une fois sous le titre ; « Documenter → » reste le CTA de chaque composant ──
+it("le bloc Composants porte le gain de la photo (une seule fois) et garde « Documenter → » par composant", () => {
+  const data: any = baseData();
+  data.commitment.dispositif_nature = "permanent"; data.commitment.dispositif_id = "d1"; data.commitment.version_no = 1; data.commitment.status = "open";
+  data.commitment.pole_families = '["Épices"]';
+  data.commitment.components = [
+    { key: "k1", type: "vitrine", role: null, label: "Vitrine entrée", type_label_fr: "Vitrine", role_label_fr: "" },
+    { key: "k2", type: "lineaire", role: "courant", label: "Linéaire fond", type_label_fr: "Linéaire", role_label_fr: "Produits du quotidien" },
+  ];
+  data.pole = { totals: { rev30_eur: 1000, share_pct: 10, avg30_eur_day: 33, base_eur_day: 30, delta_pct: 10, n30: 30 }, families: [], operations: [] };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect((html.match(/Une photo par composant, et vous voyez ce qui est exposé sans se vendre/g) || []).length).toBe(1);
+  expect((html.match(/Documenter →/g) || []).length).toBe(2);
+  expect(html).not.toContain("Aucun composant déclaré");
+});
+
 it("un pôle SANS composant dit l'absence (lexique règle 7), jamais une section vide", () => {
   const data: any = {
     commitment: { commitment_id: "pole-2", status: "open", dispositif_nature: "permanent",
