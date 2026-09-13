@@ -390,11 +390,19 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   `dispositifs-typologie-spec.md` § 5.3)** : mots owner, TRANCHÉS le 11/09.
   L'exposition, cinq valeurs : **Comptoir** · **Vitrine** · **Rayonnage** · **Caisses au sol** ·
   **Îlot** (clés `comptoir`, `vitrine`, `rayonnage`, `caisses_au_sol`, `ilot` — registre
-  `EXPOSITION_KINDS`), à la question « Quelle exposition ? » ; les **niveaux** (« Combien de niveaux ? »,
-  rayonnage seulement — jamais « rayons », qui dit aussi le rayon du magasin) ; **« N° sur le plan »**
-  (le numéro du composant sur le plan du magasin, saisi par l'exploitant, jamais lu sur l'image). Motif
-  owner : chez Épices et Tout, la plupart des composants sont des comptoirs, des vitrines réfrigérées,
-  des caisses en bois au sol — compter des « étagères » n'y veut rien dire. « Rayonnage » a remplacé
+  `EXPOSITION_KINDS`), à la question « Quelle exposition ? » ; les **étagères** (« Combien d'étagères ? »
+  — jamais « rayons », qui dit aussi le rayon du magasin) ; **« N° sur le plan »**
+  (le numéro du composant sur le plan du magasin, saisi par l'exploitant, jamais lu sur l'image).
+  **13/09 — LE MOT EST « ÉTAGÈRE », ET LA PHRASE QUI DISAIT LE CONTRAIRE N'ÉTAIT PAS DE L'OWNER.** Ce
+  paragraphe portait, sous le titre « Motif owner », une justification que j'avais ÉCRITE MOI-MÊME le
+  11/09 (commit 51ea36c0) : « chez Épices et Tout, la plupart des composants sont des comptoirs, des
+  vitrines réfrigérées, des caisses en bois au sol — compter des étagères n'y veut rien dire ». Verdict
+  owner le 13/09 : « Une llm a écrit ça. Toutes les photos montrent des étagères. C'est absurde. »
+  VÉRIFIÉ sur ses photos réelles (`Clients/epices-et-tout/store_photos`, 235 images) : la vitrine des
+  couteaux du pôle Cuisine porte quatre étagères vitrées, le mur des épices est un casier à étagères sur
+  toute sa hauteur ; seule une vitrine plate de l'îlot spiritueux n'en a pas — et là le champ vaut null,
+  ce qui est le comportement voulu. La justification était donc fausse sur le fond ET fausse d'auteur.
+  « Rayonnage » (l'EXPOSITION) reste inchangé, il n'est pas contesté ; « Rayonnage » a remplacé
   « Meuble à niveaux » le 11/09 (« meuble » banni depuis le 03/09 : aucune exception). « Mobilier »
   reste le mot générique d'un module précis dans une phrase (owner 11/09 : « un mobilier » se dit en
   agencement) ; l'objet dans l'app reste « composant ». Rendus : `commitmentCopy.ts`

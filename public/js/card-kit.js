@@ -2461,7 +2461,7 @@
     // Absent = rien (la question n'a pas ete posee), jamais un zero nu.
     var composant = [];
     if (photo.exposition_label_fr) composant.push(esc(photo.exposition_label_fr));
-    if (photo.levels != null && Number(photo.levels) > 0) composant.push(esc(String(t('pole_photo_levels')).split('{n}').join(String(photo.levels))));
+    if (photo.levels != null && Number(photo.levels) > 0) composant.push(esc(Number(photo.levels) === 1 ? String(t('pole_photo_levels_un')) : String(t('pole_photo_levels')).split('{n}').join(String(photo.levels))));
     if (photo.fixture_no != null && Number(photo.fixture_no) > 0) composant.push(esc(t('pole_photo_fixture_no')) + ' : ' + esc(String(photo.fixture_no)));
     var fams = Array.isArray(photo.families_present) ? photo.families_present.filter(function (f) { return !!f; }) : [];
     var composantHtml = (composant.length ? '<div style="font-size:12px;color:#374151;margin-top:2px;">' + composant.join(' \u00b7 ') + '</div>' : '')

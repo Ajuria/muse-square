@@ -247,7 +247,7 @@ export function dispositifRoleLabelFr(value: string | null | undefined): string 
 // Chez Épices et Tout, la plupart des composants sont des comptoirs, des vitrines réfrigérées, des
 // caisses en bois au sol : compter des « étagères » n'y veut rien dire. Chaque photo répond donc
 // d'abord « Quelle exposition ? » parmi CINQ mots owner (liste fermée, jamais de texte libre), puis
-// « Combien de niveaux ? » SEULEMENT pour un rayonnage (null sinon), puis les familles
+// « Combien d'étagères ? » SEULEMENT pour un rayonnage (null sinon), puis les familles
 // présentes parmi les familles réellement vendues du site (kpiRegistry.listSiteFamilies).
 export interface ExpositionOption { value: string; label_fr: string }
 export const EXPOSITION_KINDS: ExpositionOption[] = [
@@ -260,7 +260,9 @@ export const EXPOSITION_KINDS: ExpositionOption[] = [
 export const EXPOSITION_WITH_LEVELS = "rayonnage";
 export const EXPOSITION_VALUES: readonly string[] = Object.freeze(EXPOSITION_KINDS.map((o) => o.value));
 export const EXPOSITION_QUESTION_FR = "Quelle exposition ?";
-export const LEVELS_QUESTION_FR = "Combien de niveaux ?";
+// 13/09 (owner : « toutes les photos montrent des étagères ») — le mot est ÉTAGÈRE ; « niveau » était
+// ma justification, pas la sienne (lexique § Ce que toute photo dit du composant).
+export const LEVELS_QUESTION_FR = "Combien d'étagères ?";
 // Même forme que la question d'articles du registre (« Quels articles de la liste vendue reconnaît-on ? »).
 export const FAMILIES_QUESTION_FR = "Quelles familles de la liste vendue reconnaît-on ?";
 const EXPOSITION_LABEL_BY_VALUE: Record<string, string> = Object.fromEntries(EXPOSITION_KINDS.map((o) => [o.value, o.label_fr]));

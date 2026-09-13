@@ -17,7 +17,7 @@ const good = () => ({
 });
 
 describe("validatePhotoExtraction — lie-bait", () => {
-  it("une réponse conforme passe, et rend l'exposition, les niveaux et les familles normalisés", () => {
+  it("une réponse conforme passe, et rend l'exposition, les étagères et les familles normalisés", () => {
     const r = validatePhotoExtraction(good(), KEYS, CODES, FAMS);
     expect(r).toEqual({ ok: true, errors: [], rejected_person: false, exposition: "rayonnage", levels: 3, families_present: ["Épices"] });
   });
@@ -28,15 +28,15 @@ describe("validatePhotoExtraction — lie-bait", () => {
     const o2: any = good(); delete o2.exposition;
     expect(validatePhotoExtraction(o2, KEYS, CODES, FAMS).ok).toBe(false);
   });
-  it("v2 — des niveaux posés sur un comptoir sont NORMALISÉS à null, sans erreur ; sur un rayonnage ils doivent être un entier > 0", () => {
+  it("v2 — des étagères posées sur un comptoir sont NORMALISÉES à null, sans erreur ; sur un rayonnage ils doivent être un entier > 0", () => {
     const o: any = good(); o.exposition = "comptoir"; o.levels = 4;
     const r = validatePhotoExtraction(o, KEYS, CODES, FAMS);
     expect(r.ok).toBe(true); expect(r.levels).toBeNull(); expect(r.exposition).toBe("comptoir");
     const o2: any = good(); o2.levels = 2.5;
-    expect(validatePhotoExtraction(o2, KEYS, CODES, FAMS).errors.join(" ")).toContain("niveaux invalides « 2.5 »");
+    expect(validatePhotoExtraction(o2, KEYS, CODES, FAMS).errors.join(" ")).toContain("étagères invalides « 2.5 »");
     const o3: any = good(); o3.levels = 0;
     expect(validatePhotoExtraction(o3, KEYS, CODES, FAMS).ok).toBe(false);
-    const o4: any = good(); o4.levels = null;   // un rayonnage dont on ne compte pas les niveaux : accepté
+    const o4: any = good(); o4.levels = null;   // un rayonnage dont on ne compte pas les étagères : accepté
     expect(validatePhotoExtraction(o4, KEYS, CODES, FAMS)).toMatchObject({ ok: true, levels: null });
   });
   it("v2 — une famille INVENTÉE tombe (même porte que les codes d'article) ; les doublons sont fondus", () => {
@@ -88,7 +88,7 @@ describe("photoExtraction — consigne et schéma générés depuis le registre"
     expect(photoQuestions({ type: "lineaire", role: "courant" }).some((q) => q.key === "ls_moyen_essai")).toBe(false);
     for (const q of qs) expect(ALL_CHECKLIST_KEYS).toContain(q.key);
   });
-  it("v2 — le schéma porte l'exposition (cinq valeurs), les niveaux (entier ou null) et les familles du site ; sans famille, pas de propriété", () => {
+  it("v2 — le schéma porte l'exposition (cinq valeurs), les étagères (entier ou null) et les familles du site ; sans famille, pas de propriété", () => {
     const qs = photoQuestions({ type: "vitrine", role: null });
     const s = photoExtractionSchema(qs, ["Épices", "Thés", "Thés"]);
     expect(s.properties.exposition.enum).toEqual(["comptoir", "vitrine", "rayonnage", "caisses_au_sol", "ilot"]);
@@ -105,7 +105,7 @@ describe("photoExtraction — consigne et schéma générés depuis le registre"
     const sys = photoExtractionSystem({ type: "vitrine", role: null, items: [{ item_code: "A1", item_description: "Ethiopia 250 g" }], families: ["Épices"] }, qs);
     expect(sys).toContain("vt_prix_visible : Au moins un prix est-il affiché ?");
     expect(sys).toContain("- A1 — Ethiopia 250 g");
-    expect(sys).toContain("Quelle exposition ?"); expect(sys).toContain("Combien de niveaux ?");
+    expect(sys).toContain("Quelle exposition ?"); expect(sys).toContain("Combien d'étagères ?");   // 13/09 (owner) : le mot est « étagère »
     expect(sys).toContain("- rayonnage : Rayonnage");
     expect(sys).toContain("FAMILLES DU SITE\n- Épices");
     const sans = photoExtractionSystem({ type: "vitrine", role: null, items: [], families: [] }, qs);

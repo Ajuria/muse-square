@@ -36,7 +36,7 @@ export function validatePhotoExtraction(
   let levels: number | null = null;
   if (exposition === EXPOSITION_WITH_LEVELS && out.levels != null) {
     const n = Number(out.levels);
-    if (!Number.isInteger(n) || n < 1 || n > LEVELS_MAX) errors.push(`niveaux invalides « ${out.levels} »`);
+    if (!Number.isInteger(n) || n < 1 || n > LEVELS_MAX) errors.push(`étagères invalides « ${out.levels} »`);
     else levels = n;
   }
   // Les familles : parmi la liste du site seulement ; liste vide → rien n'est accepté, rien n'est inventé.

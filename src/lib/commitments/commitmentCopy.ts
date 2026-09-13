@@ -216,10 +216,12 @@ export const EVOL_COPY = {
   pole_photo_confirm: "Confirmer →",
   pole_photo_confirmed: "Articles confirmés :",
   // v2 (owner 11/09) : ce que toute photo dit du composant. « N° sur le plan » et « niveaux » sont
-  // les mots owner du 11/09 (lexique § À arbitrer) ; « Familles reconnues : » est le miroir de
+  // les mots owner (« N° sur le plan » 11/09 ; « étagère » 13/09) ; « Familles reconnues : » est le miroir de
   // « Articles reconnus : » (déjà rendu sur cette surface) avec LE mot « famille ».
   pole_photo_fixture_no: "N° sur le plan",
-  pole_photo_levels: "{n} niveaux",
+  // 13/09 (owner) : « étagère » remplace « niveau » — le pluriel et le singulier, jamais « 1 étagères ».
+  pole_photo_levels: "{n} étagères",
+  pole_photo_levels_un: "1 étagère",
   pole_photo_families: "Familles reconnues :",
   // Articles des photos face aux ventes (livrable 2, 03/09) — miroir des chaînes de la lecture du
   // pôle (« Résultats — 30 derniers jours », « {n30} j vendus · habituel {base} €/j »).
