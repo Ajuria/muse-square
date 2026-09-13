@@ -23,6 +23,9 @@ export const SAISIES_FR: Array<{ cle: string; texte: string }> = [
   // La MÊME ligne rendue par l'Explorer (état vide) — un seul foyer, mais la porte s'applique aux deux entrées.
   { cle: "bilan_sub", texte: SLOTS_FR.bilan_sub("missed", "−394 €", "Corner de vente producteur") },
   { cle: "note_sub", texte: SLOTS_FR.note_sub },
+  // 13/09 — la demande de photo de composant, ratifiée par l'owner APRÈS deux refus et après la livraison de
+  // la surface qui tient sa promesse (l'historique du dispositif). Elle passe la même porte que les autres.
+  { cle: "pole_components_hint", texte: String(EVOL_COPY.pole_components_hint) },
 ];
 // HORS registre, et c'est voulu : `retro_line_q_*` et `retro_line_ph` sont l'INTITULÉ et le gabarit du champ
 // (« Ce qui a marché », « En une ligne ») — un groupe nominal y est à sa place, et « en une ligne » dit la taille du champ,

@@ -303,7 +303,7 @@ it("coût de l'opération (ROI) : la ligne rend le coût, et le net SEULEMENT qu
 
 // ── 13/09 (owner, DEUX refus) — aucune ligne d'accroche sous le titre Composants tant que la mémoire visuelle n'existe
 // pas sur une surface qu'on peut ouvrir (CLAUDE.md § copie règle 8). Le bloc rend ses composants et son CTA, rien d'autre. ──
-it("le bloc Composants ne porte AUCUNE accroche sous son titre, et garde « Documenter → » par composant", () => {
+const polePhotos = () => {
   const data: any = baseData();
   data.commitment.dispositif_nature = "permanent"; data.commitment.dispositif_id = "d1"; data.commitment.version_no = 1; data.commitment.status = "open";
   data.commitment.pole_families = '["Épices"]';
@@ -312,12 +312,40 @@ it("le bloc Composants ne porte AUCUNE accroche sous son titre, et garde « Docu
     { key: "k2", type: "lineaire", role: "courant", label: "Linéaire fond", type_label_fr: "Linéaire", role_label_fr: "Produits du quotidien" },
   ];
   data.pole = { totals: { rev30_eur: 1000, share_pct: 10, avg30_eur_day: 33, base_eur_day: 30, delta_pct: 10, n30: 30 }, families: [], operations: [] };
-  const html = String(kit.renderEvolution(data, EVOL_COPY));
-  expect(html).not.toMatch(/Une photo par composant|garde votre agencement|hauteur d['’]œil/);
-  const titre = html.indexOf("Composants"), premier = html.indexOf("Vitrine entrée");
-  expect(html.slice(titre, premier)).not.toMatch(/[a-zà-ÿ]{4,}\s+[a-zà-ÿ]{4,}\s+[a-zà-ÿ]{4,}/);   // aucune phrase entre le titre et le premier composant
+  return data;
+};
+
+// ── 13/09 (owner, ratifiée après DEUX refus) — la demande de photo dit son gain, et seulement là où la
+// surface qui tient la promesse existe : l'historique du dispositif, donc une chaîne d'au moins deux versions. ──
+const LIGNE_PHOTO = "Prenez une photo de votre dispositif : vous verrez ce que chaque agencement donne sur vos ventes.";
+
+it("dès la PREMIÈRE version, la ligne invite à photographier — sans photo à la V1, il n'y a rien à comparer à la V2", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).toContain(LIGNE_PHOTO);
   expect((html.match(/Documenter →/g) || []).length).toBe(2);
   expect(html).not.toContain("Aucun composant déclaré");
+});
+
+it("la ligne ne promet AUCUN verdict — un dispositif permanent n'en a pas (owner 27/08)", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  const titre = html.indexOf("Composants"), premier = html.indexOf("Vitrine entrée");
+  expect(html.slice(titre, premier)).not.toMatch(/objectif|atteint|manqué|verdict/i);
+  expect(html).not.toMatch(/Une photo par composant|garde votre agencement|hauteur d['’]œil/);   // les trois refusées
+});
+
+it("une seule fois, sous le titre et avant le premier composant — jamais répétée par composant", () => {
+  const data: any = polePhotos();
+  data.lineage = [
+    { commitment_id: "c-v1", version_no: 1, status: "resolved", verdict: "met", window_start: "2026-08-01", window_end: "2026-08-28", effect_pct: 9.1, effect_proven: true, kpi_mention_fr: "", is_current: false, photos: [], photos_autres: 0 },
+    { commitment_id: "pole-1", version_no: 2, status: "open", verdict: null, window_start: "2026-09-01", window_end: "2026-09-28", effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: true, photos: [], photos_autres: 0 },
+  ];
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  const ligne = LIGNE_PHOTO;
+  expect((html.match(new RegExp(ligne.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length).toBe(1);
+  const titre = html.indexOf("Composants"), pos = html.indexOf(ligne), premier = html.indexOf("Vitrine entrée");
+  expect(pos).toBeGreaterThan(titre);
+  expect(pos).toBeLessThan(premier);
+  expect((html.match(/Documenter →/g) || []).length).toBe(2);
 });
 
 it("un pôle SANS composant dit l'absence (lexique règle 7), jamais une section vide", () => {

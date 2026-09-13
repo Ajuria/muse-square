@@ -182,10 +182,15 @@ export const EVOL_COPY = {
   pole_fams_title: "Familles du pôle",
   // Composants (03/09, mot owner « composant » — lexique) : les unités physiques du dispositif.
   pole_components_title: "Composants",
-  // 13/09 — REFUSÉE par l'owner, deux fois : une ligne sous le titre Composants qui énumérait ce que la photo capte
-  // (« ce qui est groupé avec quoi, ce qui est à hauteur d'œil… ») au lieu de dire ce que l'exploitant y gagne.
-  // CLAUDE.md § copie règle 8 : la surface d'abord, la ligne ensuite. La photo sera demandée avec son gain le jour où
-  // l'historique du pôle montrera la photo de chaque version à côté de son verdict — pas avant.
+  // 13/09 — LA DEMANDE DE PHOTO DIT SON GAIN. La phrase est de l'OWNER (« Prenez une photo de votre dispositif,
+  // mesurez et améliorez le set-up… ») ; j'en ai retiré le franglais « set-up » (lexique règle 7 bis) et il a
+  // choisi la forme qui DIT le gain au lieu de donner des ordres. Quatre propositions de moi refusées avant :
+  // trois énuméraient ce que la photo capte (règle 8), la quatrième promettait « quand l'objectif a été
+  // atteint » — or un dispositif PERMANENT n'a ni fenêtre ni verdict (owner 27/08) : la promesse n'aurait
+  // jamais été vraie sur la seule surface qui l'affiche. C'est la mutation d'un test de pôle qui l'a attrapée.
+  // L'ordre a été tenu : la SURFACE d'abord (l'historique montre la photo de chaque version, livré le 13/09),
+  // la ligne ensuite. Au registre du garde règle 8 (`src/lib/fr/saisies.fr.guard.test.ts`).
+  pole_components_hint: "Prenez une photo de votre dispositif : vous verrez ce que chaque agencement donne sur vos ventes.",
   // 13/09 — l'historique du dispositif montre les photos de chaque version à côté de son verdict
   // (owner : « garder la mémoire visuelle des dispositifs qui ont fonctionné ou non au niveau de
   // l'agencement »). L'absence se dit, comme celle des composants juste au-dessus ; les deux autres

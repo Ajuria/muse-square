@@ -1050,7 +1050,15 @@
       // Photos (etape 4, 03/09) : une rangee par composant porte un emplacement [data-eg-photo]
       // que la page remplit (GET /api/dispositifs/photos) et un CTA « Documenter » (mot owner)
       // qui ouvre le depot d'une photo — le cablage vit dans engagement.astro, le kit ne rend.
+      // 13/09 (owner, ligne ratifiee) : la demande de photo dit son gain, sous le titre, une seule fois.
+      // Elle s'affiche des la premiere version — j'avais prevu de la reserver aux poles ayant deja une version
+      // precedente, mais cette condition rendait la fonctionnalite morte : sans photo prise a la V1, il n'y a
+      // rien a comparer a la V2, donc l'invitation doit venir AVANT. Ce qu'elle promet existe (l'historique du
+      // dispositif rend les photos des la deuxieme version) ; elle ne promet aucun verdict, un pole n'en a pas.
+      var _compHint = t2('pole_components_hint')
+        ? '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-bottom:8px;">' + esc(t2('pole_components_hint')) + '</div>' : '';
       h += '<div class="eg-sec" data-eg-components data-eg-dispositif="' + esc(cm.dispositif_id || '') + '" data-eg-version="' + esc(cm.version_no != null ? String(cm.version_no) : '') + '"><div class="eg-uc">' + esc(t2('pole_components_title')) + '</div>'
+        + _compHint
         + (pComps.length
           ? pComps.map(function (c) {
               var meta = [c.type_label_fr, c.role_label_fr].filter(function (x) { return !!x; }).join(' \u00b7 ');
