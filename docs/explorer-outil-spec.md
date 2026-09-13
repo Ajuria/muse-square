@@ -474,8 +474,8 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
      [ms_database#151](https://github.com/Ajuria/ms_database/pull/151), EN BASE le 13/09 (`docs/dbt-handoff/HANDOFF-plan-zones-2026-09-13.md`) :
      l'agent lit la vue (`listSpaceZonesEnVigueur`), le producteur garde sa lecture pour le one-off. Harnais `npm run harness:explorer-blocks` (le SVG : 11 polygones,
      14 textes, 8 faits) ; batterie agent « Montre-moi mon plan coloré par CA au m²… » vérifiée (Cuisine 371 € par m²,
-     le plus fort). **Reste** : la validation owner des contours sur l'image de contrôle (le partage des allées au plus
-     proche à pied, `docs/espace-et-pole.md`) ; les libellés « Lecture de votre plan », « Composition de votre pont de
+     le plus fort). Les contours et le partage des allées sont VALIDÉS par l'owner le 13/09 sur l'image de contrôle
+     (`docs/espace-et-pole.md`) ; les libellés « Lecture de votre plan », « Composition de votre pont de
      marge » et le mot du bloc « plan coloré » sont RATIFIÉS par l'owner le 13/09 (lexique, intent).
 ---
 
@@ -492,8 +492,7 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
 2. Le stockage des contours du plan — APPLIQUÉ le 13/09 dans la forme prévue, un cran plus fin : `analytics.space_zones`,
    grain site × pôle × POLYGONE (Cuisine, Épicerie sèche, Produits frais et Petit déjeuner ont deux zones chacun), points
    du plan en JSON (1:100, 28,344 pt/m), aire en m², relevé daté, append-only, en vigueur = dernier relevé par pôle ; vue
-   dbt `vw_insight_event_space_zones` EN BASE (#151, 13/09). À confirmer par l'owner : la forme, et les contours eux-mêmes
-   sur l'image de contrôle.
+   dbt `vw_insight_event_space_zones` EN BASE (#151, 13/09). La forme et les contours sont VALIDÉS par l'owner le 13/09 (image de contrôle).
 3. Les destinataires d'un envoi à cadence au-delà de l'équipe et des partenaires (§ 6.4).
 
 **Tranché le 12/09 sur la page d'arbitrage (`Le Rapport d'Explorer`)** : les mots des sections (Nombre de ventes,

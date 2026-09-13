@@ -83,7 +83,8 @@ sur le composant (formulaire de pôle), jamais pendant le relevé ; **faces de p
   générateur : `~/Documents/Muse_Square/Clients/epices-et-tout/map/zones_poles_epices_et_tout_2026-09-12.*`. Les
   surfaces sont écrites au grain pôle dans `analytics.space_measures` (source `plan`, 12/09) sur Épices et Tout et sur
   le compte de test owner (`tools/oneoff/2026-09-12-epices-et-tout-surfaces-poles.mts`). Le partage des allées entre
-  pôles est une convention (la plus proche à pied) : à faire valider par l'owner sur l'image de contrôle.
+  pôles (la plus proche à pied) et les sept contours sont VALIDÉS par l'owner le 13/09 sur l'image de contrôle ; les cercles
+  en pointillés du plan sont les aires de rotation PMR (≈ 1,50 m), du sol de vente, ni meuble ni composant.
 - **Lecteurs (11/09, dev)** : Piloter, carte « Vos pôles » : « N m de linéaire · Part de linéaire N % » et
   l'état « Pôle en projet — … » ; volet « Espace — 30 derniers jours » (mètres, Part de linéaire, m² de surface
   de vente, € de CA et de marge brute par mètre, € de CA par m², « Part de marge N % contre Part de linéaire N % »)
