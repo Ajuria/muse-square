@@ -51,7 +51,8 @@ const id = Astro.url.searchParams.get("id") || "";
     <script is:inline src="/js/ms-loader.js?v=2"></script>
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
-    <script is:inline src="/js/card-kit.js?v=93"></script>
+    <script is:inline src="/js/pole-form.js?v=5"></script>
+    <script is:inline src="/js/card-kit.js?v=94"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -184,26 +185,49 @@ const id = Astro.url.searchParams.get("id") || "";
             if (sameOrigin && window.history.length > 1) { e.preventDefault(); window.history.back(); }
           });
         })();
-        // 13/09 — la version suivante d'un PÔLE : POST /api/commitments, nature permanent, parent = cette
-        // version ; l'API hérite de tout le reste (familles, composants, pourquoi, ressources, périmètre —
-        // filtré des articles qui ne se vendent plus). Puis la page s'ouvre sur la version créée.
+        // 13/09 — la version suivante d'un PÔLE, sans question (owner : « le versionning du pôle est déclaratif —
+        // sa page de réglages »). Le kit rend un volet ; la page y monte LE formulaire de pôle (module partagé
+        // MSPoleForm, celui de la création) pré-rempli avec la version courante et armé de parent_commitment_id :
+        // l'exploitant modifie ce qui change, « Enregistrer → » crée la version suivante, la page s'ouvre dessus.
+        // Le contexte de création (familles, responsables, types de composant, pôles) vient de la même route
+        // que Nouvelle opération et le Compte : /api/insight/evenement?create_context=1. Chargé au premier
+        // dépliage du volet — pas un aller-retour de plus tant qu'on ne l'ouvre pas.
         function wireNextVersion(cm) {
-          var btn = docEl.querySelector("[data-eg-nextversion]"); if (!btn) return;
-          var note = docEl.querySelector("[data-eg-nextversion-note]"), msg = docEl.querySelector("[data-eg-nextversion-msg]");
-          btn.addEventListener("click", function () {
-            var plus = note ? String(note.value || "").trim() : "";
-            if (!plus) { if (msg) msg.textContent = "Dites ce qui change dans cette version."; if (note) note.focus(); return; }
-            var label = btn.textContent; btn.disabled = true; btn.textContent = "…"; if (msg) msg.textContent = "";
-            var fail = function (j) { btn.disabled = false; btn.textContent = label; if (msg) msg.textContent = "Erreur : " + ((j && j.error) || "réessayez"); };
-            fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-              dispositif_nature: "permanent", location_id: cm.location_id,
-              parent_commitment_id: cm.commitment_id,
-              committed_action_text: cm.committed_action_text,
-              dispositif_plus: plus
-            }) }).then(function (r) { return r.json(); }).then(function (j) {
-              if (!j || !j.ok || !j.commitment_id) { fail(j); return; }
-              window.location.href = MSCardKit.msEngagementUrl(j.commitment_id);
-            }).catch(function () { fail(); });
+          var sec = docEl.querySelector("[data-eg-nextversion-sec]"), mount = docEl.querySelector("[data-eg-nextversion-mount]");
+          if (!sec || !mount || !window.MSPoleForm) return;
+          var monte = false;
+          sec.addEventListener("toggle", function () {
+            if (!sec.open || monte) return; monte = true;
+            mount.innerHTML = '<div style="font-size:12px;color:#9CA3AF;">Chargement…</div>';
+            // Les responsables viennent de l'équipe (la même source que l'onglet Pôles du Compte) — le contexte
+            // de création ne les porte pas. Les deux lectures partent ensemble.
+            Promise.all([
+              fetch("/api/insight/evenement?location_id=" + encodeURIComponent(cm.location_id) + "&create_context=1").then(function (r) { return r.json(); }),
+              fetch("/api/channels/team?location_id=" + encodeURIComponent(cm.location_id)).then(function (r) { return r.json(); }).catch(function () { return {}; }),
+            ]).then(function (rs) {
+                var ctx = rs[0] || {}, team = rs[1] || {};
+                if (!ctx || !ctx.ok) throw new Error((ctx && ctx.error) || "contexte indisponible");
+                var owners = (Array.isArray(team.items) ? team.items : []).map(function (m) { return (String(m.first_name || "") + (m.last_name ? " " + m.last_name : "")).trim(); }).filter(Boolean);
+                // Une famille vit dans un seul pôle — mais les familles de CE pôle sont les siennes, pas « prises ».
+                var taken = {};
+                (Array.isArray(ctx.poles) ? ctx.poles : []).forEach(function (pp) {
+                  if (pp.dispositif_id && cm.dispositif_id && String(pp.dispositif_id) === String(cm.dispositif_id)) return;
+                  if (pp.commitment_id && String(pp.commitment_id) === String(cm.commitment_id)) return;
+                  (pp.families || []).forEach(function (f) { taken[f] = pp.name; });
+                });
+                MSPoleForm.render(mount, {
+                  location_id: cm.location_id,
+                  families: Array.isArray(ctx.families) ? ctx.families : [],
+                  owners: owners,
+                  takenFamilies: taken,
+                  componentTypes: Array.isArray(ctx.component_types) ? ctx.component_types : [],
+                  prefill: cm, parent_commitment_id: cm.commitment_id,
+                  onCreated: function (id) { window.location.href = MSCardKit.msEngagementUrl(id); },
+                });
+              }).catch(function (e) {
+                monte = false;
+                mount.innerHTML = '<div style="font-size:12px;color:#B91C1C;">Erreur : ' + esc((e && e.message) || "réessayez") + '</div>';
+              });
           });
         }
         function wirePermanent(cm) {

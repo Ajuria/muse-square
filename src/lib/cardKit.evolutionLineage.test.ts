@@ -482,19 +482,20 @@ it("un pôle d'UNE seule version n'a pas d'historique à raconter", () => {
 });
 
 // ── 13/09 (owner : « aucune surface ne crée la version suivante d'un pôle ») — la section sur la page du PÔLE ──
-it("un pôle OUVERT, pour l'owner, porte « La version suivante » : la question, le plus courant pré-rempli, « Enregistrer → »", () => {
+// 13/09 (owner, second arbitrage : « pas de question au niveau du pôle — sa page de réglages ; « Ajuster → »
+// existe déjà, ne pas le dupliquer ») : la section est un VOLET replié « La version suivante » avec un point de
+// montage pour le formulaire de pôle pré-rempli (monté par la page) — aucune question, aucun bouton du kit.
+it("un pôle OUVERT, pour l'owner, porte le volet « La version suivante » avec son point de montage — sans question ni bouton", () => {
   const data: any = polePhotos();
-  data.commitment.dispositif_plus = "Les fortes marges à hauteur d'œil";
   const html = String(kit.renderEvolution(data, EVOL_COPY));
-  const sec = html.indexOf("data-eg-nextversion-sec");
+  const sec = html.indexOf("<details class=\"eg-sec\" data-eg-nextversion-sec");
   expect(sec).toBeGreaterThan(0);
-  const bloc = html.slice(sec, html.indexOf("</div></div>", sec) + 12);
+  const bloc = html.slice(sec, html.indexOf("</details>", sec) + 10);
   expect(bloc).toContain("La version suivante");
-  expect(bloc).toContain("Qu&#39;avez-vous changé ?".replace("&#39;", "'"));   // le mot déjà en prod sur les opérations
-  expect(bloc).toContain("Les fortes marges à hauteur d&#39;œil".replace("&#39;", "'"));
-  expect(bloc).toContain('data-eg-nextversion');
-  expect(bloc).toContain("Enregistrer →");
-  // La section précède l'historique quand il existe : on décide d'abord, on relit ensuite.
+  expect(bloc).toContain("modifiez le pôle, ses composants et leurs mesures, puis enregistrez");
+  expect(bloc).toContain("data-eg-nextversion-mount");
+  expect(bloc).not.toMatch(/Qu.avez-vous changé|<textarea|data-eg-nextversion"|Ajuster/);
+  // Le volet précède l'historique quand il existe : on règle d'abord, on relit ensuite.
   const hist = html.indexOf("Historique du dispositif");
   if (hist > 0) expect(sec).toBeLessThan(hist);
 });
@@ -504,7 +505,7 @@ it("un MEMBRE ne voit pas la section — il ne crée pas de version", () => {
   expect(String(kit.renderEvolution(data, EVOL_COPY))).not.toContain("data-eg-nextversion");
 });
 
-it("une OPÉRATION ne porte pas cette section (elle a son propre formulaire de version)", () => {
+it("une OPÉRATION ne porte pas ce volet (elle a son propre formulaire de version)", () => {
   const data: any = baseData();
   expect(String(kit.renderEvolution(data, EVOL_COPY))).not.toContain("data-eg-nextversion");
 });

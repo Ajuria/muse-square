@@ -269,6 +269,8 @@ export const EVOL_COPY = {
   // 13/09 — le bouton de la version suivante d'un PÔLE : « Enregistrer → », le verbe ratifié pour le Rapport
   // le même jour (le clic ÉCRIT). Un verbe + flèche, ≤ 14 caractères (lexique règle 1).
   vform_cta: "Enregistrer →",
+  // 13/09 (owner : « le versionning du pôle est déclaratif — sa page de réglages ») : le sous-titre du volet.
+  vform_pole_hint: "modifiez le pôle, ses composants et leurs mesures, puis enregistrez",
   move_stop: "Arrêter",
   move_stop_d: "Abandonner cette action — clôture, la carte revient à piloter.",
   diag_move_note_q: "Qu'avez-vous changé ?",

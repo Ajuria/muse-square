@@ -29,12 +29,21 @@
   }
 
   // opts = { location_id, families: [{category, avg_day_eur}], owners: [names],
-  //          takenFamilies: {category: poleName}, onCreated(commitment_id) }
+  //          takenFamilies: {category: poleName}, onCreated(commitment_id),
+  //          prefill: {...} + parent_commitment_id }
+  // 13/09 (owner : « le versionning du pôle est déclaratif — sa page de réglages ») : AJUSTER un pôle, c'est
+  // ouvrir CE formulaire pré-rempli avec la version courante — nom, description, responsable, familles,
+  // composants (avec leurs clés : la continuité d'un composant entre deux versions passe par sa clé) et
+  // leurs mesures (N° sur le plan, longueur, faces, parts, surface) — et l'enregistrer avec
+  // parent_commitment_id : l'API crée la version suivante, tout le reste hérite. Aucune question posée :
+  // ce qui change se lit dans ce que l'exploitant modifie. Sans prefill, le formulaire est celui d'avant.
   function render(mount, opts) {
     var fams = Array.isArray(opts.families) ? opts.families : [];
     var owners = Array.isArray(opts.owners) ? opts.owners : [];
     var taken = opts.takenFamilies || {};
     var ctypes = Array.isArray(opts.componentTypes) ? opts.componentTypes : [];
+    var pre = opts.prefill && typeof opts.prefill === 'object' ? opts.prefill : null;
+    var parentId = opts.parent_commitment_id ? String(opts.parent_commitment_id) : null;
     mount.innerHTML = ''
       + '<div style="display:flex;gap:12px;"><div style="flex:1;"><label style="' + lbl + '">Nom du pôle</label><input data-ef="polename" style="' + inp + '" maxlength="120"></div>'
       + '<div style="flex:1;"><label style="' + lbl + '">Responsable(s)</label>'
@@ -59,7 +68,7 @@
       + '<div style="display:flex;gap:12px;margin-top:10px;"><div style="flex:1;"><label style="' + lbl + '">Le plus du dispositif</label><textarea data-ef="poleplus" style="' + poleTa + '"></textarea></div>'
       + '<div style="flex:1;"><label style="' + lbl + '">Pourquoi ça va marcher</label><textarea data-ef="polewhy" style="' + poleTa + '"></textarea></div></div>'
       + '<div data-ef-pole-err style="display:none;color:#B91C1C;font-size:12px;margin-top:10px;"></div>'
-      + '<div style="display:flex;margin-top:12px;"><span style="margin-left:auto;"><button type="button" data-ef-pole-submit style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;">Créer le pôle →</button></span></div>';
+      + '<div style="display:flex;margin-top:12px;"><span style="margin-left:auto;"><button type="button" data-ef-pole-submit style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;">' + (parentId ? 'Enregistrer →' : 'Créer le pôle →') + '</button></span></div>';
 
     var q = function (sel) { return mount.querySelector(sel); };
     var val = function (name) { var el = q('[data-ef="' + name + '"]'); return el ? String(el.value || '').trim() : ''; };
@@ -83,11 +92,14 @@
       var roles = t && Array.isArray(t.roles) ? t.roles : [];
       return roles;
     }
-    function addCompRow() {
+    function addCompRow(init) {
       if (!compsMount) return;
+      init = init || null;
       var row = document.createElement('div');
       row.setAttribute('data-ef-comp-row', '');
-      row.setAttribute('data-ef-comp-key', 'c' + Math.random().toString(36).slice(2, 10));
+      // La clé d'un composant EXISTANT est reprise : c'est elle qui relie ses photos et ses mesures d'une
+      // version à l'autre (dispositif × version × composant). Une rangée nouvelle reçoit une clé neuve.
+      row.setAttribute('data-ef-comp-key', init && init.key ? String(init.key) : 'c' + Math.random().toString(36).slice(2, 10));
       row.style.cssText = 'margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed #e5e7eb;';
       row.innerHTML = '<div style="display:flex;gap:8px;align-items:center;">'
         + '<select data-ef-comp-type style="' + inp + 'flex:1;cursor:pointer;">'
@@ -110,10 +122,29 @@
         rSel.style.display = roles.length ? '' : 'none';
       };
       tSel.addEventListener('change', syncRoles);
+      if (init && init.type) tSel.value = String(init.type);
       syncRoles();
+      if (init) {
+        if (init.role) rSel.value = String(init.role);
+        var lab = row.querySelector('[data-ef-comp-label]'); if (lab && init.label) lab.value = String(init.label);
+        var m = init.measure || null;
+        if (m) {
+          var no = row.querySelector('[data-ef-comp-no]'), len = row.querySelector('[data-ef-comp-len]'), fc = row.querySelector('[data-ef-comp-faces]');
+          if (no && m.fixture_no != null) no.value = String(m.fixture_no);
+          if (len && m.length_m != null) len.value = String(m.length_m).replace('.', ',');
+          if (fc && m.faces != null) fc.value = String(m.faces);
+          if (Array.isArray(m.families_share) && m.families_share.length) {
+            syncShares(row);
+            m.families_share.forEach(function (fs) {
+              var i = row.querySelector('[data-ef-comp-share="' + String(fs.family).replace(/"/g, '&quot;') + '"]');
+              if (i) i.value = String(Math.round(Number(fs.share) * 1000) / 10).replace('.', ',');
+            });
+          }
+        }
+      }
       row.querySelector('[data-ef-comp-del]').addEventListener('click', function () { row.parentNode.removeChild(row); });
     }
-    if (compAdd) compAdd.addEventListener('click', addCompRow);
+    if (compAdd) compAdd.addEventListener('click', function () { addCompRow(null); });
     // Familles choisies (chips) ou écrites (pôle en projet) — la liste que les parts de linéaire suivent.
     function selectedFamilies() {
       if (fams.length) return Object.keys(poleSel).filter(function (k) { return poleSel[k]; });
@@ -139,6 +170,27 @@
     function syncAllShares() { mount.querySelectorAll('[data-ef-comp-row]').forEach(syncShares); }
     var projetInput = q('[data-ef="polefams-projet"]');
     if (projetInput) projetInput.addEventListener('change', syncAllShares);
+    // Le pré-remplissage (13/09) : la version courante, telle que l'API la sert, dans chaque champ.
+    if (pre) {
+      var setVal = function (name, v) { var el = q('[data-ef="' + name + '"]'); if (el && v != null && v !== '') el.value = String(v); };
+      var nomParts = String(pre.committed_action_text || '').split(' — ');
+      setVal('polename', nomParts[0]); setVal('polelever', nomParts.slice(1).join(' — '));
+      setVal('poleowner', pre.owner_person_name); setVal('poleres', pre.dispositif_resources);
+      setVal('poleplus', pre.dispositif_plus); setVal('polewhy', pre.dispositif_why);
+      var preFams = []; try { preFams = JSON.parse(pre.pole_families || '[]'); } catch (e) { preFams = []; }
+      if (!Array.isArray(preFams)) preFams = [];
+      if (fams.length) {
+        mount.querySelectorAll('[data-ef-polefam]').forEach(function (c) {
+          if (preFams.indexOf(c.getAttribute('data-ef-polefam')) >= 0) c.click();
+        });
+      } else setVal('polefams-projet', preFams.join(', '));
+      var sm = pre.space_measures && typeof pre.space_measures === 'object' ? pre.space_measures : { components: [] };
+      if (sm.surface_m2 != null) setVal('polesurface', String(sm.surface_m2).replace('.', ','));
+      var byKey = {}; (Array.isArray(sm.components) ? sm.components : []).forEach(function (m) { byKey[m.component_key] = m; });
+      (Array.isArray(pre.components) ? pre.components : []).forEach(function (c) {
+        addCompRow({ key: c.key, type: c.type, role: c.role, label: c.label, measure: byKey[c.key] || null });
+      });
+    }
     function readComps() {
       var out = [];
       mount.querySelectorAll('[data-ef-comp-row]').forEach(function (row) {
@@ -203,12 +255,13 @@
         if (taken[famsSel[i]]) { showErr(famsSel[i] + ' appartient déjà au pôle « ' + taken[famsSel[i]] + ' » — une famille vit dans un seul pôle.'); return; }
       }
       if (perr) perr.style.display = 'none';
-      pbtn.disabled = true; pbtn.textContent = 'Création…';
+      pbtn.disabled = true; pbtn.textContent = parentId ? 'Enregistrement…' : 'Création…';
       var lever = val('polelever');
       fetch('/api/commitments', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           location_id: opts.location_id, dispositif_nature: 'permanent',
+          parent_commitment_id: parentId || undefined,
           committed_action_text: name + (lever ? ' — ' + lever : ''),
           pole_families: famsSel,
           owner_person_name: val('poleowner') || null,
@@ -219,10 +272,11 @@
           space_measures: spaceMeasures,
         }),
       }).then(function (r) { return r.json(); }).then(function (j) {
-        if (!j || !j.ok) { pbtn.disabled = false; pbtn.textContent = 'Créer le pôle →'; showErr('Erreur : ' + ((j && j.error) || 'réessayez')); return; }
+        if (!j || !j.ok) { pbtn.disabled = false; pbtn.textContent = parentId ? 'Enregistrer →' : 'Créer le pôle →'; showErr('Erreur : ' + ((j && j.error) || 'réessayez')); return; }
+        if (parentId) { if (typeof opts.onCreated === 'function') opts.onCreated(j.commitment_id); return; }
         mount.innerHTML = '<div style="font-size:13px;color:#166534;background:#E6F6F0;border-radius:8px;padding:12px 14px;line-height:1.6;">Pôle créé — lecture continue de ses familles dès vos prochaines ventes. <a href="/app/insightevent/engagement?id=' + encodeURIComponent(j.commitment_id) + '" style="color:#1D3BB3;font-weight:600;">Ouvrir le pôle →</a></div>';
         if (typeof opts.onCreated === 'function') opts.onCreated(j.commitment_id);
-      }).catch(function () { pbtn.disabled = false; pbtn.textContent = 'Créer le pôle →'; showErr('Erreur, réessayez.'); });
+      }).catch(function () { pbtn.disabled = false; pbtn.textContent = parentId ? 'Enregistrer →' : 'Créer le pôle →'; showErr('Erreur, réessayez.'); });
     });
   }
 

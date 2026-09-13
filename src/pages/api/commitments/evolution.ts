@@ -11,6 +11,7 @@ import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpi/kpiRegistry
 import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifs/dispositifTypes";
 import { listPhotoRows, photosParVersion } from "../../../lib/dispositifs/dispositifPhotoRows";
 import { resolveMemberNames } from "../../../lib/dispositifs/poleActivity";
+import { listSpaceMeasures, currentMeasures, type SpaceMeasureRow } from "../../../lib/dispositifs/spaceMeasures";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
@@ -270,8 +271,18 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }).then((r: any) => readComponents(flat((Array.isArray(r?.[0]) ? r[0] : [])[0]?.components))).catch(() => [] as ReturnType<typeof readComponents>);
       // Articles des photos (livrable 2, 03/09) — amorcé en parallèle de la lecture continue.
       const _itemsP = buildPoleItemsReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), (snap as any).version_no != null ? Number((snap as any).version_no) : null, _famList, asOfP).catch(() => null);
+      // 13/09 (owner : « le versionning du pôle, c'est la disposition, les mètres linéaires + m² ») — les
+      // mesures d'espace sont liées à la VERSION (space_measures : dispositif × version × composant). La
+      // version suivante les reprend pré-remplies, sinon elle naîtrait sans mètres ni m². Côté producteur
+      // (relire ce qu'on a écrit), amorcé en parallèle ; un dispositif sans mesure rend une liste vide.
+      const _spaceP = (snap as any).dispositif_id
+        ? listSpaceMeasures(String(snap.location_id), String((snap as any).dispositif_id))
+            .then((rows) => currentMeasures(rows).filter((m) => m.version_no === Number((snap as any).version_no)))
+            .catch(() => [] as SpaceMeasureRow[])
+        : Promise.resolve([] as SpaceMeasureRow[]);
       const pole = await buildPoleReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), _famList, asOfP);
       const _comps = await _compsP;
+      const _space = await _spaceP;
       (pole as any).items = await _itemsP;
       const commitment = {
         commitment_id: snap.commitment_id, location_id: snap.location_id, status: snap.status,
@@ -289,6 +300,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
         dispositif_resources: (snap as any).dispositif_resources ?? null,
         created_at: flat(snap.created_at),
         dispositif_id: (snap as any).dispositif_id ?? null, version_no: (snap as any).version_no ?? null,
+        // Les mesures de CETTE version, dans la forme que le formulaire de pôle relit (space_measures du POST).
+        space_measures: {
+          components: _space.filter((m) => m.component_key).map((m) => ({
+            component_key: String(m.component_key), fixture_no: m.fixture_no, length_m: m.length_m, faces: m.faces, families_share: m.families_share,
+          })),
+          surface_m2: _space.find((m) => !m.component_key)?.surface_m2 ?? null,
+        },
       };
       const lineage = await buildLineage(bq, snap);
       return json({ ok: true, commitment, pole, lineage, site_name: null });

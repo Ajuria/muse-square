@@ -1169,23 +1169,21 @@
           : '<div style="font-size:12.5px;color:#374151;">' + esc(t2('pole_ops_none')) + '</div>')
         + '</div>';
 
-      // ── 13/09 (owner : « aucune surface ne cree la version suivante d'un pole ») — LA VERSION SUIVANTE.
-      // L'API le permettait (poleCreate + parent_commitment_id, tout le reste herite : familles, composants,
-      // pourquoi, ressources, perimetre), aucune page ne l'offrait : la memoire visuelle ne pouvait donc
-      // jamais s'accumuler. Une version = un changement DECLARE (regle ratifiee le 13/09) : la section pose
-      // la question deja en prod sur les operations (« Qu'avez-vous changé ? »), et le texte devient « Le
-      // plus du dispositif » de la version nouvelle. Owner seul — un membre ne cree pas de version.
+      // ── 13/09 (owner : « aucune surface ne cree la version suivante d'un pole », puis « le versionning du
+      // pole est declaratif — sa page de reglages ; pas de question ») — LA VERSION SUIVANTE.
+      // « Ajuster → » existe deja (Tableau de bord → cette page) : on ne le duplique pas. Ce que l'exploitant
+      // trouve ici, c'est le REGLAGE du pole : un volet « La version suivante » (mot deja en prod) qui
+      // contient le formulaire de pole pre-rempli avec la version courante — familles, composants et leurs
+      // mesures (metres, faces, parts, surface), responsable, ressources. Il modifie ce qui change et
+      // enregistre : l'API cree la version suivante, tout le reste herite. Aucune question posee. La page
+      // (engagement.astro) monte le formulaire dans [data-eg-nextversion-mount]. Owner seul.
       var _nvMembre = data.role === 'member' || (typeof window !== 'undefined' && window && window._msMemberView === true);
       var nextVersionB = '';
       if (!_nvMembre && cm.status === 'open') {
-        nextVersionB = '<div class="eg-sec" data-eg-nextversion-sec>'
-          + '<div class="eg-uc">' + esc(t2('vform_title')) + '</div>'
-          + '<label style="display:block;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#6B7280;margin-bottom:5px;">' + esc(t2('diag_move_note_q')) + '</label>'
-          + '<textarea data-eg-nextversion-note rows="3" placeholder="' + esc(t2('vform_plus')) + '" style="width:100%;box-sizing:border-box;font-size:12.5px;color:#111827;background:#fff;border:1px solid rgba(0,0,0,0.12);border-radius:8px;padding:8px 10px;font-family:inherit;resize:vertical;">' + esc(cm.dispositif_plus || '') + '</textarea>'
-          + '<div style="display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:8px;">'
-          + '<span data-eg-nextversion-msg style="font-size:12px;color:#b91c1c;"></span>'
-          + '<button type="button" data-eg-nextversion style="font-size:12px;font-weight:600;color:#fff;background:#1D3BB3;border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-family:inherit;">' + esc(t2('vform_cta')) + '</button>'
-          + '</div></div>';
+        nextVersionB = '<details class="eg-sec" data-eg-nextversion-sec>'
+          + '<summary class="eg-uc" style="cursor:pointer;list-style:none;">' + esc(t2('vform_title')) + ' <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#9CA3AF;">\u2014 ' + esc(t2('vform_pole_hint')) + '</span></summary>'
+          + '<div data-eg-nextversion-mount style="margin-top:10px;"></div>'
+          + '</details>';
       }
       h += nextVersionB;
 
