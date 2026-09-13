@@ -30,7 +30,8 @@ export interface PhotoExtractionOutput {
   levels: number | null;            // entier, seulement si exposition = rayonnage
   families_present?: string[];      // parmi `families` ; absent quand la liste du site est vide
   checklist: Record<string, PhotoAnswer>;
-  items: Array<{ item_code: string; confidence: "haute" | "moyenne" | "faible" }>;
+  /** `etagere` : la rangée de l'article EN PARTANT DU BAS (1 = la plus basse), null si indéterminable (13/09). */
+  items: Array<{ item_code: string; confidence: "haute" | "moyenne" | "faible"; etagere: number | null }>;
   prices: Array<{ label: string; price_eur: number; item_code: string | null }>;
 }
 
@@ -59,7 +60,10 @@ export function photoExtractionSchema(questions: ChecklistQuestion[], families: 
       checklist: { type: "object", properties: checklistProps, required: questions.map((q) => q.key), additionalProperties: false },
       items: {
         type: "array",
-        items: { type: "object", properties: { item_code: { type: "string" }, confidence: { type: "string", enum: ["haute", "moyenne", "faible"] } }, required: ["item_code", "confidence"], additionalProperties: false },
+        // 13/09 — `etagere` : SUR QUELLE étagère l'article se trouve, en partant du bas. C'est CE champ
+        // qui permettra un jour de croiser la hauteur avec la marge ; sans lui, on ne sait que compter les
+        // étagères d'un meuble. Le type accepte null : une position qu'on ne peut pas trancher ne s'invente pas.
+        items: { type: "object", properties: { item_code: { type: "string" }, confidence: { type: "string", enum: ["haute", "moyenne", "faible"] }, etagere: { type: ["integer", "null"] } }, required: ["item_code", "confidence", "etagere"], additionalProperties: false },
       },
       prices: {
         type: "array",
@@ -86,7 +90,7 @@ export function photoExtractionSystem(inp: PhotoExtractionInput, questions: Chec
 
 RÈGLES
 1. Réponds à chaque question par « oui » si la photo le MONTRE, « non » si la photo montre le contraire, « non_visible » si la photo ne permet pas de trancher. Dans le doute : non_visible.
-2. Les articles reconnus sont désignés UNIQUEMENT par un code de la liste ci-dessous (recopie exacte). Un produit visible qui n'est dans aucune ligne de la liste n'est PAS reporté. La confiance dit si l'étiquette ou l'emballage est lisible (haute), reconnaissable (moyenne) ou deviné (faible).
+2. Les articles reconnus sont désignés UNIQUEMENT par un code de la liste ci-dessous (recopie exacte). Un produit visible qui n'est dans aucune ligne de la liste n'est PAS reporté. La confiance dit si l'étiquette ou l'emballage est lisible (haute), reconnaissable (moyenne) ou deviné (faible). etagere — SUR QUELLE ÉTAGÈRE l'article se trouve, EN PARTANT DU BAS (1 = la plus basse visible), au plus le nombre d'étagères du composant ; null si le composant n'a pas d'étagères, si l'article n'est sur aucune, ou si tu ne peux pas trancher. Ne devine jamais une étagère : dans le doute, null.
 3. Les prix : seulement ceux LISIBLES sur une étiquette, en euros, avec le libellé lu tel quel ; item_code seulement si l'étiquette est celle d'un article de la liste, sinon null.
 4. coverage : « entier » si tout le composant est dans le cadre, « partiel » s'il déborde, « non_visible » si ce n'est pas un composant de magasin.
 5. person_visible : true dès qu'une personne, un visage ou une silhouette est visible, même de dos ou floue.

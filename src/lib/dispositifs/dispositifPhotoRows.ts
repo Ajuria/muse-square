@@ -14,7 +14,10 @@ export interface PhotoRow {
   gcs_uri: string; dispositif_type: string | null; dispositif_role: string | null;
   status: "read" | "error";
   checklist: Record<string, string> | null;
-  items_matched: Array<{ item_code: string; confidence: string }> | null;
+  // `etagere` (13/09) : la rangée de l'article EN PARTANT DU BAS, null si indéterminable. La colonne
+  // `items_matched` est du JSON en base : le champ s'ajoute sans migration. Les lignes écrites avant le
+  // 13/09 n'en portent pas — une lecture doit donc traiter `etagere` comme facultatif, jamais comme 0.
+  items_matched: Array<{ item_code: string; confidence: string; etagere?: number | null }> | null;
   items_confirmed: Array<{ item_code: string }> | null;
   prices_seen: Array<{ label: string; price_eur: number; item_code: string | null }> | null;
   coverage_flag: string | null; model: string | null; prompt_version: string | null;

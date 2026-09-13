@@ -1,5 +1,8 @@
 // Lie-bait de la lecture des photos : chaque invention plantée doit TOMBER ; une personne visible
 // doit être signalée (l'appelant efface). Un test vert ici sans le rouge d'à côté ne prouve rien.
+// 13/09 — la porte reçoit un champ de plus : l'ÉTAGÈRE de chaque article (en partant du bas), celle qui
+// permettra de croiser la hauteur avec la marge. Elle rend désormais les ARTICLES normalisés — c'est ce
+// que l'appelant écrit, jamais la sortie brute du modèle.
 import { describe, it, expect } from "vitest";
 import { validatePhotoExtraction } from "./photoExtractionChecks";
 import { photoExtractionSchema, photoExtractionSystem, photoQuestions } from "../photoExtraction";
@@ -19,7 +22,11 @@ const good = () => ({
 describe("validatePhotoExtraction — lie-bait", () => {
   it("une réponse conforme passe, et rend l'exposition, les étagères et les familles normalisés", () => {
     const r = validatePhotoExtraction(good(), KEYS, CODES, FAMS);
-    expect(r).toEqual({ ok: true, errors: [], rejected_person: false, exposition: "rayonnage", levels: 3, families_present: ["Épices"] });
+    // 13/09 — une ligne écrite AVANT ce jour n'a pas d'étagère : l'article passe, sa position vaut null.
+    expect(r).toEqual({
+      ok: true, errors: [], rejected_person: false, exposition: "rayonnage", levels: 3, families_present: ["Épices"],
+      items: [{ item_code: "CF-001", confidence: "haute", etagere: null }],
+    });
   });
   it("v2 — une exposition hors des cinq mots owner tombe ; une exposition absente aussi", () => {
     const o: any = good(); o.exposition = "etagere";
@@ -82,6 +89,53 @@ describe("validatePhotoExtraction — lie-bait", () => {
   });
 });
 
+// ── 13/09 — L'ÉTAGÈRE DE CHAQUE ARTICLE (owner : « le gain étagère »). Sans elle, on ne sait que compter
+// les étagères d'un meuble ; avec elle, on pourra dire ce qui se vend en haut et ce qui se vend en bas.
+// La règle de la porte : une INVENTION rejette (code, confiance), une position qu'on ne peut pas BORNER
+// est ramenée à null — on perd la position, jamais la photo.
+describe("l'étagère d'un article — bornée par les étagères du composant", () => {
+  const avecEtagere = (etagere: unknown, levels: unknown = 3) => {
+    const o: any = good(); o.levels = levels; o.items = [{ item_code: "CF-001", confidence: "haute", etagere }];
+    return validatePhotoExtraction(o, KEYS, CODES, FAMS);
+  };
+
+  it("une position tenable est gardée, et c'est elle que l'appelant écrit", () => {
+    const r = avecEtagere(2);
+    expect(r.ok).toBe(true);
+    expect(r.items).toEqual([{ item_code: "CF-001", confidence: "haute", etagere: 2 }]);
+  });
+
+  it("les bornes tiennent : la première et la dernière étagère du composant passent", () => {
+    expect(avecEtagere(1).items[0].etagere).toBe(1);
+    expect(avecEtagere(3).items[0].etagere).toBe(3);
+  });
+
+  it("au-dessus des étagères du composant : ramenée à null, et la photo est GARDÉE", () => {
+    const r = avecEtagere(5, 3);
+    expect(r.ok, "une position intenable ne fait pas perdre la photo").toBe(true);
+    expect(r.items[0].etagere).toBeNull();
+  });
+
+  it("zéro, négative, décimale ou écrite en toutes lettres : null", () => {
+    for (const v of [0, -1, 1.5, "deuxième", true]) expect(avecEtagere(v).items[0].etagere, String(v)).toBeNull();
+  });
+
+  it("le composant n'a pas d'étagères comptées : AUCUNE position n'est retenue — rien ne la borne", () => {
+    expect(avecEtagere(2, null).items[0].etagere).toBeNull();
+  });
+
+  it("un article REJETÉ n'est jamais écrit, même avec une étagère plausible", () => {
+    const o: any = good(); o.items = [{ item_code: "XX-999", confidence: "haute", etagere: 2 }];
+    const r = validatePhotoExtraction(o, KEYS, CODES, FAMS);
+    expect(r.ok).toBe(false);
+    expect(r.items).toEqual([]);
+  });
+
+  it("une réponse absente rend une liste d'articles vide, jamais undefined", () => {
+    expect(validatePhotoExtraction(null, KEYS, CODES, FAMS).items).toEqual([]);
+  });
+});
+
 describe("photoExtraction — consigne et schéma générés depuis le registre", () => {
   it("le schéma énumère EXACTEMENT les clés du type × rôle, rien d'autre", () => {
     const qs = photoQuestions({ type: "lineaire", role: "expert" });
@@ -104,6 +158,14 @@ describe("photoExtraction — consigne et schéma générés depuis le registre"
     expect(s0.required).not.toContain("families_present");
     expect(s0.additionalProperties).toBe(false);
   });
+  // 13/09 — chaque article porte son étagère : le modèle ne peut ni l'omettre (required) ni inventer un champ.
+  it("13/09 — le schéma d'un article porte etagere (entier ou null), exigé, et rien de plus", () => {
+    const s = photoExtractionSchema(photoQuestions({ type: "lineaire", role: "expert" }));
+    const art = s.properties.items.items;
+    expect(art.properties.etagere.type).toEqual(["integer", "null"]);
+    expect(art.required).toEqual(["item_code", "confidence", "etagere"]);
+    expect(art.additionalProperties).toBe(false);
+  });
   it("la consigne porte chaque question et chaque article, et dit l'absence d'articles", () => {
     const qs = photoQuestions({ type: "vitrine", role: null });
     const sys = photoExtractionSystem({ type: "vitrine", role: null, items: [{ item_code: "A1", item_description: "Ethiopia 250 g" }], families: ["Épices"] }, qs);
@@ -115,5 +177,11 @@ describe("photoExtraction — consigne et schéma générés depuis le registre"
     const sans = photoExtractionSystem({ type: "vitrine", role: null, items: [], families: [] }, qs);
     expect(sans).toContain("(aucun article connu pour ce site)");
     expect(sans).not.toContain("FAMILLES DU SITE"); expect(sans).not.toContain("families_present");
+  });
+  it("13/09 — la consigne dit d'où se comptent les étagères d'un article, et de ne jamais en deviner une", () => {
+    const qs = photoQuestions({ type: "lineaire", role: "expert" });
+    const sys = photoExtractionSystem({ type: "lineaire", role: "expert", items: [{ item_code: "A1", item_description: "Ethiopia 250 g" }], families: [] }, qs);
+    expect(sys).toContain("EN PARTANT DU BAS");
+    expect(sys).toContain("Ne devine jamais une étagère");
   });
 });

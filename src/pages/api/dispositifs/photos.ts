@@ -296,7 +296,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       photo_id, location_id: disp.location_id, dispositif_id, version_no: disp.version_no, component_key,
       walk_id: null, seq: null, t_offset_s: null, gcs_uri: photoGcsUri(path),
       dispositif_type: comp.type, dispositif_role: comp.role, status: "read",
-      checklist: out.checklist, items_matched: out.items, items_confirmed: null, prices_seen: out.prices,
+      // 13/09 — les articles viennent de la PORTE (gate.items), jamais de `out` : codes de la liste,
+      // confiance connue, et l'étagère ramenée à null quand elle sort des étagères du composant.
+      checklist: out.checklist, items_matched: gate.items, items_confirmed: null, prices_seen: out.prices,
       coverage_flag: out.coverage, model, prompt_version: PHOTO_PROMPT_VERSION, created_by: userId, created_at: new Date().toISOString(),
       // v2 : les valeurs NORMALISÉES par la porte (niveaux hors rayonnage → null, familles dédoublonnées).
       exposition: gate.exposition, levels: gate.levels, families_present: gate.families_present, fixture_no,

@@ -56,11 +56,18 @@ par mutation (4/4), rien n'est réputé livré tant que l'owner n'a pas ouvert l
   (« Bocaux et pots de condiments sur étagère »), pas des `item_code`. Une désignation libre ne se croise
   avec aucune vente.
 - **Le travail, dans cet ordre** :
-  1. Ajouter `etagere` (entier depuis le BAS, ou null) à chaque article de la lecture de production —
-     schéma, consigne, porte (`photoExtractionChecks`). **Aucune migration BigQuery** : `items_matched`
-     est déjà une colonne STRING JSON.
-  2. Re-mesurer sur les 235 photos réelles avec la consigne de PRODUCTION, et vérifier un sous-échantillon
-     à l'œil. La sonde libre ne vaut pas preuve pour la version contrainte.
+  1. ~~Ajouter `etagere` à chaque article de la lecture de production~~ — **FAIT le 13/09** : schéma
+     (`etagere` exigé, entier ou null), consigne (« EN PARTANT DU BAS … ne devine jamais une étagère »),
+     porte (la position est bornée par le nombre d'étagères du composant ; hors bornes ou composant sans
+     étagères comptées ⇒ `null` — on perd la position, jamais la photo), et la route écrit désormais les
+     articles NORMALISÉS par la porte. Aucune migration : `items_matched` est du JSON.
+  2. **À FAIRE, et c'est une mesure, pas du code** :
+     `npx tsx tools/oneoff/2026-09-13-mesure-etagere-par-article.mts --location=<uuid> --n=30`, puis
+     vérifier À L'ŒIL le sous-échantillon que le document liste. La sonde libre du matin ne vaut pas preuve
+     pour la version contrainte. **Point dur connu** : les photos sont celles d'Épices et Tout, et la
+     position d'un article ne se mesure que si l'article existe dans la liste VENDUE de ce site-là. Le
+     script s'arrête net si le site n'a aucun article connu — c'est alors ce trou qu'il faut traiter avant
+     de mesurer quoi que ce soit.
   3. Seulement ensuite, croiser la position avec la marge par article
      (`mart.fct_client_sales_lines_margin`) et décider s'il y a une carte à écrire.
 - **Preuve exigée** : le taux de position juste, mesuré à l'œil sur un sous-échantillon, AVANT d'écrire la
