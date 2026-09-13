@@ -84,8 +84,10 @@ export function validatePhotoExtraction(
     if (!it || !codes.has(code)) errors.push(`article hors liste « ${it?.item_code} »`);
     if (!CONF.has(String(it?.confidence))) errors.push(`confiance invalide « ${it?.confidence} »`);
     let etagere: number | null = null;
-    if (it?.etagere != null && plafond != null) {
-      const n = Number(it.etagere);
+    // Le TYPE d'abord : `Number(true)` vaut 1, et un booléen entrait comme « première étagère » (attrapé
+    // par le test le 13/09). Une position est un NOMBRE ou n'est pas — ni « deuxième », ni true, ni "2".
+    if (typeof it?.etagere === "number" && plafond != null) {
+      const n = it.etagere;
       if (Number.isInteger(n) && n >= 1 && n <= plafond) etagere = n;
     }
     if (it && codes.has(code) && CONF.has(String(it.confidence))) items.push({ item_code: code, confidence: String(it.confidence), etagere });

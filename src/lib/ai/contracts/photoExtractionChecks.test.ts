@@ -116,8 +116,12 @@ describe("l'étagère d'un article — bornée par les étagères du composant",
     expect(r.items[0].etagere).toBeNull();
   });
 
-  it("zéro, négative, décimale ou écrite en toutes lettres : null", () => {
-    for (const v of [0, -1, 1.5, "deuxième", true]) expect(avecEtagere(v).items[0].etagere, String(v)).toBeNull();
+  // 13/09 — ce cas a fait tomber la porte, et c'est elle qui a cédé : `Number(true)` vaut 1, un booléen
+  // entrait donc comme « première étagère ». Une position est un NOMBRE, sinon elle n'existe pas.
+  it("zéro, négative, décimale, écrite en toutes lettres, ou d'un autre type : null", () => {
+    for (const v of [0, -1, 1.5, "deuxième", "2", true, false, [], {}]) {
+      expect(avecEtagere(v).items[0].etagere, `étagère « ${JSON.stringify(v)} »`).toBeNull();
+    }
   });
 
   it("le composant n'a pas d'étagères comptées : AUCUNE position n'est retenue — rien ne la borne", () => {
