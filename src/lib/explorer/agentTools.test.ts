@@ -443,7 +443,7 @@ describe("couche 6 (13/09) — lire_engagements : votre journal", () => {
 describe("couche 6 (13/09) — lire_entite_periode : une entité sur une période", () => {
   it("une entité reconnue : l'en-tête, la table, et chaque ligne chiffrée redite comme un fait", async () => {
     const d = deps();
-    const out = await byName(buildAgentTools(d), "lire_entite_periode").run({ entites: ["épicerie fine"], du: "2026-08-01", au: "2026-08-31" });
+    const out = await byName(buildAgentTools(d), "lire_entite_periode").run({ entites: ["épices"], du: "2026-08-01", au: "2026-08-31" });
     expect(out).toContain("• Coffee : Période août · CA 21 064 € (30 j vendus).");
     expect(out).not.toContain("Loose Tea");                       // cellule « — » : jamais un fait
     expect(d.records[0].blocks?.map((b) => b.type)).toEqual(["prose", "facts", "table", "sources"]);
@@ -451,7 +451,7 @@ describe("couche 6 (13/09) — lire_entite_periode : une entité sur une périod
 
   it("deux entités, ou une période de comparaison, passent par la comparaison en table", async () => {
     const d = deps();
-    await byName(buildAgentTools(d), "lire_entite_periode").run({ entites: ["épicerie fine"], du: "2026-08-01", au: "2026-08-31", du_comparaison: "2026-07-01", au_comparaison: "2026-07-31" });
+    await byName(buildAgentTools(d), "lire_entite_periode").run({ entites: ["épices"], du: "2026-08-01", au: "2026-08-31", du_comparaison: "2026-07-01", au_comparaison: "2026-07-31" });
     expect(d.records[0].summary).toContain("2 période(s)");
   });
 
