@@ -44,6 +44,7 @@ import { frDate, memoryToText, newSiteMemoryRow, type AuthorRole, type SiteMemor
 import { composerProposition, OBJECTIF_FR } from "./proposition";
 import { JOURS, margeToText, type JoursMot, type MargeLecture } from "../kpi/margeLecture";
 import { composeDispositifsDocumentes, dispositifsToText } from "../dispositifs/dispositifsDocumentes";
+import { composeJournalEngagements, journalToText, type JournalJour, type JournalSource } from "../commitments/journalEngagements";
 import type { ClassDispositif } from "../dispositifs/bestPractices";
 import type { SiteEntities, SiteEntity } from "./entityResolver";
 import { dispositifFamilleToBlocks, type DispositifFamilleReading } from "../dispositifs/dispositifFamille";
@@ -106,6 +107,9 @@ export interface AgentToolDeps {
   listModeles: () => Promise<ReportTemplate[]>;
   today: () => string;   // AAAA-MM-JJ, Europe/Paris — injecté pour être testable
   record: (r: ToolCallRecord) => void;
+  // 13/09 (§ 7, couche 6) — VOTRE JOURNAL : les engagements jugés (provider engagements) et les jours à venir
+  // où les conditions d'un dispositif prouvé se reforment (journalPlan). Deux lectures, un seul outil.
+  runJournal: () => Promise<{ source: JournalSource; jours: JournalJour[] }>;
   // 13/09 (§ 7, couche 3) — vos dispositifs documentés (les fiches de l'atelier) et « une opération × des familles ».
   listDispositifsDocumentes: () => Promise<ClassDispositif[]>;
   siteEntities: () => Promise<SiteEntities>;
@@ -527,6 +531,23 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
+  // ── 13/09 (§ 7, couche 6) — lire_engagements : VOTRE JOURNAL (ex _engagements_v1 et son élicitation).
+  // Les cartes de pôles et d'opérations datées sont construites par le provider et rendues verbatim ; le
+  // modèle ne reçoit que les faits de prose, jamais les chiffres des cartes.
+  const lireEngagements = outil({
+    name: "lire_engagements",
+    description: "Votre journal : les engagements déjà JUGÉS sur ce site (atteints, manqués, non concluants), vos pôles et vos opérations datées en cartes, les jours à venir où les conditions d'un dispositif PROUVÉ se reforment, et le geste qui s'impose (ajuster un dispositif contre-indiqué, ou reconduire ce qui a marché). Répond à « qu'est-ce qui a marché ? », « mes engagements », « mes dispositifs », « mes pôles ». Les FICHES documentées de l'atelier ne sont pas ici : c'est `lire_dispositifs_documentes` — appelle les deux quand la question porte sur ce qui a été appris.",
+    inputSchema: z.object({}),
+    run: () => timed("lire_engagements", {}, async () => {
+      const j = composeJournalEngagements(await deps.runJournal());
+      return {
+        out: journalToText(j),
+        summary: j.found ? `${j.titre.toLowerCase()} : ${plural(j.facts.length, "fait", "faits")}` : "aucun engagement jugé — absence dite",
+        blocks: j.blocks, facts: j.facts,
+      };
+    }),
+  });
+
   // ── 13/09 (§ 7, couche 3) — lire_dispositifs_documentes : les fiches de l'atelier (ex _dispositifs_v1), une ligne par fiche.
   const lireDispositifsDocumentes = outil({
     name: "lire_dispositifs_documentes",
@@ -671,5 +692,5 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireDispositifsDocumentes, lireOperationFamille, composerPlan, ecrireDeclaration, lirePlan, pontDeMarge];
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireEngagements, lireDispositifsDocumentes, lireOperationFamille, composerPlan, ecrireDeclaration, lirePlan, pontDeMarge];
 }

@@ -39,13 +39,12 @@ import { assertNoSentenceWithoutFactIdV1 } from "../../../lib/ai/assertions/asse
 import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
 import { makeBQClient } from "../../../lib/bq";
 import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
-import { listClassDispositifs } from "../../../lib/dispositifs/bestPractices";
-import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
+// 13/09 (§ 7, couche 6) — `listClassDispositifs` et `engagementsFamily` ont quitté ce fichier avec la
+// couche journal : elles sont lues par `agentTurn.ts` pour `lire_engagements` et `lire_dispositifs_documentes`.
 import { loadSiteEntities, matchEntities } from "../../../lib/explorer/entityResolver";
 import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
 import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, readEntityWhy, readKpiPeriod } from "../../../lib/explorer/entityReading";
 import { readIdeaPlacement } from "../../../lib/dispositifs/ideaPlacement";
-import { journalPlan } from "../../../lib/explorer/journalPlan";
 import { signalMetier, horsPerimetreReponse } from "../../../lib/ai/horsPerimetre";
 import { operationLife } from "../../../lib/dispositifs/dispositifFamille";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
@@ -58,7 +57,6 @@ import { resolveFrPeriod, daysInRangeYmd, type YearBias, type FrPeriod } from ".
 // 13/09 (docs/explorer-outil-spec.md § 7) — l'aiguillage PAR CAPACITÉ vers la boucle de l'agent (couche 1 : la marge).
 import { randomUUID } from "node:crypto";
 import { runAgentTurn } from "../../../lib/explorer/agentTurn";
-import { dispositifLigneFr as dispoLineFr } from "../../../lib/dispositifs/dispositifsDocumentes";
 import { GET as photosGET } from "../dispositifs/photos";
 import type { PhotoBytes, PhotoInfo } from "../../../lib/explorer/agentTools";
 import type { AnswerBlock } from "../../../lib/explorer/blocks";
@@ -2706,66 +2704,15 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // n'ont pas besoin d'être reformulés, et le reformuler coûte la doctrine.
     // La famille `engagements` reste enregistrée : elle sert les questions qui EFFLEURENT le
     // journal sans le nommer (composition grounded), exactement comme buildPracticeFacts.
+    // 13/09 (§ 7, couche 6) — RENTRÉE : la couche entière tient dans `lire_engagements`. La composition
+    // (les faits que ni une carte ni le conseil ne disent déjà, les jours à venir plafonnés à trois, le
+    // geste UNIQUE où la contre-indication prime sur le rejeu) vit dans `lib/commitments/journalEngagements.ts`,
+    // pure et testée ; les deux lectures restent `engagementsFamily` et `journalPlan`, désormais en
+    // PARALLÈLE. Les fiches documentées ne sont plus inlinées ici : elles ont leur propre outil depuis ce
+    // matin (`lire_dispositifs_documentes`), et c'est la boucle qui enchaîne les deux.
+    // L'élicitation `_engagements_elicit_v1` tombe avec la couche : l'absence est un bloc de l'outil.
     if (JOURNAL_Q.test(qRaw) || _rsv?.intent === "journal") {
-      const _bqj = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-      const _j = await engagementsFamily(_bqj, location_id, new Date().toISOString().slice(0, 10));
-      if (_j.found) {
-        const _adv = ((_j.data as any)?.advice ?? []) as string[];
-        const _advTexts = ((_j.data as any)?.advice_texts ?? []) as string[];
-        // J2.2 — le croisement SIGNAL × JOURNAL s'attache à la carte du journal : quand un jour à
-        // venir réunit les conditions où un dispositif a été PROUVÉ, on le dit ici plutôt que
-        // d'inventer une route de plus (qui volerait des questions aux familles existantes).
-        const _plan = await journalPlan(_bqj, location_id, 14).catch(() => []);
-        const _planTxt = _plan.length
-          ? `\n\nVos jours à venir\n\n${_plan.slice(0, 3).map((x) => x.say_fr).join("\n\n")}`
-          : "";
-        // Streamline (owner 27/08) : « mes dispositifs » atterrit ICI — les fiches documentées
-        // de l'atelier s'absorbent en section compacte (mêmes lignes que la branche fiches,
-        // via dispoLineFr — jamais deux formulations), plafonnées à 3.
-        const _fiches = await listClassDispositifs(_bqj, location_id, null, 3).catch(() => []);
-        const _fichesTxt = _fiches.length
-          ? `\n\nVos dispositifs documentés\n\n${_fiches.map(dispoLineFr).join("\n\n")}`
-          : "";
-        // Journal nature-aware (proto v2, owner 27/08) : les pôles et les opérations au verdict
-        // imminent rendent en CARTES (construites par le provider) — leurs faits sortent de la
-        // prose (card_fact_texts), sinon la réponse dirait deux fois les mêmes chiffres. Le
-        // fait d'historique repris DANS une carte ambre reste en prose seulement s'il n'est
-        // pas déjà la ligne Historique de la carte.
-        const _cardTexts = ((_j.data as any)?.card_fact_texts ?? []) as string[];
-        const _poleCards = ((_j.data as any)?.pole_cards ?? []) as any[];
-        const _datedCards = ((_j.data as any)?.dated_cards ?? []) as any[];
-        const _body = _j.facts.filter((f) => !_advTexts.includes(f.fact_fr) && !_cardTexts.includes(f.fact_fr)).map((f) => f.fact_fr).join("\n\n")
-          + _planTxt
-          + _fichesTxt
-          + (_adv.length ? `\n\nAction conseillée : ${_adv.join(" ; ")}.` : "");
-        // J2.3 — le geste, pas seulement le conseil. Un dispositif contre-indiqué a un engagement
-        // OUVERT : « Ajuster » (mot du lexique l.38 pour un engagement ouvert) mène à la page qui
-        // porte déjà les deux gestes (arrêter / ajuster), jamais un formulaire de plus.
-        // CTA = un verbe + flèche, ≤ 14 caractères (lexique, règle de rédaction 1).
-        const _adjId = ((_j.data as any)?.adjust_commitment_id ?? null) as string | null;
-        // Deux gestes possibles, jamais les deux à la fois. La CONTRE-INDICATION prime : si un
-        // dispositif prouvé négatif tourne encore, l'ajuster passe avant tout rejeu.
-        const _replay = _plan.find((x) => x.direction === "positive" && x.prefill) ?? null;
-        const _primary = _adjId
-          ? { type: "redirect", url: `/app/insightevent/engagement?id=${encodeURIComponent(_adjId)}`, label: "Ajuster" }
-          : _replay
-            ? { type: "commit_prefill", label: "M'engager", prefill: _replay.prefill,
-                origin: { origin_action_type: "chat_journal_replay", origin_affected_date: _replay.date } }
-            : null;
-        return sysDialogueResponse(
-          _poleCards.length ? "Vos dispositifs" : "Vos engagements",
-          _body, "deterministic_engagements_v1", _primary,
-          (_poleCards.length || _datedCards.length)
-            ? { pole_cards: _poleCards, dated_cards: _datedCards,
-                pole_section_title: "Vos pôles", dated_section_title: "Vos opérations datées" }
-            : null,
-        );
-      }
-      return sysDialogueResponse(
-        "Aucun engagement jugé pour l'instant",
-        ENGAGEMENTS_ELICIT_FR,
-        "deterministic_engagements_elicit_v1",
-      );
+      return repondreParAgent("lire_engagements", qRaw);
     }
 
     // ── PLAN DE PÉRIODE (27/08) — « planifie-moi septembre ». Verbe de plan + période à

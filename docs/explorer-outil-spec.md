@@ -343,6 +343,19 @@ par capacité, jamais par site.
    CA par client — des dimensions sans donnée ni outil). Les retirer aujourd'hui enverrait ces questions à un
    agent sans outil pour elles. Elles tombent avec leurs chemins, le jour où ceux-ci ont leur outil
    (`comparer_journees`, `lire_entite_periode`, `lire_engagements`) — hors de cette spec.
+   **13/09, second passage — `lire_engagements` EXISTE, et `_engagements_v1` comme `_engagements_elicit_v1`
+   sont TOMBÉES avec leur couche.** L'outil rend le journal entier : les cartes de pôles et d'opérations
+   datées construites par le provider (blocs `headline` + `datecards` — le kit les rendait déjà, `blocks.ts`
+   ne les déclarait pas), les faits de prose que ni une carte ni le conseil ne disent déjà, les jours à
+   venir où les conditions d'un dispositif prouvé se reforment (plafond 3), et UN geste : la
+   contre-indication (« Ajuster ») prime toujours sur le rejeu (« M'engager » pré-rempli). La composition
+   est PURE et testée (`lib/commitments/journalEngagements.ts`, 12 cas) ; les deux lectures
+   (`engagementsFamily`, `journalPlan`) partent désormais en PARALLÈLE. Les fiches documentées ne sont plus
+   inlinées dans le journal : elles ont leur outil depuis le matin, et la description de `lire_engagements`
+   dit au modèle d'appeler les deux. `prompt.ts` perd 106 lignes (7 251 → 7 145) et quatre imports.
+   **Restent trois chemins sans outil** : `_missing_dates_v1` (comparaison de journées),
+   `_entity_period_elicit_v1` (entité × période) et `_missing_dimension_elicit_v1` (stock, personnel, CA
+   par client — sans donnée, celle-là RESTE une élicitation).
 
 Ce qui ne rentre pas : `_hors_perimetre_v1` et `_objection_v1` restent des règles du prompt système.
 

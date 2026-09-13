@@ -111,11 +111,14 @@ ne pas insister le même jour. Le rejeu de la même heure n'envoie rien de plus.
 
 - **Existe** : le mécanisme, livré le 13/09 — le bloc `clarification` rendu par les outils à qui il manque
   une entrée (`lire_operation_famille`, `lire_ventes`).
-- **Manque** : les quatre sorties restent, parce que chacune est la fin honnête d'un chemin qui n'est pas
-  rentré dans le registre. Les retirer aujourd'hui enverrait ces questions à un agent sans outil pour
-  elles. Il manque trois outils : `comparer_journees` (comparaison de journées v3), `lire_entite_periode`
-  (un pôle ou une famille sur une période), `lire_engagements` (le journal des engagements). Le quatrième
-  cas (stock, personnel, CA par client) n'a ni donnée ni outil : il RESTE une élicitation.
+- **Fait le 13/09** : `lire_engagements` — le journal entier (cartes de pôles et d'opérations datées, faits
+  de prose, jours à venir, un geste où la contre-indication prime). `_engagements_v1` et
+  `_engagements_elicit_v1` sont TOMBÉES avec leur couche ; `prompt.ts` perd 106 lignes.
+- **Manque** : deux outils, `comparer_journees` (comparaison de journées v3) et `lire_entite_periode` (un
+  pôle ou une famille sur une période). Leurs élicitations restent tant qu'ils n'existent pas : les retirer
+  enverrait ces questions à un agent sans outil pour elles. La quatrième
+  (`_missing_dimension_elicit_v1` : stock, personnel, CA par client) n'a ni donnée ni outil — elle RESTE
+  une élicitation, et c'est la bonne réponse.
 - **Preuve exigée** (celle de la spec, inchangée) : pour chaque couche, sa question de référence dans la
   batterie, une réponse de l'agent jugée équivalente ou meilleure, et le retrait de la couche dans le MÊME
   commit. Écrire l'outil sans pouvoir lancer la batterie, c'est fabriquer un chantier de plus à moitié fait.

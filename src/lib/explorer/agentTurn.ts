@@ -21,6 +21,8 @@ import { listReportTemplates } from "../rapport/modeles";
 import { readMargeLecture, type MargesDeclarees } from "../kpi/margeLecture";
 import { relireTexte, type Relecture } from "../fr/relecture";
 import { listClassDispositifs } from "../dispositifs/bestPractices";
+import { engagementsFamily } from "../insightFamilies/engagements";
+import { journalPlan } from "./journalPlan";
 import { loadSiteEntities } from "./entityResolver";
 import { operationLife, readDispositifFamille } from "../dispositifs/dispositifFamille";
 import { planPeriod } from "./planPeriod";
@@ -140,6 +142,15 @@ export function agentDeps(bq: any, inp: AgentTurnInput, tool_calls: ToolCallReco
     runPolesClassement: (start, end) => readPoleClassement(bq, location_id, start, end),
     listModeles: () => listReportTemplates(bq, location_id),
     // 13/09 (§ 7, couche 3) — les fiches de l'atelier et « une opération × des familles » : LES lecteurs existants, jamais une copie.
+    // 13/09 (§ 7, couche 6) — le journal : LES deux lectures existantes, en parallèle (aucun aller-retour
+    // en série ajouté au chemin). Les jours à venir ne dépendent pas du journal : ils partent ensemble.
+    runJournal: async () => {
+      const [source, jours] = await Promise.all([
+        engagementsFamily(bq, location_id, today()),
+        journalPlan(bq, location_id, 14).catch(() => []),
+      ]);
+      return { source: source as any, jours: jours as any };
+    },
     listDispositifsDocumentes: () => listClassDispositifs(bq, location_id, null, 6),
     siteEntities: () => loadSiteEntities(bq, location_id, inp.user_id),
     operationLife: (sid) => operationLife(bq, location_id, sid, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" })),

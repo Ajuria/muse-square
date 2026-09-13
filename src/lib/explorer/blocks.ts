@@ -16,6 +16,13 @@ export type AnswerBlock =
   | { type: "register"; register: Register; facts_cited?: number }
   | { type: "prose"; md: string }
   | { type: "facts"; items: string[] }
+  // 13/09 (§ 7, couche 6) — DEUX blocs que le kit rend DÉJÀ (vocabulaire Phase 3 de `renderAnswerBlocks`)
+  // et que ce type ne déclarait pas : le titre d'une section et une rangée de cartes construites SERVEUR
+  // (les pôles et les opérations datées du journal, proto v2 owner 27/08). Rien de neuf côté rendu : jusqu'ici
+  // c'est `ie-prompt.js` qui fabriquait ces deux blocs depuis le payload de la couche déterministe ; ils se
+  // déclarent ici pour que l'outil les rende lui-même.
+  | { type: "headline"; text: string }
+  | { type: "datecards"; items: Array<Record<string, unknown>> }
   // Le format de msTable (card-kit.js) : rows[].cells[] — jamais un second rendu de table.
   | { type: "table"; cols: Array<{ label: string; align?: "left" | "right" }>; rows: Array<{ cells: Array<{ v: string; bold?: boolean; color?: string; sub?: string; tip?: string }> }> }
   | { type: "card"; render: string; data: Record<string, unknown> }

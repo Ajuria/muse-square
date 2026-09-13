@@ -26,6 +26,16 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
     readPhotoBytes: async () => ({ media_type: "image/jpeg", base64: "AAAA", bytes: 4 }),
     readMemory: async () => [],
     writeMemory: async (row) => { written.push(row); },
+    // 13/09 (§ 7, couche 6) — le journal : un engagement jugé, un pôle en carte, un jour à venir prouvé.
+    runJournal: async () => ({
+      source: {
+        found: true,
+        facts: [{ fact_fr: "3 engagements jugés : 2 atteints, 1 manqué." }],
+        sources: ["Vos engagements"],
+        data: { advice: [], advice_texts: [], card_fact_texts: [], pole_cards: [{ nom: "Épicerie fine" }], dated_cards: [], adjust_commitment_id: null },
+      },
+      jours: [{ date: "2026-09-20", direction: "positive" as const, say_fr: "Samedi 20/09 : les conditions du Corner se reforment.", prefill: { committed_action_text: "Corner" } }],
+    }),
     // 12/09 : les lecteurs chiffrés — un résultat de provider simulé par famille (found / absence).
     runFamily: async (key) => key === "marge"
       ? { found: true, data: { found: true, lead: "Marge brute : 19 845 € sur vos 30 derniers jours", gross_margin_ht: 19845, coverage_pct: 92 }, facts: [{ fact_fr: "Sur vos 30 derniers jours, votre marge brute est de 19 845 €, soit un taux de marge brute de 40 %.", claim_type: "observed" }], sources: ["Votre caisse et vos prix d'achat"] }
@@ -108,7 +118,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_dispositifs_documentes", "lire_operation_famille", "composer_plan", "ecrire_declaration", "lire_plan", "pont_de_marge"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_engagements", "lire_dispositifs_documentes", "lire_operation_famille", "composer_plan", "ecrire_declaration", "lire_plan", "pont_de_marge"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -388,6 +398,28 @@ describe("proposer_operation — une Proposition d'opération faite de faits lus
     expect(await tool.run({ titre: "x", dispositif: "y", familles: ["Thés"], dates: ["2026-09-19"], pourquoi: [fait] })).toBe("Famille inconnue sur ce site : « Thés ». Familles vendues : Épices.");
     expect(await tool.run({ titre: "x", dispositif: "y", dates: ["2026-09-11"], pourquoi: [fait] })).toMatch(/^La date 11\/09\/2026 est passée/);
     expect(await tool.run({ titre: "x", dispositif: "Commandez plus de stock pour le week-end", dates: ["2026-09-19"], pourquoi: [fait] })).toMatch(/^Le nom ou le dispositif ne passe pas la relecture/);
+  });
+});
+
+describe("couche 6 (13/09) — lire_engagements : votre journal", () => {
+  it("rend les cartes du provider, les faits de prose, les jours à venir et UN geste — le modèle ne reçoit que la prose", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "lire_engagements").run({});
+    // Au MODÈLE : une ligne par fait. Les chiffres des cartes ne passent pas par son texte.
+    expect(out).toContain("• 3 engagements jugés : 2 atteints, 1 manqué.");
+    expect(out).toContain("• Samedi 20/09 : les conditions du Corner se reforment.");
+    expect(out).not.toContain("Épicerie fine");
+    // À L'EXPLOITANT : les cartes d'abord, puis la prose, puis les jours, puis le geste et les sources.
+    expect(d.records[0].blocks?.map((b) => b.type)).toEqual(["headline", "datecards", "facts", "headline", "facts", "cta", "sources"]);
+    expect(d.records[0]).toMatchObject({ name: "lire_engagements", ok: true, summary: "vos dispositifs : 2 faits" });
+  });
+
+  it("aucun engagement jugé : l'absence est un bloc de l'outil, plus une sortie de prompt.ts", async () => {
+    const d = deps({ runJournal: async () => ({ source: { found: false, facts: [], sources: [], data: {} }, jours: [] }) });
+    const out = await byName(buildAgentTools(d), "lire_engagements").run({});
+    expect(out).toContain("Vous n'avez pas encore d'engagement jugé sur ce site");
+    expect(d.records[0].blocks?.[0]).toMatchObject({ type: "absence", geste: { label_fr: "Vos opérations" } });
+    expect(d.records[0].summary).toBe("aucun engagement jugé — absence dite");
   });
 });
 

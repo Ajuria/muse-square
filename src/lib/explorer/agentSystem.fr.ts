@@ -23,6 +23,7 @@ export const OUTILS_FR: Record<string, string> = {
   lire_poles_classement: "Lecture de vos pôles, du plus au moins performant",
   composer_rapport: "Composition de votre Rapport",
   proposer_operation: "Préparation d'une Proposition d'opération",
+  lire_engagements: "Lecture de votre journal",
   lire_dispositifs_documentes: "Lecture des dispositifs documentés",
   lire_operation_famille: "Lecture d'une opération face à vos familles",
   composer_plan: "Composition de votre plan de période",
