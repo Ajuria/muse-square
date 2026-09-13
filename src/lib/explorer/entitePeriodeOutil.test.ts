@@ -31,6 +31,15 @@ describe("ligneEnFait — une ligne de table redite pour la porte", () => {
     expect(ligneEnFait(COLS, [{ v: "Loose Tea" }, { v: "—" }, { v: "—", sub: "3 j vendus" }])).toBeNull();
     expect(ligneEnFait(COLS, [{ v: "Loose Tea" }, { v: "" }, { v: "21 064 €" }])).toBe("Loose Tea : CA 21 064 €.");
   });
+  // 13/09 — le cas qui a fait rougir la suite, et c'est le CODE qui avait tort : la mesure était absente
+  // (« — ») mais le libellé de période restait, et « Loose Tea : Période août. » partait comme un fait
+  // citable. Un fait sans NOMBRE n'a rien à faire citer.
+  it("une ligne dont il ne reste AUCUN nombre n'est pas un fait, même si un libellé survit", () => {
+    expect(ligneEnFait(COLS, [{ v: "Loose Tea" }, { v: "août" }, { v: "—", sub: "3 j vendus" }])).toBeNull();
+    expect(ligneEnFait([{ label: "Pôle" }, { label: "État" }], [{ v: "Cave" }, { v: "en projet" }])).toBeNull();
+    // Une date EST un nombre citable : la ligne tient.
+    expect(ligneEnFait([{ label: "Occurrence" }, { label: "Jour" }], [{ v: "Corner" }, { v: "08/08/2026" }])).toBe("Corner : Jour 08/08/2026.");
+  });
   it("une ligne sans tête, ou vide, ne rend rien", () => {
     expect(ligneEnFait(COLS, [{ v: "" }, { v: "août" }])).toBeNull();
     expect(ligneEnFait(COLS, [])).toBeNull();

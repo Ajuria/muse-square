@@ -21,8 +21,13 @@ export interface EntitePeriodeCompose {
   sources: string[];
 }
 
-/** PUR — une ligne de table → un fait : « <1re cellule> : <cellule> · <cellule> ». Les cellules vides
- *  (« — ») sont écartées : une absence n'est pas un chiffre, et ne doit pas devenir un fait citable. */
+/** PUR — une ligne de table → un fait : « <1re cellule> : <cellule> · <cellule> ».
+ *
+ *  DEUX filtres, et le second a été appris à ses dépens le 13/09. (1) Une cellule vide ou « — » est
+ *  écartée : une absence n'est pas un chiffre. (2) Une ligne dont il ne reste AUCUN NOMBRE ne devient pas
+ *  un fait — « Loose Tea : Période août. » passait le premier filtre et ne mesurait rien, tout en
+ *  autorisant la porte à laisser le modèle parler de Loose Tea comme d'une ligne vérifiée. Ces faits
+ *  existent pour que les NOMBRES d'une table soient citables ; sans nombre, il n'y a rien à citer. */
 export function ligneEnFait(cols: Array<{ label?: string }>, cells: Array<{ v?: string; sub?: string | null }>): string | null {
   if (!cells.length) return null;
   const tete = String(cells[0]?.v ?? "").trim();
@@ -35,7 +40,8 @@ export function ligneEnFait(cols: Array<{ label?: string }>, cells: Array<{ v?: 
     const sub = String(cells[i]?.sub ?? "").trim();
     suite.push(`${label ? `${label} ` : ""}${v}${sub ? ` (${sub})` : ""}`);
   }
-  return suite.length ? `${tete} : ${suite.join(" · ")}.` : null;
+  if (!suite.some((s) => /\d/.test(s))) return null;
+  return `${tete} : ${suite.join(" · ")}.`;
 }
 
 const tableEnBlocs = (t: { cols: any[]; rows: any[] } | null | undefined, blocks: AnswerBlock[], facts: string[]): void => {
