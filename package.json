@@ -24,7 +24,8 @@
     "harness:explorer-blocks": "npx tsx tools/harness/explorer-blocks-render-verify.mjs",
     "harness:rapports": "npx tsx tools/harness/rapports-render-verify.mjs",
     "harness:evenement-preparer": "npx tsx tools/harness/evenement-preparer-bilan-verify.mjs",
-    "harness:lineage-photos": "npx tsx tools/harness/lineage-photos-verify.mts"
+    "harness:lineage-photos": "npx tsx tools/harness/lineage-photos-verify.mts",
+    "check:inline": "node tools/harness/astro-inline-check.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

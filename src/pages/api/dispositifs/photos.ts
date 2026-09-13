@@ -26,7 +26,7 @@
 // membre (requireLocationAccess).
 import type { APIRoute } from "astro";
 import { parseScope, serializeScope, scopeFromConfirmedPhotos } from "../../../lib/commitments/measuredScope";
-import { readMergeWrite } from "../../../lib/commitments/actionCommitments";
+import { readMergeWrite, readLatestSnapshot } from "../../../lib/commitments/actionCommitments";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { readComponents, dispositifTypeLabelFr, checklistFor, expositionLabelFr } from "../../../lib/dispositifs/dispositifTypes";
@@ -36,6 +36,10 @@ import {
   PHOTO_MAX_BYTES, makeStorageClient, photoObjectPath, photoGcsUri, putPhotoObject, deletePhotoObject, putPhotoVariants, getPhotoVariant, parsePhotoVariant,
   insertPhotoRow, listPhotoRows, latestPerComponent, listSiteItems, withConfirmedItems, photoApiUrl, type PhotoRow,
 } from "../../../lib/dispositifs/dispositifPhotos";
+import { changementDePhoto, dernierePhotoDuComposant } from "../../../lib/dispositifs/photoChangement";
+import { createPermanentPole } from "../../../lib/dispositifs/poleCreate";
+import { listSpaceMeasures, currentMeasures } from "../../../lib/dispositifs/spaceMeasures";
+import { photoChangementFr, type RaisonDeVersion } from "../../../lib/commitments/commitmentCopy";
 import { PHOTO_PROMPT_VERSION, photoQuestions, photoExtractionSchema, photoExtractionSystem } from "../../../lib/ai/photoExtraction";
 import { validatePhotoExtraction } from "../../../lib/ai/contracts/photoExtractionChecks";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
@@ -63,6 +67,10 @@ async function readDispositif(bq: any, dispositif_id: string, version_no: number
     commitment_id: String(flat(pick.commitment_id)),
     location_id: String(flat(pick.location_id)),
     version_no: Number(flat(pick.version_no)),
+    // 13/09 — la version COURANTE du dispositif, que la requête en ait demandé une autre ou non : le
+    // versionning automatique ne part que depuis elle. Une page restée ouverte sur une version périmée
+    // documente cette version-là ; elle n'en crée jamais une sœur.
+    current_version_no: Number(flat(rows[0].version_no)),
     components: readComponents(flat(pick.components)),
     measured_scope: pick.measured_scope != null ? String(flat(pick.measured_scope)) : null,   // P4 : le périmètre de la version
   };
@@ -92,6 +100,48 @@ function publicRow(r: PhotoRow, itemsByCode: Record<string, string>, auteurs: Re
 }
 const byCode = (items: Array<{ item_code: string; item_description: string }>): Record<string, string> =>
   Object.fromEntries(items.map((i) => [i.item_code, i.item_description]));
+
+// ── 13/09 — LA VERSION SUIVANTE, EN ARRIÈRE-PLAN (owner : « on devrait le faire dans le background et
+// ensuite le user peut éditer si il veut → Si photo change, versionning change »).
+// Le déclencheur est PUR et testé (lib/dispositifs/photoChangement) ; ici, l'écriture. Tout est HÉRITÉ
+// par le chemin unique de création d'un pôle (createPermanentPole avec parent_commitment_id : familles,
+// composants, responsable, pourquoi, ressources, périmètre de mesure). Les MESURES D'ESPACE, elles,
+// vivent à part et ne s'héritent pas toutes seules — sans ce report, la version nouvelle perdrait la
+// Part de linéaire et le CA par mètre que la page affiche. On les RECOPIE telles quelles.
+async function versionSuivanteDepuisPhoto(
+  bq: any, userId: string,
+  disp: { commitment_id: string; location_id: string; version_no: number },
+  dispositif_id: string,
+): Promise<{ commitment_id: string; version_no: number } | null> {
+  const parent = await readLatestSnapshot(bq, disp.commitment_id);
+  if (!parent) return null;
+  const nom = String((parent as any).committed_action_text ?? "").trim();
+  if (!nom) return null;                       // sans nom de pôle, createPermanentPole refuse — on ne force rien
+  // Les mesures en vigueur de la version courante, recopiées à l'identique.
+  const enCours = await listSpaceMeasures(disp.location_id, dispositif_id)
+    .then((rows) => currentMeasures(rows).filter((m) => m.version_no === disp.version_no))
+    .catch(() => []);
+  const comps = enCours.filter((m) => m.component_key).map((m) => ({
+    component_key: m.component_key as string, fixture_no: m.fixture_no,
+    length_m: m.length_m, depth_m: m.depth_m, faces: m.faces, families_share: m.families_share,
+  }));
+  const surface = enCours.find((m) => !m.component_key)?.surface_m2 ?? null;
+  const sources = new Set(enCours.map((m) => m.source));
+  const res = await createPermanentPole(bq, userId, {
+    location_id: disp.location_id,
+    committed_action_text: nom,
+    parent_commitment_id: disp.commitment_id,
+    // Rien d'autre : chaque champ absent est hérité du parent (poleCreate).
+    ...(comps.length || surface != null
+      ? { space_measures: { components: comps, ...(surface != null ? { surface_m2: surface } : {}), source: sources.size === 1 ? [...sources][0] : "saisie" } }
+      : {}),
+  });
+  if (res.status !== 200 || !res.body?.ok) {
+    console.error("[dispositifs/photos] version suivante non créée", res.status, res.body?.error);
+    return null;
+  }
+  return { commitment_id: String(res.body.commitment_id), version_no: Number(res.body.version_no) };
+}
 
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
@@ -201,6 +251,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Les familles réellement vendues du site — le foyer listSiteFamilies (même limite 50 que
     // evenement.ts et commitments/index.ts). Un site sans vente rend [] : la question n'est pas posée.
     const familiesP = listSiteFamilies(bq, disp.location_id, 50).then((f) => f.map((x) => x.category)).catch(() => [] as string[]);
+    // 13/09 — la photo précédente de CE composant dans CETTE version : le seul terme de comparaison du
+    // déclencheur. Amorcée ici (aucun aller-retour de plus sur le chemin séquentiel), attendue plus bas.
+    const precedenteP = listPhotoRows(bq, dispositif_id, disp.version_no)
+      .then((rows) => dernierePhotoDuComposant(rows, component_key, disp.version_no))
+      .catch(() => null);
     await putPhotoObject(storage, path, bytes, content_type);
 
     // 2. La lecture — consigne + schéma générés depuis le registre, image en bloc base64.
@@ -236,7 +291,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       .then(() => true)
       .catch((e: any) => { console.error("[dispositifs/photos] variantes non écrites", photo_id, String(e?.message || e)); return false; });
 
-    // 5. La ligne.
+    // 5. La ligne — d'abord telle que la version EN COURS la porterait.
     const row: PhotoRow = {
       photo_id, location_id: disp.location_id, dispositif_id, version_no: disp.version_no, component_key,
       walk_id: null, seq: null, t_offset_s: null, gcs_uri: photoGcsUri(path),
@@ -246,8 +301,41 @@ export const POST: APIRoute = async ({ request, locals }) => {
       // v2 : les valeurs NORMALISÉES par la porte (niveaux hors rayonnage → null, familles dédoublonnées).
       exposition: gate.exposition, levels: gate.levels, families_present: gate.families_present, fixture_no,
     };
+    // 6. LE VERSIONNING AUTOMATIQUE (owner 13/09 : « Si photo change, versionning change »).
+    // La photo est comparée à la dernière du MÊME composant dans la MÊME version ; un écart franc
+    // (familles, exposition, étagères — jamais les articles reconnus, trop bruités) crée la version
+    // suivante, qui hérite de tout. La photo est alors écrite SUR LA VERSION NOUVELLE : elle montre
+    // l'état nouveau, elle n'appartient pas à celui qu'elle remplace. Un échec de création ne perd
+    // jamais la photo — elle reste sur la version en cours, et la réponse ne ment pas.
+    const precedente = await precedenteP;
+    const aJour = disp.version_no === disp.current_version_no;
+    const lecture = aJour ? changementDePhoto(precedente, row) : { change: false, raisons: [] };
+    let version: { commitment_id: string; version_no: number; raisons: string[] } | null = null;
+    if (lecture.change) {
+      const suivante = await versionSuivanteDepuisPhoto(bq, userId, disp, dispositif_id).catch((e: any) => {
+        console.error("[dispositifs/photos] version suivante en erreur", String(e?.message || e));
+        return null;
+      });
+      if (suivante) {
+        row.version_no = suivante.version_no;
+        // Le nom du composant — le MÊME que le bloc Composants affiche : le libellé libre, sinon le type,
+        // plus le N° sur le plan quand il est saisi (« Rayonnage n° 8 »). Jamais la clé technique, et
+        // jamais la famille reconnue : elle vient de CHANGER, elle ne peut pas servir de nom.
+        const nomComp = [String(comp.label ?? "").trim() || dispositifTypeLabelFr(comp.type) || "Composant",
+          row.fixture_no != null ? `n° ${row.fixture_no}` : ""].filter(Boolean).join(" ");
+        const raisons: RaisonDeVersion[] = lecture.raisons.map((r) =>
+          r.quoi === "exposition"
+            ? { ...r, avant: expositionLabelFr(String(r.avant)), apres: expositionLabelFr(String(r.apres)) }
+            : r);
+        version = {
+          commitment_id: suivante.commitment_id, version_no: suivante.version_no,
+          raisons: photoChangementFr(nomComp, raisons),
+        };
+      }
+    }
+
     const [variants] = await Promise.all([variantsP, insertPhotoRow(bq, row)]);
-    return json({ ok: true, photo: publicRow(row, byCode(items)), usage: call.usage, variants });
+    return json({ ok: true, photo: publicRow(row, byCode(items)), usage: call.usage, variants, version });
   } catch (e: any) {
     const msg = String(e?.message || e);
     return json({ ok: false, error: msg }, msg.startsWith("FORBIDDEN") ? 403 : 500);

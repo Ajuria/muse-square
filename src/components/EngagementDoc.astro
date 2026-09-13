@@ -83,9 +83,48 @@ const { id, page, backHref, backLabel } = Astro.props;
             if (!sec || !MSCardKit.renderComponentPhoto) return;
             var did = sec.getAttribute("data-eg-dispositif"), ver = sec.getAttribute("data-eg-version");
             if (!did) return;
+            var cmLoc = (data.commitment && data.commitment.location_id) || "";
             var slot = function (key) { return sec.querySelector('[data-eg-photo="' + key + '"]'); };
             var show = function (key, photo) { var el = slot(key); if (el) el.innerHTML = MSCardKit.renderComponentPhoto(photo, COPY); };
             var say = function (key, msg) { var el = slot(key); if (el) el.textContent = msg; };
+            // 13/09 — LA VERSION FAITE PAR LA PHOTO (owner : « Si photo change, versionning change » ·
+            // « en plus de l'image, on doit confirmer avec le user le changement réalisé »). L'API a déjà
+            // créé la version suivante en arrière-plan et rend ses phrases ; ici, on les montre SOUS le
+            // composant et on pose LA question — la seule du chantier, au niveau du composant. La réponse
+            // devient la note de la version nouvelle, puis la page s'ouvre dessus.
+            var montrerVersion = function (key, v) {
+              var el = slot(key); if (!el || !v) return;
+              // La page regardait la version précédente : les photos suivantes vont sur la nouvelle.
+              ver = String(v.version_no); sec.setAttribute("data-eg-version", ver);
+              var box = document.createElement("div");
+              box.setAttribute("data-eg-chg", v.commitment_id);
+              box.setAttribute("style", "margin-top:10px;padding:10px 12px;background:#F5F8FF;border:1px solid #DCE4FB;border-radius:8px;");
+              var phrases = (v.raisons || []).map(function (p) { return '<div style="font-size:12.5px;color:#374151;line-height:1.55;">' + esc(p) + '</div>'; }).join("");
+              box.innerHTML = phrases
+                + '<div style="font-size:12.5px;color:#111827;font-weight:600;margin-top:4px;">' + esc(t("photo_chg_version", { n: v.version_no })) + '</div>'
+                + '<label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;margin:10px 0 4px;">' + esc(t("photo_chg_q")) + '</label>'
+                + '<input type="text" data-eg-chg-note placeholder="' + esc(t("retro_line_ph")) + '" style="width:100%;box-sizing:border-box;font-size:13px;font-family:inherit;color:#111827;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;" />'
+                + '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;">'
+                + '<button type="button" data-eg-chg-save style="font-size:12px;font-weight:600;font-family:inherit;padding:7px 14px;border-radius:6px;cursor:pointer;background:#1D3BB3;color:#fff;border:1px solid #1D3BB3;">' + esc(t("vform_cta")) + '</button>'
+                + '<span data-eg-chg-msg style="font-size:12px;color:#b91c1c;"></span></div>';
+              el.appendChild(box);
+              var input = box.querySelector("[data-eg-chg-note]"), save = box.querySelector("[data-eg-chg-save]"), msg = box.querySelector("[data-eg-chg-msg]");
+              var ouvrir = function () { window.location.href = MSCardKit.msPoleUrl(v.commitment_id); };
+              save.addEventListener("click", function () {
+                var note = (input && input.value ? String(input.value) : "").trim();
+                if (!note) { ouvrir(); return; }                  // rien à écrire : la version existe déjà
+                save.disabled = true; save.textContent = "…"; msg.textContent = "";
+                fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ commitment_id: v.commitment_id, location_id: cmLoc, dispositif_note: note }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) {
+                    if (j && j.ok) { ouvrir(); return; }
+                    save.disabled = false; save.textContent = t("vform_cta"); msg.textContent = "Erreur : " + ((j && j.error) || "réessayez");
+                  })
+                  .catch(function () { save.disabled = false; save.textContent = t("vform_cta"); msg.textContent = "Erreur, réessayez."; });
+              });
+              if (input) input.focus();
+            };
             fetch("/api/dispositifs/photos?dispositif_id=" + encodeURIComponent(did) + (ver ? "&version_no=" + encodeURIComponent(ver) : ""))
               .then(function (r) { return r.json(); })
               .then(function (j) {
@@ -151,7 +190,7 @@ const { id, page, backHref, backLabel } = Astro.props;
                     .then(function (r) { return r.json(); });
                 }).then(function (j) {
                   btn.disabled = false;
-                  if (j && j.ok && j.photo) { show(key, j.photo); return; }
+                  if (j && j.ok && j.photo) { show(key, j.photo); if (j.version) montrerVersion(key, j.version); return; }
                   say(key, j && j.rejected === "person" ? (COPY.pole_photo_person || "") : (COPY.pole_photo_failed || ""));
                 }).catch(function () { btn.disabled = false; say(key, COPY.pole_photo_failed || ""); });
               });

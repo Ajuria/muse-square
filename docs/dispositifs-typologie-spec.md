@@ -266,8 +266,22 @@ restent à arbitrer.
 | `vt_prix_visible` | Au moins un prix est-il affiché ? (obligation légale en France) | convertir | case de conformité, pas de carte |
 | `vt_offre_datee` | Le message porte-t-il une date ou une échéance ? | faire venir | l'opération correspondante existe-t-elle dans le journal ? |
 | `vt_article_apparie` | Un article exposé figure-t-il dans la liste des articles vendus ? | panier | ventes de cet article pendant les jours d'exposition |
-| `vt_change_depuis` | Le contenu a-t-il changé depuis la photo précédente ? | — | alimente la version ; jamais une carte seule |
+| `vt_change_depuis` | Le contenu a-t-il changé depuis la photo précédente ? | — | **rien (13/09)** — voir l'encadré ci-dessous |
 | `vt_eclairee` | La vitrine est-elle éclairée et dégagée ? | faire venir | — |
+
+> **LES TROIS QUESTIONS « A-T-IL CHANGÉ ? » NE PROUVENT RIEN, ET LE VERSIONNING NE S'APPUIE PAS DESSUS
+> (13/09).** `vt_change_depuis`, `il_change_depuis` et `md_change_depuis` demandent au modèle de comparer
+> à la photo précédente — or il ne reçoit QU'UNE image (`src/lib/ai/photoExtraction.ts`,
+> `photoExtractionSystem` : une seule entrée `image`), et sa propre règle 1 lui dit « dans le doute :
+> non_visible ». Les trois clés restent au registre (rien n'est retiré, les lignes déjà écrites gardent
+> leur réponse), mais **personne ne les lit**. Le déclencheur du versionning automatique d'un pôle
+> (owner 13/09 : « Si photo change, versionning change ») se CALCULE sur deux lignes que l'app possède
+> déjà : `src/lib/dispositifs/photoChangement.ts` compare la photo à la dernière du MÊME composant DANS
+> LA MÊME version, et ne retient que trois écarts francs — **familles présentes, exposition, nombre
+> d'étagères**, les deux photos en cadrage `entier`. Les **articles reconnus en sont exclus** : la
+> reconnaissance varie d'une photo à l'autre sur un meuble identique, et une version créée sur ce bruit
+> serait une version fausse. La parole de l'exploitant (articles confirmés des deux photos) est
+> l'incrément suivant.
 
 ### `lineaire`, `gondole`, `tete_de_gondole` — le libre-service
 

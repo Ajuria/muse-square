@@ -235,6 +235,21 @@ export const EVOL_COPY = {
   pole_photo_levels: "{n} étagères",
   pole_photo_levels_un: "1 étagère",
   pole_photo_families: "Familles reconnues :",
+  // 13/09 (owner : « Si photo change, versionning change » — le versionning d'un pôle se fait en
+  // arrière-plan, l'exploitant édite ensuite s'il veut). Ce que la photo a changé, dit en clair avant
+  // la question. Le SUJET est le composant — un objet du commerce, nommé comme la légende le nomme
+  // (« Rayonnage n° 8 ») ; le VERBE est celui du métier (porter, changer, passer de … à …). Aucune de
+  // ces lignes ne demande une saisie : elles CONSTATENT, la demande est `photo_chg_q` juste après.
+  photo_chg_familles_deux: "« {comp} » ne porte plus {partis} et porte maintenant {venus}.",
+  photo_chg_familles_partis: "« {comp} » ne porte plus {partis}.",
+  photo_chg_familles_venus: "« {comp} » porte maintenant {venus}.",
+  photo_chg_exposition: "« {comp} » change d'exposition : {avant} devient {apres}.",
+  photo_chg_etageres: "« {comp} » passe de {avant} à {apres} étagères.",
+  photo_chg_version: "Le pôle passe en version {n}.",
+  // L'INTITULÉ du champ — même nature que `retro_line_q_*` (« Ce qui a marché ») : un intitulé, pas une
+  // promesse. Le gabarit du champ est `retro_line_ph` (« En une ligne »), le bouton `vform_cta`
+  // (« Enregistrer → »). Au registre du garde règle 8 (`src/lib/fr/saisies.fr.guard.test.ts`).
+  photo_chg_q: "Qu'avez-vous changé ?",
   // Articles des photos face aux ventes (livrable 2, 03/09) — miroir des chaînes de la lecture du
   // pôle (« Résultats — 30 derniers jours », « {n30} j vendus · habituel {base} €/j »).
   pole_items_title: "Articles des photos — 30 derniers jours",
@@ -449,6 +464,38 @@ export function retroEtat(r: { verdict?: string | null; action_done_status?: str
   if (r.action_done_status === "pas_encore") return "non_menee";
   return r.verdict === "met" ? "met" : r.verdict === "missed" ? "missed" : "inconclusive";
 }
+// ── 13/09 — CE QUE LA PHOTO A CHANGÉ, en phrases (owner : « Si photo change, versionning change »). ──
+/** Une raison, telle que `lib/dispositifs/photoChangement` la calcule — les valeurs d'exposition sont
+ *  déjà des LIBELLÉS (expositionLabelFr) quand elles arrivent ici : ce foyer ne connaît aucun code. */
+export interface RaisonDeVersion {
+  quoi: "familles" | "exposition" | "etageres";
+  partis: string[]; venus: string[];
+  avant: string | number | null; apres: string | number | null;
+}
+/** Une phrase par raison — le composant est le sujet, nommé comme la légende le nomme. */
+export function photoChangementFr(comp: string, raisons: readonly RaisonDeVersion[]): string[] {
+  const t = (key: keyof typeof EVOL_COPY, vars: Record<string, string>) => {
+    let s = String(EVOL_COPY[key] ?? "");
+    for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(v);
+    return s;
+  };
+  const liste = (xs: readonly string[]) => xs.join(", ");
+  const out: string[] = [];
+  for (const r of raisons) {
+    if (r.quoi === "familles") {
+      const key = r.partis.length && r.venus.length ? "photo_chg_familles_deux"
+        : r.partis.length ? "photo_chg_familles_partis" : "photo_chg_familles_venus";
+      if (!r.partis.length && !r.venus.length) continue;
+      out.push(t(key, { comp, partis: liste(r.partis), venus: liste(r.venus) }));
+    } else if (r.quoi === "exposition") {
+      out.push(t("photo_chg_exposition", { comp, avant: String(r.avant ?? ""), apres: String(r.apres ?? "") }));
+    } else {
+      out.push(t("photo_chg_etageres", { comp, avant: String(r.avant ?? ""), apres: String(r.apres ?? "") }));
+    }
+  }
+  return out;
+}
+
 /** La ligne du gain : « −394 € : ce que vous changez au prochain « Corner de vente producteur ». » */
 export function retroGainFr(etat: RetroEtat, ecartFr: string | null, titre: string): string {
   const court = titre.length > 0 && titre.length <= TITRE_COURT_MAX;

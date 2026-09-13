@@ -26,6 +26,10 @@ export const SAISIES_FR: Array<{ cle: string; texte: string }> = [
   // 13/09 — la demande de photo de composant, ratifiée par l'owner APRÈS deux refus et après la livraison de
   // la surface qui tient sa promesse (l'historique du dispositif). Elle passe la même porte que les autres.
   { cle: "pole_components_hint", texte: String(EVOL_COPY.pole_components_hint) },
+  // 13/09 — la question posée AU COMPOSANT quand sa photo a fait passer le pôle à la version suivante
+  // (owner : « le seul niveau où il y a une question posée, c'est au niveau de la description du
+  // dispositif / meuble. En plus de l'image, on doit confirmer avec le user le changement réalisé »).
+  { cle: "photo_chg_q", texte: String(EVOL_COPY.photo_chg_q) },
 ];
 // HORS registre, et c'est voulu : `retro_line_q_*` et `retro_line_ph` sont l'INTITULÉ et le gabarit du champ
 // (« Ce qui a marché », « En une ligne ») — un groupe nominal y est à sa place, et « en une ligne » dit la taille du champ,
