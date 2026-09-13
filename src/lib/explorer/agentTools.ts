@@ -187,6 +187,13 @@ function photoToText(poleName: string, p: PhotoInfo): string {
 }
 
 // ── Les outils ─────────────────────────────────────────────────────────────────────────────────────
+/** 13/09 (§ 7, couche 6) — les puces de période : les trois mots du produit (lire_ventes, composer_rapport). */
+const PERIODE_CHIPS = [
+  { label_fr: "Les 30 derniers jours", send: "Mes ventes des 30 derniers jours" },
+  { label_fr: "La semaine dernière", send: "Mes ventes de la semaine dernière" },
+  { label_fr: "Le mois dernier", send: "Mes ventes du mois dernier" },
+];
+
 export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
   const timed = async <T>(name: string, input: unknown, fn: () => Promise<{ out: T; summary: string; blocks?: AnswerBlock[]; facts?: string[] }>): Promise<T> => {
     const t0 = Date.now();
@@ -369,7 +376,8 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
     run: (args) => timed("lire_ventes", args, async () => {
       const p = resolvePeriode({ periode: (args.periode as PeriodeMot | undefined) ?? null, du: args.du ?? null, au: args.au ?? null }, deps.today());
-      if (!p) return { out: "Période invalide : donne deux dates AAAA-MM-JJ, la première avant la seconde.", summary: "période invalide" };
+      // 13/09 (§ 7, couche 6) — une période illisible : les trois périodes du produit en puces (clarification), jamais une devinette.
+      if (!p) return { out: "Période invalide : donne deux dates AAAA-MM-JJ, la première avant la seconde — ou l'une des trois périodes : 30 derniers jours, la semaine dernière, le mois dernier.", summary: "période invalide — clarification", blocks: [{ type: "prose", md: "Sur quelle période ?" }, { type: "clarification", chips: PERIODE_CHIPS }], facts: [] };
       const res = await deps.runVentes(p.start, p.end);
       const l = composeVentesFacts(res, { grain: args.grain === "jour" ? "jour" : null });
       // 13/09 (§ 7, couche 2 — ex _offering_elicit_v1) : sans vente, l'absence dit le geste — importer ses ventes (le sélecteur du chat).
@@ -539,13 +547,20 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
       const site = await deps.siteEntities();
       const op = trouve(site, "operation", args.operation);
       if (!op || !op.id) {
-        const noms = site.entities.filter((e) => e.kind === "operation").map((e) => `« ${e.name} »`);
-        return { out: `Aucune opération nommée « ${args.operation} » sur ce site.${noms.length ? ` Opérations du site : ${noms.join(", ")}.` : " Aucune opération sur ce site."}`, summary: `opération « ${args.operation} » inconnue` };
+        // 13/09 (§ 7, couche 6) — la clarification : les opérations RÉELLES du site en puces, jamais une devinette.
+        const ops = site.entities.filter((e) => e.kind === "operation").slice(0, 6);
+        const manque = `Aucune opération nommée « ${args.operation} » sur ce site.${ops.length ? " Laquelle ?" : " Aucune opération sur ce site."}`;
+        const chips = ops.map((o) => ({ label_fr: o.name, send: `Pendant « ${o.name} », qu'a fait la famille ${args.familles[0]} ?` }));
+        return { out: `${manque}${ops.length ? ` Opérations du site : ${ops.map((o) => `« ${o.name} »`).join(", ")}.` : ""}`, summary: `opération « ${args.operation} » inconnue — clarification`, blocks: [{ type: "prose", md: manque }, ...(chips.length ? [{ type: "clarification", chips } as AnswerBlock] : [])], facts: [] };
       }
       const fams: SiteEntity[] = [];
       for (const f of args.familles) {
         const e = trouve(site, "famille", f);
-        if (!e) { const noms = site.entities.filter((x) => x.kind === "famille").map((x) => x.name); return { out: `Famille inconnue sur ce site : « ${f} ». Familles : ${noms.join(", ")}.`, summary: `famille « ${f} » inconnue` }; }
+        if (!e) {
+          const fams6 = site.entities.filter((x) => x.kind === "famille").slice(0, 8);
+          const manque = `Famille inconnue sur ce site : « ${f} ».${fams6.length ? " Laquelle ?" : ""}`;
+          return { out: `${manque} Familles : ${fams6.map((x) => x.name).join(", ")}.`, summary: `famille « ${f} » inconnue — clarification`, blocks: [{ type: "prose", md: manque }, { type: "clarification", chips: fams6.map((x) => ({ label_fr: x.name, send: `Pendant « ${op.name} », qu'a fait la famille ${x.name} ?` })) }], facts: [] };
+        }
         if (!fams.some((x) => x.name === e.name)) fams.push(e);
       }
       const today = deps.today();

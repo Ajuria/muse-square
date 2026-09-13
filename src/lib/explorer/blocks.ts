@@ -27,6 +27,9 @@ export type AnswerBlock =
   // 13/09 (§ 7, couche 4) — un segment d'un autre registre au milieu d'une réponse vérifiée (les références web du plan) :
   // le kit le rend en ambre « Web — non vérifié » ; ses nombres ne sont pas des faits pour la porte.
   | { type: "segment"; register: "web" | "model"; md: string }
+  // 13/09 (§ 7, couche 6) — LA CLARIFICATION : un outil à qui il manque une entrée (l'opération, la période) rend les choix
+  // réels du site en puces (label_fr, send) — le client renvoie `send` comme une question ; jamais une devinette.
+  | { type: "clarification"; chips: Array<{ label_fr: string; send: string }> }
   // 12/09 — « Votre note » (spec § 6.2, lexique l. 123) : un texte écrit par l'exploitant sous un bloc, jamais vérifié par
   // le validateur, dit par sa pastille — jamais mêlé à un texte vérifié.
   | { type: "note"; text: string; auteur: string | null; date: string }

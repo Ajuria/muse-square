@@ -332,6 +332,17 @@ par capacité, jamais par site.
 6. Les couches d'élicitation (`_missing_dates_v1`, `_entity_period_elicit_v1`,
    `_missing_dimension_elicit_v1`, `_engagements_elicit_v1`) rentrent en dernier : elles deviennent des
    blocs `clarification` que la boucle rend quand un outil manque d'une entrée.
+   **13/09 — le MÉCANISME est livré, les quatre sorties RESTENT.** Le bloc `clarification` (blocks.ts : puces
+   `{ label_fr, send }`, le kit les rend, ie-prompt.js renvoie `send` comme une question) est rendu par les outils
+   à qui il manque une entrée : `lire_operation_famille` (opération ou famille inconnue → les opérations / familles
+   RÉELLES du site en puces), `lire_ventes` (période illisible → les trois périodes du produit). Batterie agent
+   « Pendant les Soldes d'hiver, qu'a fait la famille Coffee ? » → puces des opérations du site. Les quatre sorties
+   de prompt.ts ne se retirent PAS encore : chacune est la fin honnête d'un chemin qui n'est pas rentré
+   (`_missing_dates_v1` = la comparaison de journées v3 ; `_entity_period_elicit_v1` = l'entité × période ;
+   `_engagements_elicit_v1` = le journal des engagements ; `_missing_dimension_elicit_v1` = stock, personnel,
+   CA par client — des dimensions sans donnée ni outil). Les retirer aujourd'hui enverrait ces questions à un
+   agent sans outil pour elles. Elles tombent avec leurs chemins, le jour où ceux-ci ont leur outil
+   (`comparer_journees`, `lire_entite_periode`, `lire_engagements`) — hors de cette spec.
 
 Ce qui ne rentre pas : `_hors_perimetre_v1` et `_objection_v1` restent des règles du prompt système.
 
@@ -439,8 +450,11 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    la batterie) — une règle « la cible dépasse l'habituel » côté outil demanderait le référentiel du jour (event-form le
    lit via /api/insight/evenement) ; l'essai owner sur la page Explorer suppose que la boucle y soit branchée (§ 7).
 7. **Incrément 7 — la migration** (§ 7), une couche par commit. **Couche 1 (marge) rentrée le 13/09** (§ 7, 1) ;
-   **Couches 2 à 5 rentrées le 13/09** (§ 7, 2-5) ; reste la couche 6 (élicitations → blocs `clarification`), et le
-   CA par client d'une clientèle déclarée avec sa question.
+   **Couches 1 à 5 rentrées le 13/09 ; couche 6 : le mécanisme (bloc `clarification` rendu par les outils) livré, les
+   quatre sorties restent avec leurs chemins non rentrés** (§ 7, 6). Reste aussi le CA par client d'une clientèle
+   déclarée avec sa question. `prompt.ts` a perdu neuf sorties anticipées sur 28 (marge ×2, top familles, élicitation
+   ventes, fiches, opération × famille, rapport ×2 / bilan, plan ×2, déclaration) — les chemins jour, mois, familles,
+   entités, journal, hors périmètre et objection y vivent encore.
 8. **Incrément 8 — le pont de marge**, dès les premiers prix d'achat réels ; **le plan coloré**, dès que
    les contours vivent en base (les sept zones d'Épices et Tout sont relevées :
    `zones_poles_epices_et_tout_2026-09-12.json` ; leur table `analytics.space_zones` et sa vue dbt se

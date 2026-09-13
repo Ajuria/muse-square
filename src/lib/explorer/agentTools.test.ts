@@ -394,8 +394,13 @@ describe("couche 3 (13/09) — lire_dispositifs_documentes et lire_operation_fam
     expect(out).toContain("• Ventes/jour avec Épices : 34 pendant l'opération, 23 habituellement (+51,1 %).");
     expect(out).toContain("• Ce qui bouge pendant l'opération pour la famille Épices : Ventes/jour avec Épices +51,1 %, CA/jour Épices +41 %, Part de Épices dans le CA +1,7 % · ce qui ne suit pas : Panier moyen avec Épices −8,1 %.");
     expect(d.records[0].blocks?.some((b) => b.type === "table")).toBe(true);
-    expect(await byName(buildAgentTools(d), "lire_operation_famille").run({ operation: "Soldes", familles: ["Épices"] })).toBe("Aucune opération nommée « Soldes » sur ce site. Opérations du site : « Corner producteur ».");
-    expect(await byName(buildAgentTools(d), "lire_operation_famille").run({ operation: "Corner producteur", familles: ["Thés"] })).toBe("Famille inconnue sur ce site : « Thés ». Familles : Épices.");
+    // 13/09 (§ 7, couche 6) — une entrée qui manque = une clarification : les choix réels du site en puces, envoyables tels quels.
+    expect(await byName(buildAgentTools(d), "lire_operation_famille").run({ operation: "Soldes", familles: ["Épices"] })).toBe("Aucune opération nommée « Soldes » sur ce site. Laquelle ? Opérations du site : « Corner producteur ».");
+    expect(d.records[1].blocks).toEqual([{ type: "prose", md: "Aucune opération nommée « Soldes » sur ce site. Laquelle ?" }, { type: "clarification", chips: [{ label_fr: "Corner producteur", send: "Pendant « Corner producteur », qu'a fait la famille Épices ?" }] }]);
+    expect(await byName(buildAgentTools(d), "lire_operation_famille").run({ operation: "Corner producteur", familles: ["Thés"] })).toBe("Famille inconnue sur ce site : « Thés ». Laquelle ? Familles : Épices.");
+    expect(d.records[2].blocks?.[1]).toEqual({ type: "clarification", chips: [{ label_fr: "Épices", send: "Pendant « Corner producteur », qu'a fait la famille Épices ?" }] });
+    await byName(buildAgentTools(d), "lire_ventes").run({ du: "2026-09-10", au: "2026-09-01" });
+    expect(d.records[3].blocks?.[1]).toMatchObject({ type: "clarification", chips: [{ label_fr: "Les 30 derniers jours", send: "Mes ventes des 30 derniers jours" }, { label_fr: "La semaine dernière", send: "Mes ventes de la semaine dernière" }, { label_fr: "Le mois dernier", send: "Mes ventes du mois dernier" }] });
   });
 });
 
