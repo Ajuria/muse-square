@@ -314,8 +314,21 @@ par capacité, jamais par site.
    octobre. » 26 s, juge 4,1/5 ; « comment se sont passées mes journées de juin-juillet ? » 13 s, 3,4/5 (R4) ; batterie
    agent plan 16,8 s vérifiée (deux phrases retirées : « rejouable », mot banni repris d'une section du plan). Le libellé
    « Composition de votre plan de période » (OUTILS_FR) est proposé, à ratifier.
-5. `_declared_capture_v1` → `ecrire_declaration` (le seul outil d'écriture de plus : les paramètres à
-   date d'effet et les marges déclarées, par les foyers existants).
+5. `_declared_capture_v1` → `ecrire_declaration` — **RENTRÉE le 13/09** : le seul outil d'écriture de plus —
+   `ecrire_declaration(type, valeur?, action?)` avec `type` ∈ marge_pct · clientele · surface_vente_m2 et `action` declarer
+   (défaut) ou oublier (marge, clientèle). `lib/kpi/declarationEcriture.ts` (pur : la fiche du registre declaredMetrics.ts,
+   ses bornes, la confirmation approuvée « Marge notée : 62 % » de contextCopy) ; les écritures sont les adaptateurs de
+   `agentTurn.ts` sur LES foyers existants — le journal des corrections (assert / supersede / clear, `declarant_name` du
+   roster passé par prompt.ts `declared_by`) et `analytics.declared_parameters` (surface, date d'effet = aujourd'hui,
+   jamais d'oubli : une nouvelle valeur). Une marge déclarée dans le tour est lue par `lire_marge` du même tour (la
+   règle « déclare-et-demande » du 17/07 tient). Dans prompt.ts, une déclaration reconnue par `parseAnyDeclaration`
+   part à l'agent — SAUF une clientèle déclarée AVEC sa question (« j'ai 300 clients : quel est mon CA par client ? »),
+   dont l'estimation CA ÷ clients n'a pas d'outil : elle garde son chemin (`deterministic_declared_margin_v1` pour le
+   CA par client) jusqu'à la couche suivante. Producteur `agent_ecrire_declaration`. La batterie n'écrit JAMAIS sur le
+   compte de test (écriture simulée, lecture réelle) ; l'essai réel est passé par la route le 13/09 : « J'ai environ 300 clients
+   réguliers. » → `agent_ecrire_declaration`, une ligne au journal (Julen, source chat_declared), puis « Oublie ma
+   clientèle déclarée. » → clear, journal à zéro. L'oubli par le texte (« oublie ma marge / ma clientèle ») est routé vers
+   l'agent (mesuré : sans cette ligne, la phrase partait à la famille audience) ; le panneau mémoire garde « Oublier ».
 6. Les couches d'élicitation (`_missing_dates_v1`, `_entity_period_elicit_v1`,
    `_missing_dimension_elicit_v1`, `_engagements_elicit_v1`) rentrent en dernier : elles deviennent des
    blocs `clarification` que la boucle rend quand un outil manque d'une entrée.
@@ -426,8 +439,8 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    la batterie) — une règle « la cible dépasse l'habituel » côté outil demanderait le référentiel du jour (event-form le
    lit via /api/insight/evenement) ; l'essai owner sur la page Explorer suppose que la boucle y soit branchée (§ 7).
 7. **Incrément 7 — la migration** (§ 7), une couche par commit. **Couche 1 (marge) rentrée le 13/09** (§ 7, 1) ;
-   **Couches 2, 3 et 4 rentrées le 13/09** (§ 7, 2-4) ; restent les couches 5 (déclarations → `ecrire_declaration`) et 6
-   (élicitations → blocs `clarification`).
+   **Couches 2 à 5 rentrées le 13/09** (§ 7, 2-5) ; reste la couche 6 (élicitations → blocs `clarification`), et le
+   CA par client d'une clientèle déclarée avec sa question.
 8. **Incrément 8 — le pont de marge**, dès les premiers prix d'achat réels ; **le plan coloré**, dès que
    les contours vivent en base (les sept zones d'Épices et Tout sont relevées :
    `zones_poles_epices_et_tout_2026-09-12.json` ; leur table `analytics.space_zones` et sa vue dbt se

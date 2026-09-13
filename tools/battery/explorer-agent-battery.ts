@@ -59,6 +59,9 @@ const BATTERY: Case[] = [
   { q: "Pendant le Corner de vente producteur, qu'a fait la famille Coffee ?", tools: ["lire_operation_famille"], answerMatch: /Coffee/, vetted: true, blocks: ["table"] },
   // § 7 couche 4 (13/09) — ex _plan_period_v1 : le plan de période composé (diagnostic puis plan).
   { q: "Planifie-moi octobre.", tools: ["composer_plan"], answerMatch: /octobre|10\/2026/i, vetted: true, blocks: ["table"], maxSeconds: 60 },
+  // § 7 couche 5 (13/09) — ex _declared_capture_v1 : déclarer, puis la question du même message (la marge déclarée sert à l'instant).
+  { q: "Ma marge moyenne est de 62 %.", tools: ["ecrire_declaration"], answerMatch: /62 %/, vetted: true },
+  { q: "Ma marge moyenne est de 62 % : quelle est ma marge le week-end ?", tools: ["ecrire_declaration", "lire_marge"], answerMatch: /week-end/i, vetted: true },
   // § 9 incrément 6 — une question COMPOSÉE : lire (familles face aux jours) puis préparer une Proposition d'opération sur ce qui a été lu.
   { q: "Quelle famille souffre le plus de la pluie ? Propose-moi une opération sur cette famille pour samedi prochain.", tools: ["lire_familles_face_aux_jours", "proposer_operation"], answerMatch: /Préparer l'opération|proposition/i, vetted: true, blocks: ["proposition_operation"], maxSeconds: 40 },
 ];
@@ -82,6 +85,9 @@ async function ask(q: string) {
     operationLife: (sid) => operationLife(bq, LOC, sid, today()),
     runOperationFamille: (op, fams, s, e, kpi) => readDispositifFamille(bq, LOC, op, fams, s, e, today(), kpi),
     runPlan: (s, e) => planPeriod(bq, LOC, s, e, { userId: null }),
+    // 13/09 (couche 5) : la batterie n'écrit JAMAIS une déclaration sur le compte de test — l'écriture est simulée, la lecture réelle.
+    writeDeclaration: async (type, valeur) => { console.log(`  (déclaration simulée : ${type} = ${valeur})`); return { prior_fr: null, declarant_name: null }; },
+    forgetDeclaration: async () => null,
     runVentes: (s, e) => computeSalesReport(bq, { location_id: LOC, owned: [LOC], start: s, end: e }),
     runResultat: () => readResultat(bq, LOC),
     runPolesClassement: (s, e) => readPoleClassement(bq, LOC, s, e),

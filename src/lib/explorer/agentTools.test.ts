@@ -80,6 +80,9 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
       health: { ca_day_30: 1200, ca_day_90: 1100, delta_pct: 9.1, n_30: 26, n_90: 78, transactions_day_30: 80, transactions_day_90: 75, basket_30: 15, basket_90: 14.7 } as any,
       poles: [], roster: [],
     }),
+    // 13/09 (§ 7, couche 5) : les écritures simulées — la marge n'avait pas de valeur, la clientèle valait 250.
+    writeDeclaration: async (type, valeur) => { written.push({ declaration: type, valeur }); return { prior_fr: type === "clientele" ? "250 clients" : null, declarant_name: "Nadia" }; },
+    forgetDeclaration: async (type) => { written.push({ oubli: type }); return type === "clientele" ? { prior_fr: "250 clients" } : null; },
     today: () => "2026-09-12",
     record: (r) => records.push(r),
     faitsDuTour: () => records.flatMap((r) => r.facts ?? []),
@@ -92,7 +95,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_dispositifs_documentes", "lire_operation_famille", "composer_plan"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_dispositifs_documentes", "lire_operation_famille", "composer_plan", "ecrire_declaration"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -407,5 +410,23 @@ describe("couche 4 (13/09) — composer_plan", () => {
     const types = d.records[1].blocks?.map((b) => b.type) ?? [];
     expect(types[0]).toBe("prose"); expect(types).toContain("table"); expect(types).toContain("sources");
     expect(d.records[1].facts?.some((f) => f.startsWith("La santé de l'entreprise — "))).toBe(true);
+  });
+});
+
+describe("couche 5 (13/09) — ecrire_declaration", () => {
+  it("écrit une marge (bornes du registre), confirme avec le mot approuvé, refuse hors bornes ; la clientèle dit la valeur précédente ; oublier retire", async () => {
+    const d = deps();
+    const tool = byName(buildAgentTools(d), "ecrire_declaration");
+    const out = await tool.run({ type: "marge_pct", valeur: 62 });
+    expect(out).toBe("Marge notée : 62 %\nMarge de 62 % — déclarée par Nadia, retenue. Je l'utiliserai pour vos questions (estimations, jamais présentées comme mesurées). Modifiable à tout moment : redéclarez une valeur, ou « Oublier » dans le panneau mémoire.");
+    expect(d.written[0]).toEqual({ declaration: "marge_pct", valeur: 62 });
+    expect(d.records[0]).toMatchObject({ summary: "marge notée : 62 %" });
+    expect(d.records[0].blocks?.map((b) => b.type)).toEqual(["prose", "facts"]);
+    expect(await tool.run({ type: "marge_pct", valeur: 120 })).toBe("La marge moyenne s'écrit en % entre 1 et 95.");
+    expect(await tool.run({ type: "clientele", valeur: 300 })).toContain("Votre clientèle déclarée passe de 250 clients à 300 clients (déclarée par Nadia).");
+    expect(await tool.run({ type: "clientele", action: "oublier" })).toBe("Clientèle déclarée oubliée (elle valait 250 clients).");
+    expect(await tool.run({ type: "marge_pct", action: "oublier" })).toBe("Aucune marge déclarée à oublier.");
+    expect(await tool.run({ type: "surface_vente_m2", action: "oublier" })).toMatch(/^Une surface de vente déclarée ne s'oublie pas/);
+    expect(await tool.run({ type: "surface_vente_m2", valeur: 120.5 })).toContain("Surface de vente notée : 120,5 m²");
   });
 });

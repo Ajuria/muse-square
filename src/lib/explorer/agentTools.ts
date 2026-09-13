@@ -48,6 +48,7 @@ import type { ClassDispositif } from "../dispositifs/bestPractices";
 import type { SiteEntities, SiteEntity } from "./entityResolver";
 import { dispositifFamilleToBlocks, type DispositifFamilleReading } from "../dispositifs/dispositifFamille";
 import { buildPlanBlocks, buildPlanWhyBlocks, planToBlocks, type PlanPeriodResult } from "./planPeriod";
+import { composeConfirmation, DECLARATION_TYPES, specDe, valeurFr, valeurValide, type DeclarationType } from "../kpi/declarationEcriture";
 import { EVENT_TYPES_ALL } from "../events/eventTypes";
 
 const PROJECT = "muse-square-open-data";
@@ -106,6 +107,10 @@ export interface AgentToolDeps {
   siteEntities: () => Promise<SiteEntities>;
   operationLife: (saved_item_id: string) => Promise<{ start: string; end: string } | null>;
   runOperationFamille: (operation: SiteEntity, familles: SiteEntity[], start: string, end: string, kpi: "transactions" | "basket" | "family_revenue" | "mix" | null) => Promise<DispositifFamilleReading>;
+  // 13/09 (§ 7, couche 5) — ce que l'exploitant déclare : l'écriture par les foyers existants (journal des corrections,
+  // declared_parameters), la valeur précédente en retour ; « oublier » retire une déclaration du journal (jamais un paramètre à date d'effet).
+  writeDeclaration: (type: DeclarationType, valeur: number) => Promise<{ prior_fr: string | null; declarant_name: string | null }>;
+  forgetDeclaration: (type: DeclarationType) => Promise<{ prior_fr: string | null } | null>;
   // 13/09 (§ 7, couche 4) — le plan de période (lib/explorer/planPeriod.ts planPeriod, le roster par l'auteur).
   runPlan: (start: string, end: string) => Promise<PlanPeriodResult>;
   // 12/09 (incrément 6) — les faits rendus par les outils déjà appelés dans CE tour : ce que proposer_operation
@@ -575,5 +580,32 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireDispositifsDocumentes, lireOperationFamille, composerPlan];
+  // ── 13/09 (§ 7, couche 5) — ecrire_declaration : ce que l'exploitant déclare (ex _declared_capture_v1) — le seul outil
+  // d'écriture de plus (spec § 7, 5) : marge moyenne, clientèle, surface de vente ; « oublier » pour la marge et la clientèle.
+  const ecrireDeclaration = outil({
+    name: "ecrire_declaration",
+    description: "Enregistrer ce que l'exploitant DÉCLARE de son commerce, quand il l'affirme (pas quand il le demande) : sa marge moyenne (« ma marge est de 62 % » → marge_pct, 1 à 95), sa clientèle (« j'ai environ 300 clients réguliers » → clientele, nombre de clients), sa surface de vente (« mon magasin fait 120 m² » → surface_vente_m2). action « oublier » retire une marge ou une clientèle déclarée. La valeur déclarée sert ensuite aux estimations du même tour (lire_marge).",
+    inputSchema: z.object({
+      type: z.enum(DECLARATION_TYPES as [DeclarationType, ...DeclarationType[]]).describe("marge_pct · clientele · surface_vente_m2"),
+      valeur: z.number().optional().describe("La valeur déclarée (requise pour « declarer »)."),
+      action: z.enum(["declarer", "oublier"]).optional().describe("declarer (défaut) ou oublier."),
+    }),
+    run: (args) => timed("ecrire_declaration", args, async () => {
+      const spec = specDe(args.type);
+      if (args.action === "oublier") {
+        if (args.type === "surface_vente_m2") return { out: "Une surface de vente déclarée ne s'oublie pas : elle porte une date d'effet — redéclarez la bonne valeur.", summary: "surface : pas d'oubli" };
+        const r = await deps.forgetDeclaration(args.type);
+        if (!r) return { out: `Aucune ${spec.label_fr.toLowerCase()} déclarée à oublier.`, summary: `${spec.label_fr.toLowerCase()} : rien à oublier` };
+        const fait = `${spec.label_fr} déclarée oubliée${r.prior_fr ? ` (elle valait ${r.prior_fr})` : ""}.`;
+        return { out: fait, summary: `${spec.label_fr.toLowerCase()} oubliée`, blocks: [{ type: "facts", items: [fait] }], facts: [fait] };
+      }
+      const v = valeurValide(args.type, args.valeur);
+      if (!v.ok) return { out: v.erreur, summary: "déclaration refusée" };
+      const w = await deps.writeDeclaration(args.type, v.valeur);
+      const c = composeConfirmation({ type: args.type, valeur: v.valeur, valeur_fr: valeurFr(args.type, v.valeur), prior_fr: w.prior_fr, declarant_name: w.declarant_name });
+      return { out: c.texte, summary: `${spec.label_fr.toLowerCase()} notée : ${valeurFr(args.type, v.valeur)}${w.prior_fr ? ` (avant : ${w.prior_fr})` : ""}`, blocks: c.blocks, facts: c.facts };
+    }),
+  });
+
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireDispositifsDocumentes, lireOperationFamille, composerPlan, ecrireDeclaration];
 }

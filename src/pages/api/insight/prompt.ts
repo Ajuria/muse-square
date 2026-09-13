@@ -2425,6 +2425,7 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
         messages: [...conversation_history, { role: "user", content: question }], files: [], thread_id: randomUUID(),
         readPhotos: (d) => agentReadPhotos(_agLocals, d), readPhotoBytes: (d, ph) => agentReadPhotoBytes(_agLocals, d, ph),
         margeDeclareeCeTour: _agentMargeCeTour,
+        declarant_name: typeof body?.declared_by === "string" && body.declared_by.trim() ? body.declared_by.trim().slice(0, 80) : null,
       });
       const _agProducer = _agTurn.grounding.register === "vetted" ? `agent_${capacite}` : `agent_${capacite}_non_verifie`;
       sinkTelemetry(location_id, "agent-answer", { capacite, register: _agTurn.grounding.register, outils: _agTurn.tool_calls.map((c) => c.name).join(",") });
@@ -2955,6 +2956,16 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     let _justDeclared: { correction_type: string; value: number; declarant_name: string | null; corrected_at: string } | null = null;
     {
       const _decl = parseAnyDeclaration(q);
+      // 13/09 — MIGRATION § 7, couche 5 : `_declared_capture_v1` est RETIRÉE — une déclaration (pure, ou avec sa question) part à
+      // l'agent : ecrire_declaration écrit par les mêmes foyers, confirme avec le même mot, et lire_marge lit la marge déclarée
+      // dans le tour. RESTE ici : une clientèle déclarée AVEC une question (« j'ai 300 clients : quel est mon CA par client ? »),
+      // dont l'estimation CA ÷ clients n'a pas d'outil — elle garde le chemin ci-dessous jusqu'à la couche suivante.
+      if (_decl != null && !(_decl.with_question && _decl.spec.correction_type === "declared_client_count")) {
+        return repondreParAgent("ecrire_declaration", qRaw);
+      }
+      // « Oublie ma marge déclarée », « oubliez ma clientèle » : l'oubli par le texte (l'outil porte action « oublier ») —
+      // le panneau mémoire garde son bouton « Oublier ». Mesuré 13/09 : sans cette ligne, la phrase partait à la famille audience.
+      if (/\boubli(?:e|er|ez|ons)\b/.test(q) && /\b(marge|client)/.test(q)) return repondreParAgent("ecrire_declaration", qRaw);
       // 11/09 — un paramètre à date d'effet (surface de vente) s'écrit dans analytics.declared_parameters,
       // le magasin que dbt et Piloter lisent — jamais dans le journal des corrections. Même confirmation
       // (« Surface de vente notée : 120 m² »), même règle mixte déclare-et-demande.

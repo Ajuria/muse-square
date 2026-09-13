@@ -24,6 +24,9 @@ import { listClassDispositifs } from "../dispositifs/bestPractices";
 import { loadSiteEntities } from "./entityResolver";
 import { operationLife, readDispositifFamille } from "../dispositifs/dispositifFamille";
 import { planPeriod } from "./planPeriod";
+import { appendCorrectionEvent, getDeclaredMetric } from "../ai/corrections";
+import { appendDeclaredParameter, currentByKey, listDeclaredParameters, parameterSpec, validateValue } from "../kpi/declaredParameters";
+import { valeurFr } from "../kpi/declarationEcriture";
 
 export const MAX_ITERATIONS = 8;
 export const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -71,6 +74,8 @@ export interface AgentTurnInput {
   onTool?: (r: ToolCallRecord & { label_fr: string }) => void;
   /** Une marge globale déclarée dans le MÊME tour (prompt.ts, déclare-et-demande) : lire_marge la lit avant le journal. */
   margeDeclareeCeTour?: MargesDeclarees["globale"];
+  /** Qui déclare — un nom du roster (owner 16/07 : l'identité du roster, pas celle du compte) ; null = « déclarée par vous ». */
+  declarant_name?: string | null;
 }
 export interface AgentTurnResult {
   text: string;
@@ -87,6 +92,9 @@ export interface AgentTurnResult {
 /** Les dépendances des outils — LE registre FAMILIES et les libs, jamais une copie (agent.ts et prompt.ts y passent). */
 export function agentDeps(bq: any, inp: AgentTurnInput, tool_calls: ToolCallRecord[]): AgentToolDeps {
   const { location_id } = inp;
+  // 13/09 (couche 5) — une marge déclarée DANS ce tour (par ecrire_declaration, ou par prompt.ts) : lire_marge la lit avant le journal.
+  let margeCeTour: MargesDeclarees["globale"] = inp.margeDeclareeCeTour ?? null;
+  const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
   return {
     location_id,
     author: { user_id: inp.user_id, role: inp.role },
@@ -98,7 +106,32 @@ export function agentDeps(bq: any, inp: AgentTurnInput, tool_calls: ToolCallReco
     writeMemory: (row) => writeSiteMemory(bq, row),
     runFamily: (key, date) => FAMILIES[key].run(bq, location_id, date),
     // 13/09 (§ 7, couche 1) — lire_marge : mesure d'abord, sinon marges déclarées ; les jours de la question.
-    runMarge: (jours, date) => readMargeLecture(bq, location_id, date, jours, inp.margeDeclareeCeTour ?? null),
+    runMarge: (jours, date) => readMargeLecture(bq, location_id, date, jours, margeCeTour),
+    // 13/09 (couche 5) — les écritures par LES foyers existants : le journal des corrections (marge, clientèle — supersede
+    // lifecycle, « Oublier » = clear) et analytics.declared_parameters (surface de vente, date d'effet = aujourd'hui).
+    writeDeclaration: async (type, valeur) => {
+      const declarant_name = inp.declarant_name ?? null;
+      if (type === "surface_vente_m2") {
+        const spec = parameterSpec("sales_area_m2")!;
+        const prior = currentByKey(await listDeclaredParameters(location_id))[spec.key] ?? null;
+        await appendDeclaredParameter({ location_id, key: spec.key, value: validateValue(spec, valeur), effective_from: today(), declarant_user_id: inp.user_id, source: "chat_declared" });
+        return { prior_fr: prior && prior.value_num != null ? valeurFr(type, prior.value_num) : null, declarant_name };
+      }
+      const correction_type = type === "marge_pct" ? "declared_margin_pct" : "declared_client_count";
+      const prior = await getDeclaredMetric(location_id, correction_type);
+      await appendCorrectionEvent({ location_id, event_action: prior != null ? "supersede" : "assert", correction_type, correction_text: String(valeur), prior_value: prior != null ? prior.raw : null, raw_turn: inp.messages[inp.messages.length - 1].content.slice(0, 500), source: "chat_declared", declarant_name });
+      if (type === "marge_pct") margeCeTour = { pct: valeur, declarant_name, corrected_at: today() };
+      return { prior_fr: prior != null ? valeurFr(type, prior.value) : null, declarant_name };
+    },
+    forgetDeclaration: async (type) => {
+      if (type === "surface_vente_m2") return null;
+      const correction_type = type === "marge_pct" ? "declared_margin_pct" : "declared_client_count";
+      const prior = await getDeclaredMetric(location_id, correction_type);
+      if (prior == null) return null;
+      await appendCorrectionEvent({ location_id, event_action: "clear", correction_type, prior_value: prior.raw, source: "chat_declared", declarant_name: inp.declarant_name ?? null });
+      if (type === "marge_pct") margeCeTour = null;
+      return { prior_fr: valeurFr(type, prior.value) };
+    },
     runVentes: (start, end) => computeSalesReport(bq, { location_id, owned: inp.ownedIds, start, end }),
     runResultat: () => readResultat(bq, location_id),
     runPolesClassement: (start, end) => readPoleClassement(bq, location_id, start, end),
