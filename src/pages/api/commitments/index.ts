@@ -7,8 +7,8 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
-import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureScopeBaseline, measureProfitBaseline, listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
-import { normalizeScope, parseScope, scopeFromFamily, serializeScope, type MeasuredScope } from "../../../lib/commitments/measuredScope";
+import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureScopeBaseline, measureProfitBaseline, listSiteFamilies, listItemCodesEncoreVendus } from "../../../lib/kpi/kpiRegistry";
+import { normalizeScope, parseScope, perimetreHeriteVivant, scopeFromFamily, serializeScope, type MeasuredScope } from "../../../lib/commitments/measuredScope";
 import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/commitments/actionCommitments";
 import { createPermanentPole } from "../../../lib/dispositifs/poleCreate";
@@ -340,6 +340,37 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
     const _lineage = lineageFor(_parentSnap, commitmentId);
 
+    // 13/09 — LE PÉRIMÈTRE HÉRITÉ NE MESURE PAS DES ARTICLES MORTS (owner : un magasin change son contenu
+    // 2 à 4 fois par an). La V2 hérite du périmètre (07/09) ; quand c'est une LISTE D'ARTICLES (pôle
+    // documenté par photos), un changement de collection le remplit de codes qui ne se vendent plus et le
+    // verdict porterait sur du vide. On filtre sur ce qui se vend encore (30 j, vue de l'offre, interrogée
+    // SUR CES CODES) ; s'il ne reste rien, on retombe sur les familles du pôle parent. Une lecture qui
+    // échoue ne filtre RIEN. Règle pure et testée : `perimetreHeriteVivant`.
+    let _perimetreHerite: string | null = _lineage.inherited_measured_scope ?? null;
+    let _perimetreRetires: string[] = [];
+    let _perimetreRepli = false;
+    if (body.measured_scope == null && _perimetreHerite) {
+      const _hScope = parseScope(_perimetreHerite);
+      if (_hScope?.kind === "articles" && _hScope.item_codes?.length) {
+        const _vivants = await listItemCodesEncoreVendus(bq, String(body.location_id).trim(), _hScope.item_codes);
+        let _replis: MeasuredScope | null = null;
+        try {
+          const _pf: string[] = JSON.parse(String((_parentSnap as any)?.pole_families ?? "[]"));
+          if (Array.isArray(_pf) && _pf.length) {
+            _replis = { kind: "pole", familles: _pf.map((n) => ({ nom: String(n) })), pole_id: _lineage.dispositif_id, pole_nom: String((_parentSnap as any)?.committed_action_text ?? "").trim() || null };
+          }
+        } catch { /* familles illisibles → pas de repli, jamais un crash */ }
+        const _res = perimetreHeriteVivant(_hScope, _vivants, _replis);
+        _perimetreHerite = _res.scope ? serializeScope(_res.scope) : null;
+        _perimetreRetires = _res.retires;
+        _perimetreRepli = _res.repli_applique;
+        if (_res.retires.length) {
+          console.warn(`[commitments] périmètre hérité : ${_res.retires.length} article(s) ne se vendent plus`,
+            { dispositif_id: _lineage.dispositif_id, version_no: _lineage.version_no, repli: _res.repli_applique });
+        }
+      }
+    }
+
     // Rattachement opération→pôle (spec pôles, 27/08) : attached_pole_id = le dispositif_id
     // du pôle — validé contre le site et la nature, hérité du parent si absent. Ce n'est PAS
     // parent_commitment_id (filiation de versions). L'héritage du KPI famille depuis le pôle
@@ -389,7 +420,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       saved_item_id: body.saved_item_id ? String(body.saved_item_id).trim() : _lineage.inherited_saved_item_id,
       // 07/09 (docs/dispositif-perimetre-mesure-spec.md) — ce que le dispositif vend : le body, sinon la
       // version précédente, sinon l'opération ancrée (résolu plus bas, avec la baseline).
-      measured_scope: body.measured_scope != null ? serializeScope(normalizeScope(body.measured_scope)) : (_lineage.inherited_measured_scope ?? null),
+      measured_scope: body.measured_scope != null ? serializeScope(normalizeScope(body.measured_scope)) : _perimetreHerite,
       // Étape 3 (26/07) : measured_metric = kpi de la CARTE (type + driver), plus jamais codé en
       // dur — kpiKeyForOrigin (lib/kpiRegistry). 'revenue_residual' reste le défaut et garde toute
       // sa machinerie ; les KPIs non-K1 sont mesurés en colonnes kpi_* (baseline ci-dessous,
@@ -516,6 +547,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       commitment_id: commitmentId,
       assignment_notified: Boolean(notified && notified.ok),
       assignment_channel: notified && notified.ok ? notified.channel : null,
+      // 13/09 — quand le périmètre hérité portait des articles qui ne se vendent plus, la réponse le DIT
+      // (la surface pourra l'afficher ; en attendant, la trace existe et ne se devine pas).
+      ...(_perimetreRetires.length ? { perimetre_articles_retires: _perimetreRetires.length, perimetre_repli_familles: _perimetreRepli } : {}),
     });
   } catch (err: any) {
     return json({ ok: false, error: err?.message || "Unknown error" }, errStatus(err));

@@ -1,6 +1,6 @@
 // Le périmètre de mesure — pur (docs/dispositif-perimetre-mesure-spec.md). Chaque assertion vue tomber par mutation.
 import { describe, it, expect } from "vitest";
-import { parseScope, normalizeScope, scopeFromFamily, scopeLabelFr, scopeFilter, scopeNewFamilies, serializeScope, scopeFromConfirmedPhotos } from "./measuredScope";
+import { parseScope, normalizeScope, perimetreHeriteVivant, scopeFromFamily, scopeLabelFr, scopeFilter, scopeNewFamilies, serializeScope, scopeFromConfirmedPhotos, type MeasuredScope } from "./measuredScope";
 
 describe("parse / normalize", () => {
   it("la migration du Corner : { familles: [Branded] }", () => {
@@ -57,5 +57,48 @@ describe("scopeLabelFr (mots owner 07/09)", () => {
     expect(scopeLabelFr({ kind: "pole", familles: [{ nom: "Tea" }], pole_nom: "Épicerie fine" })).toBe("CA du pôle « Épicerie fine »");
     expect(scopeLabelFr({ kind: "articles", item_codes: ["A1"] }, "Corner de vente producteur")).toBe("CA de « Corner de vente producteur »");
     expect(scopeLabelFr(null)).toBe("CA");
+  });
+});
+
+// ── 13/09 (owner : « ils changent le contenu du magasin 2 à 4 fois par an ») — le périmètre hérité
+// ne mesure jamais des articles morts. Règle pure ; la lecture de ce qui se vend est ailleurs. ──
+describe("perimetreHeriteVivant", () => {
+  const articles = (...codes: string[]): MeasuredScope => ({ kind: "articles", item_codes: codes });
+  const pole: MeasuredScope = { kind: "pole", familles: [{ nom: "Coffee" }], pole_id: "d1", pole_nom: "Cuisine" };
+
+  it("garde les articles encore vendus et retire les autres", () => {
+    const r = perimetreHeriteVivant(articles("A", "B", "C"), ["A", "C"], pole);
+    expect(r.scope).toEqual(articles("A", "C"));
+    expect(r.retires).toEqual(["B"]);
+    expect(r.repli_applique).toBe(false);
+  });
+
+  it("plus AUCUN article vendu (collection remplacée) : repli sur les familles du pôle", () => {
+    const r = perimetreHeriteVivant(articles("A", "B"), [], pole);
+    expect(r.scope).toEqual(pole);
+    expect(r.retires).toEqual(["A", "B"]);
+    expect(r.repli_applique).toBe(true);
+  });
+
+  it("plus aucun article ET aucun repli : pas de périmètre plutôt qu'un périmètre mort", () => {
+    const r = perimetreHeriteVivant(articles("A"), [], null);
+    expect(r.scope).toBeNull();
+    expect(r.repli_applique).toBe(false);
+  });
+
+  it("une LECTURE IMPOSSIBLE (null) ne filtre rien — un vide n'est pas une absence de ventes", () => {
+    const r = perimetreHeriteVivant(articles("A", "B"), null, pole);
+    expect(r.scope).toEqual(articles("A", "B"));
+    expect(r.retires).toEqual([]);
+  });
+
+  it("une FAMILLE et un PÔLE traversent le changement de collection, intacts", () => {
+    const fam: MeasuredScope = { kind: "familles", familles: [{ nom: "Tea" }] };
+    expect(perimetreHeriteVivant(fam, [], null).scope).toEqual(fam);
+    expect(perimetreHeriteVivant(pole, [], null).scope).toEqual(pole);
+  });
+
+  it("aucun périmètre hérité : rien à faire", () => {
+    expect(perimetreHeriteVivant(null, ["A"], pole).scope).toBeNull();
   });
 });

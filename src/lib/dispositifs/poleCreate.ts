@@ -9,7 +9,8 @@
 // Rend { status, body } — la route sérialise, le one-off lit.
 // =====================================================
 import { readMergeWrite, readLatestSnapshot, lineageFor } from "../commitments/actionCommitments";
-import { normalizeScope, serializeScope } from "../commitments/measuredScope";
+import { normalizeScope, parseScope, perimetreHeriteVivant, serializeScope, type MeasuredScope } from "../commitments/measuredScope";
+import { listItemCodesEncoreVendus } from "../kpi/kpiRegistry";
 import { parseComponents } from "./dispositifTypes";
 import { listPoles, familyTakenByAnotherPole, familyClashMessageFr } from "./poleReading";
 import { parseSpaceMeasuresBody, appendSpaceMeasures, parseMeasureSource } from "./spaceMeasures";
@@ -70,6 +71,25 @@ export async function createPermanentPole(bq: any, userId: string, body: any): P
     const _pUnknown = _pMeasures.value.components.find((m) => !_pKeys.has(m.component_key));
     if (_pUnknown) return { status: 400, body: { ok: false, error: `space_measures : le composant « ${_pUnknown.component_key} » n'est pas dans cette version du pôle` } };
   }
+// 13/09 — même garde qu'à la création d'un engagement : un périmètre hérité fait d'ARTICLES est filtré sur
+// ce qui se vend encore (30 j). Un pôle dont les familles sont données n'est pas concerné (une famille
+// survit à un changement de collection) ; le cas visé est la version suivante d'un pôle documenté par
+// photos, créée sans familles. Lecture impossible ⇒ on ne filtre rien.
+let _pScopeHerite: string | null = (_pParent as any)?.measured_scope ?? null;
+if (!fams.length && _pScopeHerite) {
+  const _h = parseScope(_pScopeHerite);
+  if (_h?.kind === "articles" && _h.item_codes?.length) {
+    const _vivants = await listItemCodesEncoreVendus(bq, String(body.location_id).trim(), _h.item_codes);
+    let _repli: MeasuredScope | null = null;
+    try {
+      const _pf: string[] = JSON.parse(String((_pParent as any)?.pole_families ?? "[]"));
+      if (Array.isArray(_pf) && _pf.length) _repli = { kind: "pole", familles: _pf.map((n) => ({ nom: String(n) })), pole_id: poleId, pole_nom: String(body.committed_action_text).trim() || null };
+    } catch { /* familles illisibles → pas de repli */ }
+    const _r = perimetreHeriteVivant(_h, _vivants, _repli);
+    _pScopeHerite = _r.scope ? serializeScope(_r.scope) : null;
+    if (_r.retires.length) console.warn(`[poleCreate] périmètre hérité : ${_r.retires.length} article(s) ne se vendent plus`, { pole: poleId, repli: _r.repli_applique });
+  }
+}
   const row = await readMergeWrite(bq, {
     commitmentId: poleId, transitionType: "created", create: true,
     patch: {
@@ -82,7 +102,7 @@ export async function createPermanentPole(bq: any, userId: string, body: any): P
       // 07/09 — ce que le pôle vend = ses familles (périmètre de nature pole), hérité à la V2.
       measured_scope: body.measured_scope != null
         ? serializeScope(normalizeScope(body.measured_scope))
-        : (fams.length ? serializeScope({ kind: "pole", familles: fams.map((n: string) => ({ nom: n })), pole_id: poleId, pole_nom: String(body.committed_action_text).trim() }) : ((_pParent as any)?.measured_scope ?? null)),
+        : (fams.length ? serializeScope({ kind: "pole", familles: fams.map((n: string) => ({ nom: n })), pole_id: poleId, pole_nom: String(body.committed_action_text).trim() }) : _pScopeHerite),
       committed_action_text: String(body.committed_action_text).trim(),
       owner_person_name: body.owner_person_name != null && String(body.owner_person_name).trim()
         ? String(body.owner_person_name).trim() : (_pParent?.owner_person_name ?? null),

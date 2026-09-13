@@ -87,6 +87,35 @@ export function scopeFromConfirmedPhotos(
   return same ? { scope: current, changed: false } : { scope: { kind: "articles", item_codes: codes }, changed: true };
 }
 
+// ── 13/09 — LE PÉRIMÈTRE HÉRITÉ NE MESURE JAMAIS DES ARTICLES MORTS (owner : « ils changent le contenu
+// du magasin 2 à 4 fois par an »). Une version nouvelle HÉRITE du périmètre de la précédente
+// (commitments/index.ts, lineageFor, 07/09) ; quand ce périmètre est une LISTE D'ARTICLES — ce qui est le
+// cas dès qu'un pôle est documenté par photos (scopeFromConfirmedPhotos ci-dessus) — un changement de
+// collection le remplit de codes qui ne se vendent plus, et la version suivante rendrait un verdict sur
+// du vide, SANS LE DIRE. Ici, la règle PURE ; la lecture de ce qui se vend encore est
+// `listItemCodesEncoreVendus` (kpi/kpiRegistry, vue semantic de l'offre, 30 derniers jours).
+//
+// Trois principes :
+//   · seul `articles` se filtre — une FAMILLE et un PÔLE survivent à un changement de collection ;
+//   · `codesEncoreVendus = null` veut dire « je n'ai pas pu lire » : on ne filtre RIEN (une lecture
+//     impossible n'est pas une absence de ventes) ; un tableau VIDE veut dire « aucun de ces articles
+//     ne se vend plus », et là on replie ;
+//   · s'il ne reste aucun article, on retombe sur le repli (les familles du pôle) — et l'appelant le DIT.
+export function perimetreHeriteVivant(
+  herite: MeasuredScope | null,
+  codesEncoreVendus: readonly string[] | null,
+  repli: MeasuredScope | null,
+): { scope: MeasuredScope | null; retires: string[]; repli_applique: boolean } {
+  if (!herite || herite.kind !== "articles" || !herite.item_codes?.length || codesEncoreVendus == null) {
+    return { scope: herite, retires: [], repli_applique: false };
+  }
+  const vivants = new Set(codesEncoreVendus.map((c) => clean(c)).filter(Boolean));
+  const gardes = herite.item_codes.filter((c) => vivants.has(c));
+  const retires = herite.item_codes.filter((c) => !vivants.has(c));
+  if (gardes.length) return { scope: { kind: "articles", item_codes: gardes }, retires, repli_applique: false };
+  return { scope: repli ?? null, retires, repli_applique: !!repli };
+}
+
 const guill = (n: string): string => `« ${n} »`;
 
 /** Le nom du CA du périmètre dans une phrase (mots owner 07/09). `titre` = le titre du dispositif (articles). */

@@ -297,6 +297,27 @@ export async function listSiteFamilies(bq: any, location_id: string, limit = 12)
   return (rows as any[]).map((r) => ({ category: String(flat(r.item_category)), avg_day_eur: Number(flat(r.avg_day_eur) ?? 0) }));
 }
 
+// 13/09 — CE QUI SE VEND ENCORE, parmi une liste d'articles donnée (owner : le magasin change son contenu
+// 2 à 4 fois par an). Interrogée SUR LES CODES DEMANDÉS, jamais « les 500 premiers articles du site » : une
+// liste plafonnée déclarerait morts les articles au-delà du plafond (le piège de la sortie tronquée, 26/08).
+// La vue de l'offre porte les 30 derniers jours (int_client_offering_profile : transaction_date >=
+// current_date - 30). Rend `null` si la lecture échoue — l'appelant ne filtre alors RIEN.
+export async function listItemCodesEncoreVendus(bq: any, location_id: string, codes: readonly string[]): Promise<string[] | null> {
+  const demandes = Array.from(new Set(codes.map((c) => String(c ?? "").trim()).filter(Boolean)));
+  if (!demandes.length) return [];
+  const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  try {
+    const [rows] = await bq.query({
+      query: `SELECT DISTINCT item_code FROM \`${PROJECT}.semantic.vw_insight_event_client_offering\`
+              WHERE location_id = @location_id AND item_code IN UNNEST(@codes)`,
+      params: { location_id, codes: demandes }, location: "EU",
+    });
+    return (rows as any[]).map((r) => String(flat(r.item_code)));
+  } catch {
+    return null;
+  }
+}
+
 // 07/09 (docs/dispositif-perimetre-mesure-spec.md, P1) : le CA d'un PÉRIMÈTRE (familles, pôle → ses
 // familles, articles confirmés) se mesure avec la méthode de la famille — mêmes lignes
 // (semantic.vw_insight_event_client_sales_lines, D8 11/09), même moyenne par jour, même bande de bruit. La famille unique est le
