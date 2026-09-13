@@ -57,6 +57,13 @@ const BATTERY: Case[] = [
   { q: "Compose mon rapport « Hebdo pôles ».", tools: ["composer_rapport"], answerMatch: /pôle|ventes/i, vetted: true, blocks: ["rapport"] },
   // § 7 couche 2 (13/09) — ex _top_familles_v1 : le mix par famille d'une période nommée, les K premières nommées par le modèle.
   { q: "Mes top 3 produits en août ?", tools: ["lire_ventes"], answerMatch: /famille/i, vetted: true, blocks: ["table"] },
+  // § 7 couche 6 (13/09) — ex _engagements_v1 : VOTRE JOURNAL. La première question est celle que la
+  // couche déterministe servait depuis le 27/08. La seconde est la porte de la DÉCOMPOSITION : la couche
+  // inlinait les fiches de l'atelier dans le journal ; elles ont désormais leur outil, et c'est la boucle
+  // qui doit enchaîner les deux — si elle ne le fait pas, l'exploitant a perdu une section, et la couche
+  // revient.
+  { q: "Qu'est-ce qui a marché ?", tools: ["lire_engagements"], answerMatch: /engagement|dispositif|objectif|pôle/i, vetted: true },
+  { q: "Qu'est-ce qui a marché, et quelles bonnes pratiques ai-je documentées ?", tools: ["lire_engagements", "lire_dispositifs_documentes"], answerMatch: /documenté|dispositif/i, vetted: true },
   // § 7 couche 3 (13/09) — ex _dispositifs_v1 et _dispositif_famille_v1.
   { q: "Quelles bonnes pratiques ai-je documentées ?", tools: ["lire_dispositifs_documentes"], answerMatch: /documenté|dispositif/i, vetted: true },
   { q: "Pendant le Corner de vente producteur, qu'a fait la famille Coffee ?", tools: ["lire_operation_famille"], answerMatch: /Coffee/, vetted: true, blocks: ["table"] },

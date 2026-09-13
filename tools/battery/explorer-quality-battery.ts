@@ -72,6 +72,11 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   { q: "Quelle est ma marge le week-end ?", expect: { producers: ["agent_lire_marge"], maxSeconds: 20, answerMatch: /week-end/i } },
   // 13/09 (§ 7, couche 2) : « top 3 produits août » — ex _top_familles_v1 — part à l'agent avec la période résolue ; lire_ventes rend le mix par famille.
   { q: "Mes top 3 produits en août ?", expect: { producers: ["agent_lire_ventes"], maxSeconds: 25, answerMatch: /famille/i } },
+  // 13/09 (§ 7, couche 6) : VOTRE JOURNAL est servi par l'agent (lire_engagements) — la question que la
+  // couche déterministe servait depuis le 27/08. Le juge doit trouver la réponse au moins aussi bonne :
+  // l'action conseillée et le geste n'ont pas le droit de se dissoudre (c'est ce que le packager faisait
+  // en août, et c'est pour ça que cette couche était restée déterministe).
+  { q: "Qu'est-ce qui a marché ?", expect: { producers: ["agent_lire_engagements"], maxSeconds: 30, answerMatch: /engagement|dispositif|objectif|pôle/i } },
   // 13/09 (§ 7, couche 3) : les fiches documentées et « une opération × une famille » sont servies par l'agent.
   { q: "Quelles bonnes pratiques ai-je documentées ?", expect: { producers: ["agent_lire_dispositifs_documentes"], maxSeconds: 25, answerMatch: /documenté/i } },
   { q: "Pendant le Corner de vente producteur, qu'a fait la famille Coffee ?", expect: { producers: ["agent_lire_operation_famille"], maxSeconds: 30, answerMatch: /Coffee/ } },
