@@ -444,3 +444,37 @@ it("engagement résolu manqué : Documenter ouvre sur « −394 € : ce que vou
   data.commitment.action_done_status = "pas_encore";
   expect(String(kit.renderEvolution(data, EVOL_COPY))).toContain("La raison du report — la journée ne compte pas contre le dispositif.");
 });
+
+// ── 13/09 (owner : « rien de l'historique n'est implémenté ») — L'HISTORIQUE SUR LA PAGE D'UN PÔLE ──
+const poleAvecVersions = () => {
+  const data: any = polePhotos();
+  data.lineage = [
+    { commitment_id: "c-v1", version_no: 1, status: "open", verdict: null, window_start: "", window_end: "", debut: "2026-06-01",
+      effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: false,
+      photos: [{ photo_id: "p1", component_key: "k1", label_fr: "Vitrine — Couteaux", label_court: "Couteaux", fixture_no: 27, auteur: "Camille", url: "/u1", created_at: "2026-06-02T10:00:00Z" }], photos_autres: 0 },
+    { commitment_id: "pole-1", version_no: 2, status: "open", verdict: null, window_start: "", window_end: "", debut: "2026-09-01",
+      effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: true, photos: [], photos_autres: 0 },
+  ];
+  return data;
+};
+
+it("un PÔLE à deux versions rend son historique AVEC les photos — c'est là qu'on les prend", () => {
+  const html = String(kit.renderEvolution(poleAvecVersions(), EVOL_COPY));
+  expect(html).toContain("Historique du dispositif");
+  expect(html).toContain("Version 1 — du 01/06/2026 au 31/08/2026");        // la fin = la veille du début de la suivante
+  expect(html).toContain("Version 2 — depuis le 01/09/2026, en cours");      // mot owner 13/09
+  expect(html).toContain('data-lin-photos="1"');
+  expect(html).toContain(">Couteaux<");
+  expect(html).toContain("Aucune photo de cette version.");                  // la version 2 n'en a pas, et le dit
+});
+
+it("l'historique d'un PÔLE ne porte AUCUN mot de verdict ni de fenêtre (owner 27/08)", () => {
+  const html = String(kit.renderEvolution(poleAvecVersions(), EVOL_COPY));
+  const i = html.indexOf("Historique du dispositif");
+  expect(html.slice(i)).not.toMatch(/verdict|objectif|atteint|manqu[ée]|ce test|effet prouvé/i);
+});
+
+it("un pôle d'UNE seule version n'a pas d'historique à raconter", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).not.toContain("Historique du dispositif");
+});

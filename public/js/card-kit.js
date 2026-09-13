@@ -694,6 +694,33 @@
   //    Self-contained helpers — the page's exact esc/fr semantics (0 -> "0"), NOT the
   //    kit globals (whose esc nulls 0). The page keeps the wiring (wireCapture/wireAdvice,
   //    fetch, MSCommitForm); this returns ONLY the document HTML. COPY = EVOL_COPY.
+  // ── 13/09 — LA RANGEE DE VIGNETTES D'UNE VERSION, partagee par les deux historiques (operation et POLE).
+  // Elle vivait dans la branche operation seulement : la page d'un pole ne rendait donc aucune photo, alors
+  // que c'est le seul endroit ou l'on en prend (owner 13/09 : « rien de l'historique n'est implemente »).
+  function msLinPhotosRow(v, avecPhoto, t) {
+    if (!avecPhoto) return '';
+    var ph = Array.isArray(v.photos) ? v.photos : [];
+    if (!ph.length) return '<div style="font-size:12px;color:#6B7280;margin:2px 0 8px 0;">' + esc(t('lin_photo_none')) + '</div>';
+    var reste = Number(v.photos_autres) || 0;
+    return '<div data-lin-photos="' + esc(String(v.version_no)) + '" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin:4px 0 10px 0;">'
+      + ph.map(function (p) {
+          var thumb = String(p.url || '');
+          if (thumb && thumb.indexOf('variant=') < 0) thumb += (thumb.indexOf('?') < 0 ? '?' : '&') + 'variant=square';
+          var d = String(p.created_at || '').slice(0, 10);
+          var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+          var court = String(p.label_court || p.label_fr || '');
+          var titre = [String(p.label_fr || ''), (p.fixture_no != null && Number(p.fixture_no) > 0 ? 'N\u00b0 ' + p.fixture_no : ''),
+                       'Version ' + v.version_no, dfr, p.auteur ? String(p.auteur) : ''].filter(function (x) { return !!x; }).join(' \u00b7 ');
+          return '<a href="' + esc(String(p.url || '')) + '" target="_blank" rel="noopener" style="text-decoration:none;color:#6B7280;display:block;width:96px;">'
+            + '<img src="' + esc(thumb) + '" alt="' + esc(String(p.label_fr || '')) + '" title="' + esc(titre) + '" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block;">'
+            + '<div style="font-size:11px;line-height:1.35;margin-top:3px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(court) + '</div>'
+            + (dfr ? '<div style="font-size:11px;line-height:1.35;">' + esc(dfr) + '</div>' : '')
+            + '</a>';
+        }).join('')
+      + (reste > 0 ? '<div style="font-size:12px;color:#6B7280;align-self:center;">' + esc(t(reste > 1 ? 'lin_photo_autres' : 'lin_photo_autre', { n: reste })) + '</div>' : '')
+      + '</div>';
+  }
+
   function renderEvolution(data, COPY) {
     var WIN_FR = { day_of: 'Jour même', '7d': '7 jours', '14d': '14 jours', '30d': '30 jours' };
     var LVL_FR = { modeste: 'modeste', net: 'net' };
@@ -1141,6 +1168,38 @@
             }).join('')
           : '<div style="font-size:12.5px;color:#374151;">' + esc(t2('pole_ops_none')) + '</div>')
         + '</div>';
+
+      // ── 13/09 (owner : « rien de l'historique n'est implemente ») — L'HISTORIQUE DU POLE, avec ses photos.
+      // Il n'etait rendu que sur les pages d'operation : la page d'un pole sortait avant. Les MOTS different,
+      // et ce n'est pas cosmetique : un dispositif permanent n'a ni fenetre ni verdict (owner 27/08), donc
+      // aucune version ne dit « verdict d'ici le » ni « objectif atteint » — elle dit ses dates de service, et
+      // « en cours » pour la courante (mot owner 13/09). Les dates viennent de `debut` (created_at de la
+      // version) : la fin d'une version est la veille du debut de la suivante, jamais une fenetre inventee.
+      var _pLin = Array.isArray(data.lineage) ? data.lineage : [];
+      if (_pLin.length > 1) {
+        var _pAvecPhoto = _pLin.some(function (v) { return Array.isArray(v.photos) && v.photos.length; });
+        var _pFrD = function (iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : ''; };
+        var _pVeille = function (iso) {
+          var d = String(iso || '').slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
+          var dt = new Date(d + 'T12:00:00Z'); dt.setUTCDate(dt.getUTCDate() - 1); return dt.toISOString().slice(0, 10);
+        };
+        h += '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;">'
+          + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">' + esc(t2('lin_pole_titre')) + '</div>'
+          + _pLin.map(function (v, i) {
+              var debut = _pFrD(v.debut || v.window_start);
+              var suivante = _pLin[i + 1];
+              var fin = suivante ? _pFrD(_pVeille(suivante.debut || suivante.window_start)) : '';
+              var ligne = v.is_current || !fin
+                ? t2('lin_pole_en_cours', { n: v.version_no, debut: debut })
+                : t2('lin_pole_close', { n: v.version_no, debut: debut, fin: fin });
+              var inner = v.is_current || !v.commitment_id
+                ? esc(ligne)
+                : '<a href="' + esc(msEngagementUrl(String(v.commitment_id))) + '" style="color:#1D3BB3;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;">' + esc(ligne) + '</a>';
+              return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + inner + '</div>'
+                + msLinPhotosRow(v, _pAvecPhoto, t2);
+            }).join('')
+          + '</div>';
+      }
       return h;
     }
 
@@ -1746,34 +1805,7 @@
       // (192 px, ~10 Ko) ; l'image entière s'ouvre dans un onglet. Tant qu'AUCUNE version n'a de photo,
       // la rangée n'existe pas — un emplacement vide ne raconte rien.
       var _linAvecPhoto = _lin.some(function (v) { return Array.isArray(v.photos) && v.photos.length; });
-      var _linPhotos = function (v) {
-        if (!_linAvecPhoto) return '';
-        var ph = Array.isArray(v.photos) ? v.photos : [];
-        if (!ph.length) return '<div style="font-size:12px;color:#6B7280;margin:2px 0 8px 0;">' + esc(t('lin_photo_none')) + '</div>';
-        var reste = Number(v.photos_autres) || 0;
-        return '<div data-lin-photos="' + esc(String(v.version_no)) + '" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin:4px 0 10px 0;">'
-          + ph.map(function (p) {
-              var thumb = String(p.url || '');
-              if (thumb && thumb.indexOf('variant=') < 0) thumb += (thumb.indexOf('?') < 0 ? '?' : '&') + 'variant=square';
-              var d = String(p.created_at || '').slice(0, 10);
-              var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
-              // 13/09 (owner, legende A + nom court) : la VIGNETTE porte le nom court et la date — dans
-              // l'historique d'UN pole, le type se repete d'un composant a l'autre, ce qui les distingue est
-              // la famille, et 72 px coupent un nom compose. La version est deja portee par la ligne juste
-              // au-dessus : la repeter sous chaque image serait du bruit. L'identite COMPLETE (nom, N° sur
-              // le plan, version, date, auteur) vit au survol, et sur la photo ouverte.
-              var court = String(p.label_court || p.label_fr || '');
-              var titre = [String(p.label_fr || ''), (p.fixture_no != null && Number(p.fixture_no) > 0 ? 'N\u00b0 ' + p.fixture_no : ''),
-                           'Version ' + v.version_no, dfr, p.auteur ? String(p.auteur) : ''].filter(function (x) { return !!x; }).join(' \u00b7 ');
-              return '<a href="' + esc(String(p.url || '')) + '" target="_blank" rel="noopener" style="text-decoration:none;color:#6B7280;display:block;width:96px;">'
-                + '<img src="' + esc(thumb) + '" alt="' + esc(String(p.label_fr || '')) + '" title="' + esc(titre) + '" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block;">'
-                + '<div style="font-size:11px;line-height:1.35;margin-top:3px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(court) + '</div>'
-                + (dfr ? '<div style="font-size:11px;line-height:1.35;">' + esc(dfr) + '</div>' : '')
-                + '</a>';
-            }).join('')
-          + (reste > 0 ? '<div style="font-size:12px;color:#6B7280;align-self:center;">' + esc(t(reste > 1 ? 'lin_photo_autres' : 'lin_photo_autre', { n: reste })) + '</div>' : '')
-          + '</div>';
-      };
+      var _linPhotos = function (v) { return msLinPhotosRow(v, _linAvecPhoto, t); };
       lineageB = '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;">'
         + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Historique du dispositif</div>'
         + _lin.map(function (v) {

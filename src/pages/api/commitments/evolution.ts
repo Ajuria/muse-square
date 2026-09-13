@@ -177,7 +177,8 @@ async function buildLineage(bq: any, snap: any): Promise<any[]> {
       query: `SELECT commitment_id, version_no, status, verdict, measured_metric, measured_scope,
                      window_residual_pct, window_residual_z,
                      kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
-                     CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end
+                     CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end,
+                     CAST(created_at AS STRING) AS created_at
               FROM (
                 SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC,
                   CASE WHEN status IN ('resolved','cancelled') THEN 1 ELSE 0 END DESC,
@@ -205,6 +206,9 @@ async function buildLineage(bq: any, snap: any): Promise<any[]> {
         verdict: r.verdict != null ? String(flatv(r.verdict)) : null,
         window_start: String(flatv(r.window_start) ?? ""),
         window_end: String(flatv(r.window_end) ?? ""),
+        // 13/09 — la date de DÉBUT de la version : un dispositif permanent n'a pas de fenêtre (owner 27/08),
+        // donc son historique se raconte avec les dates de mise en service, pas avec window_start/end.
+        debut: String(flatv(r.created_at) ?? "").slice(0, 10),
         effect_pct: eff.pct,
         effect_proven: eff.z != null && Math.abs(eff.z) >= 1,
         kpi_mention_fr: eff.kpi_mention_fr,

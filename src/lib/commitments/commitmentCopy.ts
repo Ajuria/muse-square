@@ -195,6 +195,11 @@ export const EVOL_COPY = {
   // (owner : « garder la mémoire visuelle des dispositifs qui ont fonctionné ou non au niveau de
   // l'agencement »). L'absence se dit, comme celle des composants juste au-dessus ; les deux autres
   // libellés (« + N autres ») comptent ce qui ne tient pas dans la rangée, jamais un « … » muet.
+  // 13/09 — l'historique d'un PÔLE : ni fenêtre ni verdict (owner 27/08), donc les dates de service et
+  // « en cours » pour la version courante (mot owner 13/09). Le titre reprend celui de l'opération.
+  lin_pole_titre: "Historique du dispositif",
+  lin_pole_close: "Version {n} — du {debut} au {fin}",
+  lin_pole_en_cours: "Version {n} — depuis le {debut}, en cours",
   lin_photo_none: "Aucune photo de cette version.",
   lin_photo_autre: "+ {n} autre",
   lin_photo_autres: "+ {n} autres",
