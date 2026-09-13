@@ -471,8 +471,8 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
      `listPoleSpace`) ; bloc `plan` (§ 5) rendu par le kit (`?v=85` : SVG, un polygone par zone, teinte par rang, nom et
      valeur au centre, légende). Les sept zones d'Épices et Tout (relevé du 12/09) sont EN BASE sur Épices et Tout et sur
      le compte de test (11 polygones, 308,77 m²) ; la vue dbt `vw_insight_event_space_zones` est dans la PR
-     [ms_database#151](https://github.com/Ajuria/ms_database/pull/151) (`docs/dbt-handoff/HANDOFF-plan-zones-2026-09-13.md`),
-     l'app producteur relit sa table en attendant. Harnais `npm run harness:explorer-blocks` (le SVG : 11 polygones,
+     [ms_database#151](https://github.com/Ajuria/ms_database/pull/151), EN BASE le 13/09 (`docs/dbt-handoff/HANDOFF-plan-zones-2026-09-13.md`) :
+     l'agent lit la vue (`listSpaceZonesEnVigueur`), le producteur garde sa lecture pour le one-off. Harnais `npm run harness:explorer-blocks` (le SVG : 11 polygones,
      14 textes, 8 faits) ; batterie agent « Montre-moi mon plan coloré par CA au m²… » vérifiée (Cuisine 371 € par m²,
      le plus fort). **Reste** : la validation owner des contours sur l'image de contrôle (le partage des allées au plus
      proche à pied, `docs/espace-et-pole.md`) ; les libellés « Lecture de votre plan » et « Composition de votre pont de
@@ -492,7 +492,8 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
 2. Le stockage des contours du plan — APPLIQUÉ le 13/09 dans la forme prévue, un cran plus fin : `analytics.space_zones`,
    grain site × pôle × POLYGONE (Cuisine, Épicerie sèche, Produits frais et Petit déjeuner ont deux zones chacun), points
    du plan en JSON (1:100, 28,344 pt/m), aire en m², relevé daté, append-only, en vigueur = dernier relevé par pôle ; vue
-   dbt en PR (#151). À confirmer par l'owner : la forme, et les contours eux-mêmes sur l'image de contrôle.
+   dbt `vw_insight_event_space_zones` EN BASE (#151, 13/09). À confirmer par l'owner : la forme, et les contours eux-mêmes
+   sur l'image de contrôle.
 3. Les destinataires d'un envoi à cadence au-delà de l'équipe et des partenaires (§ 6.4).
 
 **Tranché le 12/09 sur la page d'arbitrage (`Le Rapport d'Explorer`)** : les mots des sections (Nombre de ventes,

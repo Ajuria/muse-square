@@ -1,8 +1,10 @@
-# Handoff dbt — contours des pôles sur le plan (13/09/2026) : PR ms_database#151 — FICHIERS DANS LA PR — SPEC DE TRAVAIL
+# Handoff dbt — contours des pôles sur le plan (13/09/2026) : PR ms_database#151 — EN BASE — DÉFINITIF
 
-> **13/09 — FICHIERS DANS LA PR.** [ms_database#151](https://github.com/Ajuria/ms_database/pull/151), branche `feat/space-zones`
-> sur `origin/main` `08d26e0` (après #150), 5 fichiers. L'owner fusionne ; puis run ciblé (ci-dessous) ; puis ce document
-> passe « EN BASE » et `docs/explorer-outil-spec.md` § 10 décision 2 se réécrit au présent.
+> **13/09, 07 h 52 — EN BASE.** PR fusionnée (`acefef0`) ; le `dbt build` lancé par l'owner n'a laissé aucune trace dans
+> dbt Cloud ni dans le projet (aucun run après la fusion, aucune vue) ; run ciblé `70471897291773` (job `refresh_industry`,
+> `dbt build --select stg_space_zones+`, 4 étapes vertes, 35 s, sha `acefef0`). Vérifié en base : `semantic.vw_insight_event_space_zones`
+> rend 2 sites × 11 zones × 7 pôles × 308,77 m² ; catalogue rafraîchi (593 tables). L'agent lit la vue
+> (`listSpaceZonesEnVigueur`) ; le producteur garde sa lecture pour le one-off.
 
 Sert : `docs/explorer-outil-spec.md` § 9 incrément 8 (le plan coloré) et § 10 décision 2 (le stockage des contours :
 grain site × pôle × polygone, points du plan en JSON, aire en m² — la forme que la spec prévoyait, appliquée le 13/09,
@@ -23,9 +25,5 @@ aires de polygones sont arrondies au cm²), sur Épices et Tout (`a3b442c2-…`)
 
 **Preuve BigQuery (13/09)** : la vue compilée à la main (source et ref substitués) rend 2 sites × 11 zones × 7 pôles × 308,77 m².
 
-**Après fusion** : run ciblé du job `refresh_industry` (70471823595526) :
-```
-dbt build --select stg_space_zones+
-```
-puis `bq-verify` de `semantic.vw_insight_event_space_zones`, `npm run catalog:refresh`, index → EN BASE. L'app (le producteur,
-`lib/dispositifs/spaceZones.ts`) relit sa table en attendant — le plan coloré fonctionne déjà.
+**Fait après fusion (13/09)** : run ciblé du job `refresh_industry` (70471823595526), `dbt build --select stg_space_zones+`,
+puis la vue vérifiée en base et `npm run catalog:refresh`.

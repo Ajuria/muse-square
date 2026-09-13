@@ -23,7 +23,7 @@ import { listClassDispositifs } from "../../src/lib/dispositifs/bestPractices";
 import { loadSiteEntities } from "../../src/lib/explorer/entityResolver";
 import { operationLife, readDispositifFamille } from "../../src/lib/dispositifs/dispositifFamille";
 import { planPeriod } from "../../src/lib/explorer/planPeriod";
-import { listSpaceZones } from "../../src/lib/dispositifs/spaceZones";
+import { listSpaceZonesEnVigueur } from "../../src/lib/dispositifs/spaceZones";
 import { listPoleSpace } from "../../src/lib/dispositifs/poleReading";
 import { readFamillesPeriode } from "../../src/lib/kpi/pontDeMarge";
 import { computeSalesReport } from "../../src/lib/rapport/ventes";
@@ -93,7 +93,7 @@ async function ask(q: string) {
     operationLife: (sid) => operationLife(bq, LOC, sid, today()),
     runOperationFamille: (op, fams, s, e, kpi) => readDispositifFamille(bq, LOC, op, fams, s, e, today(), kpi),
     runPlan: (s, e) => planPeriod(bq, LOC, s, e, { userId: null }),
-    listZones: () => listSpaceZones(bq, LOC), listPoleSpace: () => listPoleSpace(bq, LOC), runFamillesPeriode: (du, au) => readFamillesPeriode(bq, LOC, du, au),
+    listZones: () => listSpaceZonesEnVigueur(bq, LOC), listPoleSpace: () => listPoleSpace(bq, LOC), runFamillesPeriode: (du, au) => readFamillesPeriode(bq, LOC, du, au),
     // 13/09 (couche 5) : la batterie n'écrit JAMAIS une déclaration sur le compte de test — l'écriture est simulée, la lecture réelle.
     writeDeclaration: async (type, valeur) => { console.log(`  (déclaration simulée : ${type} = ${valeur})`); return { prior_fr: null, declarant_name: null }; },
     forgetDeclaration: async () => null,

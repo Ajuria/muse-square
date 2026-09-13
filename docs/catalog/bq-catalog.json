@@ -4,9 +4,9 @@
 "generated_date": "2026-09-13",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "08d26e0",
-"table_count": 591,
-"column_count": 10553
+"dbt_repo_sha_at_generation": "c68bc67",
+"table_count": 593,
+"column_count": 10581
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -36351,6 +36351,67 @@
 }
 ]
 },
+"semantic.vw_insight_event_space_zones": {
+"type": "VIEW",
+"columns": [
+{
+"name": "zone_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "pole_label",
+"type": "STRING"
+},
+{
+"name": "polygon_index",
+"type": "INT64"
+},
+{
+"name": "area_m2",
+"type": "FLOAT64"
+},
+{
+"name": "points_pt",
+"type": "STRING"
+},
+{
+"name": "scale_pt_per_m",
+"type": "FLOAT64"
+},
+{
+"name": "page_w_pt",
+"type": "FLOAT64"
+},
+{
+"name": "page_h_pt",
+"type": "FLOAT64"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "measured_at",
+"type": "DATE"
+},
+{
+"name": "declarant_user_id",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "semantic.vw_insight_event_tickets_daily": {
 "type": "VIEW",
 "columns": [
@@ -43566,6 +43627,67 @@
 {
 "name": "source",
 "type": "STRING"
+},
+{
+"name": "declarant_user_id",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"staging.stg_space_zones": {
+"type": "VIEW",
+"columns": [
+{
+"name": "zone_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "pole_label",
+"type": "STRING"
+},
+{
+"name": "polygon_index",
+"type": "INT64"
+},
+{
+"name": "area_m2",
+"type": "FLOAT64"
+},
+{
+"name": "points_pt",
+"type": "STRING"
+},
+{
+"name": "scale_pt_per_m",
+"type": "FLOAT64"
+},
+{
+"name": "page_w_pt",
+"type": "FLOAT64"
+},
+{
+"name": "page_h_pt",
+"type": "FLOAT64"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "measured_at",
+"type": "DATE"
 },
 {
 "name": "declarant_user_id",

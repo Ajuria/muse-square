@@ -125,3 +125,18 @@ export function currentZones(rows: SpaceZone[]): SpaceZone[] {
   for (const z of rows) { const k = latest.get(z.dispositif_id); if (!k || key(z) > k) latest.set(z.dispositif_id, key(z)); }
   return rows.filter((z) => latest.get(z.dispositif_id) === key(z)).sort((a, b) => a.pole_label.localeCompare(b.pole_label, "fr") || a.polygon_index - b.polygon_index);
 }
+
+/**
+ * 13/09 (PR ms_database#151 en base) — LA lecture de l'app : la vue semantic des zones EN VIGUEUR (la règle « dernier relevé
+ * par pôle » vit dans la vue, une seule fois). `listSpaceZones` + `currentZones` restent le côté producteur (le one-off relit
+ * ce qu'il vient d'écrire) ; l'agent lit la vue. Vue absente = aucune zone.
+ */
+export async function listSpaceZonesEnVigueur(bq: any, location_id: string): Promise<SpaceZone[]> {
+  const [rows] = await bq.query({
+    query: `SELECT zone_id, location_id, dispositif_id, pole_label, polygon_index, area_m2, points_pt, scale_pt_per_m, page_w_pt, page_h_pt, source,
+                   CAST(measured_at AS STRING) AS measured_at, declarant_user_id, CAST(created_at AS STRING) AS created_at
+            FROM \`${PROJECT}.semantic.vw_insight_event_space_zones\` WHERE location_id = @location_id ORDER BY pole_label, polygon_index`,
+    params: { location_id }, location: "EU",
+  }).catch((e: any) => { if (isNotFound(e)) return [[]]; throw e; });
+  return (rows as any[]).map(toZone).filter((z): z is SpaceZone => !!z);
+}
