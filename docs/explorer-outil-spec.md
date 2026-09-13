@@ -287,7 +287,20 @@ par capacité, jamais par site.
    vérifiée ; marge rejouée 7 s, 4,8/5. Limite : la phrase « mes 3 premières familles de produits » ne passe pas le
    matcher offering (elle tombe sur « Aucun événement trouvé », comme avant) — c'est le matcher de la famille
    `offering`, hors de cette couche.
-3. `_dispositifs_v1`, `_dispositif_famille_v1` → `lire_poles` (existe) + `lire_familles_face_aux_jours`.
+3. `_dispositifs_v1`, `_dispositif_famille_v1` — **RENTRÉES le 13/09**, par DEUX outils dédiés et non par `lire_poles` +
+   `lire_familles_face_aux_jours` comme cette ligne le prévoyait : ni l'un ni l'autre ne lisait ce que ces couches
+   lisaient (les fiches de l'atelier ; une opération × des familles pendant ses jours). `lire_dispositifs_documentes`
+   (`lib/dispositifs/dispositifsDocumentes.ts` : la ligne du journal « Documenté le … : « … » — état ; test : « … » »,
+   déplacée de prompt.ts et importée par lui — une seule formulation ; l'absence avec le geste « Vos opérations ») et
+   `lire_operation_famille(operation, familles[], du?, au?, kpi?)` (`dispositifFamilleToBlocks` sur le lecteur I8
+   existant : l'opération et les familles reconnues par leur nom parmi les entités du site, la période = celle donnée
+   ou la vie de l'opération, chaque ligne de table redite comme un fait pour la porte). Dans prompt.ts, la branche
+   « fiches » et la branche « opération × famille » appellent `repondreParAgent` — la seconde avec ce que le résolveur a
+   reconnu (opération, familles, période, KPI) dit dans la question. Producteurs `agent_lire_dispositifs_documentes`,
+   `agent_lire_operation_famille`. Preuves : batterie qualité « Quelles bonnes pratiques ai-je documentées ? » 8 s,
+   juge 4,9/5 ; « Pendant le Corner de vente producteur, qu'a fait la famille Coffee ? » 10 s, 4,7/5 ; batterie agent
+   verte (Corner × Coffee 6,8 s, vérifiée). Vu : le mot « attendu » d'un test de confirmation écrit dans une fiche fait
+   tomber la phrase du modèle qui le cite (relecture) — la fiche elle-même reste dans les blocs.
 4. `_report_nav_v1`, `_plan_period_v1`, `_plan_why_v1` → `composer_rapport`.
 5. `_declared_capture_v1` → `ecrire_declaration` (le seul outil d'écriture de plus : les paramètres à
    date d'effet et les marges déclarées, par les foyers existants).
@@ -401,8 +414,7 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    la batterie) — une règle « la cible dépasse l'habituel » côté outil demanderait le référentiel du jour (event-form le
    lit via /api/insight/evenement) ; l'essai owner sur la page Explorer suppose que la boucle y soit branchée (§ 7).
 7. **Incrément 7 — la migration** (§ 7), une couche par commit. **Couche 1 (marge) rentrée le 13/09** (§ 7, 1) ;
-   **Couche 2 (top familles, élicitation ventes) rentrée le 13/09** (§ 7, 2) ; restent les couches 3 à 6 (pôles/familles,
-   rapport, déclarations, élicitations).
+   **Couches 2 et 3 rentrées le 13/09** (§ 7, 2-3) ; restent les couches 4 à 6 (rapport, déclarations, élicitations).
 8. **Incrément 8 — le pont de marge**, dès les premiers prix d'achat réels ; **le plan coloré**, dès que
    les contours vivent en base (les sept zones d'Épices et Tout sont relevées :
    `zones_poles_epices_et_tout_2026-09-12.json` ; leur table `analytics.space_zones` et sa vue dbt se

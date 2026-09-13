@@ -59,6 +59,21 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
     }),
     // 12/09 (incrément 4) : un Modèle enregistré du site.
     listModeles: async () => [{ template_id: "t1", version: 1, location_id: "loc-1", author_user_id: "u", author_role: "owner", nom: "Hebdo pôles", periode_relative: "semaine_derniere", indicateur: "ventes", source_document_id: null, created_at: "x", sections: [{ cle: "poles", params: { indicateur: "ventes" } }, { cle: "volume", params: {} }] }],
+    // 13/09 (§ 7, couche 3) : une fiche documentée ; le site porte une opération « Corner producteur » et la famille Épices.
+    listDispositifsDocumentes: async () => [{ practice_id: "pr1", practice_text: "une table de dégustation à l'entrée", confirmation_test: "La prochaine occurrence dépasse l’attendu du jour", day_class_key: null, tier: "declaree", commitment_status: "cancelled", commitment_verdict: null, effect_direction: null, effect_residual_pct: null, effect_residual_z: null, replay_threshold_value: 10, replay_threshold_basis: "pct", replay_adjustment_move: "stop", created_date: "2026-08-10" } as any],
+    siteEntities: async () => ({ entities: [{ kind: "operation", id: "op1", name: "Corner producteur", families: [] }, { kind: "famille", id: null, name: "Épices", families: [] }] as any }),
+    operationLife: async () => ({ start: "2026-08-08", end: "2026-09-12" }),
+    runOperationFamille: async (op, fams, start, end, kpi) => ({
+      operation: op, familles: fams, start, end, kpi_demande: kpi,
+      operation_blocks: { table: { cols: [{ label: "Occurrence", align: "left" }, { label: "CA" }], rows: [{ cells: [{ v: "08/08/2026" }, { v: "1 200 €" }] }] }, prose: "1 occurrence.", funnel_table: null, sources: ["Vos ventes"] } as any,
+      familles_reading: [{ famille: fams[0].name, steps: [
+        { step: "ventes", occ_value: 34, base_value: 22.5, delta_pct: 51.1, occ_days: 4, base_days: 20 },
+        { step: "panier", occ_value: 12.4, base_value: 13.5, delta_pct: -8.1, occ_days: 4, base_days: 20 },
+        { step: "ca", occ_value: 420, base_value: 298, delta_pct: 41, occ_days: 4, base_days: 20 },
+        { step: "part", occ_value: 0.31, base_value: 0.305, delta_pct: 1.7, occ_days: 4, base_days: 20 },
+      ] }],
+      mix: [{ famille: fams[0].name, occ_share: 0.31, base_share: 0.305, delta_pct: 1.7, occ_days: 4, base_days: 20 }],
+    }),
     today: () => "2026-09-12",
     record: (r) => records.push(r),
     faitsDuTour: () => records.flatMap((r) => r.facts ?? []),
@@ -71,7 +86,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_dispositifs_documentes", "lire_operation_famille"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -348,5 +363,29 @@ describe("proposer_operation — une Proposition d'opération faite de faits lus
     expect(await tool.run({ titre: "x", dispositif: "y", familles: ["Thés"], dates: ["2026-09-19"], pourquoi: [fait] })).toBe("Famille inconnue sur ce site : « Thés ». Familles vendues : Épices.");
     expect(await tool.run({ titre: "x", dispositif: "y", dates: ["2026-09-11"], pourquoi: [fait] })).toMatch(/^La date 11\/09\/2026 est passée/);
     expect(await tool.run({ titre: "x", dispositif: "Commandez plus de stock pour le week-end", dates: ["2026-09-19"], pourquoi: [fait] })).toMatch(/^Le nom ou le dispositif ne passe pas la relecture/);
+  });
+});
+
+describe("couche 3 (13/09) — lire_dispositifs_documentes et lire_operation_famille", () => {
+  it("les fiches : une ligne par fiche (la formulation du journal), un bloc facts + sources ; sans fiche, l'absence", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "lire_dispositifs_documentes").run({});
+    expect(out).toMatch(/^• Documenté le 10\/08\/2026 : « une table de dégustation à l'entrée » — /);
+    expect(out).toContain("test : « La prochaine occurrence dépasse l’attendu du jour »");
+    expect(d.records[0]).toMatchObject({ summary: "1 fiche" });
+    expect(d.records[0].blocks?.map((b) => b.type)).toEqual(["facts", "sources"]);
+    const d2 = deps({ listDispositifsDocumentes: async () => [] });
+    await byName(buildAgentTools(d2), "lire_dispositifs_documentes").run({});
+    expect(d2.records[0].blocks?.[0]).toMatchObject({ type: "absence", geste: { label_fr: "Vos opérations" } });
+  });
+  it("une opération × une famille : l'opération et la famille reconnues par leur nom, la période = la vie de l'opération, chaque ligne de table redite comme un fait", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "lire_operation_famille").run({ operation: "corner producteur", familles: ["épices"] });
+    expect(d.records[0].summary).toBe("Corner producteur × Épices, du 08/08/2026 au 12/09/2026");
+    expect(out).toContain("• Ventes/jour avec Épices : 34 pendant l'opération, 23 habituellement (+51,1 %).");
+    expect(out).toContain("• Ce qui bouge pendant l'opération pour la famille Épices : Ventes/jour avec Épices +51,1 %, CA/jour Épices +41 %, Part de Épices dans le CA +1,7 % · ce qui ne suit pas : Panier moyen avec Épices −8,1 %.");
+    expect(d.records[0].blocks?.some((b) => b.type === "table")).toBe(true);
+    expect(await byName(buildAgentTools(d), "lire_operation_famille").run({ operation: "Soldes", familles: ["Épices"] })).toBe("Aucune opération nommée « Soldes » sur ce site. Opérations du site : « Corner producteur ».");
+    expect(await byName(buildAgentTools(d), "lire_operation_famille").run({ operation: "Corner producteur", familles: ["Thés"] })).toBe("Famille inconnue sur ce site : « Thés ». Familles : Épices.");
   });
 });

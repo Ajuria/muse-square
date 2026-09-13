@@ -19,6 +19,9 @@ import { FAMILIES } from "../../src/lib/insightFamilies";
 import { assembleAnswerBlocks, groundAgentText } from "../../src/lib/explorer/blocks";
 import { readMargeLecture } from "../../src/lib/kpi/margeLecture";
 import { toApiMessages } from "../../src/lib/explorer/agentTurn";
+import { listClassDispositifs } from "../../src/lib/dispositifs/bestPractices";
+import { loadSiteEntities } from "../../src/lib/explorer/entityResolver";
+import { operationLife, readDispositifFamille } from "../../src/lib/dispositifs/dispositifFamille";
 import { computeSalesReport } from "../../src/lib/rapport/ventes";
 import { readResultat } from "../../src/lib/kpi/resultat";
 import { readPoleClassement } from "../../src/lib/dispositifs/poleClassement";
@@ -50,6 +53,9 @@ const BATTERY: Case[] = [
   { q: "Compose mon rapport « Hebdo pôles ».", tools: ["composer_rapport"], answerMatch: /pôle|ventes/i, vetted: true, blocks: ["rapport"] },
   // § 7 couche 2 (13/09) — ex _top_familles_v1 : le mix par famille d'une période nommée, les K premières nommées par le modèle.
   { q: "Mes top 3 produits en août ?", tools: ["lire_ventes"], answerMatch: /famille/i, vetted: true, blocks: ["table"] },
+  // § 7 couche 3 (13/09) — ex _dispositifs_v1 et _dispositif_famille_v1.
+  { q: "Quelles bonnes pratiques ai-je documentées ?", tools: ["lire_dispositifs_documentes"], answerMatch: /documenté|dispositif/i, vetted: true },
+  { q: "Pendant le Corner de vente producteur, qu'a fait la famille Coffee ?", tools: ["lire_operation_famille"], answerMatch: /Coffee/, vetted: true, blocks: ["table"] },
   // § 9 incrément 6 — une question COMPOSÉE : lire (familles face aux jours) puis préparer une Proposition d'opération sur ce qui a été lu.
   { q: "Quelle famille souffre le plus de la pluie ? Propose-moi une opération sur cette famille pour samedi prochain.", tools: ["lire_familles_face_aux_jours", "proposer_operation"], answerMatch: /Préparer l'opération|proposition/i, vetted: true, blocks: ["proposition_operation"], maxSeconds: 40 },
 ];
@@ -68,6 +74,10 @@ async function ask(q: string) {
     readMemory: (s) => readSiteMemory(bq, LOC, s ? { subject: s } : {}), writeMemory: async () => {},
     runFamily: (key, date) => FAMILIES[key].run(bq, LOC, date),
     runMarge: (jours, date) => readMargeLecture(bq, LOC, date, jours),
+    listDispositifsDocumentes: () => listClassDispositifs(bq, LOC, null, 6),
+    siteEntities: () => loadSiteEntities(bq, LOC, ""),
+    operationLife: (sid) => operationLife(bq, LOC, sid, today()),
+    runOperationFamille: (op, fams, s, e, kpi) => readDispositifFamille(bq, LOC, op, fams, s, e, today(), kpi),
     runVentes: (s, e) => computeSalesReport(bq, { location_id: LOC, owned: [LOC], start: s, end: e }),
     runResultat: () => readResultat(bq, LOC),
     runPolesClassement: (s, e) => readPoleClassement(bq, LOC, s, e),

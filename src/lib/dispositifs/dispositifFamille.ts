@@ -242,3 +242,26 @@ export function buildDispositifFamilleBlocks(r: DispositifFamilleReading): { hea
   ];
   return { headline, sections, sources };
 }
+
+// ── 13/09 (docs/explorer-outil-spec.md § 7, couche 3) — LES BLOCS POUR L'AGENT : les mêmes sections (titre, table, faits)
+// en blocs du kit, et chaque ligne de table redite comme un FAIT (« Ventes/jour avec Coffee : 34 pendant l'opération, 22
+// habituellement (+51,1 %) ») — la porte n'accepte que ce qu'un fait porte, une cellule de table ne suffit pas.
+import type { AnswerBlock } from "../explorer/blocks";
+export function dispositifFamilleToBlocks(r: DispositifFamilleReading): { blocks: AnswerBlock[]; facts: string[]; sources: string[]; headline: string } {
+  const b = buildDispositifFamilleBlocks(r);
+  const blocks: AnswerBlock[] = [{ type: "prose", md: `**${b.headline}**` }];
+  const facts: string[] = [`${b.headline} : ${r.familles_reading[0]?.steps[0]?.occ_days ?? 0} jour${(r.familles_reading[0]?.steps[0]?.occ_days ?? 0) > 1 ? "s" : ""} d'opération vs ${r.familles_reading[0]?.steps[0]?.base_days ?? 0} jours comparables.`];
+  for (const sec of b.sections) {
+    if (sec.title) blocks.push({ type: "prose", md: `**${sec.title}**` });
+    if (sec.table) blocks.push({ type: "table", cols: sec.table.cols, rows: sec.table.rows });
+    if (Array.isArray(sec.facts) && sec.facts.length) { blocks.push({ type: "facts", items: sec.facts }); facts.push(...sec.facts); }
+    if (sec.table && /pendant l'opération$/.test(String(sec.title || ""))) {
+      for (const row of sec.table.rows as Array<{ cells: Array<{ v: string }> }>) {
+        const [label, occ, base, ecart] = row.cells.map((c) => c.v);
+        if (occ !== "—" && base !== "—") facts.push(`${label} : ${occ} pendant l'opération, ${base} habituellement${ecart && ecart !== "—" ? ` (${ecart})` : ""}.`);
+      }
+    }
+  }
+  if (b.sources.length) blocks.push({ type: "sources", items: b.sources });
+  return { blocks, facts, sources: b.sources, headline: b.headline };
+}

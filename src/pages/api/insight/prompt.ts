@@ -48,7 +48,7 @@ import { readIdeaPlacement } from "../../../lib/dispositifs/ideaPlacement";
 import { planPeriod, buildPlanBlocks, buildPlanWhyBlocks } from "../../../lib/explorer/planPeriod";
 import { journalPlan } from "../../../lib/explorer/journalPlan";
 import { signalMetier, horsPerimetreReponse } from "../../../lib/ai/horsPerimetre";
-import { operationLife, readDispositifFamille, buildDispositifFamilleBlocks } from "../../../lib/dispositifs/dispositifFamille";
+import { operationLife } from "../../../lib/dispositifs/dispositifFamille";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
 import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
@@ -59,6 +59,7 @@ import { resolveFrPeriod, daysInRangeYmd, type YearBias, type FrPeriod } from ".
 // 13/09 (docs/explorer-outil-spec.md § 7) — l'aiguillage PAR CAPACITÉ vers la boucle de l'agent (couche 1 : la marge).
 import { randomUUID } from "node:crypto";
 import { runAgentTurn } from "../../../lib/explorer/agentTurn";
+import { dispositifLigneFr as dispoLineFr } from "../../../lib/dispositifs/dispositifsDocumentes";
 import { GET as photosGET } from "../dispositifs/photos";
 import type { PhotoBytes, PhotoInfo } from "../../../lib/explorer/agentTools";
 const _photosUrl = (q: string) => new URL(`http://internal/api/dispositifs/photos?${q}`);
@@ -591,9 +592,7 @@ const PAST_TENSE_MARKERS = [
 // étroite : « mes ventes ont-elles marché ? » n'en est pas une, elle relève des ventes.
 // La ligne d'une fiche dispositif documentée — UNE formulation, partagée par la branche fiches
 // et la section compacte du journal (streamline owner 27/08 : jamais deux formulations).
-const dispoFrD = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
-const dispoLineFr = (p: any): string =>
-  `Documenté le ${dispoFrD(p.created_date)} : « ${p.practice_text} » — ${practiceStateFr(p)}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`;
+// 13/09 (§ 7, couche 3) : la ligne d'une fiche vit dans lib/dispositifs/dispositifsDocumentes.ts (l'agent la rend aussi) — jamais deux formulations.
 
 const JOURNAL_Q = /\b(mes|mon|nos|notre)\s+(engagements?|p[oô]les?|dispositifs?)|\bqu(?:['\u2019]est-ce qui|i)\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])|\bce\s+qui\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])/i;
 
@@ -2588,22 +2587,10 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // fiches en section compacte — rien ne se perd, rien ne se dit deux fois.
     // I5 suite (04/09) : la branche vit APRÈS le résolveur — l'intention `fiches` l'atteint aussi
     // quand la question ne porte pas les mots du matcher (« qu'est-ce qui a marché chez les autres ? »).
+    // 13/09 — MIGRATION § 7, couche 3 : `_dispositifs_v1` est RETIRÉE — la question part à l'agent (lire_dispositifs_documentes :
+    // les mêmes fiches, la même ligne, l'absence dite). Producteur agent_lire_dispositifs_documentes.
     if (/\b(bonnes?\s+pratiques?|dispositifs?\s+documentés?|documentés?\s.*dispositifs?)\b/i.test(qRaw) || _rsv?.intent === "fiches") {
-      const _bqd = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-      const _dispoRows = await listClassDispositifs(_bqd, location_id, null, 6);
-      if (_dispoRows.length) {
-        const _lines = _dispoRows.map(dispoLineFr);
-        return sysDialogueResponse(
-          _dispoRows.length === 1 ? "Votre dispositif documenté" : "Vos dispositifs documentés",
-          _lines.join("\n\n"),
-          "deterministic_dispositifs_v1",
-        );
-      }
-      return sysDialogueResponse(
-        "Aucun dispositif documenté",
-        "Vous n'avez pas encore documenté de dispositif. Ouvrez « Reproduire le dispositif » depuis une carte structurelle de Pulse : la conversation vous aide à le formaliser, puis à l'engager sur un test mesuré.",
-        "deterministic_dispositifs_v1",
-      );
+      return repondreParAgent("lire_dispositifs_documentes", qRaw);
     }
 
     // ── HORS PÉRIMÈTRE (I1, spec docs/explorer-routage-inversion-spec.md § 3.4, owner 03/09) —
@@ -2843,14 +2830,11 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         {
           const _dfOps = _epMatches.filter((e) => e.kind === "operation");
           const _dfFams = _epMatches.filter((e) => e.kind === "famille");
+          // 13/09 — MIGRATION § 7, couche 3 : `_dispositif_famille_v1` est RETIRÉE — l'agent lit lire_operation_famille avec
+          // l'opération, les familles et la période que le résolveur a reconnues (dites dans la question).
           if (_dfOps.length === 1 && _dfFams.length >= 1) {
-            const _dfKpi: any = /\bmix\b/i.test(qRaw) ? "mix" : (_rsv?.kpi ?? null);
-            const _dfR = await readDispositifFamille(_bqe, location_id, _dfOps[0], _dfFams, _epPeriod.start, _epPeriod.end, _epToday, _dfKpi);
-            const _dfB = buildDispositifFamilleBlocks(_dfR);
-            return sysDialogueResponse(
-              _dfB.headline, "", "deterministic_dispositif_famille_v1", null,
-              { plan_sections: _dfB.sections, sources_list: _dfB.sources },
-            );
+            const _dfKpi = /\bmix\b/i.test(qRaw) ? "mix" : (_rsv?.kpi ?? null);
+            return repondreParAgent("lire_operation_famille", `${qRaw}\n\n(Reconnu par Muse Square : opération « ${_dfOps[0].name} », ${_dfFams.length > 1 ? "familles" : "famille"} ${_dfFams.map((f) => `« ${f.name} »`).join(", ")}, période du ${_epPeriod.start} au ${_epPeriod.end}${_dfKpi ? `, KPI ${_dfKpi}` : ""} — appelle lire_operation_famille avec ces valeurs.)`);
           }
         }
         // ── COMPARAISONS (incrément 4, 28/08) — N entités et/ou 2 périodes : mise en table

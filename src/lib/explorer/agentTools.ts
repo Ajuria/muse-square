@@ -43,6 +43,10 @@ import { findTemplateByName, type ReportTemplate } from "../rapport/modeles";
 import { frDate, memoryToText, newSiteMemoryRow, type AuthorRole, type SiteMemoryEntry, type SiteMemoryRow } from "./siteMemory";
 import { composerProposition, OBJECTIF_FR } from "./proposition";
 import { JOURS, margeToText, type JoursMot, type MargeLecture } from "../kpi/margeLecture";
+import { composeDispositifsDocumentes, dispositifsToText } from "../dispositifs/dispositifsDocumentes";
+import type { ClassDispositif } from "../dispositifs/bestPractices";
+import type { SiteEntities, SiteEntity } from "./entityResolver";
+import { dispositifFamilleToBlocks, type DispositifFamilleReading } from "../dispositifs/dispositifFamille";
 import { EVENT_TYPES_ALL } from "../events/eventTypes";
 
 const PROJECT = "muse-square-open-data";
@@ -96,6 +100,11 @@ export interface AgentToolDeps {
   listModeles: () => Promise<ReportTemplate[]>;
   today: () => string;   // AAAA-MM-JJ, Europe/Paris — injecté pour être testable
   record: (r: ToolCallRecord) => void;
+  // 13/09 (§ 7, couche 3) — vos dispositifs documentés (les fiches de l'atelier) et « une opération × des familles ».
+  listDispositifsDocumentes: () => Promise<ClassDispositif[]>;
+  siteEntities: () => Promise<SiteEntities>;
+  operationLife: (saved_item_id: string) => Promise<{ start: string; end: string } | null>;
+  runOperationFamille: (operation: SiteEntity, familles: SiteEntity[], start: string, end: string, kpi: "transactions" | "basket" | "family_revenue" | "mix" | null) => Promise<DispositifFamilleReading>;
   // 12/09 (incrément 6) — les faits rendus par les outils déjà appelés dans CE tour : ce que proposer_operation
   // accepte comme « pourquoi » (une phrase dont un chiffre n'y est pas tombe).
   faitsDuTour: () => string[];
@@ -490,5 +499,57 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation];
+  // ── 13/09 (§ 7, couche 3) — lire_dispositifs_documentes : les fiches de l'atelier (ex _dispositifs_v1), une ligne par fiche.
+  const lireDispositifsDocumentes = outil({
+    name: "lire_dispositifs_documentes",
+    description: "Vos dispositifs documentés : les fiches de l'atelier (ce qui a été tenté lors d'une opération, son état — prouvé, déclaré, écarté —, son test de confirmation, l'effet mesuré sur vos ventes). Pour « mes bonnes pratiques », « ce qui a marché », « mes dispositifs documentés ».",
+    inputSchema: z.object({}),
+    run: () => timed("lire_dispositifs_documentes", {}, async () => {
+      const d = composeDispositifsDocumentes(await deps.listDispositifsDocumentes());
+      return { out: dispositifsToText(d), summary: d.found ? plural(d.facts.length, "fiche", "fiches") : "aucune fiche — absence dite", blocks: d.blocks, facts: d.facts };
+    }),
+  });
+
+  // ── 13/09 (§ 7, couche 3) — lire_operation_famille : ce que fait une famille PENDANT une opération (ex _dispositif_famille_v1).
+  const cleNom = (x: string): string => x.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, " ").trim();
+  const trouve = (site: SiteEntities, kind: SiteEntity["kind"], nom: string): SiteEntity | null => {
+    const n = cleNom(nom); if (!n) return null;
+    const cands = site.entities.filter((e) => e.kind === kind);
+    return cands.find((e) => cleNom(e.name) === n) ?? cands.find((e) => cleNom(e.name).includes(n) || n.includes(cleNom(e.name))) ?? null;
+  };
+  const lireOperationFamille = outil({
+    name: "lire_operation_famille",
+    description: "Ce qu'une opération (un événement du site, par son nom) fait à une ou plusieurs familles de produits & services pendant ses jours, vs vos jours comparables : ventes/jour avec la famille, panier moyen du ticket entier, CA/jour de la famille, part dans le CA — et le mix complet. Période : celle donnée (du/au), sinon la vie de l'opération (première occurrence → aujourd'hui). Jamais causal : ce qui bouge pendant l'opération.",
+    inputSchema: z.object({
+      operation: z.string().max(120).describe("Le nom de l'opération, tel que le site le porte (lire_poles ne les liste pas : les noms d'opération viennent de l'exploitant)."),
+      familles: z.array(z.string()).min(1).max(3).describe("Une à trois familles de produits & services, par leur nom."),
+      du: z.string().optional().describe("Premier jour, AAAA-MM-JJ (défaut : la vie de l'opération)."),
+      au: z.string().optional().describe("Dernier jour, AAAA-MM-JJ (défaut : aujourd'hui)."),
+      kpi: z.enum(["transactions", "basket", "family_revenue", "mix"]).optional().describe("Le KPI qui ouvre la lecture : transactions = ventes, basket = panier moyen, family_revenue = CA de la famille, mix = part dans le CA."),
+    }),
+    run: (args) => timed("lire_operation_famille", args, async () => {
+      const site = await deps.siteEntities();
+      const op = trouve(site, "operation", args.operation);
+      if (!op || !op.id) {
+        const noms = site.entities.filter((e) => e.kind === "operation").map((e) => `« ${e.name} »`);
+        return { out: `Aucune opération nommée « ${args.operation} » sur ce site.${noms.length ? ` Opérations du site : ${noms.join(", ")}.` : " Aucune opération sur ce site."}`, summary: `opération « ${args.operation} » inconnue` };
+      }
+      const fams: SiteEntity[] = [];
+      for (const f of args.familles) {
+        const e = trouve(site, "famille", f);
+        if (!e) { const noms = site.entities.filter((x) => x.kind === "famille").map((x) => x.name); return { out: `Famille inconnue sur ce site : « ${f} ». Familles : ${noms.join(", ")}.`, summary: `famille « ${f} » inconnue` }; }
+        if (!fams.some((x) => x.name === e.name)) fams.push(e);
+      }
+      const today = deps.today();
+      let start = args.du ?? null, end = args.au ?? null;
+      if (!start) { const life = await deps.operationLife(String(op.id)); if (!life) return { out: `L'opération « ${op.name} » n'a aucune occurrence datée : rien à lire.`, summary: "opération sans occurrence" }; start = life.start; end = end ?? life.end; }
+      end = end ?? today;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start > end) return { out: "Période invalide : deux dates AAAA-MM-JJ, la première avant la seconde.", summary: "période invalide" };
+      const r = await deps.runOperationFamille(op, fams, start, end, (args.kpi as any) ?? null);
+      const b = dispositifFamilleToBlocks(r);
+      return { out: b.facts.map((f) => `• ${f}`).join("\n"), summary: `${op.name} × ${fams.map((f) => f.name).join(", ")}, du ${frDate(start)} au ${frDate(end)}`, blocks: b.blocks, facts: b.facts };
+    }),
+  });
+
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireDispositifsDocumentes, lireOperationFamille];
 }

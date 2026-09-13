@@ -72,6 +72,9 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   { q: "Quelle est ma marge le week-end ?", expect: { producers: ["agent_lire_marge"], maxSeconds: 20, answerMatch: /week-end/i } },
   // 13/09 (§ 7, couche 2) : « top 3 produits août » — ex _top_familles_v1 — part à l'agent avec la période résolue ; lire_ventes rend le mix par famille.
   { q: "Mes top 3 produits en août ?", expect: { producers: ["agent_lire_ventes"], maxSeconds: 25, answerMatch: /famille/i } },
+  // 13/09 (§ 7, couche 3) : les fiches documentées et « une opération × une famille » sont servies par l'agent.
+  { q: "Quelles bonnes pratiques ai-je documentées ?", expect: { producers: ["agent_lire_dispositifs_documentes"], maxSeconds: 25, answerMatch: /documenté/i } },
+  { q: "Pendant le Corner de vente producteur, qu'a fait la famille Coffee ?", expect: { producers: ["agent_lire_operation_famille"], maxSeconds: 30, answerMatch: /Coffee/ } },
   { q: "Pourquoi le 03/01/2024 ?", expect: { producers: ["grounded_day_claude", "v3_fallback_deterministic"], maxSeconds: 40 } },
   { q: "Le musée d'Orsay me prend-il des visiteurs ?", expect: { producers: ["web_search", "llm_only"], maxSeconds: 60 } },
   // Étape 5 — jour PASSÉ inexpliqué : la section « Web — non vérifié » doit arriver avec ≥1 source
