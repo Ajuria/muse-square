@@ -138,7 +138,8 @@ export function verdictFr(r: Pick<CommitmentSlotRow, "verdict" | "threshold_basi
 
 /** Le nom court de l'objet : le titre de l'opération liée, sinon la tête du texte d'engagement. */
 export function shortTitle(r: Pick<CommitmentSlotRow, "committed_action_text" | "saved_item_title">): string {
-  const t = (r.saved_item_title && String(r.saved_item_title).trim()) || String(r.committed_action_text ?? "").split(" — ")[0].trim();
+  // 13/09 (retour owner 12/09 : un point avant les deux-points du titre) — la tête du texte d'engagement perd sa ponctuation finale.
+  const t = ((r.saved_item_title && String(r.saved_item_title).trim()) || String(r.committed_action_text ?? "").split(" — ")[0].trim()).replace(/[.!?…]+$/, "").trim();
   return t || "Engagement";
 }
 
@@ -157,11 +158,15 @@ export function commitmentCandidates(rows: CommitmentSlotRow[], todayIso: string
     const ecart = r.window_actual_revenue != null && r.window_expected_revenue != null ? r.window_actual_revenue - r.window_expected_revenue : null;
     const nDays = r.window_days_expected ?? (r.window_start && r.window_end ? daysBetween(r.window_start, r.window_end) + 1 : 1);
     const ecartFr = ecart != null ? `${ecart >= 0 ? "+" : "−"}${frInt(Math.abs(ecart))} €` : "écart non mesuré";
+    // L'objectif sur une famille : l'écart en euros est celui du lieu, dit comme tel (13/09).
+    const ecartDuLieu = String(r.measured_metric ?? "revenue_residual") === "family_revenue";
+    const etat = r.action_done_status === "pas_encore" ? "non_menee" : r.verdict === "met" ? "met" : r.verdict === "missed" ? "missed" : "inconclusive";
+    const titre = shortTitle(r);
     out.push({
       nature: "memoire", kind: "bilan", key: "explorer_slot_bilan", date: when, objet_id: r.commitment_id,
       score: Math.abs(ecart ?? 0) * jours, enjeu_eur: ecart != null ? Math.abs(ecart) : null, anciennete_jours: jours,
-      text: SLOTS_FR.bilan_titre(shortTitle(r), verdictFr(r), ecartFr, Math.max(1, nDays)),
-      sub: SLOTS_FR.bilan_sub,
+      text: SLOTS_FR.bilan_titre(titre, verdictFr(r), ecartFr, Math.max(1, nDays), ecartDuLieu),
+      sub: SLOTS_FR.bilan_sub(etat, titre),
       cta: SLOTS_FR.bilan_cta,
       href: `/app/insightevent/engagement?id=${encodeURIComponent(r.commitment_id)}`,
     });

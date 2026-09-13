@@ -3,8 +3,7 @@
 // evenement.fr.guard.test.ts. Aucune chaîne visible de l'état vide ne vit ailleurs.
 //
 // Ce qui est de l'owner : « Bilan → » (lexique), « objectif atteint / manqué / non concluant »
-// (lexique, verdict), « Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes. » (page Évaluer,
-// evenement.astro, reprise telle quelle), la forme du titre (proto validé 07/09). La carte
+// (lexique, verdict), la forme du titre (proto validé 07/09) ; la sous-ligne du bilan est réécrite le 13/09 (retour owner 12/09). La carte
 // « fait / pas fait » du proto est RETIRÉE : doctrine owner 05/08, le silence vaut « action menée »
 // (voir explorerSlots.ts). E3 : le titre de la carte note reprend le fait du jour tel que le chat le
 // rend (buildDayPerformanceFacts : « N € — +X % vs votre CA habituel »), la question est la forme owner
@@ -26,9 +25,22 @@ const ALERTE_SOUS_TYPES: Record<string, string> = {
 
 export const SLOTS_FR = {
   // Nature 1 — engagement résolu, sans bilan.
-  bilan_titre: (titre: string, verdictFr: string, ecartFr: string, jours: number) =>
-    `${titre} : ${verdictFr}, ${ecartFr} sur ${jours} jour${jours > 1 ? "s" : ""}`,
-  bilan_sub: "Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes.",
+  // 13/09 (retour owner 12/09 : « objectif manqué, +678 € » à vérifier) — quand l'objectif porte sur une FAMILLE, l'écart en
+  // euros est celui du LIEU : deux référentiels, dits chacun (« votre lieu », la forme de la page de l'engagement, lexique).
+  bilan_titre: (titre: string, verdictFr: string, ecartFr: string, jours: number, ecartDuLieu = false) =>
+    `${titre} : ${verdictFr}${ecartDuLieu ? " · votre lieu" : ","} ${ecartFr} sur ${jours} jour${jours > 1 ? "s" : ""}`,
+  // 13/09 (owner 12/09 : « Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes. » ne veut rien dire, et la même
+  // ligne sous deux actions différentes) — la sous-ligne dit CE QUE la mesure ne sait pas de CETTE action (les trois
+  // questions du bilan, commitmentCopy : ce qui a marché, ce que vous changeriez, à reproduire) et à quoi ça sert :
+  // gardé pour la prochaine fois que cette action revient. Proposé le 13/09, à ratifier.
+  bilan_sub: (etat: "met" | "missed" | "inconclusive" | "non_menee", titre: string) => {
+    // Un titre court se nomme (« le prochain « Corner de vente producteur » ») ; un titre long (un texte d'engagement) se dit « la prochaine fois ».
+    const fin = `la mesure ne le dit pas : votre bilan le garde pour ${titre.length <= 40 ? `le prochain « ${titre} »` : "la prochaine fois"}.`;
+    if (etat === "non_menee") return `Non menée — pourquoi, et si c'est à reproduire, ${fin}`;
+    if (etat === "met") return `Atteint — ce qui a porté le résultat, ${fin}`;
+    if (etat === "missed") return `Manqué — ce qui n'a pas marché et ce que vous changeriez, ${fin}`;
+    return `Non concluant — ce que vous avez vu ce jour-là, ${fin}`;
+  },
   bilan_cta: "Bilan →",
   // Nature 1 — jour inexpliqué (|residual_z| ≥ 2) sans note.
   note_titre: (jourCap: string, dateFr: string, caFr: string, pctFr: string) => `${jourCap} ${dateFr} : ${caFr} €, ${pctFr} vs votre CA habituel`,
