@@ -7,7 +7,7 @@
 // ce n'est pas une invention, c'est un champ hors sujet) ; une famille hors de la liste du site est
 // rejetée comme un code d'article hors liste. Les valeurs normalisées sont rendues dans le résultat :
 // l'appelant écrit CELLES-LÀ, jamais `out` tel quel.
-import { EXPOSITION_VALUES, EXPOSITION_WITH_LEVELS } from "../../dispositifs/dispositifTypes";
+import { EXPOSITION_VALUES } from "../../dispositifs/dispositifTypes";
 
 export interface PhotoGateResult {
   ok: boolean; errors: string[]; rejected_person: boolean;
@@ -32,9 +32,10 @@ export function validatePhotoExtraction(
   let exposition: string | null = null;
   if (!EXPOSITION_VALUES.includes(String(out.exposition))) errors.push(`exposition inconnue « ${out.exposition} »`);
   else exposition = String(out.exposition);
-  // Les niveaux : un entier > 0 seulement sur un rayonnage ; null partout ailleurs (normalisé).
+  // Les étagères : un entier > 0 sur TOUT composant qui en porte (13/09, owner — la restriction au seul
+  // rayonnage jetait les quatre étagères de la vitrine des couteaux) ; null quand il n'y en a pas.
   let levels: number | null = null;
-  if (exposition === EXPOSITION_WITH_LEVELS && out.levels != null) {
+  if (out.levels != null) {
     const n = Number(out.levels);
     if (!Number.isInteger(n) || n < 1 || n > LEVELS_MAX) errors.push(`étagères invalides « ${out.levels} »`);
     else levels = n;

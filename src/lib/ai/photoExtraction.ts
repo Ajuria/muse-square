@@ -14,7 +14,7 @@
 // tableau vide). Le numéro sur le plan n'est PAS lu sur l'image : le client de l'API le donne.
 import {
   checklistFor, type ChecklistQuestion,
-  EXPOSITION_KINDS, EXPOSITION_VALUES, EXPOSITION_WITH_LEVELS, EXPOSITION_QUESTION_FR, LEVELS_QUESTION_FR, FAMILIES_QUESTION_FR,
+  EXPOSITION_KINDS, EXPOSITION_VALUES, EXPOSITION_QUESTION_FR, LEVELS_QUESTION_FR, FAMILIES_QUESTION_FR,
 } from "../dispositifs/dispositifTypes";
 
 export const PHOTO_PROMPT_VERSION = "photo_extract_v2";
@@ -90,7 +90,7 @@ RÈGLES
 3. Les prix : seulement ceux LISIBLES sur une étiquette, en euros, avec le libellé lu tel quel ; item_code seulement si l'étiquette est celle d'un article de la liste, sinon null.
 4. coverage : « entier » si tout le composant est dans le cadre, « partiel » s'il déborde, « non_visible » si ce n'est pas un composant de magasin.
 5. person_visible : true dès qu'une personne, un visage ou une silhouette est visible, même de dos ou floue.
-6. exposition — ${EXPOSITION_QUESTION_FR} Une seule valeur parmi EXPOSITION ci-dessous (recopie exacte de la clé). levels — ${LEVELS_QUESTION_FR} Un entier SEULEMENT si exposition = ${EXPOSITION_WITH_LEVELS} et que les niveaux se comptent sur la photo ; null dans tous les autres cas.${famRule}
+6. exposition — ${EXPOSITION_QUESTION_FR} Une seule valeur parmi EXPOSITION ci-dessous (recopie exacte de la clé). levels — ${LEVELS_QUESTION_FR} Un entier si le composant porte des étagères qui se comptent sur la photo, quelle que soit son exposition (une vitrine, un comptoir arrière ou une gondole peuvent en avoir) ; null s'il n'en porte pas ou si elles ne se comptent pas.${famRule}
 
 QUESTIONS (clé : question)
 ${qs}

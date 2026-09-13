@@ -257,6 +257,10 @@ export const EXPOSITION_KINDS: ExpositionOption[] = [
   { value: "caisses_au_sol", label_fr: "Caisses au sol" },
   { value: "ilot", label_fr: "Îlot" },
 ];
+// 13/09 (owner : « lève la restriction ») — les étagères se comptent sur TOUT composant qui en porte, pas
+// sur le seul rayonnage : la vitrine des couteaux d'Épices et Tout en a quatre, et elles étaient jetées à
+// chaque photo. Ce nom reste celui de l'exposition qui en a TOUJOURS (un rayonnage sans étagère n'existe
+// pas) ; ailleurs, c'est la photo qui décide — un comptoir arrière en a, un comptoir nu n'en a pas.
 export const EXPOSITION_WITH_LEVELS = "rayonnage";
 export const EXPOSITION_VALUES: readonly string[] = Object.freeze(EXPOSITION_KINDS.map((o) => o.value));
 export const EXPOSITION_QUESTION_FR = "Quelle exposition ?";

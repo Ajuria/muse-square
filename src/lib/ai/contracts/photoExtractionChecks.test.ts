@@ -28,15 +28,19 @@ describe("validatePhotoExtraction — lie-bait", () => {
     const o2: any = good(); delete o2.exposition;
     expect(validatePhotoExtraction(o2, KEYS, CODES, FAMS).ok).toBe(false);
   });
-  it("v2 — des étagères posées sur un comptoir sont NORMALISÉES à null, sans erreur ; sur un rayonnage ils doivent être un entier > 0", () => {
+  // 13/09 (owner : « lève la restriction de rayonnage ») — les étagères se comptent sur TOUT composant qui en
+  // porte : la vitrine des couteaux d'Épices et Tout en a quatre, et la règle « rayonnage seulement » les jetait.
+  it("v2 — les étagères d'un comptoir arrière ou d'une vitrine sont GARDÉES ; un compte non entier ou nul tombe", () => {
     const o: any = good(); o.exposition = "comptoir"; o.levels = 4;
     const r = validatePhotoExtraction(o, KEYS, CODES, FAMS);
-    expect(r.ok).toBe(true); expect(r.levels).toBeNull(); expect(r.exposition).toBe("comptoir");
+    expect(r.ok).toBe(true); expect(r.levels).toBe(4); expect(r.exposition).toBe("comptoir");
+    const oV: any = good(); oV.exposition = "vitrine"; oV.levels = 4;
+    expect(validatePhotoExtraction(oV, KEYS, CODES, FAMS)).toMatchObject({ ok: true, levels: 4 });
     const o2: any = good(); o2.levels = 2.5;
     expect(validatePhotoExtraction(o2, KEYS, CODES, FAMS).errors.join(" ")).toContain("étagères invalides « 2.5 »");
     const o3: any = good(); o3.levels = 0;
     expect(validatePhotoExtraction(o3, KEYS, CODES, FAMS).ok).toBe(false);
-    const o4: any = good(); o4.levels = null;   // un rayonnage dont on ne compte pas les étagères : accepté
+    const o4: any = good(); o4.levels = null;   // un composant sans étagère, ou qu'on ne peut pas compter : accepté
     expect(validatePhotoExtraction(o4, KEYS, CODES, FAMS)).toMatchObject({ ok: true, levels: null });
   });
   it("v2 — une famille INVENTÉE tombe (même porte que les codes d'article) ; les doublons sont fondus", () => {
