@@ -81,7 +81,7 @@ describe("dayNoteCandidates (E3)", () => {
     expect(c.key).toBe("explorer_slot_note");
     expect(c.date).toBe("2026-09-01");
     expect(plain(c.text)).toBe("Mardi 01/09 : 1 603 €, +74 % vs votre CA habituel");
-    expect(c.sub).toBe("Un souvenir ? Notez-le · sinon, laissez");
+    expect(c.sub).toBe("Si vous savez pourquoi, notez-le : la cause revient avec ce jour.");
     expect(c.cta).toBe("Enregistrer");
     expect(c.href).toBe("");
     expect(c.anciennete_jours).toBe(6);
@@ -102,7 +102,7 @@ describe("dayNoteCandidates (E3)", () => {
     const [c] = dayNoteCandidates([dayVol], TODAY, "ventes");
     expect(plain(c.text)).toBe("Mardi 01/09 : 350 ventes, +77 % vs vos ventes habituelles");
     expect(c.text).not.toMatch(/€/);
-    expect(c.kind).toBe("note"); expect(c.sub).toBe("Un souvenir ? Notez-le · sinon, laissez"); expect(c.cta).toBe("Enregistrer");
+    expect(c.kind).toBe("note"); expect(c.sub).toBe("Si vous savez pourquoi, notez-le : la cause revient avec ce jour."); expect(c.cta).toBe("Enregistrer");
     expect(c.enjeu_eur).toBe(683);
   });
   it("unité « ventes » : le seuil se lit dans SA couche — un jour inexpliqué en CA mais pas en ventes ne sort pas, et inversement", () => {

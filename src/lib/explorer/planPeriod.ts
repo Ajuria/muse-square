@@ -436,7 +436,12 @@ export function buildPlanBlocks(r: PlanPeriodResult): PlanBlocks {
   for (const w of r.calm_weeks.filter((x) => x.state === "quiet")) {
     quickFacts.push(`Semaine du ${w.label} : aucun événement concurrent relevé ne vise votre public.`);
   }
-  for (const p of r.replay.slice(0, 4)) quickFacts.push(p.say_fr);
+  // 13/09 — le rejeu cite le BILAN écrit du dispositif, juste après sa preuve : ce que l'exploitant a noté lui revient au
+  // moment où le plan lui propose de recommencer (c'est le retour de sa saisie, pas un rappel de mécanique).
+  for (const p of r.replay.slice(0, 4)) {
+    quickFacts.push(p.say_fr);
+    if (p.bilan_fr) quickFacts.push(`Votre bilan de « ${p.dispositif} » : « ${p.bilan_fr} »`);
+  }
   if (!r.replay.length) quickFacts.push("Aucun dispositif prouvé n'est rejouable sur les conditions de la période.");
   sections.push({ title: "À portée de main", facts: quickFacts });
 

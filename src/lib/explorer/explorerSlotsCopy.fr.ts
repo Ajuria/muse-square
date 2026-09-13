@@ -7,7 +7,7 @@
 // « fait / pas fait » du proto est RETIRÉE : doctrine owner 05/08, le silence vaut « action menée »
 // (voir explorerSlots.ts). E3 : le titre de la carte note reprend le fait du jour tel que le chat le
 // rend (buildDayPerformanceFacts : « N € — +X % vs votre CA habituel »), la question est la forme owner
-// « Un souvenir ? Notez-le · sinon, laissez » (CLAUDE.md, règle 4 de la copie), le bouton est
+// la question du jour inexpliqué (forme owner 22/08, réécrite le 13/09 pour dire le gain — voir note_sub), le bouton est
 // « Enregistrer » (commitmentCopy, page de l'engagement).
 // E2/E4 (owner 07/09 : « don't you have all you need in lexique + in agir page? ») — oui, tout vient
 // de là : « Ajuster » (lexique), « Choisissez votre prochaine action : » + Poursuivre · Doubler la mise ·
@@ -44,7 +44,12 @@ export const SLOTS_FR = {
   // Forme MEMBRE (owner 08/09, unité « ventes ») : le même gabarit, l'unité échangée — un membre ne
   // voit jamais un niveau de CA (vue-equipe-slack-spec), il voit le compte de ventes du jour.
   note_titre_ventes: (jourCap: string, dateFr: string, nFr: string, pctFr: string) => `${jourCap} ${dateFr} : ${nFr} ventes, ${pctFr} vs vos ventes habituelles`,
-  note_sub: "Un souvenir ? Notez-le · sinon, laissez",
+  // 13/09 (owner : « la demande de saisie dit ce que l'exploitant y gagne ») — la forme du 22/08 « Un souvenir ? Notez-le ·
+  // sinon, laissez » reconnaissait qu'on ne se souvient pas toujours, mais ne disait aucun gain : zéro note écrite sur le
+  // compte de test. La nouvelle ligne garde la permission (« si vous savez ») et dit le gain VÉRIFIÉ : la note est relue
+  // par le chat quand ce jour revient (buildDayPerformanceFacts la cite comme un fait). Ce qu'elle ne fait PAS et qu'on
+  // n'écrit donc pas : elle n'exclut pas le jour du résultat habituel (aucun modèle dbt ne la consomme). À ratifier.
+  note_sub: "Si vous savez pourquoi, notez-le : la cause revient avec ce jour.",
   note_cta: "Enregistrer",
   // Nature 2 — verdict manqué, ni geste ni version suivante (≤ 14 j).
   ajuster_sub: "Choisissez votre prochaine action : Poursuivre · Doubler la mise · Pivoter",

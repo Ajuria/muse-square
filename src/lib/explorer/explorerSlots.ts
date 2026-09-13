@@ -18,7 +18,8 @@
 //   - note d'un jour inexpliqué (E3) : `semantic.vw_insight_event_day_residual`, |residual_z| ≥ 2 sur
 //     30 jours, sans ligne dans `analytics.day_notes` ; € = |daily_revenue − expected_revenue| ;
 //     ancienneté = jours depuis la date. La carte porte le champ de saisie (POST /api/insight/day-notes),
-//     forme owner « Un souvenir ? Notez-le · sinon, laissez » ; une fois notée, la source ne la produit plus.
+//     la ligne du 13/09 « Si vous savez pourquoi, notez-le : la cause revient avec ce jour. » (la permission du 22/08
+//     gardée, le gain dit) ; une fois notée, la source ne la produit plus.
 // Nature 2 (ce qui attend une décision — E2/E4, mots du lexique et du fil Agir, owner 07/09) :
 //   - à ajuster : résolu, verdict manqué, aucun adjustment_move, aucune version suivante, ≤ 14 j ;
 //   - à reconduire : résolu, verdict atteint, mêmes conditions ; € = |écart de la fenêtre| ;
