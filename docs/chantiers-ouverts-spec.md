@@ -121,6 +121,15 @@ ne pas insister le même jour. Le rejeu de la même heure n'envoie rien de plus.
 - **Manque** : UN outil, `comparer_journees` (comparaison de journées v3), dont dépend
   `_missing_dates_v1`. La dernière élicitation (`_missing_dimension_elicit_v1` : stock, personnel, CA par
   client) n'a ni donnée ni outil — elle RESTE une élicitation, et c'est la bonne réponse.
+- **Défaut ouvert, trouvé le 13/09 au soir sur `lire_entite_periode`** : les deux questions d'entité
+  passent toutes leurs portes en **ne rendant AUCUN bloc**. Le rapport de batterie le montre — outil
+  appelé DEUX fois, colonne blocs réduite à `register`, « 1er bloc — ». L'outil a donc échoué (`timed`
+  enregistre `ok: false` sans bloc, et relance l'erreur), le modèle a répondu dans le vide, et la réponse
+  a été jugée verte parce qu'aucune porte ne regardait ce que l'exploitant VOIT. C'est la faute « rien
+  n'est visible » (CLAUDE.md § Verify Before Done), à l'échelle d'une batterie.
+  **Deux gardes posés le soir même** : une porte `rendu` (au moins un bloc d'outil, sinon FAIL) et une
+  colonne « pourquoi » qui porte le message d'échec de l'outil. Le prochain run NOMMERA la cause ; elle
+  n'est pas encore connue, et ce chantier n'est pas clos tant qu'elle ne l'est pas.
 - **Défaut ouvert, antérieur** : la question du plan coloré (« Montre-moi mon plan coloré par CA au m², et
   dis-moi quel pôle a la plus forte marge brute par mètre. ») rend son registre en `model` au lieu de
   `vetted` — un nombre du texte ne vient d'aucun fait d'outil. Constaté sur les deux runs du 13/09 au soir,

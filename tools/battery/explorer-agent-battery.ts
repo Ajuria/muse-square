@@ -146,6 +146,10 @@ async function ask(q: string) {
       ["durée", !!r && r.seconds <= (c.maxSeconds ?? MAX_SECONDS)],
       ["registre", !c.vetted || (!!r && r.grounding.register === "vetted")],
       ["blocs", !c.blocks || (!!r && c.blocks.every((t) => r.blocks.some((b: any) => b.type === t)))],
+      // 13/09 — LA PORTE QUI MANQUAIT : une réponse dont aucun outil n'a rendu de bloc ne montre RIEN à
+      // l'exploitant, et passait pourtant toutes les autres portes en parlant dans le vide. C'est la même
+      // faute que « rien n'est visible sur dev » (CLAUDE.md § Verify Before Done), mesurée ici.
+      ["rendu", !!r && r.calls.some((x) => x.blocks && x.blocks.length > 0)],
     ];
     const failed = gates.filter(([, ok]) => !ok).map(([n]) => n);
     if (failed.length) hardFails++;
@@ -157,6 +161,10 @@ async function ask(q: string) {
     // 13/09 — le POURQUOI de l'échec entre dans le RAPPORT, pas seulement dans la console : un « FAIL
     // registre » sans les nombres fautifs oblige à relancer pour savoir lequel, et personne ne relance.
     const pourquoi = [
+      // 13/09 — un outil qui ÉCHOUE n'apparaissait nulle part : il était compté comme « appelé », sans
+      // bloc, et la question passait ses portes en parlant dans le vide. Son message vient ici.
+      r && r.calls.some((c) => !c.ok) ? `outil en échec — ${r.calls.filter((c) => !c.ok).map((c) => `${c.name} : ${c.summary}`).join(" ; ")}` : "",
+      r && r.calls.length && !r.calls.some((c) => c.blocks && c.blocks.length) ? "aucun bloc rendu à l'exploitant" : "",
       r && r.grounding.ungrounded_numbers.length ? `nombres non fondés : ${r.grounding.ungrounded_numbers.join(", ")}` : "",
       r && r.relecture.fautes.length ? `relecture : ${r.relecture.fautes.map((f) => f.motif).join(" ; ")}` : "",
       err,
