@@ -875,6 +875,11 @@ if (!root) {
     if (nativeBlocks) {
       // 13/09 (§ 7, couche 4) : un CTA « M'engager » composé par l'agent porte son prefill sur le bloc — le clic l'ouvre (délégation commit).
       nativeBlocks.forEach(function (b) { if (b && b.type === "cta" && b.action === "commit" && b.prefill) _lastCommitPrefill = { prefill: b.prefill, origin: b.origin || null }; });
+      // 13/09 (owner : « rien n'est visible ») — un Rapport composé dans le chat peut DEVENIR le document
+      // (page Rapports), là où vivent les gestes. On garde le bloc rapport de CETTE réponse ; le clic sur
+      // « Ouvrir → » l'enregistre et ouvre le document. Remis à zéro à chaque réponse : jamais un rapport périmé.
+      _lastRapport = null;
+      nativeBlocks.forEach(function (b) { if (b && b.type === "rapport") _lastRapport = b; });
       return [...blocks, ...nativeBlocks.filter(function (b) { return b && b.type !== "register"; })];
     }
 
@@ -1517,6 +1522,8 @@ if (!root) {
   // J2.3 — le dernier prefill d'engagement proposé par le serveur (plan de rejeu). Remis à zéro
   // par la réponse suivante : on n'ouvre jamais un formulaire sur un plan périmé.
   var _lastCommitPrefill = null;
+  // 13/09 — le dernier Rapport composé dans le chat (bloc typé), pour le CTA « Ouvrir → ».
+  var _lastRapport = null;
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-ab-cta-action="commit"]');
     if (!btn || !_lastCommitPrefill || !window.MSCommitForm) return;
@@ -1539,6 +1546,31 @@ if (!root) {
       },
       onCancel: function () { wrap.remove(); },
     });
+  });
+  // 13/09 — « Ouvrir → » sous un Rapport composé dans le chat : le Rapport devient un DOCUMENT (POST
+  // /api/explorer/rapports, la même route que la page Rapports) et la page s'ouvre dessus. C'est le chemin
+  // qui manquait : les gestes (↑ ↓, Retirer, Votre note, Approfondir, Modèle) ne vivent que sur le document.
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest('[data-ab-cta-action="ouvrir_rapport"]');
+    if (!btn || !_lastRapport) return;
+    e.preventDefault();
+    if (btn.disabled) return;
+    btn.disabled = true; const _t = btn.textContent; btn.textContent = "Ouverture…";
+    try {
+      const r = await fetch("/api/explorer/rapports", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ location_id: LOCATION_ID, rapport: _lastRapport }),
+      });
+      const j = await r.json();
+      if (!j || !j.ok || !j.document_id) throw new Error((j && j.error) || "Enregistrement impossible");
+      window.location.href = "/app/insightevent/rapports?location_id=" + encodeURIComponent(LOCATION_ID) + "&document_id=" + encodeURIComponent(j.document_id);
+    } catch (err) {
+      btn.disabled = false; btn.textContent = _t;
+      const msg = document.createElement("div");
+      msg.setAttribute("style", "font-size:12.5px;color:#B91C1C;margin-top:6px;text-align:right;");
+      msg.textContent = (err && err.message) || "Enregistrement impossible";
+      btn.parentElement && btn.parentElement.appendChild(msg);
+    }
   });
   document.addEventListener("click", (e) => {
     const btn = e.target.closest('[data-ab-cta-action="upload"]');

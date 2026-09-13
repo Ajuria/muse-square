@@ -19,7 +19,12 @@ const locParam = Astro.url.searchParams.get("loc") || "";
 
       <div id="rapport-toolbar">
         <a href="/app/insightevent/prompt" id="rapport-back">← Retour</a>
-        <button id="rapport-print" type="button">Enregistrer en PDF</button>
+        <div style="display:flex;gap:14px;align-items:center;">
+          <!-- 13/09 (owner : « rien n'est visible ») — d'ici, on n'atteignait pas les Rapports enregistrés,
+               où vivent les gestes (↑ ↓, Retirer, Votre note, Approfondir, Modèle). Le lien porte le site. -->
+          <a id="rapport-docs" href="/app/insightevent/rapports" style="font-size:13px;font-weight:500;color:#1D3BB3;text-decoration:none;">Mes Rapports →</a>
+          <button id="rapport-print" type="button">Enregistrer en PDF</button>
+        </div>
       </div>
 
       <div id="rapport-status">Génération du rapport…</div>
@@ -395,6 +400,9 @@ const locParam = Astro.url.searchParams.get("loc") || "";
         }
 
         var start = root.dataset.start, end = root.dataset.end, loc = root.dataset.loc;
+        // Le lien vers les Rapports enregistrés porte le site ouvert ici (13/09).
+        var docsLink = document.getElementById("rapport-docs");
+        if (docsLink && loc) docsLink.href = "/app/insightevent/rapports?location_id=" + encodeURIComponent(loc);
         if (!start || !end) { showError("Période manquante dans l'adresse du rapport."); return; }
         var scopeParam = null;
         try { scopeParam = new URLSearchParams(window.location.search).get("scope"); } catch (e) {}

@@ -315,7 +315,10 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     expect(out).toContain("Aucune section du Rapport ne correspond à : « la couleur des murs ».");
     const rec = d.records[0];
     expect(rec).toMatchObject({ name: "composer_rapport", ok: true, summary: "6 sections composées, vos 30 derniers jours, du 13/08/2026 au 11/09/2026 ; 1 demande non reconnue" });
-    expect(rec.blocks?.length).toBe(1);
+    // 13/09 (owner) — le Rapport du chat porte son CHEMIN vers le document : le bloc rapport, puis le CTA
+    // « Ouvrir → » qui l'enregistre et ouvre la page Rapports, où vivent les gestes.
+    expect(rec.blocks?.length).toBe(2);
+    expect(rec.blocks?.[1]).toEqual({ type: "cta", action: "ouvrir_rapport", label: "Ouvrir →" });
     const b = rec.blocks?.[0] as any;
     expect(b.type).toBe("rapport"); expect(b.synthese).toBeNull();
     expect(b.sections.map((s: any) => s.cle)).toEqual(["volume", "panier", "mix", "resultat_net", "poles", "sources"]);

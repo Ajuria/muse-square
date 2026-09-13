@@ -495,7 +495,11 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
         lectures: { ventes, marge, resultat, espace, poles, signaux },
       });
       const n = r.block.sections.length;
-      return { out: rapportToText(r), summary: `${plural(n, "section composée", "sections composées")}, ${p.libelle_fr}${inconnues.length ? ` ; ${plural(inconnues.length, "demande non reconnue", "demandes non reconnues")}` : ""}`, blocks: [r.block], facts: r.facts };
+      // 13/09 (owner : « rien n'est visible ») — un Rapport composé dans le chat n'était qu'une réponse : les
+      // gestes (↑ ↓, Retirer, Votre note, Approfondir, Modèle) vivent sur le DOCUMENT, page Rapports, que rien
+      // ne permettait d'atteindre depuis ici. Le CTA crée le document à partir de ce Rapport et l'ouvre ;
+      // le comportement est câblé par la surface (ie-prompt.js), le bloc ne fait que le proposer.
+      return { out: rapportToText(r), summary: `${plural(n, "section composée", "sections composées")}, ${p.libelle_fr}${inconnues.length ? ` ; ${plural(inconnues.length, "demande non reconnue", "demandes non reconnues")}` : ""}`, blocks: [r.block, { type: "cta", action: "ouvrir_rapport", label: "Ouvrir →" }], facts: r.facts };
     }),
   });
 
