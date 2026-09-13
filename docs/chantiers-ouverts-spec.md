@@ -79,17 +79,24 @@ par mutation (4/4), rien n'est réputé livré tant que l'owner n'a pas ouvert l
   moindre chaîne qui parle de hauteur. Une position fausse ferait dire une bêtise à une carte, et c'est
   pire que pas de carte.
 
-## 2. Le rail d'envoi d'un Rapport — jamais prouvé de bout en bout
+## 2. Le rail d'envoi d'un Rapport — AUCUN CODE À ÉCRIRE, il n'a jamais été vu tourner
 
-- **Existe** : `report_schedules`, `report_sends`, le cron horaire, le courriel HTML rendu par le kit,
-  « Envoyer chaque… » et « Vos envois » sur la page Rapports.
-- **Manque** : une cadence ACTIVE. Au dernier relevé (13/09) : un seul envoi depuis toujours (l'essai du
-  12/09) et la seule cadence créée a été désactivée 27 secondes après. Le cron n'a donc rien à faire, et
-  le rail n'a jamais été vu tourner seul.
-- **Le travail** : créer une cadence sur le compte de l'owner, attendre son heure, vérifier l'envoi et la
-  trace anti-doublon. Décider ensuite si un PDF est attendu en pièce jointe (il n'en existe aucun).
-- **Preuve exigée** : un envoi parti SANS clic, sa ligne dans `report_sends`, et le second passage du cron
-  qui ne renvoie pas.
+**Vérifié le 13/09 en suivant le chemin entier** : la chaîne est complète et sans trou. Le formulaire
+« Envoyer chaque… » de la page Rapports POSTe `/api/explorer/envois`, qui valide et écrit la cadence
+(`newScheduleRow` + `writeSchedule`) ; le cron `api/cron/report-sends` tourne à l'heure (cron-job.org,
+enregistré sur dev le 13/09), compose le Rapport depuis son Modèle sans la boucle, l'envoie par courriel
+HTML ou Slack, et le trace dans `report_sends` — un rapport sans matière ne part pas mais se trace, pour
+ne pas insister le même jour. Le rejeu de la même heure n'envoie rien de plus. Tests : `envois.test.ts`.
+
+- **Ce qui manque n'est donc pas du code, c'est une cadence ACTIVE.** Au dernier relevé (13/09) : un seul
+  envoi depuis toujours (l'essai du 12/09) et la seule cadence créée a été désactivée 27 secondes après.
+  Le cron n'a rien à faire, et le rail n'a jamais été vu partir seul.
+- **Le geste** : sur la page Rapports, « Envoyer chaque… » sous un Modèle, cadence quotidienne à la
+  prochaine heure ronde. `GET /api/cron/report-sends?dry=1` (en-tête `Bearer CRON_SECRET`) liste ce qui
+  est dû sans rien envoyer : c'est la façon de voir l'état sans attendre.
+- **Preuve exigée** : un envoi parti SANS clic, sa ligne dans `report_sends`, et le passage suivant du
+  cron qui ne renvoie pas.
+- **Décision owner** : un PDF en pièce jointe est-il attendu ? Il n'en existe aucun aujourd'hui.
 
 ## 3. L'outil de capture de l'espace — un proto, rien de plus
 
@@ -129,9 +136,10 @@ vraisemblables semés sur le compte de test ; elle ne dira la vérité d'Épices
 
 1. **La preuve par l'owner** des deux chantiers fermés aujourd'hui (versionning par la photo). C'est le
    moins cher et c'est ce qui décide si on continue ou si on corrige.
-2. **La cadence d'envoi** (§ 2) — une écriture, puis l'attente du cron. Ça peut courir pendant le reste.
-3. **L'étagère par article** (§ 1) — l'étape 1 est petite et sans migration ; l'étape 2 est une mesure, pas
-   du code ; l'étape 3 ne s'ouvre que si la mesure tient.
+2. **La cadence d'envoi** (§ 2) — un geste sur la page, puis l'attente du cron. Ça court pendant le reste.
+3. **L'étagère par article** (§ 1) — l'étape 1 est FAITE (13/09) ; l'étape 2a (le modèle lit-il juste ?) se
+   tranche à l'œil sur la sonde du matin et ne coûte rien ; l'étape 2b et l'étape 3 attendent les ventes
+   d'Épices et Tout.
 4. **Les trois outils d'Explorer** (§ 4) — le plus gros, et le seul qui ferme la spec. À ne commencer que
    quand la batterie peut tourner dans la même session que le code.
 5. **Décisions owner** : l'outil de capture (§ 3), le mot « Partager » (§ 5), le PDF d'un envoi (§ 2), les
