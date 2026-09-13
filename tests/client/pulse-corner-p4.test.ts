@@ -24,6 +24,12 @@ beforeAll(() => {
 // 07/09 : la page rend les cartes de performance sur le jour RÉEL (todayYmd) — une constante figée
 // a fait tomber deux tests au changement de date. TODAY suit l'horloge locale de la machine.
 const TODAY = (() => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); })();
+// 13/09 — le JJ/MM d'aujourd'hui : la page rend les cartes de performance sur le jour RÉEL, donc la
+// carte d'essai porte TODAY et la date AFFICHÉE en découle. Les deux tests ci-dessous portaient une date
+// figée (2026-09-04) : passé ce jour-là, la carte n'était plus servie et le rendu retombait sur la carte
+// « Configurez votre veille concurrentielle ». Ils ont rougi au changement de date, pas à une régression.
+const TODAY_FR = TODAY.slice(8, 10) + "/" + TODAY.slice(5, 7);
+
 function renderOne(candidate: any): string {
   (window as any)._lastActionCandidates = [candidate];
   (window as any)._lastDayClassImpacts = [];
@@ -32,17 +38,17 @@ function renderOne(candidate: any): string {
   return root.innerHTML;
 }
 
-it("carte de fait avec témoins : « +169 € le 04/09 » au coin, population au ⓘ, pas de promesse", () => {
+it("carte de fait avec témoins : « +169 € le <jour> » au coin, population au ⓘ, pas de promesse", () => {
   const html = renderOne({
-    date: "2026-09-04", action_type: "hour_share_move", action_priority: 2, action_category: "performance", location_id: "f10c3e58-326e-4e38-947c-d59fcbe51df5",
+    date: TODAY, action_type: "hour_share_move", action_priority: 2, action_category: "performance", location_id: "f10c3e58-326e-4e38-947c-d59fcbe51df5",
     enjeu: null, corner_day_mode: true, funnel_corner: null, context_motif: null,
     population_enjeu: { class_key: "pop_hour_carry", family: "card", label_fr: "créneaux qui ont surperformé", eur_year: 2597, tier: "mesuré", tier_label_fr: "mesuré", entangled: false, n_days: 8, span_months: 5, avg_gap_eur: 136, t_stat: 2 },
     data_payload: { transaction_hour: 15, revenue: 216, expected_hour_revenue: 48, delta_eur: 169, direction: "surge", day_gap_eur: 739, expected_hour_transactions: 11, transactions: 47, typ_n: 8, baseline_same_regime_n: 6, is_school_holiday_flag: false, regime_mismatch_flag: false },
   });
-  expect(html).toMatch(/amt-val[^>]*>\+169 €</);
+  expect(html).toMatch(/class="amt-val"[^>]*>\+169 €</);   // la classe EXACTE : « amt-val… » matchait n'importe quoi
   // toLocaleString('fr-FR') sépare les milliers par une espace fine insécable (U+202F).
   expect(html).toMatch(/Vos créneaux qui ont surperformé : \+2[\s\u202f\u00a0]597 €\/an, mesuré sur 8 j \/ 5 mois\./);
-  expect(html).toMatch(/amt-sub">le 04\/09</);
+  expect(html).toContain('amt-sub">le ' + TODAY_FR + '<');
   expect(html).not.toContain("passera en €/an");
   expect(html).not.toMatch(/597 €\/an<\/div>/);
 });
@@ -55,16 +61,16 @@ it("carte à motif de contexte propre : « +203 € · par jour · ces jours-là
     funnel_corner: { kpi: "footfall", pct: 0.13, abs_per_day: 41, n_days: 23, class_key: "competition_low", class_label_fr: "jours à faible activité dans votre périmètre" },
     data_payload: { window_start: TODAY, window_end: "2026-09-09", window_days: 4, pressure_ratio: 0.8, events_5km: 257, baseline_avg: 3461, score: 61 },
   });
-  expect(html).toMatch(/amt-val[^>]*>\+203 €</);
+  expect(html).toMatch(/class="amt-val"[^>]*>\+203 €</);
   expect(html).toContain('<div class="amt-sub">par jour · ces jours-là</div>');
   expect(html).toContain("Mesuré sur 23 jours de jours à faible activité dans votre périmètre : +203 € par jour vs vos jours comparables. Vos visiteurs +13 % sur ces jours.");
   expect(html).not.toContain("€/an");
-  expect(html).not.toMatch(/amt-val[^>]*>\+13 %</);
+  expect(html).not.toMatch(/class="amt-val"[^>]*>\+13 %</);
 });
 
 it("06/09 (audit P6) — la réserve hors du clamp, le geste avant « Voir plus »", () => {
   const html = renderOne({
-    date: "2026-09-04", action_type: "item_share_move", action_priority: 3, action_category: "performance", location_id: "f10c3e58-326e-4e38-947c-d59fcbe51df5",
+    date: TODAY, action_type: "item_share_move", action_priority: 3, action_category: "performance", location_id: "f10c3e58-326e-4e38-947c-d59fcbe51df5",
     enjeu: null, corner_day_mode: true, funnel_corner: null, context_motif: null, population_enjeu: null,
     data_payload: { item_description: "Traditional Blend Chai Rg", revenue: 58, expected_item_revenue: 13, delta_eur: 44, direction_eur: "surge", day_gap_eur: 739, typ_n: 30, baseline_same_regime_n: 4, is_school_holiday_flag: false, regime_mismatch_flag: true },
   });
