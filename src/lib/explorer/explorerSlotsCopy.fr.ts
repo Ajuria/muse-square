@@ -18,6 +18,8 @@
 // (action-cards.js et pulse.astro feedLine4, le fil Agir).
 
 // pulse.astro feedLine4 — les libellés des sous-types d'alerte, repris tels quels.
+import { retroGainFr, type RetroEtat } from "../commitments/commitmentCopy";
+
 const ALERTE_SOUS_TYPES: Record<string, string> = {
   event_new: "Proximité géographique", proximity: "Proximité géographique", industry_overlap: "Même secteur",
   audience_overlap: "Même audience", industry_audience_overlap: "Secteur & audience", date_conflict: "Même date",
@@ -33,14 +35,9 @@ export const SLOTS_FR = {
   // ligne sous deux actions différentes) — la sous-ligne dit CE QUE la mesure ne sait pas de CETTE action (les trois
   // questions du bilan, commitmentCopy : ce qui a marché, ce que vous changeriez, à reproduire) et à quoi ça sert :
   // gardé pour la prochaine fois que cette action revient. Proposé le 13/09, à ratifier.
-  bilan_sub: (etat: "met" | "missed" | "inconclusive" | "non_menee", titre: string) => {
-    // Un titre court se nomme (« le prochain « Corner de vente producteur » ») ; un titre long (un texte d'engagement) se dit « la prochaine fois ».
-    const fin = `la mesure ne le dit pas : votre bilan le garde pour ${titre.length <= 40 ? `le prochain « ${titre} »` : "la prochaine fois"}.`;
-    if (etat === "non_menee") return `Non menée — pourquoi, et si c'est à reproduire, ${fin}`;
-    if (etat === "met") return `Atteint — ce qui a porté le résultat, ${fin}`;
-    if (etat === "missed") return `Manqué — ce qui n'a pas marché et ce que vous changeriez, ${fin}`;
-    return `Non concluant — ce que vous avez vu ce jour-là, ${fin}`;
-  },
+  // 13/09 (owner) — la sous-ligne = LE GAIN, avec le chiffre de la carte : retroGainFr (commitmentCopy, un seul foyer avec le
+  // bloc Documenter de la page de l'engagement).
+  bilan_sub: (etat: RetroEtat, ecartFr: string | null, titre: string) => retroGainFr(etat, ecartFr, titre),
   bilan_cta: "Bilan →",
   // Nature 1 — jour inexpliqué (|residual_z| ≥ 2) sans note.
   note_titre: (jourCap: string, dateFr: string, caFr: string, pctFr: string) => `${jourCap} ${dateFr} : ${caFr} €, ${pctFr} vs votre CA habituel`,

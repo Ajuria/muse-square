@@ -315,3 +315,26 @@ it("articles des photos : l'article en retrait porte ses chiffres et son signe, 
   expect(html).toContain("Croissant (400 €)");
   expect(html).not.toContain("Aucune photo lue");
 });
+
+// ── 13/09 (owner) — le bloc Documenter dit LE GAIN avec le chiffre, puis tient en UNE ligne + « À reproduire ? » ──
+it("engagement résolu manqué : Documenter ouvre sur « −394 € : ce que vous changez au prochain « Corner de vente producteur ». », une seule ligne intitulée « Ce que vous changez », À reproduire ? ; plus les deux champs d'avant", () => {
+  const data: any = baseData();
+  data.commitment.status = "resolved"; data.commitment.verdict = "missed";
+  data.commitment.window_expected_revenue = 1000; data.commitment.window_actual_revenue = 606;
+  const html = String(kit.renderEvolution(data, EVOL_COPY)).replace(/[\u202f\u00a0]/g, " ");
+  expect(html).toContain("−394 € : ce que vous changez au prochain « Corner de vente producteur ».");
+  expect(html).toContain("Ce que vous changez");
+  expect((html.match(/data-retro-line/g) || []).length).toBe(1);
+  expect(html).toContain('data-retro-etat="missed"');
+  expect(html).not.toContain("data-retro-worked");
+  expect(html).not.toContain("data-retro-change");
+  expect(html).toContain("À reproduire ?");
+  expect(html).not.toContain("reste attaché");
+  // atteint : « ce qui a marché » ; non menée : la raison du report, sans chiffre.
+  data.commitment.verdict = "met"; data.commitment.window_actual_revenue = 1612;
+  const met = String(kit.renderEvolution(data, EVOL_COPY)).replace(/[\u202f\u00a0]/g, " ");
+  expect(met).toContain("+612 € : ce qui a marché, à refaire au prochain « Corner de vente producteur ».");
+  expect(met).toContain('data-retro-etat="met"');
+  data.commitment.action_done_status = "pas_encore";
+  expect(String(kit.renderEvolution(data, EVOL_COPY))).toContain("La raison du report — la journée ne compte pas contre le dispositif.");
+});

@@ -51,7 +51,7 @@ const id = Astro.url.searchParams.get("id") || "";
     <script is:inline src="/js/ms-loader.js?v=2"></script>
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
-    <script is:inline src="/js/card-kit.js?v=85"></script>
+    <script is:inline src="/js/card-kit.js?v=86"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -325,9 +325,13 @@ const id = Astro.url.searchParams.get("id") || "";
             var msg = docEl.querySelector("[data-cap-msg]"); save.disabled = true; save.textContent = "…";
             // On success, reload → the page re-renders in read mode with the saved values.
             var done = function (ok) { save.disabled = false; save.textContent = t("save"); if (msg) { msg.textContent = ok ? t("saved") : "Erreur"; msg.style.color = ok ? "#166534" : "#b91c1c"; } if (ok) setTimeout(load, 400); };
-            var worked = (docEl.querySelector("[data-retro-worked]") || {}).value || "";
-            var change = (docEl.querySelector("[data-retro-change]") || {}).value || "";
-            var payload = { commitment_id: cm.commitment_id, location_id: cm.location_id, retro_worked: worked, retro_change: change };
+            // 13/09 — une seule ligne : « ce qui a marché » (atteint) va dans retro_worked, le reste (manqué, non menée, non
+            // concluant) dans retro_change — les deux colonnes de la base restent, le formulaire n'en montre qu'une.
+            var lineEl = docEl.querySelector("[data-retro-line]");
+            var line = (lineEl || {}).value || "";
+            var etat = lineEl ? (lineEl.getAttribute("data-retro-etat") || "missed") : "missed";
+            var payload = { commitment_id: cm.commitment_id, location_id: cm.location_id };
+            if (etat === "met") payload.retro_worked = line; else payload.retro_change = line;
             if (repeatState.v) payload.retro_repeat = (repeatState.v === "oui");
             fetch("/api/commitments/retro", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
               .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });

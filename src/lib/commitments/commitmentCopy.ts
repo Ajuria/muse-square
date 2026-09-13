@@ -362,7 +362,23 @@ export const EVOL_COPY = {
   retro_ph: "Ce que vous garderiez, ce que vous changeriez",
   // ── Documenter (Spec 2) — structured retro = the reusable knowledge-base entry.
   q4_title_doc: "Documenter",
-  doc_hint: "Ce retour reste attaché à l'action — repère pour la prochaine fois et pour l'équipe.",
+  // 13/09 (owner 12-13/09 : « pourquoi devrais-je m'en occuper, face à mes autres priorités ? ») — la ligne dit LE GAIN, avec le
+  // chiffre de l'action : ce que l'exploitant évite ou refait la prochaine fois. Quatre états, un foyer (l'Explorer, la page de
+  // l'engagement, le kit lisent ICI). {ecart} = « −394 € », {titre} = le nom court de l'action ; « la prochaine fois » quand
+  // le titre est long (> 40 caractères). Mots owner du 13/09 : « La raison du report », « Le constat terrain pour trancher ».
+  retro_gain_missed: "{ecart} : ce que vous changez au prochain « {titre} ».",
+  retro_gain_missed_sans: "{ecart} : ce que vous changez la prochaine fois.",
+  retro_gain_met: "{ecart} : ce qui a marché, à refaire au prochain « {titre} ».",
+  retro_gain_met_sans: "{ecart} : ce qui a marché, à refaire la prochaine fois.",
+  retro_gain_non_menee: "La raison du report — la journée ne compte pas contre le dispositif.",
+  retro_gain_inconclusive: "Ce que vous avez vu ce jour-là, pour trancher au prochain « {titre} ».",
+  retro_gain_inconclusive_sans: "Ce que vous avez vu ce jour-là, pour trancher la prochaine fois.",
+  // Le bilan tient en UNE ligne (plus « À reproduire ? ») : l'intitulé du champ suit l'état (owner 13/09).
+  retro_line_q_missed: "Ce que vous changez",
+  retro_line_q_met: "Ce qui a marché",
+  retro_line_q_non_menee: "La raison du report",
+  retro_line_q_inconclusive: "Le constat terrain pour trancher",
+  retro_line_ph: "En une ligne",
   edit: "Éditer",
   cancel: "Annuler",
   not_documented: "Pas encore documenté.",
@@ -394,3 +410,19 @@ export const EVOL_COPY = {
 };
 
 export type EvolCopy = typeof EVOL_COPY;
+
+// ── 13/09 — LE GAIN DU BILAN, en TypeScript (l'Explorer) : les mêmes gabarits que le kit (t() côté client), un seul foyer. ──
+export type RetroEtat = "met" | "missed" | "non_menee" | "inconclusive";
+export const TITRE_COURT_MAX = 40;
+/** L'état d'un engagement résolu pour le bilan : une action déclarée non menée prime sur le verdict. */
+export function retroEtat(r: { verdict?: string | null; action_done_status?: string | null }): RetroEtat {
+  if (r.action_done_status === "pas_encore") return "non_menee";
+  return r.verdict === "met" ? "met" : r.verdict === "missed" ? "missed" : "inconclusive";
+}
+/** La ligne du gain : « −394 € : ce que vous changez au prochain « Corner de vente producteur ». » */
+export function retroGainFr(etat: RetroEtat, ecartFr: string | null, titre: string): string {
+  const court = titre.length > 0 && titre.length <= TITRE_COURT_MAX;
+  const key = (etat === "non_menee" ? "retro_gain_non_menee" : `retro_gain_${etat}${court ? "" : "_sans"}`) as keyof typeof EVOL_COPY;
+  const s = String(EVOL_COPY[key] ?? "");
+  return s.split("{ecart}").join(ecartFr ?? "Écart non mesuré").split("{titre}").join(titre);
+}

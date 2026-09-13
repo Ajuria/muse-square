@@ -75,7 +75,7 @@ export const GET: APIRoute = async ({ request }) => {
           from: "Insight <insight@musesquare.com>",
           replyTo: "contact@musesquare.com",
           to: row.email,
-          subject: `Votre bilan post-événement — ${row.title}`,
+          subject: `Votre bilan — ${row.title}`,
           html: buildBilanEmail(row, bilanUrl),
         });
         sent++;
@@ -109,7 +109,7 @@ function buildBilanEmail(row: any, bilanUrl: string): string {
   return `<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Bilan post-événement — Insight</title></head>
+<title>Votre bilan — Insight</title></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f4f6;padding:40px 0;">
 <tr><td align="center">
@@ -120,16 +120,16 @@ function buildBilanEmail(row: any, bilanUrl: string): string {
   </td></tr>
 
   <tr><td style="background:#ffffff;padding:40px 40px;border-bottom:1px solid #e5e7eb;">
-    <div style="font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:#0b37e5;margin-bottom:12px;">Bilan post-événement</div>
+    <div style="font-size:11px;font-weight:500;letter-spacing:0.14em;text-transform:uppercase;color:#0b37e5;margin-bottom:12px;">Votre bilan</div>
     <div style="font-size:28px;font-weight:300;color:#111827;line-height:1.1;margin-bottom:24px;">${esc(row.title)}</div>
-    <div style="font-size:14px;color:#374151;line-height:1.7;">Bonjour ${esc(firstName)},<br><br>Votre événement s'est terminé il y a 7 jours. 3 questions rapides nous aident à calibrer vos prochaines recommandations — les conditions que nous avions prévues étaient-elles conformes à ce que vous avez observé ?</div>
+    <div style="font-size:14px;color:#374151;line-height:1.7;">Bonjour ${esc(firstName)},<br><br>Votre événement s'est terminé il y a 7 jours. Pour que ce jour soit jugé à conditions égales — météo, accès, fréquentation — trois réponses, une minute.</div>
   </td></tr>
 
   <tr><td style="background:#ffffff;padding:32px 40px 40px 40px;">
     <a href="${esc(bilanUrl)}" style="display:inline-block;padding:12px 28px;background:#0b37e5;color:#ffffff;font-size:13px;font-weight:500;text-decoration:none;letter-spacing:0.02em;">
       Compléter mon bilan →
     </a>
-    <div style="margin-top:16px;font-size:12px;color:#9ca3af;">3 questions · 2 minutes</div>
+    <div style="margin-top:16px;font-size:12px;color:#9ca3af;">3 questions · 1 minute</div>
   </td></tr>
 
   <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;">

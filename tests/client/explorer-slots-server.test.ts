@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { SLOTS, ACTION_LOG, bootOnce, slotCards } from "./explorerTestKit";
 
 const card = (id: string, nature: "memoire" | "decision", text: string) => ({
-  nature, kind: "bilan", key: "explorer_slot_" + id, date: "2026-08-0" + id.length, text, sub: "Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes.", cta: "Bilan →",
+  nature, kind: "bilan", key: "explorer_slot_" + id, date: "2026-08-0" + id.length, text, sub: "−394 € : ce que vous changez au prochain « Corner ».", cta: "Bilan →",
   href: "/app/insightevent/engagement?id=" + id,
 });
 

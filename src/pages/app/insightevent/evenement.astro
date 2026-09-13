@@ -458,7 +458,7 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           wrap.id = "evt-bilan";
           wrap.style.cssText = "margin-top:16px;border-top:1px solid #F3F4F6;padding-top:12px;";
           wrap.innerHTML = '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:rgba(17,24,39,0.45);font-weight:600;margin-bottom:4px;">Bilan déclaratif — votre vécu du ' + frD(bilanDate) + '</div>'
-            + '<div style="font-size:12px;color:#6B7280;margin-bottom:10px;">' + BL_N + ' questions — ce que la mesure ne voit pas : vos conditions réelles' + (askAction ? " et ce que vous avez fait" : "") + '. Le CA, lui, est déjà mesuré ci-dessus.</div>'
+            + '<div style="font-size:12px;color:#6B7280;margin-bottom:10px;">Pour juger ce jour à conditions égales : la météo, l’accès et la fréquentation que vous avez vus' + (askAction ? ", et le dispositif appliqué ou non" : "") + '. Le CA, lui, est déjà mesuré ci-dessus.</div>'
             + (askAction
               ? qhead("action_carried", 'Le dispositif prévu a-t-il été appliqué ? <span style="font-weight:400;color:#9CA3AF;">(' + esc(String(itB.dispositif).slice(0, 60)) + ')</span>')
                 + group("action_carried", [["oui", "Oui, comme prévu"], ["partiel", "En partie"], ["non", "Non"]])
@@ -1079,7 +1079,9 @@ const itemParam = Astro.url.searchParams.get("saved_item_id") || "";
           var HEAD_BY_STAGE = {
             decider: ["Choisir la date — " + it.title, "Les jours candidats, déjà chiffrés — comparez, puis choisissez."],
             avant: ["Préparer — " + it.title, "Le jour est chiffré ci-dessous ; la mesure s’arme seule à J-7 et le verdict tombera tout seul."],
-            apres: ["Évaluer — " + it.title, "Le résultat est mesuré ci-dessous ; votre bilan ajoute ce que la mesure ne voit pas — 2 minutes."],
+            // 13/09 (owner : la ligne « votre bilan ajoute ce que la mesure ne voit pas — 2 minutes » ne disait pas le gain) — le gain :
+            // ce jour jugé à conditions égales ; le coût : trois ou quatre réponses.
+            apres: ["Évaluer — " + it.title, "Le résultat est mesuré ci-dessous. Pour que ce jour soit jugé à conditions égales — météo, accès, fréquentation — " + (it.dispositif && String(it.dispositif).trim() ? "quatre" : "trois") + " réponses, une minute."],
           };
           function setHead(k) {
             var h = HEAD_BY_STAGE[k] || HEAD_BY_STAGE.avant;

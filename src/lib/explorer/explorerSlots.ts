@@ -30,6 +30,7 @@
 // Nature 3 (la question mesurée) reste au client : elle lit le monitor, même référentiel qu'avant.
 
 import { SLOTS_FR } from "./explorerSlotsCopy.fr";
+import { retroEtat } from "../commitments/commitmentCopy";
 
 export interface CommitmentSlotRow {
   commitment_id: string;
@@ -160,13 +161,13 @@ export function commitmentCandidates(rows: CommitmentSlotRow[], todayIso: string
     const ecartFr = ecart != null ? `${ecart >= 0 ? "+" : "−"}${frInt(Math.abs(ecart))} €` : "écart non mesuré";
     // L'objectif sur une famille : l'écart en euros est celui du lieu, dit comme tel (13/09).
     const ecartDuLieu = String(r.measured_metric ?? "revenue_residual") === "family_revenue";
-    const etat = r.action_done_status === "pas_encore" ? "non_menee" : r.verdict === "met" ? "met" : r.verdict === "missed" ? "missed" : "inconclusive";
+    const etat = retroEtat(r);
     const titre = shortTitle(r);
     out.push({
       nature: "memoire", kind: "bilan", key: "explorer_slot_bilan", date: when, objet_id: r.commitment_id,
       score: Math.abs(ecart ?? 0) * jours, enjeu_eur: ecart != null ? Math.abs(ecart) : null, anciennete_jours: jours,
       text: SLOTS_FR.bilan_titre(titre, verdictFr(r), ecartFr, Math.max(1, nDays), ecartDuLieu),
-      sub: SLOTS_FR.bilan_sub(etat, titre),
+      sub: SLOTS_FR.bilan_sub(etat, ecart != null ? ecartFr : null, titre),
       cta: SLOTS_FR.bilan_cta,
       href: `/app/insightevent/engagement?id=${encodeURIComponent(r.commitment_id)}`,
     });

@@ -755,11 +755,16 @@
         var taStyle = 'width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;margin-bottom:14px;';
         var qStyle = 'font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;';
         var rep = cm.retro_repeat;
-        inner = '<div style="font-size:12px;color:#374151;margin-bottom:14px;line-height:1.5;">' + esc(t('doc_hint')) + '</div>'
-          + '<div style="' + qStyle + '">' + esc(t('retro_worked_q')) + '</div>'
-          + '<textarea data-retro-worked placeholder="' + esc(t('retro_worked_ph')) + '" style="' + taStyle + '">' + esc(cm.retro_worked || '') + '</textarea>'
-          + '<div style="' + qStyle + '">' + esc(t('retro_change_q')) + '</div>'
-          + '<textarea data-retro-change placeholder="' + esc(t('retro_change_ph')) + '" style="' + taStyle + '">' + esc(cm.retro_change || '') + '</textarea>'
+        // 13/09 (owner) — le bilan dit d'abord LE GAIN, avec le chiffre de l'action, puis tient en UNE ligne + « À reproduire ? ».
+        // L'état : non menée > verdict ; l'écart : la fenêtre mesurée ; le titre court : la tête du texte d'engagement.
+        var _etat = cm.action_done_status === 'pas_encore' ? 'non_menee' : cm.verdict === 'met' ? 'met' : cm.verdict === 'missed' ? 'missed' : 'inconclusive';
+        var _act = cm.window_actual_revenue != null ? Number(cm.window_actual_revenue) : null, _exp = cm.window_expected_revenue != null ? Number(cm.window_expected_revenue) : null;
+        var _ecartFr = (_act != null && _exp != null && isFinite(_act) && isFinite(_exp)) ? ((_act - _exp) >= 0 ? '+' : '\u2212') + intfr(Math.round(Math.abs(_act - _exp))) + ' \u20ac' : '\u00c9cart non mesur\u00e9';
+        var _titre = String(cm.saved_item_title || String(cm.committed_action_text || '').split(' \u2014 ')[0] || '').replace(/[.!?\u2026]+$/, '').trim();
+        var _gainKey = _etat === 'non_menee' ? 'retro_gain_non_menee' : ('retro_gain_' + _etat + (_titre && _titre.length <= 40 ? '' : '_sans'));
+        inner = '<div style="font-size:13px;color:#111827;margin-bottom:12px;line-height:1.5;">' + esc(t(_gainKey, { ecart: _ecartFr, titre: _titre })) + '</div>'
+          + '<div style="' + qStyle + '">' + esc(t('retro_line_q_' + _etat)) + '</div>'
+          + '<textarea data-retro-line data-retro-etat="' + _etat + '" placeholder="' + esc(t('retro_line_ph')) + '" style="' + taStyle + '">' + esc(cm.retro_worked || cm.retro_change || '') + '</textarea>'
           + '<div style="' + qStyle + '">' + esc(t('retro_repeat_q')) + '</div>'
           + '<div style="display:flex;gap:8px;margin-bottom:4px;">'
           + '<button type="button" data-retro-repeat="oui" style="' + doneBtnStyle(rep === true) + '">' + esc(t('repeat_yes')) + '</button>'

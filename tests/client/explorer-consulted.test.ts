@@ -12,7 +12,7 @@ const reportDate = lastMonth.getFullYear() + "-" + String(lastMonth.getMonth() +
 
 beforeAll(async () => {
   // Une carte serveur (guichet de la mémoire) consultée le 20/08 ; l'anomalie sans marque.
-  SLOTS.cards = [{ nature: "memoire", kind: "bilan", key: "explorer_slot_bilan", date: reportDate, text: "Corner de vente producteur : objectif manqué, −394 € sur 1 jour", sub: "Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes.", cta: "Bilan →", href: "/app/insightevent/engagement?id=0b4018cf" }];
+  SLOTS.cards = [{ nature: "memoire", kind: "bilan", key: "explorer_slot_bilan", date: reportDate, text: "Corner de vente producteur : objectif manqué, −394 € sur 1 jour", sub: "−394 € : ce que vous changez au prochain « Corner de vente producteur ».", cta: "Bilan →", href: "/app/insightevent/engagement?id=0b4018cf" }];
   ACTION_LOG.marks = [{ key: "explorer_slot_bilan", date: reportDate, consulted_ymd: "2026-08-20" }];
   await bootOnce([
     { date: "2026-08-07", daily_revenue: 1169, revenue_robust_z: -2.6, revenue_vs_30d_avg_pct: -24, alert_level_max: 0 },
