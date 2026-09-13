@@ -243,8 +243,12 @@ export const EVOL_COPY = {
   photo_chg_familles_deux: "« {comp} » ne porte plus {partis} et porte maintenant {venus}.",
   photo_chg_familles_partis: "« {comp} » ne porte plus {partis}.",
   photo_chg_familles_venus: "« {comp} » porte maintenant {venus}.",
-  photo_chg_exposition: "« {comp} » change d'exposition : {avant} devient {apres}.",
-  photo_chg_etageres: "« {comp} » passe de {avant} à {apres} étagères.",
+  // Le second jeton s'appelle {maintenant} et NON {apres} : le garde des accents (tournures.fr.ts) lit
+  // « apres » dans « {apres} » — les accolades sont des frontières de mot — et refuse la chaîne, à
+  // raison : « apres » sans accent n'est pas du français. Un nom de jeton se choisit donc aussi dans la
+  // langue de la chaîne (attrapé par le garde le 13/09, jamais arrivé à l'écran).
+  photo_chg_exposition: "« {comp} » change d'exposition : {avant} devient {maintenant}.",
+  photo_chg_etageres: "« {comp} » passe de {avant} à {maintenant} étagères.",
   photo_chg_version: "Le pôle passe en version {n}.",
   // L'INTITULÉ du champ — même nature que `retro_line_q_*` (« Ce qui a marché ») : un intitulé, pas une
   // promesse. Le gabarit du champ est `retro_line_ph` (« En une ligne »), le bouton `vform_cta`
@@ -488,9 +492,9 @@ export function photoChangementFr(comp: string, raisons: readonly RaisonDeVersio
       if (!r.partis.length && !r.venus.length) continue;
       out.push(t(key, { comp, partis: liste(r.partis), venus: liste(r.venus) }));
     } else if (r.quoi === "exposition") {
-      out.push(t("photo_chg_exposition", { comp, avant: String(r.avant ?? ""), apres: String(r.apres ?? "") }));
+      out.push(t("photo_chg_exposition", { comp, avant: String(r.avant ?? ""), maintenant: String(r.apres ?? "") }));
     } else {
-      out.push(t("photo_chg_etageres", { comp, avant: String(r.avant ?? ""), apres: String(r.apres ?? "") }));
+      out.push(t("photo_chg_etageres", { comp, avant: String(r.avant ?? ""), maintenant: String(r.apres ?? "") }));
     }
   }
   return out;

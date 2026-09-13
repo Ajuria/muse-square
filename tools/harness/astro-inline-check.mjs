@@ -25,7 +25,9 @@ function astroFiles(dir) {
 }
 
 // Les scripts inline d'un fichier .astro : le contenu entre <script …is:inline…> et </script>.
-// Les `define:vars` deviennent des déclarations `var` (le runtime Astro les injecte de même).
+// Les noms injectés par `define:vars` ne sont PAS déclarés ici, et c'est voulu : une variable non
+// déclarée est une erreur d'EXÉCUTION, jamais de compilation — les déclarer obligeait à parser la
+// liste, et un objet imbriqué dans un `define:vars` produisait un faux échec.
 function inlineScripts(src) {
   const out = [];
   const re = /<script\b([^>]*\bis:inline\b[^>]*)>([\s\S]*?)<\/script>/g;
@@ -34,9 +36,7 @@ function inlineScripts(src) {
     const attrs = m[1], corps = m[2];
     if (/\bsrc=/.test(attrs)) continue;                       // <script src> : rien à vérifier ici
     if (!corps.trim()) continue;
-    const vars = [...attrs.matchAll(/define:vars=\{\{([\s\S]*?)\}\}/g)]
-      .flatMap((v) => v[1].split(",").map((p) => p.split(":")[0].trim()).filter(Boolean));
-    out.push((vars.length ? `var ${vars.join(", ")};\n` : "") + corps);
+    out.push(corps);
   }
   return out;
 }
