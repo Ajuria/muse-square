@@ -32,6 +32,11 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
       : key === "signaux"
         ? { found: true, data: { found: true, date: "2026-09-12", lead: "CA/jour Tea sur vos jours de pluie marquée : −52 €", lines: [{ family: "Tea", class_key: "rain" }, { family: "Coffee", class_key: "school_holiday" }] }, facts: [{ fact_fr: "CA/jour Tea sur vos jours de pluie marquée : −52 € vs vos jours comparables, sur 20 jours.", claim_type: "observed_difference" }, { fact_fr: "CA/jour Coffee sur vos jours de vacances scolaires : −64 € vs vos jours comparables, sur 36 jours.", claim_type: "observed_difference" }], sources: ["Vos ventes par famille face aux classes de jours"] }
         : { found: false, data: { found: false, date: "2026-09-12" }, facts: [], sources: [] },
+    // 13/09 (§ 7, couche 1) : lire_marge — la lecture composée (mesure ici) ; `over` peut rendre une estimation ou l'absence.
+    runMarge: async (jours, date) => {
+      const r = await base.runFamily("marge", date);
+      return { mode: "mesure", window_fr: jours === "week_end" ? "vos jours de week-end des 30 derniers jours" : "vos 30 derniers jours", result: r, blocks: [{ type: "card", render: "renderMarge", data: r.data }, { type: "sources", items: r.sources }] };
+    },
     // 12/09 : lire_ventes — le rapport de ventes tel que computeSalesReport le rend (champs lus par composeVentesFacts).
     runVentes: async (start, end) => start > "2026-09-01"
       ? { body: { ok: false, error: "NO_DATA" }, prev_revenue: null, actions_fr: [] }
@@ -194,10 +199,19 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     const out = await byName(buildAgentTools(d), "lire_marge").run({});
     expect(out).toBe("• Sur vos 30 derniers jours, votre marge brute est de 19 845 €, soit un taux de marge brute de 40 %.");
     const rec = d.records[0];
-    expect(rec).toMatchObject({ name: "lire_marge", ok: true, summary: "1 fait lus" });
+    expect(rec).toMatchObject({ name: "lire_marge", ok: true, summary: "marge brute mesurée, 1 fait — vos 30 derniers jours" });
     expect(rec.blocks?.map((b) => b.type)).toEqual(["card", "sources"]);
     expect((rec.blocks?.[0] as any).render).toBe("renderMarge");
     expect(rec.facts).toEqual(["Sur vos 30 derniers jours, votre marge brute est de 19 845 €, soit un taux de marge brute de 40 %."]);
+  });
+  it("lire_marge (13/09, § 7 couche 1) : les jours passent à la lecture, et une estimation déclarée rend ses faits sans carte", async () => {
+    const d = deps({ runMarge: async (jours) => ({ mode: "declaree_familles", window_fr: jours === "week_end" ? "vos jours de week-end des 30 derniers jours" : "vos 30 derniers jours",
+      result: { found: true, data: { found: true, estimation: true }, facts: [{ fact_fr: "Marge estimée : ≈ 18 000 € sur vos jours de week-end des 30 derniers jours — calculée sur 60 % de votre CA", claim_type: "observed" }], sources: ["Votre caisse × vos marges déclarées"] },
+      blocks: [{ type: "prose", md: "**Marge estimée**" }, { type: "facts", items: ["x"] }] }) });
+    const out = await byName(buildAgentTools(d), "lire_marge").run({ jours: "week_end" });
+    expect(out).toBe("• Marge estimée : ≈ 18 000 € sur vos jours de week-end des 30 derniers jours — calculée sur 60 % de votre CA");
+    expect(d.records[0]).toMatchObject({ summary: "estimation par vos marges déclarées par famille, 1 fait — vos jours de week-end des 30 derniers jours", input: { jours: "week_end" } });
+    expect(d.records[0].blocks?.map((b) => b.type)).toEqual(["prose", "facts"]);
   });
   it("lire_espace sans pôle mesuré : l'absence est un résultat (bloc absence, aucun fait)", async () => {
     const d = deps();

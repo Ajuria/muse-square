@@ -42,6 +42,7 @@ import { resolveSections, SECTIONS, MODELE_VENTES, type SectionCle } from "../fr
 import { findTemplateByName, type ReportTemplate } from "../rapport/modeles";
 import { frDate, memoryToText, newSiteMemoryRow, type AuthorRole, type SiteMemoryEntry, type SiteMemoryRow } from "./siteMemory";
 import { composerProposition, OBJECTIF_FR } from "./proposition";
+import { JOURS, margeToText, type JoursMot, type MargeLecture } from "../kpi/margeLecture";
 import { EVENT_TYPES_ALL } from "../events/eventTypes";
 
 const PROJECT = "muse-square-open-data";
@@ -83,6 +84,8 @@ export interface AgentToolDeps {
   // 12/09 : LES lecteurs par famille d'Explorer (registre FAMILIES, src/lib/insightFamilies) — un outil est un
   // adaptateur d'une ligne autour du provider, jamais une copie. `date` = le jour de référence (AAAA-MM-JJ).
   runFamily: (key: "marge" | "espace" | "signaux", date: string) => Promise<FamilyResult>;
+  // 13/09 (§ 7, couche 1) — lire_marge : la mesure d'abord, sinon les marges déclarées (lib/kpi/margeLecture.ts), les jours de la question.
+  runMarge: (jours: JoursMot | null, date: string) => Promise<MargeLecture>;
   // 12/09 : LE cœur du rapport de ventes (lib/rapport/ventes.ts computeSalesReport) sur une période.
   runVentes: (start: string, end: string) => Promise<SalesReportResult>;
   // 12/09 : le résultat net par mois et le seuil de rentabilité du dernier jour (lib/kpi/resultat.ts readResultat).
@@ -302,9 +305,22 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
       }),
     });
 
-  const lireMarge = familyTool("lire_marge", "marge", "renderMarge",
-    "La marge brute MESURÉE du site sur les 30 derniers jours : montant, taux de marge brute, part du CA couverte par les prix d'achat, marge par famille, lignes vendues sous leur prix d'achat. Ne rend rien si les prix d'achat couvrent moins de la moitié du CA : l'absence se dit.",
-    z.object({}));
+  // 13/09 — lire_marge (spec § 4, § 7 couche 1) : ce que les sorties anticipées marge de prompt.ts faisaient — la mesure
+  // d'abord (mode mesure / mixte), sinon l'estimation par les marges déclarées (par famille, puis globale), sinon
+  // l'absence ; « le week-end », « le samedi » filtrent les jours et la fenêtre le dit.
+  const lireMarge = outil({
+    name: "lire_marge",
+    description: "La marge du site sur les 30 derniers jours : la marge brute MESURÉE (montant, taux, part du CA couverte par les prix d'achat, marge par famille, lignes vendues sous leur prix d'achat) quand les prix d'achat couvrent assez de CA ; sinon une ESTIMATION par les marges déclarées par famille (CA × % déclaré, couverture dite) ou par la marge moyenne déclarée ; sinon l'absence (aucun prix d'achat, aucune marge déclarée). « jours » restreint aux jours de week-end ou à un jour de semaine.",
+    inputSchema: z.object({
+      jours: z.enum(JOURS as [JoursMot, ...JoursMot[]]).optional().describe("Les jours : week_end (samedi et dimanche vendus) ou un jour de semaine (lundi … dimanche). Vide = tous les jours."),
+    }),
+    run: (args) => timed("lire_marge", args, async () => {
+      const l = await deps.runMarge((args.jours as JoursMot | undefined) ?? null, deps.today());
+      const facts = l.result.found ? l.result.facts.map((f) => f.fact_fr) : [];
+      const modeFr: Record<string, string> = { mesure: "marge brute mesurée", mixte: "marge brute mesurée (couverture partielle)", declaree_familles: "estimation par vos marges déclarées par famille", declaree_globale: "estimation par votre marge moyenne déclarée", aucune: "rien à lire — absence dite" };
+      return { out: margeToText(l), summary: `${modeFr[l.mode]}${l.result.found ? `, ${plural(facts.length, "fait", "faits")}` : ""} — ${l.window_fr}`, blocks: l.blocks, facts };
+    }),
+  });
 
   const lireEspace = familyTool("lire_espace", "espace", "renderEspace",
     "L'espace du site : mètres linéaires de façade et surface de vente par pôle, Part de linéaire, CA, CA net HT et marge brute par mètre et par m² sur 30 jours, part de marge contre Part de linéaire. Ne rend rien sans pôle mesuré.",

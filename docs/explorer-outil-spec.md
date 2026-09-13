@@ -262,7 +262,17 @@ l'agent jugée équivalente ou meilleure sur cette question, (c) le retrait de l
 commit. Tant qu'une couche n'est pas rentrée, `prompt.ts` la sert ; l'aiguillage vers l'agent se fait
 par capacité, jamais par site.
 
-1. `_measured_margin_v1` et `_declared_margin_v1` → `lire_marge` (la plus récente, la mieux connue).
+1. `_measured_margin_v1` et `_declared_margin_v1` → `lire_marge` — **RENTRÉE le 13/09** : `lib/kpi/margeLecture.ts`
+   (la mesure d'abord, sinon les marges déclarées par famille, sinon la marge moyenne déclarée, sinon l'absence ; les
+   jours « week-end » / « le samedi » ; le CA des estimations vient de la MÊME lecture semantic que la mesure — une
+   lecture mart de moins), l'outil `lire_marge(jours?)`, et dans `prompt.ts` l'aiguillage par capacité : un mot de
+   marge appelle `runAgentTurn` (`lib/explorer/agentTurn.ts`, la boucle extraite de la route de l'agent — mêmes
+   outils, même porte, même relecture, même trace) ; producteur `agent_lire_marge` (ou `_non_verifie`), les blocs
+   natifs (le texte relu en prose, puis la carte marge ou l'estimation) rendus par le client tel quel. Les trois
+   sorties (mesurée, déclarée famille, déclarée globale) sont retirées ; le CA par client déclaré garde son chemin.
+   Preuves : batterie qualité « Quelle est ma marge le week-end ? » → `agent_lire_marge`, 8 s, juge 5/5 ; route
+   réelle « ma marge le samedi » → 7 faits sur vos samedis, registre vérifié, blocs prose · carte · sources ;
+   batterie agent (marge + pluie) verte.
 2. `_top_familles_v1`, `_offering_elicit_v1` → `lire_ventes`.
 3. `_dispositifs_v1`, `_dispositif_famille_v1` → `lire_poles` (existe) + `lire_familles_face_aux_jours`.
 4. `_report_nav_v1`, `_plan_period_v1`, `_plan_why_v1` → `composer_rapport`.
@@ -377,7 +387,8 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    **Reste** : la cible proposée par le modèle est parfois le résultat habituel lui-même (667 € = l'habituel, mesuré à
    la batterie) — une règle « la cible dépasse l'habituel » côté outil demanderait le référentiel du jour (event-form le
    lit via /api/insight/evenement) ; l'essai owner sur la page Explorer suppose que la boucle y soit branchée (§ 7).
-7. **Incrément 7 — la migration** (§ 7), une couche par commit.
+7. **Incrément 7 — la migration** (§ 7), une couche par commit. **Couche 1 (marge) rentrée le 13/09** (§ 7, 1) ;
+   restent les couches 2 à 6 (ventes, pôles/familles, rapport, déclarations, élicitations).
 8. **Incrément 8 — le pont de marge**, dès les premiers prix d'achat réels ; **le plan coloré**, dès que
    les contours vivent en base (les sept zones d'Épices et Tout sont relevées :
    `zones_poles_epices_et_tout_2026-09-12.json` ; leur table `analytics.space_zones` et sa vue dbt se

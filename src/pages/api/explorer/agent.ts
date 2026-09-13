@@ -16,27 +16,19 @@
 // stream (SSE, comme prompt.ts) : un événement `tool` par appel, puis UN événement `result`.
 import type { APIRoute } from "astro";
 import Anthropic from "@anthropic-ai/sdk";
-import type { BetaContentBlockParam, BetaMessageParam } from "@anthropic-ai/sdk/resources/beta";
 import { randomUUID } from "node:crypto";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
-import { modelFor } from "../../../lib/ai/models";
-import { listPoles } from "../../../lib/dispositifs/poleReading";
 import { GET as photosGET } from "../dispositifs/photos";
-import { buildAgentTools, readSiteFamilies30d, type PhotoBytes, type PhotoInfo, type ToolCallRecord } from "../../../lib/explorer/agentTools";
-import { readSiteMemory, writeSiteMemory, type AuthorRole } from "../../../lib/explorer/siteMemory";
-import { newAgentTurnRow, writeAgentTurns } from "../../../lib/explorer/agentTurns";
-import { OUTILS_FR, SYSTEME_FR } from "../../../lib/explorer/agentSystem.fr";
-import { FAMILIES } from "../../../lib/insightFamilies";
-import { assembleAnswerBlocks, groundAgentText } from "../../../lib/explorer/blocks";
-import { computeSalesReport } from "../../../lib/rapport/ventes";
-import { readResultat } from "../../../lib/kpi/resultat";
-import { readPoleClassement } from "../../../lib/dispositifs/poleClassement";
-import { listReportTemplates } from "../../../lib/rapport/modeles";
+import type { PhotoBytes, PhotoInfo, ToolCallRecord } from "../../../lib/explorer/agentTools";
+import type { AuthorRole } from "../../../lib/explorer/siteMemory";
+import { OUTILS_FR } from "../../../lib/explorer/agentSystem.fr";
+import { IMAGE_TYPES, runAgentTurn, type AgentTurnResult, type FileIn, type ImageType, type MsgIn } from "../../../lib/explorer/agentTurn";
 import { newReportDocumentRow, readReportDocument, writeReportDocument } from "../../../lib/rapport/documents";
 import { approfondirPrompt, approfondirSection } from "../../../lib/rapport/gestes";
-import { relireTexte } from "../../../lib/fr/relecture";
+// 13/09 (§ 7) : la boucle vit dans lib/explorer/agentTurn.ts — la route garde l'HTTP ; toApiMessages y est re-exporté.
+export { toApiMessages } from "../../../lib/explorer/agentTurn";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -46,12 +38,6 @@ const MAX_MESSAGES = 40;
 const MAX_TEXT = 20_000;
 const MAX_FILES = 4;
 const MAX_FILE_BYTES = 32 * 1024 * 1024;   // la limite de l'API par requête
-const MAX_ITERATIONS = 8;
-const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-
-type ImageType = PhotoBytes["media_type"];
-type FileIn = { kind: "image" | "pdf"; media_type: string; data_base64: string; name: string };
-type MsgIn = { role: "user" | "assistant"; content: string };
 
 // En bypass dev, le proto tourne sur 4173 (npm run harness) et appelle 4321 : CORS ouvert, en dev seulement.
 const corsHeaders = (): Record<string, string> =>
@@ -94,20 +80,6 @@ function parseFiles(raw: unknown): { files: FileIn[] } | { error: string } {
     files.push({ kind, media_type, data_base64, name: String(f?.name || (kind === "pdf" ? "plan.pdf" : "photo")).slice(0, 200) });
   }
   return { files };
-}
-
-// L'historique tel que le client l'a renvoyé ; les fichiers ne s'attachent qu'au DERNIER tour (celui-ci).
-export function toApiMessages(messages: MsgIn[], files: FileIn[]): BetaMessageParam[] {
-  return messages.map((m, i) => {
-    if (i !== messages.length - 1 || !files.length) return { role: m.role, content: m.content };
-    const blocks: BetaContentBlockParam[] = files.map((f) =>
-      f.kind === "pdf"
-        ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: f.data_base64 }, title: f.name }
-        : { type: "image", source: { type: "base64", media_type: f.media_type as ImageType, data: f.data_base64 } },
-    );
-    blocks.push({ type: "text", text: m.content });
-    return { role: "user", content: blocks };
-  });
 }
 
 // ── Les photos : le contrat GET de /api/dispositifs/photos, appelé en interne (comme admin/invite.ts
@@ -178,74 +150,19 @@ async function handle(ctx: Parameters<APIRoute>[0], onTool?: (r: ToolCallRecord 
   if ("error" in pf) return json({ ok: false, error: pf.error }, 400);
   const thread_id = /^[A-Za-z0-9_-]{1,80}$/.test(String(body.thread_id || "")) ? String(body.thread_id) : randomUUID();
 
-  const tool_calls: ToolCallRecord[] = [];
-  const tools = buildAgentTools({
-    location_id,
-    author: { user_id, role },
-    listPoles: () => listPoles(bq, location_id, 12),
-    readFamilies: () => readSiteFamilies30d(bq, location_id),
-    readPhotos: (d) => readPhotos(internalLocals, d),
-    readPhotoBytes: (d, p) => readPhotoBytes(internalLocals, d, p),
-    readMemory: (subject) => readSiteMemory(bq, location_id, subject ? { subject } : {}),
-    writeMemory: (row) => writeSiteMemory(bq, row),
-    // 12/09 — les lecteurs chiffrés : LE registre FAMILIES, jamais une copie (docs/explorer-outil-spec.md § 4).
-    runFamily: (key, date) => FAMILIES[key].run(bq, location_id, date),
-    // 12/09 — lire_ventes : LE cœur du rapport de ventes (même lecture que /api/insight/sales-report).
-    runVentes: (start, end) => computeSalesReport(bq, { location_id, owned: ownedIds, start, end }),
-    // 12/09 — lire_resultat : LE lecteur du résultat net et du seuil de rentabilité (lib/kpi/resultat.ts, mêmes vues que Piloter).
-    runResultat: () => readResultat(bq, location_id),
-    // 12/09 — lire_poles_classement : pole_daily sommée sur la période + le foyer espace (lib/dispositifs/poleClassement.ts).
-    runPolesClassement: (start, end) => readPoleClassement(bq, location_id, start, end),
-    // 12/09 (incrément 4) — les Modèles de rapport du site, nommés dans « génère mon rapport hebdo ».
-    listModeles: () => listReportTemplates(bq, location_id),
-    today: () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
-    record: (r) => { tool_calls.push(r); onTool?.({ ...r, label_fr: OUTILS_FR[r.name] ?? r.name }); },
-    // 12/09 (incrément 6) — proposer_operation ne motive une Proposition que par les faits déjà rendus dans ce tour.
-    faitsDuTour: () => tool_calls.flatMap((c) => c.facts ?? []),
-  });
-
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const runner = client.beta.messages.toolRunner({
-    model: modelFor("agent"),
-    max_tokens: 16000,
-    thinking: { type: "adaptive" },
-    // Le prompt système, STABLE, en premier et en cache ; tout ce qui varie est dans les messages.
-    system: [{ type: "text", text: SYSTEME_FR, cache_control: { type: "ephemeral" } }],
-    messages: toApiMessages(pm.messages, pf.files),
-    tools,
-    max_iterations: MAX_ITERATIONS,
-  });
-
-  let final: Anthropic.Beta.BetaMessage;
+  // 13/09 (§ 7) — LE tour, dans lib/explorer/agentTurn.ts : mêmes outils, même porte, même relecture, même trace que
+  // l'aiguillage par capacité de insight/prompt.ts.
+  let turn: AgentTurnResult;
   try {
-    final = await runner.runUntilDone();
+    turn = await runAgentTurn(bq, {
+      location_id, user_id, role, ownedIds, messages: pm.messages, files: pf.files, thread_id,
+      readPhotos: (d) => readPhotos(internalLocals, d), readPhotoBytes: (d, p) => readPhotoBytes(internalLocals, d, p), onTool,
+    });
   } catch (e: any) {
     const status = e instanceof Anthropic.RateLimitError ? 429 : e instanceof Anthropic.APIError ? 502 : 500;
-    return json({ ok: false, error: String(e?.message || e), thread_id, tool_calls }, status);
+    return json({ ok: false, error: String(e?.message || e), thread_id, tool_calls: [] }, status);
   }
-  const brut = final.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
-  // 12/09 (owner : « language isn't always precise nor proper ») — LA RELECTURE : les phrases du modèle passent les gardes
-  // du lexique (mots bannis, tournures de machine) ; une phrase fautive est retirée du texte montré, la faute voyage
-  // avec la réponse (`assistant.relecture`) et la batterie la compte. Même foyer que les tests de mes chaînes.
-  const relecture = relireTexte(brut);
-  const text = relecture.texte;
-  const refused = final.stop_reason === "refusal";
-  // 12/09 — LA porte (docs/explorer-outil-spec.md § 3) : chaque nombre du texte doit venir des faits des outils
-  // du tour ; sinon la réponse porte la pastille « Non vérifié » et les nombres fautifs voyagent avec elle.
-  const toolFacts = tool_calls.flatMap((r) => r.facts ?? []);
-  const grounding = groundAgentText(text, toolFacts);
-  const blocks = assembleAnswerBlocks(tool_calls.map((r) => r.blocks ?? []), grounding);
-  // 12/09 (spec § 6.1) — la Synthèse d'un Rapport est le texte vérifié du tour, avec son registre : la route la pose,
-  // le composeur laisse la place ; le document enregistré la porte.
-  for (const b of blocks) if (b.type === "rapport" && text) b.synthese = { text, register: grounding.register };
-
-  // La trace : le tour reçu (texte + noms des fichiers, jamais les octets) et le tour rendu.
-  const lastIdx = pm.messages.length - 1;
-  const rows = [
-    newAgentTurnRow({ location_id, thread_id, turn_index: lastIdx, role: "user", user_id, content: { text: pm.messages[lastIdx].content, files: pf.files.map((f) => ({ name: f.name, kind: f.kind, media_type: f.media_type })) } }),
-    newAgentTurnRow({ location_id, thread_id, turn_index: lastIdx + 1, role: "assistant", content: { text: brut, tool_calls, stop_reason: final.stop_reason ?? null } }),
-  ];
-  await writeAgentTurns(bq, rows).catch((e: any) => console.error("[explorer/agent] turns non écrits :", e?.message || e));
+  const { text, blocks, grounding, relecture, tool_calls, final, refused } = turn;
 
   // Approfondir : le résultat du tour entre dans le document, la version suivante s'écrit.
   let document: unknown = undefined;

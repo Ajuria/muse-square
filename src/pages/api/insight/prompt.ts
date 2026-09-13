@@ -57,6 +57,25 @@ import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { sinkTelemetry } from "../../../lib/telemetrySink";
 // addDaysYmd existe déjà en local (l.~757) — ne pas l'importer en doublon.
 import { resolveFrPeriod, daysInRangeYmd, type YearBias, type FrPeriod } from "../../../lib/dates/frPeriod";
+// 13/09 (docs/explorer-outil-spec.md § 7) — l'aiguillage PAR CAPACITÉ vers la boucle de l'agent (couche 1 : la marge).
+import { randomUUID } from "node:crypto";
+import { runAgentTurn } from "../../../lib/explorer/agentTurn";
+import { GET as photosGET } from "../dispositifs/photos";
+import type { PhotoBytes, PhotoInfo } from "../../../lib/explorer/agentTools";
+const _photosUrl = (q: string) => new URL(`http://internal/api/dispositifs/photos?${q}`);
+async function agentReadPhotos(locals: any, dispositif_id: string): Promise<PhotoInfo[]> {
+  const res: Response = await (photosGET as any)({ url: _photosUrl(`dispositif_id=${encodeURIComponent(dispositif_id)}`), locals });
+  const out = await res.json().catch(() => null);
+  if (!res.ok || !out?.ok) throw new Error(out?.error || `photos : ${res.status}`);
+  return Array.isArray(out.photos) ? out.photos : [];
+}
+async function agentReadPhotoBytes(locals: any, dispositif_id: string, photo_id: string): Promise<PhotoBytes | null> {
+  const res: Response = await (photosGET as any)({ url: _photosUrl(`dispositif_id=${encodeURIComponent(dispositif_id)}&file=${encodeURIComponent(photo_id)}`), locals });
+  if (!res.ok) return null;
+  const ct = String(res.headers.get("content-type") || "image/jpeg").split(";")[0].trim();
+  const buf = Buffer.from(await res.arrayBuffer());
+  return { media_type: (/^image\/(jpeg|png|webp|gif)$/.test(ct) ? ct : "image/jpeg") as PhotoBytes["media_type"], base64: buf.toString("base64"), bytes: buf.length };
+}
 
 export const prerender = false;
 
@@ -100,6 +119,8 @@ function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: Fa
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
+  // 13/09 (§ 7) — une capacité servie par l'agent : sa porte a déjà jugé (agent_<outil> vérifié, _non_verifie sinon).
+  if (producer && producer.startsWith("agent_")) return producer.endsWith("_non_verifie") ? "model" : "vetted";
   if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1" || producer === "deterministic_engagements_elicit_v1" || producer === "deterministic_entity_period_elicit_v1" || producer === "deterministic_hors_perimetre_v1" || producer === "deterministic_dispositif_famille_v1" || producer === "deterministic_top_familles_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
@@ -3071,58 +3092,29 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           const hit = DOWS.find(([w]) => new RegExp(`\\b${w}s?\\b`).test(qn2));
           return hit ? { sql: ` AND EXTRACT(DAYOFWEEK FROM transaction_date) = ${hit[1]}`, fr: `vos ${hit[0]}s des 30 derniers jours` } : { sql: "", fr: "vos 30 derniers jours" };
         })();
-        // 11/09 — LA MESURE D'ABORD (docs/catalogue-de-couts-et-marge.md M7-M9) : quand les prix d'achat
-        // couvrent assez de CA (mode mesure ≥ 90 %, mixte ≥ 50 %), la marge brute MESURÉE répond — même
-        // foyer que Piloter et le provider marge (lib/kpi/margin.ts), même fenêtre de jours (_dowFilter).
-        // L'estimation déclarée ne parle qu'en dessous. Une marge déclarée DANS CE TOUR garde la main.
-        if (_missingDim === "marge" && !(_justDeclared && _justDeclared.correction_type === "declared_margin_pct")) {
-          try {
-            const _bqM = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-            const _today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
-            const _mm = await readMeasuredMargin30d(_bqM, location_id, _today, _dowFilter.sql);
-            if ((_mm.mode === "mesure" || _mm.mode === "mixte") && _mm.gross_margin_ht != null && _mm.coverage_pct != null) {
-              sinkTelemetry(location_id, "measured-margin-answer", { mode: _mm.mode, coverage_pct: _mm.coverage_pct });
-              const ans = measuredMarginAnswerFr({
-                gross_margin_ht: _mm.gross_margin_ht, margin_rate_pct: _mm.margin_rate_pct, coverage_pct: _mm.coverage_pct, mode: _mm.mode,
-                window_fr: _dowFilter.fr, families: _mm.families, below_cost_lines: _mm.below_cost_lines,
-              });
-              return sysDialogueResponse(ans.headline, ans.answer, "deterministic_measured_margin_v1");
-            }
-          } catch (e) { console.warn("[measured-margin] read failed:", e); }
-        }
-        if (_missingDim === "marge" && !(_justDeclared && _justDeclared.correction_type === "declared_margin_pct")) {
-          try {
-            const famMargins = await getDeclaredFamilyMargins(location_id);
-            if (famMargins.length) {
-              const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-              // Fenêtre BORNÉE à CURRENT_DATE : la graine porte des dates futures (vérifié 24/08).
-              const [famRows] = await _bq.query({
-                query: `SELECT item_category, ROUND(SUM(revenue), 0) AS ca
-                        FROM \`muse-square-open-data.semantic.vw_insight_event_client_offering_daily\`
-                        WHERE location_id = @location_id
-                          AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()${_dowFilter.sql}
-                        GROUP BY 1 ORDER BY 2 DESC`,
-                params: { location_id }, types: { location_id: "STRING" }, location: "EU",
-              });
-              const pctBySlug: Record<string, number> = {};
-              for (const m of famMargins) pctBySlug[m.slug] = m.pct;
-              let caTotal = 0;
-              const lines: Array<{ famille: string; ca_eur: number; pct: number }> = [];
-              for (const r of (famRows as any[]) ?? []) {
-                const cat = String((r as any).item_category?.value ?? (r as any).item_category ?? "");
-                const ca = Number((r as any).ca?.value ?? (r as any).ca ?? 0);
-                if (!cat || !Number.isFinite(ca) || ca <= 0) continue;
-                caTotal += ca;
-                const pct = pctBySlug[familySlug(cat)];
-                if (pct != null) lines.push({ famille: cat, ca_eur: ca, pct });
-              }
-              if (lines.length && caTotal > 0) {
-                sinkTelemetry(location_id, "declared-answer", { type: "declared_margin_pct_families", n: lines.length });
-                const ans = declaredFamilyMarginAnswerFr({ lines, ca_total_eur: caTotal, window_fr: _dowFilter.fr });
-                return sysDialogueResponse(ans.headline, ans.answer, "deterministic_declared_margin_v1");
-              }
-            }
-          } catch (e) { console.warn("[declared-metric] family margins read failed:", e); }
+        // 13/09 — MIGRATION (docs/explorer-outil-spec.md § 7, couche 1) : la marge est une CAPACITÉ de l'agent — lire_marge
+        // (lib/kpi/margeLecture.ts : la mesure d'abord, sinon les marges déclarées par famille, sinon la marge moyenne
+        // déclarée ; « week-end », « le samedi » = ses jours). Les sorties anticipées _measured_margin_v1 et
+        // _declared_margin_v1 (marge) sont RETIRÉES ; l'aiguillage est par capacité, jamais par site. Une marge déclarée
+        // dans ce tour garde la main (elle passe à l'outil). Le CA par client déclaré garde son chemin ci-dessous.
+        if (_missingDim === "marge") {
+          const _agBq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+          const _agUser = clerk_user_id || "dev-bypass";
+          const _agLocals = bypass && !(locals as any)?.clerk_user_id ? { clerk_user_id: _agUser, all_location_ids: [location_id] } : locals;
+          const _agTurn = await runAgentTurn(_agBq, {
+            location_id, user_id: _agUser, role: _ownedForNaming.includes(location_id) || !_ownedForNaming.length ? "owner" : "member",
+            ownedIds: _ownedForNaming.length ? _ownedForNaming : [location_id],
+            messages: [...conversation_history, { role: "user", content: qRaw }], files: [], thread_id: randomUUID(),
+            readPhotos: (d) => agentReadPhotos(_agLocals, d), readPhotoBytes: (d, ph) => agentReadPhotoBytes(_agLocals, d, ph),
+            margeDeclareeCeTour: _justDeclared && _justDeclared.correction_type === "declared_margin_pct"
+              ? { pct: _justDeclared.value, declarant_name: _justDeclared.declarant_name, corrected_at: _justDeclared.corrected_at } : null,
+          });
+          const _agProducer = _agTurn.grounding.register === "vetted" ? "agent_lire_marge" : "agent_lire_marge_non_verifie";
+          sinkTelemetry(location_id, "agent-answer", { capacite: "lire_marge", register: _agTurn.grounding.register, outils: _agTurn.tool_calls.map((c) => c.name).join(",") });
+          // Les blocs natifs : le texte relu du modèle d'abord (prose), puis les blocs des outils (carte, faits, absence) —
+          // le client les rend tels quels (ie-prompt.js, blocs natifs) ; la pastille vient de meta.register.
+          const _agBlocks = [...(_agTurn.text ? [{ type: "prose", md: _agTurn.text }] : []), ..._agTurn.blocks.filter((b) => b.type !== "register")];
+          return sysDialogueResponse("", _agTurn.text, _agProducer, null, { blocks: _agBlocks, agent: { tool_calls: _agTurn.tool_calls.map((c) => ({ name: c.name, summary: c.summary, ms: c.ms })), ungrounded_numbers: _agTurn.grounding.ungrounded_numbers, relecture: { phrases_retirees: _agTurn.relecture.phrases_retirees } } });
         }
         if (_metric && _metric.correction_type) {
           const _metricType = _metric.correction_type;
@@ -3147,9 +3139,9 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
               if (Number.isFinite(ca) && ca > 0) {
                 sinkTelemetry(location_id, "declared-answer", { type: _metric.correction_type, value: decl.value });
                 const common = { ca_eur: ca, window_fr: _dowFilter.fr, declarant_name: decl.declarant_name, declared_on: decl.corrected_at };
-                const ans = _metric.correction_type === "declared_client_count"
-                  ? declaredClientCountAnswerFr({ count: decl.value, ...common })
-                  : declaredMarginAnswerFr({ pct: decl.value, ...common });
+                // 13/09 (§ 7, couche 1) : la marge déclarée globale est rentrée dans lire_marge ; ce chemin ne sert plus que le CA par client.
+                if (_metric.correction_type !== "declared_client_count") return sysDialogueResponse(MISSING_DIMENSION_FR[_missingDim].headline, MISSING_DIMENSION_FR[_missingDim].answer, "deterministic_missing_dimension_elicit_v1");
+                const ans = declaredClientCountAnswerFr({ count: decl.value, ...common });
                 return sysDialogueResponse(ans.headline, ans.answer, "deterministic_declared_margin_v1");
               }
             }

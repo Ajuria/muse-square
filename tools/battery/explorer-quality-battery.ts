@@ -68,7 +68,8 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   { q: "Compare le 18/07 et le 19/07", expect: { producers: ["v3_claude"], maxSeconds: 35 } },
   // 27/08 (K9, owner go) : des marges FAMILLE déclarées font répondre la marge calculée, plus l'élicitation ;
   // 04/09 : la fenêtre honore « week-end » (jours de week-end des 30 derniers jours) et le dit.
-  { q: "Quelle est ma marge le week-end ?", expect: { producers: ["deterministic_declared_margin_v1", "deterministic_missing_dimension_elicit_v1"], maxSeconds: 8, answerMatch: /week-end/i } },
+  // 13/09 (docs/explorer-outil-spec.md § 7, couche 1) : la marge est servie par l'AGENT (lire_marge, mesure d'abord, sinon déclarée) — le producteur dit la capacité et sa porte.
+  { q: "Quelle est ma marge le week-end ?", expect: { producers: ["agent_lire_marge"], maxSeconds: 20, answerMatch: /week-end/i } },
   { q: "Pourquoi le 03/01/2024 ?", expect: { producers: ["grounded_day_claude", "v3_fallback_deterministic"], maxSeconds: 40 } },
   { q: "Le musée d'Orsay me prend-il des visiteurs ?", expect: { producers: ["web_search", "llm_only"], maxSeconds: 60 } },
   // Étape 5 — jour PASSÉ inexpliqué : la section « Web — non vérifié » doit arriver avec ≥1 source

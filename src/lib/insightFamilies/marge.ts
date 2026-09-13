@@ -16,7 +16,7 @@ const frInt = (n: number): string => Math.round(n).toLocaleString("fr-FR");
 const pct1 = (n: number): string => String(Math.round(n * 10) / 10).replace(".", ",");
 
 /** Composition PURE : lecture → data (rendu) + faits — testée sans BigQuery. */
-export function composeMargeFamily(m: MeasuredMargin30d, date: string): FamilyResult {
+export function composeMargeFamily(m: MeasuredMargin30d, date: string, window_fr = "vos 30 derniers jours"): FamilyResult {
   if (m.mode === "aucune" || m.mode === "estime" || m.gross_margin_ht == null || m.coverage_pct == null) {
     return { found: false, data: { found: false, date, mode: m.mode, coverage_pct: m.coverage_pct }, facts: [], sources: [] };
   }
@@ -31,17 +31,17 @@ export function composeMargeFamily(m: MeasuredMargin30d, date: string): FamilyRe
       revenue_share_pct: m.revenue > 0 ? Math.round((f.revenue / m.revenue) * 1000) / 10 : null,
       margin_share_pct: m.gross_margin_ht ? Math.round(((f.gross_margin_ht as number) / (m.gross_margin_ht as number)) * 1000) / 10 : null,
     }));
-  const lead = `Marge brute : ${frInt(m.gross_margin_ht)} € sur vos 30 derniers jours` +
+  const lead = `Marge brute : ${frInt(m.gross_margin_ht)} € sur ${window_fr}` +
     (m.margin_rate_pct != null ? ` · taux de marge brute ${m.margin_rate_pct} %` : "") +
     ` · calculée sur ${cov} % de votre CA`;
   const facts: FamilyFact[] = [
-    { fact_fr: `Sur vos 30 derniers jours (du ${frDate(m.window.start)} au ${frDate(m.window.end)}), votre marge brute est de ${frInt(m.gross_margin_ht)} €` +
+    { fact_fr: `Sur ${window_fr} (du ${frDate(m.window.start)} au ${frDate(m.window.end)}), votre marge brute est de ${frInt(m.gross_margin_ht)} €` +
         (m.margin_rate_pct != null ? `, soit un taux de marge brute de ${m.margin_rate_pct} %` : "") + ".", claim_type: "observed" },
     { fact_fr: `Cette marge brute est calculée sur ${cov} % de votre CA · prix d'achat manquants sur ${missing} %.`, claim_type: "observed" },
   ];
   for (const f of families.slice(0, 5)) {
     facts.push({
-      fact_fr: `${f.family} : ${frInt(f.gross_margin_ht)} € de marge brute sur vos 30 derniers jours` +
+      fact_fr: `${f.family} : ${frInt(f.gross_margin_ht)} € de marge brute sur ${window_fr}` +
         (f.margin_rate_pct != null ? ` (taux ${f.margin_rate_pct} %)` : "") +
         (f.coverage_pct != null && f.coverage_pct < 99.5 ? `, calculée sur ${pct1(f.coverage_pct)} % de son CA` : "") + ".",
       claim_type: "observed",
@@ -55,7 +55,7 @@ export function composeMargeFamily(m: MeasuredMargin30d, date: string): FamilyRe
     });
   }
   if (m.below_cost_lines > 0) {
-    facts.push({ fact_fr: `${m.below_cost_lines} ligne${m.below_cost_lines > 1 ? "s" : ""} de vente vendue${m.below_cost_lines > 1 ? "s" : ""} sous son prix d'achat sur vos 30 derniers jours.`, claim_type: "observed" });
+    facts.push({ fact_fr: `${m.below_cost_lines} ligne${m.below_cost_lines > 1 ? "s" : ""} de vente vendue${m.below_cost_lines > 1 ? "s" : ""} sous son prix d'achat sur ${window_fr}.`, claim_type: "observed" });
   }
   return {
     found: true,

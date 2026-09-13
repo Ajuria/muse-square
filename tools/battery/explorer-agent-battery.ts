@@ -17,6 +17,7 @@ import { readSiteMemory } from "../../src/lib/explorer/siteMemory";
 import { SYSTEME_FR, OUTILS_FR } from "../../src/lib/explorer/agentSystem.fr";
 import { FAMILIES } from "../../src/lib/insightFamilies";
 import { assembleAnswerBlocks, groundAgentText } from "../../src/lib/explorer/blocks";
+import { readMargeLecture } from "../../src/lib/kpi/margeLecture";
 import { computeSalesReport } from "../../src/lib/rapport/ventes";
 import { readResultat } from "../../src/lib/kpi/resultat";
 import { readPoleClassement } from "../../src/lib/dispositifs/poleClassement";
@@ -63,6 +64,7 @@ async function ask(q: string) {
     readPhotos: async () => [], readPhotoBytes: async () => null,
     readMemory: (s) => readSiteMemory(bq, LOC, s ? { subject: s } : {}), writeMemory: async () => {},
     runFamily: (key, date) => FAMILIES[key].run(bq, LOC, date),
+    runMarge: (jours, date) => readMargeLecture(bq, LOC, date, jours),
     runVentes: (s, e) => computeSalesReport(bq, { location_id: LOC, owned: [LOC], start: s, end: e }),
     runResultat: () => readResultat(bq, LOC),
     runPolesClassement: (s, e) => readPoleClassement(bq, LOC, s, e),
