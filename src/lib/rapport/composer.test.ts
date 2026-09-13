@@ -91,3 +91,24 @@ describe("composeRapport — Contexte externe et Actions recommandées (12/09, o
     expect(sansAction.block.sections[0].blocs[0]).toMatchObject({ type: "absence", manque: "Aucune action issue de vos signaux de vente la semaine dernière, du 31/08/2026 au 06/09/2026." });
   });
 });
+
+// ── 13/09 (owner : « les contenus sont incohérents ») — deux sections ne disent plus la MÊME phrase ──
+it("« Panier moyen » porte son propre fait, jamais la phrase de « Nombre de ventes »", () => {
+  const r = composeRapport(input());
+  const volume = r.block.sections.find((s) => s.cle === "volume");
+  const panier = r.block.sections.find((s) => s.cle === "panier");
+  const faitsDe = (s: any) => s.blocs.filter((b: any) => b.type === "facts").flatMap((b: any) => b.items);
+  const fv = faitsDe(volume), fp = faitsDe(panier);
+  expect(fv.length).toBeGreaterThan(0);
+  expect(fp.length).toBeGreaterThan(0);
+  expect(fp[0]).not.toBe(fv[0]);
+  expect(fp[0]).toMatch(/^Votre panier moyen est de /);
+});
+
+it("13/09 — les sources du CONTEXTE sont nommées, et le bloc s'ouvre dans un Rapport", () => {
+  const r = composeRapport(input({ cles: ["contexte", "sources"] as any }));
+  const sec = r.block.sections.find((s) => s.cle === "sources");
+  const bloc: any = sec?.blocs.find((b: any) => b.type === "sources");
+  expect(bloc?.ouvert).toBe(true);                       // un document se lit sans clic
+  expect(r.sources.length).toBeGreaterThan(0);
+});

@@ -21,6 +21,9 @@ const sgnDec = (n: number, digits: number): string => (n > 0 ? "+" : n < 0 ? "�
 const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
 const num = (v: any): number | null => (flat(v) == null ? null : Number(flat(v)));
 
+/** Le nombre de lignes famille × classe de jours servies à la carte (13/09) — le reste est compté, jamais caché. */
+const LIGNES_MAX = 8;
+
 export interface FamilyClassRow {
   family: string; class_key: string; class_family: string | null; basis: string; metric: string;
   n_days: number | null; avg_gap: number | null; sd_gap: number | null; med_gap: number | null;
@@ -74,7 +77,10 @@ export function composeSignauxFamille(rows: FamilyClassRow[], annualByFamily: Re
   }
   return {
     found: true,
-    data: { found: true, date, lead, lines, n_families: families.length },
+    // 13/09 (owner : « les contenus sont incohérents ») — le rapport déversait 38 lignes famille × classe de
+    // jours : un vidage de table, pas une section. On sert les plus fortes (par € /an) et on COMPTE le reste ;
+    // aucune ligne n'est perdue en silence. Les faits, eux, étaient déjà plafonnés à 6.
+    data: { found: true, date, lead, lines: lines.slice(0, LIGNES_MAX), autres: Math.max(0, lines.length - LIGNES_MAX), n_families: families.length },
     facts,
     sources: ["Vos ventes par famille face aux classes de jours (météo, calendrier, activité autour de vous) — à saison égale"],
   };

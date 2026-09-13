@@ -408,7 +408,7 @@ function frDateFr(iso: string): string {
 const jourFr = (iso: string): string => `le ${JOURS[new Date(`${iso}T00:00:00Z`).getUTCDay()]} ${frDateFr(iso)}`;
 
 /** Les faits NOMMÉS (12/09, composer_rapport les range par section) — les mêmes chaînes que `facts`, jamais d'autres. */
-export interface VentesParts { ca?: string; an_dernier?: string; volume_panier?: string; couches?: string; journees?: string; jours?: string; repartition?: string; concentration?: string; signaux?: string; par_jour?: string[]; contexte?: string[]; actions?: string[] }
+export interface VentesParts { ca?: string; an_dernier?: string; volume_panier?: string; panier?: string; couches?: string; journees?: string; jours?: string; repartition?: string; concentration?: string; signaux?: string; par_jour?: string[]; contexte?: string[]; actions?: string[] }
 /** Les tableaux NOMMÉS — `couches` (les trois couches), `mix` (par famille), `jours` (profil par jour de semaine). */
 export interface VentesTables { couches?: AnswerBlock; mix?: AnswerBlock; jours?: AnswerBlock; par_jour?: AnswerBlock; jours_graphique?: AnswerBlock; mix_graphique?: AnswerBlock }
 /** Le grain « jour » se lit jusqu'à 31 jours : au-delà, une ligne par jour n'est plus une lecture. */
@@ -439,6 +439,12 @@ export function composeVentesFacts(res: SalesReportResult, opts: { grain?: 'jour
     facts.push(named.an_dernier = `Par rapport à la même période l'an dernier, votre chiffre d'affaires est ${s.vs_yoy_pct >= 0 ? 'en hausse de' : 'en baisse de'} ${pct1(Math.abs(s.vs_yoy_pct))}.`);
   }
   facts.push(named.volume_panier = `Vous avez réalisé ${frInt(s.transactions)} ventes, pour un panier moyen de ${eur2(s.avg_basket)} par vente.`);
+  // 13/09 (owner : le rapport se contredit) — la section « Panier moyen » recopiait MOT POUR MOT la phrase de
+  // « Nombre de ventes » : deux sections, un seul fait. Le panier a maintenant le sien, et il dit ce que la
+  // section promet — le niveau, et son écart à la période précédente quand elle est mesurée.
+  named.panier = s.layers?.prev_avg_basket != null && s.layers?.basket_pct != null
+    ? `Votre panier moyen est de ${eur2(s.avg_basket)} par vente, ${Math.abs(Number(s.layers.basket_pct)) < 0.05 ? "au même niveau que" : (Number(s.layers.basket_pct) >= 0 ? "en hausse de " : "en baisse de ") + pct1(Math.abs(Number(s.layers.basket_pct))) + " par rapport à"} la période précédente (${eur2(s.layers.prev_avg_basket)} par vente).`
+    : `Votre panier moyen est de ${eur2(s.avg_basket)} par vente.`;
 
   const L = s.layers;
   if (L) {

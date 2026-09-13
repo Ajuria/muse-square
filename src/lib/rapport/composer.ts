@@ -72,7 +72,8 @@ export function composeRapport(inp: ComposeInput): ComposeResult {
       const items: string[] = [];
       if (cle === "chiffre_affaires") { items.push(...[lv.parts.ca, lv.parts.an_dernier].filter(Boolean) as string[]); }
       if (cle === "volume") { items.push(...[lv.parts.volume_panier, lv.parts.couches].filter(Boolean) as string[]); }
-      if (cle === "panier") { items.push(...[lv.parts.volume_panier].filter(Boolean) as string[]); if (!cles.includes("volume") && lv.parts.couches) items.push(lv.parts.couches); }
+      // 13/09 : la section Panier porte SON fait (le niveau et son écart), plus la phrase de la section Volume.
+      if (cle === "panier") { items.push(...[lv.parts.panier ?? lv.parts.volume_panier].filter(Boolean) as string[]); if (!cles.includes("volume") && lv.parts.couches) items.push(lv.parts.couches); }
       if (cle === "mix" || cle === "familles") { if (lv.parts.repartition) items.push(lv.parts.repartition); }
       if (cle === "jours") { if (lv.parts.jours) items.push(lv.parts.jours); if (lv.parts.journees) items.push(lv.parts.journees); }
       // 12/09 (owner : « tout ce qui impacte le business ») — Contexte externe : la météo, la saison, les événements et la
@@ -80,6 +81,14 @@ export function composeRapport(inp: ComposeInput): ComposeResult {
       // famille (la carte « familles face aux jours », mesurée) ; Actions recommandées : les actions de la période en clair.
       if (cle === "contexte") {
         items.push(...(lv.parts.contexte ?? []));
+        // 13/09 (owner) — chaque famille de faits du contexte NOMME sa source ; avant, la section citait la
+        // météo, le tourisme et les événements sans qu'aucune source n'apparaisse au bas du Rapport.
+        for (const f of lv.parts.contexte ?? []) {
+          if (/^Météo/.test(f)) sources.add("La météo de vos journées, jour par jour, et son intensité");
+          if (/^Saison & tourisme/.test(f)) sources.add("Le tourisme de votre zone : intensité de la saison et provenance des visiteurs étrangers");
+          if (/^Événements à proximité/.test(f)) sources.add("Les événements et l'activité autour de votre site, dans un rayon de 5 km");
+          if (/jour(s)? férié/.test(f) || /vacances scolaires/.test(f)) sources.add("Le calendrier français : jours fériés et vacances scolaires de votre académie");
+        }
         const sg = inp.lectures.signaux ?? null;
         if (sg?.found) { blocs.push({ type: "card", render: "renderSignauxFamille", data: sg.data }); addFacts(...sg.facts.map((f) => f.fact_fr)); sg.sources.forEach((x) => sources.add(x)); }
       }
@@ -153,7 +162,7 @@ export function composeRapport(inp: ComposeInput): ComposeResult {
     }
   }
   if (inp.cles.includes("sources") || sources.size) {
-    push("sources", [{ type: "sources", items: [...sources] }], null);
+    push("sources", [{ type: "sources", items: [...sources], ouvert: true }], null);
   }
   const titre = inp.titre?.trim() || `Rapport — ${inp.periode.libelle_fr}`;
   return {

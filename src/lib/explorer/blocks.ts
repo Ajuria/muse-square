@@ -19,7 +19,8 @@ export type AnswerBlock =
   // Le format de msTable (card-kit.js) : rows[].cells[] — jamais un second rendu de table.
   | { type: "table"; cols: Array<{ label: string; align?: "left" | "right" }>; rows: Array<{ cells: Array<{ v: string; bold?: boolean; color?: string; sub?: string; tip?: string }> }> }
   | { type: "card"; render: string; data: Record<string, unknown> }
-  | { type: "sources"; items: string[] }
+  // `ouvert` (13/09) : dans un Rapport, les sources se lisent sans clic — dans le chat, elles restent repliées.
+  | { type: "sources"; items: string[]; ouvert?: boolean }
   // 12/09 — l'absence est un résultat : ce qui manque, et le geste qui le débloque (le mot de Piloter).
   | { type: "absence"; manque: string; geste?: { label_fr: string; url: string } | null }
   // 13/09 (§ 7, couche 2) — le geste du kit (`cta`) : un lien (`url`) ou une action de la surface (`action` : « upload » =

@@ -2019,7 +2019,8 @@
       { label: 'Jours mesur\u00e9s', key: 'n_days', render: function (l) { return { v: String(l.n_days), color: '#6B7280' }; } },
       { label: 'Par an', key: 'eur_year', render: function (l) { return { v: '\u2248 ' + sgn(l.eur_year) + ' \u20ac', color: '#6B7280' }; } },
       { label: 'Niveau', render: function (l) { return { v: l.tier, color: '#9CA3AF' }; } }
-    ], j.lines, 'eur_year');
+    ], j.lines, 'eur_year')
+      + (Number(j.autres) > 0 ? '<div style="font-size:12px;color:#6B7280;margin-top:6px;">' + esc('+ ' + j.autres + ' autre' + (j.autres > 1 ? 's' : '') + ' famille' + (j.autres > 1 ? 's' : '') + ' × classe de jours, d\'écart plus faible.') + '</div>' : '');
     var extra = [];
     for (var i = 0; i < Math.min(3, j.lines.length); i++) {
       var l = j.lines[i];
@@ -2222,7 +2223,10 @@
     // Bloc SOURCES dépliable (patron details du kit, comme les étapes best-in-class).
     sources: function (b) {
       if (!b.items || !b.items.length) return '';
-      return '<details style="margin-top:10px;"><summary style="font-size:12px;color:#6b7280;cursor:pointer;">Sources</summary>'
+      // 13/09 (owner : « toutes les sources ne sont pas mentionnées ») — elles ÉTAIENT là, repliées derrière un
+      // « Sources » qu'il faut cliquer. Dans un document qu'on lit, qu'on imprime et qu'on envoie, elles
+      // s'affichent ouvertes (`ouvert: true`, posé par le composeur du Rapport) ; dans le chat, le repli reste.
+      return '<details' + (b.ouvert ? ' open' : '') + ' style="margin-top:10px;"><summary style="font-size:12px;color:#6b7280;cursor:pointer;">Sources</summary>'
         + '<ul style="margin:6px 0 0 18px;padding:0;font-size:12px;color:#6b7280;">'
         + b.items.map(function (x) { return '<li style="margin:3px 0;">' + esc(x) + '</li>'; }).join('')
         + '</ul></details>';
