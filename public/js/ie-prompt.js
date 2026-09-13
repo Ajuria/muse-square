@@ -1547,7 +1547,7 @@ if (!root) {
       onCancel: function () { wrap.remove(); },
     });
   });
-  // 13/09 — « Ouvrir → » sous un Rapport composé dans le chat : le Rapport devient un DOCUMENT (POST
+  // 13/09 — « Enregistrer → » sous un Rapport composé dans le chat : le Rapport devient un DOCUMENT (POST
   // /api/explorer/rapports, la même route que la page Rapports) et la page s'ouvre dessus. C'est le chemin
   // qui manquait : les gestes (↑ ↓, Retirer, Votre note, Approfondir, Modèle) ne vivent que sur le document.
   document.addEventListener("click", async (e) => {
@@ -1555,7 +1555,7 @@ if (!root) {
     if (!btn || !_lastRapport) return;
     e.preventDefault();
     if (btn.disabled) return;
-    btn.disabled = true; const _t = btn.textContent; btn.textContent = "Ouverture…";
+    btn.disabled = true; const _t = btn.textContent; btn.textContent = "Enregistrement…";
     try {
       const r = await fetch("/api/explorer/rapports", {
         method: "POST", headers: { "content-type": "application/json" },

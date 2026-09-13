@@ -316,9 +316,9 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     const rec = d.records[0];
     expect(rec).toMatchObject({ name: "composer_rapport", ok: true, summary: "6 sections composées, vos 30 derniers jours, du 13/08/2026 au 11/09/2026 ; 1 demande non reconnue" });
     // 13/09 (owner) — le Rapport du chat porte son CHEMIN vers le document : le bloc rapport, puis le CTA
-    // « Ouvrir → » qui l'enregistre et ouvre la page Rapports, où vivent les gestes.
+    // « Enregistrer → » (mot owner 13/09 : le clic ÉCRIT le document) qui ouvre ensuite la page Rapports.
     expect(rec.blocks?.length).toBe(2);
-    expect(rec.blocks?.[1]).toEqual({ type: "cta", action: "ouvrir_rapport", label: "Ouvrir →" });
+    expect(rec.blocks?.[1]).toEqual({ type: "cta", action: "ouvrir_rapport", label: "Enregistrer →" });
     const b = rec.blocks?.[0] as any;
     expect(b.type).toBe("rapport"); expect(b.synthese).toBeNull();
     expect(b.sections.map((s: any) => s.cle)).toEqual(["volume", "panier", "mix", "resultat_net", "poles", "sources"]);
