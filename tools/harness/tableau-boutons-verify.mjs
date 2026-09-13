@@ -154,7 +154,7 @@ const qa = (s) => Array.from(body.querySelectorAll(s));
   const vides = links.filter((a) => { const h = a.getAttribute("href"); return (h === "#" || h === "") && !["data-ep-beyond", "data-tb-engage", "data-tb-replay", "data-tb-fiche", "data-tb-open"].some((att) => a.hasAttribute(att)); });
   check("aucun lien « # » SANS handler connu", vides.length === 0, vides.map((a) => a.textContent.trim().slice(0, 20)).join(" | ") || links.length + " liens");
   const internes = links.map((a) => a.getAttribute("href")).filter((h) => h.startsWith("/app/") || h.startsWith("/api/"));
-  const attendus = ["/app/insightevent/evenement", "/app/insightevent/engagement", "/app/insightevent/pulse", "/app/insightevent/prompt", "/app/insightevent/insight", "/app/insightevent/map", "/app/insightevent/competitor?id=", "/app/insightevent/suivis", "/app/insightevent/dispositif"];
+  const attendus = ["/app/insightevent/evenement", "/app/insightevent/engagement", "/app/insightevent/pole", "/app/insightevent/pulse", "/app/insightevent/prompt", "/app/insightevent/insight", "/app/insightevent/map", "/app/insightevent/competitor?id=", "/app/insightevent/suivis", "/app/insightevent/dispositif"];
   const inconnus = internes.filter((h) => !attendus.some((p) => h.startsWith(p)));
   const idVides = internes.filter((h) => /[?&]id=$/.test(h) || /location_id=($|&)/.test(h) || /saved_item_id=($|&)/.test(h));
   check("aucun paramètre d'identifiant VIDE dans les liens", idVides.length === 0, idVides.slice(0, 3).join(" "));

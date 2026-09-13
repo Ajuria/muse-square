@@ -3,7 +3,7 @@
 // (/app, /profile, /notifications). Jamais sur desktop : R8-nav (09/08) l'y avait retirée
 // parce qu'elle dupliquait la nav haute — sur un téléphone la nav haute est un burger, la
 // duplication n'existe plus (owner 07/09, Épices et Tout n'a pas d'ordinateur en boutique).
-// Onglet actif = règles de Nav.astro : Piloter (tableau, evenement) · Explorer (prompt) ·
+// Onglet actif = règles de Nav.astro : Piloter (tableau, evenement, pole — 13/09) · Explorer (prompt) ·
 // Agir (toute autre page /app/insightevent hors suivis) · pages Compte : aucun.
 // Un MEMBRE (locals.role) ne voit pas Explorer : hors de son périmètre (vue-equipe-slack-spec).
 // Se cache quand le clavier est ouvert (owner 07/09 : « hide the bar when the keyboard is open »).
@@ -11,7 +11,7 @@ const normalize = (p: string) => (p.replace(/\/+$/, "") || "/");
 const cur = normalize(Astro.url.pathname);
 const raw = Astro.props.active as string | undefined;
 const fromPath = cur.startsWith("/app/insightevent/prompt") ? "demander"
-  : (cur.startsWith("/app/insightevent/tableau") || cur.startsWith("/app/insightevent/evenement")) ? "piloter"
+  : (cur.startsWith("/app/insightevent/tableau") || cur.startsWith("/app/insightevent/evenement") || cur.startsWith("/app/insightevent/pole")) ? "piloter"
   : (cur.startsWith("/app/insightevent") && !cur.startsWith("/app/insightevent/suivis")) ? "agir"
   : "";
 const active = raw ? (raw === "veille" ? "agir" : raw === "evenements" ? "piloter" : raw) : fromPath;

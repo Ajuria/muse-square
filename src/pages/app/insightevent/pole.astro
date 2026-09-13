@@ -1,0 +1,24 @@
+---
+export const prerender = false;
+// « /pole » — la page d'un PÔLE (13/09, owner : « Dans Agir vraiment ? Je pense plutôt que c'est dans Compte ou
+// Dashboard »). Un pôle est un dispositif permanent à lecture continue : il se PILOTE — l'onglet Piloter est
+// surligné (Nav.astro, PiloterBottomBar.astro), le retour va au Tableau de bord, d'où l'on y entre (« Vos pôles »,
+// « Ajuster → » / « Documenter → »). Le document est le composant partagé EngagementDoc ; une OPÉRATION ouverte
+// ici est redirigée vers /engagement.
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import EngagementDoc from "../../../components/EngagementDoc.astro";
+import { Show } from "@clerk/astro/components";
+import { EVOL_COPY } from "../../../lib/commitments/commitmentCopy";
+
+const id = Astro.url.searchParams.get("id") || "";
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Pôle — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <EngagementDoc id={id} page="pole" backHref="/app/insightevent/tableau" backLabel={EVOL_COPY.back_pole} />
+  </BaseLayout>
+</Show>

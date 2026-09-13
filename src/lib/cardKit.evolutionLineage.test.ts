@@ -468,6 +468,10 @@ it("un PÔLE à deux versions rend son historique AVEC les photos — c'est là 
   expect(html).toContain('data-lin-photos="1"');
   expect(html).toContain(">Couteaux<");
   expect(html).toContain("Aucune photo de cette version.");                  // la version 2 n'en a pas, et le dit
+  // 13/09 (owner : « Dans Agir vraiment ? ») — une version passée d'un PÔLE s'ouvre à l'adresse du pôle (sous
+  // Piloter), jamais à celle d'une opération.
+  expect(html).toContain("/app/insightevent/pole?id=c-v1");
+  expect(html).not.toContain("/app/insightevent/engagement?id=c-v1");
 });
 
 it("l'historique d'un PÔLE ne porte AUCUN mot de verdict ni de fenêtre (owner 27/08)", () => {

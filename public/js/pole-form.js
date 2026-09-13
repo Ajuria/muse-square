@@ -274,7 +274,7 @@
       }).then(function (r) { return r.json(); }).then(function (j) {
         if (!j || !j.ok) { pbtn.disabled = false; pbtn.textContent = parentId ? 'Enregistrer →' : 'Créer le pôle →'; showErr('Erreur : ' + ((j && j.error) || 'réessayez')); return; }
         if (parentId) { if (typeof opts.onCreated === 'function') opts.onCreated(j.commitment_id); return; }
-        mount.innerHTML = '<div style="font-size:13px;color:#166534;background:#E6F6F0;border-radius:8px;padding:12px 14px;line-height:1.6;">Pôle créé — lecture continue de ses familles dès vos prochaines ventes. <a href="/app/insightevent/engagement?id=' + encodeURIComponent(j.commitment_id) + '" style="color:#1D3BB3;font-weight:600;">Ouvrir le pôle →</a></div>';
+        mount.innerHTML = '<div style="font-size:13px;color:#166534;background:#E6F6F0;border-radius:8px;padding:12px 14px;line-height:1.6;">Pôle créé — lecture continue de ses familles dès vos prochaines ventes. <a href="/app/insightevent/pole?id=' + encodeURIComponent(j.commitment_id) + '" style="color:#1D3BB3;font-weight:600;">Ouvrir le pôle →</a></div>';
         if (typeof opts.onCreated === 'function') opts.onCreated(j.commitment_id);
       }).catch(function () { pbtn.disabled = false; pbtn.textContent = parentId ? 'Enregistrer →' : 'Créer le pôle →'; showErr('Erreur, réessayez.'); });
     });

@@ -22,6 +22,8 @@
   // L'adresse de la page d'un engagement (opération ou pôle) — une seule forme, la même que les
   // liens « Opérations sur ce pôle » du kit et « Ouvrir le pôle → » de pole-form.js.
   function msEngagementUrl(id) { return '/app/insightevent/engagement?id=' + encodeURIComponent(String(id == null ? '' : id)); }
+  // 13/09 — un PÔLE a sa propre adresse, sous Piloter (owner : « Dans Agir vraiment ? »).
+  function msPoleUrl(id) { return '/app/insightevent/pole?id=' + encodeURIComponent(String(id == null ? '' : id)); }
   // Family-aware "what changed" placeholder for the Ajuster move-note (structure universal, hint bespoke).
   function _moveHint(at) {
     var s = String(at || '');
@@ -1212,7 +1214,7 @@
                 : t2('lin_pole_close', { n: v.version_no, debut: debut, fin: fin });
               var inner = v.is_current || !v.commitment_id
                 ? esc(ligne)
-                : '<a href="' + esc(msEngagementUrl(String(v.commitment_id))) + '" style="color:#1D3BB3;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;">' + esc(ligne) + '</a>';
+                : '<a href="' + esc(msPoleUrl(String(v.commitment_id))) + '" style="color:#1D3BB3;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;">' + esc(ligne) + '</a>';
               return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + inner + '</div>'
                 + msLinPhotosRow(v, _pAvecPhoto, t2);
             }).join('')
@@ -2559,7 +2561,7 @@
 
   window.MSCardKit = { renderComponentPhoto: renderComponentPhoto,
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
-    msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msEngagementUrl: msEngagementUrl, msSortTable: msSortTable, msDecision: msDecision,
+    msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msEngagementUrl: msEngagementUrl, msPoleUrl: msPoleUrl, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
     mdBlockToSafeHtml: mdBlockToSafeHtml, renderAnswerBlocks: renderAnswerBlocks,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,

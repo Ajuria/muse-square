@@ -22,6 +22,8 @@ export const EVOL_COPY = {
   // « geste » écarté : 43 emplois en commentaire contre 7 en chaîne — mot de code, pas
   // mot d'écran.
   back: "Retour aux engagements",
+  // 13/09 — la page d'un PÔLE revient au Tableau de bord (titre rendu par tableau.astro), d'où l'on y entre.
+  back_pole: "Retour au tableau de bord",
 
   // subtitle under the title (goal terms recap; owner + date get their own line)
   subtitle: "Objectif : +{pct} % de CA vs votre résultat habituel · sous {window}",

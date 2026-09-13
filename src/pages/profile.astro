@@ -3709,7 +3709,7 @@ window.toggleAutomationCard = function() {
 </script>
 
 <!-- ── Onglet Pôles (inc 9c) : le module partagé + le câblage liste/liaisons. ── -->
-<script is:inline src="/js/pole-form.js?v=5"></script>
+<script is:inline src="/js/pole-form.js?v=6"></script>
 <script is:inline>
   (function () {
     var locCard = document.querySelector('.loc-card[data-location-id]');
@@ -3756,7 +3756,10 @@ window.toggleAutomationCard = function() {
               ? poleMembers.map(function (m) { return '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#EFF6FF;color:#1D3BB3;font-weight:600;">' + esc(m.member_email || m.member_id) + '</span>'; }).join(' ')
               : '<span style="font-size:11px;color:#9ca3af;">Aucun membre — rattachez-les dans Destinataires</span>';
             return '<div style="padding:12px 0;border-bottom:1px solid #f3f4f6;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;align-items:start;">'
-              + '<div><div style="font-weight:600;font-size:13px;color:#111827;">' + esc(p.name) + '</div>'
+              // 13/09 — la page du pôle (sous Piloter) s'ouvre aussi d'ici : « Ajuster → », le mot du Tableau de bord
+              // et des messages Slack (lexique), jamais un mot neuf. commitment_id = la version courante (listPoles).
+              + '<div><div style="font-weight:600;font-size:13px;color:#111827;">' + esc(p.name)
+              + (p.commitment_id ? ' <a href="/app/insightevent/pole?id=' + encodeURIComponent(p.commitment_id) + '" style="font-size:12px;font-weight:600;color:#1D3BB3;text-decoration:none;margin-left:8px;">Ajuster →</a>' : '') + '</div>'
               + (famTxt ? '<div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + esc(famTxt) + '</div>' : '')
               // « Pôle en projet » (11/09, mot owner) — l'état et sa raison, servis par create_context (projet_fr).
               + (p.projet_fr ? '<div style="font-size:11px;font-weight:600;color:#B45309;margin-top:2px;">' + esc(p.projet_fr) + '</div>' : '')

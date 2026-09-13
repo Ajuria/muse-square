@@ -278,7 +278,9 @@ const clerkOnRequest = clerkMiddleware(async (auth, context, next) => {
         // messages Slack — un membre y était renvoyé vers Agir, le bouton ne menait donc
         // nulle part. L'endpoint qui la nourrit garde le périmètre (pôles du membre) et
         // la règle des chiffres ; la garde de page ne fait qu'ouvrir l'adresse.
-        path.startsWith("/app/insightevent/engagement");
+        path.startsWith("/app/insightevent/engagement") ||
+        // La page d'un pôle (13/09) : même document, adresse sous Piloter — même périmètre que /engagement.
+        path.startsWith("/app/insightevent/pole");
       if (!memberPage) {
         console.log("[MW] member hors périmètre -> /app/insightevent/pulse");
         return context.redirect("/app/insightevent/pulse", 302);

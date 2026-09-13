@@ -1922,7 +1922,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             }
             function poleVoletHtml(p) {
               var rd = p.reading || {};
-              var fiche = p.commitment_id ? "/app/insightevent/engagement?id=" + encodeURIComponent(p.commitment_id) : null;
+              var fiche = p.commitment_id ? "/app/insightevent/pole?id=" + encodeURIComponent(p.commitment_id) : null;   // 13/09 : la page du pôle, sous Piloter
               var h = '<p class="tb-eb" style="margin:0 0 3px;">Pôle</p>'
                 + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">'
                 + '<span style="font-size:16px;font-weight:700;color:#111827;">' + esc(p.name) + '</span>'
