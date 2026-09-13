@@ -61,13 +61,18 @@ par mutation (4/4), rien n'est réputé livré tant que l'owner n'a pas ouvert l
      porte (la position est bornée par le nombre d'étagères du composant ; hors bornes ou composant sans
      étagères comptées ⇒ `null` — on perd la position, jamais la photo), et la route écrit désormais les
      articles NORMALISÉS par la porte. Aucune migration : `items_matched` est du JSON.
-  2. **À FAIRE, et c'est une mesure, pas du code** :
-     `npx tsx tools/oneoff/2026-09-13-mesure-etagere-par-article.mts --location=<uuid> --n=30`, puis
-     vérifier À L'ŒIL le sous-échantillon que le document liste. La sonde libre du matin ne vaut pas preuve
-     pour la version contrainte. **Point dur connu** : les photos sont celles d'Épices et Tout, et la
-     position d'un article ne se mesure que si l'article existe dans la liste VENDUE de ce site-là. Le
-     script s'arrête net si le site n'a aucun article connu — c'est alors ce trou qu'il faut traiter avant
-     de mesurer quoi que ce soit.
+  2. **À FAIRE — et la mesure se DÉDOUBLE, parce que deux questions différentes s'y cachaient.**
+     **(2a) Le modèle lit-il juste une position ?** Cette question se tranche AUJOURD'HUI, sans donnée
+     nouvelle : la sonde du matin porte 171 positions sur 30 photos réelles, avec leur photo et leur
+     confiance (`data/shots/mesure-lecture-etageres-2026-09-13.md`). Ouvrir une dizaine de ces photos et
+     dire si la rangée annoncée est la bonne. C'est ce verdict qui autorise la suite, et il ne coûte rien.
+     **(2b) Cette position s'attache-t-elle à un article VENDU ?** Là, il faut un magasin qui ait à la fois
+     les photos ET ses ventes — et aucun ne l'a. Les photos sont celles d'Épices et Tout
+     (`a3b442c2-…`), dont l'audit du 11/09 relève qu'il n'a encore aucune vente ingérée ; le compte de test
+     (`f10c3e58-…`) a des ventes, mais ce ne sont pas celles du magasin photographié. Lancer
+     `npx tsx tools/oneoff/2026-09-13-mesure-etagere-par-article.mts --location=a3b442c2-e7e5-43e8-b969-7b78e6c24bb0`
+     s'arrête net et dit pourquoi. **Ce chantier est donc bloqué par l'ingestion des ventes d'Épices et
+     Tout, pas par du code** — la même attente que les prix d'achat (§ 6).
   3. Seulement ensuite, croiser la position avec la marge par article
      (`mart.fct_client_sales_lines_margin`) et décider s'il y a une carte à écrire.
 - **Preuve exigée** : le taux de position juste, mesuré à l'œil sur un sous-échantillon, AVANT d'écrire la
