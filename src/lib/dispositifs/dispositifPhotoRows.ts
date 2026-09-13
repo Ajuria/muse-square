@@ -103,7 +103,24 @@ export const photoApiUrl = (dispositif_id: string, photo_id: string): string =>
 // de quels autres, selon quelle logique »). L'historique montre déjà chaque version avec SON verdict ;
 // il lui manquait l'image. Ici, la composition PURE : par version, la dernière photo de chaque composant.
 export interface LineagePhoto {
-  photo_id: string; component_key: string; label_fr: string; url: string; created_at: string;
+  photo_id: string; component_key: string;
+  /** Le nom COMPLET : « Vitrine — Couteaux » (type + famille reconnue), ou le type seul. */
+  label_fr: string;
+  /** Le nom COURT, pour les 72 px de la vignette : « Couteaux ». Dans l'historique d'UN pôle, le type se
+   *  répète d'un composant à l'autre — ce qui les distingue est la famille. Le complet reste au survol. */
+  label_court: string;
+  fixture_no: number | null;   // le N° sur le plan, quand l'exploitant l'a saisi
+  auteur: string | null;       // le nom affichable de qui a pris la photo (resolveMemberNames), jamais un identifiant
+  url: string; created_at: string;
+}
+
+/** PUR — le nom d'un composant vu par une photo : « <Type> — <famille> » quand UNE SEULE famille est
+ *  reconnue (deux familles ne font pas un nom), le type seul sinon ; et sa forme courte pour la vignette. */
+export function nomsDuComposant(typeLabel: string, familles: readonly string[]): { complet: string; court: string } {
+  const type = String(typeLabel || "").trim() || "Composant";
+  const fams = familles.map((f) => String(f || "").trim()).filter(Boolean);
+  const fam = fams.length === 1 ? fams[0] : "";
+  return fam ? { complet: `${type} — ${fam}`, court: fam } : { complet: type, court: type };
 }
 /**
  * PUR — par numéro de version, ses photos (la dernière par composant, la plus récente d'abord),
@@ -114,14 +131,18 @@ export function photosParVersion(
   rows: PhotoRow[],
   labelFr: (type: string | null) => string,
   max = 4,
+  auteurs: Record<string, string> = {},
 ): Record<number, { photos: LineagePhoto[]; autres: number }> {
   const out: Record<number, { photos: LineagePhoto[]; autres: number }> = {};
   for (const r of latestPerComponent(rows.filter((r) => r.status === "read"))) {
     const v = out[r.version_no] ?? (out[r.version_no] = { photos: [], autres: 0 });
     if (v.photos.length >= max) { v.autres++; continue; }
+    const noms = nomsDuComposant(labelFr(r.dispositif_type), r.families_present ?? []);
     v.photos.push({
       photo_id: r.photo_id, component_key: r.component_key,
-      label_fr: labelFr(r.dispositif_type) || "Composant",
+      label_fr: noms.complet, label_court: noms.court,
+      fixture_no: r.fixture_no ?? null,
+      auteur: (r.created_by && auteurs[r.created_by]) || null,
       url: photoApiUrl(r.dispositif_id, r.photo_id), created_at: r.created_at,
     });
   }

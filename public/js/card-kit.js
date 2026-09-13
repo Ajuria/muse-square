@@ -1757,9 +1757,17 @@
               if (thumb && thumb.indexOf('variant=') < 0) thumb += (thumb.indexOf('?') < 0 ? '?' : '&') + 'variant=square';
               var d = String(p.created_at || '').slice(0, 10);
               var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
-              return '<a href="' + esc(String(p.url || '')) + '" target="_blank" rel="noopener" style="text-decoration:none;color:#6B7280;display:block;width:72px;">'
-                + '<img src="' + esc(thumb) + '" alt="' + esc(p.label_fr || '') + '" title="' + esc((p.label_fr || '') + (dfr ? ' \u2014 ' + dfr : '')) + '" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block;">'
-                + '<div style="font-size:11px;line-height:1.35;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.label_fr || '') + '</div>'
+              // 13/09 (owner, legende A + nom court) : la VIGNETTE porte le nom court et la date — dans
+              // l'historique d'UN pole, le type se repete d'un composant a l'autre, ce qui les distingue est
+              // la famille, et 72 px coupent un nom compose. La version est deja portee par la ligne juste
+              // au-dessus : la repeter sous chaque image serait du bruit. L'identite COMPLETE (nom, N° sur
+              // le plan, version, date, auteur) vit au survol, et sur la photo ouverte.
+              var court = String(p.label_court || p.label_fr || '');
+              var titre = [String(p.label_fr || ''), (p.fixture_no != null && Number(p.fixture_no) > 0 ? 'N\u00b0 ' + p.fixture_no : ''),
+                           'Version ' + v.version_no, dfr, p.auteur ? String(p.auteur) : ''].filter(function (x) { return !!x; }).join(' \u00b7 ');
+              return '<a href="' + esc(String(p.url || '')) + '" target="_blank" rel="noopener" style="text-decoration:none;color:#6B7280;display:block;width:96px;">'
+                + '<img src="' + esc(thumb) + '" alt="' + esc(String(p.label_fr || '')) + '" title="' + esc(titre) + '" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block;">'
+                + '<div style="font-size:11px;line-height:1.35;margin-top:3px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(court) + '</div>'
                 + (dfr ? '<div style="font-size:11px;line-height:1.35;">' + esc(dfr) + '</div>' : '')
                 + '</a>';
             }).join('')
@@ -2481,7 +2489,11 @@
     return '<div style="display:flex;gap:12px;align-items:flex-start;">'
       + '<img src="' + esc(thumb) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;flex:none;">'
       + '<div style="flex:1;min-width:0;">'
-      + '<div style="font-size:12px;color:#374151;">' + esc(dfr) + (keys.length ? ' \u00b7 ' + n.oui + ' ' + esc(ans.oui) + ' \u00b7 ' + n.non + ' ' + esc(ans.non) + ' \u00b7 ' + n.non_visible + ' ' + esc(ans.non_visible) : '') + '</div>'
+      // 13/09 (owner, legende A) : la meme grammaire que la vignette et la bande — la VERSION, la date, puis
+      // l'auteur quand on connait son nom. Une metadonnee absente s'omet (jamais « Auteur : — »).
+      + '<div style="font-size:12px;color:#374151;">'
+        + esc([photo.version_no != null && Number(photo.version_no) > 0 ? 'Version ' + photo.version_no : '', dfr, photo.created_by_name ? String(photo.created_by_name) : ''].filter(function (x) { return !!x; }).join(' \u00b7 '))
+        + (keys.length ? ' \u00b7 ' + n.oui + ' ' + esc(ans.oui) + ' \u00b7 ' + n.non + ' ' + esc(ans.non) + ' \u00b7 ' + n.non_visible + ' ' + esc(ans.non_visible) : '') + '</div>'
       + composantHtml
       + (qs.length ? '<div style="margin-top:4px;">' + qs.map(function (q) {
           var v = cl[q.key]; var col = v === 'oui' ? '#0F6E56' : v === 'non' ? '#B45309' : '#9CA3AF';

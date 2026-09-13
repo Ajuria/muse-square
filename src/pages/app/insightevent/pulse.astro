@@ -3671,7 +3671,11 @@ if (!location_id) {
       var _fdFr = /^\d{4}-\d{2}-\d{2}$/.test(_fd) ? _fd.slice(8, 10) + '/' + _fd.slice(5, 7) + '/' + _fd.slice(0, 4) : '';
       var _fNo = dp.family_photo_fixture_no != null && Number(dp.family_photo_fixture_no) > 0 ? 'N\u00b0 sur le plan : ' + escapeHtml(String(dp.family_photo_fixture_no)) : '';
       var _fCap = (dp.family_photo_label ? '<b>' + escapeHtml(String(dp.family_photo_label)) + '</b>' : '') + (dp.family_photo_label && _fNo ? ' \u00b7 ' : '') + _fNo;
-      return '<div class="ab-media photo"><img src="' + escapeHtml(String(dp.family_photo)) + '" alt="" loading="lazy"><div class="cap"><span>' + _fCap + '</span><span>' + escapeHtml(_fdFr) + '</span></div></div>';
+      // 13/09 (owner, legende A) : une seule grammaire partout — l'identite a gauche, la VERSION et la date a
+      // droite. Sans version connue, la date seule : une metadonnee absente s'omet, jamais un tiret.
+      var _fVer = dp.family_photo_version != null && Number(dp.family_photo_version) > 0 ? 'Version ' + escapeHtml(String(dp.family_photo_version)) : '';
+      var _fDroite = [_fVer, _fdFr].filter(function (x) { return !!x; }).join(' \u00b7 ');
+      return '<div class="ab-media photo"><img src="' + escapeHtml(String(dp.family_photo)) + '" alt="" loading="lazy"><div class="cap"><span>' + _fCap + '</span><span>' + escapeHtml(_fDroite) + '</span></div></div>';
     }
     if ((ty === 'sales_surge' || ty === 'sales_revenue_down_wow') && dp.daily_revenue != null && dp.expected_revenue != null) {
       var days = (entry.group && entry.group.length) ? entry.group : [entry];

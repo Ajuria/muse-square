@@ -10,6 +10,7 @@
 //   · Choix : la photo la plus SPÉCIFIQUE (le moins de familles reconnues), puis la plus récente, puis l'id.
 // Module séparé de dispositifPhotos.ts : le monitor l'importe sans charger sharp ni le client Storage.
 import type { PhotoVariant } from "./dispositifPhotos";
+import { nomsDuComposant } from "./dispositifPhotoRows";
 
 const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 
@@ -22,7 +23,8 @@ export const FAMILY_PHOTO_CARD_TYPES: readonly string[] = Object.freeze([
 export interface FamilyPhotoRow {
   dispositif_id: string;
   photo_id: string;
-  component_label: string | null;   // le nom donné par l'exploitant, sinon le libellé du type (registre)
+  component_label: string | null;   // le nom donné par l'exploitant, sinon « <Type> — <famille> » (nomsDuComposant)
+  version_no: number;               // 13/09 : la légende porte la version PARTOUT (grammaire A, owner)
   created_at: string;
   families_present: string[];
   fixture_no: number | null;
@@ -36,7 +38,7 @@ const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.va
 
 // Une photo lue qui porte au moins une famille, et un composant OUVERT de la version courante (couche semantic).
 export interface FamilyPhotoCandidate { dispositif_id: string; version_no: number; component_key: string; photo_id: string; created_at: string; families_present: string[]; fixture_no: number | null; }
-export interface OpenComponent { dispositif_id: string; version_no: number; component_key: string; label: string | null; }
+export interface OpenComponent { dispositif_id: string; version_no: number; component_key: string; label: string | null; type_label: string | null; }
 
 // PUR : la jointure (dispositif, version, composant). Une photo d'une ancienne version, ou d'un composant d'un pôle
 // fermé, n'a pas de composant ouvert en face : elle ne sort pas.
@@ -46,7 +48,10 @@ export function joinFamilyPhotos(photos: readonly FamilyPhotoCandidate[], comps:
   for (const p of photos) {
     const c = byKey.get(`${p.dispositif_id}|${p.version_no}|${p.component_key}`);
     if (!c) continue;
-    out.push({ dispositif_id: p.dispositif_id, photo_id: p.photo_id, component_label: c.label, created_at: p.created_at, families_present: p.families_present, fixture_no: p.fixture_no });
+    // 13/09 — UNE seule grammaire de nom : celui que l'exploitant a donné s'il existe, sinon le nom composé
+    // « <Type> — <famille reconnue> » (nomsDuComposant, le même foyer que l'historique du dispositif).
+    const nom = c.label ?? nomsDuComposant(c.type_label ?? "", p.families_present).complet;
+    out.push({ dispositif_id: p.dispositif_id, photo_id: p.photo_id, component_label: nom, version_no: p.version_no, created_at: p.created_at, families_present: p.families_present, fixture_no: p.fixture_no });
   }
   return out;
 }
@@ -72,7 +77,7 @@ export async function listFamilyPhotos(bq: any, location_id: string): Promise<Fa
     fixture_no: r.fixture_no != null ? Number(flat(r.fixture_no)) : null,
   }));
   const compRows = await bq.query({
-    query: `SELECT dispositif_id, version_no, component_key, COALESCE(NULLIF(TRIM(component_label), ''), component_type_label_fr) AS label
+    query: `SELECT dispositif_id, version_no, component_key, NULLIF(TRIM(component_label), '') AS label, component_type_label_fr AS type_label
             FROM \`${BQ_PROJECT}.semantic.vw_insight_event_dispositif_components\`
             WHERE location_id = @l AND status = 'open' AND dispositif_id IN UNNEST(@ids)`,
     params: { l: location_id, ids: [...new Set(photos.map((p) => p.dispositif_id))] }, types: { ids: ["STRING"] }, location: "EU",
@@ -80,6 +85,7 @@ export async function listFamilyPhotos(bq: any, location_id: string): Promise<Fa
   const comps: OpenComponent[] = (compRows as any[]).map((r) => ({
     dispositif_id: String(flat(r.dispositif_id)), version_no: Number(flat(r.version_no)), component_key: String(flat(r.component_key)),
     label: r.label != null && String(flat(r.label)).trim() ? String(flat(r.label)).trim() : null,
+    type_label: r.type_label != null && String(flat(r.type_label)).trim() ? String(flat(r.type_label)).trim() : null,
   }));
   return joinFamilyPhotos(photos, comps);
 }
@@ -97,11 +103,12 @@ export function pickFamilyPhoto(rows: readonly FamilyPhotoRow[], family: string 
 }
 
 // PUR : les champs ajoutés au data_payload de la carte (lus par msTeaserMedia, pulse.astro).
-export function familyPhotoPayload(row: FamilyPhotoRow): { family_photo: string; family_photo_label: string | null; family_photo_fixture_no: number | null; family_photo_date: string } {
+export function familyPhotoPayload(row: FamilyPhotoRow): { family_photo: string; family_photo_label: string | null; family_photo_fixture_no: number | null; family_photo_version: number | null; family_photo_date: string } {
   return {
     family_photo: photoProxyUrl(row.dispositif_id, row.photo_id, "band"),
     family_photo_label: row.component_label,
     family_photo_fixture_no: row.fixture_no != null && row.fixture_no > 0 ? row.fixture_no : null,
+    family_photo_version: row.version_no > 0 ? row.version_no : null,
     family_photo_date: row.created_at.slice(0, 10),
   };
 }

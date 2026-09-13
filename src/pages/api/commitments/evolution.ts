@@ -10,6 +10,7 @@ import { parseScope, scopeFromFamily, scopeFilter, scopeLabelFr, type MeasuredSc
 import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpi/kpiRegistry";
 import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifs/dispositifTypes";
 import { listPhotoRows, photosParVersion } from "../../../lib/dispositifs/dispositifPhotoRows";
+import { resolveMemberNames } from "../../../lib/dispositifs/poleActivity";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
@@ -213,7 +214,14 @@ async function buildLineage(bq: any, snap: any): Promise<any[]> {
     if (lineage.length < 2) lineage = [];
     // Chaque version porte ses vignettes (la dernière photo par composant). Aucune photo = le champ
     // reste vide et la page ne rend AUCUN emplacement : une mémoire qui n'existe pas ne se montre pas.
-    const parVersion = photosParVersion(await photosP, dispositifTypeLabelFr);
+    const _photos = await photosP;
+    // L'auteur d'une photo s'affiche par son NOM (roster team_members × location_members, foyer
+    // resolveMemberNames) — jamais un identifiant (no-raw-ids). Une seule résolution, et seulement
+    // quand des photos existent : sur un dispositif sans photo, aucun aller-retour de plus.
+    const _auteurs = _photos.some((r: any) => r.created_by)
+      ? await resolveMemberNames(bq, String(snap.location_id)).catch(() => ({} as Record<string, string>))
+      : {};
+    const parVersion = photosParVersion(_photos, dispositifTypeLabelFr, 4, _auteurs);
     for (const v of lineage) { const p = parVersion[v.version_no]; v.photos = p ? p.photos : []; v.photos_autres = p ? p.autres : 0; }
     }
   return lineage;

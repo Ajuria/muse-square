@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { pickFamilyPhoto, familyPhotoPayload, photoProxyUrl, joinFamilyPhotos, FAMILY_PHOTO_CARD_TYPES, type FamilyPhotoRow, type FamilyPhotoCandidate } from "./familyPhotos";
-const row = (o: Partial<FamilyPhotoRow>): FamilyPhotoRow => ({ dispositif_id: "d1", photo_id: "p1", component_label: "Étagère du fond", created_at: "2026-09-11 10:00:00+00", families_present: ["Thé"], fixture_no: 7, ...o });
+const row = (o: Partial<FamilyPhotoRow>): FamilyPhotoRow => ({ dispositif_id: "d1", photo_id: "p1", component_label: "Étagère du fond", version_no: 2, created_at: "2026-09-11 10:00:00+00", families_present: ["Thé"], fixture_no: 7, ...o });
 
 describe("pickFamilyPhoto — la photo d'une carte famille", () => {
   it("égalité EXACTE du nom : ni casse, ni sous-chaîne", () => {
@@ -30,10 +30,10 @@ describe("pickFamilyPhoto — la photo d'une carte famille", () => {
 });
 
 describe("familyPhotoPayload — ce que la carte reçoit", () => {
-  it("la variante « band » du proxy, le nom du composant, le numéro sur le plan, la date ISO", () => {
+  it("la variante « band » du proxy, le nom du composant, le numéro sur le plan, LA VERSION, la date ISO", () => {
     expect(familyPhotoPayload(row({ dispositif_id: "d 1", photo_id: "p/1" }))).toEqual({
       family_photo: "/api/dispositifs/photos?dispositif_id=d%201&file=p%2F1&variant=band",
-      family_photo_label: "Étagère du fond", family_photo_fixture_no: 7, family_photo_date: "2026-09-11",
+      family_photo_label: "Étagère du fond", family_photo_fixture_no: 7, family_photo_version: 2, family_photo_date: "2026-09-11",
     });
   });
   it("un numéro nul ou absent ne s'écrit pas", () => {
@@ -49,11 +49,16 @@ describe("familyPhotoPayload — ce que la carte reçoit", () => {
 describe("joinFamilyPhotos — la photo et son composant ouvert", () => {
   const ph = (o: Partial<FamilyPhotoCandidate>): FamilyPhotoCandidate => ({ dispositif_id: "d1", version_no: 2, component_key: "c1", photo_id: "p1", created_at: "2026-09-11 10:00:00+00", families_present: ["Thé"], fixture_no: 7, ...o });
   it("jointure sur (dispositif, version, composant) ; le nom vient du composant", () => {
-    const out = joinFamilyPhotos([ph({})], [{ dispositif_id: "d1", version_no: 2, component_key: "c1", label: "Étagère du fond" }]);
-    expect(out).toEqual([{ dispositif_id: "d1", photo_id: "p1", component_label: "Étagère du fond", created_at: "2026-09-11 10:00:00+00", families_present: ["Thé"], fixture_no: 7 }]);
+    const out = joinFamilyPhotos([ph({})], [{ dispositif_id: "d1", version_no: 2, component_key: "c1", label: "Étagère du fond", type_label: "Linéaire" }]);
+    expect(out).toEqual([{ dispositif_id: "d1", photo_id: "p1", component_label: "Étagère du fond", version_no: 2, created_at: "2026-09-11 10:00:00+00", families_present: ["Thé"], fixture_no: 7 }]);
+  });
+  it("13/09 — sans nom donné par l'exploitant, le nom est COMPOSÉ « <Type> — <famille> » (même foyer que l'historique)", () => {
+    const out = joinFamilyPhotos([ph({})], [{ dispositif_id: "d1", version_no: 2, component_key: "c1", label: null, type_label: "Linéaire" }]);
+    expect(out[0].component_label).toBe("Linéaire — Thé");
+    expect(out[0].version_no).toBe(2);
   });
   it("une photo d'une ANCIENNE version, d'un autre composant ou d'un pôle fermé ne sort pas", () => {
-    const comps = [{ dispositif_id: "d1", version_no: 2, component_key: "c1", label: null }];
+    const comps = [{ dispositif_id: "d1", version_no: 2, component_key: "c1", label: null, type_label: "Linéaire" }];
     expect(joinFamilyPhotos([ph({ version_no: 1 }), ph({ photo_id: "p2", component_key: "c9" }), ph({ photo_id: "p3", dispositif_id: "d2" })], comps)).toEqual([]);
   });
 });

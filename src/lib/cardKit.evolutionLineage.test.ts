@@ -46,13 +46,18 @@ it("chaîne >1 version : la section rend chaque version avec verdict, effet SUR 
 
 // ── 13/09 (owner) — LA MÉMOIRE VISUELLE : chaque version montre ses photos À CÔTÉ de son verdict ──
 
-const linPhoto = (id: string, label: string, d: string) => ({ photo_id: id, component_key: "k-" + id, label_fr: label, url: "/api/dispositifs/photos?dispositif_id=d1&file=" + id, created_at: d + "T10:00:00Z" });
+const linPhoto = (id: string, label: string, d: string, o: Partial<{ label_court: string; fixture_no: number; auteur: string }> = {}) => ({
+  photo_id: id, component_key: "k-" + id, label_fr: label, label_court: o.label_court ?? label,
+  fixture_no: o.fixture_no ?? null, auteur: o.auteur ?? null,
+  url: "/api/dispositifs/photos?dispositif_id=d1&file=" + id, created_at: d + "T10:00:00Z",
+});
 const linAvecPhotos = () => {
   const data: any = baseData();
   data.lineage = [
     { commitment_id: "c-v1", version_no: 1, status: "resolved", verdict: "met", window_start: "2026-08-22", window_end: "2026-08-22",
       effect_pct: 12.4, effect_proven: true, kpi_mention_fr: "", is_current: false,
-      photos: [linPhoto("pa", "Vitrine", "2026-08-21"), linPhoto("pb", "Linéaire", "2026-08-21")], photos_autres: 2 },
+      photos: [linPhoto("pa", "Vitrine — Couteaux", "2026-08-21", { label_court: "Couteaux", fixture_no: 27, auteur: "Camille" }),
+               linPhoto("pb", "Linéaire — Épices", "2026-08-21", { label_court: "Épices" })], photos_autres: 2 },
     { commitment_id: "c-v2", version_no: 2, status: "open", verdict: null, window_start: "2026-08-29", window_end: "2026-08-29",
       effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: true, photos: [], photos_autres: 0 },
   ];
@@ -66,7 +71,11 @@ it("chaque version montre ses photos sous SA ligne — vignette carrée, libell�
   expect(bloc1).toContain('data-lin-photos="1"');
   expect(bloc1).toContain('src="/api/dispositifs/photos?dispositif_id=d1&amp;file=pa&amp;variant=square"');
   expect(bloc1).toContain('href="/api/dispositifs/photos?dispositif_id=d1&amp;file=pa"');   // l'entière, pas la vignette
-  expect(bloc1).toContain("Vitrine");
+  // Le nom COURT sous l'image (72 px coupent « Vitrine — Couteaux ») ; l'identité complète au survol.
+  expect(bloc1).toContain(">Couteaux<");
+  expect(bloc1).toContain('title="Vitrine — Couteaux · N° 27 · Version 1 · 21/08/2026 · Camille"');
+  expect(bloc1).toContain(">Épices<");
+  expect(bloc1).toContain('title="Linéaire — Épices · Version 1 · 21/08/2026"');   // sans N° ni auteur : omis, jamais un tiret
   expect(bloc1).toContain("21/08/2026");
   expect(bloc1).toContain("+ 2 autres");                                                    // rien n'est perdu en silence
   expect(bloc1).not.toContain("k-pa");                                                      // jamais la clé technique

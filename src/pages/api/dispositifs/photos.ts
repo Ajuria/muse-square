@@ -31,6 +31,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { readComponents, dispositifTypeLabelFr, checklistFor, expositionLabelFr } from "../../../lib/dispositifs/dispositifTypes";
 import { listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
+import { resolveMemberNames } from "../../../lib/dispositifs/poleActivity";
 import {
   PHOTO_MAX_BYTES, makeStorageClient, photoObjectPath, photoGcsUri, putPhotoObject, deletePhotoObject, putPhotoVariants, getPhotoVariant, parsePhotoVariant,
   insertPhotoRow, listPhotoRows, latestPerComponent, listSiteItems, withConfirmedItems, photoApiUrl, type PhotoRow,
@@ -72,7 +73,7 @@ const photoUrl = photoApiUrl;
 
 // La photo telle que la page la rend : les QUESTIONS du registre (clé + libellé) pour lire la
 // check-list, et la désignation des articles reconnus (jamais un code nu à l'écran).
-function publicRow(r: PhotoRow, itemsByCode: Record<string, string>) {
+function publicRow(r: PhotoRow, itemsByCode: Record<string, string>, auteurs: Record<string, string> = {}) {
   return {
     photo_id: r.photo_id, dispositif_id: r.dispositif_id, version_no: r.version_no, component_key: r.component_key,
     url: photoUrl(r.dispositif_id, r.photo_id), status: r.status, checklist: r.checklist,
@@ -80,6 +81,9 @@ function publicRow(r: PhotoRow, itemsByCode: Record<string, string>) {
     items_matched: (r.items_matched ?? []).map((it) => ({ ...it, item_description: itemsByCode[it.item_code] ?? null })),
     items_confirmed: r.items_confirmed ? r.items_confirmed.map((it) => ({ ...it, item_description: itemsByCode[it.item_code] ?? null })) : null,
     prices_seen: r.prices_seen, coverage_flag: r.coverage_flag, created_at: r.created_at,
+    // 13/09 (owner, légende A) : l'auteur s'affiche par son NOM (resolveMemberNames) ; un identifiant ne
+    // sort jamais à l'écran, et un auteur hors roster rend null — la légende l'omet.
+    created_by_name: (r.created_by && auteurs[r.created_by]) || null,
     dispositif_type: r.dispositif_type, dispositif_type_label_fr: r.dispositif_type ? dispositifTypeLabelFr(r.dispositif_type) : null,
     // v2 (11/09) : l'exposition et son libellé (registre), les niveaux, les familles, le numéro sur le plan.
     exposition: r.exposition, exposition_label_fr: r.exposition ? expositionLabelFr(r.exposition) : null,
@@ -118,7 +122,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
       listSiteItems(bq, disp.location_id),
     ]);
     const codes = byCode(items);
-    return json({ ok: true, dispositif_id, version_no: version_no ?? disp.version_no, photos: latestPerComponent(rows).map((r) => publicRow(r, codes)) });
+    // Les noms d'auteur — une seule résolution, et seulement si au moins une photo en porte un.
+    const lues = latestPerComponent(rows);
+    const auteurs = lues.some((r) => r.created_by)
+      ? await resolveMemberNames(bq, disp.location_id).catch(() => ({} as Record<string, string>))
+      : {};
+    return json({ ok: true, dispositif_id, version_no: version_no ?? disp.version_no, photos: lues.map((r) => publicRow(r, codes, auteurs)) });
   } catch (e: any) {
     const msg = String(e?.message || e);
     return json({ ok: false, error: msg }, msg.startsWith("FORBIDDEN") ? 403 : 500);
