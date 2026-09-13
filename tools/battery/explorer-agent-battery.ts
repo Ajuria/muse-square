@@ -18,6 +18,7 @@ import { SYSTEME_FR, OUTILS_FR } from "../../src/lib/explorer/agentSystem.fr";
 import { FAMILIES } from "../../src/lib/insightFamilies";
 import { assembleAnswerBlocks, groundAgentText } from "../../src/lib/explorer/blocks";
 import { readMargeLecture } from "../../src/lib/kpi/margeLecture";
+import { toApiMessages } from "../../src/lib/explorer/agentTurn";
 import { computeSalesReport } from "../../src/lib/rapport/ventes";
 import { readResultat } from "../../src/lib/kpi/resultat";
 import { readPoleClassement } from "../../src/lib/dispositifs/poleClassement";
@@ -47,6 +48,8 @@ const BATTERY: Case[] = [
   { q: "Fais-moi mon rapport de ventes du mois dernier.", tools: ["composer_rapport"], answerMatch: /chiffre d'affaires|CA/i, vetted: true, blocks: ["rapport"] },
   // § 9, incrément 4 — un Modèle enregistré du site, nommé (« Hebdo pôles » existe sur le compte de test depuis le 12/09).
   { q: "Compose mon rapport « Hebdo pôles ».", tools: ["composer_rapport"], answerMatch: /pôle|ventes/i, vetted: true, blocks: ["rapport"] },
+  // § 7 couche 2 (13/09) — ex _top_familles_v1 : le mix par famille d'une période nommée, les K premières nommées par le modèle.
+  { q: "Mes top 3 produits en août ?", tools: ["lire_ventes"], answerMatch: /famille/i, vetted: true, blocks: ["table"] },
   // § 9 incrément 6 — une question COMPOSÉE : lire (familles face aux jours) puis préparer une Proposition d'opération sur ce qui a été lu.
   { q: "Quelle famille souffre le plus de la pluie ? Propose-moi une opération sur cette famille pour samedi prochain.", tools: ["lire_familles_face_aux_jours", "proposer_operation"], answerMatch: /Préparer l'opération|proposition/i, vetted: true, blocks: ["proposition_operation"], maxSeconds: 40 },
 ];
@@ -77,7 +80,8 @@ async function ask(q: string) {
     // haiku-4-5 refuse le thinking adaptatif (400, mesuré 12/09) : on ne l'envoie qu'aux modèles qui le portent (models.ts capsFor).
     model: MODEL, max_tokens: 16000, ...(/haiku/.test(MODEL) ? {} : { thinking: { type: "adaptive" as const } }),
     system: [{ type: "text", text: SYSTEME_FR, cache_control: { type: "ephemeral" } }],
-    messages: [{ role: "user", content: q }], tools, max_iterations: 8,
+    // 13/09 : la date du jour sur le dernier tour, comme runAgentTurn (le modèle cherchait « août » en 2024 puis 2025).
+    messages: toApiMessages([{ role: "user", content: q }], [], today()), tools, max_iterations: 8,
   });
   const final = await runner.runUntilDone();
   const brut = final.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();

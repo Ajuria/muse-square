@@ -408,7 +408,7 @@ function frDateFr(iso: string): string {
 const jourFr = (iso: string): string => `le ${JOURS[new Date(`${iso}T00:00:00Z`).getUTCDay()]} ${frDateFr(iso)}`;
 
 /** Les faits NOMMÉS (12/09, composer_rapport les range par section) — les mêmes chaînes que `facts`, jamais d'autres. */
-export interface VentesParts { ca?: string; an_dernier?: string; volume_panier?: string; couches?: string; journees?: string; jours?: string; repartition?: string; signaux?: string; par_jour?: string[]; contexte?: string[]; actions?: string[] }
+export interface VentesParts { ca?: string; an_dernier?: string; volume_panier?: string; couches?: string; journees?: string; jours?: string; repartition?: string; concentration?: string; signaux?: string; par_jour?: string[]; contexte?: string[]; actions?: string[] }
 /** Les tableaux NOMMÉS — `couches` (les trois couches), `mix` (par famille), `jours` (profil par jour de semaine). */
 export interface VentesTables { couches?: AnswerBlock; mix?: AnswerBlock; jours?: AnswerBlock; par_jour?: AnswerBlock; jours_graphique?: AnswerBlock; mix_graphique?: AnswerBlock }
 /** Le grain « jour » se lit jusqu'à 31 jours : au-delà, une ligne par jour n'est plus une lecture. */
@@ -467,6 +467,13 @@ export function composeVentesFacts(res: SalesReportResult, opts: { grain?: 'jour
   const mixTot = mix.reduce((a, m) => a + (Number(m.revenue) || 0), 0);
   if (mix.length && mixTot > 0) {
     facts.push(named.repartition = 'Répartition par famille : ' + mix.map((m) => `${m.label} ${eur(m.revenue)} (${pct1((Number(m.revenue) || 0) / mixTot * 100)} de votre CA)`).join(', ') + '.');
+    // 13/09 (§ 7, couche 2 — le fait de tête de l'ex _top_familles_v1) : la concentration des 3 premières familles, un fait
+    // pour que le modèle n'ait pas à l'additionner (mesuré : « près de 80 % » calculé de son cru → non vérifié).
+    const premieres = mix.filter((m) => m.label !== 'Autres').slice(0, 3);
+    if (mix.length > premieres.length && premieres.length >= 2) {
+      const part = premieres.reduce((a, m) => a + (Number(m.revenue) || 0), 0) / mixTot * 100;
+      facts.push(named.concentration = `Vos ${premieres.length} premières familles (${premieres.map((m) => m.label).join(', ')}) pèsent ${pct1(part)} de votre CA.`);
+    }
   }
   // Grain « jour » (12/09, le reste de l'incrément 1 ; Approfondir en a besoin : « quel jour a porté le volume ? ») —
   // une ligne par jour de vente : CA, ventes, panier moyen ; jours en toutes lettres (lexique règle 6).

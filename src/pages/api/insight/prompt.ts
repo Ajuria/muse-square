@@ -49,7 +49,6 @@ import { planPeriod, buildPlanBlocks, buildPlanWhyBlocks } from "../../../lib/ex
 import { journalPlan } from "../../../lib/explorer/journalPlan";
 import { signalMetier, horsPerimetreReponse } from "../../../lib/ai/horsPerimetre";
 import { operationLife, readDispositifFamille, buildDispositifFamilleBlocks } from "../../../lib/dispositifs/dispositifFamille";
-import { readTopFamilles, buildTopFamillesBlocks } from "../../../lib/explorer/topFamilles";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
 import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
@@ -2411,6 +2410,29 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
       }), { status: 200, headers: { "content-type": "application/json" } });
     };
 
+    // 13/09 — L'AIGUILLAGE PAR CAPACITÉ (docs/explorer-outil-spec.md § 7) : une question qu'une capacité de l'agent sert
+    // part à la boucle (lib/explorer/agentTurn.ts — mêmes outils, même porte, même relecture, même trace que la route de
+    // l'agent). Producteur `agent_<outil>` (vérifié) ou `agent_<outil>_non_verifie` ; les blocs natifs : le texte relu en
+    // prose, puis les blocs des outils — le client les rend tels quels (ie-prompt.js) ; la pastille vient de meta.register.
+    // `_agentMargeCeTour` : une marge déclarée dans ce tour (posée plus bas par la capture) passe à lire_marge.
+    let _agentMargeCeTour: { pct: number; declarant_name: string | null; corrected_at: string | null } | null = null;
+    const repondreParAgent = async (capacite: string, question: string) => {
+      const _agBq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _agUser = clerk_user_id || "dev-bypass";
+      const _agLocals = bypass && !(locals as any)?.clerk_user_id ? { clerk_user_id: _agUser, all_location_ids: [location_id] } : locals;
+      const _agTurn = await runAgentTurn(_agBq, {
+        location_id, user_id: _agUser, role: _ownedForNaming.includes(location_id) || !_ownedForNaming.length ? "owner" : "member",
+        ownedIds: _ownedForNaming.length ? _ownedForNaming : [location_id],
+        messages: [...conversation_history, { role: "user", content: question }], files: [], thread_id: randomUUID(),
+        readPhotos: (d) => agentReadPhotos(_agLocals, d), readPhotoBytes: (d, ph) => agentReadPhotoBytes(_agLocals, d, ph),
+        margeDeclareeCeTour: _agentMargeCeTour,
+      });
+      const _agProducer = _agTurn.grounding.register === "vetted" ? `agent_${capacite}` : `agent_${capacite}_non_verifie`;
+      sinkTelemetry(location_id, "agent-answer", { capacite, register: _agTurn.grounding.register, outils: _agTurn.tool_calls.map((c) => c.name).join(",") });
+      const _agBlocks = [...(_agTurn.text ? [{ type: "prose", md: _agTurn.text }] : []), ..._agTurn.blocks.filter((b) => b.type !== "register")];
+      return sysDialogueResponse("", _agTurn.text, _agProducer, null, { blocks: _agBlocks, agent: { tool_calls: _agTurn.tool_calls.map((c) => ({ name: c.name, summary: c.summary, ms: c.ms })), ungrounded_numbers: _agTurn.grounding.ungrounded_numbers, relecture: { phrases_retirees: _agTurn.relecture.phrases_retirees } } });
+    };
+
     // ── MODE ENQUÊTE « Reproduire le dispositif gagnant » (pièce 2b, spec atelier § Hiérarchie
     // de l'enquête). Early-return complet, comme isUnknownIntent : la page dispositif.astro
     // poste { dispositif: { class_key, location_id } } — rien du routage jour/mois ne s'applique.
@@ -2865,10 +2887,11 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         // I7 (04/09) — « top 3 produits août » : question de FAMILLES (matcher offering) sur une
         // période PASSÉE de plusieurs jours → lecture déterministe des familles classées par CA
         // (topFamilles.ts). La famille offering est un profil 30 j : elle ne sait pas dire août.
+        // 13/09 — MIGRATION § 7, couche 2 : `_top_familles_v1` est RETIRÉE (topFamilles.ts supprimé, une lecture raw de
+        // moins) — la question part à l'agent avec la période résolue ; lire_ventes(du, au) rend le mix par famille
+        // (CA, part) sur cette période, le modèle nomme les K premières. Producteur agent_lire_ventes.
         if (_rsvPassPeriod && _rsvPassPeriod.start < _rsvPassPeriod.end && familyForQuestion(qRaw)?.key === "offering") {
-          const _tfR = await readTopFamilles(_bqe, location_id, _rsvPassPeriod.start, _rsvPassPeriod.end);
-          const _tfB = buildTopFamillesBlocks(_tfR, resolveTopKFromText(qRaw));
-          return sysDialogueResponse(_tfB.headline, "", "deterministic_top_familles_v1", null, { plan_sections: _tfB.sections, sources_list: _tfB.sources });
+          return repondreParAgent("lire_ventes", `${qRaw}\n\n(Période résolue par Muse Square : du ${_rsvPassPeriod.start} au ${_rsvPassPeriod.end} — appelle lire_ventes avec du et au.)`);
         }
         // D2 — l'entité nommée est introuvable : élicitation avec les LISTES RÉELLES du site,
         // jamais une devinette. Seulement quand la question NOMME un pôle ou une famille.
@@ -3017,6 +3040,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
             declarant_name: _declBy,
             corrected_at: new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
           };
+          if (_justDeclared.correction_type === "declared_margin_pct") _agentMargeCeTour = { pct: _justDeclared.value, declarant_name: _justDeclared.declarant_name, corrected_at: _justDeclared.corrected_at };
         } catch (e) { console.warn("[declared-capture] failed:", e); }
       }
     }
@@ -3097,25 +3121,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         // déclarée ; « week-end », « le samedi » = ses jours). Les sorties anticipées _measured_margin_v1 et
         // _declared_margin_v1 (marge) sont RETIRÉES ; l'aiguillage est par capacité, jamais par site. Une marge déclarée
         // dans ce tour garde la main (elle passe à l'outil). Le CA par client déclaré garde son chemin ci-dessous.
-        if (_missingDim === "marge") {
-          const _agBq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-          const _agUser = clerk_user_id || "dev-bypass";
-          const _agLocals = bypass && !(locals as any)?.clerk_user_id ? { clerk_user_id: _agUser, all_location_ids: [location_id] } : locals;
-          const _agTurn = await runAgentTurn(_agBq, {
-            location_id, user_id: _agUser, role: _ownedForNaming.includes(location_id) || !_ownedForNaming.length ? "owner" : "member",
-            ownedIds: _ownedForNaming.length ? _ownedForNaming : [location_id],
-            messages: [...conversation_history, { role: "user", content: qRaw }], files: [], thread_id: randomUUID(),
-            readPhotos: (d) => agentReadPhotos(_agLocals, d), readPhotoBytes: (d, ph) => agentReadPhotoBytes(_agLocals, d, ph),
-            margeDeclareeCeTour: _justDeclared && _justDeclared.correction_type === "declared_margin_pct"
-              ? { pct: _justDeclared.value, declarant_name: _justDeclared.declarant_name, corrected_at: _justDeclared.corrected_at } : null,
-          });
-          const _agProducer = _agTurn.grounding.register === "vetted" ? "agent_lire_marge" : "agent_lire_marge_non_verifie";
-          sinkTelemetry(location_id, "agent-answer", { capacite: "lire_marge", register: _agTurn.grounding.register, outils: _agTurn.tool_calls.map((c) => c.name).join(",") });
-          // Les blocs natifs : le texte relu du modèle d'abord (prose), puis les blocs des outils (carte, faits, absence) —
-          // le client les rend tels quels (ie-prompt.js, blocs natifs) ; la pastille vient de meta.register.
-          const _agBlocks = [...(_agTurn.text ? [{ type: "prose", md: _agTurn.text }] : []), ..._agTurn.blocks.filter((b) => b.type !== "register")];
-          return sysDialogueResponse("", _agTurn.text, _agProducer, null, { blocks: _agBlocks, agent: { tool_calls: _agTurn.tool_calls.map((c) => ({ name: c.name, summary: c.summary, ms: c.ms })), ungrounded_numbers: _agTurn.grounding.ungrounded_numbers, relecture: { phrases_retirees: _agTurn.relecture.phrases_retirees } } });
-        }
+        if (_missingDim === "marge") return repondreParAgent("lire_marge", qRaw);
         if (_metric && _metric.correction_type) {
           const _metricType = _metric.correction_type;
           try {
@@ -5635,13 +5641,10 @@ Règles :
         // FIRST question is often « je vends à quelle heure ? » — and the ask now carries the upload
         // CTA (the chat's own file picker exists since item 1; the old "no redirect" note is obsolete).
         const SALES_ELICIT_FAMILIES = new Set(["offering", "footfall", "salesdiscount", "salesdecomp"]);
+        // 13/09 — MIGRATION § 7, couche 2 : `_offering_elicit_v1` est RETIRÉE — sans vente mesurée, l'agent lit lire_ventes,
+        // qui dit l'absence avec le geste d'import (bloc cta « Importer un fichier de ventes », le sélecteur du chat).
         if (_famKey && SALES_ELICIT_FAMILIES.has(_famKey) && !_familyLed && _identity.status !== "ok") {
-          return sysDialogueResponse(
-            "Ajoutez vos ventes pour cette analyse",
-            "Je n'ai pas encore de ventes mesurées pour répondre à cette question (horaires, mix produit, panier moyen). Importez vos ventes ou connectez votre caisse, puis reposez-moi la question.",
-            "deterministic_offering_elicit_v1",
-            { type: "upload_csv", label: "Importer un fichier de ventes" },
-          );
+          return repondreParAgent("lire_ventes", qRaw);
         }
         // J2.1 — MÊME DOCTRINE pour le journal : une question « qu'est-ce qui a marché ? » sur un
         // compte sans engagement jugé ne se répond pas par le CA de la veille (mesuré : c'était le

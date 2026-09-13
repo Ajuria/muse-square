@@ -27,16 +27,29 @@ export type ImageType = PhotoBytes["media_type"];
 export type FileIn = { kind: "image" | "pdf"; media_type: string; data_base64: string; name: string };
 export type MsgIn = { role: "user" | "assistant"; content: string };
 
-/** L'historique tel que le client l'a renvoyé ; les fichiers ne s'attachent qu'au DERNIER tour (celui-ci). */
-export function toApiMessages(messages: MsgIn[], files: FileIn[]): BetaMessageParam[] {
+/** « Aujourd'hui : samedi 13/09/2026 » — le modèle ne connaît pas la date (mesuré 13/09 : « août » cherché en 2024 puis 2025). */
+export function aujourdhuiFr(today: string): string {
+  const d = new Date(`${today}T12:00:00Z`);
+  const jour = new Intl.DateTimeFormat("fr-FR", { weekday: "long", timeZone: "UTC" }).format(d);
+  return `Aujourd'hui : ${jour} ${today.slice(8, 10)}/${today.slice(5, 7)}/${today.slice(0, 4)}.`;
+}
+
+/**
+ * L'historique tel que le client l'a renvoyé ; les fichiers ne s'attachent qu'au DERNIER tour (celui-ci), qui porte
+ * aussi la date du jour (jamais dans le prompt système, stable et en cache ; jamais dans la trace : c'est le contexte
+ * de l'appel, pas ce que l'exploitant a écrit).
+ */
+export function toApiMessages(messages: MsgIn[], files: FileIn[], today?: string): BetaMessageParam[] {
   return messages.map((m, i) => {
-    if (i !== messages.length - 1 || !files.length) return { role: m.role, content: m.content };
+    const dernier = i === messages.length - 1;
+    const text = dernier && today ? `${m.content}\n\n(${aujourdhuiFr(today)})` : m.content;
+    if (!dernier || !files.length) return { role: m.role, content: text };
     const blocks: BetaContentBlockParam[] = files.map((f) =>
       f.kind === "pdf"
         ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: f.data_base64 }, title: f.name }
         : { type: "image", source: { type: "base64", media_type: f.media_type as ImageType, data: f.data_base64 } },
     );
-    blocks.push({ type: "text", text: m.content });
+    blocks.push({ type: "text", text });
     return { role: "user", content: blocks };
   });
 }
@@ -99,14 +112,15 @@ export function agentDeps(bq: any, inp: AgentTurnInput, tool_calls: ToolCallReco
  */
 export async function runAgentTurn(bq: any, inp: AgentTurnInput): Promise<AgentTurnResult> {
   const tool_calls: ToolCallRecord[] = [];
-  const tools = buildAgentTools(agentDeps(bq, inp, tool_calls));
+  const deps = agentDeps(bq, inp, tool_calls);
+  const tools = buildAgentTools(deps);
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const runner = client.beta.messages.toolRunner({
     model: modelFor("agent"),
     max_tokens: 16000,
     thinking: { type: "adaptive" },
     system: [{ type: "text", text: SYSTEME_FR, cache_control: { type: "ephemeral" } }],
-    messages: toApiMessages(inp.messages, inp.files),
+    messages: toApiMessages(inp.messages, inp.files, deps.today()),
     tools,
     max_iterations: MAX_ITERATIONS,
   });
@@ -114,7 +128,11 @@ export async function runAgentTurn(bq: any, inp: AgentTurnInput): Promise<AgentT
   const brut = final.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
   const relecture = relireTexte(brut);
   const text = relecture.texte;
-  const grounding = groundAgentText(text, tool_calls.flatMap((r) => r.facts ?? []));
+  // La porte : chaque nombre du texte vient des faits des outils — ou de la QUESTION elle-même (« mes 3 premières
+  // familles » : le 3 est celui de l'exploitant, pas une invention du modèle ; la règle R2-4 du validateur du chat).
+  // Les faits cités comptés restent ceux des outils.
+  const toolFacts = tool_calls.flatMap((r) => r.facts ?? []);
+  const grounding = { ...groundAgentText(text, [...toolFacts, inp.messages[inp.messages.length - 1].content]), facts_cited: toolFacts.length };
   const blocks = assembleAnswerBlocks(tool_calls.map((r) => r.blocks ?? []), grounding);
   for (const b of blocks) if (b.type === "rapport" && text) b.synthese = { text, register: grounding.register };
 

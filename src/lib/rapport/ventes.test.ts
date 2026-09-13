@@ -55,7 +55,9 @@ describe("composeVentesFacts — les phrases du rapport et du chat, les tableaux
     expect(nb(l.facts[3])).toBe("Votre meilleure journée a été le samedi 05/09/2026, avec 1 620 € ; la plus faible, le mardi 08/09/2026, avec 410 €.");
     expect(nb(l.facts[4])).toBe("Votre meilleur jour de la semaine : le samedi (1 320 € en moyenne) ; le plus calme, le lundi (640 € en moyenne).");
     expect(nb(l.facts[5])).toBe("Répartition par famille : Coffee 13 500 € (39,1 % de votre CA), Tea 9 450 € (27,4 % de votre CA), Autres 11 562 € (33,5 % de votre CA).");
-    expect(nb(l.facts[6])).toBe("1 journée nettement au-dessus de votre résultat habituel, 2 en dessous.");
+    // 13/09 (§ 7, couche 2) : la concentration des premières familles est un fait (le modèle ne l'additionne pas lui-même).
+    expect(nb(l.facts[6])).toBe("Vos 2 premières familles (Coffee, Tea) pèsent 66,5 % de votre CA.");
+    expect(nb(l.facts[7])).toBe("1 journée nettement au-dessus de votre résultat habituel, 2 en dessous.");
   });
   it("les tableaux : les trois couches (période, précédente, écart) puis le mix — format msTable", () => {
     const l = composeVentesFacts(rapport());

@@ -355,7 +355,8 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
       if (!p) return { out: "Période invalide : donne deux dates AAAA-MM-JJ, la première avant la seconde.", summary: "période invalide" };
       const res = await deps.runVentes(p.start, p.end);
       const l = composeVentesFacts(res, { grain: args.grain === "jour" ? "jour" : null });
-      const blocks: AnswerBlock[] = l.found ? l.blocks : [{ type: "absence", manque: `Aucune vente ${p.libelle_fr}.`, geste: null }];
+      // 13/09 (§ 7, couche 2 — ex _offering_elicit_v1) : sans vente, l'absence dit le geste — importer ses ventes (le sélecteur du chat).
+      const blocks: AnswerBlock[] = l.found ? l.blocks : [{ type: "absence", manque: `Aucune vente ${p.libelle_fr}. Importez vos ventes ou connectez votre caisse, puis reposez la question.`, geste: null }, { type: "cta", action: "upload", label: "Importer un fichier de ventes" }];
       // La période lue est un fait de l'outil (« vos 30 derniers jours ») : sans elle, le « 30 » du modèle
       // serait un nombre non fondé pour la porte (mesuré sur le compte de test, 12/09).
       const periode = `Période lue : ${p.libelle_fr}.`;

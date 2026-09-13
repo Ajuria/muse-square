@@ -70,6 +70,8 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   // 04/09 : la fenêtre honore « week-end » (jours de week-end des 30 derniers jours) et le dit.
   // 13/09 (docs/explorer-outil-spec.md § 7, couche 1) : la marge est servie par l'AGENT (lire_marge, mesure d'abord, sinon déclarée) — le producteur dit la capacité et sa porte.
   { q: "Quelle est ma marge le week-end ?", expect: { producers: ["agent_lire_marge"], maxSeconds: 20, answerMatch: /week-end/i } },
+  // 13/09 (§ 7, couche 2) : « top 3 produits août » — ex _top_familles_v1 — part à l'agent avec la période résolue ; lire_ventes rend le mix par famille.
+  { q: "Mes top 3 produits en août ?", expect: { producers: ["agent_lire_ventes"], maxSeconds: 25, answerMatch: /famille/i } },
   { q: "Pourquoi le 03/01/2024 ?", expect: { producers: ["grounded_day_claude", "v3_fallback_deterministic"], maxSeconds: 40 } },
   { q: "Le musée d'Orsay me prend-il des visiteurs ?", expect: { producers: ["web_search", "llm_only"], maxSeconds: 60 } },
   // Étape 5 — jour PASSÉ inexpliqué : la section « Web — non vérifié » doit arriver avec ≥1 source

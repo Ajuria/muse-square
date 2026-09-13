@@ -192,7 +192,6 @@ const CLIQUET_BRUT: Record<string, number> = {
   "src/lib/explorer/entityReading.ts": 3,
   "src/lib/explorer/planPeriod.ts": 2,
   "src/lib/explorer/siteFromQuestion.ts": 1,
-  "src/lib/explorer/topFamilles.ts": 1,
   "src/lib/insightFamilies/channels.ts": 4,
   "src/lib/insightFamilies/dispositif.ts": 6,
   "src/lib/insightFamilies/evenement.ts": 8,

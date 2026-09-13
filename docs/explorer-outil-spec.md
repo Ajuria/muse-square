@@ -273,7 +273,20 @@ par capacité, jamais par site.
    Preuves : batterie qualité « Quelle est ma marge le week-end ? » → `agent_lire_marge`, 8 s, juge 5/5 ; route
    réelle « ma marge le samedi » → 7 faits sur vos samedis, registre vérifié, blocs prose · carte · sources ;
    batterie agent (marge + pluie) verte.
-2. `_top_familles_v1`, `_offering_elicit_v1` → `lire_ventes`.
+2. `_top_familles_v1`, `_offering_elicit_v1` → `lire_ventes` — **RENTRÉES le 13/09** : « top 3 produits août » part à
+   l'agent avec la période résolue par le résolveur (« Période résolue par Muse Square : du … au … ») ; `lire_ventes(du,
+   au)` rend le mix par famille et, depuis ce jour, la CONCENTRATION des premières familles comme un fait (« Vos 3
+   premières familles (Coffee, Tea, Bakery) pèsent 79,1 % de votre CA. » — mesuré : sans ce fait, le modèle
+   additionnait « près de 80 % » de son cru et la porte rougissait, à raison). `topFamilles.ts` est supprimé (une
+   lecture `raw.client_transactions` de moins). Sans vente mesurée, `lire_ventes` dit l'absence avec le geste d'import
+   (bloc `cta` « Importer un fichier de ventes », le sélecteur du chat câblé par ie-prompt.js) — `_offering_elicit_v1`
+   n'a plus de sortie. Producteur `agent_lire_ventes`. Deux réglages de la boucle, mesurés sur ce cas : la date du jour
+   est donnée au modèle sur le dernier tour (il cherchait « août » en 2024 puis 2025), et la porte accepte les nombres
+   que l'EXPLOITANT a écrits (« mes 3 premières ») ainsi que les rangs d'une liste écrite sur une ligne. Preuves :
+   batterie qualité « Mes top 3 produits en août ? » → `agent_lire_ventes`, 8 s, juge 4,3/5 ; batterie agent 5,6 s
+   vérifiée ; marge rejouée 7 s, 4,8/5. Limite : la phrase « mes 3 premières familles de produits » ne passe pas le
+   matcher offering (elle tombe sur « Aucun événement trouvé », comme avant) — c'est le matcher de la famille
+   `offering`, hors de cette couche.
 3. `_dispositifs_v1`, `_dispositif_famille_v1` → `lire_poles` (existe) + `lire_familles_face_aux_jours`.
 4. `_report_nav_v1`, `_plan_period_v1`, `_plan_why_v1` → `composer_rapport`.
 5. `_declared_capture_v1` → `ecrire_declaration` (le seul outil d'écriture de plus : les paramètres à
@@ -388,7 +401,8 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    la batterie) — une règle « la cible dépasse l'habituel » côté outil demanderait le référentiel du jour (event-form le
    lit via /api/insight/evenement) ; l'essai owner sur la page Explorer suppose que la boucle y soit branchée (§ 7).
 7. **Incrément 7 — la migration** (§ 7), une couche par commit. **Couche 1 (marge) rentrée le 13/09** (§ 7, 1) ;
-   restent les couches 2 à 6 (ventes, pôles/familles, rapport, déclarations, élicitations).
+   **Couche 2 (top familles, élicitation ventes) rentrée le 13/09** (§ 7, 2) ; restent les couches 3 à 6 (pôles/familles,
+   rapport, déclarations, élicitations).
 8. **Incrément 8 — le pont de marge**, dès les premiers prix d'achat réels ; **le plan coloré**, dès que
    les contours vivent en base (les sept zones d'Épices et Tout sont relevées :
    `zones_poles_epices_et_tout_2026-09-12.json` ; leur table `analytics.space_zones` et sa vue dbt se

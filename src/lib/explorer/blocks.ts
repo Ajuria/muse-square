@@ -21,6 +21,9 @@ export type AnswerBlock =
   | { type: "sources"; items: string[] }
   // 12/09 — l'absence est un résultat : ce qui manque, et le geste qui le débloque (le mot de Piloter).
   | { type: "absence"; manque: string; geste?: { label_fr: string; url: string } | null }
+  // 13/09 (§ 7, couche 2) — le geste du kit (`cta`) : un lien (`url`) ou une action de la surface (`action` : « upload » =
+  // le sélecteur de fichiers du chat, câblé par ie-prompt.js) — l'absence de ventes le porte.
+  | { type: "cta"; label: string; action?: string; url?: string }
   // 12/09 — « Votre note » (spec § 6.2, lexique l. 123) : un texte écrit par l'exploitant sous un bloc, jamais vérifié par
   // le validateur, dit par sa pastille — jamais mêlé à un texte vérifié.
   | { type: "note"; text: string; auteur: string | null; date: string }
@@ -99,7 +102,10 @@ function stripDatesAndHours(s: string): string {
     .replace(/\b\d{1,2}\s?h(?:\s?\d{2})?\b/g, " ")        // 10 h, 10h30
     .replace(/\b(19|20)\d{2}\b/g, " ")                    // années
     // 12/09 (mesuré sur la batterie) : les numéros d'une liste (« 1. Cuisine… », « 2) Maison… ») ne sont pas des faits.
-    .replace(/^\s*\d{1,2}[.)]\s/gm, " ");
+    .replace(/^\s*\d{1,2}[.)]\s/gm, " ")
+    // 13/09 (mesuré : « 1. Coffee — … 2. Tea — … 3. Bakery » sur une seule ligne) : un numéro d'un chiffre suivi d'un
+    // point et d'une majuscule est un rang de liste, où qu'il soit dans la ligne.
+    .replace(/(^|\s)\d[.)]\s(?=[*_]*\p{Lu})/gu, "$1");
 }
 
 /** Les blocs d'une réponse d'agent : la pastille de registre d'abord, puis les blocs des outils dans l'ordre d'appel. */

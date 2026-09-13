@@ -15,6 +15,12 @@ describe("blocksFromFamilyResult / factsToText", () => {
 });
 
 describe("groundAgentText — chaque nombre du texte vient d'un fait d'outil", () => {
+  it("13/09 : les rangs d'une liste sur une seule ligne (« 1. Coffee — 19 957 € 2. Tea — 14 573 € ») ne sont pas des nombres à fonder", () => {
+    const g = groundAgentText("Vos familles : 1. Coffee — 19 957 € (38,6 %) 2. Tea — 14 573 € 3. Bakery — 6 354 €.", ["Coffee 19 957 € (38,6 % de votre CA), Tea 14 573 €, Bakery 6 354 €."]);
+    expect(g).toMatchObject({ register: "vetted", ungrounded_numbers: [] });
+    expect(groundAgentText("1. **Coffee** — 19 957 € 2. **Tea** — 14 573 €", ["Coffee 19 957 €, Tea 14 573 €."]).ungrounded_numbers).toEqual([]);
+    expect(groundAgentText("Cuisine réalise 5 ventes. Tea 3.", ["Cuisine réalise 5 ventes."]).ungrounded_numbers).toEqual(["3"]);
+  });
   const facts = ["Sur vos 30 derniers jours, votre marge brute est de 19 845 €, soit un taux de marge brute de 40 %.", "Coffee : 15 097 € de marge brute (taux 77 %)."];
   it("vérifié quand tous les nombres sont dans les faits (espaces de milliers, virgules, dates et heures ignorées)", () => {
     const g = groundAgentText("Sur 30 jours votre marge brute est de 19 845 € (40 %) ; Coffee en porte 15 097 €. Le 12/09/2026 à 10 h, vous étiez au-dessus.", facts);

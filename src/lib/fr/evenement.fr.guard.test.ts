@@ -34,7 +34,6 @@ const SURFACES = [
   "src/lib/ai/horsPerimetre.ts",
   // 04/09 (I8) : la lecture dispositif × famille — libellés owner 04/09.
   "src/lib/dispositifs/dispositifFamille.ts",
-  "src/lib/explorer/topFamilles.ts",
   // 07/09 (état vide Explorer, guichet de la mémoire) : les mots des cartes de l'état vide.
   "src/lib/explorer/explorerSlotsCopy.fr.ts",
   // Le harnais de rendu DUPLIQUE la copie réelle dans ses fixtures : sans lui sous garde,

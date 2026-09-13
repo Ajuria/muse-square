@@ -241,7 +241,7 @@ describe("agentTools — les lecteurs chiffrés (12/09) : faits au modèle, bloc
     expect(d.records[0].facts?.[0]).toBe("Période lue : vos 30 derniers jours, du 13/08/2026 au 11/09/2026.");
     const none = await tool.run({ du: "2026-09-02", au: "2026-09-04" });
     expect(none).toBe("Aucune vente du 02/09/2026 au 04/09/2026.");
-    expect(d.records[1].blocks).toEqual([{ type: "absence", manque: "Aucune vente du 02/09/2026 au 04/09/2026.", geste: null }]);
+    expect(d.records[1].blocks).toEqual([{ type: "absence", manque: "Aucune vente du 02/09/2026 au 04/09/2026. Importez vos ventes ou connectez votre caisse, puis reposez la question.", geste: null }, { type: "cta", action: "upload", label: "Importer un fichier de ventes" }]);
     const bad = await tool.run({ du: "2026-09-04", au: "2026-09-02" });
     expect(bad).toContain("Période invalide");
   });
