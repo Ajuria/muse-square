@@ -7,6 +7,7 @@
 import type { FamilyResult } from "../insightFamilies/types";
 import { extractNumbers } from "../ai/contracts/groundingChecks";
 import type { PropositionBlock } from "./proposition";
+import type { PlanBlock } from "../dispositifs/planColore";
 
 // « note » (12/09) : un texte écrit par l'exploitant lui-même — la Synthèse qu'il a reprise ; pastille « Votre note », jamais vérifié.
 export type Register = "vetted" | "web" | "model" | "note";
@@ -30,6 +31,8 @@ export type AnswerBlock =
   // 13/09 (§ 7, couche 6) — LA CLARIFICATION : un outil à qui il manque une entrée (l'opération, la période) rend les choix
   // réels du site en puces (label_fr, send) — le client renvoie `send` comme une question ; jamais une devinette.
   | { type: "clarification"; chips: Array<{ label_fr: string; send: string }> }
+  // 13/09 (incrément 8, spec § 5) — LE PLAN COLORÉ : les contours des pôles, une teinte par valeur (lib/dispositifs/planColore.ts).
+  | PlanBlock
   // 12/09 — « Votre note » (spec § 6.2, lexique l. 123) : un texte écrit par l'exploitant sous un bloc, jamais vérifié par
   // le validateur, dit par sa pastille — jamais mêlé à un texte vérifié.
   | { type: "note"; text: string; auteur: string | null; date: string }

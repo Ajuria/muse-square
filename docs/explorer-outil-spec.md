@@ -113,8 +113,8 @@ et — nouveau — `blocs` (ce qu'elle rend à l'exploitant) et `facts` (ce qu'e
 | `lire_poles_classement` — **livré 12/09** | `indicateur` (`ca`, `ventes`, `marge_brute`, `ca_par_metre`, `ca_par_m2`, `marge_par_metre`), période comme `lire_ventes` | `lib/dispositifs/poleClassement.ts` : `vw_insight_event_pole_daily` sommée sur la période (« Non rattaché » compris) ; par mètre et par m² : le foyer `listPoleSpace` (30 jours des mesures, dit) | du plus au moins performant, un fait par pôle : indicateur, part du CA ou de la marge, écart au résultat habituel, jours vendus | `tableau` + `sources` ; `absence` (aucun pôle vendu, aucune mesure, aucune marge) |
 | `composer_rapport` | `période`, `sections[]` (clés du registre § 6), `indicateur?` | appelle les outils de lecture ci-dessus, assemble, puis le résumé passe au validateur | un rapport | rapport |
 | `proposer_operation` — **livré 12/09 (incrément 6)** | `titre`, `dispositif`, `type?`, `familles?` (noms exacts, lire_familles), `objectif?` (revenue_residual · family_revenue · tickets · basket), `cible?` (€ pour family_revenue, % sinon, défaut 15), `dates[]` (à venir, 7 au plus), `pourquoi[]` (les phrases des outils du tour, telles quelles) | `lib/explorer/proposition.ts` `composerProposition` (PUR) : aucune écriture ; le « pourquoi » ne garde que les phrases dont chaque nombre est dans les faits du tour (`deps.faitsDuTour`), sans fait retenu l'outil refuse (« lis d'abord ») ; nom et dispositif passent la relecture (mots bannis, tournures, commandes/stock) ; familles du site, dates ≥ aujourd'hui, type du registre `EVENT_TYPES_ALL` | une proposition (le fait de tête + les faits retenus) | `proposition_operation`, avec l'URL du formulaire pré-rempli |
-| `pont_de_marge` | `période A`, `période B` | `fct_client_family_margin_daily` → effets volume, panier, mix, remises, prix d'achat (méthode de conseil : pont prix-volume-mix) — **après les premiers prix d'achat réels** | faits chiffrés | tableau |
-| `lire_plan` | — | contours des pôles (à stocker : § 9) + `lire_espace` | le plan coloré | plan |
+| `pont_de_marge` — **livré 13/09 (incrément 8)** | `du_a?`, `au_a?`, `du_b?`, `au_b?` (défaut : 30 derniers jours vs les 30 précédents) | `fct_client_family_margin_daily` → effets volume, panier, mix, remises, prix d'achat (méthode de conseil : pont prix-volume-mix) — **après les premiers prix d'achat réels** | faits chiffrés | tableau |
+| `lire_plan` — **livré 13/09 (incrément 8)** | `mesure?` (ca_par_m2 · marge_par_m2 · ca · part_ca) | contours en vigueur (`analytics.space_zones`, producteur) + `listPoleSpace` (grain pôle, 30 j) | un fait par pôle (surface, valeur, le plus fort), le sol de vente | plan ; `absence` sans contour |
 
 Règles :
 - **Aucun outil n'écrit** hors `ecrire_memoire` : une opération se prépare, l'exploitant la crée
@@ -140,7 +140,7 @@ par la page Explorer, le rapport de famille et le rapport de ventes.
 | `carte` | `render` (nom du kit), `data` | `MSCardKit[render](data)` — comme le rapport de famille | vérifié |
 | `rapport` | `sections[]` = `{ cle, titre, blocs[] }`, `synthese` (texte vérifié) | une zone par section, comme `family-report.astro` | vérifié |
 | `proposition_operation` — **livré 12/09** | `titre`, `dispositif`, `event_type`, `familles[]`, `objectif {kpi, libelle_fr}`, `cible {valeur, unite, libelle_fr}`, `dates[]`, `dates_fr`, `pourquoi[]` (faits), `url` | carte « Proposition d'opération » (kit `?v=84`) + « Préparer l'opération → » = `/app/insightevent/evenement?new=1&titre&dispositif&type&dates&kpi&cible&familles` — le formulaire pré-rempli, son CTA « Créer l'opération — … » inchangé | vérifié (faits d'outil) |
-| `plan` | `zones[]` (contours en points du plan, valeur, libellé), `mesure` | SVG en ligne, une teinte par valeur | vérifié |
+| `plan` — **livré 13/09** | `zones[]` (pole_id, label, polygons[][], area_m2, value, value_fr, rang), `mesure`, `mesure_fr`, `viewBox`, `fenetre_fr`, `surface_totale_m2` | SVG en ligne (kit `?v=85`), une teinte de #1D3BB3 par rang, nom et valeur au centre, légende | vérifié (données d'outil) |
 | `absence` | `manque`, `geste` | phrase courte + lien vers le geste Piloter | — |
 | `barres` · `barres_h` · `parts` (12/09, owner : « add tables and graphs ») | `items[]` = valeurs d'outil avec leurs libellés formatés | SVG / div du kit, grammaire de rapport.astro | vérifié (données d'outil) |
 | `note` (12/09) | `text`, `auteur`, `date` | pastille « Votre note » | Votre note (jamais vérifié) |
@@ -455,11 +455,28 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    déclarée avec sa question. `prompt.ts` a perdu neuf sorties anticipées sur 28 (marge ×2, top familles, élicitation
    ventes, fiches, opération × famille, rapport ×2 / bilan, plan ×2, déclaration) — les chemins jour, mois, familles,
    entités, journal, hors périmètre et objection y vivent encore.
-8. **Incrément 8 — le pont de marge**, dès les premiers prix d'achat réels ; **le plan coloré**, dès que
-   les contours vivent en base (les sept zones d'Épices et Tout sont relevées :
-   `zones_poles_epices_et_tout_2026-09-12.json` ; leur table `analytics.space_zones` et sa vue dbt se
-   créent AVANT la lecture).
-
+8. **Incrément 8 — le pont de marge et le plan coloré — LIVRÉS le 13/09** (dev), chacun sous sa condition :
+   - **`pont_de_marge(du_a?, au_a?, du_b?, au_b?)`** (`lib/kpi/pontDeMarge.ts`, pur + lecture de
+     `semantic.vw_insight_event_family_margin_daily` : unités, CA net HT, coût HT, marge brute, couverture) — quatre effets
+     dont la somme est EXACTEMENT l'écart (volume à mix constant, mix, prix de vente net unitaire, prix d'achat unitaire ;
+     volume et mix aux marges unitaires de A, prix aux unités de B), sur les familles costées sur les deux périodes
+     (couverture dite, le reste nommé et chiffré hors pont, remises en mémo) ; blocs tableau + barres + tableau par
+     famille + faits. Défaut : les 30 derniers jours contre les 30 jours précédents. Test pur (l'identité), test de
+     l'outil. Batterie agent « Pourquoi ma marge brute a bougé… » : compte de test, 9 familles, écart +5 960 € = volume
+     +5 587 € + mix +294 € + prix de vente +265 € − prix d'achat 186 €, vérifiée. **Condition** : le compte de test est
+     costé (graine) ; Épices et Tout attend ses premiers prix d'achat réels — le pont y répondra par l'absence jusque-là.
+   - **`lire_plan(mesure?)`** (`lib/dispositifs/spaceZones.ts` : table app-write `analytics.space_zones`, grain site × pôle
+     × polygone, append-only, en vigueur = dernier relevé par pôle ; `lib/dispositifs/planColore.ts` : composePlan — les
+     contours teintés par le CA par m² (défaut), la marge brute par m², le CA ou la Part du CA sur 30 jours, LE foyer
+     `listPoleSpace`) ; bloc `plan` (§ 5) rendu par le kit (`?v=85` : SVG, un polygone par zone, teinte par rang, nom et
+     valeur au centre, légende). Les sept zones d'Épices et Tout (relevé du 12/09) sont EN BASE sur Épices et Tout et sur
+     le compte de test (11 polygones, 308,77 m²) ; la vue dbt `vw_insight_event_space_zones` est dans la PR
+     [ms_database#151](https://github.com/Ajuria/ms_database/pull/151) (`docs/dbt-handoff/HANDOFF-plan-zones-2026-09-13.md`),
+     l'app producteur relit sa table en attendant. Harnais `npm run harness:explorer-blocks` (le SVG : 11 polygones,
+     14 textes, 8 faits) ; batterie agent « Montre-moi mon plan coloré par CA au m²… » vérifiée (Cuisine 371 € par m²,
+     le plus fort). **Reste** : la validation owner des contours sur l'image de contrôle (le partage des allées au plus
+     proche à pied, `docs/espace-et-pole.md`) ; les libellés « Lecture de votre plan » et « Composition de votre pont de
+     marge » à ratifier ; le mot du bloc pour la page (« plan coloré » est le mot de la spec, pas encore du lexique).
 ---
 
 ## 10. Décisions owner attendues
@@ -472,8 +489,10 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    ensuite. **Tranché par l'owner le 12/09 : sonnet-5 pour la boucle (`models.ts`, rôle `agent`) et les blocs
    vérifiés affichés dès le retour de l'outil, avant la Synthèse (proto : événement SSE `tool`).** Mesuré ensuite
    sur la batterie avec sonnet-5 : premier bloc vérifié à 2,0-3,3 s, texte complet à 4,4-9,6 s, 8/8 portes.
-2. Le stockage des contours du plan (`analytics.space_zones`, grain site × pôle, polygone en points du
-   plan) — à confirmer avant l'incrément 8.
+2. Le stockage des contours du plan — APPLIQUÉ le 13/09 dans la forme prévue, un cran plus fin : `analytics.space_zones`,
+   grain site × pôle × POLYGONE (Cuisine, Épicerie sèche, Produits frais et Petit déjeuner ont deux zones chacun), points
+   du plan en JSON (1:100, 28,344 pt/m), aire en m², relevé daté, append-only, en vigueur = dernier relevé par pôle ; vue
+   dbt en PR (#151). À confirmer par l'owner : la forme, et les contours eux-mêmes sur l'image de contrôle.
 3. Les destinataires d'un envoi à cadence au-delà de l'équipe et des partenaires (§ 6.4).
 
 **Tranché le 12/09 sur la page d'arbitrage (`Le Rapport d'Explorer`)** : les mots des sections (Nombre de ventes,

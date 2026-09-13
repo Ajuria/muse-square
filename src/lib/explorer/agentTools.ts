@@ -49,6 +49,10 @@ import type { SiteEntities, SiteEntity } from "./entityResolver";
 import { dispositifFamilleToBlocks, type DispositifFamilleReading } from "../dispositifs/dispositifFamille";
 import { buildPlanBlocks, buildPlanWhyBlocks, planToBlocks, type PlanPeriodResult } from "./planPeriod";
 import { composeConfirmation, DECLARATION_TYPES, specDe, valeurFr, valeurValide, type DeclarationType } from "../kpi/declarationEcriture";
+import { currentZones, type SpaceZone } from "../dispositifs/spaceZones";
+import { composePlan, planToText, PLAN_MESURES, type PlanMesure } from "../dispositifs/planColore";
+import type { PoleSpaceRow } from "../dispositifs/poleReading";
+import { composePontDeMarge, periodeLue, type FamillePeriode } from "../kpi/pontDeMarge";
 import { EVENT_TYPES_ALL } from "../events/eventTypes";
 
 const PROJECT = "muse-square-open-data";
@@ -111,6 +115,10 @@ export interface AgentToolDeps {
   // declared_parameters), la valeur précédente en retour ; « oublier » retire une déclaration du journal (jamais un paramètre à date d'effet).
   writeDeclaration: (type: DeclarationType, valeur: number) => Promise<{ prior_fr: string | null; declarant_name: string | null }>;
   forgetDeclaration: (type: DeclarationType) => Promise<{ prior_fr: string | null } | null>;
+  // 13/09 (incrément 8) — le plan coloré (contours en vigueur + espace des pôles) et le pont de marge (familles de deux périodes).
+  listZones: () => Promise<SpaceZone[]>;
+  listPoleSpace: () => Promise<PoleSpaceRow[]>;
+  runFamillesPeriode: (du: string, au: string) => Promise<FamillePeriode[]>;
   // 13/09 (§ 7, couche 4) — le plan de période (lib/explorer/planPeriod.ts planPeriod, le roster par l'auteur).
   runPlan: (start: string, end: string) => Promise<PlanPeriodResult>;
   // 12/09 (incrément 6) — les faits rendus par les outils déjà appelés dans CE tour : ce que proposer_operation
@@ -622,5 +630,42 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireDispositifsDocumentes, lireOperationFamille, composerPlan, ecrireDeclaration];
+  // ── 13/09 (incrément 8) — lire_plan : le plan coloré — les contours des pôles teintés par une mesure de l'espace.
+  const lirePlan = outil({
+    name: "lire_plan",
+    description: "Le plan coloré du magasin : les contours des pôles relevés sur le plan, teintés par une mesure de l'espace sur 30 jours — le CA par m² (défaut), la marge brute par m², le CA, la Part du CA. Rend la surface de vente de chaque pôle et sa valeur. Sans contour relevé, l'absence.",
+    inputSchema: z.object({ mesure: z.enum(PLAN_MESURES as [PlanMesure, ...PlanMesure[]]).optional().describe("ca_par_m2 (défaut) · marge_par_m2 · ca · part_ca") }),
+    run: (args) => timed("lire_plan", args, async () => {
+      const mesure = (args.mesure as PlanMesure | undefined) ?? "ca_par_m2";
+      const [zones, espace] = await Promise.all([deps.listZones(), deps.listPoleSpace()]);
+      const p = composePlan(currentZones(zones), espace, mesure);
+      return { out: planToText(p), summary: p.found ? `${plural(new Set(currentZones(zones).map((z) => z.dispositif_id)).size, "pôle", "pôles")} sur le plan, ${p.block.type === "plan" ? (p.block as any).mesure_fr : mesure}` : "aucun contour — absence dite", blocks: [p.block, ...(p.sources.length ? [{ type: "sources", items: p.sources } as AnswerBlock] : [])], facts: p.facts };
+    }),
+  });
+
+  // ── 13/09 (incrément 8) — pont_de_marge : d'où vient l'écart de marge brute entre deux périodes (prix-volume-mix).
+  const pontDeMarge = outil({
+    name: "pont_de_marge",
+    description: "Le pont de marge entre deux périodes : d'où vient l'écart de marge brute — effet volume, effet mix, effet prix de vente, effet prix d'achat (la somme des quatre est l'écart), par famille de produits & services, sur les familles qui ont des prix d'achat sur les deux périodes (couverture dite). Périodes A (avant) et B (après) en AAAA-MM-JJ ; défaut : les 30 derniers jours contre les 30 jours qui les précèdent.",
+    inputSchema: z.object({
+      du_a: z.string().optional().describe("Premier jour de la période A (avant), AAAA-MM-JJ."), au_a: z.string().optional().describe("Dernier jour de A."),
+      du_b: z.string().optional().describe("Premier jour de la période B (après), AAAA-MM-JJ."), au_b: z.string().optional().describe("Dernier jour de B."),
+    }),
+    run: (args) => timed("pont_de_marge", args, async () => {
+      const ISO = /^\d{4}-\d{2}-\d{2}$/;
+      const today = deps.today();
+      const shift = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+      const hier = shift(today, -1);
+      const b = { du: args.du_b ?? shift(hier, -29), au: args.au_b ?? hier };
+      const a = { du: args.du_a ?? shift(b.du, -30), au: args.au_a ?? shift(b.du, -1) };
+      for (const per of [a, b]) if (!ISO.test(per.du) || !ISO.test(per.au) || per.du > per.au) return { out: "Périodes invalides : quatre dates AAAA-MM-JJ, A avant B.", summary: "périodes invalides" };
+      const [A, B] = await Promise.all([deps.runFamillesPeriode(a.du, a.au), deps.runFamillesPeriode(b.du, b.au)]);
+      const libA = args.du_a || args.au_a ? null : "les 30 jours précédents", libB = args.du_b || args.au_b ? null : "vos 30 derniers jours";
+      const r = composePontDeMarge(A, B, periodeLue(a.du, a.au, libA ? `${libA} (du ${frDate(a.du)} au ${frDate(a.au)})` : null), periodeLue(b.du, b.au, libB ? `${libB} (du ${frDate(b.du)} au ${frDate(b.au)})` : null));
+      const periodes = `Périodes lues : A du ${frDate(a.du)} au ${frDate(a.au)}, B du ${frDate(b.du)} au ${frDate(b.au)}.`;
+      return { out: r.found ? `${periodes}\n` + r.facts.map((f) => `• ${f}`).join("\n") : (r.blocks[0] as any).manque, summary: r.found ? `écart ${r.ecart >= 0 ? "+" : "−"}${Math.round(Math.abs(r.ecart)).toLocaleString("fr-FR")} € en 4 effets, ${r.familles.length} familles` : "aucune famille costée sur les deux périodes", blocks: [...r.blocks, ...(r.sources.length ? [{ type: "sources", items: r.sources } as AnswerBlock] : [])], facts: r.found ? [periodes, ...r.facts] : [] };
+    }),
+  });
+
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireDispositifsDocumentes, lireOperationFamille, composerPlan, ecrireDeclaration, lirePlan, pontDeMarge];
 }

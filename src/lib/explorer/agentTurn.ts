@@ -27,6 +27,9 @@ import { planPeriod } from "./planPeriod";
 import { appendCorrectionEvent, getDeclaredMetric } from "../ai/corrections";
 import { appendDeclaredParameter, currentByKey, listDeclaredParameters, parameterSpec, validateValue } from "../kpi/declaredParameters";
 import { valeurFr } from "../kpi/declarationEcriture";
+import { listSpaceZones } from "../dispositifs/spaceZones";
+import { listPoleSpace } from "../dispositifs/poleReading";
+import { readFamillesPeriode } from "../kpi/pontDeMarge";
 
 export const MAX_ITERATIONS = 8;
 export const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -142,6 +145,10 @@ export function agentDeps(bq: any, inp: AgentTurnInput, tool_calls: ToolCallReco
     operationLife: (sid) => operationLife(bq, location_id, sid, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" })),
     // 13/09 (§ 7, couche 4) — le plan de période ; le roster équipe par l'auteur (même règle que /api/channels/team).
     runPlan: (start, end) => planPeriod(bq, location_id, start, end, { userId: inp.user_id }),
+    // 13/09 (incrément 8) — le plan coloré (le producteur relit ses contours) et le pont de marge (vue semantic de marge par famille).
+    listZones: () => listSpaceZones(bq, location_id),
+    listPoleSpace: () => listPoleSpace(bq, location_id),
+    runFamillesPeriode: (du, au) => readFamillesPeriode(bq, location_id, du, au),
     runOperationFamille: (op, fams, start, end, kpi) => readDispositifFamille(bq, location_id, op, fams, start, end, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }), kpi),
     today: () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
     record: (r) => { tool_calls.push(r); inp.onTool?.({ ...r, label_fr: OUTILS_FR[r.name] ?? r.name }); },

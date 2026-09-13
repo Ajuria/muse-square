@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-09-11",
+"generated_date": "2026-09-13",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "2151170",
-"table_count": 586,
-"column_count": 10485
+"dbt_repo_sha_at_generation": "08d26e0",
+"table_count": 591,
+"column_count": 10553
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -3195,6 +3195,218 @@
 }
 ]
 },
+"analytics.report_documents": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "document_id",
+"type": "STRING"
+},
+{
+"name": "version",
+"type": "INT64"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "author_user_id",
+"type": "STRING"
+},
+{
+"name": "author_role",
+"type": "STRING"
+},
+{
+"name": "titre",
+"type": "STRING"
+},
+{
+"name": "periode_du",
+"type": "DATE"
+},
+{
+"name": "periode_au",
+"type": "DATE"
+},
+{
+"name": "periode_relative",
+"type": "STRING"
+},
+{
+"name": "modele_id",
+"type": "STRING"
+},
+{
+"name": "rapport_json",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"analytics.report_schedules": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "schedule_id",
+"type": "STRING"
+},
+{
+"name": "version",
+"type": "INT64"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "author_user_id",
+"type": "STRING"
+},
+{
+"name": "author_role",
+"type": "STRING"
+},
+{
+"name": "modele_id",
+"type": "STRING"
+},
+{
+"name": "modele_nom",
+"type": "STRING"
+},
+{
+"name": "cadence",
+"type": "STRING"
+},
+{
+"name": "jour",
+"type": "INT64"
+},
+{
+"name": "heure",
+"type": "INT64"
+},
+{
+"name": "canal",
+"type": "STRING"
+},
+{
+"name": "destinataires_json",
+"type": "STRING"
+},
+{
+"name": "actif",
+"type": "BOOL"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"analytics.report_sends": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "send_id",
+"type": "STRING"
+},
+{
+"name": "schedule_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "modele_id",
+"type": "STRING"
+},
+{
+"name": "periode_du",
+"type": "DATE"
+},
+{
+"name": "periode_au",
+"type": "DATE"
+},
+{
+"name": "document_id",
+"type": "STRING"
+},
+{
+"name": "canal",
+"type": "STRING"
+},
+{
+"name": "recipients",
+"type": "STRING"
+},
+{
+"name": "n_recipients",
+"type": "INT64"
+},
+{
+"name": "sent_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"analytics.report_templates": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "template_id",
+"type": "STRING"
+},
+{
+"name": "version",
+"type": "INT64"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "author_user_id",
+"type": "STRING"
+},
+{
+"name": "author_role",
+"type": "STRING"
+},
+{
+"name": "nom",
+"type": "STRING"
+},
+{
+"name": "periode_relative",
+"type": "STRING"
+},
+{
+"name": "indicateur",
+"type": "STRING"
+},
+{
+"name": "sections_json",
+"type": "STRING"
+},
+{
+"name": "source_document_id",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
 "analytics.sales_channel_labels": {
 "type": "BASE TABLE",
 "columns": [
@@ -3452,6 +3664,67 @@
 {
 "name": "source",
 "type": "STRING"
+},
+{
+"name": "declarant_user_id",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
+}
+]
+},
+"analytics.space_zones": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "zone_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "pole_label",
+"type": "STRING"
+},
+{
+"name": "polygon_index",
+"type": "INT64"
+},
+{
+"name": "area_m2",
+"type": "FLOAT64"
+},
+{
+"name": "points_pt",
+"type": "STRING"
+},
+{
+"name": "scale_pt_per_m",
+"type": "FLOAT64"
+},
+{
+"name": "page_w_pt",
+"type": "FLOAT64"
+},
+{
+"name": "page_h_pt",
+"type": "FLOAT64"
+},
+{
+"name": "source",
+"type": "STRING"
+},
+{
+"name": "measured_at",
+"type": "DATE"
 },
 {
 "name": "declarant_user_id",
@@ -16300,6 +16573,10 @@
 "type": "FLOAT64"
 },
 {
+"name": "revenue_net_ht",
+"type": "FLOAT64"
+},
+{
 "name": "revenue_costed",
 "type": "FLOAT64"
 },
@@ -16336,11 +16613,19 @@
 "type": "FLOAT64"
 },
 {
+"name": "revenue_net_ht_per_m",
+"type": "FLOAT64"
+},
+{
 "name": "margin_per_m",
 "type": "FLOAT64"
 },
 {
 "name": "revenue_per_m2",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_net_ht_per_m2",
 "type": "FLOAT64"
 },
 {
@@ -36001,6 +36286,10 @@
 "type": "FLOAT64"
 },
 {
+"name": "revenue_net_ht",
+"type": "FLOAT64"
+},
+{
 "name": "revenue_costed",
 "type": "FLOAT64"
 },
@@ -36037,11 +36326,19 @@
 "type": "FLOAT64"
 },
 {
+"name": "revenue_net_ht_per_m",
+"type": "FLOAT64"
+},
+{
 "name": "margin_per_m",
 "type": "FLOAT64"
 },
 {
 "name": "revenue_per_m2",
+"type": "FLOAT64"
+},
+{
+"name": "revenue_net_ht_per_m2",
 "type": "FLOAT64"
 },
 {

@@ -23,6 +23,9 @@ import { listClassDispositifs } from "../../src/lib/dispositifs/bestPractices";
 import { loadSiteEntities } from "../../src/lib/explorer/entityResolver";
 import { operationLife, readDispositifFamille } from "../../src/lib/dispositifs/dispositifFamille";
 import { planPeriod } from "../../src/lib/explorer/planPeriod";
+import { listSpaceZones } from "../../src/lib/dispositifs/spaceZones";
+import { listPoleSpace } from "../../src/lib/dispositifs/poleReading";
+import { readFamillesPeriode } from "../../src/lib/kpi/pontDeMarge";
 import { computeSalesReport } from "../../src/lib/rapport/ventes";
 import { readResultat } from "../../src/lib/kpi/resultat";
 import { readPoleClassement } from "../../src/lib/dispositifs/poleClassement";
@@ -64,6 +67,9 @@ const BATTERY: Case[] = [
   { q: "Ma marge moyenne est de 62 % : quelle est ma marge le week-end ?", tools: ["ecrire_declaration", "lire_marge"], answerMatch: /week-end/i, vetted: true },
   // § 7 couche 6 (13/09) — une entrée qui manque : l'outil rend une clarification (les opérations réelles du site en puces).
   { q: "Pendant les Soldes d'hiver, qu'a fait la famille Coffee ?", tools: ["lire_operation_famille"], answerMatch: /Soldes d'hiver|opération/i, vetted: true, blocks: ["clarification"] },
+  // § 9 incrément 8 (13/09) — le plan coloré et le pont de marge, chacun mobilisé avec une autre capacité.
+  { q: "Montre-moi mon plan coloré par CA au m², et dis-moi quel pôle a la plus forte marge brute par mètre.", tools: ["lire_plan"], answerMatch: /m²/, vetted: true, blocks: ["plan"] },   // la marge par mètre : lire_espace ou lire_poles_classement, au choix du modèle
+  { q: "Pourquoi ma marge brute a bougé sur les 30 derniers jours par rapport aux 30 jours d'avant ?", tools: ["pont_de_marge"], answerMatch: /volume|mix|prix/i, vetted: true, blocks: ["table"] },
   // § 9 incrément 6 — une question COMPOSÉE : lire (familles face aux jours) puis préparer une Proposition d'opération sur ce qui a été lu.
   { q: "Quelle famille souffre le plus de la pluie ? Propose-moi une opération sur cette famille pour samedi prochain.", tools: ["lire_familles_face_aux_jours", "proposer_operation"], answerMatch: /Préparer l'opération|proposition/i, vetted: true, blocks: ["proposition_operation"], maxSeconds: 40 },
 ];
@@ -87,6 +93,7 @@ async function ask(q: string) {
     operationLife: (sid) => operationLife(bq, LOC, sid, today()),
     runOperationFamille: (op, fams, s, e, kpi) => readDispositifFamille(bq, LOC, op, fams, s, e, today(), kpi),
     runPlan: (s, e) => planPeriod(bq, LOC, s, e, { userId: null }),
+    listZones: () => listSpaceZones(bq, LOC), listPoleSpace: () => listPoleSpace(bq, LOC), runFamillesPeriode: (du, au) => readFamillesPeriode(bq, LOC, du, au),
     // 13/09 (couche 5) : la batterie n'écrit JAMAIS une déclaration sur le compte de test — l'écriture est simulée, la lecture réelle.
     writeDeclaration: async (type, valeur) => { console.log(`  (déclaration simulée : ${type} = ${valeur})`); return { prior_fr: null, declarant_name: null }; },
     forgetDeclaration: async () => null,

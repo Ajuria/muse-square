@@ -83,6 +83,19 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
     // 13/09 (§ 7, couche 5) : les écritures simulées — la marge n'avait pas de valeur, la clientèle valait 250.
     writeDeclaration: async (type, valeur) => { written.push({ declaration: type, valeur }); return { prior_fr: type === "clientele" ? "250 clients" : null, declarant_name: "Nadia" }; },
     forgetDeclaration: async (type) => { written.push({ oubli: type }); return type === "clientele" ? { prior_fr: "250 clients" } : null; },
+    // 13/09 (incrément 8) : deux zones (un pôle en deux polygones, un pôle en un), l'espace du pôle, deux périodes de familles costées.
+    listZones: async () => [
+      { zone_id: "z1", location_id: "loc-1", dispositif_id: "d1", pole_label: "Épicerie fine", polygon_index: 0, area_m2: 40, points: [[0, 0], [100, 0], [100, 80], [0, 80]], scale_pt_per_m: 28.344, page_w_pt: null, page_h_pt: null, source: "plan", measured_at: "2026-09-12", declarant_user_id: null, created_at: "2026-09-13T00:00:00Z" },
+      { zone_id: "z2", location_id: "loc-1", dispositif_id: "d1", pole_label: "Épicerie fine", polygon_index: 1, area_m2: 5, points: [[110, 0], [140, 0], [140, 30]], scale_pt_per_m: 28.344, page_w_pt: null, page_h_pt: null, source: "plan", measured_at: "2026-09-12", declarant_user_id: null, created_at: "2026-09-13T00:00:00Z" },
+      { zone_id: "z3", location_id: "loc-1", dispositif_id: "d2", pole_label: "Cave", polygon_index: 0, area_m2: 30, points: [[0, 90], [100, 90], [100, 150], [0, 150]], scale_pt_per_m: 28.344, page_w_pt: null, page_h_pt: null, source: "plan", measured_at: "2026-09-12", declarant_user_id: null, created_at: "2026-09-13T00:00:00Z" },
+    ],
+    listPoleSpace: async () => [
+      { grain: "pole", pole_id: "d1", pole_label: "Épicerie fine", family: null, window_start: "2026-08-14", window_end: "2026-09-12", linear_m: 10, linear_share: 0.6, surface_m2: 45, n_components: 2, revenue: 12000, revenue_net_ht: 10000, revenue_share: 0.7, margin_share: 0.72, coverage_pct: 100, revenue_per_m: 1200, revenue_net_ht_per_m: 1000, margin_per_m: 600, revenue_per_m2: 266.7, revenue_net_ht_per_m2: 222.2, margin_per_m2: 133.3 } as any,
+      { grain: "pole", pole_id: "d2", pole_label: "Cave", family: null, window_start: "2026-08-14", window_end: "2026-09-12", linear_m: 6, linear_share: 0.4, surface_m2: 30, n_components: 1, revenue: 3000, revenue_net_ht: 2500, revenue_share: 0.3, margin_share: 0.28, coverage_pct: 100, revenue_per_m: 500, revenue_net_ht_per_m: 416, margin_per_m: 200, revenue_per_m2: 100, revenue_net_ht_per_m2: 83.3, margin_per_m2: 40 } as any,
+    ],
+    runFamillesPeriode: async (du) => du < "2026-08-13"
+      ? [{ family: "Épices", units: 100, revenue: 1200, discount: 20, revenue_net_ht: 1000, revenue_costed: 1200, revenue_net_ht_costed: 1000, cost_ht: 400, gross_margin_ht: 600, units_costed: 100 }, { family: "Thés", units: 50, revenue: 600, discount: 0, revenue_net_ht: 500, revenue_costed: 600, revenue_net_ht_costed: 500, cost_ht: 250, gross_margin_ht: 250, units_costed: 50 }]
+      : [{ family: "Épices", units: 120, revenue: 1560, discount: 30, revenue_net_ht: 1320, revenue_costed: 1560, revenue_net_ht_costed: 1320, cost_ht: 540, gross_margin_ht: 780, units_costed: 120 }, { family: "Thés", units: 40, revenue: 480, discount: 0, revenue_net_ht: 400, revenue_costed: 480, revenue_net_ht_costed: 400, cost_ht: 180, gross_margin_ht: 220, units_costed: 40 }, { family: "Branded", units: 10, revenue: 100, discount: 0, revenue_net_ht: 83, revenue_costed: 0, revenue_net_ht_costed: 0, cost_ht: 0, gross_margin_ht: 0, units_costed: 0 }],
     today: () => "2026-09-12",
     record: (r) => records.push(r),
     faitsDuTour: () => records.flatMap((r) => r.facts ?? []),
@@ -95,7 +108,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_dispositifs_documentes", "lire_operation_famille", "composer_plan", "ecrire_declaration"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_dispositifs_documentes", "lire_operation_famille", "composer_plan", "ecrire_declaration", "lire_plan", "pont_de_marge"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -435,3 +448,29 @@ describe("couche 5 (13/09) — ecrire_declaration", () => {
     expect(await tool.run({ type: "surface_vente_m2", valeur: 120.5 })).toContain("Surface de vente notée : 120,5 m²");
   });
 });
+
+describe("incrément 8 (13/09) — lire_plan et pont_de_marge", () => {
+  it("lire_plan : les contours en vigueur teintés par le CA par m², un fait par pôle, le plus fort dit ; sans contour, l'absence", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "lire_plan").run({});
+    expect(d.records[0].summary).toBe("2 pôles sur le plan, CA par m² sur 30 jours");
+    const b = d.records[0].blocks?.[0] as any;
+    expect(b.type).toBe("plan"); expect(b.zones.map((z: any) => [z.label, z.polygons.length, z.rang, z.value_fr])).toEqual([["Cave", 1, 2, "100 €"], ["Épicerie fine", 2, 1, "267 €"]]);
+    expect(b.viewBox[2]).toBeGreaterThan(140); expect(b.surface_totale_m2).toBe(75);
+    expect(nb(out)).toContain("• Épicerie fine : 45,00 m² de surface de vente · 267 € de CA par m² sur 30 jours (du 14/08/2026 au 12/09/2026) — le plus fort.");
+    const d2 = deps({ listZones: async () => [] });
+    await byName(buildAgentTools(d2), "lire_plan").run({ mesure: "marge_par_m2" });
+    expect(d2.records[0].blocks?.[0]).toMatchObject({ type: "absence" });
+  });
+  it("pont_de_marge : quatre effets dont la somme est l'écart, les familles sans prix d'achat hors pont et dites, les périodes par défaut", async () => {
+    const d = deps();
+    const out = await byName(buildAgentTools(d), "pont_de_marge").run({});
+    expect(out.split("\n")[0]).toBe("Périodes lues : A du 14/07/2026 au 12/08/2026, B du 13/08/2026 au 11/09/2026.");
+    const rec = d.records[0];
+    expect(rec.summary).toBe("écart +150 € en 4 effets, 2 familles");
+    expect(nb(out)).toContain("Marge brute des familles costées : 850 € les 30 jours précédents (du 14/07/2026 au 12/08/2026) → 1 000 € vos 30 derniers jours (du 13/08/2026 au 11/09/2026), soit +150 €.");
+    expect(nb(out)).toContain("Hors pont (sans prix d'achat sur l'une des deux périodes) : Branded (0 € → 100 € de CA).");
+    expect(rec.blocks?.map((b) => b.type)).toEqual(["table", "barres_h", "table", "facts", "sources"]);
+  });
+});
+const nb = (s: string) => s.replace(/[\u202f\u00a0]/g, " ");

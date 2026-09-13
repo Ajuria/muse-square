@@ -2329,6 +2329,36 @@
         + '<div style="display:flex;justify-content:flex-end;"><a href="' + esc(b.url) + '" style="display:inline-block;font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;text-decoration:none;padding:8px 13px;border-radius:8px;margin-top:12px;">Pr\u00e9parer l\u2019op\u00e9ration \u2192</a></div>'
         + '</div>';
     },
+    // 13/09 (incrément 8, docs/explorer-outil-spec.md § 5) — LE PLAN COLORÉ : les contours des pôles (points du plan) en SVG,
+    // une teinte de #1D3BB3 par rang de valeur (la plus forte la plus dense), le nom et la valeur au centre de la zone,
+    // la légende sous le plan. Aucun chiffre calculé ici hors le centre des polygones.
+    plan: function (b) {
+      if (!b || !Array.isArray(b.zones) || !b.zones.length || !Array.isArray(b.viewBox)) return '';
+      var n = b.zones.filter(function (z) { return z.rang != null; }).length;
+      var tint = function (z) { if (z.rang == null) return 'rgba(156,163,175,0.35)'; var a = n > 1 ? 0.22 + 0.68 * (1 - (z.rang - 1) / (n - 1)) : 0.9; return 'rgba(29,59,179,' + a.toFixed(2) + ')'; };
+      var polys = '', labels = '';
+      b.zones.forEach(function (z) {
+        var all = [];
+        (z.polygons || []).forEach(function (pg) {
+          if (!Array.isArray(pg) || pg.length < 3) return;
+          polys += '<polygon points="' + pg.map(function (p) { return (+p[0]).toFixed(1) + ',' + (+p[1]).toFixed(1); }).join(' ') + '" fill="' + tint(z) + '" stroke="#fff" stroke-width="1.5"><title>' + esc(z.label + (z.value_fr ? ' \u00b7 ' + z.value_fr : '') + ' \u00b7 ' + String(z.area_m2).replace('.', ',') + ' m\u00b2') + '</title></polygon>';
+          pg.forEach(function (p) { all.push(p); });
+        });
+        if (!all.length) return;
+        var big = (z.polygons || []).slice().sort(function (p1, p2) { return p2.length - p1.length; })[0] || all;
+        var cx = 0, cy = 0; big.forEach(function (p) { cx += +p[0]; cy += +p[1]; }); cx /= big.length; cy /= big.length;
+        var dark = z.rang != null && n > 1 && (z.rang - 1) / (n - 1) < 0.5;
+        labels += '<text x="' + cx.toFixed(1) + '" y="' + cy.toFixed(1) + '" text-anchor="middle" font-size="11" font-weight="600" fill="' + (dark ? '#fff' : '#111827') + '">' + esc(z.label) + '</text>'
+          + (z.value_fr ? '<text x="' + cx.toFixed(1) + '" y="' + (cy + 13).toFixed(1) + '" text-anchor="middle" font-size="10" fill="' + (dark ? '#fff' : '#374151') + '">' + esc(z.value_fr) + '</text>' : '');
+      });
+      var legend = b.zones.slice().sort(function (a, c) { return (a.rang == null ? 99 : a.rang) - (c.rang == null ? 99 : c.rang); }).map(function (z) {
+        return '<span style="display:inline-flex;align-items:center;gap:6px;margin:3px 12px 3px 0;font-size:12px;color:#374151;"><span style="width:12px;height:12px;border-radius:3px;background:' + tint(z) + ';display:inline-block;"></span>' + esc(z.label) + (z.value_fr ? ' <span style="color:#6B7280;">' + esc(z.value_fr) + '</span>' : ' <span style="color:#9CA3AF;">aucune vente</span>') + '</span>';
+      }).join('');
+      return '<div data-plan style="margin:6px 0 10px;">'
+        + '<div style="font-size:12px;color:#6B7280;margin:0 0 6px;">' + esc(b.mesure_fr || '') + (b.fenetre_fr ? ' \u00b7 ' + esc(b.fenetre_fr) : '') + ' \u00b7 sol de vente ' + esc(String(b.surface_totale_m2).replace('.', ',')) + ' m\u00b2</div>'
+        + '<svg viewBox="' + b.viewBox.map(function (v) { return +v; }).join(' ') + '" style="width:100%;max-width:640px;height:auto;display:block;background:#F9FAFB;border-radius:10px;" role="img" aria-label="' + esc(b.mesure_fr || 'Plan') + '">' + polys + labels + '</svg>'
+        + '<div style="margin-top:8px;">' + legend + '</div></div>';
+    },
     // Phase 2 clarification chips (same inline styles as the ie-prompt.js originals)
     clarification: function (b) {
       var chips = (b.chips || []).filter(function (c) { return c && typeof c.label_fr === 'string' && typeof c.send === 'string'; })

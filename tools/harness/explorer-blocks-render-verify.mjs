@@ -116,5 +116,22 @@ const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" 
     check("« Préparer l'opération → » ouvre le formulaire pré-rempli (evenement?new=1&titre&dispositif&type&dates&kpi&cible)", a?.textContent === "Préparer l’opération →" && /^\/app\/insightevent\/evenement\?location_id=.*&new=1&titre=Samedi\+gourmand&dispositif=.*&type=degustation&dates=2099-01-02&kpi=revenue_residual&cible=15$/.test(a?.getAttribute("href") || ""), a?.getAttribute("href"));
   }
 }
+// 13/09 (incrément 8) — le plan coloré : les contours RÉELS du compte de test (analytics.space_zones, relevé du 12/09) teintés
+// par le CA par m² (listPoleSpace) — le SVG porte un polygone par zone, un libellé par pôle, la légende.
+{
+  const { listSpaceZones, currentZones } = await import("../../src/lib/dispositifs/spaceZones");
+  const { listPoleSpace } = await import("../../src/lib/dispositifs/poleReading");
+  const { composePlan } = await import("../../src/lib/dispositifs/planColore");
+  const zones = currentZones(await listSpaceZones(bq, LOC));
+  const espace = await listPoleSpace(bq, LOC);
+  check("le compte de test porte les contours de ses 7 pôles (11 polygones, relevé 12/09)", zones.length === 11 && new Set(zones.map((z) => z.dispositif_id)).size === 7, zones.length);
+  const p = composePlan(zones, espace, "ca_par_m2");
+  check("composePlan compose le plan (sol de vente 308,77 m²)", p.found && p.block.type === "plan" && p.block.surface_totale_m2 === 308.77, p.block.surface_totale_m2);
+  const el = render(assembleAnswerBlocks([[p.block, { type: "sources", items: p.sources }]], groundAgentText("", p.facts)));
+  const svg = el.querySelector("[data-plan] svg");
+  check("le SVG porte un polygone par zone (11) et deux textes par pôle valorisé", !!svg && svg.querySelectorAll("polygon").length === 11 && svg.querySelectorAll("text").length >= 7, svg && svg.querySelectorAll("polygon").length + " polygones, " + svg.querySelectorAll("text").length + " textes");
+  check("la légende nomme les 7 pôles avec leur CA par m² ou « aucune vente »", el.querySelectorAll("[data-plan] span").length >= 7 && /Cuisine/.test(el.textContent), el.textContent.slice(0, 160));
+  check("un fait par pôle, le plus fort dit", p.facts.length === 8 && p.facts.some((f) => / — le plus fort\.$/.test(f)), p.facts.slice(0, 3).join(" | "));
+}
 console.log(fails ? `\n${fails} échec(s).` : "\nTout vert.");
 process.exit(fails ? 1 : 0);
