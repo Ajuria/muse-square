@@ -74,6 +74,12 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
       ] }],
       mix: [{ famille: fams[0].name, occ_share: 0.31, base_share: 0.305, delta_pct: 1.7, occ_days: 4, base_days: 20 }],
     }),
+    // 13/09 (§ 7, couche 4) : un plan minimal — la santé, un pôle, aucun motif ; le rejeu absent.
+    runPlan: async (start, end) => ({
+      start, end, inventory: [], open_count: 0, calm_weeks: [], motifs: [], replay: [], series_due: [], web_plays: [],
+      health: { ca_day_30: 1200, ca_day_90: 1100, delta_pct: 9.1, n_30: 26, n_90: 78, transactions_day_30: 80, transactions_day_90: 75, basket_30: 15, basket_90: 14.7 } as any,
+      poles: [], roster: [],
+    }),
     today: () => "2026-09-12",
     record: (r) => records.push(r),
     faitsDuTour: () => records.flatMap((r) => r.facts ?? []),
@@ -86,7 +92,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_dispositifs_documentes", "lire_operation_famille"]);
+    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_dispositifs_documentes", "lire_operation_famille", "composer_plan"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -387,5 +393,19 @@ describe("couche 3 (13/09) — lire_dispositifs_documentes et lire_operation_fam
     expect(d.records[0].blocks?.some((b) => b.type === "table")).toBe(true);
     expect(await byName(buildAgentTools(d), "lire_operation_famille").run({ operation: "Soldes", familles: ["Épices"] })).toBe("Aucune opération nommée « Soldes » sur ce site. Opérations du site : « Corner producteur ».");
     expect(await byName(buildAgentTools(d), "lire_operation_famille").run({ operation: "Corner producteur", familles: ["Thés"] })).toBe("Famille inconnue sur ce site : « Thés ». Familles : Épices.");
+  });
+});
+
+describe("couche 4 (13/09) — composer_plan", () => {
+  it("refuse une période passée (composer_rapport), compose le plan à venir en blocs (titres, table de santé, sources) et redit chaque ligne de table comme un fait", async () => {
+    const d = deps();
+    const tool = byName(buildAgentTools(d), "composer_plan");
+    expect(await tool.run({ du: "2026-08-01", au: "2026-08-31" })).toMatch(/avant aujourd'hui : un plan porte sur ce qui vient/);
+    const out = await tool.run({ du: "2026-10-01", au: "2026-10-31" });
+    expect(d.records[1].summary).toMatch(/^le plan, du 01\/10\/2026 au 31\/10\/2026 : \d+ sections$/);
+    expect(out.split("\n")[0]).toBe("• Votre plan — du 01/10/2026 au 31/10/2026");
+    const types = d.records[1].blocks?.map((b) => b.type) ?? [];
+    expect(types[0]).toBe("prose"); expect(types).toContain("table"); expect(types).toContain("sources");
+    expect(d.records[1].facts?.some((f) => f.startsWith("La santé de l'entreprise — "))).toBe(true);
   });
 });

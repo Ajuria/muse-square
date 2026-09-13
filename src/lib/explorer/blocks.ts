@@ -23,7 +23,10 @@ export type AnswerBlock =
   | { type: "absence"; manque: string; geste?: { label_fr: string; url: string } | null }
   // 13/09 (§ 7, couche 2) — le geste du kit (`cta`) : un lien (`url`) ou une action de la surface (`action` : « upload » =
   // le sélecteur de fichiers du chat, câblé par ie-prompt.js) — l'absence de ventes le porte.
-  | { type: "cta"; label: string; action?: string; url?: string }
+  | { type: "cta"; label: string; action?: string; url?: string; prefill?: Record<string, unknown>; origin?: Record<string, unknown> | null }
+  // 13/09 (§ 7, couche 4) — un segment d'un autre registre au milieu d'une réponse vérifiée (les références web du plan) :
+  // le kit le rend en ambre « Web — non vérifié » ; ses nombres ne sont pas des faits pour la porte.
+  | { type: "segment"; register: "web" | "model"; md: string }
   // 12/09 — « Votre note » (spec § 6.2, lexique l. 123) : un texte écrit par l'exploitant sous un bloc, jamais vérifié par
   // le validateur, dit par sa pastille — jamais mêlé à un texte vérifié.
   | { type: "note"; text: string; auteur: string | null; date: string }

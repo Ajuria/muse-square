@@ -873,6 +873,8 @@ if (!root) {
     // a double pill. Unknown block types are skipped by the kit (console.warn), never fatal.
     const nativeBlocks = Array.isArray(n.blocks) && n.blocks.length ? n.blocks : null;
     if (nativeBlocks) {
+      // 13/09 (§ 7, couche 4) : un CTA « M'engager » composé par l'agent porte son prefill sur le bloc — le clic l'ouvre (délégation commit).
+      nativeBlocks.forEach(function (b) { if (b && b.type === "cta" && b.action === "commit" && b.prefill) _lastCommitPrefill = { prefill: b.prefill, origin: b.origin || null }; });
       return [...blocks, ...nativeBlocks.filter(function (b) { return b && b.type !== "register"; })];
     }
 

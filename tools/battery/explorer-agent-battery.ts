@@ -22,6 +22,7 @@ import { toApiMessages } from "../../src/lib/explorer/agentTurn";
 import { listClassDispositifs } from "../../src/lib/dispositifs/bestPractices";
 import { loadSiteEntities } from "../../src/lib/explorer/entityResolver";
 import { operationLife, readDispositifFamille } from "../../src/lib/dispositifs/dispositifFamille";
+import { planPeriod } from "../../src/lib/explorer/planPeriod";
 import { computeSalesReport } from "../../src/lib/rapport/ventes";
 import { readResultat } from "../../src/lib/kpi/resultat";
 import { readPoleClassement } from "../../src/lib/dispositifs/poleClassement";
@@ -56,6 +57,8 @@ const BATTERY: Case[] = [
   // § 7 couche 3 (13/09) — ex _dispositifs_v1 et _dispositif_famille_v1.
   { q: "Quelles bonnes pratiques ai-je documentées ?", tools: ["lire_dispositifs_documentes"], answerMatch: /documenté|dispositif/i, vetted: true },
   { q: "Pendant le Corner de vente producteur, qu'a fait la famille Coffee ?", tools: ["lire_operation_famille"], answerMatch: /Coffee/, vetted: true, blocks: ["table"] },
+  // § 7 couche 4 (13/09) — ex _plan_period_v1 : le plan de période composé (diagnostic puis plan).
+  { q: "Planifie-moi octobre.", tools: ["composer_plan"], answerMatch: /octobre|10\/2026/i, vetted: true, blocks: ["table"], maxSeconds: 60 },
   // § 9 incrément 6 — une question COMPOSÉE : lire (familles face aux jours) puis préparer une Proposition d'opération sur ce qui a été lu.
   { q: "Quelle famille souffre le plus de la pluie ? Propose-moi une opération sur cette famille pour samedi prochain.", tools: ["lire_familles_face_aux_jours", "proposer_operation"], answerMatch: /Préparer l'opération|proposition/i, vetted: true, blocks: ["proposition_operation"], maxSeconds: 40 },
 ];
@@ -78,6 +81,7 @@ async function ask(q: string) {
     siteEntities: () => loadSiteEntities(bq, LOC, ""),
     operationLife: (sid) => operationLife(bq, LOC, sid, today()),
     runOperationFamille: (op, fams, s, e, kpi) => readDispositifFamille(bq, LOC, op, fams, s, e, today(), kpi),
+    runPlan: (s, e) => planPeriod(bq, LOC, s, e, { userId: null }),
     runVentes: (s, e) => computeSalesReport(bq, { location_id: LOC, owned: [LOC], start: s, end: e }),
     runResultat: () => readResultat(bq, LOC),
     runPolesClassement: (s, e) => readPoleClassement(bq, LOC, s, e),

@@ -301,7 +301,19 @@ par capacité, jamais par site.
    juge 4,9/5 ; « Pendant le Corner de vente producteur, qu'a fait la famille Coffee ? » 10 s, 4,7/5 ; batterie agent
    verte (Corner × Coffee 6,8 s, vérifiée). Vu : le mot « attendu » d'un test de confirmation écrit dans une fiche fait
    tomber la phrase du modèle qui le cite (relecture) — la fiche elle-même reste dans les blocs.
-4. `_report_nav_v1`, `_plan_period_v1`, `_plan_why_v1` → `composer_rapport`.
+4. `_report_nav_v1`, `_plan_period_v1`, `_plan_why_v1` — **RENTRÉES le 13/09**. Le rapport à la demande (« fais-moi le
+   rapport de juillet ») et le bilan d'une période écoulée (« comment se sont passées mes journées de juin-juillet ? »)
+   sont COMPOSÉS par l'agent (`composer_rapport`, modèle ventes, la période résolue dite dans la question) — le document
+   imprimable reste à un clic (le CTA approuvé « Générer le rapport pour cette période », en bloc `cta`) ; le verdict
+   chiffré que la sortie bilan composait est la section Chiffre d'affaires du Rapport. Le plan de période et son
+   pourquoi passent par un outil dédié, `composer_plan(du, au, pourquoi?)` — LE composeur `planPeriod.ts` (diagnostic
+   d'abord, owner 27/08) rendu en blocs (`planToBlocks` : titres, tables, faits ; les références web en segments « Web —
+   non vérifié », hors de la porte ; le CTA « M'engager » pré-rempli porté par le bloc `cta`, que le client lit — ie-prompt.js
+   `?v=57`) — et non par `composer_rapport` comme cette ligne le prévoyait : un plan porte sur ce qui vient, un Rapport
+   sur l'écoulé. Producteurs `agent_composer_rapport`, `agent_composer_plan`. Preuves : batterie qualité « Planifie-moi
+   octobre. » 26 s, juge 4,1/5 ; « comment se sont passées mes journées de juin-juillet ? » 13 s, 3,4/5 (R4) ; batterie
+   agent plan 16,8 s vérifiée (deux phrases retirées : « rejouable », mot banni repris d'une section du plan). Le libellé
+   « Composition de votre plan de période » (OUTILS_FR) est proposé, à ratifier.
 5. `_declared_capture_v1` → `ecrire_declaration` (le seul outil d'écriture de plus : les paramètres à
    date d'effet et les marges déclarées, par les foyers existants).
 6. Les couches d'élicitation (`_missing_dates_v1`, `_entity_period_elicit_v1`,
@@ -414,7 +426,8 @@ leur tableau 8-13, preuves du § 8. Rien ne passe en production sans l'essai de 
    la batterie) — une règle « la cible dépasse l'habituel » côté outil demanderait le référentiel du jour (event-form le
    lit via /api/insight/evenement) ; l'essai owner sur la page Explorer suppose que la boucle y soit branchée (§ 7).
 7. **Incrément 7 — la migration** (§ 7), une couche par commit. **Couche 1 (marge) rentrée le 13/09** (§ 7, 1) ;
-   **Couches 2 et 3 rentrées le 13/09** (§ 7, 2-3) ; restent les couches 4 à 6 (rapport, déclarations, élicitations).
+   **Couches 2, 3 et 4 rentrées le 13/09** (§ 7, 2-4) ; restent les couches 5 (déclarations → `ecrire_declaration`) et 6
+   (élicitations → blocs `clarification`).
 8. **Incrément 8 — le pont de marge**, dès les premiers prix d'achat réels ; **le plan coloré**, dès que
    les contours vivent en base (les sept zones d'Épices et Tout sont relevées :
    `zones_poles_epices_et_tout_2026-09-12.json` ; leur table `analytics.space_zones` et sa vue dbt se

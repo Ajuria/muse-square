@@ -45,7 +45,6 @@ import { loadSiteEntities, matchEntities } from "../../../lib/explorer/entityRes
 import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
 import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, readEntityWhy, readKpiPeriod } from "../../../lib/explorer/entityReading";
 import { readIdeaPlacement } from "../../../lib/dispositifs/ideaPlacement";
-import { planPeriod, buildPlanBlocks, buildPlanWhyBlocks } from "../../../lib/explorer/planPeriod";
 import { journalPlan } from "../../../lib/explorer/journalPlan";
 import { signalMetier, horsPerimetreReponse } from "../../../lib/ai/horsPerimetre";
 import { operationLife } from "../../../lib/dispositifs/dispositifFamille";
@@ -62,6 +61,7 @@ import { runAgentTurn } from "../../../lib/explorer/agentTurn";
 import { dispositifLigneFr as dispoLineFr } from "../../../lib/dispositifs/dispositifsDocumentes";
 import { GET as photosGET } from "../dispositifs/photos";
 import type { PhotoBytes, PhotoInfo } from "../../../lib/explorer/agentTools";
+import type { AnswerBlock } from "../../../lib/explorer/blocks";
 const _photosUrl = (q: string) => new URL(`http://internal/api/dispositifs/photos?${q}`);
 async function agentReadPhotos(locals: any, dispositif_id: string): Promise<PhotoInfo[]> {
   const res: Response = await (photosGET as any)({ url: _photosUrl(`dispositif_id=${encodeURIComponent(dispositif_id)}`), locals });
@@ -2415,7 +2415,7 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
     // prose, puis les blocs des outils — le client les rend tels quels (ie-prompt.js) ; la pastille vient de meta.register.
     // `_agentMargeCeTour` : une marge déclarée dans ce tour (posée plus bas par la capture) passe à lire_marge.
     let _agentMargeCeTour: { pct: number; declarant_name: string | null; corrected_at: string | null } | null = null;
-    const repondreParAgent = async (capacite: string, question: string) => {
+    const repondreParAgent = async (capacite: string, question: string, extra?: { blocks?: AnswerBlock[]; primary?: any }) => {
       const _agBq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
       const _agUser = clerk_user_id || "dev-bypass";
       const _agLocals = bypass && !(locals as any)?.clerk_user_id ? { clerk_user_id: _agUser, all_location_ids: [location_id] } : locals;
@@ -2428,8 +2428,9 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
       });
       const _agProducer = _agTurn.grounding.register === "vetted" ? `agent_${capacite}` : `agent_${capacite}_non_verifie`;
       sinkTelemetry(location_id, "agent-answer", { capacite, register: _agTurn.grounding.register, outils: _agTurn.tool_calls.map((c) => c.name).join(",") });
-      const _agBlocks = [...(_agTurn.text ? [{ type: "prose", md: _agTurn.text }] : []), ..._agTurn.blocks.filter((b) => b.type !== "register")];
-      return sysDialogueResponse("", _agTurn.text, _agProducer, null, { blocks: _agBlocks, agent: { tool_calls: _agTurn.tool_calls.map((c) => ({ name: c.name, summary: c.summary, ms: c.ms })), ungrounded_numbers: _agTurn.grounding.ungrounded_numbers, relecture: { phrases_retirees: _agTurn.relecture.phrases_retirees } } });
+      const _agBlocks: AnswerBlock[] = [...(_agTurn.text ? [{ type: "prose", md: _agTurn.text } as AnswerBlock] : []), ..._agTurn.blocks.filter((b) => b.type !== "register"), ...(extra?.blocks ?? [])];
+      // Un CTA « M'engager » pré-rempli par un outil (composer_plan) : le client lit le prefill sur le bloc lui-même (ie-prompt.js ?v=57).
+      return sysDialogueResponse("", _agTurn.text, _agProducer, extra?.primary ?? null, { blocks: _agBlocks, agent: { tool_calls: _agTurn.tool_calls.map((c) => ({ name: c.name, summary: c.summary, ms: c.ms })), ungrounded_numbers: _agTurn.grounding.ungrounded_numbers, relecture: { phrases_retirees: _agTurn.relecture.phrases_retirees } } });
     };
 
     // ── MODE ENQUÊTE « Reproduire le dispositif gagnant » (pièce 2b, spec atelier § Hiérarchie
@@ -2639,14 +2640,9 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       // Le pourquoi d'un PLAN (5bis) : re-composer le diagnostic et dire la construction de
       // chaque section (santé, motifs avec mélanges NOMMÉS en clair, semaines, pôles).
       if (_why.intent === "plan" && _why.periode) {
-        const _bqpw = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-        const _pw = await planPeriod(_bqpw, location_id, _why.periode.start, _why.periode.end);
-        const _pwB = buildPlanWhyBlocks(_pw);
         _rsvFrameOut = _why; // la conversation continue sur le plan
-        return sysDialogueResponse(
-          _pwB.headline, "", "deterministic_plan_why_v1", null,
-          { plan_sections: _pwB.sections, sources_list: _pwB.sources },
-        );
+        // 13/09 — MIGRATION § 7, couche 4 : `_plan_why_v1` est RETIRÉE — composer_plan(pourquoi = true) sur la période du plan précédent.
+        return repondreParAgent("composer_plan", `${qRaw}\n\n(Le plan précédent portait du ${_why.periode.start} au ${_why.periode.end} — appelle composer_plan avec du, au et pourquoi = true.)`);
       }
       if ((_why.intent === "entity_period" || _why.intent === "autre") && _why.entity_names?.length && _why.periode) {
         const _whyEnts = _why.entity_names
@@ -2783,18 +2779,10 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         ? { start: _rsv.periode.start, end: _rsv.periode.end }
         : resolveFrPeriod(qRaw, { today: _plToday, yearBias: "future" });
       if (_plPeriod && _plPeriod.end >= _plToday) {
-        const _bqp = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-        // clerk_user_id ouvre le roster équipe (colonne « Qui » du plan) — même clé que /api/channels/team.
-        const _plan2 = await planPeriod(_bqp, location_id, _plPeriod.start, _plPeriod.end, { userId: clerk_user_id });
-        const _plb = buildPlanBlocks(_plan2);
-        const _plPrimary = _plb.replay_prefill
-          ? { type: "commit_prefill", label: "M'engager", prefill: _plb.replay_prefill.prefill,
-              origin: { origin_action_type: "chat_journal_replay", origin_affected_date: _plb.replay_prefill.date } }
-          : { type: "redirect", url: "/app/insightevent/evenement?new=1", label: "Nouvelle opération" };
-        return sysDialogueResponse(
-          _plb.headline, "", "deterministic_plan_period_v1", _plPrimary,
-          { plan_sections: _plb.sections, sources_list: _plb.sources },
-        );
+        // 13/09 — MIGRATION § 7, couche 4 : `_plan_period_v1` est RETIRÉE — l'agent compose le plan (composer_plan : LE composeur
+        // planPeriod.ts, diagnostic d'abord) sur la période résolue ; « Nouvelle opération » reste à un clic.
+        return repondreParAgent("composer_plan", `${qRaw}\n\n(Période résolue par Muse Square : du ${_plPeriod.start} au ${_plPeriod.end} — appelle composer_plan avec du et au.)`,
+          { blocks: [{ type: "cta", url: "/app/insightevent/evenement?new=1", label: "Nouvelle opération" }] });
       }
     }
 
@@ -2947,12 +2935,10 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           const _repLoc = location_id;
           const _repSiteLabel: string | null = _namedSite ? _namedSite.label : null;
           const _repUrl = `/app/insightevent/rapport?start=${encodeURIComponent(_repStart)}&end=${encodeURIComponent(_repEnd)}&loc=${encodeURIComponent(_repLoc)}`;
-          return sysDialogueResponse(
-            "Rapport de ventes",
-            `Période : du ${_frR(_repStart)} au ${_frR(_repEnd)}${_repSiteLabel ? ` — ${_repSiteLabel}` : ""} — le document complet, imprimable et partageable.`,
-            "deterministic_report_nav_v1",
-            { type: "redirect", url: _repUrl, label: "Générer le rapport pour cette période →" },
-          );
+          // 13/09 — MIGRATION § 7, couche 4 : `_report_nav_v1` est RETIRÉE — l'agent COMPOSE le Rapport (composer_rapport, modèle ventes,
+          // la période résolue) ; le document imprimable reste à un clic (le CTA approuvé, en bloc cta).
+          return repondreParAgent("composer_rapport", `${qRaw}\n\n(Période résolue par Muse Square : du ${_repStart} au ${_repEnd}${_repSiteLabel ? `, site ${_repSiteLabel}` : ""} — appelle composer_rapport avec modele « ventes », du et au.)`,
+            { blocks: [{ type: "cta", url: _repUrl, label: "Générer le rapport pour cette période" }] });
         }
       }
     }
@@ -4558,40 +4544,11 @@ Règles :
           if (_reportEnd) {
             const _frM = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
             const _pastUrl = `/app/insightevent/rapport?start=${encodeURIComponent(selected_date)}&end=${encodeURIComponent(_reportEnd)}&loc=${encodeURIComponent(location_id)}`;
-            // Le VERDICT ouvre la réponse (mémoire lead-with-highlighted-action) ; la ligne
-            // « Période : … » approuvée suit VERBATIM. Règle 13 du lexique : jamais un volume nu —
-            // sans période précédente comparable, le CA ne sort pas et la réponse reste celle
-            // d'avant. Règle 6 : jour de semaine en toutes lettres.
-            const _frInt = (n: number) => Math.round(n).toLocaleString("fr-FR");
-            const _JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
-            let _verdict = "";
-            try {
-              const _vr = _verdictPromise ? (await _verdictPromise)[0] : null;
-              const _rev = Number(_vr?.rev);
-              const _prev = Number(_vr?.prev_rev);
-              const _bestDay = _vr?.best?.day ? String(_vr.best.day).slice(0, 10) : null;
-              const _bestRev = Number(_vr?.best?.rev);
-              if (Number.isFinite(_rev) && _rev > 0 && Number.isFinite(_prev) && _prev > 0) {
-                // MÊME arrondi que `pct` de insight/sales-report.ts (au dixième) : le chat et le
-                // document vers lequel il renvoie doivent afficher LE MÊME nombre.
-                const _pct = Math.round(((_rev - _prev) / _prev) * 1000) / 10;
-                const _pctFr = String(Math.abs(_pct)).replace(".", ",");
-                _verdict = `Vous avez fait ${_frInt(_rev)} €, ${_pct >= 0 ? "+" : "−"}${_pctFr} % vs période précédente.`;
-                if (_bestDay && Number.isFinite(_bestRev) && _bestRev > 0) {
-                  const _dow = _JOURS[new Date(_bestDay + "T00:00:00Z").getUTCDay()];
-                  _verdict += ` Votre meilleure journée a été le ${_dow} ${_frM(_bestDay)}, avec ${_frInt(_bestRev)} €.`;
-                }
-                _verdict += " ";
-              }
-            } catch (e: any) {
-              console.error("[verdict-rapport] verdict non composé:", e?.message);
-            }
-            return sysDialogueResponse(
-              "Rapport de ventes",
-              `${_verdict}Période : du ${_frM(selected_date)} au ${_frM(_reportEnd)} — le document complet, imprimable et partageable.`,
-              "deterministic_report_nav_v1",
-              { type: "redirect", url: _pastUrl, label: "Générer le rapport pour cette période →" },
-            );
+            // 13/09 — MIGRATION § 7, couche 4 : le bilan d'une période écoulée est un Rapport COMPOSÉ par l'agent (composer_rapport,
+            // modèle ventes, la fenêtre du bilan arrêtée à hier) ; le document imprimable reste à un clic. Le verdict chiffré
+            // que cette sortie composait (CA, écart, meilleure journée) est celui de la section Chiffre d'affaires du Rapport.
+            return repondreParAgent("composer_rapport", `${qRaw}\n\n(Période résolue par Muse Square : du ${selected_date} au ${_reportEnd} — appelle composer_rapport avec modele « ventes », du et au.)`,
+              { blocks: [{ type: "cta", url: _pastUrl, label: "Générer le rapport pour cette période" }] });
           }
         }
         // vw_insight_event_30d_window_surface est une table de fenêtres FIGÉES

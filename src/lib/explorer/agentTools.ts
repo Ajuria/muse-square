@@ -47,6 +47,7 @@ import { composeDispositifsDocumentes, dispositifsToText } from "../dispositifs/
 import type { ClassDispositif } from "../dispositifs/bestPractices";
 import type { SiteEntities, SiteEntity } from "./entityResolver";
 import { dispositifFamilleToBlocks, type DispositifFamilleReading } from "../dispositifs/dispositifFamille";
+import { buildPlanBlocks, buildPlanWhyBlocks, planToBlocks, type PlanPeriodResult } from "./planPeriod";
 import { EVENT_TYPES_ALL } from "../events/eventTypes";
 
 const PROJECT = "muse-square-open-data";
@@ -105,6 +106,8 @@ export interface AgentToolDeps {
   siteEntities: () => Promise<SiteEntities>;
   operationLife: (saved_item_id: string) => Promise<{ start: string; end: string } | null>;
   runOperationFamille: (operation: SiteEntity, familles: SiteEntity[], start: string, end: string, kpi: "transactions" | "basket" | "family_revenue" | "mix" | null) => Promise<DispositifFamilleReading>;
+  // 13/09 (§ 7, couche 4) — le plan de période (lib/explorer/planPeriod.ts planPeriod, le roster par l'auteur).
+  runPlan: (start: string, end: string) => Promise<PlanPeriodResult>;
   // 12/09 (incrément 6) — les faits rendus par les outils déjà appelés dans CE tour : ce que proposer_operation
   // accepte comme « pourquoi » (une phrase dont un chiffre n'y est pas tombe).
   faitsDuTour: () => string[];
@@ -551,5 +554,26 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireDispositifsDocumentes, lireOperationFamille];
+  // ── 13/09 (§ 7, couche 4) — composer_plan : le plan de période (ex _plan_period_v1) et son pourquoi (ex _plan_why_v1) —
+  // LE composeur existant (planPeriod.ts : diagnostic d'abord, plan ensuite, owner 27/08), rendu en blocs.
+  const composerPlan = outil({
+    name: "composer_plan",
+    description: "Votre plan de période, pour une période À VENIR (« planifie-moi octobre ») : le diagnostic d'abord (la santé de l'entreprise, vos pôles, ce que la période va vous coûter, les menaces, ce qui est à portée de main, les chantiers de fond), puis le plan semaine par semaine avec les personnes ; « pourquoi » = la construction de chaque section (d'où vient chaque nombre). Compose depuis vos ventes, vos engagements, vos événements, le calendrier et la météo, la veille, vos motifs mesurés — rien d'inventé, une source vide se dit vide.",
+    inputSchema: z.object({
+      du: z.string().describe("Premier jour de la période à planifier, AAAA-MM-JJ (à venir ou en cours)."),
+      au: z.string().describe("Dernier jour, AAAA-MM-JJ."),
+      pourquoi: z.boolean().optional().describe("true = le pourquoi du plan : la construction de chaque section, chiffres re-joués."),
+    }),
+    run: (args) => timed("composer_plan", args, async () => {
+      const ISO = /^\d{4}-\d{2}-\d{2}$/;
+      if (!ISO.test(args.du) || !ISO.test(args.au) || args.du > args.au) return { out: "Période invalide : deux dates AAAA-MM-JJ, la première avant la seconde.", summary: "période invalide" };
+      if (args.au < deps.today()) return { out: `La période finit le ${frDate(args.au)}, avant aujourd'hui : un plan porte sur ce qui vient — pour l'écoulé, composer_rapport.`, summary: "période passée : pas de plan" };
+      const r = await deps.runPlan(args.du, args.au);
+      const pb = args.pourquoi ? buildPlanWhyBlocks(r) : buildPlanBlocks(r);
+      const b = planToBlocks(pb);
+      return { out: b.facts.map((f) => `• ${f}`).join("\n"), summary: `${args.pourquoi ? "le pourquoi du plan" : "le plan"}, du ${frDate(args.du)} au ${frDate(args.au)} : ${plural(pb.sections.length, "section", "sections")}`, blocks: b.blocks, facts: b.facts };
+    }),
+  });
+
+  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireDispositifsDocumentes, lireOperationFamille, composerPlan];
 }

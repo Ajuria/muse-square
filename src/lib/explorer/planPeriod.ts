@@ -599,3 +599,32 @@ export function buildPlanWhyBlocks(r: PlanPeriodResult): PlanWhyBlocks {
     ],
   };
 }
+
+// ── 13/09 (docs/explorer-outil-spec.md § 7, couche 4) — LES BLOCS POUR L'AGENT : le plan (ou son pourquoi) en blocs du kit —
+// le titre, chaque section (titre, table, faits ; les références web en segments « Web — non vérifié »), les sources,
+// et le CTA « M'engager » pré-rempli quand un dispositif prouvé est rejouable. Les FAITS pour la porte : les faits
+// vérifiés des sections et chaque ligne de table redite (« KPI : 30 derniers jours, les 90 précédents, écart ») — jamais
+// les références web (leurs nombres, cités, laissent la réponse non vérifiée : c'est juste).
+import type { AnswerBlock } from "./blocks";
+export function planToBlocks(pb: PlanBlocks | PlanWhyBlocks): { blocks: AnswerBlock[]; facts: string[] } {
+  const blocks: AnswerBlock[] = [{ type: "prose", md: `**${pb.headline}**` }];
+  const facts: string[] = [pb.headline];
+  for (const sec of pb.sections as PlanSection[]) {
+    if (sec.title) blocks.push({ type: "prose", md: `**${sec.title}**` });
+    if (sec.table && Array.isArray(sec.table.rows) && sec.table.rows.length) {
+      blocks.push({ type: "table", cols: sec.table.cols, rows: sec.table.rows });
+      for (const row of sec.table.rows as Array<{ cells: Array<{ v: string }> }>) {
+        const cells = row.cells.map((c) => String(c.v ?? "").trim()).filter((v) => v && v !== "—");
+        if (cells.length >= 2) facts.push(`${sec.title} — ${cells[0]} : ${cells.slice(1).join(", ")}.`);
+      }
+    }
+    if (Array.isArray(sec.facts) && sec.facts.length) {
+      if (sec.register === "web") for (const f of sec.facts) blocks.push({ type: "segment", register: "web", md: f });
+      else { blocks.push({ type: "facts", items: sec.facts }); facts.push(...sec.facts); }
+    }
+  }
+  if (pb.sources.length) blocks.push({ type: "sources", items: pb.sources });
+  const replay = (pb as PlanBlocks).replay_prefill;
+  if (replay && replay.prefill) blocks.push({ type: "cta", action: "commit", label: "M'engager", prefill: replay.prefill as Record<string, unknown>, origin: { origin_action_type: "chat_journal_replay", origin_affected_date: replay.date } });
+  return { blocks, facts };
+}

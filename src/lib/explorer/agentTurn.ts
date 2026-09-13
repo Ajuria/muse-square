@@ -23,6 +23,7 @@ import { relireTexte, type Relecture } from "../fr/relecture";
 import { listClassDispositifs } from "../dispositifs/bestPractices";
 import { loadSiteEntities } from "./entityResolver";
 import { operationLife, readDispositifFamille } from "../dispositifs/dispositifFamille";
+import { planPeriod } from "./planPeriod";
 
 export const MAX_ITERATIONS = 8;
 export const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -106,6 +107,8 @@ export function agentDeps(bq: any, inp: AgentTurnInput, tool_calls: ToolCallReco
     listDispositifsDocumentes: () => listClassDispositifs(bq, location_id, null, 6),
     siteEntities: () => loadSiteEntities(bq, location_id, inp.user_id),
     operationLife: (sid) => operationLife(bq, location_id, sid, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" })),
+    // 13/09 (§ 7, couche 4) — le plan de période ; le roster équipe par l'auteur (même règle que /api/channels/team).
+    runPlan: (start, end) => planPeriod(bq, location_id, start, end, { userId: inp.user_id }),
     runOperationFamille: (op, fams, start, end, kpi) => readDispositifFamille(bq, location_id, op, fams, start, end, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }), kpi),
     today: () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
     record: (r) => { tool_calls.push(r); inp.onTool?.({ ...r, label_fr: OUTILS_FR[r.name] ?? r.name }); },
