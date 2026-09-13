@@ -44,6 +44,56 @@ it("chaîne >1 version : la section rend chaque version avec verdict, effet SUR 
   expect(html).toContain("(ce test)");
 });
 
+// ── 13/09 (owner) — LA MÉMOIRE VISUELLE : chaque version montre ses photos À CÔTÉ de son verdict ──
+
+const linPhoto = (id: string, label: string, d: string) => ({ photo_id: id, component_key: "k-" + id, label_fr: label, url: "/api/dispositifs/photos?dispositif_id=d1&file=" + id, created_at: d + "T10:00:00Z" });
+const linAvecPhotos = () => {
+  const data: any = baseData();
+  data.lineage = [
+    { commitment_id: "c-v1", version_no: 1, status: "resolved", verdict: "met", window_start: "2026-08-22", window_end: "2026-08-22",
+      effect_pct: 12.4, effect_proven: true, kpi_mention_fr: "", is_current: false,
+      photos: [linPhoto("pa", "Vitrine", "2026-08-21"), linPhoto("pb", "Linéaire", "2026-08-21")], photos_autres: 2 },
+    { commitment_id: "c-v2", version_no: 2, status: "open", verdict: null, window_start: "2026-08-29", window_end: "2026-08-29",
+      effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: true, photos: [], photos_autres: 0 },
+  ];
+  return data;
+};
+
+it("chaque version montre ses photos sous SA ligne — vignette carrée, libellé du composant, date, lien vers l'image entière", () => {
+  const html = String(kit.renderEvolution(linAvecPhotos(), EVOL_COPY));
+  const v1 = html.indexOf("Version 1 —"), v2 = html.indexOf("Version 2 —");
+  const bloc1 = html.slice(v1, v2);
+  expect(bloc1).toContain('data-lin-photos="1"');
+  expect(bloc1).toContain('src="/api/dispositifs/photos?dispositif_id=d1&amp;file=pa&amp;variant=square"');
+  expect(bloc1).toContain('href="/api/dispositifs/photos?dispositif_id=d1&amp;file=pa"');   // l'entière, pas la vignette
+  expect(bloc1).toContain("Vitrine");
+  expect(bloc1).toContain("21/08/2026");
+  expect(bloc1).toContain("+ 2 autres");                                                    // rien n'est perdu en silence
+  expect(bloc1).not.toContain("k-pa");                                                      // jamais la clé technique
+});
+
+it("une version SANS photo le dit, quand les autres en ont (l'absence se voit, elle ne se devine pas)", () => {
+  const html = String(kit.renderEvolution(linAvecPhotos(), EVOL_COPY));
+  expect(html.slice(html.indexOf("Version 2 —"))).toContain("Aucune photo de cette version.");
+});
+
+it("aucune version n'a de photo : AUCUN emplacement, aucune mention — un cadre vide ne raconte rien", () => {
+  const data: any = linAvecPhotos();
+  data.lineage.forEach((v: any) => { v.photos = []; v.photos_autres = 0; });
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("Historique du dispositif");
+  expect(html).not.toContain("data-lin-photos");
+  expect(html).not.toContain("Aucune photo");
+});
+
+it("une chaîne servie par une version ANCIENNE de l'API (sans champ photos) rend l'historique comme avant", () => {
+  const data: any = linAvecPhotos();
+  data.lineage.forEach((v: any) => { delete v.photos; delete v.photos_autres; });
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("Version 1 — du 22/08/2026 au 22/08/2026 : objectif atteint");
+  expect(html).not.toContain("data-lin-photos");
+});
+
 it("V1 seule (lineage vide) : aucune section — une racine n'a pas d'historique à raconter", () => {
   const html = String(kit.renderEvolution(baseData() as any, EVOL_COPY));
   expect(html).not.toContain("Historique du dispositif");

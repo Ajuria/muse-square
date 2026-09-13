@@ -33,7 +33,7 @@ import { readComponents, dispositifTypeLabelFr, checklistFor, expositionLabelFr 
 import { listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
 import {
   PHOTO_MAX_BYTES, makeStorageClient, photoObjectPath, photoGcsUri, putPhotoObject, deletePhotoObject, putPhotoVariants, getPhotoVariant, parsePhotoVariant,
-  insertPhotoRow, listPhotoRows, latestPerComponent, listSiteItems, withConfirmedItems, type PhotoRow,
+  insertPhotoRow, listPhotoRows, latestPerComponent, listSiteItems, withConfirmedItems, photoApiUrl, type PhotoRow,
 } from "../../../lib/dispositifs/dispositifPhotos";
 import { PHOTO_PROMPT_VERSION, photoQuestions, photoExtractionSchema, photoExtractionSystem } from "../../../lib/ai/photoExtraction";
 import { validatePhotoExtraction } from "../../../lib/ai/contracts/photoExtractionChecks";
@@ -67,8 +67,8 @@ async function readDispositif(bq: any, dispositif_id: string, version_no: number
   };
 }
 
-const photoUrl = (dispositif_id: string, photo_id: string) =>
-  `/api/dispositifs/photos?dispositif_id=${encodeURIComponent(dispositif_id)}&file=${encodeURIComponent(photo_id)}`;
+// L'adresse de l'image : le foyer est dans la lib (l'historique du dispositif la rend aussi, 13/09).
+const photoUrl = photoApiUrl;
 
 // La photo telle que la page la rend : les QUESTIONS du registre (clé + libellé) pour lire la
 // check-list, et la désignation des articles reconnus (jamais un code nu à l'écran).

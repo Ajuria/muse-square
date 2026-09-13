@@ -1732,6 +1732,32 @@
       var _linVerdict = { met: 'objectif atteint', missed: 'objectif manqu\u00e9', confounded: 'objectif non concluant (vacances)' };
       var _linFrD = function (iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : ''; };
       var _linPct = function (n) { if (n == null) return ''; var v = Math.round(Math.abs(Number(n)) * 10) / 10; return (Number(n) >= 0 ? '+' : '\u2212') + String(v).replace('.', ',') + ' %'; };
+      // 13/09 (owner : « la valeur ajoutée est de garder la mémoire visuelle des dispositifs qui ont
+      // fonctionné ou non au niveau de l'agencement ») — chaque version montre SES photos à côté de SON
+      // verdict : on voit ce que le rayon était le jour où ça a marché. Vignette = la variante carrée
+      // (192 px, ~10 Ko) ; l'image entière s'ouvre dans un onglet. Tant qu'AUCUNE version n'a de photo,
+      // la rangée n'existe pas — un emplacement vide ne raconte rien.
+      var _linAvecPhoto = _lin.some(function (v) { return Array.isArray(v.photos) && v.photos.length; });
+      var _linPhotos = function (v) {
+        if (!_linAvecPhoto) return '';
+        var ph = Array.isArray(v.photos) ? v.photos : [];
+        if (!ph.length) return '<div style="font-size:12px;color:#6B7280;margin:2px 0 8px 0;">' + esc(t('lin_photo_none')) + '</div>';
+        var reste = Number(v.photos_autres) || 0;
+        return '<div data-lin-photos="' + esc(String(v.version_no)) + '" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin:4px 0 10px 0;">'
+          + ph.map(function (p) {
+              var thumb = String(p.url || '');
+              if (thumb && thumb.indexOf('variant=') < 0) thumb += (thumb.indexOf('?') < 0 ? '?' : '&') + 'variant=square';
+              var d = String(p.created_at || '').slice(0, 10);
+              var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+              return '<a href="' + esc(String(p.url || '')) + '" target="_blank" rel="noopener" style="text-decoration:none;color:#6B7280;display:block;width:72px;">'
+                + '<img src="' + esc(thumb) + '" alt="' + esc(p.label_fr || '') + '" title="' + esc((p.label_fr || '') + (dfr ? ' \u2014 ' + dfr : '')) + '" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block;">'
+                + '<div style="font-size:11px;line-height:1.35;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.label_fr || '') + '</div>'
+                + (dfr ? '<div style="font-size:11px;line-height:1.35;">' + esc(dfr) + '</div>' : '')
+                + '</a>';
+            }).join('')
+          + (reste > 0 ? '<div style="font-size:12px;color:#6B7280;align-self:center;">' + esc(t(reste > 1 ? 'lin_photo_autres' : 'lin_photo_autre', { n: reste })) + '</div>' : '')
+          + '</div>';
+      };
       lineageB = '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;">'
         + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Historique du dispositif</div>'
         + _lin.map(function (v) {
@@ -1746,7 +1772,8 @@
             var _linInner = v.is_current || !v.commitment_id
               ? esc(line)
               : '<a href="' + esc(msEngagementUrl(String(v.commitment_id))) + '" style="color:#1D3BB3;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;">' + esc(line) + '</a>';
-            return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + _linInner + (v.is_current ? ' <span style="color:#6B7280;font-weight:500;">(ce test)</span>' : '') + '</div>';
+            return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + _linInner + (v.is_current ? ' <span style="color:#6B7280;font-weight:500;">(ce test)</span>' : '') + '</div>'
+              + _linPhotos(v);
           }).join('')
         + '</div>';
     }

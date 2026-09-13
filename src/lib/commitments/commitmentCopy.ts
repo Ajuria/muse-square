@@ -186,6 +186,13 @@ export const EVOL_COPY = {
   // (« ce qui est groupé avec quoi, ce qui est à hauteur d'œil… ») au lieu de dire ce que l'exploitant y gagne.
   // CLAUDE.md § copie règle 8 : la surface d'abord, la ligne ensuite. La photo sera demandée avec son gain le jour où
   // l'historique du pôle montrera la photo de chaque version à côté de son verdict — pas avant.
+  // 13/09 — l'historique du dispositif montre les photos de chaque version à côté de son verdict
+  // (owner : « garder la mémoire visuelle des dispositifs qui ont fonctionné ou non au niveau de
+  // l'agencement »). L'absence se dit, comme celle des composants juste au-dessus ; les deux autres
+  // libellés (« + N autres ») comptent ce qui ne tient pas dans la rangée, jamais un « … » muet.
+  lin_photo_none: "Aucune photo de cette version.",
+  lin_photo_autre: "+ {n} autre",
+  lin_photo_autres: "+ {n} autres",
   pole_components_none: "Aucun composant déclaré pour l'instant.",
   // Photos des composants (étape 4, 03/09). « Documenter » = le CTA owner qui mène ici ; « photo »
   // = le mot employé par l'owner (D6, 03/09). Les réponses sont celles du formulaire de lecture.

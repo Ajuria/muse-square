@@ -9,6 +9,7 @@ import type { APIRoute } from "astro";
 import { parseScope, scopeFromFamily, scopeFilter, scopeLabelFr, type MeasuredScope } from "../../../lib/commitments/measuredScope";
 import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpi/kpiRegistry";
 import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifs/dispositifTypes";
+import { listPhotoRows, photosParVersion } from "../../../lib/dispositifs/dispositifPhotoRows";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
@@ -166,6 +167,10 @@ async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], 
 async function buildLineage(bq: any, snap: any): Promise<any[]> {
   let lineage: any[] = [];
   if ((snap as any).dispositif_id) {
+    // 13/09 — LA MÉMOIRE VISUELLE (owner) : les photos des composants de TOUTES les versions du
+    // dispositif, amorcées ICI (elles ne dépendent que du dispositif_id) et attendues après la
+    // chaîne — un aller-retour de plus en parallèle, jamais en série (§ Performance, budget 3 s).
+    const photosP = listPhotoRows(bq, String((snap as any).dispositif_id)).catch(() => []);
     const [lrows] = await bq.query({
 
       query: `SELECT commitment_id, version_no, status, verdict, measured_metric, measured_scope,
@@ -206,6 +211,10 @@ async function buildLineage(bq: any, snap: any): Promise<any[]> {
       };
     });
     if (lineage.length < 2) lineage = [];
+    // Chaque version porte ses vignettes (la dernière photo par composant). Aucune photo = le champ
+    // reste vide et la page ne rend AUCUN emplacement : une mémoire qui n'existe pas ne se montre pas.
+    const parVersion = photosParVersion(await photosP, dispositifTypeLabelFr);
+    for (const v of lineage) { const p = parVersion[v.version_no]; v.photos = p ? p.photos : []; v.photos_autres = p ? p.autres : 0; }
     }
   return lineage;
 }
