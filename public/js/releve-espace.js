@@ -413,6 +413,12 @@
     run.items.push({ seq: run.seq, t: tOff(), at: new Date().toISOString(), pole: run.pole, sharp: shot.sharp, bright: shot.bright, w: shot.w, h: shot.h, manual: !!manual, reason: reason || null, source: shot.source || run.camera, removed: false, dataUrl: shot.dataUrl, comp: run.pole ? prochainComposant(run.pole) : null, etat: "a_rattacher" });
     renderPoles(); dire("releve_etat_gardee");
     if (shot.source !== "file") vraiePhoto(run.items[run.items.length - 1]);
+    // 14/09 — ON ENREGISTRE AU FIL DE LA MARCHE, plus seulement à l'arrêt. Mesuré ce soir : l'owner
+    // avait 5 photos dans le pôle Caisse et `analytics.dispositif_photos` était à 0 — rien ne partait
+    // avant « Fin du relevé », et la feuille des pôles cachait ce bouton. Quitter la page perdait
+    // tout. La file est la même, séquentielle et non bloquante ; « Fin du relevé » finit le reste.
+    // Le délai laisse la vraie photo remplacer l'image du flux avant l'envoi.
+    setTimeout(enregistrerTout, 1200);
     if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) { try { navigator.vibrate(30); } catch (e) {} }
   }
   $("fileIn").addEventListener("change", function (ev) {

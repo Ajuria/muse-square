@@ -271,6 +271,16 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
    une correction de la 1re en N° 7 → les trois lignes retirées (ph1, ph2, ph3) et réécrites sur
    p7, p8, p14, « 3 enregistrées. ».
 
+   **ON ENREGISTRE AU FIL DE LA MARCHE (14/09 soir)** — mesuré : l'owner avait 5 photos dans le pôle
+   Caisse et `analytics.dispositif_photos` était à 0. Rien ne partait avant « Fin du relevé », et la
+   feuille des pôles cachait ce bouton : quitter la page perdait tout. La file (la même, séquentielle,
+   non bloquante) démarre désormais 1,2 s après chaque photo gardée — le délai laisse la vraie photo
+   remplacer l'image du flux. « Fin du relevé » finit le reste. Vérifié au harnais : deux photos
+   écrites pendant la marche, sans avoir touché le bouton.
+   **Et la feuille des pôles ne cache plus le bouton** : la pastille du pôle ne prend plus toute la
+   largeur (un toucher en haut de l'image ouvrait la feuille), la feuille tombe sous la pastille et
+   s'arrête à 180 px du bas, le bouton et la pastille passent au-dessus d'elle.
+
    **Reste à faire sur téléphone (owner)** : iPhone 17 + un Android, une boucle complète en magasin — faux
    points focaux en marchant, problèmes affichés à tort ou manqués, netteté médiane, durée, repli iOS. Le
    compte rendu JSON (« Compte rendu », sans image) se joint à l'arbitrage.
