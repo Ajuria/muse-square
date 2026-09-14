@@ -90,6 +90,10 @@ ne pas insister le même jour. Le rejeu de la même heure n'envoie rien de plus.
 
 - **Ce qui manque n'est donc pas du code, c'est une cadence ACTIVE.** Au dernier relevé (13/09) : un seul
   envoi depuis toujours (l'essai du 12/09) et la seule cadence créée a été désactivée 27 secondes après.
+  **Re-relevé le 14/09, INCHANGÉ** : 1 envoi (12/09 21:26), 1 cadence, état courant INACTIF. Piège à
+  connaître : `report_schedules` est append-only VERSIONNÉE — un `COUNTIF(actif)` brut compte les versions
+  périmées et rend « 1 active » alors qu'il n'y en a aucune. L'état se lit sur la DERNIÈRE version par
+  `schedule_id` (ROW_NUMBER), jamais sur la table nue.
   Le cron n'a rien à faire, et le rail n'a jamais été vu partir seul.
 - **Le geste** : sur la page Rapports, « Envoyer chaque… » sous un Modèle, cadence quotidienne à la
   prochaine heure ronde. `GET /api/cron/report-sends?dry=1` (en-tête `Bearer CRON_SECRET`) liste ce qui
@@ -98,14 +102,42 @@ ne pas insister le même jour. Le rejeu de la même heure n'envoie rien de plus.
   cron qui ne renvoie pas.
 - **Décision owner** : un PDF en pièce jointe est-il attendu ? Il n'en existe aucun aujourd'hui.
 
-## 3. L'outil de capture de l'espace — un proto, rien de plus
+## 3. L'outil de capture — il EXISTE et il n'a jamais écrit une ligne
 
-- **Existe** : `tools/proto/releve-espace-proto.html`. Il ne nomme aucun composant et n'écrit rien en base.
-- **Manque** : tout ce qui en ferait une surface — une page de l'app, l'écriture des photos, le nom composé
-  (type + famille reconnue) produit à la capture.
-- **À noter** : depuis le 03/09, « Documenter → » sur la page d'un pôle prend déjà une photo au téléphone et
-  l'écrit. La question ouverte est donc : cet outil de parcours sert-il encore, ou le geste par composant
-  suffit-il ? **Décision owner attendue avant d'écrire une ligne de code.**
+- **Existe** (14/09) : « Documenter » dans Piloter ouvre l'appareil photo SANS page intermédiaire
+  (`public/js/photo-capture.js` — la navigation perdait le geste utilisateur que le navigateur exige),
+  pose deux questions et deux seulement (le pôle, puis le composant), et POSTe.
+- **Le rail est VÉRIFIÉ, sans téléphone** : `tools/harness/capture-rail-verify.mts` — 7 pôles, 52
+  composants, tous nommés et avec leur clé. Rien ne bloque l'écriture côté contexte.
+- **Manque, et c'est tout ce qui manque** : QU'UNE PHOTO SOIT PRISE. `analytics.dispositif_photos` compte
+  **0 ligne, sur tous les sites** (mesuré le 14/09). Aucune surface qui dépend d'une photo n'a donc jamais
+  été vue rendre : ni le volet « Voir la photo précédente », ni le versionnage par la photo, ni les
+  articles reconnus, ni le périmètre déduit d'une photo confirmée.
+- **Filet posé AVANT le test** (14/09) : `tools/oneoff/2026-09-14-supprimer-photos-test.mts` défait une
+  photo de test entièrement (ligne, image + 2 variantes, et la version née avec ses mesures recopiées).
+  Blanc par défaut, refuse de toucher une version 1. Prouvé sur lignes factices : 0/93/118 → 1/94/119 →
+  0/93/118. À SUPPRIMER après le nettoyage.
+- **Preuve exigée** : deux photos du même composant sur le pôle Caisse (le plus petit CA, donc la version 2
+  la moins gênante si elle naît) — elles prouvent le rail ET le volet des précédentes d'un coup.
+- **Décision owner, toujours ouverte** : `tools/proto/releve-espace-proto.html` (l'outil de PARCOURS, qui
+  n'écrit rien) sert-il encore, ou le geste par composant suffit-il ?
+
+## 3 bis. La page d'un pôle — quatre sections sur cinq PROUVÉES, une non
+
+Les cinq points du plan du 14/09 sont codés et poussés. Ce qui les sépare :
+
+- **Prouvé sur f10c3e58, les 7 pôles** (`tools/harness/pole-page-verify.mts`, le vrai endpoint → le vrai
+  kit) : l'espace, la comparaison aux autres pôles, la décomposition (volume, panier, mix) et le plan au
+  sol avec le pôle courant contouré. 0 nombre mal formaté, 0/7 hors budget (le plus lent 1 710 ms).
+- **NON prouvé** : le volet des photos précédentes (§ 3 — il n'existe aucune photo).
+- **Reste ouvert, dans l'historique du dispositif, et atteignable par PERSONNE aujourd'hui** : les 7 pôles
+  sont en version 1, donc « Historique du dispositif » ne s'affiche sur aucun. Les deux trous qui y vivent
+  — l'historique qui ne commence qu'à la v2, et le « + N autres » qui ne mène nulle part — n'ont donc
+  aucune urgence : ils s'ouvriront le jour où une version 2 existera.
+- **À MESURER, non fait** : une écriture dans `analytics` invalide le cache BigQuery et fait monter la
+  page suivante à **5 522 ms** (mesuré le 14/09, budget dur 3 s), avant de redescendre à 1,4-2,6 s. C'est
+  exactement le moment où l'exploitant vient d'agir. Non mesuré : ce que ça coûte en conditions réelles
+  (Vercel, après une photo au téléphone) et s'il faut l'amortir.
 
 ## 4. Les quatre élicitations de `prompt.ts` (spec Explorer § 7, point 6)
 
