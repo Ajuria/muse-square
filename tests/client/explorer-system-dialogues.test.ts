@@ -29,7 +29,7 @@ describe("dialogues système — headline + prose rendus, sans pilule", () => {
   it("renvoi rapport : le verdict chiffré est un bloc prose, puis le CTA", () => {
     const out = env("deterministic_report_nav_v1", "Rapport de ventes",
       "Vous avez fait 12 574 €, +0,7 % vs période précédente. Votre meilleure journée a été le jeudi 27/08/2026, avec 2 243 €. Période : du 24/08/2026 au 30/08/2026 — le document complet, imprimable et partageable.",
-      { actions: { primary: { type: "redirect", url: "/app/insightevent/rapport?start=2026-08-24&end=2026-08-30", label: "Générer le rapport pour cette période →" } } });
+      { actions: { primary: { type: "redirect", url: "/app/insightevent/rapport-ventes?start=2026-08-24&end=2026-08-30", label: "Générer le rapport pour cette période →" } } });
     const blocks = (window as any).__ieBlocksFromResponse(out);
     expect(types(blocks)).toEqual(["headline", "prose", "cta"]);
     expect(blocks[1].md).toContain("12 574 €");

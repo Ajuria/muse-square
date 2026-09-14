@@ -40,7 +40,7 @@ export const SECTIONS_VENTES: SectionCle[] = ["chiffre_affaires", "volume", "pan
 /** Plus aucune section « pas encore composée » depuis le 12/09 (owner : le contexte est le différenciateur) — la liste reste pour le test. */
 export const SECTIONS_PAS_ENCORE: SectionCle[] = [];
 
-const RAPPORT_VENTES_URL = "/app/insightevent/rapport";
+const RAPPORT_VENTES_URL = "/app/insightevent/rapport-ventes";
 
 export function composeRapport(inp: ComposeInput): ComposeResult {
   const facts: string[] = [];

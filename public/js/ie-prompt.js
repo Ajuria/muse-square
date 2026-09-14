@@ -1861,7 +1861,7 @@ if (!root) {
         }
         if (out.refresh_requested) h += '<div style="font-size:12px;color:#6b7280;margin-top:8px;">Vos indicateurs et cartes seront actualisés sous peu.</div>';
         if ((st === "ok" || st === "partial") && out.date_range && out.date_range[0]) {
-          var url = "/app/insightevent/rapport?start=" + encodeURIComponent(out.date_range[0]) + "&end=" + encodeURIComponent(out.date_range[1]) + (locId ? "&loc=" + encodeURIComponent(locId) : "");
+          var url = "/app/insightevent/rapport-ventes?start=" + encodeURIComponent(out.date_range[0]) + "&end=" + encodeURIComponent(out.date_range[1]) + (locId ? "&loc=" + encodeURIComponent(locId) : "");
           h += '<a href="' + url + '" style="display:inline-block;margin-top:14px;background:#1D3BB3;color:#fff;text-decoration:none;border-radius:6px;padding:9px 16px;font-size:14px;font-weight:600;">Générer le rapport pour cette période →</a>';
         }
         // P3.1-d : premier site importé sur un compte mono-site → le geste multi-site se propose ici.

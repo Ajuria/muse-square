@@ -2869,7 +2869,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           // Le site nommé est résolu UNE fois en tête de route (_namedSite) : location_id le porte déjà.
           const _repLoc = location_id;
           const _repSiteLabel: string | null = _namedSite ? _namedSite.label : null;
-          const _repUrl = `/app/insightevent/rapport?start=${encodeURIComponent(_repStart)}&end=${encodeURIComponent(_repEnd)}&loc=${encodeURIComponent(_repLoc)}`;
+          const _repUrl = `/app/insightevent/rapport-ventes?start=${encodeURIComponent(_repStart)}&end=${encodeURIComponent(_repEnd)}&loc=${encodeURIComponent(_repLoc)}`;
           // 13/09 — MIGRATION § 7, couche 4 : `_report_nav_v1` est RETIRÉE — l'agent COMPOSE le Rapport (composer_rapport, modèle ventes,
           // la période résolue) ; le document imprimable reste à un clic (le CTA approuvé, en bloc cta).
           return repondreParAgent("composer_rapport", `${qRaw}\n\n(Période résolue par Muse Square : du ${_repStart} au ${_repEnd}${_repSiteLabel ? `, site ${_repSiteLabel}` : ""} — appelle composer_rapport avec modele « ventes », du et au.)`,
@@ -4488,7 +4488,7 @@ Règles :
           const _reportEnd = _reportWindowEnd;
           if (_reportEnd) {
             const _frM = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
-            const _pastUrl = `/app/insightevent/rapport?start=${encodeURIComponent(selected_date)}&end=${encodeURIComponent(_reportEnd)}&loc=${encodeURIComponent(location_id)}`;
+            const _pastUrl = `/app/insightevent/rapport-ventes?start=${encodeURIComponent(selected_date)}&end=${encodeURIComponent(_reportEnd)}&loc=${encodeURIComponent(location_id)}`;
             // 13/09 — MIGRATION § 7, couche 4 : le bilan d'une période écoulée est un Rapport COMPOSÉ par l'agent (composer_rapport,
             // modèle ventes, la fenêtre du bilan arrêtée à hier) ; le document imprimable reste à un clic. Le verdict chiffré
             // que cette sortie composait (CA, écart, meilleure journée) est celui de la section Chiffre d'affaires du Rapport.
