@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Relevé — les consignes (proto)</title>
+<!--
+  PROTO (14/09) — CE QUE L'ÉCRAN DIT, ET AVEC QUEL MOT. Arbitrage owner, docs/marche-guidee-spec.md § 5.
+  POURQUOI CE PROTO EXISTE. J'ai livré en production les trois lignes de TRAVAIL de la spec § 5
+  (« Le composant en entier, de face, sans personne dans le champ. » · « Arrêtez-vous deux secondes
+  devant chaque composant. » · « Changez de pôle quand vous changez de pôle. »). La troisième est une
+  TAUTOLOGIE — c'était un mémo pour moi, pas une phrase pour quelqu'un — et « composant », mot owner du
+  03/09 pour le MODÈLE DE DONNÉES, ne se dit pas à quelqu'un qui marche dans son magasin. Retirées de
+  l'écran le 14/09 ; rien ne retourne en production sans le choix de l'owner.
+  LE CSS CI-DESSOUS EST CELUI DE LA PAGE LIVRÉE, extrait de src/pages/app/insightevent/releve.astro —
+  jamais redessiné : ce qu'on voit ici est ce que le téléphone rendra.
+  DEUX AXES, indépendants : la FORME (combien on dit, et où) et LE MOT (comment on nomme l'objet qu'on
+  photographie). Toucher un choix met les deux écrans à jour.
+  Ce fichier meurt dans le commit qui livre la formulation retenue.
+-->
+<style>
+  body { margin:0; background:#eef0f3; font-family:system-ui,-apple-system,sans-serif; color:#111827; }
+  .wrap { display:flex; gap:24px; padding:20px; flex-wrap:wrap; align-items:flex-start; }
+  .cmd { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:14px 16px; width:340px; }
+  .cmd h2 { font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:#6b7280; margin:0 0 8px; }
+  .cmd h2:not(:first-child) { margin-top:18px; }
+  .cmd label { display:block; padding:9px 10px; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:6px; font-size:13.5px; cursor:pointer; }
+  .cmd label:has(input:checked) { border-color:#0b37e5; background:#F5F8FF; }
+  .cmd label small { display:block; color:#6b7280; font-size:12px; margin-top:2px; }
+  .cmd input { margin-right:8px; }
+  .tel { width:402px; }
+  .tel h3 { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:#6b7280; margin:0 0 6px; }
+  .ecran { width:402px; height:812px; border:8px solid #111827; border-radius:34px; overflow:hidden; position:relative; background:#fff; }
+  .ecran .dedans { position:absolute; inset:0; overflow:auto; }
+  .viseur { position:absolute; inset:0; background:#2e3440 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='90'><rect width='120' height='90' fill='%23e8e2d5'/><rect x='0' y='20' width='120' height='3' fill='%23222'/><rect x='0' y='50' width='120' height='3' fill='%23222'/><rect x='10' y='25' width='18' height='22' fill='%238a5a2b'/><rect x='40' y='25' width='18' height='22' fill='%233c6e47'/><rect x='72' y='55' width='18' height='22' fill='%238a5a2b'/></svg>") center/cover; }
+
+      /* Le document : ce qu'on voit AVANT et APRÈS la marche. Pendant, c'est le calque plein écran. */
+      #rl-root { max-width: 760px; margin: 0 auto; padding: 0 16px 90px; color: #111827; }
+      #rl-toolbar { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 12px; }
+      #rl-back { font-size: 14px; color: #6b7280; text-decoration: none; }
+      #rl-clock { font-size: 14px; color: #6b7280; font-variant-numeric: tabular-nums; user-select: none; -webkit-user-select: none; }
+      #rl-title { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
+      #rl-site { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; }
+      #rl-site select, #rl-site > span:first-child { font: inherit; font-size: 15px; color: #111827; border: 0; background: transparent; padding: 0; }
+      #rl-build { font-family: ui-monospace, monospace; font-size: 11px; color: #9CA3AF; }
+      #rl-sans-pole { font-size: 13px; color: #6b7280; margin: 10px 0 0; }
+      #rl-doc { background: #fff; border: 1px solid rgba(0,0,0,0.10); border-radius: 10px; padding: 12px; }
+      #rl-consignes { margin: 0 0 14px; padding-left: 18px; font-size: 14px; line-height: 1.65; color: #374151; }
+      #rl-consignes li { margin-bottom: 2px; }
+      #poles { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 4px; -webkit-overflow-scrolling: touch; }
+      #poles button { flex: 0 0 auto; border: 1px solid rgba(0,0,0,0.08); background: #fff; border-radius: 999px; padding: 10px 14px; font-size: 14px; color: #111827; font-family: inherit; min-height: 44px; }
+      #poles button.on { background: var(--color-brand-blue, #0b37e5); border-color: var(--color-brand-blue, #0b37e5); color: #fff; }
+      #mainBtn { width: 100%; height: 56px; margin-top: 12px; }
+
+      /* ── LE CALQUE DE PRISE DE VUE : plein écran, vertical, l'image et rien qui parasite ── */
+      #capture { position: fixed; inset: 0; z-index: 120; background: #000; overflow: hidden; }
+      body.rl-filme { overflow: hidden; }
+      #cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+      /* Le pôle courant : un seul élément en haut, et c'est LUI qu'on touche pour en changer. */
+      #poleTag { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 12px; right: 12px; display: block; width: auto;
+                 background: rgba(17,24,39,.72); color: #fff; border: 0; border-radius: 999px; padding: 12px 16px; font-size: 15px;
+                 font-family: inherit; text-align: left; min-height: 44px; }
+      /* L'ÉTAT EN MOTS — ce que la marche attend de vous, là, maintenant. Jamais une couleur seule. */
+      /* L'état et le bouton se lisent sur N'IMPORTE QUELLE image : un fond sombre, jamais une ombre de
+         texte seule — une étagère claire l'avalait (vu au harnais, 402 x 812, avant livraison). */
+      #etat { position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+              display: flex; justify-content: center; }
+      #etat:empty { display: none; }
+      #etat::before { content: attr(data-mot); color: #fff; font-size: 17px; line-height: 1.45; text-align: center;
+              background: rgba(17,24,39,.72); border-radius: 999px; padding: 10px 16px; max-width: 100%; }
+      #stopBtn { position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+                 height: 56px; border-radius: 12px; border: 1px solid rgba(255,255,255,.9); background: rgba(17,24,39,.88); color: #fff;
+                 font-family: inherit; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+      #overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 6px;
+                 background: rgba(17,24,39,.62); color: #fff; text-align: center; padding: 24px; }
+      #overlay b { font-size: 24px; font-weight: 600; }
+      #overlay span { font-size: 15px; opacity: .92; }
+      #overlay .ms-btn { margin-top: 14px; border-color: #fff; color: #fff; }
+      #overlay input { display: none; }
+      /* Changer de pôle : une feuille qui monte, touchée depuis le nom du pôle. */
+      #poleSheet { position: absolute; inset: 0; background: rgba(17,24,39,.55); display: flex; align-items: flex-end; }
+      #poleSheetList { background: #fff; width: 100%; max-height: 70%; overflow: auto; border-radius: 14px 14px 0 0; padding: 8px 0 20px; }
+      #poleSheetList button { display: block; width: 100%; text-align: left; padding: 16px 20px; font-size: 16px; font-family: inherit;
+                              color: #111827; background: none; border: 0; border-bottom: 1px solid #F3F4F6; min-height: 56px; }
+      #poleSheetList button.on { color: #fff; background: var(--color-brand-blue, #0b37e5); }
+
+      /* ── LA FIN DU RELEVÉ : une page, une section par pôle, l'enregistrement en arrière-plan ── */
+      #summary { display: none; }
+      #sumEtat { font-size: 13px; color: #374151; background: #F8FAFC; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; }
+      #summary .sec { margin: 0 0 18px; }
+      #summary .sec h3 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #111827; font-weight: 700; margin: 0 0 8px; }
+      #summary .sec .n { font-size: 13px; color: #6b7280; margin: 0 0 6px; }
+      .rl-shot { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F3F4F6; }
+      .rl-shot img { width: 96px; height: 110px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; flex: none; }
+      .rl-shot .c { flex: 1; min-width: 0; }
+      .rl-shot .t { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+      .rl-shot .t b { color: #111827; font-weight: 600; }
+      .rl-shot .w { font-size: 12px; color: #B45309; margin-bottom: 4px; }
+      .rl-shot .qb { display: block; width: 100%; box-sizing: border-box; text-align: left; padding: 10px 12px; margin-bottom: 6px;
+                     border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; font-size: 14px; font-family: inherit; color: #111827; min-height: 44px; }
+      .rl-shot .rm { font-size: 12px; color: #6b7280; background: none; border: 0; font-family: inherit; padding: 4px 0; }
+      #settings { display: none; position: fixed; inset: 0; background: #fff; z-index: 140; overflow: auto; padding: 16px; }
+      #settings h2 { font-size: 16px; margin: 0 0 12px; }
+      #settings label { display: block; margin: 12px 0 4px; font-size: 13px; color: #6b7280; }
+      #settings input[type=number] { width: 100%; border: 1px solid rgba(0,0,0,0.08); border-radius: 6px; padding: 10px; font-size: 15px; }
+      .rl-row { display: flex; gap: 8px; margin-top: 16px; }
+      .rl-row .ms-btn { flex: 1; height: 44px; }
+      a.ms-btn { text-decoration: none; }
+    
+  /* le proto montre les deux écrans côte à côte : le calque n'est pas « fixed » ici */
+  #capture { position:absolute !important; }
+  #rl-root { padding-top:12px; }
+</style></head>
+<body>
+<div class="wrap">
+  <div class="cmd">
+    <h2>La forme</h2>
+    <label><input type="radio" name="f" value="A" checked> A — Rien avant, tout dans le viseur
+      <small>L'écran d'avant ne porte que les pôles et le bouton. Pendant le film, la phrase d'état dit le geste : « Avancez, puis arrêtez-vous deux secondes. » → « Ne bougez plus… » → « Photo gardée. »<br><b>Sacrifice :</b> rien ne prévient que la photo se prend toute seule ; on le découvre à la première.</small></label>
+    <label><input type="radio" name="f" value="B"> B — Une ligne avant
+      <small>« Marchez et arrêtez-vous devant chaque {MOT} : la photo se prend toute seule. »<br><b>Sacrifice :</b> ne dit rien du cadrage ni du changement de pôle.</small></label>
+    <label><input type="radio" name="f" value="C"> C — Trois lignes avant
+      <small>Ce qui se passe · comment cadrer · comment changer de pôle.<br><b>Sacrifice :</b> trois lignes à lire debout, avant de marcher.</small></label>
+    <h2>Le mot</h2>
+    <label><input type="radio" name="m" value="meuble" checked> meuble <small>Le mot du magasin. BANNI au lexique depuis le 03/09 (l. 64) : le rouvrir pour l'écran est une décision, elle t'appartient.</small></label>
+    <label><input type="radio" name="m" value="composant"> composant <small>Ton mot du 03/09 (D1) pour le modèle de données. Juste en base ; contesté à l'écran.</small></label>
+    <label><input type="radio" name="m" value="rayon"> rayon <small>Au lexique : « le mot courant de la zone d'une catégorie, plus proche du pôle que du composant » (typologie § 2). Risque de confusion avec le pôle.</small></label>
+    <label><input type="radio" name="m" value="-"> aucun mot <small>« Arrêtez-vous devant chaque arrêt » n'existe pas : les phrases se réécrivent sans nommer l'objet (« devant ce que vous voulez garder »).</small></label>
+    <h2>Ce qui est déjà tranché</h2>
+    <p style="font-size:12.5px;color:#374151;line-height:1.6;margin:0;">Le plein écran, les quatre éléments du viseur, le pôle choisi une seule fois avant, l'enregistrement à l'arrêt : livrés et vérifiés. Ce proto ne porte QUE les mots.</p>
+  </div>
+
+  <div class="tel"><h3>Avant de commencer</h3>
+    <div class="ecran"><div class="dedans">
+      <div class="ms-container" id="rl-root">
+        <div id="rl-toolbar"><a id="rl-back" href="#">← Retour au tableau de bord</a><span id="rl-clock">0:00</span></div>
+        <h1 id="rl-title">Relevé de l'espace</h1>
+        <div id="rl-site"><select id="rl-site-sel"><option>Muse Square</option></select><span id="rl-build">proto</span></div>
+        <div id="rl-doc">
+          <ul id="rl-consignes"></ul>
+          <nav id="poles"><button class="on">Caisse</button><button>Cave</button><button>Cuisine</button><button>Maison</button></nav>
+          <button id="mainBtn" class="ms-btn">Commencer le relevé</button>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="tel"><h3>Pendant le film</h3>
+    <div class="ecran">
+      <div id="capture"><div class="viseur"></div>
+        <button id="poleTag">Cave · Aucune photo</button>
+        <div id="etat" data-mot="Avancez, puis arrêtez-vous deux secondes."> </div>
+        <button id="stopBtn">Fin du relevé</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var F = { A: [], B: ["Marchez et arrêtez-vous devant chaque {MOT} : la photo se prend toute seule."],
+            C: ["La photo se prend toute seule quand vous vous arrêtez deux secondes.",
+                "Cadrez le {MOT} en entier, de face, sans personne devant.",
+                "Le nom du pôle, en haut, se touche pour en changer."] };
+  // Sans nom d'objet, les mêmes phrases se disent autrement — jamais « chaque  » avec un trou.
+  var SANS_MOT = { B: ["Marchez et arrêtez-vous devant ce que vous voulez garder : la photo se prend toute seule."],
+                   C: ["La photo se prend toute seule quand vous vous arrêtez deux secondes.",
+                       "Cadrez en entier, de face, sans personne devant.",
+                       "Le nom du pôle, en haut, se touche pour en changer."] };
+  function rendre() {
+    var f = document.querySelector('input[name=f]:checked').value;
+    var m = document.querySelector('input[name=m]:checked').value;
+    var lignes = m === "-" ? (SANS_MOT[f] || []) : (F[f] || []).map(function (l) { return l.split("{MOT}").join(m); });
+    var ul = document.getElementById("rl-consignes");
+    ul.innerHTML = lignes.map(function (l) { return "<li>" + l + "</li>"; }).join("");
+    ul.style.display = lignes.length ? "block" : "none";
+  }
+  document.querySelectorAll("input").forEach(function (i) { i.addEventListener("change", rendre); });
+  rendre();
+})();
+</script>
+</body></html>

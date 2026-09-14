@@ -281,10 +281,14 @@ export const EVOL_COPY = {
   // marqués « à arbitrer » — donc jamais écrits à l'écran. Les voici, dans les mots de la spec, en
   // attente de ratification owner. Les décorations muettes (bande des cartes, cadre de couleur) sont
   // retirées : l'état se dit en mots, jamais par un trait dont il faut devenir la légende.
-  releve_consigne_1: "Le composant en entier, de face, sans personne dans le champ.",
-  releve_consigne_2: "Arrêtez-vous deux secondes devant chaque composant.",
-  releve_consigne_3: "Changez de pôle quand vous changez de pôle.",
-  releve_etat_avance: "Avancez jusqu'au composant suivant.",
+  // 14/09 — LES TROIS CONSIGNES SONT RETIRÉES (owner) : c'étaient les lignes de TRAVAIL de la spec § 5,
+  // livrées telles quelles. « Changez de pôle quand vous changez de pôle » est une tautologie — un mémo
+  // pour moi, pas une phrase pour quelqu'un. Les formulations passent par le proto
+  // `tools/proto/releve-consignes-proto.html` et attendent l'arbitrage owner, y compris LE MOT : dans
+  // le modèle de données c'est « composant » (owner 03/09, D1, « meuble » banni le même jour), mais
+  // rien ne dit que ce soit le mot d'une phrase dite à quelqu'un qui marche dans son magasin.
+  // La ligne d'état ne porte plus de nom du tout : elle dit le geste, et rien que le geste.
+  releve_etat_avance: "Avancez, puis arrêtez-vous deux secondes.",
   releve_etat_arret: "Ne bougez plus…",
   releve_etat_gardee: "Photo gardée.",
   releve_etat_pole: "Touchez le nom du pôle pour en changer.",

@@ -125,13 +125,12 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
         <span id="rl-build" title="version">{BUILD}</span>
       </div>
       <div id="rl-doc">
-        <!-- 14/09 (owner, premier essai réel : « Je n'ai eu aucune instruction a l'affichage ») — LES
-             CONSIGNES, à l'écran avant de commencer. Trois lignes, celles de la spec § 5. -->
-        <ul id="rl-consignes">
-          <li>{EVOL_COPY.releve_consigne_1}</li>
-          <li>{EVOL_COPY.releve_consigne_2}</li>
-          <li>{EVOL_COPY.releve_consigne_3}</li>
-        </ul>
+        <!-- 14/09 — LES CONSIGNES SONT RETIRÉES DE L'ÉCRAN, en attente d'arbitrage owner. J'avais livré
+             les trois lignes de travail de la spec § 5 telles quelles ; « Changez de pôle quand vous
+             changez de pôle » est une TAUTOLOGIE (c'était un mémo pour moi, pas une phrase pour
+             quelqu'un), et « composant » — mot owner du 03/09 pour le modèle — ne se dit pas à
+             quelqu'un qui marche dans son magasin. Les formulations se choisissent sur le proto
+             `tools/proto/releve-consignes-proto.html`, pas en production. -->
         <nav id="poles"></nav>
         {poles.length === 0 && <p id="rl-sans-pole">{EVOL_COPY.capture_aucun_pole}</p>}
         <button id="mainBtn" type="button" class="ms-btn" disabled={poles.length === 0}>{EVOL_COPY.releve_commencer}</button>
