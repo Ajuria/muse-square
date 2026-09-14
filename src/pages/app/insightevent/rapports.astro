@@ -343,17 +343,27 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
                 valider: function (texte) { return geste("note", { section: i, texte: texte }, "Votre note"); },
               });
             }));
-            actions.appendChild(mk("Approfondir", function () {
-              editeurDansLeBloc(z, {
+            var approfondirSur = function (bloc, idx) {
+              editeurDansLeBloc(bloc, {
                 titre: "Approfondir", cta: "Demander",
                 placeholder: "Votre question sur cette section.",
                 valider: async function (question) {
                   var tools = el("ul", "rp-tools"); z.appendChild(tools);
                   var r = await composer({ approfondir: { document_id: doc.document_id, section: i, question: question } }, tools, null);
-                  tools.remove(); renderDocument(Object.assign({}, r.document, { ajoutables: r.ajoutables })); loadRapports();
+                  tools.remove();
+                  // 14/09 (owner : « Approfondir s'est refermé comme s'il savait que c'était tout pour moi,
+                  // ce qui est faux »). Une réponse appelle la question suivante : on rouvre l'éditeur sur
+                  // LA MÊME section, vide, curseur dedans. Le document est rendu d'abord (la réponse doit
+                  // être lisible), puis la section est ramenée à l'écran par l'ancre — sinon on rouvrirait
+                  // un champ que l'exploitant ne voit pas.
+                  renderDocument(Object.assign({}, r.document, { ajoutables: r.ajoutables }), { section: i, bouton: null });
+                  loadRapports();
+                  var revenue = docEl.querySelector('[data-rapport-section="' + i + '"]');
+                  if (revenue) approfondirSur(revenue, i);
                 },
               });
-            }));
+            };
+            actions.appendChild(mk("Approfondir", function () { approfondirSur(z, i); }));
             z.appendChild(actions);
           });
           docEl.appendChild(zone);

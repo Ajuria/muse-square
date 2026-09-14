@@ -128,16 +128,58 @@ export function retirerNote(r: RapportBlock, i: number, n: number): RapportBlock
  * blocs de la section `i`, comme un bloc vérifié — la pastille du tour, les blocs, puis le texte. Les notes de la
  * section restent après (on insère avant la première note).
  */
+/**
+ * PUR — L'EMPREINTE D'UN BLOC : ce qu'il MONTRE, sans ce qui l'habille. Deux tableaux aux mêmes colonnes et
+ * aux mêmes cellules sont le même tableau, qu'ils viennent de la section ou de la réponse.
+ */
+export function empreinteBloc(b: AnswerBlock): string {
+  const a = b as any;
+  if (a.type === "table") {
+    return "table|" + (a.cols ?? []).map((c: any) => String(c.label ?? "")).join("¦") + "‖"
+      + (a.rows ?? []).map((r: any) => (r.cells ?? []).map((c: any) => String(c.v ?? "")).join("¦")).join("‖");
+  }
+  if (a.type === "facts") return "facts|" + (a.items ?? []).map((x: any) => String(x).trim()).join("‖");
+  if (a.type === "prose") return "prose|" + String(a.md ?? "").trim();
+  if (a.type === "headline") return "headline|" + String(a.text ?? "").trim();
+  if (a.type === "sources") return "sources|" + (a.items ?? []).map((x: any) => String(x).trim()).sort().join("‖");
+  return a.type + "|" + JSON.stringify(a);
+}
+
+/**
+ * PUR — CE QU'APPROFONDIR N'A PAS À REDIRE (owner 14/09 : « un dupliqué de ce qui était déjà dans le bloc
+ * […] il faut éviter ce comportement, qui va se reproduire partout »).
+ *
+ * Quand on demande « à quoi est-ce dû ? » sous la section Chiffre d'affaires, les outils relancent leurs
+ * lectures et rendent le MÊME tableau que la section affiche déjà, à trois centimètres au-dessus. On le
+ * retire : ce qui reste est ce que l'exploitant n'avait pas — le raisonnement, et les tableaux NOUVEAUX.
+ *
+ * Le retrait est mécanique, jamais un pari sur le type : un tableau neuf (une décomposition par jour, par
+ * exemple) EST la réponse et doit rester. Seule l'identité de contenu compte. Les `sources` d'une réponse
+ * tombent aussi quand la section en a déjà : elles nomment les mêmes lectures.
+ */
+export function sansCeQueLaSectionMontreDeja(dansLaSection: AnswerBlock[], reponse: AnswerBlock[]): AnswerBlock[] {
+  const vues = new Set((dansLaSection ?? []).map(empreinteBloc));
+  const out: AnswerBlock[] = [];
+  for (const b of reponse ?? []) {
+    const e = empreinteBloc(b);
+    if (vues.has(e)) continue;          // déjà sous les yeux : le remontrer n'apprend rien
+    vues.add(e);                        // et deux fois dans la réponse elle-même, une seule fois rendu
+    out.push(b);
+  }
+  return out;
+}
+
 export function approfondirSection(r: RapportBlock, i: number, resultat: { blocks: AnswerBlock[]; text: string; register: Register; question: string }): RapportBlock | GesteErreur {
   if (!dans(r, i)) return { erreur: "section inconnue" };
   const out = clone(r);
   const blocs = out.sections[i].blocs;
   const firstNote = blocs.findIndex((b) => b.type === "note");
   const at = firstNote < 0 ? blocs.length : firstNote;
+  const utiles = sansCeQueLaSectionMontreDeja(blocs, resultat.blocks.filter((b) => b.type !== "register" && b.type !== "rapport"));
   const insert: AnswerBlock[] = [
     { type: "prose", md: `**Approfondir — ${resultat.question.trim()}**` },
     { type: "register", register: resultat.register },
-    ...resultat.blocks.filter((b) => b.type !== "register" && b.type !== "rapport"),
+    ...utiles,
     ...(resultat.text.trim() ? [{ type: "prose", md: resultat.text.trim() } as AnswerBlock] : []),
   ];
   blocs.splice(at, 0, ...insert);
@@ -197,10 +239,18 @@ export function approfondirPrompt(r: RapportBlock, i: number, question: string):
   if (!q) return { erreur: "question vide" };
   const per = s.provenance?.periode ?? { du: r.periode.du, au: r.periode.au };
   const faits = s.blocs.filter((b) => b.type === "facts").flatMap((b: any) => b.items as string[]).slice(0, 12);
+  // 14/09 (owner) — La consigne ne disait que les FAITS de la section. Le modèle ignorait donc que le
+  // tableau du chiffre d'affaires est déjà à l'écran, ses outils le rendaient, et on le recollait trois
+  // centimètres dessous. Il faut lui dire ce que la section MONTRE, pas seulement ce qu'elle affirme.
+  const tableaux = s.blocs.filter((b) => b.type === "table")
+    .map((b: any) => (b.cols ?? []).map((c: any) => String(c.label ?? "")).filter(Boolean).join(" · "))
+    .filter(Boolean).slice(0, 6);
   return [
     `Approfondir la section « ${s.titre} » du Rapport « ${r.titre} », période du ${frDate(per.du)} au ${frDate(per.au)}.`,
     `Relance tes outils sur cette période exactement (du=${per.du}, au=${per.au}), pas sur une autre.`,
     faits.length ? `Ce que la section dit déjà :\n${faits.map((f) => `• ${f}`).join("\n")}` : "",
+    tableaux.length ? `Ce que la section MONTRE déjà, juste au-dessus de ta réponse — tableaux :\n${tableaux.map((t) => `• ${t}`).join("\n")}` : "",
+    "N'AFFICHE PAS CE QUI EST DÉJÀ LÀ. L'exploitant a ces tableaux sous les yeux ; les redonner ne lui apprend rien et lui fait relire deux fois la même chose. Réponds par ce qu'il n'a PAS : le raisonnement, les comptes intermédiaires, et un tableau seulement s'il montre autre chose (une décomposition par jour, par famille, par heure…).",
     `Question de l'exploitant : ${q}`,
   ].filter(Boolean).join("\n\n");
 }
