@@ -58,8 +58,8 @@ try {
   // en parallèle des pôles du site courant — aucun aller-retour en série (budget 3 s).
   const sitesP = _ids.length > 1 ? bq.query({
     query: `WITH noms AS (
-              SELECT location_id, ANY_VALUE(COALESCE(site_name, company_name)) AS label
-              FROM \`${PROJ}.raw.insight_event_user_location_profile\`
+              SELECT location_id, ANY_VALUE(site_name) AS label
+              FROM \`${PROJ}.semantic.vw_insight_event_ai_location_context\`
               WHERE location_id IN UNNEST(@ids) GROUP BY 1),
             p AS (
               SELECT location_id, COUNT(DISTINCT dispositif_id) AS n
