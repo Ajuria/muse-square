@@ -27,6 +27,19 @@ const OUT = process.env.RELEVE_OUT || "/tmp/releve-page.html";
 
 const bq = makeBQClient(P);
 const poles = await listPoles(bq, LOC);
+// Les sites du compte, comme la page les lit (nom + nombre de pôles) : le sélecteur du harnais est le
+// vrai, pas une maquette.
+const [_sitesRows] = await bq.query({
+  query: `SELECT location_id, ANY_VALUE(COALESCE(site_name, company_name)) AS label
+          FROM \`${P}.raw.insight_event_user_location_profile\`
+          WHERE clerk_user_id = (SELECT ANY_VALUE(clerk_user_id) FROM \`${P}.raw.insight_event_user_location_profile\`
+                                 WHERE location_id = @l AND clerk_user_id IS NOT NULL)
+          GROUP BY 1 ORDER BY 2`,
+  params: { l: LOC }, location: "EU",
+});
+const plat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+const sitesDuCompte = (_sitesRows as any[]).map((r) => ({ location_id: String(plat(r.location_id)), label: String(plat(r.label) || "") })).filter((x) => x.label);
+console.log(`  sites du compte        ${sitesDuCompte.length} (${sitesDuCompte.map((x) => x.label).join(", ")})`);
 console.log(`\nLE RELEVÉ DE L'ESPACE — ce que la page proposera sur ${LOC}\n`);
 console.log(`  pôles servis par listPoles : ${poles.length}`);
 let bloques = 0;
@@ -49,7 +62,16 @@ const corps = grab('<div class="ms-container" id="rl-root">', "\n    </div>");
 const styles = grab("<style is:global>", "</style>");
 // Les expressions Astro de la page : `{EVOL_COPY.cle}` et le lien de retour `{"← " + EVOL_COPY.back_pole}`.
 const copy: Record<string, string> = EVOL_COPY as any;
+// Les branches SSR de la page, rendues avec les VRAIES valeurs — sinon le harnais ne prouve plus la
+// page livrée. Chaque substitution est ancrée sur le texte exact du fichier : si la page change, la
+// vérification d'expressions restantes (plus bas) échoue au lieu de rendre une maquette périmée.
+const siteRow = `<div id="rl-site"><select id="rl-site-sel">`
+  + sitesDuCompte.map((x) => `<option value="${x.location_id}"${x.location_id === LOC ? " selected" : ""}>${x.label}</option>`).join("")
+  + `</select><span id="rl-build" title="version">harnais</span></div>`;
 const resolu = corps
+  .replace(/<div id="rl-site">[\s\S]*?<\/div>\s*(?=<div id="rl-doc">)/, siteRow)
+  .replace(/\{poles\.length === 0 && <p id="rl-sans-pole">\{EVOL_COPY\.[A-Za-z0-9_]+\}<\/p>\}/g, poles.length ? "" : `<p id="rl-sans-pole">${copy.capture_aucun_pole}</p>`)
+  .replace(/ disabled=\{poles\.length === 0\}/g, poles.length ? "" : " disabled")
   .replace(/\{"← " \+ EVOL_COPY\.([A-Za-z0-9_]+)\}/g, (_m, k) => "← " + (copy[k] ?? `?${k}`))
   .replace(/\{EVOL_COPY\.([A-Za-z0-9_]+)\}/g, (_m, k) => copy[k] ?? `?${k}`);
 const restantes = resolu.match(/\{[^}]*\}/g);

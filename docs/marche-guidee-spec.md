@@ -223,6 +223,17 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
    qu'une LISTE DE CLÉS écrite à la main, où les consignes et les états manquaient — le filtre est
    désormais par préfixe, le même que le harnais, donc les deux ne peuvent plus diverger par omission.
 
+   **LE SITE, ET LA VERSION (owner 14/09, second essai)** — « Tu ne demandes pas pour quelle location je
+   filme ». Le compte de l'owner porte TROIS sites (Maison Sèvres, Muse Square, Muse Square Occitanie)
+   et un SEUL a des pôles : pris en silence, le relevé s'ouvrait vide sur les deux autres sans rien
+   dire. Même défaut que la carte le 09/09, même correctif : le nom du site est affiché sous le titre,
+   un compte à plusieurs sites bascule par un sélecteur (le nom du site EST son libellé — aucun mot
+   nouveau, patron repris de `map.astro`), et un site sans pôle le DIT (`capture_aucun_pole`) au lieu
+   d'une rangée vide, avec « Commencer le relevé » désactivé.
+   **Et la page porte un MARQUEUR DE VERSION** (`VERCEL_GIT_COMMIT_SHA`, 7 caractères, à droite du nom
+   du site) plus un `cache-control: no-store` : deux essais owner ont eu lieu sur un écran périmé sans
+   que personne puisse le prouver. Une remarque sur l'écran se lit désormais avec sa version.
+
    **Reste à faire sur téléphone (owner)** : iPhone 17 + un Android, une boucle complète en magasin — faux
    points focaux en marchant, problèmes affichés à tort ou manqués, netteté médiane, durée, repli iOS. Le
    compte rendu JSON (« Compte rendu », sans image) se joint à l'arbitrage.

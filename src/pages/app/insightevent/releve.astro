@@ -35,12 +35,46 @@ const _memberIds: string[] = Array.isArray((Astro.locals as any).member_location
 const location_id = (!!url_location_id && (_ownedIds.includes(url_location_id) || _memberIds.includes(url_location_id)))
   ? url_location_id : locals_location_id;
 
+// 14/09 (owner : « Tu ne demandes pas pour quelle location je filme ») — LE SITE EST NOMMÉ, ET SE
+// CHOISIT. Son compte porte TROIS sites et un seul a des pôles : pris en silence, le relevé s'ouvrait
+// vide sur les deux autres, sans rien dire. Même défaut que la carte le 09/09, même correctif : le nom
+// du site est affiché, et un compte à plusieurs sites bascule ici même. Le nombre de pôles est dit
+// DANS la liste — on ne choisit pas un site à l'aveugle.
+// Le cache est INTERDIT sur cette page : sans ça, un téléphone peut rejouer un ancien écran, et
+// personne ne peut dire quelle version a tourné (14/09, deux essais owner sur un écran périmé).
+Astro.response.headers.set("cache-control", "no-store, must-revalidate");
+// Le marqueur de version, affiché : c'est LUI qui répond à « quelle version as-tu exécutée ? ».
+const BUILD = String(process.env.VERCEL_GIT_COMMIT_SHA || "local").slice(0, 7);
+
 // Les pôles du site, avec les composants de leur VERSION COURANTE : la seconde question du relevé
 // (« Quel composant ? ») n'a que ceux du pôle touché, donc trois ou quatre boutons — pas un tri.
 let poles: Array<{ dispositif_id: string; commitment_id: string | null; name: string; components: Array<{ component_key: string; label: string | null; type_label_fr: string | null; role_label_fr: string | null }> }> = [];
+let sites: Array<{ location_id: string; label: string; poles: number }> = [];
 try {
   const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-  poles = (await listPoles(bq, location_id)).map((p) => ({
+  const PROJ = process.env.BQ_PROJECT_ID || "muse-square-open-data";
+  const _ids = Array.from(new Set([location_id, ..._ownedIds, ..._memberIds].filter(Boolean)));
+  // Une seule requête pour les sites du compte : leur nom ET combien de pôles chacun porte. Amorcée
+  // en parallèle des pôles du site courant — aucun aller-retour en série (budget 3 s).
+  const sitesP = _ids.length > 1 ? bq.query({
+    query: `WITH noms AS (
+              SELECT location_id, ANY_VALUE(COALESCE(site_name, company_name)) AS label
+              FROM \`${PROJ}.raw.insight_event_user_location_profile\`
+              WHERE location_id IN UNNEST(@ids) GROUP BY 1),
+            p AS (
+              SELECT location_id, COUNT(DISTINCT dispositif_id) AS n
+              FROM \`${PROJ}.semantic.vw_insight_event_dispositif_components\`
+              WHERE location_id IN UNNEST(@ids) AND status = 'open' GROUP BY 1)
+            SELECT noms.location_id, noms.label, COALESCE(p.n, 0) AS n
+            FROM noms LEFT JOIN p USING (location_id) ORDER BY noms.label`,
+    params: { ids: _ids }, types: { ids: ["STRING"] }, location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []) : Promise.resolve([] as any[]);
+  const polesP = listPoles(bq, location_id);
+  const [_sites, _poles] = await Promise.all([sitesP, polesP]);
+  const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  sites = (_sites as any[]).map((r) => ({ location_id: String(flat(r.location_id)), label: String(flat(r.label) || ""), poles: Number(flat(r.n)) || 0 }))
+    .filter((x) => x.label);
+  poles = _poles.map((p) => ({
     dispositif_id: p.dispositif_id,
     commitment_id: p.commitment_id,
     name: p.name,
@@ -81,6 +115,16 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
         <span id="rl-clock">0:00</span>
       </div>
       <h1 id="rl-title">{EVOL_COPY.releve_titre}</h1>
+      <!-- LE SITE, nommé et choisi (owner 14/09). Même patron que le sélecteur de la carte : le nom du
+           site EST son libellé, aucun mot nouveau. Le marqueur à droite dit quelle version tourne. -->
+      <div id="rl-site">
+        {sites.length > 1
+          ? <select id="rl-site-sel">
+              {sites.map((x) => (<option value={x.location_id} selected={x.location_id === location_id}>{x.label}</option>))}
+            </select>
+          : <span>{(sites[0] && sites[0].label) || ""}</span>}
+        <span id="rl-build" title="version">{BUILD}</span>
+      </div>
       <div id="rl-doc">
         <!-- 14/09 (owner, premier essai réel : « Je n'ai eu aucune instruction a l'affichage ») — LES
              CONSIGNES, à l'écran avant de commencer. Trois lignes, celles de la spec § 5. -->
@@ -90,7 +134,8 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
           <li>{EVOL_COPY.releve_consigne_3}</li>
         </ul>
         <nav id="poles"></nav>
-        <button id="mainBtn" type="button" class="ms-btn">{EVOL_COPY.releve_commencer}</button>
+        {poles.length === 0 && <p id="rl-sans-pole">{EVOL_COPY.capture_aucun_pole}</p>}
+        <button id="mainBtn" type="button" class="ms-btn" disabled={poles.length === 0}>{EVOL_COPY.releve_commencer}</button>
         <div id="summary">
           <div id="sumEtat"></div>
           <div id="sumBody"></div>
@@ -137,6 +182,10 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       #rl-back { font-size: 14px; color: #6b7280; text-decoration: none; }
       #rl-clock { font-size: 14px; color: #6b7280; font-variant-numeric: tabular-nums; user-select: none; -webkit-user-select: none; }
       #rl-title { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
+      #rl-site { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; }
+      #rl-site select, #rl-site > span:first-child { font: inherit; font-size: 15px; color: #111827; border: 0; background: transparent; padding: 0; }
+      #rl-build { font-family: ui-monospace, monospace; font-size: 11px; color: #9CA3AF; }
+      #rl-sans-pole { font-size: 13px; color: #6b7280; margin: 10px 0 0; }
       #rl-doc { background: #fff; border: 1px solid rgba(0,0,0,0.10); border-radius: 10px; padding: 12px; }
       #rl-consignes { margin: 0 0 14px; padding-left: 18px; font-size: 14px; line-height: 1.65; color: #374151; }
       #rl-consignes li { margin-bottom: 2px; }
@@ -203,6 +252,17 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
 
     <script is:inline define:vars={{ RL_POLES: poles, RL_COPY: RELEVE_COPY }}>
       window.MSReleve = { poles: RL_POLES, copy: RL_COPY };
+      // Changer de site RECHARGE la page sur ce site : ses pôles sont lus côté serveur, jamais devinés
+      // côté client. Les paramètres en cours (diagnostic, réglages) sont gardés.
+      (function () {
+        var sel = document.getElementById("rl-site-sel");
+        if (!sel) return;
+        sel.addEventListener("change", function () {
+          var u = new URL(window.location.href);
+          u.searchParams.set("location_id", sel.value);
+          window.location.href = u.toString();
+        });
+      })();
     </script>
     <script is:inline src="/js/photo-capture.js?v=2"></script>
     <script is:inline src="/js/releve-espace.js?v=3"></script>
