@@ -316,7 +316,7 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
             loadRapports();
             if (j.memoire === false) {
               var ou = docEl.querySelector('[data-rapport-section="' + (params && params.section) + '"]') || docEl;
-              var av = el("div", "rp-averti", "Votre note est enregistrée dans ce Rapport, mais elle n'a pas rejoint la mémoire de votre commerce : l'agent ne la relira pas.");
+              var av = el("div", "rp-averti", "Note enregistrée dans ce rapport uniquement.");
               ou.appendChild(av);
             }
           };
