@@ -273,6 +273,31 @@ export const EVOL_COPY = {
   releve_n_photos: "{n} photos",
   releve_non_rattache: "Non rattaché",
   releve_compte_rendu: "Compte rendu",
+  // ── L'ÉCRAN DE PRISE DE VUE (owner 14/09, premier essai réel) ────────────────────────────────────
+  // Verdict owner : « Je n'ai eu aucune instruction a l'affichage (pas guidé du tout) » et « on voit une
+  // ligne rouge horizontale et on ne sait pas a quoi ca sert ». Les consignes étaient SPÉCIFIÉES depuis
+  // le 11/09 (marche-guidee-spec.md § 5 : « le composant en entier, de face, sans personne dans le
+  // champ ; s'arrêter deux secondes ; changer de pôle quand on change de pôle ») et leurs mots étaient
+  // marqués « à arbitrer » — donc jamais écrits à l'écran. Les voici, dans les mots de la spec, en
+  // attente de ratification owner. Les décorations muettes (bande des cartes, cadre de couleur) sont
+  // retirées : l'état se dit en mots, jamais par un trait dont il faut devenir la légende.
+  releve_consigne_1: "Le composant en entier, de face, sans personne dans le champ.",
+  releve_consigne_2: "Arrêtez-vous deux secondes devant chaque composant.",
+  releve_consigne_3: "Changez de pôle quand vous changez de pôle.",
+  releve_etat_avance: "Avancez jusqu'au composant suivant.",
+  releve_etat_arret: "Ne bougez plus…",
+  releve_etat_gardee: "Photo gardée.",
+  releve_etat_pole: "Touchez le nom du pôle pour en changer.",
+  // À la fin : ce que l'exploitant a en main, et ce qui lui reste à faire. « Enregistrement » est le
+  // mot du rail (une photo s'écrit), jamais un mécanisme étalé : la ligne dit l'AVANCEMENT.
+  // L'accord suit ce qu'on compte — des photos. Une seule : « enregistrée ». (Faute vue au harnais
+  // avant livraison : « 1 enregistrées. » ; même exigence que pole_photo_levels_un pour « 1 étagère ».)
+  releve_envoi_en_cours: "{fait} sur {total} enregistrées…",
+  releve_envoi_en_cours_une: "{fait} sur 1 enregistrée…",
+  releve_envoi_fini: "{n} enregistrées.",
+  releve_envoi_fini_une: "1 enregistrée.",
+  releve_a_reprendre: "À reprendre : le composant n'est pas entier sur la photo.",
+  releve_floue_a_reprendre: "À reprendre : la photo est floue.",
   // 13/09 (owner : « Si photo change, versionning change » — le versionning d'un pôle se fait en
   // arrière-plan, l'exploitant édite ensuite s'il veut). Ce que la photo a changé, dit en clair avant
   // la question. Le SUJET est le composant — un objet du commerce, nommé comme la légende le nomme

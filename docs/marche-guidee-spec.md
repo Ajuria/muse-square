@@ -202,6 +202,27 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
    **À mesurer en magasin** : ce que le modèle lit d'une étiquette sur une vraie photo contre une image
    du flux — le même meuble deux fois, une par le relevé, une par « Photo avec l'appareil ».
 
+   **L'ÉCRAN, REFAIT LE 14/09 après le premier essai réel de l'owner.** Ses quatre remarques, et ce
+   qu'elles ont changé (la détection est inchangée) : (a) « format vertical full page avec juste le
+   bouton arrêter visible » → la prise de vue est un CALQUE PLEIN ÉCRAN, et il ne porte que quatre
+   choses : l'image, le nom du pôle (qu'on touche pour en changer, feuille qui monte), l'état, le
+   bouton ; (b) « une ligne rouge horizontale et on ne sait pas à quoi ça sert » → la bande des cartes
+   ET le cadre de couleur sont RETIRÉS — deux décorations dont il fallait devenir la légende ; l'état
+   se dit en MOTS sur une pastille sombre (avancez · ne bougez plus · photo gardée), lisible sur une
+   image claire ; (c) « aucune instruction à l'affichage » → les trois consignes du § 5 s'affichent
+   avant de commencer (mots de la spec, à ratifier) ; (d) « quand on clique sur arrêter on doit en
+   background enregistrer ; si pas bonne distance ou blurry on doit être averti » → « Fin du relevé »
+   lance une FILE SÉQUENTIELLE d'enregistrement qui ne bloque pas l'écran (avancement en une ligne),
+   et chaque photo écrite dit ce qui cloche : floue (mesuré dans la page) ou « le composant n'est pas
+   entier sur la photo » (`coverage_flag` rendu par la lecture — la distance ne se mesure pas
+   autrement). La question du composant reste le seul geste qui ne peut pas partir en arrière-plan :
+   la route refuse une clé hors version (point 4), et deviner le composant écrirait un faux.
+   **Deux défauts trouvés au harnais avant livraison** : toucher un pôle reconstruisait la liste
+   PENDANT le clic, le nœud touché devenait détaché, le garde « toucher = photo » ne le reconnaissait
+   plus et une photo parasite partait à chaque changement de pôle ; et la page ne passait au module
+   qu'une LISTE DE CLÉS écrite à la main, où les consignes et les états manquaient — le filtre est
+   désormais par préfixe, le même que le harnais, donc les deux ne peuvent plus diverger par omission.
+
    **Reste à faire sur téléphone (owner)** : iPhone 17 + un Android, une boucle complète en magasin — faux
    points focaux en marchant, problèmes affichés à tort ou manqués, netteté médiane, durée, repli iOS. Le
    compte rendu JSON (« Compte rendu », sans image) se joint à l'arbitrage.

@@ -1,48 +1,50 @@
 // MSReleve — LE RELEVÉ DE L'ESPACE, la marche dans le magasin (docs/marche-guidee-spec.md, owner 11-12/09).
 //
-// Ce module est le proto `tools/proto/releve-espace-proto.html` (v2, vérifié au harnais déterministe le
-// 12/09) DEVENU une page de l'app : la détection d'arrêt, le viseur, la bande des cartes, les problèmes
-// affichés dans le viseur et la page de fin sont PORTÉS À L'IDENTIQUE — mêmes seuils, même hystérésis,
-// mêmes identifiants de nœuds — pour que la vérification du 12/09 continue de valoir. Ce qui change, et
-// c'est tout ce qui change :
-//   · les pôles ne sont plus une liste tapée dans les réglages : ce sont CEUX DU COMPTE, avec leurs
-//     composants de la version courante, posés par la page (`window.MSReleve.poles`) ;
-//   · une photo gardée s'ENVOIE (le proto n'écrivait rien) : l'exploitant touche le composant, le POST
-//     part par le foyer unique `MSPhotoCapture.envoyer` (public/js/photo-capture.js) ;
-//   · AU POINT FOCAL, UNE VRAIE PHOTO EST DÉCLENCHÉE (owner 14/09) : `ImageCapture.takePhoto()` sur le
-//     flux déjà autorisé, donc le pipeline photo de l'appareil et non une image du flux vidéo. L'image
-//     du flux est gardée d'abord et remplacée à l'arrivée ; si takePhoto manque ou échoue, elle reste.
-//     Et le plafond de taille est celui du MODÈLE qui lit la photo (2 576 px / 4 784 jetons), plus le
-//     1 600 px du proto — qui jetait du détail sous le palier de l'API ;
-//   · les chaînes visibles viennent du foyer du lexique (EVOL_COPY, `releve_*`), jamais du module.
+// ÉCRAN REFAIT LE 14/09 après le premier essai réel de l'owner. Ses quatre remarques, et ce qu'elles ont
+// changé — la DÉTECTION est recopiée à l'identique (mêmes seuils, même hystérésis, mêmes harnais) :
+//   1. « on devrait être en format vertical full page avec juste le bouton arrêter visible » → la prise
+//      de vue est un CALQUE PLEIN ÉCRAN (#capture), plus une vignette carrée dans le document ;
+//   2. « on voit une ligne rouge horizontale et on ne sait pas à quoi ça sert » → la bande des cartes ET
+//      le cadre de couleur sont RETIRÉS. Deux décorations dont il fallait devenir la légende. L'état se
+//      dit maintenant EN MOTS (#etat) : avancez · ne bougez plus · photo gardée ;
+//   3. « aucune instruction à l'affichage (pas guidé du tout) » → les trois consignes de la spec § 5
+//      s'affichent avant de commencer, et le nom du pôle rappelle qu'on le touche pour en changer ;
+//   4. « quand on clique sur arrêter on doit en background enregistrer ; si pas bonne distance ou blurry
+//      on doit être averti » → « Fin du relevé » lance l'ENREGISTREMENT EN ARRIÈRE-PLAN (file séquentielle,
+//      avancement affiché) et chaque photo écrite dit ce qui cloche : floue (mesuré ici) ou composant pas
+//      entier dans le cadre (`coverage_flag` rendu par la lecture — la « distance » ne se mesure pas
+//      autrement).
 //
-// CE QUI N'EST PAS DANS CET INCRÉMENT (spec § 9 point 4, et il faut le savoir avant de marcher) :
-// `walk_id`, `seq`, `t_offset_s` ne partent pas encore (les colonnes existent, la route ne les prend
-// pas), il n'y a pas de `families_share`, pas de table des marches, et SURTOUT la clé de composant
-// n'est pas CRÉÉE à l'arrivée de la photo (spec § 6) : la route refuse une clé hors de la version
-// (`component_key inconnu pour cette version`), donc une photo se rattache à un composant DÉJÀ
-// déclaré. Sur le compte de l'owner, les 52 composants du plan le sont.
+// CE QUI RESTE VRAI DE LA SPEC : une photo par Point focal (M2), aucune vidéo produite ni envoyée, le
+// pôle vient du GESTE (M5), la caméra dans la page avec repli par l'appareil (M7), une page de fin par
+// pôle. CE QU'IL FAUT SAVOIR : la route refuse une clé de composant hors version (spec § 9 point 4, non
+// fait), donc une photo se rattache à un composant DÉJÀ déclaré — c'est le seul geste qui ne peut pas
+// partir en arrière-plan, et il se fait à la fin, pôle par pôle.
 //
-// Harnais (inchangés depuis le proto) : window.__releveSource (un canvas au lieu de la caméra),
-// __releveStep(dt) (un pas d'analyse à dt imposé), __releveState(), __releveAttach(stream).
+// Harnais (inchangés) : window.__releveSource, __releveStep(dt), __releveState(), __releveAttach(stream).
 (function () {
   "use strict";
   var DEFAULTS = { tMove: 6, tStill: 2.5, stillMs: 1500, winMs: 1200, sharpMin: 100, brightMin: 40 };
-  // ── LE PLAFOND D'UNE PHOTO EST CELUI DU MODÈLE QUI LA LIT (14/09) ────────────────────────────────
-  // La route fait lire la photo par le rôle `packager` = claude-sonnet-5 (lib/ai/models.ts), donc le
-  // palier HAUTE RÉSOLUTION de l'API : 2 576 px de grand côté, 4 784 jetons visuels, un jeton par
-  // carreau de 28 px (⌈l/28⌉ × ⌈h/28⌉). Au-delà, l'API réduit elle-même — et une réduction côté API
-  // rend le texte des étiquettes illisible. Le proto plafonnait à 1 600 px : sous le palier, donc du
-  // détail jeté pour rien. On envoie la plus grande image qui tient sous LES DEUX bornes.
-  // Borne de poids : PHOTO_MAX_BYTES = 1 500 000 o côté route ; la qualité descend d'un cran plutôt
-  // que l'image, parce que les étiquettes se lisent à la RÉSOLUTION, pas au taux de compression.
+  var LS = "ms-releve-reglages";
+  var IN = window.MSReleve || {};
+  var POLES = Array.isArray(IN.poles) ? IN.poles.filter(function (p) { return p && p.dispositif_id; }) : [];
+  var C = IN.copy || {};
+  var t = function (k) { return C[k] || ""; };
+  var cfg = load();
+  var $ = function (id) { return document.getElementById(id); };
+  var video = $("cam"), overlay = $("overlay"), capture = $("capture"), etatEl = $("etat");
+
+  // ── LE PLAFOND D'UNE PHOTO EST CELUI DU MODÈLE QUI LA LIT ──────────────────
+  // Le rôle `packager` est claude-sonnet-5 : palier haute résolution de l'API, 2 576 px de grand côté et
+  // 4 784 jetons visuels (un jeton par carreau de 28 px). Au-delà l'API réduit elle-même, et une
+  // réduction côté API rend les étiquettes illisibles. Sous la borne de poids, la QUALITÉ descend d'un
+  // cran plutôt que la taille : une étiquette se lit à la résolution, pas au taux de compression.
   var CAP = { edge: 2576, tokens: 4784, patch: 28, marge: 0.98, bytes: 1400000 };
   function echelle(w, h) {
     if (!w || !h) return 1;
     var parJetons = Math.sqrt((CAP.tokens * CAP.patch * CAP.patch) / (w * h)) * CAP.marge;
     return Math.min(1, CAP.edge / Math.max(w, h), parJetons);
   }
-  // Un data: URL sous la borne de poids. On baisse la qualité, jamais la taille.
   function encoder(cv) {
     var q = [0.82, 0.72, 0.62, 0.5], url = "";
     for (var i = 0; i < q.length; i++) {
@@ -51,30 +53,18 @@
     }
     return url;
   }
-  var LS = "ms-releve-reglages";
-  var IN = window.MSReleve || {};
-  var POLES = Array.isArray(IN.poles) ? IN.poles.filter(function (p) { return p && p.dispositif_id; }) : [];
-  var C = IN.copy || {};
-  var t = function (k) { return C[k] || ""; };
-  var cfg = load();
-  var $ = function (id) { return document.getElementById(id); };
-  var video = $("cam"), ring = $("ring"), overlay = $("overlay"), idle = $("idle"), stage = $("stage"), mainBtn = $("mainBtn"), band = $("band");
 
   var run = { phase: "idle", startedAt: null, t0: 0, pole: null, items: [], switches: [], problems: [], seq: 0, camera: "none" };
   var det = { prev: null, state: "moving", stillAcc: 0, keptAt: 0, armed: true, best: null, problem: null, lastM: 0, lastS: 0, tick: 0, ticks: 0, lastError: null };
-  // 14/09 — POURQUOI UN ZÉRO EST UN ZÉRO. Premier relevé réel (owner, iPhone, iOS 18.7, 51 s) :
-  // 0 photo, 0 problème, et le compte rendu ne permettait PAS de trancher entre « jamais assez
-  // immobile » et « la boucle n'a jamais tourné » (videoWidth à 0 fait sortir chaque tick avant
-  // l'analyse). Ces compteurs existent pour que la question ne se repose jamais : ce que la
-  // détection a VU, et combien de fois elle n'a rien vu du tout.
+  // POURQUOI UN ZÉRO EST UN ZÉRO (14/09) : le premier relevé réel a rendu 0 photo sans permettre de
+  // dire si le seuil était trop strict ou si rien n'avait été analysé. Ces compteurs tranchent.
   var diag = { ticks: 0, vides: 0, mMin: null, mMax: null, mSomme: 0, mN: 0, sMax: null, sMin: null,
                immobileMax: 0, vw: 0, vh: 0, readyState: null, erreurs: 0 };
   function noteMouvement(m, sh) {
     diag.mN += 1; diag.mSomme += m;
-    var mr = Math.round(m * 100) / 100;
+    var mr = Math.round(m * 100) / 100, shr = Math.round(sh);
     if (diag.mMin === null || mr < diag.mMin) diag.mMin = mr;
     if (diag.mMax === null || mr > diag.mMax) diag.mMax = mr;
-    var shr = Math.round(sh);
     if (diag.sMax === null || shr > diag.sMax) diag.sMax = shr;
     if (diag.sMin === null || shr < diag.sMin) diag.sMin = shr;
   }
@@ -94,60 +84,87 @@
   function nPhotos(n) { return n === 0 ? t("releve_aucune_photo") : n === 1 ? t("releve_une_photo") : t("releve_n_photos").replace("{n}", String(n)); }
   function poleByName(name) { for (var i = 0; i < POLES.length; i++) if (POLES[i].name === name) return POLES[i]; return null; }
   function compLabel(c) { return c.label || c.type_label_fr || c.component_key; }
+  function gardees() { return run.items.filter(function (i) { return !i.removed; }); }
 
-  // ── pôles : ceux du compte, le geste décide (spec M5) ──────────────────────
+  // ── L'ÉTAT, EN MOTS (owner 14/09) ─────────────────────────────────────────
+  // Le mot passe par data-mot : la pastille sombre est dessinée par ::before, donc elle n'existe que
+  // s'il y a quelque chose à dire (#etat:empty est masqué).
+  function dire(cle) {
+    if (!etatEl) return;
+    var mot = cle ? t(cle) : "";
+    etatEl.setAttribute("data-mot", mot);
+    etatEl.textContent = mot ? " " : "";
+  }
+
+  // ── pôles : ceux du compte, le geste décide (M5) ───────────────────────────
   function renderPoles() {
-    var nav = $("poles"); nav.innerHTML = "";
-    POLES.forEach(function (p) {
-      var b = document.createElement("button"); b.type = "button"; b.textContent = p.name;
-      if (p.name === run.pole) b.className = "on";
-      b.addEventListener("click", function () { switchPole(p.name); });
-      nav.appendChild(b);
+    [["poles", false], ["poleSheetList", true]].forEach(function (paire) {
+      var nav = $(paire[0]); if (!nav) return;
+      nav.innerHTML = "";
+      POLES.forEach(function (p) {
+        var b = document.createElement("button"); b.type = "button"; b.textContent = p.name;
+        if (p.name === run.pole) b.className = "on";
+        // 14/09 — stopPropagation N'EST PAS UNE PRÉCAUTION, C'EST LE CORRECTIF : switchPole reconstruit
+        // cette liste PENDANT le clic, le nœud touché devient détaché, et `closest("#poleSheet")` du
+        // garde plus bas rend alors null — le calque prenait une photo parasite à chaque changement de
+        // pôle (mesuré au harnais avant livraison). Un geste de commande arrête son événement.
+        b.addEventListener("click", function (e) { e.stopPropagation(); switchPole(p.name); if (paire[1]) fermerFeuille(); });
+        nav.appendChild(b);
+      });
     });
-    $("poleName").textContent = run.pole || "—";
-    var n = run.items.filter(function (i) { return !i.removed && i.pole === run.pole; }).length;
-    $("poleCount").hidden = !run.pole; $("poleCount").textContent = nPhotos(n);
+    var tag = $("poleTag");
+    if (tag) {
+      var n = gardees().filter(function (i) { return i.pole === run.pole; }).length;
+      tag.textContent = run.pole ? run.pole + " · " + nPhotos(n) : t("releve_etat_pole");
+    }
   }
   function switchPole(p) {
     if (p === run.pole) return;
     if (run.phase === "running") run.switches.push({ t: tOff(), from: run.pole, to: p });
     run.pole = p; renderPoles();
   }
+  function ouvrirFeuille() { var f = $("poleSheet"); if (f) f.hidden = false; }
+  function fermerFeuille() { var f = $("poleSheet"); if (f) f.hidden = true; }
 
-  // ── commencer / fin ────────────────────────────────────────────────────────
+  // ── commencer / arrêter ────────────────────────────────────────────────────
   var stream = null, timer = null;
   function start() {
     run.phase = "running";
     if (!run.startedAt) { run.startedAt = new Date().toISOString(); run.t0 = det.tick || now(); det.tick = run.t0; } else { det.tick = Math.max(det.tick || 0, now()); }
-    mainBtn.textContent = t("releve_fin"); mainBtn.hidden = false; stage.hidden = false; $("poles").hidden = false; idle.style.display = "none"; $("summary").style.display = "none"; $("strip").style.display = ""; tickClock();
+    if (capture) capture.hidden = false;
+    document.body.classList.add("rl-filme");
+    $("summary").style.display = "none";
+    renderPoles(); dire("releve_etat_avance"); tickClock();
     if (window.__releveSource) { stream = true; run.camera = "injected"; return; }
     startCamera();
   }
   function stop() {
-    run.phase = "ended"; mainBtn.hidden = true; stage.hidden = true; $("poles").hidden = true;
+    run.phase = "ended";
     if (timer) { clearInterval(timer); timer = null; }
     if (stream && stream.getTracks) { stream.getTracks().forEach(function (x) { x.stop(); }); }
-    stream = null; video.srcObject = null; idle.style.display = "flex"; hideOverlay(); tickClock(); placeBand();
+    stream = null; video.srcObject = null;
+    if (capture) capture.hidden = true;
+    document.body.classList.remove("rl-filme");
+    hideOverlay(); fermerFeuille(); tickClock();
     showSummary();
+    enregistrerTout();   // owner 14/09 : arrêter, c'est enregistrer — en arrière-plan
   }
-  mainBtn.addEventListener("click", function () { if (run.phase === "running") stop(); else start(); });
+  $("mainBtn").addEventListener("click", function () { start(); });
+  $("stopBtn").addEventListener("click", function (e) { e.stopPropagation(); stop(); });
   $("sumBack").addEventListener("click", function () { start(); });
+  $("poleTag").addEventListener("click", function (e) { e.stopPropagation(); ouvrirFeuille(); });
+  $("poleSheet").addEventListener("click", function (e) { e.stopPropagation(); if (e.target === $("poleSheet")) fermerFeuille(); });
 
   function startCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { return useFallback("getUserMedia absent"); }
-    // 3840 x 2160 DEMANDÉS (14/09) : le navigateur donne le plus proche que la caméra sache faire. Ça
-    // ne sert pas l'analyse (elle travaille sur 64 px de gris) mais le REPLI, quand takePhoto() manque.
     navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } } })
       .then(function (s) { attach(s); })
       .catch(function (e) { useFallback(e && e.name ? e.name : String(e)); });
   }
-  // ── UNE VRAIE PHOTO AU POINT FOCAL (owner 14/09) ─────────────────────────────────────────────────
-  // `ImageCapture.takePhoto()` prend une exposition par le PIPELINE PHOTO de l'appareil (résolution du
-  // mode photo, exposition, traitement), pas une image du flux vidéo. Supporté par Safari depuis 18.4
-  // et hérité par iOS (données de compatibilité MDN), Chrome depuis 60 ; absent ailleurs, d'où le repli.
-  // Il ne demande aucun geste : l'autorisation du flux vaut déjà, et c'est ce qui permet de le déclencher
-  // sur la détection d'arrêt. Le prix : quelques centaines de ms et, sur certains appareils, un
-  // clignotement du viseur — c'est pourquoi l'image du flux est gardée D'ABORD et remplacée ensuite.
+  // ── UNE VRAIE PHOTO AU POINT FOCAL (owner 14/09) ──────────────────────────
+  // `ImageCapture.takePhoto()` prend une exposition par le pipeline photo de l'appareil, pas une image
+  // du flux vidéo (Safari 18.4+, iOS en hérite ; Chrome 60+). Aucun geste requis : l'autorisation du
+  // flux vaut déjà. L'image du flux est gardée d'abord et remplacée à l'arrivée.
   var appareil = null;
   function attach(s) {
     stream = s; video.srcObject = s; run.camera = "stream"; video.play().catch(function () {});
@@ -158,8 +175,6 @@
     } catch (e) { appareil = null; }
     hideOverlay(); requestWakeLock(); loop();
   }
-  // Remplace l'image du flux par la vraie photo, quand elle arrive. Jamais bloquant : si takePhoto
-  // échoue (absent, refusé, piste occupée), la photo du flux reste — rien n'est perdu.
   function vraiePhoto(it) {
     if (!appareil || !it) return;
     appareil.takePhoto()
@@ -174,30 +189,33 @@
         it.sharp = Math.round(lapVar(g, mw, mh)); it.bright = Math.round(mean(g));
         it.source = "photo"; it.photo_w = w; it.photo_h = h;
         if (bmp.close) bmp.close();
-        renderStrip();
       })
-      .catch(function (e) { it.photo_echec = String(e && e.name || e); renderStrip(); });
+      .catch(function (e) { it.photo_echec = String(e && e.name || e); });
   }
   function useFallback(reason) {
-    run.camera = "file:" + reason; ring.style.display = "none";
+    run.camera = "file:" + reason;
     showOverlay(t("releve_camera_ko"), t("releve_camera_ko_texte"), true);
   }
   function requestWakeLock() { try { if (navigator.wakeLock) navigator.wakeLock.request("screen").catch(function () {}); } catch (e) {} }
 
-  // ── viseur : un problème s'affiche DEDANS, et se règle d'un toucher ────────
+  // ── un problème s'affiche DANS le viseur, et se règle d'un toucher ────────
   function showOverlay(titre, texte, withFile) { $("ovTitle").textContent = titre; $("ovText").textContent = texte; $("ovFile").hidden = !withFile; overlay.style.display = "flex"; }
   function hideOverlay() { overlay.style.display = "none"; }
   overlay.addEventListener("click", function (ev) {
     if (ev.target.closest("#ovFile")) return;
-    if (det.problem && det.best) { var b = det.best; commit(b, true, det.problem.reason); det.problem.kept = true; run.problems.push(det.problem); det.problem = null; det.best = null; det.armed = false; hideOverlay(); ring.className = "kept"; }
+    if (det.problem && det.best) { var b = det.best; commit(b, true, det.problem.reason); det.problem.kept = true; run.problems.push(det.problem); det.problem = null; det.best = null; det.armed = false; hideOverlay(); }
   });
-  stage.addEventListener("click", function (ev) {
-    if (ev.target.closest("#overlay") || ev.target.closest("#poleChip")) return;
+  capture.addEventListener("click", function (ev) {
+    var c = ev.target && ev.target.closest ? ev.target : null;
+    // Ceinture : une cible qui n'est plus dans le document a été retirée par un gestionnaire pendant
+    // le clic (une liste reconstruite). Ce n'est pas un toucher du viseur.
+    if (!c || !document.contains(c)) return;
+    if (c.closest("#overlay") || c.closest("#poleTag") || c.closest("#stopBtn") || c.closest("#poleSheet")) return;
     if (run.phase !== "running" || !stream || !srcW()) return;
-    commit(grab(), true, null); det.armed = false; ring.className = "kept";
+    commit(grab(), true, null); det.armed = false;
   });
 
-  // ── analyse — PORTÉE À L'IDENTIQUE du proto v2 (vérifiée le 12/09) ─────────
+  // ── analyse — PORTÉE À L'IDENTIQUE du proto v2 (vérifiée le 12/09) ────────
   var work = document.createElement("canvas"), wctx = work.getContext("2d", { willReadFrequently: true });
   var full = document.createElement("canvas"), fctx = full.getContext("2d");
   var mid = document.createElement("canvas"), mctx = mid.getContext("2d", { willReadFrequently: true });
@@ -210,30 +228,18 @@
   function lapVar(g, w, h) { var n = 0, s = 0, s2 = 0; for (var y = 1; y < h - 1; y++) for (var x = 1; x < w - 1; x++) { var i = y * w + x; var v = 4 * g[i] - g[i - 1] - g[i + 1] - g[i - w] - g[i + w]; s += v; s2 += v * v; n++; } var m = s / n; return s2 / n - m * m; }
   function mean(g) { var s = 0; for (var i = 0; i < g.length; i++) s += g[i]; return s / g.length; }
 
-  var BAND_RATIO = 420 / 960;
-  function placeBand() {
-    var vw = srcW(), vh = srcH(), sw = stage.clientWidth, sh = stage.clientHeight;
-    if (run.phase !== "running" || !stream || !vw || !vh || !sw || !sh) { band.style.display = "none"; return; }
-    var k = Math.max(sw / vw, sh / vh), bh = Math.min(sh, vw * k * BAND_RATIO);
-    band.style.top = Math.round((sh - bh) / 2) + "px"; band.style.height = Math.round(bh) + "px"; band.style.display = "block";
-  }
-  video.addEventListener("loadedmetadata", placeBand);
-  window.addEventListener("resize", placeBand);
-
   function loop() {
     if (timer) return;
     timer = setInterval(function () {
       diag.ticks += 1;
       diag.vw = srcW(); diag.vh = srcH();
       diag.readyState = video && video.readyState != null ? video.readyState : null;
-      // Un tick qui sort ICI est un tick VIDE : le flux n'a pas (encore) d'image. S'ils sont tous
-      // vides, ce n'est pas un problème de seuil — c'est que rien n'a jamais été analysé.
       if (run.phase !== "running" || !stream || !srcW()) { diag.vides += 1; return; }
       var x = now(); var dt = det.tick ? x - det.tick : 0; det.tick = x; step(x, dt);
     }, 120);
   }
   function step(x, dt) {
-    det.ticks += 1; tickClock(); placeBand();
+    det.ticks += 1; tickClock();
     try { analyse(x, dt); } catch (e) { diag.erreurs += 1; det.lastError = String(e && e.message || e); if (window.console) console.error(e); }
   }
   function analyse(x, dt) {
@@ -248,20 +254,21 @@
     if (m > cfg.tMove) {
       if (det.best && !det.problem) { commit(det.best, false, null); }
       if (det.problem) { run.problems.push(det.problem); det.problem = null; hideOverlay(); }
-      det.best = null; det.armed = true; det.state = "moving"; det.stillAcc = 0; ring.className = ""; return;
+      det.best = null; det.armed = true; det.state = "moving"; det.stillAcc = 0; dire("releve_etat_avance"); return;
     }
     if (!det.armed) return;
     if (det.problem) return;
     if (m < cfg.tStill) {
       det.stillAcc += dt;
-      if (det.stillAcc < cfg.stillMs) { det.state = "settling"; ring.className = "settling"; return; }
+      if (det.stillAcc < cfg.stillMs) { det.state = "settling"; dire("releve_etat_arret"); return; }
       if (!det.best) { det.best = grab(); det.keptAt = x; det.state = "window"; return; }
       if (x - det.keptAt <= cfg.winMs) { var c = grab(); if (c.sharp > det.best.sharp * 1.1) det.best = c; return; }
       var reason = det.best.bright < cfg.brightMin ? "sombre" : det.best.sharp < cfg.sharpMin ? "floue" : null;
-      if (reason) { det.problem = { t: tOff(), pole: run.pole, reason: reason, kept: false }; det.state = "problem"; ring.className = "problem"; showOverlay(reason === "sombre" ? t("releve_sombre") : t("releve_floue"), t("releve_garder_quand_meme"), false); return; }
-      commit(det.best, false, null); det.best = null; det.armed = false; det.state = "captured"; ring.className = "kept";
+      if (reason) { det.problem = { t: tOff(), pole: run.pole, reason: reason, kept: false }; det.state = "problem"; showOverlay(reason === "sombre" ? t("releve_sombre") : t("releve_floue"), t("releve_garder_quand_meme"), false); return; }
+      commit(det.best, false, null); det.best = null; det.armed = false; det.state = "captured";
     } else {
-      det.state = det.stillAcc ? "settling" : "moving"; ring.className = det.stillAcc ? "settling" : "";
+      det.state = det.stillAcc ? "settling" : "moving";
+      dire(det.stillAcc ? "releve_etat_arret" : "releve_etat_avance");
     }
   }
   function grab() {
@@ -272,61 +279,15 @@
     return { dataUrl: encoder(full), sharp: Math.round(lapVar(g, mw, mh)), bright: Math.round(mean(g)), w: full.width, h: full.height };
   }
 
-  // ── une photo gardée : le composant d'un toucher, puis l'envoi ─────────────
+  // ── une photo gardée ──────────────────────────────────────────────────────
   function commit(shot, manual, reason) {
     var last = run.items.length ? run.items[run.items.length - 1] : null;
     if (last && !manual && last.dataUrl === shot.dataUrl) { if (window.console) console.warn("[releve] image identique ignoree"); return; }
     run.seq += 1;
     run.items.push({ seq: run.seq, t: tOff(), at: new Date().toISOString(), pole: run.pole, sharp: shot.sharp, bright: shot.bright, w: shot.w, h: shot.h, manual: !!manual, reason: reason || null, source: shot.source || run.camera, removed: false, dataUrl: shot.dataUrl, comp: null, etat: "a_rattacher" });
-    // La photo du flux est gardée D'ABORD (la vignette apparaît tout de suite, rien ne peut se perdre),
-    // puis la vraie photo la remplace quand elle arrive. L'envoi n'a lieu qu'au toucher du composant :
-    // elle a le temps. Sur une photo prise au fichier, il n'y a rien à remplacer.
-    renderStrip(); renderPoles();
+    renderPoles(); dire("releve_etat_gardee");
     if (shot.source !== "file") vraiePhoto(run.items[run.items.length - 1]);
     if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) { try { navigator.vibrate(30); } catch (e) {} }
-  }
-  // L'envoi : le foyer unique du POST (photo-capture.js). La photo part avec la clé du composant que
-  // l'exploitant a touché ; la route prend la version COURANTE du dispositif (version_no omis).
-  function envoyer(it) {
-    var pole = poleByName(it.pole); if (!pole || !it.comp) return;
-    if (!window.MSPhotoCapture || !MSPhotoCapture.envoyer) { it.etat = "echec"; renderStrip(); return; }
-    it.etat = "envoi"; renderStrip();
-    MSPhotoCapture.envoyer({ dispositif_id: pole.dispositif_id, component_key: it.comp.component_key, image_base64: it.dataUrl })
-      .then(function (j) {
-        if (j && j.ok) { it.etat = "ecrite"; it.photo_id = (j.photo && j.photo.photo_id) || null; }
-        else { it.etat = "echec"; it.echec = j && j.rejected === "person" ? t("pole_photo_person") : t("pole_photo_failed"); }
-        renderStrip();
-      })
-      .catch(function () { it.etat = "echec"; it.echec = t("pole_photo_failed"); renderStrip(); });
-  }
-  function renderStrip() {
-    var strip = $("strip"); strip.innerHTML = "";
-    run.items.forEach(function (it) {
-      var d = document.createElement("div"); d.className = "shot" + (it.removed ? " removed" : "") + (it.etat === "ecrite" ? " ecrite" : "");
-      var haut = it.comp ? esc(compLabel(it.comp)) : esc(it.pole || "—");
-      var bas = it.etat === "envoi" ? esc(t("capture_envoi")) : it.etat === "echec" ? esc(it.echec || t("pole_photo_failed")) : fmtT(it.t);
-      d.innerHTML = "<img alt=\"\" src=\"" + it.dataUrl + "\"><div class=\"m\"><b>" + haut + "</b>" + bas + "</div>";
-      if (!it.removed && !it.comp) d.appendChild(choixComposant(it));
-      var b = document.createElement("button"); b.type = "button"; b.textContent = it.removed ? t("releve_garder") : t("releve_retirer");
-      b.addEventListener("click", function () { it.removed = !it.removed; it.removedAt = it.removed ? tOff() : null; renderStrip(); renderPoles(); });
-      d.appendChild(b); strip.appendChild(d);
-    });
-    strip.scrollLeft = strip.scrollWidth;
-  }
-  // « Quel composant ? » — la liste est celle du pôle touché, donc trois ou quatre boutons, pas un tri.
-  function choixComposant(it) {
-    var wrap = document.createElement("div"); wrap.className = "q";
-    var pole = poleByName(it.pole);
-    var comps = pole && Array.isArray(pole.components) ? pole.components : [];
-    var titre = document.createElement("div"); titre.className = "qt";
-    titre.textContent = !it.pole ? t("capture_q_pole") : comps.length ? t("capture_q_composant") : t("capture_aucun_composant");
-    wrap.appendChild(titre);
-    comps.forEach(function (c) {
-      var b = document.createElement("button"); b.type = "button"; b.className = "qb"; b.textContent = compLabel(c);
-      b.addEventListener("click", function () { it.comp = c; renderStrip(); envoyer(it); });
-      wrap.appendChild(b);
-    });
-    return wrap;
   }
   $("fileIn").addEventListener("change", function (ev) {
     var f = ev.target.files && ev.target.files[0]; if (!f) return;
@@ -342,25 +303,104 @@
     img.src = url;
   });
 
-  // ── fin du relevé : UNE page, une section par pôle ─────────────────────────
+  // ── FIN DU RELEVÉ : une page, une section par pôle ────────────────────────
   function showSummary() {
-    var kept = run.items.filter(function (i) { return !i.removed; });
+    var kept = gardees();
     var order = POLES.map(function (p) { return p.name; });
     run.items.forEach(function (i) { if (i.pole && order.indexOf(i.pole) < 0) order.push(i.pole); });
-    var html = order.map(function (p) {
-      var its = kept.filter(function (i) { return i.pole === p; });
-      return "<div class=\"sec\"><h3>" + esc(p) + "</h3><p class=\"n\">" + esc(nPhotos(its.length)) + "</p><div class=\"imgs\">"
-        + its.map(function (i) { return "<img alt=\"\" src=\"" + i.dataUrl + "\">"; }).join("") + "</div></div>";
-    }).join("");
-    var sansPole = kept.filter(function (i) { return !i.pole; });
-    if (sansPole.length) {
-      html += "<div class=\"sec\"><h3>" + esc(t("releve_non_rattache")) + "</h3><p class=\"n\">" + esc(nPhotos(sansPole.length)) + "</p><div class=\"imgs\">"
-        + sansPole.map(function (i) { return "<img alt=\"\" src=\"" + i.dataUrl + "\">"; }).join("") + "</div></div>";
+    var body = $("sumBody"); body.innerHTML = "";
+    order.concat([null]).forEach(function (p) {
+      var its = kept.filter(function (i) { return p === null ? !i.pole : i.pole === p; });
+      if (p === null && !its.length) return;
+      var sec = document.createElement("div"); sec.className = "sec";
+      sec.innerHTML = "<h3>" + esc(p === null ? t("releve_non_rattache") : p) + "</h3>"
+        + '<p class="n">' + esc(nPhotos(its.length)) + "</p>";
+      its.forEach(function (it) { sec.appendChild(ligneDePhoto(it)); });
+      body.appendChild(sec);
+    });
+    compteRendu();
+    $("summary").style.display = "block";
+  }
+  // Une photo de la page de fin : l'image, ce qui cloche, la question du composant, et le retrait.
+  function ligneDePhoto(it) {
+    var d = document.createElement("div"); d.className = "rl-shot";
+    var haut = it.comp ? "<b>" + esc(compLabel(it.comp)) + "</b>" : esc(fmtT(it.t));
+    var avert = it.etat === "ecrite" && it.coverage && it.coverage !== "entier" ? t("releve_a_reprendre")
+      : (it.reason === "floue" ? t("releve_floue_a_reprendre") : "");
+    var etat = it.etat === "envoi" ? t("capture_envoi") : it.etat === "echec" ? (it.echec || t("pole_photo_failed")) : "";
+    d.innerHTML = '<img alt="" src="' + it.dataUrl + '">'
+      + '<div class="c"><div class="t">' + haut + (etat ? " · " + esc(etat) : "") + "</div>"
+      + (avert ? '<div class="w">' + esc(avert) + "</div>" : "")
+      + "</div>";
+    var col = d.querySelector(".c");
+    if (!it.comp) {
+      var pole = poleByName(it.pole);
+      var comps = pole && Array.isArray(pole.components) ? pole.components : [];
+      var q = document.createElement("div");
+      q.innerHTML = '<div class="t">' + esc(!it.pole ? t("capture_q_pole") : comps.length ? t("capture_q_composant") : t("capture_aucun_composant")) + "</div>";
+      comps.forEach(function (c) {
+        var b = document.createElement("button"); b.type = "button"; b.className = "qb"; b.textContent = compLabel(c);
+        b.addEventListener("click", function () { it.comp = c; showSummary(); enregistrerTout(); });
+        q.appendChild(b);
+      });
+      col.appendChild(q);
     }
-    $("sumBody").innerHTML = html;
+    var rm = document.createElement("button"); rm.type = "button"; rm.className = "rm";
+    rm.textContent = it.removed ? t("releve_garder") : t("releve_retirer");
+    rm.addEventListener("click", function () { it.removed = !it.removed; showSummary(); });
+    col.appendChild(rm);
+    return d;
+  }
+
+  // ── L'ENREGISTREMENT EN ARRIÈRE-PLAN (owner 14/09) ────────────────────────
+  // « Arrêter » lance la file. Une photo part dès qu'elle a son composant ; la file est SÉQUENTIELLE
+  // (la lecture par le modèle prend quelques secondes, et rien ne gagne à les paralléliser sur un
+  // téléphone), elle ne bloque pas l'écran, et l'avancement se dit en une ligne. Une photo sans
+  // composant attend : la route refuse une clé inconnue, et deviner le composant écrirait un faux.
+  var enCours = false;
+  function enregistrerTout() {
+    if (enCours) return;
+    var file = gardees().filter(function (i) { return i.comp && i.etat === "a_rattacher"; });
+    if (!file.length) { avancement(); return; }
+    enCours = true;
+    var suivant = function () {
+      var it = file.shift();
+      if (!it) { enCours = false; avancement(); return; }
+      var pole = poleByName(it.pole);
+      if (!pole || !window.MSPhotoCapture || !MSPhotoCapture.envoyer) { it.etat = "echec"; return suivant(); }
+      it.etat = "envoi"; avancement(); majLigne(it);
+      MSPhotoCapture.envoyer({ dispositif_id: pole.dispositif_id, component_key: it.comp.component_key || it.comp.key, image_base64: it.dataUrl })
+        .then(function (j) {
+          if (j && j.ok) {
+            it.etat = "ecrite"; it.photo_id = (j.photo && j.photo.photo_id) || null;
+            it.coverage = (j.photo && j.photo.coverage_flag) || null;   // « pas entier » = à reprendre
+            it.version = j.version || null;
+          } else {
+            it.etat = "echec"; it.echec = j && j.rejected === "person" ? t("pole_photo_person") : t("pole_photo_failed");
+          }
+          avancement(); majLigne(it); suivant();
+        })
+        .catch(function () { it.etat = "echec"; it.echec = t("pole_photo_failed"); avancement(); majLigne(it); suivant(); });
+    };
+    suivant();
+  }
+  function majLigne(it) { if ($("summary").style.display === "block") showSummary(); }
+  function avancement() {
+    var el = $("sumEtat"); if (!el) return;
+    var k = gardees(), aFaire = k.filter(function (i) { return i.comp; }), faites = k.filter(function (i) { return i.etat === "ecrite"; });
+    if (!k.length) { el.textContent = ""; el.style.display = "none"; return; }
+    el.style.display = "block";
+    var total = aFaire.length || k.length;
+    el.textContent = faites.length === aFaire.length && aFaire.length
+      ? (faites.length === 1 ? t("releve_envoi_fini_une") : t("releve_envoi_fini").split("{n}").join(String(faites.length)))
+      : (total === 1 ? t("releve_envoi_en_cours_une").split("{fait}").join(String(faites.length))
+                     : t("releve_envoi_en_cours").split("{fait}").join(String(faites.length)).split("{total}").join(String(total)));
+    compteRendu();
+  }
+
+  function compteRendu() {
     var report = { surface: "releve-espace", startedAt: run.startedAt, endedAt: new Date().toISOString(), durationS: tOff(), camera: run.camera, ua: navigator.userAgent, viewport: [innerWidth, innerHeight],
       reglages: { tMove: cfg.tMove, tStill: cfg.tStill, stillMs: cfg.stillMs, winMs: cfg.winMs, sharpMin: cfg.sharpMin, brightMin: cfg.brightMin },
-      // CE QUE LA DÉTECTION A VU — la partie du compte rendu qui explique un zéro.
       diagnostic: {
         ticks: diag.ticks, ticks_vides: diag.vides, mesures: diag.mN, erreurs: diag.erreurs,
         derniere_erreur: det.lastError,
@@ -371,14 +411,14 @@
         pole_courant: run.pole,
       },
       poles: POLES.map(function (p) { return { name: p.name, dispositif_id: p.dispositif_id, components: (p.components || []).length }; }),
-      items: run.items.map(function (i) { return { seq: i.seq, t: i.t, at: i.at, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, photo_id: i.photo_id || null, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, photo_w: i.photo_w || null, photo_h: i.photo_h || null, photo_echec: i.photo_echec || null, manual: i.manual, reason: i.reason, source: i.source, removed: i.removed, removedAt: i.removedAt || null }; }),
+      items: run.items.map(function (i) { return { seq: i.seq, t: i.t, at: i.at, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, photo_id: i.photo_id || null, coverage: i.coverage || null, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, photo_w: i.photo_w || null, photo_h: i.photo_h || null, photo_echec: i.photo_echec || null, manual: i.manual, reason: i.reason, source: i.source, removed: i.removed }; }),
       switches: run.switches, problems: run.problems };
-    var a = $("sumDl"); if (a.href && a.href.indexOf("blob:") === 0) URL.revokeObjectURL(a.href);
+    var a = $("sumDl"); if (!a) return;
+    if (a.href && a.href.indexOf("blob:") === 0) URL.revokeObjectURL(a.href);
     a.href = URL.createObjectURL(new Blob([JSON.stringify(report, null, 1)], { type: "application/json" }));
-    $("strip").style.display = "none"; $("summary").style.display = "block";
   }
 
-  // ── réglages : le calibrage sur téléphone réel, jamais un bouton visible ───
+  // ── réglages : le calibrage sur téléphone réel, jamais un bouton visible ──
   function openSettings() {
     $("tMove").value = cfg.tMove; $("tStill").value = cfg.tStill; $("stillMs").value = cfg.stillMs; $("winMs").value = cfg.winMs; $("sharpMin").value = cfg.sharpMin; $("brightMin").value = cfg.brightMin;
     $("settings").style.display = "block";
@@ -394,14 +434,14 @@
     save(); $("settings").style.display = "none";
   });
 
-  // ?diagnostic=1 — les valeurs en direct sous le viseur, pour voir en une seconde si le seuil est en
-  // cause ou si rien n'est analysé. Opt-in par l'adresse : aucun élément permanent dans le viseur.
+  // ?diagnostic=1 — les valeurs en direct, pour voir en une seconde si le seuil est en cause ou si
+  // rien n'est analysé. Opt-in par l'adresse : aucun élément permanent dans le viseur.
   var DIAG_VISIBLE = /[?&]diagnostic=1/.test(location.search);
   var diagEl = null;
   if (DIAG_VISIBLE) {
     diagEl = document.createElement("div");
-    diagEl.setAttribute("style", "font-family:ui-monospace,monospace;font-size:11px;line-height:1.5;color:#374151;background:#F8FAFC;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;margin-top:8px;white-space:pre-wrap;");
-    var doc = document.getElementById("rl-doc"); if (doc) doc.appendChild(diagEl);
+    diagEl.setAttribute("style", "position:absolute;left:12px;right:12px;top:calc(env(safe-area-inset-top,0px) + 64px);font-family:ui-monospace,monospace;font-size:11px;line-height:1.5;color:#fff;background:rgba(17,24,39,.72);border-radius:6px;padding:6px 8px;white-space:pre-wrap;pointer-events:none;");
+    if (capture) capture.appendChild(diagEl);
   }
   function peindreDiag() {
     if (!diagEl) return;
@@ -411,14 +451,13 @@
       + "\nticks " + diag.ticks + "  vides " + diag.vides + "  flux " + diag.vw + "x" + diag.vh + "  readyState " + diag.readyState
       + (det.lastError ? "\nerreur " + det.lastError : "");
   }
-
   function tickClock() { $("rl-clock").textContent = run.phase === "idle" ? "0:00" : fmtT(tOff()); peindreDiag(); }
   setInterval(tickClock, 500);
 
-  // ── harnais (identiques au proto : la vérification du 12/09 continue de valoir) ──
+  // ── harnais (identiques) ──────────────────────────────────────────────────
   window.__releveAttach = function (s) { if (run.phase !== "running") start(); attach(s); };
   window.__releveStep = function (dt) { if (run.phase !== "running") start(); if (!stream) stream = true; var x = (det.tick || now()) + (dt || 120); det.tick = x; step(x, dt || 120); return window.__releveState(); };
-  window.__releveState = function () { return { phase: run.phase, state: det.state, armed: det.armed, m: Math.round(det.lastM * 10) / 10, s: Math.round(det.lastS), stillAcc: Math.round(det.stillAcc), ticks: det.ticks, lastError: det.lastError, overlay: overlay.style.display === "flex" ? $("ovTitle").textContent : null, pole: run.pole, poles: POLES.length, items: run.items.map(function (i) { return { seq: i.seq, t: i.t, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, source: i.source, photo_echec: i.photo_echec || null, manual: i.manual, reason: i.reason }; }), switches: run.switches.length, problems: run.problems.slice(), mainBtn: mainBtn.textContent, clock: $("rl-clock").textContent }; };
+  window.__releveState = function () { return { phase: run.phase, state: det.state, armed: det.armed, m: Math.round(det.lastM * 10) / 10, s: Math.round(det.lastS), stillAcc: Math.round(det.stillAcc), ticks: det.ticks, lastError: det.lastError, overlay: overlay.style.display === "flex" ? $("ovTitle").textContent : null, etat: etatEl ? etatEl.getAttribute("data-mot") : null, plein_ecran: capture ? !capture.hidden : null, pole: run.pole, poles: POLES.length, items: run.items.map(function (i) { return { seq: i.seq, t: i.t, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, coverage: i.coverage || null, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, source: i.source, manual: i.manual, reason: i.reason }; }), switches: run.switches.length, problems: run.problems.slice(), mainBtn: $("mainBtn").textContent, clock: $("rl-clock").textContent }; };
 
   renderPoles();
   if (POLES.length === 1) switchPole(POLES[0].name);
