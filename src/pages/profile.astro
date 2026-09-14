@@ -1259,6 +1259,16 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
         <div class="loc-meta">
           <div class="loc-name-row">
             <span class="loc-name">Pôles</span>
+            {/* 14/09 (owner : « les pôles et photos sont rattachés à une location ») — LE SITE SE CHOISIT.
+                L'onglet lisait le premier `.loc-card` de la page, c'est-à-dire un site qu'il n'avait pas
+                choisi : sur un compte multi-site, un pôle créé ici partait ailleurs sans le dire. Le
+                sélecteur est celui de l'onglet Signaux (même markup, même intitulé « Choisir un site »),
+                et il ne s'affiche que s'il y a plusieurs sites. */}
+            {recoSites.length > 1 && (
+              <select id="poles-site-select" aria-label="Choisir un site" style="margin-left:12px;font-size:12px;font-family:inherit;color:#111827;border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;background:#fff;">
+                {recoSites.map(s => (<option value={s.id} selected={s.id === recoLocationId}>{s.name}</option>))}
+              </select>
+            )}
             <span class="loc-status" id="poles-header-summary" style="margin-left:auto;font-size:11px;color:#9ca3af;">Chargement…</span>
           </div>
         </div>
@@ -3712,10 +3722,20 @@ window.toggleAutomationCard = function() {
 <script is:inline src="/js/pole-form.js?v=6"></script>
 <script is:inline>
   (function () {
+    // 14/09 — LE SITE DE CET ONGLET. Il lisait le premier `.loc-card` de la page : un site qu'il n'avait
+    // pas choisi, et sur un compte multi-site le pôle créé ici partait ailleurs. Le sélecteur commande
+    // maintenant ; sans lui (un seul site), la carte reste le repli.
+    var poleSel = document.getElementById('poles-site-select');
     var locCard = document.querySelector('.loc-card[data-location-id]');
-    var locId = locCard ? locCard.getAttribute('data-location-id') : null;
+    var locId = (poleSel && poleSel.value) || (locCard ? locCard.getAttribute('data-location-id') : null);
     if (!locId) return;
     var loaded = false;
+    if (poleSel) poleSel.addEventListener('change', function () {
+      locId = poleSel.value; loaded = false;
+      var l = document.getElementById('poles-list'); if (l) l.innerHTML = '<div style="font-size:12px;color:#9ca3af;padding:8px 0;">Chargement…</div>';
+      var m = document.getElementById('pole-create-mount'); if (m) m.innerHTML = '<div style="font-size:12px;color:#9ca3af;">Chargement…</div>';
+      loadPoles();
+    });
     var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
 
     async function loadPoles() {
