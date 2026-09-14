@@ -67,6 +67,11 @@
       "Recherche du contexte…",
       "Rédaction de la réponse…",
     ],
+    rapports: [
+      "Lecture de vos chiffres sur la période\u2026",
+      "Comparaison \u00e0 la p\u00e9riode pr\u00e9c\u00e9dente\u2026",
+      "R\u00e9daction de la r\u00e9ponse\u2026",
+    ],
     "default": ["Chargement…"],
   };
 

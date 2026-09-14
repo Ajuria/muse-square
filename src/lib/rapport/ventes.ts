@@ -430,6 +430,14 @@ function frDateFr(iso: string): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso || '');
 }
 const jourFr = (iso: string): string => `le ${JOURS[new Date(`${iso}T00:00:00Z`).getUTCDay()]} ${frDateFr(iso)}`;
+// 14/09 (owner : « pas besoin d'écrire l'année à chaque fois/ligne ») — dans un TABLEAU de journées,
+// l'année revenait trente fois alors que la période la dit en tête. Elle tombe quand toutes les journées
+// sont de la même année, et revient dès que la période en chevauche deux — sinon « 31/12 » et « 01/01 »
+// se liraient dans le désordre. Les FAITS, eux, gardent la date entière : ils se citent hors du tableau.
+const jourTableau = (iso: string, memeAnnee: boolean): string => {
+  const complet = jourFr(iso).replace(/^le /, '');
+  return memeAnnee ? complet.replace(/\/\d{4}$/, '') : complet;
+};
 
 /** Les faits NOMMÉS (12/09, composer_rapport les range par section) — les mêmes chaînes que `facts`, jamais d'autres. */
 export interface VentesParts { ca?: string; an_dernier?: string; volume_panier?: string; panier?: string; couches?: string; journees?: string; jours?: string; repartition?: string; concentration?: string; signaux?: string; par_jour?: string[]; contexte?: string[]; actions?: string[] }
@@ -509,10 +517,11 @@ export function composeVentesFacts(res: SalesReportResult, opts: { grain?: 'jour
   // une ligne par jour de vente : CA, ventes, panier moyen ; jours en toutes lettres (lexique règle 6).
   const daily: Array<{ d: string; rev: number; txns: number }> = Array.isArray(b.daily) ? b.daily : [];
   if (opts.grain === 'jour' && daily.length && daily.length <= GRAIN_JOUR_MAX) {
+    const memeAnnee = new Set(daily.map((r) => String(r.d).slice(0, 4))).size === 1;
     named.par_jour = daily.map((r) => `${jourFr(r.d).charAt(0).toUpperCase()}${jourFr(r.d).slice(1)} : ${eur(r.rev)} de CA, ${frInt(r.txns)} ventes` + (r.txns > 0 ? `, panier moyen ${eur2(r.rev / r.txns)}` : '') + '.');
     facts.push(...named.par_jour);
     tables.par_jour = { type: 'table', cols: [{ label: 'Jour' }, { label: 'CA' }, { label: 'Ventes' }, { label: 'Panier moyen' }],
-      rows: daily.map((r) => ({ cells: [{ v: jourFr(r.d).replace(/^le /, ''), bold: true }, { v: eur(r.rev) }, { v: frInt(r.txns) }, { v: r.txns > 0 ? eur2(r.rev / r.txns) : '—' }] })) };
+      rows: daily.map((r) => ({ cells: [{ v: jourTableau(r.d, memeAnnee), bold: true }, { v: eur(r.rev) }, { v: frInt(r.txns) }, { v: r.txns > 0 ? eur2(r.rev / r.txns) : '—' }] })) };
   } else if (opts.grain === 'jour' && daily.length > GRAIN_JOUR_MAX) {
     facts.push(`Le détail par jour se lit jusqu'à ${GRAIN_JOUR_MAX} jours : la période en compte ${daily.length}.`);
   }

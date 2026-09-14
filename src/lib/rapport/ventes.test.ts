@@ -89,10 +89,19 @@ describe("composeVentesFacts — les phrases du rapport et du chat, les tableaux
     expect(l.facts).toEqual(expect.arrayContaining(l.parts.par_jour!));
     const t = l.tables.par_jour as any;
     expect(t.cols.map((c: any) => c.label)).toEqual(["Jour", "CA", "Ventes", "Panier moyen"]);
-    expect(t.rows.map((r: any) => r.cells.map((c: any) => nb(c.v)))).toEqual([["lundi 31/08/2026", "1 649 €", "340", "4,85 €"], ["mercredi 02/09/2026", "1 439 €", "0", "—"]]);
+    expect(t.rows.map((r: any) => r.cells.map((c: any) => nb(c.v)))).toEqual([["lundi 31/08", "1 649 €", "340", "4,85 €"], ["mercredi 02/09", "1 439 €", "0", "—"]]);
     expect(l.blocks.map((b) => b.type)).toEqual(["table", "table", "table", "sources"]);
     const long = composeVentesFacts(rapport({ daily: Array.from({ length: 40 }, (_, i) => ({ d: `2026-07-${String(1 + (i % 28)).padStart(2, "0")}`, rev: 100, txns: 10 })) }), { grain: "jour" });
     expect(long.facts).toContain("Le détail par jour se lit jusqu'à 31 jours : la période en compte 40.");
+
+    // 14/09 (owner : « pas besoin d'écrire l'année à chaque fois/ligne ») — l'année tombe des LIGNES quand
+    // toutes les journées sont de la même année, et revient dès que la période en chevauche deux : sinon
+    // « 31/12 » et « 01/01 » se liraient dans le désordre. Les FAITS gardent la date entière : ils se citent
+    // hors du tableau, où rien ne dit l'année.
+    expect(l.parts.par_jour!.every((f) => /\/2026\b/.test(f))).toBe(true);
+    const across = composeVentesFacts(rapport({ daily: [{ d: "2025-12-31", rev: 100, txns: 10 }, { d: "2026-01-01", rev: 120, txns: 12 }] }), { grain: "jour" });
+    const ta = across.tables.par_jour as any;
+    expect(ta.rows.map((r: any) => r.cells[0].v)).toEqual(["mercredi 31/12/2025", "jeudi 01/01/2026"]);
     expect(long.tables.par_jour).toBeUndefined();
     expect(composeVentesFacts(rapport()).tables.par_jour).toBeUndefined(); // sans grain, rien de plus
   });

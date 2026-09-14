@@ -81,6 +81,10 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
       .rp-btn { border: 1px solid #E5E7EB; background: #fff; color: #1D3BB3; border-radius: 8px; padding: 6px 11px; font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; }
       .rp-btn[disabled] { opacity: .5; cursor: default; }
       .rp-btn-primary { background: #1D3BB3; color: #fff; border-color: #1D3BB3; }
+      /* 14/09 — l'attente PENDANT un Approfondir : sans elle, plusieurs secondes sans rien, et l'owner a
+         cru la page figée. Les styles .ms-loader vivent dans global.css (chargeur canonique). */
+      .rp-attente { margin-top: 10px; }
+      .rp-attente .ms-loader { padding: 6px 0; }
       .rp-tools { margin: 8px 0 0; padding: 0; list-style: none; }
       .rp-tools li { font-size: 12.5px; color: #4B5563; padding: 3px 0 3px 10px; border-left: 2px solid #E5E7EB; }
       .rp-tools li.run { border-left-color: #1D3BB3; }
@@ -138,6 +142,7 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
       .rp-form .rp-row { margin-top: 6px; }
       .rp-err { background: #FEF3C7; color: #92400E; border-radius: 10px; padding: 9px 12px; margin: 0 0 10px; font-size: 13px; }
     </style>
+    <script is:inline src="/js/ms-loader.js?v=2"></script>
 
     <script is:inline src="/js/card-kit.js?v=103"></script>
     <script is:inline>
@@ -381,9 +386,13 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
             // l'exploitant s'apprête à FAIRE. Deux boutons l'obligeaient à trancher avant d'avoir écrit —
             // or on commence souvent une pensée et on s'aperçoit en route que c'est une question.
             var demander = async function (question) {
+              var attente = el("div", "rp-attente");
+              attente.innerHTML = window.MSLoader ? window.MSLoader.html("rapports", { size: 34 }) : "Recherche en cours…";
+              z.appendChild(attente);
               var tools = el("ul", "rp-tools"); z.appendChild(tools);
+              var vider = function () { attente.remove(); };
               var r = await composer({ approfondir: { document_id: doc.document_id, section: i, question: question } }, tools, null);
-              tools.remove();
+              vider(); tools.remove();
               // Une réponse appelle la question suivante (owner : « ça s'est refermé comme s'il savait que
               // c'était tout pour moi, ce qui est faux »). Le document est rendu d'abord — la réponse doit
               // être lisible —, la section ramenée à l'écran par l'ancre, PUIS l'éditeur rouvre sur
