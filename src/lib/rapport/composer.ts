@@ -15,6 +15,31 @@ import type { VentesLecture } from "./ventes";
 import type { ResultatLecture } from "../kpi/resultat";
 import { POLES_ABSENCE_FR, type PoleClassementLecture, type Indicateur } from "../dispositifs/poleClassement";
 
+/**
+ * PUR — LA MARGE BRUTE PAR FAMILLE, EN BARRES (owner 14/09). Les valeurs sont celles que la lecture de
+ * marge porte déjà (`data.families`, arrondies à l'euro par le fournisseur) : on les DESSINE, on ne les
+ * recalcule pas — un graphique qui refait ses propres comptes est une seconde vérité.
+ *
+ * DEUX REFUS VOLONTAIRES : sous deux familles, une barre seule ne compare rien et le graphique ne part pas ;
+ * une marge négative non plus — l'échelle des barres part de zéro, une valeur négative s'y dessinerait à
+ * l'envers ou pas du tout, et une barre muette vaut moins qu'une absence.
+ */
+export function grapheMargeParFamille(data: any, max = 8): AnswerBlock | null {
+  const f = Array.isArray(data?.families) ? data.families : [];
+  const items = f
+    .filter((x: any) => x && typeof x.gross_margin_ht === "number" && x.gross_margin_ht > 0 && x.family)
+    .sort((a: any, b: any) => b.gross_margin_ht - a.gross_margin_ht)
+    .slice(0, max)
+    .map((x: any) => ({
+      label: String(x.family),
+      value: Number(x.gross_margin_ht),
+      value_fr: `${Math.round(Number(x.gross_margin_ht)).toLocaleString("fr-FR")} €`,
+      ...(typeof x.margin_share_pct === "number" ? { part_fr: `${String(x.margin_share_pct).replace(".", ",")} %` } : {}),
+    }));
+  if (items.length < 2) return null;
+  return { type: "barres_h", items, unite: "marge brute sur 30 jours" };
+}
+
 export interface Lectures {
   ventes?: VentesLecture | null;
   marge?: FamilyResult | null;
@@ -113,7 +138,14 @@ export function composeRapport(inp: ComposeInput): ComposeResult {
       const r = inp.lectures.marge ?? null;
       const blocs = r ? blocksFromFamilyResult("marge", "renderMarge", r) : [{ type: "absence", manque: ABSENCE_FR.marge.manque, geste: ABSENCE_FR.marge.geste ?? null } as AnswerBlock];
       if (r?.found) { addFacts(...r.facts.map((f) => f.fact_fr)); r.sources.forEach((x) => sources.add(x)); }
-      push(cle, blocs.filter((b) => b.type !== "sources"), prov("lire_marge", {}));
+      // 14/09 (owner : « can the user request add pie chart… ? »). MESURÉ D'ABORD : sur les 14 sections
+      // d'un Rapport, trois portaient un graphique — les pôles, les familles et les jours. Les autres n'ont
+      // pas de série à dessiner (un seul nombre, ou une comparaison à trois lignes). La marge, elle, en a
+      // une : sa lecture porte DÉJÀ le détail par famille. Le graphique est donc dessiné à partir de
+      // valeurs LUES, jamais recalculées — et il tombe de lui-même sous deux familles, où une barre seule
+      // ne compare rien.
+      const gMarge = grapheMargeParFamille((r?.found ? (r.data as any) : null));
+      push(cle, [...blocs.filter((b) => b.type !== "sources"), ...(gMarge ? [gMarge] : [])], prov("lire_marge", {}));
       continue;
     }
     if (cle === "resultat_net" || cle === "seuil_rentabilite") {

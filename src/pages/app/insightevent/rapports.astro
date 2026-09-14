@@ -403,11 +403,14 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
               // Le mode d'OUVERTURE est le premier de la liste : « Écrire » au clic sur le bouton,
               // « Demander » après une réponse — c'est la question suivante qui vient, pas une note.
               editeurDansLeBloc(bloc, {
-                titre: "Cette section", cta: "Enregistrer",
+                titre: "Modifier cette section", cta: "Enregistrer",
                 modes: depuis === "demander" ? [interroger, ecrire] : [ecrire, interroger],
               });
             };
-            actions.appendChild(mk("Écrire", function () { ecrireSur(z, "ecrire"); }));
+            // 14/09 (owner, correction) — le bouton dit « Modifier », pas « Écrire » : il CONTIENT les deux
+            // modes. Nommer le bouton d'après l'un d'eux laisserait croire que l'autre est ailleurs. Et il
+            // s'accorde avec « Modifier la Synthèse », le même geste au niveau du document.
+            actions.appendChild(mk("Modifier", function () { ecrireSur(z, "ecrire"); }));
             z.appendChild(actions);
           });
           docEl.appendChild(zone);
