@@ -521,6 +521,27 @@ it("l'espace du pôle : mètres, Part de linéaire, surface, puis le CA et la ma
   expect(html).toContain("Part de marge 38 % contre Part de linéaire 11,7 %");
 });
 
+// 14/09 — LE DÉFAUT QUE LE TEST CI-DESSUS NE POUVAIT PAS VOIR : ses valeurs étaient des entiers ronds
+// (484, 473, 176). Les vraies ne le sont pas. Mesuré sur f10c3e58 (pôle « Cuisine », harnais
+// tools/harness/pole-page-verify.mts) : la page rendait « 491,109 € de CA par mètre » — toLocaleString('fr-FR')
+// rend trois décimales par défaut, et frInt, dont le nom dit « entier », ne les coupait pas. Un montant en
+// euros à trois décimales n'est pas du français (CLAUDE.md § Localization). Les valeurs ci-dessous sont
+// celles que BigQuery a servies ce jour-là, PAS des nombres choisis pour passer.
+it("un montant par mètre est ARRONDI : les mesures réelles sont des flottants, jamais des entiers ronds", () => {
+  const data: any = polePhotos();
+  data.pole.space = {
+    linear_m: 42.9, linear_share: 0.212, surface_m2: 56.8,
+    revenue_per_m: 491.109, revenue_net_ht_per_m: 479.807, margin_per_m: 366.283,
+    revenue_per_m2: 371.035, revenue_net_ht_per_m2: 362.497, margin_per_m2: 276.729,
+    revenue_share: 0.401, margin_share: 0.424, coverage_pct: 100,
+  };
+  const html = String(kit.renderEvolution(data, EVOL_COPY)).replace(/[\u202f\u00a0]/g, " ");
+  expect(html).toContain("491 € de CA par mètre · 480 € de CA net HT par mètre · 366 € de marge brute par mètre");
+  expect(html).toContain("371 € de CA par m² · 362 € de CA net HT par m² · 277 € de marge brute par m²");
+  // La forme exacte du défaut, nommée : aucun montant à trois décimales nulle part sur la page.
+  expect(html).not.toMatch(/\d,\d{3}\s*€/);
+});
+
 it("sans mesure d'espace, l'absence se DIT — jamais une section vide (lexique règle 7)", () => {
   const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
   expect(html).toContain("Espace — 30 derniers jours");

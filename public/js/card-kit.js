@@ -7,7 +7,7 @@
 (function () {
   "use strict";
   function esc(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-  function frInt(n) { try { return Number(n).toLocaleString('fr-FR'); } catch (e) { return String(n); } }
+  function frInt(n) { try { return Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 0 }); } catch (e) { return String(n); } }
 
   /* Lexique regle 6 : jours en toutes lettres - jamais d'abreviation. */
   var WX_DOW_FR = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
