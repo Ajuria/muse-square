@@ -62,6 +62,22 @@
 
   var run = { phase: "idle", startedAt: null, t0: 0, pole: null, items: [], switches: [], problems: [], seq: 0, camera: "none" };
   var det = { prev: null, state: "moving", stillAcc: 0, keptAt: 0, armed: true, best: null, problem: null, lastM: 0, lastS: 0, tick: 0, ticks: 0, lastError: null };
+  // 14/09 — POURQUOI UN ZÉRO EST UN ZÉRO. Premier relevé réel (owner, iPhone, iOS 18.7, 51 s) :
+  // 0 photo, 0 problème, et le compte rendu ne permettait PAS de trancher entre « jamais assez
+  // immobile » et « la boucle n'a jamais tourné » (videoWidth à 0 fait sortir chaque tick avant
+  // l'analyse). Ces compteurs existent pour que la question ne se repose jamais : ce que la
+  // détection a VU, et combien de fois elle n'a rien vu du tout.
+  var diag = { ticks: 0, vides: 0, mMin: null, mMax: null, mSomme: 0, mN: 0, sMax: null, sMin: null,
+               immobileMax: 0, vw: 0, vh: 0, readyState: null, erreurs: 0 };
+  function noteMouvement(m, sh) {
+    diag.mN += 1; diag.mSomme += m;
+    var mr = Math.round(m * 100) / 100;
+    if (diag.mMin === null || mr < diag.mMin) diag.mMin = mr;
+    if (diag.mMax === null || mr > diag.mMax) diag.mMax = mr;
+    var shr = Math.round(sh);
+    if (diag.sMax === null || shr > diag.sMax) diag.sMax = shr;
+    if (diag.sMin === null || shr < diag.sMin) diag.sMin = shr;
+  }
 
   function load() {
     var c = {}; try { c = JSON.parse(localStorage.getItem(LS) || "{}"); } catch (e) { c = {}; }
@@ -206,11 +222,19 @@
 
   function loop() {
     if (timer) return;
-    timer = setInterval(function () { if (run.phase !== "running" || !stream || !srcW()) return; var x = now(); var dt = det.tick ? x - det.tick : 0; det.tick = x; step(x, dt); }, 120);
+    timer = setInterval(function () {
+      diag.ticks += 1;
+      diag.vw = srcW(); diag.vh = srcH();
+      diag.readyState = video && video.readyState != null ? video.readyState : null;
+      // Un tick qui sort ICI est un tick VIDE : le flux n'a pas (encore) d'image. S'ils sont tous
+      // vides, ce n'est pas un problème de seuil — c'est que rien n'a jamais été analysé.
+      if (run.phase !== "running" || !stream || !srcW()) { diag.vides += 1; return; }
+      var x = now(); var dt = det.tick ? x - det.tick : 0; det.tick = x; step(x, dt);
+    }, 120);
   }
   function step(x, dt) {
     det.ticks += 1; tickClock(); placeBand();
-    try { analyse(x, dt); } catch (e) { det.lastError = String(e && e.message || e); if (window.console) console.error(e); }
+    try { analyse(x, dt); } catch (e) { diag.erreurs += 1; det.lastError = String(e && e.message || e); if (window.console) console.error(e); }
   }
   function analyse(x, dt) {
     var vw = srcW(), vh = srcH(), h = Math.round(W * vh / vw);
@@ -218,6 +242,8 @@
     var g = gray(wctx, W, h);
     var m = motion(det.prev, g); det.prev = g;
     det.lastM = m; det.lastS = lapVar(g, W, h);
+    noteMouvement(m, det.lastS);
+    if (det.stillAcc > diag.immobileMax) diag.immobileMax = det.stillAcc;
 
     if (m > cfg.tMove) {
       if (det.best && !det.problem) { commit(det.best, false, null); }
@@ -334,6 +360,16 @@
     $("sumBody").innerHTML = html;
     var report = { surface: "releve-espace", startedAt: run.startedAt, endedAt: new Date().toISOString(), durationS: tOff(), camera: run.camera, ua: navigator.userAgent, viewport: [innerWidth, innerHeight],
       reglages: { tMove: cfg.tMove, tStill: cfg.tStill, stillMs: cfg.stillMs, winMs: cfg.winMs, sharpMin: cfg.sharpMin, brightMin: cfg.brightMin },
+      // CE QUE LA DÉTECTION A VU — la partie du compte rendu qui explique un zéro.
+      diagnostic: {
+        ticks: diag.ticks, ticks_vides: diag.vides, mesures: diag.mN, erreurs: diag.erreurs,
+        derniere_erreur: det.lastError,
+        mouvement: { min: diag.mMin, moyen: diag.mN ? Math.round((diag.mSomme / diag.mN) * 100) / 100 : null, max: diag.mMax, seuil_immobile: cfg.tStill, seuil_bouge: cfg.tMove },
+        nettete: { min: diag.sMin, max: diag.sMax, plancher: cfg.sharpMin },
+        immobilite_cumulee_max_ms: Math.round(diag.immobileMax), immobilite_exigee_ms: cfg.stillMs,
+        flux: { largeur: diag.vw, hauteur: diag.vh, readyState: diag.readyState },
+        pole_courant: run.pole,
+      },
       poles: POLES.map(function (p) { return { name: p.name, dispositif_id: p.dispositif_id, components: (p.components || []).length }; }),
       items: run.items.map(function (i) { return { seq: i.seq, t: i.t, at: i.at, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, photo_id: i.photo_id || null, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, photo_w: i.photo_w || null, photo_h: i.photo_h || null, photo_echec: i.photo_echec || null, manual: i.manual, reason: i.reason, source: i.source, removed: i.removed, removedAt: i.removedAt || null }; }),
       switches: run.switches, problems: run.problems };
@@ -358,7 +394,25 @@
     save(); $("settings").style.display = "none";
   });
 
-  function tickClock() { $("rl-clock").textContent = run.phase === "idle" ? "0:00" : fmtT(tOff()); }
+  // ?diagnostic=1 — les valeurs en direct sous le viseur, pour voir en une seconde si le seuil est en
+  // cause ou si rien n'est analysé. Opt-in par l'adresse : aucun élément permanent dans le viseur.
+  var DIAG_VISIBLE = /[?&]diagnostic=1/.test(location.search);
+  var diagEl = null;
+  if (DIAG_VISIBLE) {
+    diagEl = document.createElement("div");
+    diagEl.setAttribute("style", "font-family:ui-monospace,monospace;font-size:11px;line-height:1.5;color:#374151;background:#F8FAFC;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;margin-top:8px;white-space:pre-wrap;");
+    var doc = document.getElementById("rl-doc"); if (doc) doc.appendChild(diagEl);
+  }
+  function peindreDiag() {
+    if (!diagEl) return;
+    diagEl.textContent = "mouvement " + (Math.round(det.lastM * 10) / 10) + "  (immobile < " + cfg.tStill + ", bouge > " + cfg.tMove + ")"
+      + "\nnettete " + Math.round(det.lastS) + "  (plancher " + cfg.sharpMin + ")"
+      + "\nimmobile " + Math.round(det.stillAcc) + " / " + cfg.stillMs + " ms   etat " + det.state
+      + "\nticks " + diag.ticks + "  vides " + diag.vides + "  flux " + diag.vw + "x" + diag.vh + "  readyState " + diag.readyState
+      + (det.lastError ? "\nerreur " + det.lastError : "");
+  }
+
+  function tickClock() { $("rl-clock").textContent = run.phase === "idle" ? "0:00" : fmtT(tOff()); peindreDiag(); }
   setInterval(tickClock, 500);
 
   // ── harnais (identiques au proto : la vérification du 12/09 continue de valoir) ──
