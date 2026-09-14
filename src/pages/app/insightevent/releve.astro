@@ -47,7 +47,7 @@ const BUILD = String(process.env.VERCEL_GIT_COMMIT_SHA || "local").slice(0, 7);
 
 // Les pôles du site, avec les composants de leur VERSION COURANTE : la seconde question du relevé
 // (« Quel composant ? ») n'a que ceux du pôle touché, donc trois ou quatre boutons — pas un tri.
-let poles: Array<{ dispositif_id: string; commitment_id: string | null; name: string; components: Array<{ component_key: string; label: string | null; type_label_fr: string | null; role_label_fr: string | null }> }> = [];
+let poles: Array<{ dispositif_id: string; commitment_id: string | null; name: string; components: Array<{ component_key: string; label: string | null; type_label_fr: string | null; role_label_fr: string | null; fixture_no: number | null }> }> = [];
 let sites: Array<{ location_id: string; label: string; poles: number }> = [];
 try {
   const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
@@ -69,10 +69,28 @@ try {
     params: { ids: _ids }, types: { ids: ["STRING"] }, location: "EU",
   }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []) : Promise.resolve([] as any[]);
   const polesP = listPoles(bq, location_id);
-  const [_sites, _poles] = await Promise.all([sitesP, polesP]);
+  // Le N\u00b0 DU PLAN de chaque meuble (owner 14/09). Il ne se d\u00e9duit PAS de la cl\u00e9 : `parseComponents`
+  // fabrique une cl\u00e9 absente avec `randomUUID().slice(0, 8)` \u2014 les `p1\u2026p52` de ce compte viennent du
+  // semis, pas d'une r\u00e8gle. Le num\u00e9ro est une valeur D\u00c9CLAR\u00c9E, lue \u00e0 sa source : la mesure d'espace,
+  // par la vue semantic (jamais `analytics`). La vue a le grain famille \u2014 d'o\u00f9 le regroupement ; le
+  // num\u00e9ro le plus r\u00e9cent gagne si un meuble a \u00e9t\u00e9 remesur\u00e9. Amorc\u00e9e en PARALL\u00c8LE (budget 3 s).
+  const numsP = bq.query({
+    query: `SELECT dispositif_id, component_key,
+                   ARRAY_AGG(fixture_no IGNORE NULLS ORDER BY version_no DESC, measured_at DESC LIMIT 1)[SAFE_OFFSET(0)] AS fixture_no
+            FROM \`${PROJ}.semantic.vw_insight_event_component_space\`
+            WHERE location_id = @l AND component_key IS NOT NULL
+            GROUP BY 1, 2`,
+    params: { l: location_id }, types: { l: "STRING" }, location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const [_sites, _poles, _nums] = await Promise.all([sitesP, polesP, numsP]);
   const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
   sites = (_sites as any[]).map((r) => ({ location_id: String(flat(r.location_id)), label: String(flat(r.label) || ""), poles: Number(flat(r.n)) || 0 }))
     .filter((x) => x.label);
+  const numeros = new Map<string, number>();
+  for (const r of _nums as any[]) {
+    const n = Number(flat(r.fixture_no));
+    if (Number.isFinite(n) && n > 0) numeros.set(`${String(flat(r.dispositif_id))}:${String(flat(r.component_key))}`, n);
+  }
   poles = _poles.map((p) => ({
     dispositif_id: p.dispositif_id,
     commitment_id: p.commitment_id,
@@ -82,6 +100,7 @@ try {
       label: c.label,
       type_label_fr: c.type_label_fr,
       role_label_fr: c.role_label_fr,
+      fixture_no: numeros.get(`${p.dispositif_id}:${c.component_key}`) ?? null,
     })),
   }));
 } catch { poles = []; }

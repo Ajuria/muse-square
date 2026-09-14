@@ -11,6 +11,10 @@
 //      s'affichent avant de commencer, et le nom du pôle rappelle qu'on le touche pour en changer ;
 //   4. « quand on clique sur arrêter on doit en background enregistrer ; si pas bonne distance ou blurry
 //      on doit être averti » → « Fin du relevé » lance l'ENREGISTREMENT EN ARRIÈRE-PLAN (file séquentielle,
+//      Le N° DU PLAN du meuble part AVEC la photo (`fixture_no`, owner 14/09) : il arrive du rendu
+//      serveur avec le composant, lu à sa source déclarée (la mesure d'espace) — jamais deviné dans la
+//      clé, qui est un UUID tronqué quand personne ne la pose. Sans lui la légende de la photo, sur la
+//      page du pôle, n'affiche aucun numéro.
 //      avancement affiché) et chaque photo écrite dit ce qui cloche : floue (mesuré ici) ou composant pas
 //      entier dans le cadre (`coverage_flag` rendu par la lecture — la « distance » ne se mesure pas
 //      autrement).
@@ -540,7 +544,7 @@
             .then(function (r) { return r.json(); })
             .then(function (j) { if (!j || !j.ok) throw new Error("retrait"); it.photo_id = null; it.coverage = null; })
         : Promise.resolve())
-        .then(function () { return MSPhotoCapture.envoyer({ dispositif_id: pole.dispositif_id, component_key: it.comp.component_key || it.comp.key, image_base64: it.dataUrl }); })
+        .then(function () { return MSPhotoCapture.envoyer({ dispositif_id: pole.dispositif_id, component_key: it.comp.component_key || it.comp.key, image_base64: it.dataUrl, fixture_no: it.comp.fixture_no != null ? it.comp.fixture_no : null }); })
         .then(function (j) {
           if (j && j.ok) {
             it.etat = "ecrite"; it.photo_id = (j.photo && j.photo.photo_id) || null;

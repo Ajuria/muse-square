@@ -77,9 +77,28 @@ const resolu = corps
 const restantes = resolu.match(/\{[^}]*\}/g);
 if (restantes) throw new Error(`expressions Astro non résolues : ${restantes.join(" ")}`);
 
+// Le N\u00b0 DU PLAN, lu EXACTEMENT comme le rendu serveur de releve.astro le lit : la m\u00eame vue semantic,
+// le m\u00eame regroupement, la m\u00eame cl\u00e9 `dispositif:composant`. Si le harnais l'inventait, il prouverait
+// son propre code et pas celui de la page \u2014 le d\u00e9faut exact du 14/09 sur les cl\u00e9s de copie.
+const _nums: any[] = await bq.query({
+  query: `SELECT dispositif_id, component_key,
+                 ARRAY_AGG(fixture_no IGNORE NULLS ORDER BY version_no DESC, measured_at DESC LIMIT 1)[SAFE_OFFSET(0)] AS fixture_no
+          FROM \`${P}.semantic.vw_insight_event_component_space\`
+          WHERE location_id = @l AND component_key IS NOT NULL
+          GROUP BY 1, 2`,
+  params: { l: LOC }, types: { l: "STRING" }, location: "EU",
+}).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+const _flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+const numeros = new Map<string, number>();
+for (const r of _nums) {
+  const n = Number(_flat(r.fixture_no));
+  if (Number.isFinite(n) && n > 0) numeros.set(`${String(_flat(r.dispositif_id))}:${String(_flat(r.component_key))}`, n);
+}
+console.log(`  N\u00b0 sur le plan : ${numeros.size} composant(s) en portent un`);
+
 const injecte = poles.map((p) => ({
   dispositif_id: p.dispositif_id, commitment_id: p.commitment_id, name: p.name,
-  components: (p.components || []).map((c) => ({ component_key: c.component_key, label: c.label, type_label_fr: c.type_label_fr, role_label_fr: c.role_label_fr })),
+  components: (p.components || []).map((c) => ({ component_key: c.component_key, label: c.label, type_label_fr: c.type_label_fr, role_label_fr: c.role_label_fr, fixture_no: numeros.get(`${p.dispositif_id}:${c.component_key}`) ?? null })),
 }));
 const rl_copy = Object.fromEntries(Object.entries(copy).filter(([k]) => k.startsWith("releve_") || k.startsWith("capture_") || k.startsWith("pole_photo_")));
 const js = readFileSync("public/js/releve-espace.js", "utf8");
@@ -99,7 +118,7 @@ ${resolu}
   // L'espion REMPLACE le foyer du POST : la page appelle MSPhotoCapture.envoyer, il ne part rien.
   window.__envois = [];
   window.MSPhotoCapture = { envoyer: function (p) {
-    window.__envois.push({ dispositif_id: p.dispositif_id, component_key: p.component_key, bytes: String(p.image_base64 || "").length, prefixe: String(p.image_base64 || "").slice(0, 23) });
+    window.__envois.push({ dispositif_id: p.dispositif_id, component_key: p.component_key, fixture_no: p.fixture_no === undefined ? "ABSENT" : p.fixture_no, bytes: String(p.image_base64 || "").length, prefixe: String(p.image_base64 || "").slice(0, 23) });
     document.getElementById("spy").textContent = "ENVOIS ESPIONNÉS\\n" + JSON.stringify(window.__envois, null, 1);
     return Promise.resolve({ ok: true, photo: { photo_id: "espion-" + window.__envois.length } });
   } };
