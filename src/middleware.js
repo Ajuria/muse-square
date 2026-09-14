@@ -159,6 +159,32 @@ async function noindexHorsProduction(context, next) {
   }
 }
 
+// ---- Les pages de l'app ne se mettent JAMAIS en cache (owner 14/09) ----
+// Deux essais du relevé ont eu lieu sur un ÉCRAN PÉRIMÉ — le téléphone rejouait une version
+// précédente — et personne ne pouvait le prouver : la remarque portait sur du code qui n'était plus
+// celui du dépôt. Les pages /app changent plusieurs fois par jour ; `max-age=0, must-revalidate`
+// laisse encore le navigateur servir sa copie (retour arrière, restauration d'onglet, application
+// ajoutée à l'écran d'accueil). `no-store` le lui interdit. Posé ICI et pas dans une page : le garde
+// Clerk répond 307 AVANT que le code d'une page s'exécute, donc un en-tête posé dans la page ne
+// couvre pas la redirection — et ne peut pas se vérifier de l'extérieur.
+function estPageDeLApp(path) {
+  return path === "/app" || path.startsWith("/app/") || path === "/profile" || path === "/onboarding";
+}
+async function sansCachePourLApp(context, next) {
+  const res = await next();
+  let path = "/";
+  try { path = new URL(context.request.url).pathname; } catch { /* adresse illisible : on ne touche à rien */ }
+  if (!estPageDeLApp(path)) return res;
+  try {
+    res.headers.set("cache-control", "no-store, must-revalidate");
+    return res;
+  } catch {
+    const h = new Headers(res.headers);
+    h.set("cache-control", "no-store, must-revalidate");
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+  }
+}
+
 const clerkOnRequest = clerkMiddleware(async (auth, context, next) => {
   const url = new URL(context.request.url);
   const path = url.pathname;
@@ -314,4 +340,4 @@ const clerkOnRequest = clerkMiddleware(async (auth, context, next) => {
   return next();
 });
 
-export const onRequest = sequence(noindexHorsProduction, clerkOnRequest);
+export const onRequest = sequence(noindexHorsProduction, sansCachePourLApp, clerkOnRequest);

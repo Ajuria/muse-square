@@ -40,9 +40,8 @@ const location_id = (!!url_location_id && (_ownedIds.includes(url_location_id) |
 // vide sur les deux autres, sans rien dire. Même défaut que la carte le 09/09, même correctif : le nom
 // du site est affiché, et un compte à plusieurs sites bascule ici même. Le nombre de pôles est dit
 // DANS la liste — on ne choisit pas un site à l'aveugle.
-// Le cache est INTERDIT sur cette page : sans ça, un téléphone peut rejouer un ancien écran, et
-// personne ne peut dire quelle version a tourné (14/09, deux essais owner sur un écran périmé).
-Astro.response.headers.set("cache-control", "no-store, must-revalidate");
+// Le cache des pages /app est interdit par le middleware (`sansCachePourLApp`), pas ici : le garde
+// Clerk répond avant qu'une page s'exécute, donc un en-tête posé dans la page ne couvre pas tout.
 // Le marqueur de version, affiché : c'est LUI qui répond à « quelle version as-tu exécutée ? ».
 const BUILD = String(process.env.VERCEL_GIT_COMMIT_SHA || "local").slice(0, 7);
 
