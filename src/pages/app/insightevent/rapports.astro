@@ -89,6 +89,15 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
       .rp-item a { color: #1D3BB3; text-decoration: none; font-weight: 500; }
       .rp-item .rp-muted { font-size: 12px; }
       .rp-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 0.5px dashed #E5E7EB; }
+      /* 14/09 — le rang « 3 / 8 » : un repère, pas une donnée. Gris, petit, aligné avec les boutons. */
+      .rp-rang { align-self: center; font-size: 12px; color: #9CA3AF; margin-right: 4px; font-variant-numeric: tabular-nums; }
+      /* Le clignotement d'une seconde après un geste : le bleu donnée, qui s'efface. Aucun décalage de mise
+         en page (outline, pas border) — un bloc qui grandit en clignotant déplacerait ses voisins. */
+      .rp-vient-de-bouger { outline: 2px solid #1D3BB3; outline-offset: 3px; border-radius: 6px; animation: rp-fade 1s ease-out forwards; }
+      [data-rapport-section]:focus { outline: none; }
+      @keyframes rp-fade { from { outline-color: #1D3BB3; } to { outline-color: rgba(29,59,179,0); } }
+      /* Respecte le réglage système : sans mouvement, le liseré s'affiche et disparaît sans animation. */
+      @media (prefers-reduced-motion: reduce) { .rp-vient-de-bouger { animation: none; } }
       .rp-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 10px; }
       .rp-versions { font-size: 12px; color: #6B7280; margin: 0 0 10px; }
       .rp-versions a { color: #1D3BB3; text-decoration: none; margin-right: 10px; }
@@ -151,7 +160,14 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
 
         // ── Le document ouvert : le kit, les actions, l'historique ──
         var docEl = $("rp-doc");
-        function renderDocument(doc) {
+        // 14/09 (owner : « on ne suit pas bien où le bloc est parti »). La cause n'était PAS que les blocs se
+        // ressemblent : `renderDocument` détruit tout et reconstruit, puis ramenait en HAUT du rapport
+        // (`zone.scrollIntoView({block:"start"})`) — chaque flèche renvoyait l'exploitant au début, et le
+        // bouton qu'il venait de cliquer n'existait plus, donc le focus retombait sur le corps de page.
+        // `ancre` = { section, bouton } : après le rendu, on ramène CETTE section au centre, on la fait
+        // clignoter une seconde, et on rend le focus au MÊME bouton — pour que trois montées d'affilée se
+        // fassent sans rien rechercher, à la souris comme au clavier.
+        function renderDocument(doc, ancre) {
           docEl.innerHTML = "";
           var zone = el("div", "rp-zone");
           var reg = doc.rapport.synthese ? doc.rapport.synthese.register : "vetted";
@@ -159,7 +175,16 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
           var head = el("div", "rp-zh", "Rapport · version " + doc.version); head.style.margin = "0"; bar.appendChild(head);
           var st = el("span", "rp-muted", "");
           var mk = function (label, fn, aria) { var b = el("button", "rp-btn", label); b.type = "button"; if (aria) { b.setAttribute("aria-label", aria); b.title = aria; } b.addEventListener("click", async function () { b.disabled = true; st.textContent = "…"; try { await fn(); st.textContent = ""; } catch (e) { showErr(zone, String(e.message || e)); st.textContent = ""; } b.disabled = false; }); return b; };
-          var geste = async function (g, params) { var j = await postJson("/api/explorer/rapports", Object.assign({ location_id: loc, document_id: doc.document_id, geste: g }, params || {})); renderDocument(j.document); loadRapports(); };
+          // Où regarder APRÈS le geste : un déplacement suit le bloc à sa nouvelle place (`vers`) ; un
+          // retrait n'a plus de bloc à montrer, on regarde celui qui a pris la place (borné) ; les autres
+          // restent sur leur section.
+          var ancreDuGeste = function (g, params, bouton) {
+            if (!params) return null;
+            if (g === "deplacer") return { section: params.vers, bouton: bouton };
+            if (g === "retirer") return { section: Math.max(0, params.section - 1), bouton: null };
+            return { section: params.section, bouton: bouton };
+          };
+          var geste = async function (g, params, bouton) { var j = await postJson("/api/explorer/rapports", Object.assign({ location_id: loc, document_id: doc.document_id, geste: g }, params || {})); renderDocument(j.document, ancreDuGeste(g, params, bouton)); loadRapports(); };
           bar.appendChild(mk("Actualiser", function () { return geste("actualiser", {}); }));
           bar.appendChild(mk("Modifier la Synthèse", async function () { var t = prompt("La Synthèse, dans vos mots", doc.rapport.synthese ? doc.rapport.synthese.text : ""); if (t == null || !t.trim()) return; await geste("synthese", { texte: t }); }));
           bar.appendChild(mk("Enregistrer comme modèle", async function () {
@@ -185,13 +210,19 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
           var zones = body.querySelectorAll("[data-rapport-section]");
           zones.forEach(function (z) {
             var i = Number(z.getAttribute("data-rapport-section"));
+            // 14/09 (owner) — « 3 / 8 » : la position se LIT au lieu de se suivre du regard. Sur un rapport
+            // de douze sections, c'est ce qui sert le plus : on compare un numéro avant et après, sans
+            // avoir rien vu bouger. Discret (gris, petit) : c'est un repère, pas une donnée du rapport.
+            var rang = el("span", "rp-rang", (i + 1) + " / " + zones.length);
+            rang.setAttribute("aria-label", "Section " + (i + 1) + " sur " + zones.length);
             var actions = el("div", "rp-actions");
+            actions.appendChild(rang);
             // Déplacer : des flèches, pas des mots (owner 12/09) — Monter / Descendre sont les mots lus par un lecteur d'écran.
-            if (i > 0) actions.appendChild(mk("↑", function () { return geste("deplacer", { section: i, vers: i - 1 }); }, "Monter"));
-            if (i < zones.length - 1) actions.appendChild(mk("↓", function () { return geste("deplacer", { section: i, vers: i + 1 }); }, "Descendre"));
-            actions.appendChild(mk("Dupliquer", function () { return geste("dupliquer", { section: i }); }));
+            if (i > 0) actions.appendChild(mk("↑", function () { return geste("deplacer", { section: i, vers: i - 1 }, "↑"); }, "Monter"));
+            if (i < zones.length - 1) actions.appendChild(mk("↓", function () { return geste("deplacer", { section: i, vers: i + 1 }, "↓"); }, "Descendre"));
+            actions.appendChild(mk("Dupliquer", function () { return geste("dupliquer", { section: i }, "Dupliquer"); }));
             actions.appendChild(mk("Retirer", function () { return geste("retirer", { section: i }); }));
-            actions.appendChild(mk("Votre note", async function () { var t = prompt("Votre note"); if (t == null || !t.trim()) return; await geste("note", { section: i, texte: t }); }));
+            actions.appendChild(mk("Votre note", async function () { var t = prompt("Votre note"); if (t == null || !t.trim()) return; await geste("note", { section: i, texte: t }, "Votre note"); }));
             actions.appendChild(mk("Approfondir", async function () {
               var question = prompt("Approfondir — votre question sur cette section"); if (question == null || !question.trim()) return;
               var tools = el("ul", "rp-tools"); z.appendChild(tools);
@@ -201,7 +232,28 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
             z.appendChild(actions);
           });
           docEl.appendChild(zone);
-          if (typeof zone.scrollIntoView === "function") zone.scrollIntoView({ block: "start" });
+          // Sans ancre (ouverture d'un rapport), on montre le début. AVEC une ancre (après un geste), on
+          // montre LA section concernée, au centre — jamais le haut du document, qui était le défaut.
+          var cible = ancre ? body.querySelector('[data-rapport-section="' + ancre.section + '"]') : null;
+          if (!cible) { if (typeof zone.scrollIntoView === "function") zone.scrollIntoView({ block: "start" }); return; }
+          if (typeof cible.scrollIntoView === "function") cible.scrollIntoView({ block: "center", behavior: "smooth" });
+          // Le clignotement : une seconde, puis plus rien. Il ne laisse aucun élément permanent à l'écran.
+          cible.classList.add("rp-vient-de-bouger");
+          setTimeout(function () { cible.classList.remove("rp-vient-de-bouger"); }, 1000);
+          // Le focus au MÊME bouton : trois montées d'affilée sans rien rechercher, souris ou clavier.
+          // `preventScroll` : focus() défile de lui-même et lutterait contre le défilement doux ci-dessus.
+          var pose = function (e) { try { e.focus({ preventScroll: true }); } catch (err) { e.focus(); } };
+          var mis = false;
+          if (ancre.bouton) {
+            var btns = cible.querySelectorAll(".rp-actions button");
+            for (var bi = 0; bi < btns.length; bi++) {
+              if (btns[bi].textContent === ancre.bouton) { pose(btns[bi]); mis = true; break; }
+            }
+          }
+          // Le bouton peut ne plus exister : monté tout en haut, « ↑ » disparaît. On pose alors le focus sur
+          // le BLOC lui-même, jamais sur le bouton voisin — au sommet, le voisin est « ↓ », et Entrée
+          // redescendrait le bloc qu'on vient de monter.
+          if (!mis) { cible.setAttribute("tabindex", "-1"); pose(cible); }
         }
         async function openDocument(id, version) {
           try { var j = await getJson("/api/explorer/rapports" + q("&document_id=" + encodeURIComponent(id) + (version ? "&version=" + version : ""))); renderDocument(j.document); }
