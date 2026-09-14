@@ -15,7 +15,8 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { isRapportBlock, listReportDocuments, listReportVersions, newReportDocumentRow, readReportDocument, writeReportDocument } from "../../../lib/rapport/documents";
-import { actualiserDocument, ajouterNote, deplacerSection, dupliquerSection, modifierSynthese, retirerNote, retirerSection } from "../../../lib/rapport/gestes";
+import { actualiserDocument, ajouterNote, deplacerSection, dupliquerSection, modifierSynthese, retirerNote, retirerSection, sujetDeNote } from "../../../lib/rapport/gestes";
+import { writeSiteMemory, newSiteMemoryRow, normalizeBody } from "../../../lib/explorer/siteMemory";
 import type { RapportBlock } from "../../../lib/explorer/blocks";
 
 export const prerender = false;
@@ -122,7 +123,40 @@ async function geste(bq: any, locals: any, location_id: string, w: { user_id: st
     if ("erreur" in out) return json({ ok: false, error: out.erreur }, 400);
     const row = newReportDocumentRow({ location_id, author: w, rapport: out, document_id, version: prev.version + 1, modele_id: prev.modele_id });
     await writeReportDocument(bq, row);
-    return json({ ok: true, document_id, version: row.version, document: { ...prev, version: row.version, author_user_id: row.author_user_id, author_role: row.author_role, titre: row.titre, periode_du: row.periode_du, periode_au: row.periode_au, periode_relative: row.periode_relative, created_at: row.created_at, rapport: out } });
+
+    // 14/09 (owner : « peut permettre à l'app d'apprendre beaucoup de choses sur le business du user » ;
+    // spec § 4 n2, owner 12/09 : les notes sont des éléments de contexte). LA NOTE REJOINT LA MÉMOIRE DU
+    // SITE. Mesuré le 14/09 avant ce commit : 4 versions de rapport portaient une note, et la mémoire du
+    // site ne comptait que 2 lignes, toutes venues du chat — les deux rails ne se parlaient pas, et une
+    // note écrite n'était relue par personne.
+    //
+    // ELLE N'EST PAS DÉPLACÉE, ELLE EST COPIÉE : la note appartient au Rapport (elle s'imprime avec lui,
+    // elle se versionne avec lui) ET à la mémoire (l'agent l'y relira). Provenance « note_rapport » : ni
+    // une déclaration chiffrée, ni un fait d'outil — un constat de terrain, que l'agent doit pondérer
+    // pour ce qu'il est.
+    //
+    // L'ÉCHEC N'ANNULE JAMAIS LE GESTE : la note est déjà enregistrée dans le document ci-dessus. Perdre
+    // le geste parce que la mémoire n'a pas pris serait pire que perdre la mémoire. Mais il se DIT — un
+    // `memoire: false` dans la réponse, et une trace serveur ; une écriture qui échoue en silence est ce
+    // qui laisse croire pendant des semaines que l'app apprend.
+    let memoire: boolean | null = null;
+    if (body.geste === "note") {
+      memoire = false;
+      try {
+        const sujet = sujetDeNote(out.sections?.[i]?.titre, out.periode?.libelle_fr);
+        const texte = normalizeBody(body.texte);
+        if (sujet && texte) {
+          await writeSiteMemory(bq, newSiteMemoryRow({
+            location_id, subject: sujet, body: texte,
+            author_user_id: w.user_id, author_role: w.role, source: "note_rapport",
+          }));
+          memoire = true;
+        }
+      } catch (e: any) {
+        console.error("[explorer/rapports] note → mémoire :", String(e?.message || e));
+      }
+    }
+    return json({ ok: true, document_id, version: row.version, ...(memoire === null ? {} : { memoire }), document: { ...prev, version: row.version, author_user_id: row.author_user_id, author_role: row.author_role, titre: row.titre, periode_du: row.periode_du, periode_au: row.periode_au, periode_relative: row.periode_relative, created_at: row.created_at, rapport: out } });
   } catch (e: any) {
     const msg = String(e?.message || e);
     if (/^rapport : /.test(msg)) return json({ ok: false, error: msg }, 400);

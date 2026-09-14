@@ -44,6 +44,25 @@ export function dupliquerSection(r: RapportBlock, i: number): RapportBlock | Ges
 }
 
 /** Votre note : un texte de l'exploitant, sous la section `i` (après ses blocs), avec l'auteur et la date. */
+/**
+ * PUR — LE SUJET SOUS LEQUEL UNE NOTE ENTRE DANS LA MÉMOIRE DU SITE (owner 14/09 : « peut permettre à
+ * l'app d'apprendre beaucoup de choses sur le business du user » ; spec § 4 n2, owner 12/09 : « les choix
+ * qu'il fait — sections gardées, ordre, notes, questions posées — sont des éléments de contexte »).
+ *
+ * CE QUE LE SUJET DOIT FAIRE, et pourquoi il porte la SECTION ET LA PÉRIODE : `site_memory` garde la
+ * DERNIÈRE ligne de chaque sujet. Un sujet trop large (« notes ») ferait que chaque note efface la
+ * précédente ; un sujet trop étroit (l'identifiant du document) rendrait deux notes du même mois
+ * introuvables ensemble. Section + période : deux notes sur des sujets différents coexistent, et deux
+ * notes sur LE MÊME sujet se remplacent — ce qui est le bon comportement, l'exploitant s'étant corrigé.
+ * Rien n'est perdu pour autant : le Rapport garde toutes ses notes, et la table est en ajout seul.
+ */
+export function sujetDeNote(titreSection: unknown, periodeLibelle: unknown): string | null {
+  const t = String(titreSection ?? "").replace(/\s+/g, " ").trim();
+  if (!t) return null;                                  // sans section nommée, pas de sujet : on n'invente pas
+  const p = String(periodeLibelle ?? "").replace(/\s+/g, " ").trim();
+  return p ? `${t} — ${p}` : t;
+}
+
 export function ajouterNote(r: RapportBlock, i: number, texte: unknown, auteur: string | null, now = new Date()): RapportBlock | GesteErreur {
   if (!dans(r, i)) return { erreur: "section inconnue" };
   const text = String(texte ?? "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();

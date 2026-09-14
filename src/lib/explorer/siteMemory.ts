@@ -17,7 +17,12 @@ import { randomUUID } from "node:crypto";
 const PROJECT = "muse-square-open-data";
 
 export type AuthorRole = "owner" | "member";
-export type MemorySource = "conversation" | "outil";
+// 14/09 — « note_rapport » : une note écrite par l'exploitant SOUS une section d'un Rapport. Sa
+// provenance compte : ce n'est ni une déclaration chiffrée (« ma marge est de 62 % ») ni un fait
+// d'outil, c'est un constat de terrain, en mots libres. L'agent doit pouvoir la pondérer pour ce
+// qu'elle est — d'où une source à elle, jamais fondue dans « conversation ».
+export type MemorySource = "conversation" | "outil" | "note_rapport";
+const SOURCES: MemorySource[] = ["conversation", "outil", "note_rapport"];
 
 export const SUBJECT_MAX = 120;
 export const BODY_MAX = 4000;
@@ -124,9 +129,40 @@ export async function readSiteMemory(
     body: String(flat(r.body)),
     author_user_id: String(flat(r.author_user_id)),
     author_role: (String(flat(r.author_role)) === "member" ? "member" : "owner") as AuthorRole,
-    source: (String(flat(r.source)) === "outil" ? "outil" : "conversation") as MemorySource,
+    source: (SOURCES.includes(String(flat(r.source)) as MemorySource) ? String(flat(r.source)) : "conversation") as MemorySource,
     created_at: String(flat(r.created_at)),
   }));
+}
+
+/**
+ * PUR — CE QUE L'EXPLOITANT A NOTÉ, mis sous les yeux du modèle À CHAQUE TOUR (owner 14/09 : « peut
+ * permettre à l'app d'apprendre beaucoup de choses sur le business du user »).
+ *
+ * POURQUOI DANS LE CONTEXTE ET PAS SEULEMENT DANS UN OUTIL. `lire_memoire` existe depuis le 12/09, mais un
+ * outil ne sert que si le modèle pense à l'appeler — et il n'y pense pas, puisque rien ne lui dit qu'il y a
+ * quelque chose à y lire. Une mémoire qu'on n'ouvre jamais est un tiroir. Elle entre donc dans le tour,
+ * bornée : les plus récentes d'abord, le corps coupé, un plafond dur.
+ *
+ * CE QU'ELLE N'EST PAS, et le bloc le dit au modèle : une mesure. « On a fermé le lundi en août » est la
+ * parole de l'exploitant, datée et signée. Elle éclaire un chiffre, elle ne le remplace jamais, et elle ne
+ * se cite pas comme un fait vérifié.
+ */
+export function blocMemoires(entries: SiteMemoryEntry[], max = 20, corpsMax = 400): string | null {
+  const l = (entries ?? []).filter((e) => e && e.subject && e.body).slice(0, max);
+  if (!l.length) return null;
+  const lignes = l.map((e) => {
+    const corps = e.body.length > corpsMax ? e.body.slice(0, corpsMax).trimEnd() + "…" : e.body;
+    const quand = frDate(e.created_at);
+    const d = e.source === "note_rapport" ? "note sur un Rapport" : e.source === "outil" ? "relevé d'un outil" : "dit en conversation";
+    return `- ${e.subject}${quand ? ` (${quand}, ${d})` : ` (${d})`} : ${corps}`;
+  });
+  return [
+    "CE QUE L'EXPLOITANT A NOTÉ SUR SON COMMERCE — sa parole, datée. Ce n'est PAS une mesure : ça éclaire un",
+    "chiffre, ça ne le remplace jamais, et ça ne se cite pas comme un fait vérifié. Quand une de ces notes",
+    "porte sur la période ou le sujet dont tu parles, DIS-LA, en l'attribuant (« vous aviez noté que… ») ;",
+    "sinon n'en parle pas. N'invente jamais une note qui n'est pas dans cette liste.",
+    ...lignes,
+  ].join("\n");
 }
 
 /** JJ/MM/AAAA depuis un ISO / une chaîne BigQuery (« 2026-09-11 08:00:00+00 »). */
