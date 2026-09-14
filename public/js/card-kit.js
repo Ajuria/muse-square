@@ -1195,6 +1195,14 @@
         h += '<div class="eg-sec" data-eg-poles-rank><div class="eg-uc">' + esc(t2('pole_rank_title')) + '</div>'
           + msTable(pr.comparaison.cols || [], pr.comparaison.rows) + '</div>';
       }
+      // 14/09 (owner : « plan au sol ») — OU EST CE POLE DANS LE MAGASIN. Sous la comparaison : celle-ci dit
+      // COMBIEN, le plan dit OU, et les deux portent la meme mesure (CA par metre) sur la meme fenetre. Le
+      // bloc vient du serveur et se rend par AB_PRIMITIVES.plan, LA primitive du plan colore — aucun second
+      // dessin. La zone de ce pole y est deja marquee `courant`.
+      if (pr.plan && Array.isArray(pr.plan.zones) && pr.plan.zones.length) {
+        h += '<div class="eg-sec" data-eg-plan><div class="eg-uc">' + esc(t2('pole_plan_title')) + '</div>'
+          + AB_PRIMITIVES.plan(pr.plan) + '</div>';
+      }
       // 14/09 (owner) — LA DÉCOMPOSITION, le MÊME bloc que sur une opération : nombre de ventes, panier
       // moyen, mix, heures. Le serveur l'a calculée sur le référentiel de l'en-tête (30 derniers jours
       // contre les 90 précédents), donc la page ne porte qu'UN référentiel. Rien n'est écrit ici : c'est
@@ -2496,7 +2504,9 @@
         var all = [];
         (z.polygons || []).forEach(function (pg) {
           if (!Array.isArray(pg) || pg.length < 3) return;
-          polys += '<polygon points="' + pg.map(function (p) { return (+p[0]).toFixed(1) + ',' + (+p[1]).toFixed(1); }).join(' ') + '" fill="' + tint(z) + '" stroke="#fff" stroke-width="1.5"><title>' + esc(z.label + (z.value_fr ? ' \u00b7 ' + z.value_fr : '') + ' \u00b7 ' + String(z.area_m2).replace('.', ',') + ' m\u00b2') + '</title></polygon>';
+          // 14/09 : sur la page d'un pole, SA zone porte un contour net — c'est la seule chose qui distingue
+          // « ou suis-je » d'un plan general. Sans le drapeau (Explorer), le trait blanc d'origine, inchange.
+          polys += '<polygon points="' + pg.map(function (p) { return (+p[0]).toFixed(1) + ',' + (+p[1]).toFixed(1); }).join(' ') + '" fill="' + tint(z) + '" stroke="' + (z.courant ? '#111827' : '#fff') + '" stroke-width="' + (z.courant ? '3' : '1.5') + '"><title>' + esc(z.label + (z.value_fr ? ' \u00b7 ' + z.value_fr : '') + ' \u00b7 ' + String(z.area_m2).replace('.', ',') + ' m\u00b2') + '</title></polygon>';
           pg.forEach(function (p) { all.push(p); });
         });
         if (!all.length) return;

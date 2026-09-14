@@ -49,7 +49,7 @@ vm.createContext(bac);
 vm.runInContext(readFileSync("public/js/card-kit.js", "utf8"), bac, { filename: "card-kit.js" });
 const kit = bac.window.MSCardKit;
 
-type Ligne = { nom: string; ms: number; espace: string; comparaison: string; decomposition: string; octets: number };
+type Ligne = { nom: string; ms: number; espace: string; comparaison: string; decomposition: string; plan: string; octets: number };
 const lignes: Ligne[] = [];
 let erreurs = 0;
 
@@ -85,6 +85,12 @@ for (const p of poles) {
   const espaceTxt = html.includes(String(EVOL_COPY.pole_space_none)) ? "absence DITE" : espace;
   const comparaison = data.pole?.comparaison ? sec("data-eg-poles-rank", String(EVOL_COPY.pole_rank_title))
     : (html.includes("data-eg-poles-rank") ? "RENDUE SANS DONNÉE" : "non servie (moins de 2 pôles mesurés)");
+  // 14/09 (point 5) — le plan : rendu, et SA zone distinguee ? Un plan ou l'on ne se trouve pas ne sert a rien.
+  const plan = !data.pole?.plan ? "non servi (aucun contour relevé)"
+    : !html.includes("data-eg-plan") ? "SERVI MAIS PAS RENDU"
+    : (html.match(/stroke="#111827" stroke-width="3"/g) || []).length
+      ? `rendu · ${data.pole.plan.zones.length} zone(s) · CE pôle contouré`
+      : "rendu MAIS ce pôle n'est pas distingué";
   const decomposition = data.shape ? (html.includes(String(EVOL_COPY.shape_title)) ? sec("", String(EVOL_COPY.shape_title)) : "SERVIE MAIS PAS RENDUE")
     : "non servie (aucune famille au périmètre)";
 
@@ -93,7 +99,7 @@ for (const p of poles) {
   const mauvais = [...new Set((texte(html).match(/\d[\d  ]*,\d{3,}\s*(?:€|m²|m|%)?/g) || []))];
   if (mauvais.length) { console.error(`✗ ${p.name} : ${mauvais.length} nombre(s) mal formaté(s) — ${mauvais.slice(0, 6).join(" · ")}`); erreurs++; }
 
-  lignes.push({ nom: String(p.name), ms, espace: espaceTxt, comparaison, decomposition: decomposition.replace(/^rendue/, "rendue"), octets: html.length });
+  lignes.push({ nom: String(p.name), ms, espace: espaceTxt, comparaison, decomposition: decomposition.replace(/^rendue/, "rendue"), plan, octets: html.length });
 
   // --dump=<nom du pôle> : le TEXTE des trois sections, pour relire les nombres et les phrases à l'œil
   // (une valeur mal formatée passe tous les tests — le formatage français ne se déduit pas d'un vert).
@@ -118,6 +124,7 @@ for (const l of lignes) {
   console.log(`    espace        ${l.espace}`);
   console.log(`    comparaison   ${l.comparaison}`);
   console.log(`    décomposition ${l.decomposition}`);
+  console.log(`    plan          ${l.plan}`);
 }
 const pire = lignes.reduce((a, l) => Math.max(a, l.ms), 0);
 const hors = lignes.slice(1).filter((l) => l.ms > BUDGET_MS).length;

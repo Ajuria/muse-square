@@ -32,6 +32,10 @@ export interface PlanZone {
   value_fr: string | null;
   /** Rang de teinte 1 (la plus forte) … n ; null sans valeur. */
   rang: number | null;
+  /** 14/09 — la zone du pôle dont on regarde la page. Posée par la SURFACE (jamais par la composition,
+   *  qui ne sait pas d'où on la regarde) et appariée par la CLÉ `pole_id`, jamais par le libellé. Absente
+   *  partout ailleurs : le plan d'Explorer ne distingue aucun pôle, et rien ne change pour lui. */
+  courant?: boolean;
 }
 export interface PlanBlock {
   type: "plan";

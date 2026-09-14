@@ -18,6 +18,8 @@ import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../.
 import { readLatestSnapshot } from "../../../lib/commitments/actionCommitments";
 import { buildPoleReading, buildPoleItemsReading, listPoleSpace, type PoleSpaceRow } from "../../../lib/dispositifs/poleReading";
 import { composePoleClassement } from "../../../lib/dispositifs/poleClassement";
+import { composePlan, type PlanBlock } from "../../../lib/dispositifs/planColore";
+import { listSpaceZonesEnVigueur, currentZones, type SpaceZone } from "../../../lib/dispositifs/spaceZones";
 import type { AnswerBlock } from "../../../lib/explorer/blocks";
 import { commitmentEffect } from "../../../lib/commitments/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitments/commitmentContext";
@@ -293,6 +295,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // 11/09. MÊME foyer que lui (`listPoleSpace`, vw_insight_event_space_30d, grain pôle) — jamais une
       // seconde lecture. Amorcé ici, attendu plus bas : aucun aller-retour de plus en série.
       const _espaceP = listPoleSpace(bq, String(snap.location_id)).catch(() => [] as PoleSpaceRow[]);
+      // 14/09 (owner : « plan au sol » sur la page du dispositif) — LES CONTOURS, amorcés ICI, en parallèle
+      // de tout le reste : un aller-retour ajouté sur un chemin SÉQUENTIEL coûte son aller-retour entier,
+      // ajouté à un lot parallèle il ne coûte que s'il est le plus lent (CLAUDE.md § Performance).
+      const _zonesP = listSpaceZonesEnVigueur(bq, String(snap.location_id)).catch(() => [] as SpaceZone[]);
       // 14/09 (owner : « nombre de vente, panier moyen, mix produit… la vue doit être alignée sur
       // M'engager ») — LA DÉCOMPOSITION D'UN PÔLE, par LE calcul des opérations (buildWindowShape) et
       // rendue par LE bloc des opérations : aucune seconde mécanique, aucun second rendu.
@@ -324,6 +330,20 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // sur la MÊME fenêtre de 30 jours. Aucune seconde mécanique de classement, aucun second tri.
       // Sa table part telle quelle ; la ligne de CE pôle se retrouve par sa CLÉ (jamais par son libellé) et
       // part en gras et en bleu donnée. Un seul pôle mesuré : il n'y a personne à qui se comparer, rien ne part.
+      // 14/09 (owner, point 5) — LE PLAN AU SOL. Le plan coloré existe déjà (planColore.ts, bloc d'Explorer,
+      // primitive `plan` du kit) : on ne redessine RIEN. Même mesure que les deux sections au-dessus — le CA
+      // par mètre — donc la page entière ne porte qu'UN référentiel. La zone de CE pôle est marquée par sa
+      // CLÉ ; la composition, elle, ignore d'où on la regarde et reste identique pour Explorer.
+      const _zones = currentZones(await _zonesP);
+      const _plan = _zones.length ? composePlan(_zones, _esp, "ca_par_metre") : null;
+      (pole as any).plan = _plan && _plan.found
+        ? {
+            ..._plan.block,
+            zones: (_plan.block as PlanBlock).zones.map((z) =>
+              String(z.pole_id) === String((snap as any).dispositif_id ?? "") ? { ...z, courant: true } : z,
+            ),
+          }
+        : null;
       const _cls = composePoleClassement({ rows: [], space: _esp, start: asOfP, end: asOfP }, "ca_par_metre", "");
       const _tbl = _cls.found ? (_cls.blocks.find((b) => b.type === "table") as Extract<AnswerBlock, { type: "table" }> | undefined) : undefined;
       (pole as any).comparaison = _tbl && _tbl.rows.length >= 2

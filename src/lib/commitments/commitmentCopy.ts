@@ -314,6 +314,10 @@ export const EVOL_COPY = {
   // 14/09 (owner : « photos avec accès aux versions précédentes ») — le libellé du volet replié sous une
   // photo. Règle 8 : le sujet est l'exploitant et le verbe est ce qu'il ACQUIERT (« vous verrez »), pas ce
   // que l'app garde. Aucune énumération de champs, aucun mot de mécanique, aucun argument de durée.
+  // 14/09 (owner : « plan au sol » sur la page du dispositif) — LE MOT EST CELUI DU LEXIQUE (l. 133,
+  // owner 13/09) : « plan coloré ». Le bloc porte déjà sa propre légende (la mesure, la fenêtre, le sol de
+  // vente) : le titre de section ne la répète pas.
+  pole_plan_title: "Plan coloré",
   pole_photo_prec_une: "Voir la photo précédente de ce composant",
   pole_photo_prec: "Voir les {n} photos précédentes de ce composant",
   pole_ops_none: "Aucune opération rattachée pour l'instant.",

@@ -697,3 +697,57 @@ it("une photo servie par une version ANCIENNE de l'API (sans champ precedentes) 
   const p: any = photoAvecPrec(0); delete p.precedentes;
   expect(String(kit.renderComponentPhoto(p, EVOL_COPY))).not.toContain("data-eg-photo-prec");
 });
+
+// ── 14/09 — LE PLAN AU SOL SUR LA PAGE DU PÔLE (owner : « plan au sol »). Ce qui se garde : le plan vient
+// du serveur et se rend par LA primitive du plan coloré (aucun second dessin), la zone de CE pôle porte un
+// contour net que les autres n'ont pas, et sans contour relevé la page ne met pas de cadre vide.
+const polePlan = () => {
+  const data: any = polePhotos();
+  data.pole.plan = {
+    type: "plan", mesure: "ca_par_metre", mesure_fr: "CA par mètre sur 30 jours",
+    viewBox: [0, 0, 400, 300], scale_pt_per_m: 10, fenetre_fr: "du 13/08/2026 au 11/09/2026",
+    surface_totale_m2: 308.77,
+    zones: [
+      { pole_id: "d2", label: "Thés", polygons: [[[0, 0], [100, 0], [100, 80], [0, 80]]], area_m2: 80, value: 412, value_fr: "412 €", rang: 1 },
+      { pole_id: "d1", label: "Épices", polygons: [[[120, 0], [220, 0], [220, 90], [120, 90]]], area_m2: 90, value: 268, value_fr: "268 €", rang: 2, courant: true },
+    ],
+  };
+  return data;
+};
+
+it("le plan au sol : la primitive du plan coloré, la mesure et le sol de vente en légende", () => {
+  const html = String(kit.renderEvolution(polePlan(), EVOL_COPY));
+  const i = html.indexOf("data-eg-plan");
+  expect(i).toBeGreaterThan(0);
+  const bloc = html.slice(i, html.indexOf("</div></div>", i));
+  expect(bloc).toContain("Plan coloré");
+  expect(bloc).toContain("<svg viewBox=\"0 0 400 300\"");
+  expect(bloc).toContain("CA par mètre sur 30 jours");
+  expect(bloc).toContain("sol de vente 308,77 m²");
+  expect(bloc).toContain("Thés");
+  expect(bloc).toContain("Épices");
+});
+
+it("la zone de CE pôle porte un contour net, les autres non — c'est ce qui dit « où suis-je »", () => {
+  const html = String(kit.renderEvolution(polePlan(), EVOL_COPY));
+  expect(html).toContain('points="120.0,0.0 220.0,0.0 220.0,90.0 120.0,90.0"');
+  const courant = html.slice(html.indexOf('points="120.0,0.0'), html.indexOf('points="120.0,0.0') + 260);
+  const autre = html.slice(html.indexOf('points="0.0,0.0'), html.indexOf('points="0.0,0.0') + 260);
+  expect(courant).toContain('stroke="#111827"');
+  expect(courant).toContain('stroke-width="3"');
+  expect(autre).toContain('stroke="#fff"');
+  expect(autre).toContain('stroke-width="1.5"');
+});
+
+it("sans contour relevé, aucune section — la page ne met pas un cadre vide", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).not.toContain("data-eg-plan");
+  expect(html).not.toContain("Plan coloré");
+});
+
+it("le plan se place SOUS la comparaison : elle dit combien, il dit où", () => {
+  const data: any = polePlan();
+  data.pole.comparaison = { cols: [{ label: "Pôle" }], rows: [{ id: "d1", cells: [{ v: "Épices" }] }, { id: "d2", cells: [{ v: "Thés" }] }] };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html.indexOf("data-eg-poles-rank")).toBeLessThan(html.indexOf("data-eg-plan"));
+});
