@@ -111,7 +111,16 @@ for (const p of poles) {
   } catch { /* l'absence de photos n'est pas une panne : la ligne ci-dessous la dira */ }
   const servies = Array.isArray(pj?.photos) ? pj.photos.length : 0;
   const prec = Array.isArray(pj?.photos) ? pj.photos.reduce((a: number, x: any) => a + (x.precedentes?.length ?? 0), 0) : 0;
-  const photos = `${emplacements} emplacement(s) · ${servies} photo(s) servie(s) par l'API · ${prec} précédente(s)`;
+  let volet = "";
+  if (prec > 0) {
+    const avecPrec = pj.photos.find((x: any) => (x.precedentes?.length ?? 0) > 0);
+    const h = String(kit.renderComponentPhoto(avecPrec, EVOL_COPY));
+    const n = (h.match(/variant=square/g) || []).length;
+    volet = h.includes("data-eg-photo-prec")
+      ? ` · volet RENDU (${n} vignette(s), « ${(h.match(/Voir l[ae][^<]*/) || ["?"])[0]} »)`
+      : " · ✗ VOLET NON RENDU alors que des précédentes sont servies";
+  }
+  const photos = `${emplacements} emplacement(s) · ${servies} photo(s) servie(s) par l'API · ${prec} précédente(s)${volet}`;
 
   lignes.push({ nom: String(p.name), ms, espace: espaceTxt, comparaison, decomposition: decomposition.replace(/^rendue/, "rendue"), plan, photos, octets: html.length });
 

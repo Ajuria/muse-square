@@ -540,7 +540,13 @@
     enCours = true;
     var suivant = function () {
       var it = file.shift();
-      if (!it) { enCours = false; avancement(); return; }
+      if (!it) {
+        // La file était un instantané : des photos ont pu arriver pendant l'envoi. On les reprend ici,
+        // sinon elles restent « à rattacher » pour toujours — c'est ce qui a perdu 2 photos sur 5.
+        var reste = gardees().filter(function (x) { return x.comp && (x.etat === "a_rattacher" || x.etat === "a_corriger"); });
+        if (reste.length) { file = reste; return suivant(); }
+        enCours = false; avancement(); return;
+      }
       var pole = poleByName(it.pole);
       if (!pole || !window.MSPhotoCapture || !MSPhotoCapture.envoyer) { it.etat = "echec"; return suivant(); }
       var aRetirer = it.etat === "a_corriger" && it.photo_id ? it.photo_id : null;
