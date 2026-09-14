@@ -17,6 +17,8 @@ import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
 import { readLatestSnapshot } from "../../../lib/commitments/actionCommitments";
 import { buildPoleReading, buildPoleItemsReading, listPoleSpace, type PoleSpaceRow } from "../../../lib/dispositifs/poleReading";
+import { composePoleClassement } from "../../../lib/dispositifs/poleClassement";
+import type { AnswerBlock } from "../../../lib/explorer/blocks";
 import { commitmentEffect } from "../../../lib/commitments/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitments/commitmentContext";
 import { buildWindowShape, buildPriceLadder } from "../../../lib/commitments/commitmentShape";
@@ -310,9 +312,30 @@ export const GET: APIRoute = async ({ url, locals }) => {
           }).catch(() => null)
         : Promise.resolve(null);
       const pole = await buildPoleReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), _famList, asOfP);
-      (pole as any).space = (await _espaceP).find(
+      const _esp = await _espaceP;
+      (pole as any).space = _esp.find(
         (r) => r.grain === "pole" && String(r.pole_id ?? "") === String((snap as any).dispositif_id ?? ""),
       ) ?? null;
+      // 14/09 (owner : « comparaison vs autres pôles ») — LA COMPARAISON, SANS UN SEUL ALLER-RETOUR DE PLUS :
+      // `listPoleSpace` ci-dessus rend DÉJÀ tous les pôles du site, la branche n'en gardait qu'une ligne et
+      // jetait les autres. Le classement est celui du Rapport (`composePoleClassement`, section du lexique
+      // « Vos pôles · du plus au moins performant ») sur l'indicateur qui rend deux pôles comparables quelle
+      // que soit leur taille — le CA par mètre, celui que la section Espace vient d'afficher juste au-dessus,
+      // sur la MÊME fenêtre de 30 jours. Aucune seconde mécanique de classement, aucun second tri.
+      // Sa table part telle quelle ; la ligne de CE pôle se retrouve par sa CLÉ (jamais par son libellé) et
+      // part en gras et en bleu donnée. Un seul pôle mesuré : il n'y a personne à qui se comparer, rien ne part.
+      const _cls = composePoleClassement({ rows: [], space: _esp, start: asOfP, end: asOfP }, "ca_par_metre", "");
+      const _tbl = _cls.found ? (_cls.blocks.find((b) => b.type === "table") as Extract<AnswerBlock, { type: "table" }> | undefined) : undefined;
+      (pole as any).comparaison = _tbl && _tbl.rows.length >= 2
+        ? {
+            cols: _tbl.cols,
+            rows: _tbl.rows.map((r) =>
+              String(r.id ?? "") === String((snap as any).dispositif_id ?? "")
+                ? { ...r, cells: r.cells.map((c) => ({ ...c, bold: true, color: "#1D3BB3" })) }
+                : r,
+            ),
+          }
+        : null;
       const _comps = await _compsP;
       const _space = await _spaceP;
       (pole as any).items = await _itemsP;

@@ -1186,6 +1186,15 @@
         }
         h += b + '</div>';
       })();
+      // 14/09 (owner : « comparaison vs autres poles ») — OU SE SITUE CE POLE. Juste sous l'Espace, parce
+      // que c'est le meme indicateur (CA par metre) sur la meme fenetre de 30 jours : la page ne porte
+      // qu'UN referentiel a cet endroit. La table vient TELLE QUELLE du serveur (composePoleClassement,
+      // celle du Rapport), rendue par msTable, la primitive des tables du kit — aucun second rendu. La
+      // ligne de ce pole y est deja en gras et en bleu donnee : rien n'est decide ici.
+      if (pr.comparaison && pr.comparaison.rows && pr.comparaison.rows.length) {
+        h += '<div class="eg-sec" data-eg-poles-rank><div class="eg-uc">' + esc(t2('pole_rank_title')) + '</div>'
+          + msTable(pr.comparaison.cols || [], pr.comparaison.rows) + '</div>';
+      }
       // 14/09 (owner) — LA DÉCOMPOSITION, le MÊME bloc que sur une opération : nombre de ventes, panier
       // moyen, mix, heures. Le serveur l'a calculée sur le référentiel de l'en-tête (30 derniers jours
       // contre les 90 précédents), donc la page ne porte qu'UN référentiel. Rien n'est écrit ici : c'est

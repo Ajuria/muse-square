@@ -24,7 +24,10 @@ export type AnswerBlock =
   | { type: "headline"; text: string }
   | { type: "datecards"; items: Array<Record<string, unknown>> }
   // Le format de msTable (card-kit.js) : rows[].cells[] — jamais un second rendu de table.
-  | { type: "table"; cols: Array<{ label: string; align?: "left" | "right" }>; rows: Array<{ cells: Array<{ v: string; bold?: boolean; color?: string; sub?: string; tip?: string }> }> }
+  // `id` (14/09) : la CLÉ de la ligne — jamais rendue (msTable ne lit que `cells`). Elle existe pour qu'une
+  // surface qui réutilise un classement retrouve SA ligne par son identifiant, jamais par son libellé
+  // (CLAUDE.md § Diagnosis : « Identité par la CLÉ, jamais par un nom »).
+  | { type: "table"; cols: Array<{ label: string; align?: "left" | "right" }>; rows: Array<{ id?: string; cells: Array<{ v: string; bold?: boolean; color?: string; sub?: string; tip?: string }> }> }
   | { type: "card"; render: string; data: Record<string, unknown> }
   // `ouvert` (13/09) : dans un Rapport, les sources se lisent sans clic — dans le chat, elles restent repliées.
   | { type: "sources"; items: string[]; ouvert?: boolean }

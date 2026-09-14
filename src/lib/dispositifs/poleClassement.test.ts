@@ -90,3 +90,32 @@ describe("readPoleClassement — vw_insight_event_pole_daily sommée sur la pér
     expect(d.space).toEqual([]);
   });
 });
+
+// ── 14/09 — LA CLÉ SUR CHAQUE LIGNE. La page d'un pôle réutilise ce classement pour se comparer aux
+// autres et doit y retrouver SA ligne. L'apparier par le LIBELLÉ est interdit (CLAUDE.md § Diagnosis :
+// « Identité par la CLÉ, jamais par un nom ») : deux pôles peuvent porter le même mot, et « Non rattaché »
+// n'est pas un nom saisi. La ligne porte donc son pole_id, qui ne se rend jamais.
+describe("chaque ligne du classement porte sa CLÉ — la surface qui le réutilise retrouve SA ligne par l'identifiant", () => {
+  it("en CA par mètre : l'id de chaque ligne est le pole_id, dans l'ordre du classement", () => {
+    const l = composePoleClassement(data(), "ca_par_metre", "");
+    const t = l.blocks.find((b) => b.type === "table") as any;
+    expect(t.rows.map((r: any) => r.id)).toEqual(["p1", "p3"]);
+    // Un pôle absent des mesures d'espace n'a pas de ligne — on ne se compare pas à ce qui n'est pas mesuré.
+    expect(t.rows.map((r: any) => r.id)).not.toContain("p2");
+  });
+
+  it("en CA : l'id suit le classement, « Non rattaché » compris", () => {
+    const l = composePoleClassement(data(), "ca", "sur vos 30 derniers jours");
+    const t = l.blocks.find((b) => b.type === "table") as any;
+    expect(t.rows.map((r: any) => r.id)).toEqual(["p1", "p2", "p3", "nr"]);
+    // La clé n'est PAS le libellé rendu : « nr » porte « Non rattaché », qui n'est le nom d'aucun pôle.
+    expect(t.rows[3].cells[0].v).toBe("Non rattaché");
+    expect(t.rows[3].id).toBe("nr");
+  });
+
+  it("la clé ne se rend jamais — msTable ne lit que `cells`", () => {
+    const l = composePoleClassement(data(), "ca", "sur vos 30 derniers jours");
+    const t = l.blocks.find((b) => b.type === "table") as any;
+    expect(JSON.stringify(t.rows[0].cells)).not.toContain("p1");
+  });
+});

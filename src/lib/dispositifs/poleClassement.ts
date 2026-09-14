@@ -81,7 +81,7 @@ export function composePoleClassement(d: PoleClassementData, indicateur: Indicat
     blocks.push({
       type: "table",
       cols: [{ label: "Pôle" }, { label: INDICATEUR_FR[indicateur].charAt(0).toUpperCase() + INDICATEUR_FR[indicateur].slice(1) }, { label: indicateur === "ca_par_m2" ? "Surface de vente" : "Linéaire" }, { label: "Part du CA" }, { label: "Part de linéaire" }],
-      rows: poles.map((p) => ({ cells: [
+      rows: poles.map((p) => ({ id: p.pole_id ?? undefined, cells: [
         { v: p.pole_label ?? "", bold: true },
         { v: eur(p[key] as number), bold: true },
         { v: indicateur === "ca_par_m2" ? (p.surface_m2 != null ? `${String(Math.round(p.surface_m2 * 10) / 10).replace(".", ",")} m²` : "—") : (p.linear_m != null ? `${String(Math.round(p.linear_m * 10) / 10).replace(".", ",")} m` : "—") },
@@ -122,7 +122,7 @@ export function composePoleClassement(d: PoleClassementData, indicateur: Indicat
       const v = val(r) as number;
       const part = indicateur === "marge_brute" ? (totalMarge > 0 ? pct1((r.gross_margin_ht ?? 0) / totalMarge) : "—") : (total > 0 ? pct1(r.revenue / total) : "—");
       const ecart = r.delta_eur != null && r.expected_revenue != null && r.expected_revenue > 0 ? sgnEur(r.delta_eur) : "—";
-      return { cells: [
+      return { id: r.pole_id, cells: [
         { v: label(r), bold: true },
         { v: indicateur === "ventes" ? frInt(v) : eur(v), bold: true },
         { v: part },

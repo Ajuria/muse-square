@@ -479,14 +479,19 @@ it("un PÔLE à deux versions rend son historique AVEC les photos — c'est là 
 // qui rend, donc aucune seconde mécanique — et il n'apparaît que si le serveur a servi une décomposition.
 it("la décomposition d'un pôle est rendue par LE bloc des opérations, pas par un second", () => {
   const data: any = polePhotos();
+  const pt = (date: string, tx: number, units: number, basket_eur: number) => ({ date, tx, units, basket_eur });
   data.shape = {
-    volume: {
-      tx_w: 120, tx_r: 100, basket_w_eur: 12.4, basket_r_eur: 13.5,
-      tx_delta_pct: 20, basket_delta_pct: -8.1, weak_factor: "items",
-      points: [], units_w: 300, units_r: 280, items_per_tx_w: 2.5, items_per_tx_r: 2.8,
-    },
-    hours: [], products: [], families: [], runs: [],
+    scope_label_fr: null, store_total_pct: null, weak_factor: "items",
     ref_days: 90, measured_days: 30, notable_days: 0,
+    actual_eur: 3720, expected_eur: 3400,
+    hours: [], best_run: null, worst_run: null, families: [],
+    volume: {
+      ref: [pt("2026-07-16", 100, 280, 13.5), pt("2026-07-23", 98, 274, 13.4)],
+      days: [pt("2026-09-10", 120, 300, 12.4), pt("2026-09-11", 118, 296, 12.5)],
+      tx_avg: 119, ref_tx_avg: 99, basket_avg: 12.45, ref_basket_avg: 13.45,
+      items_avg: 2.5, ref_items_avg: 2.8, price_avg: 4.98, ref_price_avg: 4.8,
+      tx_pct: 20.2, basket_pct: -7.4, items_pct: -10.7, price_pct: 3.75, total_pct: 9.4,
+    },
   };
   const html = String(kit.renderEvolution(data, EVOL_COPY));
   expect(html).toContain(EVOL_COPY.shape_title);
@@ -586,4 +591,46 @@ it("un MEMBRE ne voit pas la section — il ne crée pas de version", () => {
 it("une OPÉRATION ne porte pas ce volet (elle a son propre formulaire de version)", () => {
   const data: any = baseData();
   expect(String(kit.renderEvolution(data, EVOL_COPY))).not.toContain("data-eg-nextversion");
+});
+
+// ── 14/09 — OÙ SE SITUE CE PÔLE (owner : « comparaison vs autres poles »). Ce qui se garde : la table
+// vient du serveur et se rend par LA primitive des tables du kit ; la ligne de CE pôle est distinguée ;
+// et un pôle qui n'a personne à qui se comparer ne porte pas la section.
+const poleClasse = () => {
+  const data: any = polePhotos();
+  data.pole.comparaison = {
+    cols: [{ label: "Pôle" }, { label: "CA par mètre" }, { label: "Linéaire" }, { label: "Part du CA" }, { label: "Part de linéaire" }],
+    rows: [
+      { id: "d2", cells: [{ v: "Thés", bold: true }, { v: "412 €", bold: true }, { v: "6,2 m" }, { v: "31,0 %" }, { v: "18,0 %" }] },
+      { id: "d1", cells: [{ v: "Épices", bold: true, color: "#1D3BB3" }, { v: "268 €", bold: true, color: "#1D3BB3" }, { v: "9,4 m", bold: true, color: "#1D3BB3" }, { v: "24,0 %", bold: true, color: "#1D3BB3" }, { v: "27,0 %", bold: true, color: "#1D3BB3" }] },
+    ],
+  };
+  return data;
+};
+
+it("la comparaison aux autres pôles : le titre du lexique, la table du Rapport, la ligne de CE pôle distinguée", () => {
+  const html = String(kit.renderEvolution(poleClasse(), EVOL_COPY));
+  const i = html.indexOf("data-eg-poles-rank");
+  expect(i).toBeGreaterThan(0);
+  const bloc = html.slice(i, html.indexOf("</table>", i) + 8);
+  expect(bloc).toContain("Vos pôles · du plus au moins performant");
+  expect(bloc).toContain("CA par mètre");
+  expect(bloc).toContain("Thés");
+  expect(bloc).toContain("412 €");
+  // La ligne de CE pôle porte la couleur donnée que le serveur y a mise ; celle d'un autre pôle, non.
+  expect(bloc).toMatch(/color:#1D3BB3;[^<]*font-weight:600;">Épices/);
+  expect(bloc).not.toMatch(/color:#1D3BB3;[^<]*font-weight:600;">Thés/);
+  // Aucune phrase n'est écrite ici : la position se LIT dans la table.
+  expect(bloc).not.toMatch(/se classe|premier|deuxième|meilleur|moins bon/i);
+});
+
+it("un pôle sans comparaison servie ne porte pas la section — seul, il n'a personne à qui se comparer", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).not.toContain("data-eg-poles-rank");
+  expect(html).not.toContain("Vos pôles · du plus au moins performant");
+});
+
+it("la comparaison se place SOUS l'espace : même indicateur, même fenêtre de 30 jours", () => {
+  const html = String(kit.renderEvolution(poleClasse(), EVOL_COPY));
+  expect(html.indexOf("data-eg-espace")).toBeLessThan(html.indexOf("data-eg-poles-rank"));
 });

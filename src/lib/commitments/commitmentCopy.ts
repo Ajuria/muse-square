@@ -305,6 +305,12 @@ export const EVOL_COPY = {
   pole_space_marge_contre: "Part de marge {marge} contre Part de linéaire {lin}",
   pole_space_ca_contre: "Part du CA {ca} contre Part de linéaire {lin}",
   pole_space_none: "Aucune mesure d’espace pour l’instant.",
+  // 14/09 (owner : « comparaison vs autres pôles ») — LE TITRE N'EST PAS INVENTÉ : c'est la section du
+  // Rapport, `docs/lexique.md` l. 136, recopiée mot pour mot, déjà en prod dans agentSystem.fr.ts l. 23.
+  // Aucun mot banni (grep MOTS_BANNIS / TOURNURES sur « performant » : vide). La table qui suit est celle
+  // de `composePoleClassement` — ses colonnes (Pôle, CA par mètre, Linéaire, Part du CA, Part de linéaire)
+  // sont déjà approuvées. Rien d'autre ne s'écrit ici : la position de ce pôle se LIT dans sa ligne.
+  pole_rank_title: "Vos pôles · du plus au moins performant",
   pole_ops_none: "Aucune opération rattachée pour l'instant.",
   pole_op_open: "en cours",
   pole_op_done: "terminée",
