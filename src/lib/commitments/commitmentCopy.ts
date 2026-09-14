@@ -22,6 +22,8 @@ export const EVOL_COPY = {
   // « geste » écarté : 43 emplois en commentaire contre 7 en chaîne — mot de code, pas
   // mot d'écran.
   back: "Retour aux engagements",
+  // 13/09 — la page d'un PÔLE revient au Tableau de bord (titre rendu par tableau.astro), d'où l'on y entre.
+  back_pole: "Retour au tableau de bord",
 
   // subtitle under the title (goal terms recap; owner + date get their own line)
   subtitle: "Objectif : +{pct} % de CA vs votre résultat habituel · sous {window}",
@@ -182,6 +184,27 @@ export const EVOL_COPY = {
   pole_fams_title: "Familles du pôle",
   // Composants (03/09, mot owner « composant » — lexique) : les unités physiques du dispositif.
   pole_components_title: "Composants",
+  // 13/09 — LA DEMANDE DE PHOTO DIT SON GAIN. La phrase est de l'OWNER (« Prenez une photo de votre dispositif,
+  // mesurez et améliorez le set-up… ») ; j'en ai retiré le franglais « set-up » (lexique règle 7 bis) et il a
+  // choisi la forme qui DIT le gain au lieu de donner des ordres. Quatre propositions de moi refusées avant :
+  // trois énuméraient ce que la photo capte (règle 8), la quatrième promettait « quand l'objectif a été
+  // atteint » — or un dispositif PERMANENT n'a ni fenêtre ni verdict (owner 27/08) : la promesse n'aurait
+  // jamais été vraie sur la seule surface qui l'affiche. C'est la mutation d'un test de pôle qui l'a attrapée.
+  // L'ordre a été tenu : la SURFACE d'abord (l'historique montre la photo de chaque version, livré le 13/09),
+  // la ligne ensuite. Au registre du garde règle 8 (`src/lib/fr/saisies.fr.guard.test.ts`).
+  pole_components_hint: "Prenez une photo de votre dispositif : vous verrez ce que chaque agencement donne sur vos ventes.",
+  // 13/09 — l'historique du dispositif montre les photos de chaque version à côté de son verdict
+  // (owner : « garder la mémoire visuelle des dispositifs qui ont fonctionné ou non au niveau de
+  // l'agencement »). L'absence se dit, comme celle des composants juste au-dessus ; les deux autres
+  // libellés (« + N autres ») comptent ce qui ne tient pas dans la rangée, jamais un « … » muet.
+  // 13/09 — l'historique d'un PÔLE : ni fenêtre ni verdict (owner 27/08), donc les dates de service et
+  // « en cours » pour la version courante (mot owner 13/09). Le titre reprend celui de l'opération.
+  lin_pole_titre: "Historique du dispositif",
+  lin_pole_close: "Version {n} — du {debut} au {fin}",
+  lin_pole_en_cours: "Version {n} — depuis le {debut}, en cours",
+  lin_photo_none: "Aucune photo de cette version.",
+  lin_photo_autre: "+ {n} autre",
+  lin_photo_autres: "+ {n} autres",
   pole_components_none: "Aucun composant déclaré pour l'instant.",
   // Photos des composants (étape 4, 03/09). « Documenter » = le CTA owner qui mène ici ; « photo »
   // = le mot employé par l'owner (D6, 03/09). Les réponses sont celles du formulaire de lecture.
@@ -204,6 +227,105 @@ export const EVOL_COPY = {
   // déjà le mot des retours de signal (positive/negative/confirmed).
   pole_photo_confirm: "Confirmer →",
   pole_photo_confirmed: "Articles confirmés :",
+  // v2 (owner 11/09) : ce que toute photo dit du composant. « N° sur le plan » et « niveaux » sont
+  // les mots owner (« N° sur le plan » 11/09 ; « étagère » 13/09) ; « Familles reconnues : » est le miroir de
+  // « Articles reconnus : » (déjà rendu sur cette surface) avec LE mot « famille ».
+  pole_photo_fixture_no: "N° sur le plan",
+  // 13/09 (owner) : « étagère » remplace « niveau » — le pluriel et le singulier, jamais « 1 étagères ».
+  pole_photo_levels: "{n} étagères",
+  pole_photo_levels_un: "1 étagère",
+  pole_photo_families: "Familles reconnues :",
+  // 14/09 (owner) — L'APP DE CAPTURE : on photographie ce qu'on a sous les yeux, PUIS on dit ce que c'est.
+  // Deux questions, dans cet ordre (le pôle réduit la seconde liste à trois ou quatre composants), et
+  // RIEN d'autre : les familles, l'exposition et les étagères se lisent sur la photo. Les deux questions
+  // reprennent la grammaire interrogative déjà en place au registre (« Quelle exposition ? »,
+  // « Combien d'étagères ? ») et les mots owner (pôle, composant, N° sur le plan).
+  capture_titre: "Documenter",
+  capture_prendre: "Prendre une photo",
+  capture_q_pole: "Quel pôle ?",
+  capture_q_composant: "Quel composant ?",
+  capture_reprendre: "Reprendre",
+  capture_envoi: "Envoi en cours…",
+  capture_aucun_pole: "Aucun pôle déclaré — créez-en un depuis « Nouvelle opération ».",
+  capture_aucun_composant: "Ce pôle n'a aucun composant déclaré.",
+  // ── LE RELEVÉ DE L'ESPACE (page /app/insightevent/releve, 14/09) ────────────────────────────────
+  // AUCUNE chaîne nouvelle ici : ce sont EXACTEMENT celles du proto `releve-espace-proto.html`, mots
+  // owner du 11/09 RATIFIÉS le 12/09 (« lexique is done ») et inscrits au lexique l. 101-103 (Relevé de
+  // l'espace · Point focal · Fin du relevé), énumérées une à une par `marche-guidee-spec.md` § 9 point 0
+  // — où elles ont déjà passé le grep MOTS_BANNIS (une collision alors corrigée : « Sans pôle » remplacé
+  // par le mot owner « Non rattaché »). Elles quittent le proto pour le foyer, elles ne sont pas réécrites.
+  // « Relevé vidéo » est INTERDIT : aucune vidéo n'est produite ni envoyée (spec M2).
+  releve_titre: "Relevé de l'espace",
+  releve_commencer: "Commencer le relevé",
+  releve_fin: "Fin du relevé",
+  releve_reprendre: "Reprendre le relevé",
+  releve_idle: "La caméra s'ouvre au début du relevé.",
+  releve_sombre: "Trop sombre",
+  releve_floue: "Photo floue",
+  releve_garder_quand_meme: "Touchez pour la garder quand même.",
+  releve_camera_ko: "Caméra indisponible",
+  releve_camera_ko_texte: "Prenez la photo avec l'appareil du téléphone.",
+  releve_photo_appareil: "Photo avec l'appareil",
+  releve_retirer: "Retirer",
+  releve_garder: "Garder",
+  releve_aucune_photo: "Aucune photo",
+  releve_une_photo: "1 photo",
+  releve_n_photos: "{n} photos",
+  releve_non_rattache: "Non rattaché",
+  releve_compte_rendu: "Compte rendu",
+  // ── L'ÉCRAN DE PRISE DE VUE (owner 14/09, premier essai réel) ────────────────────────────────────
+  // Verdict owner : « Je n'ai eu aucune instruction a l'affichage (pas guidé du tout) » et « on voit une
+  // ligne rouge horizontale et on ne sait pas a quoi ca sert ». Les consignes étaient SPÉCIFIÉES depuis
+  // le 11/09 (marche-guidee-spec.md § 5 : « le composant en entier, de face, sans personne dans le
+  // champ ; s'arrêter deux secondes ; changer de pôle quand on change de pôle ») et leurs mots étaient
+  // marqués « à arbitrer » — donc jamais écrits à l'écran. Les voici, dans les mots de la spec, en
+  // attente de ratification owner. Les décorations muettes (bande des cartes, cadre de couleur) sont
+  // retirées : l'état se dit en mots, jamais par un trait dont il faut devenir la légende.
+  // 14/09 — LES CONSIGNES, FORME **C** CHOISIE PAR L'OWNER : trois lignes avant de commencer — ce qui
+  // se passe, comment cadrer, comment changer de pôle. Les lignes livrées le matin étaient les notes
+  // de TRAVAIL de la spec § 5 (« Changez de pôle quand vous changez de pôle » : une tautologie, un
+  // mémo pour moi) ; celles-ci sont écrites pour quelqu'un qui marche dans son magasin, et la première
+  // dit la seule chose qu'il ne peut pas deviner — que la photo part toute seule.
+  // LE MOT : « meuble » à l'écran. Le lexique le bannit depuis le 03/09 au profit de « composant »,
+  // mais cette décision portait sur le MODÈLE DE DONNÉES ; l'owner dit le 14/09 que « composant »
+  // n'est compris de personne. La base, les clés et les tables gardent « composant » ; ce qui se DIT à
+  // l'exploitant dit « meuble ». L'exception est inscrite au lexique et au garde, jamais contournée.
+  releve_consigne_1: "La photo se prend toute seule quand vous vous arrêtez deux secondes.",
+  releve_consigne_2: "Cadrez le meuble en entier, de face, sans personne devant.",
+  releve_consigne_3: "Le nom du pôle, en haut, se touche pour en changer.",
+  releve_etat_avance: "Avancez, puis arrêtez-vous deux secondes.",
+  releve_etat_arret: "Ne bougez plus…",
+  releve_etat_gardee: "Photo gardée.",
+  releve_etat_pole: "Touchez le nom du pôle pour en changer.",
+  // À la fin : ce que l'exploitant a en main, et ce qui lui reste à faire. « Enregistrement » est le
+  // mot du rail (une photo s'écrit), jamais un mécanisme étalé : la ligne dit l'AVANCEMENT.
+  // L'accord suit ce qu'on compte — des photos. Une seule : « enregistrée ». (Faute vue au harnais
+  // avant livraison : « 1 enregistrées. » ; même exigence que pole_photo_levels_un pour « 1 étagère ».)
+  releve_envoi_en_cours: "{fait} sur {total} enregistrées…",
+  releve_envoi_en_cours_une: "{fait} sur 1 enregistrée…",
+  releve_envoi_fini: "{n} enregistrées.",
+  releve_envoi_fini_une: "1 enregistrée.",
+  releve_a_reprendre: "À reprendre : le composant n'est pas entier sur la photo.",
+  releve_floue_a_reprendre: "À reprendre : la photo est floue.",
+  // 13/09 (owner : « Si photo change, versionning change » — le versionning d'un pôle se fait en
+  // arrière-plan, l'exploitant édite ensuite s'il veut). Ce que la photo a changé, dit en clair avant
+  // la question. Le SUJET est le composant — un objet du commerce, nommé comme la légende le nomme
+  // (« Rayonnage n° 8 ») ; le VERBE est celui du métier (porter, changer, passer de … à …). Aucune de
+  // ces lignes ne demande une saisie : elles CONSTATENT, la demande est `photo_chg_q` juste après.
+  photo_chg_familles_deux: "« {comp} » ne porte plus {partis} et porte maintenant {venus}.",
+  photo_chg_familles_partis: "« {comp} » ne porte plus {partis}.",
+  photo_chg_familles_venus: "« {comp} » porte maintenant {venus}.",
+  // Le second jeton s'appelle {maintenant} et NON {apres} : le garde des accents (tournures.fr.ts) lit
+  // « apres » dans « {apres} » — les accolades sont des frontières de mot — et refuse la chaîne, à
+  // raison : « apres » sans accent n'est pas du français. Un nom de jeton se choisit donc aussi dans la
+  // langue de la chaîne (attrapé par le garde le 13/09, jamais arrivé à l'écran).
+  photo_chg_exposition: "« {comp} » change d'exposition : {avant} devient {maintenant}.",
+  photo_chg_etageres: "« {comp} » passe de {avant} à {maintenant} étagères.",
+  photo_chg_version: "Le pôle passe en version {n}.",
+  // L'INTITULÉ du champ — même nature que `retro_line_q_*` (« Ce qui a marché ») : un intitulé, pas une
+  // promesse. Le gabarit du champ est `retro_line_ph` (« En une ligne »), le bouton `vform_cta`
+  // (« Enregistrer → »). Au registre du garde règle 8 (`src/lib/fr/saisies.fr.guard.test.ts`).
+  photo_chg_q: "Qu'avez-vous changé ?",
   // Articles des photos face aux ventes (livrable 2, 03/09) — miroir des chaînes de la lecture du
   // pôle (« Résultats — 30 derniers jours », « {n30} j vendus · habituel {base} €/j »).
   pole_items_title: "Articles des photos — 30 derniers jours",
@@ -224,6 +346,50 @@ export const EVOL_COPY = {
   pole_reading_thin_tip: "{n30} jours vendus sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté.",
   pole_totals_row: "{rev} € sur 30 j · {share} % du CA",
   pole_ops_title: "Opérations sur ce pôle",
+  // 14/09 (owner) — L'ESPACE SUR LA PAGE DU PÔLE. Le CA et la marge par mètre étaient affichés dans le
+  // volet « Vos pôles » du Tableau de bord et ABSENTS de la page du pôle lui-même. Les chaînes sont
+  // celles du volet, RECOPIÉES MOT POUR MOT (tableau.astro l. 2026-2049, 11/09) — elles entrent ici,
+  // au foyer, parce que c'est le kit qui les rend désormais ; le volet garde les siennes en dur tant
+  // qu'il ne reçoit pas EVOL_COPY, et c'est une duplication ÉCRITE, pas silencieuse.
+  pole_space_title: "Espace — 30 derniers jours",
+  pole_space_lineaire: "{m} m de linéaire",
+  pole_space_part: "Part de linéaire {pct}",
+  pole_space_surface: "{m} m² de surface de vente",
+  pole_space_par_metre: "{ca} € de CA par mètre",
+  pole_space_net_par_metre: "{ca} € de CA net HT par mètre",
+  pole_space_marge_par_metre: "{ca} € de marge brute par mètre",
+  pole_space_par_m2: "{ca} € de CA par m²",
+  pole_space_net_par_m2: "{ca} € de CA net HT par m²",
+  pole_space_marge_par_m2: "{ca} € de marge brute par m²",
+  pole_space_marge_contre: "Part de marge {marge} contre Part de linéaire {lin}",
+  pole_space_ca_contre: "Part du CA {ca} contre Part de linéaire {lin}",
+  pole_space_none: "Aucune mesure d’espace pour l’instant.",
+  // 14/09 (owner : « comparaison vs autres pôles ») — LE TITRE N'EST PAS INVENTÉ : c'est la section du
+  // Rapport, `docs/lexique.md` l. 136, recopiée mot pour mot, déjà en prod dans agentSystem.fr.ts l. 23.
+  // Aucun mot banni (grep MOTS_BANNIS / TOURNURES sur « performant » : vide). La table qui suit est celle
+  // de `composePoleClassement` — ses colonnes (Pôle, CA par mètre, Linéaire, Part du CA, Part de linéaire)
+  // sont déjà approuvées. Rien d'autre ne s'écrit ici : la position de ce pôle se LIT dans sa ligne.
+  pole_rank_title: "Vos pôles · du plus au moins performant",
+  // 14/09 (owner : « photos avec accès aux versions précédentes ») — le libellé du volet replié sous une
+  // photo. Règle 8 : le sujet est l'exploitant et le verbe est ce qu'il ACQUIERT (« vous verrez »), pas ce
+  // que l'app garde. Aucune énumération de champs, aucun mot de mécanique, aucun argument de durée.
+  // 14/09 (owner : « plan au sol » sur la page du dispositif) — LE MOT EST CELUI DU LEXIQUE (l. 133,
+  // owner 13/09) : « plan coloré ». Le bloc porte déjà sa propre légende (la mesure, la fenêtre, le sol de
+  // vente) : le titre de section ne la répète pas.
+  pole_plan_title: "Plan coloré",
+  pole_photo_prec_une: "Voir la photo précédente de ce composant",
+  pole_photo_prec: "Voir les {n} photos précédentes de ce composant",
+  // ── RETIRER UNE PHOTO (owner 14/09 : « fais du retrait une action de la page du pôle ») ──────────
+  // Le geste appartient à l'exploitant : il photographie, il se trompe, il retire. « Retirer → » suit le
+  // patron de CTA déjà RENDU sur ce bloc (« Confirmer → », l. 228) et « Retirer » est le mot de l'owner
+  // (sa demande du 14/09, et déjà au foyer pour le relevé). Le pas de confirmation réemploie
+  // « Confirmer → » et « Annuler » : aucun mot neuf pour le geste lui-même.
+  // Les deux phrases disent l'ÉTAT DANS LEQUEL LE PÔLE SE RETROUVE — la seule chose que l'exploitant ne
+  // peut pas déduire de l'écran. Sujet nommé (le pôle, la version), verbe ordinaire, le numéro dans la
+  // phrase. Tests 10/11/13 hors sujet : une conséquence de geste n'affirme rien sur le commerce.
+  pole_photo_retirer: "Retirer →",
+  pole_photo_retirer_version: "Le pôle revient à la version {n} si vous retirez cette photo.",
+  pole_photo_retirer_gardee: "La version {n} reste : d'autres photos la documentent.",
   pole_ops_none: "Aucune opération rattachée pour l'instant.",
   pole_op_open: "en cours",
   pole_op_done: "terminée",
@@ -237,6 +403,11 @@ export const EVOL_COPY = {
   vform_plus: "Le plus du dispositif",
   vform_why: "Pourquoi ça va marcher",
   vform_cost: "Coût de l'opération (€) — optionnel",
+  // 13/09 — le bouton de la version suivante d'un PÔLE : « Enregistrer → », le verbe ratifié pour le Rapport
+  // le même jour (le clic ÉCRIT). Un verbe + flèche, ≤ 14 caractères (lexique règle 1).
+  vform_cta: "Enregistrer →",
+  // 13/09 (owner : « le versionning du pôle est déclaratif — sa page de réglages ») : le sous-titre du volet.
+  vform_pole_hint: "modifiez le pôle, ses composants et leurs mesures, puis enregistrez",
   move_stop: "Arrêter",
   move_stop_d: "Abandonner cette action — clôture, la carte revient à piloter.",
   diag_move_note_q: "Qu'avez-vous changé ?",
@@ -356,7 +527,23 @@ export const EVOL_COPY = {
   retro_ph: "Ce que vous garderiez, ce que vous changeriez",
   // ── Documenter (Spec 2) — structured retro = the reusable knowledge-base entry.
   q4_title_doc: "Documenter",
-  doc_hint: "Ce retour reste attaché à l'action — repère pour la prochaine fois et pour l'équipe.",
+  // 13/09 (owner 12-13/09 : « pourquoi devrais-je m'en occuper, face à mes autres priorités ? ») — la ligne dit LE GAIN, avec le
+  // chiffre de l'action : ce que l'exploitant évite ou refait la prochaine fois. Quatre états, un foyer (l'Explorer, la page de
+  // l'engagement, le kit lisent ICI). {ecart} = « −394 € », {titre} = le nom court de l'action ; « la prochaine fois » quand
+  // le titre est long (> 40 caractères). Mots owner du 13/09 : « La raison du report », « Le constat terrain pour trancher ».
+  retro_gain_missed: "{ecart} : ce que vous changez au prochain « {titre} ».",
+  retro_gain_missed_sans: "{ecart} : ce que vous changez la prochaine fois.",
+  retro_gain_met: "{ecart} : ce qui a marché, à refaire au prochain « {titre} ».",
+  retro_gain_met_sans: "{ecart} : ce qui a marché, à refaire la prochaine fois.",
+  retro_gain_non_menee: "La raison du report — la journée ne compte pas contre le dispositif.",
+  retro_gain_inconclusive: "Ce que vous avez vu ce jour-là, pour trancher au prochain « {titre} ».",
+  retro_gain_inconclusive_sans: "Ce que vous avez vu ce jour-là, pour trancher la prochaine fois.",
+  // Le bilan tient en UNE ligne (plus « À reproduire ? ») : l'intitulé du champ suit l'état (owner 13/09).
+  retro_line_q_missed: "Ce que vous changez",
+  retro_line_q_met: "Ce qui a marché",
+  retro_line_q_non_menee: "La raison du report",
+  retro_line_q_inconclusive: "Le constat terrain pour trancher",
+  retro_line_ph: "En une ligne",
   edit: "Éditer",
   cancel: "Annuler",
   not_documented: "Pas encore documenté.",
@@ -388,3 +575,51 @@ export const EVOL_COPY = {
 };
 
 export type EvolCopy = typeof EVOL_COPY;
+
+// ── 13/09 — LE GAIN DU BILAN, en TypeScript (l'Explorer) : les mêmes gabarits que le kit (t() côté client), un seul foyer. ──
+export type RetroEtat = "met" | "missed" | "non_menee" | "inconclusive";
+export const TITRE_COURT_MAX = 40;
+/** L'état d'un engagement résolu pour le bilan : une action déclarée non menée prime sur le verdict. */
+export function retroEtat(r: { verdict?: string | null; action_done_status?: string | null }): RetroEtat {
+  if (r.action_done_status === "pas_encore") return "non_menee";
+  return r.verdict === "met" ? "met" : r.verdict === "missed" ? "missed" : "inconclusive";
+}
+// ── 13/09 — CE QUE LA PHOTO A CHANGÉ, en phrases (owner : « Si photo change, versionning change »). ──
+/** Une raison, telle que `lib/dispositifs/photoChangement` la calcule — les valeurs d'exposition sont
+ *  déjà des LIBELLÉS (expositionLabelFr) quand elles arrivent ici : ce foyer ne connaît aucun code. */
+export interface RaisonDeVersion {
+  quoi: "familles" | "exposition" | "etageres";
+  partis: string[]; venus: string[];
+  avant: string | number | null; apres: string | number | null;
+}
+/** Une phrase par raison — le composant est le sujet, nommé comme la légende le nomme. */
+export function photoChangementFr(comp: string, raisons: readonly RaisonDeVersion[]): string[] {
+  const t = (key: keyof typeof EVOL_COPY, vars: Record<string, string>) => {
+    let s = String(EVOL_COPY[key] ?? "");
+    for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(v);
+    return s;
+  };
+  const liste = (xs: readonly string[]) => xs.join(", ");
+  const out: string[] = [];
+  for (const r of raisons) {
+    if (r.quoi === "familles") {
+      const key = r.partis.length && r.venus.length ? "photo_chg_familles_deux"
+        : r.partis.length ? "photo_chg_familles_partis" : "photo_chg_familles_venus";
+      if (!r.partis.length && !r.venus.length) continue;
+      out.push(t(key, { comp, partis: liste(r.partis), venus: liste(r.venus) }));
+    } else if (r.quoi === "exposition") {
+      out.push(t("photo_chg_exposition", { comp, avant: String(r.avant ?? ""), maintenant: String(r.apres ?? "") }));
+    } else {
+      out.push(t("photo_chg_etageres", { comp, avant: String(r.avant ?? ""), maintenant: String(r.apres ?? "") }));
+    }
+  }
+  return out;
+}
+
+/** La ligne du gain : « −394 € : ce que vous changez au prochain « Corner de vente producteur ». » */
+export function retroGainFr(etat: RetroEtat, ecartFr: string | null, titre: string): string {
+  const court = titre.length > 0 && titre.length <= TITRE_COURT_MAX;
+  const key = (etat === "non_menee" ? "retro_gain_non_menee" : `retro_gain_${etat}${court ? "" : "_sans"}`) as keyof typeof EVOL_COPY;
+  const s = String(EVOL_COPY[key] ?? "");
+  return s.split("{ecart}").join(ecartFr ?? "Écart non mesuré").split("{titre}").join(titre);
+}

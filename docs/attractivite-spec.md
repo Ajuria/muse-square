@@ -1,12 +1,12 @@
-# Intérêt porté à l'établissement — avant l'arrivée en boutique, et face aux suivis — SPEC DE TRAVAIL
+# Attractivité — avant l'arrivée en boutique, et face aux suivis — SPEC DE TRAVAIL
 
-Sert : intent § Le métier (« regarder la fréquentation […] tous les jours ») et § Le test de valeur (« pointe quelque chose qu'il peut bouger »). Arbitrage owner 04/09 : Google Trends et Wikipédia sont écartés ; **le travail à faire est de mesurer l'intérêt porté à une entreprise avant que les prospects n'arrivent en boutique, et la part de cet intérêt face aux concurrents suivis.** Remplace la chaîne mots-clés (7 modèles supprimés au geste 4 de [`dbt-nettoyage-spec.md`](dbt-nettoyage-spec.md)).
+Sert : intent § Le métier (« regarder la fréquentation […] tous les jours ») et § Le test de valeur (« pointe quelque chose qu'il peut bouger »). Arbitrage owner 04/09 : Google Trends et Wikipédia sont écartés ; **le travail à faire est de mesurer l'attractivité d'une entreprise avant que le public n'arrive en boutique, et la part de cette attractivité face aux concurrents suivis.** Remplace la chaîne mots-clés (7 modèles supprimés au geste 4 de [`dbt-nettoyage-spec.md`](dbt-nettoyage-spec.md)).
 
 ---
 
 ## 0. Le mot
 
-Aucune entrée du lexique ne nomme ce concept (« intérêt », « notoriété », « visibilité » n'y figurent pas ; « passage » y désigne la fréquentation physique). **Mot à demander à l'owner** avant toute chaîne visible. Dans ce document, le nom technique est `interest` ; rien ci-dessous n'est un libellé.
+**Le mot est `attractivité`** (owner 09/09, inscrit au lexique). Il couvre l'attention portée au commerce AVANT l'arrivée — l'objet de ce document — ET sur place, le geste du client sur un composant interactif (`dispositifs-typologie-spec.md` § 10) : une seule rubrique, dedans et dehors, pour que « attire dehors, pas dedans » soit une phrase possible. Il nomme la RUBRIQUE et jamais un nombre — chaque mesure garde son unité (« 38 itinéraires demandés », jamais « attractivité : 38 »). « Engagement » est écarté : le mot désigne déjà ce que l'exploitant promet de faire et de mesurer. Le nom technique de ce document reste `interest` jusqu'au build ; rien ci-dessous n'est un libellé.
 
 ---
 
@@ -40,7 +40,7 @@ Chacun rapporté au **résultat habituel du site** (même règle que le résidue
 
 ### 2.2 Face aux suivis — la métrique commune
 
-La seule mesure d'intérêt disponible pour le site ET pour ses suivis, au jour, est la **vitesse des avis Google** : `Δ google_rating_count` par semaine (et, en second, `Δ google_photos_count`). Un avis est un acte du public après visite ; sa vitesse est un proxy de fréquentation acceptable parce qu'il est **le même** des deux côtés.
+La seule mesure d'attractivité disponible pour le site ET pour ses suivis, au jour, est la **vitesse des avis Google** : `Δ google_rating_count` par semaine (et, en second, `Δ google_photos_count`). Un avis est un acte du public après visite ; sa vitesse est un proxy de fréquentation acceptable parce qu'il est **le même** des deux côtés.
 
 **Grain `week_start × location_id × competitor_id`** sur les paires de `competitor_tracking` (mémoire `competitor-tracking-is-the-truth`), plus une ligne `competitor_id = location_id` pour le site :
 
@@ -48,12 +48,12 @@ La seule mesure d'intérêt disponible pour le site ET pour ses suivis, au jour,
 |---|---|
 | `reviews_added` | `google_rating_count(fin) − google_rating_count(début)` sur la semaine, borné à 0 |
 | `photos_added` | idem photos |
-| `share_of_reviews` | `reviews_added(site) / Σ reviews_added(site + suivis)` — la **part d'intérêt** ; NULL si Σ < 5 (plancher, sinon bruit) |
+| `share_of_reviews` | `reviews_added(site) / Σ reviews_added(site + suivis)` — la **part d'attractivité** ; NULL si Σ < 5 (plancher, sinon bruit) |
 | `share_rank` | rang du site parmi ses suivis sur la semaine |
 | `promo_weeks`, `blog_posts_added` | activité commerciale des suivis (déjà dans les snapshots) |
 | `n_followed_with_data` | suivis ayant deux snapshots dans la semaine — le dénominateur se dit |
 
-Position lisible via le lexique existant : « parmi les mieux notés · dans la moyenne · le moins bien noté de vos suivis » (lexique ligne 45) s'applique déjà à la note ; la part d'intérêt attend son mot (§ 0).
+Position lisible via le lexique existant : « parmi les mieux notés · dans la moyenne · le moins bien noté de vos suivis » (lexique ligne 45) s'applique déjà à la note ; la part d'attractivité tient son mot du § 0.
 
 ### 2.3 Ce qu'on ne mesure pas
 

@@ -94,6 +94,58 @@ dégel dbt** : les mesures par famille vivent dans la chaîne dbt — une recomp
 appliquée seulement côté app créerait deux vérités. À l'ouverture : appliquer dans le
 staging pour que mesure, marges, périmètres membres et routage Slack suivent d'un coup.
 
+## Arbitrage owner 09/09 — la définition du pôle est close
+
+Ouvert par la carte d'activité d'Épices et Tout (16 zones nommées) : fallait-il garder « un pôle =
+1..n familles, discontinu dans l'espace » ou passer à « un pôle = une famille, continue dans
+l'espace » ?
+
+1. **Un pôle = 1..n familles** (owner 09/09) — la forme déjà codée est confirmée. La discontinuité
+   spatiale est POSSIBLE, pas obligatoire. La proposition concurrente supposait qu'une famille
+   occupe un seul tenant : **faux, mesuré sur la carte du magasin** — « Fruits et légumes » y tient
+   deux zones et « Conserves » deux autres, tandis que cinq zones (Épices, Moutardes fines,
+   Conserves ×2, Pâtes) tiennent dans deux familles. Elle aurait aussi produit treize pôles, donc
+   treize responsables et treize canaux, pour un magasin de quelques personnes.
+2. **Une famille vit dans un seul pôle** (owner 27/08, RATIFIÉ 09/09). La règle ne vivait que dans
+   `pole-form.js` — contournable par l'API. Elle est PORTÉE AU SERVEUR le 09/09 : tri pur
+   `familyTakenByAnotherPole` (`poleReading.ts`, 6 tests, les trois mutations vues rougir), appelé
+   par `POST /api/commitments` branche pôle, message identique à celui du formulaire, chaîne de
+   versions du dispositif exclue.
+3. **Aucune famille ne reste hors pôle** (owner 09/09 : « pour qu'il n'y ait pas de trou dans le
+   mapping des dispositifs »). C'est un RENVERSEMENT de la proposition initiale, qui tolérait des
+   familles orphelines. Le mapping famille → pôle doit être total.
+
+### « Non rattaché » — le mot est tranché, la mécanique est recommandée
+
+**Le mot est « Non rattaché »** (owner 09/09, au lexique). C'est celui que la caisse imprime déjà :
+le relevé Crisalid d'Épices et Tout porte `NON RATTACHE (CA)` pour le chiffre d'affaires qui
+n'appartient à aucune famille (215,80 € sur la période, vérifié) — nous le reprenons un cran
+au-dessus, pour les familles qui n'appartiennent à aucun pôle. Même relation, même mot, mot que
+l'exploitant lit tous les mois. Le libellé est INVARIABLE : c'est un intitulé de ligne, il ne
+s'accorde pas avec « familles ». Écartés : « Divers » (se lit comme un pôle de plus dans une liste
+de pôles), « Sans pôle » (constate un état durable quand la règle veut qu'il se vide), « le reste du
+magasin » (c'est le reste du rangement).
+
+La mécanique, elle, reste à confirmer au build — les deux options ne se valent pas :
+
+- **(a) un pôle DÉCLARÉ** — l'exploitant crée un pôle « Divers » et y range les familles qui n'ont
+  pas de place. Il a un responsable, un canal, une lecture continue, une chaîne de versions.
+  **Défaut rédhibitoire : il se périme.** Les familles viennent de la caisse ; le jour où une
+  nouvelle `item_category` apparaît, elle n'est dans aucun pôle et le trou que la règle ferme se
+  rouvre en silence.
+- **(b) un reste CALCULÉ** — la liste des familles réelles moins celles déjà prises. Rien à
+  déclarer, rien à maintenir : une famille nouvelle y tombe d'elle-même le jour où elle est
+  vendue. Elle porte son CA et son poids comme les autres lignes, sans responsable ni verdict —
+  ce qui est juste, personne ne répond d'un reste.
+
+**Recommandation : (b), non contestée.** Le seul argument pour (a) est de pouvoir documenter ce
+reste comme un pôle ; il tombe dès qu'on remarque qu'un reste qu'on documente EST un pôle, et qu'il
+suffit alors de le créer. Ligne rendue, telle qu'elle s'afficherait sur le découpage proposé pour
+Épices et Tout : **« Non rattaché · SUCRE, CONFITURE MIEL, APÉRITIF · 93 046 € · 11,3 % du CA »**.
+
+Reste UNE question owner avant de construire : **où la ligne s'affiche** — onglet Pôles du compte,
+section « Vos pôles » du tableau, ou les deux.
+
 ## Ce qui reste à faire
 
 - La déclaration des pôles d'Épices et Tout comme premier cas réel (owner).

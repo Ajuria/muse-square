@@ -1,0 +1,232 @@
+// src/lib/explorer/agentTurn.ts — UN TOUR DE LA BOUCLE D'EXPLORER, comme fonction (13/09, docs/explorer-outil-spec.md § 7).
+//
+// Extrait de api/explorer/agent.ts pour que l'aiguillage PAR CAPACITÉ de insight/prompt.ts (§ 7 : « tant qu'une couche
+// n'est pas rentrée, prompt.ts la sert ») appelle la MÊME boucle que la route de l'agent — mêmes outils, même porte
+// (groundAgentText), même relecture, même trace des tours — jamais une copie. La route garde l'HTTP (auth, corps,
+// SSE) ; ici, le tour : les messages entrent, le texte relu, ses blocs, son registre et les appels d'outils sortent.
+import Anthropic from "@anthropic-ai/sdk";
+import type { BetaContentBlockParam, BetaMessageParam } from "@anthropic-ai/sdk/resources/beta";
+import { modelFor } from "../ai/models";
+import { listPoles } from "../dispositifs/poleReading";
+import { buildAgentTools, readSiteFamilies30d, type AgentToolDeps, type PhotoBytes, type PhotoInfo, type ToolCallRecord } from "./agentTools";
+import { readSiteMemory, writeSiteMemory, type AuthorRole } from "./siteMemory";
+import { newAgentTurnRow, writeAgentTurns } from "./agentTurns";
+import { OUTILS_FR, SYSTEME_FR } from "./agentSystem.fr";
+const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
+import { compareDatesDeterministicV1 } from "../ai/decision/engines/compare_dates";
+import { renderLineItemsFrV1 } from "../ai/render/renderLineItemsFr.v1";
+import { FAMILIES } from "../insightFamilies";
+import { assembleAnswerBlocks, groundAgentText, type AnswerBlock, type Grounding } from "./blocks";
+import { computeSalesReport } from "../rapport/ventes";
+import { readResultat } from "../kpi/resultat";
+import { readPoleClassement } from "../dispositifs/poleClassement";
+import { listReportTemplates } from "../rapport/modeles";
+import { readMargeLecture, type MargesDeclarees } from "../kpi/margeLecture";
+import { relireTexte, type Relecture } from "../fr/relecture";
+import { listClassDispositifs } from "../dispositifs/bestPractices";
+import { engagementsFamily } from "../insightFamilies/engagements";
+import { journalPlan } from "./journalPlan";
+import { readEntityPeriod, readEntitiesCompared, buildEntityPeriodBlocks, buildEntityCompareBlocks } from "./entityReading";
+import { loadSiteEntities } from "./entityResolver";
+import { operationLife, readDispositifFamille } from "../dispositifs/dispositifFamille";
+import { planPeriod } from "./planPeriod";
+import { appendCorrectionEvent, getDeclaredMetric } from "../ai/corrections";
+import { appendDeclaredParameter, currentByKey, listDeclaredParameters, parameterSpec, validateValue } from "../kpi/declaredParameters";
+import { valeurFr } from "../kpi/declarationEcriture";
+import { listSpaceZonesEnVigueur } from "../dispositifs/spaceZones";
+import { listPoleSpace } from "../dispositifs/poleReading";
+import { readFamillesPeriode } from "../kpi/pontDeMarge";
+
+export const MAX_ITERATIONS = 8;
+export const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+export type ImageType = PhotoBytes["media_type"];
+export type FileIn = { kind: "image" | "pdf"; media_type: string; data_base64: string; name: string };
+export type MsgIn = { role: "user" | "assistant"; content: string };
+
+/** « Aujourd'hui : samedi 13/09/2026 » — le modèle ne connaît pas la date (mesuré 13/09 : « août » cherché en 2024 puis 2025). */
+export function aujourdhuiFr(today: string): string {
+  const d = new Date(`${today}T12:00:00Z`);
+  const jour = new Intl.DateTimeFormat("fr-FR", { weekday: "long", timeZone: "UTC" }).format(d);
+  return `Aujourd'hui : ${jour} ${today.slice(8, 10)}/${today.slice(5, 7)}/${today.slice(0, 4)}.`;
+}
+
+/**
+ * L'historique tel que le client l'a renvoyé ; les fichiers ne s'attachent qu'au DERNIER tour (celui-ci), qui porte
+ * aussi la date du jour (jamais dans le prompt système, stable et en cache ; jamais dans la trace : c'est le contexte
+ * de l'appel, pas ce que l'exploitant a écrit).
+ */
+export function toApiMessages(messages: MsgIn[], files: FileIn[], today?: string): BetaMessageParam[] {
+  return messages.map((m, i) => {
+    const dernier = i === messages.length - 1;
+    const text = dernier && today ? `${m.content}\n\n(${aujourdhuiFr(today)})` : m.content;
+    if (!dernier || !files.length) return { role: m.role, content: text };
+    const blocks: BetaContentBlockParam[] = files.map((f) =>
+      f.kind === "pdf"
+        ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: f.data_base64 }, title: f.name }
+        : { type: "image", source: { type: "base64", media_type: f.media_type as ImageType, data: f.data_base64 } },
+    );
+    blocks.push({ type: "text", text });
+    return { role: "user", content: blocks };
+  });
+}
+
+export interface AgentTurnInput {
+  location_id: string;
+  user_id: string;
+  role: AuthorRole;
+  ownedIds: string[];
+  messages: MsgIn[];
+  files: FileIn[];
+  thread_id: string;
+  readPhotos: (dispositif_id: string) => Promise<PhotoInfo[]>;
+  readPhotoBytes: (dispositif_id: string, photo_id: string) => Promise<PhotoBytes | null>;
+  onTool?: (r: ToolCallRecord & { label_fr: string }) => void;
+  /** Une marge globale déclarée dans le MÊME tour (prompt.ts, déclare-et-demande) : lire_marge la lit avant le journal. */
+  margeDeclareeCeTour?: MargesDeclarees["globale"];
+  /** Qui déclare — un nom du roster (owner 16/07 : l'identité du roster, pas celle du compte) ; null = « déclarée par vous ». */
+  declarant_name?: string | null;
+}
+export interface AgentTurnResult {
+  text: string;
+  brut: string;
+  refused: boolean;
+  stop_reason: string | null;
+  grounding: Grounding;
+  relecture: Relecture;
+  blocks: AnswerBlock[];
+  tool_calls: ToolCallRecord[];
+  final: Anthropic.Beta.BetaMessage;
+}
+
+/** Les dépendances des outils — LE registre FAMILIES et les libs, jamais une copie (agent.ts et prompt.ts y passent). */
+export function agentDeps(bq: any, inp: AgentTurnInput, tool_calls: ToolCallRecord[]): AgentToolDeps {
+  const { location_id } = inp;
+  // 13/09 (couche 5) — une marge déclarée DANS ce tour (par ecrire_declaration, ou par prompt.ts) : lire_marge la lit avant le journal.
+  let margeCeTour: MargesDeclarees["globale"] = inp.margeDeclareeCeTour ?? null;
+  const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+  return {
+    location_id,
+    author: { user_id: inp.user_id, role: inp.role },
+    listPoles: () => listPoles(bq, location_id, 12),
+    readFamilies: () => readSiteFamilies30d(bq, location_id),
+    readPhotos: inp.readPhotos,
+    readPhotoBytes: inp.readPhotoBytes,
+    readMemory: (subject) => readSiteMemory(bq, location_id, subject ? { subject } : {}),
+    writeMemory: (row) => writeSiteMemory(bq, row),
+    runFamily: (key, date) => FAMILIES[key].run(bq, location_id, date),
+    // 13/09 (§ 7, couche 1) — lire_marge : mesure d'abord, sinon marges déclarées ; les jours de la question.
+    runMarge: (jours, date) => readMargeLecture(bq, location_id, date, jours, margeCeTour),
+    // 13/09 (couche 5) — les écritures par LES foyers existants : le journal des corrections (marge, clientèle — supersede
+    // lifecycle, « Oublier » = clear) et analytics.declared_parameters (surface de vente, date d'effet = aujourd'hui).
+    writeDeclaration: async (type, valeur) => {
+      const declarant_name = inp.declarant_name ?? null;
+      if (type === "surface_vente_m2") {
+        const spec = parameterSpec("sales_area_m2")!;
+        const prior = currentByKey(await listDeclaredParameters(location_id))[spec.key] ?? null;
+        await appendDeclaredParameter({ location_id, key: spec.key, value: validateValue(spec, valeur), effective_from: today(), declarant_user_id: inp.user_id, source: "chat_declared" });
+        return { prior_fr: prior && prior.value_num != null ? valeurFr(type, prior.value_num) : null, declarant_name };
+      }
+      const correction_type = type === "marge_pct" ? "declared_margin_pct" : "declared_client_count";
+      const prior = await getDeclaredMetric(location_id, correction_type);
+      await appendCorrectionEvent({ location_id, event_action: prior != null ? "supersede" : "assert", correction_type, correction_text: String(valeur), prior_value: prior != null ? prior.raw : null, raw_turn: inp.messages[inp.messages.length - 1].content.slice(0, 500), source: "chat_declared", declarant_name });
+      if (type === "marge_pct") margeCeTour = { pct: valeur, declarant_name, corrected_at: today() };
+      return { prior_fr: prior != null ? valeurFr(type, prior.value) : null, declarant_name };
+    },
+    forgetDeclaration: async (type) => {
+      if (type === "surface_vente_m2") return null;
+      const correction_type = type === "marge_pct" ? "declared_margin_pct" : "declared_client_count";
+      const prior = await getDeclaredMetric(location_id, correction_type);
+      if (prior == null) return null;
+      await appendCorrectionEvent({ location_id, event_action: "clear", correction_type, prior_value: prior.raw, source: "chat_declared", declarant_name: inp.declarant_name ?? null });
+      if (type === "marge_pct") margeCeTour = null;
+      return { prior_fr: valeurFr(type, prior.value) };
+    },
+    runVentes: (start, end) => computeSalesReport(bq, { location_id, owned: inp.ownedIds, start, end }),
+    runResultat: () => readResultat(bq, location_id),
+    runPolesClassement: (start, end) => readPoleClassement(bq, location_id, start, end),
+    // 14/09 (§ 7, DERNIÈRE couche de prompt.ts) — comparer des journées. UNE lecture (la surface des
+    // journées choisies, semantic) puis LE pipeline v3, celui que la couche enveloppait : le calcul
+    // (compareDatesDeterministicV1) et la prose française (renderLineItemsFrV1). Rien n'est recalculé
+    // ici, rien n'est rédigé ici — une seconde vérité sur une comparaison serait le pire des défauts.
+    runComparerJournees: async (dates) => {
+      const propres = [...new Set(dates.map((d) => String(d).slice(0, 10)))].filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 7);
+      if (propres.length < 2) return { render_lines: [], facts_by_date: {} };
+      const [rows] = await bq.query({
+        query: `SELECT * FROM \`${BQ_PROJECT}.semantic.vw_insight_event_selected_days_surface\`
+                WHERE location_id = @location_id AND date IN UNNEST(ARRAY(SELECT DATE(x) FROM UNNEST(@dates) AS x))
+                ORDER BY date ASC`,
+        params: { location_id, dates: propres }, location: "EU",
+      });
+      const v1 = compareDatesDeterministicV1({ rows: Array.isArray(rows) ? rows : [] });
+      return { render_lines: renderLineItemsFrV1({ line_items: v1.line_items, facts_by_date: v1.facts_by_date }), facts_by_date: v1.facts_by_date };
+    },
+    listModeles: () => listReportTemplates(bq, location_id),
+    // 13/09 (§ 7, couche 3) — les fiches de l'atelier et « une opération × des familles » : LES lecteurs existants, jamais une copie.
+    // 13/09 (§ 7, couche 6) — le journal : LES deux lectures existantes, en parallèle (aucun aller-retour
+    // en série ajouté au chemin). Les jours à venir ne dépendent pas du journal : ils partent ensemble.
+    runJournal: async () => {
+      const [source, jours] = await Promise.all([
+        engagementsFamily(bq, location_id, today()),
+        journalPlan(bq, location_id, 14).catch(() => []),
+      ]);
+      return { source: source as any, jours: jours as any };
+    },
+    // 13/09 (§ 7, couche 6) — une entité sur une période, et la comparaison : LES lecteurs existants.
+    runEntitePeriode: async (entite, du, au) => buildEntityPeriodBlocks(await readEntityPeriod(bq, location_id, entite, du, au, today())),
+    runEntitesComparees: async (entites, periodes) => buildEntityCompareBlocks(await readEntitiesCompared(bq, location_id, entites, periodes, today())),
+    listDispositifsDocumentes: () => listClassDispositifs(bq, location_id, null, 6),
+    siteEntities: () => loadSiteEntities(bq, location_id, inp.user_id),
+    operationLife: (sid) => operationLife(bq, location_id, sid, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" })),
+    // 13/09 (§ 7, couche 4) — le plan de période ; le roster équipe par l'auteur (même règle que /api/channels/team).
+    runPlan: (start, end) => planPeriod(bq, location_id, start, end, { userId: inp.user_id }),
+    // 13/09 (incrément 8) — le plan coloré (le producteur relit ses contours) et le pont de marge (vue semantic de marge par famille).
+    listZones: () => listSpaceZonesEnVigueur(bq, location_id),
+    listPoleSpace: () => listPoleSpace(bq, location_id),
+    runFamillesPeriode: (du, au) => readFamillesPeriode(bq, location_id, du, au),
+    runOperationFamille: (op, fams, start, end, kpi) => readDispositifFamille(bq, location_id, op, fams, start, end, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }), kpi),
+    today: () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
+    record: (r) => { tool_calls.push(r); inp.onTool?.({ ...r, label_fr: OUTILS_FR[r.name] ?? r.name }); },
+    faitsDuTour: () => tool_calls.flatMap((c) => c.facts ?? []),
+  };
+}
+
+/**
+ * Le tour : la boucle du SDK sur les outils, puis la relecture (lexique), la porte (chaque nombre du texte vient des
+ * faits des outils), l'assemblage des blocs (registre d'abord), la Synthèse posée sur un bloc rapport, la trace des
+ * deux tours en base. Jette les erreurs de l'API : l'appelant les traduit en statut HTTP.
+ */
+export async function runAgentTurn(bq: any, inp: AgentTurnInput): Promise<AgentTurnResult> {
+  const tool_calls: ToolCallRecord[] = [];
+  const deps = agentDeps(bq, inp, tool_calls);
+  const tools = buildAgentTools(deps);
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const runner = client.beta.messages.toolRunner({
+    model: modelFor("agent"),
+    max_tokens: 16000,
+    thinking: { type: "adaptive" },
+    system: [{ type: "text", text: SYSTEME_FR, cache_control: { type: "ephemeral" } }],
+    messages: toApiMessages(inp.messages, inp.files, deps.today()),
+    tools,
+    max_iterations: MAX_ITERATIONS,
+  });
+  const final = await runner.runUntilDone();
+  const brut = final.content.filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
+  const relecture = relireTexte(brut);
+  const text = relecture.texte;
+  // La porte : chaque nombre du texte vient des faits des outils — ou de la QUESTION elle-même (« mes 3 premières
+  // familles » : le 3 est celui de l'exploitant, pas une invention du modèle ; la règle R2-4 du validateur du chat).
+  // Les faits cités comptés restent ceux des outils.
+  const toolFacts = tool_calls.flatMap((r) => r.facts ?? []);
+  const toolBlocks = tool_calls.flatMap((r) => r.blocks ?? []);
+  const grounding = { ...groundAgentText(text, [...toolFacts, inp.messages[inp.messages.length - 1].content], toolBlocks), facts_cited: toolFacts.length };
+  const blocks = assembleAnswerBlocks(tool_calls.map((r) => r.blocks ?? []), grounding);
+  for (const b of blocks) if (b.type === "rapport" && text) b.synthese = { text, register: grounding.register };
+
+  const lastIdx = inp.messages.length - 1;
+  const rows = [
+    newAgentTurnRow({ location_id: inp.location_id, thread_id: inp.thread_id, turn_index: lastIdx, role: "user", user_id: inp.user_id, content: { text: inp.messages[lastIdx].content, files: inp.files.map((f) => ({ name: f.name, kind: f.kind, media_type: f.media_type })) } }),
+    newAgentTurnRow({ location_id: inp.location_id, thread_id: inp.thread_id, turn_index: lastIdx + 1, role: "assistant", content: { text: brut, tool_calls, stop_reason: final.stop_reason ?? null } }),
+  ];
+  await writeAgentTurns(bq, rows).catch((e: any) => console.error("[explorer/agentTurn] turns non écrits :", e?.message || e));
+  return { text, brut, refused: final.stop_reason === "refusal", stop_reason: final.stop_reason ?? null, grounding, relecture, blocks, tool_calls, final };
+}

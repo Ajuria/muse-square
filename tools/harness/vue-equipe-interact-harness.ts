@@ -80,7 +80,10 @@ async function main() {
 
   // ── Identité mappée (fonction pure) ──
   const locals = await localsFromSlackUser(bq, SLACK_USER, null);
-  assert("mappage slack_user_id → locals membre", locals && locals.role === "member" && locals.member_location_ids.includes(LOC) && locals.clerk_user_id === "slack:" + SLACK_USER, locals);
+  // 14/09 — `tools/` entre dans tsc : `locals` peut être null et ses tableaux sont inférés vides ici ;
+  // l'assertion prend un booléen, pas un « objet ou null ». Aucun comportement ne change.
+  const _l = locals as { role?: string; member_location_ids?: string[]; clerk_user_id?: string } | null;
+  assert("mappage slack_user_id → locals membre", Boolean(_l && _l.role === "member" && (_l.member_location_ids ?? []).includes(LOC) && _l.clerk_user_id === "slack:" + SLACK_USER), locals);
 
   // ── Disposition par bouton (signée, dans le périmètre) ──
   const dIn = await call(signedRequest(blockAction("ms_dispo_fait", { c: "probe-inc7-c1", l: LOC })));

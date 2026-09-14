@@ -94,14 +94,17 @@ export const INTENTS: IntentDef[] = [
   {
     intent: "entity_period",
     definition_fr: "Lire les RÉSULTATS d'une ou plusieurs entités nommées (pôle, famille, opération, personne) sur une période (« le pôle traiteur depuis juin », « bilan du corner cet été », « les opérations de Julen en août »). Une OPÉRATION nommée AVEC une ou plusieurs FAMILLES (« l'impact du corner sur les ventes de la famille Coffee, le panier moyen ou le mix ») = l'effet de l'opération sur ces familles : mets les deux dans entites (l'opération ET chaque famille). Une opération sans période : laisse periode null, le système prend sa vie.",
-    composer: "entityReading.readEntityPeriod + buildEntityPeriodBlocks",
-    producer: "deterministic_entity_period_v1",
+    // 13/09 (spec § 7, couche 6) — RENTRÉE : servie par l'agent (lire_entite_periode). Le composeur reste
+    // le même, l'outil y ajoute les faits citables ; la comparaison et l'entité inconnue passent par lui aussi.
+    composer: "agentTools.lire_entite_periode (entityReading + entitePeriodeOutil)",
+    producer: "agent_lire_entite_periode",
   },
   {
     intent: "journal",
     definition_fr: "Le journal des dispositifs/engagements du site sans entité précise (« mes engagements », « mes pôles », « qu'est-ce qui a marché ? »). Jamais pour « ça va mes ventes ? » ou « comment vont mes ventes ? » (c'est jour : le dernier jour mesuré).",
-    composer: "branche JOURNAL_Q (engagementsFamily/journalPlan)",
-    producer: "deterministic_engagements_v1",
+    // 13/09 (spec § 7, couche 6) — RENTRÉE : servie par l'agent (lire_engagements).
+    composer: "agentTools.lire_engagements (engagementsFamily + journalPlan + journalEngagements)",
+    producer: "agent_lire_engagements",
   },
   {
     intent: "pourquoi",

@@ -9,6 +9,7 @@ import { RECO_BUCKETS } from "../lib/recos/reco-taxonomy";
 // C3 : réclamation du profil pré-provisionné à l'invitation (clé « invite:<uuid> » dans les
 // métadonnées Clerk) — cette page est le passage obligé de tout nouveau compte (middleware).
 import { claimProvisionedProfile } from "../lib/profile/onboardingClaim";
+import { COMMERCE_AXIS_SECTORS, COMMERCE_TYPE_OPTIONS, COMMERCE_GAMME_OPTIONS } from "../lib/profile/profileLabels";
 
 if (import.meta.env.DEV) {
   console.log("PROFILE SSR locals (safe):", {
@@ -205,6 +206,8 @@ type LocationRow = {
   is_primary: boolean;
   company_activity_type: string;
   pos_system: string;
+  commerce_type: string;
+  commerce_gamme: string;
   location_type: string;
   location_access_pattern: string;
   client_catchment: string;
@@ -248,6 +251,8 @@ const loadAllLocations = async (): Promise<LocationRow[]> => {
         is_primary,
         company_activity_type,
         pos_system,
+        commerce_type,
+        commerce_gamme,
         location_type,
         location_access_pattern,
         client_catchment,
@@ -286,6 +291,8 @@ const loadAllLocations = async (): Promise<LocationRow[]> => {
         is_primary: r.is_primary === true,
         company_activity_type: String(r.company_activity_type || ""),
         pos_system: String(r.pos_system || ""),
+        commerce_type: String(r.commerce_type || ""),
+        commerce_gamme: String(r.commerce_gamme || ""),
         location_type: String(r.location_type || ""),
         location_access_pattern: String(r.location_access_pattern || ""),
         client_catchment: String(r.client_catchment || ""),
@@ -999,6 +1006,30 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
               </div>
             </div>
 
+            <div class="field-group ms-commerce-axes" style={COMMERCE_AXIS_SECTORS.includes(loc.company_activity_type) ? "" : "display:none"}>
+              <label class="field-label">Type de commerce</label>
+              <div class="field-select-wrap">
+                <select name="commerce_type" class="field-select">
+                  <option value="">Sélectionner…</option>
+                  {COMMERCE_TYPE_OPTIONS.map((o) => (
+                    <option value={o.value} selected={loc.commerce_type === o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div class="field-group ms-commerce-axes" style={COMMERCE_AXIS_SECTORS.includes(loc.company_activity_type) ? "" : "display:none"}>
+              <label class="field-label">Gamme</label>
+              <div class="field-select-wrap">
+                <select name="commerce_gamme" class="field-select">
+                  <option value="">Sélectionner…</option>
+                  {COMMERCE_GAMME_OPTIONS.map((o) => (
+                    <option value={o.value} selected={loc.commerce_gamme === o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div class="field-group">
               <label class="field-label">Caisse / logiciel de vente</label>
               <div class="field-select-wrap">
@@ -1228,6 +1259,16 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
         <div class="loc-meta">
           <div class="loc-name-row">
             <span class="loc-name">Pôles</span>
+            {/* 14/09 (owner : « les pôles et photos sont rattachés à une location ») — LE SITE SE CHOISIT.
+                L'onglet lisait le premier `.loc-card` de la page, c'est-à-dire un site qu'il n'avait pas
+                choisi : sur un compte multi-site, un pôle créé ici partait ailleurs sans le dire. Le
+                sélecteur est celui de l'onglet Signaux (même markup, même intitulé « Choisir un site »),
+                et il ne s'affiche que s'il y a plusieurs sites. */}
+            {recoSites.length > 1 && (
+              <select id="poles-site-select" aria-label="Choisir un site" style="margin-left:12px;font-size:12px;font-family:inherit;color:#111827;border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;background:#fff;">
+                {recoSites.map(s => (<option value={s.id} selected={s.id === recoLocationId}>{s.name}</option>))}
+              </select>
+            )}
             <span class="loc-status" id="poles-header-summary" style="margin-left:auto;font-size:11px;color:#9ca3af;">Chargement…</span>
           </div>
         </div>
@@ -1687,6 +1728,7 @@ const activeTab = (recoValidTabs.includes(recoTabParam) && (recoTabParam !== "re
 
 <!-- Liste des caisses (analytics.pos_systems) pour le gabarit JS « Nouveau site » — même SST que le select SSR. -->
 <script type="application/json" id="pos-options-json" set:html={JSON.stringify(pos_options)}></script>
+<script type="application/json" id="commerce-options-json" set:html={JSON.stringify({ sectors: COMMERCE_AXIS_SECTORS, types: COMMERCE_TYPE_OPTIONS, gammes: COMMERCE_GAMME_OPTIONS })}></script>
 
 <script>
 // @ts-nocheck
@@ -2358,7 +2400,7 @@ window.saveLocation = async function(idx) {
   // Named inputs/selects/textareas
   ['site_name','venue_capacity','location_description','website_url','review_link','google_place_id','company_address',
    'company_activity_type','pos_system','location_type','weather_sensitivity','seasonality',
-   'location_access_pattern','nearest_transit_stop'].forEach(name => {
+   'location_access_pattern','nearest_transit_stop','commerce_type','commerce_gamme'].forEach(name => {
     const el = body.querySelector(`[name="${name}"]`);
     if (el) data[name] = el.value;
   });
@@ -2456,6 +2498,32 @@ window.setAsPrimary = async function(locationId) {
 // ADD SITE
 // ============================================================
 // Options caisse du gabarit « Nouveau site » — lues depuis le JSON SSR (jamais en dur ici).
+// 10/09 (owner) : « Type de commerce » et « Gamme » — options lues depuis le JSON SSR (profileLabels),
+// affichées seulement pour les secteurs du commerce, vidées si le secteur change : une valeur cachée ne part jamais.
+function _commerceOpts() {
+  try { var el = document.getElementById('commerce-options-json'); return el ? JSON.parse(el.textContent || '{}') : {}; }
+  catch (_) { return {}; }
+}
+function _commerceOptionsHtml(kind) {
+  var o = _commerceOpts();
+  var list = (kind === 'type' ? o.types : o.gammes) || [];
+  return list.map(function (x) {
+    return '<option value="' + String(x.value).replace(/"/g, '&quot;') + '">' + String(x.label).replace(/</g, '&lt;') + '</option>';
+  }).join('');
+}
+document.addEventListener('change', function (e) {
+  var sel = e.target;
+  if (!sel || sel.name !== 'company_activity_type') return;
+  var scope = sel.parentElement;
+  while (scope && !scope.querySelector('.ms-commerce-axes')) scope = scope.parentElement;
+  if (!scope) return;
+  var on = (_commerceOpts().sectors || []).indexOf(sel.value) >= 0;
+  scope.querySelectorAll('.ms-commerce-axes').forEach(function (g) {
+    g.style.display = on ? '' : 'none';
+    if (!on) g.querySelectorAll('select').forEach(function (s) { s.value = ''; });
+  });
+});
+
 function _posOptionsHtml() {
   try {
     var el = document.getElementById('pos-options-json');
@@ -2578,6 +2646,24 @@ document.getElementById('addSiteBtn')?.addEventListener('click', function() {
             <option value="transport_mobility">Transport & Mobilité locale</option>
             <option value="nightlife">Vie nocturne</option>
             <option value="unknown">Autre</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group ms-commerce-axes" style="display:none">
+        <label class="field-label">Type de commerce</label>
+        <div class="field-select-wrap">
+          <select name="commerce_type" class="field-select">
+            <option value="">Sélectionner…</option>
+            ${_commerceOptionsHtml('type')}
+          </select>
+        </div>
+      </div>
+      <div class="field-group ms-commerce-axes" style="display:none">
+        <label class="field-label">Gamme</label>
+        <div class="field-select-wrap">
+          <select name="commerce_gamme" class="field-select">
+            <option value="">Sélectionner…</option>
+            ${_commerceOptionsHtml('gamme')}
           </select>
         </div>
       </div>
@@ -3633,13 +3719,23 @@ window.toggleAutomationCard = function() {
 </script>
 
 <!-- ── Onglet Pôles (inc 9c) : le module partagé + le câblage liste/liaisons. ── -->
-<script is:inline src="/js/pole-form.js?v=3"></script>
+<script is:inline src="/js/pole-form.js?v=6"></script>
 <script is:inline>
   (function () {
+    // 14/09 — LE SITE DE CET ONGLET. Il lisait le premier `.loc-card` de la page : un site qu'il n'avait
+    // pas choisi, et sur un compte multi-site le pôle créé ici partait ailleurs. Le sélecteur commande
+    // maintenant ; sans lui (un seul site), la carte reste le repli.
+    var poleSel = document.getElementById('poles-site-select');
     var locCard = document.querySelector('.loc-card[data-location-id]');
-    var locId = locCard ? locCard.getAttribute('data-location-id') : null;
+    var locId = (poleSel && poleSel.value) || (locCard ? locCard.getAttribute('data-location-id') : null);
     if (!locId) return;
     var loaded = false;
+    if (poleSel) poleSel.addEventListener('change', function () {
+      locId = poleSel.value; loaded = false;
+      var l = document.getElementById('poles-list'); if (l) l.innerHTML = '<div style="font-size:12px;color:#9ca3af;padding:8px 0;">Chargement…</div>';
+      var m = document.getElementById('pole-create-mount'); if (m) m.innerHTML = '<div style="font-size:12px;color:#9ca3af;">Chargement…</div>';
+      loadPoles();
+    });
     var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
 
     async function loadPoles() {
@@ -3680,8 +3776,13 @@ window.toggleAutomationCard = function() {
               ? poleMembers.map(function (m) { return '<span style="font-size:11px;padding:3px 10px;border-radius:20px;background:#EFF6FF;color:#1D3BB3;font-weight:600;">' + esc(m.member_email || m.member_id) + '</span>'; }).join(' ')
               : '<span style="font-size:11px;color:#9ca3af;">Aucun membre — rattachez-les dans Destinataires</span>';
             return '<div style="padding:12px 0;border-bottom:1px solid #f3f4f6;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;align-items:start;">'
-              + '<div><div style="font-weight:600;font-size:13px;color:#111827;">' + esc(p.name) + '</div>'
+              // 13/09 — la page du pôle (sous Piloter) s'ouvre aussi d'ici : « Ajuster → », le mot du Tableau de bord
+              // et des messages Slack (lexique), jamais un mot neuf. commitment_id = la version courante (listPoles).
+              + '<div><div style="font-weight:600;font-size:13px;color:#111827;">' + esc(p.name)
+              + (p.commitment_id ? ' <a href="/app/insightevent/pole?id=' + encodeURIComponent(p.commitment_id) + '" style="font-size:12px;font-weight:600;color:#1D3BB3;text-decoration:none;margin-left:8px;">Ajuster →</a>' : '') + '</div>'
               + (famTxt ? '<div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + esc(famTxt) + '</div>' : '')
+              // « Pôle en projet » (11/09, mot owner) — l'état et sa raison, servis par create_context (projet_fr).
+              + (p.projet_fr ? '<div style="font-size:11px;font-weight:600;color:#B45309;margin-top:2px;">' + esc(p.projet_fr) + '</div>' : '')
               + (compTxt ? '<div style="font-size:11px;color:#6b7280;margin-top:2px;">Composants : ' + esc(compTxt) + '</div>' : '') + '</div>'
               + '<div><label style="display:block;font-size:10px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#6b7280;margin-bottom:4px;">Canal Slack</label>'
               + '<select data-pole-chan="' + esc(p.dispositif_id) + '" style="width:100%;font-size:12px;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-family:inherit;color:#111827;background:#fff;">' + chanOpts + '</select></div>'
@@ -3700,6 +3801,28 @@ window.toggleAutomationCard = function() {
                 .catch(function () { sel.disabled = false; });
             });
           });
+        }
+
+        // « Non rattaché » (owner 09/09) : les familles réelles qu'aucun pôle ne porte, listées
+        // ICI aussi — c'est la page où l'on range, le trou doit y être visible. La ligne se DÉDUIT
+        // du contexte déjà chargé (ctx.families = foyer listSiteFamilies, ctx.poles = listPoles) :
+        // aucun appel de plus, et une famille nouvelle y tombe seule. Ni canal, ni membre, ni
+        // responsable — personne ne répond d'un reste. Rien sans pôle déclaré : sans mapping,
+        // il n'y a pas de trou.
+        if (poles.length) {
+          var takenFam = {};
+          poles.forEach(function (p) { (p.families || []).forEach(function (f) { takenFam[f] = 1; }); });
+          var libres = (Array.isArray(ctx.families) ? ctx.families : [])
+            .map(function (f) { return f.category; })
+            .filter(function (c) { return c && !takenFam[c]; });
+          if (libres.length) {
+            list.innerHTML += '<div style="padding:12px 0;border-bottom:1px solid #f3f4f6;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;align-items:start;">'
+              + '<div><div style="font-weight:600;font-size:13px;color:#111827;">Non rattaché</div>'
+              + '<div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + esc(libres.join(', ')) + '</div></div>'
+              + '<div style="grid-column:2 / span 2;font-size:11px;color:#9ca3af;align-self:center;">'
+              + libres.length + ' famille' + (libres.length > 1 ? 's' : '') + ' sans pôle — rattachez-les en créant ou en ajustant un pôle.</div>'
+              + '</div>';
+          }
         }
 
         if (mount && window.MSPoleForm) {

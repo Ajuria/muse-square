@@ -807,6 +807,142 @@ combinaison est ce qu'un agent de caisse ne peut pas calculer depuis sa seule do
 contenu concret derrière « mémoire opérationnelle » au § 12.9 : la structure se copie, le
 remplissage à trois sources ne se copie pas sans posséder les trois.
 
+### 12.11 Le contexte d'usage : la caisse qu'on subit, l'équipe qui ne remplira pas un formulaire
+
+Ouvert le 09/09 sur une observation owner : Épices et Tout et Les Olivades ont les mêmes
+difficultés d'usage avec leur caisse (Crisalid) et leur ERP (Sage 100), et la génération Z qui
+arrive dans les équipes n'utilisera pas une application à l'ergonomie pénible.
+
+#### L'observation, avec son statut
+
+- **Deux clients réels, deux outils subis** — Crisalid chez Épices et Tout, Sage 100 aux Olivades.
+  [owner 09/09, observation sur deux comptes — pas un fait de marché]
+- **Épices et Tout n'a aucun ordinateur en boutique** : pour les cinq managers et le gérant, le
+  téléphone EST l'application. [vérifié 07/09, chantier mobile]
+- **Génération Z** : l'enquête Deloitte 2026 décrit une fatigue numérique liée à des outils « mal
+  intégrés aux systèmes existants » ; une source secondaire donne la messagerie instantanée comme
+  canal préféré de 78,9 % des employés Z et l'email à 0 %. [Deloitte : citable ; le chiffre
+  messagerie : à revérifier à la source avant usage commercial]
+
+#### Ce que ça change au plan — deux arguments existants, renforcés
+
+1. **L'amont (§ 12.10) est plus facile à prendre.** Les trois gestes de l'exploitant — décider,
+   organiser le lieu, instruire l'équipe — migrent vers la surface la moins pénible. Une caisse
+   subie ne recevra jamais un geste de plus ; le brief et la photo du rayon iront au téléphone,
+   donc à Muse Square si Muse Square s'ouvre en un geste.
+2. **L'ingestion (§ 8.3) est le même verrou vu de l'autre côté.** La caisse pénible à utiliser est
+   pénible à exporter : les 25 types de document de Crisalid, le HT/TTC, les lignes au poids. Posséder
+   l'export automatisé, c'est devenir le visage lisible de la donnée de caisse — le prérequis du
+   § 12.10 devient un argument de vente.
+3. **Le créneau se précise : « ne changez pas votre caisse ».** Changer de POS ou d'ERP coûte des
+   mois et de la comptabilité ; ajouter une couche que l'équipe utilise coûte un export. Le segment
+   est défini par l'ÂGE de la caisse. Contre-argument à garder en face : SumUp, Square, Zettle,
+   Lightspeed sont déjà mobile-first et ajouteront l'assistant (§ 12.1) — là, le créneau est étroit.
+
+#### Le boomerang : la même barre s'applique à Muse Square
+
+Le formulaire d'engagement porte aujourd'hui **dix champs** (`public/js/commit-form.js`, vérifié
+09/09 : indicateur, fenêtre, objectif, responsable, pôle, levier, coût, ressources, le plus,
+pourquoi). Un vendeur de 22 ans ne le remplira pas plus qu'il ne remplit Crisalid. Les réponses
+sont déjà au plan : la confirmation au lieu de la déclaration (§ 12.10 source 1), la conversation
+comme interface (§ 12.6), le rail Slack et les boutons « Fait / Pas pour moi », la barre basse et
+l'icône d'écran d'accueil livrées le 08/09.
+
+**La contrainte de produit qui en découle** [à instruire, à poser comme porte] : un membre de
+l'équipe fait sa part depuis son téléphone en moins d'une minute, sans formulaire. Ce qui ne
+passe pas cette porte ne s'adresse pas à l'équipe ; ça s'adresse au gérant, sur laptop, et ça se
+dit.
+
+### 12.12 Le critère d'achat du premier client réel est le profit, pas le CA
+
+Ouvert le 10/09 sur deux faits owner, Épices et Tout : (1) Crisalid ne donne pas la lecture que
+l'exploitant veut — **le CA net HT** — et c'est ainsi qu'il veut lire ses rapports ; (2) la faiblesse
+principale de l'affaire est le résultat net : **1,2 M€ de CA par an, 15 k€ de profit**, et il ne sait
+pas pourquoi. Les prix d'achat arrivent dans les prochains jours. **Le critère d'achat est le profit :
+si le produit l'améliore, il devient client payant.** [owner 10/09]
+
+#### « CA net HT » : une définition que le produit n'a pas encore
+
+[vérifié 10/09] `raw.client_transactions` porte UNE colonne `revenue` (26 colonnes, aucun statut
+fiscal, aucun type de document). Le mapping d'import (`src/lib/import/sourceMappings.ts`) envoie
+« ca ttc », « ca ht », « montant net », « total » dans cette même colonne : l'app affiche « CA » sans
+savoir s'il est HT ou TTC, brut ou net des annulations. Les quatre overrides nommés sont vides, et
+aucun mapping Crisalid n'existe. Le correctif est une règle d'ingestion et un libellé : le mapping
+Crisalid prend le montant net HT, annulations soustraites, et les surfaces disent ce qu'elles
+montrent. **C'est la convention de tout compte professionnel français** — personne qui tient une
+boutique ne raisonne en TTC. Ça se promet sans risque : c'est une définition, pas une fonction.
+
+#### Le profit : ce que le produit peut expliquer, et la ligne honnête
+
+15 k€ sur 1,2 M€ = **1,25 % de marge nette**. Aujourd'hui aucun coût d'achat en base : la marge est
+DÉCLARÉE par famille (K9 `profit_estimated`, 24/08) et appliquée au CA. Avec les prix d'achat, la
+question se coupe en deux, et la ligne honnête passe entre les deux.
+
+| Côté | Ce que Muse Square peut dire | Avec quoi |
+|---|---|---|
+| **Marge brute** — expliquable avec les prix d'achat | marge réelle par famille et par article, à la place de la marge déclarée ; et **quatre fuites** : (a) les remises accordées, (b) les articles vendus sous ou près du coût, (c) les articles morts, (d) la casse et les invendus | (a) `fct_client_family_price_daily` porte déjà le taux de remise par famille et par jour ; (b) `avg_unit_price` par article + le catalogue de coûts à créer ; (c) `is_dead_item` ; (d) les types de document Crisalid `IVD` invendus, `SST` sortie stock, `RUP` rupture — que l'ingestion JETTE aujourd'hui (§ 9.2 : aucune colonne pour les recevoir). Pour un pôle périssables, c'est l'endroit le plus probable où 1,2 M€ de ventes perdent leur marge, et c'est une donnée qu'il exporte déjà |
+| **Charges fixes** — hors de la base | rien : salaires, loyer, charges. Le résultat net = marge brute − charges fixes, et rien ne les porte | **un paramètre déclaré**, les charges fixes mensuelles, ferme l'arithmétique brut → net comme la marge déclarée le fait aujourd'hui. Sans lui, le produit répond « où part votre marge », pas « pourquoi 15 k€ » — et la démo doit le dire |
+
+#### Ce que ça change au plan
+
+- **Le prix d'achat entre comme un CATALOGUE de coûts** — article × date d'effet × prix d'achat HT —
+  pas comme un champ sur chaque engagement. Ça remplace la moitié « coût » du § 12.7 item 2 et fait
+  de K9 un KPI mesuré au lieu d'une estimation (repli déclaré quand le coût manque).
+- **Le prérequis d'ingestion du § 12.10 reçoit trois règles de ce seul compte** : le CA net HT comme
+  définition du revenu, le type de document conservé, les quantités de mouvement de stock conservées
+  au lieu d'être filtrées.
+- **L'ordre des builds pour Épices et Tout devient** : (1) ingestion Crisalid avec ces trois règles ;
+  (2) le catalogue de coûts ; (3) la marge brute par famille et par article, les quatre fuites
+  nommées ; (4) les charges fixes déclarées pour atteindre le net. Tout le reste du § 12, l'agent
+  compris, vient APRÈS : il paiera pour la réponse sur la marge, et pour rien avant elle.
+
+**Garde pour la démo et l'onboarding** : tant que les prix d'achat ne sont pas en base, aucun
+chiffre de marge ne se montre. Le test de valeur (`intent.md`) interdit une estimation présentée
+comme une mesure — et un chiffre de marge faux devant le seul client dont la décision en dépend
+est la phrase la plus chère que le produit puisse dire. [à instruire : DDL du catalogue de coûts,
+règles d'ingestion Crisalid, mart de marge, paramètre charges fixes — passation dbt à écrire]
+
+#### Les dix-sept KPI de santé de l'affaire, par ordre d'importance (owner 11/09)
+
+Arbitré en chat le 11/09 sur trois entrées DÉCLARÉES en plus de la caisse : le catalogue de coûts,
+les charges fixes mensuelles, la masse salariale mensuelle. Quatre grains de lecture de la marge
+tiennent de l'owner : **pôle d'activité, famille de produits, mètre linéaire, m²** — la surface
+par pôle et par site est une colonne déclarée à créer, pas une limite. Chaque chiffre se lit contre le résultat habituel du lieu et se rattache à un dispositif ;
+un tableau de ratios nu est « ce qu'on peut écrire sans ouvrir le compte » (`intent.md`) et ne
+s'écrit pas. Les mots d'interface de « marge brute », « résultat net », « point mort », « masse
+salariale » ne sont PAS au lexique : à arbitrer avant toute surface, avec la décision (1) sur
+« CA net HT » et la (4) sur les charges fixes.
+
+| # | KPI | Ce qu'il tranche | Source |
+|---|---|---|---|
+| 1 | Résultat net : marge brute − charges fixes − masse salariale, par mois | le chiffre sur lequel l'exploitant est jugé et le critère d'achat du premier client réel ; tout ce qui suit l'explique | KPI 3 + charges fixes déclarées + masse salariale déclarée |
+| 2 | CA net HT et son évolution contre le résultat habituel | la base de tous les ratios ; la première ligne qu'un banquier lit | `daily_net_revenue` (brut − remises ; HT à l'arrivée du mapping Crisalid), `revenue_30d_avg` |
+| 3 | Taux de marge brute réel, par famille et par article | le verdict d'un pôle passe du CA à la marge ; K9 devient une mesure | catalogue de coûts × `vw_insight_event_client_sales_lines` |
+| 4 | Marge brute par pôle et par famille, en € et en part de la marge du site | où la marge vit ; une famille à 33 % du CA cesse de dominer quand elle est lue en marge | KPI 3 sommé par le mapping famille → pôle (complet ou il ment) |
+| 5 | Marge brute par mètre linéaire, par pôle et par famille : part de marge contre Part de linéaire | la phrase qu'aucune caisse ne donne — « 12 % de la façade pour 4 % de la marge » — et le geste que l'exploitant maîtrise : ce qu'il met sur quel composant | KPI 4 × relevé de l'espace (Épices et Tout : 52 composants mesurés sur le plan ; n° 49, n° 3-6, n° 19 à confirmer sur place par l'owner) |
+| 6 | Point mort du jour et heure à laquelle il est atteint | (charges fixes + masse salariale) par jour d'ouverture ÷ taux de marge = le CA qu'une journée doit générer ; la vue horaire dit quand il est couvert | charges déclarées, jours d'ouverture, `vw_insight_event_client_hourly_daily` |
+| 7 | Taux de remise : remises ÷ CA brut | première fuite ; sur le relevé Crisalid, 1,75 % du brut, plus que le profit de l'année | `discount_amount`, K6 |
+| 8 | Ventes à perte ou près du coût | deuxième fuite ; illégale sous le coût en France (DGCCRF) | `avg_unit_price` contre le catalogue de coûts |
+| 9 | Casse et invendus, en marge perdue | troisième fuite, la plus probable en périssables ; types de document Crisalid que l'ingestion jette aujourd'hui | IVD, SST, RUP (§ 9.2) |
+| 10 | Articles morts : part du catalogue sans aucune vente sur la fenêtre | quatrième fuite ; de la place et de l'argent immobilisés sans retour | `is_dead_item` |
+| 11 | Masse salariale ÷ CA net, par mois | le premier coût fixe de la plupart des commerces, et le ratio que l'exploitant compare à ses pairs | masse salariale déclarée, `daily_net_revenue` |
+| 12 | Marge brute par m², par pôle et par site | le chiffre de référence du secteur, et la lecture au sol quand le composant n'a pas de façade (îlots, frigos, zone traiteur) | surface déclarée par pôle et par site × KPI 4 |
+| 13 | Marge brute par heure d'ouverture | la productivité du temps ouvert sans juger les personnes | KPI 3 au grain horaire |
+| 14 | Panier moyen | la valeur d'un ticket ; bouge avec le prix et le mix, indépendamment du passage | K4 `daily_avg_basket` |
+| 15 | Ventes (compte) | la couche volume, un compte, jamais des euros | K5 `daily_transactions`, `units` |
+| 16 | Taux de conversion | sépare un problème de passage d'un problème de vente | K3 `daily_conversion_rate`, K2 `daily_visitors` |
+| 17 | Taux de retour : retours ÷ ventes | qualité et fuite de trésorerie ; les 29 680 € de RETOUR du relevé restent inexpliqués | `units_sold` compte un retour −1 |
+
+Les rangs 1 à 6 dépendent des entrées déclarées et ne se montrent pas avant les prix d'achat en base
+(garde ci-dessus). Les rangs 7 à 10 sont les quatre fuites déjà nommées : les seuls KPI de la liste
+qui pointent directement un geste. **Hors périmètre, et qui y reste** : trésorerie, créances, dettes,
+bilan — le produit ne ferait que relayer l'expert-comptable (« pas un middleware », owner 30/08) et
+ne pointe rien que l'exploitant bouge en boutique ; la masse salariale n'entre QUE comme montant
+mensuel — par heure ou par personne, elle ferait un outil de planning, la mémoire s'accumulerait par
+personne, et le délai de prévenance rend « réduire les heures » impraticable à l'horizon de
+l'exploitant. [à instruire : la surface déclarée par pôle et par site ; les quatre mots ; le mart de marge par
+pôle × linéaire × m² une fois le relevé de l'espace livré]
+
 ### Sources du § 12 (lues le 07/09/2026)
 
 - Shopify, centre d'aide Sidekick — https://help.shopify.com/en/manual/ai-powered-tools/sidekick/help-and-guidance [page lue]
@@ -824,5 +960,6 @@ remplissage à trois sources ne se copie pas sans posséder les trois.
 - Grocery Dive, « The promise and peril of AI-driven pricing », 23/02/2026 — https://www.grocerydive.com/news/promise-peril-artificial-intelligence-driven-pricing-retailers/812037/ [page lue]
 - Salesforce, « Salesforce and Anthropic Announce Claudeforce », 26/08/2026 — https://www.salesforce.com/news/press-releases/2026/08/26/salesforce-and-anthropic-announce-claudeforce/ [page lue 09/09] ; Anthropic, « Expanded Salesforce partnership » — https://www.anthropic.com/news/salesforce-anthropic-expanded-partnership [recherche 09/09]
 - The SaaS Sentinel, « SaaSpocalypse 2026 », 03/07/2026 — https://saassentinel.com/2026/07/03/saaspocalypse-2026-what-happened-to-saas-and-where-the-market-stands-now/ [recherche 09/09] ; FinancialContent, 24/03/2026 — https://markets.financialcontent.com/stocks/article/marketminute-2026-3-24-the-2026-saaspocalypse-why-b2b-software-stocks-are-plunging-20 [recherche 09/09]
+- Deloitte, « Global Gen Z and Millennial Survey 2026 » — https://www.deloitte.com/global/en/about/press-room/deloitte-2026-gen-z-and-millennial-survey.html [recherche 09/09] ; Cake.com, « Gen Z workforce statistics 2026 » — https://cake.com/blog/gen-z-workforce-statistics/ [source secondaire, chiffre messagerie à revérifier] ; Yooz, enquête 2025 sur la résistance aux outils — https://www.getyooz.com/blog/yooz-survey-technology-resistance-in-the-workplace [recherche 09/09]
 - INC, « L'information sur les prix » (L112-1, arrêté 3/12/1987, sanctions L131-5) — https://www.inc-conso.fr/content/linformation-sur-les-prix-generalites [page lue] ; art. L112-1-1 C. conso — https://www.legifrance.gouv.fr/codes/article_lc/LEGIARTI000044549592 [recherche] ; DGCCRF, revente à perte — https://www.economie.gouv.fr/dgccrf/les-fiches-pratiques/revente-perte-quelles-sont-les-obligations-du-vendeur [recherche]
 - Caisses françaises sans assistant (Zelty, L'Addition, Hiboutik, Cashpad, SumUp) : blog Zelty, independant.io, tool-advisor.fr, practicalecommerce.com (28/04/2026) [recherche]

@@ -9,6 +9,13 @@
 // dispositif (linéaire, gondole, vitrine…). opts.componentTypes = [{value, label_fr, roles:[{value,
 // label_fr}]}] servi par create_context (types du métier, libellés owner seulement). Sans cette
 // liste, le bloc ne s'affiche pas — le formulaire d'avant reste intact.
+// Mesures d'espace (11/09, docs/espace-et-pole.md E3-E5, mots ratifiés 12/09) : par composant, « N° sur le
+// plan », « Longueur (m) », « Faces de préhension » (1 ou 2) et, quand le pôle porte plusieurs familles, la
+// « Part de linéaire » de chacune (Σ = 100 %) ; au pôle, la « Surface de vente (m²) ». Elles partent dans le
+// MÊME POST, sous space_measures — jamais dans components : le serveur les écrit à part
+// (analytics.space_measures). Chaque composant reçoit sa clé ICI (data-ef-comp-key) pour que la mesure
+// et le composant se retrouvent. « Pôle en projet » (owner 11/09) : sans vente importée, les familles du
+// pôle s'écrivent — elles seront à rapprocher de la caisse à la première importation.
 (function () {
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function frInt(n) { return Math.abs(Math.round(Number(n) || 0)).toLocaleString('fr-FR'); }
@@ -22,12 +29,21 @@
   }
 
   // opts = { location_id, families: [{category, avg_day_eur}], owners: [names],
-  //          takenFamilies: {category: poleName}, onCreated(commitment_id) }
+  //          takenFamilies: {category: poleName}, onCreated(commitment_id),
+  //          prefill: {...} + parent_commitment_id }
+  // 13/09 (owner : « le versionning du pôle est déclaratif — sa page de réglages ») : AJUSTER un pôle, c'est
+  // ouvrir CE formulaire pré-rempli avec la version courante — nom, description, responsable, familles,
+  // composants (avec leurs clés : la continuité d'un composant entre deux versions passe par sa clé) et
+  // leurs mesures (N° sur le plan, longueur, faces, parts, surface) — et l'enregistrer avec
+  // parent_commitment_id : l'API crée la version suivante, tout le reste hérite. Aucune question posée :
+  // ce qui change se lit dans ce que l'exploitant modifie. Sans prefill, le formulaire est celui d'avant.
   function render(mount, opts) {
     var fams = Array.isArray(opts.families) ? opts.families : [];
     var owners = Array.isArray(opts.owners) ? opts.owners : [];
     var taken = opts.takenFamilies || {};
     var ctypes = Array.isArray(opts.componentTypes) ? opts.componentTypes : [];
+    var pre = opts.prefill && typeof opts.prefill === 'object' ? opts.prefill : null;
+    var parentId = opts.parent_commitment_id ? String(opts.parent_commitment_id) : null;
     mount.innerHTML = ''
       + '<div style="display:flex;gap:12px;"><div style="flex:1;"><label style="' + lbl + '">Nom du pôle</label><input data-ef="polename" style="' + inp + '" maxlength="120"></div>'
       + '<div style="flex:1;"><label style="' + lbl + '">Responsable(s)</label>'
@@ -35,10 +51,15 @@
       + '</div></div>'
       + '<div style="margin-top:10px;"><label style="' + lbl + '">Familles de produits &amp; services — depuis vos ventes</label>'
       + (fams.length ? '<div data-ef-polefams style="display:flex;gap:6px;flex-wrap:wrap;">' + fams.map(function (f) { return famChip(f.category, f.avg_day_eur); }).join('') + '</div>'
-        : '<div style="font-size:12px;color:#9CA3AF;">Aucune famille dans vos ventes pour l’instant — le pôle a besoin d’un périmètre mesurable.</div>')
+        : '<div style="font-size:12px;color:#9CA3AF;">Aucune famille dans vos ventes pour l’instant — le pôle a besoin d’un périmètre mesurable.</div>'
+          + '<div data-ef-pole-projet style="margin-top:8px;padding:10px 12px;background:#F9FAFB;border:1px solid #e5e7eb;border-radius:8px;">'
+          + '<div style="font-size:12px;font-weight:600;color:#374151;">Pôle en projet — Aucune vente importée</div>'
+          + '<input data-ef="polefams-projet" style="' + inp + 'margin-top:6px;" maxlength="400" placeholder="Les familles du pôle, séparées par une virgule">'
+          + '<div style="font-size:11px;color:#9CA3AF;margin-top:4px;">À la première importation de vos ventes, ces familles seront à rapprocher de la caisse.</div></div>')
       + '<div style="font-size:11px;color:#9CA3AF;margin-top:5px;">Sans terme : lecture continue de ses familles vs votre résultat habituel — pas de verdict.</div></div>'
       + '<div style="margin-top:10px;"><label style="' + lbl + '">Description du dispositif</label><textarea data-ef="polelever" style="' + poleTa + '" placeholder="Ce que le pôle fait au quotidien"></textarea></div>'
       + '<div style="margin-top:10px;"><label style="' + lbl + '">Ressource(s)</label><input data-ef="poleres" style="' + inp + '"></div>'
+      + '<div style="margin-top:10px;max-width:220px;"><label style="' + lbl + '">Surface de vente (m²)</label><input data-ef="polesurface" style="' + inp + '" inputmode="decimal" placeholder="24,5"></div>'
       + (ctypes.length
         ? '<div style="margin-top:10px;"><label style="' + lbl + '">Composants</label>'
           + '<div data-ef-comps></div>'
@@ -47,7 +68,7 @@
       + '<div style="display:flex;gap:12px;margin-top:10px;"><div style="flex:1;"><label style="' + lbl + '">Le plus du dispositif</label><textarea data-ef="poleplus" style="' + poleTa + '"></textarea></div>'
       + '<div style="flex:1;"><label style="' + lbl + '">Pourquoi ça va marcher</label><textarea data-ef="polewhy" style="' + poleTa + '"></textarea></div></div>'
       + '<div data-ef-pole-err style="display:none;color:#B91C1C;font-size:12px;margin-top:10px;"></div>'
-      + '<div style="display:flex;margin-top:12px;"><span style="margin-left:auto;"><button type="button" data-ef-pole-submit style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;">Créer le pôle →</button></span></div>';
+      + '<div style="display:flex;margin-top:12px;"><span style="margin-left:auto;"><button type="button" data-ef-pole-submit style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;">' + (parentId ? 'Enregistrer →' : 'Créer le pôle →') + '</button></span></div>';
 
     var q = function (sel) { return mount.querySelector(sel); };
     var val = function (name) { var el = q('[data-ef="' + name + '"]'); return el ? String(el.value || '').trim() : ''; };
@@ -59,6 +80,7 @@
         c.style.background = poleSel[cat] ? '#F5F8FF' : '#fff';
         c.style.borderColor = poleSel[cat] ? '#1D3BB3' : '#e5e7eb';
         c.style.color = poleSel[cat] ? '#1D3BB3' : '#374151';
+        syncAllShares();
       });
     });
     // Composants : une rangée = type (registre) + rôle (si le type en a) + libellé libre.
@@ -70,17 +92,28 @@
       var roles = t && Array.isArray(t.roles) ? t.roles : [];
       return roles;
     }
-    function addCompRow() {
+    function addCompRow(init) {
       if (!compsMount) return;
+      init = init || null;
       var row = document.createElement('div');
       row.setAttribute('data-ef-comp-row', '');
-      row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:6px;';
-      row.innerHTML = '<select data-ef-comp-type style="' + inp + 'flex:1;cursor:pointer;">'
+      // La clé d'un composant EXISTANT est reprise : c'est elle qui relie ses photos et ses mesures d'une
+      // version à l'autre (dispositif × version × composant). Une rangée nouvelle reçoit une clé neuve.
+      row.setAttribute('data-ef-comp-key', init && init.key ? String(init.key) : 'c' + Math.random().toString(36).slice(2, 10));
+      row.style.cssText = 'margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed #e5e7eb;';
+      row.innerHTML = '<div style="display:flex;gap:8px;align-items:center;">'
+        + '<select data-ef-comp-type style="' + inp + 'flex:1;cursor:pointer;">'
         + ctypes.map(function (t) { return '<option value="' + esc(t.value) + '">' + esc(t.label_fr) + '</option>'; }).join('') + '</select>'
         + '<select data-ef-comp-role style="' + inp + 'flex:1;cursor:pointer;display:none;"></select>'
         + '<input data-ef-comp-label style="' + inp + 'flex:2;" maxlength="120" placeholder="Nom du composant">'
-        + '<button type="button" data-ef-comp-del style="font-size:12px;color:#6B7280;background:none;border:none;cursor:pointer;font-family:inherit;">Retirer</button>';
+        + '<button type="button" data-ef-comp-del style="font-size:12px;color:#6B7280;background:none;border:none;cursor:pointer;font-family:inherit;">Retirer</button></div>'
+        + '<div style="display:flex;gap:8px;align-items:flex-end;margin-top:6px;">'
+        + '<div style="flex:0 0 110px;"><label style="' + lbl + '">N° sur le plan</label><input data-ef-comp-no style="' + inp + '" inputmode="numeric" maxlength="4"></div>'
+        + '<div style="flex:0 0 120px;"><label style="' + lbl + '">Longueur (m)</label><input data-ef-comp-len style="' + inp + '" inputmode="decimal" placeholder="2,40"></div>'
+        + '<div style="flex:0 0 160px;"><label style="' + lbl + '">Faces de préhension</label><select data-ef-comp-faces style="' + inp + 'cursor:pointer;"><option value="">—</option><option value="1">1</option><option value="2">2</option></select></div></div>'
+        + '<div data-ef-comp-shares style="display:none;margin-top:6px;"></div>';
       compsMount.appendChild(row);
+      syncShares(row);
       var tSel = row.querySelector('[data-ef-comp-type]');
       var rSel = row.querySelector('[data-ef-comp-role]');
       var syncRoles = function () {
@@ -89,37 +122,146 @@
         rSel.style.display = roles.length ? '' : 'none';
       };
       tSel.addEventListener('change', syncRoles);
+      if (init && init.type) tSel.value = String(init.type);
       syncRoles();
+      if (init) {
+        if (init.role) rSel.value = String(init.role);
+        var lab = row.querySelector('[data-ef-comp-label]'); if (lab && init.label) lab.value = String(init.label);
+        var m = init.measure || null;
+        if (m) {
+          var no = row.querySelector('[data-ef-comp-no]'), len = row.querySelector('[data-ef-comp-len]'), fc = row.querySelector('[data-ef-comp-faces]');
+          if (no && m.fixture_no != null) no.value = String(m.fixture_no);
+          if (len && m.length_m != null) len.value = String(m.length_m).replace('.', ',');
+          if (fc && m.faces != null) fc.value = String(m.faces);
+          if (Array.isArray(m.families_share) && m.families_share.length) {
+            syncShares(row);
+            m.families_share.forEach(function (fs) {
+              var i = row.querySelector('[data-ef-comp-share="' + String(fs.family).replace(/"/g, '&quot;') + '"]');
+              if (i) i.value = String(Math.round(Number(fs.share) * 1000) / 10).replace('.', ',');
+            });
+          }
+        }
+      }
       row.querySelector('[data-ef-comp-del]').addEventListener('click', function () { row.parentNode.removeChild(row); });
     }
-    if (compAdd) compAdd.addEventListener('click', addCompRow);
+    if (compAdd) compAdd.addEventListener('click', function () { addCompRow(null); });
+    // Familles choisies (chips) ou écrites (pôle en projet) — la liste que les parts de linéaire suivent.
+    function selectedFamilies() {
+      if (fams.length) return Object.keys(poleSel).filter(function (k) { return poleSel[k]; });
+      return val('polefams-projet').split(',').map(function (s) { return s.trim(); }).filter(function (s, i, a) { return s && a.indexOf(s) === i; });
+    }
+    // Part de linéaire : une entrée en % par famille du pôle, seulement quand il en porte plusieurs
+    // (E5 : une seule famille = 100 %, rien à saisir). Les valeurs déjà tapées survivent à un re-rendu.
+    function syncShares(row) {
+      var box = row.querySelector('[data-ef-comp-shares]');
+      if (!box) return;
+      var famsNow = selectedFamilies();
+      var kept = {};
+      box.querySelectorAll('[data-ef-comp-share]').forEach(function (i) { kept[i.getAttribute('data-ef-comp-share')] = i.value; });
+      // Une seule famille : le bloc se cache mais garde ses entrées — une part tapée survit à un aller-retour de chip.
+      if (famsNow.length < 2) { box.style.display = 'none'; return; }
+      box.style.display = '';
+      box.innerHTML = '<label style="' + lbl + '">Part de linéaire</label><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">'
+        + famsNow.map(function (f) {
+          return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#374151;">' + esc(f)
+            + '<input data-ef-comp-share="' + esc(f) + '" value="' + esc(kept[f] || '') + '" inputmode="numeric" maxlength="3" style="' + inp + 'width:56px;padding:5px 6px;"> %</span>';
+        }).join('') + '</div>';
+    }
+    function syncAllShares() { mount.querySelectorAll('[data-ef-comp-row]').forEach(syncShares); }
+    var projetInput = q('[data-ef="polefams-projet"]');
+    if (projetInput) projetInput.addEventListener('change', syncAllShares);
+    // Le pré-remplissage (13/09) : la version courante, telle que l'API la sert, dans chaque champ.
+    if (pre) {
+      var setVal = function (name, v) { var el = q('[data-ef="' + name + '"]'); if (el && v != null && v !== '') el.value = String(v); };
+      var nomParts = String(pre.committed_action_text || '').split(' — ');
+      setVal('polename', nomParts[0]); setVal('polelever', nomParts.slice(1).join(' — '));
+      setVal('poleowner', pre.owner_person_name); setVal('poleres', pre.dispositif_resources);
+      setVal('poleplus', pre.dispositif_plus); setVal('polewhy', pre.dispositif_why);
+      var preFams = []; try { preFams = JSON.parse(pre.pole_families || '[]'); } catch (e) { preFams = []; }
+      if (!Array.isArray(preFams)) preFams = [];
+      if (fams.length) {
+        mount.querySelectorAll('[data-ef-polefam]').forEach(function (c) {
+          if (preFams.indexOf(c.getAttribute('data-ef-polefam')) >= 0) c.click();
+        });
+      } else setVal('polefams-projet', preFams.join(', '));
+      var sm = pre.space_measures && typeof pre.space_measures === 'object' ? pre.space_measures : { components: [] };
+      if (sm.surface_m2 != null) setVal('polesurface', String(sm.surface_m2).replace('.', ','));
+      var byKey = {}; (Array.isArray(sm.components) ? sm.components : []).forEach(function (m) { byKey[m.component_key] = m; });
+      (Array.isArray(pre.components) ? pre.components : []).forEach(function (c) {
+        addCompRow({ key: c.key, type: c.type, role: c.role, label: c.label, measure: byKey[c.key] || null });
+      });
+    }
     function readComps() {
       var out = [];
       mount.querySelectorAll('[data-ef-comp-row]').forEach(function (row) {
         var t = row.querySelector('[data-ef-comp-type]'); var r = row.querySelector('[data-ef-comp-role]'); var l = row.querySelector('[data-ef-comp-label]');
-        out.push({ type: t ? t.value : '', role: r && r.value ? r.value : null, label: l ? String(l.value || '').trim() : '' });
+        out.push({ key: row.getAttribute('data-ef-comp-key'), type: t ? t.value : '', role: r && r.value ? r.value : null, label: l ? String(l.value || '').trim() : '' });
       });
       return out;
+    }
+    // Les mesures de chaque composant — une rangée sans rien de saisi n'en produit pas. Les nombres
+    // partent tels que tapés (virgule) : le serveur les lit en français et refuse ce qui n'en est pas.
+    function readMeasures() {
+      var comps = [];
+      var err = null;
+      mount.querySelectorAll('[data-ef-comp-row]').forEach(function (row) {
+        if (err) return;
+        var no = String((row.querySelector('[data-ef-comp-no]') || {}).value || '').trim();
+        var len = String((row.querySelector('[data-ef-comp-len]') || {}).value || '').trim();
+        var faces = String((row.querySelector('[data-ef-comp-faces]') || {}).value || '').trim();
+        var name = String((row.querySelector('[data-ef-comp-label]') || {}).value || '').trim() || 'ce composant';
+        var sharesBox = row.querySelector('[data-ef-comp-shares]');
+        var shareInputs = sharesBox && sharesBox.style.display !== 'none' ? row.querySelectorAll('[data-ef-comp-share]') : [];
+        var shares = null;
+        if (shareInputs.length) {
+          var filled = 0, sum = 0, list = [];
+          shareInputs.forEach(function (i) {
+            var v = String(i.value || '').trim();
+            if (!v) return;
+            filled++;
+            var pct = Number(v.replace(',', '.'));
+            sum += pct;
+            list.push({ family: i.getAttribute('data-ef-comp-share'), share: Math.round(pct * 100) / 10000 });
+          });
+          if (filled && filled < shareInputs.length) { err = 'Part de linéaire de ' + name + ' : une part par famille, ou aucune.'; return; }
+          if (filled && Math.abs(sum - 100) > 1) { err = 'Les parts de linéaire de ' + name + ' font ' + Math.round(sum) + ' % — elles doivent faire 100 %.'; return; }
+          if (filled) shares = list;
+        }
+        if (!no && !len && !faces && !shares) return;
+        var m = { component_key: row.getAttribute('data-ef-comp-key') };
+        if (no) m.fixture_no = no;
+        if (len) m.length_m = len;
+        if (faces) m.faces = faces;
+        if (shares) m.families_share = shares;
+        comps.push(m);
+      });
+      return { ok: !err, error: err, components: comps };
     }
     var pbtn = q('[data-ef-pole-submit]');
     if (pbtn) pbtn.addEventListener('click', function () {
       var perr = q('[data-ef-pole-err]');
       var showErr = function (m) { if (perr) { perr.textContent = m; perr.style.display = ''; } };
       var name = val('polename');
-      var famsSel = Object.keys(poleSel).filter(function (k) { return poleSel[k]; });
+      var famsSel = selectedFamilies();
       if (!name) { showErr('Il manque le nom du pôle.'); return; }
-      if (!famsSel.length) { showErr('Choisissez au moins une famille — le périmètre du pôle.'); return; }
+      if (!famsSel.length) { showErr(fams.length ? 'Choisissez au moins une famille — le périmètre du pôle.' : 'Écrivez au moins une famille — le périmètre du pôle.'); return; }
+      var measures = ctypes.length ? readMeasures() : { ok: true, components: [] };
+      if (!measures.ok) { showErr(measures.error); return; }
+      var surface = val('polesurface');
+      var spaceMeasures = (measures.components.length || surface)
+        ? { components: measures.components, surface_m2: surface || undefined, source: 'saisie' } : undefined;
       // Une famille = un pôle (owner 28/08) — le formulaire refuse une famille déjà portée.
       for (var i = 0; i < famsSel.length; i++) {
         if (taken[famsSel[i]]) { showErr(famsSel[i] + ' appartient déjà au pôle « ' + taken[famsSel[i]] + ' » — une famille vit dans un seul pôle.'); return; }
       }
       if (perr) perr.style.display = 'none';
-      pbtn.disabled = true; pbtn.textContent = 'Création…';
+      pbtn.disabled = true; pbtn.textContent = parentId ? 'Enregistrement…' : 'Création…';
       var lever = val('polelever');
       fetch('/api/commitments', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           location_id: opts.location_id, dispositif_nature: 'permanent',
+          parent_commitment_id: parentId || undefined,
           committed_action_text: name + (lever ? ' — ' + lever : ''),
           pole_families: famsSel,
           owner_person_name: val('poleowner') || null,
@@ -127,12 +269,14 @@
           dispositif_why: val('polewhy') || null,
           dispositif_resources: val('poleres') || null,
           components: ctypes.length ? readComps() : undefined,
+          space_measures: spaceMeasures,
         }),
       }).then(function (r) { return r.json(); }).then(function (j) {
-        if (!j || !j.ok) { pbtn.disabled = false; pbtn.textContent = 'Créer le pôle →'; showErr('Erreur : ' + ((j && j.error) || 'réessayez')); return; }
-        mount.innerHTML = '<div style="font-size:13px;color:#166534;background:#E6F6F0;border-radius:8px;padding:12px 14px;line-height:1.6;">Pôle créé — lecture continue de ses familles dès vos prochaines ventes. <a href="/app/insightevent/engagement?id=' + encodeURIComponent(j.commitment_id) + '" style="color:#1D3BB3;font-weight:600;">Ouvrir le pôle →</a></div>';
+        if (!j || !j.ok) { pbtn.disabled = false; pbtn.textContent = parentId ? 'Enregistrer →' : 'Créer le pôle →'; showErr('Erreur : ' + ((j && j.error) || 'réessayez')); return; }
+        if (parentId) { if (typeof opts.onCreated === 'function') opts.onCreated(j.commitment_id); return; }
+        mount.innerHTML = '<div style="font-size:13px;color:#166534;background:#E6F6F0;border-radius:8px;padding:12px 14px;line-height:1.6;">Pôle créé — lecture continue de ses familles dès vos prochaines ventes. <a href="/app/insightevent/pole?id=' + encodeURIComponent(j.commitment_id) + '" style="color:#1D3BB3;font-weight:600;">Ouvrir le pôle →</a></div>';
         if (typeof opts.onCreated === 'function') opts.onCreated(j.commitment_id);
-      }).catch(function () { pbtn.disabled = false; pbtn.textContent = 'Créer le pôle →'; showErr('Erreur, réessayez.'); });
+      }).catch(function () { pbtn.disabled = false; pbtn.textContent = parentId ? 'Enregistrer →' : 'Créer le pôle →'; showErr('Erreur, réessayez.'); });
     });
   }
 

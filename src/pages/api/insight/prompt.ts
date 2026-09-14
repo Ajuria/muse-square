@@ -1,7 +1,7 @@
 console.log("API route loaded");
 import type { APIRoute } from "astro";
 import { resolveNamedSite } from "../../../lib/explorer/siteFromQuestion";
-import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredFamilyMarginAnswerFr, declaredClientCountAnswerFr } from "../../../lib/context/contextCopy";
+import { STAGE_FR, stageVerifyDoneFr, MISSING_DIMENSION_FR, premiseCheckFr, declaredCaptureFr, declaredMarginAnswerFr, declaredFamilyMarginAnswerFr, declaredClientCountAnswerFr, measuredMarginAnswerFr } from "../../../lib/context/contextCopy";
 import { runWithStageEmitter, emitStage, type StageEmit } from "../../../lib/ai/runtime/stageEmitter";
 import { BigQuery } from "@google-cloud/bigquery";
 import { runAIPackagerClaude } from "../../../lib/ai/runtime/runPackager";
@@ -24,6 +24,8 @@ import { parseAnyDeclaration, metricForMissingDim } from "../../../lib/ai/declar
 import { lookupPlace, distanceMeters } from "../../../lib/competitive/places";
 import { frActivity, frAudience, frVenueType } from "../../../lib/profile/profileLabels";
 import { familyForQuestion, familiesForQuestion, FAMILIES } from "../../../lib/insightFamilies";
+import { readMeasuredMargin30d } from "../../../lib/kpi/margin";
+import { parameterSpec, validateValue, appendDeclaredParameter, listDeclaredParameters, currentByKey } from "../../../lib/kpi/declaredParameters";
 import { competitorImpactFacts } from "../../../lib/insightFamilies/competitor";
 import { getWebDayContext } from "../../../lib/ai/webContext";
 import { eventDensityImpactFacts, dayEventLandscapeFacts } from "../../../lib/insightFamilies/events";
@@ -37,17 +39,16 @@ import { assertNoSentenceWithoutFactIdV1 } from "../../../lib/ai/assertions/asse
 import type { FactV1, LineItemV1 } from "../../../lib/ai/contracts/facts_v1";
 import { makeBQClient } from "../../../lib/bq";
 import { dispositifFamily } from "../../../lib/insightFamilies/dispositif";
-import { listClassDispositifs } from "../../../lib/dispositifs/bestPractices";
-import { engagementsFamily } from "../../../lib/insightFamilies/engagements";
+// 13/09 (§ 7, couche 6) — `listClassDispositifs` et `engagementsFamily` ont quitté ce fichier avec la
+// couche journal : elles sont lues par `agentTurn.ts` pour `lire_engagements` et `lire_dispositifs_documentes`.
 import { loadSiteEntities, matchEntities } from "../../../lib/explorer/entityResolver";
 import { resolveTurn, frameOf, type ResolvedTurn, type ResolvedFrame } from "../../../lib/ai/resolver";
-import { readEntityPeriod, buildEntityPeriodBlocks, readEntitiesCompared, buildEntityCompareBlocks, readEntityWhy, readKpiPeriod } from "../../../lib/explorer/entityReading";
+// 13/09 (§ 7, couche 6) — `readEntityPeriod`, `readEntitiesCompared` et leurs deux builders ont quitté ce
+// fichier avec la couche : `agentTurn.ts` les lit pour `lire_entite_periode`.
+import { readEntityWhy, readKpiPeriod } from "../../../lib/explorer/entityReading";
 import { readIdeaPlacement } from "../../../lib/dispositifs/ideaPlacement";
-import { planPeriod, buildPlanBlocks, buildPlanWhyBlocks } from "../../../lib/explorer/planPeriod";
-import { journalPlan } from "../../../lib/explorer/journalPlan";
 import { signalMetier, horsPerimetreReponse } from "../../../lib/ai/horsPerimetre";
-import { operationLife, readDispositifFamille, buildDispositifFamilleBlocks } from "../../../lib/dispositifs/dispositifFamille";
-import { readTopFamilles, buildTopFamillesBlocks } from "../../../lib/explorer/topFamilles";
+import { operationLife } from "../../../lib/dispositifs/dispositifFamille";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { validateEnqueteOutput, type EnqueteOutput } from "../../../lib/ai/contracts/dispositifEnqueteChecks";
 import { parseJsonObjectStrict } from "../../../lib/ai/runtime/json";
@@ -55,6 +56,26 @@ import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { sinkTelemetry } from "../../../lib/telemetrySink";
 // addDaysYmd existe déjà en local (l.~757) — ne pas l'importer en doublon.
 import { resolveFrPeriod, daysInRangeYmd, type YearBias, type FrPeriod } from "../../../lib/dates/frPeriod";
+// 13/09 (docs/explorer-outil-spec.md § 7) — l'aiguillage PAR CAPACITÉ vers la boucle de l'agent (couche 1 : la marge).
+import { randomUUID } from "node:crypto";
+import { runAgentTurn } from "../../../lib/explorer/agentTurn";
+import { GET as photosGET } from "../dispositifs/photos";
+import type { PhotoBytes, PhotoInfo } from "../../../lib/explorer/agentTools";
+import type { AnswerBlock } from "../../../lib/explorer/blocks";
+const _photosUrl = (q: string) => new URL(`http://internal/api/dispositifs/photos?${q}`);
+async function agentReadPhotos(locals: any, dispositif_id: string): Promise<PhotoInfo[]> {
+  const res: Response = await (photosGET as any)({ url: _photosUrl(`dispositif_id=${encodeURIComponent(dispositif_id)}`), locals });
+  const out = await res.json().catch(() => null);
+  if (!res.ok || !out?.ok) throw new Error(out?.error || `photos : ${res.status}`);
+  return Array.isArray(out.photos) ? out.photos : [];
+}
+async function agentReadPhotoBytes(locals: any, dispositif_id: string, photo_id: string): Promise<PhotoBytes | null> {
+  const res: Response = await (photosGET as any)({ url: _photosUrl(`dispositif_id=${encodeURIComponent(dispositif_id)}&file=${encodeURIComponent(photo_id)}`), locals });
+  if (!res.ok) return null;
+  const ct = String(res.headers.get("content-type") || "image/jpeg").split(";")[0].trim();
+  const buf = Buffer.from(await res.arrayBuffer());
+  return { media_type: (/^image\/(jpeg|png|webp|gif)$/.test(ct) ? ct : "image/jpeg") as PhotoBytes["media_type"], base64: buf.toString("base64"), bytes: buf.length };
+}
 
 export const prerender = false;
 
@@ -72,6 +93,9 @@ type ProvenanceRegister = "vetted" | "web" | "model";
 // a family-wide « Vos ventes » chip would dress the estimate as measurement. No chip beats a wrong chip.
 const FAMILY_FACT_ORIGIN: Record<string, FactOrigin | null> = {
   weather: "meteo",
+  marge: "ventes",
+  espace: "declarations",
+  signaux: "ventes",
   offering: "ventes",
   salesdiscount: "ventes",
   salesdecomp: "ventes",
@@ -95,7 +119,9 @@ function tagFactOrigin<T extends { origin?: FactOrigin }>(facts: T[], origin: Fa
 function registerFor(producer: string | null | undefined): ProvenanceRegister | null {
   if (producer === "web_search") return "web";
   if (producer === "llm_only") return "model";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1" || producer === "deterministic_engagements_elicit_v1" || producer === "deterministic_entity_period_elicit_v1" || producer === "deterministic_hors_perimetre_v1" || producer === "deterministic_dispositif_famille_v1" || producer === "deterministic_top_familles_v1") return null;
+  // 13/09 (§ 7) — une capacité servie par l'agent : sa porte a déjà jugé (agent_<outil> vérifié, _non_verifie sinon).
+  if (producer && producer.startsWith("agent_")) return producer.endsWith("_non_verifie") ? "model" : "vetted";
+  if (!producer || producer === "no_data" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1" || producer === "deterministic_engagements_elicit_v1" || producer === "deterministic_entity_period_elicit_v1" || producer === "deterministic_hors_perimetre_v1" || producer === "deterministic_dispositif_famille_v1" || producer === "deterministic_top_familles_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -566,9 +592,7 @@ const PAST_TENSE_MARKERS = [
 // étroite : « mes ventes ont-elles marché ? » n'en est pas une, elle relève des ventes.
 // La ligne d'une fiche dispositif documentée — UNE formulation, partagée par la branche fiches
 // et la section compacte du journal (streamline owner 27/08 : jamais deux formulations).
-const dispoFrD = (iso: string) => { const d = String(iso || "").slice(0, 10); return d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : ""; };
-const dispoLineFr = (p: any): string =>
-  `Documenté le ${dispoFrD(p.created_date)} : « ${p.practice_text} » — ${practiceStateFr(p)}${p.confirmation_test ? ` ; test : « ${p.confirmation_test} »` : ""}${p.commitment_status === "open" ? " ; test en cours (suivi sur Pulse)" : ""}.`;
+// 13/09 (§ 7, couche 3) : la ligne d'une fiche vit dans lib/dispositifs/dispositifsDocumentes.ts (l'agent la rend aussi) — jamais deux formulations.
 
 const JOURNAL_Q = /\b(mes|mon|nos|notre)\s+(engagements?|p[oô]les?|dispositifs?)|\bqu(?:['\u2019]est-ce qui|i)\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])|\bce\s+qui\s+a\s+(?:march[\u00e9e]|fonctionn[\u00e9e])/i;
 
@@ -2385,6 +2409,31 @@ async function handleCore({ request, locals }: Parameters<APIRoute>[0]): Promise
       }), { status: 200, headers: { "content-type": "application/json" } });
     };
 
+    // 13/09 — L'AIGUILLAGE PAR CAPACITÉ (docs/explorer-outil-spec.md § 7) : une question qu'une capacité de l'agent sert
+    // part à la boucle (lib/explorer/agentTurn.ts — mêmes outils, même porte, même relecture, même trace que la route de
+    // l'agent). Producteur `agent_<outil>` (vérifié) ou `agent_<outil>_non_verifie` ; les blocs natifs : le texte relu en
+    // prose, puis les blocs des outils — le client les rend tels quels (ie-prompt.js) ; la pastille vient de meta.register.
+    // `_agentMargeCeTour` : une marge déclarée dans ce tour (posée plus bas par la capture) passe à lire_marge.
+    let _agentMargeCeTour: { pct: number; declarant_name: string | null; corrected_at: string | null } | null = null;
+    const repondreParAgent = async (capacite: string, question: string, extra?: { blocks?: AnswerBlock[]; primary?: any }) => {
+      const _agBq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+      const _agUser = clerk_user_id || "dev-bypass";
+      const _agLocals = bypass && !(locals as any)?.clerk_user_id ? { clerk_user_id: _agUser, all_location_ids: [location_id] } : locals;
+      const _agTurn = await runAgentTurn(_agBq, {
+        location_id, user_id: _agUser, role: _ownedForNaming.includes(location_id) || !_ownedForNaming.length ? "owner" : "member",
+        ownedIds: _ownedForNaming.length ? _ownedForNaming : [location_id],
+        messages: [...conversation_history, { role: "user", content: question }], files: [], thread_id: randomUUID(),
+        readPhotos: (d) => agentReadPhotos(_agLocals, d), readPhotoBytes: (d, ph) => agentReadPhotoBytes(_agLocals, d, ph),
+        margeDeclareeCeTour: _agentMargeCeTour,
+        declarant_name: typeof body?.declared_by === "string" && body.declared_by.trim() ? body.declared_by.trim().slice(0, 80) : null,
+      });
+      const _agProducer = _agTurn.grounding.register === "vetted" ? `agent_${capacite}` : `agent_${capacite}_non_verifie`;
+      sinkTelemetry(location_id, "agent-answer", { capacite, register: _agTurn.grounding.register, outils: _agTurn.tool_calls.map((c) => c.name).join(",") });
+      const _agBlocks: AnswerBlock[] = [...(_agTurn.text ? [{ type: "prose", md: _agTurn.text } as AnswerBlock] : []), ..._agTurn.blocks.filter((b) => b.type !== "register"), ...(extra?.blocks ?? [])];
+      // Un CTA « M'engager » pré-rempli par un outil (composer_plan) : le client lit le prefill sur le bloc lui-même (ie-prompt.js ?v=57).
+      return sysDialogueResponse("", _agTurn.text, _agProducer, extra?.primary ?? null, { blocks: _agBlocks, agent: { tool_calls: _agTurn.tool_calls.map((c) => ({ name: c.name, summary: c.summary, ms: c.ms })), ungrounded_numbers: _agTurn.grounding.ungrounded_numbers, relecture: { phrases_retirees: _agTurn.relecture.phrases_retirees } } });
+    };
+
     // ── MODE ENQUÊTE « Reproduire le dispositif gagnant » (pièce 2b, spec atelier § Hiérarchie
     // de l'enquête). Early-return complet, comme isUnknownIntent : la page dispositif.astro
     // poste { dispositif: { class_key, location_id } } — rien du routage jour/mois ne s'applique.
@@ -2540,22 +2589,10 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // fiches en section compacte — rien ne se perd, rien ne se dit deux fois.
     // I5 suite (04/09) : la branche vit APRÈS le résolveur — l'intention `fiches` l'atteint aussi
     // quand la question ne porte pas les mots du matcher (« qu'est-ce qui a marché chez les autres ? »).
+    // 13/09 — MIGRATION § 7, couche 3 : `_dispositifs_v1` est RETIRÉE — la question part à l'agent (lire_dispositifs_documentes :
+    // les mêmes fiches, la même ligne, l'absence dite). Producteur agent_lire_dispositifs_documentes.
     if (/\b(bonnes?\s+pratiques?|dispositifs?\s+documentés?|documentés?\s.*dispositifs?)\b/i.test(qRaw) || _rsv?.intent === "fiches") {
-      const _bqd = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-      const _dispoRows = await listClassDispositifs(_bqd, location_id, null, 6);
-      if (_dispoRows.length) {
-        const _lines = _dispoRows.map(dispoLineFr);
-        return sysDialogueResponse(
-          _dispoRows.length === 1 ? "Votre dispositif documenté" : "Vos dispositifs documentés",
-          _lines.join("\n\n"),
-          "deterministic_dispositifs_v1",
-        );
-      }
-      return sysDialogueResponse(
-        "Aucun dispositif documenté",
-        "Vous n'avez pas encore documenté de dispositif. Ouvrez « Reproduire le dispositif » depuis une carte structurelle de Pulse : la conversation vous aide à le formaliser, puis à l'engager sur un test mesuré.",
-        "deterministic_dispositifs_v1",
-      );
+      return repondreParAgent("lire_dispositifs_documentes", qRaw);
     }
 
     // ── HORS PÉRIMÈTRE (I1, spec docs/explorer-routage-inversion-spec.md § 3.4, owner 03/09) —
@@ -2604,14 +2641,9 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
       // Le pourquoi d'un PLAN (5bis) : re-composer le diagnostic et dire la construction de
       // chaque section (santé, motifs avec mélanges NOMMÉS en clair, semaines, pôles).
       if (_why.intent === "plan" && _why.periode) {
-        const _bqpw = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-        const _pw = await planPeriod(_bqpw, location_id, _why.periode.start, _why.periode.end);
-        const _pwB = buildPlanWhyBlocks(_pw);
         _rsvFrameOut = _why; // la conversation continue sur le plan
-        return sysDialogueResponse(
-          _pwB.headline, "", "deterministic_plan_why_v1", null,
-          { plan_sections: _pwB.sections, sources_list: _pwB.sources },
-        );
+        // 13/09 — MIGRATION § 7, couche 4 : `_plan_why_v1` est RETIRÉE — composer_plan(pourquoi = true) sur la période du plan précédent.
+        return repondreParAgent("composer_plan", `${qRaw}\n\n(Le plan précédent portait du ${_why.periode.start} au ${_why.periode.end} — appelle composer_plan avec du, au et pourquoi = true.)`);
       }
       if ((_why.intent === "entity_period" || _why.intent === "autre") && _why.entity_names?.length && _why.periode) {
         const _whyEnts = _why.entity_names
@@ -2674,66 +2706,15 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     // n'ont pas besoin d'être reformulés, et le reformuler coûte la doctrine.
     // La famille `engagements` reste enregistrée : elle sert les questions qui EFFLEURENT le
     // journal sans le nommer (composition grounded), exactement comme buildPracticeFacts.
+    // 13/09 (§ 7, couche 6) — RENTRÉE : la couche entière tient dans `lire_engagements`. La composition
+    // (les faits que ni une carte ni le conseil ne disent déjà, les jours à venir plafonnés à trois, le
+    // geste UNIQUE où la contre-indication prime sur le rejeu) vit dans `lib/commitments/journalEngagements.ts`,
+    // pure et testée ; les deux lectures restent `engagementsFamily` et `journalPlan`, désormais en
+    // PARALLÈLE. Les fiches documentées ne sont plus inlinées ici : elles ont leur propre outil depuis ce
+    // matin (`lire_dispositifs_documentes`), et c'est la boucle qui enchaîne les deux.
+    // L'élicitation `_engagements_elicit_v1` tombe avec la couche : l'absence est un bloc de l'outil.
     if (JOURNAL_Q.test(qRaw) || _rsv?.intent === "journal") {
-      const _bqj = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-      const _j = await engagementsFamily(_bqj, location_id, new Date().toISOString().slice(0, 10));
-      if (_j.found) {
-        const _adv = ((_j.data as any)?.advice ?? []) as string[];
-        const _advTexts = ((_j.data as any)?.advice_texts ?? []) as string[];
-        // J2.2 — le croisement SIGNAL × JOURNAL s'attache à la carte du journal : quand un jour à
-        // venir réunit les conditions où un dispositif a été PROUVÉ, on le dit ici plutôt que
-        // d'inventer une route de plus (qui volerait des questions aux familles existantes).
-        const _plan = await journalPlan(_bqj, location_id, 14).catch(() => []);
-        const _planTxt = _plan.length
-          ? `\n\nVos jours à venir\n\n${_plan.slice(0, 3).map((x) => x.say_fr).join("\n\n")}`
-          : "";
-        // Streamline (owner 27/08) : « mes dispositifs » atterrit ICI — les fiches documentées
-        // de l'atelier s'absorbent en section compacte (mêmes lignes que la branche fiches,
-        // via dispoLineFr — jamais deux formulations), plafonnées à 3.
-        const _fiches = await listClassDispositifs(_bqj, location_id, null, 3).catch(() => []);
-        const _fichesTxt = _fiches.length
-          ? `\n\nVos dispositifs documentés\n\n${_fiches.map(dispoLineFr).join("\n\n")}`
-          : "";
-        // Journal nature-aware (proto v2, owner 27/08) : les pôles et les opérations au verdict
-        // imminent rendent en CARTES (construites par le provider) — leurs faits sortent de la
-        // prose (card_fact_texts), sinon la réponse dirait deux fois les mêmes chiffres. Le
-        // fait d'historique repris DANS une carte ambre reste en prose seulement s'il n'est
-        // pas déjà la ligne Historique de la carte.
-        const _cardTexts = ((_j.data as any)?.card_fact_texts ?? []) as string[];
-        const _poleCards = ((_j.data as any)?.pole_cards ?? []) as any[];
-        const _datedCards = ((_j.data as any)?.dated_cards ?? []) as any[];
-        const _body = _j.facts.filter((f) => !_advTexts.includes(f.fact_fr) && !_cardTexts.includes(f.fact_fr)).map((f) => f.fact_fr).join("\n\n")
-          + _planTxt
-          + _fichesTxt
-          + (_adv.length ? `\n\nAction conseillée : ${_adv.join(" ; ")}.` : "");
-        // J2.3 — le geste, pas seulement le conseil. Un dispositif contre-indiqué a un engagement
-        // OUVERT : « Ajuster » (mot du lexique l.38 pour un engagement ouvert) mène à la page qui
-        // porte déjà les deux gestes (arrêter / ajuster), jamais un formulaire de plus.
-        // CTA = un verbe + flèche, ≤ 14 caractères (lexique, règle de rédaction 1).
-        const _adjId = ((_j.data as any)?.adjust_commitment_id ?? null) as string | null;
-        // Deux gestes possibles, jamais les deux à la fois. La CONTRE-INDICATION prime : si un
-        // dispositif prouvé négatif tourne encore, l'ajuster passe avant tout rejeu.
-        const _replay = _plan.find((x) => x.direction === "positive" && x.prefill) ?? null;
-        const _primary = _adjId
-          ? { type: "redirect", url: `/app/insightevent/engagement?id=${encodeURIComponent(_adjId)}`, label: "Ajuster" }
-          : _replay
-            ? { type: "commit_prefill", label: "M'engager", prefill: _replay.prefill,
-                origin: { origin_action_type: "chat_journal_replay", origin_affected_date: _replay.date } }
-            : null;
-        return sysDialogueResponse(
-          _poleCards.length ? "Vos dispositifs" : "Vos engagements",
-          _body, "deterministic_engagements_v1", _primary,
-          (_poleCards.length || _datedCards.length)
-            ? { pole_cards: _poleCards, dated_cards: _datedCards,
-                pole_section_title: "Vos pôles", dated_section_title: "Vos opérations datées" }
-            : null,
-        );
-      }
-      return sysDialogueResponse(
-        "Aucun engagement jugé pour l'instant",
-        ENGAGEMENTS_ELICIT_FR,
-        "deterministic_engagements_elicit_v1",
-      );
+      return repondreParAgent("lire_engagements", qRaw);
     }
 
     // ── PLAN DE PÉRIODE (27/08) — « planifie-moi septembre ». Verbe de plan + période à
@@ -2748,18 +2729,10 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         ? { start: _rsv.periode.start, end: _rsv.periode.end }
         : resolveFrPeriod(qRaw, { today: _plToday, yearBias: "future" });
       if (_plPeriod && _plPeriod.end >= _plToday) {
-        const _bqp = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-        // clerk_user_id ouvre le roster équipe (colonne « Qui » du plan) — même clé que /api/channels/team.
-        const _plan2 = await planPeriod(_bqp, location_id, _plPeriod.start, _plPeriod.end, { userId: clerk_user_id });
-        const _plb = buildPlanBlocks(_plan2);
-        const _plPrimary = _plb.replay_prefill
-          ? { type: "commit_prefill", label: "M'engager", prefill: _plb.replay_prefill.prefill,
-              origin: { origin_action_type: "chat_journal_replay", origin_affected_date: _plb.replay_prefill.date } }
-          : { type: "redirect", url: "/app/insightevent/evenement?new=1", label: "Nouvelle opération" };
-        return sysDialogueResponse(
-          _plb.headline, "", "deterministic_plan_period_v1", _plPrimary,
-          { plan_sections: _plb.sections, sources_list: _plb.sources },
-        );
+        // 13/09 — MIGRATION § 7, couche 4 : `_plan_period_v1` est RETIRÉE — l'agent compose le plan (composer_plan : LE composeur
+        // planPeriod.ts, diagnostic d'abord) sur la période résolue ; « Nouvelle opération » reste à un clic.
+        return repondreParAgent("composer_plan", `${qRaw}\n\n(Période résolue par Muse Square : du ${_plPeriod.start} au ${_plPeriod.end} — appelle composer_plan avec du et au.)`,
+          { blocks: [{ type: "cta", url: "/app/insightevent/evenement?new=1", label: "Nouvelle opération" }] });
       }
     }
 
@@ -2795,40 +2768,27 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         {
           const _dfOps = _epMatches.filter((e) => e.kind === "operation");
           const _dfFams = _epMatches.filter((e) => e.kind === "famille");
+          // 13/09 — MIGRATION § 7, couche 3 : `_dispositif_famille_v1` est RETIRÉE — l'agent lit lire_operation_famille avec
+          // l'opération, les familles et la période que le résolveur a reconnues (dites dans la question).
           if (_dfOps.length === 1 && _dfFams.length >= 1) {
-            const _dfKpi: any = /\bmix\b/i.test(qRaw) ? "mix" : (_rsv?.kpi ?? null);
-            const _dfR = await readDispositifFamille(_bqe, location_id, _dfOps[0], _dfFams, _epPeriod.start, _epPeriod.end, _epToday, _dfKpi);
-            const _dfB = buildDispositifFamilleBlocks(_dfR);
-            return sysDialogueResponse(
-              _dfB.headline, "", "deterministic_dispositif_famille_v1", null,
-              { plan_sections: _dfB.sections, sources_list: _dfB.sources },
-            );
+            const _dfKpi = /\bmix\b/i.test(qRaw) ? "mix" : (_rsv?.kpi ?? null);
+            return repondreParAgent("lire_operation_famille", `${qRaw}\n\n(Reconnu par Muse Square : opération « ${_dfOps[0].name} », ${_dfFams.length > 1 ? "familles" : "famille"} ${_dfFams.map((f) => `« ${f.name} »`).join(", ")}, période du ${_epPeriod.start} au ${_epPeriod.end}${_dfKpi ? `, KPI ${_dfKpi}` : ""} — appelle lire_operation_famille avec ces valeurs.)`);
           }
         }
         // ── COMPARAISONS (incrément 4, 28/08) — N entités et/ou 2 périodes : mise en table
         // de lectures unitaires (readEntitiesCompared), cellules nues, jamais un verdict
         // fabriqué entre entités. Une seule entité, une seule période → le chemin historique.
         const _epCompare = _rsv?.periode_comparaison ?? null;
-        if (_epMatches.length >= 2 || (_epMatches.length >= 1 && _epCompare)) {
-          const _cmpPeriods = [{ start: _epPeriod.start, end: _epPeriod.end }, ...(_epCompare ? [{ start: _epCompare.start, end: _epCompare.end }] : [])];
-          const _cmpGrid = await readEntitiesCompared(_bqe, location_id, _epMatches, _cmpPeriods, _epToday);
-          const _cmpB = buildEntityCompareBlocks(_cmpGrid);
-          return sysDialogueResponse(
-            _cmpB.headline, "", "deterministic_entity_compare_v1", null,
-            { plan_sections: _cmpB.sections, sources_list: _cmpB.sources },
-          );
-        }
+        // 13/09 (§ 7, couche 6) — RENTRÉES : `lire_entite_periode` sert les deux cas (une entité sur une
+        // période, et la comparaison de plusieurs entités ou de deux périodes). La composition est PURE et
+        // testée (`lib/explorer/entitePeriodeOutil.ts`) ; les lectures et la mise en table ne bougent pas
+        // (`readEntityPeriod` / `readEntitiesCompared`, `buildEntity*Blocks`). Ce que l'outil AJOUTE : chaque
+        // ligne de table redite comme un fait, pour que la porte puisse citer ses nombres.
         if (_epMatches.length) {
-          const _epEnt = _epMatches[0];
-          const _epReading = await readEntityPeriod(_bqe, location_id, _epEnt, _epPeriod.start, _epPeriod.end, _epToday);
-          const _epBlocks = buildEntityPeriodBlocks(_epReading);
-          return sysDialogueResponse(
-            _epBlocks.headline,
-            _epBlocks.prose,
-            "deterministic_entity_period_v1",
-            null,
-            { entity_table: _epBlocks.table, funnel_table: _epBlocks.funnel_table, sources_list: _epBlocks.sources },
-          );
+          const _epNoms = _epMatches.map((e) => `« ${e.name} »`).join(", ");
+          const _epCmpTxt = _epCompare ? `, à comparer au ${_epCompare.start} → ${_epCompare.end}` : "";
+          return repondreParAgent("lire_entite_periode",
+            `${qRaw}\n\n(Reconnu par Muse Square : ${_epMatches.length > 1 ? "entités" : "entité"} ${_epNoms}, période du ${_epPeriod.start} au ${_epPeriod.end}${_epCmpTxt} — appelle lire_entite_periode avec ces valeurs.)`);
         }
         // I2 — aucune entité : la période résolue par le résolveur passe au chemin legacy
         // (posée ici, lue plus bas par la fenêtre du renvoi rapport et l'extraction de dates).
@@ -2839,26 +2799,22 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
         // I7 (04/09) — « top 3 produits août » : question de FAMILLES (matcher offering) sur une
         // période PASSÉE de plusieurs jours → lecture déterministe des familles classées par CA
         // (topFamilles.ts). La famille offering est un profil 30 j : elle ne sait pas dire août.
+        // 13/09 — MIGRATION § 7, couche 2 : `_top_familles_v1` est RETIRÉE (topFamilles.ts supprimé, une lecture raw de
+        // moins) — la question part à l'agent avec la période résolue ; lire_ventes(du, au) rend le mix par famille
+        // (CA, part) sur cette période, le modèle nomme les K premières. Producteur agent_lire_ventes.
         if (_rsvPassPeriod && _rsvPassPeriod.start < _rsvPassPeriod.end && familyForQuestion(qRaw)?.key === "offering") {
-          const _tfR = await readTopFamilles(_bqe, location_id, _rsvPassPeriod.start, _rsvPassPeriod.end);
-          const _tfB = buildTopFamillesBlocks(_tfR, resolveTopKFromText(qRaw));
-          return sysDialogueResponse(_tfB.headline, "", "deterministic_top_familles_v1", null, { plan_sections: _tfB.sections, sources_list: _tfB.sources });
+          return repondreParAgent("lire_ventes", `${qRaw}\n\n(Période résolue par Muse Square : du ${_rsvPassPeriod.start} au ${_rsvPassPeriod.end} — appelle lire_ventes avec du et au.)`);
         }
         // D2 — l'entité nommée est introuvable : élicitation avec les LISTES RÉELLES du site,
         // jamais une devinette. Seulement quand la question NOMME un pôle ou une famille.
+        // 13/09 (§ 7, couche 6) — RENTRÉE : l'entité nommée est introuvable. L'élicitation est devenue un
+        // BLOC de l'outil (`clarification` : les entités RÉELLES du site en puces) — c'est lui qui la rend,
+        // avec les noms qu'il a cherchés. Jamais une devinette, et plus une sortie de ce fichier.
         if (/\bp[oô]les?\b/i.test(qRaw) || /\bfamille\b/i.test(qRaw)
             || (_rsv?.intent === "entity_period" && _rsv.entity_names.length > 0 && !_rsv.entities.length)) {
-          const _poleNames = _epSite.entities.filter((e) => e.kind === "pole").map((e) => e.name);
-          const _famNames = _epSite.entities.filter((e) => e.kind === "famille").map((e) => e.name).slice(0, 8);
-          const _lists = [
-            _poleNames.length ? `Vos pôles : ${_poleNames.join(", ")}.` : "Vous n'avez pas encore de pôle déclaré.",
-            _famNames.length ? `Vos familles : ${_famNames.join(", ")}.` : "",
-          ].filter(Boolean).join(" ");
-          return sysDialogueResponse(
-            "Je ne trouve pas cette entité",
-            `Je ne trouve ni pôle ni famille de ce nom sur ce site. ${_lists}`,
-            "deterministic_entity_period_elicit_v1",
-          );
+          const _epNomsDits = (_rsv?.entity_names ?? []).filter(Boolean);
+          return repondreParAgent("lire_entite_periode",
+            `${qRaw}\n\n(Muse Square n'a reconnu aucune entité${_epNomsDits.length ? ` pour ${_epNomsDits.map((n) => `« ${n} »`).join(", ")}` : ""} ; période du ${_epPeriod.start} au ${_epPeriod.end} — appelle lire_entite_periode avec ces noms, il rendra les entités réelles du site.)`);
         }
       }
     }
@@ -2913,13 +2869,11 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           // Le site nommé est résolu UNE fois en tête de route (_namedSite) : location_id le porte déjà.
           const _repLoc = location_id;
           const _repSiteLabel: string | null = _namedSite ? _namedSite.label : null;
-          const _repUrl = `/app/insightevent/rapport?start=${encodeURIComponent(_repStart)}&end=${encodeURIComponent(_repEnd)}&loc=${encodeURIComponent(_repLoc)}`;
-          return sysDialogueResponse(
-            "Rapport de ventes",
-            `Période : du ${_frR(_repStart)} au ${_frR(_repEnd)}${_repSiteLabel ? ` — ${_repSiteLabel}` : ""} — le document complet, imprimable et partageable.`,
-            "deterministic_report_nav_v1",
-            { type: "redirect", url: _repUrl, label: "Générer le rapport pour cette période →" },
-          );
+          const _repUrl = `/app/insightevent/rapport-ventes?start=${encodeURIComponent(_repStart)}&end=${encodeURIComponent(_repEnd)}&loc=${encodeURIComponent(_repLoc)}`;
+          // 13/09 — MIGRATION § 7, couche 4 : `_report_nav_v1` est RETIRÉE — l'agent COMPOSE le Rapport (composer_rapport, modèle ventes,
+          // la période résolue) ; le document imprimable reste à un clic (le CTA approuvé, en bloc cta).
+          return repondreParAgent("composer_rapport", `${qRaw}\n\n(Période résolue par Muse Square : du ${_repStart} au ${_repEnd}${_repSiteLabel ? `, site ${_repSiteLabel}` : ""} — appelle composer_rapport avec modele « ventes », du et au.)`,
+            { blocks: [{ type: "cta", url: _repUrl, label: "Générer le rapport pour cette période" }] });
         }
       }
     }
@@ -2936,7 +2890,41 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
     let _justDeclared: { correction_type: string; value: number; declarant_name: string | null; corrected_at: string } | null = null;
     {
       const _decl = parseAnyDeclaration(q);
-      if (_decl != null) {
+      // 13/09 — MIGRATION § 7, couche 5 : `_declared_capture_v1` est RETIRÉE — une déclaration (pure, ou avec sa question) part à
+      // l'agent : ecrire_declaration écrit par les mêmes foyers, confirme avec le même mot, et lire_marge lit la marge déclarée
+      // dans le tour. RESTE ici : une clientèle déclarée AVEC une question (« j'ai 300 clients : quel est mon CA par client ? »),
+      // dont l'estimation CA ÷ clients n'a pas d'outil — elle garde le chemin ci-dessous jusqu'à la couche suivante.
+      if (_decl != null && !(_decl.with_question && _decl.spec.correction_type === "declared_client_count")) {
+        return repondreParAgent("ecrire_declaration", qRaw);
+      }
+      // « Oublie ma marge déclarée », « oubliez ma clientèle » : l'oubli par le texte (l'outil porte action « oublier ») —
+      // le panneau mémoire garde son bouton « Oublier ». Mesuré 13/09 : sans cette ligne, la phrase partait à la famille audience.
+      if (/\boubli(?:e|er|ez|ons)\b/.test(q) && /\b(marge|client)/.test(q)) return repondreParAgent("ecrire_declaration", qRaw);
+      // 11/09 — un paramètre à date d'effet (surface de vente) s'écrit dans analytics.declared_parameters,
+      // le magasin que dbt et Piloter lisent — jamais dans le journal des corrections. Même confirmation
+      // (« Surface de vente notée : 120 m² »), même règle mixte déclare-et-demande.
+      if (_decl != null && _decl.spec.store === "declared_parameters" && _decl.spec.param_key) {
+        try {
+          const _pSpec = parameterSpec(_decl.spec.param_key);
+          if (_pSpec) {
+            const _pPrior = currentByKey(await listDeclaredParameters(location_id))[_pSpec.key] ?? null;
+            const _today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+            await appendDeclaredParameter({
+              location_id, key: _pSpec.key, value: validateValue(_pSpec, _decl.value), effective_from: _today,
+              declarant_user_id: (locals as any)?.clerk_user_id ?? null, source: "chat_declared",
+            });
+            sinkTelemetry(location_id, "declared-capture", { type: _pSpec.key, value: _decl.value, superseded: _pPrior != null, with_question: _decl.with_question });
+            if (!_decl.with_question) {
+              const cap = declaredCaptureFr({
+                label_fr: _decl.spec.label_fr, value_fr: _decl.spec.formatValue(String(_decl.value)),
+                prior_value_fr: _pPrior && _pPrior.value_num != null ? _decl.spec.formatValue(String(_pPrior.value_num)) : null,
+                declarant_name: typeof body?.declared_by === "string" && body.declared_by.trim() ? body.declared_by.trim().slice(0, 80) : null,
+              });
+              return sysDialogueResponse(cap.headline, cap.answer, "deterministic_declared_capture_v1");
+            }
+          }
+        } catch (e) { console.warn("[declared-parameter capture] failed:", e); }
+      } else if (_decl != null && _decl.spec.correction_type) {
         try {
           const prior = await getDeclaredMetric(location_id, _decl.spec.correction_type);
           const _declBy = typeof body?.declared_by === "string" && body.declared_by.trim()
@@ -2967,6 +2955,7 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
             declarant_name: _declBy,
             corrected_at: new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }),
           };
+          if (_justDeclared.correction_type === "declared_margin_pct") _agentMargeCeTour = { pct: _justDeclared.value, declarant_name: _justDeclared.declarant_name, corrected_at: _justDeclared.corrected_at };
         } catch (e) { console.warn("[declared-capture] failed:", e); }
       }
     }
@@ -3042,47 +3031,20 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
           const hit = DOWS.find(([w]) => new RegExp(`\\b${w}s?\\b`).test(qn2));
           return hit ? { sql: ` AND EXTRACT(DAYOFWEEK FROM transaction_date) = ${hit[1]}`, fr: `vos ${hit[0]}s des 30 derniers jours` } : { sql: "", fr: "vos 30 derniers jours" };
         })();
-        if (_missingDim === "marge" && !(_justDeclared && _justDeclared.correction_type === "declared_margin_pct")) {
-          try {
-            const famMargins = await getDeclaredFamilyMargins(location_id);
-            if (famMargins.length) {
-              const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
-              // Fenêtre BORNÉE à CURRENT_DATE : la graine porte des dates futures (vérifié 24/08).
-              const [famRows] = await _bq.query({
-                query: `SELECT item_category, ROUND(SUM(revenue), 0) AS ca
-                        FROM \`muse-square-open-data.semantic.vw_insight_event_client_offering_daily\`
-                        WHERE location_id = @location_id
-                          AND transaction_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()${_dowFilter.sql}
-                        GROUP BY 1 ORDER BY 2 DESC`,
-                params: { location_id }, types: { location_id: "STRING" }, location: "EU",
-              });
-              const pctBySlug: Record<string, number> = {};
-              for (const m of famMargins) pctBySlug[m.slug] = m.pct;
-              let caTotal = 0;
-              const lines: Array<{ famille: string; ca_eur: number; pct: number }> = [];
-              for (const r of (famRows as any[]) ?? []) {
-                const cat = String((r as any).item_category?.value ?? (r as any).item_category ?? "");
-                const ca = Number((r as any).ca?.value ?? (r as any).ca ?? 0);
-                if (!cat || !Number.isFinite(ca) || ca <= 0) continue;
-                caTotal += ca;
-                const pct = pctBySlug[familySlug(cat)];
-                if (pct != null) lines.push({ famille: cat, ca_eur: ca, pct });
-              }
-              if (lines.length && caTotal > 0) {
-                sinkTelemetry(location_id, "declared-answer", { type: "declared_margin_pct_families", n: lines.length });
-                const ans = declaredFamilyMarginAnswerFr({ lines, ca_total_eur: caTotal, window_fr: _dowFilter.fr });
-                return sysDialogueResponse(ans.headline, ans.answer, "deterministic_declared_margin_v1");
-              }
-            }
-          } catch (e) { console.warn("[declared-metric] family margins read failed:", e); }
-        }
-        if (_metric) {
+        // 13/09 — MIGRATION (docs/explorer-outil-spec.md § 7, couche 1) : la marge est une CAPACITÉ de l'agent — lire_marge
+        // (lib/kpi/margeLecture.ts : la mesure d'abord, sinon les marges déclarées par famille, sinon la marge moyenne
+        // déclarée ; « week-end », « le samedi » = ses jours). Les sorties anticipées _measured_margin_v1 et
+        // _declared_margin_v1 (marge) sont RETIRÉES ; l'aiguillage est par capacité, jamais par site. Une marge déclarée
+        // dans ce tour garde la main (elle passe à l'outil). Le CA par client déclaré garde son chemin ci-dessous.
+        if (_missingDim === "marge") return repondreParAgent("lire_marge", qRaw);
+        if (_metric && _metric.correction_type) {
+          const _metricType = _metric.correction_type;
           try {
             // A value declared THIS turn (mixed declare-and-ask) is used directly — fresher than any
             // stored row and immune to read-after-write timing.
             const decl = _justDeclared && _justDeclared.correction_type === _metric.correction_type
               ? { value: _justDeclared.value, raw: String(_justDeclared.value), declarant_name: _justDeclared.declarant_name, corrected_at: _justDeclared.corrected_at }
-              : await getDeclaredMetric(location_id, _metric.correction_type);
+              : await getDeclaredMetric(location_id, _metricType);
             if (decl != null) {
               const _bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
               const [rows] = await _bq.query({
@@ -3098,9 +3060,9 @@ SORTIE : uniquement le JSON { "say_fr": string, "fiche": null | { "fact_fr": str
               if (Number.isFinite(ca) && ca > 0) {
                 sinkTelemetry(location_id, "declared-answer", { type: _metric.correction_type, value: decl.value });
                 const common = { ca_eur: ca, window_fr: _dowFilter.fr, declarant_name: decl.declarant_name, declared_on: decl.corrected_at };
-                const ans = _metric.correction_type === "declared_client_count"
-                  ? declaredClientCountAnswerFr({ count: decl.value, ...common })
-                  : declaredMarginAnswerFr({ pct: decl.value, ...common });
+                // 13/09 (§ 7, couche 1) : la marge déclarée globale est rentrée dans lire_marge ; ce chemin ne sert plus que le CA par client.
+                if (_metric.correction_type !== "declared_client_count") return sysDialogueResponse(MISSING_DIMENSION_FR[_missingDim].headline, MISSING_DIMENSION_FR[_missingDim].answer, "deterministic_missing_dimension_elicit_v1");
+                const ans = declaredClientCountAnswerFr({ count: decl.value, ...common });
                 return sysDialogueResponse(ans.headline, ans.answer, "deterministic_declared_margin_v1");
               }
             }
@@ -4526,41 +4488,12 @@ Règles :
           const _reportEnd = _reportWindowEnd;
           if (_reportEnd) {
             const _frM = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
-            const _pastUrl = `/app/insightevent/rapport?start=${encodeURIComponent(selected_date)}&end=${encodeURIComponent(_reportEnd)}&loc=${encodeURIComponent(location_id)}`;
-            // Le VERDICT ouvre la réponse (mémoire lead-with-highlighted-action) ; la ligne
-            // « Période : … » approuvée suit VERBATIM. Règle 13 du lexique : jamais un volume nu —
-            // sans période précédente comparable, le CA ne sort pas et la réponse reste celle
-            // d'avant. Règle 6 : jour de semaine en toutes lettres.
-            const _frInt = (n: number) => Math.round(n).toLocaleString("fr-FR");
-            const _JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
-            let _verdict = "";
-            try {
-              const _vr = _verdictPromise ? (await _verdictPromise)[0] : null;
-              const _rev = Number(_vr?.rev);
-              const _prev = Number(_vr?.prev_rev);
-              const _bestDay = _vr?.best?.day ? String(_vr.best.day).slice(0, 10) : null;
-              const _bestRev = Number(_vr?.best?.rev);
-              if (Number.isFinite(_rev) && _rev > 0 && Number.isFinite(_prev) && _prev > 0) {
-                // MÊME arrondi que `pct` de insight/sales-report.ts (au dixième) : le chat et le
-                // document vers lequel il renvoie doivent afficher LE MÊME nombre.
-                const _pct = Math.round(((_rev - _prev) / _prev) * 1000) / 10;
-                const _pctFr = String(Math.abs(_pct)).replace(".", ",");
-                _verdict = `Vous avez fait ${_frInt(_rev)} €, ${_pct >= 0 ? "+" : "−"}${_pctFr} % vs période précédente.`;
-                if (_bestDay && Number.isFinite(_bestRev) && _bestRev > 0) {
-                  const _dow = _JOURS[new Date(_bestDay + "T00:00:00Z").getUTCDay()];
-                  _verdict += ` Votre meilleure journée a été le ${_dow} ${_frM(_bestDay)}, avec ${_frInt(_bestRev)} €.`;
-                }
-                _verdict += " ";
-              }
-            } catch (e: any) {
-              console.error("[verdict-rapport] verdict non composé:", e?.message);
-            }
-            return sysDialogueResponse(
-              "Rapport de ventes",
-              `${_verdict}Période : du ${_frM(selected_date)} au ${_frM(_reportEnd)} — le document complet, imprimable et partageable.`,
-              "deterministic_report_nav_v1",
-              { type: "redirect", url: _pastUrl, label: "Générer le rapport pour cette période →" },
-            );
+            const _pastUrl = `/app/insightevent/rapport-ventes?start=${encodeURIComponent(selected_date)}&end=${encodeURIComponent(_reportEnd)}&loc=${encodeURIComponent(location_id)}`;
+            // 13/09 — MIGRATION § 7, couche 4 : le bilan d'une période écoulée est un Rapport COMPOSÉ par l'agent (composer_rapport,
+            // modèle ventes, la fenêtre du bilan arrêtée à hier) ; le document imprimable reste à un clic. Le verdict chiffré
+            // que cette sortie composait (CA, écart, meilleure journée) est celui de la section Chiffre d'affaires du Rapport.
+            return repondreParAgent("composer_rapport", `${qRaw}\n\n(Période résolue par Muse Square : du ${selected_date} au ${_reportEnd} — appelle composer_rapport avec modele « ventes », du et au.)`,
+              { blocks: [{ type: "cta", url: _pastUrl, label: "Générer le rapport pour cette période" }] });
           }
         }
         // vw_insight_event_30d_window_surface est une table de fenêtres FIGÉES
@@ -5594,13 +5527,10 @@ Règles :
         // FIRST question is often « je vends à quelle heure ? » — and the ask now carries the upload
         // CTA (the chat's own file picker exists since item 1; the old "no redirect" note is obsolete).
         const SALES_ELICIT_FAMILIES = new Set(["offering", "footfall", "salesdiscount", "salesdecomp"]);
+        // 13/09 — MIGRATION § 7, couche 2 : `_offering_elicit_v1` est RETIRÉE — sans vente mesurée, l'agent lit lire_ventes,
+        // qui dit l'absence avec le geste d'import (bloc cta « Importer un fichier de ventes », le sélecteur du chat).
         if (_famKey && SALES_ELICIT_FAMILIES.has(_famKey) && !_familyLed && _identity.status !== "ok") {
-          return sysDialogueResponse(
-            "Ajoutez vos ventes pour cette analyse",
-            "Je n'ai pas encore de ventes mesurées pour répondre à cette question (horaires, mix produit, panier moyen). Importez vos ventes ou connectez votre caisse, puis reposez-moi la question.",
-            "deterministic_offering_elicit_v1",
-            { type: "upload_csv", label: "Importer un fichier de ventes" },
-          );
+          return repondreParAgent("lire_ventes", qRaw);
         }
         // J2.1 — MÊME DOCTRINE pour le journal : une question « qu'est-ce qui a marché ? » sur un
         // compte sans engagement jugé ne se répond pas par le CA de la veille (mesuré : c'était le
@@ -5764,134 +5694,12 @@ Règles :
 
         const query_dates = selected_query_dates;
         
-        if (query_dates.length < 2) {
-
-          const month_redirect_url = buildMonthRedirectUrl({
-            window_start_date: selected_date.slice(0,10),
-            from_prompt: true
-          });
-
-          // ── Phase 2 #4 — clarifying question instead of the canned demand ──────────────────────────
-          // This branch fires only when the dates are missing AND not inheritable (effective_dates already
-          // falls back to the frame's used_dates upstream). Deterministic template — zero LLM, no digits
-          // and no entity in the question text; the CHIPS carry dates, drawn only from the frame's own
-          // top_dates (which the user already saw) or the upcoming weekend. Tapping a chip re-submits its
-          // `send` text as a normal user message, which the fresh path routes as an explicit 2-date compare.
-          const frYmd = (ymd: string): string => {
-            const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd);
-            return m ? `${m[3]}/${m[2]}/${m[1]}` : ymd;
-          };
-          const clar_chips: Array<{ label_fr: string; send: string }> = [];
-          if (thread_top_dates.length >= 2) {
-            const [d1, d2] = thread_top_dates.slice(0, 2);
-            clar_chips.push({
-              label_fr: `Comparer le ${frYmd(d1)} et le ${frYmd(d2)}`,
-              send: `Compare le ${frYmd(d1)} et le ${frYmd(d2)}`,
-            });
-          }
-          {
-            const todayYmd = new Date().toISOString().slice(0, 10);
-            const sat = nextWeekdayAfterYmd(todayYmd, 6);
-            const sun = nextWeekdayAfterYmd(sat, 0);
-            clar_chips.push({
-              label_fr: `Comparer samedi ${frYmd(sat)} et dimanche ${frYmd(sun)}`,
-              send: `Compare le ${frYmd(sat)} et le ${frYmd(sun)}`,
-            });
-          }
-
-          const ai_missing_dates = {
-            ok: true,
-            mode: "deterministic_missing_dates_v1",
-            output: {
-              headline: "Quels jours voulez-vous comparer ?",
-              summary:
-                "Indiquez deux à sept dates — dans le calendrier, en toutes lettres ou en touchant une suggestion ci-dessous.",
-              key_facts: [],
-              caveat:
-                "Sans au moins deux dates, je ne peux pas comparer les impacts (logistique, affluence, communication).",
-            },
-            raw_text: "",
-            errors: [],
-            warnings: [],
-          };
-
-          const actions_missing: ApiActions = {
-            month_redirect_url,
-            primary: month_redirect_url
-              ? {
-                  type: "redirect",
-                  url: month_redirect_url,
-                  label: "Ouvrir le mois"
-                }
-              : null,
-            secondary: [],
-          };
-
-          const normalized_ai_missing = normalizeAiOutput(
-            ai_missing_dates,
-            { horizon: resolved_horizon, intent: resolved_intent, used_dates: [] },
-            actions_missing
-          );
-
-          return new Response(
-            JSON.stringify({
-              ok: true,
-              meta: {
-                location_id,
-                resolved_horizon,
-                resolved_intent,
-                resolved_family: null,
-                month_redirect_url,
-                producer: "deterministic_missing_dates_v1",
-                register: registerFor("deterministic_missing_dates_v1"),
-              },
-              // Phase 2 #4 — a clarification asserts no facts (outside the grounding contract by
-              // construction). The client renders the chips as tappable follow-ups.
-              clarification: {
-                kind: "missing_dates",
-                chips: clar_chips,
-              },
-              ai: {
-                ...normalized_ai_missing,
-                output: {
-                  headline: normalized_ai_missing.headline,
-                  answer:
-                    typeof normalized_ai_missing.answer === "string"
-                      ? normalized_ai_missing.answer
-                      : "",
-                  key_facts: Array.isArray(normalized_ai_missing.key_facts)
-                    ? normalized_ai_missing.key_facts
-                    : [],
-                  reasons: Array.isArray(normalized_ai_missing.reasons)
-                    ? normalized_ai_missing.reasons
-                    : [],
-                  caveats: Array.isArray(normalized_ai_missing.caveats)
-                    ? normalized_ai_missing.caveats.filter(Boolean)
-                    : [],
-                },
-              },
-              actions: actions_missing,
-              top_dates: [],
-              decision_payload: {
-                kind: "scoring",
-                horizon: resolved_horizon as
-                  | "month"
-                  | "calendar_month"
-                  | "day"
-                  | "selected_days",
-                intent: resolved_intent as ScoringIntent,
-                used_dates: [],
-                signals: {},
-              },
-              window_aggregates_v3: null,
-              ui_packaging_v3: null,
-            }),
-            {
-              status: 200,
-              headers: { "content-type": "application/json; charset=utf-8" },
-            }
-          );
-        }
+        // 14/09 (§ 7, DERNIÈRE couche retirée) — `deterministic_missing_dates_v1` VIVAIT ICI : sous deux dates,
+        // elle fabriquait la question et ses pastilles à la main, dans le paquet v3. C'est désormais l'outil
+        // `comparer_journees` (lib/explorer/agentTools.ts) qui rend la comparaison ET la question, par une
+        // composition pure testée (lib/explorer/journeesComparees.ts) et le MÊME pipeline v3 en dessous.
+        // Ce chemin-ci ne garde que ce qu'il sait faire : sans deux dates, il n'y a rien à lire.
+        if (query_dates.length < 2) return repondreParAgent("comparer_journees", qRaw);
 
         selected_days_rows = await bqAll(
           `

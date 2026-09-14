@@ -15,5 +15,6 @@ Before writing or modifying ANY BigQuery query — or referencing a column/table
 
 ## Rules
 - Data lives in `muse-square-open-data` (EU). NEVER query `ms-database-472505` for data (billing only). Run with `--location=EU`.
+- **For APP code, the target is a `semantic` view** (or a `mart` already in the `CLIQUET` of `src/lib/warehouseBoundary.guard.test.ts`) — NEVER `raw`, `staging` or `intermediate` (owner 10/09 : « It MUST stop »). Inspecting a raw table to diagnose is fine; writing it into an app query is not. Missing view ⇒ create it in dbt first.
 - Always use explicit `DATE()` casts — the BQ Node client silently returns 0 rows on DATE/STRING mismatch.
 - Quote the verified column name + type back before writing the query.

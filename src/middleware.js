@@ -86,9 +86,16 @@ const isLocalsRoute = createRouteMatcher([
 const DEV_BYPASS_PROMPT =
   import.meta.env.DEV && process.env.MS_AUTH_BYPASS === "1";
 
+// 11/09 — l'agent Explorer (api/explorer/agent.ts, docs/explorer-agentique-spec.md § 5) entre dans le
+// MÊME contournement dev que /api/insight/prompt : l'owner l'essaie depuis le proto tools/proto/
+// explorer-agent-proto.html, servi par `npm run harness` (4173), donc sans cookie Clerk sur 4321.
+// L'endpoint fait ce que prompt.ts fait en bypass : le site vient du corps de la requête, jamais des
+// locals — et rien de tout cela n'existe hors `astro dev` avec MS_AUTH_BYPASS=1.
 const isPromptRoute = createRouteMatcher([
   "/api/insight/prompt",
   "/api/insight/prompt(.*)",
+  "/api/explorer/agent",
+  "/api/explorer/agent(.*)",
 ]);
 
 function mustGetEnv(name) {
@@ -148,6 +155,32 @@ async function noindexHorsProduction(context, next) {
   } catch {
     const h = new Headers(res.headers);
     h.set("X-Robots-Tag", "noindex, nofollow");
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+  }
+}
+
+// ---- Les pages de l'app ne se mettent JAMAIS en cache (owner 14/09) ----
+// Deux essais du relevé ont eu lieu sur un ÉCRAN PÉRIMÉ — le téléphone rejouait une version
+// précédente — et personne ne pouvait le prouver : la remarque portait sur du code qui n'était plus
+// celui du dépôt. Les pages /app changent plusieurs fois par jour ; `max-age=0, must-revalidate`
+// laisse encore le navigateur servir sa copie (retour arrière, restauration d'onglet, application
+// ajoutée à l'écran d'accueil). `no-store` le lui interdit. Posé ICI et pas dans une page : le garde
+// Clerk répond 307 AVANT que le code d'une page s'exécute, donc un en-tête posé dans la page ne
+// couvre pas la redirection — et ne peut pas se vérifier de l'extérieur.
+function estPageDeLApp(path) {
+  return path === "/app" || path.startsWith("/app/") || path === "/profile" || path === "/onboarding";
+}
+async function sansCachePourLApp(context, next) {
+  const res = await next();
+  let path = "/";
+  try { path = new URL(context.request.url).pathname; } catch { /* adresse illisible : on ne touche à rien */ }
+  if (!estPageDeLApp(path)) return res;
+  try {
+    res.headers.set("cache-control", "no-store, must-revalidate");
+    return res;
+  } catch {
+    const h = new Headers(res.headers);
+    h.set("cache-control", "no-store, must-revalidate");
     return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
   }
 }
@@ -271,7 +304,9 @@ const clerkOnRequest = clerkMiddleware(async (auth, context, next) => {
         // messages Slack — un membre y était renvoyé vers Agir, le bouton ne menait donc
         // nulle part. L'endpoint qui la nourrit garde le périmètre (pôles du membre) et
         // la règle des chiffres ; la garde de page ne fait qu'ouvrir l'adresse.
-        path.startsWith("/app/insightevent/engagement");
+        path.startsWith("/app/insightevent/engagement") ||
+        // La page d'un pôle (13/09) : même document, adresse sous Piloter — même périmètre que /engagement.
+        path.startsWith("/app/insightevent/pole");
       if (!memberPage) {
         console.log("[MW] member hors périmètre -> /app/insightevent/pulse");
         return context.redirect("/app/insightevent/pulse", 302);
@@ -305,4 +340,4 @@ const clerkOnRequest = clerkMiddleware(async (auth, context, next) => {
   return next();
 });
 
-export const onRequest = sequence(noindexHorsProduction, clerkOnRequest);
+export const onRequest = sequence(noindexHorsProduction, sansCachePourLApp, clerkOnRequest);

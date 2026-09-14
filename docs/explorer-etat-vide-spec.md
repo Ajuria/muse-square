@@ -113,7 +113,7 @@ Manque :
    redemande plus) et par `buildDayPerformanceFacts` (« Note du JJ/MM/AAAA : « … » », fait `observed`,
    jamais causal). Côté dbt : PR [ms_database#126](https://github.com/Ajuria/ms_database/pull/126) mergée le 07/09 (`cbde545`),
    `stg_day_notes` et `semantic.vw_insight_event_day_notes` EN BASE (build ponctuel, run 70471896420048). Avant le 07/09 la forme
-   « Un souvenir ? Notez-le · sinon, laissez » n'existait que comme commentaire dans `pulse.astro`
+   « Un souvenir ? Notez-le · sinon, laissez » (réécrite le 13/09 : « Si vous savez pourquoi, notez-le : la cause revient avec ce jour. ») n'existait que comme commentaire dans `pulse.astro`
    (chantier « Notez ce qui a changé », mémoire `notez-ce-qui-a-change-chantier`).
 2. **« Alerte traitée ».** Un événement `action_log` `alert_consulted` (même table, même GET que
    `explorer_consulted`).
@@ -128,7 +128,7 @@ Chaque carte est une chaîne visible. Les chaînes APPROUVÉES réutilisables su
 titre « Bonjour <prénom>. Que souhaitez-vous explorer ? », l'état A « Pourquoi le CA de <jour>
 a-t-il bondi / décroché ? », les CTA du lexique « Bilan → », « Préparer → », « Documenter → »,
 « Ajuster », « M'engager », « Reproduire le dispositif », et sur les jours inexpliqués la forme
-owner « Un souvenir ? Notez-le · sinon, laissez ». Tout le reste — la phrase de chaque nature, le
+owner « Un souvenir ? Notez-le · sinon, laissez », réécrite le 13/09 pour dire le gain (lexique). Tout le reste — la phrase de chaque nature, le
 mot de la conséquence — est un mot owner. Les propositions viendront une par une, avec le rendu
 cité et le tableau des tests 8-13, après le § 6.
 

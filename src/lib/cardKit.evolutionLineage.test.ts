@@ -44,6 +44,65 @@ it("chaîne >1 version : la section rend chaque version avec verdict, effet SUR 
   expect(html).toContain("(ce test)");
 });
 
+// ── 13/09 (owner) — LA MÉMOIRE VISUELLE : chaque version montre ses photos À CÔTÉ de son verdict ──
+
+const linPhoto = (id: string, label: string, d: string, o: Partial<{ label_court: string; fixture_no: number; auteur: string }> = {}) => ({
+  photo_id: id, component_key: "k-" + id, label_fr: label, label_court: o.label_court ?? label,
+  fixture_no: o.fixture_no ?? null, auteur: o.auteur ?? null,
+  url: "/api/dispositifs/photos?dispositif_id=d1&file=" + id, created_at: d + "T10:00:00Z",
+});
+const linAvecPhotos = () => {
+  const data: any = baseData();
+  data.lineage = [
+    { commitment_id: "c-v1", version_no: 1, status: "resolved", verdict: "met", window_start: "2026-08-22", window_end: "2026-08-22",
+      effect_pct: 12.4, effect_proven: true, kpi_mention_fr: "", is_current: false,
+      photos: [linPhoto("pa", "Vitrine — Couteaux", "2026-08-21", { label_court: "Couteaux", fixture_no: 27, auteur: "Camille" }),
+               linPhoto("pb", "Linéaire — Épices", "2026-08-21", { label_court: "Épices" })], photos_autres: 2 },
+    { commitment_id: "c-v2", version_no: 2, status: "open", verdict: null, window_start: "2026-08-29", window_end: "2026-08-29",
+      effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: true, photos: [], photos_autres: 0 },
+  ];
+  return data;
+};
+
+it("chaque version montre ses photos sous SA ligne — vignette carrée, libellé du composant, date, lien vers l'image entière", () => {
+  const html = String(kit.renderEvolution(linAvecPhotos(), EVOL_COPY));
+  const v1 = html.indexOf("Version 1 —"), v2 = html.indexOf("Version 2 —");
+  const bloc1 = html.slice(v1, v2);
+  expect(bloc1).toContain('data-lin-photos="1"');
+  expect(bloc1).toContain('src="/api/dispositifs/photos?dispositif_id=d1&amp;file=pa&amp;variant=square"');
+  expect(bloc1).toContain('href="/api/dispositifs/photos?dispositif_id=d1&amp;file=pa"');   // l'entière, pas la vignette
+  // Le nom COURT sous l'image (72 px coupent « Vitrine — Couteaux ») ; l'identité complète au survol.
+  expect(bloc1).toContain(">Couteaux<");
+  expect(bloc1).toContain('title="Vitrine — Couteaux · N° 27 · Version 1 · 21/08/2026 · Camille"');
+  expect(bloc1).toContain(">Épices<");
+  expect(bloc1).toContain('title="Linéaire — Épices · Version 1 · 21/08/2026"');   // sans N° ni auteur : omis, jamais un tiret
+  expect(bloc1).toContain("21/08/2026");
+  expect(bloc1).toContain("+ 2 autres");                                                    // rien n'est perdu en silence
+  expect(bloc1).not.toContain("k-pa");                                                      // jamais la clé technique
+});
+
+it("une version SANS photo le dit, quand les autres en ont (l'absence se voit, elle ne se devine pas)", () => {
+  const html = String(kit.renderEvolution(linAvecPhotos(), EVOL_COPY));
+  expect(html.slice(html.indexOf("Version 2 —"))).toContain("Aucune photo de cette version.");
+});
+
+it("aucune version n'a de photo : AUCUN emplacement, aucune mention — un cadre vide ne raconte rien", () => {
+  const data: any = linAvecPhotos();
+  data.lineage.forEach((v: any) => { v.photos = []; v.photos_autres = 0; });
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("Historique du dispositif");
+  expect(html).not.toContain("data-lin-photos");
+  expect(html).not.toContain("Aucune photo");
+});
+
+it("une chaîne servie par une version ANCIENNE de l'API (sans champ photos) rend l'historique comme avant", () => {
+  const data: any = linAvecPhotos();
+  data.lineage.forEach((v: any) => { delete v.photos; delete v.photos_autres; });
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("Version 1 — du 22/08/2026 au 22/08/2026 : objectif atteint");
+  expect(html).not.toContain("data-lin-photos");
+});
+
 it("V1 seule (lineage vide) : aucune section — une racine n'a pas d'historique à raconter", () => {
   const html = String(kit.renderEvolution(baseData() as any, EVOL_COPY));
   expect(html).not.toContain("Historique du dispositif");
@@ -201,8 +260,10 @@ it("un pôle rend la lecture continue et les opérations rattachées — sans UN
   expect(html).toContain("Opérations sur ce pôle");
   expect(html).toContain('/app/insightevent/engagement?id=op-1');
   expect(html).toContain("14/09/2026");
-  // Aucun registre de verdict, aucune machinerie datée
-  for (const banned of ["objectif", "verdict", "Ajuster le dispositif", "La version suivante"]) {
+  // Aucun registre de verdict, aucune machinerie datée. « La version suivante » a quitté cette liste le 13/09 :
+  // un pôle A des versions (règle owner ratifiée ce jour-là — c'est ce qui fait exister l'historique et ses
+  // photos) ; ce qui reste interdit sur un pôle, c'est le vocabulaire du VERDICT d'une opération.
+  for (const banned of ["objectif", "verdict", "Ajuster le dispositif", "ce test"]) {
     expect(html.toLowerCase()).not.toContain(banned.toLowerCase());
   }
 });
@@ -251,6 +312,53 @@ it("coût de l'opération (ROI) : la ligne rend le coût, et le net SEULEMENT qu
   expect(measured).toContain("Coût de l’opération : 120 € · net après coût : −320 €");
 });
 
+// ── 13/09 (owner, DEUX refus) — aucune ligne d'accroche sous le titre Composants tant que la mémoire visuelle n'existe
+// pas sur une surface qu'on peut ouvrir (CLAUDE.md § copie règle 8). Le bloc rend ses composants et son CTA, rien d'autre. ──
+const polePhotos = () => {
+  const data: any = baseData();
+  data.commitment.dispositif_nature = "permanent"; data.commitment.dispositif_id = "d1"; data.commitment.version_no = 1; data.commitment.status = "open";
+  data.commitment.pole_families = '["Épices"]';
+  data.commitment.components = [
+    { key: "k1", type: "vitrine", role: null, label: "Vitrine entrée", type_label_fr: "Vitrine", role_label_fr: "" },
+    { key: "k2", type: "lineaire", role: "courant", label: "Linéaire fond", type_label_fr: "Linéaire", role_label_fr: "Produits du quotidien" },
+  ];
+  data.pole = { totals: { rev30_eur: 1000, share_pct: 10, avg30_eur_day: 33, base_eur_day: 30, delta_pct: 10, n30: 30 }, families: [], operations: [] };
+  return data;
+};
+
+// ── 13/09 (owner, ratifiée après DEUX refus) — la demande de photo dit son gain, et seulement là où la
+// surface qui tient la promesse existe : l'historique du dispositif, donc une chaîne d'au moins deux versions. ──
+const LIGNE_PHOTO = "Prenez une photo de votre dispositif : vous verrez ce que chaque agencement donne sur vos ventes.";
+
+it("dès la PREMIÈRE version, la ligne invite à photographier — sans photo à la V1, il n'y a rien à comparer à la V2", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).toContain(LIGNE_PHOTO);
+  expect((html.match(/Documenter →/g) || []).length).toBe(2);
+  expect(html).not.toContain("Aucun composant déclaré");
+});
+
+it("la ligne ne promet AUCUN verdict — un dispositif permanent n'en a pas (owner 27/08)", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  const titre = html.indexOf("Composants"), premier = html.indexOf("Vitrine entrée");
+  expect(html.slice(titre, premier)).not.toMatch(/objectif|atteint|manqué|verdict/i);
+  expect(html).not.toMatch(/Une photo par composant|garde votre agencement|hauteur d['’]œil/);   // les trois refusées
+});
+
+it("une seule fois, sous le titre et avant le premier composant — jamais répétée par composant", () => {
+  const data: any = polePhotos();
+  data.lineage = [
+    { commitment_id: "c-v1", version_no: 1, status: "resolved", verdict: "met", window_start: "2026-08-01", window_end: "2026-08-28", effect_pct: 9.1, effect_proven: true, kpi_mention_fr: "", is_current: false, photos: [], photos_autres: 0 },
+    { commitment_id: "pole-1", version_no: 2, status: "open", verdict: null, window_start: "2026-09-01", window_end: "2026-09-28", effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: true, photos: [], photos_autres: 0 },
+  ];
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  const ligne = LIGNE_PHOTO;
+  expect((html.match(new RegExp(ligne.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length).toBe(1);
+  const titre = html.indexOf("Composants"), pos = html.indexOf(ligne), premier = html.indexOf("Vitrine entrée");
+  expect(pos).toBeGreaterThan(titre);
+  expect(pos).toBeLessThan(premier);
+  expect((html.match(/Documenter →/g) || []).length).toBe(2);
+});
+
 it("un pôle SANS composant dit l'absence (lexique règle 7), jamais une section vide", () => {
   const data: any = {
     commitment: { commitment_id: "pole-2", status: "open", dispositif_nature: "permanent",
@@ -269,7 +377,12 @@ it("renderComponentPhoto : vignette servie par l'API, date, comptes, question �
     questions: [{ key: "ls_moyen_essai", question_fr: "Y a-t-il un moyen d'essayer : sentir, goûter, toucher, un échantillon ?" }, { key: "ls_prix_par_article", question_fr: "Chaque article porte-t-il son prix ?" }, { key: "ls_facing_vide", question_fr: "Un emplacement est-il vide au moment de la photo ?" }],
     items_matched: [{ item_code: "CF-1", confidence: "haute", item_description: "Ethiopia" }],
   }, EVOL_COPY));
-  expect(html).toContain('src="/api/dispositifs/photos?dispositif_id=d&amp;file=p"');
+  // 11/09 : la vignette lit la variante carrée servie par l'API, jamais l'image entière.
+  expect(html).toContain('src="/api/dispositifs/photos?dispositif_id=d&amp;file=p&amp;variant=square"');
+  const named = String(kit.renderComponentPhoto({ photo_id: "p1", url: "/api/dispositifs/photos?dispositif_id=d&file=p&variant=band", created_at: "2026-09-03T10:00:00Z", checklist: {}, questions: [] }, EVOL_COPY));
+  expect(named).toContain('src="/api/dispositifs/photos?dispositif_id=d&amp;file=p&amp;variant=band"');
+  const bare = String(kit.renderComponentPhoto({ photo_id: "p1", url: "/x", created_at: "2026-09-03T10:00:00Z", checklist: {}, questions: [] }, EVOL_COPY));
+  expect(bare).toContain('src="/x?variant=square"');
   expect(html).toContain("03/09/2026 · 1 oui · 1 non · 1 non visible");
   expect(html).toContain("Y a-t-il un moyen d'essayer");
   // Reconnus, pas encore confirmés : une case cochée par article + « Confirmer → »
@@ -309,4 +422,332 @@ it("articles des photos : l'article en retrait porte ses chiffres et son signe, 
   expect(html).toContain("Vendus sans être vus sur une photo");
   expect(html).toContain("Croissant (400 €)");
   expect(html).not.toContain("Aucune photo lue");
+});
+
+// ── 13/09 (owner) — le bloc Documenter dit LE GAIN avec le chiffre, puis tient en UNE ligne + « À reproduire ? » ──
+it("engagement résolu manqué : Documenter ouvre sur « −394 € : ce que vous changez au prochain « Corner de vente producteur ». », une seule ligne intitulée « Ce que vous changez », À reproduire ? ; plus les deux champs d'avant", () => {
+  const data: any = baseData();
+  data.commitment.status = "resolved"; data.commitment.verdict = "missed";
+  data.commitment.window_expected_revenue = 1000; data.commitment.window_actual_revenue = 606;
+  const html = String(kit.renderEvolution(data, EVOL_COPY)).replace(/[\u202f\u00a0]/g, " ");
+  expect(html).toContain("−394 € : ce que vous changez au prochain « Corner de vente producteur ».");
+  expect(html).toContain("Ce que vous changez");
+  expect((html.match(/data-retro-line/g) || []).length).toBe(1);
+  expect(html).toContain('data-retro-etat="missed"');
+  expect(html).not.toContain("data-retro-worked");
+  expect(html).not.toContain("data-retro-change");
+  expect(html).toContain("À reproduire ?");
+  expect(html).not.toContain("reste attaché");
+  // atteint : « ce qui a marché » ; non menée : la raison du report, sans chiffre.
+  data.commitment.verdict = "met"; data.commitment.window_actual_revenue = 1612;
+  const met = String(kit.renderEvolution(data, EVOL_COPY)).replace(/[\u202f\u00a0]/g, " ");
+  expect(met).toContain("+612 € : ce qui a marché, à refaire au prochain « Corner de vente producteur ».");
+  expect(met).toContain('data-retro-etat="met"');
+  data.commitment.action_done_status = "pas_encore";
+  expect(String(kit.renderEvolution(data, EVOL_COPY))).toContain("La raison du report — la journée ne compte pas contre le dispositif.");
+});
+
+// ── 13/09 (owner : « rien de l'historique n'est implémenté ») — L'HISTORIQUE SUR LA PAGE D'UN PÔLE ──
+const poleAvecVersions = () => {
+  const data: any = polePhotos();
+  data.lineage = [
+    { commitment_id: "c-v1", version_no: 1, status: "open", verdict: null, window_start: "", window_end: "", debut: "2026-06-01",
+      effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: false,
+      photos: [{ photo_id: "p1", component_key: "k1", label_fr: "Vitrine — Couteaux", label_court: "Couteaux", fixture_no: 27, auteur: "Camille", url: "/u1", created_at: "2026-06-02T10:00:00Z" }], photos_autres: 0 },
+    { commitment_id: "pole-1", version_no: 2, status: "open", verdict: null, window_start: "", window_end: "", debut: "2026-09-01",
+      effect_pct: null, effect_proven: false, kpi_mention_fr: "", is_current: true, photos: [], photos_autres: 0 },
+  ];
+  return data;
+};
+
+it("un PÔLE à deux versions rend son historique AVEC les photos — c'est là qu'on les prend", () => {
+  const html = String(kit.renderEvolution(poleAvecVersions(), EVOL_COPY));
+  expect(html).toContain("Historique du dispositif");
+  expect(html).toContain("Version 1 — du 01/06/2026 au 31/08/2026");        // la fin = la veille du début de la suivante
+  expect(html).toContain("Version 2 — depuis le 01/09/2026, en cours");      // mot owner 13/09
+  expect(html).toContain('data-lin-photos="1"');
+  expect(html).toContain(">Couteaux<");
+  expect(html).toContain("Aucune photo de cette version.");                  // la version 2 n'en a pas, et le dit
+  // 13/09 (owner : « Dans Agir vraiment ? ») — une version passée d'un PÔLE s'ouvre à l'adresse du pôle (sous
+  // Piloter), jamais à celle d'une opération.
+  expect(html).toContain("/app/insightevent/pole?id=c-v1");
+  expect(html).not.toContain("/app/insightevent/engagement?id=c-v1");
+});
+
+// ── 14/09 — LA DÉCOMPOSITION SUR LA PAGE D'UN PÔLE (owner : « nombre de vente, panier moyen, mix
+// produit… la vue devrait être alignée sur M'engager »). Ce qui se garde : c'est LE bloc des opérations
+// qui rend, donc aucune seconde mécanique — et il n'apparaît que si le serveur a servi une décomposition.
+it("la décomposition d'un pôle est rendue par LE bloc des opérations, pas par un second", () => {
+  const data: any = polePhotos();
+  const pt = (date: string, tx: number, units: number, basket_eur: number) => ({ date, tx, units, basket_eur });
+  data.shape = {
+    scope_label_fr: null, store_total_pct: null, weak_factor: "items",
+    ref_days: 90, measured_days: 30, notable_days: 0,
+    actual_eur: 3720, expected_eur: 3400,
+    hours: [], best_run: null, worst_run: null, families: [],
+    volume: {
+      ref: [pt("2026-07-16", 100, 280, 13.5), pt("2026-07-23", 98, 274, 13.4)],
+      days: [pt("2026-09-10", 120, 300, 12.4), pt("2026-09-11", 118, 296, 12.5)],
+      tx_avg: 119, ref_tx_avg: 99, basket_avg: 12.45, ref_basket_avg: 13.45,
+      items_avg: 2.5, ref_items_avg: 2.8, price_avg: 4.98, ref_price_avg: 4.8,
+      tx_pct: 20.2, basket_pct: -7.4, items_pct: -10.7, price_pct: 3.75, total_pct: 9.4,
+    },
+  };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain(EVOL_COPY.shape_title);
+});
+
+it("sans décomposition servie, la page d'un pôle n'invente aucun bloc", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).not.toContain(EVOL_COPY.shape_title);
+});
+
+// ── 14/09 — L'ESPACE DU PÔLE SUR SA PAGE (owner : « on doit montrer revenu par m2 et par mètre
+// linéaire »). Les chiffres et les phrases sont ceux du volet de Piloter ; ce qui se garde ici, c'est
+// qu'ils arrivent SUR LA PAGE et que l'absence se dise au lieu d'une section vide.
+it("l'espace du pôle : mètres, Part de linéaire, surface, puis le CA et la marge par mètre et par m²", () => {
+  const data: any = polePhotos();
+  data.pole.space = {
+    linear_m: 23.6, linear_share: 0.117, surface_m2: 45,
+    revenue_per_m: 484, revenue_net_ht_per_m: 473, margin_per_m: 176,
+    revenue_per_m2: 267, revenue_net_ht_per_m2: 260, margin_per_m2: 97,
+    revenue_share: 0.401, margin_share: 0.38, coverage_pct: 100,
+  };
+  const html = String(kit.renderEvolution(data, EVOL_COPY)).replace(/[  ]/g, " ");
+  expect(html).toContain("Espace — 30 derniers jours");
+  expect(html).toContain("23,6 m de linéaire · Part de linéaire 11,7 % · 45 m² de surface de vente");
+  expect(html).toContain("484 € de CA par mètre · 473 € de CA net HT par mètre · 176 € de marge brute par mètre");
+  expect(html).toContain("267 € de CA par m² · 260 € de CA net HT par m² · 97 € de marge brute par m²");
+  expect(html).toContain("Part de marge 38 % contre Part de linéaire 11,7 %");
+});
+
+// 14/09 — LE DÉFAUT QUE LE TEST CI-DESSUS NE POUVAIT PAS VOIR : ses valeurs étaient des entiers ronds
+// (484, 473, 176). Les vraies ne le sont pas. Mesuré sur f10c3e58 (pôle « Cuisine », harnais
+// tools/harness/pole-page-verify.mts) : la page rendait « 491,109 € de CA par mètre » — toLocaleString('fr-FR')
+// rend trois décimales par défaut, et frInt, dont le nom dit « entier », ne les coupait pas. Un montant en
+// euros à trois décimales n'est pas du français (CLAUDE.md § Localization). Les valeurs ci-dessous sont
+// celles que BigQuery a servies ce jour-là, PAS des nombres choisis pour passer.
+it("un montant par mètre est ARRONDI : les mesures réelles sont des flottants, jamais des entiers ronds", () => {
+  const data: any = polePhotos();
+  data.pole.space = {
+    linear_m: 42.9, linear_share: 0.212, surface_m2: 56.8,
+    revenue_per_m: 491.109, revenue_net_ht_per_m: 479.807, margin_per_m: 366.283,
+    revenue_per_m2: 371.035, revenue_net_ht_per_m2: 362.497, margin_per_m2: 276.729,
+    revenue_share: 0.401, margin_share: 0.424, coverage_pct: 100,
+  };
+  const html = String(kit.renderEvolution(data, EVOL_COPY)).replace(/[\u202f\u00a0]/g, " ");
+  expect(html).toContain("491 € de CA par mètre · 480 € de CA net HT par mètre · 366 € de marge brute par mètre");
+  expect(html).toContain("371 € de CA par m² · 362 € de CA net HT par m² · 277 € de marge brute par m²");
+  // La forme exacte du défaut, nommée : aucun montant à trois décimales nulle part sur la page.
+  expect(html).not.toMatch(/\d,\d{3}\s*€/);
+});
+
+it("sans mesure d'espace, l'absence se DIT — jamais une section vide (lexique règle 7)", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).toContain("Espace — 30 derniers jours");
+  expect(html).toContain("Aucune mesure d’espace pour l’instant.");
+  expect(html).not.toContain("de CA par mètre");
+});
+
+// ── 13/09 — LA NOTE DE LA VERSION (owner : « on doit confirmer avec le user le changement réalisé »).
+// La réponse à « Qu'avez-vous changé ? » s'écrit dans `dispositif_note` ; sur un pôle, ce champ n'avait
+// AUCUNE surface (dispoBlock n'est assemblé que dans les deux branches d'opération) — la question aurait
+// promis ce que rien ne rendait (lexique règle 8, interdit d). La voici, sous la ligne de sa version.
+it("la note d'une version d'un PÔLE se lit sous sa ligne, à côté de ses photos", () => {
+  const data = poleAvecVersions();
+  data.lineage[0].note = "Couteaux descendus en bas, épices à hauteur d'œil";
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("data-lin-note");
+  expect(html).toContain("Couteaux descendus en bas, épices à hauteur d&#39;œil".replace("&#39;", "'"));
+  // La note se place APRÈS la ligne de sa version et AVANT la rangée de photos de cette version.
+  const ligne = html.indexOf("Version 1 — du 01/06/2026");
+  const note = html.indexOf("data-lin-note");
+  const photos = html.indexOf('data-lin-photos="1"');
+  expect(ligne).toBeGreaterThan(-1);
+  expect(note).toBeGreaterThan(ligne);
+  expect(photos).toBeGreaterThan(note);
+});
+
+it("une version SANS note ne rend aucun emplacement — un cadre vide ne raconte rien", () => {
+  const html = String(kit.renderEvolution(poleAvecVersions(), EVOL_COPY));
+  expect(html).toContain("Historique du dispositif");
+  expect(html).not.toContain("data-lin-note");
+});
+
+it("l'historique d'un PÔLE ne porte AUCUN mot de verdict ni de fenêtre (owner 27/08)", () => {
+  const html = String(kit.renderEvolution(poleAvecVersions(), EVOL_COPY));
+  const i = html.indexOf("Historique du dispositif");
+  expect(html.slice(i)).not.toMatch(/verdict|objectif|atteint|manqu[ée]|ce test|effet prouvé/i);
+});
+
+it("un pôle d'UNE seule version n'a pas d'historique à raconter", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).not.toContain("Historique du dispositif");
+});
+
+// ── 13/09 (owner : « aucune surface ne crée la version suivante d'un pôle ») — la section sur la page du PÔLE ──
+// 13/09 (owner, second arbitrage : « pas de question au niveau du pôle — sa page de réglages ; « Ajuster → »
+// existe déjà, ne pas le dupliquer ») : la section est un VOLET replié « La version suivante » avec un point de
+// montage pour le formulaire de pôle pré-rempli (monté par la page) — aucune question, aucun bouton du kit.
+it("un pôle OUVERT, pour l'owner, porte le volet « La version suivante » avec son point de montage — sans question ni bouton", () => {
+  const data: any = polePhotos();
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  const sec = html.indexOf("<details class=\"eg-sec\" data-eg-nextversion-sec");
+  expect(sec).toBeGreaterThan(0);
+  const bloc = html.slice(sec, html.indexOf("</details>", sec) + 10);
+  expect(bloc).toContain("La version suivante");
+  expect(bloc).toContain("modifiez le pôle, ses composants et leurs mesures, puis enregistrez");
+  expect(bloc).toContain("data-eg-nextversion-mount");
+  expect(bloc).not.toMatch(/Qu.avez-vous changé|<textarea|data-eg-nextversion"|Ajuster/);
+  // Le volet précède l'historique quand il existe : on règle d'abord, on relit ensuite.
+  const hist = html.indexOf("Historique du dispositif");
+  if (hist > 0) expect(sec).toBeLessThan(hist);
+});
+
+it("un MEMBRE ne voit pas la section — il ne crée pas de version", () => {
+  const data: any = polePhotos(); data.role = "member";
+  expect(String(kit.renderEvolution(data, EVOL_COPY))).not.toContain("data-eg-nextversion");
+});
+
+it("une OPÉRATION ne porte pas ce volet (elle a son propre formulaire de version)", () => {
+  const data: any = baseData();
+  expect(String(kit.renderEvolution(data, EVOL_COPY))).not.toContain("data-eg-nextversion");
+});
+
+// ── 14/09 — OÙ SE SITUE CE PÔLE (owner : « comparaison vs autres poles »). Ce qui se garde : la table
+// vient du serveur et se rend par LA primitive des tables du kit ; la ligne de CE pôle est distinguée ;
+// et un pôle qui n'a personne à qui se comparer ne porte pas la section.
+const poleClasse = () => {
+  const data: any = polePhotos();
+  data.pole.comparaison = {
+    cols: [{ label: "Pôle" }, { label: "CA par mètre" }, { label: "Linéaire" }, { label: "Part du CA" }, { label: "Part de linéaire" }],
+    rows: [
+      { id: "d2", cells: [{ v: "Thés", bold: true }, { v: "412 €", bold: true }, { v: "6,2 m" }, { v: "31,0 %" }, { v: "18,0 %" }] },
+      { id: "d1", cells: [{ v: "Épices", bold: true, color: "#1D3BB3" }, { v: "268 €", bold: true, color: "#1D3BB3" }, { v: "9,4 m", bold: true, color: "#1D3BB3" }, { v: "24,0 %", bold: true, color: "#1D3BB3" }, { v: "27,0 %", bold: true, color: "#1D3BB3" }] },
+    ],
+  };
+  return data;
+};
+
+it("la comparaison aux autres pôles : le titre du lexique, la table du Rapport, la ligne de CE pôle distinguée", () => {
+  const html = String(kit.renderEvolution(poleClasse(), EVOL_COPY));
+  const i = html.indexOf("data-eg-poles-rank");
+  expect(i).toBeGreaterThan(0);
+  const bloc = html.slice(i, html.indexOf("</table>", i) + 8);
+  expect(bloc).toContain("Vos pôles · du plus au moins performant");
+  expect(bloc).toContain("CA par mètre");
+  expect(bloc).toContain("Thés");
+  expect(bloc).toContain("412 €");
+  // La ligne de CE pôle porte la couleur donnée que le serveur y a mise ; celle d'un autre pôle, non.
+  expect(bloc).toMatch(/color:#1D3BB3;[^<]*font-weight:600;">Épices/);
+  expect(bloc).not.toMatch(/color:#1D3BB3;[^<]*font-weight:600;">Thés/);
+  // Aucune phrase n'est écrite ici : la position se LIT dans la table.
+  expect(bloc).not.toMatch(/se classe|premier|deuxième|meilleur|moins bon/i);
+});
+
+it("un pôle sans comparaison servie ne porte pas la section — seul, il n'a personne à qui se comparer", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).not.toContain("data-eg-poles-rank");
+  expect(html).not.toContain("Vos pôles · du plus au moins performant");
+});
+
+it("la comparaison se place SOUS l'espace : même indicateur, même fenêtre de 30 jours", () => {
+  const html = String(kit.renderEvolution(poleClasse(), EVOL_COPY));
+  expect(html.indexOf("data-eg-espace")).toBeLessThan(html.indexOf("data-eg-poles-rank"));
+});
+
+// ── 14/09 — LES PHOTOS PRÉCÉDENTES D'UN COMPOSANT (owner : « photos avec accès aux versions précédentes »).
+// Mesuré le 14/09 sur f10c3e58 : les 7 pôles sont en VERSION 1, donc « Historique du dispositif » ne
+// s'affiche sur aucun. Sans ce volet, la deuxième photo d'une étagère rend la première inatteignable.
+const photoAvecPrec = (n: number) => ({
+  photo_id: "p0", component_key: "k1", version_no: 1, url: "/api/dispositifs/photos?file=p0",
+  created_at: "2026-09-12T10:00:00Z", status: "read", checklist: {}, questions: [],
+  precedentes: Array.from({ length: n }, (_, i) => ({
+    photo_id: `q${i}`, component_key: "k1", version_no: 1,
+    url: `/api/dispositifs/photos?file=q${i}`, created_at: `2026-09-0${i + 1}T10:00:00Z`,
+    checklist: {}, questions: [],
+  })),
+});
+
+it("une photo qui en a des précédentes rend un volet REPLIÉ — la photo courante garde sa place", () => {
+  const html = String(kit.renderComponentPhoto(photoAvecPrec(3), EVOL_COPY));
+  expect(html).toContain("<details data-eg-photo-prec");
+  expect(html).toContain("Voir les 3 photos précédentes de ce composant");
+  // Les trois sont là, chacune atteignable par son URL, avec sa date en français.
+  ["q0", "q1", "q2"].forEach((id) => expect(html).toContain(`file=${id}`));
+  expect(html).toContain("01/09/2026");
+  expect(html).toContain("03/09/2026");
+  // La photo courante n'a pas bougé : elle reste rendue au-dessus, hors du volet.
+  expect(html.indexOf("file=p0")).toBeLessThan(html.indexOf("<details data-eg-photo-prec"));
+});
+
+it("une seule précédente : le singulier, jamais « 1 photos »", () => {
+  const html = String(kit.renderComponentPhoto(photoAvecPrec(1), EVOL_COPY));
+  expect(html).toContain("Voir la photo précédente de ce composant");
+  expect(html).not.toMatch(/Voir les 1 photos/);
+});
+
+it("aucune précédente : aucun volet — un cadre vide ne raconte rien", () => {
+  const html = String(kit.renderComponentPhoto(photoAvecPrec(0), EVOL_COPY));
+  expect(html).not.toContain("data-eg-photo-prec");
+  expect(html).not.toContain("précédente");
+});
+
+it("une photo servie par une version ANCIENNE de l'API (sans champ precedentes) rend comme avant", () => {
+  const p: any = photoAvecPrec(0); delete p.precedentes;
+  expect(String(kit.renderComponentPhoto(p, EVOL_COPY))).not.toContain("data-eg-photo-prec");
+});
+
+// ── 14/09 — LE PLAN AU SOL SUR LA PAGE DU PÔLE (owner : « plan au sol »). Ce qui se garde : le plan vient
+// du serveur et se rend par LA primitive du plan coloré (aucun second dessin), la zone de CE pôle porte un
+// contour net que les autres n'ont pas, et sans contour relevé la page ne met pas de cadre vide.
+const polePlan = () => {
+  const data: any = polePhotos();
+  data.pole.plan = {
+    type: "plan", mesure: "ca_par_metre", mesure_fr: "CA par mètre sur 30 jours",
+    viewBox: [0, 0, 400, 300], scale_pt_per_m: 10, fenetre_fr: "du 13/08/2026 au 11/09/2026",
+    surface_totale_m2: 308.77,
+    zones: [
+      { pole_id: "d2", label: "Thés", polygons: [[[0, 0], [100, 0], [100, 80], [0, 80]]], area_m2: 80, value: 412, value_fr: "412 €", rang: 1 },
+      { pole_id: "d1", label: "Épices", polygons: [[[120, 0], [220, 0], [220, 90], [120, 90]]], area_m2: 90, value: 268, value_fr: "268 €", rang: 2, courant: true },
+    ],
+  };
+  return data;
+};
+
+it("le plan au sol : la primitive du plan coloré, la mesure et le sol de vente en légende", () => {
+  const html = String(kit.renderEvolution(polePlan(), EVOL_COPY));
+  const i = html.indexOf("data-eg-plan");
+  expect(i).toBeGreaterThan(0);
+  const bloc = html.slice(i, html.indexOf("</div></div>", i));
+  expect(bloc).toContain("Plan coloré");
+  expect(bloc).toContain("<svg viewBox=\"0 0 400 300\"");
+  expect(bloc).toContain("CA par mètre sur 30 jours");
+  expect(bloc).toContain("sol de vente 308,77 m²");
+  expect(bloc).toContain("Thés");
+  expect(bloc).toContain("Épices");
+});
+
+it("la zone de CE pôle porte un contour net, les autres non — c'est ce qui dit « où suis-je »", () => {
+  const html = String(kit.renderEvolution(polePlan(), EVOL_COPY));
+  expect(html).toContain('points="120.0,0.0 220.0,0.0 220.0,90.0 120.0,90.0"');
+  const courant = html.slice(html.indexOf('points="120.0,0.0'), html.indexOf('points="120.0,0.0') + 260);
+  const autre = html.slice(html.indexOf('points="0.0,0.0'), html.indexOf('points="0.0,0.0') + 260);
+  expect(courant).toContain('stroke="#111827"');
+  expect(courant).toContain('stroke-width="3"');
+  expect(autre).toContain('stroke="#fff"');
+  expect(autre).toContain('stroke-width="1.5"');
+});
+
+it("sans contour relevé, aucune section — la page ne met pas un cadre vide", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).not.toContain("data-eg-plan");
+  expect(html).not.toContain("Plan coloré");
+});
+
+it("le plan se place SOUS la comparaison : elle dit combien, il dit où", () => {
+  const data: any = polePlan();
+  data.pole.comparaison = { cols: [{ label: "Pôle" }], rows: [{ id: "d1", cells: [{ v: "Épices" }] }, { id: "d2", cells: [{ v: "Thés" }] }] };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html.indexOf("data-eg-poles-rank")).toBeLessThan(html.indexOf("data-eg-plan"));
 });

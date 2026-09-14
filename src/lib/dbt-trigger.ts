@@ -128,3 +128,32 @@ export async function triggerSalesRefresh(locationId: string, source: string): P
   await triggerOneJob(accountId, jobId, token, `sales_upload:${source}:${locationId}`.slice(0, 255));
   return { triggered: true };
 }
+/**
+ * Reconstruction de la chaîne MARGE après un dépôt de prix d'achat (docs/catalogue-de-couts-et-marge.md) :
+ * int_client_item_cost_daily+ (lignes de marge, famille, article, heure, jour, mois, classes de jour, vues).
+ * Passe par le job refresh_industry (DBT_JOB_INDUSTRY_CHANGE) avec des étapes de remplacement — le même
+ * geste que les runs ponctuels du 11/09. Awaitable, ne lève jamais.
+ */
+export async function triggerCostRefresh(locationId: string): Promise<{ triggered: boolean }> {
+  const accountId = process.env.DBT_ACCOUNT_ID;
+  const token = process.env.DBT_API_TOKEN;
+  const jobId = process.env.DBT_JOB_INDUSTRY_CHANGE;
+  if (!accountId || !token || !jobId) {
+    console.warn('[dbt-trigger] cost refresh skipped — missing DBT_ACCOUNT_ID / DBT_API_TOKEN / DBT_JOB_INDUSTRY_CHANGE');
+    return { triggered: false };
+  }
+  try {
+    const res = await fetch(`${DBT_API_BASE}/${accountId}/jobs/${jobId}/run/`, {
+      method: 'POST',
+      headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cause: `cost_upload:${locationId}`.slice(0, 255), steps_override: ['dbt build --select int_client_item_cost_daily+'] }),
+    });
+    if (!res.ok) { console.error(`[dbt-trigger] cost refresh failed ${res.status}`); return { triggered: false }; }
+    const data: any = await res.json().catch(() => null);
+    console.log(`[dbt-trigger] cost refresh triggered — run_id=${data?.data?.id ?? 'unknown'}`);
+    return { triggered: true };
+  } catch (e: any) {
+    console.error(`[dbt-trigger] cost refresh fetch error: ${e?.message}`);
+    return { triggered: false };
+  }
+}

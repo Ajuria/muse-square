@@ -7,11 +7,11 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership, requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
 import { sendSlack, sendEmail, loadChannelConfig } from "../../../lib/channels/internalSend";
-import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureScopeBaseline, measureProfitBaseline, listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
-import { normalizeScope, parseScope, scopeFromFamily, serializeScope, type MeasuredScope } from "../../../lib/commitments/measuredScope";
+import { kpiKeyForOrigin, kpiKeyForEventKpi, measureKpiBaseline, measureScopeBaseline, measureProfitBaseline, listSiteFamilies, listItemCodesEncoreVendus } from "../../../lib/kpi/kpiRegistry";
+import { normalizeScope, parseScope, perimetreHeriteVivant, scopeFromFamily, serializeScope, type MeasuredScope } from "../../../lib/commitments/measuredScope";
 import { isCommitmentOrigin } from "../../../lib/commitments/commitmentOrigins";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow, lineageFor } from "../../../lib/commitments/actionCommitments";
-import { parseComponents } from "../../../lib/dispositifs/dispositifTypes";
+import { createPermanentPole } from "../../../lib/dispositifs/poleCreate";
 import { listPoles } from "../../../lib/dispositifs/poleReading";
 import { assignmentMessageFr } from "../../../lib/channels/slackMessagesFr";
 import { themeForActionType } from "../../../lib/recos/recoThemeMap";
@@ -139,7 +139,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       const polesP = listPoles(bq, locationId).catch(() => []);
       // Ce que le dispositif vend (07/09) : les familles du site pour le bloc MSScopeForm — LE foyer
       // listSiteFamilies, en parallèle comme les pôles.
-      const familiesP = listSiteFamilies(bq, locationId).catch(() => []);
+      const familiesP = listSiteFamilies(bq, locationId, 50).catch(() => []);   // limite explicite : voir evenement.ts (aucune famille cachée)
       const [gRows] = await bq.query({
         query: `
           WITH base AS (
@@ -197,6 +197,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
           ) AS rn
           FROM \`${BQ_PROJECT}.analytics.action_commitments\`
           WHERE location_id = @locationId
+            -- 14/09 (owner : « each new pole is presented in agir page as a weird card ») : cette liste
+            -- nourrit les surfaces d'ACTION (le fil d'Agir, la disposition d'une carte). Un PÔLE n'y a
+            -- rien à faire : il n'a ni échéance ni verdict, il se pilote (Tableau de bord « Vos pôles »,
+            -- page /app/insightevent/pole). Et comme rien n'annule la version précédente d'un pôle,
+            -- CHAQUE version en ouvrait une carte de plus — le versionnement par la photo (13/09)
+            -- multipliait le flot à chaque changement d'étagère. Les surfaces de pôle lisent ailleurs
+            -- (listPoles pour le tableau, create_context pour le Compte, evolution pour la page).
+            AND COALESCE(dispositif_nature, 'operation') != 'permanent'
         )
         WHERE rn = 1 AND status != 'cancelled'
         ORDER BY updated_at DESC
@@ -236,69 +244,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // versions (lineageFor) ; le responsable est un ATTRIBUT — le pôle demeure jusqu'à
     // fermeture (soft-cancel aujourd'hui, rendu « fermé » côté surface).
     if (String(body.dispositif_nature || "").trim() === "permanent") {
+      // LE chemin d'écriture d'un pôle vit dans lib/dispositifs/poleCreate.ts (11/09) — partagé avec le
+      // one-off qui déclare les pôles d'un site depuis son plan. Ici : le contrôle d'accès, puis l'appel.
       if (!body.location_id || !body.committed_action_text) {
         return json({ ok: false, error: "Champs requis manquants (pôle) : location_id, committed_action_text" }, 400);
       }
-      const fams = Array.isArray(body.pole_families)
-        ? body.pole_families.map((f: any) => String(f).trim()).filter(Boolean) : [];
-      if (!fams.length && !body.parent_commitment_id) {
-        return json({ ok: false, error: "pole_families requis : les familles réelles du pôle" }, 400);
-      }
       requireLocationOwnership(locals, body.location_id);
       const bqP = makeBQClient(process.env.BQ_PROJECT_ID || BQ_PROJECT);
-      const poleId = crypto.randomUUID();
-      const _pParentId = body.parent_commitment_id ? String(body.parent_commitment_id).trim() : null;
-      let _pParent: Awaited<ReturnType<typeof readLatestSnapshot>> = null;
-      if (_pParentId) {
-        _pParent = await readLatestSnapshot(bqP, _pParentId);
-        if (!_pParent) return json({ ok: false, error: "parent_commitment_id introuvable" }, 400);
-        if (String(_pParent.location_id) !== String(body.location_id).trim()) {
-          return json({ ok: false, error: "parent_commitment_id d'un autre site" }, 403);
-        }
-        if ((_pParent as any).dispositif_nature !== "permanent") {
-          return json({ ok: false, error: "le parent n'est pas un dispositif permanent" }, 400);
-        }
-      }
-      const _pLineage = lineageFor(_pParent, poleId);
-      // Composants (03/09, spec dispositifs-typologie § 3) : type/rôle du registre, clé stable,
-      // libellé libre. Absents au POST → hérités du parent (même règle que le contexte de version).
-      const _pComps = parseComponents(body.components, () => crypto.randomUUID().slice(0, 8));
-      if (!_pComps.ok) return json({ ok: false, error: _pComps.error }, 400);
-      const _pComponents: string | null = body.components != null
-        ? (_pComps.components.length ? JSON.stringify(_pComps.components) : null)
-        : (((_pParent as any)?.components as string | null | undefined) ?? null);
-      const row = await readMergeWrite(bqP, {
-        commitmentId: poleId, transitionType: "created", create: true,
-        patch: {
-          user_id: userId, location_id: String(body.location_id).trim(),
-          status: "open", verdict: null, authorship: "user_authored",
-          origin_kind: "pole", origin_action_type: "pole",
-          dispositif_nature: "permanent",
-          pole_families: fams.length ? JSON.stringify(fams) : ((_pParent as any)?.pole_families ?? null),
-          components: _pComponents,
-          // 07/09 — ce que le pôle vend = ses familles (périmètre de nature pole), hérité à la V2.
-          measured_scope: body.measured_scope != null
-            ? serializeScope(normalizeScope(body.measured_scope))
-            : (fams.length ? serializeScope({ kind: "pole", familles: fams.map((n: string) => ({ nom: n })), pole_id: poleId, pole_nom: String(body.committed_action_text).trim() }) : ((_pParent as any)?.measured_scope ?? null)),
-          committed_action_text: String(body.committed_action_text).trim(),
-          owner_person_name: body.owner_person_name != null && String(body.owner_person_name).trim()
-            ? String(body.owner_person_name).trim() : (_pParent?.owner_person_name ?? null),
-          dispositif_plus: body.dispositif_plus != null && String(body.dispositif_plus).trim()
-            ? String(body.dispositif_plus).trim() : ((_pParent as any)?.dispositif_plus ?? null),
-          dispositif_why: body.dispositif_why != null && String(body.dispositif_why).trim()
-            ? String(body.dispositif_why).trim() : ((_pParent as any)?.dispositif_why ?? null),
-          dispositif_resources: body.dispositif_resources != null && String(body.dispositif_resources).trim()
-            ? String(body.dispositif_resources).trim() : ((_pParent as any)?.dispositif_resources ?? null),
-          adjustment_move: body.adjustment_move ? String(body.adjustment_move).trim() : null,
-          adjustment_note: body.adjustment_note != null ? (String(body.adjustment_note).trim() || null) : null,
-          parent_commitment_id: _pParentId,
-          dispositif_id: _pLineage.dispositif_id,
-          version_no: _pLineage.version_no,
-          operation_cost_eur: body.operation_cost_eur != null && Number.isFinite(Number(body.operation_cost_eur)) && Number(body.operation_cost_eur) >= 0 && Number(body.operation_cost_eur) <= 1000000
-            ? Math.round(Number(body.operation_cost_eur) * 100) / 100 : null,
-        } as any,
-      } as any);
-      return json({ ok: true, commitment_id: row.commitment_id, dispositif_id: (row as any).dispositif_id, version_no: (row as any).version_no });
+      const created = await createPermanentPole(bqP, userId, body);
+      return json(created.body, created.status);
     }
 
     if (!body.location_id || !body.origin_action_type ||
@@ -394,6 +348,37 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
     const _lineage = lineageFor(_parentSnap, commitmentId);
 
+    // 13/09 — LE PÉRIMÈTRE HÉRITÉ NE MESURE PAS DES ARTICLES MORTS (owner : un magasin change son contenu
+    // 2 à 4 fois par an). La V2 hérite du périmètre (07/09) ; quand c'est une LISTE D'ARTICLES (pôle
+    // documenté par photos), un changement de collection le remplit de codes qui ne se vendent plus et le
+    // verdict porterait sur du vide. On filtre sur ce qui se vend encore (30 j, vue de l'offre, interrogée
+    // SUR CES CODES) ; s'il ne reste rien, on retombe sur les familles du pôle parent. Une lecture qui
+    // échoue ne filtre RIEN. Règle pure et testée : `perimetreHeriteVivant`.
+    let _perimetreHerite: string | null = _lineage.inherited_measured_scope ?? null;
+    let _perimetreRetires: string[] = [];
+    let _perimetreRepli = false;
+    if (body.measured_scope == null && _perimetreHerite) {
+      const _hScope = parseScope(_perimetreHerite);
+      if (_hScope?.kind === "articles" && _hScope.item_codes?.length) {
+        const _vivants = await listItemCodesEncoreVendus(bq, String(body.location_id).trim(), _hScope.item_codes);
+        let _replis: MeasuredScope | null = null;
+        try {
+          const _pf: string[] = JSON.parse(String((_parentSnap as any)?.pole_families ?? "[]"));
+          if (Array.isArray(_pf) && _pf.length) {
+            _replis = { kind: "pole", familles: _pf.map((n) => ({ nom: String(n) })), pole_id: _lineage.dispositif_id, pole_nom: String((_parentSnap as any)?.committed_action_text ?? "").trim() || null };
+          }
+        } catch { /* familles illisibles → pas de repli, jamais un crash */ }
+        const _res = perimetreHeriteVivant(_hScope, _vivants, _replis);
+        _perimetreHerite = _res.scope ? serializeScope(_res.scope) : null;
+        _perimetreRetires = _res.retires;
+        _perimetreRepli = _res.repli_applique;
+        if (_res.retires.length) {
+          console.warn(`[commitments] périmètre hérité : ${_res.retires.length} article(s) ne se vendent plus`,
+            { dispositif_id: _lineage.dispositif_id, version_no: _lineage.version_no, repli: _res.repli_applique });
+        }
+      }
+    }
+
     // Rattachement opération→pôle (spec pôles, 27/08) : attached_pole_id = le dispositif_id
     // du pôle — validé contre le site et la nature, hérité du parent si absent. Ce n'est PAS
     // parent_commitment_id (filiation de versions). L'héritage du KPI famille depuis le pôle
@@ -443,7 +428,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       saved_item_id: body.saved_item_id ? String(body.saved_item_id).trim() : _lineage.inherited_saved_item_id,
       // 07/09 (docs/dispositif-perimetre-mesure-spec.md) — ce que le dispositif vend : le body, sinon la
       // version précédente, sinon l'opération ancrée (résolu plus bas, avec la baseline).
-      measured_scope: body.measured_scope != null ? serializeScope(normalizeScope(body.measured_scope)) : (_lineage.inherited_measured_scope ?? null),
+      measured_scope: body.measured_scope != null ? serializeScope(normalizeScope(body.measured_scope)) : _perimetreHerite,
       // Étape 3 (26/07) : measured_metric = kpi de la CARTE (type + driver), plus jamais codé en
       // dur — kpiKeyForOrigin (lib/kpiRegistry). 'revenue_residual' reste le défaut et garde toute
       // sa machinerie ; les KPIs non-K1 sont mesurés en colonnes kpi_* (baseline ci-dessous,
@@ -570,6 +555,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
       commitment_id: commitmentId,
       assignment_notified: Boolean(notified && notified.ok),
       assignment_channel: notified && notified.ok ? notified.channel : null,
+      // 13/09 — quand le périmètre hérité portait des articles qui ne se vendent plus, la réponse le DIT
+      // (la surface pourra l'afficher ; en attendant, la trace existe et ne se devine pas).
+      ...(_perimetreRetires.length ? { perimetre_articles_retires: _perimetreRetires.length, perimetre_repli_familles: _perimetreRepli } : {}),
     });
   } catch (err: any) {
     return json({ ok: false, error: err?.message || "Unknown error" }, errStatus(err));

@@ -43,7 +43,7 @@ it("la bascule montre le panneau pôle, les chips choisissent les familles, le P
   const pole = mount.querySelector("[data-ef-pole-panel]") as HTMLElement;
   expect(dated && dated.style.display).not.toBe("none");
   expect(pole.style.display).toBe("none");
-  expect(dated.innerHTML).toContain("Créer l’événement");
+  expect(dated.innerHTML).toContain("Créer l’opération");
 
   (mount.querySelector('[data-ef-mode="pole"]') as HTMLElement).click();
   expect(pole.style.display).toBe("");

@@ -8,6 +8,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { TOURNURES_LLM } from "./tournures.fr";
+import { MOTS_BANNIS } from "./evenement.fr";
 
 // Foyers de copie d'abord. La liste s'étend au fur et à mesure qu'une surface est nettoyée —
 // jamais l'inverse (un garde-fou qu'on désactive pour faire passer un build ne garde rien).
@@ -17,6 +18,9 @@ const SURFACES = [
   "public/js/reco-library.js",
   "public/js/card-kit.js",
   "public/js/action-cards.js",
+  // 14/09 — le module du relevé ne porte AUCUNE chaîne (elles viennent du foyer) ; il entre dans la
+  // liste pour que le jour où l'une y est écrite en dur, le garde la voie.
+  "public/js/releve-espace.js",
 ];
 
 /** Retire les commentaires, puis ne garde que le contenu des littéraux de chaîne. */
@@ -53,6 +57,8 @@ describe("tournures de machine dans les chaînes visibles", () => {
       const fautes: string[] = [];
       for (const s of visibleStrings(src)) {
         if (estUneCle(s) || s.length < 12) continue;
+        // Les CLÉS du dictionnaire des mots bannis sont les fautes elles-mêmes, jamais une chaîne visible.
+        if (Object.prototype.hasOwnProperty.call(MOTS_BANNIS, s)) continue;
         const low = s.replace(/\$\{[^}]*\}/g, " ").toLowerCase();
         for (const t of TOURNURES_LLM) {
           if (t.motif.test(low)) fautes.push(`${t.faute}\n     → « ${s.slice(0, 110)} »`);

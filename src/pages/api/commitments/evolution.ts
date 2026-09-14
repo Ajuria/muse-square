@@ -9,11 +9,18 @@ import type { APIRoute } from "astro";
 import { parseScope, scopeFromFamily, scopeFilter, scopeLabelFr, type MeasuredScope } from "../../../lib/commitments/measuredScope";
 import { KPI_LABEL_FR, profitEstimatedDaily } from "../../../lib/kpi/kpiRegistry";
 import { readComponents, dispositifTypeLabelFr, dispositifRoleLabelFr } from "../../../lib/dispositifs/dispositifTypes";
+import { listPhotoRows, photosParVersion } from "../../../lib/dispositifs/dispositifPhotoRows";
+import { resolveMemberNames } from "../../../lib/dispositifs/poleActivity";
+import { listSpaceMeasures, currentMeasures, type SpaceMeasureRow } from "../../../lib/dispositifs/spaceMeasures";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
 import { readLatestSnapshot } from "../../../lib/commitments/actionCommitments";
-import { buildPoleReading, buildPoleItemsReading } from "../../../lib/dispositifs/poleReading";
+import { buildPoleReading, buildPoleItemsReading, listPoleSpace, type PoleSpaceRow } from "../../../lib/dispositifs/poleReading";
+import { composePoleClassement } from "../../../lib/dispositifs/poleClassement";
+import { composePlan, type PlanBlock } from "../../../lib/dispositifs/planColore";
+import { listSpaceZonesEnVigueur, currentZones, type SpaceZone } from "../../../lib/dispositifs/spaceZones";
+import type { AnswerBlock } from "../../../lib/explorer/blocks";
 import { commitmentEffect } from "../../../lib/commitments/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitments/commitmentContext";
 import { buildWindowShape, buildPriceLadder } from "../../../lib/commitments/commitmentShape";
@@ -166,12 +173,18 @@ async function buildKpiBlock(bq: any, snap: any, dates: string[], rrows: any[], 
 async function buildLineage(bq: any, snap: any): Promise<any[]> {
   let lineage: any[] = [];
   if ((snap as any).dispositif_id) {
+    // 13/09 — LA MÉMOIRE VISUELLE (owner) : les photos des composants de TOUTES les versions du
+    // dispositif, amorcées ICI (elles ne dépendent que du dispositif_id) et attendues après la
+    // chaîne — un aller-retour de plus en parallèle, jamais en série (§ Performance, budget 3 s).
+    const photosP = listPhotoRows(bq, String((snap as any).dispositif_id)).catch(() => []);
     const [lrows] = await bq.query({
 
       query: `SELECT commitment_id, version_no, status, verdict, measured_metric, measured_scope,
+                     dispositif_note,
                      window_residual_pct, window_residual_z,
                      kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
-                     CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end
+                     CAST(window_start AS STRING) AS window_start, CAST(window_end AS STRING) AS window_end,
+                     CAST(created_at AS STRING) AS created_at
               FROM (
                 SELECT *, ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC,
                   CASE WHEN status IN ('resolved','cancelled') THEN 1 ELSE 0 END DESC,
@@ -199,13 +212,32 @@ async function buildLineage(bq: any, snap: any): Promise<any[]> {
         verdict: r.verdict != null ? String(flatv(r.verdict)) : null,
         window_start: String(flatv(r.window_start) ?? ""),
         window_end: String(flatv(r.window_end) ?? ""),
+        // 13/09 — la date de DÉBUT de la version : un dispositif permanent n'a pas de fenêtre (owner 27/08),
+        // donc son historique se raconte avec les dates de mise en service, pas avec window_start/end.
+        debut: String(flatv(r.created_at) ?? "").slice(0, 10),
         effect_pct: eff.pct,
         effect_proven: eff.z != null && Math.abs(eff.z) >= 1,
         kpi_mention_fr: eff.kpi_mention_fr,
+        // 13/09 — CE QUE L'EXPLOITANT A CHANGÉ à cette version. Le champ existait en base
+        // (`dispositif_note`) et n'avait AUCUNE surface sur un pôle : `dispoBlock` n'est assemblé que
+        // dans les deux branches d'opération. C'est ici qu'il vit désormais — dans l'historique, sous
+        // la ligne de sa version, à côté de ses photos : la photo montre, la note dit pourquoi.
+        note: r.dispositif_note != null ? String(flatv(r.dispositif_note)).trim() || null : null,
         is_current: String(flatv(r.commitment_id)) === String(snap.commitment_id),
       };
     });
     if (lineage.length < 2) lineage = [];
+    // Chaque version porte ses vignettes (la dernière photo par composant). Aucune photo = le champ
+    // reste vide et la page ne rend AUCUN emplacement : une mémoire qui n'existe pas ne se montre pas.
+    const _photos = await photosP;
+    // L'auteur d'une photo s'affiche par son NOM (roster team_members × location_members, foyer
+    // resolveMemberNames) — jamais un identifiant (no-raw-ids). Une seule résolution, et seulement
+    // quand des photos existent : sur un dispositif sans photo, aucun aller-retour de plus.
+    const _auteurs = _photos.some((r: any) => r.created_by)
+      ? await resolveMemberNames(bq, String(snap.location_id)).catch(() => ({} as Record<string, string>))
+      : {};
+    const parVersion = photosParVersion(_photos, dispositifTypeLabelFr, 4, _auteurs);
+    for (const v of lineage) { const p = parVersion[v.version_no]; v.photos = p ? p.photos : []; v.photos_autres = p ? p.autres : 0; }
     }
   return lineage;
 }
@@ -249,8 +281,83 @@ export const GET: APIRoute = async ({ url, locals }) => {
       }).then((r: any) => readComponents(flat((Array.isArray(r?.[0]) ? r[0] : [])[0]?.components))).catch(() => [] as ReturnType<typeof readComponents>);
       // Articles des photos (livrable 2, 03/09) — amorcé en parallèle de la lecture continue.
       const _itemsP = buildPoleItemsReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), (snap as any).version_no != null ? Number((snap as any).version_no) : null, _famList, asOfP).catch(() => null);
+      // 13/09 (owner : « le versionning du pôle, c'est la disposition, les mètres linéaires + m² ») — les
+      // mesures d'espace sont liées à la VERSION (space_measures : dispositif × version × composant). La
+      // version suivante les reprend pré-remplies, sinon elle naîtrait sans mètres ni m². Côté producteur
+      // (relire ce qu'on a écrit), amorcé en parallèle ; un dispositif sans mesure rend une liste vide.
+      const _spaceP = (snap as any).dispositif_id
+        ? listSpaceMeasures(String(snap.location_id), String((snap as any).dispositif_id))
+            .then((rows) => currentMeasures(rows).filter((m) => m.version_no === Number((snap as any).version_no)))
+            .catch(() => [] as SpaceMeasureRow[])
+        : Promise.resolve([] as SpaceMeasureRow[]);
+      // 14/09 (owner) — L'ESPACE LU du pôle (CA et marge par mètre et par m², Part de linéaire) : la
+      // page l'affichait nulle part alors que le volet « Vos pôles » du Tableau de bord le rend depuis le
+      // 11/09. MÊME foyer que lui (`listPoleSpace`, vw_insight_event_space_30d, grain pôle) — jamais une
+      // seconde lecture. Amorcé ici, attendu plus bas : aucun aller-retour de plus en série.
+      const _espaceP = listPoleSpace(bq, String(snap.location_id)).catch(() => [] as PoleSpaceRow[]);
+      // 14/09 (owner : « plan au sol » sur la page du dispositif) — LES CONTOURS, amorcés ICI, en parallèle
+      // de tout le reste : un aller-retour ajouté sur un chemin SÉQUENTIEL coûte son aller-retour entier,
+      // ajouté à un lot parallèle il ne coûte que s'il est le plus lent (CLAUDE.md § Performance).
+      const _zonesP = listSpaceZonesEnVigueur(bq, String(snap.location_id)).catch(() => [] as SpaceZone[]);
+      // 14/09 (owner : « nombre de vente, panier moyen, mix produit… la vue doit être alignée sur
+      // M'engager ») — LA DÉCOMPOSITION D'UN PÔLE, par LE calcul des opérations (buildWindowShape) et
+      // rendue par LE bloc des opérations : aucune seconde mécanique, aucun second rendu.
+      // Le RÉFÉRENTIEL est celui de l'en-tête du pôle, jamais les jours comparables d'une opération :
+      // 30 derniers jours contre les 90 précédents, exactement la fenêtre de buildPoleReading. Sans ça,
+      // la page afficherait deux pourcentages qui ne parlent pas de la même chose.
+      const _jour = (n: number) => { const d = new Date(asOfP + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+      const _mesures: string[] = []; for (let i = 0; i < 30; i++) _mesures.push(_jour(i));
+      const _refs: string[] = []; for (let i = 30; i < 120; i++) _refs.push(_jour(i));
+      const _shapePoleP = _famList.length
+        ? buildWindowShape(bq, {
+            location_id: String(snap.location_id),
+            measured_dates: _mesures, window_start: _mesures[_mesures.length - 1],
+            reference_dates: _refs,
+            scope: parseScope((snap as any).measured_scope),
+            scope_label_fr: null, scope_expected_eur: null,
+          }).catch(() => null)
+        : Promise.resolve(null);
       const pole = await buildPoleReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), _famList, asOfP);
+      const _esp = await _espaceP;
+      (pole as any).space = _esp.find(
+        (r) => r.grain === "pole" && String(r.pole_id ?? "") === String((snap as any).dispositif_id ?? ""),
+      ) ?? null;
+      // 14/09 (owner : « comparaison vs autres pôles ») — LA COMPARAISON, SANS UN SEUL ALLER-RETOUR DE PLUS :
+      // `listPoleSpace` ci-dessus rend DÉJÀ tous les pôles du site, la branche n'en gardait qu'une ligne et
+      // jetait les autres. Le classement est celui du Rapport (`composePoleClassement`, section du lexique
+      // « Vos pôles · du plus au moins performant ») sur l'indicateur qui rend deux pôles comparables quelle
+      // que soit leur taille — le CA par mètre, celui que la section Espace vient d'afficher juste au-dessus,
+      // sur la MÊME fenêtre de 30 jours. Aucune seconde mécanique de classement, aucun second tri.
+      // Sa table part telle quelle ; la ligne de CE pôle se retrouve par sa CLÉ (jamais par son libellé) et
+      // part en gras et en bleu donnée. Un seul pôle mesuré : il n'y a personne à qui se comparer, rien ne part.
+      // 14/09 (owner, point 5) — LE PLAN AU SOL. Le plan coloré existe déjà (planColore.ts, bloc d'Explorer,
+      // primitive `plan` du kit) : on ne redessine RIEN. Même mesure que les deux sections au-dessus — le CA
+      // par mètre — donc la page entière ne porte qu'UN référentiel. La zone de CE pôle est marquée par sa
+      // CLÉ ; la composition, elle, ignore d'où on la regarde et reste identique pour Explorer.
+      const _zones = currentZones(await _zonesP);
+      const _plan = _zones.length ? composePlan(_zones, _esp, "ca_par_metre") : null;
+      (pole as any).plan = _plan && _plan.found
+        ? {
+            ..._plan.block,
+            zones: (_plan.block as PlanBlock).zones.map((z) =>
+              String(z.pole_id) === String((snap as any).dispositif_id ?? "") ? { ...z, courant: true } : z,
+            ),
+          }
+        : null;
+      const _cls = composePoleClassement({ rows: [], space: _esp, start: asOfP, end: asOfP }, "ca_par_metre", "");
+      const _tbl = _cls.found ? (_cls.blocks.find((b) => b.type === "table") as Extract<AnswerBlock, { type: "table" }> | undefined) : undefined;
+      (pole as any).comparaison = _tbl && _tbl.rows.length >= 2
+        ? {
+            cols: _tbl.cols,
+            rows: _tbl.rows.map((r) =>
+              String(r.id ?? "") === String((snap as any).dispositif_id ?? "")
+                ? { ...r, cells: r.cells.map((c) => ({ ...c, bold: true, color: "#1D3BB3" })) }
+                : r,
+            ),
+          }
+        : null;
       const _comps = await _compsP;
+      const _space = await _spaceP;
       (pole as any).items = await _itemsP;
       const commitment = {
         commitment_id: snap.commitment_id, location_id: snap.location_id, status: snap.status,
@@ -268,9 +375,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
         dispositif_resources: (snap as any).dispositif_resources ?? null,
         created_at: flat(snap.created_at),
         dispositif_id: (snap as any).dispositif_id ?? null, version_no: (snap as any).version_no ?? null,
+        // Les mesures de CETTE version, dans la forme que le formulaire de pôle relit (space_measures du POST).
+        space_measures: {
+          components: _space.filter((m) => m.component_key).map((m) => ({
+            component_key: String(m.component_key), fixture_no: m.fixture_no, length_m: m.length_m, faces: m.faces, families_share: m.families_share,
+          })),
+          surface_m2: _space.find((m) => !m.component_key)?.surface_m2 ?? null,
+        },
       };
       const lineage = await buildLineage(bq, snap);
-      return json({ ok: true, commitment, pole, lineage, site_name: null });
+      // `shape` porte le MÊME nom que sur une opération : le kit rend le MÊME bloc, sans le savoir.
+      return json({ ok: true, commitment, pole, lineage, shape: await _shapePoleP, site_name: null });
     }
 
     // MÊME règle que le cron : un « jour même » se lit sur LE JOUR DE L'OPÉRATION

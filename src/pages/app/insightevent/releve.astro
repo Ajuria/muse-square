@@ -1,0 +1,292 @@
+---
+// « /app/insightevent/releve » — LE RELEVÉ DE L'ESPACE (docs/marche-guidee-spec.md § 9 point 3).
+//
+// La marche dans le magasin, le téléphone à la main : la caméra s'ouvre DANS la page à « Commencer le
+// relevé », garde une photo par Point focal (arrêt d'environ 1,5 s), et se clôt sur UNE page, une
+// section par pôle. Décisions owner du 11/09 (M1 une seule boucle qui traverse les pôles ; M2 une photo
+// par arrêt, AUCUNE vidéo produite ni envoyée ; M5 le pôle vient du geste, jamais de la position ;
+// M7 la caméra dans la page, repli par l'appareil du téléphone) ; mots ratifiés le 12/09 (lexique l. 101-103).
+//
+// Cette page REMPLACE le proto `tools/proto/releve-espace-proto.html`, supprimé dans ce commit (règle
+// de placement : un proto meurt dans le commit qui livre sa surface). Sa logique de détection est
+// portée à l'identique dans `public/js/releve-espace.js` — mêmes seuils, mêmes identifiants de nœuds,
+// mêmes harnais `__releveStep`/`__releveState`, pour que la vérification du 12/09 continue de valoir.
+//
+// Les pôles sont lus ICI, côté serveur (foyer `listPoles`, couche semantic — jamais `analytics`) : la
+// page s'ouvre avec eux, aucun aller-retour client avant de pouvoir marcher. Même résolution de site
+// que `map.astro` : le site de l'URL s'il est possédé ou en membership, sinon celui de la session.
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+import { makeBQClient } from "../../../lib/bq";
+import { listPoles } from "../../../lib/dispositifs/poleReading";
+import { EVOL_COPY } from "../../../lib/commitments/commitmentCopy";
+
+const locals_location_id =
+  (Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim())
+    ? (Astro.locals as any).location_id.trim()
+    : null;
+if (!locals_location_id) return Astro.redirect("/profile");
+
+const url_location_id = (Astro.url?.searchParams?.get("location_id") ?? "").trim();
+const _ownedIds: string[] = Array.isArray((Astro.locals as any).all_location_ids) ? (Astro.locals as any).all_location_ids.map(String) : [];
+const _memberIds: string[] = Array.isArray((Astro.locals as any).member_location_ids) ? (Astro.locals as any).member_location_ids.map(String) : [];
+const location_id = (!!url_location_id && (_ownedIds.includes(url_location_id) || _memberIds.includes(url_location_id)))
+  ? url_location_id : locals_location_id;
+
+// 14/09 (owner : « Tu ne demandes pas pour quelle location je filme ») — LE SITE EST NOMMÉ, ET SE
+// CHOISIT. Son compte porte TROIS sites et un seul a des pôles : pris en silence, le relevé s'ouvrait
+// vide sur les deux autres, sans rien dire. Même défaut que la carte le 09/09, même correctif : le nom
+// du site est affiché, et un compte à plusieurs sites bascule ici même. Le nombre de pôles est dit
+// DANS la liste — on ne choisit pas un site à l'aveugle.
+// Le cache des pages /app est interdit par le middleware (`sansCachePourLApp`), pas ici : le garde
+// Clerk répond avant qu'une page s'exécute, donc un en-tête posé dans la page ne couvre pas tout.
+// Le marqueur de version, affiché : c'est LUI qui répond à « quelle version as-tu exécutée ? ».
+const BUILD = String(process.env.VERCEL_GIT_COMMIT_SHA || "local").slice(0, 7);
+
+// Les pôles du site, avec les composants de leur VERSION COURANTE : la seconde question du relevé
+// (« Quel composant ? ») n'a que ceux du pôle touché, donc trois ou quatre boutons — pas un tri.
+let poles: Array<{ dispositif_id: string; commitment_id: string | null; name: string; components: Array<{ component_key: string; label: string | null; type_label_fr: string | null; role_label_fr: string | null }> }> = [];
+let sites: Array<{ location_id: string; label: string; poles: number }> = [];
+try {
+  const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+  const PROJ = process.env.BQ_PROJECT_ID || "muse-square-open-data";
+  const _ids = Array.from(new Set([location_id, ..._ownedIds, ..._memberIds].filter(Boolean)));
+  // Une seule requête pour les sites du compte : leur nom ET combien de pôles chacun porte. Amorcée
+  // en parallèle des pôles du site courant — aucun aller-retour en série (budget 3 s).
+  const sitesP = _ids.length > 1 ? bq.query({
+    query: `WITH noms AS (
+              SELECT location_id, ANY_VALUE(site_name) AS label
+              FROM \`${PROJ}.semantic.vw_insight_event_ai_location_context\`
+              WHERE location_id IN UNNEST(@ids) GROUP BY 1),
+            p AS (
+              SELECT location_id, COUNT(DISTINCT dispositif_id) AS n
+              FROM \`${PROJ}.semantic.vw_insight_event_dispositif_components\`
+              WHERE location_id IN UNNEST(@ids) AND status = 'open' GROUP BY 1)
+            SELECT noms.location_id, noms.label, COALESCE(p.n, 0) AS n
+            FROM noms LEFT JOIN p USING (location_id) ORDER BY noms.label`,
+    params: { ids: _ids }, types: { ids: ["STRING"] }, location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []) : Promise.resolve([] as any[]);
+  const polesP = listPoles(bq, location_id);
+  const [_sites, _poles] = await Promise.all([sitesP, polesP]);
+  const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  sites = (_sites as any[]).map((r) => ({ location_id: String(flat(r.location_id)), label: String(flat(r.label) || ""), poles: Number(flat(r.n)) || 0 }))
+    .filter((x) => x.label);
+  poles = _poles.map((p) => ({
+    dispositif_id: p.dispositif_id,
+    commitment_id: p.commitment_id,
+    name: p.name,
+    components: (p.components || []).map((c) => ({
+      component_key: c.component_key,
+      label: c.label,
+      type_label_fr: c.type_label_fr,
+      role_label_fr: c.role_label_fr,
+    })),
+  }));
+} catch { poles = []; }
+
+// Les chaînes visibles vivent au foyer du lexique et voyagent par define:vars — jamais recopiées
+// dans le module client. Les trois `capture_*` et `pole_photo_*` sont celles du rail de la photo.
+// Les chaînes visibles vivent au foyer du lexique et voyagent par define:vars — jamais recopiées dans
+// le module client. Le filtre est par PRÉFIXE, et c'est délibéré : une liste de clés écrite à la main
+// a déjà trahi une fois (14/09 — les consignes et les états, ajoutés au foyer, n'étaient pas dans la
+// liste, donc absents de la page alors que le harnais, qui filtre par préfixe, les avait). Le harnais
+// `tools/harness/releve-verify.mts` applique EXACTEMENT le même filtre : les deux ne peuvent plus
+// divergerpar omission.
+const RELEVE_COPY: Record<string, string> = Object.fromEntries(
+  Object.entries(EVOL_COPY as Record<string, unknown>)
+    .filter(([k, v]) => typeof v === "string"
+      && (k.startsWith("releve_") || k.startsWith("capture_") || k.startsWith("pole_photo_")))
+    .map(([k, v]) => [k, String(v)]),
+);
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Relevé de l'espace — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div class="ms-container" id="rl-root">
+      <div id="rl-toolbar">
+        <a id="rl-back" href="/app/insightevent/tableau">{"← " + EVOL_COPY.back_pole}</a>
+        <span id="rl-clock">0:00</span>
+      </div>
+      <h1 id="rl-title">{EVOL_COPY.releve_titre}</h1>
+      <!-- LE SITE, nommé et choisi (owner 14/09). Même patron que le sélecteur de la carte : le nom du
+           site EST son libellé, aucun mot nouveau. Le marqueur à droite dit quelle version tourne. -->
+      <div id="rl-site">
+        {sites.length > 1
+          ? <select id="rl-site-sel">
+              {sites.map((x) => (<option value={x.location_id} selected={x.location_id === location_id}>{x.label}</option>))}
+            </select>
+          : <span>{(sites[0] && sites[0].label) || ""}</span>}
+        <span id="rl-build" title="version">{BUILD}</span>
+      </div>
+      <div id="rl-doc">
+        <!-- FORME C (owner 14/09, choisie sur proto) — trois lignes avant de marcher : ce qui se passe,
+             comment cadrer, comment changer de pôle. La première dit la seule chose qu'on ne peut pas
+             deviner : que la photo part toute seule. Le mot est « meuble » (owner 14/09) ; la base
+             garde « composant ». -->
+        <ul id="rl-consignes">
+          <li>{EVOL_COPY.releve_consigne_1}</li>
+          <li>{EVOL_COPY.releve_consigne_2}</li>
+          <li>{EVOL_COPY.releve_consigne_3}</li>
+        </ul>
+        <nav id="poles"></nav>
+        {poles.length === 0 && <p id="rl-sans-pole">{EVOL_COPY.capture_aucun_pole}</p>}
+        <button id="mainBtn" type="button" class="ms-btn" disabled={poles.length === 0}>{EVOL_COPY.releve_commencer}</button>
+        <div id="summary">
+          <div id="sumEtat"></div>
+          <div id="sumBody"></div>
+          <div class="rl-row">
+            <button id="sumBack" type="button" class="ms-btn">{EVOL_COPY.releve_reprendre}</button>
+            <a id="sumDl" class="ms-btn" download="releve-espace.json" href="#">{EVOL_COPY.releve_compte_rendu}</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 14/09 (owner) — « quand on filme, on devrait être en format vertical full page avec juste le
+           bouton arrêter visible, c'est tout ». Le viseur n'est plus une vignette dans le document :
+           c'est un calque plein écran. Dedans : l'image, le nom du pôle (qu'on touche pour en changer),
+           l'état EN MOTS, et le bouton qui arrête. Rien d'autre — la bande des cartes et le cadre de
+           couleur sont retirés : deux décorations dont il fallait devenir la légende. -->
+      <div id="capture" hidden>
+        <video id="cam" playsinline muted autoplay></video>
+        <button id="poleTag" type="button"></button>
+        <div id="etat"></div>
+        <button id="stopBtn" type="button">{EVOL_COPY.releve_fin}</button>
+        <div id="overlay">
+          <b id="ovTitle"></b><span id="ovText"></span>
+          <label id="ovFile" class="ms-btn" hidden>{EVOL_COPY.releve_photo_appareil}<input id="fileIn" type="file" accept="image/*" capture="environment" /></label>
+        </div>
+        <div id="poleSheet" hidden><div id="poleSheetList"></div></div>
+      </div>
+
+      <div id="settings">
+        <h2>Réglages</h2>
+        <label>Seuil « bouge »</label><input id="tMove" type="number" step="0.5" min="1" max="40" />
+        <label>Seuil « immobile »</label><input id="tStill" type="number" step="0.5" min="0.5" max="20" />
+        <label>Immobilité avant la photo (ms)</label><input id="stillMs" type="number" step="100" min="300" max="5000" />
+        <label>Fenêtre d'une photo plus nette (ms)</label><input id="winMs" type="number" step="100" min="0" max="4000" />
+        <label>Netteté minimale</label><input id="sharpMin" type="number" step="10" min="0" max="20000" />
+        <label>Luminosité minimale (0-255)</label><input id="brightMin" type="number" step="5" min="0" max="255" />
+        <div class="rl-row"><button id="setCancel" type="button" class="ms-btn">Fermer</button><button id="setSave" type="button" class="ms-btn">Enregistrer</button></div>
+      </div>
+    </div>
+
+    <style is:global>
+      /* Le document : ce qu'on voit AVANT et APRÈS la marche. Pendant, c'est le calque plein écran. */
+      #rl-root { max-width: 760px; margin: 0 auto; padding: 0 16px 90px; color: #111827; }
+      #rl-toolbar { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 12px; }
+      #rl-back { font-size: 14px; color: #6b7280; text-decoration: none; }
+      #rl-clock { font-size: 14px; color: #6b7280; font-variant-numeric: tabular-nums; user-select: none; -webkit-user-select: none; }
+      #rl-title { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
+      #rl-site { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; }
+      #rl-site select, #rl-site > span:first-child { font: inherit; font-size: 15px; color: #111827; border: 0; background: transparent; padding: 0; }
+      #rl-build { font-family: ui-monospace, monospace; font-size: 11px; color: #9CA3AF; }
+      #rl-sans-pole { font-size: 13px; color: #6b7280; margin: 10px 0 0; }
+      #rl-doc { background: #fff; border: 1px solid rgba(0,0,0,0.10); border-radius: 10px; padding: 12px; }
+      #rl-consignes { margin: 0 0 14px; padding-left: 18px; font-size: 14px; line-height: 1.65; color: #374151; }
+      #rl-consignes li { margin-bottom: 2px; }
+      #poles { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 4px; -webkit-overflow-scrolling: touch; }
+      #poles button { flex: 0 0 auto; border: 1px solid rgba(0,0,0,0.08); background: #fff; border-radius: 999px; padding: 10px 14px; font-size: 14px; color: #111827; font-family: inherit; min-height: 44px; }
+      #poles button.on { background: var(--color-brand-blue, #0b37e5); border-color: var(--color-brand-blue, #0b37e5); color: #fff; }
+      /* 14/09 (owner : « Pourquoi commencer le relevé n'est pas fixe en bas au bon endroit ? ») — LE
+         GESTE PRINCIPAL NE BOUGE PAS. Il était dans le flux : ajouter une ligne de consigne le faisait
+         descendre, et le pouce devait le chercher. Il est désormais FIXÉ en bas, au-dessus de la barre
+         de navigation (--ms-bb-h, 74 px sous 768 px, 0 ailleurs) — la même place quel que soit le
+         contenu au-dessus, et la même place que « Fin du relevé » pendant la prise de vue. */
+      #mainBtn { position: fixed; left: 50%; transform: translateX(-50%);
+                 width: min(728px, calc(100% - 32px)); height: 56px; z-index: 60; background: #fff;
+                 bottom: calc(var(--ms-bb-h, 0px) + env(safe-area-inset-bottom, 0px) + 12px); }
+      /* Le document se termine au-dessus du bouton : rien ne se cache dessous. */
+      #rl-root { padding-bottom: calc(var(--ms-bb-h, 0px) + 92px); }
+
+      /* ── LE CALQUE DE PRISE DE VUE : plein écran, vertical, l'image et rien qui parasite ── */
+      #capture { position: fixed; inset: 0; z-index: 120; background: #000; overflow: hidden; }
+      body.rl-filme { overflow: hidden; }
+      #cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+      /* Le pôle courant : un seul élément en haut, et c'est LUI qu'on touche pour en changer. */
+      /* Le pôle et LE MEUBLE ATTENDU (le rang décide, spec M4) — avec sa photo quand on en a une : un
+         nom partagé par six meubles ne dit rien, la photo du meuble si. */
+      #poleTag { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 12px; right: 12px; display: block; width: auto;
+                 background: rgba(17,24,39,.72); color: #fff; border: 0; border-radius: 20px; padding: 10px 14px; font-size: 15px;
+                 font-family: inherit; text-align: left; min-height: 44px; }
+      #poleTag .pt-l1 { display: block; font-weight: 600; }
+      #poleTag .pt-l2 { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 13px; opacity: .92; }
+      #poleTag .pt-l2 img { width: 32px; height: 32px; object-fit: cover; border-radius: 6px; flex: none; }
+      /* L'ÉTAT EN MOTS — ce que la marche attend de vous, là, maintenant. Jamais une couleur seule. */
+      /* L'état et le bouton se lisent sur N'IMPORTE QUELLE image : un fond sombre, jamais une ombre de
+         texte seule — une étagère claire l'avalait (vu au harnais, 402 x 812, avant livraison). */
+      #etat { position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+              display: flex; justify-content: center; }
+      #etat:empty { display: none; }
+      #etat::before { content: attr(data-mot); color: #fff; font-size: 17px; line-height: 1.45; text-align: center;
+              background: rgba(17,24,39,.72); border-radius: 999px; padding: 10px 16px; max-width: 100%; }
+      #stopBtn { position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+                 height: 56px; border-radius: 12px; border: 1px solid rgba(255,255,255,.9); background: rgba(17,24,39,.88); color: #fff;
+                 font-family: inherit; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+      #overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 6px;
+                 background: rgba(17,24,39,.62); color: #fff; text-align: center; padding: 24px; }
+      #overlay b { font-size: 24px; font-weight: 600; }
+      #overlay span { font-size: 15px; opacity: .92; }
+      #overlay .ms-btn { margin-top: 14px; border-color: #fff; color: #fff; }
+      #overlay input { display: none; }
+      /* Changer de pôle : une feuille qui monte, touchée depuis le nom du pôle. */
+      #poleSheet { position: absolute; inset: 0; background: rgba(17,24,39,.55); display: flex; align-items: flex-end; }
+      #poleSheetList { background: #fff; width: 100%; max-height: 70%; overflow: auto; border-radius: 14px 14px 0 0; padding: 8px 0 20px; }
+      #poleSheetList button { display: block; width: 100%; text-align: left; padding: 16px 20px; font-size: 16px; font-family: inherit;
+                              color: #111827; background: none; border: 0; border-bottom: 1px solid #F3F4F6; min-height: 56px; }
+      #poleSheetList button.on { color: #fff; background: var(--color-brand-blue, #0b37e5); }
+
+      /* ── LA FIN DU RELEVÉ : une page, une section par pôle, l'enregistrement en arrière-plan ── */
+      #summary { display: none; }
+      #sumEtat { font-size: 13px; color: #374151; background: #F8FAFC; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; }
+      #summary .sec { margin: 0 0 18px; }
+      #summary .sec h3 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #111827; font-weight: 700; margin: 0 0 8px; }
+      #summary .sec .n { font-size: 13px; color: #6b7280; margin: 0 0 6px; }
+      .rl-shot { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F3F4F6; }
+      .rl-shot img { width: 96px; height: 110px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; flex: none; }
+      .rl-shot .c { flex: 1; min-width: 0; }
+      .rl-shot .t { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+      .rl-shot .t b { color: #111827; font-weight: 600; }
+      .rl-shot .w { font-size: 12px; color: #B45309; margin-bottom: 4px; }
+      .rl-shot .qb { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; text-align: left; padding: 8px 10px; margin-bottom: 6px;
+                     border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; font-size: 14px; font-family: inherit; color: #111827; min-height: 48px; }
+      .rl-shot .qb img { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; flex: none; }
+      /* Le meuble attribué : un bouton, parce qu'il se corrige — et sa photo quand elle existe. */
+      .rl-comp { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; text-align: left; padding: 6px 8px; margin: 2px 0 6px;
+                 border: 1px solid #e5e7eb; border-radius: 8px; background: #F8FAFC; font-size: 14px; font-family: inherit; color: #111827; min-height: 44px; }
+      .rl-comp img { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; flex: none; }
+      .rl-comp[disabled] { opacity: .8; }
+      .rl-liste { margin-bottom: 6px; }
+      .rl-shot .rm { font-size: 12px; color: #6b7280; background: none; border: 0; font-family: inherit; padding: 4px 0; }
+      #settings { display: none; position: fixed; inset: 0; background: #fff; z-index: 140; overflow: auto; padding: 16px; }
+      #settings h2 { font-size: 16px; margin: 0 0 12px; }
+      #settings label { display: block; margin: 12px 0 4px; font-size: 13px; color: #6b7280; }
+      #settings input[type=number] { width: 100%; border: 1px solid rgba(0,0,0,0.08); border-radius: 6px; padding: 10px; font-size: 15px; }
+      .rl-row { display: flex; gap: 8px; margin-top: 16px; }
+      .rl-row .ms-btn { flex: 1; height: 44px; }
+      a.ms-btn { text-decoration: none; }
+    </style>
+
+    <script is:inline define:vars={{ RL_POLES: poles, RL_COPY: RELEVE_COPY }}>
+      window.MSReleve = { poles: RL_POLES, copy: RL_COPY };
+      // Changer de site RECHARGE la page sur ce site : ses pôles sont lus côté serveur, jamais devinés
+      // côté client. Les paramètres en cours (diagnostic, réglages) sont gardés.
+      (function () {
+        var sel = document.getElementById("rl-site-sel");
+        if (!sel) return;
+        sel.addEventListener("change", function () {
+          var u = new URL(window.location.href);
+          u.searchParams.set("location_id", sel.value);
+          window.location.href = u.toString();
+        });
+      })();
+    </script>
+    <script is:inline src="/js/photo-capture.js?v=2"></script>
+    <script is:inline src="/js/releve-espace.js?v=6"></script>
+  </BaseLayout>
+</Show>

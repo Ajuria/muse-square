@@ -3,12 +3,11 @@
 // evenement.fr.guard.test.ts. Aucune chaîne visible de l'état vide ne vit ailleurs.
 //
 // Ce qui est de l'owner : « Bilan → » (lexique), « objectif atteint / manqué / non concluant »
-// (lexique, verdict), « Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes. » (page Évaluer,
-// evenement.astro, reprise telle quelle), la forme du titre (proto validé 07/09). La carte
+// (lexique, verdict), la forme du titre (proto validé 07/09) ; la sous-ligne du bilan est réécrite le 13/09 (retour owner 12/09). La carte
 // « fait / pas fait » du proto est RETIRÉE : doctrine owner 05/08, le silence vaut « action menée »
 // (voir explorerSlots.ts). E3 : le titre de la carte note reprend le fait du jour tel que le chat le
 // rend (buildDayPerformanceFacts : « N € — +X % vs votre CA habituel »), la question est la forme owner
-// « Un souvenir ? Notez-le · sinon, laissez » (CLAUDE.md, règle 4 de la copie), le bouton est
+// la question du jour inexpliqué (forme owner 22/08, réécrite le 13/09 pour dire le gain — voir note_sub), le bouton est
 // « Enregistrer » (commitmentCopy, page de l'engagement).
 // E2/E4 (owner 07/09 : « don't you have all you need in lexique + in agir page? ») — oui, tout vient
 // de là : « Ajuster » (lexique), « Choisissez votre prochaine action : » + Poursuivre · Doubler la mise ·
@@ -19,6 +18,8 @@
 // (action-cards.js et pulse.astro feedLine4, le fil Agir).
 
 // pulse.astro feedLine4 — les libellés des sous-types d'alerte, repris tels quels.
+import { retroGainFr, type RetroEtat } from "../commitments/commitmentCopy";
+
 const ALERTE_SOUS_TYPES: Record<string, string> = {
   event_new: "Proximité géographique", proximity: "Proximité géographique", industry_overlap: "Même secteur",
   audience_overlap: "Même audience", industry_audience_overlap: "Secteur & audience", date_conflict: "Même date",
@@ -26,16 +27,29 @@ const ALERTE_SOUS_TYPES: Record<string, string> = {
 
 export const SLOTS_FR = {
   // Nature 1 — engagement résolu, sans bilan.
-  bilan_titre: (titre: string, verdictFr: string, ecartFr: string, jours: number) =>
-    `${titre} : ${verdictFr}, ${ecartFr} sur ${jours} jour${jours > 1 ? "s" : ""}`,
-  bilan_sub: "Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes.",
+  // 13/09 (retour owner 12/09 : « objectif manqué, +678 € » à vérifier) — quand l'objectif porte sur une FAMILLE, l'écart en
+  // euros est celui du LIEU : deux référentiels, dits chacun (« votre lieu », la forme de la page de l'engagement, lexique).
+  bilan_titre: (titre: string, verdictFr: string, ecartFr: string, jours: number, ecartDuLieu = false) =>
+    `${titre} : ${verdictFr}${ecartDuLieu ? " · votre lieu" : ","} ${ecartFr} sur ${jours} jour${jours > 1 ? "s" : ""}`,
+  // 13/09 (owner 12/09 : « Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes. » ne veut rien dire, et la même
+  // ligne sous deux actions différentes) — la sous-ligne dit CE QUE la mesure ne sait pas de CETTE action (les trois
+  // questions du bilan, commitmentCopy : ce qui a marché, ce que vous changeriez, à reproduire) et à quoi ça sert :
+  // gardé pour la prochaine fois que cette action revient. Proposé le 13/09, à ratifier.
+  // 13/09 (owner) — la sous-ligne = LE GAIN, avec le chiffre de la carte : retroGainFr (commitmentCopy, un seul foyer avec le
+  // bloc Documenter de la page de l'engagement).
+  bilan_sub: (etat: RetroEtat, ecartFr: string | null, titre: string) => retroGainFr(etat, ecartFr, titre),
   bilan_cta: "Bilan →",
   // Nature 1 — jour inexpliqué (|residual_z| ≥ 2) sans note.
   note_titre: (jourCap: string, dateFr: string, caFr: string, pctFr: string) => `${jourCap} ${dateFr} : ${caFr} €, ${pctFr} vs votre CA habituel`,
   // Forme MEMBRE (owner 08/09, unité « ventes ») : le même gabarit, l'unité échangée — un membre ne
   // voit jamais un niveau de CA (vue-equipe-slack-spec), il voit le compte de ventes du jour.
   note_titre_ventes: (jourCap: string, dateFr: string, nFr: string, pctFr: string) => `${jourCap} ${dateFr} : ${nFr} ventes, ${pctFr} vs vos ventes habituelles`,
-  note_sub: "Un souvenir ? Notez-le · sinon, laissez",
+  // 13/09 (owner : « la demande de saisie dit ce que l'exploitant y gagne ») — la forme du 22/08 « Un souvenir ? Notez-le ·
+  // sinon, laissez » reconnaissait qu'on ne se souvient pas toujours, mais ne disait aucun gain : zéro note écrite sur le
+  // compte de test. La nouvelle ligne garde la permission (« si vous savez ») et dit le gain VÉRIFIÉ : la note est relue
+  // par le chat quand ce jour revient (buildDayPerformanceFacts la cite comme un fait). Ce qu'elle ne fait PAS et qu'on
+  // n'écrit donc pas : elle n'exclut pas le jour du résultat habituel (aucun modèle dbt ne la consomme). À ratifier.
+  note_sub: "Si vous savez pourquoi, notez-le : la cause revient avec ce jour.",
   note_cta: "Enregistrer",
   // Nature 2 — verdict manqué, ni geste ni version suivante (≤ 14 j).
   ajuster_sub: "Choisissez votre prochaine action : Poursuivre · Doubler la mise · Pivoter",

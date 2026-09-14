@@ -157,7 +157,14 @@ export const MOTS_BANNIS: Record<string, string> = {
   // 03/09 — composants des dispositifs (lexique, owner D1/D2) : l'objet photographié se dit
   // « composant » ; « meuble », « unité typée » et « sous-type » étaient mes brouillons, attrapés à
   // la relecture owner. Le second axe se dit « rôle ».
+  // EXCEPTION DU 14/09 (owner) : « meuble » reste banni PARTOUT, sauf dans les consignes du relevé
+  // (`releve_consigne_*`). Le mot « composant » est celui du modèle (owner 03/09, D1) ; l'owner a
+  // tranché le 14/09 que ce n'est pas le mot d'une phrase dite à quelqu'un qui marche dans son
+  // magasin. La liste ci-dessous nomme les clés exemptées — une exception qui ne se lit pas est un
+  // contournement.
   "meuble": "composant",
+  // 12/09 (owner : « pas point mort mais seuil de rentabilité ») — le CA net HT qu'une journée doit générer.
+  "point mort": "seuil de rentabilité",
   "unité typée": "composant",
   "sous-type": "rôle",
 };

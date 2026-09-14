@@ -3,6 +3,7 @@
 // Corner du 08/08 (resolved missed, −394 €). Chaque assertion vue tomber par mutation (score, tri,
 // garde « jamais trois de la même nature », libellés).
 import { describe, it, expect } from "vitest";
+import { retroEtat, retroGainFr } from "../commitments/commitmentCopy";
 import { commitmentCandidates, dayNoteCandidates, decisionCandidates, occurrenceCandidates, alertCandidates, rankSlots, shortTitle, markId, verdictFr, type CommitmentSlotRow, type DayNoteSlotRow, type OccurrenceSlotRow, type AlertSlotRow } from "./explorerSlots";
 
 const TODAY = "2026-09-07";
@@ -21,7 +22,7 @@ describe("commitmentCandidates", () => {
     expect(c.nature).toBe("memoire");
     expect(c.key).toBe("explorer_slot_bilan");
     expect(plain(c.text)).toBe("Dispositif vacances scolaires centré sur les retraités : objectif atteint, +904 € sur 7 jours");
-    expect(c.sub).toBe("Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes.");
+    expect(plain(c.sub)).toBe("+904 € : ce qui a marché, à refaire la prochaine fois.");
     expect(c.cta).toBe("Bilan →");
     expect(c.href).toBe("/app/insightevent/engagement?id=c2");
     expect(c.date).toBe("2026-09-02");
@@ -32,6 +33,7 @@ describe("commitmentCandidates", () => {
   it("objectif manqué, écart négatif, un jour : le Corner du 08/08", () => {
     const [c] = commitmentCandidates([{ ...base, commitment_id: "c1", verdict: "missed", saved_item_title: "Corner de vente producteur", window_start: "2026-08-08", window_end: "2026-08-08", window_days_expected: 1, window_expected_revenue: 2263, window_actual_revenue: 1869.15, resolved_at: "2026-08-28" }], TODAY);
     expect(plain(c.text)).toBe("Corner de vente producteur : objectif manqué, −394 € sur 1 jour");
+    expect(plain(c.sub)).toBe("−394 € : ce que vous changez au prochain « Corner de vente producteur ».");
     expect(c.anciennete_jours).toBe(10);
   });
   it("owner 07/09 : le verdict dit son objectif — « objectif de +20 % manqué, +904 € sur 7 jours » (le Dispositif vacances scolaires)", () => {
@@ -46,6 +48,7 @@ describe("commitmentCandidates", () => {
   it("owner 07/09 : une action déclarée non menée remplace le verdict — « action non menée, +904 € sur 7 jours »", () => {
     const r: CommitmentSlotRow = { ...base, verdict: "missed", threshold_basis: "pct", threshold_value: 20, action_done_status: "pas_encore", window_expected_revenue: 10421, window_actual_revenue: 11324.85 };
     expect(plain(commitmentCandidates([r], TODAY)[0].text)).toBe("Dispositif vacances scolaires centré sur les retraités : action non menée, +904 € sur 7 jours");
+    expect(commitmentCandidates([r], TODAY)[0].sub).toBe("La raison du report — la journée ne compte pas contre le dispositif.");
     const [d] = decisionCandidates([{ ...r, resolved_at: "2026-09-04", has_child: 0 }], TODAY);
     expect(d.text).toContain("action non menée");
   });
@@ -78,7 +81,7 @@ describe("dayNoteCandidates (E3)", () => {
     expect(c.key).toBe("explorer_slot_note");
     expect(c.date).toBe("2026-09-01");
     expect(plain(c.text)).toBe("Mardi 01/09 : 1 603 €, +74 % vs votre CA habituel");
-    expect(c.sub).toBe("Un souvenir ? Notez-le · sinon, laissez");
+    expect(c.sub).toBe("Si vous savez pourquoi, notez-le : la cause revient avec ce jour.");
     expect(c.cta).toBe("Enregistrer");
     expect(c.href).toBe("");
     expect(c.anciennete_jours).toBe(6);
@@ -99,7 +102,7 @@ describe("dayNoteCandidates (E3)", () => {
     const [c] = dayNoteCandidates([dayVol], TODAY, "ventes");
     expect(plain(c.text)).toBe("Mardi 01/09 : 350 ventes, +77 % vs vos ventes habituelles");
     expect(c.text).not.toMatch(/€/);
-    expect(c.kind).toBe("note"); expect(c.sub).toBe("Un souvenir ? Notez-le · sinon, laissez"); expect(c.cta).toBe("Enregistrer");
+    expect(c.kind).toBe("note"); expect(c.sub).toBe("Si vous savez pourquoi, notez-le : la cause revient avec ce jour."); expect(c.cta).toBe("Enregistrer");
     expect(c.enjeu_eur).toBe(683);
   });
   it("unité « ventes » : le seuil se lit dans SA couche — un jour inexpliqué en CA mais pas en ventes ne sort pas, et inversement", () => {
@@ -208,5 +211,29 @@ describe("rankSlots", () => {
     expect(rankSlots([a, mk("b", 50, 8), mk("c", 40, 7), mk("d", 1, 1, "decision")], 3, marks).map((c) => c.objet_id)).toEqual(["b", "c", "d"]);
     // une autre date de la même clé n'est pas la même marque
     expect(rankSlots([{ ...a, date: "2026-08-29" }, mk("b", 50, 8)], 3, marks).map((c) => c.objet_id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("13/09 — retour owner 12/09 : deux référentiels dits, et la ponctuation du titre", () => {
+  it("l'objectif sur une famille : l'écart en euros est celui du lieu, dit « votre lieu » (le Corner, +39 € du lieu, objectif Branded manqué)", () => {
+    const r: CommitmentSlotRow = { ...base, verdict: "missed", threshold_basis: "pct", threshold_value: 11, measured_metric: "family_revenue", saved_item_family: "Branded", saved_item_title: "Corner de vente producteur", window_expected_revenue: 1000, window_actual_revenue: 1039, window_days_expected: 1 };
+    expect(plain(commitmentCandidates([r], TODAY)[0].text)).toBe("Corner de vente producteur : objectif de +11 % de CA de la famille « Branded » manqué · votre lieu +39 € sur 1 jour");
+  });
+  it("la tête d'un texte d'engagement qui finit par un point ne met pas ce point avant les deux-points", () => {
+    expect(shortTitle({ committed_action_text: "Tenir la vitrine sans casser vos prix. — le détail", saved_item_title: null })).toBe("Tenir la vitrine sans casser vos prix");
+    const r: CommitmentSlotRow = { ...base, saved_item_title: null, committed_action_text: "Tenir la vitrine sans casser vos prix. — le détail" };
+    expect(plain(commitmentCandidates([r], TODAY)[0].text)).toMatch(/^Tenir la vitrine sans casser vos prix : objectif atteint/);
+  });
+});
+
+describe("13/09 — le gain du bilan, un seul foyer (commitmentCopy.retroGainFr)", () => {
+  it("quatre états, le chiffre de la carte, le titre court nommé, le titre long → « la prochaine fois », l'écart non mesuré dit", () => {
+    expect(retroGainFr("missed", "−394 €", "Corner de vente producteur")).toBe("−394 € : ce que vous changez au prochain « Corner de vente producteur ».");
+    expect(retroGainFr("met", "+612 €", "Corner de vente producteur")).toBe("+612 € : ce qui a marché, à refaire au prochain « Corner de vente producteur ».");
+    expect(retroGainFr("non_menee", "+904 €", "x")).toBe("La raison du report — la journée ne compte pas contre le dispositif.");
+    expect(retroGainFr("inconclusive", null, "Dispositif vacances scolaires centré sur les retraités")).toBe("Ce que vous avez vu ce jour-là, pour trancher la prochaine fois.");
+    expect(retroGainFr("missed", null, "Corner")).toBe("Écart non mesuré : ce que vous changez au prochain « Corner ».");
+    expect(retroEtat({ verdict: "met", action_done_status: "pas_encore" })).toBe("non_menee");
+    expect(retroEtat({ verdict: "confounded", action_done_status: null })).toBe("inconclusive");
   });
 });

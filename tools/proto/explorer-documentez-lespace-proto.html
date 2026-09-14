@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Explorer — Documentez l'espace (proto)</title>
+<!--
+  PROTO — le bloc « Documentez l'espace » dans Explorer (owner 11/09 : le mot, et la surface = prompt.astro).
+  Une seule piste. Tout le CSS est COPIÉ de prompt.astro (<style is:global>) et de ie-prompt.js (carte E3
+  « note ») : .ie-prompt-card, .ie-memory-item, .ie-load-stage, le trombone de la barre de saisie. Aucune
+  couleur inventée ; #1D3BB3 = data-blue (non tokenisé, littéral comme dans la page), #0b37e5 = brand-blue.
+  Le bloc se pose dans #ie-prompt-empty, sous le héros et avant les suggestions (E0-E5) : c'est un guichet
+  de plus, même grammaire que la carte E3 (icône · texte · sous-texte · champ + bouton).
+  Sert avec `npm run harness` (4173) et parle à POST /api/explorer/agent sur le serveur de dev (4321,
+  MS_AUTH_BYPASS=1) ; ?location_id= et ?api= dans l'URL. Les deux lignes déjà documentées sont celles
+  relevées en base le 11/09 sur f10c3e58 (vue semantic) — un exemple de rendu, le vrai bloc les lira.
+  v2 (12/09, feedback owner : « hideux », « tout se passe au même endroit », « décrit le workflow au lieu des
+  bénéfices ») : le bloc est une PORTE vers le Relevé de l'espace (tools/proto/releve-espace-proto.html), pas un
+  champ. Chaînes : « Documentez l'espace » (owner 11/09), « Commencer le relevé → » (mot ratifié 12/09, forme CTA
+  « … → » des cartes d'Explorer) ; PROPOSÉES : les deux lignes (bénéfice, puis réassurance — grep lexique +
+  MOTS_BANNIS montré au chat du 12/09 ; « votre lieu » = le mot du lexique, « magasin » interdit). Le proto meurt
+  au commit qui livre le bloc.
+-->
+<style>
+  /* ── copié de prompt.astro ─────────────────────────────────────────────── */
+  :root{ --color-brand-blue:#0b37e5; }
+  body{ margin:0; }
+  #ie-prompt-root { background: #ffffff; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  #ie-prompt-main{ max-width: 720px; margin: 0 auto; padding: 24px 16px 140px; }
+  #ie-prompt-hero{ margin-bottom: 48px; }
+  #ie-prompt-greeting{ font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#9ca3af;margin:0 0 8px 0; }
+  #ie-prompt-title{ font-size: 28px; font-weight: 300; line-height: 1.3; color: #111827; margin: 0; }
+  #ie-prompt-actions-label{ font-size:12px;letter-spacing:.08em;color:#9ca3af;font-weight:600;text-transform:uppercase;margin:0 0 16px 0; }
+  .ie-prompt-card{ background: #ffffff; border:1px solid rgba(0,0,0,0.12); border-radius: 0; padding: 16px; margin-bottom:16px; display:flex; align-items:center; gap:18px; cursor:pointer; transition: all 200ms ease; text-decoration:none; color:inherit; }
+  .ie-prompt-card:hover{ border-color: rgba(0,0,0,0.2); box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+  .ie-prompt-card-icon{ width:40px; height:40px; border-radius:10px; background:#1D3BB3; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .ie-prompt-card-icon svg{ width:22px; height:22px; fill:white; stroke:none; }
+  .ie-prompt-card-content{ flex:1; min-width:0; }
+  .ie-prompt-card-arrow{ width:24px; height:24px; flex-shrink:0; opacity:0.7; }
+  .ie-prompt-card-arrow svg{ width:100%; height:100%; stroke: #111827; }
+  .ie-prompt-card-text{ font-size:16px; line-height:1.5; color: #111827; margin:0; }
+  .ie-memory-item { display: flex; align-items: baseline; gap: 10px; font-size: 13px; line-height: 1.55; color: #374151; }
+  .ie-memory-item + .ie-memory-item { margin-top: 4px; }
+  #ie-prompt-result{ margin-top:14px; font-size:14px; line-height:1.5; color:#111827; }
+  @keyframes iePulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:.45}}
+  .ie-load-stage.on{opacity:1 !important;color:#111827;}
+  .ie-load-stage.on .ie-load-dot{animation:iePulse 1.1s ease-in-out infinite;}
+  .ie-load-stage.done{opacity:.55 !important;}
+  .ie-load-stage.done .ie-load-dot{animation:none;background:transparent;position:relative;}
+  .ie-load-stage.done .ie-load-dot::after{content:"\2713";position:absolute;top:-6px;left:-1px;font-size:11px;color:#0F6E56;}
+  @media (max-width: 767px) {
+    .ie-prompt-card[data-kind="espace"] [data-espace-input] { font-size: 16px !important; min-height: 40px; }
+    .ie-prompt-card[data-kind="espace"] [data-espace-save] { min-height: 40px; }
+  }
+  /* ── proto seulement ───────────────────────────────────────────────────── */
+  .proto-note{ max-width:720px; margin:0 auto; padding:0 16px 24px; font-size:12px; color:#9CA3AF; line-height:1.5; }
+</style></head><body>
+<div id="ie-prompt-root">
+  <div id="ie-prompt-main">
+    <div id="ie-prompt-hero"><p id="ie-prompt-greeting">Explorer</p><h1 id="ie-prompt-title">Bonjour Julen</h1></div>
+    <div id="ie-prompt-actions-label">Suggestions</div>
+
+    <!-- LE BLOC — une PORTE vers le Relevé de l'espace (spec marche-guidee § 5, § 9) : grammaire des cartes
+         de suggestion d'Explorer (ie-prompt.js : icône · texte · sous-texte · CTA « … → »). Aucun champ ici :
+         l'espace se documente pendant le relevé, pas en écrivant. -->
+    <a class="ie-prompt-card" data-nature="memoire" data-kind="espace" href="#releve" id="espace-door">
+      <div class="ie-prompt-card-icon"><svg viewBox="0 0 24 24" style="fill:white;"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v5.6l4 2.4-.8 1.3L11 13V7h2z"/></svg></div>
+      <div class="ie-prompt-card-content">
+        <p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">Documentez l'espace</p>
+        <p style="font-size:13px;color:#374151;margin:0;line-height:1.4;">Faites le tour de votre lieu, le téléphone à la main : vous photographiez chaque composant, Explorer reconnaît ses familles.</p>
+        <p style="font-size:13px;color:#6b7280;margin:2px 0 0;line-height:1.4;">À votre rythme : arrêtez-vous et reprenez le relevé où vous en étiez.</p>
+        <p style="font-size:13px;color:#0b37e5;font-weight:600;margin:8px 0 0;">Commencer le relevé →</p>
+      </div>
+      <div class="ie-prompt-card-arrow"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+    </a>
+
+    <!-- Les autres suggestions (E0-E5) continuent ici, inchangées. -->
+    <div class="ie-prompt-card" style="opacity:.45;cursor:default;"><div class="ie-prompt-card-icon"><svg viewBox="0 0 24 24" style="fill:white;"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5v5.6l4 2.4-.8 1.3L11 13V7h2z"/></svg></div><div class="ie-prompt-card-content"><p class="ie-prompt-card-text" style="font-size:15px;font-weight:500;margin:0 0 2px 0;">(les suggestions du jour, E0-E5, inchangées)</p></div></div>
+  </div>
+</div>
+<p class="proto-note">Prototype du 12/09/2026. Le bloc est une carte de suggestion d'Explorer (icône, titre, lignes, CTA « … → ») et une porte : il dit ce que le relevé donne et qu'on peut s'arrêter ; il n'y a rien à écrire ici. Le geste ouvre le proto du relevé (tools/proto/releve-espace-proto.html).</p>
+<script>
+(function(){ var d=document.getElementById("espace-door"); d.addEventListener("click", function(e){ e.preventDefault(); location.href="/tools/proto/releve-espace-proto.html"; }); })();
+</script>
+</body></html>

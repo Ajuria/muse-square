@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import * as XLSX from 'xlsx';
 import { makeBQClient } from '../../../lib/bq';
 import { parseSalesCsv, validateGrid, type CanonicalRow } from '../../../lib/import/salesCsv';
-import { resolveMapping, type SourceId } from '../../../lib/import/sourceMappings';
+import { resolveMapping, VALID_SOURCES, type SourceId } from '../../../lib/import/sourceMappings';
 import { triggerSalesRefresh } from '../../../lib/dbt-trigger';
 
 export const prerender = false;
@@ -15,7 +15,6 @@ const DATASET = 'raw';
 const TABLE = 'client_transactions';
 const MAX_BYTES = 4 * 1024 * 1024; // ~4.19 MB — under Vercel's ~4.5 MB serverless body limit
 const MAX_ROWS = 60000; // ~1 year of line-level data fits well under this; guards pathological files
-const VALID_SOURCES = new Set<SourceId>(['generic', 'isavigne', 'tpvin', 'sumup', 'sage100']);
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -98,6 +97,11 @@ function canonicalToBqRow(
     ingested_at: ingestedAt,
     // P3.1-d : traçabilité — le nom du fichier déposé suit chaque ligne.
     source_file: sourceFile,
+    // 11/09 (marge) — colonnes raw additives (ALTER 11/09) : type de document de la caisse (dbt seed
+    // document_types dit s'il compte comme vente), CA HT de la ligne, taux de TVA en fraction.
+    document_type: r.document_type ?? null,
+    revenue_ht: r.revenue_ht ?? null,
+    vat_rate: r.vat_rate ?? null,
   };
 }
 

@@ -8,8 +8,8 @@ import { SLOTS, DAY_NOTES, bootOnce, slotCards } from "./explorerTestKit";
 
 beforeAll(async () => {
   SLOTS.cards = [
-    { nature: "memoire", kind: "note", key: "explorer_slot_note", date: "2026-08-07", text: "Vendredi 07/08 : 1 169 €, −24 % vs votre CA habituel", sub: "Un souvenir ? Notez-le · sinon, laissez", cta: "Enregistrer", href: "" },
-    { nature: "memoire", kind: "bilan", key: "explorer_slot_bilan", date: "2026-08-28", text: "Corner de vente producteur : objectif manqué, −394 € sur 1 jour", sub: "Votre bilan ajoute ce que la mesure ne voit pas — 2 minutes.", cta: "Bilan →", href: "/app/insightevent/engagement?id=0b4018cf" },
+    { nature: "memoire", kind: "note", key: "explorer_slot_note", date: "2026-08-07", text: "Vendredi 07/08 : 1 169 €, −24 % vs votre CA habituel", sub: "Si vous savez pourquoi, notez-le : la cause revient avec ce jour.", cta: "Enregistrer", href: "" },
+    { nature: "memoire", kind: "bilan", key: "explorer_slot_bilan", date: "2026-08-28", text: "Corner de vente producteur : objectif manqué, −394 € sur 1 jour", sub: "−394 € : ce que vous changez au prochain « Corner de vente producteur ».", cta: "Bilan →", href: "/app/insightevent/engagement?id=0b4018cf" },
   ];
   await bootOnce([
     { date: "2026-08-07", daily_revenue: 1169, revenue_robust_z: -2.4, revenue_vs_30d_avg_pct: -24, alert_level_max: 0 },
@@ -26,7 +26,7 @@ describe("la carte note", () => {
     const note = slotCards()[0] as HTMLElement;
     expect(note.getAttribute("data-kind")).toBe("note");
     expect(note.textContent).toContain("Vendredi 07/08 : 1 169 €");
-    expect(note.textContent).toContain("Un souvenir ? Notez-le · sinon, laissez");
+    expect(note.textContent).toContain("Si vous savez pourquoi, notez-le : la cause revient avec ce jour.");
     expect(note.querySelector("input[data-note-input]")).toBeTruthy();
     expect(note.querySelector("button[data-note-save]")?.textContent).toBe("Enregistrer");
     expect(note.getAttribute("href")).toBeNull();

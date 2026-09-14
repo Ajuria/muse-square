@@ -64,6 +64,17 @@ export const GENERIC_MAPPING: ColumnMapping = {
   visitor_count: ['visiteurs', 'nb visiteurs', 'affluence', 'entrees', 'footfall', 'visitors', 'visitor count'],
   payment_method: ['mode de paiement', 'paiement', 'reglement', 'payment method', 'payment', 'moyen de paiement'],
   currency: ['devise', 'monnaie', 'currency'],
+  // 11/09 (marge, décision owner 2) — type de document, CA HT, taux de TVA. Candidats GÉNÉRIQUES
+  // (vocabulaire des caisses et suites françaises) ; les en-têtes EXACTS de Crisalid entreront dans
+  // l'override crisalid depuis le premier export de détail réel, jamais depuis la documentation.
+  // Ordre des champs = ordre de résolution : `revenue` (plus haut) prend « montant ht » en premier
+  // quand c'est la seule colonne de montant ; revenue_ht ne le reçoit que s'il reste une colonne HT
+  // à côté d'une colonne TTC déjà prise par revenue.
+  document_type: ['type de document', 'type document', 'type piece', 'type de piece', 'type de la piece',
+                  'code document', 'nature du document', 'document type', 'doc type', 'type'],
+  revenue_ht: ['montant ht', 'total ht', 'ca ht', 'net ht', 'montant net ht', 'total net ht', 'prix ht',
+               'ht', 'amount excl vat', 'net amount'],
+  vat_rate: ['tva', 'taux tva', 'taux de tva', 'tva %', 'taux de tva %', 'taux', 'vat', 'vat rate'],
 };
 
 // Per-source overrides: the EXACT headers from a real export, appended to the
@@ -78,9 +89,25 @@ export const SOURCE_OVERRIDES: Record<string, ColumnMapping> = {
   // French document vocabulary) until the exact headers come from their FIRST REAL export.
   // TODO: fill from Les Olivades' first file at onboarding — never hand-type from documentation.
   sage100: {},
+  // Caisse d'Épices et Tout (NF525, confirmée au profil du site le 09/09 : pos_system = 'crisalid').
+  // Override VIDE tant que l'export de DÉTAIL n'est pas lu — le relevé financier et le ticket du
+  // 09/09 donnent les familles et le grain au poids, jamais la ligne d'en-têtes. La clé existe pour
+  // que source_system s'écrive 'crisalid' : sans elle l'import tombe sur 'csv_manual', le seau
+  // partagé de tous les dépôts manuels, et le delete-supersede d'un compte efface celui d'un autre.
+  // TODO : remplir depuis le PREMIER export réel — jamais depuis la documentation.
+  crisalid: {},
 };
 
 export type SourceId = 'generic' | keyof typeof SOURCE_OVERRIDES;
+
+// Les sources acceptées par POST /api/import/sales-csv, DÉRIVÉES des overrides — jamais
+// retapées. La liste vivait en double dans la route ; crisalid y a été ajoutée ici le 10/09
+// alors que la route ne la connaissait pas, et un dépôt Crisalid retombait donc sur 'generic'
+// (source_system = 'csv_manual', le seau partagé de tous les dépôts manuels).
+export const VALID_SOURCES: ReadonlySet<SourceId> = new Set<SourceId>([
+  'generic',
+  ...(Object.keys(SOURCE_OVERRIDES) as Array<keyof typeof SOURCE_OVERRIDES>),
+]);
 
 // Merge generic + source overrides, CONCATENATING candidate lists per field so a
 // source adds its real headers without dropping the generic synonyms. Overrides

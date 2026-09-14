@@ -469,7 +469,7 @@ if (!location_id) {
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/bp-form.js?v=1"></script>
-    <script is:inline src="/js/action-cards.js?v=128"></script>
+    <script is:inline src="/js/action-cards.js?v=129"></script>
     <script is:inline src="/js/draft-workspace.js?v=5"></script>
   
 
@@ -2700,7 +2700,7 @@ if (!location_id) {
     // Et il ne reviendra pas : un signal d'open data ne peut pas être FAUX (owner) — ce qui
     // peut l'être, c'est la CONSÉQUENCE inférée (pluie -> moins de visites), et cela se mesure
     // (résiduel, classes de jours, sensibilité type B) ou se demande là où la mesure ne voit
-    // rien : « Un souvenir ? Notez-le · sinon, laissez » sur les jours inexpliqués.
+    // rien : « Si vous savez pourquoi, notez-le : la cause revient avec ce jour. » sur les jours inexpliqués (13/09).
     // Le vote « Ce brouillon vous a-t-il été utile ? » (data-fb-vote, plus bas) RESTE : il
     // porte sur la rédaction, pas sur le signal.
  
@@ -3662,6 +3662,20 @@ if (!location_id) {
         + (dp.google_rating != null ? ' \u00b7 ' + escapeHtml(String(Number(dp.google_rating)).replace('.', ',')) + ' \u2605' : '')
         + (dp.google_rating_count != null ? ' \u00b7 ' + Math.round(Number(dp.google_rating_count)).toLocaleString('fr-FR') + ' avis' : '');
       return '<div class="ab-media photo"><img src="' + escapeHtml(String(dp.competitor_photo)) + '" alt="" loading="lazy"><div class="cap"><span>' + cap + '</span><span>' + attrHtml + '</span></div></div>';
+    }
+    // 11/09 — la photo du composant qui porte la famille (cartes famille ; monitor : family_photo, variante
+    // « band » servie par /api/dispositifs/photos). Legende : le composant (son nom, sinon son type) et son
+    // N° sur le plan (forme de card-kit) | la date de la photo en JJ/MM/AAAA. Aucune autre phrase.
+    if (dp.family_photo) {
+      var _fd = String(dp.family_photo_date || '').slice(0, 10);
+      var _fdFr = /^\d{4}-\d{2}-\d{2}$/.test(_fd) ? _fd.slice(8, 10) + '/' + _fd.slice(5, 7) + '/' + _fd.slice(0, 4) : '';
+      var _fNo = dp.family_photo_fixture_no != null && Number(dp.family_photo_fixture_no) > 0 ? 'N\u00b0 sur le plan : ' + escapeHtml(String(dp.family_photo_fixture_no)) : '';
+      var _fCap = (dp.family_photo_label ? '<b>' + escapeHtml(String(dp.family_photo_label)) + '</b>' : '') + (dp.family_photo_label && _fNo ? ' \u00b7 ' : '') + _fNo;
+      // 13/09 (owner, legende A) : une seule grammaire partout — l'identite a gauche, la VERSION et la date a
+      // droite. Sans version connue, la date seule : une metadonnee absente s'omet, jamais un tiret.
+      var _fVer = dp.family_photo_version != null && Number(dp.family_photo_version) > 0 ? 'Version ' + escapeHtml(String(dp.family_photo_version)) : '';
+      var _fDroite = [_fVer, _fdFr].filter(function (x) { return !!x; }).join(' \u00b7 ');
+      return '<div class="ab-media photo"><img src="' + escapeHtml(String(dp.family_photo)) + '" alt="" loading="lazy"><div class="cap"><span>' + _fCap + '</span><span>' + escapeHtml(_fDroite) + '</span></div></div>';
     }
     if ((ty === 'sales_surge' || ty === 'sales_revenue_down_wow') && dp.daily_revenue != null && dp.expected_revenue != null) {
       var days = (entry.group && entry.group.length) ? entry.group : [entry];

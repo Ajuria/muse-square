@@ -102,7 +102,7 @@ const CL_VITRINE: ChecklistQuestion[] = [
 
 // Partagée par linéaire, gondole, tête de gondole.
 const CL_LIBRE_SERVICE: ChecklistQuestion[] = [
-  { key: "ls_moyen_essai", question_fr: "Y a-t-il un moyen d'essayer : sentir, goûter, toucher, un échantillon ?", roles: ["expert"], lever: "conversion", proves_fr: "famille ou articles sous leur habituel + non = cause candidate (cas des poivres)" },
+  { key: "ls_moyen_essai", question_fr: "Y a-t-il un moyen d'essayer : sentir, goûter, toucher, un échantillon ?", roles: ["expert"], lever: "conversion", proves_fr: "famille ou articles sous leur résultat habituel + non = cause candidate (cas des poivres)" },
   { key: "ls_usage_explique", question_fr: "Un support dit-il à quoi sert le produit ou comment le choisir, et pas seulement d'où il vient ?", roles: ["expert"], lever: "conversion", proves_fr: "idem" },
   { key: "ls_prix_par_article", question_fr: "Chaque article porte-t-il son prix ?", roles: "all", lever: "conversion", proves_fr: "conformité ; article sans prix comparé à ses ventes" },
   { key: "ls_entree_gamme_oeil", question_fr: "Y a-t-il un article d'entrée de gamme à hauteur d'œil ?", roles: ["expert"], lever: "panier", proves_fr: "ventes des articles selon leur hauteur" },
@@ -241,6 +241,38 @@ const ROLE_LABEL_BY_VALUE: Record<string, string> = Object.fromEntries(
 export function dispositifRoleLabelFr(value: string | null | undefined): string {
   const v = String(value ?? "").trim();
   return v ? (ROLE_LABEL_BY_VALUE[v] ?? v.replace(/_/g, " ")) : "";
+}
+
+// ── L'exposition — ce que TOUTE photo dit du composant, quel que soit le type (owner 11/09) ──────
+// Chez Épices et Tout, la plupart des composants sont des comptoirs, des vitrines réfrigérées, des
+// caisses en bois au sol : compter des « étagères » n'y veut rien dire. Chaque photo répond donc
+// d'abord « Quelle exposition ? » parmi CINQ mots owner (liste fermée, jamais de texte libre), puis
+// « Combien d'étagères ? » SEULEMENT pour un rayonnage (null sinon), puis les familles
+// présentes parmi les familles réellement vendues du site (kpiRegistry.listSiteFamilies).
+export interface ExpositionOption { value: string; label_fr: string }
+export const EXPOSITION_KINDS: ExpositionOption[] = [
+  { value: "comptoir", label_fr: "Comptoir" },
+  { value: "vitrine", label_fr: "Vitrine" },
+  { value: "rayonnage", label_fr: "Rayonnage" },
+  { value: "caisses_au_sol", label_fr: "Caisses au sol" },
+  { value: "ilot", label_fr: "Îlot" },
+];
+// 13/09 (owner : « lève la restriction ») — les étagères se comptent sur TOUT composant qui en porte, pas
+// sur le seul rayonnage : la vitrine des couteaux d'Épices et Tout en a quatre, et elles étaient jetées à
+// chaque photo. Ce nom reste celui de l'exposition qui en a TOUJOURS (un rayonnage sans étagère n'existe
+// pas) ; ailleurs, c'est la photo qui décide — un comptoir arrière en a, un comptoir nu n'en a pas.
+export const EXPOSITION_WITH_LEVELS = "rayonnage";
+export const EXPOSITION_VALUES: readonly string[] = Object.freeze(EXPOSITION_KINDS.map((o) => o.value));
+export const EXPOSITION_QUESTION_FR = "Quelle exposition ?";
+// 13/09 (owner : « toutes les photos montrent des étagères ») — le mot est ÉTAGÈRE ; « niveau » était
+// ma justification, pas la sienne (lexique § Ce que toute photo dit du composant).
+export const LEVELS_QUESTION_FR = "Combien d'étagères ?";
+// Même forme que la question d'articles du registre (« Quels articles de la liste vendue reconnaît-on ? »).
+export const FAMILIES_QUESTION_FR = "Quelles familles de la liste vendue reconnaît-on ?";
+const EXPOSITION_LABEL_BY_VALUE: Record<string, string> = Object.fromEntries(EXPOSITION_KINDS.map((o) => [o.value, o.label_fr]));
+export function expositionLabelFr(value: string | null | undefined): string {
+  const v = String(value ?? "").trim();
+  return v ? (EXPOSITION_LABEL_BY_VALUE[v] ?? v.replace(/_/g, " ")) : "";
 }
 
 // ── Les composants d'un dispositif (spec § 3, owner 03/09 D1) ───────────────────────────────

@@ -8,6 +8,7 @@ import { triggerDbtJobs } from "../../../lib/dbt-trigger";
 import { logApiError } from "../../../lib/error-logger";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { INDUSTRY_LABEL } from "../../../lib/competitive/constants";
+import { normalizeCommerceAxes } from "../../../lib/profile/profileLabels";
 
 export const prerender = false;
 
@@ -258,6 +259,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const company_activity_type = getOptionalString(fd, "company_activity_type");
     const pos_system = getOptionalString(fd, "pos_system");   // P3.1-b : caisse/logiciel de vente (clé de analytics.pos_systems)
+    // 10/09 (owner) : type de commerce et gamme DÉCLARÉS — seulement pour Commerce & Retail et Marchés &
+    // Halles ; hors de ces secteurs ou hors liste, NULL (le champ se vide si le secteur change).
+    const { commerce_type, commerce_gamme } = normalizeCommerceAxes(
+      company_activity_type, getOptionalString(fd, "commerce_type"), getOptionalString(fd, "commerce_gamme"));
     const location_type = getOptionalString(fd, "location_type");
     const event_time_profile = getOptionalString(fd, "event_time_profile");
     const location_access_pattern = getOptionalString(fd, "location_access_pattern");
@@ -494,6 +499,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           ),
         company_activity_type = @company_activity_type,
         pos_system = @pos_system,
+        commerce_type = @commerce_type,
+        commerce_gamme = @commerce_gamme,
         location_type = @location_type,
         event_time_profile = @event_time_profile,
         location_access_pattern = @location_access_pattern,
@@ -545,6 +552,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         company_geog,
         company_activity_type,
         pos_system,
+        commerce_type,
+        commerce_gamme,
         location_type,
         event_time_profile,
         location_access_pattern,
@@ -596,6 +605,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         IF(@company_lon IS NULL OR @company_lat IS NULL, NULL, ST_GEOGPOINT(@company_lon, @company_lat)),
         @company_activity_type,
         @pos_system,
+        @commerce_type,
+        @commerce_gamme,
         @location_type,
         @event_time_profile,
         @location_access_pattern,
@@ -649,6 +660,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       company_geocode_status,
       company_activity_type,
       pos_system,
+      commerce_type,
+      commerce_gamme,
       location_type,
       event_time_profile,
       location_access_pattern,
@@ -692,6 +705,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       company_address: "STRING",
       company_activity_type: "STRING",
       pos_system: "STRING",
+      commerce_type: "STRING",
+      commerce_gamme: "STRING",
       location_type: "STRING",
       event_time_profile: "STRING",
       location_access_pattern: "STRING",
@@ -889,6 +904,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       company_geocode_status,
       company_activity_type,
       pos_system,
+      commerce_type,
+      commerce_gamme,
       location_type,
       event_time_profile,
       location_access_pattern,

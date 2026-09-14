@@ -58,6 +58,8 @@ export interface PlanItem {
   evidence_date_fr: string;
   running_until_fr: string | null;
   say_fr: string;
+  /** 13/09 — ce que l'exploitant a noté au bilan de ce dispositif (sa phrase, telle quelle) ; null s'il n'a rien écrit. */
+  bilan_fr: string | null;
   // J2.3 — de quoi PRÉ-REMPLIR un engagement quand le plan propose un rejeu. Le seuil n'est
   // volontairement PAS pré-rempli : `commit-form.js` calcule son point de départ sur les données
   // réelles du lieu (« Modeste réel »), ce qui vaut mieux qu'une cible que j'inventerais.
@@ -131,7 +133,10 @@ export async function journalPlan(
     query: `
       SELECT committed_action_text, dispositif_id, window_active_factors, window_residual_pct, window_residual_z,
              measured_metric, kpi_baseline, kpi_window_value, kpi_delta_pct, kpi_noise_se,
-             window_start, window_end, status
+             window_start, window_end, status,
+             -- 13/09 : le BILAN écrit de ce dispositif (ce que l'exploitant a noté) — le plan le cite quand il propose
+             -- de le rejouer : c'est le retour de sa saisie, au moment où elle sert.
+             retro_worked, retro_change
       FROM (
         SELECT *, ROW_NUMBER() OVER (
           PARTITION BY commitment_id
@@ -164,6 +169,8 @@ export async function journalPlan(
       kpi_mention_fr: commitmentEffect(r).kpi_mention_fr,
       date: ymd(r.window_start),
       window_kind: windowKind(ymd(r.window_start), ymd(r.window_end)),
+      // 13/09 — la phrase du bilan, telle que l'exploitant l'a écrite (ce qui a marché d'abord, sinon ce qu'il changerait).
+      bilan: (() => { const w = flat(r.retro_worked), c = flat(r.retro_change); const t = String(w ?? c ?? "").trim(); return t ? t.slice(0, 200) : null; })(),
     }))
     .filter((p) => p.name && p.factors.length);
 
@@ -209,6 +216,7 @@ export async function journalPlan(
         evidence_pct: p.pct,
         evidence_date_fr: frDate(p.date),
         running_until_fr: until ? frDate(until) : null,
+        bilan_fr: p.bilan ?? null,
         prefill: negative ? null : { committed_action_text: p.name, window_kind: p.window_kind },
         say_fr: negative
           ? `Le ${frDate(date)} réunit ${mots.join(" et ")} — les conditions où « ${p.name} » a prouvé un effet négatif (${frPct(p.pct)}${p.kpi_mention_fr ? ` ${p.kpi_mention_fr}` : ""} vs votre résultat habituel, le ${frDate(p.date)}). Ne pas le rejouer ce jour-là.${until ? ` Or un test est en cours jusqu'au ${frDate(until)}.` : ""}`

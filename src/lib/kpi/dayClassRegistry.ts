@@ -776,22 +776,10 @@ function rowToImpact(row: any, entangled: boolean, annualRevenue?: number | null
 // filtre, six lignes se disputeraient la même clé et la dernière lue gagnerait.
 // Les lignes d'avant ce commit (store écrasé chaque nuit, historique conservé) n'ont pas de
 // colonne metric : NULL vaut 'revenue_residual', ce qu'elles étaient.
-/**
- * 23/08 — Les JOURS d'une classe, par LE moteur (jamais une recopie de seuils) : la SQL de
- * dayClassAggregateSql(true) coupée juste après `class_days`, filtrée sur @location_id et
- * @class_key. Consommateur : le provider dispositif (atelier des mécanismes), pour ouvrir
- * l'enquête à toute classe mesurée — la porte à trois motifs du 03/08 recopiait l'appartenance
- * de chacune à la main, ce qui limitait l'entrée à ces trois-là (arbitrage owner 23/08).
- */
-export function dayClassMembersSql(): string {
-  const full = dayClassAggregateSql(true);
-  const cut = full.indexOf("    vals AS (");
-  if (cut < 0) throw new Error("dayClassMembersSql: CTE vals introuvable — la forme du moteur a changé");
-  // On garde tout jusqu'au CTE précédant `vals` (perf inclus, inoffensif) et on termine proprement.
-  const head = full.slice(0, cut).replace(/,\s*$/, "");
-  return `${head}
-    SELECT date FROM class_days WHERE location_id = @location_id AND class_key = @class_key`;
-}
+// 23/08 → 11/09 : `dayClassMembersSql` (les jours d'une classe recalculés par le moteur app) n'existe
+// plus — le provider dispositif lit semantic.vw_insight_event_day_class_membership (dbt), la même
+// appartenance que les marts famille × classe. Parité mesurée le 11/09 sur f10c3e58 : 9 classes sur 11
+// identiques, les deux terciles à ±1-2 jours (approx_quantiles côté app vs percentile_disc côté dbt).
 
 export function rowsToImpactsWithImmaterial(rows: any[], annualRevenue?: number | null, metric: string = "revenue_residual"): { impacts: Map<string, DayClassImpact>; immaterial: Set<string> } {
   const byClass = new Map<string, { pure?: any; marginal?: any }>();
@@ -942,15 +930,37 @@ async function annualRevenueQuery(bq: any, location_id: string): Promise<number 
 // 24/08 — metric: null = TOUTES les métriques (barreau 2 du coin : getDayClassImpacts lit tout
 // en UNE requête ; rowsToImpactsWithImmaterial refiltre revenue_residual, comportement inchangé).
 // Les appelants existants (dashboard) gardent le défaut au caractère près.
+// 11/09 — LE STORE REPOINTÉ (docs/reponse-aux-signaux-par-famille.md, décision owner 11/09) : les
+// classes structurelles (météo, calendrier, terciles, suivis, événements) se lisent dans
+// semantic.vw_insight_event_day_class_impacts — le mart dbt, terciles exacts, mêmes colonnes que le
+// store à `class_family` près ; le store app analytics.day_class_impacts ne reste la source QUE pour
+// ce que dbt ne porte pas : les populations de cartes (pop_*), discount_no_lift, et toute classe que la
+// vue n'a pas pour ce site (tourism_high chez l'owner, 1 jour). Les deux lectures partent ensemble ;
+// la politique (rowsToImpacts) ne change pas d'une ligne — même porte, même matérialité.
+const DAY_CLASS_VIEW = "semantic.vw_insight_event_day_class_impacts";
 export async function readDayClassStore(bq: any, location_ids: string[], metric: string | null = "revenue_residual"): Promise<any[]> {
   if (!location_ids.length) return [];
   // corr_r (28/08) : l'indice de corrélation voyage avec les lignes — les lecteurs qui ne le
   // consomment pas l'ignorent.
   const cols = "location_id, class_key, family, basis, metric, n_days, avg_gap_eur, sd_gap_eur, med_gap_eur, n_log, avg_log, sd_log, span_days, corr_r";
-  return await bq.query({
-    query: `SELECT ${cols} FROM \`${PROJECT}.${DAY_CLASS_STORE}\` WHERE location_id IN UNNEST(@locs)${metric != null ? " AND metric = @metric" : ""}`,
-    params: metric != null ? { locs: location_ids, metric } : { locs: location_ids }, location: "EU",
-  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const colsView = cols.replace("family,", "class_family AS family,");
+  const params = metric != null ? { locs: location_ids, metric } : { locs: location_ids };
+  const where = `WHERE location_id IN UNNEST(@locs)${metric != null ? " AND metric = @metric" : ""}`;
+  const read = (q: string) => bq.query({ query: q, params, location: "EU" })
+    .then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  const [viewRows, storeRows] = await Promise.all([
+    read(`SELECT ${colsView} FROM \`${PROJECT}.${DAY_CLASS_VIEW}\` ${where}`),
+    read(`SELECT ${cols} FROM \`${PROJECT}.${DAY_CLASS_STORE}\` ${where}`),
+  ]);
+  return mergeDayClassRows(viewRows as any[], storeRows as any[]);
+}
+
+/** PUR : les lignes de la vue dbt, plus celles du store pour les (site, classe) que la vue ne porte pas. */
+export function mergeDayClassRows(viewRows: any[], storeRows: any[]): any[] {
+  const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
+  const key = (r: any) => `${String(flat(r?.location_id))}|${String(flat(r?.class_key))}`;
+  const inView = new Set(viewRows.map(key));
+  return [...viewRows, ...storeRows.filter((r) => !inView.has(key(r)))];
 }
 
 export async function getDayClassImpacts(bq: any, location_id: string, dates: string[]): Promise<DayClassResult> {

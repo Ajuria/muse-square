@@ -18,7 +18,8 @@
 //   - note d'un jour inexpliqué (E3) : `semantic.vw_insight_event_day_residual`, |residual_z| ≥ 2 sur
 //     30 jours, sans ligne dans `analytics.day_notes` ; € = |daily_revenue − expected_revenue| ;
 //     ancienneté = jours depuis la date. La carte porte le champ de saisie (POST /api/insight/day-notes),
-//     forme owner « Un souvenir ? Notez-le · sinon, laissez » ; une fois notée, la source ne la produit plus.
+//     la ligne du 13/09 « Si vous savez pourquoi, notez-le : la cause revient avec ce jour. » (la permission du 22/08
+//     gardée, le gain dit) ; une fois notée, la source ne la produit plus.
 // Nature 2 (ce qui attend une décision — E2/E4, mots du lexique et du fil Agir, owner 07/09) :
 //   - à ajuster : résolu, verdict manqué, aucun adjustment_move, aucune version suivante, ≤ 14 j ;
 //   - à reconduire : résolu, verdict atteint, mêmes conditions ; € = |écart de la fenêtre| ;
@@ -30,6 +31,7 @@
 // Nature 3 (la question mesurée) reste au client : elle lit le monitor, même référentiel qu'avant.
 
 import { SLOTS_FR } from "./explorerSlotsCopy.fr";
+import { retroEtat } from "../commitments/commitmentCopy";
 
 export interface CommitmentSlotRow {
   commitment_id: string;
@@ -138,7 +140,8 @@ export function verdictFr(r: Pick<CommitmentSlotRow, "verdict" | "threshold_basi
 
 /** Le nom court de l'objet : le titre de l'opération liée, sinon la tête du texte d'engagement. */
 export function shortTitle(r: Pick<CommitmentSlotRow, "committed_action_text" | "saved_item_title">): string {
-  const t = (r.saved_item_title && String(r.saved_item_title).trim()) || String(r.committed_action_text ?? "").split(" — ")[0].trim();
+  // 13/09 (retour owner 12/09 : un point avant les deux-points du titre) — la tête du texte d'engagement perd sa ponctuation finale.
+  const t = ((r.saved_item_title && String(r.saved_item_title).trim()) || String(r.committed_action_text ?? "").split(" — ")[0].trim()).replace(/[.!?…]+$/, "").trim();
   return t || "Engagement";
 }
 
@@ -157,11 +160,15 @@ export function commitmentCandidates(rows: CommitmentSlotRow[], todayIso: string
     const ecart = r.window_actual_revenue != null && r.window_expected_revenue != null ? r.window_actual_revenue - r.window_expected_revenue : null;
     const nDays = r.window_days_expected ?? (r.window_start && r.window_end ? daysBetween(r.window_start, r.window_end) + 1 : 1);
     const ecartFr = ecart != null ? `${ecart >= 0 ? "+" : "−"}${frInt(Math.abs(ecart))} €` : "écart non mesuré";
+    // L'objectif sur une famille : l'écart en euros est celui du lieu, dit comme tel (13/09).
+    const ecartDuLieu = String(r.measured_metric ?? "revenue_residual") === "family_revenue";
+    const etat = retroEtat(r);
+    const titre = shortTitle(r);
     out.push({
       nature: "memoire", kind: "bilan", key: "explorer_slot_bilan", date: when, objet_id: r.commitment_id,
       score: Math.abs(ecart ?? 0) * jours, enjeu_eur: ecart != null ? Math.abs(ecart) : null, anciennete_jours: jours,
-      text: SLOTS_FR.bilan_titre(shortTitle(r), verdictFr(r), ecartFr, Math.max(1, nDays)),
-      sub: SLOTS_FR.bilan_sub,
+      text: SLOTS_FR.bilan_titre(titre, verdictFr(r), ecartFr, Math.max(1, nDays), ecartDuLieu),
+      sub: SLOTS_FR.bilan_sub(etat, ecart != null ? ecartFr : null, titre),
       cta: SLOTS_FR.bilan_cta,
       href: `/app/insightevent/engagement?id=${encodeURIComponent(r.commitment_id)}`,
     });

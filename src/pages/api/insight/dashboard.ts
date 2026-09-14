@@ -19,7 +19,11 @@ import { kpiCaseSql, kpiKeyListSql } from "../../../lib/kpi/kpiRegistry";
 import { familySlug, MARGIN_FAMILY_PREFIX } from "../../../lib/ai/corrections";
 // Pôles (build 28/08, protos validés) : lecture = LE foyer poleReading (mêmes chiffres que
 // journal/plan/fiche — jamais un 3e calcul) ; Historique = poleActivity (1er lecteur des traces).
-import { listPoles, buildPoleReading, type PoleComponentRow } from "../../../lib/dispositifs/poleReading";
+import { listPoles, buildPoleReading, unassignedFamilies, listPoleSpace, poleProjectState, POLE_PROJECT_FR, type PoleComponentRow, type PoleSpaceRow } from "../../../lib/dispositifs/poleReading";
+// « Non rattaché » (owner 09/09) : les familles réelles du site MOINS celles que les pôles portent.
+// Le foyer des familles réelles est kpiRegistry.listSiteFamilies — jamais une liste recopiée.
+import { listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
+import { marginDisplayMode, pctInt } from "../../../lib/kpi/margin";
 import { buildPoleActivity, resolveMemberNames } from "../../../lib/dispositifs/poleActivity";
 
 const PROJECT = "muse-square-open-data";
@@ -67,7 +71,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       if (role === "member") {
         poleList = poleList.filter((p) => (memberPoles[p.location_id] || []).map(String).includes(p.dispositif_id));
       }
-      if (!poleList.length) return { poleList: [], readings: [], weeks: [], activity: {} as Record<string, any[]>, names: {} as Record<string, string> };
+      if (!poleList.length) return { poleList: [], readings: [], weeks: [], activity: {} as Record<string, any[]>, names: {} as Record<string, string>, space: {} as Record<string, PoleSpaceRow[]>, families: {} as Record<string, string[]> };
       // Semaine passée COMPLÈTE (lundi → dimanche strictement avant aujourd'hui) — la lecture
       // hebdo actée au proto (une lecture datée, jamais un verdict : un permanent n'est pas jugé).
       const t = new Date(todayIso + "T12:00:00Z");
@@ -76,18 +80,44 @@ export const GET: APIRoute = async ({ url, locals }) => {
       const mon = new Date(sun.getTime() - 6 * 86_400_000);
       const wkStart = mon.toISOString().slice(0, 10), wkEnd = sun.toISOString().slice(0, 10);
       const locsOfPoles = [...new Set(poleList.map((p) => p.location_id))];
-      const [readings, weeks, activityByLoc, namesByLoc] = await Promise.all([
+      // 11/09 — deux lectures de plus dans LA MÊME vague (aucun aller-retour en série) : l'espace de
+      // chaque pôle (vw_insight_event_space_30d, foyer listPoleSpace) et les familles RÉELLES du site
+      // (foyer listSiteFamilies) — celles-ci servent « Non rattaché » ci-dessous ET l'état « Pôle en projet ».
+      const [readings, weeks, activityByLoc, namesByLoc, spaceByLoc, famsByLoc] = await Promise.all([
         Promise.all(poleList.map((p) => buildPoleReading(bq, p.location_id, p.dispositif_id, p.families, todayIso))),
         Promise.all(poleList.map((p) => buildPoleReading(bq, p.location_id, p.dispositif_id, p.families, todayIso, { start: wkStart, end: wkEnd }))),
         Promise.all(locsOfPoles.map((l) => buildPoleActivity(bq, l, poleList.filter((p) => p.location_id === l).map((p) => p.dispositif_id)))),
         Promise.all(locsOfPoles.map((l) => resolveMemberNames(bq, l))),
+        Promise.all(locsOfPoles.map((l) => listPoleSpace(bq, l).then((rows) => [l, rows] as const))),
+        Promise.all(locsOfPoles.map((l) => listSiteFamilies(bq, l, 50).then((f) => [l, f.map((x: any) => String(x.category))] as const).catch(() => [l, [] as string[]] as const))),
       ]);
+      const space: Record<string, PoleSpaceRow[]> = Object.fromEntries(spaceByLoc);
+      const families: Record<string, string[]> = Object.fromEntries(famsByLoc);
       const activity: Record<string, any[]> = Object.assign({}, ...activityByLoc);
       const names: Record<string, string> = Object.assign({}, ...namesByLoc);
-      return { poleList, readings, weeks, activity, names, week_window: { ws: wkStart, we: wkEnd } } as any;
+      // ── « Non rattaché » (owner 09/09) — aucune famille hors mapping. La ligne se DÉDUIT
+      // (familles réelles moins celles déjà prises), elle ne se déclare pas : une catégorie
+      // nouvelle dans la caisse y tombe seule, là où un pôle déclaré se périmerait. Jamais pour
+      // un membre (il ne répond pas du rangement du magasin) ; jamais sans pôle déclaré (sans
+      // mapping, il n'y a pas de trou). Lecture par LE MÊME foyer buildPoleReading : mêmes
+      // chiffres, même bande de bruit, mêmes planchers que les pôles voisins.
+      let unassigned: Array<{ location_id: string; families: string[]; reading: any }> = [];
+      if (role !== "member") {
+        const perLoc = await Promise.all(locsOfPoles.map(async (l) => {
+          const fams = unassignedFamilies(
+            (families[l] || []).map((category) => ({ category })),
+            poleList.filter((p) => p.location_id === l),
+          );
+          if (!fams.length) return null;
+          const reading = await buildPoleReading(bq, l, "non_rattache", fams, todayIso).catch(() => null);
+          return reading ? { location_id: l, families: fams, reading } : null;
+        }));
+        unassigned = perLoc.filter(Boolean) as any[];
+      }
+      return { poleList, readings, weeks, activity, names, unassigned, week_window: { ws: wkStart, we: wkEnd }, space, families } as any;
     })();
 
-    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows], [famCaRows], [bandeauRows], [poleUnitsRows]] = await Promise.all([
+    const [[occRows], [comRows], [outRows], [bpRows], [bpCountRows], [alertRows], [bilanRows], [corrRows], [labelRows], [setupRows], [trigRows], [heatRows], [freshRows], [consigneRows], [dcRows], [annualRevRows], [tendRows], [veilleRows], [offChgRows], [offBaseRows], [covSiteRows], [watchedRows], [trousRows], [evts14Rows], [dowRows], [savoirRows], [cartesRows], [mesRows], [mesDailyRows], [ficheRows], [serieRows], [audRows], [gapRows], [testRows], [caDailyRows], [opsValRows], [evtPubRows], [evtCovRows], [funnelRows], [famCaRows], [bandeauRows], [poleUnitsRows], [mgSiteRows], [mgDayRows], [mgMonthRows], [mgParamRows]] = await Promise.all([
       // Occurrences à venir (60 j, cap 20) + prêt/pas prêt + météo du jour (niveau max).
       bq.query({
         // Perf 25/08 : les 5 sous-requêtes corrélées (2,6-4,7 s de plan, 1 Mo scanné — coupable
@@ -432,15 +462,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 JOIN \`${PROJECT}.raw.competitor_directory\` cd
                   ON cd.competitor_id = tp.competitor_id AND cd.deleted_at IS NULL
                 WHERE tp.location_id IN UNNEST(@locs) AND NOT tp.is_followed AND tp.threat_level = 'high'
-                  -- 09/09 (owner : « pour Sèvres, on me propose de suivre des musées ») — le geste
-                  -- « Suivez X » ne propose QUE le même secteur que le site : le mart calcule déjà
-                  -- industry_match_tier ('direct' = même code secteur, 'partial' = autre secteur),
-                  -- la requête l'ignorait. Une épicerie fine se voyait proposer le musée d'Orsay
-                  -- avec « 100 % de public commun ». Mesuré sur le mart : Sèvres 7 → 0, f10c3e58
-                  -- 3 → 0, ff2aeb35 1 → 0, d1c40076 7 098 → 5 — les lignes retirées sont des
-                  -- entrées 'culture'/'unknown' proposées à des sites 'commercial'. La justesse
-                  -- de 'high' sur une paire d'un AUTRE secteur reste un défaut du mart (dbt).
-                  AND tp.industry_match_tier = 'direct'
+                  -- Pas de filtre secteur ici : depuis le 09/09 (PR ms_database #131, construite),
+                  -- threat_level = 'high' EXIGE industry_match_tier = 'direct' dans le modèle
+                  -- lui-même. Le filtre applicatif posé le matin du 09/09 est retiré — une règle
+                  -- écrite à deux endroits finit par diverger. Si des musées réapparaissent dans
+                  -- « Suivez X », le défaut est dans le modèle, pas ici.
                   -- Vérité LIVE (16/08) : le mart est nocturne — un suivi créé aujourd'hui, ou un
                   -- doublon fusionné, ne doit pas laisser un « trou » fantôme. Exclusion si un
                   -- suivi VIVANT du même site existe sur CETTE entrée ou sur une entrée vivante
@@ -862,12 +888,80 @@ export const GET: APIRoute = async ({ url, locals }) => {
                 GROUP BY 1, 2, 3`,
         params: { locs }, location: "EU",
       }).catch(() => [[]]) : Promise.resolve([[]]),
+      // ── MARGE BRUTE MESURÉE (11/09, docs/catalogue-de-couts-et-marge.md) — quatre lectures dans la
+      // même vague (coût = la plus lente, jamais la somme). Semantic seulement. Tout NULL sans prix
+      // d'achat : la couverture dit l'absence, jamais un chiffre inventé.
+      // (a) 30 derniers jours par site : CA brut, CA au prix d'achat connu, marge — la couverture en découle.
+      bq.query({
+        query: `SELECT location_id, SUM(revenue) AS revenue_30d, SUM(revenue_costed) AS revenue_costed_30d,
+                       SUM(gross_margin_ht) AS gross_margin_ht_30d, SUM(revenue_net_ht_costed) AS revenue_net_ht_costed_30d
+                FROM \`${PROJECT}.semantic.vw_insight_event_daily_margin\`
+                WHERE location_id IN UNNEST(@locs)
+                  AND date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND CURRENT_DATE()
+                GROUP BY 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // (b) le dernier jour de vente par site : seuil de rentabilité du jour et heure atteinte.
+      bq.query({
+        query: `SELECT location_id, CAST(date AS STRING) AS d, gross_margin_ht, coverage_pct, charges_day_eur,
+                       break_even_revenue_ht, break_even_hour, is_break_even_reached, margin_rate_30d, opening_days_ref
+                FROM \`${PROJECT}.semantic.vw_insight_event_daily_margin\`
+                WHERE location_id IN UNNEST(@locs) AND date <= CURRENT_DATE()
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY date DESC) = 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // (c) le dernier mois COMPLET par site : résultat net (NULL sans charges, sans masse salariale ou sous le seuil).
+      bq.query({
+        query: `SELECT location_id, CAST(month AS STRING) AS month, net_result_eur, coverage_pct, gross_margin_ht, revenue_net_ht,
+                       fixed_costs_month_eur, payroll_month_eur, payroll_to_revenue_pct
+                FROM \`${PROJECT}.semantic.vw_insight_event_monthly_result\`
+                WHERE location_id IN UNNEST(@locs) AND is_complete_month
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY month DESC) = 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
+      // (d) les paramètres déclarés en vigueur au dernier jour de vente : ce qui manque se lit ici.
+      bq.query({
+        query: `SELECT location_id, revenue_basis, revenue_basis_source, fixed_costs_month_eur, payroll_month_eur, sales_area_m2
+                FROM \`${PROJECT}.semantic.vw_insight_event_declared_parameters\`
+                WHERE location_id IN UNNEST(@locs)
+                QUALIFY ROW_NUMBER() OVER (PARTITION BY location_id ORDER BY date DESC) = 1`,
+        params: { locs }, location: "EU",
+      }).catch(() => [[]]),
     ]);
 
     const opsValue = (opsValRows as any[]).map((r) => ({ saved_item_id: str(r.saved_item_id), avg_gap: num(r.avg_gap), n: num(r.n) ?? 0 }));
 
     const siteLabel: Record<string, string> = {};
     for (const r of labelRows as any[]) siteLabel[String(str(r.location_id))] = String(str(r.label) ?? "");
+
+    // ── Marge brute mesurée : un bloc par site, le MODE d'affichage décidé ici (M8) et jamais côté client.
+    const margeMesuree = (() => {
+      const bySite: Record<string, any> = {};
+      for (const r of mgSiteRows as any[]) {
+        const lid = String(str(r.location_id)); const rev = num(r.revenue_30d); const costed = num(r.revenue_costed_30d);
+        const cov = rev && rev > 0 ? Math.min(1, (costed ?? 0) / rev) : null;
+        bySite[lid] = { location_id: lid, site_label: siteLabel[lid] || null, revenue_30d: rev, revenue_costed_30d: costed,
+          coverage_pct: cov == null ? null : Math.round(cov * 1000) / 10, mode: marginDisplayMode(cov),
+          gross_margin_ht_30d: num(r.gross_margin_ht_30d), margin_rate_pct: pctInt(num(r.gross_margin_ht_30d), num(r.revenue_net_ht_costed_30d)) };
+      }
+      for (const r of mgDayRows as any[]) {
+        const lid = String(str(r.location_id)); const e = (bySite[lid] = bySite[lid] || { location_id: lid, site_label: siteLabel[lid] || null, mode: "aucune" });
+        e.point_mort = { date: str(r.d), charges_day_eur: num(r.charges_day_eur), break_even_revenue_ht: num(r.break_even_revenue_ht),
+          break_even_hour: num(r.break_even_hour), is_reached: flat(r.is_break_even_reached) === true ? true : flat(r.is_break_even_reached) === false ? false : null,
+          gross_margin_ht: num(r.gross_margin_ht), coverage_pct: num(r.coverage_pct) == null ? null : Math.round(Number(num(r.coverage_pct)) * 1000) / 10, opening_days_ref: num(r.opening_days_ref) };
+      }
+      for (const r of mgMonthRows as any[]) {
+        const lid = String(str(r.location_id)); const e = (bySite[lid] = bySite[lid] || { location_id: lid, site_label: siteLabel[lid] || null, mode: "aucune" });
+        e.resultat_net = { month: str(r.month), net_result_eur: num(r.net_result_eur), coverage_pct: num(r.coverage_pct) == null ? null : Math.round(Number(num(r.coverage_pct)) * 1000) / 10,
+          gross_margin_ht: num(r.gross_margin_ht), revenue_net_ht: num(r.revenue_net_ht), fixed_costs_month_eur: num(r.fixed_costs_month_eur), payroll_month_eur: num(r.payroll_month_eur), payroll_to_revenue_pct: pctInt(num(r.payroll_month_eur), num(r.revenue_net_ht)) };
+      }
+      for (const r of mgParamRows as any[]) {
+        const lid = String(str(r.location_id)); const e = (bySite[lid] = bySite[lid] || { location_id: lid, site_label: siteLabel[lid] || null, mode: "aucune" });
+        e.params = { revenue_basis: str(r.revenue_basis), revenue_basis_source: str(r.revenue_basis_source), fixed_costs_month_eur: num(r.fixed_costs_month_eur), payroll_month_eur: num(r.payroll_month_eur), sales_area_m2: num(r.sales_area_m2) };
+      }
+      return Object.values(bySite);
+    })();
+
 
     const alerts = (alertRows as any[]).map((r) => ({ location_id: str(r.location_id), date: str(r.d), subtype: str(r.change_subtype), km: num(r.km) }));
     const alertKeys = new Set(alerts.map((a) => a.location_id + "|" + a.date));
@@ -1219,6 +1313,21 @@ export const GET: APIRoute = async ({ url, locals }) => {
         // La cible des CTA Ajuster/Documenter du volet : la fiche de la version courante.
         commitment_id: p.commitment_id,
         name: p.name, lever: p.lever, families: p.families, responsable: p.responsable,
+        // « Pôle en projet » (11/09, mot owner) : l'état se déduit, il ne se déclare pas — familles du
+        // pôle face aux familles réelles du site ; null quand le pôle vend.
+        projet: poleProjectState(p.families, (polesRaw.families || {})[p.location_id] || []),
+        projet_fr: (() => { const r = poleProjectState(p.families, (polesRaw.families || {})[p.location_id] || []); return r ? POLE_PROJECT_FR[r] : null; })(),
+        // Espace du pôle (11/09, E4-E6) : la ligne grain 'pole' de vw_insight_event_space_30d — mètres
+        // de façade, Part de linéaire, surface de vente, CA et marge par mètre et par m² ; null sans mesure.
+        space: (() => {
+          const s = ((polesRaw.space || {})[p.location_id] || []).find((r: PoleSpaceRow) => r.grain === "pole" && r.pole_id === p.dispositif_id) || null;
+          return s ? {
+            linear_m: s.linear_m, linear_share: s.linear_share, surface_m2: s.surface_m2,
+            revenue_per_m: s.revenue_per_m, revenue_net_ht_per_m: s.revenue_net_ht_per_m, margin_per_m: s.margin_per_m,
+            revenue_per_m2: s.revenue_per_m2, revenue_net_ht_per_m2: s.revenue_net_ht_per_m2, margin_per_m2: s.margin_per_m2,
+            revenue_share: s.revenue_share, margin_share: s.margin_share, coverage_pct: s.coverage_pct,
+          } : null;
+        })(),
         // Composants de la version courante (03/09, § 5.5) — depuis la couche semantic via
         // listPoles ; les libellés provisoires (sans mot owner) sont omis au rendu.
         components: ((p.components ?? []) as PoleComponentRow[]).map((c) => ({
@@ -1304,6 +1413,13 @@ export const GET: APIRoute = async ({ url, locals }) => {
       period_days: period,
       // Bloc pôles (28/08) — section « Vos pôles » du tableau (grille + volet, Historique).
       poles,
+      // « Non rattaché » : JAMAIS dans `poles` — tout ce qui itère les pôles (volet, périmètre
+      // membre, routage Slack, rattachement d'opération) traiterait un reste comme un dispositif.
+      poles_unassigned: ((polesRaw.unassigned || []) as any[]).map((u) => ({
+        location_id: u.location_id, families: u.families,
+        rev30_eur: u.reading.totals.rev30_eur, share_pct: u.reading.totals.share_pct,
+        delta_pct: u.reading.totals.delta_pct, n30: u.reading.totals.n30,
+      })),
       impact: {
         gap_eur: gapSum,
         eur_windows: martRows.length,
@@ -1323,6 +1439,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // (le `ca30` serveur de la branche marges est REMPLACÉ par cette dérivation client — pas repris.)
       ca_daily: (caDailyRows as any[]).map((r) => ({ l: str(r.location_id), d: str(r.d), ca: num(r.ca) ?? 0, exp: num(r.exp) })),
       marges,
+      marge_mesuree: margeMesuree,
       ops_value: opsValue,
       last_verdict: lastVerdict,
       met_recipe: metRecipe,
@@ -1505,6 +1622,21 @@ export const GET: APIRoute = async ({ url, locals }) => {
         alerts_critical_on: flat((setupRows as any[])[0]?.alerts_on) === true,
         team_routing_set: Number(num((setupRows as any[])[0]?.routed_n) ?? 0) > 0,
         margin_declared: corrections.includes("declared_margin_pct"),
+        // Marge mesurée (11/09) : chaque manque est RÉEL en base, par site avec ventes. prix_achat = le pire
+        // site sous le seuil (sa couverture voyage) ; charges = un site sans charges fixes OU sans masse
+        // salariale ; surface = sans surface de vente ; base_ca = base HT/TTC ni fixée par la caisse ni déclarée.
+        ...(() => {
+          const withSales = margeMesuree.filter((m: any) => m.revenue_30d != null && m.revenue_30d > 0);
+          const worst = withSales.filter((m: any) => m.mode !== "mesure").sort((a: any, b: any) => (a.coverage_pct ?? 0) - (b.coverage_pct ?? 0))[0];
+          const missing = (k: string) => withSales.filter((m: any) => !m.params || m.params[k] == null).map((m: any) => ({ location_id: m.location_id, site_label: m.site_label }));
+          const baseMissing = withSales.filter((m: any) => !m.params || !m.params.revenue_basis).map((m: any) => ({ location_id: m.location_id, site_label: m.site_label }));
+          return {
+            prix_achat_missing: worst ? { location_id: worst.location_id, site_label: worst.site_label, coverage_pct: worst.coverage_pct, mode: worst.mode } : null,
+            charges_missing: missing("fixed_costs_month_eur").length ? missing("fixed_costs_month_eur") : (missing("payroll_month_eur").length ? missing("payroll_month_eur") : []),
+            surface_missing: missing("sales_area_m2"),
+            base_ca_missing: baseMissing,
+          };
+        })(),
         bilans_pending: bilans,
         to_document: toDocument,
         declared_no_replay: declaredNoReplay,

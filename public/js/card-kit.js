@@ -7,7 +7,7 @@
 (function () {
   "use strict";
   function esc(s) { if (!s) return ''; return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-  function frInt(n) { try { return Number(n).toLocaleString('fr-FR'); } catch (e) { return String(n); } }
+  function frInt(n) { try { return Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 0 }); } catch (e) { return String(n); } }
 
   /* Lexique regle 6 : jours en toutes lettres - jamais d'abreviation. */
   var WX_DOW_FR = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -22,6 +22,8 @@
   // L'adresse de la page d'un engagement (opération ou pôle) — une seule forme, la même que les
   // liens « Opérations sur ce pôle » du kit et « Ouvrir le pôle → » de pole-form.js.
   function msEngagementUrl(id) { return '/app/insightevent/engagement?id=' + encodeURIComponent(String(id == null ? '' : id)); }
+  // 13/09 — un PÔLE a sa propre adresse, sous Piloter (owner : « Dans Agir vraiment ? »).
+  function msPoleUrl(id) { return '/app/insightevent/pole?id=' + encodeURIComponent(String(id == null ? '' : id)); }
   // Family-aware "what changed" placeholder for the Ajuster move-note (structure universal, hint bespoke).
   function _moveHint(at) {
     var s = String(at || '');
@@ -694,12 +696,39 @@
   //    Self-contained helpers — the page's exact esc/fr semantics (0 -> "0"), NOT the
   //    kit globals (whose esc nulls 0). The page keeps the wiring (wireCapture/wireAdvice,
   //    fetch, MSCommitForm); this returns ONLY the document HTML. COPY = EVOL_COPY.
+  // ── 13/09 — LA RANGEE DE VIGNETTES D'UNE VERSION, partagee par les deux historiques (operation et POLE).
+  // Elle vivait dans la branche operation seulement : la page d'un pole ne rendait donc aucune photo, alors
+  // que c'est le seul endroit ou l'on en prend (owner 13/09 : « rien de l'historique n'est implemente »).
+  function msLinPhotosRow(v, avecPhoto, t) {
+    if (!avecPhoto) return '';
+    var ph = Array.isArray(v.photos) ? v.photos : [];
+    if (!ph.length) return '<div style="font-size:12px;color:#6B7280;margin:2px 0 8px 0;">' + esc(t('lin_photo_none')) + '</div>';
+    var reste = Number(v.photos_autres) || 0;
+    return '<div data-lin-photos="' + esc(String(v.version_no)) + '" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;margin:4px 0 10px 0;">'
+      + ph.map(function (p) {
+          var thumb = String(p.url || '');
+          if (thumb && thumb.indexOf('variant=') < 0) thumb += (thumb.indexOf('?') < 0 ? '?' : '&') + 'variant=square';
+          var d = String(p.created_at || '').slice(0, 10);
+          var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+          var court = String(p.label_court || p.label_fr || '');
+          var titre = [String(p.label_fr || ''), (p.fixture_no != null && Number(p.fixture_no) > 0 ? 'N\u00b0 ' + p.fixture_no : ''),
+                       'Version ' + v.version_no, dfr, p.auteur ? String(p.auteur) : ''].filter(function (x) { return !!x; }).join(' \u00b7 ');
+          return '<a href="' + esc(String(p.url || '')) + '" target="_blank" rel="noopener" style="text-decoration:none;color:#6B7280;display:block;width:96px;">'
+            + '<img src="' + esc(thumb) + '" alt="' + esc(String(p.label_fr || '')) + '" title="' + esc(titre) + '" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block;">'
+            + '<div style="font-size:11px;line-height:1.35;margin-top:3px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(court) + '</div>'
+            + (dfr ? '<div style="font-size:11px;line-height:1.35;">' + esc(dfr) + '</div>' : '')
+            + '</a>';
+        }).join('')
+      + (reste > 0 ? '<div style="font-size:12px;color:#6B7280;align-self:center;">' + esc(t(reste > 1 ? 'lin_photo_autres' : 'lin_photo_autre', { n: reste })) + '</div>' : '')
+      + '</div>';
+  }
+
   function renderEvolution(data, COPY) {
     var WIN_FR = { day_of: 'Jour même', '7d': '7 jours', '14d': '14 jours', '30d': '30 jours' };
     var LVL_FR = { modeste: 'modeste', net: 'net' };
     function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     function fr(n) { var r = Math.round((Number(n) || 0) * 10) / 10; return (Number.isInteger(r) ? String(r) : r.toFixed(1)).replace('.', ','); }
-    function intfr(n) { return (Number(n) || 0).toLocaleString('fr-FR'); }
+    function intfr(n) { return (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 }); }
     function dnum(iso) { return parseInt(String(iso).slice(8, 10), 10); }
     // Étiquette d'axe : jour de semaine EN TOUTES LETTRES + JJ/MM (lexique règle 6, contrat
     // déjà porté par le kit — aucune abréviation). WX_DOW_FR = le foyer des jours.
@@ -755,11 +784,16 @@
         var taStyle = 'width:100%;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;font-size:13px;color:#111827;background:#f9fafb;font-family:inherit;resize:none;min-height:56px;box-sizing:border-box;margin-bottom:14px;';
         var qStyle = 'font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;';
         var rep = cm.retro_repeat;
-        inner = '<div style="font-size:12px;color:#374151;margin-bottom:14px;line-height:1.5;">' + esc(t('doc_hint')) + '</div>'
-          + '<div style="' + qStyle + '">' + esc(t('retro_worked_q')) + '</div>'
-          + '<textarea data-retro-worked placeholder="' + esc(t('retro_worked_ph')) + '" style="' + taStyle + '">' + esc(cm.retro_worked || '') + '</textarea>'
-          + '<div style="' + qStyle + '">' + esc(t('retro_change_q')) + '</div>'
-          + '<textarea data-retro-change placeholder="' + esc(t('retro_change_ph')) + '" style="' + taStyle + '">' + esc(cm.retro_change || '') + '</textarea>'
+        // 13/09 (owner) — le bilan dit d'abord LE GAIN, avec le chiffre de l'action, puis tient en UNE ligne + « À reproduire ? ».
+        // L'état : non menée > verdict ; l'écart : la fenêtre mesurée ; le titre court : la tête du texte d'engagement.
+        var _etat = cm.action_done_status === 'pas_encore' ? 'non_menee' : cm.verdict === 'met' ? 'met' : cm.verdict === 'missed' ? 'missed' : 'inconclusive';
+        var _act = cm.window_actual_revenue != null ? Number(cm.window_actual_revenue) : null, _exp = cm.window_expected_revenue != null ? Number(cm.window_expected_revenue) : null;
+        var _ecartFr = (_act != null && _exp != null && isFinite(_act) && isFinite(_exp)) ? ((_act - _exp) >= 0 ? '+' : '\u2212') + intfr(Math.round(Math.abs(_act - _exp))) + ' \u20ac' : '\u00c9cart non mesur\u00e9';
+        var _titre = String(cm.saved_item_title || String(cm.committed_action_text || '').split(' \u2014 ')[0] || '').replace(/[.!?\u2026]+$/, '').trim();
+        var _gainKey = _etat === 'non_menee' ? 'retro_gain_non_menee' : ('retro_gain_' + _etat + (_titre && _titre.length <= 40 ? '' : '_sans'));
+        inner = '<div style="font-size:13px;color:#111827;margin-bottom:12px;line-height:1.5;">' + esc(t(_gainKey, { ecart: _ecartFr, titre: _titre })) + '</div>'
+          + '<div style="' + qStyle + '">' + esc(t('retro_line_q_' + _etat)) + '</div>'
+          + '<textarea data-retro-line data-retro-etat="' + _etat + '" placeholder="' + esc(t('retro_line_ph')) + '" style="' + taStyle + '">' + esc(cm.retro_worked || cm.retro_change || '') + '</textarea>'
           + '<div style="' + qStyle + '">' + esc(t('retro_repeat_q')) + '</div>'
           + '<div style="display:flex;gap:8px;margin-bottom:4px;">'
           + '<button type="button" data-retro-repeat="oui" style="' + doneBtnStyle(rep === true) + '">' + esc(t('repeat_yes')) + '</button>'
@@ -1045,7 +1079,15 @@
       // Photos (etape 4, 03/09) : une rangee par composant porte un emplacement [data-eg-photo]
       // que la page remplit (GET /api/dispositifs/photos) et un CTA « Documenter » (mot owner)
       // qui ouvre le depot d'une photo — le cablage vit dans engagement.astro, le kit ne rend.
+      // 13/09 (owner, ligne ratifiee) : la demande de photo dit son gain, sous le titre, une seule fois.
+      // Elle s'affiche des la premiere version — j'avais prevu de la reserver aux poles ayant deja une version
+      // precedente, mais cette condition rendait la fonctionnalite morte : sans photo prise a la V1, il n'y a
+      // rien a comparer a la V2, donc l'invitation doit venir AVANT. Ce qu'elle promet existe (l'historique du
+      // dispositif rend les photos des la deuxieme version) ; elle ne promet aucun verdict, un pole n'en a pas.
+      var _compHint = t2('pole_components_hint')
+        ? '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-bottom:8px;">' + esc(t2('pole_components_hint')) + '</div>' : '';
       h += '<div class="eg-sec" data-eg-components data-eg-dispositif="' + esc(cm.dispositif_id || '') + '" data-eg-version="' + esc(cm.version_no != null ? String(cm.version_no) : '') + '"><div class="eg-uc">' + esc(t2('pole_components_title')) + '</div>'
+        + _compHint
         + (pComps.length
           ? pComps.map(function (c) {
               var meta = [c.type_label_fr, c.role_label_fr].filter(function (x) { return !!x; }).join(' \u00b7 ');
@@ -1053,6 +1095,9 @@
                 + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;">'
                 + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(c.label || c.type_label_fr || '') + '</span>'
                 + '<span style="display:inline-flex;align-items:center;gap:10px;"><span style="font-size:12px;color:#6b7280;">' + esc(meta) + '</span>'
+                // v2 (11/09) : le numero du composant sur le plan, saisi par l'exploitant AVANT « Documenter » —
+                // la page le lit et l'envoie avec la photo (fixture_no) ; jamais lu sur l'image.
+                + (cm.status === 'open' ? '<input type="number" min="1" max="9999" step="1" inputmode="numeric" data-eg-fixture-no="' + esc(c.key || '') + '" placeholder="' + esc(t2('pole_photo_fixture_no')) + '" title="' + esc(t2('pole_photo_fixture_no')) + '" style="width:110px;font-size:12px;color:#111827;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:4px 8px;font-family:inherit;">' : '')
                 + (cm.status === 'open' ? '<button type="button" data-eg-photo-add="' + esc(c.key || '') + '" style="font-size:12px;font-weight:500;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit;">' + esc(t2('pole_photo_cta')) + '</button>' : '')
                 + '</span></div>'
                 + '<div data-eg-photo="' + esc(c.key || '') + '" style="margin-top:6px;font-size:12px;color:#6b7280;">' + esc(t2('pole_photo_none')) + '</div>'
@@ -1109,6 +1154,60 @@
               + right + '</div>';
           }).join('')
         + '</div>';
+      // 14/09 (owner) — L'ESPACE DU PÔLE, juste après ses résultats : mètres de façade, Part de linéaire,
+      // surface de vente, puis le CA et la marge par MÈTRE et par m². Les chiffres viennent du même foyer
+      // que le volet de Piloter (listPoleSpace, servi par evolution) et les phrases sont les siennes, au
+      // mot près. L'absence se dit, jamais une section vide (lexique règle 7).
+      (function () {
+        var sp = pr.space || null;
+        var m1 = function (v) { return String(Math.round(Number(v) * 10) / 10).replace('.', ','); };
+        var pc = function (s) { return String(Math.round(Number(s) * 1000) / 10).replace('.', ',') + ' %'; };
+        var ligne = function (txt) { return '<div style="font-size:12.5px;color:#374151;margin-bottom:4px;">' + esc(txt) + '</div>'; };
+        var b = '<div class="eg-sec" data-eg-espace><div class="eg-uc">' + esc(t2('pole_space_title')) + '</div>';
+        if (sp && sp.linear_m != null) {
+          var l1 = [t2('pole_space_lineaire', { m: m1(sp.linear_m) }),
+            sp.linear_share != null ? t2('pole_space_part', { pct: pc(sp.linear_share) }) : '',
+            sp.surface_m2 != null ? t2('pole_space_surface', { m: m1(sp.surface_m2) }) : ''].filter(Boolean).join(' · ');
+          b += '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">' + esc(l1) + '</div>';
+          if (sp.revenue_per_m != null) {
+            b += ligne([t2('pole_space_par_metre', { ca: frInt(sp.revenue_per_m) }),
+              sp.revenue_net_ht_per_m != null ? t2('pole_space_net_par_metre', { ca: frInt(sp.revenue_net_ht_per_m) }) : '',
+              sp.margin_per_m != null ? t2('pole_space_marge_par_metre', { ca: frInt(sp.margin_per_m) }) : ''].filter(Boolean).join(' · '));
+          }
+          if (sp.revenue_per_m2 != null) {
+            b += ligne([t2('pole_space_par_m2', { ca: frInt(sp.revenue_per_m2) }),
+              sp.revenue_net_ht_per_m2 != null ? t2('pole_space_net_par_m2', { ca: frInt(sp.revenue_net_ht_per_m2) }) : '',
+              sp.margin_per_m2 != null ? t2('pole_space_marge_par_m2', { ca: frInt(sp.margin_per_m2) }) : ''].filter(Boolean).join(' · '));
+          }
+          if (sp.margin_share != null && sp.linear_share != null) b += ligne(t2('pole_space_marge_contre', { marge: pc(sp.margin_share), lin: pc(sp.linear_share) }));
+          else if (sp.revenue_share != null && sp.linear_share != null) b += ligne(t2('pole_space_ca_contre', { ca: pc(sp.revenue_share), lin: pc(sp.linear_share) }));
+        } else {
+          b += '<div style="font-size:12.5px;color:#374151;">' + esc(t2('pole_space_none')) + '</div>';
+        }
+        h += b + '</div>';
+      })();
+      // 14/09 (owner : « comparaison vs autres poles ») — OU SE SITUE CE POLE. Juste sous l'Espace, parce
+      // que c'est le meme indicateur (CA par metre) sur la meme fenetre de 30 jours : la page ne porte
+      // qu'UN referentiel a cet endroit. La table vient TELLE QUELLE du serveur (composePoleClassement,
+      // celle du Rapport), rendue par msTable, la primitive des tables du kit — aucun second rendu. La
+      // ligne de ce pole y est deja en gras et en bleu donnee : rien n'est decide ici.
+      if (pr.comparaison && pr.comparaison.rows && pr.comparaison.rows.length) {
+        h += '<div class="eg-sec" data-eg-poles-rank><div class="eg-uc">' + esc(t2('pole_rank_title')) + '</div>'
+          + msTable(pr.comparaison.cols || [], pr.comparaison.rows) + '</div>';
+      }
+      // 14/09 (owner : « plan au sol ») — OU EST CE POLE DANS LE MAGASIN. Sous la comparaison : celle-ci dit
+      // COMBIEN, le plan dit OU, et les deux portent la meme mesure (CA par metre) sur la meme fenetre. Le
+      // bloc vient du serveur et se rend par AB_PRIMITIVES.plan, LA primitive du plan colore — aucun second
+      // dessin. La zone de ce pole y est deja marquee `courant`.
+      if (pr.plan && Array.isArray(pr.plan.zones) && pr.plan.zones.length) {
+        h += '<div class="eg-sec" data-eg-plan><div class="eg-uc">' + esc(t2('pole_plan_title')) + '</div>'
+          + AB_PRIMITIVES.plan(pr.plan) + '</div>';
+      }
+      // 14/09 (owner) — LA DÉCOMPOSITION, le MÊME bloc que sur une opération : nombre de ventes, panier
+      // moyen, mix, heures. Le serveur l'a calculée sur le référentiel de l'en-tête (30 derniers jours
+      // contre les 90 précédents), donc la page ne porte qu'UN référentiel. Rien n'est écrit ici : c'est
+      // `shapeBlock`, celui des opérations, appelé tel quel — s'il n'y a pas de matière, il dit l'absence.
+      if (data.shape) h += shapeBlock(data.shape, '', 30, 30, null, data.role === 'member' || (window && window._msMemberView === true));
       var mem = '';
       if (cm.dispositif_plus) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_plus')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_plus) + '</div></div>';
       if (cm.dispositif_why) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_why')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_why) + '</div></div>';
@@ -1125,6 +1224,61 @@
             }).join('')
           : '<div style="font-size:12.5px;color:#374151;">' + esc(t2('pole_ops_none')) + '</div>')
         + '</div>';
+
+      // ── 13/09 (owner : « aucune surface ne cree la version suivante d'un pole », puis « le versionning du
+      // pole est declaratif — sa page de reglages ; pas de question ») — LA VERSION SUIVANTE.
+      // « Ajuster → » existe deja (Tableau de bord → cette page) : on ne le duplique pas. Ce que l'exploitant
+      // trouve ici, c'est le REGLAGE du pole : un volet « La version suivante » (mot deja en prod) qui
+      // contient le formulaire de pole pre-rempli avec la version courante — familles, composants et leurs
+      // mesures (metres, faces, parts, surface), responsable, ressources. Il modifie ce qui change et
+      // enregistre : l'API cree la version suivante, tout le reste herite. Aucune question posee. La page
+      // (engagement.astro) monte le formulaire dans [data-eg-nextversion-mount]. Owner seul.
+      var _nvMembre = data.role === 'member' || (typeof window !== 'undefined' && window && window._msMemberView === true);
+      var nextVersionB = '';
+      if (!_nvMembre && cm.status === 'open') {
+        nextVersionB = '<details class="eg-sec" data-eg-nextversion-sec>'
+          + '<summary class="eg-uc" style="cursor:pointer;list-style:none;">' + esc(t2('vform_title')) + ' <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#9CA3AF;">\u2014 ' + esc(t2('vform_pole_hint')) + '</span></summary>'
+          + '<div data-eg-nextversion-mount style="margin-top:10px;"></div>'
+          + '</details>';
+      }
+      h += nextVersionB;
+
+      // ── 13/09 (owner : « rien de l'historique n'est implemente ») — L'HISTORIQUE DU POLE, avec ses photos.
+      // Il n'etait rendu que sur les pages d'operation : la page d'un pole sortait avant. Les MOTS different,
+      // et ce n'est pas cosmetique : un dispositif permanent n'a ni fenetre ni verdict (owner 27/08), donc
+      // aucune version ne dit « verdict d'ici le » ni « objectif atteint » — elle dit ses dates de service, et
+      // « en cours » pour la courante (mot owner 13/09). Les dates viennent de `debut` (created_at de la
+      // version) : la fin d'une version est la veille du debut de la suivante, jamais une fenetre inventee.
+      var _pLin = Array.isArray(data.lineage) ? data.lineage : [];
+      if (_pLin.length > 1) {
+        var _pAvecPhoto = _pLin.some(function (v) { return Array.isArray(v.photos) && v.photos.length; });
+        var _pFrD = function (iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : ''; };
+        var _pVeille = function (iso) {
+          var d = String(iso || '').slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return '';
+          var dt = new Date(d + 'T12:00:00Z'); dt.setUTCDate(dt.getUTCDate() - 1); return dt.toISOString().slice(0, 10);
+        };
+        h += '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;">'
+          + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">' + esc(t2('lin_pole_titre')) + '</div>'
+          + _pLin.map(function (v, i) {
+              var debut = _pFrD(v.debut || v.window_start);
+              var suivante = _pLin[i + 1];
+              var fin = suivante ? _pFrD(_pVeille(suivante.debut || suivante.window_start)) : '';
+              var ligne = v.is_current || !fin
+                ? t2('lin_pole_en_cours', { n: v.version_no, debut: debut })
+                : t2('lin_pole_close', { n: v.version_no, debut: debut, fin: fin });
+              var inner = v.is_current || !v.commitment_id
+                ? esc(ligne)
+                : '<a href="' + esc(msPoleUrl(String(v.commitment_id))) + '" style="color:#1D3BB3;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;">' + esc(ligne) + '</a>';
+              // 13/09 — CE QUE L'EXPLOITANT A CHANGÉ à cette version (`dispositif_note`, servi par
+              // evolution.ts). La photo montre l'état, la note dit pourquoi il a changé : les deux se
+              // lisent sous la même ligne. Une version sans note ne rend RIEN — jamais un cadre vide.
+              var _pNote = v.note ? String(v.note).trim() : '';
+              return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + inner + '</div>'
+                + (_pNote ? '<div data-lin-note style="font-size:12.5px;color:#6B7280;line-height:1.5;margin:1px 0 2px 0;white-space:pre-wrap;">' + esc(_pNote) + '</div>' : '')
+                + msLinPhotosRow(v, _pAvecPhoto, t2);
+            }).join('')
+          + '</div>';
+      }
       return h;
     }
 
@@ -1724,6 +1878,13 @@
       var _linVerdict = { met: 'objectif atteint', missed: 'objectif manqu\u00e9', confounded: 'objectif non concluant (vacances)' };
       var _linFrD = function (iso) { var d = String(iso || '').slice(0, 10); return d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : ''; };
       var _linPct = function (n) { if (n == null) return ''; var v = Math.round(Math.abs(Number(n)) * 10) / 10; return (Number(n) >= 0 ? '+' : '\u2212') + String(v).replace('.', ',') + ' %'; };
+      // 13/09 (owner : « la valeur ajoutée est de garder la mémoire visuelle des dispositifs qui ont
+      // fonctionné ou non au niveau de l'agencement ») — chaque version montre SES photos à côté de SON
+      // verdict : on voit ce que le rayon était le jour où ça a marché. Vignette = la variante carrée
+      // (192 px, ~10 Ko) ; l'image entière s'ouvre dans un onglet. Tant qu'AUCUNE version n'a de photo,
+      // la rangée n'existe pas — un emplacement vide ne raconte rien.
+      var _linAvecPhoto = _lin.some(function (v) { return Array.isArray(v.photos) && v.photos.length; });
+      var _linPhotos = function (v) { return msLinPhotosRow(v, _linAvecPhoto, t); };
       lineageB = '<div style="background:#fafbfd;border:1px solid #eef1f6;padding:12px 16px;margin-top:16px;">'
         + '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6B7280;margin-bottom:8px;">Historique du dispositif</div>'
         + _lin.map(function (v) {
@@ -1738,7 +1899,8 @@
             var _linInner = v.is_current || !v.commitment_id
               ? esc(line)
               : '<a href="' + esc(msEngagementUrl(String(v.commitment_id))) + '" style="color:#1D3BB3;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;">' + esc(line) + '</a>';
-            return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + _linInner + (v.is_current ? ' <span style="color:#6B7280;font-weight:500;">(ce test)</span>' : '') + '</div>';
+            return '<div style="font-size:13px;color:#374151;line-height:1.7;' + (v.is_current ? 'font-weight:600;' : '') + '">' + _linInner + (v.is_current ? ' <span style="color:#6B7280;font-weight:500;">(ce test)</span>' : '') + '</div>'
+              + _linPhotos(v);
           }).join('')
         + '</div>';
     }
@@ -1854,6 +2016,101 @@
     return html;
   }
 
+  // Marge brute MESURÉE (11/09, provider insightFamilies/marge.ts — docs/catalogue-de-couts-et-marge.md
+  // M7-M9). Mots owner : marge brute, taux de marge brute, « calculée sur X % de votre CA · prix d'achat
+  // manquants sur Y % », « vendu sous son prix d'achat ». Absence dite quand aucun prix d'achat ne couvre
+  // assez de CA — jamais une estimation ici.
+  function renderMarge(j) {
+    if (!j || !j.ok || !j.found) {
+      return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Aucune marge brute mesur\u00e9e pour l\u2019instant \u2014 vos prix d\u2019achat couvrent trop peu de votre CA.</div>';
+    }
+    function d(n) { return n == null ? '\u2014' : String(n).replace('.', ','); }
+    var html = '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
+    html += '<div style="font-size:12px;color:#9CA3AF;margin-bottom:10px;">Calcul\u00e9e sur ' + d(j.coverage_pct) + ' % de votre CA \u00b7 prix d\u2019achat manquants sur ' + d(j.missing_pct) + ' %</div>';
+    html += msStrip([
+      { top: 'Marge brute', mid: frInt(j.gross_margin_ht) + ' \u20ac', highlight: true, tone: 'ok' },
+      { top: 'Taux de marge brute', mid: j.margin_rate_pct != null ? d(j.margin_rate_pct) + ' %' : '\u2014' },
+      { top: 'CA \u00b7 30 jours', mid: frInt(j.revenue) + ' \u20ac' }
+    ]);
+    if (j.families && j.families.length) {
+      html += '<div style="font-size:12px;color:#6B7280;margin:6px 0 0;">Par famille :</div>';
+      html += msSortTable([
+        { label: 'Famille', render: function (f) { return { v: f.family, bold: true }; } },
+        { label: 'Marge brute', key: 'gross_margin_ht', render: function (f) { return { v: frInt(f.gross_margin_ht) + ' \u20ac', bold: true }; } },
+        { label: 'Taux', key: 'margin_rate_pct', render: function (f) { return { v: f.margin_rate_pct != null ? d(f.margin_rate_pct) + ' %' : '\u2014', color: '#6B7280' }; } },
+        { label: 'Part du CA', key: 'revenue_share_pct', render: function (f) { return { v: f.revenue_share_pct != null ? d(f.revenue_share_pct) + ' %' : '\u2014', color: '#6B7280' }; } },
+        { label: 'Part de la marge', key: 'margin_share_pct', render: function (f) { return { v: f.margin_share_pct != null ? d(f.margin_share_pct) + ' %' : '\u2014', color: '#6B7280' }; } }
+      ], j.families, 'gross_margin_ht');
+    }
+    if (j.heavy_light) html += '<div style="font-size:12px;color:#B45309;margin-top:8px;line-height:1.5;">' + esc(j.heavy_light) + ' p\u00e8se plus dans votre CA que dans votre marge brute.</div>';
+    if (j.below_cost_lines > 0) html += '<div style="font-size:12px;color:#B91C1C;margin-top:6px;line-height:1.5;">' + j.below_cost_lines + ' ligne' + (j.below_cost_lines > 1 ? 's' : '') + ' de vente vendue' + (j.below_cost_lines > 1 ? 's' : '') + ' sous son prix d\u2019achat sur la p\u00e9riode.</div>';
+    return html;
+  }
+
+  // Espace du pôle (11/09, provider insightFamilies/espace.ts — docs/espace-et-pole.md E4-E6). Mots owner :
+  // linéaire, Part de linéaire, surface de vente, « part de marge contre Part de linéaire ». Un pôle sans
+  // vente n'a pas d'\u20ac par m\u00e8tre : la cellule le dit.
+  function renderEspace(j) {
+    if (!j || !j.ok || !j.found) {
+      return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Aucune mesure d\u2019espace pour l\u2019instant \u2014 les m\u00e8tres se saisissent sur le formulaire de p\u00f4le.</div>';
+    }
+    function m1(n) { return n == null ? '\u2014' : String(Math.round(Number(n) * 10) / 10).replace('.', ','); }
+    function pct(s) { return s == null ? '\u2014' : String(Math.round(Number(s) * 1000) / 10).replace('.', ',') + ' %'; }
+    var html = '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
+    var s = j.site || {};
+    html += msStrip([
+      { top: 'Lin\u00e9aire mesur\u00e9', mid: m1(s.linear_m) + ' m', highlight: true, tone: 'ok' },
+      { top: 'Surface de vente', mid: s.surface_m2 != null ? m1(s.surface_m2) + ' m\u00b2' : '\u2014' },
+      { top: 'CA par m\u00e8tre \u00b7 30 j', mid: s.revenue_per_m != null ? frInt(s.revenue_per_m) + ' \u20ac' : '\u2014' },
+      { top: 'CA net HT par m\u00e8tre \u00b7 30 j', mid: s.revenue_net_ht_per_m != null ? frInt(s.revenue_net_ht_per_m) + ' \u20ac' : '\u2014' },
+      { top: 'Marge brute par m\u00e8tre \u00b7 30 j', mid: s.margin_per_m != null ? frInt(s.margin_per_m) + ' \u20ac' : '\u2014' }
+    ]);
+    if (j.poles && j.poles.length) {
+      html += '<div style="font-size:12px;color:#6B7280;margin:6px 0 0;">Par p\u00f4le :</div>';
+      html += msSortTable([
+        { label: 'P\u00f4le', render: function (p) { return { v: p.name, bold: true }; } },
+        { label: 'Lin\u00e9aire', key: 'linear_m', render: function (p) { return { v: m1(p.linear_m) + ' m', bold: true }; } },
+        { label: 'Part de lin\u00e9aire', key: 'linear_share', render: function (p) { return { v: pct(p.linear_share), color: '#6B7280' }; } },
+        { label: 'Part du CA', key: 'revenue_share', render: function (p) { return { v: p.revenue_share != null ? pct(p.revenue_share) : 'aucune vente', color: '#6B7280' }; } },
+        { label: 'CA par m\u00e8tre', key: 'revenue_per_m', render: function (p) { return { v: p.revenue_per_m != null ? frInt(p.revenue_per_m) + ' \u20ac' : '\u2014', color: '#6B7280' }; } },
+        { label: 'CA net HT par m\u00e8tre', key: 'revenue_net_ht_per_m', render: function (p) { return { v: p.revenue_net_ht_per_m != null ? frInt(p.revenue_net_ht_per_m) + ' \u20ac' : '\u2014', color: '#6B7280' }; } },
+        { label: 'Part de la marge', key: 'margin_share', render: function (p) { return { v: p.margin_share != null ? pct(p.margin_share) : '\u2014', color: '#6B7280' }; } }
+      ], j.poles, 'linear_m');
+    }
+    if (j.heavy) html += '<div style="font-size:12px;color:#B45309;margin-top:8px;line-height:1.5;">' + esc(j.heavy) + ' occupe plus de lin\u00e9aire qu\u2019il ne g\u00e9n\u00e8re de CA.</div>';
+    return html;
+  }
+
+  // Signaux × famille (11/09, provider insightFamilies/signauxFamille.ts — docs/reponse-aux-signaux-par-famille.md).
+  // Mots owner : CA/jour <famille>, Panier moyen avec <famille>, Part de <famille> dans le CA, vs vos jours
+  // comparables ; paliers estim\u00e9 / mesur\u00e9 ; « \u00e0 saison \u00e9gale ».
+  function renderSignauxFamille(j) {
+    if (!j || !j.ok || !j.found || !j.lines || !j.lines.length) {
+      return '<div style="font-size:12.5px;color:#6B7280;line-height:1.5;">Aucune r\u00e9ponse famille \u00d7 jours mesurable pour l\u2019instant \u2014 moins de 5 jours par classe, ou un \u00e9cart sous le bruit.</div>';
+    }
+    function sgn(n) { return (n > 0 ? '+' : n < 0 ? '\u2212' : '') + frInt(Math.abs(Math.round(n))); }
+    var html = '<div style="font-size:14px;font-weight:600;color:#111827;line-height:1.45;margin-bottom:6px;">' + esc(j.lead) + '</div>';
+    html += '<div style="font-size:12px;color:#6B7280;margin:6px 0 0;">CA/jour de la famille vs vos jours comparables, \u00e0 saison \u00e9gale :</div>';
+    html += msSortTable([
+      { label: 'Famille', render: function (l) { return { v: l.family, bold: true }; } },
+      { label: 'Jours', render: function (l) { return { v: l.label_fr }; } },
+      { label: 'CA/jour', key: 'avg_gap_eur', render: function (l) { return { v: sgn(l.avg_gap_eur) + ' \u20ac', bold: true, color: l.avg_gap_eur < 0 ? '#B45309' : '#059669' }; } },
+      { label: 'Jours mesur\u00e9s', key: 'n_days', render: function (l) { return { v: String(l.n_days), color: '#6B7280' }; } },
+      { label: 'Par an', key: 'eur_year', render: function (l) { return { v: '\u2248 ' + sgn(l.eur_year) + ' \u20ac', color: '#6B7280' }; } },
+      { label: 'Niveau', render: function (l) { return { v: l.tier, color: '#9CA3AF' }; } }
+    ], j.lines, 'eur_year')
+      + (Number(j.autres) > 0 ? '<div style="font-size:12px;color:#6B7280;margin-top:6px;">' + esc('+ ' + j.autres + ' autre' + (j.autres > 1 ? 's' : '') + ' famille' + (j.autres > 1 ? 's' : '') + ' × classe de jours, d\'écart plus faible.') + '</div>' : '');
+    var extra = [];
+    for (var i = 0; i < Math.min(3, j.lines.length); i++) {
+      var l = j.lines[i];
+      if (l.basket_delta_eur != null) extra.push('Panier moyen avec ' + esc(l.family) + ' ' + esc(l.label_fr) + ' : ' + sgn(l.basket_delta_eur) + ' \u20ac');
+      if (l.share_delta_pt != null) extra.push('Part de ' + esc(l.family) + ' dans le CA ' + esc(l.label_fr) + ' : ' + sgn(l.share_delta_pt) + ' pt');
+    }
+    if (extra.length) html += '<div style="font-size:12px;color:#6B7280;margin-top:8px;line-height:1.6;">' + extra.join('<br>') + '</div>';
+    html += '<div style="font-size:11px;color:#9CA3AF;margin-top:8px;font-style:italic;line-height:1.5;">\u00c9carts observ\u00e9s sur vos jours comparables (m\u00eame mois, m\u00eame type de jour), pas des causes \u00e9tablies.</div>';
+    return html;
+  }
+
   // extended_bad_weather — the extended weather WINDOW as a planning frame: the run of days, the venue's
   // OWN measured CA response to that condition (heat can be an OPPORTUNITY, not a threat), + next steps.
   function renderWeatherWindow(j) {
@@ -1951,6 +2208,8 @@
       bg = '#0b37e5'; color = '#ffffff';
     }
     else if (reg === 'web') { label = 'Web — non vérifié'; bg = '#F3F4F6'; color = '#6b7280'; }
+    // 12/09 : un texte repris par l'exploitant (la Synthèse qu'il a modifiée) — « Votre note », jamais vérifié, jamais mêlé.
+    else if (reg === 'note') { label = 'Votre note'; bg = '#FAEEDA'; color = '#633806'; }
     else { label = 'Non vérifié'; bg = '#FDE8D8'; color = '#C2410C'; }
     return '<div style="display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;background:' + bg + ';color:' + color + ';margin-bottom:10px;letter-spacing:.04em;">' + label + '</div>';
   }
@@ -2034,14 +2293,19 @@
     },
     // Bloc TABLE (27/08, entité×période — « montre la donnée », owner) : LE tableau du kit
     // (msTable), jamais un second rendu de table. items = { cols, rows } au format msTable.
+    // 12/09 : msTable rend DÉJÀ son <table> — l'envelopper d'un second <table> imbriquait deux tables (le
+    // navigateur refermait la première, vide ; mesuré au harnais explorer-blocks : 4 tables pour 2 blocs).
     table: function (b) {
       if (!b.cols || !b.rows || !b.rows.length) return '';
-      return '<div style="overflow-x:auto;margin:8px 0 12px;"><table style="border-collapse:collapse;font-size:13px;color:#111827;width:100%;">' + msTable(b.cols, b.rows) + '</table></div>';
+      return '<div style="overflow-x:auto;margin:8px 0 12px;">' + msTable(b.cols, b.rows) + '</div>';
     },
     // Bloc SOURCES dépliable (patron details du kit, comme les étapes best-in-class).
     sources: function (b) {
       if (!b.items || !b.items.length) return '';
-      return '<details style="margin-top:10px;"><summary style="font-size:12px;color:#6b7280;cursor:pointer;">Sources</summary>'
+      // 13/09 (owner : « toutes les sources ne sont pas mentionnées ») — elles ÉTAIENT là, repliées derrière un
+      // « Sources » qu'il faut cliquer. Dans un document qu'on lit, qu'on imprime et qu'on envoie, elles
+      // s'affichent ouvertes (`ouvert: true`, posé par le composeur du Rapport) ; dans le chat, le repli reste.
+      return '<details' + (b.ouvert ? ' open' : '') + ' style="margin-top:10px;"><summary style="font-size:12px;color:#6b7280;cursor:pointer;">Sources</summary>'
         + '<ul style="margin:6px 0 0 18px;padding:0;font-size:12px;color:#6b7280;">'
         + b.items.map(function (x) { return '<li style="margin:3px 0;">' + esc(x) + '</li>'; }).join('')
         + '</ul></details>';
@@ -2124,6 +2388,142 @@
       if (typeof fn !== 'function') return '';
       return '<div class="ie-family-card">' + fn(Object.assign({ ok: true }, b.data)) + '</div>';
     },
+    // 12/09 — l'absence est un résultat (docs/explorer-outil-spec.md § 5) : ce qui manque, et le geste qui le
+    // débloque (le mot de Piloter). Aucun chiffre : rien à vérifier, rien à inventer.
+    absence: function (b) {
+      if (!b || !b.manque) return '';
+      var g = b.geste && typeof b.geste.label_fr === 'string' && typeof b.geste.url === 'string' && b.geste.url.charAt(0) === '/' ? b.geste : null;
+      return '<div style="border:1px solid #e5e7eb;background:#f9fafb;border-radius:10px;padding:10px 12px;margin:0 0 10px;font-size:13px;color:#6B7280;line-height:1.5;">' + esc(b.manque)
+        + (g ? ' <a href="' + esc(g.url) + '" style="color:#0b37e5;font-weight:500;text-decoration:none;">' + esc(g.label_fr) + ' \u2192</a>' : '')
+        + '</div>';
+    },
+    // 12/09 — « Votre note » (spec § 6.2, lexique l. 123) : le texte de l'exploitant, sous un bloc, avec sa pastille
+    // distincte (les teintes ambre des datecards), jamais mêlé à un texte vérifié ; l'auteur et la date au survol.
+    note: function (b) {
+      if (!b || !b.text) return '';
+      var when = b.date ? String(b.date).slice(0, 10).split('-').reverse().join('/') : '';
+      var tip = (b.auteur ? b.auteur + ' \u00b7 ' : '') + when;
+      return '<div data-rapport-note style="border:0.5px solid #FAC775;border-left:3px solid #BA7517;border-radius:0 8px 8px 0;padding:9px 12px;margin:8px 0 10px;background:#fff;">'
+        + '<div' + (tip ? ' title="' + esc(tip) + '"' : '') + ' style="display:inline-block;background:#FAEEDA;color:#633806;font-size:11px;font-weight:600;border-radius:999px;padding:2px 9px;margin-bottom:6px;">Votre note</div>'
+        + '<div style="font-size:13.5px;line-height:1.55;color:#111827;white-space:pre-wrap;">' + esc(b.text) + '</div></div>';
+    },
+    // 12/09 (owner : « ease reading — add tables and graphs ») — trois graphiques dessinés depuis des valeurs d'outil,
+    // aux teintes de rapport.astro (weekdayChart : #1D3BB3 par intensité ; CATCOL pour les parts). Aucun chiffre calculé ici
+    // hors la proportion des barres ; les libellés de valeur (value_fr, part_fr) arrivent formatés.
+    barres: function (b) {
+      var items = Array.isArray(b && b.items) ? b.items : [];
+      if (!items.length) return '';
+      var mx = 0; items.forEach(function (d) { if (d.value > mx) mx = d.value; }); if (!mx) mx = 1;
+      var W = 320, H = 160, bw = W / items.length, s = '';
+      items.forEach(function (d, i) {
+        var bh = (d.value / mx) * 100, x = i * bw + bw * 0.18, y = 128 - bh;
+        s += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + (bw * 0.64).toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="2" fill="#1D3BB3" fill-opacity="' + (0.45 + 0.55 * d.value / mx).toFixed(2) + '"/>'
+          + '<text x="' + (i * bw + bw / 2).toFixed(1) + '" y="' + (y - 4).toFixed(1) + '" font-size="8.5" fill="#111827" text-anchor="middle">' + esc(d.value_fr) + '</text>'
+          + '<text x="' + (i * bw + bw / 2).toFixed(1) + '" y="143" font-size="8.5" fill="#6B7280" text-anchor="middle">' + esc(d.label) + '</text>';
+      });
+      return '<div style="max-width:420px;margin:6px 0 10px;"><svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;" role="img" aria-label="' + esc(items.map(function (d) { return d.label + ' ' + d.value_fr; }).join(', ')) + '">' + s + '</svg>' + (b.unite ? '<div style="font-size:11px;color:#9CA3AF;">' + esc(b.unite) + '</div>' : '') + '</div>';
+    },
+    barres_h: function (b) {
+      var items = Array.isArray(b && b.items) ? b.items : [];
+      if (!items.length) return '';
+      var mx = 0; items.forEach(function (d) { if (d.value > mx) mx = d.value; }); if (!mx) mx = 1;
+      return '<div style="max-width:520px;margin:6px 0 10px;">' + items.map(function (d) {
+        var w = Math.max(1, Math.round((d.value / mx) * 100));
+        return '<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;gap:12px;font-size:12.5px;margin-bottom:3px;"><span style="color:#374151;">' + esc(d.label) + '</span><span style="color:#111827;white-space:nowrap;"><strong style="font-weight:600;">' + esc(d.value_fr) + '</strong>' + (d.part_fr ? ' <span style="color:#9CA3AF;">' + esc(d.part_fr) + '</span>' : '') + '</span></div>'
+          + '<div style="height:8px;background:#EEF2FF;border-radius:4px;"><div style="width:' + w + '%;height:8px;background:#1D3BB3;border-radius:4px;"></div></div></div>';
+      }).join('') + (b.unite ? '<div style="font-size:11px;color:#9CA3AF;">' + esc(b.unite) + '</div>' : '') + '</div>';
+    },
+    parts: function (b) {
+      var items = Array.isArray(b && b.items) ? b.items : [];
+      if (!items.length) return '';
+      var COL = ['#1D3BB3', '#2E7D32', '#B45309', '#7B1FA2', '#0891B2', '#9CA3AF', '#DB2777', '#4B5563'];
+      var total = 0; items.forEach(function (d) { total += d.value > 0 ? d.value : 0; }); if (!total) return '';
+      var r = 40, C = 2 * Math.PI * r, off = 0, segs = '';
+      items.forEach(function (d, i) {
+        var len = (Math.max(0, d.value) / total) * C;
+        segs += '<circle r="' + r + '" cx="60" cy="60" fill="none" stroke="' + COL[i % COL.length] + '" stroke-width="18" stroke-dasharray="' + len.toFixed(2) + ' ' + (C - len).toFixed(2) + '" stroke-dashoffset="' + (-off).toFixed(2) + '" transform="rotate(-90 60 60)"/>';
+        off += len;
+      });
+      var legend = items.map(function (d, i) {
+        return '<div style="display:flex;align-items:baseline;gap:8px;font-size:12.5px;margin:3px 0;"><span style="width:9px;height:9px;border-radius:2px;background:' + COL[i % COL.length] + ';flex:none;display:inline-block;"></span><span style="color:#374151;flex:1;">' + esc(d.label) + '</span><span style="color:#111827;font-weight:600;">' + esc(d.part_fr) + '</span><span style="color:#9CA3AF;">' + esc(d.value_fr) + '</span></div>';
+      }).join('');
+      return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;margin:6px 0 10px;"><svg viewBox="0 0 120 120" style="width:120px;height:120px;flex:none;" role="img" aria-label="' + esc(items.map(function (d) { return d.label + ' ' + d.part_fr; }).join(', ')) + '">' + segs + '</svg><div style="flex:1;min-width:200px;">' + legend + '</div></div>';
+    },
+    // 12/09 — LE RAPPORT (docs/explorer-outil-spec.md § 6) : titre, période, la Synthèse (texte vérifié du tour, avec sa
+    // pastille), puis une zone par section — les valeurs de .fr-zone / .fr-zh de family-report.astro, le même kit pour
+    // les blocs de chaque section. La définition de la section vit au survol du titre (kitchen au survol, règle owner).
+    rapport: function (b) {
+      if (!b || !Array.isArray(b.sections)) return '';
+      var zone = function (titre, tip, body, idx) {
+        return '<div' + (idx != null ? ' data-rapport-section="' + idx + '"' : '') + ' style="background:#fff;border:0.5px solid #E5E7EB;border-radius:12px;padding:16px 18px;margin:0 0 16px;">'
+          + '<div' + (tip ? ' title="' + esc(tip) + '"' : '') + ' style="font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#1D3BB3;margin:0 0 12px;">' + esc(titre) + '</div>' + body + '</div>';
+      };
+      var html = '<div class="ie-rapport">'
+        + '<div style="font-size:17px;font-weight:650;color:#111827;line-height:1.35;margin:0 0 2px;">' + esc(b.titre || 'Rapport') + '</div>'
+        + '<div style="font-size:12px;color:#9CA3AF;margin:0 0 14px;">' + esc(b.periode && b.periode.libelle_fr ? b.periode.libelle_fr : '') + '</div>';
+      if (b.synthese && b.synthese.text) {
+        html += zone('Synth\u00e8se', null, abRegister(b.synthese.register || 'model') + '<div style="font-size:13.5px;color:#374151;line-height:1.6;">' + mdBlockToSafeHtml(b.synthese.text) + '</div>');
+      }
+      for (var i = 0; i < b.sections.length; i++) {
+        var s = b.sections[i];
+        if (!s) continue;
+        html += zone(s.titre || s.cle || '', s.definition || null, renderBlockList(Array.isArray(s.blocs) ? s.blocs : []), i);
+      }
+      if (Array.isArray(b.non_reconnu) && b.non_reconnu.length) {
+        html += AB_PRIMITIVES.absence({ manque: 'Aucune section du Rapport ne correspond \u00e0 : ' + b.non_reconnu.map(function (x) { return '\u00ab ' + x + ' \u00bb'; }).join(', ') + '.', geste: null });
+      }
+      return html + '</div>';
+    },
+    // 12/09 (incrément 6, docs/explorer-outil-spec.md § 5) — LA PROPOSITION D'OPÉRATION (lexique l. 127) : ce que l'agent
+    // a préparé à partir de faits lus, jamais créé — le nom, le dispositif, les dates, l'objectif et sa cible, les faits
+    // qui la motivent, puis « Préparer l'opération → » qui ouvre le formulaire pré-rempli (le CTA de création reste le sien).
+    proposition_operation: function (b) {
+      if (!b || !b.titre || !Array.isArray(b.dates) || !b.url || String(b.url).charAt(0) !== '/') return '';
+      var row = function (label, val) { return val ? '<div style="display:flex;gap:10px;font-size:13px;line-height:1.5;margin:3px 0;"><span style="flex:none;width:92px;color:#6B7280;">' + esc(label) + '</span><span style="color:#111827;">' + val + '</span></div>' : ''; };
+      var pourquoi = (Array.isArray(b.pourquoi) ? b.pourquoi : []).map(function (f) { return '<li style="margin:2px 0;">' + esc(f) + '</li>'; }).join('');
+      return '<div data-proposition style="border:1px solid #C7D2FE;background:#F5F7FF;border-radius:12px;padding:14px 16px;margin:0 0 12px;">'
+        + '<div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#1D3BB3;margin:0 0 8px;">Proposition d\u2019op\u00e9ration</div>'
+        + '<div style="font-size:15px;font-weight:650;color:#111827;margin:0 0 8px;">' + esc(b.titre) + (b.event_type && b.event_type.label_fr ? ' <span style="font-size:12px;font-weight:400;color:#6B7280;">\u00b7 ' + esc(b.event_type.label_fr) + '</span>' : '') + '</div>'
+        + row('Dispositif', esc(b.dispositif || ''))
+        + row('Dates', esc(b.dates_fr || b.dates.join(', ')))
+        + row('Familles', (Array.isArray(b.familles) && b.familles.length) ? esc(b.familles.join(', ')) : '')
+        + row('Objectif', b.objectif && b.objectif.libelle_fr ? esc(b.objectif.libelle_fr) + (b.cible && b.cible.libelle_fr ? ' \u2014 ' + esc(b.cible.libelle_fr) : '') : '')
+        + (pourquoi ? '<div style="font-size:12px;color:#6B7280;margin:10px 0 2px;">Pourquoi \u2014 ce qui a \u00e9t\u00e9 lu</div><ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;line-height:1.5;">' + pourquoi + '</ul>' : '')
+        + '<div style="display:flex;justify-content:flex-end;"><a href="' + esc(b.url) + '" style="display:inline-block;font-size:13px;font-weight:600;color:#fff;background:#1D3BB3;text-decoration:none;padding:8px 13px;border-radius:8px;margin-top:12px;">Pr\u00e9parer l\u2019op\u00e9ration \u2192</a></div>'
+        + '</div>';
+    },
+    // 13/09 (incrément 8, docs/explorer-outil-spec.md § 5) — LE PLAN COLORÉ : les contours des pôles (points du plan) en SVG,
+    // une teinte de #1D3BB3 par rang de valeur (la plus forte la plus dense), le nom et la valeur au centre de la zone,
+    // la légende sous le plan. Aucun chiffre calculé ici hors le centre des polygones.
+    plan: function (b) {
+      if (!b || !Array.isArray(b.zones) || !b.zones.length || !Array.isArray(b.viewBox)) return '';
+      var n = b.zones.filter(function (z) { return z.rang != null; }).length;
+      var tint = function (z) { if (z.rang == null) return 'rgba(156,163,175,0.35)'; var a = n > 1 ? 0.22 + 0.68 * (1 - (z.rang - 1) / (n - 1)) : 0.9; return 'rgba(29,59,179,' + a.toFixed(2) + ')'; };
+      var polys = '', labels = '';
+      b.zones.forEach(function (z) {
+        var all = [];
+        (z.polygons || []).forEach(function (pg) {
+          if (!Array.isArray(pg) || pg.length < 3) return;
+          // 14/09 : sur la page d'un pole, SA zone porte un contour net — c'est la seule chose qui distingue
+          // « ou suis-je » d'un plan general. Sans le drapeau (Explorer), le trait blanc d'origine, inchange.
+          polys += '<polygon points="' + pg.map(function (p) { return (+p[0]).toFixed(1) + ',' + (+p[1]).toFixed(1); }).join(' ') + '" fill="' + tint(z) + '" stroke="' + (z.courant ? '#111827' : '#fff') + '" stroke-width="' + (z.courant ? '3' : '1.5') + '"><title>' + esc(z.label + (z.value_fr ? ' \u00b7 ' + z.value_fr : '') + ' \u00b7 ' + String(z.area_m2).replace('.', ',') + ' m\u00b2') + '</title></polygon>';
+          pg.forEach(function (p) { all.push(p); });
+        });
+        if (!all.length) return;
+        var big = (z.polygons || []).slice().sort(function (p1, p2) { return p2.length - p1.length; })[0] || all;
+        var cx = 0, cy = 0; big.forEach(function (p) { cx += +p[0]; cy += +p[1]; }); cx /= big.length; cy /= big.length;
+        var dark = z.rang != null && n > 1 && (z.rang - 1) / (n - 1) < 0.5;
+        labels += '<text x="' + cx.toFixed(1) + '" y="' + cy.toFixed(1) + '" text-anchor="middle" font-size="11" font-weight="600" fill="' + (dark ? '#fff' : '#111827') + '">' + esc(z.label) + '</text>'
+          + (z.value_fr ? '<text x="' + cx.toFixed(1) + '" y="' + (cy + 13).toFixed(1) + '" text-anchor="middle" font-size="10" fill="' + (dark ? '#fff' : '#374151') + '">' + esc(z.value_fr) + '</text>' : '');
+      });
+      var legend = b.zones.slice().sort(function (a, c) { return (a.rang == null ? 99 : a.rang) - (c.rang == null ? 99 : c.rang); }).map(function (z) {
+        return '<span style="display:inline-flex;align-items:center;gap:6px;margin:3px 12px 3px 0;font-size:12px;color:#374151;"><span style="width:12px;height:12px;border-radius:3px;background:' + tint(z) + ';display:inline-block;"></span>' + esc(z.label) + (z.value_fr ? ' <span style="color:#6B7280;">' + esc(z.value_fr) + '</span>' : ' <span style="color:#9CA3AF;">aucune vente</span>') + '</span>';
+      }).join('');
+      return '<div data-plan style="margin:6px 0 10px;">'
+        + '<div style="font-size:12px;color:#6B7280;margin:0 0 6px;">' + esc(b.mesure_fr || '') + (b.fenetre_fr ? ' \u00b7 ' + esc(b.fenetre_fr) : '') + ' \u00b7 sol de vente ' + esc(String(b.surface_totale_m2).replace('.', ',')) + ' m\u00b2</div>'
+        + '<svg viewBox="' + b.viewBox.map(function (v) { return +v; }).join(' ') + '" style="width:100%;max-width:640px;height:auto;display:block;background:#F9FAFB;border-radius:10px;" role="img" aria-label="' + esc(b.mesure_fr || 'Plan') + '">' + polys + labels + '</svg>'
+        + '<div style="margin-top:8px;">' + legend + '</div></div>';
+    },
     // Phase 2 clarification chips (same inline styles as the ie-prompt.js originals)
     clarification: function (b) {
       var chips = (b.chips || []).filter(function (c) { return c && typeof c.label_fr === 'string' && typeof c.send === 'string'; })
@@ -2147,6 +2547,11 @@
       try { console.error('[MSCardKit] blocks[] without register — rendering least-trusted pill'); } catch (e) {}
       html += abRegister('model');
     }
+    return html + renderBlockList(list);
+  }
+  // 12/09 : la boucle de rendu seule — les sections d'un Rapport la réutilisent (leur registre est celui de la Synthèse).
+  function renderBlockList(list) {
+    var html = '';
     for (var i = 0; i < list.length; i++) {
       var b = list[i];
       var fn = AB_PRIMITIVES[b && b.type];
@@ -2184,24 +2589,83 @@
     var d = String(photo.created_at || '').slice(0, 10); var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
     var qs = Array.isArray(photo.questions) ? photo.questions : [];
     var ans = { oui: t('pole_photo_yes'), non: t('pole_photo_no'), non_visible: t('pole_photo_nv') };
+    // v2 (11/09) : ce que la photo dit du composant — exposition (libelle servi par l'API, registre),
+    // niveaux (composant a niveaux seulement), numero sur le plan ; puis les familles reconnues.
+    // Absent = rien (la question n'a pas ete posee), jamais un zero nu.
+    var composant = [];
+    if (photo.exposition_label_fr) composant.push(esc(photo.exposition_label_fr));
+    if (photo.levels != null && Number(photo.levels) > 0) composant.push(esc(Number(photo.levels) === 1 ? String(t('pole_photo_levels_un')) : String(t('pole_photo_levels')).split('{n}').join(String(photo.levels))));
+    if (photo.fixture_no != null && Number(photo.fixture_no) > 0) composant.push(esc(t('pole_photo_fixture_no')) + ' : ' + esc(String(photo.fixture_no)));
+    var fams = Array.isArray(photo.families_present) ? photo.families_present.filter(function (f) { return !!f; }) : [];
+    var composantHtml = (composant.length ? '<div style="font-size:12px;color:#374151;margin-top:2px;">' + composant.join(' \u00b7 ') + '</div>' : '')
+      + (fams.length ? '<div style="font-size:12px;color:#374151;margin-top:2px;">' + esc(t('pole_photo_families')) + ' ' + fams.map(esc).join(', ') + '</div>' : '');
+    // 11/09 : la vignette de 96 px lit la variante carree (192 px, WebP ~10 Ko) servie par l'API, au lieu
+    // de l'image entiere (~570 Ko) ; une photo sans variante est servie entiere par l'API (repli).
+    var thumb = String(photo.url || '');
+    if (thumb && thumb.indexOf('variant=') < 0) thumb += (thumb.indexOf('?') < 0 ? '?' : '&') + 'variant=square';
     return '<div style="display:flex;gap:12px;align-items:flex-start;">'
-      + '<img src="' + esc(photo.url) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;flex:none;">'
+      + '<img src="' + esc(thumb) + '" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;flex:none;">'
       + '<div style="flex:1;min-width:0;">'
-      + '<div style="font-size:12px;color:#374151;">' + esc(dfr) + (keys.length ? ' \u00b7 ' + n.oui + ' ' + esc(ans.oui) + ' \u00b7 ' + n.non + ' ' + esc(ans.non) + ' \u00b7 ' + n.non_visible + ' ' + esc(ans.non_visible) : '') + '</div>'
+      // 13/09 (owner, legende A) : la meme grammaire que la vignette et la bande — la VERSION, la date, puis
+      // l'auteur quand on connait son nom. Une metadonnee absente s'omet (jamais « Auteur : — »).
+      + '<div style="font-size:12px;color:#374151;">'
+        + esc([photo.version_no != null && Number(photo.version_no) > 0 ? 'Version ' + photo.version_no : '', dfr, photo.created_by_name ? String(photo.created_by_name) : ''].filter(function (x) { return !!x; }).join(' \u00b7 '))
+        + (keys.length ? ' \u00b7 ' + n.oui + ' ' + esc(ans.oui) + ' \u00b7 ' + n.non + ' ' + esc(ans.non) + ' \u00b7 ' + n.non_visible + ' ' + esc(ans.non_visible) : '') + '</div>'
+      + composantHtml
       + (qs.length ? '<div style="margin-top:4px;">' + qs.map(function (q) {
           var v = cl[q.key]; var col = v === 'oui' ? '#0F6E56' : v === 'non' ? '#B45309' : '#9CA3AF';
           return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;border-bottom:1px solid #F3F4F6;"><span style="color:#374151;">' + esc(q.question_fr) + '</span><span style="color:' + col + ';font-weight:600;white-space:nowrap;">' + esc(ans[v] || '') + '</span></div>';
         }).join('') + '</div>' : '')
       + itemsBlock(photo, t)
-      + '</div></div>';
+      + retraitBlock(photo, t)
+      + '</div></div>'
+      + precedentesBlock(photo, t);
+  }
+
+  // 14/09 (owner : « fais du retrait une action de la page du pole ») — LE GESTE DE RETRAIT.
+  // Il vit sous la legende de la photo COURANTE, la ou l'exploitant la regarde. Deux touchers : le
+  // premier demande le plan a l'API (ce que le retrait va faire du pole) et remplit ce meme conteneur ;
+  // le second confirme. « Retirer → » suit le patron de CTA deja rendu sur ce bloc (« Confirmer → »),
+  // en couleur d'alerte ; la page (EngagementDoc) porte le cablage, le kit ne fait que rendre.
+  function retraitBlock(photo, t) {
+    if (!photo || !photo.photo_id) return '';
+    return '<div data-eg-photo-rm-wrap="' + esc(photo.photo_id) + '" style="margin-top:8px;">'
+      + '<button type="button" data-eg-photo-rm="' + esc(photo.photo_id) + '" style="font-size:12px;font-weight:500;font-family:inherit;color:#B45309;background:#fff;border:1px solid #B45309;border-radius:8px;padding:6px 12px;cursor:pointer;min-height:32px;">'
+      + esc(t('pole_photo_retirer')) + '</button></div>';
+  }
+
+  // 14/09 (owner : « photos avec acces aux versions precedentes ») — LES PHOTOS PRECEDENTES DU MEME
+  // COMPOSANT. Mesure du 14/09 : les 7 poles du compte sont en VERSION 1, donc « Historique du dispositif »
+  // ne s'affiche sur aucun ; sans ce volet, la deuxieme photo d'une etagere rendait la premiere
+  // inatteignable. Un volet REPLIE : la photo courante garde sa place, rien de ce qui est approuve ne bouge.
+  // Les vignettes ont la meme grammaire que celles de l'historique (carre 72 px, nom court, date).
+  function precedentesBlock(photo, t) {
+    var pr = Array.isArray(photo.precedentes) ? photo.precedentes : [];
+    if (!pr.length) return '';
+    return '<details data-eg-photo-prec style="margin-top:8px;">'
+      + '<summary style="font-size:12px;color:#1D3BB3;cursor:pointer;">' + esc(t(pr.length > 1 ? 'pole_photo_prec' : 'pole_photo_prec_une').split('{n}').join(String(pr.length))) + '</summary>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">'
+      + pr.map(function (x) {
+          var u = String(x.url || '');
+          var th = u && u.indexOf('variant=') < 0 ? u + (u.indexOf('?') < 0 ? '?' : '&') + 'variant=square' : u;
+          var d = String(x.created_at || '').slice(0, 10);
+          var dfr2 = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+          var ti = [x.version_no != null && Number(x.version_no) > 0 ? 'Version ' + x.version_no : '', dfr2,
+                    x.created_by_name ? String(x.created_by_name) : ''].filter(function (y) { return !!y; }).join(' \u00b7 ');
+          return '<a href="' + esc(u) + '" target="_blank" rel="noopener" style="text-decoration:none;color:#6B7280;display:block;width:72px;">'
+            + '<img src="' + esc(th) + '" alt="" title="' + esc(ti) + '" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block;">'
+            + (dfr2 ? '<div style="font-size:11px;line-height:1.35;margin-top:3px;">' + esc(dfr2) + '</div>' : '')
+            + '</a>';
+        }).join('')
+      + '</div></details>';
   }
 
   window.MSCardKit = { renderComponentPhoto: renderComponentPhoto,
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
-    msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msEngagementUrl: msEngagementUrl, msSortTable: msSortTable, msDecision: msDecision,
+    msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msEngagementUrl: msEngagementUrl, msPoleUrl: msPoleUrl, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,
     mdBlockToSafeHtml: mdBlockToSafeHtml, renderAnswerBlocks: renderAnswerBlocks,
     renderWeather: renderWeather, renderSales: renderSales, renderAudience: renderAudience, renderTrackRecord: renderTrackRecord,
-    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow, renderChannels: renderChannels
+    renderEvents: renderEvents, renderCompetitor: renderCompetitor, renderTourism: renderTourism, renderFootfall: renderFootfall, renderOffering: renderOffering, renderEvolution: renderEvolution, renderMarge: renderMarge, renderEspace: renderEspace, renderSignauxFamille: renderSignauxFamille, renderSalesDecomp: renderSalesDecomp, renderSalesDiscount: renderSalesDiscount, renderWeatherWindow: renderWeatherWindow, renderChannels: renderChannels
   };
 })();

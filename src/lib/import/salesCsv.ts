@@ -37,7 +37,15 @@ export type CanonicalField =
   | 'transaction_hour'
   | 'visitor_count'
   | 'payment_method'
-  | 'currency';
+  | 'currency'
+  // 11/09 (docs/catalogue-de-couts-et-marge.md, décision owner 2) : le TYPE DE DOCUMENT de la caisse
+  // (Crisalid : IVT, EST, SST, IVD, RUP… — seed dbt document_types dit lesquels comptent comme vente ;
+  // une ligne sans type garde le comportement d'aujourd'hui), le CA HT de la ligne et le TAUX DE TVA
+  // quand l'export les donne. dbt (fct_client_sales_lines_margin) lit revenue_ht tel quel, sinon
+  // revenue ÷ (1 + vat_rate) — le taux s'écrit donc en FRACTION (0,2), jamais en pour cent.
+  | 'document_type'
+  | 'revenue_ht'
+  | 'vat_rate';
 
 export const REQUIRED_FIELDS: CanonicalField[] = ['date', 'revenue'];
 
@@ -68,6 +76,9 @@ export interface CanonicalRow {
   visitor_count?: number;
   payment_method?: string;
   currency?: string;
+  document_type?: string;
+  revenue_ht?: number;
+  vat_rate?: number;        // fraction (0,2 pour 20 %)
 }
 
 export interface RejectedRow {
@@ -201,6 +212,16 @@ export function normalizeNumber(raw: string | undefined): number | null {
   if (!/^[+-]?\d*\.?\d+$/.test(s)) return null;
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
+}
+
+// Taux de TVA d'un export : « 20 », « 20 % », « 5,5 » (pour cent) ou « 0,2 » (fraction) → FRACTION.
+// Règle : une valeur > 1 est un pour cent (aucun taux de TVA français ne dépasse 100 %) ; ≤ 1, une
+// fraction. Bornes : 0 ≤ taux ≤ 1 après conversion ; sinon null (jamais une TVA inventée).
+export function parseVatRate(raw: string | undefined): number | null {
+  const n = normalizeNumber(raw);
+  if (n == null || n < 0) return null;
+  const frac = n > 1 ? n / 100 : n;
+  return frac <= 1 ? Math.round(frac * 10000) / 10000 : null;
 }
 
 // Accepts ISO (YYYY-MM-DD, YYYY/MM/DD) and French (DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY).
@@ -393,6 +414,11 @@ export function validateGrid(
     setNum(canonical, 'visitor_count', cell(r, 'visitor_count'));
     setStr(canonical, 'payment_method', cell(r, 'payment_method'));
     setStr(canonical, 'currency', cell(r, 'currency'));
+    // 11/09 — type de document (code de la caisse, tel quel), CA HT de la ligne, taux de TVA en fraction.
+    setStr(canonical, 'document_type', cell(r, 'document_type'));
+    setNum(canonical, 'revenue_ht', cell(r, 'revenue_ht'));
+    const vat = parseVatRate(cell(r, 'vat_rate'));
+    if (vat != null) canonical.vat_rate = vat;
 
     accepted.push(canonical);
     if (minDate == null || date < minDate) minDate = date;
@@ -426,8 +452,8 @@ export function parseSalesCsv(
 
 // ── small assignment helpers (keep optionals absent rather than undefined-valued) ──
 
-type StrField = 'invoice_number' | 'item_code' | 'item_description' | 'item_category' | 'channel' | 'customer_type' | 'payment_method' | 'currency';
-type NumField = 'ticket_count' | 'quantity' | 'unit_price' | 'discount_amount' | 'transaction_hour' | 'visitor_count';
+type StrField = 'invoice_number' | 'item_code' | 'item_description' | 'item_category' | 'channel' | 'customer_type' | 'payment_method' | 'currency' | 'document_type';
+type NumField = 'ticket_count' | 'quantity' | 'unit_price' | 'discount_amount' | 'transaction_hour' | 'visitor_count' | 'revenue_ht';
 
 function setStr(row: CanonicalRow, field: StrField, raw: string | undefined): void {
   if (raw == null) return;

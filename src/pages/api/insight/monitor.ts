@@ -11,6 +11,7 @@ import { assembleDayContext } from "../../../lib/context/dayContext";
 import { formatWeatherAlert, formatEstimatePct, structuralCardCopyFr } from "../../../lib/context/contextCopy";
 import { getDayClassImpacts, enjeuWithReasonForCandidate, classNeverMeasured, structuralFunnelLineFr, corrIndexFr, weatherAlertGone } from "../../../lib/kpi/dayClassRegistry";
 import { buildEventLifecycleCards } from "../../../lib/events/eventLifecycleCards";
+import { listFamilyPhotos, pickFamilyPhoto, familyPhotoPayload, FAMILY_PHOTO_CARD_TYPES, type FamilyPhotoRow } from "../../../lib/dispositifs/familyPhotos";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -80,6 +81,20 @@ async function fetchBestTimeWeek(venueId: string): Promise<any[] | null> {
   }
 }
 
+// 12/09 (perf) — la prévision HEBDOMADAIRE BestTime d'un lieu gardée 1 h en mémoire du processus : la plupart des
+// chargements n'appellent plus l'API. Un échec (null) n'est jamais gardé : le chargement suivant réessaie.
+const _btWeekCache = new Map<string, { ts: number; data: any[] }>();
+const BT_WEEK_TTL_MS = 3_600_000;
+// L'id BestTime d'un site, gardé 1 h aussi : un chargement « chaud » ne relit pas le profil pour le connaître.
+const _btVenueByLoc = new Map<string, { ts: number; id: string | null }>();
+async function fetchBestTimeWeekCached(venueId: string): Promise<any[] | null> {
+  const hit = _btWeekCache.get(venueId);
+  if (hit && Date.now() - hit.ts < BT_WEEK_TTL_MS) return hit.data;
+  const data = await fetchBestTimeWeek(venueId).catch(() => null);
+  if (data) _btWeekCache.set(venueId, { ts: Date.now(), data });
+  return data;
+}
+
 export const GET: APIRoute = async ({ url, locals }) => {
   try {
     const _t0 = Date.now();
@@ -133,6 +148,103 @@ export const GET: APIRoute = async ({ url, locals }) => {
       ? String((locals as any).clerk_user_id).trim()
       : null;
 
+    // 12/09 (perf, mesuré le 11/09 sur Muse Square : lectures par utilisateur 835-1 055 ms, clés de suppression
+    // 421-606 ms, BestTime 124-619 ms — trois attentes EN SÉRIE après la vague principale). Leurs entrées
+    // (utilisateur, site) sont connues à l'arrivée : AMORCÉES ici, attendues à leur place. Mêmes requêtes, même
+    // traitement d'erreur : les lectures par utilisateur retombent chacune sur leur défaut ; les clés de suppression
+    // relancent leur erreur à l'attente, comme avant (le .catch vide n'évite que le rejet « non géré » avant l'attente).
+    const perUserReadsP: Promise<any[]> | null = clerk_user_id ? Promise.all([
+      bq.query({
+        query: `
+          SELECT goal, goal_label_fr, goal_scope
+          FROM \`muse-square-open-data.semantic.vw_insight_event_user_active_goal\`
+          WHERE user_id = @clerk_user_id
+            AND location_id = @location_id
+          LIMIT 1
+        `,
+        params: { clerk_user_id, location_id },
+        location: "EU",
+      }).catch(() => [[]] as any[]),
+      bq.query({
+        query: `
+          SELECT cards_done, cards_already_done, cards_not_done, total_succeeded, total_attempted
+          FROM \`muse-square-open-data.semantic.vw_insight_event_user_activity\`
+          WHERE user_id = @clerk_user_id
+            AND location_id = @location_id
+          LIMIT 1
+        `,
+        params: { clerk_user_id, location_id },
+        location: "EU",
+      }).catch(() => [[]] as any[]),
+      bq.query({
+        query: `
+          SELECT config_json, enabled
+          FROM (
+            SELECT config_json, enabled,
+                   -- Owner 19/07 : config niveau COMPTE — site d'abord, sinon compte
+                   ROW_NUMBER() OVER (ORDER BY (location_id = @location_id) DESC, updated_at DESC) AS rn
+            FROM \`muse-square-open-data.analytics.channel_configs\`
+            WHERE user_id = @clerk_user_id
+              AND channel = 'recommendations'
+          )
+          WHERE rn = 1
+        `,
+        params: { clerk_user_id, location_id },
+        location: "EU",
+      }).catch(() => [[]] as any[]),
+      bq.query({
+        query: `
+          SELECT
+            CAST(transaction_date AS STRING) AS date,
+            daily_revenue,
+            daily_transactions,
+            avg_basket,
+            revenue_30d_avg,
+            revenue_vs_30d_avg_pct,
+            revenue_same_weekday_last_week,
+            revenue_vs_last_week_pct,
+            revenue_robust_z
+          FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
+          WHERE location_id = @location_id
+          ORDER BY transaction_date DESC
+          LIMIT 8
+        `,
+        params: { location_id },
+        location: "EU",
+      }).catch(() => [[]] as any[]),
+    ]) : null;
+    const activeSuppP = bq.query({
+      query: `SELECT DISTINCT origin_suppression_key AS k
+              FROM (
+                SELECT origin_suppression_key, status,
+                  ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
+                FROM \`muse-square-open-data.analytics.action_commitments\`
+                WHERE location_id = @location_id AND origin_suppression_key IS NOT NULL
+              )
+              WHERE rn = 1 AND status IN ('open','pending')`,
+      params: { location_id }, types: { location_id: "STRING" }, location: "EU",
+    });
+    activeSuppP.catch(() => {});
+    // BestTime (12/09) — AMORCÉE au début, jamais en série après la vague. Chaud (id du site et prévision connus depuis
+    // moins d'1 h dans ce processus) : aucune lecture, aucun appel. Froid : l'id est lu dans la vue du profil du
+    // cerveau (vw_insight_event_ai_location_context), en parallèle de la vague. S'il diffère du profil plus bas,
+    // l'appel suit le profil (même résultat qu'avant, en toutes circonstances).
+    const btEarlyP: Promise<{ venueId: string | null; data: any[] | null }> = (async () => {
+      const known = _btVenueByLoc.get(location_id);
+      let id: string | null;
+      if (known && Date.now() - known.ts < BT_WEEK_TTL_MS) id = known.id;
+      else {
+        const r: any = await bq.query({
+          query: `SELECT besttime_venue_id FROM \`muse-square-open-data.semantic.vw_insight_event_ai_location_context\` WHERE location_id = @location_id LIMIT 1`,
+          params: { location_id },
+          location: "EU",
+        });
+        id = r?.[0]?.[0]?.besttime_venue_id ?? null;
+        _btVenueByLoc.set(location_id, { ts: Date.now(), id });
+      }
+      return { venueId: id, data: id ? await fetchBestTimeWeekCached(String(id)) : null };
+    })().catch(() => ({ venueId: null, data: null }));
+
     // ----------------------------------------------------------------
     // 3. Change feed query
     // ----------------------------------------------------------------
@@ -184,7 +296,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // reader. Per selected date; the profile row is location-level (same across dates). day_surface_raw /
     // profile_raw are the full view rows (parity-verified against the old profileQuery/signalsQuery). The
     // brain memoizes per (location,date), so reactions-today / sensitivities on the same page share this read.
-    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult, eventLifecycleRows, decompositionRows, competitorPhotoRows] = await Promise.all([
+    const [dcs, [feedRows], [savedItemRows], [competitorAlertRows], [followedCountRows], actionCandidateRows, dayClassResult, eventLifecycleRows, decompositionRows, competitorPhotoRows, familyPhotoRows] = await Promise.all([
       // Enrich only the PRIMARY date (selected_dates[0]) with the full brain context — that's the day
       // whose rich detail a client renders (pulse: today; monitor: its single selected date). The other
       // dates only feed the 7-day week-bar (opportunity_score) + selected-day detail, which the clients
@@ -370,6 +482,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
         params: { location_id },
         location: "EU",
       }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+      // 11/09 — les photos courantes des composants qui portent une famille (lib/dispositifs/familyPhotos.ts,
+      // couche semantic) : attachées aux cartes FAMILLE comme `family_photo`. Même vague, aucun aller-retour de plus.
+      listFamilyPhotos(bq, location_id),
     ]);
     // 07/09 — la photo ne part vers la page QU'AVEC son attribution Google (conditions Places) : le crawl et
     // le one-off 2026-09-07 la stockent en JSON {name, uri} ; sans elle, pas de photo.
@@ -398,7 +513,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     // Fetch BestTime foot traffic if venue is registered
     const btVenueId = profile?.besttime_venue_id ?? null;
-    const btWeekData = btVenueId ? await fetchBestTimeWeek(btVenueId).catch(() => null) : null;
+    // BestTime : btEarlyP (plus haut). Si l'id retenu diffère de celui du profil, le profil gagne (et devient l'id retenu).
+    const btEarly = await btEarlyP;
+    if (btVenueId && btEarly.venueId !== btVenueId) _btVenueByLoc.set(location_id, { ts: Date.now(), id: String(btVenueId) });
+    const btWeekData = btVenueId ? (btEarly.venueId === btVenueId ? btEarly.data : await fetchBestTimeWeekCached(String(btVenueId))) : null;
     const btByDayInt = new Map<number, any>();
     if (btWeekData) {
       for (const d of btWeekData) {
@@ -420,66 +538,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // with no CSV import simply have no rows — the volet renders its cold-start invite).
     let salesSummary: any = null;
     if (clerk_user_id) {
-      const [goalRes, actRes, recoRes, salesRes] = await Promise.all([
-        bq.query({
-          query: `
-            SELECT goal, goal_label_fr, goal_scope
-            FROM \`muse-square-open-data.semantic.vw_insight_event_user_active_goal\`
-            WHERE user_id = @clerk_user_id
-              AND location_id = @location_id
-            LIMIT 1
-          `,
-          params: { clerk_user_id, location_id },
-          location: "EU",
-        }).catch(() => [[]] as any[]),
-        bq.query({
-          query: `
-            SELECT cards_done, cards_already_done, cards_not_done, total_succeeded, total_attempted
-            FROM \`muse-square-open-data.semantic.vw_insight_event_user_activity\`
-            WHERE user_id = @clerk_user_id
-              AND location_id = @location_id
-            LIMIT 1
-          `,
-          params: { clerk_user_id, location_id },
-          location: "EU",
-        }).catch(() => [[]] as any[]),
-        bq.query({
-          query: `
-            SELECT config_json, enabled
-            FROM (
-              SELECT config_json, enabled,
-                     -- Owner 19/07 : config niveau COMPTE — site d'abord, sinon compte
-                     ROW_NUMBER() OVER (ORDER BY (location_id = @location_id) DESC, updated_at DESC) AS rn
-              FROM \`muse-square-open-data.analytics.channel_configs\`
-              WHERE user_id = @clerk_user_id
-                AND channel = 'recommendations'
-            )
-            WHERE rn = 1
-          `,
-          params: { clerk_user_id, location_id },
-          location: "EU",
-        }).catch(() => [[]] as any[]),
-        bq.query({
-          query: `
-            SELECT
-              CAST(transaction_date AS STRING) AS date,
-              daily_revenue,
-              daily_transactions,
-              avg_basket,
-              revenue_30d_avg,
-              revenue_vs_30d_avg_pct,
-              revenue_same_weekday_last_week,
-              revenue_vs_last_week_pct,
-              revenue_robust_z
-            FROM \`muse-square-open-data.mart.fct_client_sales_signals_daily\`
-            WHERE location_id = @location_id
-            ORDER BY transaction_date DESC
-            LIMIT 8
-          `,
-          params: { location_id },
-          location: "EU",
-        }).catch(() => [[]] as any[]),
-      ]);
+      const [goalRes, actRes, recoRes, salesRes] = await perUserReadsP!;
       const goalRows = goalRes?.[0];
       activeGoal = (Array.isArray(goalRows) && goalRows[0]) ? goalRows[0] : null;
       const actRows = actRes?.[0];
@@ -631,17 +690,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // brings the card back automatically. Computed BEFORE the feed merge so it now suppresses BOTH
     // rails: action candidates (below) AND change-feed cards (the view derives the same
     // change_subtype:location:date key since 16/07 — the last lifecycle hole).
-    const [activeSuppRows] = await bq.query({
-      query: `SELECT DISTINCT origin_suppression_key AS k
-              FROM (
-                SELECT origin_suppression_key, status,
-                  ROW_NUMBER() OVER (PARTITION BY commitment_id ORDER BY updated_at DESC, CASE WHEN status IN ('resolved', 'cancelled') THEN 1 ELSE 0 END DESC, (verdict IS NOT NULL) DESC, created_at DESC) AS rn
-                FROM \`muse-square-open-data.analytics.action_commitments\`
-                WHERE location_id = @location_id AND origin_suppression_key IS NOT NULL
-              )
-              WHERE rn = 1 AND status IN ('open','pending')`,
-      params: { location_id }, types: { location_id: "STRING" }, location: "EU",
-    });
+    const [activeSuppRows] = await activeSuppP;
     const activeSuppressionKeys = new Set((activeSuppRows as any[]).map((r) => String(r.k)));
 
     const mergedFeed = [
@@ -1121,6 +1170,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
           // 07/09 — photo du concurrent suivi sur les cartes concurrent (appariement par NOM du suivi : la clé
           // commune des payloads ; competitor_id absent de plusieurs d'entre eux).
           if (pl && typeof pl === 'object' && pl.competitor_name && competitorPhotoByName.has(String(pl.competitor_name))) { const ph = competitorPhotoByName.get(String(pl.competitor_name))!; pl.competitor_photo = ph.photo; pl.competitor_photo_attribution = ph.attribution; }
+          // 11/09 — photo du composant qui porte la famille, sur les quatre cartes famille seulement (appariement
+          // par nom EXACT de famille : item_category ; la plus spécifique gagne — familyPhotos.ts).
+          if (pl && typeof pl === 'object' && pl.item_category && FAMILY_PHOTO_CARD_TYPES.includes(String(r?.action_type ?? ''))) { const fp = pickFamilyPhoto(familyPhotoRows as FamilyPhotoRow[], String(pl.item_category)); if (fp) Object.assign(pl, familyPhotoPayload(fp)); }
           return pl;
         })(r?.data_payload ? (typeof r.data_payload === 'string' ? JSON.parse(r.data_payload) : r.data_payload) : null),
         suppression_key: r?.suppression_key ?? null,

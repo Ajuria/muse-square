@@ -88,6 +88,34 @@ export const TOURNURES_LLM: TournureBannie[] = [
     faute: "« X a fait N € » n'est pas du français — le sujet génère un montant, ou le CA est de N €",
     refusee: "Ce vendredi, il a fait 0 € (−100 %) contre 137 € votre vendredi habituel à cette heure",
   },
+  {
+    // 11/09 : la même faute au PLURIEL, sortie de l'agent Explorer sur f10c3e58 (« font à eux deux ») —
+    // le motif du 06/09 ne voyait que « a fait ».
+    motif: /\b(ont fait|font) (à (eux|elles) (deux|trois) )?(un montant|\d)/,
+    faute: "« X font N € » n'est pas du français — les familles génèrent un montant, ou leur CA est de N €",
+    refusee: "Coffee et Tea font à eux deux 1 154 € par jour",
+  },
+  {
+    // 11/09 (owner : « llm crap that means NOTHING to a human ») : une métaphore n'est pas une phrase de
+    // commerçant — on dit ce qui est mesuré et ce qui manque.
+    motif: /\bangle mort\b|\bqui (les|la|le|vous) tient\b/,
+    faute: "image de machine (« angle mort », « qui les tient ») — dire ce qui est mesuré et ce qui manque",
+    refusee: "c'est le même angle mort qui les tient",
+  },
+  {
+    // 11/09 (owner : « etagere -> Not proper french -> étagère ») : les accents font partie du mot ; une
+    // clé lisible par un humain (sujet de mémoire, libellé) les garde. Mots courants, forme sans accent.
+    motif: /\b(etagere|etageres|epicerie|epiceries|epice|epices|cereale|cereales|deja|derniere|dernieres|premiere|premieres|apres|des que|a cote|cote gauche|cote droit|ete|hotel|hotels|the vert|the noir|marche couvert|reglement|prevu|prevue)\b/,
+    faute: "mot sans son accent (« etagere », « epicerie », « deja »…) — le français s'écrit avec ses accents, y compris dans une clé",
+    refusee: "Les paquets de café sont sur une etagere du fond",
+  },
+  {
+    // 11/09 (owner, lexique l. 26 : « votre habituel » NU est banni depuis le 24/08 — la référence porte
+    // son nom entier, « votre résultat habituel ») : la forme nue est ressortie dans le chat le 11/09.
+    motif: /\b(sous|à|vs|au-dessus de|au-dessous de|contre) (leur|votre|son|sa|notre|ton) habituel\b/,
+    faute: "« habituel » nu — la référence porte son nom entier : sous leur RÉSULTAT habituel, votre CA habituel",
+    refusee: "Coffee et Tea vendent sous leur habituel",
+  },
   // 09/09 (owner : « please write in French not in frenglish — it drives me mad ») : LE FRANGLAIS EST
   // INTERDIT. Un calque de l'anglais n'est pas du français même quand chaque mot existe en français.
   {

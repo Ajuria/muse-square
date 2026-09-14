@@ -26,8 +26,29 @@ import { salesFamily } from "./sales";
 import { calendarFamily } from "./calendar";
 import { channelsProvider } from "./channels";
 import { engagementsProvider } from "./engagements";
+import { margeFamily } from "./marge";
+import { espaceFamily } from "./espace";
+import { signauxFamilleFamily } from "./signauxFamille";
 
 export const FAMILIES: Record<string, FamilyProvider> = {
+  // SIGNAUX × FAMILLE (11/09, docs/reponse-aux-signaux-par-famille.md) — « quelles familles souffrent de la
+  // pluie ? », « qu'est-ce qui se vend pendant les vacances ? ». AVANT weather : une question qui nomme une
+  // famille, une catégorie ou un produit face à une classe de jours veut la réponse PAR FAMILLE, pas la
+  // sensibilité du site ; chaque motif exige les deux (un mot de famille ET un mot de classe), donc rien
+  // n'est volé à weather sur « quand il pleut, je vends moins ? ».
+  signaux: {
+    key: "signaux",
+    title: "Vos familles face aux jours (météo, calendrier, activité autour de vous)",
+    render: "renderSignauxFamille",
+    match: [
+      /\b(familles?|categories?|produits?|rayons?)\b.{0,60}\b(pluie|pleut|chaleur|canicule|froid|neige|vacances|feries?|meteo|touris|evenements?|concurren)/,
+      /\b(pluie|pleut|chaleur|canicule|froid|neige|vacances|feries?|meteo|touris|evenements?|concurren)[a-z]*\b.{0,60}\b(familles?|categories?|produits?|rayons?)\b/,
+      /\bquelles? (familles?|categories?|produits?)\b.{0,50}(sensible|souffre|profite|baisse|monte|resiste|marche|se vend)/,
+      /\bsensib.{0,30}(famille|categorie|produit)/,
+      /\b(qu'?est[- ]ce qui|quoi|que)\b.{0,20}(se vend|vend|marche).{0,40}(quand il (pleut|fait chaud|fait froid|neige)|pendant les vacances|les jours feries)/,
+    ],
+    run: signauxFamilleFamily,
+  },
   // WEATHER / what the venue's OWN weather actually moves ("la pluie fait-elle baisser mon CA ?").
   // FIRST on purpose: footfall's /(quand…).{0,35}(vend…)/ matcher otherwise swallows "quand il pleut,
   // je vends moins ?" and answers with a peak HOUR — the wrong card for a sensitivity question. Every
@@ -49,6 +70,36 @@ export const FAMILIES: Record<string, FamilyProvider> = {
       /\b(pluie|chaleur|canicule|froid|neige|vent)\b.{0,50}(fait fuir|fuir|dissuade|empeche|retenu).{0,25}(clients?|visiteurs?|public|monde)/,
     ],
     run: weatherFamily,
+  },
+  // MARGE BRUTE MESURÉE (11/09, docs/catalogue-de-couts-et-marge.md) — « quelle est ma marge brute ? »,
+  // « ma rentabilité », « mon bénéfice ». Avant footfall/sales : un mot de marge est un sujet de marge.
+  // Les figures de style (« marge de manœuvre / de progression / d'erreur ») ne sont pas des questions de
+  // marge — même garde que detectMissingDimension (prompt.ts). Le chat déterministe (mesure d'abord,
+  // sinon marge déclarée) répond avant ce provider ; ici : le rapport et la carte.
+  marge: {
+    key: "marge",
+    title: "Marge brute · 30 derniers jours",
+    render: "renderMarge",
+    match: [
+      /\bmarge brute\b/, /\btaux de marge\b/,
+      /\bmarges?\b(?! (de man(oe|œ)uvre|de progression|d'erreur|d erreur))/,
+      /\brentabilit/, /\bbenefices?\b/, /\bprofits?\b/, /\bprix d'?achat\b/,
+    ],
+    run: margeFamily,
+  },
+  // ESPACE (11/09, docs/espace-et-pole.md) — « combien rapporte mon linéaire ? », « quel pôle est le plus
+  // rentable au mètre ? », « ma surface de vente ». Mots de mesure d'espace seulement : rien à voler aux
+  // familles ventes (« mètre » n'y apparaît jamais).
+  espace: {
+    key: "espace",
+    title: "Espace · linéaire, surface de vente, CA par mètre",
+    render: "renderEspace",
+    match: [
+      /\blineaires?\b/, /\bmetres? lineaires?\b/, /\bpar metre\b/, /\b(par|au) m2\b/, /\bm²/,
+      /\bsurface de vente\b/, /\bpart de lineaire\b/,
+      /\b(mon |mes |quel |quels )?poles?\b.{0,40}(rentable|rapporte|rapportent|par metre|marge)/,
+    ],
+    run: espaceFamily,
   },
   footfall: {
     key: "footfall",

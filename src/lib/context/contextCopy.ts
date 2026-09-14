@@ -288,6 +288,38 @@ export function declaredFamilyMarginAnswerFr(p: {
   };
 }
 
+// Marge brute MESURÉE (11/09, docs/catalogue-de-couts-et-marge.md M7-M9 ; mots owner : marge brute, taux de
+// marge brute, « calculée sur X % de votre CA · prix d'achat manquants sur Y % », « vendu sous son prix
+// d'achat »). Répond AVANT toute estimation déclarée dès que la couverture le permet (mode mesure ou
+// mixte) ; la couverture est dans la phrase, toujours. Chiffres pré-composés par lib/kpi/margin.ts.
+export function measuredMarginAnswerFr(p: {
+  gross_margin_ht: number; margin_rate_pct: number | null; coverage_pct: number; mode: "mesure" | "mixte";
+  window_fr: string;       // « vos 30 derniers jours »
+  families: Array<{ family: string; gross_margin_ht: number | null; margin_rate_pct: number | null; coverage_pct: number | null }>;
+  below_cost_lines: number;
+}): { headline: string; answer: string } {
+  const eur = (n: number) => `${new Intl.NumberFormat("fr-FR").format(Math.round(n))} €`;
+  const pct = (n: number) => `${String(Math.round(n * 10) / 10).replace(".", ",")} %`;
+  const cov = Math.round(p.coverage_pct);
+  const missing = Math.max(0, 100 - cov);
+  const lines = p.families
+    .filter((f) => f.gross_margin_ht != null)
+    .slice(0, 8)
+    .map((f) => `- ${f.family} : ${eur(f.gross_margin_ht as number)} de marge brute` +
+      (f.margin_rate_pct != null ? ` (taux ${f.margin_rate_pct} %)` : "") +
+      (f.coverage_pct != null && f.coverage_pct < 99.5 ? `, calculée sur ${pct(f.coverage_pct)} de son CA` : ""));
+  return {
+    headline: `Marge brute : ${eur(p.gross_margin_ht)} sur ${p.window_fr} · calculée sur ${cov} % de votre CA`,
+    answer:
+      `Sur ${p.window_fr}, votre marge brute est de ${eur(p.gross_margin_ht)}` +
+      (p.margin_rate_pct != null ? `, soit un taux de marge brute de ${p.margin_rate_pct} %` : "") +
+      `. Calculée sur ${cov} % de votre CA · prix d'achat manquants sur ${missing} %.` +
+      (lines.length ? `\n\nPar famille :\n${lines.join("\n")}` : "") +
+      (p.below_cost_lines > 0 ? `\n\n${p.below_cost_lines} ligne${p.below_cost_lines > 1 ? "s" : ""} de vente vendue${p.below_cost_lines > 1 ? "s" : ""} sous son prix d'achat sur la période.` : "") +
+      (p.mode === "mixte" ? `\n\nSous 90 % de couverture, Piloter garde aussi votre marge déclarée à côté de la mesure.` : ""),
+  };
+}
+
 // Declared client base → CA-per-client estimate (generalization 16/07; same voice as the margin
 // answer: measured CA over declared value, attributed, labelled estimation). DRAFT — owner-final.
 export function declaredClientCountAnswerFr(p: {

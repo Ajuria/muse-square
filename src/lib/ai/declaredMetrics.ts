@@ -19,12 +19,19 @@
 // =====================================================
 
 import type { CorrectionType } from "./corrections";
+import type { ParameterKey } from "../kpi/declaredParameters";
 
 export interface DeclaredMetricSpec {
-  /** correction_type in the corrections log (must start with "declared_" — dbt contract). */
-  correction_type: CorrectionType;
-  /** detectMissingDimension key whose answer this metric unlocks. */
-  missing_dim: "marge" | "par_client";
+  /** correction_type in the corrections log (must start with "declared_" — dbt contract) ; null quand
+   *  la déclaration vit AILLEURS que dans le journal des corrections (store ci-dessous). */
+  correction_type: CorrectionType | null;
+  /** detectMissingDimension key whose answer this metric unlocks ; null = déclaration seule. */
+  missing_dim: "marge" | "par_client" | null;
+  /** 11/09 — un paramètre à DATE D'EFFET (docs/catalogue-de-couts-et-marge.md M5, espace-et-pole.md E4) s'écrit
+   *  dans analytics.declared_parameters (lib/kpi/declaredParameters.ts), jamais dans le journal des
+   *  corrections : dbt le lit par jour de vente (vw_insight_event_declared_parameters). */
+  store?: "declared_parameters";
+  param_key?: ParameterKey;
   /** Parse a DECLARATION from the normalized question; null = not a declaration of this metric. */
   parseDeclaration(qn: string): number | null;
   /** Bare stored value ("62") → display form ("62 %"). */
@@ -83,6 +90,28 @@ export const DECLARED_METRICS: DeclaredMetricSpec[] = [
       if (!m) return null;
       const n = Number(m[1]);
       return Number.isFinite(n) && n >= 1 && n <= 1_000_000 ? n : null;
+    },
+  },
+  {
+    // « ma surface de vente est de 120 m² » / « mon magasin fait 85 m2 » — 11/09 (docs/espace-et-pole.md E4) :
+    // la surface de vente du site (le chiffre du bail), déclarée une fois, à date d'effet = aujourd'hui.
+    // Écrite dans analytics.declared_parameters (sales_area_m2), le même magasin que le geste Piloter.
+    // Un QUALIFICATIF d'espace est exigé (surface, magasin, boutique, local) avec l'unité m² : « 120 m² de
+    // linéaire » ou « une réserve de 30 m² » ne déclarent rien.
+    correction_type: null,
+    missing_dim: null,
+    store: "declared_parameters",
+    param_key: "sales_area_m2",
+    label_fr: "Surface de vente",
+    formatValue: (raw) => `${String(raw).replace(".", ",")} m²`,
+    parseDeclaration(qn: string): number | null {
+      if (/\b(lineaire|reserve|terrasse|entrepot|stock)\b/.test(qn)) return null;
+      const m =
+        qn.match(/\b(?:ma |notre |la )?surface(?: de vente| du magasin| de la boutique| commerciale)?(?: est| fait| mesure)?(?: de| d environ| d'environ| :)?(?: environ| a peu pres| autour de)?\s*(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:m2|m²|metres? carres?)(?![a-z])/) ||
+        qn.match(/\b(?:mon magasin|ma boutique|mon local|mon espace de vente|mon point de vente)(?: fait| mesure)(?: environ| a peu pres)?\s*(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:m2|m²|metres? carres?)(?![a-z])/);
+      if (!m) return null;
+      const n = Number(m[1].replace(",", "."));
+      return Number.isFinite(n) && n >= 1 && n <= 100_000 ? n : null;
     },
   },
 ];

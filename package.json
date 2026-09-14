@@ -12,10 +12,20 @@
     "gate": "vitest run src/lib/ai/contracts/ src/lib/ai/honestAbsence.test.ts",
     "battery:explorer": "dotenv -e .env -- tsx tools/battery/explorer-quality-battery.ts",
     "battery:prompt": "dotenv -e .env -- node tools/battery/prompt-conversation-battery.mjs",
+    "battery:agent": "dotenv -e .env -- npx tsx tools/battery/explorer-agent-battery.ts",
     "harness": "python3 -m http.server 4173 --directory .",
+    "harness:https": "node tools/harness/https-serve.mjs tools/proto 8443 8080",
     "placement:check": "node tools/build/placement-check.mjs",
     "catalog:refresh": "bash tools/build/refresh-bq-catalog.sh",
-    "harness:bottombar": "vitest run --config tools/harness/bottombar-render-verify.vitest.ts"
+    "harness:bottombar": "vitest run --config tools/harness/bottombar-render-verify.vitest.ts",
+    "harness:family-photo": "npx tsx tools/harness/family-photo-harness.ts",
+    "harness:tableau-marge": "npx tsx tools/harness/tableau-marge-render-verify.mjs",
+    "harness:tableau-espace": "npx tsx tools/harness/tableau-pole-espace-render-verify.mjs",
+    "harness:explorer-blocks": "npx tsx tools/harness/explorer-blocks-render-verify.mjs",
+    "harness:rapports": "npx tsx tools/harness/rapports-render-verify.mjs",
+    "harness:evenement-preparer": "npx tsx tools/harness/evenement-preparer-bilan-verify.mjs",
+    "harness:lineage-photos": "npx tsx tools/harness/lineage-photos-verify.mts",
+    "check:inline": "node tools/harness/astro-inline-check.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
@@ -33,6 +43,7 @@
     "astro": "^5.13.3",
     "dotenv": "^17.2.3",
     "resend": "^6.9.4",
+    "sharp": "^0.34.5",
     "typescript": "^5.9.3",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },

@@ -1,0 +1,520 @@
+---
+// src/components/EngagementDoc.astro — LE DOCUMENT D'UN DISPOSITIF, partagé par ses DEUX adresses (13/09, owner :
+// « je ne comprends pas bien où se situe cette page ? Dans Agir vraiment ? »).
+// Une OPÉRATION vit sous Agir (/app/insightevent/engagement) ; un PÔLE se pilote (/app/insightevent/pole, onglet
+// Piloter, retour au Tableau de bord). Même rendu (MSCardKit.renderEvolution), même câblage (photos, version
+// suivante, bilan…) ; seuls l'adresse, le lien de retour et l'onglet surligné changent. Le script redresse l'adresse
+// quand la nature servie ne correspond pas à la page (un ancien lien vers un pôle passe par /engagement → /pole).
+import { EVOL_COPY } from "../lib/commitments/commitmentCopy";
+interface Props { id: string; page: "engagement" | "pole"; backHref: string; backLabel: string }
+const { id, page, backHref, backLabel } = Astro.props;
+---
+
+    <div id="eng-root" data-id={id} data-page={page}>
+      <div id="eng-toolbar">
+        <a href={backHref} id="eng-back">← {backLabel}</a>
+      </div>
+      <div id="eng-status">
+        <!-- Canonical loader (MSLoader); /ms-loader.js rotates the label. -->
+        <div class="ms-loader" role="status" aria-live="polite">
+          <img class="ms-loader__gif" src="/icons/load/ms_load_icon.gif" alt="" />
+          <div class="ms-loader__msg" data-ms-loader="engagement" data-ms-i="0">Chargement de l’évolution…</div>
+        </div>
+      </div>
+      <div id="eng-doc" style="display:none;"></div>
+    </div>
+
+    <style is:global>
+      #eng-root { max-width: 820px; margin: 0 auto; padding: 16px; font-family: system-ui, -apple-system, sans-serif; color: #111827; }
+      #eng-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+      #eng-back { font-size: 14px; color: #6b7280; text-decoration: none; }
+      #eng-status { padding: 60px 0; text-align: center; color: #374151; font-size: 14px; }
+      #eng-doc { background: #fff; border: 1px solid rgba(0,0,0,0.10); border-radius: 10px; padding: 26px 28px; }
+      /* Titres de section en ENCRE (owner 28/08) : le gris clair était illisible. */
+      .eg-uc { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #111827; font-weight: 700; margin-bottom: 10px; }
+      .eg-sec { margin-bottom: 26px; }
+      /* TÉLÉPHONE (< 768 px, audit mobile 07/09) : c'est la page qu'ouvre le bouton « Ajuster »
+         des messages Slack. La mise en page tient déjà (rien ne déborde à 375 px) ; seuls les
+         gestes étaient sous le pouce (boutons 29 px, dépliants 15 px). Le desktop ne change pas. */
+      @media (max-width: 767px) {
+        #eng-root { padding: 12px 12px 16px; }
+        #eng-doc { padding: 18px 16px; }
+        #eng-doc button { min-height: 40px; }
+        #eng-doc summary:not([style*="border-radius:50%"]) { padding-top: 8px; padding-bottom: 8px; }
+      }
+    </style>
+
+    <script is:inline src="/js/ms-loader.js?v=2"></script>
+    <script is:inline src="/js/scope-form.js?v=1"></script>
+    <script is:inline src="/js/commit-form.js?v=16"></script>
+    <script is:inline src="/js/pole-form.js?v=6"></script>
+    <script is:inline src="/js/card-kit.js?v=104"></script>
+    <script is:inline define:vars={{ COPY: EVOL_COPY, PAGE: page }}>
+      (function () {
+        var root = document.getElementById("eng-root");
+        var statusEl = document.getElementById("eng-status");
+        var docEl = document.getElementById("eng-doc");
+
+        function esc(s) { return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+        function t(key, vars) { var s = COPY[key] || ""; if (vars) for (var k in vars) if (vars.hasOwnProperty(k)) s = s.split("{"+k+"}").join(vars[k]); return s; }
+        function showError(msg) { statusEl.textContent = msg; statusEl.style.display = "block"; docEl.style.display = "none"; }
+        function doneBtnStyle(sel) { return "font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-weight:600;" + (sel ? "background:#1D3BB3;color:#fff;border:1px solid #1D3BB3;" : "background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;"); }
+
+        // ── PURE render moved to the SHARED public/js/card-kit.js (MSCardKit.renderEvolution),
+        //    the SINGLE source verified by tools/harness/card-harness.html — same as the system
+        //    cards. This page keeps ONLY the interactive wiring (capture POSTs + advice
+        //    M'engager sub-form via window.MSCommitForm), attached after the kit renders. ──
+        function render(data) {
+          if (!data || !data.ok) { showError((data && data.error) || "Engagement introuvable."); return; }
+          // 13/09 — deux adresses pour deux natures : un PÔLE se pilote (/pole, onglet Piloter), une OPÉRATION vit sous
+          // Agir (/engagement). Un lien ancien (Slack, Explorer, favori) qui ouvre un pôle par /engagement est redressé
+          // ici, une fois la nature connue — les paramètres de l'adresse (location_id) sont gardés.
+          var nature = data.commitment && data.commitment.dispositif_nature === "permanent" ? "pole" : "engagement";
+          if (nature !== PAGE) { var u = new URL(window.location.href); u.pathname = "/app/insightevent/" + nature; window.location.replace(u.toString()); return; }
+          if (!window.MSCardKit || !MSCardKit.renderEvolution) { showError("Erreur lors du chargement de l'évolution."); return; }
+          docEl.innerHTML = MSCardKit.renderEvolution(data, COPY);
+          // ── Photos des composants (étape 4, 03/09, spec dispositifs-typologie § 5) ──
+          // Le kit a rendu un emplacement par composant ; la page les remplit depuis l'API et
+          // câble « Documenter » : choisir une image, la RÉDUIRE dans le navigateur (1600 px,
+          // JPEG) — moins de 1,5 Mo part vers l'API — puis rendre la photo lue. Une personne
+          // visible → l'API a effacé l'image, la page dit pourquoi.
+          (function wirePhotos() {
+            var sec = docEl.querySelector("[data-eg-components]");
+            if (!sec || !MSCardKit.renderComponentPhoto) return;
+            var did = sec.getAttribute("data-eg-dispositif"), ver = sec.getAttribute("data-eg-version");
+            if (!did) return;
+            var cmLoc = (data.commitment && data.commitment.location_id) || "";
+            var slot = function (key) { return sec.querySelector('[data-eg-photo="' + key + '"]'); };
+            var show = function (key, photo) { var el = slot(key); if (el) el.innerHTML = MSCardKit.renderComponentPhoto(photo, COPY); };
+            var say = function (key, msg) { var el = slot(key); if (el) el.textContent = msg; };
+            // 13/09 — LA VERSION FAITE PAR LA PHOTO (owner : « Si photo change, versionning change » ·
+            // « en plus de l'image, on doit confirmer avec le user le changement réalisé »). L'API a déjà
+            // créé la version suivante en arrière-plan et rend ses phrases ; ici, on les montre SOUS le
+            // composant et on pose LA question — la seule du chantier, au niveau du composant. La réponse
+            // devient la note de la version nouvelle, puis la page s'ouvre dessus.
+            var montrerVersion = function (key, v) {
+              var el = slot(key); if (!el || !v) return;
+              // La page regardait la version précédente : les photos suivantes vont sur la nouvelle.
+              ver = String(v.version_no); sec.setAttribute("data-eg-version", ver);
+              var box = document.createElement("div");
+              box.setAttribute("data-eg-chg", v.commitment_id);
+              box.setAttribute("style", "margin-top:10px;padding:10px 12px;background:#F5F8FF;border:1px solid #DCE4FB;border-radius:8px;");
+              var phrases = (v.raisons || []).map(function (p) { return '<div style="font-size:12.5px;color:#374151;line-height:1.55;">' + esc(p) + '</div>'; }).join("");
+              box.innerHTML = phrases
+                + '<div style="font-size:12.5px;color:#111827;font-weight:600;margin-top:4px;">' + esc(t("photo_chg_version", { n: v.version_no })) + '</div>'
+                + '<label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#6b7280;margin:10px 0 4px;">' + esc(t("photo_chg_q")) + '</label>'
+                + '<input type="text" data-eg-chg-note placeholder="' + esc(t("retro_line_ph")) + '" style="width:100%;box-sizing:border-box;font-size:13px;font-family:inherit;color:#111827;border:1px solid #e5e7eb;border-radius:6px;padding:8px 10px;" />'
+                + '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;">'
+                + '<button type="button" data-eg-chg-save style="font-size:12px;font-weight:600;font-family:inherit;padding:7px 14px;border-radius:6px;cursor:pointer;background:#1D3BB3;color:#fff;border:1px solid #1D3BB3;">' + esc(t("vform_cta")) + '</button>'
+                + '<span data-eg-chg-msg style="font-size:12px;color:#b91c1c;"></span></div>';
+              el.appendChild(box);
+              var input = box.querySelector("[data-eg-chg-note]"), save = box.querySelector("[data-eg-chg-save]"), msg = box.querySelector("[data-eg-chg-msg]");
+              var ouvrir = function () { window.location.href = MSCardKit.msPoleUrl(v.commitment_id); };
+              save.addEventListener("click", function () {
+                var note = (input && input.value ? String(input.value) : "").trim();
+                if (!note) { ouvrir(); return; }                  // rien à écrire : la version existe déjà
+                save.disabled = true; save.textContent = "…"; msg.textContent = "";
+                fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ commitment_id: v.commitment_id, location_id: cmLoc, dispositif_note: note }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) {
+                    if (j && j.ok) { ouvrir(); return; }
+                    save.disabled = false; save.textContent = t("vform_cta"); msg.textContent = "Erreur : " + ((j && j.error) || "réessayez");
+                  })
+                  .catch(function () { save.disabled = false; save.textContent = t("vform_cta"); msg.textContent = "Erreur, réessayez."; });
+              });
+              if (input) input.focus();
+            };
+            fetch("/api/dispositifs/photos?dispositif_id=" + encodeURIComponent(did) + (ver ? "&version_no=" + encodeURIComponent(ver) : ""))
+              .then(function (r) { return r.json(); })
+              .then(function (j) {
+                if (!(j && j.ok)) return;
+                (j.photos || []).forEach(function (p) { show(p.component_key, p); });
+                // Ce que le dispositif vend (07/09) : les articles CONFIRMÉS des photos nourrissent
+                // « les articles de la photo » du formulaire de la version suivante.
+                var items = [];
+                (j.photos || []).forEach(function (p) { (p.items_confirmed || []).forEach(function (it) { if (it && it.item_code) items.push({ item_code: it.item_code, item_description: it.item_description || it.item_code }); }); });
+                window._egPhotoItems = items;
+              })
+              .catch(function () {});
+            function shrink(file) {
+              return new Promise(function (resolve, reject) {
+                var img = new Image(); var url = URL.createObjectURL(file);
+                img.onload = function () {
+                  var max = 1600, w = img.width, h = img.height, k = Math.min(1, max / Math.max(w, h));
+                  var c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+                  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+                  URL.revokeObjectURL(url);
+                  resolve(c.toDataURL("image/jpeg", 0.85));
+                };
+                img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("image illisible")); };
+                img.src = url;
+              });
+            }
+            sec.addEventListener("click", function (ev) {
+              // Confirmer les articles (03/09) : les cases cochées partent en items_confirmed.
+              var cbtn = ev.target && ev.target.closest ? ev.target.closest("[data-eg-items-submit]") : null;
+              if (cbtn) {
+                var box = cbtn.closest("[data-eg-items-confirm]"); var rowEl = cbtn.closest("[data-eg-component]");
+                if (!box || !rowEl) return;
+                var pid = box.getAttribute("data-eg-items-confirm"); var ckey = rowEl.getAttribute("data-eg-component");
+                var codes = Array.prototype.map.call(box.querySelectorAll("[data-eg-item]:checked"), function (i) { return i.getAttribute("data-eg-item"); });
+                cbtn.disabled = true;
+                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "confirm", dispositif_id: did, photo_id: pid, items_confirmed: codes }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) {
+                    if (j && j.ok && j.photo) { show(ckey, j.photo); if (j.measured_scope_changed) setTimeout(load, 400); }   // P4 : le périmètre a changé → la page se relit
+                    else { cbtn.disabled = false; }
+                  })
+                  .catch(function () { cbtn.disabled = false; });
+                return;
+              }
+              // ── RETIRER UNE PHOTO (owner 14/09) — deux touchers, et le second seulement après avoir
+              // dit dans quel état le pôle se retrouve. Le PLAN vient de l'API (`dry`), jamais d'un
+              // calcul ici : la règle vit dans lib/dispositifs/photoRetrait.ts, et une seule fois.
+              var rm = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-rm]") : null;
+              if (rm) {
+                var pid = rm.getAttribute("data-eg-photo-rm");
+                var wrap = sec.querySelector('[data-eg-photo-rm-wrap="' + pid + '"]');
+                if (!wrap) return;
+                rm.disabled = true;
+                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "retirer", dispositif_id: did, photo_id: pid, dry: true }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) {
+                    rm.disabled = false;
+                    if (!j || !j.ok || !j.plan) { rm.textContent = COPY.pole_photo_failed || ""; return; }
+                    var pl = j.plan;
+                    // La phrase de conséquence, et elle seule quand il y en a une : la version qui
+                    // tombe avec la photo, ou celle qui reste parce que d'autres photos la documentent.
+                    var phrase = pl.version
+                      ? t("pole_photo_retirer_version", { n: pl.version_no - 1 })
+                      : (pl.version_gardee === "autres_photos" ? t("pole_photo_retirer_gardee", { n: pl.version_no }) : "");
+                    wrap.innerHTML = (phrase ? '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-bottom:6px;">' + esc(phrase) + '</div>' : '')
+                      + '<div style="display:flex;gap:8px;align-items:center;">'
+                      + '<button type="button" data-eg-photo-rm-go="' + esc(pid) + '" style="font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#B45309;border:1px solid #B45309;border-radius:8px;padding:7px 14px;cursor:pointer;min-height:32px;">' + esc(COPY.pole_photo_confirm || "") + '</button>'
+                      + '<button type="button" data-eg-photo-rm-no style="font-size:12px;font-weight:500;font-family:inherit;color:#6b7280;background:none;border:none;cursor:pointer;padding:7px 4px;">' + esc(COPY.cancel || "") + '</button>'
+                      + '<span data-eg-photo-rm-msg style="font-size:12px;color:#b91c1c;"></span></div>';
+                  })
+                  .catch(function () { rm.disabled = false; rm.textContent = COPY.pole_photo_failed || ""; });
+                return;
+              }
+              if (ev.target && ev.target.closest && ev.target.closest("[data-eg-photo-rm-no]")) {
+                // On revient à l'état d'avant : le kit re-rend le bloc, aucune copie de markup ici.
+                var wrapN = ev.target.closest("[data-eg-photo-rm-wrap]");
+                var pidN = wrapN && wrapN.getAttribute("data-eg-photo-rm-wrap");
+                if (pidN) wrapN.innerHTML = '<button type="button" data-eg-photo-rm="' + esc(pidN) + '" style="font-size:12px;font-weight:500;font-family:inherit;color:#B45309;background:#fff;border:1px solid #B45309;border-radius:8px;padding:6px 12px;cursor:pointer;min-height:32px;">' + esc(COPY.pole_photo_retirer || "") + '</button>';
+                return;
+              }
+              var go = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-rm-go]") : null;
+              if (go) {
+                var pidG = go.getAttribute("data-eg-photo-rm-go");
+                var keyG = (go.closest("[data-eg-component]") || {}).getAttribute
+                  ? go.closest("[data-eg-component]").getAttribute("data-eg-component") : null;
+                var msgG = go.parentNode.querySelector("[data-eg-photo-rm-msg]");
+                go.disabled = true;
+                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "retirer", dispositif_id: did, photo_id: pidG }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) {
+                    if (!j || !j.ok) { go.disabled = false; if (msgG) msgG.textContent = COPY.pole_photo_failed || ""; return; }
+                    // Une version est tombée : l'adresse de la page peut être celle de cette version.
+                    // On ouvre celle qui survit — l'adresse vient de l'API, jamais d'une déduction.
+                    if (j.version_retiree && j.version_courante_apres && j.version_courante_apres.commitment_id) {
+                      window.location.href = MSCardKit.msPoleUrl(j.version_courante_apres.commitment_id); return;
+                    }
+                    // Sinon la photo du composant est simplement celle d'avant (ou plus aucune).
+                    if (keyG) { if (j.photo) show(keyG, j.photo); else say(keyG, COPY.pole_photo_none || ""); }
+                    else load();
+                  })
+                  .catch(function () { go.disabled = false; if (msgG) msgG.textContent = COPY.pole_photo_failed || ""; });
+                return;
+              }
+              var btn = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-add]") : null;
+              if (!btn) return;
+              var key = btn.getAttribute("data-eg-photo-add");
+              var input = document.createElement("input"); input.type = "file"; input.accept = "image/*"; input.setAttribute("capture", "environment");
+              input.style.display = "none"; document.body.appendChild(input);
+              input.addEventListener("change", function () {
+                var file = input.files && input.files[0]; input.remove();
+                if (!file) return;
+                btn.disabled = true; say(key, COPY.pole_photo_reading || "");
+                // v2 (11/09) : le numéro du composant sur le plan, saisi à côté de « Documenter » — envoyé
+                // seulement s'il est rempli (entier > 0) ; l'API le garde sur la ligne, l'image ne le dit pas.
+                var fxEl = sec.querySelector('[data-eg-fixture-no="' + key + '"]');
+                var fxVal = fxEl && fxEl.value ? Number(fxEl.value) : null;
+                var fixtureNo = fxVal != null && isFinite(fxVal) && fxVal >= 1 ? Math.floor(fxVal) : null;
+                shrink(file).then(function (dataUrl) {
+                  return fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ dispositif_id: did, version_no: ver ? Number(ver) : null, component_key: key, image_base64: dataUrl, content_type: "image/jpeg", fixture_no: fixtureNo }) })
+                    .then(function (r) { return r.json(); });
+                }).then(function (j) {
+                  btn.disabled = false;
+                  if (j && j.ok && j.photo) { show(key, j.photo); if (j.version) montrerVersion(key, j.version); return; }
+                  say(key, j && j.rejected === "person" ? (COPY.pole_photo_person || "") : (COPY.pole_photo_failed || ""));
+                }).catch(function () { btn.disabled = false; say(key, COPY.pole_photo_failed || ""); });
+              });
+              input.click();
+            });
+          })();
+          docEl.style.display = "block";
+          statusEl.style.display = "none";
+          var cm = data.commitment, open = cm.status === "open", advice = data.advice || [];
+          wireAdvice(cm, advice);
+          wireCapture(cm, open);
+          wireDispo(cm);
+          wireDiag(cm);
+          wirePermanent(cm);
+          wireNextVersion(cm);
+        }
+
+        // « Rendre permanent → » (08/09) : le kit rend le bouton sur une opération TERMINÉE dont le
+        // périmètre porte des familles (owner seul). La page crée le pôle — POST /api/commitments,
+        // nature permanent, MÊME corps que pole-form.js — puis ouvre sa page. Aucun
+        // parent_commitment_id : l'API ne l'accepte que d'un parent déjà permanent.
+        // 09/09 (owner : « go back went to Agir instead of the dispositif ») : « ← Retour » revient à la page
+        // d'où l'on vient quand elle est à nous (une autre version du dispositif, Piloter, Agir) ; sans
+        // provenance connue, le lien garde sa cible historique (Agir).
+        (function wireBack() {
+          var a = document.getElementById("eng-back");
+          if (!a) return;
+          a.addEventListener("click", function (e) {
+            var ref = "";
+            try { ref = String(document.referrer || ""); } catch (_) { ref = ""; }
+            var sameOrigin = ref && ref.indexOf(window.location.origin + "/") === 0;
+            if (sameOrigin && window.history.length > 1) { e.preventDefault(); window.history.back(); }
+          });
+        })();
+        // 13/09 — la version suivante d'un PÔLE, sans question (owner : « le versionning du pôle est déclaratif —
+        // sa page de réglages »). Le kit rend un volet ; la page y monte LE formulaire de pôle (module partagé
+        // MSPoleForm, celui de la création) pré-rempli avec la version courante et armé de parent_commitment_id :
+        // l'exploitant modifie ce qui change, « Enregistrer → » crée la version suivante, la page s'ouvre dessus.
+        // Le contexte de création (familles, responsables, types de composant, pôles) vient de la même route
+        // que Nouvelle opération et le Compte : /api/insight/evenement?create_context=1. Chargé au premier
+        // dépliage du volet — pas un aller-retour de plus tant qu'on ne l'ouvre pas.
+        function wireNextVersion(cm) {
+          var sec = docEl.querySelector("[data-eg-nextversion-sec]"), mount = docEl.querySelector("[data-eg-nextversion-mount]");
+          if (!sec || !mount || !window.MSPoleForm) return;
+          var monte = false;
+          sec.addEventListener("toggle", function () {
+            if (!sec.open || monte) return; monte = true;
+            mount.innerHTML = '<div style="font-size:12px;color:#9CA3AF;">Chargement…</div>';
+            // Les responsables viennent de l'équipe (la même source que l'onglet Pôles du Compte) — le contexte
+            // de création ne les porte pas. Les deux lectures partent ensemble.
+            Promise.all([
+              fetch("/api/insight/evenement?location_id=" + encodeURIComponent(cm.location_id) + "&create_context=1").then(function (r) { return r.json(); }),
+              fetch("/api/channels/team?location_id=" + encodeURIComponent(cm.location_id)).then(function (r) { return r.json(); }).catch(function () { return {}; }),
+            ]).then(function (rs) {
+                var ctx = rs[0] || {}, team = rs[1] || {};
+                if (!ctx || !ctx.ok) throw new Error((ctx && ctx.error) || "contexte indisponible");
+                var owners = (Array.isArray(team.items) ? team.items : []).map(function (m) { return (String(m.first_name || "") + (m.last_name ? " " + m.last_name : "")).trim(); }).filter(Boolean);
+                // Une famille vit dans un seul pôle — mais les familles de CE pôle sont les siennes, pas « prises ».
+                var taken = {};
+                (Array.isArray(ctx.poles) ? ctx.poles : []).forEach(function (pp) {
+                  if (pp.dispositif_id && cm.dispositif_id && String(pp.dispositif_id) === String(cm.dispositif_id)) return;
+                  if (pp.commitment_id && String(pp.commitment_id) === String(cm.commitment_id)) return;
+                  (pp.families || []).forEach(function (f) { taken[f] = pp.name; });
+                });
+                MSPoleForm.render(mount, {
+                  location_id: cm.location_id,
+                  families: Array.isArray(ctx.families) ? ctx.families : [],
+                  owners: owners,
+                  takenFamilies: taken,
+                  componentTypes: Array.isArray(ctx.component_types) ? ctx.component_types : [],
+                  prefill: cm, parent_commitment_id: cm.commitment_id,
+                  onCreated: function (id) { window.location.href = MSCardKit.msPoleUrl(id); },
+                });
+              }).catch(function (e) {
+                monte = false;
+                mount.innerHTML = '<div style="font-size:12px;color:#B91C1C;">Erreur : ' + esc((e && e.message) || "réessayez") + '</div>';
+              });
+          });
+        }
+        function wirePermanent(cm) {
+          var btn = docEl.querySelector("[data-eg-permanent]"); if (!btn) return;
+          var msg = docEl.querySelector("[data-eg-permanent-msg]");
+          btn.addEventListener("click", function () {
+            var fams = []; try { fams = JSON.parse(btn.getAttribute("data-eg-permanent-fams") || "[]"); } catch (e) { fams = []; }
+            if (!fams.length) return;
+            var label = btn.textContent; btn.disabled = true; btn.textContent = "…"; if (msg) msg.textContent = "";
+            var fail = function (j) { btn.disabled = false; btn.textContent = label; if (msg) msg.textContent = "Erreur : " + ((j && j.error) || "réessayez"); };
+            fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+              dispositif_nature: "permanent", location_id: cm.location_id,
+              committed_action_text: cm.committed_action_text, pole_families: fams,
+              owner_person_name: cm.owner_person_name || null,
+              dispositif_why: btn.getAttribute("data-eg-permanent-why") || null
+            }) }).then(function (r) { return r.json(); }).then(function (j) {
+              if (!j || !j.ok || !j.commitment_id) { fail(j); return; }
+              window.location.href = MSCardKit.msPoleUrl(j.commitment_id);
+            }).catch(function () { fail(); });
+          });
+        }
+
+        // Description du dispositif (deux états, owner 28/08) — éditable tant que l'opération
+        // court. MÊME endpoint que le reste du dispositif (POST /disposition), note seule.
+        function wireDispo(cm) {
+          var form = docEl.querySelector("[data-dispo-form]"), read = docEl.querySelector("[data-dispo-read]");
+          var edit = docEl.querySelector("[data-dispo-edit]"), cancel = docEl.querySelector("[data-dispo-cancel]");
+          var save = docEl.querySelector("[data-dispo-save]");
+          if (!form || !save) return;
+          var show = function (on) { form.style.display = on ? "block" : "none"; if (read) read.style.display = on ? "none" : "block"; };
+          if (edit) edit.addEventListener("click", function () { show(true); });
+          if (cancel) cancel.addEventListener("click", function () { show(false); });
+          save.addEventListener("click", function () {
+            var msg = docEl.querySelector("[data-dispo-msg]"), ta = docEl.querySelector("[data-dispo-note]");
+            save.disabled = true; save.textContent = "…";
+            fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, dispositif_note: (ta && ta.value) || "" }) })
+              .then(function (r) { return r.json(); })
+              .then(function (j) {
+                save.disabled = false; save.textContent = t("save");
+                if (j && j.ok) { if (msg) { msg.style.color = "#166534"; msg.textContent = t("saved"); } setTimeout(load, 400); }
+                else if (msg) { msg.style.color = "#b91c1c"; msg.textContent = "Erreur"; }
+              })
+              .catch(function () { save.disabled = false; save.textContent = t("save"); if (msg) { msg.style.color = "#b91c1c"; msg.textContent = "Erreur"; } });
+          });
+        }
+
+        // Diagnostic panel — execution self-check (ephemeral highlight) + "Ajuster / Renforcer" which
+        // re-commits the action on a fresh window via the shared M'engager form (capture loop).
+        function wireDiag(cm) {
+          // Exécution self-check — persist (execution_quality) then reload so the recommended move reflects it.
+          docEl.querySelectorAll("[data-exec]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              docEl.querySelectorAll("[data-exec]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x === b)); });
+              fetch("/api/commitments/disposition", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, execution_quality: b.getAttribute("data-exec") }) })
+                .then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok) setTimeout(load, 350); }).catch(function () {});
+            });
+          });
+          // Guided move: select a move, then Engager → re-commit a child on a fresh window (poursuivre/
+          // doubler/pivoter) or Arrêter (soft-cancel → system card reappears via Phase-1 suppression).
+          var move = { v: null };
+          // Roster Responsable(s) sur « La version suivante » (owner 27/08) : le MÊME pool que
+          // le formulaire M'engager (/api/channels/team via MSCommitForm.wireOwnerPool) — les
+          // personnes des canaux de communication se proposent en chips, comme pour les messages.
+          var vfc = docEl.querySelector("[data-vform]");
+          if (vfc && window.MSCommitForm && MSCommitForm.wireOwnerPool) MSCommitForm.wireOwnerPool(vfc, cm.location_id);
+          function moveStyle(sel) { return "display:block;width:100%;text-align:left;box-sizing:border-box;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;" + (sel ? "background:#F5F8FF;border:1px solid #1D3BB3;" : "background:#fff;border:1px solid #e5e7eb;"); }
+          var moveBtns = docEl.querySelectorAll("[data-move]");
+          moveBtns.forEach(function (b) {
+            b.addEventListener("click", function () {
+              move.v = b.getAttribute("data-move");
+              moveBtns.forEach(function (x) { x.setAttribute("style", moveStyle(x === b)); });
+              var q = docEl.querySelector("[data-adjust-noteq]");
+              if (q) q.textContent = (move.v === "stop") ? t("diag_move_note_stop_q") : t("diag_move_note_q");
+              // « La version suivante » ne concerne que les re-commits — masqué sur stop.
+              var vf = docEl.querySelector("[data-vform]");
+              if (vf) vf.style.display = (move.v === "stop") ? "none" : "";
+            });
+          });
+          var submit = docEl.querySelector("[data-adjust-submit]");
+          var msg = docEl.querySelector("[data-adjust-msg]");
+          if (!submit) return;
+          submit.addEventListener("click", function () {
+            if (!move.v) { if (msg) { msg.style.color = "#b91c1c"; msg.textContent = "Choisissez un move."; } return; }
+            var note = (docEl.querySelector("[data-adjust-note]") || {}).value || "";
+            submit.disabled = true; submit.textContent = "…"; if (msg) msg.textContent = "";
+            var toPulse = function () { window.location.href = "/app/insightevent/pulse"; };
+            var fail = function (j) { submit.disabled = false; submit.textContent = t("diag_move_cta"); if (msg) { msg.style.color = "#b91c1c"; msg.textContent = "Erreur : " + ((j && j.error) || "réessayez"); } };
+            if (move.v === "stop") {
+              fetch("/api/commitments", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id, adjustment_move: "stop", adjustment_note: note }) })
+                .then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok) { toPulse(); } else { fail(j); } }).catch(function () { fail(); });
+              return;
+            }
+            // re-commit: child on a fresh window, then supersede (soft-cancel) the parent.
+            // Contexte de la version (étape 3, 27/08) : la V(n+1) n'hérite plus en silence — le
+            // sous-formulaire « La version suivante » porte l'objectif (recalibré ou parent), le
+            // Levier, Responsable(s), Ressource(s) et les deux descriptions. Champ vide → null →
+            // l'API hérite du parent (même règle que measured_metric).
+            var vread = function (sel) { var el = docEl.querySelector(sel); var v = el && el.value != null ? String(el.value).trim() : ""; return v || null; };
+            var vGoal = (function () { var el = docEl.querySelector("[data-vform-goal]"); var n = el ? parseInt(el.value, 10) : NaN; return (isFinite(n) && n >= 1 && n <= 100) ? n : null; })();
+            // Objectif libre (18/07) : un parent en base 'pct' transmet SON % à l'enfant
+            // (threshold_level 'custom' n'existe pas côté legacy — l'envoyer ferait un 400).
+            var thrPayload = vGoal != null
+              ? { threshold_basis: "pct", threshold_pct: vGoal }
+              : (cm.threshold_basis === "pct" && cm.threshold_value != null)
+                ? { threshold_basis: "pct", threshold_pct: Number(cm.threshold_value) }
+                : { threshold_level: cm.threshold_level || "net" };
+            fetch("/api/commitments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Object.assign({
+              location_id: cm.location_id, origin_action_type: cm.origin_action_type, window_kind: cm.window_kind || "7d",
+              committed_action_text: vread("[data-vform-lever]") || cm.committed_action_text,
+              owner_person_name: vread("[data-vform-resp]") || cm.owner_person_name,
+              dispositif_plus: vread("[data-vform-plus]"), dispositif_why: vread("[data-vform-why]"), dispositif_resources: vread("[data-vform-res]"),
+              operation_cost_eur: (function () { var el = docEl.querySelector("[data-vform-cost]"); var n = el ? parseFloat(el.value) : NaN; return isFinite(n) && n >= 0 ? n : null; })(),
+              origin_suppression_key: cm.origin_suppression_key || null, adjustment_move: move.v, adjustment_note: note, parent_commitment_id: cm.commitment_id
+            }, thrPayload)) }).then(function (r) { return r.json(); }).then(function (j) {
+              if (!j || !j.ok) { fail(j); return; }
+              fetch("/api/commitments", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ commitment_id: cm.commitment_id, location_id: cm.location_id }) })
+                .then(function () { toPulse(); }).catch(function () { toPulse(); });
+            }).catch(function () { fail(); });
+          });
+        }
+
+        // Documenter — ne se câble QUE sur une opération terminée (owner 28/08 : le feedback
+        // n'existe pas avant la fin). Le bloc « Action menée ? » a quitté la page avec son
+        // câblage : plus de doneState ici, l'endpoint /disposition garde le geste (Slack).
+        function wireCapture(cm, open) {
+          if (open) return;
+          // Documenter (Spec 2) — "À reproduire ?" oui/non toggle (resolved state).
+          var repeatState = { v: cm.retro_repeat === true ? "oui" : cm.retro_repeat === false ? "non" : null };
+          docEl.querySelectorAll("[data-retro-repeat]").forEach(function (b) {
+            b.addEventListener("click", function () {
+              repeatState.v = b.getAttribute("data-retro-repeat");
+              docEl.querySelectorAll("[data-retro-repeat]").forEach(function (x) { x.setAttribute("style", doneBtnStyle(x.getAttribute("data-retro-repeat") === repeatState.v)); });
+            });
+          });
+          // Read/edit mode (remark #2): Éditer flips to the form; Annuler flips back. Editing rights TBD.
+          var readEl = docEl.querySelector("[data-cap-read]"), editEl = docEl.querySelector("[data-cap-edit]");
+          function showEdit(on) { if (readEl) readEl.style.display = on ? "none" : "block"; if (editEl) editEl.style.display = on ? "block" : "none"; }
+          var editBtn = docEl.querySelector("[data-cap-edit-btn]"); if (editBtn) editBtn.addEventListener("click", function () { showEdit(true); });
+          var cancelBtn = docEl.querySelector("[data-cap-cancel]"); if (cancelBtn) cancelBtn.addEventListener("click", function () { showEdit(false); });
+          var save = docEl.querySelector("[data-cap-save]"); if (!save) return;
+          save.addEventListener("click", function () {
+            var msg = docEl.querySelector("[data-cap-msg]"); save.disabled = true; save.textContent = "…";
+            // On success, reload → the page re-renders in read mode with the saved values.
+            var done = function (ok) { save.disabled = false; save.textContent = t("save"); if (msg) { msg.textContent = ok ? t("saved") : "Erreur"; msg.style.color = ok ? "#166534" : "#b91c1c"; } if (ok) setTimeout(load, 400); };
+            // 13/09 — une seule ligne : « ce qui a marché » (atteint) va dans retro_worked, le reste (manqué, non menée, non
+            // concluant) dans retro_change — les deux colonnes de la base restent, le formulaire n'en montre qu'une.
+            var lineEl = docEl.querySelector("[data-retro-line]");
+            var line = (lineEl || {}).value || "";
+            var etat = lineEl ? (lineEl.getAttribute("data-retro-etat") || "missed") : "missed";
+            var payload = { commitment_id: cm.commitment_id, location_id: cm.location_id };
+            if (etat === "met") payload.retro_worked = line; else payload.retro_change = line;
+            if (repeatState.v) payload.retro_repeat = (repeatState.v === "oui");
+            fetch("/api/commitments/retro", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
+              .then(function (r) { return r.json(); }).then(function (j) { done(j && j.ok); }).catch(function () { done(false); });
+          });
+        }
+
+        function wireAdvice(cm, advice) {
+          docEl.querySelectorAll("[data-adv-cta]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              var i = btn.getAttribute("data-adv-cta");
+              var slot = docEl.querySelector('[data-adv-form="'+i+'"]'); if (!slot || !window.MSCommitForm) return;
+              if (slot.style.display === "block") { slot.style.display = "none"; slot.innerHTML = ""; return; }
+              var a = advice[i], pre = (a && a.prefill) || {};
+              slot.style.display = "block";
+              slot.innerHTML = window.MSCommitForm.buildHtml({ prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d" } });
+              var _scopePre = null; try { _scopePre = cm.measured_scope ? JSON.parse(cm.measured_scope) : null; } catch (e) { _scopePre = null; }
+              window.MSCommitForm.wire(slot, {
+                location_id: cm.location_id,
+                prefill: { committed_action_text: pre.committed_action_text, window_kind: pre.window_kind || "7d", measured_scope: _scopePre, photo_items: window._egPhotoItems || [] },
+                origin: { origin_action_type: pre.origin_action_type || null },
+                onCancel: function () { slot.style.display = "none"; slot.innerHTML = ""; },
+                onDone: function (j) { slot.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:'+(j&&j.ok?"#166534":"#b91c1c")+';">'+(j&&j.ok?"Engagement créé. Il sera évalué à l'échéance.":("Erreur : "+esc((j&&j.error)||"réessayez")))+'</div>'; }
+              });
+            });
+          });
+        }
+
+        var id = root.dataset.id;
+        if (!id) { showError("Engagement manquant dans l'adresse."); return; }
+        function load() {
+          fetch("/api/commitments/evolution?commitment_id=" + encodeURIComponent(id), { headers: { "accept": "application/json" } })
+            .then(function (r) { return r.json(); })
+            .then(render)
+            .catch(function () { showError("Erreur lors du chargement de l'évolution."); });
+        }
+        load();
+      })();
+    </script>

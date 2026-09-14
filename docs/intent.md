@@ -21,8 +21,10 @@ avec son résultat — pour que le lieu apprenne de lui-même.
 
 - **site** : le lieu, unité de tout suivi et de toute sauvegarde ; jamais l'utilisateur seul.
 - **dispositif** : ce que l'exploitant met en place pour vendre, à n'importe quel état
-  (en test · prouvé · écarté). Trois natures : **pôle** (permanent : familles, responsable,
-  ressources ; lecture continue, jamais de verdict), **opération** (datée : KPI déclaré, cible,
+  (en test · prouvé · écarté). Trois natures : **pôle** (permanent : 1..n
+  familles — celles de la caisse, jamais du texte libre — plus ses composants, un responsable, des
+  ressources ; lecture continue, jamais de verdict. Une famille vit dans UN SEUL pôle, et aucune ne
+  reste hors pôle : le mapping des familles est complet ou il ment), **opération** (datée : KPI déclaré, cible,
   verdict atteint · manqué · non concluant), **série** (récurrente : occurrences).
 - **version** : changer l'organisation d'un dispositif est une version suivante ; la mémoire
   s'accumule par dispositif, jamais par personne.
@@ -31,6 +33,34 @@ avec son résultat — pour que le lieu apprenne de lui-même.
 - **suivi** : un lieu extérieur que la veille lit ; `competitor_tracking` est la vérité.
 - **famille de produits & services** : le grain déclaré d'un pôle ; l'article est le grain en
   dessous.
+- **prix d'achat** : le coût HT d'un article à une date d'effet, déposé par l'exploitant ; il fait de la
+  **marge brute** (CA net HT − prix d'achat des articles vendus) une mesure, par famille, par article, par
+  heure — toujours dite avec la part du CA dont le prix d'achat est renseigné. Avec les **charges fixes**
+  et la **masse salariale** du mois, déclarées, elle donne le **résultat net** et le **seuil de rentabilité** du jour
+  [owner 11/09, `strategie-entreprise.md` § 12.12 : le critère d'achat du premier client réel est le
+  profit]. Sans prix d'achat en base, aucun chiffre de marge ne se montre.
+- **composant** : l'objet physique d'un dispositif, celui qu'on photographie — vitrine, linéaire,
+  comptoir, QR code. C'est lui qui porte la PLACE dans le magasin ; un dispositif en a plusieurs,
+  discontinus s'il le faut. Un composant peut être **interactif** : le client y fait un geste
+  délibéré — scanner un QR code — et ce geste compte dans l'**attractivité** du produit ou de la
+  famille, sans achat. L'attractivité et la vente sont deux mesures distinctes ; leur écart est ce
+  qu'aucune caisse ne voit.
+- **plan coloré** : le plan du magasin, contours des pôles relevés sur le plan (`analytics.space_zones`), teintés par une
+  mesure de l'espace sur 30 jours — CA par m² d'abord ; ce que la caisse ne montre pas : où le CA se fait au sol
+  [owner 13/09].
+- **pont de marge** : l'écart de marge brute entre deux périodes décomposé en quatre effets (volume, mix, prix de vente,
+  prix d'achat) par famille, la somme des quatre étant l'écart ; seules les familles avec prix d'achat sur les deux
+  périodes comptent, la couverture est dite [owner 13/09].
+- **rapport** : le document qu'Explorer compose à la demande — une liste ordonnée de blocs (texte vérifié,
+  tableau, carte, section), chacun avec les faits, l'outil et la période qui l'ont produit ; gardé par site
+  avec l'auteur, réordonnable, recalculable, jamais un texte que le modèle aurait écrit sans faits. Un
+  **modèle de rapport** est ce document sans ses chiffres : il se réutilise et s'envoie à cadence à l'équipe
+  et aux partenaires connus [owner 12/09, `explorer-outil-spec.md`].
+  Un Rapport est fait de blocs que l'exploitant déplace, retire, duplique, complète (Votre note) et creuse
+  (Approfondir) ; ses choix — sections gardées, ordre, notes, questions — sont du contexte pour Explorer (ses
+  préférences et priorités réelles, pas inférées). Ce principe vaut ensuite pour les pages d'engagement, puis le
+  tableau de bord (owner 12/09). Le Rapport est opérationnel : le contexte qui pèse sur les performances (météo,
+  saison, événements, familles face aux jours) en fait partie.
 
 ## Le test de valeur
 
@@ -51,7 +81,8 @@ s'affiche pas. Corollaires qui ne se négocient pas :
 - pas un CRM : il ne connaît pas le client, il connaît le dispositif et son résultat ;
 - pas un middleware entre serveurs [owner 30/08] ;
 - pas un outil de surveillance : aucune captation des clients en magasin, aucune donnée
-  personnelle dans une photo ;
+  personnelle dans une photo ; un signal d'interaction n'existe que si le client fait le geste
+  lui-même — on compte l'événement, jamais le visiteur ;
 - pas un conseil générique : ce qu'on peut écrire sans ouvrir le compte ne s'écrit pas ;
 - pas un verdict sur ce qui n'a pas de terme.
 

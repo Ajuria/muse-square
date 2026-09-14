@@ -34,7 +34,6 @@ const SURFACES = [
   "src/lib/ai/horsPerimetre.ts",
   // 04/09 (I8) : la lecture dispositif × famille — libellés owner 04/09.
   "src/lib/dispositifs/dispositifFamille.ts",
-  "src/lib/explorer/topFamilles.ts",
   // 07/09 (état vide Explorer, guichet de la mémoire) : les mots des cartes de l'état vide.
   "src/lib/explorer/explorerSlotsCopy.fr.ts",
   // Le harnais de rendu DUPLIQUE la copie réelle dans ses fixtures : sans lui sous garde,
@@ -81,6 +80,16 @@ describe("lexique FR du dossier d'événement", () => {
     it(`aucun mot banni dans les chaînes visibles de ${f}`, () => {
       const src = readFileSync(new URL("../../../" + f, import.meta.url).pathname, "utf8");
       const fautes: string[] = [];
+      // EXCEPTION NOMMÉE (owner 14/09) — « meuble » reste banni partout SAUF dans les consignes du
+      // relevé. Le mot du MODÈLE est « composant » (owner 03/09, D1) ; l'owner a tranché le 14/09 que
+      // ce n'est pas le mot d'une phrase dite à quelqu'un qui marche dans son magasin. L'exception est
+      // portée par les CLÉS, jamais par un « sauf si ça ressemble à » : une exception qui ne se
+      // nomme pas est un contournement, et la prochaine chaîne y passerait sans qu'on le voie.
+      const EXCEPTIONS: Record<string, string[]> = { meuble: ["releve_consigne_1", "releve_consigne_2", "releve_consigne_3"] };
+      const cleDe = (texte: string): string => {
+        const m = src.match(new RegExp("([A-Za-z0-9_]+)\\s*:\\s*\"" + texte.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\""));
+        return m ? m[1] : "";
+      };
       for (const s of visibleStrings(src)) {
         if (TECHNIQUE.test(s) || estUneCle(s)) continue;
         // Les interpolations `${…}` sont du CODE, pas du texte visible : `${c.delta_pp}` ne doit
@@ -90,7 +99,10 @@ describe("lexique FR du dossier d'événement", () => {
           // Frontière de mot : « attendu » ne doit pas matcher « attendue » deux fois, ni un
           // identifiant collé. On cherche le mot entouré de non-lettres.
           const re = new RegExp("(^|[^a-zà-ÿ])" + mot.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "([^a-zà-ÿ]|$)", "i");
-          if (re.test(low)) fautes.push(`« ${mot} » → écrire « ${MOTS_BANNIS[mot]} »  |  ${s.slice(0, 90)}`);
+          if (!re.test(low)) continue;
+          const exemptees = EXCEPTIONS[mot.toLowerCase()];
+          if (exemptees && exemptees.includes(cleDe(s))) continue;
+          fautes.push(`« ${mot} » → écrire « ${MOTS_BANNIS[mot]} »  |  ${s.slice(0, 90)}`);
         }
       }
       expect(fautes, `Mots bannis trouvés dans ${f} :\n` + fautes.join("\n")).toEqual([]);

@@ -68,7 +68,24 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   { q: "Compare le 18/07 et le 19/07", expect: { producers: ["v3_claude"], maxSeconds: 35 } },
   // 27/08 (K9, owner go) : des marges FAMILLE déclarées font répondre la marge calculée, plus l'élicitation ;
   // 04/09 : la fenêtre honore « week-end » (jours de week-end des 30 derniers jours) et le dit.
-  { q: "Quelle est ma marge le week-end ?", expect: { producers: ["deterministic_declared_margin_v1", "deterministic_missing_dimension_elicit_v1"], maxSeconds: 8, answerMatch: /week-end/i } },
+  // 13/09 (docs/explorer-outil-spec.md § 7, couche 1) : la marge est servie par l'AGENT (lire_marge, mesure d'abord, sinon déclarée) — le producteur dit la capacité et sa porte.
+  { q: "Quelle est ma marge le week-end ?", expect: { producers: ["agent_lire_marge"], maxSeconds: 20, answerMatch: /week-end/i } },
+  // 13/09 (§ 7, couche 2) : « top 3 produits août » — ex _top_familles_v1 — part à l'agent avec la période résolue ; lire_ventes rend le mix par famille.
+  { q: "Mes top 3 produits en août ?", expect: { producers: ["agent_lire_ventes"], maxSeconds: 25, answerMatch: /famille/i } },
+  // 13/09 (§ 7, couche 6) : VOTRE JOURNAL est servi par l'agent (lire_engagements) — la question que la
+  // couche déterministe servait depuis le 27/08. Le juge doit trouver la réponse au moins aussi bonne :
+  // l'action conseillée et le geste n'ont pas le droit de se dissoudre (c'est ce que le packager faisait
+  // en août, et c'est pour ça que cette couche était restée déterministe).
+  { q: "Qu'est-ce qui a marché ?", expect: { producers: ["agent_lire_engagements"], maxSeconds: 30, answerMatch: /engagement|dispositif|objectif|pôle/i } },
+  // 13/09 (§ 7, couche 6) : une entité sur une période est servie par l'agent (lire_entite_periode) — la
+  // table ne change pas, chaque ligne chiffrée devient un fait citable pour la porte.
+  { q: "Comment va le pôle Cuisine sur le mois dernier ?", expect: { producers: ["agent_lire_entite_periode"], maxSeconds: 30, answerMatch: /Cuisine|pôle/i } },
+  // 13/09 (§ 7, couche 3) : les fiches documentées et « une opération × une famille » sont servies par l'agent.
+  { q: "Quelles bonnes pratiques ai-je documentées ?", expect: { producers: ["agent_lire_dispositifs_documentes"], maxSeconds: 25, answerMatch: /documenté/i } },
+  { q: "Pendant le Corner de vente producteur, qu'a fait la famille Coffee ?", expect: { producers: ["agent_lire_operation_famille"], maxSeconds: 30, answerMatch: /Coffee/ } },
+  // 13/09 (§ 7, couche 4) : le rapport à la demande est COMPOSÉ par l'agent ; le plan de période aussi.
+  { q: "Fais-moi le rapport de ventes de juillet.", expect: { producers: ["agent_composer_rapport"], maxSeconds: 35, answerMatch: /juillet|07\/2026/i } },
+  { q: "Planifie-moi octobre.", expect: { producers: ["agent_composer_plan", "agent_composer_plan_non_verifie"], maxSeconds: 60, answerMatch: /octobre|10\/2026/i } },
   { q: "Pourquoi le 03/01/2024 ?", expect: { producers: ["grounded_day_claude", "v3_fallback_deterministic"], maxSeconds: 40 } },
   { q: "Le musée d'Orsay me prend-il des visiteurs ?", expect: { producers: ["web_search", "llm_only"], maxSeconds: 60 } },
   // Étape 5 — jour PASSÉ inexpliqué : la section « Web — non vérifié » doit arriver avec ≥1 source
@@ -98,10 +115,10 @@ const _FULL_BATTERY: Array<{ q: string; expect: Expect; pre?: Pre }> = [
   // le rapport (207668a). Le producteur attendu inclut donc `deterministic_report_nav_v1`. Le repli
   // Le repli brut est CLOS depuis (arbitrage owner 26/08) : une dimension sur le mois bascule sur
   // le chemin jour/famille. Le producteur rapport porte désormais son verdict chiffré (juge 2,0 → 4,3).
-  { q: "comment se sont passées mes journées de juin-juillet ?", expect: { producers: ["deterministic_report_nav_v1", "deterministic", "v3_claude", "v3_fallback_deterministic", "family_grounded_claude", "family_deterministic", "grounded_day_claude"], maxSeconds: 35, horizonNot: "lookup_event" } },
+  { q: "comment se sont passées mes journées de juin-juillet ?", expect: { producers: ["agent_composer_rapport", "agent_composer_rapport_non_verifie", "deterministic_report_nav_v1", "deterministic", "v3_claude", "v3_fallback_deterministic", "family_grounded_claude", "family_deterministic", "grounded_day_claude"], maxSeconds: 35, horizonNot: "lookup_event" } },
   // Même question, un mot de plus : « meilleures » faisait basculer le biais d'année et juin-juillet
   // résolvait en 2027 (E2E 26/08). Porte : aucune date utilisée ni citée hors de la période demandée.
-  { q: "comment se sont passées mes meilleures journées de juin-juillet ?", expect: { producers: ["deterministic_report_nav_v1", "deterministic", "v3_claude", "v3_fallback_deterministic", "family_grounded_claude", "family_deterministic", "grounded_day_claude"], maxSeconds: 35, horizonNot: "lookup_event", answerHasNot: "2027" } },
+  { q: "comment se sont passées mes meilleures journées de juin-juillet ?", expect: { producers: ["agent_composer_rapport", "agent_composer_rapport_non_verifie", "deterministic_report_nav_v1", "deterministic", "v3_claude", "v3_fallback_deterministic", "family_grounded_claude", "family_deterministic", "grounded_day_claude"], maxSeconds: 35, horizonNot: "lookup_event", answerHasNot: "2027" } },
   // R8 — le cas owner 08/08 : une objection doit produire le tour de DÉSACCORD, jamais une resucée.
   {
     q: "tu ne réponds pas à ma question: pourquoi mon CA a chuté de 40 % samedi dernier?",

@@ -42,6 +42,10 @@ une absence (contrôler sur un témoin connu) ; un compte qui change ne dit pas 
 - Invoquer la compétence `bq-verify` avant toute requête : schéma réel via
   `INFORMATION_SCHEMA`, échantillon, fraîcheur. Projet `muse-square-open-data` (EU)
   seulement — `ms-database-472505` est facturation.
+- **L'app ne lit JAMAIS `raw`, `staging` ni `intermediate`** (owner 10/09 : « It MUST stop ») :
+  `semantic` d'abord, `mart` sous le cliquet seulement. La vue manque ⇒ elle se crée dans dbt AVANT
+  la lecture. Garde : `src/lib/warehouseBoundary.guard.test.ts` (`CLIQUET_BRUT`). Dans dbt, seule la
+  staging lit une `source()`.
 - Casts `DATE()` explicites — le client Node rend 0 ligne en silence sur un mismatch
   DATE/STRING.
 - « On n'a pas X » exige la recherche sur `semantic` + `mart` + `intermediate` — jamais
@@ -58,6 +62,13 @@ une absence (contrôler sur un témoin connu) ; un compte qui change ne dit pas 
 - **LIRE le fichier modèle** (`~/Documents/ms_database/ms_dbt/models/…`) — en-tête, grain,
   WHERE — avant toute spec ou requête. Un schéma + une ligne d'échantillon ne disent rien
   de l'intention. Ne jamais reconstruire un modèle depuis le SQL compilé BQ.
+- **Avant de brancher un `ref()`, vérifier que le nœud est ACTIVÉ** (`enabled=false` dans son `config()`,
+  son yml ou `dbt_project.yml`). Échec 10/09 : la PR #137 a branché trois modèles sur
+  `stg_school_vacations_periods`, désactivé le 05/09 — la vue était restée en base, toutes les preuves
+  BigQuery passaient, dbt a refusé de compiler et TOUT job sur main a échoué (hotfix #138). Une preuve
+  BigQuery ne prouve pas la compilation dbt : avant fusion, contrôle statique du projet entier — tout
+  `ref()` d'un modèle activé (commentaires compris) vise un modèle activé, une seed ou un snapshot ; toute
+  `source()` est déclarée.
 - Un `{{ ref() }}` dans un commentaire SQL (`--`, `/* */`) crée une VRAIE arête de DAG ;
   seuls les commentaires Jinja `{# #}` sont ignorés.
 - Incrémental : les nouvelles colonnes n'arrivent qu'avec `--full-refresh`. Le job Cloud

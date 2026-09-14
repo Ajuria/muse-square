@@ -7,7 +7,7 @@
 import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { measureKpiCoverage, listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
-import { listPoles } from "../../../lib/dispositifs/poleReading";
+import { listPoles, poleProjectState, POLE_PROJECT_FR } from "../../../lib/dispositifs/poleReading";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { eventTypesFor, eventTypeLabelFr } from "../../../lib/events/eventTypes";
 import { dispositifTypesFor, dispositifRolesFor } from "../../../lib/dispositifs/dispositifTypes";
@@ -63,7 +63,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
         }),
         // Familles produits (KPI famille) : LE foyer kpiRegistry.listSiteFamilies (extrait le
         // 27/08 — même lecture que le résolveur d'entités, jamais recopiée).
-        listSiteFamilies(bq, location_id).then((f) => [f] as any),
+        // Limite EXPLICITE (défaut 12) : depuis « aucune famille hors pôle » (owner 09/09), une
+        // liste tronquée cache une famille au formulaire ET au calcul de « Non rattaché ».
+        // Épices et Tout en porte 13 — le défaut en aurait mangé une, sans erreur.
+        listSiteFamilies(bq, location_id, 50).then((f) => [f] as any),
         // Couverture flux/conversion (27/08, audit menu KPI) : le menu n'offre un KPI que si le
         // SITE porte la donnée — même mécanisme que le KPI famille (fams.length). La lecture vit
         // dans kpiRegistry (measureKpiCoverage : foyer du mart PERF, cliquet frontière respecté).
@@ -118,7 +121,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
           })),
         dow_baseline,
         families: famRows as any[],
-        poles: poleRows as any[],
+        // « Pôle en projet » (11/09) : l'état se déduit des familles du pôle face aux familles réelles
+        // (famRows, foyer listSiteFamilies) — servi à « Vos pôles » (profil), jamais recalculé côté client.
+        poles: (poleRows as any[]).map((p: any) => {
+          const r = poleProjectState(Array.isArray(p.families) ? p.families : [], (famRows as any[]).map((f) => String(f.category)));
+          return { ...p, projet: r, projet_fr: r ? POLE_PROJECT_FR[r] : null };
+        }),
         profit_estimated: {
           available: (famMargins as any[]).length > 0 || Boolean(globalMargin),
           avg_day_eur: profitAvgDay,
