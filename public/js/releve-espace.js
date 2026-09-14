@@ -71,7 +71,7 @@
     return url;
   }
 
-  var run = { phase: "idle", startedAt: null, t0: 0, pole: null, items: [], switches: [], problems: [], seq: 0, camera: "none" };
+  var run = { phase: "idle", startedAt: null, t0: 0, pole: null, items: [], switches: [], problems: [], seq: 0, camera: "none", walkId: null, marcheEcrite: false };
   var det = { prev: null, state: "moving", stillAcc: 0, keptAt: 0, armed: true, best: null, problem: null, lastM: 0, lastS: 0, tick: 0, ticks: 0, lastError: null,
               // 14/09 — LA SCÈNE DE LA DERNIÈRE PHOTO GARDÉE. Le réarmement ne dépend plus de détecter
               // une MARCHE (dont la valeur change d'un téléphone à l'autre et que je n'ai pas mesurée
@@ -101,6 +101,15 @@
   function nonneg(v, d) { var n = Number(v); return isFinite(n) && n >= 0 ? n : d; }
   function save() { try { localStorage.setItem(LS, JSON.stringify(cfg)); } catch (e) {} }
   function now() { return performance.now(); }
+  // L'identifiant de la marche. `randomUUID` manque sous http:// et sur les Safari anciens \u2014 le repli
+  // garde la FORME d'un identifiant, parce que la route et la colonne en exigent une.
+  function idDeMarche() {
+    try { if (crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+    var h = "0123456789abcdef", o = "";
+    for (var i = 0; i < 36; i++) o += (i === 8 || i === 13 || i === 18 || i === 23) ? "-"
+      : i === 14 ? "4" : h.charAt(i === 19 ? (8 + Math.floor(Math.random() * 4)) : Math.floor(Math.random() * 16));
+    return o;
+  }
   function tOff() { return run.t0 ? Math.round((det.tick || now()) - run.t0) / 1000 : 0; }
   function pad(n) { return n < 10 ? "0" + n : String(n); }
   function fmtT(s) { var m = Math.floor(s / 60); return m + ":" + pad(Math.floor(s - m * 60)); }
@@ -225,7 +234,7 @@
   var stream = null, timer = null;
   function start() {
     run.phase = "running";
-    if (!run.startedAt) { run.startedAt = new Date().toISOString(); run.t0 = det.tick || now(); det.tick = run.t0; } else { det.tick = Math.max(det.tick || 0, now()); }
+    if (!run.startedAt) { run.startedAt = new Date().toISOString(); run.t0 = det.tick || now(); det.tick = run.t0; run.walkId = idDeMarche(); } else { det.tick = Math.max(det.tick || 0, now()); }
     // CEINTURE (14/09) — le calque devient un enfant direct de <body> avant de s'afficher. Un
     // `position: fixed` est confiné par tout ancêtre portant `transform`, `filter`, `perspective`,
     // `contain` ou `will-change` : il se retrouve alors DANS une boîte de la page, avec le reste du
@@ -544,7 +553,7 @@
             .then(function (r) { return r.json(); })
             .then(function (j) { if (!j || !j.ok) throw new Error("retrait"); it.photo_id = null; it.coverage = null; })
         : Promise.resolve())
-        .then(function () { return MSPhotoCapture.envoyer({ dispositif_id: pole.dispositif_id, component_key: it.comp.component_key || it.comp.key, image_base64: it.dataUrl, fixture_no: it.comp.fixture_no != null ? it.comp.fixture_no : null }); })
+        .then(function () { return MSPhotoCapture.envoyer({ dispositif_id: pole.dispositif_id, component_key: it.comp.component_key || it.comp.key, image_base64: it.dataUrl, fixture_no: it.comp.fixture_no != null ? it.comp.fixture_no : null, walk_id: run.walkId, seq: it.seq, t_offset_s: it.t }); })
         .then(function (j) {
           if (j && j.ok) {
             it.etat = "ecrite"; it.photo_id = (j.photo && j.photo.photo_id) || null;
@@ -560,6 +569,42 @@
     suivant();
   }
   function majLigne(it) { if ($("summary").style.display === "block") showSummary(); }
+
+  // \u2500\u2500 LE CONTEXTE DE LA MARCHE (owner 14/09) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  // Quel appareil, quel syst\u00e8me, quelle taille de flux, et si la vraie photo a r\u00e9ussi. Ces faits
+  // existaient pendant la marche et mouraient avec l'onglet : sans eux, \u00ab d'o\u00f9 viennent les photos
+  // noires ? \u00bb ne se r\u00e9pond pas. \u00c9crit UNE fois, quand la file d'envoi a fini \u2014 c'est l\u00e0 seulement que
+  // le nombre de photos \u00e9crites est vrai. NON BLOQUANT : les photos sont d\u00e9j\u00e0 en base, un \u00e9chec ici
+  // ne perd rien et ne se montre pas. AUCUNE POSITION n'est envoy\u00e9e : elle demanderait une
+  // autorisation \u00e0 l'exploitant, et c'est sa d\u00e9cision.
+  function envoyerMarche() {
+    var loc = (window.MSReleve && window.MSReleve.location_id) || "";
+    if (run.marcheEcrite || !run.walkId || !run.startedAt || !loc) return;
+    run.marcheEcrite = true;
+    var k = gardees();
+    var st = srcDims();
+    fetch("/api/dispositifs/walks", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        location_id: loc, walk_id: run.walkId,
+        started_at: run.startedAt, ended_at: new Date().toISOString(),
+        photos_kept: k.length,
+        photos_written: k.filter(function (i) { return i.etat === "ecrite"; }).length,
+        problems: run.problems.length,
+        pole_sequence: k.map(function (i) { return { pole: i.pole, t: i.t }; }),
+        user_agent: navigator.userAgent,
+        viewport_w: window.innerWidth, viewport_h: window.innerHeight,
+        stream_w: st.w, stream_h: st.h,
+        camera_mode: run.camera,
+        real_photos: k.filter(function (i) { return i.source === "photo"; }).length,
+        photo_failures: k.filter(function (i) { return !!i.photo_echec; }).length,
+        app_build: (window.MSReleve && window.MSReleve.build) || null,
+      }),
+    }).catch(function () { run.marcheEcrite = false; });
+  }
+  function srcDims() {
+    try { return { w: srcW() || null, h: srcH() || null }; } catch (e) { return { w: null, h: null }; }
+  }
   function avancement() {
     var el = $("sumEtat"); if (!el) return;
     var k = gardees(), aFaire = k.filter(function (i) { return i.comp; }), faites = k.filter(function (i) { return i.etat === "ecrite"; });
@@ -570,6 +615,7 @@
       ? (faites.length === 1 ? t("releve_envoi_fini_une") : t("releve_envoi_fini").split("{n}").join(String(faites.length)))
       : (total === 1 ? t("releve_envoi_en_cours_une").split("{fait}").join(String(faites.length))
                      : t("releve_envoi_en_cours").split("{fait}").join(String(faites.length)).split("{total}").join(String(total)));
+    if (faites.length === aFaire.length && aFaire.length) envoyerMarche();
     compteRendu();
   }
 

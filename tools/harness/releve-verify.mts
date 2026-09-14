@@ -118,11 +118,21 @@ ${resolu}
   // L'espion REMPLACE le foyer du POST : la page appelle MSPhotoCapture.envoyer, il ne part rien.
   window.__envois = [];
   window.MSPhotoCapture = { envoyer: function (p) {
-    window.__envois.push({ dispositif_id: p.dispositif_id, component_key: p.component_key, fixture_no: p.fixture_no === undefined ? "ABSENT" : p.fixture_no, bytes: String(p.image_base64 || "").length, prefixe: String(p.image_base64 || "").slice(0, 23) });
+    window.__envois.push({ dispositif_id: p.dispositif_id, component_key: p.component_key, fixture_no: p.fixture_no === undefined ? "ABSENT" : p.fixture_no, walk_id: p.walk_id === undefined ? "ABSENT" : p.walk_id, seq: p.seq === undefined ? "ABSENT" : p.seq, t_offset_s: p.t_offset_s === undefined ? "ABSENT" : p.t_offset_s, bytes: String(p.image_base64 || "").length, prefixe: String(p.image_base64 || "").slice(0, 23) });
     document.getElementById("spy").textContent = "ENVOIS ESPIONNÉS\\n" + JSON.stringify(window.__envois, null, 1);
     return Promise.resolve({ ok: true, photo: { photo_id: "espion-" + window.__envois.length } });
   } };
-  window.MSReleve = { poles: ${JSON.stringify(injecte)}, copy: ${JSON.stringify(rl_copy)} };
+  window.MSReleve = { poles: ${JSON.stringify(injecte)}, copy: ${JSON.stringify(rl_copy)}, location_id: ${JSON.stringify(LOC)}, build: "harnais" };
+  // La marche : espionnee comme les photos, rien ne part.
+  window.__marches = [];
+  var _fetch = window.fetch;
+  window.fetch = function (u, init) {
+    if (String(u).indexOf("/api/dispositifs/walks") >= 0) {
+      window.__marches.push(JSON.parse(String((init && init.body) || "{}")));
+      return Promise.resolve({ json: function () { return Promise.resolve({ ok: true }); } });
+    }
+    return _fetch.apply(window, arguments);
+  };
   // La source d'images du harnais : un canvas piloté, à la place de la caméra (comme le proto).
   var c = document.createElement("canvas"); c.width = 640; c.height = 480;
   window.__releveSource = c;

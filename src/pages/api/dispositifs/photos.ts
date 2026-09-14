@@ -328,6 +328,30 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const bytes = Buffer.from(b64, "base64");
     if (!bytes.length || bytes.length > PHOTO_MAX_BYTES) return json({ ok: false, error: `image vide ou trop lourde (max ${Math.round(PHOTO_MAX_BYTES / 1e6 * 10) / 10} Mo après réduction)` }, 413);
     // Le numéro du composant sur le plan : facultatif ; s'il est donné, un entier > 0 — jamais lu sur l'image.
+    // 14/09 (spec § 9 point 4) — LA MARCHE D'OÙ VIENT LA PHOTO. Les trois colonnes existaient depuis
+    // le début et restaient vides : remplies, elles rendent l'ORDRE du parcours et les voisinages
+    // (composant A → composant B) sans table de plus. Facultatives : une photo prise à la main depuis
+    // la page du pôle n'appartient à aucune marche.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let walk_id: string | null = null;
+    if (body.walk_id != null && String(body.walk_id).trim() !== "") {
+      const w = String(body.walk_id).trim();
+      if (!UUID_RE.test(w)) return json({ ok: false, error: "walk_id : un identifiant de marche" }, 400);
+      walk_id = w;
+    }
+    let seq: number | null = null;
+    if (body.seq != null && String(body.seq).trim() !== "") {
+      const n = Number(body.seq);
+      if (!Number.isInteger(n) || n < 1 || n > 10_000) return json({ ok: false, error: "seq : un entier positif" }, 400);
+      seq = n;
+    }
+    let t_offset_s: number | null = null;
+    if (body.t_offset_s != null && String(body.t_offset_s).trim() !== "") {
+      const n = Number(body.t_offset_s);
+      if (!Number.isFinite(n) || n < 0 || n > 86_400) return json({ ok: false, error: "t_offset_s : des secondes depuis le début" }, 400);
+      t_offset_s = Math.round(n * 10) / 10;
+    }
+
     let fixture_no: number | null = null;
     if (body.fixture_no != null && String(body.fixture_no).trim() !== "") {
       const n = Number(body.fixture_no);
@@ -393,7 +417,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // 5. La ligne — d'abord telle que la version EN COURS la porterait.
     const row: PhotoRow = {
       photo_id, location_id: disp.location_id, dispositif_id, version_no: disp.version_no, component_key,
-      walk_id: null, seq: null, t_offset_s: null, gcs_uri: photoGcsUri(path),
+      walk_id, seq, t_offset_s, gcs_uri: photoGcsUri(path),
       dispositif_type: comp.type, dispositif_role: comp.role, status: "read",
       // 13/09 — les articles viennent de la PORTE (gate.items), jamais de `out` : codes de la liste,
       // confiance connue, et l'étagère ramenée à null quand elle sort des étagères du composant.

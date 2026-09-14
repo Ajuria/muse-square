@@ -1,12 +1,12 @@
 {
 "_meta": {
 "purpose": "SNAPSHOT of live BigQuery schema. Allowlist source for the bq-guard hook. Re-verify columns live via bq-verify before trusting.",
-"generated_date": "2026-09-13",
+"generated_date": "2026-09-14",
 "project": "muse-square-open-data",
 "region": "EU",
-"dbt_repo_sha_at_generation": "c68bc67",
-"table_count": 593,
-"column_count": 10581
+"dbt_repo_sha_at_generation": "5e6945d",
+"table_count": 595,
+"column_count": 10629
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -2459,6 +2459,99 @@
 {
 "name": "commitment_id",
 "type": "STRING"
+}
+]
+},
+"analytics.dispositif_walks": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "walk_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "started_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "ended_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "duration_s",
+"type": "FLOAT64"
+},
+{
+"name": "photos_kept",
+"type": "INT64"
+},
+{
+"name": "photos_written",
+"type": "INT64"
+},
+{
+"name": "problems",
+"type": "INT64"
+},
+{
+"name": "pole_sequence",
+"type": "STRING"
+},
+{
+"name": "user_agent",
+"type": "STRING"
+},
+{
+"name": "platform",
+"type": "STRING"
+},
+{
+"name": "os_version",
+"type": "STRING"
+},
+{
+"name": "viewport_w",
+"type": "INT64"
+},
+{
+"name": "viewport_h",
+"type": "INT64"
+},
+{
+"name": "stream_w",
+"type": "INT64"
+},
+{
+"name": "stream_h",
+"type": "INT64"
+},
+{
+"name": "camera_mode",
+"type": "STRING"
+},
+{
+"name": "real_photos",
+"type": "INT64"
+},
+{
+"name": "photo_failures",
+"type": "INT64"
+},
+{
+"name": "app_build",
+"type": "STRING"
+},
+{
+"name": "created_by",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
 }
 ]
 },
@@ -24939,6 +25032,131 @@
 }
 ]
 },
+"raw.client_transactions_backup_2026_09_13_paniers": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "client_id",
+"type": "STRING"
+},
+{
+"name": "transaction_date",
+"type": "DATE"
+},
+{
+"name": "transaction_datetime",
+"type": "TIMESTAMP"
+},
+{
+"name": "transaction_hour",
+"type": "INT64"
+},
+{
+"name": "revenue",
+"type": "FLOAT64"
+},
+{
+"name": "discount_amount",
+"type": "FLOAT64"
+},
+{
+"name": "transaction_count",
+"type": "INT64"
+},
+{
+"name": "visitor_count",
+"type": "INT64"
+},
+{
+"name": "avg_basket",
+"type": "FLOAT64"
+},
+{
+"name": "category",
+"type": "STRING"
+},
+{
+"name": "item_code",
+"type": "STRING"
+},
+{
+"name": "item_description",
+"type": "STRING"
+},
+{
+"name": "item_category",
+"type": "STRING"
+},
+{
+"name": "unit_price",
+"type": "FLOAT64"
+},
+{
+"name": "quantity",
+"type": "INT64"
+},
+{
+"name": "customer_type",
+"type": "STRING"
+},
+{
+"name": "channel",
+"type": "STRING"
+},
+{
+"name": "payment_method",
+"type": "STRING"
+},
+{
+"name": "discount_flag",
+"type": "BOOL"
+},
+{
+"name": "invoice_number",
+"type": "STRING"
+},
+{
+"name": "source_system",
+"type": "STRING"
+},
+{
+"name": "source_type",
+"type": "STRING"
+},
+{
+"name": "currency",
+"type": "STRING"
+},
+{
+"name": "ingested_at",
+"type": "TIMESTAMP"
+},
+{
+"name": "source_file",
+"type": "STRING"
+},
+{
+"name": "quantity_decimal",
+"type": "FLOAT64"
+},
+{
+"name": "document_type",
+"type": "STRING"
+},
+{
+"name": "revenue_ht",
+"type": "FLOAT64"
+},
+{
+"name": "vat_rate",
+"type": "FLOAT64"
+}
+]
+},
 "raw.commercial_events_spans": {
 "type": "BASE TABLE",
 "columns": [
@@ -38439,22 +38657,6 @@
 {
 "name": "source_type",
 "type": "STRING"
-},
-{
-"name": "document_type",
-"type": "STRING"
-},
-{
-"name": "document_kind",
-"type": "STRING"
-},
-{
-"name": "revenue_ht",
-"type": "FLOAT64"
-},
-{
-"name": "vat_rate",
-"type": "FLOAT64"
 },
 {
 "name": "currency",

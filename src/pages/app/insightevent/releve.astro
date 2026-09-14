@@ -302,8 +302,11 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       a.ms-btn { text-decoration: none; }
     </style>
 
-    <script is:inline define:vars={{ RL_POLES: poles, RL_COPY: RELEVE_COPY, RL_BUILD: BUILD }}>
-      window.MSReleve = { poles: RL_POLES, copy: RL_COPY };
+    <script is:inline define:vars={{ RL_POLES: poles, RL_COPY: RELEVE_COPY, RL_BUILD: BUILD, RL_LOC: location_id }}>
+      // Le site et la version servie voyagent avec les p\u00f4les : la marche les \u00e9crit dans son contexte
+      // (`/api/dispositifs/walks`), et sans eux on ne saurait pas de quel magasin ni de quel code vient
+      // une photo ratee.
+      window.MSReleve = { poles: RL_POLES, copy: RL_COPY, location_id: RL_LOC, build: RL_BUILD };
       // ── UNE PAGE PÉRIMÉE SE RÉPARE TOUTE SEULE (owner 14/09, quatre essais perdus) ────────────────
       // `no-store` empêche les prochaines mises en cache ; il n'efface pas celles déjà posées, et il ne
       // couvre pas la restauration d'onglet (bfcache) ni une application rouverte depuis l'écran
@@ -338,7 +341,7 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
         });
       })();
     </script>
-    <script is:inline src="/js/photo-capture.js?v=2"></script>
-    <script is:inline src="/js/releve-espace.js?v=8"></script>
+    <script is:inline src="/js/photo-capture.js?v=3"></script>
+    <script is:inline src="/js/releve-espace.js?v=9"></script>
   </BaseLayout>
 </Show>

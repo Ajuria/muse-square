@@ -41,6 +41,10 @@
         content_type: "image/jpeg",
         fixture_no: p.fixture_no != null ? p.fixture_no : null,
         version_no: p.version_no != null ? p.version_no : null,
+        // La marche d'ou vient la photo (spec 9.4) : facultatifs, une photo prise a la main n'en a pas.
+        walk_id: p.walk_id || null,
+        seq: p.seq != null ? p.seq : null,
+        t_offset_s: p.t_offset_s != null ? p.t_offset_s : null,
       }),
     }).then(function (r) { return r.json(); });
   }
