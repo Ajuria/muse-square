@@ -34,7 +34,7 @@ import { listSiteFamilies } from "../../../lib/kpi/kpiRegistry";
 import { resolveMemberNames } from "../../../lib/dispositifs/poleActivity";
 import {
   PHOTO_MAX_BYTES, makeStorageClient, photoObjectPath, photoGcsUri, putPhotoObject, deletePhotoObject, putPhotoVariants, getPhotoVariant, parsePhotoVariant,
-  insertPhotoRow, listPhotoRows, latestPerComponent, listSiteItems, withConfirmedItems, photoApiUrl, type PhotoRow,
+  insertPhotoRow, listPhotoRows, latestPerComponent, photosDuComposant, listSiteItems, withConfirmedItems, photoApiUrl, type PhotoRow,
 } from "../../../lib/dispositifs/dispositifPhotos";
 import { changementDePhoto, dernierePhotoDuComposant } from "../../../lib/dispositifs/photoChangement";
 import { createPermanentPole } from "../../../lib/dispositifs/poleCreate";
@@ -167,17 +167,35 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     const vParam = url.searchParams.get("version_no");
     const version_no = vParam != null && vParam !== "" ? Number(vParam) : null;
-    const [rows, items] = await Promise.all([
-      listPhotoRows(bq, dispositif_id, Number.isFinite(version_no as number) ? version_no : null),
+    // 14/09 (point 4) — TOUTES les lignes, en UNE requête, puis les deux lectures en sont dérivées :
+    // celle de la version demandée (contrat inchangé) et l'historique de chaque composant. La requête
+    // filtrée par version coûtait le même aller-retour et jetait le reste.
+    const [toutes, items] = await Promise.all([
+      listPhotoRows(bq, dispositif_id),
       listSiteItems(bq, disp.location_id),
     ]);
+    const rows = Number.isFinite(version_no as number) ? toutes.filter((r) => r.version_no === version_no) : toutes;
     const codes = byCode(items);
     // Les noms d'auteur — une seule résolution, et seulement si au moins une photo en porte un.
     const lues = latestPerComponent(rows);
-    const auteurs = lues.some((r) => r.created_by)
+    const auteurs = toutes.some((r) => r.created_by)
       ? await resolveMemberNames(bq, disp.location_id).catch(() => ({} as Record<string, string>))
       : {};
-    return json({ ok: true, dispositif_id, version_no: version_no ?? disp.version_no, photos: lues.map((r) => publicRow(r, codes, auteurs)) });
+    // 14/09 (owner : « photos avec accès aux versions précédentes ») — CHAQUE photo emporte SES
+    // précédentes. Le tableau `photos` garde exactement son contrat (une par composant), donc la page
+    // ne change pas : c'est un AJOUT, jamais un remplacement. Mesuré le 14/09 : les 7 pôles du compte
+    // sont en version 1, l'« Historique du dispositif » ne s'affiche donc sur aucun — sans ceci, toute
+    // photo antérieure serait écrite et inatteignable.
+    const parComposant = photosDuComposant(toutes.filter((r) => r.status === "read"));
+    return json({
+      ok: true, dispositif_id, version_no: version_no ?? disp.version_no,
+      photos: lues.map((r) => ({
+        ...publicRow(r, codes, auteurs),
+        precedentes: (parComposant[r.component_key] ?? [])
+          .filter((x: PhotoRow) => x.photo_id !== r.photo_id)
+          .map((x: PhotoRow) => publicRow(x, codes, auteurs)),
+      })),
+    });
   } catch (e: any) {
     const msg = String(e?.message || e);
     return json({ ok: false, error: msg }, msg.startsWith("FORBIDDEN") ? 403 : 500);

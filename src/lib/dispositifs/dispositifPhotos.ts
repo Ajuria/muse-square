@@ -104,6 +104,6 @@ export async function getPhotoVariant(storage: Storage, location_id: string, dis
 // les appelants de ce foyer (route photos, tests, harnais) ne changent pas d'adresse. ──
 export {
   PHOTO_TABLE, insertPhotoRow, listPhotoRows, latestPerComponent, listSiteItems, withConfirmedItems,
-  photoApiUrl, photosParVersion,
+  photoApiUrl, photosParVersion, photosDuComposant,
 } from "./dispositifPhotoRows";
 export type { PhotoRow, LineagePhoto } from "./dispositifPhotoRows";

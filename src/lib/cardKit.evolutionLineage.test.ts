@@ -655,3 +655,45 @@ it("la comparaison se place SOUS l'espace : même indicateur, même fenêtre de 
   const html = String(kit.renderEvolution(poleClasse(), EVOL_COPY));
   expect(html.indexOf("data-eg-espace")).toBeLessThan(html.indexOf("data-eg-poles-rank"));
 });
+
+// ── 14/09 — LES PHOTOS PRÉCÉDENTES D'UN COMPOSANT (owner : « photos avec accès aux versions précédentes »).
+// Mesuré le 14/09 sur f10c3e58 : les 7 pôles sont en VERSION 1, donc « Historique du dispositif » ne
+// s'affiche sur aucun. Sans ce volet, la deuxième photo d'une étagère rend la première inatteignable.
+const photoAvecPrec = (n: number) => ({
+  photo_id: "p0", component_key: "k1", version_no: 1, url: "/api/dispositifs/photos?file=p0",
+  created_at: "2026-09-12T10:00:00Z", status: "read", checklist: {}, questions: [],
+  precedentes: Array.from({ length: n }, (_, i) => ({
+    photo_id: `q${i}`, component_key: "k1", version_no: 1,
+    url: `/api/dispositifs/photos?file=q${i}`, created_at: `2026-09-0${i + 1}T10:00:00Z`,
+    checklist: {}, questions: [],
+  })),
+});
+
+it("une photo qui en a des précédentes rend un volet REPLIÉ — la photo courante garde sa place", () => {
+  const html = String(kit.renderComponentPhoto(photoAvecPrec(3), EVOL_COPY));
+  expect(html).toContain("<details data-eg-photo-prec");
+  expect(html).toContain("Voir les 3 photos précédentes de ce composant");
+  // Les trois sont là, chacune atteignable par son URL, avec sa date en français.
+  ["q0", "q1", "q2"].forEach((id) => expect(html).toContain(`file=${id}`));
+  expect(html).toContain("01/09/2026");
+  expect(html).toContain("03/09/2026");
+  // La photo courante n'a pas bougé : elle reste rendue au-dessus, hors du volet.
+  expect(html.indexOf("file=p0")).toBeLessThan(html.indexOf("<details data-eg-photo-prec"));
+});
+
+it("une seule précédente : le singulier, jamais « 1 photos »", () => {
+  const html = String(kit.renderComponentPhoto(photoAvecPrec(1), EVOL_COPY));
+  expect(html).toContain("Voir la photo précédente de ce composant");
+  expect(html).not.toMatch(/Voir les 1 photos/);
+});
+
+it("aucune précédente : aucun volet — un cadre vide ne raconte rien", () => {
+  const html = String(kit.renderComponentPhoto(photoAvecPrec(0), EVOL_COPY));
+  expect(html).not.toContain("data-eg-photo-prec");
+  expect(html).not.toContain("précédente");
+});
+
+it("une photo servie par une version ANCIENNE de l'API (sans champ precedentes) rend comme avant", () => {
+  const p: any = photoAvecPrec(0); delete p.precedentes;
+  expect(String(kit.renderComponentPhoto(p, EVOL_COPY))).not.toContain("data-eg-photo-prec");
+});

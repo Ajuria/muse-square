@@ -152,6 +152,29 @@ export function photosParVersion(
   return out;
 }
 
+/**
+ * PUR — LES PHOTOS D'UN COMPOSANT DANS LE TEMPS (point 4, owner 14/09 : « photos avec accès aux versions
+ * précédentes »). Mesuré le 14/09 : les 7 pôles du compte sont en VERSION 1, donc la section « Historique
+ * du dispositif » — qui exige une chaîne d'au moins deux versions — ne s'affiche sur aucun. Toute photo
+ * prise aujourd'hui atterrit donc dans la section des composants, qui n'en montrait QU'UNE : les
+ * précédentes étaient écrites, facturées, et inatteignables.
+ *
+ * Rend, par clé de composant, SES photos de la plus récente à la plus ancienne — versions confondues,
+ * parce qu'un composant est le même meuble d'une version à l'autre et que c'est justement sa suite qui
+ * raconte quelque chose. Aucun plafond : ce qui est jeté ici n'est atteignable nulle part ailleurs.
+ */
+export function photosDuComposant(rows: PhotoRow[]): Record<string, PhotoRow[]> {
+  const out: Record<string, PhotoRow[]> = {};
+  for (const r of rows) {
+    if (!r.component_key) continue;                       // component_key est NOT NULL en base ; garde de ceinture
+    (out[r.component_key] ?? (out[r.component_key] = [])).push(r);
+  }
+  for (const k of Object.keys(out)) {
+    out[k].sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : 0));
+  }
+  return out;
+}
+
 // PUR : la dernière photo lue par composant (les lignes arrivent triées created_at DESC ; on
 // re-trie ici pour ne pas dépendre de l'ordre de la requête).
 export function latestPerComponent(rows: PhotoRow[]): PhotoRow[] {

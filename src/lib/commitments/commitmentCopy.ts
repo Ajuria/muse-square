@@ -311,6 +311,11 @@ export const EVOL_COPY = {
   // de `composePoleClassement` — ses colonnes (Pôle, CA par mètre, Linéaire, Part du CA, Part de linéaire)
   // sont déjà approuvées. Rien d'autre ne s'écrit ici : la position de ce pôle se LIT dans sa ligne.
   pole_rank_title: "Vos pôles · du plus au moins performant",
+  // 14/09 (owner : « photos avec accès aux versions précédentes ») — le libellé du volet replié sous une
+  // photo. Règle 8 : le sujet est l'exploitant et le verbe est ce qu'il ACQUIERT (« vous verrez »), pas ce
+  // que l'app garde. Aucune énumération de champs, aucun mot de mécanique, aucun argument de durée.
+  pole_photo_prec_une: "Voir la photo précédente de ce composant",
+  pole_photo_prec: "Voir les {n} photos précédentes de ce composant",
   pole_ops_none: "Aucune opération rattachée pour l'instant.",
   pole_op_open: "en cours",
   pole_op_done: "terminée",

@@ -2607,7 +2607,34 @@
           return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;border-bottom:1px solid #F3F4F6;"><span style="color:#374151;">' + esc(q.question_fr) + '</span><span style="color:' + col + ';font-weight:600;white-space:nowrap;">' + esc(ans[v] || '') + '</span></div>';
         }).join('') + '</div>' : '')
       + itemsBlock(photo, t)
-      + '</div></div>';
+      + '</div></div>'
+      + precedentesBlock(photo, t);
+  }
+
+  // 14/09 (owner : « photos avec acces aux versions precedentes ») — LES PHOTOS PRECEDENTES DU MEME
+  // COMPOSANT. Mesure du 14/09 : les 7 poles du compte sont en VERSION 1, donc « Historique du dispositif »
+  // ne s'affiche sur aucun ; sans ce volet, la deuxieme photo d'une etagere rendait la premiere
+  // inatteignable. Un volet REPLIE : la photo courante garde sa place, rien de ce qui est approuve ne bouge.
+  // Les vignettes ont la meme grammaire que celles de l'historique (carre 72 px, nom court, date).
+  function precedentesBlock(photo, t) {
+    var pr = Array.isArray(photo.precedentes) ? photo.precedentes : [];
+    if (!pr.length) return '';
+    return '<details data-eg-photo-prec style="margin-top:8px;">'
+      + '<summary style="font-size:12px;color:#1D3BB3;cursor:pointer;">' + esc(t(pr.length > 1 ? 'pole_photo_prec' : 'pole_photo_prec_une').split('{n}').join(String(pr.length))) + '</summary>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">'
+      + pr.map(function (x) {
+          var u = String(x.url || '');
+          var th = u && u.indexOf('variant=') < 0 ? u + (u.indexOf('?') < 0 ? '?' : '&') + 'variant=square' : u;
+          var d = String(x.created_at || '').slice(0, 10);
+          var dfr2 = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+          var ti = [x.version_no != null && Number(x.version_no) > 0 ? 'Version ' + x.version_no : '', dfr2,
+                    x.created_by_name ? String(x.created_by_name) : ''].filter(function (y) { return !!y; }).join(' \u00b7 ');
+          return '<a href="' + esc(u) + '" target="_blank" rel="noopener" style="text-decoration:none;color:#6B7280;display:block;width:72px;">'
+            + '<img src="' + esc(th) + '" alt="" title="' + esc(ti) + '" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb;display:block;">'
+            + (dfr2 ? '<div style="font-size:11px;line-height:1.35;margin-top:3px;">' + esc(dfr2) + '</div>' : '')
+            + '</a>';
+        }).join('')
+      + '</div></details>';
   }
 
   window.MSCardKit = { renderComponentPhoto: renderComponentPhoto,
