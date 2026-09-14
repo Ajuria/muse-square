@@ -48,7 +48,8 @@ async function main() {
   assert("membre.ok=false (pas de profil)", mem.ok === false);
   assert("membre.is_member", mem.is_member === true);
   assert("membre.location", JSON.stringify(mem.member_location_ids) === JSON.stringify([PROBE_LOC]));
-  assert("membre.poles", JSON.stringify(mem.member_poles[PROBE_LOC]) === JSON.stringify(["pole-a", "pole-b"]));
+  // 14/09 — `tools/` entre dans tsc : `member_poles` est inféré `{}` ici, son indexation par site se type.
+  assert("membre.poles", JSON.stringify((mem.member_poles as Record<string, string[]>)[PROBE_LOC]) === JSON.stringify(["pole-a", "pole-b"]));
   assert("membre.all_location_ids VIDE (sécurité)", mem.all_location_ids.length === 0);
 
   // Tombstone du membre → il disparaît

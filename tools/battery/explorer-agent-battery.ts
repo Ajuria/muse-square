@@ -18,7 +18,7 @@ import { SYSTEME_FR, OUTILS_FR } from "../../src/lib/explorer/agentSystem.fr";
 import { FAMILIES } from "../../src/lib/insightFamilies";
 import { assembleAnswerBlocks, groundAgentText } from "../../src/lib/explorer/blocks";
 import { readMargeLecture } from "../../src/lib/kpi/margeLecture";
-import { toApiMessages } from "../../src/lib/explorer/agentTurn";
+import { toApiMessages, agentDeps } from "../../src/lib/explorer/agentTurn";
 import { listClassDispositifs } from "../../src/lib/dispositifs/bestPractices";
 import { loadSiteEntities } from "../../src/lib/explorer/entityResolver";
 import { operationLife, readDispositifFamille } from "../../src/lib/dispositifs/dispositifFamille";
@@ -92,28 +92,23 @@ async function ask(q: string) {
   const t0 = Date.now();
   const calls: ToolCallRecord[] = [];
   let firstBlockAt: number | null = null;   // l'instant où le premier bloc vérifié est disponible (streamé au client)
+  // 14/09 — LES DÉPENDANCES VIENNENT DU FOYER DE LA ROUTE (`agentTurn.agentDeps`), plus d'une liste
+  // recopiée ici. La recopie avait dérivé en silence : les outils du 13/09 au soir (`lire_engagements`,
+  // `lire_entite_periode`) n'y avaient pas leurs lectures, et la batterie a répondu « deps.runEntitePeriode
+  // is not a function » — en vert, parce qu'aucune porte ne regardait le rendu. Un outil nouveau branché
+  // sur la route est désormais branché sur la batterie le même jour, sans qu'on y pense.
+  // Ce que la batterie OVERRIDE, et rien d'autre : elle n'écrit JAMAIS de déclaration sur le compte de
+  // test (l'écriture est simulée, la lecture reste réelle) et elle ne lit aucune photo.
   const tools = buildAgentTools({
-    location_id: LOC, author: { user_id: "battery", role: "owner" },
-    listPoles: () => listPoles(bq, LOC, 12), readFamilies: () => readSiteFamilies30d(bq, LOC),
+    ...agentDeps(bq, {
+      location_id: LOC, user_id: "battery", role: "owner", ownedIds: [LOC],
+      messages: [], files: [], thread_id: "battery",
+      readPhotos: async () => [], readPhotoBytes: async () => null,
+    }, calls),
     readPhotos: async () => [], readPhotoBytes: async () => null,
-    readMemory: (s) => readSiteMemory(bq, LOC, s ? { subject: s } : {}), writeMemory: async () => {},
-    runFamily: (key, date) => FAMILIES[key].run(bq, LOC, date),
-    runMarge: (jours, date) => readMargeLecture(bq, LOC, date, jours),
-    listDispositifsDocumentes: () => listClassDispositifs(bq, LOC, null, 6),
-    siteEntities: () => loadSiteEntities(bq, LOC, ""),
-    operationLife: (sid) => operationLife(bq, LOC, sid, today()),
-    runOperationFamille: (op, fams, s, e, kpi) => readDispositifFamille(bq, LOC, op, fams, s, e, today(), kpi),
-    runPlan: (s, e) => planPeriod(bq, LOC, s, e, { userId: null }),
-    listZones: () => listSpaceZonesEnVigueur(bq, LOC), listPoleSpace: () => listPoleSpace(bq, LOC), runFamillesPeriode: (du, au) => readFamillesPeriode(bq, LOC, du, au),
-    // 13/09 (couche 5) : la batterie n'écrit JAMAIS une déclaration sur le compte de test — l'écriture est simulée, la lecture réelle.
     writeDeclaration: async (type, valeur) => { console.log(`  (déclaration simulée : ${type} = ${valeur})`); return { prior_fr: null, declarant_name: null }; },
     forgetDeclaration: async () => null,
-    runVentes: (s, e) => computeSalesReport(bq, { location_id: LOC, owned: [LOC], start: s, end: e }),
-    runResultat: () => readResultat(bq, LOC),
-    runPolesClassement: (s, e) => readPoleClassement(bq, LOC, s, e),
-    listModeles: () => listReportTemplates(bq, LOC),
-    today, record: (r) => { calls.push(r); if (firstBlockAt == null && r.blocks && r.blocks.length) firstBlockAt = (Date.now() - t0) / 1000; },
-    faitsDuTour: () => calls.flatMap((c) => c.facts ?? []),
+    record: (r) => { calls.push(r); if (firstBlockAt == null && r.blocks && r.blocks.length) firstBlockAt = (Date.now() - t0) / 1000; },
   });
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const runner = client.beta.messages.toolRunner({
@@ -129,7 +124,9 @@ async function ask(q: string) {
   const text = relecture.texte;
   const g = groundAgentText(text, calls.flatMap((c) => c.facts ?? []));
   const blocks = assembleAnswerBlocks(calls.map((c) => c.blocks ?? []), g);
-  return { seconds: (Date.now() - t0) / 1000, firstBlockAt, model: final.model, text, calls, grounding: g, blocks, relecture };
+  // 14/09 — `tools/` entre dans tsc : `firstBlockAt` n'est assigné que dans un callback, donc narrowé à
+  // `null` au retour ; le type déclaré est celui qui compte pour l'appelant.
+  return { seconds: (Date.now() - t0) / 1000, firstBlockAt: firstBlockAt as number | null, model: final.model, text, calls, grounding: g, blocks, relecture };
 }
 
 (async () => {

@@ -8,7 +8,9 @@ import Bar from "../../src/components/PiloterBottomBar.astro";
 
 async function render(path: string, role: string | null) {
   const c = await AstroContainer.create();
-  return c.renderToString(Bar, { request: new Request("http://l" + path), locals: { role }, props: {} });
+  // 14/09 — `tools/` entre dans tsc : `role` est posé par le middleware et n'est pas déclaré sur `Locals`
+  // (l'app le lit partout en `(locals as any).role`) — le harnais fait pareil, il ne l'invente pas.
+  return c.renderToString(Bar, { request: new Request("http://l" + path), locals: { role } as any, props: {} });
 }
 const activeOf = (html: string) => (html.match(/<a class="ms-bb-item is-active" href="[^"]+" aria-label="([^"]+)"/) || [])[1];
 
