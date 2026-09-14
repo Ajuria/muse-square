@@ -149,6 +149,8 @@ function stripDatesAndHours(s: string): string {
   return s
     .replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, " ")     // JJ/MM/AAAA
     .replace(/\b\d{1,2}\/(?:0?[1-9]|1[0-2])\b(?!\/)/g, " ")  // JJ/MM sans année — « le 22/08 », « le 07/09 »
+    .replace(/\b\d{1,2}(?:er)?\s+(?:et|au|\u00e0)\s+(?:le\s+)?\d{1,2}(?:er)?\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre|novembre|d[ée]cembre)(?:\s+\d{4})?\b/gi, " ")  // « le 5 et le 12 septembre », « du 5 au 12 septembre »
+    .replace(/\b\d{1,2}(?:er)?\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre|novembre|d[ée]cembre)(?:\s+\d{4})?\b/gi, " ")  // « le 5 septembre », « 1er octobre 2026 »
     .replace(/\b\d{4}-\d{2}-\d{2}\b/g, " ")               // AAAA-MM-JJ
     .replace(/\b\d{1,2}\s?h(?:\s?\d{2})?\b/g, " ")        // 10 h, 10h30
     .replace(/\b(19|20)\d{2}\b/g, " ")                    // années

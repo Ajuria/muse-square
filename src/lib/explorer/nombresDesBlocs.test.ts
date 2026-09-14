@@ -68,3 +68,43 @@ describe("une date sans année n'est pas un fait", () => {
     expect(g.ungrounded_numbers).toContain("9999");
   });
 });
+
+// ── 14/09 (mesuré sur 3 tirs de batterie) — LA DATE AVEC LE MOIS EN TOUTES LETTRES ──
+// « Vous pouvez me donner des dates (par exemple « le 5 et le 12 septembre ») » : deux nombres nus,
+// comptés comme inventés, registre à terre — sur une phrase qui ne contient AUCUN chiffre d'affaires.
+// C'est la forme la plus naturelle en français, et le lexique encourage les mois écrits.
+describe("une date dont le mois est en lettres n'est pas un fait", () => {
+  it("« le 5 et le 12 septembre » ne fait plus tomber le registre — le cas RÉEL de la batterie", () => {
+    expect(groundAgentText("Vous pouvez me donner des dates (par exemple « le 5 et le 12 septembre »).", [], []).register).toBe("vetted");
+  });
+  it("avec l'année, et avec « 1er »", () => {
+    expect(groundAgentText("Du 1er octobre 2026 au 3 novembre 2026.", [], []).register).toBe("vetted");
+  });
+  it("les accents et la casse ne changent rien (février, Août, décembre)", () => {
+    expect(groundAgentText("Le 2 février, le 15 Août et le 24 décembre.", [], []).register).toBe("vetted");
+  });
+  it("un NOMBRE suivi d'un nom qui n'est pas un mois reste à fonder — « 3 familles » n'est pas une date", () => {
+    const g = groundAgentText("Vos 3 familles principales pèsent 62 % du CA.", [], []);
+    expect(g.register).toBe("model");
+    expect(g.ungrounded_numbers).toEqual(expect.arrayContaining(["3", "62"]));
+  });
+  it("un montant à côté d'une date en lettres reste pris", () => {
+    const g = groundAgentText("Le 5 septembre, vous avez généré 9 999 €.", [], []);
+    expect(g.register).toBe("model");
+    expect(g.ungrounded_numbers).toContain("9999");
+  });
+});
+
+it("la forme ÉLIDÉE : « du 5 au 12 septembre » — le premier jour n'a pas son mois", () => {
+  expect(groundAgentText("Du 5 au 12 septembre, le CA progresse.", [], []).register).toBe("vetted");
+});
+
+it("LA PORTE N'EST PAS OUVERTE : « le 5 » tout seul reste un nombre à fonder", () => {
+  const g = groundAgentText("Le 5 est votre meilleur score.", [], []);
+  expect(g.register).toBe("model");
+  expect(g.ungrounded_numbers).toContain("5");
+});
+
+it("deux nombres joints par « et » SANS mois restent à fonder", () => {
+  expect(groundAgentText("Vos pôles 5 et 12 sont les plus forts.", [], []).register).toBe("model");
+});
