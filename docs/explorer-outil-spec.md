@@ -362,7 +362,20 @@ par capacité, jamais par site.
    nombres que la porte ne trouve nulle part (`lib/explorer/entitePeriodeOutil.ts`, pur, 9 cas). Une
    cellule vide (« — ») ne devient jamais un fait : une absence n'est pas un chiffre. `prompt.ts` :
    7 145 → 7 132 lignes, quatre imports de plus retirés.
-   **Reste UN chemin sans outil** : `_missing_dates_v1` (comparaison de journées → `comparer_journees`).
+   **`comparer_journees` est livré le 14/09, et `_missing_dates_v1` est TOMBÉE avec lui** (128 lignes ;
+   `prompt.ts` passe à 7 010). L'outil ne calcule ni ne rédige : le pipeline v3 (`compareDatesDeterministicV1`
+   + `renderLineItemsFrV1`) fait les deux, une composition pure le traduit en blocs
+   (`lib/explorer/journeesComparees.ts`). Le texte du v3 part MOT POUR MOT — il porte ses `fact_ids`, et le
+   reformuler lui ferait perdre son ancre.
+   **UN OUTIL DONT LE RÔLE EST DE POSER UNE QUESTION EST UN OUTIL QUE LE MODÈLE COURT-CIRCUITE.** Mesuré le
+   14/09 : sans date, il répondait « quelles journées ? » lui-même dans **3 tirs sur 5** — porte `outils` et
+   porte `rendu` en échec, alors que sa réponse semblait bonne. Un ORDRE n'a pas suffi ; ce qui a suffi,
+   c'est la RAISON, dite dans la description de l'outil : il rend des journées RÉELLES à toucher du doigt
+   (celles déjà vues, ou le week-end qui vient), que le modèle ne connaît pas, et poser la question soi-même
+   laisse l'exploitant retaper des dates à la main. Après : **5 tirs sur 5**, batterie entière verte.
+   La leçon vaut pour tout outil d'élicitation à venir : dire ce qu'il APPORTE, jamais seulement qu'il faut
+   l'appeler. Et la mettre dans la description de l'OUTIL — un paragraphe ajouté à la liste du prompt
+   système déplace le comportement partout (mesuré le même jour : 641 caractères → 1-2 échecs par run).
    `_missing_dimension_elicit_v1` (stock, personnel, CA par client) n'a ni donnée ni outil : elle RESTE une
    élicitation, et c'est la bonne réponse.
 

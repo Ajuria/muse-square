@@ -615,7 +615,7 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
   // L'outil ne calcule ni ne rédige : le pipeline v3 fait les deux, il le traduit en blocs.
   const comparerJournees = outil({
     name: "comparer_journees",
-    description: "Deux à sept JOURNÉES face à face : ce que chacune a généré, et ce qui les séparait (météo, calendrier, vacances, concurrence, familles vendues). Répond à « compare le 5 et le 12 septembre », « pourquoi samedi a mieux marché que dimanche ? », « qu'est-ce qui change entre ces deux jours ? ». Une seule date, ou aucune : l'outil rend la question et des journées à choisir — il ne devine JAMAIS les dates.",
+    description: "Deux à sept JOURNÉES face à face : ce que chacune a généré, et ce qui les séparait (météo, calendrier, vacances, concurrence, familles vendues). Répond à « compare le 5 et le 12 septembre », « pourquoi samedi a mieux marché que dimanche ? », « qu'est-ce qui change entre ces deux jours ? ». Une seule date, ou aucune : APPELLE-LE QUAND MÊME, sans dates. Il rend la question ET des journées réelles à choisir d'un geste (celles déjà vues dans la conversation, ou le week-end qui vient) — toi, tu n'en connais aucune, et poser la question toi-même laisserait l'exploitant retaper des dates à la main.",
     inputSchema: z.object({
       dates: z.array(z.string()).max(7).describe("Les journées à comparer, AAAA-MM-JJ. Moins de deux : l'outil rend la question au lieu d'une comparaison."),
       jours_du_fil: z.array(z.string()).optional().describe("Journées déjà montrées dans la conversation, AAAA-MM-JJ — elles servent de suggestions. Ne jamais en inventer."),
