@@ -1,0 +1,123 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Relevé — l'écran d'accueil, deux pistes</title>
+<!-- tools/proto/releve-accueil-proto.html — L'ÉCRAN AVANT LE RELEVÉ (owner 14/09 : « les quelques phrases
+     écrites en petit que personne ne lira sur un téléphone → montre plutôt une image explicative ou un
+     croquis de ce qui est demandé (la distance, le cadrage du meuble) avec une info écrite max »).
+
+     CE QUE LE PROTO TRANCHE : ce qu'un CROQUIS peut porter, et quelle phrase survit. Les trois consignes
+     actuelles sont en prod ; deux d'entre elles décrivent un CADRAGE — ça se dessine. La troisième décrit
+     un COMPORTEMENT (la photo part toute seule) — ça ne se dessine pas, et c'est elle qui reste écrite.
+
+     À SUPPRIMER dans le commit qui livre l'écran. Ouvrir dans un navigateur, largeur 402 px (iPhone owner).
+-->
+<style>
+  :root { --encre:#111827; --gris:#6B7280; --bleu:#1D3BB3; --trait:#E5E7EB; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,sans-serif; color:var(--encre); background:#F3F4F6; }
+  .page { max-width:402px; margin:0 auto 28px; background:#fff; min-height:812px; padding:22px 18px 28px; box-sizing:border-box; }
+  h1 { font-size:19px; margin:0 0 2px; }
+  .sous { color:var(--gris); font-size:13px; margin:0 0 18px; }
+  .piste { max-width:402px; margin:26px auto 6px; font:12px/1.4 system-ui; color:var(--gris); text-transform:uppercase; letter-spacing:.08em; }
+  .sacr { max-width:402px; margin:0 auto 8px; font-size:13px; color:#B45309; }
+  .ligne { font-size:16px; line-height:1.5; margin:16px 2px 0; }
+  .cta { display:block; width:100%; margin-top:20px; height:52px; border:0; border-radius:12px; background:var(--bleu);
+         color:#fff; font:600 16px system-ui; }
+  ul.avant { color:var(--gris); font-size:13.5px; padding-left:18px; }
+</style>
+
+<div class="piste">Aujourd'hui, en production</div>
+<div class="sacr">Trois phrases de 13 px. L'owner : « personne ne lira sur un téléphone comme ça ».</div>
+<div class="page">
+  <h1>Relevé de l'espace</h1>
+  <p class="sous">Cave · 7 meubles</p>
+  <ul class="avant">
+    <li>La photo se prend toute seule quand vous vous arrêtez deux secondes.</li>
+    <li>Cadrez le meuble en entier, de face, sans personne devant.</li>
+    <li>Le nom du pôle, en haut, se touche pour en changer.</li>
+  </ul>
+  <button class="cta">Commencer le relevé</button>
+</div>
+
+<div class="piste">Piste A — le cadrage par le contraste</div>
+<div class="sacr">Sacrifice : ne montre pas la marche. Le geste (avancer, s'arrêter) reste à découvrir en filmant.</div>
+<div class="page">
+  <h1>Relevé de l'espace</h1>
+  <p class="sous">Cave · 7 meubles</p>
+
+  <svg viewBox="0 0 366 260" width="100%" role="img" aria-label="Le meuble entier dans l'image, de face. Trop près ou de biais : la photo ne sert pas.">
+    <!-- BON : le meuble entier, de face, avec de la marge -->
+    <g>
+      <rect x="6" y="14" width="106" height="188" rx="10" fill="#fff" stroke="#111827" stroke-width="2.5"/>
+      <!-- le meuble, entier, marge visible -->
+      <rect x="28" y="46" width="62" height="124" fill="#EEF2FF" stroke="#1D3BB3" stroke-width="2"/>
+      <line x1="28" y1="77" x2="90" y2="77" stroke="#1D3BB3" stroke-width="1.5"/>
+      <line x1="28" y1="108" x2="90" y2="108" stroke="#1D3BB3" stroke-width="1.5"/>
+      <line x1="28" y1="139" x2="90" y2="139" stroke="#1D3BB3" stroke-width="1.5"/>
+      <!-- la marge, dite par deux flèches -->
+      <line x1="16" y1="46" x2="26" y2="46" stroke="#6B7280" stroke-width="1.5"/>
+      <line x1="16" y1="170" x2="26" y2="170" stroke="#6B7280" stroke-width="1.5"/>
+      <line x1="21" y1="46" x2="21" y2="170" stroke="#6B7280" stroke-width="1" stroke-dasharray="3,3"/>
+      <circle cx="59" cy="220" r="13" fill="#0F6E56"/>
+      <path d="M53 220 l4 5 l9 -11" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="59" y="250" text-anchor="middle" font-size="12" fill="#111827" font-family="system-ui">entier, de face</text>
+    </g>
+    <!-- TROP PRÈS : le meuble déborde -->
+    <g>
+      <rect x="130" y="14" width="106" height="188" rx="10" fill="#fff" stroke="#111827" stroke-width="2.5"/>
+      <rect x="126" y="30" width="114" height="160" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="2"/>
+      <line x1="126" y1="70" x2="240" y2="70" stroke="#9CA3AF" stroke-width="1.5"/>
+      <line x1="126" y1="110" x2="240" y2="110" stroke="#9CA3AF" stroke-width="1.5"/>
+      <line x1="126" y1="150" x2="240" y2="150" stroke="#9CA3AF" stroke-width="1.5"/>
+      <circle cx="183" cy="220" r="13" fill="#B45309"/>
+      <path d="M177 214 l12 12 M189 214 l-12 12" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="183" y="250" text-anchor="middle" font-size="12" fill="#6B7280" font-family="system-ui">trop près</text>
+    </g>
+    <!-- DE BIAIS -->
+    <g>
+      <rect x="254" y="14" width="106" height="188" rx="10" fill="#fff" stroke="#111827" stroke-width="2.5"/>
+      <polygon points="276,52 330,40 330,176 276,164" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="2"/>
+      <line x1="276" y1="80" x2="330" y2="70" stroke="#9CA3AF" stroke-width="1.5"/>
+      <line x1="276" y1="108" x2="330" y2="100" stroke="#9CA3AF" stroke-width="1.5"/>
+      <line x1="276" y1="136" x2="330" y2="130" stroke="#9CA3AF" stroke-width="1.5"/>
+      <circle cx="307" cy="220" r="13" fill="#B45309"/>
+      <path d="M301 214 l12 12 M313 214 l-12 12" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="307" y="250" text-anchor="middle" font-size="12" fill="#6B7280" font-family="system-ui">de biais</text>
+    </g>
+  </svg>
+
+  <p class="ligne">La photo se prend toute seule quand vous vous arrêtez deux secondes.</p>
+  <button class="cta">Commencer le relevé</button>
+</div>
+
+<div class="piste">Piste B — la marche vue de dessus</div>
+<div class="sacr">Sacrifice : montre le geste, pas le cadrage. La distance et l'aplomb restent à deviner — c'est ce que l'owner demandait en premier.</div>
+<div class="page">
+  <h1>Relevé de l'espace</h1>
+  <p class="sous">Cave · 7 meubles</p>
+
+  <svg viewBox="0 0 366 200" width="100%" role="img" aria-label="Vue de dessus : on longe les meubles et on s'arrête deux secondes devant chacun.">
+    <!-- les meubles, vus de dessus, le long d'un mur -->
+    <line x1="18" y1="34" x2="348" y2="34" stroke="#111827" stroke-width="2.5"/>
+    <g fill="#EEF2FF" stroke="#1D3BB3" stroke-width="2">
+      <rect x="28" y="36" width="70" height="26"/><rect x="112" y="36" width="70" height="26"/>
+      <rect x="196" y="36" width="70" height="26"/><rect x="280" y="36" width="60" height="26"/>
+    </g>
+    <!-- le chemin, et les arrêts -->
+    <path d="M40 130 H 330" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-dasharray="7,6"/>
+    <g fill="#1D3BB3">
+      <circle cx="63" cy="130" r="8"/><circle cx="147" cy="130" r="8"/><circle cx="231" cy="130" r="8"/><circle cx="310" cy="130" r="8"/>
+    </g>
+    <g stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="4,4">
+      <line x1="63" y1="122" x2="63" y2="66"/><line x1="147" y1="122" x2="147" y2="66"/>
+      <line x1="231" y1="122" x2="231" y2="66"/><line x1="310" y1="122" x2="310" y2="66"/>
+    </g>
+    <text x="63" y="158" text-anchor="middle" font-size="12" fill="#111827" font-family="system-ui">2 s</text>
+    <text x="147" y="158" text-anchor="middle" font-size="12" fill="#111827" font-family="system-ui">2 s</text>
+    <text x="231" y="158" text-anchor="middle" font-size="12" fill="#111827" font-family="system-ui">2 s</text>
+    <text x="310" y="158" text-anchor="middle" font-size="12" fill="#111827" font-family="system-ui">2 s</text>
+    <text x="183" y="186" text-anchor="middle" font-size="12.5" fill="#6B7280" font-family="system-ui">on longe, on s'arrête devant chaque meuble</text>
+  </svg>
+
+  <p class="ligne">Cadrez le meuble en entier, de face, sans personne devant.</p>
+  <button class="cta">Commencer le relevé</button>
+</div>

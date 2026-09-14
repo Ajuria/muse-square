@@ -243,8 +243,8 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       /* L'ÉTAT EN MOTS — ce que la marche attend de vous, là, maintenant. Jamais une couleur seule. */
       /* L'état et le bouton se lisent sur N'IMPORTE QUELLE image : un fond sombre, jamais une ombre de
          texte seule — une étagère claire l'avalait (vu au harnais, 402 x 812, avant livraison). */
-      #etat { position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
-              display: flex; justify-content: center; }
+      #etat { position: absolute; left: 16px; right: 16px; top: 40%; bottom: auto;
+              display: flex; justify-content: center; pointer-events: none; }
       #etat:empty { display: none; }
       #etat::before { content: attr(data-mot); color: #fff; font-size: 17px; line-height: 1.45; text-align: center;
               background: rgba(17,24,39,.72); border-radius: 999px; padding: 10px 16px; max-width: 100%; }
