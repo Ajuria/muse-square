@@ -292,7 +292,10 @@ export const EVOL_COPY = {
   // l'exploitant dit « meuble ». L'exception est inscrite au lexique et au garde, jamais contournée.
   releve_consigne_1: "La photo se prend toute seule quand vous vous arrêtez deux secondes.",
   releve_consigne_2: "Cadrez le meuble en entier, de face, sans personne devant.",
-  releve_consigne_3: "Le nom du pôle, en haut, se touche pour en changer.",
+  // Les trois verdicts du croquis — deux mots chacun, lus sous chaque cadre.
+  releve_cadre_bon: "entier, de face",
+  releve_cadre_pres: "trop près",
+  releve_cadre_biais: "de biais",
   releve_etat_avance: "Avancez, puis arrêtez-vous deux secondes.",
   releve_etat_arret: "Ne bougez plus…",
   releve_etat_gardee: "Photo gardée.",
