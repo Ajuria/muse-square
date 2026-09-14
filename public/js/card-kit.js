@@ -728,7 +728,7 @@
     var LVL_FR = { modeste: 'modeste', net: 'net' };
     function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
     function fr(n) { var r = Math.round((Number(n) || 0) * 10) / 10; return (Number.isInteger(r) ? String(r) : r.toFixed(1)).replace('.', ','); }
-    function intfr(n) { return (Number(n) || 0).toLocaleString('fr-FR'); }
+    function intfr(n) { return (Number(n) || 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 }); }
     function dnum(iso) { return parseInt(String(iso).slice(8, 10), 10); }
     // Étiquette d'axe : jour de semaine EN TOUTES LETTRES + JJ/MM (lexique règle 6, contrat
     // déjà porté par le kit — aucune abréviation). WX_DOW_FR = le foyer des jours.

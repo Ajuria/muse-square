@@ -533,7 +533,7 @@ if (!root) {
   // French thousands ("1 487 avis"). Defined LOCALLY on purpose: card-kit.js exposes an frInt, but
   // ie-prompt.js must not depend on that script being loaded to render an answer.
   function frInt(n) {
-    try { return Number(n).toLocaleString("fr-FR"); } catch (e) { return String(n); }
+    try { return Number(n).toLocaleString("fr-FR", { maximumFractionDigits: 0 }); } catch (e) { return String(n); }
   }
 
   // Distance in the operator's terms: "à 450 m" / "à 1,2 km" (French decimal, never a raw toString).

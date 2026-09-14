@@ -82,6 +82,11 @@ for (const p of poles) {
   const decomposition = data.shape ? (html.includes(String(EVOL_COPY.shape_title)) ? sec("", String(EVOL_COPY.shape_title)) : "SERVIE MAIS PAS RENDUE")
     : "non servie (aucune famille au périmètre)";
 
+  // LA PAGE ENTIÈRE, pas seulement les sections du chantier : tout montant à trois décimales est un défaut
+  // de formatage français (CLAUDE.md § Localization). C'est le contrôle qui a trouvé « 491,109 € ».
+  const mauvais = [...new Set((texte(html).match(/\d[\d  ]*,\d{3,}\s*(?:€|m²|m|%)?/g) || []))];
+  if (mauvais.length) { console.error(`✗ ${p.name} : ${mauvais.length} nombre(s) mal formaté(s) — ${mauvais.slice(0, 6).join(" · ")}`); erreurs++; }
+
   lignes.push({ nom: String(p.name), ms, espace: espaceTxt, comparaison, decomposition: decomposition.replace(/^rendue/, "rendue"), octets: html.length });
 
   // --dump=<nom du pôle> : le TEXTE des trois sections, pour relire les nombres et les phrases à l'œil
