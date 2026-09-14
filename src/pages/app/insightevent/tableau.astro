@@ -87,6 +87,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
     </div>
 
 
+    <script is:inline src="/js/volet-ligne.js?v=1"></script>
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <style is:global>
@@ -1935,6 +1936,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             panel.appendChild(v);
             v.style.display = "block";
             panel.style.display = "block";
+            // 14/09 (owner) — LE VOLET S'OUVRE SOUS SA PROPRE RANGÉE. Il vivait après LES DEUX grilles :
+            // toucher une tuile de « Processus métiers » ouvrait son détail sous « Mon environnement ».
+            var _tuile = body.querySelector('[data-tb-rb="' + k + '"]');
+            if (window.MSVolet && _tuile) window.MSVolet.placer(panel, _tuile);
             openVolets[k] = true;
             body.querySelectorAll(".tb-rb").forEach(function (c2) { c2.classList.toggle("on", c2.getAttribute("data-tb-rb") === k); });
             if (scroll) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -1957,6 +1962,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               if (openVolets[k]) {
                 var panel = document.getElementById("tb-rpanel");
                 if (panel) panel.style.display = "none";
+                if (window.MSVolet) window.MSVolet.oublier();
                 openVolets[k] = false;
                 b.classList.remove("on");
               } else openVolet(k, true);
@@ -2092,10 +2098,12 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                 if (!p) return;
                 var isOpen = pan.style.display !== "none" && pan.getAttribute("data-pole") === id;
                 body.querySelectorAll("[data-tb-pole]").forEach(function (c2) { c2.classList.remove("on"); });
-                if (isOpen) { pan.style.display = "none"; pan.removeAttribute("data-pole"); return; }
+                if (isOpen) { pan.style.display = "none"; pan.removeAttribute("data-pole"); if (window.MSVolet) window.MSVolet.oublier(); return; }
                 pan.setAttribute("data-pole", id);
                 pan.innerHTML = poleVoletHtml(p);
                 pan.style.display = "block";
+                // 14/09 (owner) — le détail d'un pôle se posait sous TOUS les pôles. Il suit sa rangée.
+                if (window.MSVolet) window.MSVolet.placer(pan, b);
                 b.classList.add("on");
               });
             });

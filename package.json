@@ -26,6 +26,7 @@
     "harness:evenement-preparer": "npx tsx tools/harness/evenement-preparer-bilan-verify.mjs",
     "harness:lineage-photos": "npx tsx tools/harness/lineage-photos-verify.mts",
     "harness:redescription": "npx tsx tools/harness/redescription-verify.mts",
+    "harness:volet": "npx tsx tools/harness/volet-ligne-verify.mts",
     "harness:description-render": "npx tsx tools/harness/description-render-verify.mts",
     "check:inline": "node tools/harness/astro-inline-check.mjs"
   },
