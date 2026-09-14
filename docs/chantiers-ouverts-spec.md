@@ -121,21 +121,24 @@ ne pas insister le même jour. Le rejeu de la même heure n'envoie rien de plus.
 - **Manque** : UN outil, `comparer_journees` (comparaison de journées v3), dont dépend
   `_missing_dates_v1`. La dernière élicitation (`_missing_dimension_elicit_v1` : stock, personnel, CA par
   client) n'a ni donnée ni outil — elle RESTE une élicitation, et c'est la bonne réponse.
-- **Défaut ouvert, trouvé le 13/09 au soir sur `lire_entite_periode`** : les deux questions d'entité
-  passent toutes leurs portes en **ne rendant AUCUN bloc**. Le rapport de batterie le montre — outil
-  appelé DEUX fois, colonne blocs réduite à `register`, « 1er bloc — ». L'outil a donc échoué (`timed`
-  enregistre `ok: false` sans bloc, et relance l'erreur), le modèle a répondu dans le vide, et la réponse
-  a été jugée verte parce qu'aucune porte ne regardait ce que l'exploitant VOIT. C'est la faute « rien
-  n'est visible » (CLAUDE.md § Verify Before Done), à l'échelle d'une batterie.
-  **Deux gardes posés le soir même** : une porte `rendu` (au moins un bloc d'outil, sinon FAIL) et une
-  colonne « pourquoi » qui porte le message d'échec de l'outil. Le prochain run NOMMERA la cause ; elle
-  n'est pas encore connue, et ce chantier n'est pas clos tant qu'elle ne l'est pas.
-- **Défaut ouvert, antérieur** : la question du plan coloré (« Montre-moi mon plan coloré par CA au m², et
-  dis-moi quel pôle a la plus forte marge brute par mètre. ») rend son registre en `model` au lieu de
-  `vetted` — un nombre du texte ne vient d'aucun fait d'outil. Constaté sur les deux runs du 13/09 au soir,
-  AVANT et APRÈS la migration du journal : ce n'est pas une régression, c'est l'incrément 8 du matin. La
-  question demande une marge par MÈTRE linéaire alors que `lire_plan` ne rend que des mesures par m² — la
-  piste est là, elle n'est pas vérifiée. À instruire, jamais à assouplir.
+- **Les deux couches sont PROUVÉES le 14/09 : batterie 23 cas, 0 échec.** Le journal rend enfin ce qu'il
+  doit rendre — `headline`, `datecards` (les cartes de pôles), les faits, le geste, les sources — et la
+  question composée appelle bien les DEUX outils. L'entité sur une période rend sa table.
+  **Trois défauts trouvés et fermés en chemin, tous les trois par la batterie et aucun deviné** :
+  (a) la batterie recopiait les dépendances de la route au lieu de les réutiliser, donc les outils neufs
+  n'avaient pas leurs lectures (`deps.runEntitePeriode is not a function`) — elle prend maintenant
+  `agentTurn.agentDeps` et n'override que ce qui lui est propre ;
+  (b) **`tsconfig.json` n'incluait pas `tools/`** : aucun `tsc` n'avait jamais regardé les batteries ni les
+  harnais, et une liste de dépendances incomplète y passait sans un mot. `tools` est dans `include`, les
+  sept erreurs révélées sont corrigées ;
+  (c) la question du plan coloré rendait son registre en `model` : elle demande une marge par MÈTRE quand
+  `lire_plan` ne teintait que par m², ce qui forçait une jointure de plus. Le plan teinte désormais par
+  mètre, et sa description ne prétend plus remplacer le classement chiffré.
+  **Trois gardes posés pour que ces fautes se nomment seules la prochaine fois** : une porte `rendu` (une
+  réponse dont aucun outil ne rend de bloc ÉCHOUE, quelles que soient les autres portes), une colonne
+  « pourquoi » (message d'échec de l'outil, phrases retirées par la relecture), et le CLASSEMENT de chaque
+  nombre non fondé — rendu dans un bloc sans être déclaré en fait (défaut d'outil) ou absent des blocs
+  (calculé par le modèle). Les deux fautes sont opposées et leur remède aussi.
 - **Preuve exigée** (celle de la spec, inchangée) : pour chaque couche, sa question de référence dans la
   batterie, une réponse de l'agent jugée équivalente ou meilleure, et le retrait de la couche dans le MÊME
   commit. Écrire l'outil sans pouvoir lancer la batterie, c'est fabriquer un chantier de plus à moitié fait.
