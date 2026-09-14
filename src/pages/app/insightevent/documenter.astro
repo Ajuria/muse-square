@@ -67,12 +67,16 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
         function t(k) { return COPY[k] || ""; }
 
         // L'état du tour : l'image tenue en mémoire, puis le pôle, puis le composant.
-        var etat = { image: null, poles: [], pole: null, loc: null };
+        var etat = { image: null, poles: [], pole: null, multi: false };
 
-        // Le lieu se résout comme sur evenement.astro et month.astro : /api/profile/locations, premier lieu.
+        // 14/09 (owner : « les pôles et photos sont rattachés à une location ») — TOUS LES SITES, pas le
+        // premier. Prendre le lieu principal ferait documenter un pôle du site A pendant qu'on est dans
+        // le site B, et la photo partirait au mauvais magasin sans que rien ne le dise. Les pôles de tous
+        // les sites sont chargés EN PARALLÈLE et la liste les groupe par site : le choix du pôle répond
+        // donc aussi au site, sans ajouter la troisième question que l'owner a exclue.
         function sites() {
           return fetch("/api/profile/locations", { cache: "no-store" }).then(function (r) { return r.json(); })
-            .then(function (p) { return (p && p.ok && Array.isArray(p.locations) ? p.locations : []).map(function (l) { return l.location_id; }).filter(Boolean); })
+            .then(function (p) { return (p && p.ok && Array.isArray(p.locations) ? p.locations : []).filter(function (l) { return l && l.location_id; }); })
             .catch(function () { return []; });
         }
 
@@ -113,8 +117,12 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             cablerReprendre(); return;
           }
           var h = apercu() + '<div class="cap-q">' + esc(t("capture_q_pole")) + "</div>";
+          // Plusieurs sites : le nom du site suit celui du pôle (même règle que les chips de Piloter,
+          // qui ne montrent le site que sur un compte multi-site).
+          var multi = etat.multi;
           etat.poles.forEach(function (p, i) {
-            h += '<button type="button" class="cap-choix" data-cap-pole="' + i + '"><b>' + esc(p.name) + "</b></button>";
+            h += '<button type="button" class="cap-choix" data-cap-pole="' + i + '"><b>' + esc(p.name) + "</b>"
+              + (multi && p.site_label ? ' <span>' + esc(p.site_label) + "</span>" : "") + "</button>";
           });
           body.innerHTML = h;
           cablerReprendre();
@@ -174,11 +182,21 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
         }
 
         (function demarrer() {
+          // `?location_id=` restreint à un site (le lien d'une page qui en porte un) ; sans lui, TOUS les
+          // sites du compte. Les lectures partent ensemble — jamais une par une.
           var loc = root.dataset.loc;
-          (loc ? Promise.resolve([loc]) : sites()).then(function (ids) {
-            etat.loc = ids[0] || null;
-            if (!etat.loc) { body.innerHTML = '<div class="cap-err">Aucun site.</div>'; return; }
-            return chargerPoles(etat.loc).then(function (poles) { etat.poles = poles; vuePrise(); });
+          var lieux = loc ? Promise.resolve([{ location_id: loc, company_name: null }]) : sites();
+          lieux.then(function (ls) {
+            if (!ls.length) { body.innerHTML = '<div class="cap-err">' + esc(t("capture_aucun_pole")) + "</div>"; return; }
+            etat.multi = ls.length > 1;
+            return Promise.all(ls.map(function (l) {
+              return chargerPoles(l.location_id).then(function (poles) {
+                return poles.map(function (p) { return Object.assign({}, p, { location_id: l.location_id, site_label: l.company_name || null }); });
+              });
+            })).then(function (parSite) {
+              etat.poles = [].concat.apply([], parSite);
+              vuePrise();
+            });
           });
         })();
       })();
