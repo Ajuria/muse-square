@@ -2617,8 +2617,21 @@
           return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;border-bottom:1px solid #F3F4F6;"><span style="color:#374151;">' + esc(q.question_fr) + '</span><span style="color:' + col + ';font-weight:600;white-space:nowrap;">' + esc(ans[v] || '') + '</span></div>';
         }).join('') + '</div>' : '')
       + itemsBlock(photo, t)
+      + retraitBlock(photo, t)
       + '</div></div>'
       + precedentesBlock(photo, t);
+  }
+
+  // 14/09 (owner : « fais du retrait une action de la page du pole ») — LE GESTE DE RETRAIT.
+  // Il vit sous la legende de la photo COURANTE, la ou l'exploitant la regarde. Deux touchers : le
+  // premier demande le plan a l'API (ce que le retrait va faire du pole) et remplit ce meme conteneur ;
+  // le second confirme. « Retirer → » suit le patron de CTA deja rendu sur ce bloc (« Confirmer → »),
+  // en couleur d'alerte ; la page (EngagementDoc) porte le cablage, le kit ne fait que rendre.
+  function retraitBlock(photo, t) {
+    if (!photo || !photo.photo_id) return '';
+    return '<div data-eg-photo-rm-wrap="' + esc(photo.photo_id) + '" style="margin-top:8px;">'
+      + '<button type="button" data-eg-photo-rm="' + esc(photo.photo_id) + '" style="font-size:12px;font-weight:500;font-family:inherit;color:#B45309;background:#fff;border:1px solid #B45309;border-radius:8px;padding:6px 12px;cursor:pointer;min-height:32px;">'
+      + esc(t('pole_photo_retirer')) + '</button></div>';
   }
 
   // 14/09 (owner : « photos avec acces aux versions precedentes ») — LES PHOTOS PRECEDENTES DU MEME

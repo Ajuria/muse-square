@@ -48,7 +48,7 @@ const { id, page, backHref, backLabel } = Astro.props;
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/pole-form.js?v=6"></script>
-    <script is:inline src="/js/card-kit.js?v=103"></script>
+    <script is:inline src="/js/card-kit.js?v=104"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY, PAGE: page }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -168,6 +168,67 @@ const { id, page, backHref, backLabel } = Astro.props;
                     else { cbtn.disabled = false; }
                   })
                   .catch(function () { cbtn.disabled = false; });
+                return;
+              }
+              // ── RETIRER UNE PHOTO (owner 14/09) — deux touchers, et le second seulement après avoir
+              // dit dans quel état le pôle se retrouve. Le PLAN vient de l'API (`dry`), jamais d'un
+              // calcul ici : la règle vit dans lib/dispositifs/photoRetrait.ts, et une seule fois.
+              var rm = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-rm]") : null;
+              if (rm) {
+                var pid = rm.getAttribute("data-eg-photo-rm");
+                var wrap = sec.querySelector('[data-eg-photo-rm-wrap="' + pid + '"]');
+                if (!wrap) return;
+                rm.disabled = true;
+                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "retirer", dispositif_id: did, photo_id: pid, dry: true }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) {
+                    rm.disabled = false;
+                    if (!j || !j.ok || !j.plan) { rm.textContent = COPY.pole_photo_failed || ""; return; }
+                    var pl = j.plan;
+                    // La phrase de conséquence, et elle seule quand il y en a une : la version qui
+                    // tombe avec la photo, ou celle qui reste parce que d'autres photos la documentent.
+                    var phrase = pl.version
+                      ? t("pole_photo_retirer_version", { n: pl.version_no - 1 })
+                      : (pl.version_gardee === "autres_photos" ? t("pole_photo_retirer_gardee", { n: pl.version_no }) : "");
+                    wrap.innerHTML = (phrase ? '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-bottom:6px;">' + esc(phrase) + '</div>' : '')
+                      + '<div style="display:flex;gap:8px;align-items:center;">'
+                      + '<button type="button" data-eg-photo-rm-go="' + esc(pid) + '" style="font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#B45309;border:1px solid #B45309;border-radius:8px;padding:7px 14px;cursor:pointer;min-height:32px;">' + esc(COPY.pole_photo_confirm || "") + '</button>'
+                      + '<button type="button" data-eg-photo-rm-no style="font-size:12px;font-weight:500;font-family:inherit;color:#6b7280;background:none;border:none;cursor:pointer;padding:7px 4px;">' + esc(COPY.cancel || "") + '</button>'
+                      + '<span data-eg-photo-rm-msg style="font-size:12px;color:#b91c1c;"></span></div>';
+                  })
+                  .catch(function () { rm.disabled = false; rm.textContent = COPY.pole_photo_failed || ""; });
+                return;
+              }
+              if (ev.target && ev.target.closest && ev.target.closest("[data-eg-photo-rm-no]")) {
+                // On revient à l'état d'avant : le kit re-rend le bloc, aucune copie de markup ici.
+                var wrapN = ev.target.closest("[data-eg-photo-rm-wrap]");
+                var pidN = wrapN && wrapN.getAttribute("data-eg-photo-rm-wrap");
+                if (pidN) wrapN.innerHTML = '<button type="button" data-eg-photo-rm="' + esc(pidN) + '" style="font-size:12px;font-weight:500;font-family:inherit;color:#B45309;background:#fff;border:1px solid #B45309;border-radius:8px;padding:6px 12px;cursor:pointer;min-height:32px;">' + esc(COPY.pole_photo_retirer || "") + '</button>';
+                return;
+              }
+              var go = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-rm-go]") : null;
+              if (go) {
+                var pidG = go.getAttribute("data-eg-photo-rm-go");
+                var keyG = (go.closest("[data-eg-component]") || {}).getAttribute
+                  ? go.closest("[data-eg-component]").getAttribute("data-eg-component") : null;
+                var msgG = go.parentNode.querySelector("[data-eg-photo-rm-msg]");
+                go.disabled = true;
+                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "retirer", dispositif_id: did, photo_id: pidG }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) {
+                    if (!j || !j.ok) { go.disabled = false; if (msgG) msgG.textContent = COPY.pole_photo_failed || ""; return; }
+                    // Une version est tombée : l'adresse de la page peut être celle de cette version.
+                    // On ouvre celle qui survit — l'adresse vient de l'API, jamais d'une déduction.
+                    if (j.version_retiree && j.version_courante_apres && j.version_courante_apres.commitment_id) {
+                      window.location.href = MSCardKit.msPoleUrl(j.version_courante_apres.commitment_id); return;
+                    }
+                    // Sinon la photo du composant est simplement celle d'avant (ou plus aucune).
+                    if (keyG) { if (j.photo) show(keyG, j.photo); else say(keyG, COPY.pole_photo_none || ""); }
+                    else load();
+                  })
+                  .catch(function () { go.disabled = false; if (msgG) msgG.textContent = COPY.pole_photo_failed || ""; });
                 return;
               }
               var btn = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-add]") : null;

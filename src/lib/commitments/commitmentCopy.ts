@@ -345,6 +345,17 @@ export const EVOL_COPY = {
   pole_plan_title: "Plan coloré",
   pole_photo_prec_une: "Voir la photo précédente de ce composant",
   pole_photo_prec: "Voir les {n} photos précédentes de ce composant",
+  // ── RETIRER UNE PHOTO (owner 14/09 : « fais du retrait une action de la page du pôle ») ──────────
+  // Le geste appartient à l'exploitant : il photographie, il se trompe, il retire. « Retirer → » suit le
+  // patron de CTA déjà RENDU sur ce bloc (« Confirmer → », l. 228) et « Retirer » est le mot de l'owner
+  // (sa demande du 14/09, et déjà au foyer pour le relevé). Le pas de confirmation réemploie
+  // « Confirmer → » et « Annuler » : aucun mot neuf pour le geste lui-même.
+  // Les deux phrases disent l'ÉTAT DANS LEQUEL LE PÔLE SE RETROUVE — la seule chose que l'exploitant ne
+  // peut pas déduire de l'écran. Sujet nommé (le pôle, la version), verbe ordinaire, le numéro dans la
+  // phrase. Tests 10/11/13 hors sujet : une conséquence de geste n'affirme rien sur le commerce.
+  pole_photo_retirer: "Retirer →",
+  pole_photo_retirer_version: "Le pôle revient à la version {n} si vous retirez cette photo.",
+  pole_photo_retirer_gardee: "La version {n} reste : d'autres photos la documentent.",
   pole_ops_none: "Aucune opération rattachée pour l'instant.",
   pole_op_open: "en cours",
   pole_op_done: "terminée",

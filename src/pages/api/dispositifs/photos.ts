@@ -35,8 +35,10 @@ import { resolveMemberNames } from "../../../lib/dispositifs/poleActivity";
 import {
   PHOTO_MAX_BYTES, makeStorageClient, photoObjectPath, photoGcsUri, putPhotoObject, deletePhotoObject, putPhotoVariants, getPhotoVariant, parsePhotoVariant,
   insertPhotoRow, listPhotoRows, latestPerComponent, photosDuComposant, listSiteItems, withConfirmedItems, photoApiUrl, type PhotoRow,
+  PHOTO_BUCKET, photoVariantPath,
 } from "../../../lib/dispositifs/dispositifPhotos";
 import { changementDePhoto, dernierePhotoDuComposant } from "../../../lib/dispositifs/photoChangement";
+import { planDeRetrait, type VersionDuDispositif } from "../../../lib/dispositifs/photoRetrait";
 import { createPermanentPole } from "../../../lib/dispositifs/poleCreate";
 import { listSpaceMeasures, currentMeasures } from "../../../lib/dispositifs/spaceMeasures";
 import { photoChangementFr, type RaisonDeVersion } from "../../../lib/commitments/commitmentCopy";
@@ -74,6 +76,20 @@ async function readDispositif(bq: any, dispositif_id: string, version_no: number
     components: readComponents(flat(pick.components)),
     measured_scope: pick.measured_scope != null ? String(flat(pick.measured_scope)) : null,   // P4 : le périmètre de la version
   };
+}
+
+// Les versions du dispositif, telles que la couche semantic les connaît — ce dont le RETRAIT a besoin
+// pour savoir si la version née d'une photo tombe avec elle. Même vue que readDispositif ; jamais la
+// table analytics en lecture (la suppression, elle, écrit côté producteur).
+async function readVersions(bq: any, dispositif_id: string): Promise<VersionDuDispositif[]> {
+  const rows = await bq.query({
+    query: `SELECT commitment_id, version_no
+            FROM \`${BQ_PROJECT}.semantic.vw_insight_event_commitment_memory\`
+            WHERE dispositif_id = @d AND dispositif_nature = 'permanent'
+            ORDER BY version_no DESC LIMIT 50`,
+    params: { d: dispositif_id }, location: "EU",
+  }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+  return (rows as any[]).map((r) => ({ commitment_id: String(flat(r.commitment_id)), version_no: Number(flat(r.version_no)) }));
 }
 
 // L'adresse de l'image : le foyer est dans la lib (l'historique du dispositif la rend aussi, 13/09).
@@ -209,6 +225,71 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const body = await request.json().catch(() => null);
     if (!body) return json({ ok: false, error: "Champs requis manquants" }, 400);
     const dispositif_id = String(body.dispositif_id || "").trim();
+
+    // ── RETIRER UNE PHOTO (owner 14/09 : « fais du retrait une action de la page du pôle ») ──────────
+    // `dry: true` rend le PLAN sans rien toucher : c'est ce que la page demande au premier toucher de
+    // « Retirer → », pour dire à l'exploitant dans quel état son pôle va se retrouver. Le second
+    // toucher (« Confirmer → ») repasse ici sans `dry`. La règle vit dans `photoRetrait.ts` et nulle
+    // part ailleurs — cette route l'EXÉCUTE, elle ne la recalcule pas.
+    // Ordre d'exécution : le BUCKET d'abord (une ligne sans image reste réparable ; une image sans sa
+    // ligne est un orphelin facturé qu'on ne retrouvera plus), la base ensuite.
+    if (String(body.action || "") === "retirer") {
+      const photo_id = String(body.photo_id || "").trim();
+      if (!dispositif_id || !photo_id) return json({ ok: false, error: "dispositif_id, photo_id requis" }, 400);
+      const bqR = makeBQClient(BQ_PROJECT);
+      const dispR = await readDispositif(bqR, dispositif_id, null);
+      if (!dispR) return json({ ok: false, error: "dispositif introuvable" }, 404);
+      requireLocationOwnership(locals, dispR.location_id);
+      const [rowsR, versionsR] = await Promise.all([listPhotoRows(bqR, dispositif_id), readVersions(bqR, dispositif_id)]);
+      const plan = planDeRetrait({ photo_id, photos: rowsR, versions: versionsR });
+      if (!plan) return json({ ok: false, error: "photo introuvable" }, 404);
+      if (body.dry) return json({ ok: true, plan });
+
+      const storageR = makeStorageClient();
+      let objets = 0;
+      for (const v of plan.variantes) {
+        const chemin = photoVariantPath(plan.location_id, plan.dispositif_id, plan.photo_id, v);
+        try { await storageR.bucket(PHOTO_BUCKET).file(chemin).delete(); objets += 1; }
+        catch (e: any) { if (String(e?.code) !== "404") console.error("[dispositifs/photos] objet non retiré", chemin, String(e?.message || e)); }
+      }
+      await bqR.query({
+        query: `DELETE FROM \`${BQ_PROJECT}.analytics.dispositif_photos\` WHERE location_id = @l AND photo_id = @p`,
+        params: { l: plan.location_id, p: plan.photo_id }, location: "EU",
+      });
+      // La version née de cette photo tombe avec elle, ET SEULEMENT dans ce cas (le plan l'a établi :
+      // version > 1, aucune autre photo dedans). Ses mesures d'espace recopiées partent aussi — sinon
+      // elles resteraient attachées à une version qui n'existe plus.
+      if (plan.version) {
+        await bqR.query({
+          query: `DELETE FROM \`${BQ_PROJECT}.analytics.space_measures\` WHERE location_id = @l AND dispositif_id = @d AND version_no = @v`,
+          params: { l: plan.location_id, d: plan.dispositif_id, v: plan.version.version_no }, location: "EU",
+        });
+        await bqR.query({
+          query: `DELETE FROM \`${BQ_PROJECT}.analytics.action_commitments\` WHERE location_id = @l AND commitment_id = @c AND version_no > 1`,
+          params: { l: plan.location_id, c: plan.version.commitment_id }, location: "EU",
+        });
+      }
+      // Ce que la page affiche ensuite pour ce composant : RELU en base, jamais déduit du plan.
+      const [apres, itemsR] = await Promise.all([
+        listPhotoRows(bqR, dispositif_id).catch(() => [] as PhotoRow[]),
+        listSiteItems(bqR, plan.location_id).catch(() => [] as Array<{ item_code: string; item_description: string }>),
+      ]);
+      const versionApres = plan.version ? plan.version_no - 1 : plan.version_no;
+      const courante = latestPerComponent(apres.filter((r) => r.version_no === versionApres))
+        .find((r) => r.component_key === plan.component_key) || null;
+      // Quand la version tombe, la page courante peut être CELLE DE CETTE VERSION : son adresse
+      // n'existe plus après le retrait. La route rend donc la version qui survit, pour que la page
+      // sache où aller — jamais une adresse devinée côté client.
+      const survivante = plan.version
+        ? (versionsR.find((v) => v.version_no === plan.version_no - 1) || null)
+        : null;
+      return json({
+        ok: true, plan, objets_retires: objets,
+        version_retiree: plan.version ? plan.version.version_no : null,
+        version_courante_apres: survivante,
+        photo: courante ? publicRow(courante, byCode(itemsR)) : null,
+      });
+    }
 
     // ── Confirmation des articles (incrément 2a, 03/09) ──
     if (String(body.action || "") === "confirm") {
