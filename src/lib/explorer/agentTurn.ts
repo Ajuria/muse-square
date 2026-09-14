@@ -12,6 +12,9 @@ import { buildAgentTools, readSiteFamilies30d, type AgentToolDeps, type PhotoByt
 import { readSiteMemory, writeSiteMemory, type AuthorRole } from "./siteMemory";
 import { newAgentTurnRow, writeAgentTurns } from "./agentTurns";
 import { OUTILS_FR, SYSTEME_FR } from "./agentSystem.fr";
+const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
+import { compareDatesDeterministicV1 } from "../ai/decision/engines/compare_dates";
+import { renderLineItemsFrV1 } from "../ai/render/renderLineItemsFr.v1";
 import { FAMILIES } from "../insightFamilies";
 import { assembleAnswerBlocks, groundAgentText, type AnswerBlock, type Grounding } from "./blocks";
 import { computeSalesReport } from "../rapport/ventes";
@@ -141,6 +144,22 @@ export function agentDeps(bq: any, inp: AgentTurnInput, tool_calls: ToolCallReco
     runVentes: (start, end) => computeSalesReport(bq, { location_id, owned: inp.ownedIds, start, end }),
     runResultat: () => readResultat(bq, location_id),
     runPolesClassement: (start, end) => readPoleClassement(bq, location_id, start, end),
+    // 14/09 (§ 7, DERNIÈRE couche de prompt.ts) — comparer des journées. UNE lecture (la surface des
+    // journées choisies, semantic) puis LE pipeline v3, celui que la couche enveloppait : le calcul
+    // (compareDatesDeterministicV1) et la prose française (renderLineItemsFrV1). Rien n'est recalculé
+    // ici, rien n'est rédigé ici — une seconde vérité sur une comparaison serait le pire des défauts.
+    runComparerJournees: async (dates) => {
+      const propres = [...new Set(dates.map((d) => String(d).slice(0, 10)))].filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 7);
+      if (propres.length < 2) return { render_lines: [], facts_by_date: {} };
+      const [rows] = await bq.query({
+        query: `SELECT * FROM \`${BQ_PROJECT}.semantic.vw_insight_event_selected_days_surface\`
+                WHERE location_id = @location_id AND date IN UNNEST(ARRAY(SELECT DATE(x) FROM UNNEST(@dates) AS x))
+                ORDER BY date ASC`,
+        params: { location_id, dates: propres }, location: "EU",
+      });
+      const v1 = compareDatesDeterministicV1({ rows: Array.isArray(rows) ? rows : [] });
+      return { render_lines: renderLineItemsFrV1({ line_items: v1.line_items, facts_by_date: v1.facts_by_date }), facts_by_date: v1.facts_by_date };
+    },
     listModeles: () => listReportTemplates(bq, location_id),
     // 13/09 (§ 7, couche 3) — les fiches de l'atelier et « une opération × des familles » : LES lecteurs existants, jamais une copie.
     // 13/09 (§ 7, couche 6) — le journal : LES deux lectures existantes, en parallèle (aucun aller-retour

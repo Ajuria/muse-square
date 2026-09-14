@@ -21,6 +21,7 @@ function deps(over: Partial<AgentToolDeps> = {}): AgentToolDeps & { records: Too
     location_id: "loc-1",
     author: { user_id: "user_a", role: "owner" },
     listPoles: async () => [pole as any],
+    runComparerJournees: async () => ({ render_lines: [], facts_by_date: {} }),
     readFamilies: async () => [{ category: "Épices", revenue_30d: 12000, n_days: 26, avg_day_eur: 462, first_day: "2026-08-12", last_day: "2026-09-10" }],
     readPhotos: async () => [{ photo_id: "p1", dispositif_id: "d1", component_key: "k1", status: "read", checklist: { visible: "oui" }, items_matched: [{ item_code: "E1", item_description: "Zaatar 40 g" }], created_at: "2026-09-01T10:00:00Z", url: "/api/dispositifs/photos?x" }],
     readPhotoBytes: async () => ({ media_type: "image/jpeg", base64: "AAAA", bytes: 4 }),
@@ -135,7 +136,7 @@ const byName = (tools: any[], name: string) => tools.find((t) => t.name === name
 describe("agentTools — cinq outils, chacun enregistré avec un résumé en français", () => {
   it("expose les cinq outils de lecture d'espace et les trois lecteurs chiffrés (12/09) — et chacun a son libellé", () => {
     const names = buildAgentTools(deps()).map((t: any) => t.name);
-    expect(names).toEqual(["lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_engagements", "lire_entite_periode", "lire_dispositifs_documentes", "lire_operation_famille", "composer_plan", "ecrire_declaration", "lire_plan", "pont_de_marge"]);
+    expect(names).toEqual(["comparer_journees", "lire_poles", "lire_familles", "lire_photos", "lire_memoire", "ecrire_memoire", "lire_marge", "lire_espace", "lire_familles_face_aux_jours", "lire_ventes", "lire_resultat", "lire_poles_classement", "composer_rapport", "proposer_operation", "lire_engagements", "lire_entite_periode", "lire_dispositifs_documentes", "lire_operation_famille", "composer_plan", "ecrire_declaration", "lire_plan", "pont_de_marge"]);
     for (const n of names) expect(OUTILS_FR[n], n).toBeTruthy();
   });
 
@@ -567,3 +568,47 @@ describe("incrément 8 (13/09) — lire_plan et pont_de_marge", () => {
   });
 });
 const nb = (s: string) => s.replace(/[\u202f\u00a0]/g, " ");
+
+// ── 14/09 (§ 7, DERNIÈRE couche) — comparer_journees. Ce qui se garde : l'outil ne devine jamais une date
+// pour atteindre deux (c'était la raison d'être de l'élicitation qu'il remplace), et il n'a pas sa propre
+// prose — le pipeline v3 la fait, il la rend.
+describe("comparer_journees — la dernière couche de prompt.ts devenue outil", () => {
+  const avecJournees = (render_lines: any[], facts_by_date: any = {}) => {
+    const d = deps();
+    (d as any).runComparerJournees = async (dates: string[]) => { (d as any)._dates = dates; return { render_lines, facts_by_date }; };
+    return d;
+  };
+
+  it("deux dates : les lignes du v3 ressortent MOT POUR MOT, et chacune est un fait citable", async () => {
+    const d = avecJournees(
+      [{ kind: "headline", text_fr: "Le 12/09 a généré 1 240 € contre 980 € le 05/09.", fact_ids: ["F.a"] },
+       { kind: "fact", text_fr: "Il a plu le 05/09 ; le 12/09 était sec.", fact_ids: ["F.b"] }],
+      { "2026-09-05": [{ fact_id: "F.b" }], "2026-09-12": [{ fact_id: "F.a" }] },
+    );
+    const out = await byName(buildAgentTools(d), "comparer_journees").run({ dates: ["2026-09-05", "2026-09-12"] });
+    expect(out).toContain("Le 12/09 a généré 1 240 € contre 980 € le 05/09.");
+    expect(out).toContain("Il a plu le 05/09 ; le 12/09 était sec.");
+    expect((d as any)._dates).toEqual(["2026-09-05", "2026-09-12"]);
+  });
+
+  it("UNE seule date : la question, des journées à choisir, et AUCUNE date inventée pour atteindre deux", async () => {
+    const d = avecJournees([]);
+    const out = await byName(buildAgentTools(d), "comparer_journees").run({ dates: ["2026-09-05"] });
+    expect(out).toBe("Quelles journées voulez-vous comparer ?");
+    expect((d as any)._dates).toBeUndefined();            // la lecture n'a même pas été tentée
+    expect(d.records[0]).toMatchObject({ name: "comparer_journees", ok: true, summary: "moins de deux journées — la question est rendue" });
+  });
+
+  it("les dates en double ou mal formées ne comptent pas pour deux", async () => {
+    const d = avecJournees([]);
+    await byName(buildAgentTools(d), "comparer_journees").run({ dates: ["2026-09-05", "2026-09-05", "hier"] });
+    expect((d as any)._dates).toBeUndefined();
+  });
+
+  it("au-delà de sept journées, seules les sept premières partent en lecture", async () => {
+    const dates = Array.from({ length: 9 }, (_, i) => `2026-09-0${i + 1}`).slice(0, 9);
+    const d = avecJournees([{ kind: "headline", text_fr: "x", fact_ids: ["F.a"] }]);
+    await byName(buildAgentTools(d), "comparer_journees").run({ dates });
+    expect((d as any)._dates).toHaveLength(7);
+  });
+});

@@ -34,6 +34,8 @@ function outil<S extends z.ZodObject<any>>(o: {
 import type { PoleListRow } from "../dispositifs/poleReading";
 import type { FamilyResult } from "../insightFamilies/types";
 import { blocksFromFamilyResult, factsToText, ABSENCE_FR, type AnswerBlock } from "./blocks";
+import type { FactV1, RenderLineV1 } from "../ai/contracts/facts_v1";
+import { composeJourneesComparees, composeJourneesElicitation, journeesToText } from "./journeesComparees";
 import { composeVentesFacts, resolvePeriode, ventesToText, type PeriodeMot, type SalesReportResult } from "../rapport/ventes";
 import { composeResultatFacts, resultatToText, type Resultat } from "../kpi/resultat";
 import { composePoleClassement, poleClassementToText, POLES_ABSENCE_FR, type Indicateur, type PoleClassementData } from "../dispositifs/poleClassement";
@@ -115,6 +117,9 @@ export interface AgentToolDeps {
   // 13/09 (§ 7, couche 6) — une entité (pôle, famille, opération, personne) sur une période ; plusieurs
   // entités ou deux périodes passent par la comparaison. Les deux lecteurs existants, jamais une copie.
   runEntitePeriode: (entite: SiteEntity, du: string, au: string) => Promise<EntityPeriodBlocks>;
+  // 14/09 (§ 7, dernière couche) — comparer des journées : la LECTURE seule. Le calcul et la prose sont le
+  // pipeline v3 (compareDatesDeterministicV1 + renderLineItemsFrV1), appelés ici, jamais recopiés.
+  runComparerJournees: (dates: string[]) => Promise<{ render_lines: RenderLineV1[]; facts_by_date: Record<string, FactV1[]> }>;
   runEntitesComparees: (entites: SiteEntity[], periodes: Array<{ start: string; end: string }>) => Promise<EntityCompareBlocks>;
   // 13/09 (§ 7, couche 3) — vos dispositifs documentés (les fiches de l'atelier) et « une opération × des familles ».
   listDispositifsDocumentes: () => Promise<ClassDispositif[]>;
@@ -596,6 +601,28 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
+  // ── 14/09 (§ 7, DERNIÈRE couche) — comparer_journees : deux à sept journées face à face (ex le chemin v3
+  // de prompt.ts) et, sous deux dates, la question qui manquait (ex `deterministic_missing_dates_v1`).
+  // L'outil ne calcule ni ne rédige : le pipeline v3 fait les deux, il le traduit en blocs.
+  const comparerJournees = outil({
+    name: "comparer_journees",
+    description: "Deux à sept JOURNÉES face à face : ce que chacune a généré, et ce qui les séparait (météo, calendrier, vacances, concurrence, familles vendues). Répond à « compare le 5 et le 12 septembre », « pourquoi samedi a mieux marché que dimanche ? », « qu'est-ce qui change entre ces deux jours ? ». Une seule date, ou aucune : l'outil rend la question et des journées à choisir — il ne devine JAMAIS les dates.",
+    inputSchema: z.object({
+      dates: z.array(z.string()).max(7).describe("Les journées à comparer, AAAA-MM-JJ. Moins de deux : l'outil rend la question au lieu d'une comparaison."),
+      jours_du_fil: z.array(z.string()).optional().describe("Journées déjà montrées dans la conversation, AAAA-MM-JJ — elles servent de suggestions. Ne jamais en inventer."),
+    }),
+    run: (args) => timed("comparer_journees", args, async () => {
+      const dates = [...new Set((args.dates ?? []).map((d) => String(d).slice(0, 10)))].filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 7);
+      if (dates.length < 2) {
+        const x = composeJourneesElicitation({ jours_du_fil: args.jours_du_fil, aujourdhui: new Date().toISOString().slice(0, 10) });
+        return { out: x.titre, summary: "moins de deux journées — la question est rendue", blocks: x.blocks, facts: [] };
+      }
+      const v = await deps.runComparerJournees(dates);
+      const x = composeJourneesComparees({ dates, render_lines: v.render_lines, facts_by_date: v.facts_by_date });
+      return { out: journeesToText(x), summary: `${x.titre} — ${plural(x.facts.length, "ligne", "lignes")}`, blocks: x.blocks, facts: x.facts };
+    }),
+  });
+
   // ── 13/09 (§ 7, couche 3) — lire_dispositifs_documentes : les fiches de l'atelier (ex _dispositifs_v1), une ligne par fiche.
   const lireDispositifsDocumentes = outil({
     name: "lire_dispositifs_documentes",
@@ -740,5 +767,5 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     }),
   });
 
-  return [lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireEngagements, lireEntitePeriode, lireDispositifsDocumentes, lireOperationFamille, composerPlan, ecrireDeclaration, lirePlan, pontDeMarge];
+  return [comparerJournees, lirePoles, lireFamilles, lirePhotos, lireMemoire, ecrireMemoire, lireMarge, lireEspace, lireFamillesFaceAuxJours, lireVentes, lireResultat, lirePolesClassement, composerRapport, proposerOperation, lireEngagements, lireEntitePeriode, lireDispositifsDocumentes, lireOperationFamille, composerPlan, ecrireDeclaration, lirePlan, pontDeMarge];
 }

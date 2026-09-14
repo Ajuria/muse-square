@@ -150,9 +150,18 @@ Les cinq points du plan du 14/09 sont codés et poussés. Ce qui les sépare :
   une période, la comparaison en table pour plusieurs entités ou deux périodes, et l'entité inconnue qui
   rend les entités RÉELLES du site en puces. Trois sorties tombent d'un coup (`_entity_period_v1`,
   `_entity_compare_v1`, `_entity_period_elicit_v1`).
-- **Manque** : UN outil, `comparer_journees` (comparaison de journées v3), dont dépend
-  `_missing_dates_v1`. La dernière élicitation (`_missing_dimension_elicit_v1` : stock, personnel, CA par
-  client) n'a ni donnée ni outil — elle RESTE une élicitation, et c'est la bonne réponse.
+- **FAIT le 14/09 — la spec § 7 est CLOSE** : `comparer_journees`, deux à sept journées face à face, et
+  sous deux dates la question (ex `_missing_dates_v1`, 128 lignes tombées ; `prompt.ts` passe à 7 010
+  lignes). L'outil ne calcule ni ne rédige : le pipeline v3 (`compareDatesDeterministicV1` +
+  `renderLineItemsFrV1`) fait les deux, une composition pure le traduit en blocs
+  (`lib/explorer/journeesComparees.ts`). Batterie 26 cas, 0 échec, dont les trois questions de référence :
+  deux dates nommées (register, headline, facts, sources), une seule date (register, prose, clarification —
+  l'agent ne fabrique PAS la seconde date), et la question composée qui mobilise `lire_poles_classement`
+  en plus, comme la spec l'exige. Réponse relue : « Le 05/09/2026 ressort comme la meilleure des deux […]
+  la différence se joue sur la concurrence autour du site : 1 055 événements à moins de 10 km ce jour-là
+  contre 1 203 le 12/09/2026 […] pas la météo ». Aucune phrase retirée par la relecture.
+- **Reste, et c'est la bonne réponse** : `_missing_dimension_elicit_v1` (stock, personnel, CA par client)
+  n'a ni donnée ni outil — elle RESTE une élicitation. On ne fabrique pas un outil sans matière.
 - **Les deux couches sont PROUVÉES le 14/09 : batterie 23 cas, 0 échec.** Le journal rend enfin ce qu'il
   doit rendre — `headline`, `datecards` (les cartes de pôles), les faits, le geste, les sources — et la
   question composée appelle bien les DEUX outils. L'entité sur une période rend sa table.

@@ -68,6 +68,13 @@ const BATTERY: Case[] = [
   // sur une période, la comparaison, et l'entité inconnue qui rend les entités réelles en puces.
   { q: "Comment va le pôle Cuisine sur le mois dernier ?", tools: ["lire_entite_periode"], answerMatch: /Cuisine|pôle/i, vetted: true },
   { q: "Compare Coffee et Tea sur le mois dernier.", tools: ["lire_entite_periode"], answerMatch: /Coffee/i, vetted: true },
+  // § 7 DERNIÈRE couche (14/09) — ex le chemin v3 de comparaison de journées et son élicitation
+  // `_missing_dates_v1`. Les trois questions de référence : deux dates nommées (la comparaison), une seule
+  // date (la question doit revenir — l'agent ne doit PAS inventer la seconde), et une question composée qui
+  // mobilise un autre outil, comme l'exige la spec (aucun outil ne se livre seul).
+  { q: "Compare le 05/09/2026 et le 12/09/2026.", tools: ["comparer_journees"], answerMatch: /05\/09|12\/09/, vetted: true },
+  { q: "Compare mes journées.", tools: ["comparer_journees"], answerMatch: /quelle|journée/i, vetted: true },
+  { q: "Compare le 05/09/2026 et le 12/09/2026, et dis-moi quel pôle a le plus fort CA par mètre.", tools: ["comparer_journees", "lire_poles_classement"], answerMatch: /par mètre/i, vetted: true, maxSeconds: 60 },
   // § 7 couche 3 (13/09) — ex _dispositifs_v1 et _dispositif_famille_v1.
   { q: "Quelles bonnes pratiques ai-je documentées ?", tools: ["lire_dispositifs_documentes"], answerMatch: /documenté|dispositif/i, vetted: true },
   { q: "Pendant le Corner de vente producteur, qu'a fait la famille Coffee ?", tools: ["lire_operation_famille"], answerMatch: /Coffee/, vetted: true, blocks: ["table"] },

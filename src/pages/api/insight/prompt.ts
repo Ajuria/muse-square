@@ -121,7 +121,7 @@ function registerFor(producer: string | null | undefined): ProvenanceRegister | 
   if (producer === "llm_only") return "model";
   // 13/09 (§ 7) — une capacité servie par l'agent : sa porte a déjà jugé (agent_<outil> vérifié, _non_verifie sinon).
   if (producer && producer.startsWith("agent_")) return producer.endsWith("_non_verifie") ? "model" : "vetted";
-  if (!producer || producer === "no_data" || producer === "deterministic_missing_dates_v1" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1" || producer === "deterministic_engagements_elicit_v1" || producer === "deterministic_entity_period_elicit_v1" || producer === "deterministic_hors_perimetre_v1" || producer === "deterministic_dispositif_famille_v1" || producer === "deterministic_top_familles_v1") return null;
+  if (!producer || producer === "no_data" || producer === "deterministic_offering_elicit_v1" || producer === "deterministic_missing_dimension_elicit_v1" || producer === "deterministic_declared_capture_v1" || producer === "deterministic_declared_margin_v1" || producer === "deterministic_report_nav_v1" || producer === "deterministic_engagements_elicit_v1" || producer === "deterministic_entity_period_elicit_v1" || producer === "deterministic_hors_perimetre_v1" || producer === "deterministic_dispositif_famille_v1" || producer === "deterministic_top_familles_v1") return null;
   return "vetted"; // v3_*, deterministic, grounded_day_claude, family_grounded_claude, family_deterministic, …
 }
 
@@ -5694,134 +5694,12 @@ Règles :
 
         const query_dates = selected_query_dates;
         
-        if (query_dates.length < 2) {
-
-          const month_redirect_url = buildMonthRedirectUrl({
-            window_start_date: selected_date.slice(0,10),
-            from_prompt: true
-          });
-
-          // ── Phase 2 #4 — clarifying question instead of the canned demand ──────────────────────────
-          // This branch fires only when the dates are missing AND not inheritable (effective_dates already
-          // falls back to the frame's used_dates upstream). Deterministic template — zero LLM, no digits
-          // and no entity in the question text; the CHIPS carry dates, drawn only from the frame's own
-          // top_dates (which the user already saw) or the upcoming weekend. Tapping a chip re-submits its
-          // `send` text as a normal user message, which the fresh path routes as an explicit 2-date compare.
-          const frYmd = (ymd: string): string => {
-            const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(ymd);
-            return m ? `${m[3]}/${m[2]}/${m[1]}` : ymd;
-          };
-          const clar_chips: Array<{ label_fr: string; send: string }> = [];
-          if (thread_top_dates.length >= 2) {
-            const [d1, d2] = thread_top_dates.slice(0, 2);
-            clar_chips.push({
-              label_fr: `Comparer le ${frYmd(d1)} et le ${frYmd(d2)}`,
-              send: `Compare le ${frYmd(d1)} et le ${frYmd(d2)}`,
-            });
-          }
-          {
-            const todayYmd = new Date().toISOString().slice(0, 10);
-            const sat = nextWeekdayAfterYmd(todayYmd, 6);
-            const sun = nextWeekdayAfterYmd(sat, 0);
-            clar_chips.push({
-              label_fr: `Comparer samedi ${frYmd(sat)} et dimanche ${frYmd(sun)}`,
-              send: `Compare le ${frYmd(sat)} et le ${frYmd(sun)}`,
-            });
-          }
-
-          const ai_missing_dates = {
-            ok: true,
-            mode: "deterministic_missing_dates_v1",
-            output: {
-              headline: "Quels jours voulez-vous comparer ?",
-              summary:
-                "Indiquez deux à sept dates — dans le calendrier, en toutes lettres ou en touchant une suggestion ci-dessous.",
-              key_facts: [],
-              caveat:
-                "Sans au moins deux dates, je ne peux pas comparer les impacts (logistique, affluence, communication).",
-            },
-            raw_text: "",
-            errors: [],
-            warnings: [],
-          };
-
-          const actions_missing: ApiActions = {
-            month_redirect_url,
-            primary: month_redirect_url
-              ? {
-                  type: "redirect",
-                  url: month_redirect_url,
-                  label: "Ouvrir le mois"
-                }
-              : null,
-            secondary: [],
-          };
-
-          const normalized_ai_missing = normalizeAiOutput(
-            ai_missing_dates,
-            { horizon: resolved_horizon, intent: resolved_intent, used_dates: [] },
-            actions_missing
-          );
-
-          return new Response(
-            JSON.stringify({
-              ok: true,
-              meta: {
-                location_id,
-                resolved_horizon,
-                resolved_intent,
-                resolved_family: null,
-                month_redirect_url,
-                producer: "deterministic_missing_dates_v1",
-                register: registerFor("deterministic_missing_dates_v1"),
-              },
-              // Phase 2 #4 — a clarification asserts no facts (outside the grounding contract by
-              // construction). The client renders the chips as tappable follow-ups.
-              clarification: {
-                kind: "missing_dates",
-                chips: clar_chips,
-              },
-              ai: {
-                ...normalized_ai_missing,
-                output: {
-                  headline: normalized_ai_missing.headline,
-                  answer:
-                    typeof normalized_ai_missing.answer === "string"
-                      ? normalized_ai_missing.answer
-                      : "",
-                  key_facts: Array.isArray(normalized_ai_missing.key_facts)
-                    ? normalized_ai_missing.key_facts
-                    : [],
-                  reasons: Array.isArray(normalized_ai_missing.reasons)
-                    ? normalized_ai_missing.reasons
-                    : [],
-                  caveats: Array.isArray(normalized_ai_missing.caveats)
-                    ? normalized_ai_missing.caveats.filter(Boolean)
-                    : [],
-                },
-              },
-              actions: actions_missing,
-              top_dates: [],
-              decision_payload: {
-                kind: "scoring",
-                horizon: resolved_horizon as
-                  | "month"
-                  | "calendar_month"
-                  | "day"
-                  | "selected_days",
-                intent: resolved_intent as ScoringIntent,
-                used_dates: [],
-                signals: {},
-              },
-              window_aggregates_v3: null,
-              ui_packaging_v3: null,
-            }),
-            {
-              status: 200,
-              headers: { "content-type": "application/json; charset=utf-8" },
-            }
-          );
-        }
+        // 14/09 (§ 7, DERNIÈRE couche retirée) — `deterministic_missing_dates_v1` VIVAIT ICI : sous deux dates,
+        // elle fabriquait la question et ses pastilles à la main, dans le paquet v3. C'est désormais l'outil
+        // `comparer_journees` (lib/explorer/agentTools.ts) qui rend la comparaison ET la question, par une
+        // composition pure testée (lib/explorer/journeesComparees.ts) et le MÊME pipeline v3 en dessous.
+        // Ce chemin-ci ne garde que ce qu'il sait faire : sans deux dates, il n'y a rien à lire.
+        if (query_dates.length < 2) return repondreParAgent("comparer_journees", qRaw);
 
         selected_days_rows = await bqAll(
           `
