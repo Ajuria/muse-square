@@ -222,6 +222,13 @@
   function start() {
     run.phase = "running";
     if (!run.startedAt) { run.startedAt = new Date().toISOString(); run.t0 = det.tick || now(); det.tick = run.t0; } else { det.tick = Math.max(det.tick || 0, now()); }
+    // CEINTURE (14/09) — le calque devient un enfant direct de <body> avant de s'afficher. Un
+    // `position: fixed` est confiné par tout ancêtre portant `transform`, `filter`, `perspective`,
+    // `contain` ou `will-change` : il se retrouve alors DANS une boîte de la page, avec le reste du
+    // document visible autour — exactement ce que l'owner décrit (« la liste de pôles sous l'espace
+    // pour voir ce que je filme »). Aucun ancêtre n'en porte aujourd'hui (vérifié), mais une règle
+    // ajoutée ailleurs suffirait à casser l'écran sans qu'on le voie. Sous <body>, c'est impossible.
+    if (capture && capture.parentNode !== document.body) document.body.appendChild(capture);
     if (capture) capture.hidden = false;
     document.body.classList.add("rl-filme");
     $("summary").style.display = "none";

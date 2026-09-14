@@ -272,8 +272,30 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       a.ms-btn { text-decoration: none; }
     </style>
 
-    <script is:inline define:vars={{ RL_POLES: poles, RL_COPY: RELEVE_COPY }}>
+    <script is:inline define:vars={{ RL_POLES: poles, RL_COPY: RELEVE_COPY, RL_BUILD: BUILD }}>
       window.MSReleve = { poles: RL_POLES, copy: RL_COPY };
+      // ── UNE PAGE PÉRIMÉE SE RÉPARE TOUTE SEULE (owner 14/09, quatre essais perdus) ────────────────
+      // `no-store` empêche les prochaines mises en cache ; il n'efface pas celles déjà posées, et il ne
+      // couvre pas la restauration d'onglet (bfcache) ni une application rouverte depuis l'écran
+      // d'accueil. Deux gardes, et aucune ne demande quoi que ce soit à l'utilisateur :
+      //   1. une page RESTAURÉE se recharge (pageshow.persisted) ;
+      //   2. une page dont la version DIFFÈRE de celle du serveur se recharge UNE fois (garde en
+      //      session : si le rechargement ne change rien, on n'entre pas en boucle — on AFFICHE alors
+      //      les deux versions à côté du marqueur, pour que l'écart soit lisible au lieu d'être deviné).
+      (function () {
+        window.addEventListener("pageshow", function (e) { if (e && e.persisted) window.location.reload(); });
+        fetch("/api/build", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+          if (!j || !j.ok || !j.build || j.build === RL_BUILD) return;
+          var vu = null; try { vu = sessionStorage.getItem("ms-build-reload"); } catch (e) {}
+          if (vu === j.build) {
+            var el = document.getElementById("rl-build");
+            if (el) { el.textContent = RL_BUILD + " ≠ " + j.build; el.style.color = "#B45309"; }
+            return;
+          }
+          try { sessionStorage.setItem("ms-build-reload", j.build); } catch (e) {}
+          window.location.reload();
+        }).catch(function () {});
+      })();
       // Changer de site RECHARGE la page sur ce site : ses pôles sont lus côté serveur, jamais devinés
       // côté client. Les paramètres en cours (diagnostic, réglages) sont gardés.
       (function () {
@@ -287,6 +309,6 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       })();
     </script>
     <script is:inline src="/js/photo-capture.js?v=2"></script>
-    <script is:inline src="/js/releve-espace.js?v=6"></script>
+    <script is:inline src="/js/releve-espace.js?v=7"></script>
   </BaseLayout>
 </Show>
