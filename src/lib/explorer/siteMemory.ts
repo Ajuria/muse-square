@@ -22,7 +22,7 @@ export type AuthorRole = "owner" | "member";
 // d'outil, c'est un constat de terrain, en mots libres. L'agent doit pouvoir la pondérer pour ce
 // qu'elle est — d'où une source à elle, jamais fondue dans « conversation ».
 export type MemorySource = "conversation" | "outil" | "note_rapport";
-const SOURCES: MemorySource[] = ["conversation", "outil", "note_rapport"];
+export const MEMORY_SOURCES: MemorySource[] = ["conversation", "outil", "note_rapport"];
 
 export const SUBJECT_MAX = 120;
 export const BODY_MAX = 4000;
@@ -86,7 +86,7 @@ export function newSiteMemoryRow(input: {
   if (!author_user_id) throw new Error("siteMemory: author_user_id requis");
   if (input.author_role !== "owner" && input.author_role !== "member") throw new Error("siteMemory: author_role owner | member");
   const source = input.source ?? "conversation";
-  if (source !== "conversation" && source !== "outil") throw new Error("siteMemory: source conversation | outil");
+  if (!MEMORY_SOURCES.includes(source)) throw new Error(`siteMemory: source ${MEMORY_SOURCES.join(" | ")}`);
   return {
     memory_id: randomUUID(),
     location_id,
@@ -129,7 +129,7 @@ export async function readSiteMemory(
     body: String(flat(r.body)),
     author_user_id: String(flat(r.author_user_id)),
     author_role: (String(flat(r.author_role)) === "member" ? "member" : "owner") as AuthorRole,
-    source: (SOURCES.includes(String(flat(r.source)) as MemorySource) ? String(flat(r.source)) : "conversation") as MemorySource,
+    source: (MEMORY_SOURCES.includes(String(flat(r.source)) as MemorySource) ? String(flat(r.source)) : "conversation") as MemorySource,
     created_at: String(flat(r.created_at)),
   }));
 }

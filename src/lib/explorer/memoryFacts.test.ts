@@ -44,3 +44,30 @@ describe("memoryFacts", () => {
     expect(f).not.toContain("2026-09-11");
   });
 });
+
+// ── 14/09 — LE VALIDEUR D'ÉCRITURE NE CONNAISSAIT PAS LA SOURCE QU'ON VENAIT D'AJOUTER ──
+// `note_rapport` est entrée dans le TYPE et dans le LECTEUR, jamais dans `newSiteMemoryRow` : chaque note
+// écrite sous une section levait « source conversation | outil », attrapée par le try/catch de la route,
+// et rendait `memoire: false` EN SILENCE. Zéro note en mémoire pendant des heures, fonctionnalité annoncée
+// livrée. TypeScript ne pouvait rien : la garde est une comparaison de chaînes à l'exécution.
+import { newSiteMemoryRow, MEMORY_SOURCES } from "./siteMemory";
+
+describe("newSiteMemoryRow — la liste des sources a UN foyer", () => {
+  const base = { location_id: "l1", subject: "Chiffre d'affaires — août", body: "On a fermé le lundi.", author_user_id: "u1", author_role: "owner" as const };
+
+  it("CHAQUE source déclarée est acceptée à l'écriture — c'est le défaut du 14/09", () => {
+    for (const source of MEMORY_SOURCES) {
+      expect(() => newSiteMemoryRow({ ...base, source }), source).not.toThrow();
+      expect(newSiteMemoryRow({ ...base, source }).source).toBe(source);
+    }
+  });
+
+  it("une source INCONNUE est toujours refusée — la garde n'est pas désarmée", () => {
+    expect(() => newSiteMemoryRow({ ...base, source: "inventee" as any })).toThrow(/source/);
+  });
+
+  it("le message d'erreur NOMME les sources admises — il en listait deux sur trois", () => {
+    try { newSiteMemoryRow({ ...base, source: "x" as any }); expect.unreachable(); }
+    catch (e: any) { for (const s of MEMORY_SOURCES) expect(e.message).toContain(s); }
+  });
+});
