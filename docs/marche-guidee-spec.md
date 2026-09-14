@@ -170,70 +170,36 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
 
 ## 9. Ce qui reste à faire, dans cet ordre
 
-0. **Prototype de la prise de vue — v2 depuis le 12/09** (feedback owner 11/09 : « brut, pas acceptable
-   pour prod ») : `tools/proto/releve-espace-proto.html` (un fichier, remplace la v1, vit jusqu'à
-   l'arbitrage owner, supprimé dans le commit qui livre la page).
-   **Cadre de l'app copié, pas inventé** : en-tête et logo de `Nav.astro`, barre basse de
-   `PiloterBottomBar.astro` (onglet Agir actif : la page s'ouvre depuis le document du pôle), bouton
-   `.ms-btn` de `global.css`, couleurs de `design-tokens.css`, lien « ← <pôle> » comme `engagement.astro`.
-   Viseur et commandes dans le même conteneur (16 px), rien en pleine largeur.
-   **Gestes** : UN bouton, « Commencer le relevé », qui devient « Fin du relevé » ; la caméra n'est
-   demandée qu'à Commencer et le chrono part là ; toucher le viseur = une photo ; boutons de pôle
-   (les sept d'Épices et Tout par défaut) ; « Retirer / Garder » sous chaque vignette ; **un problème
-   s'affiche DANS le viseur, seulement quand il survient** — « Trop sombre » ou « Photo floue », avec
-   « Touchez pour la garder quand même. » : le toucher garde la photo et enregistre le problème ; si
-   l'exploitant repart sans toucher, le problème est enregistré seul. Aucun bouton permanent de
-   signalement. Caméra refusée : le même calque, « Caméra indisponible », avec « Photo avec
-   l'appareil » (`<input type="file" capture>`). « Fin du relevé » remplace le viseur par UNE page, une
-   section par pôle avec ses photos (« Aucune photo » / « 1 photo » / « n photos », « Non rattaché » pour
-   les photos sans pôle), « Reprendre le relevé » et « Compte rendu » (JSON sans image). Réglages
-   (seuils, plancher de netteté et de luminosité, pôles) : appui long sur le chrono ou `?reglages=1`,
-   jamais un bouton visible.
-   **Détection** : celle de la v1 (64 px gris / 120 ms, hystérésis 6 / 2,5, 1 500 ms cumulées, fenêtre
-   1 200 ms, photo gardée si reprise, image identique jamais gardée deux fois) + plancher de qualité :
-   luminosité < 40 ou netteté < 100 = problème, pas de photo automatique.
-   **Chaînes visibles** (grep `MOTS_BANNIS` 125 clés et colonne « interdits » du lexique : une
-   collision, « Sans pôle », remplacée par le mot owner « Non rattaché », 09/09) : « Relevé de
-   l'espace » · « Commencer le relevé » · « Fin du relevé » · « Reprendre le relevé » · « La caméra
-   s'ouvre au début du relevé. » · « Trop sombre » · « Photo floue » · « Touchez pour la garder quand
-   même. » · « Caméra indisponible » · « Prenez la photo avec l'appareil du téléphone. » · « Photo avec
-   l'appareil » · « Retirer » · « Garder » · « Aucune photo » · « 1 photo » · « n photos » · « Non
-   rattaché » · « Compte rendu ». Les mots owner du 11/09 sont au lexique depuis le 12/09.
-   **Se sert** : `npm run harness:https` (`tools/harness/https-serve.mjs` : certificat auto-signé hors
-   dépôt dans `~/.cache/muse-square/https/`, servi en HTTP sur :8080 pour l'installer sur le téléphone,
-   proto en HTTPS sur :8443, `/images/*` depuis `public/images` ; entrée `proto-https` de
-   `.claude/launch.json`). Le navigateur intégré refuse le certificat : le rendu se vérifie sur
-   `http://localhost:4173/tools/proto/…` (harnais racine).
-   **Vérifié le 12/09 au harnais déterministe** (`window.__releveSource` = un canvas, `__releveStep(dt)`
-   = un pas d'analyse à dt imposé) : Commencer → « Fin du relevé », chrono en marche ; 20 pas en
-   mouvement → 0 photo ; 30 pas immobiles → 1 photo ; image noire immobile → « Trop sombre », 0 photo,
-   reprise → problème enregistré (kept: false) ; image sans contraste → « Photo floue », toucher →
-   photo marquée manuelle, raison « floue », problème enregistré (kept: true) ; toucher le viseur →
-   photo manuelle ; Fin → viseur remplacé par la page, section « Pôle Cave : 3 photos », les autres
-   « Aucune photo » ; Reprendre → viseur de retour, bouton « Fin du relevé ». Rendu 375 × 812 : logo,
-   barre basse, calque de problème sans bouton parasite (`[hidden]` gagne sur `.ms-btn`), aucune erreur
-   de script. Restent au harnais deux bruits sans effet : la vibration refusée sans geste réel, le 404
-   du logo sur le premier chemin (le second chemin sert, `naturalWidth` 600).
-   **Bande des cartes (11/09)** : un guide passif dans le viseur montre la part de l'image que les
-   cartes afficheront, la variante « band » de l'API (960 × 420, pleine largeur, recadrée au centre).
-   Deux traits blancs et un voile léger hors de la bande, aucun texte ; le toucher passe au travers.
-   Sa hauteur se calcule depuis la taille réelle de l'image et le recadrage « cover » du viseur : 58 %
-   du viseur pour une image 4:3 couchée, 33 % pour une image debout. Vérifié le 11/09 au harnais
-   (375 × 812) : hauteur et position exactes dans les deux sens ; un toucher au centre de la bande
-   garde une photo ; « Fin du relevé » masque la bande ; mutation (échelle « contain » au lieu de
-   « cover ») vue rouge sur l'image couchée. Rendu sur deux photos d'Épices et Tout : debout, la bande
-   du viseur et celle de la carte coïncident. **Limite** : une image couchée est rognée sur les côtés
-   par le viseur debout lui-même ; la carte montre alors plus large que ce que l'exploitant a vu.
-   **Reste à faire sur téléphone (owner)** : iPhone 17 + un Android, magasin vide, une boucle complète :
-   faux points focaux en marchant, problèmes affichés à tort ou manqués, netteté médiane, durée, repli
-   iOS. Le compte rendu JSON se joint à l'arbitrage.
+0. **La prise de vue est LIVRÉE (14/09)** — le proto `tools/proto/releve-espace-proto.html` (v2 du 12/09,
+   vérifié au harnais déterministe) est SUPPRIMÉ dans le commit qui livre la page : sa détection, son
+   viseur, ses problèmes affichés dedans, sa bande des cartes et sa page de fin vivent à l'identique dans
+   `public/js/releve-espace.js`, servis par `src/pages/app/insightevent/releve.astro`. Ce qui a changé en
+   devenant une page : les pôles sont CEUX DU COMPTE (lus côté serveur, foyer `listPoles`, couche semantic)
+   et non une liste tapée dans les réglages ; les chaînes viennent du foyer `EVOL_COPY.releve_*` ; une photo
+   gardée s'ENVOIE. Les réglages de calibrage restent, invisibles (appui long sur le chrono, `?reglages=1`).
+   **Vérifié le 14/09 sans téléphone** (`npx tsx tools/harness/releve-verify.mts`, qui extrait le markup et
+   les styles du fichier livré, injecte les vrais pôles et espionne l'envoi sans rien écrire) : 7 pôles et
+   52 composants servis sur le compte de l'owner, tous nommés et avec leur clé ; 20 pas en marchant → 0
+   photo ; 30 pas immobiles → 1 photo ; « Quel composant ? » → les 7 composants du pôle touché ; un
+   toucher → l'envoi porte le bon `dispositif_id`, la clé `p8` et une image JPEG ; noir → « Trop sombre »,
+   0 photo, le problème enregistré seul si l'exploitant repart ; image plate → « Photo floue », un toucher
+   la garde (manuelle, raison « floue ») ; bascule de pôle en route enregistrée ; « Fin du relevé » → une
+   section par pôle (« 1 photo », « 2 photos », « Aucune photo »). **Mutation vue tomber** : immobilité
+   portée à 5 000 ms → 0 photo (3 480 ms cumulées, état « settling »).
+   **Reste à faire sur téléphone (owner)** : iPhone 17 + un Android, une boucle complète en magasin — faux
+   points focaux en marchant, problèmes affichés à tort ou manqués, netteté médiane, durée, repli iOS. Le
+   compte rendu JSON (« Compte rendu », sans image) se joint à l'arbitrage.
 1. **Typologie § 3** : la part des familles et la règle des deux faces (fait le 11/09, ce document).
 2. **Lexique** : fait le 12/09 — les mots du § 10 sont au tableau.
-3. **La page de marche** (`src/pages/app/…`, nouveau fichier dans son domaine ; `module-index.md`
-   dans le même commit) : flux caméra, détection d'arrêt, repli fichier, viseur avec pôle courant,
-   envoi. **Harnais** : rejouer la détection d'arrêt sur une vidéo de référence filmée dans le
-   magasin (les seuils se calibrent là), puis sur iPhone 17 (owner) et un Android — captures dans
-   `data/shots/`.
+3. **La page de marche — LIVRÉE le 14/09** : `src/pages/app/insightevent/releve.astro` +
+   `public/js/releve-espace.js` (`module-index.md` à jour dans le même commit). Flux caméra, détection
+   d'arrêt, repli fichier, viseur avec le pôle courant et son compte de photos, envoi. **L'entrée est le
+   bouton « Documenter » du Tableau de bord**, qui ouvrait jusque-là la caméra native pour UNE photo d'UN
+   composant — geste jamais validé, et contraire au constat du § 1 (le coût est le tri). **Ce qui n'y est
+   pas** : la confirmation pendant la marche (M3 : exposition et familles proposées juste après la photo)
+   — l'exploitant nomme le composant, la lecture v2 fait le reste côté route ; et le rattachement passe par
+   un composant DÉJÀ déclaré, parce que la route refuse une clé hors version (point 4). Les seuils restent
+   ceux du proto : leur calibrage en magasin est le point du § 9.0 resté ouvert.
 4. **Le POST étendu** (`walk_id`, `seq`, `t_offset_s`, pôle → dispositif, familles restreintes,
    seconde proposition) + `families_share` + `analytics.dispositif_walks`. Lie-bait : la porte
    `photoExtractionChecks` refuse une famille hors du pôle touché et une part hors [0, 100] ou de somme

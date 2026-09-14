@@ -18,6 +18,9 @@ const SURFACES = [
   "public/js/reco-library.js",
   "public/js/card-kit.js",
   "public/js/action-cards.js",
+  // 14/09 — le module du relevé ne porte AUCUNE chaîne (elles viennent du foyer) ; il entre dans la
+  // liste pour que le jour où l'une y est écrite en dur, le garde la voie.
+  "public/js/releve-espace.js",
 ];
 
 /** Retire les commentaires, puis ne garde que le contenu des littéraux de chaîne. */

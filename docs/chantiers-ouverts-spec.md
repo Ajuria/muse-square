@@ -102,25 +102,33 @@ ne pas insister le même jour. Le rejeu de la même heure n'envoie rien de plus.
   cron qui ne renvoie pas.
 - **Décision owner** : un PDF en pièce jointe est-il attendu ? Il n'en existe aucun aujourd'hui.
 
-## 3. L'outil de capture — il EXISTE et il n'a jamais écrit une ligne
+## 3. Le relevé de l'espace — LIVRÉ le 14/09, jamais marché en magasin
 
-- **Existe** (14/09) : « Documenter » dans Piloter ouvre l'appareil photo SANS page intermédiaire
-  (`public/js/photo-capture.js` — la navigation perdait le geste utilisateur que le navigateur exige),
-  pose deux questions et deux seulement (le pôle, puis le composant), et POSTe.
-- **Le rail est VÉRIFIÉ, sans téléphone** : `tools/harness/capture-rail-verify.mts` — 7 pôles, 52
-  composants, tous nommés et avec leur clé. Rien ne bloque l'écriture côté contexte.
-- **Manque, et c'est tout ce qui manque** : QU'UNE PHOTO SOIT PRISE. `analytics.dispositif_photos` compte
-  **0 ligne, sur tous les sites** (mesuré le 14/09). Aucune surface qui dépend d'une photo n'a donc jamais
-  été vue rendre : ni le volet « Voir la photo précédente », ni le versionnage par la photo, ni les
-  articles reconnus, ni le périmètre déduit d'une photo confirmée.
+- **La décision du 14/09 (owner) tranche le point qui restait ouvert ici** : « il n'y a que le relevé de
+  l'espace qui est valide comme option ». Le geste « une photo d'un composant par la caméra native », que
+  « Documenter » de Piloter ouvrait depuis le 14/09 au matin, n'a jamais été validé et est retiré de ce
+  bouton : il ouvre le **Relevé de l'espace** (`/app/insightevent/releve`), la marche du
+  `docs/marche-guidee-spec.md`. Le CTA par composant de la page d'un pôle reste, inchangé.
+- **Livré** : la page + `public/js/releve-espace.js` (détection du proto v2 portée à l'identique), les
+  pôles du compte lus côté serveur, l'envoi d'une photo gardée par le foyer `MSPhotoCapture.envoyer`, la
+  page « Fin du relevé » avec une section par pôle. Le proto est supprimé (il a fini sa vie).
+- **Vérifié sans téléphone** : `npx tsx tools/harness/releve-verify.mts` — 7 pôles / 52 composants servis,
+  la marche conduite pas à pas (0 photo en marchant, 1 par arrêt, problèmes sombre et floue, bascule de
+  pôle, fin), l'envoi espionné sans rien écrire, et la mutation (immobilité à 5 000 ms → 0 photo) vue tomber.
+- **Ce qui manque, et c'est tout ce qui manque** : QU'UNE PHOTO SOIT PRISE EN MAGASIN.
+  `analytics.dispositif_photos` compte **0 ligne, sur tous les sites** (mesuré le 14/09). Aucune surface
+  qui dépend d'une photo n'a donc jamais été vue rendre : ni « Voir la photo précédente », ni le
+  versionnage par la photo, ni les articles reconnus, ni le périmètre déduit d'une photo confirmée. Les
+  seuils de détection (mouvement, immobilité, netteté, luminosité) n'ont jamais vu un vrai magasin : leur
+  calibrage est le premier enseignement attendu de la marche.
 - **Filet posé AVANT le test** (14/09) : `tools/oneoff/2026-09-14-supprimer-photos-test.mts` défait une
   photo de test entièrement (ligne, image + 2 variantes, et la version née avec ses mesures recopiées).
   Blanc par défaut, refuse de toucher une version 1. Prouvé sur lignes factices : 0/93/118 → 1/94/119 →
   0/93/118. À SUPPRIMER après le nettoyage.
-- **Preuve exigée** : deux photos du même composant sur le pôle Caisse (le plus petit CA, donc la version 2
-  la moins gênante si elle naît) — elles prouvent le rail ET le volet des précédentes d'un coup.
-- **Décision owner, toujours ouverte** : `tools/proto/releve-espace-proto.html` (l'outil de PARCOURS, qui
-  n'écrit rien) sert-il encore, ou le geste par composant suffit-il ?
+- **Reste au calendrier de la spec** (§ 9, points 4 à 9) : le POST étendu (`walk_id`, `seq`, `t_offset_s`,
+  la clé de composant CRÉÉE à l'arrivée de la photo, `families_share`, `analytics.dispositif_walks`), la
+  page de fin de pôle (rang, N° sur le plan, dos à dos, fusion), la mesure sur le premier compte importé,
+  l'onboarding (pôles en projet), le rejeu des 235 photos d'Épices et Tout, la passation dbt.
 
 ## 3 bis. La page d'un pôle — quatre sections sur cinq PROUVÉES, une non
 

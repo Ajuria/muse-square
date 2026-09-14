@@ -248,6 +248,31 @@ export const EVOL_COPY = {
   capture_envoi: "Envoi en cours…",
   capture_aucun_pole: "Aucun pôle déclaré — créez-en un depuis « Nouvelle opération ».",
   capture_aucun_composant: "Ce pôle n'a aucun composant déclaré.",
+  // ── LE RELEVÉ DE L'ESPACE (page /app/insightevent/releve, 14/09) ────────────────────────────────
+  // AUCUNE chaîne nouvelle ici : ce sont EXACTEMENT celles du proto `releve-espace-proto.html`, mots
+  // owner du 11/09 RATIFIÉS le 12/09 (« lexique is done ») et inscrits au lexique l. 101-103 (Relevé de
+  // l'espace · Point focal · Fin du relevé), énumérées une à une par `marche-guidee-spec.md` § 9 point 0
+  // — où elles ont déjà passé le grep MOTS_BANNIS (une collision alors corrigée : « Sans pôle » remplacé
+  // par le mot owner « Non rattaché »). Elles quittent le proto pour le foyer, elles ne sont pas réécrites.
+  // « Relevé vidéo » est INTERDIT : aucune vidéo n'est produite ni envoyée (spec M2).
+  releve_titre: "Relevé de l'espace",
+  releve_commencer: "Commencer le relevé",
+  releve_fin: "Fin du relevé",
+  releve_reprendre: "Reprendre le relevé",
+  releve_idle: "La caméra s'ouvre au début du relevé.",
+  releve_sombre: "Trop sombre",
+  releve_floue: "Photo floue",
+  releve_garder_quand_meme: "Touchez pour la garder quand même.",
+  releve_camera_ko: "Caméra indisponible",
+  releve_camera_ko_texte: "Prenez la photo avec l'appareil du téléphone.",
+  releve_photo_appareil: "Photo avec l'appareil",
+  releve_retirer: "Retirer",
+  releve_garder: "Garder",
+  releve_aucune_photo: "Aucune photo",
+  releve_une_photo: "1 photo",
+  releve_n_photos: "{n} photos",
+  releve_non_rattache: "Non rattaché",
+  releve_compte_rendu: "Compte rendu",
   // 13/09 (owner : « Si photo change, versionning change » — le versionning d'un pôle se fait en
   // arrière-plan, l'exploitant édite ensuite s'il veut). Ce que la photo a changé, dit en clair avant
   // la question. Le SUJET est le composant — un objet du commerce, nommé comme la légende le nomme

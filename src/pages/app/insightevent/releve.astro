@@ -1,0 +1,192 @@
+---
+// « /app/insightevent/releve » — LE RELEVÉ DE L'ESPACE (docs/marche-guidee-spec.md § 9 point 3).
+//
+// La marche dans le magasin, le téléphone à la main : la caméra s'ouvre DANS la page à « Commencer le
+// relevé », garde une photo par Point focal (arrêt d'environ 1,5 s), et se clôt sur UNE page, une
+// section par pôle. Décisions owner du 11/09 (M1 une seule boucle qui traverse les pôles ; M2 une photo
+// par arrêt, AUCUNE vidéo produite ni envoyée ; M5 le pôle vient du geste, jamais de la position ;
+// M7 la caméra dans la page, repli par l'appareil du téléphone) ; mots ratifiés le 12/09 (lexique l. 101-103).
+//
+// Cette page REMPLACE le proto `tools/proto/releve-espace-proto.html`, supprimé dans ce commit (règle
+// de placement : un proto meurt dans le commit qui livre sa surface). Sa logique de détection est
+// portée à l'identique dans `public/js/releve-espace.js` — mêmes seuils, mêmes identifiants de nœuds,
+// mêmes harnais `__releveStep`/`__releveState`, pour que la vérification du 12/09 continue de valoir.
+//
+// Les pôles sont lus ICI, côté serveur (foyer `listPoles`, couche semantic — jamais `analytics`) : la
+// page s'ouvre avec eux, aucun aller-retour client avant de pouvoir marcher. Même résolution de site
+// que `map.astro` : le site de l'URL s'il est possédé ou en membership, sinon celui de la session.
+export const prerender = false;
+
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { Show } from "@clerk/astro/components";
+import { makeBQClient } from "../../../lib/bq";
+import { listPoles } from "../../../lib/dispositifs/poleReading";
+import { EVOL_COPY } from "../../../lib/commitments/commitmentCopy";
+
+const locals_location_id =
+  (Astro.locals && typeof (Astro.locals as any).location_id === "string" && (Astro.locals as any).location_id.trim())
+    ? (Astro.locals as any).location_id.trim()
+    : null;
+if (!locals_location_id) return Astro.redirect("/profile");
+
+const url_location_id = (Astro.url?.searchParams?.get("location_id") ?? "").trim();
+const _ownedIds: string[] = Array.isArray((Astro.locals as any).all_location_ids) ? (Astro.locals as any).all_location_ids.map(String) : [];
+const _memberIds: string[] = Array.isArray((Astro.locals as any).member_location_ids) ? (Astro.locals as any).member_location_ids.map(String) : [];
+const location_id = (!!url_location_id && (_ownedIds.includes(url_location_id) || _memberIds.includes(url_location_id)))
+  ? url_location_id : locals_location_id;
+
+// Les pôles du site, avec les composants de leur VERSION COURANTE : la seconde question du relevé
+// (« Quel composant ? ») n'a que ceux du pôle touché, donc trois ou quatre boutons — pas un tri.
+let poles: Array<{ dispositif_id: string; commitment_id: string | null; name: string; components: Array<{ component_key: string; label: string | null; type_label_fr: string | null; role_label_fr: string | null }> }> = [];
+try {
+  const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
+  poles = (await listPoles(bq, location_id)).map((p) => ({
+    dispositif_id: p.dispositif_id,
+    commitment_id: p.commitment_id,
+    name: p.name,
+    components: (p.components || []).map((c) => ({
+      component_key: c.component_key,
+      label: c.label,
+      type_label_fr: c.type_label_fr,
+      role_label_fr: c.role_label_fr,
+    })),
+  }));
+} catch { poles = []; }
+
+// Les chaînes visibles vivent au foyer du lexique et voyagent par define:vars — jamais recopiées
+// dans le module client. Les trois `capture_*` et `pole_photo_*` sont celles du rail de la photo.
+const RELEVE_COPY = {
+  releve_fin: EVOL_COPY.releve_fin,
+  releve_sombre: EVOL_COPY.releve_sombre,
+  releve_floue: EVOL_COPY.releve_floue,
+  releve_garder_quand_meme: EVOL_COPY.releve_garder_quand_meme,
+  releve_camera_ko: EVOL_COPY.releve_camera_ko,
+  releve_camera_ko_texte: EVOL_COPY.releve_camera_ko_texte,
+  releve_retirer: EVOL_COPY.releve_retirer,
+  releve_garder: EVOL_COPY.releve_garder,
+  releve_aucune_photo: EVOL_COPY.releve_aucune_photo,
+  releve_une_photo: EVOL_COPY.releve_une_photo,
+  releve_n_photos: EVOL_COPY.releve_n_photos,
+  releve_non_rattache: EVOL_COPY.releve_non_rattache,
+  capture_q_pole: EVOL_COPY.capture_q_pole,
+  capture_q_composant: EVOL_COPY.capture_q_composant,
+  capture_aucun_composant: EVOL_COPY.capture_aucun_composant,
+  capture_envoi: EVOL_COPY.capture_envoi,
+  pole_photo_failed: EVOL_COPY.pole_photo_failed,
+  pole_photo_person: EVOL_COPY.pole_photo_person,
+};
+---
+
+<Show when="signed-out" client:load>
+  <meta http-equiv="refresh" content="0; url=/sign-in" />
+</Show>
+
+<Show when="signed-in" client:load>
+  <BaseLayout title="Relevé de l'espace — Muse Square" hideSurveyCta={true} hideFooter={true}>
+    <div class="ms-container" id="rl-root">
+      <div id="rl-toolbar">
+        <a id="rl-back" href="/app/insightevent/tableau">{"← " + EVOL_COPY.back_pole}</a>
+        <span id="rl-clock">0:00</span>
+      </div>
+      <h1 id="rl-title">{EVOL_COPY.releve_titre}</h1>
+      <div id="rl-doc">
+        <section id="stage">
+          <video id="cam" playsinline muted autoplay></video>
+          <div id="band"></div>
+          <div id="idle">{EVOL_COPY.releve_idle}</div>
+          <div id="ring"></div>
+          <div id="poleChip"><span id="poleName">—</span><span id="poleCount" hidden></span></div>
+          <div id="overlay">
+            <b id="ovTitle"></b><span id="ovText"></span>
+            <label id="ovFile" class="ms-btn" hidden>{EVOL_COPY.releve_photo_appareil}<input id="fileIn" type="file" accept="image/*" capture="environment" /></label>
+          </div>
+        </section>
+        <nav id="poles"></nav>
+        <button id="mainBtn" type="button" class="ms-btn">{EVOL_COPY.releve_commencer}</button>
+        <div id="strip"></div>
+        <div id="summary">
+          <div id="sumBody"></div>
+          <div class="rl-row">
+            <button id="sumBack" type="button" class="ms-btn">{EVOL_COPY.releve_reprendre}</button>
+            <a id="sumDl" class="ms-btn" download="releve-espace.json" href="#">{EVOL_COPY.releve_compte_rendu}</a>
+          </div>
+        </div>
+      </div>
+
+      <div id="settings">
+        <h2>Réglages</h2>
+        <label>Seuil « bouge »</label><input id="tMove" type="number" step="0.5" min="1" max="40" />
+        <label>Seuil « immobile »</label><input id="tStill" type="number" step="0.5" min="0.5" max="20" />
+        <label>Immobilité avant la photo (ms)</label><input id="stillMs" type="number" step="100" min="300" max="5000" />
+        <label>Fenêtre d'une photo plus nette (ms)</label><input id="winMs" type="number" step="100" min="0" max="4000" />
+        <label>Netteté minimale</label><input id="sharpMin" type="number" step="10" min="0" max="20000" />
+        <label>Luminosité minimale (0-255)</label><input id="brightMin" type="number" step="5" min="0" max="255" />
+        <div class="rl-row"><button id="setCancel" type="button" class="ms-btn">Fermer</button><button id="setSave" type="button" class="ms-btn">Enregistrer</button></div>
+      </div>
+    </div>
+
+    <style is:global>
+      /* Le viseur et ses commandes dans le même conteneur (16 px), rien en pleine largeur : le cadre
+         vient de BaseLayout (en-tête, logo) et de PiloterBottomBar (onglet AGIR actif pour toute page
+         /app/insightevent) — aucun cadre recopié ici, contrairement au proto qui n'en avait pas. */
+      #rl-root { max-width: 760px; margin: 0 auto; padding: 0 16px 90px; color: #111827; }
+      #rl-toolbar { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 12px; }
+      #rl-back { font-size: 14px; color: #6b7280; text-decoration: none; }
+      #rl-clock { font-size: 14px; color: #6b7280; font-variant-numeric: tabular-nums; user-select: none; -webkit-user-select: none; }
+      #rl-title { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
+      #rl-doc { background: #fff; border: 1px solid rgba(0,0,0,0.10); border-radius: 10px; padding: 12px; }
+      #stage { position: relative; background: #111; border-radius: 10px; overflow: hidden; aspect-ratio: 3/4; max-height: 56vh; }
+      #cam { width: 100%; height: 100%; object-fit: cover; display: block; }
+      #ring { position: absolute; inset: 10px; border: 3px solid rgba(255,255,255,.28); border-radius: 8px; pointer-events: none; transition: border-color .15s; }
+      #ring.settling { border-color: #f59e0b; }
+      #ring.kept { border-color: #22c55e; }
+      #ring.problem { border-color: #C2410C; }
+      /* La bande des cartes : la part de l'image que les cartes afficheront (variante « band », 960x420). */
+      #band { position: absolute; left: 0; right: 0; display: none; pointer-events: none; box-shadow: 0 0 0 9999px rgba(0,0,0,.30); border-top: 1px solid rgba(255,255,255,.75); border-bottom: 1px solid rgba(255,255,255,.75); }
+      #poleChip { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+      #poleChip span { background: rgba(17,24,39,.72); color: #fff; padding: 6px 10px; border-radius: 999px; font-size: 12px; max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      #overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 6px; background: rgba(17,24,39,.55); color: #fff; text-align: center; padding: 24px; cursor: pointer; }
+      #overlay b { font-size: 22px; font-weight: 600; }
+      #overlay span { font-size: 14px; opacity: .9; }
+      #overlay .ms-btn { margin-top: 14px; border-color: #fff; color: #fff; }
+      #overlay input { display: none; }
+      #idle { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.55); font-size: 14px; text-align: center; padding: 0 24px; }
+      #poles { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0 4px; -webkit-overflow-scrolling: touch; }
+      #poles button { flex: 0 0 auto; border: 1px solid rgba(0,0,0,0.08); background: #fff; border-radius: 999px; padding: 8px 12px; font-size: 13px; color: #111827; font-family: inherit; min-height: 40px; }
+      #poles button.on { background: var(--color-brand-blue, #0b37e5); border-color: var(--color-brand-blue, #0b37e5); color: #fff; }
+      #mainBtn { width: 100%; height: 56px; margin-top: 8px; }
+      #strip { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0 0; -webkit-overflow-scrolling: touch; }
+      #strip:empty { display: none; }
+      .shot { flex: 0 0 auto; width: 132px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; font-size: 11px; }
+      .shot.ecrite { border-color: #059669; }
+      .shot img { width: 132px; height: 150px; object-fit: cover; display: block; }
+      .shot .m { padding: 4px 6px; color: #6b7280; line-height: 1.35; }
+      .shot .m b { color: #111827; font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .shot > button { width: 100%; border: 0; border-top: 1px solid #e5e7eb; background: #fff; padding: 8px; font-size: 11px; color: #6b7280; font-family: inherit; min-height: 36px; }
+      .shot.removed img { opacity: .3; }
+      /* « Quel composant ? » sous la vignette : les composants du pôle touché, un toucher chacun. */
+      .shot .q { border-top: 1px solid #e5e7eb; padding: 6px; }
+      .shot .qt { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: #6b7280; margin-bottom: 4px; }
+      .shot .qb { display: block; width: 100%; text-align: left; padding: 8px 6px; margin-bottom: 4px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; font-size: 12px; font-family: inherit; color: #111827; min-height: 36px; }
+      #settings { display: none; position: fixed; inset: 0; background: #fff; z-index: 80; overflow: auto; padding: 16px; }
+      #settings h2 { font-size: 16px; margin: 0 0 12px; }
+      #settings label { display: block; margin: 12px 0 4px; font-size: 13px; color: #6b7280; }
+      #settings input[type=number] { width: 100%; border: 1px solid rgba(0,0,0,0.08); border-radius: 6px; padding: 10px; font-size: 15px; }
+      .rl-row { display: flex; gap: 8px; margin-top: 16px; }
+      .rl-row .ms-btn { flex: 1; height: 44px; }
+      #summary { display: none; }
+      #summary .sec { margin: 0 0 18px; }
+      #summary .sec h3 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #111827; font-weight: 700; margin: 0 0 8px; }
+      #summary .sec .n { font-size: 13px; color: #6b7280; margin: 0 0 6px; }
+      #summary .sec .imgs { display: flex; gap: 6px; flex-wrap: wrap; }
+      #summary .sec .imgs img { width: 64px; height: 80px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; }
+      a.ms-btn { text-decoration: none; }
+    </style>
+
+    <script is:inline define:vars={{ RL_POLES: poles, RL_COPY: RELEVE_COPY }}>
+      window.MSReleve = { poles: RL_POLES, copy: RL_COPY };
+    </script>
+    <script is:inline src="/js/photo-capture.js?v=2"></script>
+    <script is:inline src="/js/releve-espace.js?v=1"></script>
+  </BaseLayout>
+</Show>
