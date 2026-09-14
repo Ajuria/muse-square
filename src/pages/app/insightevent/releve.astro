@@ -211,9 +211,13 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       /* Le pôle courant : un seul élément en haut, et c'est LUI qu'on touche pour en changer. */
       /* Le pôle et LE MEUBLE ATTENDU (le rang décide, spec M4) — avec sa photo quand on en a une : un
          nom partagé par six meubles ne dit rien, la photo du meuble si. */
-      #poleTag { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 12px; right: 12px; display: block; width: auto;
-                 background: rgba(17,24,39,.72); color: #fff; border: 0; border-radius: 20px; padding: 10px 14px; font-size: 15px;
-                 font-family: inherit; text-align: left; min-height: 44px; }
+      /* 14/09 (owner, photo du téléphone) — LA PASTILLE NE PREND PLUS TOUTE LA LARGEUR. Elle faisait
+         `left: 12px; right: 12px` : un toucher en haut de l'image, destiné à prendre une photo,
+         ouvrait la feuille des pôles. Elle se réduit à son contenu, et le reste du haut redevient du
+         viseur. Elle garde une cible confortable (44 px de haut, 70 % de large au maximum). */
+      #poleTag { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 12px; display: inline-block;
+                 max-width: 70%; background: rgba(17,24,39,.72); color: #fff; border: 0; border-radius: 20px; padding: 10px 14px;
+                 font-size: 15px; font-family: inherit; text-align: left; min-height: 44px; }
       #poleTag .pt-l1 { display: block; font-weight: 600; }
       #poleTag .pt-l2 { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 13px; opacity: .92; }
       #poleTag .pt-l2 img { width: 32px; height: 32px; object-fit: cover; border-radius: 6px; flex: none; }
@@ -225,9 +229,11 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       #etat:empty { display: none; }
       #etat::before { content: attr(data-mot); color: #fff; font-size: 17px; line-height: 1.45; text-align: center;
               background: rgba(17,24,39,.72); border-radius: 999px; padding: 10px 16px; max-width: 100%; }
-      #stopBtn { position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+      #stopBtn { position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); z-index: 2;
                  height: 56px; border-radius: 12px; border: 1px solid rgba(255,255,255,.9); background: rgba(17,24,39,.88); color: #fff;
                  font-family: inherit; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+      /* La pastille reste visible par-dessus la feuille : on voit toujours quel pôle on quitte. */
+      #poleTag { z-index: 2; }
       #overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 6px;
                  background: rgba(17,24,39,.62); color: #fff; text-align: center; padding: 24px; }
       #overlay b { font-size: 24px; font-weight: 600; }
@@ -235,8 +241,13 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       #overlay .ms-btn { margin-top: 14px; border-color: #fff; color: #fff; }
       #overlay input { display: none; }
       /* Changer de pôle : une feuille qui monte, touchée depuis le nom du pôle. */
-      #poleSheet { position: absolute; inset: 0; background: rgba(17,24,39,.55); display: flex; align-items: flex-end; }
-      #poleSheetList { background: #fff; width: 100%; max-height: 70%; overflow: auto; border-radius: 14px 14px 0 0; padding: 8px 0 20px; }
+      /* La feuille des pôles tombe SOUS la pastille et s'arrête au-dessus du bouton : elle ne peut plus
+         cacher « Fin du relevé » (l'owner l'a vue manger 70 % de l'écran, bouton compris, et a conclu
+         qu'il n'y avait pas de bouton d'arrêt). Toucher n'importe où ailleurs la referme. */
+      #poleSheet { position: absolute; inset: 0; background: rgba(17,24,39,.55); }
+      #poleSheetList { position: absolute; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 64px);
+                       max-height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 180px);
+                       background: #fff; overflow: auto; border-radius: 14px; padding: 4px 0; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
       #poleSheetList button { display: block; width: 100%; text-align: left; padding: 16px 20px; font-size: 16px; font-family: inherit;
                               color: #111827; background: none; border: 0; border-bottom: 1px solid #F3F4F6; min-height: 56px; }
       #poleSheetList button.on { color: #fff; background: var(--color-brand-blue, #0b37e5); }
@@ -309,6 +320,6 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       })();
     </script>
     <script is:inline src="/js/photo-capture.js?v=2"></script>
-    <script is:inline src="/js/releve-espace.js?v=7"></script>
+    <script is:inline src="/js/releve-espace.js?v=8"></script>
   </BaseLayout>
 </Show>
