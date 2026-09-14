@@ -19,7 +19,11 @@ describe("groundAgentText — chaque nombre du texte vient d'un fait d'outil", (
     const g = groundAgentText("Vos familles : 1. Coffee — 19 957 € (38,6 %) 2. Tea — 14 573 € 3. Bakery — 6 354 €.", ["Coffee 19 957 € (38,6 % de votre CA), Tea 14 573 €, Bakery 6 354 €."]);
     expect(g).toMatchObject({ register: "vetted", ungrounded_numbers: [] });
     expect(groundAgentText("1. **Coffee** — 19 957 € 2. **Tea** — 14 573 €", ["Coffee 19 957 €, Tea 14 573 €."]).ungrounded_numbers).toEqual([]);
-    expect(groundAgentText("Cuisine réalise 5 ventes. Tea 3.", ["Cuisine réalise 5 ventes."]).ungrounded_numbers).toEqual(["3"]);
+    // Le PRIX de l'inversion (owner 14/09), dit ici plutôt que découvert plus tard : une unité ÉLIDÉE
+    // n'est plus vérifiée. « Tea 3 » passe ; « Tea 3 ventes » serait pris. Le pari est que le lexique
+    // (règle 5 : l'unité et son référentiel sont dans la phrase) interdit déjà d'écrire « Tea 3 ».
+    expect(groundAgentText("Cuisine réalise 5 ventes. Tea 3.", ["Cuisine réalise 5 ventes."]).ungrounded_numbers).toEqual([]);
+    expect(groundAgentText("Cuisine réalise 5 ventes. Tea 3 ventes.", ["Cuisine réalise 5 ventes."]).ungrounded_numbers).toEqual(["3"]);
   });
   const facts = ["Sur vos 30 derniers jours, votre marge brute est de 19 845 €, soit un taux de marge brute de 40 %.", "Coffee : 15 097 € de marge brute (taux 77 %)."];
   it("vérifié quand tous les nombres sont dans les faits (espaces de milliers, virgules, dates et heures ignorées)", () => {

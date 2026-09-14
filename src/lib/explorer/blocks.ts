@@ -136,11 +136,62 @@ export function nombresDesBlocs(blocks: AnswerBlock[]): string[] {
   return out;
 }
 
+/**
+ * PUR — LES NOMBRES QUI AFFIRMENT QUELQUE CHOSE SUR LE COMMERCE (owner 14/09, inversion de la règle).
+ *
+ * POURQUOI LA RÈGLE S'INVERSE. La porte vérifiait TOUS les nombres, moins une liste d'exceptions qui
+ * n'arrêtait pas de grandir : dates sous quatre formes, heures, années, rangs de liste. Chaque façon
+ * française d'écrire un nombre qui n'est pas un fait coûtait une règle de plus, trouvée APRÈS COUP, en
+ * production — « le 22/08 », « le 5 et le 12 septembre », un rang de liste. Mesuré le 14/09 : ~1 cas sur
+ * 27 par run, classe différente à chaque fois. On ne rattrape pas une langue par une liste d'exceptions.
+ *
+ * LA RÈGLE INVERSÉE : un nombre est VÉRIFIÉ s'il porte une unité ou un nom de ce qu'on compte. « 52 554 € »,
+ * « +20,4 % », « 6 320 ventes », « 42,9 m », « 9 journées » sont des affirmations sur le commerce et se
+ * fondent. « le 5 », « 2. Maison », « 1er octobre » n'affirment rien et ne se fondent pas.
+ *
+ * CE QUE ÇA COÛTE, ET IL FAUT LE DIRE : un nombre inventé ÉCRIT SANS UNITÉ passe désormais. « Vous avez
+ * fait 4 200 » n'est plus pris ; « vous avez fait 4 200 € » l'est toujours. Le pari est que le modèle
+ * écrit ses chiffres avec leur unité — c'est ce que le lexique EXIGE de lui (règle 5 : « l'unité et son
+ * référentiel sont dans la phrase »), et une phrase sans unité échoue déjà à la relecture. La porte cesse
+ * donc d'attraper ce qu'une autre règle interdit, et arrête d'accuser les dates.
+ *
+ * Les unités sont une liste FERMÉE et française. Un nom de temps (jour, semaine, mois) EN FAIT PARTIE : un
+ * compte de journées est une affirmation. Si une longueur de fenêtre échoue, le défaut est que l'outil ne
+ * déclare pas son référentiel — ça se corrige dans l'outil, jamais en aveuglant la porte.
+ */
+const UNITES_FR = [
+  "€", "%", "m²", "m2", "m",
+  "vente", "ventes", "achat", "achats", "client", "clients", "article", "articles",
+  "journée", "journées", "jour", "jours", "semaine", "semaines", "mois", "année", "années",
+  "famille", "familles", "pôle", "pôles", "photo", "photos", "opération", "opérations",
+  "point", "points", "°c", "km", "min",
+];
+const UNITE_RE = new RegExp(
+  "^\\s*(?:de\\s+|d')?(" + UNITES_FR.map((u) => u.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?![\\p{L}\\d])",
+  "iu",
+);
+
+export function nombresAffirmes(text: string): Set<string> {
+  const joined = String(text ?? "")
+    .replace(/[−–—]/g, "-")
+    .replace(/(\d)[ \u00a0\u202f](?=\d{3}\b)/g, "$1");
+  const out = new Set<string>();
+  const re = /-?\d+(?:[.,]\d+)?/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(joined))) {
+    const n = Number(m[0].replace(",", "."));
+    if (!Number.isFinite(n)) continue;
+    if (!UNITE_RE.test(joined.slice(re.lastIndex))) continue;   // sans unité, le nombre n'affirme rien
+    out.add(String(Math.abs(Math.round(n * 100) / 100)));
+  }
+  return out;
+}
+
 export function groundAgentText(text: string, facts: string[], blocsDesOutils: AnswerBlock[] = []): Grounding {
   const allowed = new Set<string>();
   for (const f of facts) for (const n of extractNumbers(f)) allowed.add(n);
   for (const v of nombresDesBlocs(blocsDesOutils)) for (const n of extractNumbers(v)) allowed.add(n);
-  const stated = extractNumbers(stripDatesAndHours(text));
+  const stated = nombresAffirmes(stripDatesAndHours(text));
   const ungrounded = [...stated].filter((n) => !allowed.has(n));
   return { register: ungrounded.length ? "model" : "vetted", ungrounded_numbers: ungrounded, facts_cited: facts.length };
 }

@@ -59,8 +59,8 @@ describe("une date sans année n'est pas un fait", () => {
   it("la date complète reste filtrée, comme avant", () => {
     expect(groundAgentText("Le 22/08/2026 a été la meilleure journée.", [], []).register).toBe("vetted");
   });
-  it("un RATIO n'est pas une date : « 20/80 » reste un nombre à fonder", () => {
-    expect(groundAgentText("La règle des 20/80 s'applique.", [], []).register).toBe("model");
+  it("un ratio sans unité n'est plus vérifié — c'est le prix de l'inversion, pas un oubli", () => {
+    expect(groundAgentText("La règle des 20/80 s'applique.", [], []).register).toBe("vetted");
   });
   it("un vrai montant reste pris, même à côté d'une date sans année", () => {
     const g = groundAgentText("Le 22/08, vous avez généré 9 999 €.", [], []);
@@ -99,12 +99,14 @@ it("la forme ÉLIDÉE : « du 5 au 12 septembre » — le premier jour n'a pas s
   expect(groundAgentText("Du 5 au 12 septembre, le CA progresse.", [], []).register).toBe("vetted");
 });
 
-it("LA PORTE N'EST PAS OUVERTE : « le 5 » tout seul reste un nombre à fonder", () => {
-  const g = groundAgentText("Le 5 est votre meilleur score.", [], []);
+it("un nombre NU n'est plus vérifié — mais dès qu'il porte son unité, il l'est", () => {
+  expect(groundAgentText("Le 5 est votre meilleur score.", [], []).register).toBe("vetted");
+  const g = groundAgentText("Vous avez réalisé 5 ventes.", [], []);
   expect(g.register).toBe("model");
   expect(g.ungrounded_numbers).toContain("5");
 });
 
-it("deux nombres joints par « et » SANS mois restent à fonder", () => {
-  expect(groundAgentText("Vos pôles 5 et 12 sont les plus forts.", [], []).register).toBe("model");
+it("des nombres nus dans une phrase ne sont plus vérifiés ; les mêmes avec leur unité le sont", () => {
+  expect(groundAgentText("Vos pôles 5 et 12 sont les plus forts.", [], []).register).toBe("vetted");
+  expect(groundAgentText("Vos pôles génèrent 5 € et 12 €.", [], []).register).toBe("model");
 });
