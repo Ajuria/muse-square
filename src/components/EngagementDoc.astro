@@ -48,7 +48,7 @@ const { id, page, backHref, backLabel } = Astro.props;
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/pole-form.js?v=6"></script>
-    <script is:inline src="/js/card-kit.js?v=104"></script>
+    <script is:inline src="/js/card-kit.js?v=105"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY, PAGE: page }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -258,6 +258,85 @@ const { id, page, backHref, backLabel } = Astro.props;
               input.click();
             });
           })();
+          // ── TYPER UN COMPOSANT SANS CRÉER DE VERSION (owner 14/09, option 3) ────────────────
+          // Décrire un meuble n'est pas le changer : le type et le rôle se corrigent ICI, sur la version
+          // courante, et les photos de cette version restent à leur place. Ajouter ou retirer un composant
+          // reste le travail de « La version suivante » — la route le refuse, la règle est dans
+          // lib/dispositifs/composantsDescription.ts.
+          // Le libellé reste un TEXTE tant que les options du registre ne sont pas arrivées : une lecture
+          // en échec laisse la rangée telle qu'elle était, jamais vide.
+          (function wireDescriptions() {
+            var sec = docEl.querySelector("[data-eg-components]");
+            var cmx = data.commitment || {};
+            if (!sec || cmx.status !== "open" || data.role === "member" || window._msMemberView === true) return;
+            var rangees = [].slice.call(sec.querySelectorAll("[data-eg-component]"));
+            if (!rangees.length) return;
+            contexteCreation(cmx.location_id).then(function (ctx) {
+              var types = ctx && Array.isArray(ctx.component_types) ? ctx.component_types : [];
+              if (!types.length) return;
+              var rolesDe = function (v) { var t = types.filter(function (x) { return x.value === v; })[0]; return t && Array.isArray(t.roles) ? t.roles : []; };
+              var inp = "font-size:12px;color:#111827;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:3px 6px;font-family:inherit;cursor:pointer;";
+
+              // Le mot de l'\u00e9tat, et l'enregistrement, D\u00c9CLAR\u00c9S AVANT les rang\u00e9es : `var` remonte le nom mais
+              // pas la valeur, et un \u00e9couteur pos\u00e9 sur une fonction encore ind\u00e9finie ne fait RIEN, en silence
+              // \u2014 c'est exactement ce que la liste des r\u00f4les faisait au premier jet.
+              var note = document.createElement("div");
+              note.setAttribute("style", "font-size:12px;margin-top:4px;");
+              sec.appendChild(note);
+              var enregistrer = function () {
+                // La liste envoy\u00e9e est la COMPOSITION du p\u00f4le, pas un delta : toutes les rang\u00e9es partent.
+                var corps = rangees.map(function (row) {
+                  var k = row.getAttribute("data-eg-component");
+                  var ts = sec.querySelector('[data-eg-desc-type="' + k + '"]');
+                  var rs = sec.querySelector('[data-eg-desc-role="' + k + '"]');
+                  return { key: k, type: ts ? ts.value : row.getAttribute("data-eg-comp-type"), role: rs && rs.value ? rs.value : null };
+                });
+                note.style.color = "#6b7280"; note.textContent = "\u2026";
+                fetch("/api/commitments/edit", {
+                  method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ commitment_id: cmx.commitment_id, location_id: cmx.location_id, components: corps }),
+                }).then(function (r) { return r.json(); }).then(function (j) {
+                  if (j && j.ok) {
+                    note.style.color = "#166534"; note.textContent = t("saved");
+                    corps.forEach(function (c) {
+                      var row = sec.querySelector('[data-eg-component="' + c.key + '"]');
+                      if (row) { row.setAttribute("data-eg-comp-type", c.type || ""); row.setAttribute("data-eg-comp-role", c.role || ""); }
+                    });
+                  } else {
+                    note.style.color = "#b91c1c"; note.textContent = (j && j.error) || "Erreur";
+                  }
+                }).catch(function () { note.style.color = "#b91c1c"; note.textContent = "Erreur"; });
+              };
+
+              rangees.forEach(function (row) {
+                var key = row.getAttribute("data-eg-component");
+                var cur = row.getAttribute("data-eg-comp-type") || "";
+                var curRole = row.getAttribute("data-eg-comp-role") || "";
+                var cible = sec.querySelector('[data-eg-comp-meta="' + key + '"]');
+                if (!cible) return;
+                // Un type courant absent de la liste servie (curation par m\u00e9tier) est AJOUT\u00c9 \u00e0 sa liste :
+                // sans \u00e7a, ouvrir la page changerait sa valeur en silence au premier enregistrement.
+                var opts = types.slice();
+                if (cur && !opts.some(function (o) { return o.value === cur; })) opts.unshift({ value: cur, label_fr: cur, roles: [] });
+                var tSel = document.createElement("select");
+                tSel.setAttribute("data-eg-desc-type", key); tSel.setAttribute("style", inp);
+                tSel.innerHTML = opts.map(function (o) { return '<option value="' + esc(o.value) + '">' + esc(o.label_fr) + "</option>"; }).join("");
+                tSel.value = cur;   // la valeur s'AFFECTE : un attribut `selected` pos\u00e9 dans du HTML ne fait pas foi partout
+                var rSel = document.createElement("select");
+                rSel.setAttribute("data-eg-desc-role", key); rSel.setAttribute("style", inp);
+                var peupler = function (tv, sel) {
+                  var rs = rolesDe(tv);
+                  rSel.innerHTML = '<option value="">R\u00f4le</option>' + rs.map(function (r) { return '<option value="' + esc(r.value) + '">' + esc(r.label_fr) + "</option>"; }).join("");
+                  rSel.value = sel || "";
+                  rSel.style.display = rs.length ? "" : "none";
+                };
+                peupler(cur, curRole);
+                cible.innerHTML = ""; cible.appendChild(tSel); cible.appendChild(rSel);
+                tSel.addEventListener("change", function () { peupler(tSel.value, ""); enregistrer(); });
+                rSel.addEventListener("change", enregistrer);
+              });
+            }).catch(function () { /* la rangée garde son texte : c'est l'affichage d'avant */ });
+          })();
           docEl.style.display = "block";
           statusEl.style.display = "none";
           var cm = data.commitment, open = cm.status === "open", advice = data.advice || [];
@@ -293,6 +372,19 @@ const { id, page, backHref, backLabel } = Astro.props;
         // Le contexte de création (familles, responsables, types de composant, pôles) vient de la même route
         // que Nouvelle opération et le Compte : /api/insight/evenement?create_context=1. Chargé au premier
         // dépliage du volet — pas un aller-retour de plus tant qu'on ne l'ouvre pas.
+        // Le contexte de création, lu UNE fois par page : la description des composants et le formulaire
+        // de « La version suivante » veulent tous les deux ses `component_types`. Sans ce foyer, ouvrir le
+        // formulaire coûtait un aller-retour de plus pour la même réponse (budget 3 s).
+        var _ctxP = null;
+        function contexteCreation(loc) {
+          if (!_ctxP) {
+            _ctxP = fetch("/api/insight/evenement?location_id=" + encodeURIComponent(loc) + "&create_context=1")
+              .then(function (r) { return r.json(); })
+              .then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || "contexte indisponible"); return j; });
+          }
+          return _ctxP;
+        }
+
         function wireNextVersion(cm) {
           var sec = docEl.querySelector("[data-eg-nextversion-sec]"), mount = docEl.querySelector("[data-eg-nextversion-mount]");
           if (!sec || !mount || !window.MSPoleForm) return;
@@ -303,7 +395,7 @@ const { id, page, backHref, backLabel } = Astro.props;
             // Les responsables viennent de l'équipe (la même source que l'onglet Pôles du Compte) — le contexte
             // de création ne les porte pas. Les deux lectures partent ensemble.
             Promise.all([
-              fetch("/api/insight/evenement?location_id=" + encodeURIComponent(cm.location_id) + "&create_context=1").then(function (r) { return r.json(); }),
+              contexteCreation(cm.location_id),
               fetch("/api/channels/team?location_id=" + encodeURIComponent(cm.location_id)).then(function (r) { return r.json(); }).catch(function () { return {}; }),
             ]).then(function (rs) {
                 var ctx = rs[0] || {}, team = rs[1] || {};

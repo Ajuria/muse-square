@@ -1091,10 +1091,14 @@
         + (pComps.length
           ? pComps.map(function (c) {
               var meta = [c.type_label_fr, c.role_label_fr].filter(function (x) { return !!x; }).join(' \u00b7 ');
-              return '<div data-eg-component="' + esc(c.key || '') + '" style="background:#fff;border:1px solid #e5e7eb;padding:8px 14px;margin-bottom:6px;">'
+              // 14/09 (owner, option 3 : « typer sans versionner ») — la description du composant PORTE
+              // ses valeurs courantes, et son libelle reste un TEXTE ici. La page le remplace par deux
+              // listes quand les options du registre sont arrivees : si cette lecture echoue, la rangee
+              // retombe exactement sur l'affichage d'avant, jamais sur un trou.
+              return '<div data-eg-component="' + esc(c.key || '') + '" data-eg-comp-type="' + esc(c.type || '') + '" data-eg-comp-role="' + esc(c.role || '') + '" style="background:#fff;border:1px solid #e5e7eb;padding:8px 14px;margin-bottom:6px;">'
                 + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;">'
                 + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(c.label || c.type_label_fr || '') + '</span>'
-                + '<span style="display:inline-flex;align-items:center;gap:10px;"><span style="font-size:12px;color:#6b7280;">' + esc(meta) + '</span>'
+                + '<span style="display:inline-flex;align-items:center;gap:10px;"><span data-eg-comp-meta="' + esc(c.key || '') + '" style="font-size:12px;color:#6b7280;">' + esc(meta) + '</span>'
                 // v2 (11/09) : le numero du composant sur le plan, saisi par l'exploitant AVANT « Documenter » —
                 // la page le lit et l'envoie avec la photo (fixture_no) ; jamais lu sur l'image.
                 + (cm.status === 'open' ? '<input type="number" min="1" max="9999" step="1" inputmode="numeric" data-eg-fixture-no="' + esc(c.key || '') + '" placeholder="' + esc(t2('pole_photo_fixture_no')) + '" title="' + esc(t2('pole_photo_fixture_no')) + '" style="width:110px;font-size:12px;color:#111827;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:4px 8px;font-family:inherit;">' : '')

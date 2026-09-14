@@ -3,6 +3,12 @@
 // POST { commitment_id, location_id, committed_action_text?, owner_person_name?,
 //        window_start?, window_end?, threshold_value? }. Reuses readMergeWrite (create:false).
 // Only open/pending commitments are editable — a resolved verdict is frozen.
+// REDESCRIRE LES COMPOSANTS D'UN PÔLE SANS CRÉER DE VERSION (owner 14/09, option 3) :
+// POST { commitment_id, location_id, components: [{key, type?, role?, label?}] }. La règle est
+// PURE et testée dans `lib/dispositifs/composantsDescription.ts` — mêmes clés, même ordre, seules la
+// description bouge ; ajouter ou retirer un meuble est refusé ici et reste le travail de « La version
+// suivante ». La raison : décrire un meuble n'est pas le changer, et le versionnement appartient à ce
+// qui change physiquement (la photo, `photoChangement.ts`).
 // FENÊTRE ET SEUIL ÉDITABLES (owner 10/08) : une fenêtre fausse ne se corrigeait que par
 // suppression + recréation. Gardes : dates Y-m-d, fin >= début, fenêtre <= 90 j, seuil 1..200 %
 // — et JAMAIS après résolution (le gel du verdict reste la garde anti p-hacking).
@@ -10,6 +16,7 @@ import type { APIRoute } from "astro";
 import { makeBQClient } from "../../../lib/bq";
 import { requireLocationOwnership } from "../../../lib/requireLocationOwnership";
 import { readMergeWrite, readLatestSnapshot, type CommitmentRow } from "../../../lib/commitments/actionCommitments";
+import { planDeRedescription, lireComposants } from "../../../lib/dispositifs/composantsDescription";
 
 export const prerender = false;
 const BQ_PROJECT = "muse-square-open-data";
@@ -36,7 +43,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const wsRaw = body.window_start != null ? String(body.window_start).trim() : null;
     const weRaw = body.window_end != null ? String(body.window_end).trim() : null;
     const thrRaw = body.threshold_value != null ? Number(body.threshold_value) : null;
-    if (!text && !owner && !wsRaw && !weRaw && thrRaw == null) {
+    const compsRaw = body.components !== undefined ? body.components : null;
+    if (!text && !owner && !wsRaw && !weRaw && thrRaw == null && compsRaw == null) {
       return json({ ok: false, error: "Rien à modifier" }, 400);
     }
     if (text != null && text === "") {
@@ -70,7 +78,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
       if (span > 90) return json({ ok: false, error: "Fenêtre trop longue (90 jours maximum)" }, 400);
     }
 
+    // Les composants ne se redecrivent que sur un PÔLE : une opération n'en porte pas.
+    let changements: ReturnType<typeof planDeRedescription> | null = null;
+    if (compsRaw != null) {
+      if (String((prior as any).dispositif_nature || "") !== "permanent") {
+        return json({ ok: false, error: "Seul un pôle porte des composants" }, 409);
+      }
+      const plan = planDeRedescription({ actuels: lireComposants((prior as any).components), proposes: compsRaw });
+      if (!plan.ok) return json({ ok: false, error: plan.error }, 400);
+      changements = plan;
+    }
+
     const patch: Partial<CommitmentRow> = {};
+    if (changements && changements.ok) (patch as any).components = JSON.stringify(changements.components);
     if (text) patch.committed_action_text = text;
     if (owner) patch.owner_person_name = owner;
     if (wsRaw) (patch as any).window_start = nextWs;
@@ -82,7 +102,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       transitionType: "edited",
       patch,
     });
-    return json({ ok: true });
+    return json({ ok: true, changements: changements && changements.ok ? changements.changements : [] });
   } catch (err: any) {
     const forbidden = String(err?.message || "").startsWith("FORBIDDEN");
     return json({ ok: false, error: err?.message || "Unknown error" }, forbidden ? 403 : 500);
