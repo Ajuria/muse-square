@@ -235,6 +235,19 @@ export const EVOL_COPY = {
   pole_photo_levels: "{n} étagères",
   pole_photo_levels_un: "1 étagère",
   pole_photo_families: "Familles reconnues :",
+  // 14/09 (owner) — L'APP DE CAPTURE : on photographie ce qu'on a sous les yeux, PUIS on dit ce que c'est.
+  // Deux questions, dans cet ordre (le pôle réduit la seconde liste à trois ou quatre composants), et
+  // RIEN d'autre : les familles, l'exposition et les étagères se lisent sur la photo. Les deux questions
+  // reprennent la grammaire interrogative déjà en place au registre (« Quelle exposition ? »,
+  // « Combien d'étagères ? ») et les mots owner (pôle, composant, N° sur le plan).
+  capture_titre: "Documenter",
+  capture_prendre: "Prendre une photo",
+  capture_q_pole: "Quel pôle ?",
+  capture_q_composant: "Quel composant ?",
+  capture_reprendre: "Reprendre",
+  capture_envoi: "Envoi en cours…",
+  capture_aucun_pole: "Aucun pôle déclaré — créez-en un depuis « Nouvelle opération ».",
+  capture_aucun_composant: "Ce pôle n'a aucun composant déclaré.",
   // 13/09 (owner : « Si photo change, versionning change » — le versionning d'un pôle se fait en
   // arrière-plan, l'exploitant édite ensuite s'il veut). Ce que la photo a changé, dit en clair avant
   // la question. Le SUJET est le composant — un objet du commerce, nommé comme la légende le nomme
