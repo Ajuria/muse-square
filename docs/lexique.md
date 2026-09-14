@@ -61,7 +61,7 @@ chaque ligne modifiée ici doit être répercutée dans `src/lib/fr/evenement.fr
 | Le logiciel d'encaissement déclaré au profil (P3.1-c) | **Caisse / logiciel de vente** (champ profil) ; à l'import : **votre caisse déclarée (modifiable dans votre profil)** | POS, logiciel de caisse, système d'encaissement |
 | Caisse dont le connecteur n'existe pas encore | **Connexion directe prévue — en attendant, export CSV…** (consigne `export_note_fr` de `analytics.pos_systems`, jamais réécrite en dur) | bientôt disponible, coming soon |
 | Suivi posé par le système à l'ouverture du compte (P3.1-f) | **suivi proposé — ajustez** (chip sur la fiche ; l'infobulle dit le critère : recouvrement mesuré) | suivi automatique, suggestion, recommandé pour vous |
-| L'objet physique d'un dispositif, celui qu'on photographie (un dispositif peut en avoir plusieurs ; un pôle peut avoir plusieurs dispositifs) | **composant** (owner 03/09, D1 — spec `dispositifs-typologie-spec.md` § 3) | meuble, unité typée, sous-type (brouillons du 03/09, attrapés à la relecture owner) |
+| L'objet physique d'un dispositif, celui qu'on photographie (un dispositif peut en avoir plusieurs ; un pôle peut avoir plusieurs dispositifs) | **composant** (owner 03/09, D1 — spec `dispositifs-typologie-spec.md` § 3) dans le MODÈLE (base, clés, tables, documents) ; **meuble** DANS CE QUI SE DIT À L'EXPLOITANT (owner 14/09 : « composant que nobody understand ») — exception nommée par CLÉ dans `evenement.fr.guard.test.ts` (`EXCEPTIONS.meuble` : `releve_consigne_1/2/3`), mutation vue tomber sur une clé non exemptée | unité typée, sous-type (brouillons du 03/09, attrapés à la relecture owner) ; « meuble » reste banni PARTOUT ailleurs |
 | La longueur d'étagère ou d'alignement de composants dédiée à une catégorie de produits | **linéaire** (owner 03/09) | rayonnage comme nom de TYPE de dispositif (03/09) — « Rayonnage » est depuis le 11/09 une EXPOSITION d'un composant, pas un type, voir § À arbitrer |
 | Le meuble central double face | **gondole** (owner 03/09) | — |
 | L'extrémité d'un rayon, très utilisée pour les promotions | **tête de gondole** (owner 03/09) | TG à l'écran (abréviation, règle 6 de tournure) |
@@ -406,7 +406,9 @@ absence honnête). Pas de « en moyenne » : l'€/j exposé est la médiane (da
   toute sa hauteur ; seule une vitrine plate de l'îlot spiritueux n'en a pas — et là le champ vaut null,
   ce qui est le comportement voulu. La justification était donc fausse sur le fond ET fausse d'auteur.
   « Rayonnage » (l'EXPOSITION) reste inchangé, il n'est pas contesté ; « Rayonnage » a remplacé
-  « Meuble à niveaux » le 11/09 (« meuble » banni depuis le 03/09 : aucune exception). « Mobilier »
+  « Meuble à niveaux » le 11/09 (« meuble » banni depuis le 03/09 ; UNE exception depuis le 14/09 :
+  les consignes du relevé, où l'owner a tranché que « composant » n'est compris de personne — le
+  modèle, lui, garde « composant »). « Mobilier »
   reste le mot générique d'un module précis dans une phrase (owner 11/09 : « un mobilier » se dit en
   agencement) ; l'objet dans l'app reste « composant ». Rendus : `commitmentCopy.ts`
   (`pole_photo_fixture_no`, `pole_photo_levels`, `pole_photo_families` = « Familles reconnues : »,
