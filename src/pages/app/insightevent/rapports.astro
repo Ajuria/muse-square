@@ -122,6 +122,10 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
         border-radius: 999px; padding: 5px 14px; cursor: pointer; }
       .rp-mode[aria-pressed="true"] { background: #1D3BB3; color: #fff; }
       .rp-mode:not([aria-pressed="true"]):hover { color: #111827; background: #F3F4F6; }
+      /* 14/09 — un MANQUE, pas une erreur : le geste a réussi, une de ses conséquences non. Ambre comme
+         les notes de l'exploitant, jamais le rouge d'un échec — la note EST enregistrée. */
+      .rp-averti { margin-top: 10px; padding: 9px 12px; font-size: 12.5px; line-height: 1.5; color: #633806;
+        background: #FDF6EC; border: 1px solid #FAC775; border-left: 3px solid #BA7517; border-radius: 0 8px 8px 0; }
       .rp-choix { display: grid; gap: 6px; }
       .rp-choix-item { display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
         background: #fff; border: 1px solid #E5E7EB; border-radius: 8px; padding: 9px 11px; }
@@ -305,7 +309,16 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
             if (g === "retirer") return { section: Math.max(0, params.section - 1), bouton: null };
             return { section: params.section, bouton: bouton };
           };
-          var geste = async function (g, params, bouton) { var j = await postJson("/api/explorer/rapports", Object.assign({ location_id: loc, document_id: doc.document_id, geste: g }, params || {})); renderDocument(Object.assign({}, j.document, { ajoutables: j.ajoutables }), ancreDuGeste(g, params, bouton)); loadRapports(); };
+          var geste = async function (g, params, bouton) {
+            var j = await postJson("/api/explorer/rapports", Object.assign({ location_id: loc, document_id: doc.document_id, geste: g }, params || {}));
+            renderDocument(Object.assign({}, j.document, { ajoutables: j.ajoutables }), ancreDuGeste(g, params, bouton));
+            loadRapports();
+            if (j.memoire === false) {
+              var ou = docEl.querySelector('[data-rapport-section="' + (params && params.section) + '"]') || docEl;
+              var av = el("div", "rp-averti", "Votre note est enregistrée dans ce Rapport, mais elle n'a pas rejoint la mémoire de votre commerce : l'agent ne la relira pas.");
+              ou.appendChild(av);
+            }
+          };
           bar.appendChild(mk("Actualiser", function () { return geste("actualiser", {}); }));
           // 14/09 — la Synthèse aussi : c'est le texte le PLUS long du document (trois à cinq phrases), donc
           // le pire cas pour une boîte de dialogue. L'éditeur s'ouvre sous la barre, pré-rempli avec le
