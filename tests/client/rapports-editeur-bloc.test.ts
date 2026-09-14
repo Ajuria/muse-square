@@ -126,3 +126,65 @@ it("dans une zone de TEXTE, Entrée seule saute une ligne — elle ne valide pas
 it("la page ne contient PLUS aucune boîte du navigateur", () => {
   expect(SRC.match(/=\s*prompt\(/g)).toBeNull();
 });
+
+// ── 14/09 (owner : « not Votre note / Approfondir but Ecrire / Demander ») — L'INTERRUPTEUR ──
+// Deux boutons obligeaient à trancher AVANT d'avoir écrit. On bascule désormais après, et ce qui compte
+// par-dessus tout : le texte déjà tapé survit à la bascule — le perdre annulerait le geste.
+const deuxModes = (ecrire: any, demander: any) => ({
+  titre: "Cette section", cta: "Enregistrer",
+  modes: [
+    { cle: "ecrire", label: "Écrire", cta: "Enregistrer", placeholder: "Ce que vous savez…", valider: ecrire },
+    { cle: "demander", label: "Demander", cta: "Demander", placeholder: "Votre question…", valider: demander },
+  ],
+});
+
+it("les DEUX positions sont visibles, et la première est celle d'ouverture", () => {
+  editeur(bloc, deuxModes(vi.fn(), vi.fn()));
+  const b = bloc.querySelectorAll(".rp-mode");
+  expect(Array.from(b).map((x) => x.textContent)).toEqual(["Écrire", "Demander"]);
+  expect(b[0].getAttribute("aria-pressed")).toBe("true");
+  expect(b[1].getAttribute("aria-pressed")).toBe("false");
+});
+
+it("LE TEXTE DÉJÀ TAPÉ SURVIT À LA BASCULE — on change d'intention, pas de contenu", () => {
+  editeur(bloc, deuxModes(vi.fn(), vi.fn()));
+  const ta = bloc.querySelector(".rp-editeur textarea") as HTMLTextAreaElement;
+  ta.value = "pourquoi le panier a bougé";
+  (bloc.querySelectorAll(".rp-mode")[1] as HTMLButtonElement).click();
+  expect((bloc.querySelector(".rp-editeur textarea") as HTMLTextAreaElement).value).toBe("pourquoi le panier a bougé");
+});
+
+it("la bascule change le bouton d'action et l'invite — on voit ce qu'on s'apprête à faire", () => {
+  editeur(bloc, deuxModes(vi.fn(), vi.fn()));
+  expect((bloc.querySelector(".rp-btn-primary") as HTMLButtonElement).textContent).toBe("Enregistrer");
+  (bloc.querySelectorAll(".rp-mode")[1] as HTMLButtonElement).click();
+  expect((bloc.querySelector(".rp-btn-primary") as HTMLButtonElement).textContent).toBe("Demander");
+  expect((bloc.querySelector(".rp-editeur textarea") as HTMLTextAreaElement).placeholder).toBe("Votre question…");
+});
+
+it("le texte part au mode COURANT, jamais à celui d'ouverture", async () => {
+  const ecrire = vi.fn().mockResolvedValue(undefined);
+  const demander = vi.fn().mockResolvedValue(undefined);
+  editeur(bloc, deuxModes(ecrire, demander));
+  (bloc.querySelector(".rp-editeur textarea") as HTMLTextAreaElement).value = "à quoi est-ce dû ?";
+  (bloc.querySelectorAll(".rp-mode")[1] as HTMLButtonElement).click();
+  (bloc.querySelector(".rp-btn-primary") as HTMLButtonElement).click();
+  await new Promise((r) => setTimeout(r, 0));
+  expect(demander).toHaveBeenCalledWith("à quoi est-ce dû ?");
+  expect(ecrire).not.toHaveBeenCalled();
+});
+
+it("rouvert sur « Demander », c'est Demander qui est actif — la question suivante vient", () => {
+  const m = deuxModes(vi.fn(), vi.fn());
+  editeur(bloc, { ...m, modes: [m.modes[1], m.modes[0]] });
+  const b = bloc.querySelectorAll(".rp-mode");
+  expect(b[0].textContent).toBe("Demander");
+  expect(b[0].getAttribute("aria-pressed")).toBe("true");
+  expect((bloc.querySelector(".rp-btn-primary") as HTMLButtonElement).textContent).toBe("Demander");
+});
+
+it("un éditeur SANS modes garde son bouton d'origine — l'ancien contrat n'est pas cassé", () => {
+  editeur(bloc, { titre: "Le nom du modèle", cta: "Enregistrer", uneLigne: true, valider: vi.fn() });
+  expect(bloc.querySelector(".rp-modes")).toBeNull();
+  expect((bloc.querySelector(".rp-btn-primary") as HTMLButtonElement).textContent).toBe("Enregistrer");
+});

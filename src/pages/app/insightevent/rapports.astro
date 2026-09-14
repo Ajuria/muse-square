@@ -111,6 +111,13 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
       /* 14/09 — la liste des sections à ajouter : chaque choix montre son NOM et sa DÉFINITION. Un nom seul
          (« Mix produits & services ») ne dit pas ce qu'on ajoute ; la définition existe au lexique, on la
          montre au lieu de la cacher au survol — on choisit une fois, on ne survole pas treize lignes. */
+      /* 14/09 — l'interrupteur Écrire / Demander. Deux positions VISIBLES en même temps : un bouton qui
+         alterne (« Écrire » → « Demander ») cacherait la moitié du choix et ferait douter de l'état. */
+      .rp-modes { display: inline-flex; gap: 0; margin-bottom: 8px; border: 1px solid #E5E7EB; border-radius: 999px; background: #fff; padding: 2px; }
+      .rp-mode { font: inherit; font-size: 12.5px; font-weight: 600; color: #6B7280; background: none; border: 0;
+        border-radius: 999px; padding: 5px 14px; cursor: pointer; }
+      .rp-mode[aria-pressed="true"] { background: #1D3BB3; color: #fff; }
+      .rp-mode:not([aria-pressed="true"]):hover { color: #111827; background: #F3F4F6; }
       .rp-choix { display: grid; gap: 6px; }
       .rp-choix-item { display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
         background: #fff; border: 1px solid #E5E7EB; border-radius: 8px; padding: 9px 11px; }
@@ -207,10 +214,43 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
           if (opts.uneLigne) ta.type = "text"; else ta.rows = 3;
           ta.placeholder = opts.placeholder || ""; ta.value = opts.valeur || "";
           ta.setAttribute("aria-label", opts.titre);
+
+          // 14/09 (owner : « Écrire / Demander ») — L'INTERRUPTEUR. Avant, il fallait CHOISIR LE BOUTON
+          // AVANT D'AVOIR ÉCRIT : « Votre note » ou « Approfondir ». Or on commence souvent à taper une
+          // pensée et on s'aperçoit en route que c'est une question — ou l'inverse. On bascule donc APRÈS,
+          // et LE TEXTE DÉJÀ TAPÉ EST GARDÉ : c'est tout l'intérêt, le perdre annulerait le geste.
+          //
+          // DEUX MODES, PAS UN. Ce qui en sort n'a pas le même registre : « Écrire » pose VOTRE parole
+          // (votre nom, votre date, jamais vérifiée) ; « Demander » fait répondre l'app sous la porte de
+          // vérification. Les fondre détruirait la seule distinction sur laquelle le produit repose.
+          var mode = null;
+          if (Array.isArray(opts.modes) && opts.modes.length > 1) {
+            mode = opts.modes[0];
+            var bascule = el("div", "rp-modes");
+            bascule.setAttribute("role", "group");
+            bascule.setAttribute("aria-label", "Ce que vous faites");
+            var boutons = opts.modes.map(function (m) {
+              var b = el("button", "rp-mode", m.label); b.type = "button";
+              b.setAttribute("aria-pressed", String(m === mode));
+              b.addEventListener("click", function () {
+                if (m === mode) return;
+                mode = m;                                   // le texte tapé ne bouge pas : on change d'intention, pas de contenu
+                boutons.forEach(function (x, k) { x.setAttribute("aria-pressed", String(opts.modes[k] === mode)); });
+                ta.placeholder = mode.placeholder || "";
+                valider.textContent = mode.cta;
+                etat.textContent = "";
+                ta.focus();
+              });
+              bascule.appendChild(b);
+              return b;
+            });
+            box.appendChild(bascule);
+            ta.placeholder = mode.placeholder || ta.placeholder;
+          }
           box.appendChild(ta);
           var pied = el("div", "rp-editeur-pied");
           var etat = el("span", "rp-muted", "");
-          var valider = el("button", "rp-btn rp-btn-primary", opts.cta); valider.type = "button";
+          var valider = el("button", "rp-btn rp-btn-primary", mode ? mode.cta : opts.cta); valider.type = "button";
           var annuler = el("button", "rp-btn", "Annuler"); annuler.type = "button";
           // L'aide de saisie se DIT : un raccourci qu'on ne montre pas n'existe pas.
           var aide = el("span", "rp-muted rp-editeur-aide", "⌘+Entrée pour valider · Échap pour annuler");
@@ -227,7 +267,7 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
             // Vide : on ne valide pas, et on le DIT — un bouton qui ne fait rien passe pour cassé.
             if (!texte) { etat.textContent = "Écrivez quelque chose d'abord."; ta.focus(); return; }
             valider.disabled = true; annuler.disabled = true; etat.textContent = "…";
-            try { await opts.valider(texte); }
+            try { await (mode ? mode.valider : opts.valider)(texte); }
             catch (e) {
               // L'échec garde le texte SOUS LES YEUX : le perdre après l'avoir écrit est impardonnable.
               valider.disabled = false; annuler.disabled = false;
@@ -336,34 +376,38 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
             // deux gestes passaient par `prompt()` — la boîte du navigateur : elle bloque la page, elle ne
             // montre pas la section qu'on annote, elle ne garde aucun brouillon, et sur téléphone une
             // question de deux lignes s'y tape à l'aveugle. On édite désormais LÀ OÙ ON REGARDE.
-            actions.appendChild(mk("Votre note", function () {
-              editeurDansLeBloc(z, {
-                titre: "Votre note", cta: "Enregistrer",
+            // 14/09 (owner) — UN SEUL BOUTON, DEUX MODES. « Votre note » et « Approfondir » nomment au
+            // lexique ce qui est PRODUIT (l. 128-129) ; « Écrire » et « Demander » nomment ce que
+            // l'exploitant s'apprête à FAIRE. Deux boutons l'obligeaient à trancher avant d'avoir écrit —
+            // or on commence souvent une pensée et on s'aperçoit en route que c'est une question.
+            var demander = async function (question) {
+              var tools = el("ul", "rp-tools"); z.appendChild(tools);
+              var r = await composer({ approfondir: { document_id: doc.document_id, section: i, question: question } }, tools, null);
+              tools.remove();
+              // Une réponse appelle la question suivante (owner : « ça s'est refermé comme s'il savait que
+              // c'était tout pour moi, ce qui est faux »). Le document est rendu d'abord — la réponse doit
+              // être lisible —, la section ramenée à l'écran par l'ancre, PUIS l'éditeur rouvre sur
+              // « Demander » : rouvrir un champ qu'on ne voit pas serait pire que le fermer.
+              renderDocument(Object.assign({}, r.document, { ajoutables: r.ajoutables }), { section: i, bouton: null });
+              loadRapports();
+              var revenue = docEl.querySelector('[data-rapport-section="' + i + '"]');
+              if (revenue) ecrireSur(revenue, "demander");
+            };
+            var ecrireSur = function (bloc, depuis) {
+              var ecrire = { cle: "ecrire", label: "Écrire", cta: "Enregistrer",
                 placeholder: "Ce que vous savez et que la mesure ne dit pas.",
-                valider: function (texte) { return geste("note", { section: i, texte: texte }, "Votre note"); },
-              });
-            }));
-            var approfondirSur = function (bloc, idx) {
-              editeurDansLeBloc(bloc, {
-                titre: "Approfondir", cta: "Demander",
+                valider: function (texte) { return geste("note", { section: i, texte: texte }, "Écrire"); } };
+              var interroger = { cle: "demander", label: "Demander", cta: "Demander",
                 placeholder: "Votre question sur cette section.",
-                valider: async function (question) {
-                  var tools = el("ul", "rp-tools"); z.appendChild(tools);
-                  var r = await composer({ approfondir: { document_id: doc.document_id, section: i, question: question } }, tools, null);
-                  tools.remove();
-                  // 14/09 (owner : « Approfondir s'est refermé comme s'il savait que c'était tout pour moi,
-                  // ce qui est faux »). Une réponse appelle la question suivante : on rouvre l'éditeur sur
-                  // LA MÊME section, vide, curseur dedans. Le document est rendu d'abord (la réponse doit
-                  // être lisible), puis la section est ramenée à l'écran par l'ancre — sinon on rouvrirait
-                  // un champ que l'exploitant ne voit pas.
-                  renderDocument(Object.assign({}, r.document, { ajoutables: r.ajoutables }), { section: i, bouton: null });
-                  loadRapports();
-                  var revenue = docEl.querySelector('[data-rapport-section="' + i + '"]');
-                  if (revenue) approfondirSur(revenue, i);
-                },
+                valider: function (question) { return demander(question); } };
+              // Le mode d'OUVERTURE est le premier de la liste : « Écrire » au clic sur le bouton,
+              // « Demander » après une réponse — c'est la question suivante qui vient, pas une note.
+              editeurDansLeBloc(bloc, {
+                titre: "Cette section", cta: "Enregistrer",
+                modes: depuis === "demander" ? [interroger, ecrire] : [ecrire, interroger],
               });
             };
-            actions.appendChild(mk("Approfondir", function () { approfondirSur(z, i); }));
+            actions.appendChild(mk("Écrire", function () { ecrireSur(z, "ecrire"); }));
             z.appendChild(actions);
           });
           docEl.appendChild(zone);
