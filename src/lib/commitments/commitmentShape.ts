@@ -188,11 +188,22 @@ export async function buildWindowShape(
     // P3 : le périmètre (measuredScope) et son habituel sur les jours mesurés (kpi_baseline × jours),
     // pour que « votre résultat habituel » reste UN référentiel dans la page.
     scope?: MeasuredScope | null; scope_label_fr?: string | null; scope_expected_eur?: number | null;
+    // 14/09 — LE RÉFÉRENTIEL, INJECTABLE. Une OPÉRATION se compare à ses jours comparables (même jour de
+    // semaine, 4 semaines avant sa fenêtre) : c'est le défaut, inchangé. Un PÔLE n'a pas de fenêtre — sa
+    // lecture compare les 30 derniers jours aux 90 précédents (buildPoleReading), et la page ne peut
+    // afficher qu'UN SEUL référentiel (CLAUDE.md § gabarit : « un seul référentiel de niveau »). Sans ce
+    // paramètre, la décomposition d'un pôle aurait contredit son propre en-tête — deux pourcentages qui
+    // ne parlent pas de la même chose. Les dates passées ici REMPLACENT les jours comparables ; elles ne
+    // s'y ajoutent pas.
+    reference_dates?: string[] | null;
   },
 ): Promise<WindowShape | null> {
   const days = [...new Set(args.measured_dates)].sort();
   if (!days.length) return null;
-  const refs = comparableDates(days, args.window_start);
+  const jours = new Set(days);
+  const refs = args.reference_dates && args.reference_dates.length
+    ? [...new Set(args.reference_dates)].filter((d) => !jours.has(d)).sort()
+    : comparableDates(days, args.window_start);
   if (refs.length < 2) return null;                 // pas de référence crédible → pas de lecture
 
   const all = [...days, ...refs].sort();

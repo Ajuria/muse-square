@@ -1186,6 +1186,11 @@
         }
         h += b + '</div>';
       })();
+      // 14/09 (owner) — LA DÉCOMPOSITION, le MÊME bloc que sur une opération : nombre de ventes, panier
+      // moyen, mix, heures. Le serveur l'a calculée sur le référentiel de l'en-tête (30 derniers jours
+      // contre les 90 précédents), donc la page ne porte qu'UN référentiel. Rien n'est écrit ici : c'est
+      // `shapeBlock`, celui des opérations, appelé tel quel — s'il n'y a pas de matière, il dit l'absence.
+      if (data.shape) h += shapeBlock(data.shape, '', 30, 30, null, data.role === 'member' || (window && window._msMemberView === true));
       var mem = '';
       if (cm.dispositif_plus) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_plus')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_plus) + '</div></div>';
       if (cm.dispositif_why) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_why')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_why) + '</div></div>';

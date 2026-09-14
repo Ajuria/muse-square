@@ -474,6 +474,29 @@ it("un PÔLE à deux versions rend son historique AVEC les photos — c'est là 
   expect(html).not.toContain("/app/insightevent/engagement?id=c-v1");
 });
 
+// ── 14/09 — LA DÉCOMPOSITION SUR LA PAGE D'UN PÔLE (owner : « nombre de vente, panier moyen, mix
+// produit… la vue devrait être alignée sur M'engager »). Ce qui se garde : c'est LE bloc des opérations
+// qui rend, donc aucune seconde mécanique — et il n'apparaît que si le serveur a servi une décomposition.
+it("la décomposition d'un pôle est rendue par LE bloc des opérations, pas par un second", () => {
+  const data: any = polePhotos();
+  data.shape = {
+    volume: {
+      tx_w: 120, tx_r: 100, basket_w_eur: 12.4, basket_r_eur: 13.5,
+      tx_delta_pct: 20, basket_delta_pct: -8.1, weak_factor: "items",
+      points: [], units_w: 300, units_r: 280, items_per_tx_w: 2.5, items_per_tx_r: 2.8,
+    },
+    hours: [], products: [], families: [], runs: [],
+    ref_days: 90, measured_days: 30, notable_days: 0,
+  };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain(EVOL_COPY.shape_title);
+});
+
+it("sans décomposition servie, la page d'un pôle n'invente aucun bloc", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).not.toContain(EVOL_COPY.shape_title);
+});
+
 // ── 14/09 — L'ESPACE DU PÔLE SUR SA PAGE (owner : « on doit montrer revenu par m2 et par mètre
 // linéaire »). Les chiffres et les phrases sont ceux du volet de Piloter ; ce qui se garde ici, c'est
 // qu'ils arrivent SUR LA PAGE et que l'absence se dise au lieu d'une section vide.

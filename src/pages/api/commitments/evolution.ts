@@ -291,6 +291,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // 11/09. MÊME foyer que lui (`listPoleSpace`, vw_insight_event_space_30d, grain pôle) — jamais une
       // seconde lecture. Amorcé ici, attendu plus bas : aucun aller-retour de plus en série.
       const _espaceP = listPoleSpace(bq, String(snap.location_id)).catch(() => [] as PoleSpaceRow[]);
+      // 14/09 (owner : « nombre de vente, panier moyen, mix produit… la vue doit être alignée sur
+      // M'engager ») — LA DÉCOMPOSITION D'UN PÔLE, par LE calcul des opérations (buildWindowShape) et
+      // rendue par LE bloc des opérations : aucune seconde mécanique, aucun second rendu.
+      // Le RÉFÉRENTIEL est celui de l'en-tête du pôle, jamais les jours comparables d'une opération :
+      // 30 derniers jours contre les 90 précédents, exactement la fenêtre de buildPoleReading. Sans ça,
+      // la page afficherait deux pourcentages qui ne parlent pas de la même chose.
+      const _jour = (n: number) => { const d = new Date(asOfP + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+      const _mesures: string[] = []; for (let i = 0; i < 30; i++) _mesures.push(_jour(i));
+      const _refs: string[] = []; for (let i = 30; i < 120; i++) _refs.push(_jour(i));
+      const _shapePoleP = _famList.length
+        ? buildWindowShape(bq, {
+            location_id: String(snap.location_id),
+            measured_dates: _mesures, window_start: _mesures[_mesures.length - 1],
+            reference_dates: _refs,
+            scope: parseScope((snap as any).measured_scope),
+            scope_label_fr: null, scope_expected_eur: null,
+          }).catch(() => null)
+        : Promise.resolve(null);
       const pole = await buildPoleReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), _famList, asOfP);
       (pole as any).space = (await _espaceP).find(
         (r) => r.grain === "pole" && String(r.pole_id ?? "") === String((snap as any).dispositif_id ?? ""),
@@ -323,7 +341,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
         },
       };
       const lineage = await buildLineage(bq, snap);
-      return json({ ok: true, commitment, pole, lineage, site_name: null });
+      // `shape` porte le MÊME nom que sur une opération : le kit rend le MÊME bloc, sans le savoir.
+      return json({ ok: true, commitment, pole, lineage, shape: await _shapePoleP, site_name: null });
     }
 
     // MÊME règle que le cron : un « jour même » se lit sur LE JOUR DE L'OPÉRATION
