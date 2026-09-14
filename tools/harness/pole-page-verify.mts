@@ -17,6 +17,7 @@ import { readFileSync } from "node:fs";
 import * as vm from "node:vm";
 import { makeBQClient } from "../../src/lib/bq";
 import { GET as evoGET } from "../../src/pages/api/commitments/evolution";
+import { GET as photosGET } from "../../src/pages/api/dispositifs/photos";
 import { EVOL_COPY } from "../../src/lib/commitments/commitmentCopy";
 import { listPoles } from "../../src/lib/dispositifs/poleReading";
 
@@ -49,7 +50,7 @@ vm.createContext(bac);
 vm.runInContext(readFileSync("public/js/card-kit.js", "utf8"), bac, { filename: "card-kit.js" });
 const kit = bac.window.MSCardKit;
 
-type Ligne = { nom: string; ms: number; espace: string; comparaison: string; decomposition: string; plan: string; octets: number };
+type Ligne = { nom: string; ms: number; espace: string; comparaison: string; decomposition: string; plan: string; photos: string; octets: number };
 const lignes: Ligne[] = [];
 let erreurs = 0;
 
@@ -99,7 +100,20 @@ for (const p of poles) {
   const mauvais = [...new Set((texte(html).match(/\d[\d  ]*,\d{3,}\s*(?:€|m²|m|%)?/g) || []))];
   if (mauvais.length) { console.error(`✗ ${p.name} : ${mauvais.length} nombre(s) mal formaté(s) — ${mauvais.slice(0, 6).join(" · ")}`); erreurs++; }
 
-  lignes.push({ nom: String(p.name), ms, espace: espaceTxt, comparaison, decomposition: decomposition.replace(/^rendue/, "rendue"), plan, octets: html.length });
+  const emplacements = (html.match(/data-eg-photo="/g) || []).length;
+  let pj: any = null;
+  try {
+    const pr = await photosGET({
+      url: new URL(`http://l/api/dispositifs/photos?dispositif_id=${encodeURIComponent(String((data.commitment as any).dispositif_id ?? ""))}`),
+      locals: { clerk_user_id: userId, role: "owner", all_location_ids: [LOC] },
+    } as any);
+    pj = await (pr as Response).json();
+  } catch { /* l'absence de photos n'est pas une panne : la ligne ci-dessous la dira */ }
+  const servies = Array.isArray(pj?.photos) ? pj.photos.length : 0;
+  const prec = Array.isArray(pj?.photos) ? pj.photos.reduce((a: number, x: any) => a + (x.precedentes?.length ?? 0), 0) : 0;
+  const photos = `${emplacements} emplacement(s) · ${servies} photo(s) servie(s) par l'API · ${prec} précédente(s)`;
+
+  lignes.push({ nom: String(p.name), ms, espace: espaceTxt, comparaison, decomposition: decomposition.replace(/^rendue/, "rendue"), plan, photos, octets: html.length });
 
   // --dump=<nom du pôle> : le TEXTE des trois sections, pour relire les nombres et les phrases à l'œil
   // (une valeur mal formatée passe tous les tests — le formatage français ne se déduit pas d'un vert).
@@ -125,6 +139,7 @@ for (const l of lignes) {
   console.log(`    comparaison   ${l.comparaison}`);
   console.log(`    décomposition ${l.decomposition}`);
   console.log(`    plan          ${l.plan}`);
+  console.log(`    photos        ${l.photos}`);
 }
 const pire = lignes.reduce((a, l) => Math.max(a, l.ms), 0);
 const hors = lignes.slice(1).filter((l) => l.ms > BUDGET_MS).length;
