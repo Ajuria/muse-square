@@ -962,6 +962,11 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             var t2 = String(m.texte || "").split("\u2192")[0].split("\u2014")[0].split(",")[0].trim();
             return esc(t2.length > 45 ? t2.slice(0, 42) + "\u2026" : t2);
           }
+          // 14/09 (owner) — « Vos pôles » REMONTE sous le CA multi-site, au-dessus de « À faire ».
+          // Un pôle est un dispositif permanent : il se lit au calme, pas dans l'urgence du jour. Les
+          // deux sections se construisent dans l'ordre historique (aucune ligne de leur corps ne bouge)
+          // puis se RECOMPOSENT plus bas — c'est le seul geste qui ne risque rien sur 80 lignes de rendu.
+          var _htmlAvantAFaire = html; html = "";
           // Titre AU NIVEAU SECTION (owner 24/08) — plus d'agrégat € en tête : chaque geste
           // porte SA valeur sur SA ligne (« +510 € à prendre · 6 gestes » était trompeur).
           html += '<div style="display:flex;align-items:baseline;gap:10px;margin:2px 2px 6px;"><p class="tb-eb">À faire</p>'
@@ -983,6 +988,7 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           if (restCount) html += '<a href="/app/insightevent/evenement" title="' + restCount + ' échéances à venir — chacune s’arme seule à J-7" style="display:block;font-size:11.5px;color:#6b7280;margin-top:10px;text-decoration:none;">Et ensuite : ' + restCount + ' (→ ' + frD(restLast) + ') <span style="color:#1D3BB3;font-weight:600;">›</span></a>';
           html += '</div>';
 
+          var _aFaireHtml = html; html = "";
           // ═══ VOS PÔLES (build 28/08, protos validés — mémoire piloter-poles-protos) :
           // grille de cartes + volet partagé (#tb-pole-panel). Rien ne se rend sans pôle
           // déclaré ; la création vit sur « Nouvelle opération », jamais un bouton neuf ici.
@@ -1045,6 +1051,8 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
             });
             html += '</div><div id="tb-pole-panel" class="tb-card" style="display:none;padding:14px 16px;margin-bottom:12px;"></div>';
           }
+          // La recomposition (14/09) : ce qui précédait, puis les pôles, puis « À faire ».
+          html = _htmlAvantAFaire + html + _aFaireHtml;
 
           // € COMMUN de toute carte d'opération (spec 24/08) : CA + attendu de la fenêtre,
           // lus sur la MÊME série ca_daily que le héros — un seul référentiel à l'écran.

@@ -197,6 +197,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
           ) AS rn
           FROM \`${BQ_PROJECT}.analytics.action_commitments\`
           WHERE location_id = @locationId
+            -- 14/09 (owner : « each new pole is presented in agir page as a weird card ») : cette liste
+            -- nourrit les surfaces d'ACTION (le fil d'Agir, la disposition d'une carte). Un PÔLE n'y a
+            -- rien à faire : il n'a ni échéance ni verdict, il se pilote (Tableau de bord « Vos pôles »,
+            -- page /app/insightevent/pole). Et comme rien n'annule la version précédente d'un pôle,
+            -- CHAQUE version en ouvrait une carte de plus — le versionnement par la photo (13/09)
+            -- multipliait le flot à chaque changement d'étagère. Les surfaces de pôle lisent ailleurs
+            -- (listPoles pour le tableau, create_context pour le Compte, evolution pour la page).
+            AND COALESCE(dispositif_nature, 'operation') != 'permanent'
         )
         WHERE rn = 1 AND status != 'cancelled'
         ORDER BY updated_at DESC
