@@ -175,7 +175,8 @@ export function approfondirSection(r: RapportBlock, i: number, resultat: { block
   const blocs = out.sections[i].blocs;
   const firstNote = blocs.findIndex((b) => b.type === "note");
   const at = firstNote < 0 ? blocs.length : firstNote;
-  const utiles = sansCeQueLaSectionMontreDeja(blocs, resultat.blocks.filter((b) => b.type !== "register" && b.type !== "rapport"));
+  const dejaVu = r.sections.flatMap((x) => x.blocs);
+  const utiles = sansCeQueLaSectionMontreDeja(dejaVu, resultat.blocks.filter((b) => b.type !== "register" && b.type !== "rapport"));
   const insert: AnswerBlock[] = [
     { type: "prose", md: `**Approfondir — ${resultat.question.trim()}**` },
     { type: "register", register: resultat.register },
@@ -251,6 +252,7 @@ export function approfondirPrompt(r: RapportBlock, i: number, question: string):
     faits.length ? `Ce que la section dit déjà :\n${faits.map((f) => `• ${f}`).join("\n")}` : "",
     tableaux.length ? `Ce que la section MONTRE déjà, juste au-dessus de ta réponse — tableaux :\n${tableaux.map((t) => `• ${t}`).join("\n")}` : "",
     "N'AFFICHE PAS CE QUI EST DÉJÀ LÀ. L'exploitant a ces tableaux sous les yeux ; les redonner ne lui apprend rien et lui fait relire deux fois la même chose. Réponds par ce qu'il n'a PAS : le raisonnement, les comptes intermédiaires, et un tableau seulement s'il montre autre chose (une décomposition par jour, par famille, par heure…).",
+    "N'ÉCRIS JAMAIS UN TABLEAU DANS TON TEXTE (pas de lignes de | ). Les tableaux sont rendus par les outils, sous ta réponse ; en retaper un le fait apparaître DEUX fois, et le tien sort en lignes de barres verticales illisibles. Commente le tableau, ne le recopie pas.",
     `Question de l'exploitant : ${q}`,
   ].filter(Boolean).join("\n\n");
 }

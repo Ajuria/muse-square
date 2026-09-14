@@ -107,9 +107,39 @@ export interface Grounding { register: Register; ungrounded_numbers: string[]; f
  * Les nombres qui ne sont pas des faits (dates JJ/MM/AAAA, heures « 10 h », années) sont ignorés comme
  * dans le validateur ; un texte sans nombre est vérifié par construction.
  */
-export function groundAgentText(text: string, facts: string[]): Grounding {
+/**
+ * PUR — LES NOMBRES QU'UN OUTIL A RENDUS DANS SES BLOCS. Un tableau produit par un outil est de la SORTIE
+ * D'OUTIL, au même titre qu'un fait : ses cellules ne sont pas des inventions du modèle.
+ *
+ * POURQUOI ÇA MANQUAIT, ET CE QUE ÇA COÛTAIT (owner 14/09, capture à l'appui). La porte n'autorisait que
+ * les nombres des `facts`. Un outil qui rend un tableau de trente journées et deux phrases de faits rendait
+ * donc INFONDABLE tout commentaire sur ce tableau : « Non vérifié » s'affichait sur une réponse dont chaque
+ * chiffre venait pourtant de la caisse. Verdict de l'owner : « je ne comprends pas la pilule Non vérifié !
+ * C'est donc inutilisable ? » — il avait raison, la pastille mentait. C'est aussi ce qui faisait tomber la
+ * batterie par intermittence sur les réponses LONGUES (51, 45, 120, 3.13, 5, 6 en une journée : des nombres
+ * lus dans des tableaux).
+ *
+ * CE N'EST PAS UN ASSOUPLISSEMENT : on n'autorise rien que les outils n'aient rendu. Le modèle qui invente
+ * un nombre absent des faits ET des blocs est toujours pris.
+ */
+export function nombresDesBlocs(blocks: AnswerBlock[]): string[] {
+  const out: string[] = [];
+  const walk = (b: any) => {
+    if (!b) return;
+    if (b.type === "table") for (const r of b.rows ?? []) for (const c of r.cells ?? []) { if (c?.v != null) out.push(String(c.v)); if (c?.sub != null) out.push(String(c.sub)); }
+    else if (b.type === "facts") out.push(...(b.items ?? []).map(String));
+    else if (b.type === "barres" || b.type === "barres_h" || b.type === "parts") for (const i of b.items ?? []) { if (i?.value_fr) out.push(String(i.value_fr)); if (i?.part_fr) out.push(String(i.part_fr)); }
+    else if (b.type === "card") out.push(JSON.stringify(b.data ?? {}));
+    else if (b.type === "rapport") for (const s of b.sections ?? []) for (const x of s.blocs ?? []) walk(x);
+  };
+  for (const b of blocks ?? []) walk(b);
+  return out;
+}
+
+export function groundAgentText(text: string, facts: string[], blocsDesOutils: AnswerBlock[] = []): Grounding {
   const allowed = new Set<string>();
   for (const f of facts) for (const n of extractNumbers(f)) allowed.add(n);
+  for (const v of nombresDesBlocs(blocsDesOutils)) for (const n of extractNumbers(v)) allowed.add(n);
   const stated = extractNumbers(stripDatesAndHours(text));
   const ungrounded = [...stated].filter((n) => !allowed.has(n));
   return { register: ungrounded.length ? "model" : "vetted", ungrounded_numbers: ungrounded, facts_cited: facts.length };
@@ -118,6 +148,7 @@ export function groundAgentText(text: string, facts: string[]): Grounding {
 function stripDatesAndHours(s: string): string {
   return s
     .replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, " ")     // JJ/MM/AAAA
+    .replace(/\b\d{1,2}\/(?:0?[1-9]|1[0-2])\b(?!\/)/g, " ")  // JJ/MM sans année — « le 22/08 », « le 07/09 »
     .replace(/\b\d{4}-\d{2}-\d{2}\b/g, " ")               // AAAA-MM-JJ
     .replace(/\b\d{1,2}\s?h(?:\s?\d{2})?\b/g, " ")        // 10 h, 10h30
     .replace(/\b(19|20)\d{2}\b/g, " ")                    // années

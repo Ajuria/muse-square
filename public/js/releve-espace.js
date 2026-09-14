@@ -495,7 +495,7 @@
     diagEl.textContent = "mouvement " + (Math.round(det.lastM * 10) / 10) + "  (immobile < " + cfg.tStill + ", bouge > " + cfg.tMove + ")"
       + "\nnettete " + Math.round(det.lastS) + "  (plancher " + cfg.sharpMin + ")"
       + "\nimmobile " + Math.round(det.stillAcc) + " / " + cfg.stillMs + " ms   etat " + det.state
-      + "\nscene vs derniere photo " + (det.lastScene == null ? "-" : Math.round(det.lastScene * 10) / 10) + "  (nouvelle photo si > " + (Math.round(seuilScene() * 10) / 10) + ")"
+      + "\nsc\u00e8ne vs derni\u00e8re photo " + (det.lastScene == null ? "-" : Math.round(det.lastScene * 10) / 10) + "  (nouvelle photo si > " + (Math.round(seuilScene() * 10) / 10) + ")"
       + "\nticks " + diag.ticks + "  vides " + diag.vides + "  flux " + diag.vw + "x" + diag.vh + "  readyState " + diag.readyState
       + (det.lastError ? "\nerreur " + det.lastError : "");
   }

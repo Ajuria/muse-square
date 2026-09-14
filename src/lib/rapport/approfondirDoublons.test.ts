@@ -79,3 +79,46 @@ describe("approfondirPrompt — le modèle sait ce que la section MONTRE", () =>
     expect(p.trim().endsWith("Question de l'exploitant : à quoi est-ce dû ?")).toBe(true);
   });
 });
+
+// ── 14/09 (owner, seconde capture) — LE DOUBLON VENAIT D'UNE AUTRE SECTION ──
+// Le tableau du mix est réapparu sous « Chiffre d'affaires ». Il ne doublait pas CETTE section : il
+// doublait la section « Mix produits & services » du MÊME document, deux écrans plus bas. Ce que
+// l'exploitant a déjà sous les yeux, c'est le DOCUMENT entier, pas la section qu'il interroge.
+describe("le doublon se juge sur TOUT le document", () => {
+  const tMix = (): any => ({ type: "table", cols: [{ label: "Mix" }, { label: "CA" }], rows: [{ cells: [{ v: "Coffee" }, { v: "20 271 €" }] }] });
+  const tCA = (): any => ({ type: "table", cols: [{ label: "" }, { label: "Écart" }], rows: [{ cells: [{ v: "Chiffre d'affaires" }, { v: "+20,4 %" }] }] });
+  const doc = (): any => ({
+    type: "rapport", titre: "Rapport", periode: { du: "2026-08-15", au: "2026-09-13", relative: null, libelle_fr: "x" },
+    sections: [
+      { cle: "chiffre_affaires", titre: "Chiffre d'affaires", blocs: [tCA()], provenance: { outil: "v", params: {}, periode: { du: "2026-08-15", au: "2026-09-13" } } },
+      { cle: "mix", titre: "Mix produits & services", blocs: [tMix()], provenance: { outil: "v", params: {}, periode: { du: "2026-08-15", au: "2026-09-13" } } },
+    ],
+    synthese: null, non_reconnu: [],
+  });
+
+  it("un tableau présent AILLEURS dans le document ne revient pas dans la réponse", () => {
+    const tous = doc().sections.flatMap((s: any) => s.blocs);
+    const out = sansCeQueLaSectionMontreDeja(tous, [tMix(), { type: "prose", md: "La hausse tient au volume." } as any]);
+    expect(out).toHaveLength(1);
+    expect((out[0] as any).type).toBe("prose");
+  });
+
+  it("un tableau VRAIMENT neuf passe toujours — c'est la réponse", () => {
+    const tous = doc().sections.flatMap((s: any) => s.blocs);
+    const parJour: any = { type: "table", cols: [{ label: "Jour" }], rows: [{ cells: [{ v: "samedi" }] }] };
+    expect(sansCeQueLaSectionMontreDeja(tous, [parJour])).toEqual([parJour]);
+  });
+});
+
+describe("approfondirPrompt interdit d'écrire un tableau dans le texte", () => {
+  it("la consigne nomme le geste exact et sa conséquence", () => {
+    const d: any = {
+      type: "rapport", titre: "R", periode: { du: "2026-08-15", au: "2026-09-13", relative: null, libelle_fr: "x" },
+      sections: [{ cle: "ca", titre: "Chiffre d'affaires", blocs: [], provenance: { outil: "v", params: {}, periode: { du: "2026-08-15", au: "2026-09-13" } } }],
+      synthese: null, non_reconnu: [],
+    };
+    const p = approfondirPrompt(d, 0, "détaille par jour") as string;
+    expect(p).toContain("N'ÉCRIS JAMAIS UN TABLEAU DANS TON TEXTE");
+    expect(p).toContain("Commente le tableau, ne le recopie pas.");
+  });
+});

@@ -217,7 +217,8 @@ export async function runAgentTurn(bq: any, inp: AgentTurnInput): Promise<AgentT
   // familles » : le 3 est celui de l'exploitant, pas une invention du modèle ; la règle R2-4 du validateur du chat).
   // Les faits cités comptés restent ceux des outils.
   const toolFacts = tool_calls.flatMap((r) => r.facts ?? []);
-  const grounding = { ...groundAgentText(text, [...toolFacts, inp.messages[inp.messages.length - 1].content]), facts_cited: toolFacts.length };
+  const toolBlocks = tool_calls.flatMap((r) => r.blocks ?? []);
+  const grounding = { ...groundAgentText(text, [...toolFacts, inp.messages[inp.messages.length - 1].content], toolBlocks), facts_cited: toolFacts.length };
   const blocks = assembleAnswerBlocks(tool_calls.map((r) => r.blocks ?? []), grounding);
   for (const b of blocks) if (b.type === "rapport" && text) b.synthese = { text, register: grounding.register };
 
