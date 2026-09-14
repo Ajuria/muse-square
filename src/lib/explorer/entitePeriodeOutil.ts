@@ -19,6 +19,8 @@ export interface EntitePeriodeCompose {
   blocks: AnswerBlock[];
   facts: string[];
   sources: string[];
+  /** Une consigne pour le MODÈLE, jointe au texte qu'il lit — jamais un fait, jamais un bloc. */
+  consigne?: string;
 }
 
 /** PUR — une ligne de table → un fait : « <1re cellule> : <cellule> · <cellule> ».
@@ -64,6 +66,15 @@ export function composeEntitePeriode(b: EntityPeriodBlocks): EntitePeriodeCompos
   return { found: true, titre: b.headline, blocks, facts, sources: b.sources };
 }
 
+// 14/09 — CE QUE LE MODÈLE NE DOIT PAS FAIRE, dit dans le texte qu'il reçoit. Décision du 28/08
+// (entityReading, « jamais un verdict entre entités ») : deux entités ne se soustraient pas — l'une est
+// plus grosse par nature, l'écart ne mesure rien. Le modèle le faisait quand même et la porte l'arrêtait
+// (« nombres non fondés : 174 », batterie du 14/09) : une réponse juste rendue « non vérifiée ». La
+// consigne le lui dit AU MOMENT où il lit les chiffres, plutôt que de fabriquer l'écart pour qu'il puisse
+// le citer. Cette ligne n'est PAS un fait : elle ne part jamais au validateur.
+const CONSIGNE_ENTITES =
+  "Ne soustrais pas ces entités l'une de l'autre et n'en tire aucun écart : donne leurs chiffres côte à côte, tels qu'ils sont lus.";
+
 /** PUR — plusieurs entités, ou deux périodes : les sections de la comparaison, cellules nues. */
 export function composeEntitesComparees(c: EntityCompareBlocks): EntitePeriodeCompose {
   const blocks: AnswerBlock[] = [{ type: "prose", md: `**${c.headline}**` }];
@@ -74,10 +85,10 @@ export function composeEntitesComparees(c: EntityCompareBlocks): EntitePeriodeCo
     if (Array.isArray(sec.facts) && sec.facts.length) { blocks.push({ type: "facts", items: sec.facts }); facts.push(...sec.facts); }
   }
   if (c.sources.length) blocks.push({ type: "sources", items: c.sources });
-  return { found: true, titre: c.headline, blocks, facts, sources: c.sources };
+  return { found: true, titre: c.headline, blocks, facts, sources: c.sources, consigne: CONSIGNE_ENTITES };
 }
 
-/** Le texte rendu AU MODÈLE : l'en-tête, puis une ligne par fait. */
+/** Le texte rendu AU MODÈLE : l'en-tête, une ligne par fait, et la consigne quand il y en a une. */
 export function entiteToText(x: EntitePeriodeCompose): string {
-  return [x.titre, ...x.facts.map((f) => `• ${f}`)].join("\n");
+  return [x.titre, ...x.facts.map((f) => `• ${f}`), ...(x.consigne ? ["", x.consigne] : [])].join("\n");
 }

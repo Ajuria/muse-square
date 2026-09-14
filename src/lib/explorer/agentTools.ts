@@ -706,7 +706,7 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
   // ── 13/09 (incrément 8) — lire_plan : le plan coloré — les contours des pôles teintés par une mesure de l'espace.
   const lirePlan = outil({
     name: "lire_plan",
-    description: "Le plan coloré du magasin : les contours des pôles relevés sur le plan, teintés par une mesure de l'espace sur 30 jours — le CA par m² (défaut), la marge brute par m², le CA ou la marge brute par MÈTRE de linéaire, le CA, la Part du CA. Rend la surface de vente de chaque pôle et sa valeur, le plus fort dit. Il porte donc lui-même le classement sur sa mesure : inutile d'appeler un second outil pour savoir quel pôle est en tête. Sans contour relevé, l'absence.",
+    description: "Le plan coloré du magasin : les contours des pôles relevés sur le plan, teintés par une mesure de l'espace sur 30 jours — le CA par m² (défaut), la marge brute par m², le CA ou la marge brute par MÈTRE de linéaire, le CA, la Part du CA. Rend la surface de vente de chaque pôle et sa valeur, le plus fort dit. Il DESSINE le magasin : pour un simple classement chiffré des pôles, c'est `lire_poles_classement`, qui n'a pas besoin de contours relevés. Sans contour relevé, l'absence.",
     inputSchema: z.object({ mesure: z.enum(PLAN_MESURES as [PlanMesure, ...PlanMesure[]]).optional().describe("ca_par_m2 (défaut) · marge_par_m2 · ca_par_metre · marge_par_metre · ca · part_ca") }),
     run: (args) => timed("lire_plan", args, async () => {
       const mesure = (args.mesure as PlanMesure | undefined) ?? "ca_par_m2";

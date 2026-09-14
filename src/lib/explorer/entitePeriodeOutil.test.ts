@@ -91,6 +91,21 @@ describe("plusieurs entités, ou deux périodes", () => {
     ]);
   });
 
+  // 14/09 — la porte arrêtait une réponse juste : le modèle soustrayait deux entités (« nombres non
+  // fondés : 174 »). Le composeur ne FABRIQUE pas l'écart — décision du 28/08, « jamais un verdict entre
+  // entités » — il DIT au modèle de ne pas le faire, et cette consigne ne devient jamais un fait.
+  it("la comparaison joint une consigne au modèle : ne pas soustraire les entités — et ce n'est pas un fait", () => {
+    const x = composeEntitesComparees(compare());
+    expect(x.consigne).toContain("Ne soustrais pas ces entités");
+    expect(entiteToText(x)).toContain("Ne soustrais pas ces entités");
+    expect(x.facts.join(" ")).not.toContain("Ne soustrais pas");
+    expect(x.blocks.some((b) => JSON.stringify(b).includes("Ne soustrais pas"))).toBe(false);
+  });
+
+  it("une entité seule sur une période ne reçoit AUCUNE consigne — il n'y a rien à comparer", () => {
+    expect(composeEntitePeriode(unePeriode()).consigne).toBeUndefined();
+  });
+
   it("une section sans table ni fait ne rend que son titre", () => {
     const x = composeEntitesComparees({ headline: "A vs B", sections: [{ title: "Ventes" }], sources: [] });
     expect(x.blocks.map((b) => b.type)).toEqual(["prose", "prose"]);

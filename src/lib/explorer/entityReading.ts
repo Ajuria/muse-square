@@ -519,6 +519,12 @@ export function buildEntityCompareBlocks(grid: EntityPeriodReading[][]): EntityC
         }
       }
     }
+    // 14/09 — J'AI FAILLI COMPOSER L'ÉCART ENTRE DEUX ENTITÉS ICI, et c'était contre une décision du
+    // 28/08 écrite en tête de ce fichier et gardée par son test : « jamais un verdict entre entités ».
+    // Deux familles ne se soustraient pas — l'une est plus grosse par nature, l'écart ne mesure rien.
+    // La table les montre côte à côte, l'exploitant compare. Le modèle qui soustrait quand même se fait
+    // arrêter par la porte (mesuré le 14/09 : « nombres non fondés : 174 ») ; la parade est de le lui
+    // DIRE (entitePeriodeOutil), pas de fabriquer le chiffre pour qu'il puisse le citer.
     sections.push({
       title: "Côte à côte",
       table: { cols: [{ label: "Entité", align: "left" }, { label: "Période", align: "left" }, { label: "Résultat" }, { label: "CA/jour" }, { label: "Variation" }], rows: caRows },
