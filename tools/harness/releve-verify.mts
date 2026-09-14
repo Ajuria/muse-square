@@ -98,6 +98,29 @@ ${resolu}
     g.strokeStyle = "#222"; g.lineWidth = 3; for (var y = 30; y < 480; y += 84) { g.beginPath(); g.moveTo(0, y); g.lineTo(640, y); g.stroke(); }
   };
   window.__peindre("net");
+  // ── LA VRAIE PHOTO, sans appareil (14/09) ────────────────────────────────────────────────────────
+  // __releveCamera(w, h) stubbe ImageCapture et attache un VRAI MediaStream (celui du canvas) : le
+  // module croit tenir une caméra, et takePhoto() rend une image de w x h. C'est ce qui permet de
+  // vérifier le remplacement de l'image du flux ET le plafond de réduction. Ce code vit dans le
+  // harnais, jamais dans le module livré. PIÈGE : attacher une caméra démarre la boucle 120 ms DU
+  // MODULE, donc sous ce stub les comptes de photos ne sont plus déterministes — la batterie
+  // déterministe (0 photo en marchant, 1 par arrêt) se joue SANS le stub, celle de la photo avec.
+  window.__photoPrises = 0;
+  window.__releveCamera = function (w, h, doitEchouer) {
+    window.ImageCapture = function (piste) {
+      this.takePhoto = function () {
+        window.__photoPrises += 1;
+        if (doitEchouer) return Promise.reject(new Error("NotSupportedError"));
+        var cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+        var c2 = cv.getContext("2d");
+        c2.fillStyle = "#d8cfc0"; c2.fillRect(0, 0, w, h);
+        for (var i = 0; i < 200; i++) { c2.fillStyle = i % 2 ? "#7a4a1b" : "#2c5e37"; c2.fillRect((i * 137) % (w - 60), (i * 53) % (h - 80), 52, 72); }
+        return new Promise(function (res) { cv.toBlob(function (b) { res(b); }, "image/jpeg", 0.92); });
+      };
+    };
+    window.__releveAttach(c.captureStream(0));
+    return "camera stubbee " + w + "x" + h + (doitEchouer ? " (echec force)" : "");
+  };
 </script>
 <script>${js}</script>
 </body></html>`;

@@ -186,6 +186,22 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
    la garde (manuelle, raison « floue ») ; bascule de pôle en route enregistrée ; « Fin du relevé » → une
    section par pôle (« 1 photo », « 2 photos », « Aucune photo »). **Mutation vue tomber** : immobilité
    portée à 5 000 ms → 0 photo (3 480 ms cumulées, état « settling »).
+   **UNE VRAIE PHOTO AU POINT FOCAL (owner 14/09)** — amendement à M2, qui disait « des images fixes sur le
+   flux de la caméra ». Ce que le flux donne n'est pas ce que l'appareil photo donne : pas de mode photo,
+   pas de HDR, pas de stabilisation — or l'image est LUE par le modèle pour reconnaître les articles et
+   les familles. Au Point focal, `ImageCapture.takePhoto()` prend donc une vraie exposition sur le flux
+   déjà autorisé, sans geste (Safari 18.4+, iOS en hérite ; Chrome 60+). L'image du flux est gardée
+   d'abord et remplacée à l'arrivée : si takePhoto manque ou échoue, elle reste, et le compte rendu le
+   dit (`photo_echec`). **Aucune vidéo n'est produite pour autant** : M2 tient sur ce point.
+   Et le plafond de réduction devient celui du MODÈLE qui lit la photo — le rôle `packager` est
+   claude-sonnet-5, donc le palier haute résolution de l'API (2 576 px de grand côté, 4 784 jetons
+   visuels à 28 px par carreau) — au lieu du 1 600 px du proto, qui jetait du détail sous le palier.
+   Mesuré au harnais : 4 032 × 3 024 → 2 192 × 1 644 = 4 661 jetons (sous les deux bornes), 800 × 600
+   laissée intacte, échec de takePhoto → l'image du flux conservée. Coût de lecture : ~4 661 jetons
+   d'image par photo au lieu de ~2 500, soit ≈ 0,9 c$ au tarif Sonnet 5 en entrée contre ≈ 0,5 c$.
+   **À mesurer en magasin** : ce que le modèle lit d'une étiquette sur une vraie photo contre une image
+   du flux — le même meuble deux fois, une par le relevé, une par « Photo avec l'appareil ».
+
    **Reste à faire sur téléphone (owner)** : iPhone 17 + un Android, une boucle complète en magasin — faux
    points focaux en marchant, problèmes affichés à tort ou manqués, netteté médiane, durée, repli iOS. Le
    compte rendu JSON (« Compte rendu », sans image) se joint à l'arbitrage.

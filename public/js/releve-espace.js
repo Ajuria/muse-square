@@ -9,6 +9,11 @@
 //     composants de la version courante, posés par la page (`window.MSReleve.poles`) ;
 //   · une photo gardée s'ENVOIE (le proto n'écrivait rien) : l'exploitant touche le composant, le POST
 //     part par le foyer unique `MSPhotoCapture.envoyer` (public/js/photo-capture.js) ;
+//   · AU POINT FOCAL, UNE VRAIE PHOTO EST DÉCLENCHÉE (owner 14/09) : `ImageCapture.takePhoto()` sur le
+//     flux déjà autorisé, donc le pipeline photo de l'appareil et non une image du flux vidéo. L'image
+//     du flux est gardée d'abord et remplacée à l'arrivée ; si takePhoto manque ou échoue, elle reste.
+//     Et le plafond de taille est celui du MODÈLE qui lit la photo (2 576 px / 4 784 jetons), plus le
+//     1 600 px du proto — qui jetait du détail sous le palier de l'API ;
 //   · les chaînes visibles viennent du foyer du lexique (EVOL_COPY, `releve_*`), jamais du module.
 //
 // CE QUI N'EST PAS DANS CET INCRÉMENT (spec § 9 point 4, et il faut le savoir avant de marcher) :
@@ -23,6 +28,29 @@
 (function () {
   "use strict";
   var DEFAULTS = { tMove: 6, tStill: 2.5, stillMs: 1500, winMs: 1200, sharpMin: 100, brightMin: 40 };
+  // ── LE PLAFOND D'UNE PHOTO EST CELUI DU MODÈLE QUI LA LIT (14/09) ────────────────────────────────
+  // La route fait lire la photo par le rôle `packager` = claude-sonnet-5 (lib/ai/models.ts), donc le
+  // palier HAUTE RÉSOLUTION de l'API : 2 576 px de grand côté, 4 784 jetons visuels, un jeton par
+  // carreau de 28 px (⌈l/28⌉ × ⌈h/28⌉). Au-delà, l'API réduit elle-même — et une réduction côté API
+  // rend le texte des étiquettes illisible. Le proto plafonnait à 1 600 px : sous le palier, donc du
+  // détail jeté pour rien. On envoie la plus grande image qui tient sous LES DEUX bornes.
+  // Borne de poids : PHOTO_MAX_BYTES = 1 500 000 o côté route ; la qualité descend d'un cran plutôt
+  // que l'image, parce que les étiquettes se lisent à la RÉSOLUTION, pas au taux de compression.
+  var CAP = { edge: 2576, tokens: 4784, patch: 28, marge: 0.98, bytes: 1400000 };
+  function echelle(w, h) {
+    if (!w || !h) return 1;
+    var parJetons = Math.sqrt((CAP.tokens * CAP.patch * CAP.patch) / (w * h)) * CAP.marge;
+    return Math.min(1, CAP.edge / Math.max(w, h), parJetons);
+  }
+  // Un data: URL sous la borne de poids. On baisse la qualité, jamais la taille.
+  function encoder(cv) {
+    var q = [0.82, 0.72, 0.62, 0.5], url = "";
+    for (var i = 0; i < q.length; i++) {
+      url = cv.toDataURL("image/jpeg", q[i]);
+      if (url.length * 0.75 <= CAP.bytes) return url;
+    }
+    return url;
+  }
   var LS = "ms-releve-reglages";
   var IN = window.MSReleve || {};
   var POLES = Array.isArray(IN.poles) ? IN.poles.filter(function (p) { return p && p.dispositif_id; }) : [];
@@ -91,11 +119,49 @@
 
   function startCamera() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { return useFallback("getUserMedia absent"); }
-    navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1440 } } })
+    // 3840 x 2160 DEMANDÉS (14/09) : le navigateur donne le plus proche que la caméra sache faire. Ça
+    // ne sert pas l'analyse (elle travaille sur 64 px de gris) mais le REPLI, quand takePhoto() manque.
+    navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 3840 }, height: { ideal: 2160 } } })
       .then(function (s) { attach(s); })
       .catch(function (e) { useFallback(e && e.name ? e.name : String(e)); });
   }
-  function attach(s) { stream = s; video.srcObject = s; run.camera = "stream"; video.play().catch(function () {}); hideOverlay(); requestWakeLock(); loop(); }
+  // ── UNE VRAIE PHOTO AU POINT FOCAL (owner 14/09) ─────────────────────────────────────────────────
+  // `ImageCapture.takePhoto()` prend une exposition par le PIPELINE PHOTO de l'appareil (résolution du
+  // mode photo, exposition, traitement), pas une image du flux vidéo. Supporté par Safari depuis 18.4
+  // et hérité par iOS (données de compatibilité MDN), Chrome depuis 60 ; absent ailleurs, d'où le repli.
+  // Il ne demande aucun geste : l'autorisation du flux vaut déjà, et c'est ce qui permet de le déclencher
+  // sur la détection d'arrêt. Le prix : quelques centaines de ms et, sur certains appareils, un
+  // clignotement du viseur — c'est pourquoi l'image du flux est gardée D'ABORD et remplacée ensuite.
+  var appareil = null;
+  function attach(s) {
+    stream = s; video.srcObject = s; run.camera = "stream"; video.play().catch(function () {});
+    appareil = null;
+    try {
+      var piste = s.getVideoTracks ? s.getVideoTracks()[0] : null;
+      if (piste && window.ImageCapture) { appareil = new window.ImageCapture(piste); run.camera = "stream+photo"; }
+    } catch (e) { appareil = null; }
+    hideOverlay(); requestWakeLock(); loop();
+  }
+  // Remplace l'image du flux par la vraie photo, quand elle arrive. Jamais bloquant : si takePhoto
+  // échoue (absent, refusé, piste occupée), la photo du flux reste — rien n'est perdu.
+  function vraiePhoto(it) {
+    if (!appareil || !it) return;
+    appareil.takePhoto()
+      .then(function (blob) { return createImageBitmap(blob); })
+      .then(function (bmp) {
+        var w = bmp.width, h = bmp.height, k = echelle(w, h);
+        full.width = Math.round(w * k); full.height = Math.round(h * k);
+        fctx.drawImage(bmp, 0, 0, full.width, full.height);
+        var mw = 320, mh = Math.round(mw * h / w); mid.width = mw; mid.height = mh; mctx.drawImage(bmp, 0, 0, mw, mh);
+        var g = gray(mctx, mw, mh);
+        it.dataUrl = encoder(full); it.w = full.width; it.h = full.height;
+        it.sharp = Math.round(lapVar(g, mw, mh)); it.bright = Math.round(mean(g));
+        it.source = "photo"; it.photo_w = w; it.photo_h = h;
+        if (bmp.close) bmp.close();
+        renderStrip();
+      })
+      .catch(function (e) { it.photo_echec = String(e && e.name || e); renderStrip(); });
+  }
   function useFallback(reason) {
     run.camera = "file:" + reason; ring.style.display = "none";
     showOverlay(t("releve_camera_ko"), t("releve_camera_ko_texte"), true);
@@ -173,11 +239,11 @@
     }
   }
   function grab() {
-    var vw = srcW(), vh = srcH(), k = Math.min(1, 1600 / Math.max(vw, vh));
+    var vw = srcW(), vh = srcH(), k = echelle(vw, vh);
     full.width = Math.round(vw * k); full.height = Math.round(vh * k); fctx.drawImage(src(), 0, 0, full.width, full.height);
     var mw = 320, mh = Math.round(mw * vh / vw); mid.width = mw; mid.height = mh; mctx.drawImage(src(), 0, 0, mw, mh);
     var g = gray(mctx, mw, mh);
-    return { dataUrl: full.toDataURL("image/jpeg", 0.82), sharp: Math.round(lapVar(g, mw, mh)), bright: Math.round(mean(g)), w: full.width, h: full.height };
+    return { dataUrl: encoder(full), sharp: Math.round(lapVar(g, mw, mh)), bright: Math.round(mean(g)), w: full.width, h: full.height };
   }
 
   // ── une photo gardée : le composant d'un toucher, puis l'envoi ─────────────
@@ -186,7 +252,11 @@
     if (last && !manual && last.dataUrl === shot.dataUrl) { if (window.console) console.warn("[releve] image identique ignoree"); return; }
     run.seq += 1;
     run.items.push({ seq: run.seq, t: tOff(), at: new Date().toISOString(), pole: run.pole, sharp: shot.sharp, bright: shot.bright, w: shot.w, h: shot.h, manual: !!manual, reason: reason || null, source: shot.source || run.camera, removed: false, dataUrl: shot.dataUrl, comp: null, etat: "a_rattacher" });
+    // La photo du flux est gardée D'ABORD (la vignette apparaît tout de suite, rien ne peut se perdre),
+    // puis la vraie photo la remplace quand elle arrive. L'envoi n'a lieu qu'au toucher du composant :
+    // elle a le temps. Sur une photo prise au fichier, il n'y a rien à remplacer.
     renderStrip(); renderPoles();
+    if (shot.source !== "file") vraiePhoto(run.items[run.items.length - 1]);
     if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) { try { navigator.vibrate(30); } catch (e) {} }
   }
   // L'envoi : le foyer unique du POST (photo-capture.js). La photo part avec la clé du composant que
@@ -236,11 +306,11 @@
     var f = ev.target.files && ev.target.files[0]; if (!f) return;
     var img = new Image(), url = URL.createObjectURL(f);
     img.onload = function () {
-      var k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      var k = echelle(img.naturalWidth, img.naturalHeight);
       full.width = Math.round(img.naturalWidth * k); full.height = Math.round(img.naturalHeight * k); fctx.drawImage(img, 0, 0, full.width, full.height);
       var mw = 320, mh = Math.round(mw * img.naturalHeight / img.naturalWidth); mid.width = mw; mid.height = mh; mctx.drawImage(img, 0, 0, mw, mh);
       var g = gray(mctx, mw, mh);
-      commit({ dataUrl: full.toDataURL("image/jpeg", 0.82), sharp: Math.round(lapVar(g, mw, mh)), bright: Math.round(mean(g)), w: full.width, h: full.height, source: "file" }, true, null);
+      commit({ dataUrl: encoder(full), sharp: Math.round(lapVar(g, mw, mh)), bright: Math.round(mean(g)), w: full.width, h: full.height, source: "file" }, true, null);
       URL.revokeObjectURL(url); ev.target.value = "";
     };
     img.src = url;
@@ -265,7 +335,7 @@
     var report = { surface: "releve-espace", startedAt: run.startedAt, endedAt: new Date().toISOString(), durationS: tOff(), camera: run.camera, ua: navigator.userAgent, viewport: [innerWidth, innerHeight],
       reglages: { tMove: cfg.tMove, tStill: cfg.tStill, stillMs: cfg.stillMs, winMs: cfg.winMs, sharpMin: cfg.sharpMin, brightMin: cfg.brightMin },
       poles: POLES.map(function (p) { return { name: p.name, dispositif_id: p.dispositif_id, components: (p.components || []).length }; }),
-      items: run.items.map(function (i) { return { seq: i.seq, t: i.t, at: i.at, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, photo_id: i.photo_id || null, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, manual: i.manual, reason: i.reason, source: i.source, removed: i.removed, removedAt: i.removedAt || null }; }),
+      items: run.items.map(function (i) { return { seq: i.seq, t: i.t, at: i.at, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, photo_id: i.photo_id || null, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, photo_w: i.photo_w || null, photo_h: i.photo_h || null, photo_echec: i.photo_echec || null, manual: i.manual, reason: i.reason, source: i.source, removed: i.removed, removedAt: i.removedAt || null }; }),
       switches: run.switches, problems: run.problems };
     var a = $("sumDl"); if (a.href && a.href.indexOf("blob:") === 0) URL.revokeObjectURL(a.href);
     a.href = URL.createObjectURL(new Blob([JSON.stringify(report, null, 1)], { type: "application/json" }));
@@ -294,7 +364,7 @@
   // ── harnais (identiques au proto : la vérification du 12/09 continue de valoir) ──
   window.__releveAttach = function (s) { if (run.phase !== "running") start(); attach(s); };
   window.__releveStep = function (dt) { if (run.phase !== "running") start(); if (!stream) stream = true; var x = (det.tick || now()) + (dt || 120); det.tick = x; step(x, dt || 120); return window.__releveState(); };
-  window.__releveState = function () { return { phase: run.phase, state: det.state, armed: det.armed, m: Math.round(det.lastM * 10) / 10, s: Math.round(det.lastS), stillAcc: Math.round(det.stillAcc), ticks: det.ticks, lastError: det.lastError, overlay: overlay.style.display === "flex" ? $("ovTitle").textContent : null, pole: run.pole, poles: POLES.length, items: run.items.map(function (i) { return { seq: i.seq, t: i.t, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, sharp: i.sharp, bright: i.bright, manual: i.manual, reason: i.reason }; }), switches: run.switches.length, problems: run.problems.slice(), mainBtn: mainBtn.textContent, clock: $("rl-clock").textContent }; };
+  window.__releveState = function () { return { phase: run.phase, state: det.state, armed: det.armed, m: Math.round(det.lastM * 10) / 10, s: Math.round(det.lastS), stillAcc: Math.round(det.stillAcc), ticks: det.ticks, lastError: det.lastError, overlay: overlay.style.display === "flex" ? $("ovTitle").textContent : null, pole: run.pole, poles: POLES.length, items: run.items.map(function (i) { return { seq: i.seq, t: i.t, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, source: i.source, photo_echec: i.photo_echec || null, manual: i.manual, reason: i.reason }; }), switches: run.switches.length, problems: run.problems.slice(), mainBtn: mainBtn.textContent, clock: $("rl-clock").textContent }; };
 
   renderPoles();
   if (POLES.length === 1) switchPole(POLES[0].name);
