@@ -90,7 +90,10 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
       .rp-item .rp-muted { font-size: 12px; }
       .rp-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 0.5px dashed #E5E7EB; }
       /* 14/09 — le rang « 3 / 8 » : un repère, pas une donnée. Gris, petit, aligné avec les boutons. */
-      .rp-rang { align-self: center; font-size: 12px; color: #9CA3AF; margin-right: 4px; font-variant-numeric: tabular-nums; }
+      /* Dans la ligne de titre (majuscules, bleu donnée) : le rang reste un REPÈRE — gris, chiffres de
+         largeur fixe pour que « 9 / 12 » et « 10 / 12 » n'écartent pas le titre, et un séparateur discret. */
+      .rp-rang { color: #9CA3AF; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+      .rp-rang::after { content: " \00b7 "; color: #D1D5DB; }
       /* Le clignotement d'une seconde après un geste : le bleu donnée, qui s'efface. Aucun décalage de mise
          en page (outline, pas border) — un bloc qui grandit en clignotant déplacerait ses voisins. */
       .rp-vient-de-bouger { outline: 2px solid #1D3BB3; outline-offset: 3px; border-radius: 6px; animation: rp-fade 1s ease-out forwards; }
@@ -212,11 +215,17 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
             var i = Number(z.getAttribute("data-rapport-section"));
             // 14/09 (owner) — « 3 / 8 » : la position se LIT au lieu de se suivre du regard. Sur un rapport
             // de douze sections, c'est ce qui sert le plus : on compare un numéro avant et après, sans
-            // avoir rien vu bouger. Discret (gris, petit) : c'est un repère, pas une donnée du rapport.
+            // avoir rien vu bouger.
+            // CORRIGÉ le 14/09 : je l'avais posé dans la rangée des BOUTONS, alors que j'avais annoncé « à
+            // côté du titre ». L'owner regardait le titre et ne voyait rien — un repère de position se lit
+            // là où l'œil cherche le nom de la section, pas au milieu des gestes. Il entre donc DANS la
+            // ligne de titre que le kit rend (premier enfant du bloc, card-kit.js `rapport` → `zone`).
             var rang = el("span", "rp-rang", (i + 1) + " / " + zones.length);
             rang.setAttribute("aria-label", "Section " + (i + 1) + " sur " + zones.length);
+            var titreEl = z.firstElementChild;
             var actions = el("div", "rp-actions");
-            actions.appendChild(rang);
+            if (titreEl) titreEl.insertBefore(rang, titreEl.firstChild);
+            else actions.appendChild(rang);          // repli : mieux vaut le rang au mauvais endroit qu'absent
             // Déplacer : des flèches, pas des mots (owner 12/09) — Monter / Descendre sont les mots lus par un lecteur d'écran.
             if (i > 0) actions.appendChild(mk("↑", function () { return geste("deplacer", { section: i, vers: i - 1 }, "↑"); }, "Monter"));
             if (i < zones.length - 1) actions.appendChild(mk("↓", function () { return geste("deplacer", { section: i, vers: i + 1 }, "↓"); }, "Descendre"));
