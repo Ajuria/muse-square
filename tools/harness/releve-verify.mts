@@ -114,10 +114,25 @@ ${resolu}
   window.__peindre = function (mode) {
     if (mode === "noir") { g.fillStyle = "#000"; g.fillRect(0, 0, 640, 480); return; }
     if (mode === "plat") { g.fillStyle = "#9a9a9a"; g.fillRect(0, 0, 640, 480); return; }
-    var dx = mode === "bouge" ? Math.floor(Math.random() * 600) : 0;
+    // « main » = un téléphone TENU : la scène ne change pas, mais elle tremble de quelques pixels et
+    // le capteur bruite. C'est le mode qui manquait — le proto était calibré sur une image
+    // parfaitement fixe (mouvement 0), alors qu'une main donne 12 à 18 (mesure owner 14/09).
+    // « main » et « main2 » : DEUX meubles différents, tenus à la main. Le second existe pour prouver
+    // qu'une photo nouvelle vient d'un CHANGEMENT DE SCÈNE, sans dépendre d'une marche détectée.
+    var base = mode === "main2" ? 260 : 0;
+    var dx = mode === "bouge" ? Math.floor(Math.random() * 600) : (mode === "main" || mode === "main2") ? base + (Math.random() * 6 - 3) : 0;
+    var bruit = (mode === "main" || mode === "main2") ? 48 : 0;   // calibré sur la mesure owner du 14/09
     g.fillStyle = "#e8e2d5"; g.fillRect(0, 0, 640, 480);
     for (var i = 0; i < 24; i++) { g.fillStyle = i % 2 ? "#8a5a2b" : "#3c6e47"; g.fillRect((i * 53 + dx) % 600, 40 + (i % 5) * 84, 44, 64); }
     g.strokeStyle = "#222"; g.lineWidth = 3; for (var y = 30; y < 480; y += 84) { g.beginPath(); g.moveTo(0, y); g.lineTo(640, y); g.stroke(); }
+    if (bruit) {
+      var im = g.getImageData(0, 0, 640, 480), d = im.data;
+      for (var k = 0; k < d.length; k += 4) {
+        var n = (Math.random() - 0.5) * bruit;
+        d[k] += n; d[k + 1] += n; d[k + 2] += n;
+      }
+      g.putImageData(im, 0, 0);
+    }
   };
   window.__peindre("net");
   // ── LA VRAIE PHOTO, sans appareil (14/09) ────────────────────────────────────────────────────────

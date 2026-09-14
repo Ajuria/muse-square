@@ -234,6 +234,23 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
    du site) plus un `cache-control: no-store` : deux essais owner ont eu lieu sur un écran périmé sans
    que personne puisse le prouver. Une remarque sur l'écran se lit désormais avec sa version.
 
+   **LES SEUILS, CALIBRÉS SUR UNE MAIN (owner 14/09, mesure au diagnostic)** — immobile devant un
+   meuble, son iPhone lit un mouvement de **12 à 18**. Les seuils venaient du proto, calibré sur un
+   canvas parfaitement fixe : immobile < 2,5, « ça bouge » > 6. Une main au repos était donc en
+   permanence au-dessus du seuil de déplacement : la détection ne commençait JAMAIS à compter, d'où
+   0 photo en 51 s et 0 problème signalé. Nouvelles valeurs : **immobile 22, bouge 28**. L'écart entre
+   les deux est l'hystérésis et il doit rester COURT — à 34, une marche mesurée à 33 au harnais ne
+   réarmait pas le détecteur : une photo pour toute la marche.
+   **ET LE RÉARMEMENT NE DÉPEND PLUS DE DÉTECTER UNE MARCHE** (dont la valeur change d'un téléphone à
+   l'autre et n'est pas mesurée chez l'owner) : ce qui autorise une photo nouvelle, c'est que LA SCÈNE
+   AIT CHANGÉ depuis la dernière gardée (écart > 0,75 × le seuil d'immobilité — mesuré au harnais :
+   même meuble 5 à 11, autre meuble 22 à 26). Tenir le même meuble dix secondes ne rend qu'une photo
+   même si la main tremble ; se tourner vers un autre en rend une, même sans déplacement détecté. Le
+   diagnostic affiche cet écart en direct, sans quoi « pourquoi une seule photo ? » n'est pas répondable.
+   Vérifié au harnais avec un mode « main » (bruit calibré sur la mesure owner) et DEUX meubles :
+   1 photo / même meuble 10 s → 1 / autre meuble sans marche → 2 / on y reste → 2 / retour → 3 /
+   avec marche → 4.
+
    **Reste à faire sur téléphone (owner)** : iPhone 17 + un Android, une boucle complète en magasin — faux
    points focaux en marchant, problèmes affichés à tort ou manqués, netteté médiane, durée, repli iOS. Le
    compte rendu JSON (« Compte rendu », sans image) se joint à l'arbitrage.

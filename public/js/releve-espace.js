@@ -24,7 +24,20 @@
 // Harnais (inchangés) : window.__releveSource, __releveStep(dt), __releveState(), __releveAttach(stream).
 (function () {
   "use strict";
-  var DEFAULTS = { tMove: 6, tStill: 2.5, stillMs: 1500, winMs: 1200, sharpMin: 100, brightMin: 40 };
+  // ── LES SEUILS, CALIBRÉS SUR UN TÉLÉPHONE TENU À LA MAIN (owner 14/09) ──────────────────────────
+  // Mesure owner, iPhone, immobile devant un meuble : le mouvement lu vaut 12 à 18. Les seuils
+  // venaient du proto, calibré sur un canvas PARFAITEMENT fixe : immobile < 2,5 et « ça bouge » > 6.
+  // Une main au repos était donc en permanence AU-DESSUS du seuil « ça bouge » : la détection ne
+  // commençait jamais à compter, d'où 0 photo en 51 s et 0 problème signalé. Les nouvelles valeurs
+  // laissent la main tranquille (immobile jusqu'à 22) et gardent une marge franche avant de déclarer
+  // un déplacement (34) — une marche donne des valeurs bien plus hautes (50 et plus au harnais).
+  // Elles restent réglables sur place (appui long sur le chrono) et le diagnostic affiche le mouvement
+  // en direct : ce sont des valeurs MESURÉES sur un appareil, pas une vérité.
+  // L'ÉCART ENTRE LES DEUX SEUILS EST L'HYSTÉRÉSIS, et il doit rester COURT : le détecteur ne se
+  // réarme qu'au-dessus de « ça bouge ». Trop haut, il ne se réarme jamais après une photo et la
+  // marche entière ne rend qu'une seule image — le défaut vu au harnais avec 34 (une marche y mesure
+  // 33). Immobile 22 (au-dessus des 12-18 d'une main), bouge 28 (juste au-dessus).
+  var DEFAULTS = { tMove: 28, tStill: 22, stillMs: 1500, winMs: 1200, sharpMin: 100, brightMin: 40 };
   var LS = "ms-releve-reglages";
   var IN = window.MSReleve || {};
   var POLES = Array.isArray(IN.poles) ? IN.poles.filter(function (p) { return p && p.dispositif_id; }) : [];
@@ -55,7 +68,14 @@
   }
 
   var run = { phase: "idle", startedAt: null, t0: 0, pole: null, items: [], switches: [], problems: [], seq: 0, camera: "none" };
-  var det = { prev: null, state: "moving", stillAcc: 0, keptAt: 0, armed: true, best: null, problem: null, lastM: 0, lastS: 0, tick: 0, ticks: 0, lastError: null };
+  var det = { prev: null, state: "moving", stillAcc: 0, keptAt: 0, armed: true, best: null, problem: null, lastM: 0, lastS: 0, tick: 0, ticks: 0, lastError: null,
+              // 14/09 — LA SCÈNE DE LA DERNIÈRE PHOTO GARDÉE. Le réarmement ne dépend plus de détecter
+              // une MARCHE (dont la valeur change d'un téléphone à l'autre et que je n'ai pas mesurée
+              // chez l'owner) : ce qui autorise une photo nouvelle, c'est que LA SCÈNE AIT CHANGÉ
+              // depuis la dernière gardée. Tenir le même meuble dix secondes ne produit qu'une photo,
+              // même si la main tremble ; se tourner vers un autre meuble en produit une, même si le
+              // déplacement n'a jamais dépassé le seuil « ça bouge ».
+              sceneGardee: null };
   // POURQUOI UN ZÉRO EST UN ZÉRO (14/09) : le premier relevé réel a rendu 0 photo sans permettre de
   // dire si le seuil était trop strict ou si rien n'avait été analysé. Ces compteurs tranchent.
   var diag = { ticks: 0, vides: 0, mMin: null, mMax: null, mSomme: 0, mN: 0, sMax: null, sMin: null,
@@ -215,7 +235,7 @@
     if (!c || !document.contains(c)) return;
     if (c.closest("#overlay") || c.closest("#poleTag") || c.closest("#stopBtn") || c.closest("#poleSheet")) return;
     if (run.phase !== "running" || !stream || !srcW()) return;
-    commit(grab(), true, null); det.armed = false;
+    commit(grab(), true, null); det.armed = false; det.sceneGardee = det.prev ? det.prev.slice() : null;
   });
 
   // ── analyse — PORTÉE À L'IDENTIQUE du proto v2 (vérifiée le 12/09) ────────
@@ -230,6 +250,11 @@
   function motion(a, b) { if (!a || !b || a.length !== b.length) return 99; var s = 0; for (var i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; }
   function lapVar(g, w, h) { var n = 0, s = 0, s2 = 0; for (var y = 1; y < h - 1; y++) for (var x = 1; x < w - 1; x++) { var i = y * w + x; var v = 4 * g[i] - g[i - 1] - g[i + 1] - g[i - w] - g[i + w]; s += v; s2 += v * v; n++; } var m = s / n; return s2 / n - m * m; }
   function mean(g) { var s = 0; for (var i = 0; i < g.length; i++) s += g[i]; return s / g.length; }
+  // LE SEUIL DE « LA SCÈNE A CHANGÉ » — mesuré au harnais : même meuble (la main tremble seulement)
+  // 5 à 11 ; un autre meuble 22 à 26. À 22 la marge était d'un demi-point du mauvais côté sur
+  // certaines images. Aux trois quarts du seuil d'immobilité, il reste de la place des deux côtés,
+  // et il suit automatiquement un réglage manuel des seuils sur le téléphone.
+  function seuilScene() { return cfg.tStill * 0.75; }
 
   function loop() {
     if (timer) return;
@@ -251,6 +276,9 @@
     var g = gray(wctx, W, h);
     var m = motion(det.prev, g); det.prev = g;
     det.lastM = m; det.lastS = lapVar(g, W, h);
+    // L'écart avec la scène de la DERNIÈRE photo gardée : c'est lui qui autorise une photo nouvelle.
+    // Affiché au diagnostic — sans ce nombre, un « pourquoi une seule photo ? » n'est pas répondable.
+    det.lastScene = det.sceneGardee && det.sceneGardee.length === g.length ? motion(det.sceneGardee, g) : null;
     noteMouvement(m, det.lastS);
     if (det.stillAcc > diag.immobileMax) diag.immobileMax = det.stillAcc;
 
@@ -258,6 +286,16 @@
       if (det.best && !det.problem) { commit(det.best, false, null); }
       if (det.problem) { run.problems.push(det.problem); det.problem = null; hideOverlay(); }
       det.best = null; det.armed = true; det.state = "moving"; det.stillAcc = 0; dire("releve_etat_avance"); return;
+    }
+    // La scène a-t-elle changé depuis la dernière photo gardée ? Si oui, on se réarme sans avoir eu
+    // besoin de voir une marche. `motion` rend 99 quand les tailles diffèrent : on ne s'en sert que
+    // Le repère est le seuil d'IMMOBILITÉ, pas celui du déplacement : mesuré au harnais, une scène
+    // inchangée (la main tremble seulement) rend ~11, un autre meuble ~25. Comparé au seuil du
+    // déplacement (28), le réarmement ne se faisait JAMAIS — une photo et plus rien, le défaut
+    // exact qu'on voulait éviter. Le seuil d'immobilité (22) sépare les deux.
+    // si la scène gardée a la même grille.
+    if (!det.armed && det.sceneGardee && det.sceneGardee.length === g.length && motion(det.sceneGardee, g) > seuilScene()) {
+      det.armed = true; det.stillAcc = 0;
     }
     if (!det.armed) return;
     if (det.problem) return;
@@ -268,7 +306,13 @@
       if (x - det.keptAt <= cfg.winMs) { var c = grab(); if (c.sharp > det.best.sharp * 1.1) det.best = c; return; }
       var reason = det.best.bright < cfg.brightMin ? "sombre" : det.best.sharp < cfg.sharpMin ? "floue" : null;
       if (reason) { det.problem = { t: tOff(), pole: run.pole, reason: reason, kept: false }; det.state = "problem"; showOverlay(reason === "sombre" ? t("releve_sombre") : t("releve_floue"), t("releve_garder_quand_meme"), false); return; }
-      commit(det.best, false, null); det.best = null; det.armed = false; det.state = "captured";
+      // Même scène que la dernière gardée (la main tremble, l'image bouge de quelques valeurs) : on ne
+      // garde pas deux fois le même meuble. La comparaison d'octets ne suffit pas — le bruit du
+      // capteur rend deux images jamais identiques.
+      if (det.sceneGardee && det.sceneGardee.length === g.length && motion(det.sceneGardee, g) <= seuilScene()) {
+        det.armed = false; det.best = null; det.state = "captured"; return;
+      }
+      commit(det.best, false, null); det.sceneGardee = g.slice(); det.best = null; det.armed = false; det.state = "captured";
     } else {
       det.state = det.stillAcc ? "settling" : "moving";
       dire(det.stillAcc ? "releve_etat_arret" : "releve_etat_avance");
@@ -451,6 +495,7 @@
     diagEl.textContent = "mouvement " + (Math.round(det.lastM * 10) / 10) + "  (immobile < " + cfg.tStill + ", bouge > " + cfg.tMove + ")"
       + "\nnettete " + Math.round(det.lastS) + "  (plancher " + cfg.sharpMin + ")"
       + "\nimmobile " + Math.round(det.stillAcc) + " / " + cfg.stillMs + " ms   etat " + det.state
+      + "\nscene vs derniere photo " + (det.lastScene == null ? "-" : Math.round(det.lastScene * 10) / 10) + "  (nouvelle photo si > " + (Math.round(seuilScene() * 10) / 10) + ")"
       + "\nticks " + diag.ticks + "  vides " + diag.vides + "  flux " + diag.vw + "x" + diag.vh + "  readyState " + diag.readyState
       + (det.lastError ? "\nerreur " + det.lastError : "");
   }
@@ -460,7 +505,7 @@
   // ── harnais (identiques) ──────────────────────────────────────────────────
   window.__releveAttach = function (s) { if (run.phase !== "running") start(); attach(s); };
   window.__releveStep = function (dt) { if (run.phase !== "running") start(); if (!stream) stream = true; var x = (det.tick || now()) + (dt || 120); det.tick = x; step(x, dt || 120); return window.__releveState(); };
-  window.__releveState = function () { return { phase: run.phase, state: det.state, armed: det.armed, m: Math.round(det.lastM * 10) / 10, s: Math.round(det.lastS), stillAcc: Math.round(det.stillAcc), ticks: det.ticks, lastError: det.lastError, overlay: overlay.style.display === "flex" ? $("ovTitle").textContent : null, etat: etatEl ? etatEl.getAttribute("data-mot") : null, plein_ecran: capture ? !capture.hidden : null, pole: run.pole, poles: POLES.length, items: run.items.map(function (i) { return { seq: i.seq, t: i.t, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, coverage: i.coverage || null, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, source: i.source, manual: i.manual, reason: i.reason }; }), switches: run.switches.length, problems: run.problems.slice(), mainBtn: $("mainBtn").textContent, clock: $("rl-clock").textContent }; };
+  window.__releveState = function () { return { phase: run.phase, state: det.state, armed: det.armed, m: Math.round(det.lastM * 10) / 10, scene: det.lastScene == null ? null : Math.round(det.lastScene * 10) / 10, s: Math.round(det.lastS), stillAcc: Math.round(det.stillAcc), ticks: det.ticks, lastError: det.lastError, overlay: overlay.style.display === "flex" ? $("ovTitle").textContent : null, etat: etatEl ? etatEl.getAttribute("data-mot") : null, plein_ecran: capture ? !capture.hidden : null, pole: run.pole, poles: POLES.length, items: run.items.map(function (i) { return { seq: i.seq, t: i.t, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, coverage: i.coverage || null, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, source: i.source, manual: i.manual, reason: i.reason }; }), switches: run.switches.length, problems: run.problems.slice(), mainBtn: $("mainBtn").textContent, clock: $("rl-clock").textContent }; };
 
   renderPoles();
   if (POLES.length === 1) switchPole(POLES[0].name);
