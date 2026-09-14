@@ -361,7 +361,11 @@
     if (det.stillAcc > diag.immobileMax) diag.immobileMax = det.stillAcc;
 
     if (m > cfg.tMove) {
-      if (det.best && !det.problem) { commit(det.best, false, null); }
+      if (det.best && !det.problem) {
+        var d = defaut(det.best);
+        if (d) run.problems.push({ t: tOff(), pole: run.pole, reason: d, kept: false });
+        else commit(det.best, false, null);
+      }
       if (det.problem) { run.problems.push(det.problem); det.problem = null; hideOverlay(); }
       det.best = null; det.armed = true; det.state = "moving"; det.stillAcc = 0; dire("releve_etat_avance"); return;
     }
@@ -382,7 +386,7 @@
       if (det.stillAcc < cfg.stillMs) { det.state = "settling"; dire("releve_etat_arret"); return; }
       if (!det.best) { det.best = grab(); det.keptAt = x; det.state = "window"; return; }
       if (x - det.keptAt <= cfg.winMs) { var c = grab(); if (c.sharp > det.best.sharp * 1.1) det.best = c; return; }
-      var reason = det.best.bright < cfg.brightMin ? "sombre" : det.best.sharp < cfg.sharpMin ? "floue" : null;
+      var reason = defaut(det.best);
       if (reason) { det.problem = { t: tOff(), pole: run.pole, reason: reason, kept: false }; det.state = "problem"; showOverlay(reason === "sombre" ? t("releve_sombre") : t("releve_floue"), t("releve_garder_quand_meme"), false); return; }
       // Même scène que la dernière gardée (la main tremble, l'image bouge de quelques valeurs) : on ne
       // garde pas deux fois le même meuble. La comparaison d'octets ne suffit pas — le bruit du
@@ -395,6 +399,14 @@
       det.state = det.stillAcc ? "settling" : "moving";
       dire(det.stillAcc ? "releve_etat_arret" : "releve_etat_avance");
     }
+  }
+  // La porte qualite d'une image retenue : trop sombre, ou trop floue. UNE seule definition, parce
+  // qu'il y a DEUX chemins pour garder une image (la fenetre s'ecoule a l'arret, ou la marche
+  // reprend pendant la fenetre) et que le second ne la passait pas. Mesure le 14/09 sur la marche
+  // de l'owner : une image a 7 de luminosite -- le noir -- s'est ecrite sur le meuble n\u00b0 4 de la
+  // Cave par ce trou, avec 2579 de nettete sur la photo d'avant pour comparaison.
+  function defaut(shot) {
+    return shot.bright < cfg.brightMin ? "sombre" : shot.sharp < cfg.sharpMin ? "floue" : null;
   }
   function grab() {
     var vw = srcW(), vh = srcH(), k = echelle(vw, vh);
