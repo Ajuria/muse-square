@@ -88,6 +88,13 @@ const BATTERY: Case[] = [
 const bq = makeBQClient("muse-square-open-data");
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
 
+/** Le nombre est-il RENDU quelque part dans les blocs ? Bornes non chiffrées : « 29 » ne doit pas
+ *  matcher dans « 129 » ni dans « 2,9 ». Les blocs sont sérialisés une fois par question. */
+function dansLesBlocs(blocks: unknown, n: string): boolean {
+  const esc = String(n).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^0-9,.])${esc}([^0-9,.]|$)`).test(JSON.stringify(blocks ?? []));
+}
+
 async function ask(q: string) {
   const t0 = Date.now();
   const calls: ToolCallRecord[] = [];
@@ -162,7 +169,14 @@ async function ask(q: string) {
       // bloc, et la question passait ses portes en parlant dans le vide. Son message vient ici.
       r && r.calls.some((c) => !c.ok) ? `outil en échec — ${r.calls.filter((c) => !c.ok).map((c) => `${c.name} : ${c.summary}`).join(" ; ")}` : "",
       r && r.calls.length && !r.calls.some((c) => c.blocks && c.blocks.length) ? "aucun bloc rendu à l'exploitant" : "",
-      r && r.grounding.ungrounded_numbers.length ? `nombres non fondés : ${r.grounding.ungrounded_numbers.join(", ")}` : "",
+      // 14/09 — CLASSER LA FAUTE, pas seulement la nommer. Un nombre non fondé a DEUX origines opposées,
+      // et le rapport les confondait : (a) il est RENDU dans un bloc (table, carte, rapport) sans avoir été
+      // déclaré comme fait — c'est un défaut d'OUTIL, le modèle lit ce qu'on lui montre (la leçon de
+      // `ligneEnFait`, 13/09) ; (b) il n'est nulle part — le modèle l'a CALCULÉ, et la porte fait son
+      // travail. Le remède n'est pas le même, et il ne se devine pas.
+      r && r.grounding.ungrounded_numbers.length
+        ? `nombres non fondés : ${r.grounding.ungrounded_numbers.map((n) => `${n} (${dansLesBlocs(r.blocks, n) ? "RENDU dans un bloc, jamais déclaré en fait → défaut d'outil" : "absent des blocs → calculé par le modèle"})`).join(" ; ")}`
+        : "",
       r && r.relecture.fautes.length ? `relecture : ${r.relecture.fautes.map((f) => f.motif).join(" ; ")}` : "",
       err,
     ].filter(Boolean).join(" · ");
