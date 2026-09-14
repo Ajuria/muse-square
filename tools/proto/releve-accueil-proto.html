@@ -44,45 +44,83 @@
   <h1>Relevé de l'espace</h1>
   <p class="sous">Cave · 7 meubles</p>
 
-  <svg viewBox="0 0 366 260" width="100%" role="img" aria-label="Le meuble entier dans l'image, de face. Trop près ou de biais : la photo ne sert pas.">
-    <!-- BON : le meuble entier, de face, avec de la marge -->
-    <g>
-      <rect x="6" y="14" width="106" height="188" rx="10" fill="#fff" stroke="#111827" stroke-width="2.5"/>
-      <!-- le meuble, entier, marge visible -->
-      <rect x="28" y="46" width="62" height="124" fill="#EEF2FF" stroke="#1D3BB3" stroke-width="2"/>
-      <line x1="28" y1="77" x2="90" y2="77" stroke="#1D3BB3" stroke-width="1.5"/>
-      <line x1="28" y1="108" x2="90" y2="108" stroke="#1D3BB3" stroke-width="1.5"/>
-      <line x1="28" y1="139" x2="90" y2="139" stroke="#1D3BB3" stroke-width="1.5"/>
-      <!-- la marge, dite par deux flèches -->
-      <line x1="16" y1="46" x2="26" y2="46" stroke="#6B7280" stroke-width="1.5"/>
-      <line x1="16" y1="170" x2="26" y2="170" stroke="#6B7280" stroke-width="1.5"/>
-      <line x1="21" y1="46" x2="21" y2="170" stroke="#6B7280" stroke-width="1" stroke-dasharray="3,3"/>
-      <circle cx="59" cy="220" r="13" fill="#0F6E56"/>
-      <path d="M53 220 l4 5 l9 -11" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-      <text x="59" y="250" text-anchor="middle" font-size="12" fill="#111827" font-family="system-ui">entier, de face</text>
+  <svg viewBox="0 0 366 272" width="100%" role="img"
+       aria-label="Le meuble entier dans l'image, de face. Trop près, ou de biais : la photo ne sert pas.">
+    <defs>
+      <!-- LE MEUBLE, dessiné UNE fois et réutilisé dans les trois cadres : c'est le même meuble qui est
+           bien cadré, trop près, puis de biais — sinon le contraste ne prouve rien. Montants, tablettes,
+           et ce qui est POSÉ dessus : bouteilles, bocaux, paquets. Un rayonnage se reconnaît à ce qu'il
+           porte, pas à ses traits. -->
+      <g id="meuble">
+        <!-- le bâti : montants et plinthe -->
+        <path d="M0 0 H78 V116 H0 Z" fill="#FCFCFD"/>
+        <path d="M0 0 V116 M78 0 V116" stroke="#111827" stroke-width="2.4" fill="none" stroke-linecap="square"/>
+        <path d="M0 0 H78" stroke="#111827" stroke-width="2.4"/>
+        <path d="M-2 116 H80" stroke="#111827" stroke-width="3" stroke-linecap="round"/>
+        <!-- les tablettes -->
+        <g stroke="#111827" stroke-width="1.6">
+          <path d="M0 30 H78"/><path d="M0 59 H78"/><path d="M0 88 H78"/>
+        </g>
+        <!-- étage 1 : bouteilles -->
+        <g fill="#DDE3F7" stroke="#1D3BB3" stroke-width="1.1">
+          <path d="M9 30 V16 q0-3 2-4 V8 h4 v4 q2 1 2 4 V30 Z"/>
+          <path d="M21 30 V16 q0-3 2-4 V8 h4 v4 q2 1 2 4 V30 Z"/>
+          <path d="M33 30 V16 q0-3 2-4 V8 h4 v4 q2 1 2 4 V30 Z"/>
+          <path d="M45 30 V16 q0-3 2-4 V8 h4 v4 q2 1 2 4 V30 Z"/>
+          <path d="M57 30 V16 q0-3 2-4 V8 h4 v4 q2 1 2 4 V30 Z"/>
+        </g>
+        <!-- étage 2 : bocaux -->
+        <g fill="#EEF2FF" stroke="#1D3BB3" stroke-width="1.1">
+          <rect x="8" y="42" width="13" height="17" rx="2.5"/><rect x="25" y="42" width="13" height="17" rx="2.5"/>
+          <rect x="42" y="42" width="13" height="17" rx="2.5"/><rect x="59" y="42" width="11" height="17" rx="2.5"/>
+        </g>
+        <g stroke="#1D3BB3" stroke-width="1.1" fill="none">
+          <path d="M10 45 H19 M27 45 H36 M44 45 H53 M61 45 H68"/>
+        </g>
+        <!-- étage 3 : paquets debout -->
+        <g fill="#F4F6FE" stroke="#1D3BB3" stroke-width="1.1">
+          <rect x="8" y="69" width="10" height="19"/><rect x="20" y="69" width="10" height="19"/>
+          <rect x="32" y="69" width="10" height="19"/><rect x="44" y="69" width="10" height="19"/>
+          <rect x="56" y="69" width="14" height="19"/>
+        </g>
+        <!-- étage 4 : caisses -->
+        <g fill="#EEF2FF" stroke="#1D3BB3" stroke-width="1.1">
+          <rect x="8" y="98" width="30" height="18" rx="1.5"/><rect x="42" y="98" width="28" height="18" rx="1.5"/>
+        </g>
+        <path d="M23 98 V116 M56 98 V116" stroke="#1D3BB3" stroke-width="1" opacity=".7"/>
+      </g>
+
+      <!-- Chaque cadre découpe : c'est ainsi qu'« trop près » se voit — le meuble sort du cadre. -->
+      <clipPath id="c1"><rect x="8" y="16" width="102" height="184" rx="9"/></clipPath>
+      <clipPath id="c2"><rect x="132" y="16" width="102" height="184" rx="9"/></clipPath>
+      <clipPath id="c3"><rect x="256" y="16" width="102" height="184" rx="9"/></clipPath>
+    </defs>
+
+    <!-- ENTIER, DE FACE : le meuble tient dans l'image, avec de l'air au-dessus et en dessous -->
+    <g clip-path="url(#c1)"><use href="#meuble" transform="translate(20 46) scale(0.99)"/></g>
+    <rect x="8" y="16" width="102" height="184" rx="9" fill="none" stroke="#111827" stroke-width="2.6"/>
+    <g stroke="#0F6E56" stroke-width="1.4" stroke-dasharray="3,4" opacity=".85">
+      <path d="M14 46 H18 M14 164 H18"/><path d="M16 46 V164"/>
     </g>
-    <!-- TROP PRÈS : le meuble déborde -->
-    <g>
-      <rect x="130" y="14" width="106" height="188" rx="10" fill="#fff" stroke="#111827" stroke-width="2.5"/>
-      <rect x="126" y="30" width="114" height="160" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="2"/>
-      <line x1="126" y1="70" x2="240" y2="70" stroke="#9CA3AF" stroke-width="1.5"/>
-      <line x1="126" y1="110" x2="240" y2="110" stroke="#9CA3AF" stroke-width="1.5"/>
-      <line x1="126" y1="150" x2="240" y2="150" stroke="#9CA3AF" stroke-width="1.5"/>
-      <circle cx="183" cy="220" r="13" fill="#B45309"/>
-      <path d="M177 214 l12 12 M189 214 l-12 12" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="183" y="250" text-anchor="middle" font-size="12" fill="#6B7280" font-family="system-ui">trop près</text>
+    <circle cx="59" cy="224" r="13.5" fill="#0F6E56"/>
+    <path d="M53 224 l4 5 l9 -11" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="59" y="256" text-anchor="middle" font-size="12.5" fill="#111827" font-family="system-ui" font-weight="600">entier, de face</text>
+
+    <!-- TROP PRÈS : le même meuble, agrandi — il déborde en haut, en bas et sur les côtés -->
+    <g clip-path="url(#c2)"><use href="#meuble" transform="translate(126 6) scale(1.55)"/></g>
+    <rect x="132" y="16" width="102" height="184" rx="9" fill="none" stroke="#111827" stroke-width="2.6"/>
+    <circle cx="183" cy="224" r="13.5" fill="#B45309"/>
+    <path d="M177 218 l12 12 M189 218 l-12 12" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+    <text x="183" y="256" text-anchor="middle" font-size="12.5" fill="#6B7280" font-family="system-ui">trop près</text>
+
+    <!-- DE BIAIS : le même meuble, vu de trois quarts — les tablettes fuient, on ne lit plus ce qui est dessus -->
+    <g clip-path="url(#c3)">
+      <use href="#meuble" transform="translate(276 48) scale(0.95) skewY(9) scale(0.88 1)"/>
     </g>
-    <!-- DE BIAIS -->
-    <g>
-      <rect x="254" y="14" width="106" height="188" rx="10" fill="#fff" stroke="#111827" stroke-width="2.5"/>
-      <polygon points="276,52 330,40 330,176 276,164" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="2"/>
-      <line x1="276" y1="80" x2="330" y2="70" stroke="#9CA3AF" stroke-width="1.5"/>
-      <line x1="276" y1="108" x2="330" y2="100" stroke="#9CA3AF" stroke-width="1.5"/>
-      <line x1="276" y1="136" x2="330" y2="130" stroke="#9CA3AF" stroke-width="1.5"/>
-      <circle cx="307" cy="220" r="13" fill="#B45309"/>
-      <path d="M301 214 l12 12 M313 214 l-12 12" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="307" y="250" text-anchor="middle" font-size="12" fill="#6B7280" font-family="system-ui">de biais</text>
-    </g>
+    <rect x="256" y="16" width="102" height="184" rx="9" fill="none" stroke="#111827" stroke-width="2.6"/>
+    <circle cx="307" cy="224" r="13.5" fill="#B45309"/>
+    <path d="M301 218 l12 12 M313 218 l-12 12" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/>
+    <text x="307" y="256" text-anchor="middle" font-size="12.5" fill="#6B7280" font-family="system-ui">de biais</text>
   </svg>
 
   <p class="ligne">La photo se prend toute seule quand vous vous arrêtez deux secondes.</p>
