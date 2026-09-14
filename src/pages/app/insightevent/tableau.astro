@@ -85,10 +85,14 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           });
           var b = document.getElementById("tb-menu-btn"), m = document.getElementById("tb-menu");
           if (!b || !m) return;
-          var ouvrir = function (on) { m.style.display = on ? "block" : "none"; b.setAttribute("aria-expanded", String(on)); };
-          b.addEventListener("click", function (e) { e.stopPropagation(); ouvrir(m.style.display !== "block"); });
-          document.addEventListener("click", function (e) { if (!m.contains(e.target) && e.target !== b) ouvrir(false); });
-          document.addEventListener("keydown", function (e) { if (e.key === "Escape") ouvrir(false); });
+          // 14/09 — la bascule du menu s'appelle `basculer`, JAMAIS `ouvrir` : les deux `var` vivaient
+          // dans cette même fonction, le second écrasait le premier au chargement, et « Documenter »
+          // refermait le menu au lieu d'ouvrir l'appareil photo. Aucune erreur console : le clic ne
+          // faisait rien. Deux noms, deux gestes.
+          var basculer = function (on) { m.style.display = on ? "block" : "none"; b.setAttribute("aria-expanded", String(on)); };
+          b.addEventListener("click", function (e) { e.stopPropagation(); basculer(m.style.display !== "block"); });
+          document.addEventListener("click", function (e) { if (!m.contains(e.target) && e.target !== b) basculer(false); });
+          document.addEventListener("keydown", function (e) { if (e.key === "Escape") basculer(false); });
         })();
       </script>
     </div>

@@ -1,8 +1,10 @@
 // MSPhotoCapture — LE foyer de la prise de photo d'un composant (owner 14/09, l'app de capture).
 //
-// Deux surfaces l'utilisent et aucune n'en recopie le corps : le bouton « Documenter → » de chaque
-// composant sur la page d'un pôle (components/EngagementDoc.astro, depuis le 03/09) et la page de
-// capture (/app/insightevent/documenter), où l'on photographie D'ABORD et où l'on rattache ensuite.
+// UNE seule surface le charge (14/09) : le Tableau de bord, dont « Documenter » l'appelle depuis son
+// gestionnaire de clic. La page intermédiaire /app/insightevent/documenter est supprimée (d8ea5368).
+// DETTE connue, écrite ici pour ne pas se croire unique : le bouton « Documenter → » par composant
+// (components/EngagementDoc.astro, 03/09) ne passe PAS par ce module — il porte sa propre copie de
+// `shrink` et son propre POST. Le jour où l'on y touche, il vient à ce foyer.
 //
 // Ce qu'il fait, et rien de plus :
 //   · `shrink(file)` — réduit l'image DANS le navigateur (1600 px sur le grand côté, JPEG 85) pour
