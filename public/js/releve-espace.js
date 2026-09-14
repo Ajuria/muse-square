@@ -134,6 +134,7 @@
     if (capture) capture.hidden = false;
     document.body.classList.add("rl-filme");
     $("summary").style.display = "none";
+    $("mainBtn").hidden = false;   // il réapparaît si l'on revient à l'écran d'avant
     renderPoles(); dire("releve_etat_avance"); tickClock();
     if (window.__releveSource) { stream = true; run.camera = "injected"; return; }
     startCamera();
@@ -145,6 +146,8 @@
     stream = null; video.srcObject = null;
     if (capture) capture.hidden = true;
     document.body.classList.remove("rl-filme");
+    // La page de fin porte « Reprendre le relevé » : un « Commencer » fixé en bas y ferait doublon.
+    $("mainBtn").hidden = true;
     hideOverlay(); fermerFeuille(); tickClock();
     showSummary();
     enregistrerTout();   // owner 14/09 : arrêter, c'est enregistrer — en arrière-plan

@@ -125,12 +125,15 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
         <span id="rl-build" title="version">{BUILD}</span>
       </div>
       <div id="rl-doc">
-        <!-- 14/09 — LES CONSIGNES SONT RETIRÉES DE L'ÉCRAN, en attente d'arbitrage owner. J'avais livré
-             les trois lignes de travail de la spec § 5 telles quelles ; « Changez de pôle quand vous
-             changez de pôle » est une TAUTOLOGIE (c'était un mémo pour moi, pas une phrase pour
-             quelqu'un), et « composant » — mot owner du 03/09 pour le modèle — ne se dit pas à
-             quelqu'un qui marche dans son magasin. Les formulations se choisissent sur le proto
-             `tools/proto/releve-consignes-proto.html`, pas en production. -->
+        <!-- FORME C (owner 14/09, choisie sur proto) — trois lignes avant de marcher : ce qui se passe,
+             comment cadrer, comment changer de pôle. La première dit la seule chose qu'on ne peut pas
+             deviner : que la photo part toute seule. Le mot est « meuble » (owner 14/09) ; la base
+             garde « composant ». -->
+        <ul id="rl-consignes">
+          <li>{EVOL_COPY.releve_consigne_1}</li>
+          <li>{EVOL_COPY.releve_consigne_2}</li>
+          <li>{EVOL_COPY.releve_consigne_3}</li>
+        </ul>
         <nav id="poles"></nav>
         {poles.length === 0 && <p id="rl-sans-pole">{EVOL_COPY.capture_aucun_pole}</p>}
         <button id="mainBtn" type="button" class="ms-btn" disabled={poles.length === 0}>{EVOL_COPY.releve_commencer}</button>
@@ -190,7 +193,16 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       #poles { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 4px; -webkit-overflow-scrolling: touch; }
       #poles button { flex: 0 0 auto; border: 1px solid rgba(0,0,0,0.08); background: #fff; border-radius: 999px; padding: 10px 14px; font-size: 14px; color: #111827; font-family: inherit; min-height: 44px; }
       #poles button.on { background: var(--color-brand-blue, #0b37e5); border-color: var(--color-brand-blue, #0b37e5); color: #fff; }
-      #mainBtn { width: 100%; height: 56px; margin-top: 12px; }
+      /* 14/09 (owner : « Pourquoi commencer le relevé n'est pas fixe en bas au bon endroit ? ») — LE
+         GESTE PRINCIPAL NE BOUGE PAS. Il était dans le flux : ajouter une ligne de consigne le faisait
+         descendre, et le pouce devait le chercher. Il est désormais FIXÉ en bas, au-dessus de la barre
+         de navigation (--ms-bb-h, 74 px sous 768 px, 0 ailleurs) — la même place quel que soit le
+         contenu au-dessus, et la même place que « Fin du relevé » pendant la prise de vue. */
+      #mainBtn { position: fixed; left: 50%; transform: translateX(-50%);
+                 width: min(728px, calc(100% - 32px)); height: 56px; z-index: 60; background: #fff;
+                 bottom: calc(var(--ms-bb-h, 0px) + env(safe-area-inset-bottom, 0px) + 12px); }
+      /* Le document se termine au-dessus du bouton : rien ne se cache dessous. */
+      #rl-root { padding-bottom: calc(var(--ms-bb-h, 0px) + 92px); }
 
       /* ── LE CALQUE DE PRISE DE VUE : plein écran, vertical, l'image et rien qui parasite ── */
       #capture { position: fixed; inset: 0; z-index: 120; background: #000; overflow: hidden; }
@@ -263,6 +275,6 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       })();
     </script>
     <script is:inline src="/js/photo-capture.js?v=2"></script>
-    <script is:inline src="/js/releve-espace.js?v=3"></script>
+    <script is:inline src="/js/releve-espace.js?v=4"></script>
   </BaseLayout>
 </Show>
