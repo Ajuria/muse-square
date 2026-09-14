@@ -42,7 +42,7 @@ import { composePoleClassement, poleClassementToText, POLES_ABSENCE_FR, type Ind
 import { composeRapport, rapportToText, SECTIONS_VENTES } from "../rapport/composer";
 import { resolveSections, SECTIONS, MODELE_VENTES, type SectionCle } from "../fr/rapport.fr";
 import { findTemplateByName, type ReportTemplate } from "../rapport/modeles";
-import { frDate, memoryToText, newSiteMemoryRow, type AuthorRole, type SiteMemoryEntry, type SiteMemoryRow } from "./siteMemory";
+import { frDate, memoryToText, memoryFacts, newSiteMemoryRow, type AuthorRole, type SiteMemoryEntry, type SiteMemoryRow } from "./siteMemory";
 import { composerProposition, OBJECTIF_FR } from "./proposition";
 import { JOURS, margeToText, type JoursMot, type MargeLecture } from "../kpi/margeLecture";
 import { composeDispositifsDocumentes, dispositifsToText } from "../dispositifs/dispositifsDocumentes";
@@ -301,11 +301,20 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
 
   const lireMemoire = outil({
     name: "lire_memoire",
-    description: "Ce que l'exploitant a déjà dit de son espace, par sujet, avec l'auteur et la date (la dernière version de chaque sujet). Sans « sujet », tout ; avec, ce sujet seul.",
+    description: "Ce que l'exploitant ou son équipe a NOTÉ sur ce commerce, par sujet, avec l'auteur et la date (la dernière version de chaque sujet) : l'agencement de l'espace, et ce qui a été écrit sous une section d'un Rapport (« on a fermé le lundi en août »). Sans « sujet », tout ; avec, ce sujet seul. Une note éclaire un chiffre, elle ne le remplace jamais, et elle ne se cite pas sans être passée par cet outil.",
     inputSchema: z.object({ sujet: z.string().optional().describe("Un sujet précis (deux ou trois mots). Vide = tous les sujets.") }),
     run: (args) => timed("lire_memoire", args, async () => {
       const entries = await deps.readMemory(args.sujet);
-      return { out: memoryToText(entries), summary: entries.length ? `${plural(entries.length, "sujet noté", "sujets notés")}` : "rien de noté sur cet espace" };
+      const faits = memoryFacts(entries);
+      return {
+        out: memoryToText(entries),
+        summary: entries.length ? `${plural(entries.length, "sujet noté", "sujets notés")}` : "rien de noté sur cet espace",
+        blocks: faits.length
+          ? [{ type: "facts", items: faits } as AnswerBlock,
+             { type: "sources", items: ["Ce que vous avez noté sur votre commerce — vos mots, datés et signés"] } as AnswerBlock]
+          : [{ type: "absence", manque: "Rien de noté sur ce site pour l'instant.", geste: null } as AnswerBlock],
+        facts: faits,
+      };
     }),
   });
 

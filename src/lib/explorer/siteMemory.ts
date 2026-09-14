@@ -172,6 +172,28 @@ export function frDate(iso: string): string {
 }
 
 /** Le texte que l'outil rend au modèle — une ligne par sujet, l'auteur et la date toujours dits. */
+/**
+ * PUR — LA MÉMOIRE EN FAITS CITABLES (owner 14/09, point 3 : « l'app apprend le business »).
+ *
+ * POURQUOI ÇA N'EXISTAIT PAS, ET POURQUOI RIEN NE MARCHAIT SANS. `lire_memoire` ne rendait que du TEXTE au
+ * modèle — ni bloc, ni fait. Une note citée était donc hors des blocs PAR CONSTRUCTION, et la porte de
+ * restitution la comptait comme un nombre inventé : le registre tombait à « model ». Mettre les mémoires
+ * dans le contexte du tour (essai du 14/09) ne pouvait pas corriger ça — ça l'aggravait, en donnant à citer
+ * ce que rien ne pouvait fonder. Mesuré : 3 tirs verts sans, 2 échecs de registre avec.
+ *
+ * Chaque mémoire devient UNE phrase attribuée et datée : c'est ce que la porte retrouve, et c'est ce que
+ * l'exploitant doit lire — sa parole, avec son nom dessus, jamais fondue dans celle de l'app.
+ */
+export function memoryFacts(entries: SiteMemoryEntry[]): string[] {
+  return (entries ?? [])
+    .filter((e) => e && e.subject && e.body)
+    .map((e) => {
+      const dit = e.author_role === "member" ? "un membre de l'équipe a noté" : "vous avez noté";
+      const doù = e.source === "note_rapport" ? " sous une section d'un Rapport" : e.source === "outil" ? " par une lecture" : "";
+      return `${e.subject} — ${dit}${doù} le ${frDate(e.created_at)} : ${e.body}`;
+    });
+}
+
 export function memoryToText(entries: SiteMemoryEntry[]): string {
   if (!entries.length) return "Aucune note en mémoire pour ce site.";
   return entries

@@ -75,6 +75,11 @@ const BATTERY: Case[] = [
   { q: "Compare le 05/09/2026 et le 12/09/2026.", tools: ["comparer_journees"], answerMatch: /05\/09|12\/09/, vetted: true },
   { q: "Compare mes journées.", tools: ["comparer_journees"], answerMatch: /quelle|journée/i, vetted: true },
   { q: "Compare le 05/09/2026 et le 12/09/2026, et dis-moi quel pôle a le plus fort CA par mètre.", tools: ["comparer_journees", "lire_poles_classement"], answerMatch: /par mètre/i, vetted: true, maxSeconds: 60 },
+  // 14/09 (owner, point 3 « l'app apprend le business ») — LA MÉMOIRE CITÉE SANS PERDRE LE REGISTRE.
+  // C'était impossible jusqu'ici : `lire_memoire` ne rendait ni bloc ni fait, donc tout ce que le modèle en
+  // disait était hors des blocs et la porte le comptait comme inventé. La question de référence porte sur
+  // l'agencement, que les mémoires du compte décrivent ; la porte `vetted` est l'assertion réelle.
+  { q: "Où sont mes cafés en grains dans le magasin ?", tools: ["lire_memoire"], answerMatch: /étagère|fond/i, vetted: true },
   // § 7 couche 3 (13/09) — ex _dispositifs_v1 et _dispositif_famille_v1.
   { q: "Quelles bonnes pratiques ai-je documentées ?", tools: ["lire_dispositifs_documentes"], answerMatch: /documenté|dispositif/i, vetted: true },
   { q: "Pendant le Corner de vente producteur, qu'a fait la famille Coffee ?", tools: ["lire_operation_famille"], answerMatch: /Coffee/, vetted: true, blocks: ["table"] },
