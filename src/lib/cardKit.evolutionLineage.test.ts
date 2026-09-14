@@ -474,6 +474,32 @@ it("un PÔLE à deux versions rend son historique AVEC les photos — c'est là 
   expect(html).not.toContain("/app/insightevent/engagement?id=c-v1");
 });
 
+// ── 14/09 — L'ESPACE DU PÔLE SUR SA PAGE (owner : « on doit montrer revenu par m2 et par mètre
+// linéaire »). Les chiffres et les phrases sont ceux du volet de Piloter ; ce qui se garde ici, c'est
+// qu'ils arrivent SUR LA PAGE et que l'absence se dise au lieu d'une section vide.
+it("l'espace du pôle : mètres, Part de linéaire, surface, puis le CA et la marge par mètre et par m²", () => {
+  const data: any = polePhotos();
+  data.pole.space = {
+    linear_m: 23.6, linear_share: 0.117, surface_m2: 45,
+    revenue_per_m: 484, revenue_net_ht_per_m: 473, margin_per_m: 176,
+    revenue_per_m2: 267, revenue_net_ht_per_m2: 260, margin_per_m2: 97,
+    revenue_share: 0.401, margin_share: 0.38, coverage_pct: 100,
+  };
+  const html = String(kit.renderEvolution(data, EVOL_COPY)).replace(/[  ]/g, " ");
+  expect(html).toContain("Espace — 30 derniers jours");
+  expect(html).toContain("23,6 m de linéaire · Part de linéaire 11,7 % · 45 m² de surface de vente");
+  expect(html).toContain("484 € de CA par mètre · 473 € de CA net HT par mètre · 176 € de marge brute par mètre");
+  expect(html).toContain("267 € de CA par m² · 260 € de CA net HT par m² · 97 € de marge brute par m²");
+  expect(html).toContain("Part de marge 38 % contre Part de linéaire 11,7 %");
+});
+
+it("sans mesure d'espace, l'absence se DIT — jamais une section vide (lexique règle 7)", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).toContain("Espace — 30 derniers jours");
+  expect(html).toContain("Aucune mesure d’espace pour l’instant.");
+  expect(html).not.toContain("de CA par mètre");
+});
+
 // ── 13/09 — LA NOTE DE LA VERSION (owner : « on doit confirmer avec le user le changement réalisé »).
 // La réponse à « Qu'avez-vous changé ? » s'écrit dans `dispositif_note` ; sur un pôle, ce champ n'avait
 // AUCUNE surface (dispoBlock n'est assemblé que dans les deux branches d'opération) — la question aurait

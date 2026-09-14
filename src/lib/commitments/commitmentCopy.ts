@@ -287,6 +287,24 @@ export const EVOL_COPY = {
   pole_reading_thin_tip: "{n30} jours vendus sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté.",
   pole_totals_row: "{rev} € sur 30 j · {share} % du CA",
   pole_ops_title: "Opérations sur ce pôle",
+  // 14/09 (owner) — L'ESPACE SUR LA PAGE DU PÔLE. Le CA et la marge par mètre étaient affichés dans le
+  // volet « Vos pôles » du Tableau de bord et ABSENTS de la page du pôle lui-même. Les chaînes sont
+  // celles du volet, RECOPIÉES MOT POUR MOT (tableau.astro l. 2026-2049, 11/09) — elles entrent ici,
+  // au foyer, parce que c'est le kit qui les rend désormais ; le volet garde les siennes en dur tant
+  // qu'il ne reçoit pas EVOL_COPY, et c'est une duplication ÉCRITE, pas silencieuse.
+  pole_space_title: "Espace — 30 derniers jours",
+  pole_space_lineaire: "{m} m de linéaire",
+  pole_space_part: "Part de linéaire {pct}",
+  pole_space_surface: "{m} m² de surface de vente",
+  pole_space_par_metre: "{ca} € de CA par mètre",
+  pole_space_net_par_metre: "{ca} € de CA net HT par mètre",
+  pole_space_marge_par_metre: "{ca} € de marge brute par mètre",
+  pole_space_par_m2: "{ca} € de CA par m²",
+  pole_space_net_par_m2: "{ca} € de CA net HT par m²",
+  pole_space_marge_par_m2: "{ca} € de marge brute par m²",
+  pole_space_marge_contre: "Part de marge {marge} contre Part de linéaire {lin}",
+  pole_space_ca_contre: "Part du CA {ca} contre Part de linéaire {lin}",
+  pole_space_none: "Aucune mesure d’espace pour l’instant.",
   pole_ops_none: "Aucune opération rattachée pour l'instant.",
   pole_op_open: "en cours",
   pole_op_done: "terminée",

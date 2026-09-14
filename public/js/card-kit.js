@@ -1154,6 +1154,38 @@
               + right + '</div>';
           }).join('')
         + '</div>';
+      // 14/09 (owner) — L'ESPACE DU PÔLE, juste après ses résultats : mètres de façade, Part de linéaire,
+      // surface de vente, puis le CA et la marge par MÈTRE et par m². Les chiffres viennent du même foyer
+      // que le volet de Piloter (listPoleSpace, servi par evolution) et les phrases sont les siennes, au
+      // mot près. L'absence se dit, jamais une section vide (lexique règle 7).
+      (function () {
+        var sp = pr.space || null;
+        var m1 = function (v) { return String(Math.round(Number(v) * 10) / 10).replace('.', ','); };
+        var pc = function (s) { return String(Math.round(Number(s) * 1000) / 10).replace('.', ',') + ' %'; };
+        var ligne = function (txt) { return '<div style="font-size:12.5px;color:#374151;margin-bottom:4px;">' + esc(txt) + '</div>'; };
+        var b = '<div class="eg-sec" data-eg-espace><div class="eg-uc">' + esc(t2('pole_space_title')) + '</div>';
+        if (sp && sp.linear_m != null) {
+          var l1 = [t2('pole_space_lineaire', { m: m1(sp.linear_m) }),
+            sp.linear_share != null ? t2('pole_space_part', { pct: pc(sp.linear_share) }) : '',
+            sp.surface_m2 != null ? t2('pole_space_surface', { m: m1(sp.surface_m2) }) : ''].filter(Boolean).join(' · ');
+          b += '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">' + esc(l1) + '</div>';
+          if (sp.revenue_per_m != null) {
+            b += ligne([t2('pole_space_par_metre', { ca: frInt(sp.revenue_per_m) }),
+              sp.revenue_net_ht_per_m != null ? t2('pole_space_net_par_metre', { ca: frInt(sp.revenue_net_ht_per_m) }) : '',
+              sp.margin_per_m != null ? t2('pole_space_marge_par_metre', { ca: frInt(sp.margin_per_m) }) : ''].filter(Boolean).join(' · '));
+          }
+          if (sp.revenue_per_m2 != null) {
+            b += ligne([t2('pole_space_par_m2', { ca: frInt(sp.revenue_per_m2) }),
+              sp.revenue_net_ht_per_m2 != null ? t2('pole_space_net_par_m2', { ca: frInt(sp.revenue_net_ht_per_m2) }) : '',
+              sp.margin_per_m2 != null ? t2('pole_space_marge_par_m2', { ca: frInt(sp.margin_per_m2) }) : ''].filter(Boolean).join(' · '));
+          }
+          if (sp.margin_share != null && sp.linear_share != null) b += ligne(t2('pole_space_marge_contre', { marge: pc(sp.margin_share), lin: pc(sp.linear_share) }));
+          else if (sp.revenue_share != null && sp.linear_share != null) b += ligne(t2('pole_space_ca_contre', { ca: pc(sp.revenue_share), lin: pc(sp.linear_share) }));
+        } else {
+          b += '<div style="font-size:12.5px;color:#374151;">' + esc(t2('pole_space_none')) + '</div>';
+        }
+        h += b + '</div>';
+      })();
       var mem = '';
       if (cm.dispositif_plus) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_plus')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_plus) + '</div></div>';
       if (cm.dispositif_why) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_why')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_why) + '</div></div>';

@@ -16,7 +16,7 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { memberCommitmentInPerimeter, memberCommitmentProjection } from "../../../lib/profile/memberCardPolicy";
 import { readLatestSnapshot } from "../../../lib/commitments/actionCommitments";
-import { buildPoleReading, buildPoleItemsReading } from "../../../lib/dispositifs/poleReading";
+import { buildPoleReading, buildPoleItemsReading, listPoleSpace, type PoleSpaceRow } from "../../../lib/dispositifs/poleReading";
 import { commitmentEffect } from "../../../lib/commitments/commitmentEffect";
 import { assembleEvolutionExtras } from "../../../lib/commitments/commitmentContext";
 import { buildWindowShape, buildPriceLadder } from "../../../lib/commitments/commitmentShape";
@@ -286,7 +286,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
             .then((rows) => currentMeasures(rows).filter((m) => m.version_no === Number((snap as any).version_no)))
             .catch(() => [] as SpaceMeasureRow[])
         : Promise.resolve([] as SpaceMeasureRow[]);
+      // 14/09 (owner) — L'ESPACE LU du pôle (CA et marge par mètre et par m², Part de linéaire) : la
+      // page l'affichait nulle part alors que le volet « Vos pôles » du Tableau de bord le rend depuis le
+      // 11/09. MÊME foyer que lui (`listPoleSpace`, vw_insight_event_space_30d, grain pôle) — jamais une
+      // seconde lecture. Amorcé ici, attendu plus bas : aucun aller-retour de plus en série.
+      const _espaceP = listPoleSpace(bq, String(snap.location_id)).catch(() => [] as PoleSpaceRow[]);
       const pole = await buildPoleReading(bq, String(snap.location_id), String((snap as any).dispositif_id || snap.commitment_id), _famList, asOfP);
+      (pole as any).space = (await _espaceP).find(
+        (r) => r.grain === "pole" && String(r.pole_id ?? "") === String((snap as any).dispositif_id ?? ""),
+      ) ?? null;
       const _comps = await _compsP;
       const _space = await _spaceP;
       (pole as any).items = await _itemsP;
