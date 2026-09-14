@@ -251,6 +251,26 @@ lecteurs de cartes ignorent un pôle marqué. Colonne et sonde selon le geste du
    1 photo / même meuble 10 s → 1 / autre meuble sans marche → 2 / on y reste → 2 / retour → 3 /
    avec marche → 4.
 
+   **M4 EST ENFIN APPLIQUÉE — LE RANG DÉCIDE, ET LA PHOTO SERT DE REPÈRE (owner 14/09 : « A et B »).**
+   Demander « Quel composant ? » était inutilisable, et c'est mesurable : sur le compte de l'owner,
+   **40 meubles sur 52 portent un nom que PARTAGE un autre meuble du même pôle** (la Cave en a six qui
+   s'appellent « Vin & Spiritueux », l'Épicerie sèche cinq « Condiments » et cinq « Conserves »). Seul
+   le numéro du plan les distingue, et il n'est lisible que sur le plan — que l'app ne peut pas pointer
+   par meuble : les polygones de `analytics.space_zones` sont AU PÔLE, pas au composant.
+   **A — le rang** : dans un pôle, la Nième photo va au Nième meuble non encore photographié, dans
+   l'ordre du plan. Le viseur annonce le meuble ATTENDU. Corriger une photo réattribue toutes les
+   suivantes du même pôle à partir de là : une correction suffit quand on a commencé par l'autre bout.
+   **B — la photo précédente** : chaque meuble porte sa dernière photo en vignette (dans le viseur pour
+   le meuble attendu, et dans la liste de correction). Chargée une fois par pôle, au moment où
+   l'exploitant le touche, jamais bloquante ; inutile à la première marche, définitive ensuite.
+   **Et la correction passe par la MÊME FILE que l'écriture** : l'enregistrement part à l'arrêt, donc
+   toute correction arrive forcément après. Une photo déjà écrite est RETIRÉE de la base (rail
+   « Retirer », livré le 14/09) puis renvoyée sur le bon meuble — sans quoi « une correction suffit »
+   serait faux dès que l'enregistrement est parti, c'est-à-dire toujours.
+   Vérifié au harnais : attribution automatique p1 → p2 → p4 (l'ordre du plan) sans rien demander ;
+   une correction de la 1re en N° 7 → les trois lignes retirées (ph1, ph2, ph3) et réécrites sur
+   p7, p8, p14, « 3 enregistrées. ».
+
    **Reste à faire sur téléphone (owner)** : iPhone 17 + un Android, une boucle complète en magasin — faux
    points focaux en marchant, problèmes affichés à tort ou manqués, netteté médiane, durée, repli iOS. Le
    compte rendu JSON (« Compte rendu », sans image) se joint à l'arbitrage.

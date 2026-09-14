@@ -103,6 +103,72 @@
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c]; }); }
   function nPhotos(n) { return n === 0 ? t("releve_aucune_photo") : n === 1 ? t("releve_une_photo") : t("releve_n_photos").replace("{n}", String(n)); }
   function poleByName(name) { for (var i = 0; i < POLES.length; i++) if (POLES[i].name === name) return POLES[i]; return null; }
+  // ── A — LE RANG DÉCIDE (spec M4, owner 14/09) ────────────────────────────────────────────────────
+  // « Il n'a pas à le savoir. Le numéro d'un composant est son rang dans la marche. » Demander « quel
+  // composant ? » était inutilisable : mesuré sur le compte de l'owner, 40 meubles sur 52 portent un
+  // nom que PARTAGE un autre meuble du même pôle (la Cave en a six qui s'appellent « Vin &
+  // Spiritueux ») — seul le numéro du plan les distingue, et il n'est lisible que sur le plan.
+  // Donc : dans un pôle, la Nième photo va au Nième meuble non encore photographié, dans l'ordre du
+  // plan. Corriger UNE photo réattribue toutes les suivantes du même pôle à partir de là — une
+  // correction suffit quand on a commencé par l'autre bout, il n'en faut pas sept.
+  function composantsDuPole(nom) { var p = poleByName(nom); return p && Array.isArray(p.components) ? p.components : []; }
+  function dejaPris(nom, saufSeq) {
+    var pris = {};
+    gardees().forEach(function (i) { if (i.pole === nom && i.comp && i.seq !== saufSeq) pris[i.comp.component_key] = true; });
+    return pris;
+  }
+  function prochainComposant(nom) {
+    var pris = dejaPris(nom, null), comps = composantsDuPole(nom);
+    for (var i = 0; i < comps.length; i++) if (!pris[comps[i].component_key]) return comps[i];
+    return null;
+  }
+  // Corriger une photo déjà écrite passe par LA MÊME FILE que l'écriture : `reattribuer` la marque
+  // « à corriger », la file la retire de la base (rail « Retirer », livré le 14/09) puis la renvoie
+  // sur le bon meuble. Un seul chemin, donc un seul comportement à vérifier.
+  function reattribuer(it, comp) {
+    it.comp = comp;
+    var comps = composantsDuPole(it.pole), idx = -1;
+    for (var i = 0; i < comps.length; i++) if (comps[i].component_key === comp.component_key) idx = i;
+    // Les photos SUIVANTES du même pôle reprennent la suite de l'ordre. On ne touche JAMAIS une photo
+    // déjà écrite : son rattachement est en base, le corriger ici mentirait à l'écran.
+    var suite = gardees().filter(function (x) { return x.pole === it.pole && x.seq > it.seq; })
+                         .sort(function (a, b) { return a.seq - b.seq; });
+    suite.forEach(function (x, k) {
+      var neuf = comps[idx + 1 + k] || null;
+      var change = (x.comp && neuf && x.comp.component_key !== neuf.component_key) || (!x.comp !== !neuf);
+      x.comp = neuf;
+      // Une photo DÉJÀ ÉCRITE dont le meuble change doit être corrigée EN BASE, pas seulement à
+      // l'écran : elle passe dans la file, qui la retire puis la renvoie. Sans cela, « une correction
+      // suffit » serait faux dès que l'enregistrement est parti — c'est-à-dire toujours, puisqu'il
+      // part à l'arrêt.
+      if (change && x.etat === "ecrite") x.etat = "a_corriger";
+    });
+  }
+  // ── B — LA PHOTO PRÉCÉDENTE COMME REPÈRE ─────────────────────────────────────────────────────────
+  // Un nom partagé par six meubles ne dit rien ; la photo du meuble, si. Chargée UNE fois par pôle,
+  // au moment où l'exploitant le touche (jamais au chargement de la page : il n'en visite que deux ou
+  // trois), et jamais bloquante — sans photo, l'écran est celui d'aujourd'hui.
+  var photosParPole = {};
+  function chargerPhotos(pole) {
+    if (!pole || !pole.dispositif_id || photosParPole[pole.dispositif_id]) return;
+    photosParPole[pole.dispositif_id] = {};
+    fetch("/api/dispositifs/photos?dispositif_id=" + encodeURIComponent(pole.dispositif_id), { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var m = {};
+        ((j && j.photos) || []).forEach(function (ph) {
+          if (!ph || !ph.component_key || !ph.url) return;
+          m[ph.component_key] = ph.url + (ph.url.indexOf("?") < 0 ? "?" : "&") + "variant=square";
+        });
+        photosParPole[pole.dispositif_id] = m;
+        renderPoles(); if ($("summary").style.display === "block") showSummary();
+      })
+      .catch(function () {});
+  }
+  function vignetteDe(pole, comp) {
+    var m = pole && photosParPole[pole.dispositif_id];
+    return m && comp && m[comp.component_key] ? m[comp.component_key] : null;
+  }
   function compLabel(c) { return c.label || c.type_label_fr || c.component_key; }
   function gardees() { return run.items.filter(function (i) { return !i.removed; }); }
 
@@ -134,14 +200,19 @@
     });
     var tag = $("poleTag");
     if (tag) {
+      if (!run.pole) { tag.textContent = t("releve_etat_pole"); return; }
       var n = gardees().filter(function (i) { return i.pole === run.pole; }).length;
-      tag.textContent = run.pole ? run.pole + " · " + nPhotos(n) : t("releve_etat_pole");
+      // Ce que le viseur dit du pôle : son nom, son compte, et LE MEUBLE ATTENDU — le rang, pas un
+      // numéro à déchiffrer. La vignette, quand elle existe, montre ce qu'on cherche.
+      var pole = poleByName(run.pole), suivant = prochainComposant(run.pole), vig = vignetteDe(pole, suivant);
+      tag.innerHTML = '<span class="pt-l1">' + esc(run.pole) + " · " + esc(nPhotos(n)) + "</span>"
+        + (suivant ? '<span class="pt-l2">' + (vig ? '<img alt="" src="' + esc(vig) + '">' : "") + esc(compLabel(suivant)) + "</span>" : "");
     }
   }
   function switchPole(p) {
     if (p === run.pole) return;
     if (run.phase === "running") run.switches.push({ t: tOff(), from: run.pole, to: p });
-    run.pole = p; renderPoles();
+    run.pole = p; chargerPhotos(poleByName(p)); renderPoles();
   }
   function ouvrirFeuille() { var f = $("poleSheet"); if (f) f.hidden = false; }
   function fermerFeuille() { var f = $("poleSheet"); if (f) f.hidden = true; }
@@ -331,7 +402,8 @@
     var last = run.items.length ? run.items[run.items.length - 1] : null;
     if (last && !manual && last.dataUrl === shot.dataUrl) { if (window.console) console.warn("[releve] image identique ignoree"); return; }
     run.seq += 1;
-    run.items.push({ seq: run.seq, t: tOff(), at: new Date().toISOString(), pole: run.pole, sharp: shot.sharp, bright: shot.bright, w: shot.w, h: shot.h, manual: !!manual, reason: reason || null, source: shot.source || run.camera, removed: false, dataUrl: shot.dataUrl, comp: null, etat: "a_rattacher" });
+    // A — le rang décide : la photo prend le meuble attendu, sans rien demander.
+    run.items.push({ seq: run.seq, t: tOff(), at: new Date().toISOString(), pole: run.pole, sharp: shot.sharp, bright: shot.bright, w: shot.w, h: shot.h, manual: !!manual, reason: reason || null, source: shot.source || run.camera, removed: false, dataUrl: shot.dataUrl, comp: run.pole ? prochainComposant(run.pole) : null, etat: "a_rattacher" });
     renderPoles(); dire("releve_etat_gardee");
     if (shot.source !== "file") vraiePhoto(run.items[run.items.length - 1]);
     if (navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) { try { navigator.vibrate(30); } catch (e) {} }
@@ -368,30 +440,48 @@
     compteRendu();
     $("summary").style.display = "block";
   }
-  // Une photo de la page de fin : l'image, ce qui cloche, la question du composant, et le retrait.
+  // Une photo de la page de fin : l'image, le meuble qu'elle a pris (le RANG l'a décidé), ce qui
+  // cloche, et le retrait. Le nom du meuble se touche pour le corriger — et corriger une photo
+  // réattribue toutes les suivantes du même pôle, parce qu'un décalage se rattrape en un geste.
   function ligneDePhoto(it) {
     var d = document.createElement("div"); d.className = "rl-shot";
-    var haut = it.comp ? "<b>" + esc(compLabel(it.comp)) + "</b>" : esc(fmtT(it.t));
+    var pole = poleByName(it.pole);
     var avert = it.etat === "ecrite" && it.coverage && it.coverage !== "entier" ? t("releve_a_reprendre")
       : (it.reason === "floue" ? t("releve_floue_a_reprendre") : "");
     var etat = it.etat === "envoi" ? t("capture_envoi") : it.etat === "echec" ? (it.echec || t("pole_photo_failed")) : "";
     d.innerHTML = '<img alt="" src="' + it.dataUrl + '">'
-      + '<div class="c"><div class="t">' + haut + (etat ? " · " + esc(etat) : "") + "</div>"
-      + (avert ? '<div class="w">' + esc(avert) + "</div>" : "")
-      + "</div>";
+      + '<div class="c"><div class="t">' + esc(fmtT(it.t)) + (etat ? " · " + esc(etat) : "") + "</div>"
+      + (avert ? '<div class="w">' + esc(avert) + "</div>" : "") + "</div>";
     var col = d.querySelector(".c");
-    if (!it.comp) {
-      var pole = poleByName(it.pole);
-      var comps = pole && Array.isArray(pole.components) ? pole.components : [];
-      var q = document.createElement("div");
-      q.innerHTML = '<div class="t">' + esc(!it.pole ? t("capture_q_pole") : comps.length ? t("capture_q_composant") : t("capture_aucun_composant")) + "</div>";
-      comps.forEach(function (c) {
-        var b = document.createElement("button"); b.type = "button"; b.className = "qb"; b.textContent = compLabel(c);
-        b.addEventListener("click", function () { it.comp = c; showSummary(); enregistrerTout(); });
-        q.appendChild(b);
+
+    // Le meuble attribué : un bouton, parce qu'il se corrige.
+    var nom = document.createElement("button"); nom.type = "button"; nom.className = "rl-comp";
+    var vig = vignetteDe(pole, it.comp);
+    nom.innerHTML = (vig ? '<img alt="" src="' + esc(vig) + '">' : "")
+      + "<b>" + esc(it.comp ? compLabel(it.comp) : (it.pole ? t("capture_aucun_composant") : t("capture_q_pole"))) + "</b>";
+    col.appendChild(nom);
+
+    var liste = document.createElement("div"); liste.className = "rl-liste"; liste.hidden = true;
+    var comps = composantsDuPole(it.pole);
+    var titre = document.createElement("div"); titre.className = "t";
+    titre.textContent = comps.length ? t("capture_q_composant") : (it.pole ? t("capture_aucun_composant") : t("capture_q_pole"));
+    liste.appendChild(titre);
+    comps.forEach(function (c) {
+      var b = document.createElement("button"); b.type = "button"; b.className = "qb";
+      var v = vignetteDe(pole, c);
+      b.innerHTML = (v ? '<img alt="" src="' + esc(v) + '">' : "") + "<span>" + esc(compLabel(c)) + "</span>";
+      b.addEventListener("click", function () {
+        if (it.etat === "ecrite") it.etat = "a_corriger";   // celle qu'on touche part aussi par la file
+        reattribuer(it, c); showSummary(); enregistrerTout();
       });
-      col.appendChild(q);
-    }
+      liste.appendChild(b);
+    });
+    col.appendChild(liste);
+    // Une photo déjà écrite se corrige aussi : le toucher ouvre la même liste, et le choix la retire
+    // de la base avant de la renvoyer au bon meuble. Pendant un envoi, on ne touche à rien.
+    if (it.etat === "envoi") nom.disabled = true;
+    else nom.addEventListener("click", function () { liste.hidden = !liste.hidden; });
+
     var rm = document.createElement("button"); rm.type = "button"; rm.className = "rm";
     rm.textContent = it.removed ? t("releve_garder") : t("releve_retirer");
     rm.addEventListener("click", function () { it.removed = !it.removed; showSummary(); });
@@ -407,7 +497,7 @@
   var enCours = false;
   function enregistrerTout() {
     if (enCours) return;
-    var file = gardees().filter(function (i) { return i.comp && i.etat === "a_rattacher"; });
+    var file = gardees().filter(function (i) { return i.comp && (i.etat === "a_rattacher" || i.etat === "a_corriger"); });
     if (!file.length) { avancement(); return; }
     enCours = true;
     var suivant = function () {
@@ -415,8 +505,17 @@
       if (!it) { enCours = false; avancement(); return; }
       var pole = poleByName(it.pole);
       if (!pole || !window.MSPhotoCapture || !MSPhotoCapture.envoyer) { it.etat = "echec"; return suivant(); }
+      var aRetirer = it.etat === "a_corriger" && it.photo_id ? it.photo_id : null;
       it.etat = "envoi"; avancement(); majLigne(it);
-      MSPhotoCapture.envoyer({ dispositif_id: pole.dispositif_id, component_key: it.comp.component_key || it.comp.key, image_base64: it.dataUrl })
+      // Corriger = retirer l'ancienne ligne AVANT d'écrire la nouvelle. Si le retrait échoue, on
+      // n'écrit pas : deux lignes pour une seule photo seraient pires qu'un rattachement faux.
+      (aRetirer
+        ? fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "retirer", dispositif_id: pole.dispositif_id, photo_id: aRetirer }) })
+            .then(function (r) { return r.json(); })
+            .then(function (j) { if (!j || !j.ok) throw new Error("retrait"); it.photo_id = null; it.coverage = null; })
+        : Promise.resolve())
+        .then(function () { return MSPhotoCapture.envoyer({ dispositif_id: pole.dispositif_id, component_key: it.comp.component_key || it.comp.key, image_base64: it.dataUrl }); })
         .then(function (j) {
           if (j && j.ok) {
             it.etat = "ecrite"; it.photo_id = (j.photo && j.photo.photo_id) || null;
