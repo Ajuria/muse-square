@@ -11,7 +11,7 @@ const normalize = (p: string) => (p.replace(/\/+$/, "") || "/");
 const cur = normalize(Astro.url.pathname);
 const raw = Astro.props.active as string | undefined;
 const fromPath = cur.startsWith("/app/insightevent/prompt") ? "demander"
-  : (cur.startsWith("/app/insightevent/tableau") || cur.startsWith("/app/insightevent/evenement") || cur.startsWith("/app/insightevent/pole") || cur.startsWith("/app/insightevent/documenter")) ? "piloter"
+  : (cur.startsWith("/app/insightevent/tableau") || cur.startsWith("/app/insightevent/evenement") || cur.startsWith("/app/insightevent/pole")) ? "piloter"
   : (cur.startsWith("/app/insightevent") && !cur.startsWith("/app/insightevent/suivis")) ? "agir"
   : "";
 const active = raw ? (raw === "veille" ? "agir" : raw === "evenements" ? "piloter" : raw) : fromPath;

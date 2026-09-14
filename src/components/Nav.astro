@@ -33,8 +33,7 @@ const isDemander = currentPath.startsWith("/app/insightevent/prompt") || current
 const isMapFromPiloter = currentPath.startsWith("/app/insightevent/map") && Astro.url.searchParams.get("mode") === "concurrence";
 // 13/09 (owner : « Dans Agir vraiment ? ») : la page d'un PÔLE (/pole) se pilote — elle s'ouvre depuis « Vos pôles »
 // du Tableau de bord et y revient ; l'opération (/engagement) reste une vue de détail d'Agir.
-// 14/09 : l'app de capture (/documenter) s'ouvre depuis Piloter et y revient — elle reste sous Piloter.
-const isPiloterTab = currentPath.startsWith("/app/insightevent/tableau") || currentPath.startsWith("/app/insightevent/evenement") || currentPath.startsWith("/app/insightevent/pole") || currentPath.startsWith("/app/insightevent/documenter") || isMapFromPiloter;
+const isPiloterTab = currentPath.startsWith("/app/insightevent/tableau") || currentPath.startsWith("/app/insightevent/evenement") || currentPath.startsWith("/app/insightevent/pole") || isMapFromPiloter;
 const isAgir = currentPath.startsWith("/app/insightevent") && !isDemander && !isPiloterTab && !currentPath.startsWith("/app/insightevent/suivis");
 const isProfile = currentPath === "/profile" || currentPath === "/notifications" || currentPath.startsWith("/app/insightevent/suivis");
 const isSignIn = currentPath === "/sign-in" || currentPath.startsWith("/sign-in/");

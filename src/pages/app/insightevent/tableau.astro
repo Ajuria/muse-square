@@ -15,6 +15,19 @@ export const prerender = false;
 
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { Show } from "@clerk/astro/components";
+import { EVOL_COPY } from "../../../lib/commitments/commitmentCopy";
+// 14/09 — les seules chaînes dont le volet de capture a besoin ; elles vivent au foyer du lexique et
+// voyagent par define:vars, jamais recopiées dans le module client.
+const CAPTURE_COPY = {
+  capture_q_pole: EVOL_COPY.capture_q_pole,
+  capture_q_composant: EVOL_COPY.capture_q_composant,
+  capture_envoi: EVOL_COPY.capture_envoi,
+  capture_aucun_pole: EVOL_COPY.capture_aucun_pole,
+  capture_aucun_composant: EVOL_COPY.capture_aucun_composant,
+  pole_photo_reading: EVOL_COPY.pole_photo_reading,
+  pole_photo_failed: EVOL_COPY.pole_photo_failed,
+  pole_photo_person: EVOL_COPY.pole_photo_person,
+};
 
 const locParam = Astro.url.searchParams.get("location_id") || "";
 ---
@@ -35,10 +48,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
              est déjà le bouton. Aucun mot neuf : « Documenter » est le CTA owner du 03/09, et
              « Ouvrir le menu » est l'intitulé déjà employé par Nav.astro. -->
         <div style="display:flex;gap:8px;align-items:center;position:relative;">
-        <a id="tb-doc" href="/app/insightevent/documenter" style="display:none;align-items:center;padding:8px 15px;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;font-size:13px;font-weight:600;color:#fff;text-decoration:none;white-space:nowrap;">Documenter</a>
+        <button id="tb-doc" type="button" style="display:none;align-items:center;padding:8px 15px;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:10px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:inherit;white-space:nowrap;">Documenter</button>
         <button id="tb-menu-btn" type="button" aria-label="Ouvrir le menu" aria-expanded="false" style="display:inline-flex;align-items:center;gap:6px;padding:8px 13px;background:transparent;border:1px solid #E5E7EB;border-radius:10px;font-size:15px;font-weight:600;color:#1D3BB3;cursor:pointer;font-family:inherit;line-height:1;">…</button>
         <div id="tb-menu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:190px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:4px 0;z-index:60;box-shadow:0 6px 20px rgba(0,0,0,0.08);">
-          <a id="tb-doc-menu" href="/app/insightevent/documenter" style="display:block;padding:9px 14px;font-size:13px;color:#1D3BB3;text-decoration:none;white-space:nowrap;">Documenter</a>
+          <button id="tb-doc-menu" type="button" style="display:block;width:100%;text-align:left;padding:9px 14px;font-size:13px;color:#1D3BB3;background:none;border:none;cursor:pointer;font-family:inherit;white-space:nowrap;">Documenter</button>
           <a id="tb-new" href="/app/insightevent/evenement?new=1" style="display:block;padding:9px 14px;font-size:13px;color:#1D3BB3;text-decoration:none;white-space:nowrap;">Nouvelle opération</a>
           <a id="tb-rapports" href="/app/insightevent/rapports" style="display:block;padding:9px 14px;font-size:13px;color:#1D3BB3;text-decoration:none;white-space:nowrap;">Rapports</a>
         </div>
@@ -53,8 +66,23 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           #tb-doc-menu { display: none; }
         }
       </style>
-      <script is:inline>
+      <script is:inline src="/js/photo-capture.js?v=2"></script>
+      <script is:inline define:vars={{ CAPCOPY: CAPTURE_COPY }}>
         (function () {
+          // 14/09 (owner) — « Documenter » OUVRE L'APPAREIL PHOTO, sans page intermédiaire et sans
+          // question de site. Le navigateur ne l'ouvre que sur un geste : c'est donc ce clic-ci qui le
+          // fait, et aucune navigation ne peut s'intercaler. Les pôles, leurs composants et leur site
+          // sont déjà dans le payload du tableau (`window._tbPoles`, posé au chargement) : aucune
+          // lecture de plus. Les deux questions se posent ensuite dans un volet, sur cette page.
+          var ouvrir = function () {
+            var poles = window._tbPoles || [];
+            if (!window.MSPhotoCapture) return;
+            MSPhotoCapture.ouvrir({ poles: poles, multi: !!window._tbMulti, copy: CAPCOPY });
+          };
+          ["tb-doc", "tb-doc-menu"].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener("click", function () { var m2 = document.getElementById("tb-menu"); if (m2) m2.style.display = "none"; ouvrir(); });
+          });
           var b = document.getElementById("tb-menu-btn"), m = document.getElementById("tb-menu");
           if (!b || !m) return;
           var ouvrir = function (on) { m.style.display = on ? "block" : "none"; b.setAttribute("aria-expanded", String(on)); };
@@ -174,6 +202,10 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               if (!j || !j.ok) { body.textContent = "Erreur : " + ((j && j.error) || "réessayez."); return; }
               J = j; lastFilter = locFilter;
               if (!locFilter || !allSites) { allSites = j.sites || []; accountMulti = !!j.multi_site; }
+              // 14/09 — ce dont « Documenter » a besoin, posé dès le chargement : les pôles portent déjà
+              // leur site, leur commitment_id et les composants de leur version courante. Aucune lecture
+              // de plus au moment du geste — l'appareil photo doit s'ouvrir sans attendre.
+              window._tbPoles = j.poles || []; window._tbMulti = !!j.multi_site;
               if (!loc && Array.isArray(j.sites) && j.sites[0]) loc = String(j.sites[0].location_id);
               document.getElementById("tb-new").href = "/app/insightevent/evenement?location_id=" + encodeURIComponent(loc) + "&new=1";
               render();
