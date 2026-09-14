@@ -15,8 +15,9 @@ import { makeBQClient } from "../../../lib/bq";
 import { requireLocationAccess } from "../../../lib/requireLocationOwnership";
 import { rateLimit, rateLimitResponse } from "../../../lib/rate-limit";
 import { isRapportBlock, listReportDocuments, listReportVersions, newReportDocumentRow, readReportDocument, writeReportDocument } from "../../../lib/rapport/documents";
-import { actualiserDocument, ajouterNote, deplacerSection, dupliquerSection, modifierSynthese, retirerNote, retirerSection, sujetDeNote } from "../../../lib/rapport/gestes";
+import { actualiserDocument, ajouterNote, deplacerSection, dupliquerSection, modifierSynthese, retirerNote, retirerSection, sujetDeNote, sectionsAjoutables, insererSection, composerSurPeriode } from "../../../lib/rapport/gestes";
 import { writeSiteMemory, newSiteMemoryRow, normalizeBody } from "../../../lib/explorer/siteMemory";
+import type { SectionCle } from "../../../lib/fr/rapport.fr";
 import type { RapportBlock } from "../../../lib/explorer/blocks";
 
 export const prerender = false;
@@ -55,7 +56,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       if (url.searchParams.get("versions") === "1") return json({ ok: true, versions: await listReportVersions(bq, location_id, document_id) });
       const version = Number(url.searchParams.get("version") || 0) || null;
       const doc = await readReportDocument(bq, location_id, document_id, version);
-      return doc ? json({ ok: true, document: doc }) : json({ ok: false, error: "Rapport introuvable" }, 404);
+      return doc ? json({ ok: true, document: doc, ajoutables: sectionsAjoutables(doc.rapport) }) : json({ ok: false, error: "Rapport introuvable" }, 404);
     }
     const documents = await listReportDocuments(bq, location_id);
     // La liste ne porte pas les blocs (légère) : le titre, la période, la version, la date — le document se lit par id.
@@ -97,7 +98,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 };
 
 // ── Les gestes sur le document (spec § 6.2) ─────────────────────────────────────────────────────────
-const GESTES = new Set(["deplacer", "retirer", "dupliquer", "note", "retirer_note", "synthese", "actualiser"]);
+const GESTES = new Set(["deplacer", "retirer", "dupliquer", "note", "retirer_note", "synthese", "actualiser", "ajouter"]);
 
 async function geste(bq: any, locals: any, location_id: string, w: { user_id: string; role: "owner" | "member" }, body: any): Promise<Response> {
   const document_id = String(body.document_id || "").trim();
@@ -115,6 +116,26 @@ async function geste(bq: any, locals: any, location_id: string, w: { user_id: st
       case "note": out = ajouterNote(prev.rapport, i, body.texte, typeof body.auteur === "string" ? body.auteur : null); break;
       case "retirer_note": out = retirerNote(prev.rapport, i, Number(body.note)); break;
       case "synthese": out = modifierSynthese(prev.rapport, body.texte, typeof body.auteur === "string" ? body.auteur : null); break;
+      // 14/09 (owner) — AJOUTER UNE SECTION. Le point dur : insérer un cadre vide puis « Actualiser » ne le
+      // remplirait PAS — `clesARecalculer` ne reprend que les sections qui ont déjà une provenance, et une
+      // section neuve n'en a pas. L'ajout COMPOSE donc, avec `composerSurPeriode` (le composeur existant,
+      // une seule clé) sur la période DU DOCUMENT — jamais sur aujourd'hui, sinon la section neuve
+      // parlerait d'une autre période que ses voisines.
+      case "ajouter": {
+        const cle = String(body.cle || "").trim() as SectionCle;
+        if (!sectionsAjoutables(prev.rapport).some((d) => d.cle === cle)) { out = { erreur: "section indisponible" }; break; }
+        const owned: string[] = Array.isArray(locals?.all_location_ids) ? locals.all_location_ids.map(String) : [location_id];
+        const polesProv = prev.rapport.sections.find((x) => x.cle === "poles")?.provenance;
+        const compose = await composerSurPeriode(bq, location_id, owned, {
+          cles: [cle], indicateur: ((polesProv?.params as any)?.indicateur as any) ?? "ca",
+          titre: prev.rapport.titre, periode: prev.rapport.periode,
+        }, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }));
+        const neuve = compose.block.sections.find((x) => x.cle === cle);
+        // Le composeur peut ne rien rendre (aucune matière) : on le DIT au lieu d'ajouter un cadre creux.
+        if (!neuve) { out = { erreur: "Rien à montrer dans cette section sur cette période." }; break; }
+        out = insererSection(prev.rapport, neuve);
+        break;
+      }
       default: {
         const owned: string[] = Array.isArray(locals?.all_location_ids) ? locals.all_location_ids.map(String) : [location_id];
         out = await actualiserDocument(bq, location_id, owned, prev.rapport, new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" }));
@@ -156,7 +177,7 @@ async function geste(bq: any, locals: any, location_id: string, w: { user_id: st
         console.error("[explorer/rapports] note → mémoire :", String(e?.message || e));
       }
     }
-    return json({ ok: true, document_id, version: row.version, ...(memoire === null ? {} : { memoire }), document: { ...prev, version: row.version, author_user_id: row.author_user_id, author_role: row.author_role, titre: row.titre, periode_du: row.periode_du, periode_au: row.periode_au, periode_relative: row.periode_relative, created_at: row.created_at, rapport: out } });
+    return json({ ok: true, document_id, version: row.version, ajoutables: sectionsAjoutables(out), ...(memoire === null ? {} : { memoire }), document: { ...prev, version: row.version, author_user_id: row.author_user_id, author_role: row.author_role, titre: row.titre, periode_du: row.periode_du, periode_au: row.periode_au, periode_relative: row.periode_relative, created_at: row.created_at, rapport: out } });
   } catch (e: any) {
     const msg = String(e?.message || e);
     if (/^rapport : /.test(msg)) return json({ ok: false, error: msg }, 400);

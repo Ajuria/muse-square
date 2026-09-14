@@ -7,7 +7,7 @@
 // un bloc `rapport` sort, jamais muté — la route écrit la version suivante. Un déplacement ne change aucun chiffre
 // (testé). Les mots : Approfondir, Votre note (lexique l. 122-123), Déplacer, Retirer, Dupliquer, Actualiser (§ 6.2).
 import type { AnswerBlock, RapportBlock, RapportSection, Register } from "../explorer/blocks";
-import { SECTION_BY_CLE, type SectionCle } from "../fr/rapport.fr";
+import { SECTIONS, SECTION_BY_CLE, type SectionCle, type SectionDef } from "../fr/rapport.fr";
 import { resolvePeriode, computeSalesReport, composeVentesFacts, type PeriodeMot } from "./ventes";
 import { composeRapport, SECTIONS_VENTES, type ComposeResult } from "./composer";
 import { readResultat, composeResultatFacts } from "../kpi/resultat";
@@ -44,6 +44,36 @@ export function dupliquerSection(r: RapportBlock, i: number): RapportBlock | Ges
 }
 
 /** Votre note : un texte de l'exploitant, sous la section `i` (après ses blocs), avec l'auteur et la date. */
+/**
+ * PUR — LES SECTIONS QU'ON PEUT ENCORE AJOUTER (owner 14/09, livrable arrêté ensemble).
+ *
+ * DEUX CLÉS NE SONT JAMAIS PROPOSÉES, et ce n'est pas un oubli :
+ *  · `synthese` n'est PAS une section — c'est le texte d'ouverture du document, écrit par l'agent ou par
+ *    l'exploitant (« Modifier la Synthèse ») ; le composeur l'écarte déjà (composer.ts l. 49) ;
+ *  · `sources` se CONSTRUIT en ramassant les sources des autres sections, et reste en dernier. La proposer
+ *    ferait croire qu'on peut l'ajouter à la main, alors qu'elle suit toute seule.
+ * L'ordre rendu est celui du lexique (SECTIONS), pas celui du document : c'est une liste de choix, et une
+ * liste de choix qui change d'ordre d'une fois sur l'autre est illisible.
+ */
+export function sectionsAjoutables(r: RapportBlock): SectionDef[] {
+  const presentes = new Set((r?.sections ?? []).map((s) => String(s.cle)));
+  return SECTIONS.filter((d) => d.cle !== "synthese" && d.cle !== "sources" && !presentes.has(d.cle));
+}
+
+/**
+ * PUR — OÙ ATTERRIT UNE SECTION AJOUTÉE : à la FIN, mais AVANT « Sources et fiabilité » (arbitrage owner
+ * 14/09). Prévisible — on sait toujours où la retrouver — et les flèches ↑ ↓ la déplacent ensuite. Sans
+ * section Sources, elle va simplement en dernier.
+ */
+export function insererSection(r: RapportBlock, nouvelle: RapportSection): RapportBlock | GesteErreur {
+  if (!nouvelle || !nouvelle.cle) return { erreur: "section à ajouter manquante" };
+  if ((r?.sections ?? []).some((s) => String(s.cle) === String(nouvelle.cle))) return { erreur: "section déjà présente" };
+  const out = clone(r);
+  const iSources = out.sections.findIndex((s) => String(s.cle) === "sources");
+  out.sections.splice(iSources < 0 ? out.sections.length : iSources, 0, clone(nouvelle));
+  return out;
+}
+
 /**
  * PUR — LE SUJET SOUS LEQUEL UNE NOTE ENTRE DANS LA MÉMOIRE DU SITE (owner 14/09 : « peut permettre à
  * l'app d'apprendre beaucoup de choses sur le business du user » ; spec § 4 n2, owner 12/09 : « les choix
@@ -148,7 +178,11 @@ export function actualiserAvec(ancien: RapportBlock, nouveau: RapportBlock): Rap
   });
   out.periode = nouveau.periode;
   out.titre = ancien.titre === `Rapport — ${ancien.periode.libelle_fr}` ? `Rapport — ${nouveau.periode.libelle_fr}` : ancien.titre;
-  out.synthese = null;
+  // 14/09 (owner) — CORRIGÉ : « Actualiser » effaçait TOUTE Synthèse, y compris celle que l'exploitant
+  // venait d'écrire à la main. Pour une Synthèse générée c'est juste — elle décrivait les anciens chiffres.
+  // Pour la sienne, c'est une perte de données, et le geste ne la lui annonçait pas. `register: "note"` est
+  // la marque posée par `modifierSynthese` : elle seule distingue les deux, et elle seule survit.
+  out.synthese = ancien.synthese && ancien.synthese.register === "note" ? clone(ancien.synthese) : null;
   return out;
 }
 

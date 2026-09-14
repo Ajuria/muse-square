@@ -108,6 +108,16 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
       .rp-editeur-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
       /* L'aide de raccourcis s'efface sur petit écran : elle nomme des touches qu'un téléphone n'a pas. */
       .rp-editeur-aide { font-size: 11.5px; }
+      /* 14/09 — la liste des sections à ajouter : chaque choix montre son NOM et sa DÉFINITION. Un nom seul
+         (« Mix produits & services ») ne dit pas ce qu'on ajoute ; la définition existe au lexique, on la
+         montre au lieu de la cacher au survol — on choisit une fois, on ne survole pas treize lignes. */
+      .rp-choix { display: grid; gap: 6px; }
+      .rp-choix-item { display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+        background: #fff; border: 1px solid #E5E7EB; border-radius: 8px; padding: 9px 11px; }
+      .rp-choix-item:hover:not(:disabled) { border-color: #1D3BB3; background: #F5F7FF; }
+      .rp-choix-item:disabled { opacity: 0.5; cursor: default; }
+      .rp-choix-titre { display: block; font-size: 13.5px; font-weight: 600; color: #111827; }
+      .rp-choix-def { display: block; font-size: 12px; color: #6B7280; line-height: 1.45; margin-top: 2px; }
       @media (max-width: 640px) { .rp-editeur-aide { display: none; } }
       @keyframes rp-fade { from { outline-color: #1D3BB3; } to { outline-color: rgba(29,59,179,0); } }
       /* Respecte le réglage système : sans mouvement, le liseré s'affiche et disparaît sans animation. */
@@ -250,7 +260,7 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
             if (g === "retirer") return { section: Math.max(0, params.section - 1), bouton: null };
             return { section: params.section, bouton: bouton };
           };
-          var geste = async function (g, params, bouton) { var j = await postJson("/api/explorer/rapports", Object.assign({ location_id: loc, document_id: doc.document_id, geste: g }, params || {})); renderDocument(j.document, ancreDuGeste(g, params, bouton)); loadRapports(); };
+          var geste = async function (g, params, bouton) { var j = await postJson("/api/explorer/rapports", Object.assign({ location_id: loc, document_id: doc.document_id, geste: g }, params || {})); renderDocument(Object.assign({}, j.document, { ajoutables: j.ajoutables }), ancreDuGeste(g, params, bouton)); loadRapports(); };
           bar.appendChild(mk("Actualiser", function () { return geste("actualiser", {}); }));
           // 14/09 — la Synthèse aussi : c'est le texte le PLUS long du document (trois à cinq phrases), donc
           // le pire cas pour une boîte de dialogue. L'éditeur s'ouvre sous la barre, pré-rempli avec le
@@ -278,6 +288,15 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
               },
             });
           }));
+          // 14/09 — « + Ajouter une section » : le geste porte sur le DOCUMENT, pas sur une section ; la
+          // nouvelle arrive à la fin (avant Sources, arbitrage owner) et ↑ ↓ la déplacent. `ajoutables`
+          // vient du serveur avec le document ; absent (réponse ancienne), le bouton ne s'affiche pas —
+          // plutôt que d'ouvrir une liste vide qui dirait faussement « tout est déjà là ».
+          if (Array.isArray(doc.ajoutables)) {
+            bar.appendChild(mk("+ Ajouter une section", function () {
+              choixDeSection(zone, bar, doc.ajoutables, function (cle) { return geste("ajouter", { cle: cle }); });
+            }));
+          }
           bar.appendChild(st);
           zone.appendChild(bar);
           var hist = el("div", "rp-versions", ""); zone.appendChild(hist);
@@ -287,7 +306,7 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
             j.versions.forEach(function (v) {
               var a = el("a", null, "v" + v.version + " · " + frD(v.created_at)); a.href = "#";
               if (v.version === doc.version) a.style.fontWeight = "700";
-              a.addEventListener("click", async function (ev) { ev.preventDefault(); try { var jj = await getJson("/api/explorer/rapports" + q("&document_id=" + encodeURIComponent(doc.document_id) + "&version=" + v.version)); renderDocument(jj.document); } catch (e) { showErr(zone, String(e.message || e)); } });
+              a.addEventListener("click", async function (ev) { ev.preventDefault(); try { var jj = await getJson("/api/explorer/rapports" + q("&document_id=" + encodeURIComponent(doc.document_id) + "&version=" + v.version)); renderDocument(Object.assign({}, jj.document, { ajoutables: jj.ajoutables })); } catch (e) { showErr(zone, String(e.message || e)); } });
               hist.appendChild(a);
             });
           }).catch(function () {});
@@ -331,7 +350,7 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
                 valider: async function (question) {
                   var tools = el("ul", "rp-tools"); z.appendChild(tools);
                   var r = await composer({ approfondir: { document_id: doc.document_id, section: i, question: question } }, tools, null);
-                  tools.remove(); renderDocument(r.document); loadRapports();
+                  tools.remove(); renderDocument(Object.assign({}, r.document, { ajoutables: r.ajoutables })); loadRapports();
                 },
               });
             }));
@@ -361,8 +380,50 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
           // redescendrait le bloc qu'on vient de monter.
           if (!mis) { cible.setAttribute("tabindex", "-1"); pose(cible); }
         }
+        // 14/09 — LE SÉLECTEUR DE SECTION (owner : « comment ajoute-t-on des blocs, et on les choisit
+        // comment ? »). La liste vient du SERVEUR : le vocabulaire des sections vit dans src/lib/fr, la
+        // page ne peut pas le connaître. Chaque choix porte son titre ET sa définition — on choisit en
+        // sachant ce qu'on ajoute, pas en devinant d'après un nom.
+        function choixDeSection(zone, apres, ajoutables, ajouter) {
+          var ouvert = docEl.querySelector(".rp-editeur");
+          if (ouvert) ouvert.remove();
+          var box = el("div", "rp-editeur");
+          box.appendChild(el("div", "rp-editeur-titre", "Ajouter une section"));
+          var etat = el("span", "rp-muted", "");
+          if (!ajoutables.length) {
+            // Toutes présentes : on le DIT. Une liste vide laisserait croire que le bouton est cassé.
+            box.appendChild(el("div", "rp-muted", "Toutes les sections sont déjà dans ce Rapport."));
+          } else {
+            var liste = el("div", "rp-choix");
+            ajoutables.forEach(function (d) {
+              var b = el("button", "rp-choix-item"); b.type = "button";
+              b.appendChild(el("span", "rp-choix-titre", d.titre));
+              if (d.definition) b.appendChild(el("span", "rp-choix-def", d.definition));
+              b.addEventListener("click", async function () {
+                liste.querySelectorAll("button").forEach(function (x) { x.disabled = true; });
+                etat.textContent = "Composition de « " + d.titre + " »…";
+                try { await ajouter(d.cle); }
+                catch (e) {
+                  liste.querySelectorAll("button").forEach(function (x) { x.disabled = false; });
+                  etat.textContent = String(e.message || e);
+                }
+              });
+              liste.appendChild(b);
+            });
+            box.appendChild(liste);
+          }
+          var pied = el("div", "rp-editeur-pied");
+          var annuler = el("button", "rp-btn", "Annuler"); annuler.type = "button";
+          annuler.addEventListener("click", function () { box.remove(); });
+          pied.appendChild(annuler); pied.appendChild(etat);
+          box.appendChild(pied);
+          if (apres && apres.parentNode) apres.parentNode.insertBefore(box, apres.nextSibling);
+          else zone.appendChild(box);
+          if (typeof box.scrollIntoView === "function") box.scrollIntoView({ block: "nearest" });
+        }
+
         async function openDocument(id, version) {
-          try { var j = await getJson("/api/explorer/rapports" + q("&document_id=" + encodeURIComponent(id) + (version ? "&version=" + version : ""))); renderDocument(j.document); }
+          try { var j = await getJson("/api/explorer/rapports" + q("&document_id=" + encodeURIComponent(id) + (version ? "&version=" + version : ""))); renderDocument(Object.assign({}, j.document, { ajoutables: j.ajoutables })); }
           catch (e) { showErr(docEl, String(e.message || e)); }
         }
 
