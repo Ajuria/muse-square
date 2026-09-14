@@ -37,7 +37,12 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
             <option value="30_derniers_jours">30 derniers jours</option>
             <option value="semaine_derniere">La semaine dernière</option>
             <option value="mois_dernier">Le mois dernier</option>
+            <option value="trimestre_dernier">Le trimestre dernier</option>
+            <option value="douze_derniers_mois">Les 12 derniers mois</option>
+            <option value="dates_precises">Dates précises…</option>
           </select>
+          <input type="date" id="rp-du" aria-label="Premier jour" style="display:none;" />
+          <input type="date" id="rp-au" aria-label="Dernier jour" style="display:none;" />
           <button type="button" id="rp-compose" class="rp-btn rp-btn-primary">Composer</button>
           <span id="rp-compose-status" class="rp-muted"></span>
         </div>
@@ -329,15 +334,36 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
         }
 
         // ── Nouveau rapport : la demande passe par la boucle ; le Rapport composé se rend, puis s'enregistre ──
-        var PERIODE_FR = { "30_derniers_jours": "sur vos 30 derniers jours", "semaine_derniere": "sur la semaine dernière", "mois_dernier": "sur le mois dernier" };
+        // 14/09 (owner : « trimestre, 12 mois ou une date précise »). UN seul menu, pas deux contrôles côte à
+        // côte : neuf demandes sur dix sont une période NOMMÉE, et une période nommée porte son libellé
+        // français jusque dans le Rapport imprimé. Les deux champs de date n'apparaissent que si on les demande.
+        var PERIODE_FR = {
+          "30_derniers_jours": "sur vos 30 derniers jours", "semaine_derniere": "sur la semaine dernière",
+          "mois_dernier": "sur le mois dernier", "trimestre_dernier": "sur le trimestre dernier",
+          "douze_derniers_mois": "sur vos 12 derniers mois",
+        };
+        (function () {
+          var sel = $("rp-periode"), du = $("rp-du"), au = $("rp-au");
+          var bascule = function () { var on = sel.value === "dates_precises"; du.style.display = on ? "" : "none"; au.style.display = on ? "" : "none"; };
+          sel.addEventListener("change", bascule); bascule();
+        })();
+        // La période en MOTS. Des dates précises se disent en français (JJ/MM/AAAA) : la forme que
+        // l'exploitant lit, et celle que le Rapport imprimera.
+        function periodeEnMots(v) {
+          if (v !== "dates_precises") return PERIODE_FR[v] || "";
+          var d = $("rp-du").value, a = $("rp-au").value || d;
+          return d ? ("du " + frD(d) + " au " + frD(a)) : "";
+        }
         async function lancerComposition(opts) {
           var btn = $("rp-compose"), status = $("rp-compose-status"), tools = $("rp-tools");
           var periode = opts.periode || $("rp-periode").value;
           var sections = opts.modele ? "" : $("rp-q").value.trim();
           if (!opts.modele && !sections) { status.textContent = "Dites ce que le rapport doit montrer."; return; }
+          var perMots = opts.periode ? (PERIODE_FR[opts.periode] || "") : periodeEnMots(periode);
+          if (periode === "dates_precises" && !perMots) { status.textContent = "Donnez le premier jour de la période."; return; }
           var question = opts.modele
-            ? ("Compose mon rapport « " + opts.modele + " » " + (PERIODE_FR[periode] || "") + ".")
-            : ("Compose un rapport " + (PERIODE_FR[periode] || "") + " avec : " + sections + ".");
+            ? ("Compose mon rapport « " + opts.modele + " » " + perMots + ".")
+            : ("Compose un rapport " + perMots + " avec : " + sections + ".");
           btn.disabled = true; status.textContent = "Composition…"; tools.innerHTML = ""; docEl.innerHTML = "";
           var streamed = el("div", "rp-zone"); docEl.appendChild(streamed);
           try {
@@ -357,7 +383,33 @@ const document_id = Astro.url.searchParams.get("document_id") || "";
         $("rp-q").addEventListener("keydown", function (e) { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) lancerComposition({}); });
 
         if (!kit || typeof kit.renderAnswerBlocks !== "function") { docEl.textContent = "Rendu indisponible."; return; }
-        loadRapports().then(function () { loadModeles(); loadEnvois(); if (openId) openDocument(openId); });
+        // 14/09 (owner : la page ouverte sans ?location_id rendait TROIS panneaux « location_id requis »,
+        // aucun Modèle, donc aucun « Envoyer chaque… », et « Composer ne fait rien » — il postait avec un
+        // site vide). Le commentaire d'en-tête prétendait que les routes résolvaient le site actif : c'est
+        // faux, les deux replis plus bas le récupèrent d'une réponse qui l'exigeait déjà — circulaire.
+        // LE FOYER est `/api/profile/locations`, celui de Pulse, du mois et de l'événement ; le site
+        // principal d'abord (is_primary), sinon le premier. Sans site, on le DIT au lieu de laisser trois
+        // panneaux répéter une erreur technique que l'exploitant ne peut pas corriger.
+        async function resoudreSite() {
+          if (loc) return true;
+          try {
+            var j = await getJson("/api/profile/locations");
+            var l = Array.isArray(j.locations) ? j.locations : [];
+            var choisi = l.find(function (x) { return x && x.is_primary; }) || l[0] || null;
+            if (choisi && choisi.location_id) { loc = String(choisi.location_id); return true; }
+          } catch (e) { /* le message ci-dessous dit la même chose, en français */ }
+          return false;
+        }
+        resoudreSite().then(function (ok) {
+          if (!ok) {
+            ["rp-modeles", "rp-envois", "rp-list"].forEach(function (id) {
+              var b = $(id); if (b) b.textContent = "Aucun site sur ce compte pour l'instant.";
+            });
+            var c = $("rp-compose"); if (c) c.disabled = true;
+            return;
+          }
+          loadRapports().then(function () { loadModeles(); loadEnvois(); if (openId) openDocument(openId); });
+        });
       })();
     </script>
   </BaseLayout>

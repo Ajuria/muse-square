@@ -392,7 +392,7 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     name: "lire_ventes",
     description: "Vos ventes sur une période : chiffre d'affaires, nombre de ventes, panier moyen, ce qui a bougé par rapport à la période précédente (ventes, panier, mix par famille), meilleure et plus faible journée, profil par jour de semaine (à partir de 4 semaines), répartition par famille ; avec grain « jour », une ligne par jour de vente (jusqu'à 31 jours). Période : « 30_derniers_jours » (défaut, les 30 jours qui finissent hier), « semaine_derniere » (du lundi au dimanche précédents), « mois_dernier » (le mois civil précédent), ou deux dates du/au au format AAAA-MM-JJ.",
     inputSchema: z.object({
-      periode: z.enum(["30_derniers_jours", "semaine_derniere", "mois_dernier"]).optional().describe("Le mot de la période. Ignoré si du/au sont donnés."),
+      periode: z.enum(["30_derniers_jours", "semaine_derniere", "mois_dernier", "trimestre_dernier", "douze_derniers_mois"]).optional().describe("Le mot de la période. « trimestre_dernier » = le trimestre CIVIL précédent, entier ; « douze_derniers_mois » = les 12 mois glissants qui finissent hier. Ignoré si du/au sont donnés."),
       du: z.string().optional().describe("Premier jour, AAAA-MM-JJ."),
       au: z.string().optional().describe("Dernier jour, AAAA-MM-JJ (défaut : du)."),
       grain: z.enum(["jour"]).optional().describe("« jour » : une ligne par jour de vente (CA, ventes, panier moyen), jusqu'à 31 jours — pour « quel jour a porté… »."),
@@ -439,7 +439,7 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     description: "Vos pôles du plus au moins performant sur un indicateur : « ca », « ventes » (unités vendues), « marge_brute » (avec l'écart au résultat habituel et la part du CA ou de la marge, sur la période demandée), ou « ca_par_metre », « ca_par_m2 », « marge_par_metre » (sur les 30 jours des mesures d'espace, la période ne s'y applique pas). Les familles qu'aucun pôle ne porte apparaissent en « Non rattaché ». Période : comme lire_ventes.",
     inputSchema: z.object({
       indicateur: z.enum(["ca", "ventes", "marge_brute", "ca_par_metre", "ca_par_m2", "marge_par_metre"]).describe("L'indicateur du classement."),
-      periode: z.enum(["30_derniers_jours", "semaine_derniere", "mois_dernier"]).optional().describe("Le mot de la période (défaut : 30 derniers jours). Ignoré si du/au sont donnés."),
+      periode: z.enum(["30_derniers_jours", "semaine_derniere", "mois_dernier", "trimestre_dernier", "douze_derniers_mois"]).optional().describe("Le mot de la période (défaut : 30 derniers jours). « trimestre_dernier » = le trimestre CIVIL précédent, entier ; « douze_derniers_mois » = les 12 mois glissants qui finissent hier. Ignoré si du/au sont donnés."),
       du: z.string().optional().describe("Premier jour, AAAA-MM-JJ."),
       au: z.string().optional().describe("Dernier jour, AAAA-MM-JJ (défaut : du)."),
     }),
@@ -466,7 +466,7 @@ export function buildAgentTools(deps: AgentToolDeps): BetaRunnableTool[] {
     inputSchema: z.object({
       sections: z.string().optional().describe("Les sections demandées, en mots libres, séparées par des virgules (ex. « volume, panier, mix, pôles »). Vide si « modele » est donné."),
       modele: z.string().max(80).optional().describe("Un Modèle de rapport, par son nom : « ventes » (le rapport de ventes par défaut : Synthèse, Chiffre d'affaires, Nombre de ventes, Panier moyen, Mix, CA moyen par jour de la semaine, Marge brute, Contexte externe, Actions recommandées, Sources), ou le nom d'un Modèle que l'exploitant a enregistré (« Hebdo ventes », « Point mensuel pôles »…). La période du Modèle s'applique sauf si periode/du/au sont donnés."),
-      periode: z.enum(["30_derniers_jours", "semaine_derniere", "mois_dernier"]).optional().describe("Le mot de la période (défaut : 30 derniers jours). Ignoré si du/au sont donnés."),
+      periode: z.enum(["30_derniers_jours", "semaine_derniere", "mois_dernier", "trimestre_dernier", "douze_derniers_mois"]).optional().describe("Le mot de la période (défaut : 30 derniers jours). « trimestre_dernier » = le trimestre CIVIL précédent, entier ; « douze_derniers_mois » = les 12 mois glissants qui finissent hier. Ignoré si du/au sont donnés."),
       du: z.string().optional().describe("Premier jour, AAAA-MM-JJ."),
       au: z.string().optional().describe("Dernier jour, AAAA-MM-JJ (défaut : du)."),
       indicateur: z.enum(["ca", "ventes", "marge_brute", "ca_par_metre", "ca_par_m2", "marge_par_metre"]).optional().describe("L'indicateur du classement des pôles (défaut : ca)."),

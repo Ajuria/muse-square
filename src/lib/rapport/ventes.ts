@@ -360,7 +360,14 @@ export async function computeSalesReport(bq: any, args: SalesReportArgs): Promis
 }
 
 // ── La période demandée à l'outil → deux dates (PUR) ─────────────────────────────────────────────────
-export type PeriodeMot = '30_derniers_jours' | 'semaine_derniere' | 'mois_dernier';
+// 14/09 (owner : « on doit pouvoir dire trimestre, 12 mois ou choisir une date précise ») — deux mots de
+// plus. Les dates précises, elles, n'ont RIEN demandé : `resolvePeriode` accepte `du`/`au` libres depuis
+// toujours (voir ci-dessous) ; c'est l'interface qui ne les exposait pas.
+export type PeriodeMot = '30_derniers_jours' | 'semaine_derniere' | 'mois_dernier' | 'trimestre_dernier' | 'douze_derniers_mois';
+// LE foyer de la liste : toute surface qui valide une période la lit ICI. Une seconde liste écrite à la
+// main diverge — c'est arrivé le 14/09 (lib/rapport/modeles.ts en portait une de trois mots, un Modèle
+// « trimestre dernier » y serait retombé sur 30 jours SANS LE DIRE).
+export const PERIODE_MOTS: PeriodeMot[] = ['30_derniers_jours', 'semaine_derniere', 'mois_dernier', 'trimestre_dernier', 'douze_derniers_mois'];
 
 export interface PeriodeResolue { start: string; end: string; libelle_fr: string }
 
@@ -387,6 +394,23 @@ export function resolvePeriode(args: { periode?: PeriodeMot | null; du?: string 
     const end = shift(firstOfThisMonth, { days: -1 });
     const start = end.slice(0, 8) + '01';
     return { start, end, libelle_fr: `le mois dernier, du ${frDateFr(start)} au ${frDateFr(end)}` };
+  }
+  // Le TRIMESTRE DERNIER est CIVIL, comme « le mois dernier » : le trimestre calendaire précédent, entier.
+  // Pas « les 90 derniers jours » — l'exploitant qui dit « le trimestre dernier » parle de T1, T2, T3 ou T4,
+  // et deux définitions du même mot sur une même page seraient deux vérités.
+  if (args.periode === 'trimestre_dernier') {
+    const m = Number(today.slice(5, 7));
+    const debutTrimestreCourant = `${today.slice(0, 4)}-${String(Math.floor((m - 1) / 3) * 3 + 1).padStart(2, '0')}-01`;
+    const end = shift(debutTrimestreCourant, { days: -1 });
+    const start = `${end.slice(0, 4)}-${String(Number(end.slice(5, 7)) - 2).padStart(2, '0')}-01`;
+    return { start, end, libelle_fr: `le trimestre dernier, du ${frDateFr(start)} au ${frDateFr(end)}` };
+  }
+  // LES 12 DERNIERS MOIS finissent HIER, comme les 30 derniers jours — une fenêtre glissante, pas 12 mois
+  // civils : sinon elle changerait de longueur le 1er de chaque mois et deux rapports voisins ne se
+  // compareraient plus.
+  if (args.periode === 'douze_derniers_mois') {
+    const start = shift(shift(yesterday, { days: 1 }), { months: -12 });
+    return { start, end: yesterday, libelle_fr: `vos 12 derniers mois, du ${frDateFr(start)} au ${frDateFr(yesterday)}` };
   }
   const start = shift(yesterday, { days: -29 });
   return { start, end: yesterday, libelle_fr: `vos 30 derniers jours, du ${frDateFr(start)} au ${frDateFr(yesterday)}` };

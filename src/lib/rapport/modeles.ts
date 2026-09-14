@@ -10,13 +10,13 @@
 import { randomUUID } from "node:crypto";
 import type { RapportBlock } from "../explorer/blocks";
 import { SECTION_BY_CLE, type SectionCle } from "../fr/rapport.fr";
-import type { PeriodeMot } from "./ventes";
+import { PERIODE_MOTS, type PeriodeMot } from "./ventes";
 
 const PROJECT = "muse-square-open-data";
 const DATASET = "analytics";
 const TABLE = "report_templates";
 export const NOM_MAX = 80;
-const PERIODES: PeriodeMot[] = ["30_derniers_jours", "semaine_derniere", "mois_dernier"];
+const PERIODES: PeriodeMot[] = PERIODE_MOTS;   // 14/09 : LE foyer est ventes.ts — plus de seconde liste.
 
 export type AuthorRole = "owner" | "member";
 export interface TemplateSection { cle: SectionCle; params: Record<string, unknown> }
