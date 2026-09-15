@@ -41,14 +41,30 @@ describe("composePoleClassement — du plus au moins performant, l'indicateur no
     expect(nb(m.facts[1])).toBe("Cuisine génère 15 521 € de marge brute (calculée sur 100 % de son CA), soit 55,4 % de votre marge brute, +2 457 € par rapport à votre résultat habituel (30 jours vendus).");
     expect((m.blocks[0] as any).cols[2].label).toBe("Part de la marge");
   });
-  it("par mètre et par m² : le foyer espace, fenêtre fixe dite, classé sur l'indicateur", () => {
+  // 15/09 (owner) — « column 1 Pole, column 2 CA par m2 (specify it's par mètre 2 -> tu refais la même
+  // erreur !), column 3 CA par mètre linéaire, column 4 Part du CA ». Deux exigences en une : les
+  // colonnes, ET l'unité écrite en toutes lettres. « CA par mètre » nu ne dit pas de quel mètre il
+  // parle, et ce produit mesure les deux — le mètre linéaire de façade et le m² de surface de vente.
+  it("par mètre linéaire et par m² : les deux densités côte à côte, chacune nommée par son unité", () => {
     const l = composePoleClassement(data(), "ca_par_metre", "sur la semaine dernière");
-    expect(l.facts[0]).toBe("Vos pôles du plus au moins performant en CA par mètre, sur les 30 jours du 13/08/2026 au 11/09/2026 (la fenêtre des mesures d'espace, quelle que soit la période demandée) :");
-    expect(nb(l.facts[1])).toBe("Cuisine génère 514 € de CA par mètre sur 40,5 m de linéaire, soit 53,8 % de votre CA pour 20 % de votre linéaire.");
+    expect(l.facts[0]).toBe("Vos pôles du plus au moins performant en CA par mètre linéaire, sur les 30 jours du 13/08/2026 au 11/09/2026 (la fenêtre des mesures d'espace, quelle que soit la période demandée) :");
+    expect(nb(l.facts[1])).toBe("Cuisine génère 514 € de CA par mètre linéaire sur 40,5 m de linéaire, et 366 € de CA par m² de surface de vente, soit 53,8 % de votre CA pour 20 % de votre linéaire.");
     expect((l.blocks[0] as any).rows.map((r: any) => r.cells[0].v)).toEqual(["Cuisine", "Cave"]);
+    expect((l.blocks[0] as any).cols.map((c: any) => c.label)).toEqual(["Pôle", "CA par m²", "CA par mètre linéaire", "Part du CA"]);
+    expect(nb((l.blocks[0] as any).rows[0].cells.map((c: any) => c.v).join(" "))).toBe("Cuisine 366 € 514 € 53,8 %");
+    // Le TRI suit l'indicateur, les colonnes ne bougent pas : par m², la même table, un autre ordre
+    // possible — et c'est la colonne de l'indicateur qui est en gras.
     const m2 = composePoleClassement(data(), "ca_par_m2", "x");
-    expect(nb(m2.facts[1])).toContain("366 € de CA par m² sur 56,8 m²");
-    expect((m2.blocks[0] as any).cols[2].label).toBe("Surface de vente");
+    expect(nb(m2.facts[1])).toContain("366 € de CA par m² sur 56,8 m², et 514 € de CA par mètre linéaire");
+    expect((m2.blocks[0] as any).cols.map((c: any) => c.label)).toEqual(["Pôle", "CA par m²", "CA par mètre linéaire", "Part du CA"]);
+    expect((m2.blocks[0] as any).rows[0].cells[1].bold).toBe(true);
+    expect((l.blocks[0] as any).rows[0].cells[2].bold).toBe(true);
+    // AUCUN « par mètre » NU ne sort de cette lecture — c'est la faute que l'owner a relevée deux fois.
+    for (const ind of ["ca_par_metre", "ca_par_m2", "marge_par_metre"] as const) {
+      const x = composePoleClassement(data(), ind, "x");
+      const texte = x.facts.join(" ") + " " + (x.blocks[0] as any).cols.map((c: any) => c.label).join(" ");
+      expect(texte.replace(/par mètre linéaire/g, "")).not.toContain("par mètre");
+    }
   });
   it("absences : aucun pôle vendu ; aucune mesure d'espace ; aucune marge", () => {
     expect(composePoleClassement(data({ rows: [] }), "ca", "x")).toMatchObject({ found: false, absence: "aucun_pole" });

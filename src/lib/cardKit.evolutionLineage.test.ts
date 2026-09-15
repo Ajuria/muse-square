@@ -786,9 +786,13 @@ it("aucune photo du tout : l'absence de photo se dit, inchangée", () => {
 });
 
 // 15/09 (owner : « on n'a pas de vue jour des performances ») — LE MÊME GRAPHIQUE POUR LES DEUX PAGES.
-// `dayBars` servait une fenêtre d'opération (7 à 14 jours) et écrivait une étiquette PAR barre. Sur les
-// 30 jours d'un pôle, « lundi 15/09 » trente fois se chevauche et l'axe devient illisible (mesuré au
-// rendu). Le pas d'étiquette vaut 1 à 8 barres ou moins : la page d'une opération courte ne bouge pas.
+// `dayBars` servait une fenêtre d'opération (7 à 14 jours) et écrivait une colonne chiffrée PAR barre.
+// Sur les 30 jours d'un pôle, « lundi 15/09 » trente fois se chevauche, et « +58,4 % » aussi : mesuré
+// au rendu (22 barres, 21 chevauchements sur 22 pour les pourcentages). Deux réponses, DIFFÉRENTES :
+//   · l'AXE passe en DIAGONALE au-delà de 8 jours (owner : « write in diagonal as per best practices »)
+//     et garde TOUTES ses dates — la diagonale rend l'information au lieu de la rationner ;
+//   · les NOMBRES au-dessus des barres ne peuvent pas pivoter : ils s'espacent d'un pas de `n / 8`.
+// À 7 jours, rien ne bouge : l'axe reste horizontal et chaque barre garde son chiffre.
 const serieJours = (n: number) => Array.from({ length: n }, (_, i) => ({
   date: `2026-09-${String(i + 1).padStart(2, "0")}`, has_data: true,
   daily_revenue: 100 + i, expected_revenue: 110,
@@ -800,31 +804,48 @@ const opJours = (n: number) => ({
     created_at: "2026-09-01T00:00:00Z" },
   series: serieJours(n), kpi: null, lineage: [], shape: null,
 });
-const etiquettes = (html: string) => (html.match(/font-size="10\.5"[^>]*>[^<]+<\/text>/g) || []).length;
+const axeDroit = (html: string) => (html.match(/font-size="10\.5"[^>]*>[^<]+<\/text>/g) || []).length;
+const axeDiagonal = (html: string) => (html.match(/transform="rotate\(-45 [^"]+"[^>]*>[^<]+<\/text>/g) || []).length;
 const pourcents = (html: string) => (html.match(/font-size="13"[^>]*>[^<]*%<\/text>/g) || []).length;
 
-it("une opération de 7 jours garde TOUTES ses étiquettes d'axe — le partage ne coûte rien à l'existant", () => {
-  expect(etiquettes(String(kit.renderEvolution(opJours(7) as any, EVOL_COPY)))).toBe(7);
+it("une opération de 7 jours garde son axe DROIT et un chiffre par barre — le partage ne coûte rien à l'existant", () => {
+  const html = String(kit.renderEvolution(opJours(7) as any, EVOL_COPY));
+  expect(axeDroit(html)).toBe(7);
+  expect(axeDiagonal(html)).toBe(0);
+  expect(pourcents(html)).toBe(7);
 });
 
-it("au-delà de 8 jours les étiquettes s'espacent, l'axe reste lisible", () => {
+it("au-delà de 8 jours l'axe passe en diagonale et ne perd AUCUNE date", () => {
   const html = String(kit.renderEvolution(opJours(30) as any, EVOL_COPY));
-  const l30 = etiquettes(html);
-  expect(l30).toBeGreaterThanOrEqual(6);
-  expect(l30).toBeLessThanOrEqual(9);
-  // ET LA DERNIÈRE DATE EST TOUJOURS ÉCRITE. Sans elle, l'axe s'arrête au dernier multiple du pas
-  // (le 29 sur 30 jours) et la lecture croit que la série finit là. Assertion posée après une
-  // mutation qui n'était PAS tombée : le simple compte 8 ou 9 laissait passer la coupure.
-  const der = (html.match(/font-size="10\.5"[^>]*>([^<]+)<\/text>/g) || []).pop() || "";
-  expect(der).toContain("30/09");
+  expect(axeDiagonal(html)).toBe(30);
+  expect(axeDroit(html)).toBe(0);
+  // Et la PREMIÈRE date tient dans le cadre. Pivotée, elle s'étend vers le bas-gauche de son ancrage :
+  // avec la marge gauche de 8 du graphique droit, « lundi 17/08 » sortait par la gauche et se rendait
+  // « 17/08 » (constaté au rendu, pas déduit). L'ancrage de la première date est donc loin du bord.
+  const x1 = Number(/transform="rotate\(-45 ([0-9.]+) /.exec(html)?.[1] ?? 0);
+  expect(x1).toBeGreaterThan(50);
 });
 
-it("la ligne de chiffres au-dessus des barres suit LE MÊME pas que l'axe", () => {
-  // Mesuré au rendu du proto (22 barres) : l'axe espacé ne se chevauchait plus, « +58,4 % » si —
-  // 21 collisions sur 22. Un seul pas gouverne les deux rangées, sinon on corrige une rangée et on
-  // laisse l'autre illisible. À 7 jours, rien ne bouge.
-  expect(pourcents(String(kit.renderEvolution(opJours(7) as any, EVOL_COPY)))).toBe(7);
-  const p30 = pourcents(String(kit.renderEvolution(opJours(30) as any, EVOL_COPY)));
-  expect(p30).toBe(etiquettes(String(kit.renderEvolution(opJours(30) as any, EVOL_COPY))));
+it("les nombres au-dessus des barres s'espacent, et la dernière barre garde le sien", () => {
+  // Eux ne pivotent pas : à 30 jours, « +58,4 % » écrit 30 fois se chevauche. Le pas vaut n / 8, PLUS
+  // la dernière barre — sans quoi la lecture croit que la série s'arrête au dernier multiple du pas.
+  const html = String(kit.renderEvolution(opJours(30) as any, EVOL_COPY));
+  const p30 = pourcents(html);
+  expect(p30).toBeGreaterThanOrEqual(6);
   expect(p30).toBeLessThanOrEqual(9);
+  const euros = (html.match(/font-size="12"[^>]*>[^<]*€<\/text>/g) || []).length;
+  expect(euros).toBe(p30);
+  // La dernière barre (le 30) est chiffrée : son montant est 129 €.
+  expect(html).toContain(">129 €</text>");
+  // Et les 30 barres restent DESSINÉES — on retire des nombres, jamais de la mesure.
+  // `rx="4"` distingue une barre de la pastille de légende, qui porte le même bleu en `rx="2"`.
+  expect((html.match(/rx="4" fill="#1D3BB3" fill-opacity="0\.85"/g) || []).length).toBe(30);
+});
+
+it("le trait du résultat habituel est GRIS, dans le graphique comme dans sa légende", () => {
+  // Owner 15/09 : « horizontal line overlaps numbers -> make it grey ». En noir plein il barrait les
+  // montants. Les DEUX ensemble : une légende qui ment sur la couleur du trait est pire que rien.
+  const html = String(kit.renderEvolution(opJours(30) as any, EVOL_COPY));
+  expect(html).not.toContain('stroke="#111827" stroke-width="2"');
+  expect((html.match(/stroke="#8A93A2" stroke-width="2"/g) || []).length).toBe(31); // 30 traits + la légende
 });

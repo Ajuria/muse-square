@@ -549,12 +549,12 @@ describe("incrément 8 (13/09) — lire_plan et pont_de_marge", () => {
   it("lire_plan teinte aussi par CA et par marge brute PAR MÈTRE, avec le plus fort dit", async () => {
     const d = deps();
     const out = await byName(buildAgentTools(d), "lire_plan").run({ mesure: "marge_par_metre" });
-    expect(d.records[0].summary).toBe("2 pôles sur le plan, marge brute par mètre sur 30 jours");
-    expect(nb(out)).toContain("600 € de marge brute par mètre sur 30 jours");
+    expect(d.records[0].summary).toBe("2 pôles sur le plan, marge brute par mètre linéaire sur 30 jours");
+    expect(nb(out)).toContain("600 € de marge brute par mètre linéaire sur 30 jours");
     expect(nb(out)).toContain("— le plus fort.");
     const d2 = deps();
     await byName(buildAgentTools(d2), "lire_plan").run({ mesure: "ca_par_metre" });
-    expect((d2.records[0].blocks?.[0] as any).mesure_fr).toBe("CA par mètre sur 30 jours");
+    expect((d2.records[0].blocks?.[0] as any).mesure_fr).toBe("CA par mètre linéaire sur 30 jours");
   });
   it("pont_de_marge : quatre effets dont la somme est l'écart, les familles sans prix d'achat hors pont et dites, les périodes par défaut", async () => {
     const d = deps();

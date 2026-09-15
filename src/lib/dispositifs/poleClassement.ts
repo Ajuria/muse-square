@@ -45,7 +45,7 @@ export async function readPoleClassement(bq: any, location_id: string, start: st
 // ── Composition PURE ────────────────────────────────────────────────────────────────────────────────
 export type Indicateur = "ca" | "ventes" | "marge_brute" | "ca_par_metre" | "ca_par_m2" | "marge_par_metre";
 export const INDICATEUR_FR: Record<Indicateur, string> = {
-  ca: "CA", ventes: "ventes", marge_brute: "marge brute", ca_par_metre: "CA par mètre", ca_par_m2: "CA par m²", marge_par_metre: "marge brute par mètre",
+  ca: "CA", ventes: "ventes", marge_brute: "marge brute", ca_par_metre: "CA par mètre linéaire", ca_par_m2: "CA par m²", marge_par_metre: "marge brute par mètre linéaire",
 };
 const PAR_ESPACE: Indicateur[] = ["ca_par_metre", "ca_par_m2", "marge_par_metre"];
 
@@ -74,20 +74,48 @@ export function composePoleClassement(d: PoleClassementData, indicateur: Indicat
     facts.push(`Vos pôles du plus au moins performant en ${INDICATEUR_FR[indicateur]}, sur les 30 jours ${fen} (la fenêtre des mesures d'espace, quelle que soit la période demandée) :`);
     for (const p of poles) {
       const mesure = indicateur === "ca_par_m2" ? `${eur(p.revenue_per_m2 as number)} de CA par m²` + (p.surface_m2 != null ? ` sur ${String(Math.round(p.surface_m2 * 10) / 10).replace(".", ",")} m²` : "")
-        : indicateur === "ca_par_metre" ? `${eur(p.revenue_per_m as number)} de CA par mètre` + (p.linear_m != null ? ` sur ${String(Math.round(p.linear_m * 10) / 10).replace(".", ",")} m de linéaire` : "")
-        : `${eur(p.margin_per_m as number)} de marge brute par mètre` + (p.linear_m != null ? ` sur ${String(Math.round(p.linear_m * 10) / 10).replace(".", ",")} m de linéaire` : "");
-      facts.push(`${p.pole_label} génère ${mesure}` + (p.revenue_share != null ? `, soit ${pct1(p.revenue_share)} de votre CA` : "") + (p.linear_share != null ? ` pour ${pct1(p.linear_share)} de votre linéaire` : "") + ".");
+        : indicateur === "ca_par_metre" ? `${eur(p.revenue_per_m as number)} de CA par mètre linéaire` + (p.linear_m != null ? ` sur ${String(Math.round(p.linear_m * 10) / 10).replace(".", ",")} m de linéaire` : "")
+        : `${eur(p.margin_per_m as number)} de marge brute par mètre linéaire` + (p.linear_m != null ? ` sur ${String(Math.round(p.linear_m * 10) / 10).replace(".", ",")} m de linéaire` : "");
+      // LA SECONDE DENSITÉ EST DITE, PAS SEULEMENT AFFICHÉE. Le tableau met les deux côte à côte ; la
+      // porte de véracité (`groundAgentText`) exige que chaque nombre rendu soit dans les faits, et elle
+      // a raison : un chiffre qu'aucune phrase n'assume est un chiffre que personne ne peut contredire.
+      const autre = indicateur === "ca_par_m2"
+        ? (p.revenue_per_m != null ? `, et ${eur(p.revenue_per_m)} de CA par mètre linéaire` : "")
+        : indicateur === "ca_par_metre"
+          ? (p.revenue_per_m2 != null ? `, et ${eur(p.revenue_per_m2)} de CA par m² de surface de vente` : "")
+          : (p.revenue_per_m != null ? `, pour ${eur(p.revenue_per_m)} de CA par mètre linéaire` : "");
+      const part = indicateur === "marge_par_metre"
+        ? (p.margin_share != null ? `, soit ${pct1(p.margin_share)} de votre marge brute` : "")
+        : (p.revenue_share != null ? `, soit ${pct1(p.revenue_share)} de votre CA` : "");
+      facts.push(`${p.pole_label} génère ${mesure}${autre}${part}` + (p.linear_share != null ? ` pour ${pct1(p.linear_share)} de votre linéaire` : "") + ".");
     }
+    // LES COLONNES SONT CELLES QUE L'OWNER A NOMMÉES (15/09) : « column 1 Pole, column 2 CA par m2
+    // (specify it's par mètre 2 -> tu refais la même erreur !), column 3 CA par mètre linéaire,
+    // column 4 Part du CA ». Deux densités CÔTE À CÔTE, chacune avec son unité écrite en toutes
+    // lettres : un « CA par mètre » nu ne dit pas s'il parle du mètre de façade ou du m² de surface,
+    // et les deux vivent dans ce produit. Les mètres et la Part de linéaire quittent ce tableau : ils
+    // disent comment le pôle est INSTALLÉ, pas ce que sa place rapporte — la section Espace les porte.
+    // Le TRI reste sur l'indicateur demandé ; ce sont les colonnes qui sont fixes, pas l'ordre.
+    const eurOuTiret = (v: number | null | undefined): string => (v != null ? eur(v as number) : "—");
+    const colMarge = indicateur === "marge_par_metre";
     blocks.push({
       type: "table",
-      cols: [{ label: "Pôle" }, { label: INDICATEUR_FR[indicateur].charAt(0).toUpperCase() + INDICATEUR_FR[indicateur].slice(1) }, { label: indicateur === "ca_par_m2" ? "Surface de vente" : "Linéaire" }, { label: "Part du CA" }, { label: "Part de linéaire" }],
-      rows: poles.map((p) => ({ id: p.pole_id ?? undefined, cells: [
-        { v: p.pole_label ?? "", bold: true },
-        { v: eur(p[key] as number), bold: true },
-        { v: indicateur === "ca_par_m2" ? (p.surface_m2 != null ? `${String(Math.round(p.surface_m2 * 10) / 10).replace(".", ",")} m²` : "—") : (p.linear_m != null ? `${String(Math.round(p.linear_m * 10) / 10).replace(".", ",")} m` : "—") },
-        { v: p.revenue_share != null ? pct1(p.revenue_share) : "—" },
-        { v: p.linear_share != null ? pct1(p.linear_share) : "—" },
-      ] })),
+      cols: colMarge
+        ? [{ label: "Pôle" }, { label: "Marge brute par mètre linéaire" }, { label: "CA par mètre linéaire" }, { label: "Part de la marge" }]
+        : [{ label: "Pôle" }, { label: "CA par m²" }, { label: "CA par mètre linéaire" }, { label: "Part du CA" }],
+      rows: poles.map((p) => ({ id: p.pole_id ?? undefined, cells: colMarge
+        ? [
+            { v: p.pole_label ?? "", bold: true },
+            { v: eurOuTiret(p.margin_per_m), bold: true },
+            { v: eurOuTiret(p.revenue_per_m) },
+            { v: p.margin_share != null ? pct1(p.margin_share) : "—" },
+          ]
+        : [
+            { v: p.pole_label ?? "", bold: true },
+            { v: eurOuTiret(p.revenue_per_m2), bold: indicateur === "ca_par_m2" },
+            { v: eurOuTiret(p.revenue_per_m), bold: indicateur === "ca_par_metre" },
+            { v: p.revenue_share != null ? pct1(p.revenue_share) : "—" },
+          ] })),
     });
     const graphique: AnswerBlock = { type: "barres_h", items: poles.map((p) => ({ label: p.pole_label ?? "", value: p[key] as number, value_fr: eur(p[key] as number) })), unite: INDICATEUR_FR[indicateur] + ", sur les 30 jours des mesures" };
     blocks.push({ type: "sources", items: ["Vos pôles et vos mesures d'espace (mètres linéaires de façade, surface de vente) — CA et marge brute par mètre sur 30 jours"] });

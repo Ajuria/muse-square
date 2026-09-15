@@ -820,8 +820,19 @@
     // lettres. Remplace la double courbe : sur 7 points, deux polylignes se lisaient mal et
     // n'écrivaient l'écart nulle part.
     function dayBars(series, goalPct) {
-      var W = 760, H = 232, padL = 8, padT = 40, padB = 50, plotW = W - padL - 8, plotH = H - padT - padB;
-      var n = series.length, slot = plotW / n, bw = Math.min(54, slot * 0.52);
+      var n = series.length;
+      // 15/09 (owner : « abscisse legend overlap -> write in diagonal as per best practices ») —
+      // au-delà de 8 jours, les dates s'écrivent EN DIAGONALE. C'est l'usage sur un axe de dates
+      // serré, et il rend l'information au lieu de la rationner : en diagonale, les 22 ou 30 jours
+      // tiennent TOUS, là où l'horizontale n'en laissait passer que 8. La page d'une opération
+      // (7 jours) reste à l'horizontale, au pixel près.
+      var dense = n > 8;
+      // Une date en diagonale s'étend vers le BAS-GAUCHE de son point d'ancrage : sur la première
+      // barre, « lundi 17/08 » sortait du cadre par la gauche et se rendait « 17/08 » (constaté au
+      // rendu). La marge gauche s'ouvre quand l'axe est en diagonale, et seulement là.
+      var W = 760, H = dense ? 268 : 232, padL = dense ? 58 : 8, padT = 40, padB = dense ? 86 : 50;
+      var plotW = W - padL - 8, plotH = H - padT - padB;
+      var slot = plotW / n, bw = Math.min(54, slot * 0.52);
       var mx = 0;
       series.forEach(function (d) { if (d.has_data) { mx = Math.max(mx, d.daily_revenue, d.expected_revenue, d.expected_revenue * (1 + (goalPct || 0) / 100)); } });
       if (!(mx > 0)) return '';
@@ -843,23 +854,31 @@
           var yv = y(d.daily_revenue), yh = y(d.expected_revenue);
           var dp = d.residual_pct != null ? d.residual_pct : (d.expected_revenue ? (d.daily_revenue - d.expected_revenue) / d.expected_revenue * 100 : 0);
           s += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + yv.toFixed(1) + '" width="' + bw + '" height="' + (padT + plotH - yv).toFixed(1) + '" rx="4" fill="#1D3BB3" fill-opacity="0.85"/>'
-            + '<line x1="' + (cx - bw / 2 - 5).toFixed(1) + '" y1="' + yh.toFixed(1) + '" x2="' + (cx + bw / 2 + 5).toFixed(1) + '" y2="' + yh.toFixed(1) + '" stroke="#111827" stroke-width="2"/>';
+            + '<line x1="' + (cx - bw / 2 - 5).toFixed(1) + '" y1="' + yh.toFixed(1) + '" x2="' + (cx + bw / 2 + 5).toFixed(1) + '" y2="' + yh.toFixed(1) + '" stroke="#8A93A2" stroke-width="2"/>';
           if (goalPct != null) {
             var yg = y(d.expected_revenue * (1 + goalPct / 100));
             s += '<line x1="' + (cx - bw / 2 - 5).toFixed(1) + '" y1="' + yg.toFixed(1) + '" x2="' + (cx + bw / 2 + 5).toFixed(1) + '" y2="' + yg.toFixed(1) + '" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="4,3"/>';
           }
           if (chiffre) {
-            s += '<text x="' + cx.toFixed(1) + '" y="' + (yv - 20).toFixed(1) + '" font-size="13" font-weight="700" fill="' + (dp >= 0 ? '#0F6E56' : '#B45309') + '" text-anchor="middle">' + (dp >= 0 ? '+' : '−') + fr(Math.abs(dp)) + ' %</text>'
-              + '<text x="' + cx.toFixed(1) + '" y="' + (yv - 6).toFixed(1) + '" font-size="10" fill="#6b7280" text-anchor="middle">' + intfr(Math.round(d.daily_revenue)) + ' €</text>';
+            // 15/09 (owner : « bar chart numbers are difficult to read ») — le montant passait en 10 px
+            // gris clair, sous un pourcentage en 13 px : c'est le CA du jour, il se lit le premier. Il
+            // passe en 12 px dans le gris du texte courant, et les deux lignes s'écartent du trait
+            // d'habituel (qui est désormais gris, il ne les barre plus).
+            s += '<text x="' + cx.toFixed(1) + '" y="' + (yv - 22).toFixed(1) + '" font-size="13" font-weight="700" fill="' + (dp >= 0 ? '#0F6E56' : '#B45309') + '" text-anchor="middle">' + (dp >= 0 ? '+' : '−') + fr(Math.abs(dp)) + ' %</text>'
+              + '<text x="' + cx.toFixed(1) + '" y="' + (yv - 7).toFixed(1) + '" font-size="12" font-weight="600" fill="#374151" text-anchor="middle">' + intfr(Math.round(d.daily_revenue)) + ' €</text>';
           }
         } else {
           s += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + y(mx * 0.55).toFixed(1) + '" width="' + bw + '" height="' + (padT + plotH - y(mx * 0.55)).toFixed(1) + '" rx="4" fill="none" stroke="#e5e7eb" stroke-width="1.4" stroke-dasharray="4,4"/>';
         }
-        if (chiffre) {
-          // AUX DEUX BORDS, LA DATE S'ANCRE AU BORD. Centrée sur la première barre, « lundi 17/08 »
-          // déborde à gauche du cadre et se rend « undi 17/08 » ; la dernière perdait son mois
-          // (« mardi 15/0 »). Constaté au rendu du proto — invisible à 7 jours, où le créneau est
-          // large. Le texte reste au-dessus de SA barre, il est seulement aligné vers l'intérieur.
+        if (dense) {
+          // EN DIAGONALE : la date pivote de 45° autour de son point d'ancrage, fin de texte collée
+          // sous sa barre. Aucune n'est retirée — c'est tout l'intérêt du procédé.
+          var xd = cx.toFixed(1), yd = (H - padB + 16).toFixed(1);
+          s += '<text x="' + xd + '" y="' + yd + '" font-size="11" fill="' + (d.has_data ? '#374151' : '#c2c7cf') + '" text-anchor="end" transform="rotate(-45 ' + xd + ' ' + yd + ')">' + esc(msDayAxisFr(d.date)) + '</text>';
+        } else if (chiffre) {
+          // À L'HORIZONTALE, AUX DEUX BORDS, LA DATE S'ANCRE AU BORD. Centrée sur la première barre,
+          // « lundi 17/08 » débordait du cadre et se rendait « undi 17/08 » ; la dernière perdait son
+          // mois. Le texte reste au-dessus de SA barre, il est seulement aligné vers l'intérieur.
           var ancre = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
           var xa = i === 0 ? padL : (i === n - 1 ? W - 8 : cx);
           s += '<text x="' + xa.toFixed(1) + '" y="' + (H - 30) + '" font-size="10.5" fill="' + (d.has_data ? '#374151' : '#c2c7cf') + '" text-anchor="' + ancre + '">' + esc(msDayAxisFr(d.date)) + '</text>';
@@ -867,11 +886,11 @@
         var marks = [];
         if (d.is_school_holiday) marks.push('vacances');
         if (d.impact_weather_pct != null && d.impact_weather_pct <= -5) marks.push('météo');
-        if (marks.length) s += '<text x="' + cx.toFixed(1) + '" y="' + (H - 12) + '" font-size="11" font-weight="600" fill="#92610a" text-anchor="middle">' + marks.join(' · ') + '</text>';
+        if (marks.length) s += '<text x="' + cx.toFixed(1) + '" y="' + (dense ? H - 4 : H - 12) + '" font-size="11" font-weight="600" fill="#92610a" text-anchor="middle">' + marks.join(' · ') + '</text>';
       });
       var legend = '<div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:#374151;flex-wrap:wrap;">'
         + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="14" height="10"><rect width="14" height="10" rx="2" fill="#1D3BB3" fill-opacity="0.85"/></svg>' + esc(t('chart_realized')) + '</span>'
-        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#111827" stroke-width="2"/></svg>' + esc(t('chart_habituel')) + '</span>'
+        + '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#8A93A2" stroke-width="2"/></svg>' + esc(t('chart_habituel')) + '</span>'
         + (goalPct != null ? '<span style="display:inline-flex;align-items:center;gap:6px;"><svg width="18" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="4,3"/></svg>objectif +' + fr(goalPct) + ' %</span>' : '')
         + '</div>';
       return '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;">' + s + '</svg>' + legend

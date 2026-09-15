@@ -17,8 +17,8 @@ export const PLAN_MESURES: PlanMesure[] = ["ca_par_m2", "marge_par_m2", "ca_par_
 export const PLAN_MESURE_FR: Record<PlanMesure, string> = {
   ca_par_m2: "CA par m² sur 30 jours",
   marge_par_m2: "marge brute par m² sur 30 jours",
-  ca_par_metre: "CA par mètre sur 30 jours",
-  marge_par_metre: "marge brute par mètre sur 30 jours",
+  ca_par_metre: "CA par mètre linéaire sur 30 jours",
+  marge_par_metre: "marge brute par mètre linéaire sur 30 jours",
   ca: "CA sur 30 jours",
   part_ca: "Part du CA sur 30 jours",
 };
