@@ -82,7 +82,17 @@ writeFileSync(OUT, `<!doctype html><meta charset="utf-8"><title>Dépôt du plan 
         peindre();
         // Le stub répond comme la VRAIE règle sur le compte : n° 3 est en Cuisine, donc changement de pôle ;
         // n° 99 n'existe pas. Sans ces cas, le harnais ne prouverait que le chemin heureux.
-        var n = String((o.body ? JSON.parse(String(o.body)) : {}).vers_fixture_no || "");
+        var corps = o.body ? JSON.parse(String(o.body)) : {};
+        var n = String(corps.vers_fixture_no || "");
+        if (corps.dry && !n) {
+          // La liste, comme la route la construit : le pôle courant d'abord, avec et sans photo, et
+          // deux homonymes que seule la longueur départage — le cas mesuré sur la Cave.
+          return Promise.resolve({ json: function () { return Promise.resolve({ ok: true, depuis_pole: "Cave", cibles: [
+            { fixture_no: 2, nom: "N° 2 — Vin & Spiritueux", pole_label: "Cave", length_m: 4.12, photo_url: "/api/x", change_de_pole: false },
+            { fixture_no: 7, nom: "N° 7 — Vin & Spiritueux", pole_label: "Cave", length_m: 3.53, photo_url: null, change_de_pole: false },
+            { fixture_no: 3, nom: "N° 3 — Récipients", pole_label: "Cuisine", length_m: 4.6, photo_url: null, change_de_pole: true }
+          ] }); } });
+        }
         var rep = n === "3" ? { ok: true, plan: { vers: { nom: "N° 3 — Récipients", pole_label: "Cuisine" }, depuis: { pole_label: "Cave" }, change_de_pole: true } }
           : n === "99" ? { ok: false, refus: "numero_inconnu" }
           : { ok: true, plan: { vers: { nom: "N° 7 — Vin & Spiritueux", pole_label: "Cave" }, depuis: { pole_label: "Cave" }, change_de_pole: false } };
@@ -117,17 +127,33 @@ writeFileSync(OUT, `<!doctype html><meta charset="utf-8"><title>Dépôt du plan 
 <script>
   // LE GESTE DE DÉPLACEMENT d'une photo, joué lui aussi : il vit dans la MÊME page, et c'est le
   // deuxième geste que j'avais livré sans jamais l'avoir joué.
-  window.__essaiDeplacer = function () {
+  window.__essaiDeplacer = async function (filtre, rang) {
     var b = document.querySelector("[data-eg-photo-deplacer]");
-    if (!b) return { geste: "deplacer", bouton_present: false };
+    if (!b) return { bouton_present: false };
     b.click();
-    var champ = document.querySelector("[data-eg-deplacer-no]");
-    if (!champ) return { geste: "deplacer", bouton_present: true, champ_ouvert: false };
-    champ.value = "7";
-    champ.dispatchEvent(new Event("input", { bubbles: true }));
+    await new Promise(function (r) { setTimeout(r, 300); });
+    var bloc = document.querySelector("[data-eg-cibles]");
+    if (!bloc) return { bouton_present: true, liste_ouverte: false };
+    var fi = bloc.querySelector("[data-eg-cible-filtre]");
+    if (filtre != null) { fi.value = filtre; fi.dispatchEvent(new Event("input", { bubbles: true })); }
+    var visibles = [].slice.call(bloc.querySelectorAll("[data-eg-cible]")).filter(function (x) { return !x.hidden; });
+    var cible = visibles[rang || 0];
+    if (cible) cible.click();
     var go = document.querySelector("[data-eg-deplacer-go]");
-    if (go) go.click();
-    return { geste: "deplacer", bouton_present: true, champ_ouvert: true, confirmer_present: !!go };
+    var vise = document.querySelector("[data-eg-deplacer-vise]");
+    var avant = window.__envois.length;
+    if (go && !go.disabled) go.click();
+    await new Promise(function (r) { setTimeout(r, 250); });
+    return {
+      liste_ouverte: true,
+      entrees_visibles: visibles.length,
+      vignettes: bloc.querySelectorAll("img").length,
+      sans_photo: bloc.querySelectorAll("[data-eg-cible]").length - bloc.querySelectorAll("img").length,
+      choisie: cible ? cible.getAttribute("data-eg-cible-nom") : null,
+      vise: vise ? vise.textContent : null,
+      confirmer: go ? (go.disabled ? "désactivé" : "actif") : "absent",
+      envoye: window.__envois.slice(avant).map(function (x) { return { action: x.corps.action, vers: x.corps.vers_fixture_no, dry: x.corps.dry === true }; })
+    };
   };
 
   // LES DEUX GESTES DU PLAN, jouables depuis la console : __essai("clic") et __essai("glisser").

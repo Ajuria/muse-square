@@ -48,7 +48,7 @@ const { id, page, backHref, backLabel } = Astro.props;
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/pole-form.js?v=6"></script>
-    <script is:inline src="/js/card-kit.js?v=119"></script>
+    <script is:inline src="/js/card-kit.js?v=120"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY, PAGE: page }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -188,49 +188,21 @@ const { id, page, backHref, backLabel } = Astro.props;
               var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
               if (f) envoyerPlan(f, z);
             });
-            // Un champ qu'on TAPE émet `input` à chaque frappe ; `change` n'arrive qu'à la sortie du
-            // champ. Posé dans `change`, ce bloc n'aurait rien dit pendant la saisie — et c'est
-            // pendant la saisie qu'il sert.
+            // LE FILTRE DE LA LISTE : il tape sur le nom ET sur le numéro, qui reste un raccourci pour
+            // qui le connaît. Aucun aller-retour à l'API — la liste est déjà là.
             docEl.addEventListener("input", function (ev) {
-              // 15/09 — CE QUE VISE LE NUMÉRO, demandé à l'API à chaque frappe (`dry: true`). Sans ce
-              // bloc, la ligne restait VIDE et « Confirmer → » restait désactivé pour toujours : le
-              // geste s'ouvrait et ne pouvait pas aboutir. Livré comme ça, et trouvé en le JOUANT au
-              // harnais — le rendu était juste, le geste mort. Deuxième fois le même jour.
-              var dno = ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-eg-deplacer-no") ? ev.target : null;
-              if (dno) {
-                var wrapV = dno.closest("[data-eg-photo-rm-wrap]");
-                var viseEl = wrapV && wrapV.querySelector("[data-eg-deplacer-vise]");
-                var goV = wrapV && wrapV.querySelector("[data-eg-deplacer-go]");
-                var pidV = wrapV && wrapV.getAttribute("data-eg-photo-rm-wrap");
-                var val = String(dno.value || "").trim();
-                var eteindre = function (txt) {
-                  if (viseEl) { viseEl.textContent = txt || ""; viseEl.style.color = "#6b7280"; }
-                  if (goV) { goV.disabled = true; goV.style.opacity = ".45"; }
-                };
-                if (!val) { eteindre(""); return; }
-                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
-                  body: JSON.stringify({ action: "deplacer", dispositif_id: did, photo_id: pidV, vers_fixture_no: val, dry: true }) })
-                  .then(function (r) { return r.json(); })
-                  .then(function (j) {
-                    // La saisie a pu changer pendant l'aller-retour : une réponse en retard n'écrase pas
-                    // ce que l'exploitant est en train de taper.
-                    if (String(dno.value || "").trim() !== val) return;
-                    if (!j || !j.ok || !j.plan) {
-                      eteindre(j && j.refus === "numero_inconnu" ? t("pole_photo_deplacer_inconnu", { no: val }) : "");
-                      return;
-                    }
-                    var pl = j.plan;
-                    if (viseEl) {
-                      viseEl.textContent = pl.change_de_pole
-                        ? t("pole_photo_deplacer_vise_autre_pole", { nom: pl.vers.nom, pole: pl.vers.pole_label, depuis: pl.depuis.pole_label })
-                        : t("pole_photo_deplacer_vise", { nom: pl.vers.nom, pole: pl.vers.pole_label });
-                      viseEl.style.color = pl.change_de_pole ? "#B45309" : "#0F6E56";
-                    }
-                    if (goV) { goV.disabled = false; goV.style.opacity = "1"; }
-                  })
-                  .catch(function () { eteindre(""); });
-                return;
-              }
+              var fi = ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-eg-cible-filtre") ? ev.target : null;
+              if (!fi) return;
+              var bloc = fi.closest("[data-eg-cibles]");
+              var q = String(fi.value || "").trim().toLowerCase();
+              var vus = 0;
+              bloc.querySelectorAll("[data-eg-cible]").forEach(function (x) {
+                var ok = !q || String(x.getAttribute("data-eg-cible-cherche") || "").indexOf(q) >= 0;
+                x.hidden = !ok;
+                if (ok) vus++;
+              });
+              var rien = bloc.querySelector("[data-eg-cible-rien]");
+              if (rien) rien.hidden = vus > 0;
             });
             docEl.addEventListener("change", function (ev) {
               var f = ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-eg-depot-fichier") ? ev.target : null;
@@ -286,24 +258,62 @@ const { id, page, backHref, backLabel } = Astro.props;
                   .catch(function () { cbtn.disabled = false; });
                 return;
               }
-              // ── DÉPLACER UNE PHOTO (owner 15/09) — MÊME patron que le retrait, dans le MÊME conteneur
-              // de gestes : premier toucher, le champ s'ouvre et l'API dit ce que vise le numéro (`dry`) ;
-              // second toucher, elle écrit. La règle vit dans lib/dispositifs/photoDeplacement.ts et la
-              // page n'en recalcule rien — elle affiche ce que le plan dit, y compris le changement de pôle.
+              // 15/09 (owner : « la liste avec photos d'abord ») — LE PREMIER TOUCHER DEMANDE LA LISTE,
+              // il n'ouvre plus un champ de numéro. La route la construit (`dry` sans numéro) avec la
+              // dernière photo et la longueur de façade de chaque composant du SITE — une photo mal
+              // classée peut appartenir à un autre pôle, et c'est le cas qu'on corrige.
               var dp = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-deplacer]") : null;
               if (dp) {
                 var pidD = dp.getAttribute("data-eg-photo-deplacer");
                 var wrapD = sec.querySelector('[data-eg-photo-rm-wrap="' + pidD + '"]');
                 if (!wrapD) return;
-                wrapD.innerHTML = '<input type="number" min="1" max="9999" step="1" inputmode="numeric" data-eg-deplacer-no="' + esc(pidD) + '" placeholder="' + esc(COPY.pole_photo_deplacer_champ || "") + '" style="width:120px;font-size:12px;color:#111827;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:4px 8px;font-family:inherit;">'
-                  + '<button type="button" data-eg-deplacer-go="' + esc(pidD) + '" disabled style="font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:8px;padding:4px 12px;cursor:pointer;opacity:.45;">' + esc(COPY.pole_photo_confirm || "Confirmer →") + '</button>'
-                  + '<button type="button" data-eg-deplacer-no style="font-size:12px;font-weight:500;font-family:inherit;color:#6b7280;background:none;border:none;cursor:pointer;">' + esc(COPY.pole_photo_deplacer_annuler || "Annuler") + '</button>'
-                  + '<div data-eg-deplacer-vise style="flex-basis:100%;font-size:12.5px;color:#6b7280;margin-top:4px;"></div>';
-                var champ = wrapD.querySelector("[data-eg-deplacer-no]");
-                if (champ) champ.focus();
+                dp.disabled = true;
+                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "deplacer", dispositif_id: did, photo_id: pidD, dry: true }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) {
+                    dp.disabled = false;
+                    if (!j || !j.ok || !Array.isArray(j.cibles)) { dp.textContent = COPY.pole_photo_failed || ""; return; }
+                    wrapD.setAttribute("data-eg-depuis-pole", j.depuis_pole || "");
+                    wrapD.innerHTML = MSCardKit.listeDeDeplacement(j.cibles, j.depuis_pole, COPY)
+                      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;width:100%;">'
+                      + '<button type="button" data-eg-deplacer-go="' + esc(pidD) + '" disabled style="font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:8px;padding:4px 12px;cursor:pointer;opacity:.45;">' + esc(COPY.pole_photo_confirm || "Confirmer →") + '</button>'
+                      + '<button type="button" data-eg-deplacer-renoncer style="font-size:12px;font-weight:500;font-family:inherit;color:#6b7280;background:none;border:none;cursor:pointer;">' + esc(COPY.pole_photo_deplacer_annuler || "Annuler") + '</button>'
+                      + '<div data-eg-deplacer-vise style="flex-basis:100%;font-size:12.5px;color:#6b7280;margin-top:2px;"></div></div>';
+                    var fi = wrapD.querySelector("[data-eg-cible-filtre]");
+                    if (fi) fi.focus();
+                  })
+                  .catch(function () { dp.disabled = false; dp.textContent = COPY.pole_photo_failed || ""; });
                 return;
               }
-              if (ev.target && ev.target.closest && ev.target.closest("[data-eg-deplacer-no]")) {
+              // LE CHOIX D'UNE CIBLE : elle se marque, la ligne dit ce qu'elle emmène, Confirmer s'ouvre.
+              var cb = ev.target && ev.target.closest ? ev.target.closest("[data-eg-cible]") : null;
+              if (cb) {
+                var wrapC2 = cb.closest("[data-eg-photo-rm-wrap]");
+                wrapC2.querySelectorAll("[data-eg-cible]").forEach(function (x) {
+                  var on = x === cb;
+                  x.style.borderColor = on ? "#1D3BB3" : "#e5e7eb";
+                  x.style.background = on ? "#F5F7FF" : "#fff";
+                  x.setAttribute("data-on", on ? "1" : "0");
+                });
+                var viseC = wrapC2.querySelector("[data-eg-deplacer-vise]");
+                var goC = wrapC2.querySelector("[data-eg-deplacer-go]");
+                // LE CHANGEMENT DE PÔLE VIENT DE LA CIBLE, que la route a déjà tranché. Mon premier jet
+                // le recalculait ici depuis un attribut `data-eg-depuis-pole` que je n'avais JAMAIS posé :
+                // l'avertissement ne se déclenchait donc jamais, et la liste contournait en silence le
+                // garde-fou construit la veille. Trouvé en jouant le geste, pas en relisant.
+                var autre = cb.getAttribute("data-eg-cible-autre") === "1";
+                if (viseC) {
+                  viseC.textContent = autre
+                    ? t("pole_photo_deplacer_vise_autre_pole", { nom: cb.getAttribute("data-eg-cible-nom"), pole: cb.getAttribute("data-eg-cible-pole"), depuis: wrapC2.getAttribute("data-eg-depuis-pole") || "" })
+                    : t("pole_photo_deplacer_vise", { nom: cb.getAttribute("data-eg-cible-nom"), pole: cb.getAttribute("data-eg-cible-pole") });
+                  viseC.style.color = autre ? "#B45309" : "#0F6E56";
+                }
+                if (goC) { goC.disabled = false; goC.style.opacity = "1"; goC.setAttribute("data-eg-cible-no", cb.getAttribute("data-eg-cible")); }
+                return;
+              }
+              // RENONCER : le kit re-rend le bloc de gestes, aucune copie de markup ici.
+              if (ev.target && ev.target.closest && ev.target.closest("[data-eg-deplacer-renoncer]")) {
                 var wrapC = ev.target.closest("[data-eg-photo-rm-wrap]");
                 var pidC = wrapC && wrapC.getAttribute("data-eg-photo-rm-wrap");
                 if (pidC) wrapC.innerHTML = MSCardKit.gestesDePhoto(pidC, COPY);
@@ -313,7 +323,10 @@ const { id, page, backHref, backLabel } = Astro.props;
               if (dgo && !dgo.disabled) {
                 var pidG2 = dgo.getAttribute("data-eg-deplacer-go");
                 var wrapG = dgo.closest("[data-eg-photo-rm-wrap]");
-                var noG = wrapG.querySelector("[data-eg-deplacer-no]");
+                // Le numéro vient de la CIBLE CHOISIE dans la liste, plus d'un champ : le champ n'existe
+                // plus (owner 15/09). Le numéro reste la clé de la règle — c'est la SAISIE qui a changé,
+                // pas la mécanique, donc `planDeDeplacement` n'est pas touché.
+                var noG = { value: dgo.getAttribute("data-eg-cible-no") || "" };
                 dgo.disabled = true;
                 fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
                   body: JSON.stringify({ action: "deplacer", dispositif_id: did, photo_id: pidG2, vers_fixture_no: noG ? noG.value : "" }) })

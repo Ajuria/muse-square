@@ -3059,6 +3059,54 @@
   // re-rendre quand l'exploitant renonce à déplacer : sans cette fonction elle recopierait le markup du
   // kit, et les deux versions divergeraient au premier changement de bouton (c'est déjà arrivé sur
   // « Retirer → », dont la page réécrit le bouton à la main juste en dessous).
+  // ── LA LISTE DES CIBLES D'UN DÉPLACEMENT (owner 15/09 : « la liste avec photos d'abord »).
+  //
+  // POURQUOI ELLE REMPLACE LE CHAMP NUMÉRO. Mesuré le 15/09 sur le plan de l'owner : il ne porte AUCUN
+  // numéro de composant — ceux de la base ont été posés en le lisant, ils n'existent nulle part dans le
+  // magasin. Et 40 des 52 libellés sont ambigus (six « Vin & Spiritueux » dans la seule Cave). Demander
+  // un code, c'était demander de connaître notre base. On montre donc les composants : leur DERNIÈRE
+  // PHOTO, qui les fait reconnaître d'un coup d'œil, et leur LONGUEUR DE FAÇADE, qui départage les
+  // homonymes (1,79 / 4,12 / 3,53 / 2,13 / 1,12 m pour les cinq « Vin & Spiritueux »).
+  //
+  // Le pôle courant vient EN PREMIER — une photo mal classée l'est presque toujours chez son voisin —
+  // et les autres suivent, marqués : un déplacement qui change de pôle emmène les articles lus avec lui.
+  function listeDeDeplacement(cibles, depuisPole, copy) {
+    var t = function (k) { return (copy && copy[k]) || ''; };
+    var l = Array.isArray(cibles) ? cibles : [];
+    var frM = function (m) { return m == null ? '' : String(Math.round(Number(m) * 100) / 100).replace('.', ',') + ' m'; };
+    var ordre = l.slice().sort(function (a, b) {
+      var aP = a.pole_label === depuisPole ? 0 : 1, bP = b.pole_label === depuisPole ? 0 : 1;
+      if (aP !== bP) return aP - bP;
+      if (a.pole_label !== b.pole_label) return String(a.pole_label).localeCompare(String(b.pole_label), 'fr');
+      return (a.fixture_no || 0) - (b.fixture_no || 0);
+    });
+    var lignes = ordre.map(function (c) {
+      var vignette = c.photo_url
+        ? '<img src="' + esc(c.photo_url) + '" alt="" loading="lazy" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex:0 0 auto;background:#F3F4F6;">'
+        : '<span style="width:44px;height:44px;border-radius:6px;flex:0 0 auto;background:#F3F4F6;border:1px dashed #D8DEE7;"></span>';
+      return '<button type="button" data-eg-cible="' + esc(c.fixture_no == null ? '' : String(c.fixture_no)) + '"'
+        + ' data-eg-cible-nom="' + esc(c.nom || '') + '" data-eg-cible-pole="' + esc(c.pole_label || '') + '"'
+        + ' data-eg-cible-autre="' + (c.change_de_pole ? '1' : '0') + '"'
+        + ' data-eg-cible-cherche="' + esc(String((c.nom || '') + ' ' + (c.fixture_no == null ? '' : c.fixture_no)).toLowerCase()) + '"'
+        + ' style="display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;margin-bottom:6px;cursor:pointer;font-family:inherit;">'
+        + vignette
+        + '<span style="min-width:0;flex:1 1 auto;">'
+        + '<span style="display:block;font-size:12.5px;font-weight:600;color:#111827;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(c.nom || '') + '</span>'
+        + '<span style="display:block;font-size:11.5px;color:#6b7280;">' + esc(c.pole_label || '')
+        + (c.length_m != null ? ' · ' + esc(frM(c.length_m)) : '')
+        + (c.photo_url ? '' : ' · ' + esc(t('pole_photo_deplacer_sans_photo'))) + '</span>'
+        + '</span>'
+        + (c.change_de_pole ? '<span style="flex:0 0 auto;font-size:11px;font-weight:600;color:#B45309;">' + esc(t('pole_photo_deplacer_autre_pole_court')) + '</span>' : '')
+        + '</button>';
+    }).join('');
+    return '<div data-eg-cibles style="width:100%;">'
+      + '<div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:6px;">' + esc(t('pole_photo_deplacer_liste')) + '</div>'
+      + '<input type="text" data-eg-cible-filtre placeholder="' + esc(t('pole_photo_deplacer_filtre')) + '" style="width:100%;box-sizing:border-box;font-size:12.5px;padding:6px 9px;border:1px solid #e5e7eb;border-radius:8px;font-family:inherit;margin-bottom:8px;">'
+      + '<div data-eg-cible-liste style="max-height:340px;overflow-y:auto;">' + lignes + '</div>'
+      + '<div data-eg-cible-rien hidden style="font-size:12.5px;color:#6b7280;padding:6px 2px;">' + esc(t('pole_photo_deplacer_rien')) + '</div>'
+      + '</div>';
+  }
+
   function gestesDePhoto(photo_id, copy) {
     return gestesDePhotoAvecT(photo_id, function (k) { return (copy && copy[k]) || ''; });
   }
@@ -3095,7 +3143,7 @@
       + '</div></details>';
   }
 
-  window.MSCardKit = { gestesDePhoto: gestesDePhoto, assemblerVuesDuPole: assemblerVuesDuPole, placementEtiquettes: placementEtiquettes, placerNomsDuPlan: placerNomsDuPlan, renderComponentPhoto: renderComponentPhoto,
+  window.MSCardKit = { listeDeDeplacement: listeDeDeplacement, gestesDePhoto: gestesDePhoto, assemblerVuesDuPole: assemblerVuesDuPole, placementEtiquettes: placementEtiquettes, placerNomsDuPlan: placerNomsDuPlan, renderComponentPhoto: renderComponentPhoto,
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
     msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msEngagementUrl: msEngagementUrl, msPoleUrl: msPoleUrl, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,

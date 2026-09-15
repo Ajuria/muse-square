@@ -319,10 +319,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       const [photosD, meublesRows] = await Promise.all([
         listPhotoRows(bqD, dispositif_id),
         bqD.query({
-          query: `SELECT m.component_key, m.fixture_no, m.dispositif_id,
+          query: `SELECT m.component_key, m.fixture_no, m.dispositif_id, ANY_VALUE(m.length_m) AS length_m,
                          ANY_VALUE(vc.component_label) AS nom, ANY_VALUE(vc.committed_action_text) AS pole_label
                   FROM (SELECT * EXCEPT(rn) FROM (
-                          SELECT dispositif_id, component_key, fixture_no,
+                          SELECT dispositif_id, component_key, fixture_no, length_m,
                                  ROW_NUMBER() OVER (PARTITION BY dispositif_id, component_key ORDER BY created_at DESC) rn
                           FROM \`${BQ_PROJECT}.analytics.space_measures\`
                           WHERE location_id = @l AND component_key IS NOT NULL) WHERE rn = 1) m
@@ -341,6 +341,52 @@ export const POST: APIRoute = async ({ request, locals }) => {
         pole_label: String(fl(r.pole_label) ?? "").trim(),
         dispositif_id: String(fl(r.dispositif_id)),
       }));
+
+      // 15/09 (owner : « la liste avec photos d'abord ») — SANS NUMÉRO DEMANDÉ, LA ROUTE REND LA LISTE
+      // DES CIBLES, chacune avec SA DERNIÈRE PHOTO. Mesuré ce jour-là : les numéros ne sont écrits nulle
+      // part dans le magasin (le plan de l'owner n'en porte aucun), et 40 des 52 libellés sont ambigus
+      // — six « Vin & Spiritueux » dans la Cave. Un exploitant ne reconnaît pas une étagère à un code,
+      // il la reconnaît à son image. Le numéro reste accepté comme raccourci, il n'est plus le chemin.
+      //
+      // LA DERNIÈRE PHOTO SE LIT SUR TOUT LE SITE, pas sur le seul pôle courant : une photo mal classée
+      // peut appartenir à un autre pôle, et c'est justement le cas qu'on veut pouvoir corriger.
+      if (body.dry && (body.vers_fixture_no == null || String(body.vers_fixture_no).trim() === "")) {
+        const vues = await bqD.query({
+          query: `SELECT dispositif_id, component_key, photo_id FROM (
+                    SELECT dispositif_id, component_key, photo_id,
+                           ROW_NUMBER() OVER (PARTITION BY dispositif_id, component_key ORDER BY created_at DESC) rn
+                    FROM \`${BQ_PROJECT}.analytics.dispositif_photos\`
+                    WHERE location_id = @l AND status = 'read') WHERE rn = 1`,
+          params: { l: dispD.location_id }, types: { l: "STRING" }, location: "EU",
+        }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+        const photoDe = new Map<string, { dispositif_id: string; photo_id: string }>();
+        for (const r of vues as any[]) {
+          photoDe.set(String(fl(r.component_key)), { dispositif_id: String(fl(r.dispositif_id)), photo_id: String(fl(r.photo_id)) });
+        }
+        const source = photosD.find((r) => r.photo_id === photo_id) || null;
+        // La longueur de façade sert à départager deux composants de même libellé — mesuré : 40 des
+        // 52 le sont (six « Vin & Spiritueux » dans la Cave).
+        const longueurDe = new Map<string, number>();
+        for (const r of meublesRows as any[]) {
+          const l = fl(r.length_m);
+          if (l != null) longueurDe.set(String(fl(r.component_key)), Number(l));
+        }
+        const cibles = meubles
+          .filter((m) => m.component_key !== source?.component_key)   // sa place actuelle n'est pas une cible
+          .map((m) => {
+            const ph = photoDe.get(m.component_key) || null;
+            const lm = longueurDe.get(m.component_key);
+            return {
+              component_key: m.component_key, fixture_no: m.fixture_no, nom: m.nom,
+              pole_label: m.pole_label, dispositif_id: m.dispositif_id,
+              photo_url: ph ? photoUrl(ph.dispositif_id, ph.photo_id) : null,
+              length_m: lm != null ? lm : null,
+              change_de_pole: !!(source && m.pole_label && m.pole_label !== (meubles.find((x) => x.component_key === source.component_key)?.pole_label || "")),
+            };
+          })
+          .sort((a2, b2) => (a2.pole_label === b2.pole_label ? (a2.fixture_no ?? 0) - (b2.fixture_no ?? 0) : a2.pole_label.localeCompare(b2.pole_label, "fr")));
+        return json({ ok: true, cibles, depuis_pole: meubles.find((x) => x.component_key === source?.component_key)?.pole_label ?? null });
+      }
 
       const res = planDeDeplacement({ photo_id, vers_fixture_no: body.vers_fixture_no, photos: photosD, meubles });
       if (!res.ok) return json({ ok: false, refus: res.refus }, res.refus === "photo_introuvable" ? 404 : 400);

@@ -1209,3 +1209,58 @@ it("un plan déposé : un PDF s'ouvre dans un cadre, une image dans une balise i
   // Et l'écran d'envoi a cédé la place : on ne redemande pas un plan qu'on a.
   expect(img).not.toContain("Déposez le plan de votre magasin");
 });
+
+// ── 15/09 (owner : « la liste avec photos d'abord ») — ON NE TAPE PLUS UN CODE, ON RECONNAÎT.
+// Mesuré ce jour-là : le plan de l'owner ne porte AUCUN numéro (ceux de la base ont été posés en le
+// lisant), et 40 des 52 libellés sont ambigus — six « Vin & Spiritueux » dans la seule Cave, que
+// seule la longueur de façade départage (1,79 / 4,12 / 3,53 / 2,13 / 1,12 m).
+const cibles = [
+  { fixture_no: 2, nom: "N° 2 — Vin & Spiritueux", pole_label: "Cave", length_m: 4.12, photo_url: "/api/x", change_de_pole: false },
+  { fixture_no: 7, nom: "N° 7 — Vin & Spiritueux", pole_label: "Cave", length_m: 3.53, photo_url: null, change_de_pole: false },
+  { fixture_no: 3, nom: "N° 3 — Récipients", pole_label: "Cuisine", length_m: 4.6, photo_url: null, change_de_pole: true },
+];
+
+it("la liste montre la DERNIÈRE PHOTO, et une absence de photo se dit au lieu d'un trou", () => {
+  const html = String(kit.listeDeDeplacement(cibles, "Cave", EVOL_COPY));
+  expect((html.match(/<img /g) || []).length).toBe(1);
+  expect((html.match(/pas encore de photo/g) || []).length).toBe(2);
+});
+
+it("la longueur de façade DÉPARTAGE les homonymes — sans elle, deux lignes identiques", () => {
+  const html = String(kit.listeDeDeplacement(cibles, "Cave", EVOL_COPY));
+  expect(html).toContain("4,12 m");
+  expect(html).toContain("3,53 m");
+  expect(html).not.toContain("4.12");   // virgule décimale (CLAUDE.md § Localization)
+});
+
+it("le pôle courant vient EN PREMIER, et changer de pôle est MARQUÉ", () => {
+  // Une photo mal classée l'est presque toujours chez son voisin immédiat ; et un déplacement qui
+  // change de pôle emmène les articles lus avec lui — la liste le dit avant qu'on choisisse.
+  // Le pôle courant est CUISINE, qui n'est PAS premier dans l'alphabet — sinon la seconde clé du tri
+  // (alphabétique) donnerait le même résultat et la mutation « plus de tri » resterait verte. Elle
+  // l'est restée deux fois avant que j'aille chercher pourquoi : d'abord parce que la fixture était
+  // déjà dans l'ordre, ensuite parce que « Cave » précède « Cuisine » de toute façon.
+  const html = String(kit.listeDeDeplacement(cibles, "Cuisine", EVOL_COPY));
+  // « & » est échappé en « &amp; » dans le rendu : on cherche donc un fragment SANS lui, sinon
+  // l'indexOf vaut -1 et l'assertion compare deux positions dont l'une n'existe pas.
+  const iCuisine = html.indexOf("N° 3 — Récipients"), iCave = html.indexOf("N° 2 — Vin");
+  expect(iCuisine).toBeGreaterThan(-1);
+  expect(iCave).toBeGreaterThan(-1);
+  expect(iCuisine).toBeLessThan(iCave);
+  expect(html).toContain('data-eg-cible-autre="1"');
+  expect((html.match(/data-eg-cible-autre="0"/g) || []).length).toBe(2);
+  expect(html).toContain("autre pôle");
+});
+
+it("chaque entrée porte de quoi la FILTRER par nom ou par numéro — le code reste un raccourci", () => {
+  const html = String(kit.listeDeDeplacement(cibles, "Cave", EVOL_COPY));
+  expect(html).toContain('data-eg-cible-cherche="n° 2 — vin &amp; spiritueux 2"');
+  expect(html).toContain("data-eg-cible-filtre");
+  expect(html).toContain("Filtrer par nom ou par numéro");
+});
+
+it("aucune cible : la liste ne rend pas un cadre vide", () => {
+  const html = String(kit.listeDeDeplacement([], "Cave", EVOL_COPY));
+  expect(html).toContain("Aucun composant ne correspond.");
+  expect(html).not.toContain("data-eg-cible=");
+});

@@ -433,6 +433,15 @@ export const EVOL_COPY = {
   pole_photo_deplacer: "Déplacer →",
   pole_photo_deplacer_champ: "N° sur le plan",
   pole_photo_deplacer_vise: "{nom} · {pole}",
+  // 15/09 (owner : « la liste avec photos d'abord ») — MESURÉ ce jour-là : aucun numéro n'est écrit
+  // dans le magasin, et 40 des 52 libellés sont ambigus (six « Vin & Spiritueux » dans la Cave). On ne
+  // demande donc plus un code : on montre les composants, avec leur dernière photo et leur longueur de
+  // façade, qui est ce qui les départage. Le numéro reste accepté dans le filtre, comme raccourci.
+  pole_photo_deplacer_liste: "Sur quel composant ?",
+  pole_photo_deplacer_filtre: "Filtrer par nom ou par numéro",
+  pole_photo_deplacer_sans_photo: "pas encore de photo",
+  pole_photo_deplacer_autre_pole_court: "autre pôle",
+  pole_photo_deplacer_rien: "Aucun composant ne correspond.",
   pole_photo_deplacee: "Aucune photo ici — vous l'avez déplacée sur le {nom}.",
   pole_photo_deplacer_annuler: "Annuler",
   pole_photo_deplacer_vise_autre_pole: "{nom} — ce composant est dans le pôle {pole}, pas {depuis}. Les articles lus sur cette photo passeront de {depuis} à {pole}.",
