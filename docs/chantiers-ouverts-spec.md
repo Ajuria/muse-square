@@ -125,10 +125,21 @@ par mutation (4/4), rien n'est réputé livré tant que l'owner n'a pas ouvert l
      étagères comptées ⇒ `null` — on perd la position, jamais la photo), et la route écrit désormais les
      articles NORMALISÉS par la porte. Aucune migration : `items_matched` est du JSON.
   2. **À FAIRE — et la mesure se DÉDOUBLE, parce que deux questions différentes s'y cachaient.**
-     **(2a) Le modèle lit-il juste une position ?** Cette question se tranche AUJOURD'HUI, sans donnée
-     nouvelle : la sonde du matin porte 171 positions sur 30 photos réelles, avec leur photo et leur
-     confiance (`data/shots/mesure-lecture-etageres-2026-09-13.md`). Ouvrir une dizaine de ces photos et
-     dire si la rangée annoncée est la bonne. C'est ce verdict qui autorise la suite, et il ne coûte rien.
+     **(2a) Le modèle lit-il juste une position ? — TRANCHÉ le 15/09, verdict
+     `data/shots/verdict-lecture-etageres-2026-09-15.md`.** Cinq photos ouvertes, 27 positions jugées.
+     **La position RELATIVE est juste sur un rayonnage droit : 11 / 11.** **Le NUMÉRO ABSOLU ne l'est
+     pas**, pour deux raisons dont la première est une faute de CONTRAT : (i) la consigne indexe depuis
+     le CADRE — « 1 = la plus basse VISIBLE » — donc la même étagère change de numéro si la photo
+     suivante est cadrée un peu plus haut, ce qui fabriquerait des déplacements qui n'ont pas eu lieu ;
+     (ii) même sous sa propre règle, le modèle ignore la rangée du bas quand elle est coupée (IMG_0075),
+     alors qu'il la compte ailleurs (IMG_0114, IMG_0104). Constat de bordure : sur une photo de vins,
+     2 DÉSIGNATIONS sur 12 sont fausses (Rully donné pour Puligny, Nuits pour Beaune) — sans effet sur la
+     position, mais c'est le risque même de l'accrochage à un `item_code`.
+     **Donc : INTERDIT d'écrire une chaîne qui parle de hauteur ou de faire naître une version sur un
+     changement d'étagère.** Le travail autorisé est de corriger le contrat (indexer depuis le BAS DU
+     MEUBLE, `null` si le bas du meuble n'est pas dans le cadre, dire la règle des rangées partielles et
+     des tables d'exposition), puis de re-mesurer sur ces mêmes photos : le décalage d'IMG_0075 doit
+     tomber et les 11 justes le rester.
      **(2b) Cette position s'attache-t-elle à un article VENDU ?** Là, il faut un magasin qui ait à la fois
      les photos ET ses ventes — et aucun ne l'a. Les photos sont celles d'Épices et Tout
      (`a3b442c2-…`), dont l'audit du 11/09 relève qu'il n'a encore aucune vente ingérée ; le compte de test
