@@ -808,14 +808,38 @@
       var dit = e.prochain
         ? t("releve_plan_attendu").split("{nom}").join(e.prochain.nom).split("{m}").join(e.prochain.length_m == null ? "?" : String(Math.round(e.prochain.length_m * 100) / 100).replace(".", ","))
         : t("releve_plan_fini");
+      // 15/09 (owner : « si je clique sur un item il devrait disparaître ») — LA PASTILLE SE RETIRE
+      // D'UN TOUCHER. Un bouton, pas un décor : un tap à côté se défait au même endroit, c'est le
+      // geste qu'on fait naturellement. Son titre le dit, pour qui ne devine pas.
       var pastilles = e.comps.filter(function (c) { return plan.points[c.component_key]; }).map(function (c) {
         var p = plan.points[c.component_key];
-        return '<span class="p-n" style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%;">' + esc(c.fixture_no == null ? "·" : String(c.fixture_no)) + "</span>";
+        return '<button type="button" class="p-n" data-cle="' + esc(c.component_key) + '" title="' + esc(t("releve_plan_retirer")) + '"'
+          + ' style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%;">'
+          + esc(c.fixture_no == null ? "·" : String(c.fixture_no)) + "</button>";
       }).join("");
       box.innerHTML = '<div class="p-h"><b>' + esc(t("releve_plan_titre")) + "</b> · " + esc(nomPole)
         + '<span class="p-a">' + esc(t("releve_plan_avancement").split("{fait}").join(String(e.places)).split("{total}").join(String(e.total))) + "</span></div>"
         + '<div class="p-d">' + esc(dit) + (e.prochain ? " — " + esc(t("releve_plan_touchez")) : "") + "</div>"
         + '<div class="p-w"><img class="p-i" alt="" src="' + esc(plan.fiche.url) + '">' + pastilles + '<span class="p-msg"></span></div>' + fermer;
+      // Le retrait d'une pastille : il ne doit PAS poser un point au passage, d'où l'arrêt de la
+      // propagation — la pastille est posée AU-DESSUS de l'image, et sans ça le clic la traverserait
+      // et placerait le composant suivant à l'endroit qu'on voulait justement libérer.
+      box.querySelectorAll(".p-n").forEach(function (b2) {
+        b2.addEventListener("click", function (ev) {
+          ev.stopPropagation(); ev.preventDefault();
+          var cle = b2.getAttribute("data-cle");
+          var msgR = box.querySelector(".p-msg");
+          fetch("/api/dispositifs/plan", { method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "retirer_point", location_id: (window.MSReleve && window.MSReleve.location_id) || "", component_key: cle }) })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+              if (!j || !j.ok) { if (msgR) msgR.textContent = t("releve_plan_echec"); return; }
+              delete plan.points[cle];
+              ouvrirPlacement(nomPole);
+            })
+            .catch(function () { if (msgR) msgR.textContent = t("releve_plan_echec"); });
+        });
+      });
       var img = box.querySelector(".p-i");
       if (img && e.prochain) {
         img.addEventListener("click", function (ev) {

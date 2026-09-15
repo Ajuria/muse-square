@@ -19,7 +19,7 @@ import {
   putPlanObject, getPlanObject, refusDeDepot, PLAN_MAX_BYTES,
 } from "../../../lib/dispositifs/spacePlans";
 import { randomUUID } from "node:crypto";
-import { appendPoint, listPoints, pointsEnVigueur, prochainAPlacer, refusDePoint, type ComposantAPlacer } from "../../../lib/dispositifs/spaceFixturePoints";
+import { appendPoint, listPoints, pointsEnVigueur, prochainAPlacer, refusDePoint, retirerPoint, type ComposantAPlacer } from "../../../lib/dispositifs/spaceFixturePoints";
 
 export const prerender = false;
 const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
@@ -77,7 +77,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!body || !location_id) return json({ ok: false, error: "location_id, file_base64, content_type requis" }, 400);
     requireLocationOwnership(locals, location_id);
 
-    // ── PLACER UN COMPOSANT SUR LE PLAN (owner 15/09) ────────────────────────────────────────────
+    // ── RETIRER LE POINT D'UN COMPOSANT (owner 15/09 : « si je clique sur un item il devrait
+    // disparaître »). Un tap à côté se défait d'un second tap, au même endroit — c'est le geste que
+    // l'exploitant fait naturellement, et il n'y a rien à apprendre d'une faute de doigt.
+    if (String(body.action || "") === "retirer_point") {
+      const bqR2 = makeBQClient(BQ_PROJECT);
+      const courantR = planEnVigueur(await listPlans(bqR2, location_id));
+      if (!courantR) return json({ ok: false, refus: "plan_absent" }, 400);
+      const cle = String(body.component_key || "").trim();
+      if (!cle) return json({ ok: false, refus: "composant_absent" }, 400);
+      await retirerPoint(bqR2, { location_id, component_key: cle, plan_id: courantR.plan_id });
+      const pts2 = pointsEnVigueur(await listPoints(bqR2, location_id));
+      const comps2: ComposantAPlacer[] = Array.isArray(body.composants) ? body.composants : [];
+      return json({ ok: true, ...prochainAPlacer({ composants: comps2, points: pts2 }) });
+    }
+
+    // ── PLACER UN COMPOSANT SUR LE PLAN (owner 15/09) ──    // ── PLACER UN COMPOSANT SUR LE PLAN (owner 15/09) ────────────────────────────────────────────
     // Les coordonnées arrivent en FRACTION du plan (0 à 1), jamais en pixels : le plan se réaffiche à
     // toutes les tailles, et des pixels ne survivraient pas au premier changement d'écran. La règle
     // vit dans `lib/dispositifs/spaceFixturePoints.ts` ; cette route l'exécute.

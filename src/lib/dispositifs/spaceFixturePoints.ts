@@ -113,6 +113,21 @@ export async function appendPoint(bq: any, row: Omit<FixturePointRow, "point_id"
   return complet;
 }
 
+/**
+ * RETIRER le point d'un composant (owner 15/09 : « si je clique sur un item il devrait disparaître »).
+ * On EFFACE, on ne marque pas : un tap à côté est une FAUTE DE GESTE, pas un déplacement de meuble.
+ * Garder la trace d'une erreur de doigt n'apprend rien et ferait ressortir un vieux point si le
+ * composant était replacé ailleurs plus tard. Le REPLACEMENT, lui, reste append-only : il écrit un
+ * point neuf et l'ancien survit, parce que les photos d'avant ont été prises quand le meuble était là.
+ */
+export async function retirerPoint(bq: any, e: { location_id: string; component_key: string; plan_id: string }): Promise<void> {
+  await bq.query({
+    query: `DELETE FROM \`${POINTS_TABLE}\` WHERE location_id = @l AND component_key = @c AND plan_id = @p`,
+    params: { l: e.location_id, c: e.component_key, p: e.plan_id },
+    types: { l: "STRING", c: "STRING", p: "STRING" }, location: "EU",
+  });
+}
+
 export async function listPoints(bq: any, location_id: string): Promise<FixturePointRow[]> {
   const rows = await bq.query({
     query: `SELECT point_id, location_id, dispositif_id, component_key, plan_id, x, y, created_by,

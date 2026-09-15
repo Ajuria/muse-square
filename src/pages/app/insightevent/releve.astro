@@ -375,8 +375,10 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       #placer .p-m { font-size: 13px; color: #374151; line-height: 1.6; margin-bottom: 12px; }
       #placer .p-w { position: relative; display: inline-block; max-width: 100%; }
       #placer .p-i { width: 100%; height: auto; display: block; border: 1px solid #e5e7eb; border-radius: 8px; cursor: crosshair; }
-      #placer .p-n { position: absolute; transform: translate(-50%, -50%); min-width: 20px; height: 20px; line-height: 20px;
-                     text-align: center; border-radius: 999px; background: #1D3BB3; color: #fff; font-size: 11px; font-weight: 700; }
+      #placer .p-n { position: absolute; transform: translate(-50%, -50%); min-width: 26px; height: 26px; line-height: 26px;
+                     text-align: center; border-radius: 999px; background: #1D3BB3; color: #fff; font-size: 12px; font-weight: 700;
+                     border: 2px solid #fff; padding: 0; cursor: pointer; font-family: inherit; }
+      #placer .p-n:hover { background: #B45309; }
       #placer .p-msg { display: block; font-size: 12px; color: #b91c1c; margin-top: 6px; }
       #placer .p-x { margin-top: 12px; font-size: 13px; font-weight: 600; font-family: inherit; color: #111827;
                      background: #F3F4F6; border: 0; border-radius: 8px; padding: 8px 16px; cursor: pointer; }
@@ -445,6 +447,6 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       })();
     </script>
     <script is:inline src="/js/photo-capture.js?v=3"></script>
-    <script is:inline src="/js/releve-espace.js?v=14"></script>
+    <script is:inline src="/js/releve-espace.js?v=15"></script>
   </BaseLayout>
 </Show>

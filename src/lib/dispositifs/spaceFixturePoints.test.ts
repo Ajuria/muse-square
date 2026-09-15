@@ -62,3 +62,16 @@ describe("les points des composants sur le plan", () => {
     expect(prochainAPlacer({ composants: comps, points: tous })).toMatchObject({ prochain: null, places: 2, total: 2 });
   });
 });
+
+// ── 15/09 (owner, à l'essai) — « SI JE CLIQUE SUR UN ITEM IL DEVRAIT DISPARAÎTRE ».
+it("un point retiré rend son composant à la file, À SON RANG — pas à la fin", () => {
+  // Retirer le n° 1 alors que 1 et 2 sont posés doit RÉANNONCER le n° 1, pas passer au suivant :
+  // l'exploitant vient de corriger un tap, il veut replacer CE composant-là.
+  const comps = [c("p1", 1), c("p2", 2), c("p4", 4)];
+  const deuxPoses = new Map([["p1", pt({})], ["p2", pt({ component_key: "p2" })]]);
+  expect(prochainAPlacer({ composants: comps, points: deuxPoses }).prochain?.component_key).toBe("p4");
+  deuxPoses.delete("p1");
+  const apres = prochainAPlacer({ composants: comps, points: deuxPoses });
+  expect(apres.prochain?.component_key).toBe("p1");
+  expect(apres).toMatchObject({ places: 1, total: 3 });
+});

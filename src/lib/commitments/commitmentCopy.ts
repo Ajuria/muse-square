@@ -288,6 +288,7 @@ export const EVOL_COPY = {
   releve_plan_aucun: "Déposez d'abord le plan de votre magasin, depuis la page d'un pôle.",
   releve_plan_pdf: "Pour placer vos composants, déposez votre plan en image (PNG ou JPEG) : sur un PDF, le point touché ne peut pas être situé.",
   releve_plan_echec: "Ce point n'est pas parti. Réessayez.",
+  releve_plan_retirer: "Touchez pour retirer ce point.",
   releve_plan_fermer: "Fermer",
   releve_bilan_titre: "Ce que cette marche a donné",
   releve_bilan_gardees: "{n} photos gardées en {min} min",
