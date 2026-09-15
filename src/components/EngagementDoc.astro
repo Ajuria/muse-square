@@ -48,7 +48,7 @@ const { id, page, backHref, backLabel } = Astro.props;
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/pole-form.js?v=6"></script>
-    <script is:inline src="/js/card-kit.js?v=116"></script>
+    <script is:inline src="/js/card-kit.js?v=117"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY, PAGE: page }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -151,16 +151,54 @@ const { id, page, backHref, backLabel } = Astro.props;
                 img.src = url;
               });
             }
-            // Le CHOIX du fichier n'est pas un clic : il se capte en « change », en délégation sur la
-            // section, pour que le sélecteur réinséré par un re-rendu du kit reste écouté.
-            sec.addEventListener("change", function (ev) {
+            // 15/09 — CE BLOC ÉCOUTE `docEl`, PAS `sec`. `sec` est la section COMPOSANTS ; le bandeau du
+            // plan est une section SŒUR, donc un écouteur posé sur `sec` ne reçoit JAMAIS son clic ni son
+            // changement de fichier. Livré comme ça une première fois : le bouton « Déposer → » était
+            // MORT, et je l'ai annoncé à l'owner comme utilisable. Un rendu vérifié ne prouve pas un
+            // geste — seul le geste joué le prouve.
+            // ── DÉPOSER LE PLAN DU MAGASIN (owner 15/09, voie b). Sur `docEl` : le bandeau du plan est
+            // une section SŒUR de Composants. Le bouton ouvre le sélecteur caché ; le fichier peut aussi
+            // être GLISSÉ sur le cadre — c'est le geste qu'on attend d'une zone en pointillés, et ne pas
+            // l'avoir mis était un travail à moitié fait.
+            docEl.addEventListener("click", function (ev) {
+              var dpc = ev.target && ev.target.closest ? ev.target.closest("[data-eg-depot-choisir]") : null;
+              if (!dpc) return;
+              var zone = dpc.closest("[data-eg-depot-plan]");
+              var inp = zone && zone.querySelector("[data-eg-depot-fichier]");
+              if (inp) inp.click();
+            });
+            // GLISSER-DÉPOSER. `dragover` doit être annulé, sinon le navigateur ouvre le fichier à la
+            // place. La zone se marque pendant le survol : sans retour visuel, on ne sait pas si on peut
+            // lâcher.
+            docEl.addEventListener("dragover", function (ev) {
+              var z = ev.target && ev.target.closest ? ev.target.closest("[data-eg-depot-plan]") : null;
+              if (!z) return;
+              ev.preventDefault();
+              z.setAttribute("data-survol", "1");
+            });
+            docEl.addEventListener("dragleave", function (ev) {
+              var z = ev.target && ev.target.closest ? ev.target.closest("[data-eg-depot-plan]") : null;
+              if (z) z.removeAttribute("data-survol");
+            });
+            docEl.addEventListener("drop", function (ev) {
+              var z = ev.target && ev.target.closest ? ev.target.closest("[data-eg-depot-plan]") : null;
+              if (!z) return;
+              ev.preventDefault();
+              z.removeAttribute("data-survol");
+              var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+              if (f) envoyerPlan(f, z);
+            });
+            docEl.addEventListener("change", function (ev) {
               var f = ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-eg-depot-fichier") ? ev.target : null;
               if (!f || !f.files || !f.files[0]) return;
-              var zone = f.closest("[data-eg-depot-plan]");
-              var msgP = zone && zone.querySelector("[data-eg-depot-msg]");
-              var bouton = zone && zone.querySelector("[data-eg-depot-choisir]");
+              envoyerPlan(f.files[0], f.closest("[data-eg-depot-plan]"));
+            });
+            // UN SEUL foyer d'envoi : le sélecteur et le glisser-déposer y passent tous les deux.
+            function envoyerPlan(fichier, zone) {
+              if (!fichier || !zone) return;
+              var msgP = zone.querySelector("[data-eg-depot-msg]");
+              var bouton = zone.querySelector("[data-eg-depot-choisir]");
               var loc = bouton ? bouton.getAttribute("data-eg-depot-choisir") : "";
-              var fichier = f.files[0];
               if (msgP) msgP.textContent = "";
               if (bouton) bouton.disabled = true;
               var lect = new FileReader();
@@ -184,7 +222,7 @@ const { id, page, backHref, backLabel } = Astro.props;
               };
               lect.onerror = function () { if (bouton) bouton.disabled = false; if (msgP) msgP.textContent = COPY.pole_plan_depot_echec || ""; };
               lect.readAsDataURL(fichier);
-            });
+            }
             sec.addEventListener("click", function (ev) {
               // Confirmer les articles (03/09) : les cases cochées partent en items_confirmed.
               var cbtn = ev.target && ev.target.closest ? ev.target.closest("[data-eg-items-submit]") : null;
@@ -202,18 +240,6 @@ const { id, page, backHref, backLabel } = Astro.props;
                     else { cbtn.disabled = false; }
                   })
                   .catch(function () { cbtn.disabled = false; });
-                return;
-              }
-              // ── DÉPOSER LE PLAN DU MAGASIN (owner 15/09, voie b) — le bouton ouvre le sélecteur de
-              // fichier caché du bandeau ; le choix déclenche l'envoi. Le fichier part en base64, comme
-              // une photo : un multipart demanderait un second chemin de lecture côté route pour un
-              // fichier par site. Le REFUS est dit par l'API (type, poids) et affiché tel quel — la page
-              // ne re-juge rien, elle n'aurait pas la même règle.
-              var dpc = ev.target && ev.target.closest ? ev.target.closest("[data-eg-depot-choisir]") : null;
-              if (dpc) {
-                var zone = dpc.closest("[data-eg-depot-plan]");
-                var inp = zone && zone.querySelector("[data-eg-depot-fichier]");
-                if (inp) inp.click();
                 return;
               }
               // ── DÉPLACER UNE PHOTO (owner 15/09) — MÊME patron que le retrait, dans le MÊME conteneur

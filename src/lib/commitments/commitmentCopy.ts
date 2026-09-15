@@ -406,6 +406,7 @@ export const EVOL_COPY = {
   // Le BOUTON ne répète pas le titre : il suit la grammaire des CTA de la page (« Documenter → »,
   // « Retirer → », « Déplacer → »). Constaté au rendu — la phrase s'affichait deux fois de suite.
   pole_plan_depot_bouton: "Déposer →",
+  pole_plan_depot_glisser: "Ou glissez-le sur ce cadre.",
   pole_plan_remplacer: "Remplacer",
   pole_plan_depose_le: "Déposé le {date}",
   pole_plan_ouvrir: "Ouvrir le plan →",

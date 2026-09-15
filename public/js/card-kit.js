@@ -2367,11 +2367,16 @@
     var titre = '<div class="eg-uc">' + esc(t2('pole_plan_depose_titre')) + '</div>';
     var champ = '<input type="file" data-eg-depot-fichier accept="application/pdf,image/png,image/jpeg,image/webp" style="display:none;">';
     if (!p || !p.url) {
-      return '<div class="eg-sec" data-eg-depot-plan>' + titre
-        + '<div style="border:1.5px dashed #c7cedb;border-radius:12px;padding:22px;text-align:center;background:#FBFCFE;">'
+      // `[data-survol]` est posé par la page pendant le glisser : le fond change, sinon on ne sait pas
+      // si on peut lâcher. Style EN LIGNE via une balise <style> locale — un bloc scopé d'Astro
+      // n'atteint pas du HTML injecté (CLAUDE.md § Frontend).
+      return '<style>[data-eg-depot-plan][data-survol] > div { background:#EEF2FF !important; border-color:#1D3BB3 !important; }</style>'
+        + '<div class="eg-sec" data-eg-depot-plan>' + titre
+        + '<div style="border:1.5px dashed #c7cedb;border-radius:12px;padding:22px;text-align:center;background:#FBFCFE;transition:background .12s;">'
         + '<div style="font-size:13px;font-weight:600;color:#111827;">' + esc(t2('pole_plan_depot_cta')) + '</div>'
         + '<div style="font-size:12.5px;color:#374151;margin-top:4px;">' + esc(t2('pole_plan_depot_gain')) + '</div>'
         + '<div style="font-size:11.5px;color:#9CA3AF;margin-top:2px;">' + esc(t2('pole_plan_depot_types')) + '</div>'
+        + '<div style="font-size:11.5px;color:#9CA3AF;margin-top:2px;">' + esc(t2('pole_plan_depot_glisser')) + '</div>'
         + champ
         + '<button type="button" data-eg-depot-choisir="' + esc(location_id || '') + '" style="margin-top:12px;font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:8px;padding:6px 14px;cursor:pointer;">' + esc(t2('pole_plan_depot_bouton')) + '</button>'
         + '<div data-eg-depot-msg style="font-size:12px;color:#b91c1c;margin-top:8px;"></div>'
