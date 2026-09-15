@@ -751,3 +751,36 @@ it("le plan se place SOUS la comparaison : elle dit combien, il dit où", () => 
   const html = String(kit.renderEvolution(data, EVOL_COPY));
   expect(html.indexOf("data-eg-poles-rank")).toBeLessThan(html.indexOf("data-eg-plan"));
 });
+
+// 15/09 (owner : « Is it true or bullshit? ») — UNE LISTE VIDE A DEUX CAUSES.
+// « Aucun article vu sur les photos n'est en retrait » se déclenchait sur une liste vide, et la liste
+// était vide parce que ZÉRO article n'avait été reconnu : les 7 photos de la Cave portaient toutes
+// items_effective = []. La phrase disait « on a regardé, rien à signaler » quand la vérité est « on
+// n'a rien vu ». Une absence de MESURE n'est pas un bon RÉSULTAT.
+const poleItems = (items: any) => ({
+  commitment: { commitment_id: "pole-items", status: "open", dispositif_nature: "permanent",
+    committed_action_text: "Cave", pole_families: '["Coffee beans"]', created_at: "2026-09-12T05:56:03Z", version_no: 1 },
+  pole: { totals: {}, families: [], operations: [], items }, lineage: [],
+});
+
+it("photos lues mais AUCUN article vu : la page le dit, et ne prétend pas que rien n'est en retrait", () => {
+  const html = String(kit.renderEvolution(poleItems({ n_photos: 7, seen: [], unseen: [] }) as any, EVOL_COPY));
+  expect(html).toContain(EVOL_COPY.pole_items_none_seen);
+  expect(html).not.toContain(EVOL_COPY.pole_items_no_retrait);
+  expect(html).not.toContain(EVOL_COPY.pole_items_retrait_title);   // le titre n'a pas de sens sans article vu
+});
+
+it("des articles VUS et aucun en retrait : la phrase d'origine revient, elle est alors vraie", () => {
+  const html = String(kit.renderEvolution(poleItems({ n_photos: 3, unseen: [], seen: [{
+    item_code: "i1", item_description: "Malbec", component_keys: ["p1"], confirmed: false,
+    rev30_eur: 120, expected30_eur: 118, n30: 9, delta_pct: 1.7, en_retrait: false, days_since_last_sale: 1 }] }) as any, EVOL_COPY));
+  expect(html).toContain(EVOL_COPY.pole_items_no_retrait);
+  expect(html).toContain(EVOL_COPY.pole_items_retrait_title);
+  expect(html).not.toContain(EVOL_COPY.pole_items_none_seen);
+});
+
+it("aucune photo du tout : l'absence de photo se dit, inchangée", () => {
+  const html = String(kit.renderEvolution(poleItems({ n_photos: 0, seen: [], unseen: [] }) as any, EVOL_COPY));
+  expect(html).toContain(EVOL_COPY.pole_items_no_photos);
+  expect(html).not.toContain(EVOL_COPY.pole_items_none_seen);
+});

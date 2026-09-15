@@ -338,6 +338,12 @@ export const EVOL_COPY = {
   pole_items_row: "{rev} € sur {n} j vendus · habituel {exp} €",
   pole_items_thin: "Données insuffisantes",
   pole_items_no_photos: "Aucune photo lue pour l'instant.",
+  // 15/09 (owner : « Is it true or bullshit? ») — DEUX ABSENCES QUI NE SE DISENT PAS PAREIL.
+  // « Aucun article vu … n'est en retrait » se déclenchait sur une liste VIDE, et la liste était vide
+  // parce que ZÉRO article n'avait été reconnu (les 7 photos de la Cave : items_effective = []).
+  // La phrase disait « on a regardé, rien à signaler » quand la vérité est « on n'a rien vu, donc on
+  // n'a rien pu regarder ». Une absence de mesure n'est pas un bon résultat.
+  pole_items_none_seen: "Aucun article n'a été vu sur vos photos.",
   pole_items_no_retrait: "Aucun article vu sur les photos n'est en retrait.",
   pole_items_all_seen: "Tous les articles vendus des familles du pôle sont vus sur une photo.",
   pole_items_confirmed: "confirmé",

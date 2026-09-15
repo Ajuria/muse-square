@@ -1117,7 +1117,14 @@
         h += '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_no_photos')) + '</div>';
       } else {
         h += '<div style="font-size:11px;color:#374151;margin-bottom:8px;">' + esc(t2('pole_items_caption')) + '</div>';
-        var retrait = (pi.seen || []).filter(function (x) { return x.en_retrait; });
+        var vus = pi.seen || [];
+        var retrait = vus.filter(function (x) { return x.en_retrait; });
+        // 15/09 (owner) — UNE LISTE VIDE A DEUX CAUSES, et une seule etait dite. Si AUCUN article n'a
+        // ete vu, « aucun n'est en retrait » se lit « on a regarde, rien a signaler » : c'est faux, on
+        // n'a rien pu regarder. Le titre « En retrait » lui-meme n'a pas de sens sans article vu.
+        if (!vus.length) {
+          h += '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_none_seen')) + '</div>';
+        } else {
         h += '<div style="font-size:12px;font-weight:600;color:#374151;margin:6px 0 4px;">' + esc(t2('pole_items_retrait_title')) + '</div>';
         if (!retrait.length) h += '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_no_retrait')) + '</div>';
         retrait.forEach(function (x) {
@@ -1126,12 +1133,15 @@
             + '<span style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_row', { rev: Number(x.rev30_eur).toLocaleString('fr-FR'), n: x.n30, exp: Number(x.expected30_eur).toLocaleString('fr-FR') })) + '</span>'
             + '<span style="font-size:13px;font-weight:600;color:#B45309;">' + pPct(x.delta_pct) + '</span></div>';
         });
-        var others = (pi.seen || []).filter(function (x) { return !x.en_retrait; });
+        var others = vus.filter(function (x) { return !x.en_retrait; });
         if (others.length) {
           h += '<div style="font-size:12px;color:#374151;margin:6px 0 8px;">' + others.map(function (x) {
             return esc(x.item_description) + (x.delta_pct != null && x.n30 >= 5 ? ' ' + pPct(x.delta_pct) : ' \u2014 ' + esc(t2('pole_items_thin')));
           }).join(' \u00b7 ') + '</div>';
         }
+        }
+        // « Vendus sans etre vus » garde son sens meme quand rien n'a ete vu : ce sont les articles
+        // qui se vendent et qu'aucune photo ne montre. On ne le retire pas.
         h += '<div style="font-size:12px;font-weight:600;color:#374151;margin:6px 0 4px;">' + esc(t2('pole_items_unseen_title')) + '</div>';
         if (!(pi.unseen || []).length) h += '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_items_all_seen')) + '</div>';
         else h += '<div style="font-size:12px;color:#374151;">' + pi.unseen.map(function (x) { return esc(x.item_description) + ' (' + Number(x.rev30_eur).toLocaleString('fr-FR') + ' \u20ac)'; }).join(' \u00b7 ') + '</div>';
