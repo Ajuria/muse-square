@@ -21,8 +21,14 @@ const SORTIE = "tools/proto/deplacer-photo-proto.html";
 const bq = makeBQClient(process.env.BQ_PROJECT_ID || P);
 const v = (x: any): any => (x && typeof x === "object" && "value" in x ? x.value : x);
 
+// LE NOM DU MEUBLE VIENT DE LA BASE, il ne se fabrique pas. Les 52 composants du compte portent un
+// `component_label` qui dit déjà le numéro ET le repère du plan — « N° 2 — Vin & Spiritueux », « N° 24 —
+// Ilot maison ». Mon premier jet composait « N° 7 · Cave » à partir du numéro et du pôle : il jetait la
+// moitié informative du nom, et toutes les phrases du geste se mettaient à parler en codes. Verdict de
+// l'owner sur les trois : « je ne comprends pas ».
 const [comps] = await bq.query({
-  query: `SELECT m.fixture_no, m.component_key, m.dispositif_id, c.committed_action_text AS pole, m.linear_m_facade
+  query: `SELECT m.fixture_no, m.component_key, m.dispositif_id, c.committed_action_text AS pole, m.linear_m_facade,
+                 vc.component_label AS nom
           FROM (SELECT * EXCEPT(rn) FROM (
                   SELECT dispositif_id, component_key, fixture_no, linear_m_facade,
                          ROW_NUMBER() OVER (PARTITION BY dispositif_id, component_key ORDER BY created_at DESC) rn
@@ -31,13 +37,18 @@ const [comps] = await bq.query({
           LEFT JOIN (SELECT DISTINCT dispositif_id, committed_action_text
                      FROM \`${P}.analytics.action_commitments\`
                      WHERE location_id = @loc AND dispositif_nature = 'permanent') c ON c.dispositif_id = m.dispositif_id
+          LEFT JOIN \`${P}.semantic.vw_insight_event_dispositif_components\` vc
+                 ON vc.location_id = @loc AND vc.dispositif_id = m.dispositif_id AND vc.component_key = m.component_key
           WHERE m.fixture_no IS NOT NULL ORDER BY m.fixture_no`,
   params: { loc: LOC }, location: "EU",
 });
 const MEUBLES = (comps as any[]).map((r) => ({
   no: Number(v(r.fixture_no)), key: String(v(r.component_key)), pole: String(v(r.pole) ?? ""),
+  nom: String(v(r.nom) ?? "").trim(),
   m: v(r.linear_m_facade) == null ? null : Number(v(r.linear_m_facade)),
 }));
+const sansNom = MEUBLES.filter((x) => !x.nom).length;
+console.log(`noms lus en base : ${MEUBLES.length - sansNom}/${MEUBLES.length} (exemple : « ${MEUBLES[1]?.nom ?? "?"} »)`);
 
 const [phs] = await bq.query({
   query: `SELECT p.photo_id, p.fixture_no, p.component_key, p.version_no, p.created_at, p.status,
@@ -151,6 +162,27 @@ Toutes les chaînes affichées sont des <b>propositions</b> — elles ne sont pa
 </div>
 
 <div class="carte">
+  <div class="uc">5 · Les phrases, hors de leur écran — à ratifier</div>
+  <div class="note" style="margin-bottom:12px;">Vous n'avez pas compris trois de mes phrases. Elles disaient le <b>mécanisme</b>, avec un nom de meuble
+  que j'avais <b>fabriqué</b> (numéro + pôle) alors que vos 52 meubles portent déjà leur nom en base. Voici ce que je propose à la place, à lire seul :</div>
+  <table>
+    <thead><tr><th>où</th><th>ce que j'avais écrit</th><th>ce que je propose</th></tr></thead>
+    <tbody>
+      <tr><td>la ligne quittée</td><td class="gris">Cette photo est passée au n° 7 · Cave</td>
+          <td><b>Aucune photo ici — vous l'avez déplacée sur le N° 7 — Vin &amp; Spiritueux.</b> + Annuler</td></tr>
+      <tr><td>la ligne d'arrivée</td><td class="gris">Photo du 14/09/2026 · arrivée du n° 4</td>
+          <td><b>Photo du 14/09/2026 à 20 h 12</b> — rien de plus. Le trajet se lit sur la ligne quittée, où se trouve l'annulation.</td></tr>
+      <tr><td>ce qui s'écrit</td><td class="gris">p7 (n° 7) (la nouvelle)</td>
+          <td><b>N° 7 — Vin &amp; Spiritueux</b>. Une clé interne ne se montre jamais.</td></tr>
+      <tr><td>le bouton</td><td class="gris">—</td><td><b>Déplacer →</b></td></tr>
+      <tr><td>le dépôt du plan</td><td class="gris">—</td><td><b>Déposez le plan de votre magasin</b></td></tr>
+    </tbody>
+  </table>
+  <div class="note" style="margin-top:12px;"><b>Ce que je ne décide pas.</b> Aucune de ces phrases n'est au lexique. Dites-moi vos mots —
+  ou dites « celles-là » — et elles y entrent dans le commit qui les livre. Un concept sans votre mot ne s'invente pas.</div>
+</div>
+
+<div class="carte">
   <div class="uc">4 · Ce que les données disent, et qui change le geste</div>
   <div class="note"><b>Les numéros traversent les pôles.</b> Sur votre plan : n° 1, 2, 4, 7, 8 sont en <b>Cave</b> ; n° 3, 5, 6 en <b>Cuisine</b>.
   Un numéro tapé de travers ne déplace donc pas seulement la photo de meuble — il peut la faire <b>changer de pôle</b>, et avec elle les articles
@@ -183,8 +215,10 @@ var source = parNo[photo.no] || MEUBLES.find(function (m) { return m.key === pho
 var etat = { ouvert: false, saisi: "", deplacee: false, vers: null };
 
 function ligneMeuble(m, contenu) {
-  return '<div class="ligne"><div class="tete"><span class="nom">N° ' + e(m.no) + ' — ' + e(m.pole) + '</span>'
-    + '<span class="meta">' + (m.m != null ? fr1(m.m) + ' m de façade' : 'sans mesure') + '</span></div>' + contenu + '</div>';
+  // Le NOM tel qu'il est en base (« N° 4 — Vin & Spiritueux »), jamais un nom recomposé. Le pôle est une
+  // information de contexte : il passe à droite, avec la mesure.
+  return '<div class="ligne"><div class="tete"><span class="nom">' + e(m.nom || ('N° ' + m.no)) + '</span>'
+    + '<span class="meta">' + e(m.pole) + (m.m != null ? ' · ' + fr1(m.m) + ' m de façade' : '') + '</span></div>' + contenu + '</div>';
 }
 function rendre() {
   var a = document.getElementById("atelier");
@@ -193,27 +227,34 @@ function rendre() {
   if (etat.ouvert) {
     if (etat.saisi === "") vise = '<div class="vise gris">Tapez le numéro du meuble, tel qu\\'il est sur votre plan.</div>';
     else if (!cible) vise = '<div class="vise attention">Aucun meuble ne porte le n° ' + e(etat.saisi) + ' sur votre plan.</div>';
-    else if (cible.pole !== source.pole) vise = '<div class="vise attention"><b>n° ' + e(cible.no) + ' · ' + e(cible.pole) + '</b> — ce meuble est dans un AUTRE pôle. Les articles lus sur cette photo passeront de ' + e(source.pole) + ' à ' + e(cible.pole) + '.</div>';
-    else vise = '<div class="vise ok"><b>n° ' + e(cible.no) + ' · ' + e(cible.pole) + '</b>' + (cible.m != null ? ' · ' + fr1(cible.m) + ' m de façade' : '') + '</div>';
+    else if (cible.pole !== source.pole) vise = '<div class="vise attention"><b>' + e(cible.nom) + '</b> — ce meuble est dans le pôle ' + e(cible.pole) + ', pas ' + e(source.pole) + '. Les articles lus sur cette photo passeront de ' + e(source.pole) + ' à ' + e(cible.pole) + '.</div>';
+    else vise = '<div class="vise ok"><b>' + e(cible.nom) + '</b> · ' + e(cible.pole) + (cible.m != null ? ' · ' + fr1(cible.m) + ' m de façade' : '') + '</div>';
   }
   var bloc;
   if (!etat.deplacee) {
     bloc = '<div class="meta" style="margin-top:6px;">Photo du ' + e(photo.quand) + (photo.no == null ? ' · <span class="attention">sans numéro</span>' : '') + '</div>'
       + '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
       + '<button class="cta alerte">Retirer →</button>'
-      + '<button class="cta" id="b-depl">Déplacer →<span class="ratifier">à ratifier</span></button>'
+      + '<button class="cta" id="b-depl">Déplacer →</button>'
       + (etat.ouvert ? '<input class="champ" id="c-no" inputmode="numeric" placeholder="N° sur le plan" value="' + e(etat.saisi) + '">'
           + '<button class="cta" id="b-ok"' + (cible ? '' : ' disabled style="opacity:.45;cursor:default;"') + '>Confirmer →</button>' : '')
       + '</div>' + vise;
     a.innerHTML = ligneMeuble(source, bloc);
   } else {
+    // L'ANCIENNE LIGNE dit ce que l'exploitant A FAIT, pas ce que l'app a enregistré : sujet « vous »,
+    // verbe = son geste, et le meuble d'arrivée NOMMÉ. « Cette photo est passée au n° 7 · Cave » disait
+    // le mécanisme avec un nom fabriqué — verdict owner : « je ne comprends pas ».
+    // LA NOUVELLE LIGNE ne dit RIEN de plus qu'une photo ordinaire. « arrivée du n° 4 » racontait le
+    // trajet à quelqu'un qui vient de le faire : l'ancienne ligne porte déjà l'annulation.
     var c = etat.vers;
-    a.innerHTML = ligneMeuble(source, '<div class="meta" style="margin-top:6px;">Cette photo est passée au n° ' + e(c.no) + ' · ' + e(c.pole)
-        + '<span class="ratifier">à ratifier</span> · <button class="cta" style="padding:2px 8px;" id="b-annul">Annuler</button></div>')
-      + ligneMeuble(c, '<div class="meta" style="margin-top:6px;">Photo du ' + e(photo.quand) + ' · <span class="ok">arrivée du n° ' + e(source.no) + '</span></div>');
+    a.innerHTML = ligneMeuble(source, '<div class="meta" style="margin-top:6px;">Aucune photo ici — vous l\\'avez déplacée sur le ' + e(c.nom)
+        + '. <button class="cta" style="padding:2px 8px;" id="b-annul">Annuler</button></div>')
+      + ligneMeuble(c, '<div class="meta" style="margin-top:6px;">Photo du ' + e(photo.quand) + '</div>');
   }
-  document.getElementById("w-src").textContent = source.key + " (n° " + source.no + ")";
-  document.getElementById("w-dst").textContent = etat.vers ? etat.vers.key + " (n° " + etat.vers.no + ")" : "—";
+  // AUCUNE CLÉ INTERNE À L'ÉCRAN (mémoire « jamais d'identifiant montré ») : « p7 (n° 7) » ne veut rien
+  // dire pour personne. Le tableau nomme les meubles comme la page les nomme.
+  document.getElementById("w-src").textContent = source.nom;
+  document.getElementById("w-dst").textContent = etat.vers ? etat.vers.nom : "—";
   var bd = document.getElementById("b-depl"); if (bd) bd.addEventListener("click", function () { etat.ouvert = true; rendre(); });
   var cn = document.getElementById("c-no");
   if (cn) { cn.addEventListener("input", function () { etat.saisi = cn.value.trim(); rendre(); document.getElementById("c-no").focus(); }); }

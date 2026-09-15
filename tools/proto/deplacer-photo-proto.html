@@ -81,6 +81,27 @@ Toutes les chaînes affichées sont des <b>propositions</b> — elles ne sont pa
 </div>
 
 <div class="carte">
+  <div class="uc">5 · Les phrases, hors de leur écran — à ratifier</div>
+  <div class="note" style="margin-bottom:12px;">Vous n'avez pas compris trois de mes phrases. Elles disaient le <b>mécanisme</b>, avec un nom de meuble
+  que j'avais <b>fabriqué</b> (numéro + pôle) alors que vos 52 meubles portent déjà leur nom en base. Voici ce que je propose à la place, à lire seul :</div>
+  <table>
+    <thead><tr><th>où</th><th>ce que j'avais écrit</th><th>ce que je propose</th></tr></thead>
+    <tbody>
+      <tr><td>la ligne quittée</td><td class="gris">Cette photo est passée au n° 7 · Cave</td>
+          <td><b>Aucune photo ici — vous l'avez déplacée sur le N° 7 — Vin &amp; Spiritueux.</b> + Annuler</td></tr>
+      <tr><td>la ligne d'arrivée</td><td class="gris">Photo du 14/09/2026 · arrivée du n° 4</td>
+          <td><b>Photo du 14/09/2026 à 20 h 12</b> — rien de plus. Le trajet se lit sur la ligne quittée, où se trouve l'annulation.</td></tr>
+      <tr><td>ce qui s'écrit</td><td class="gris">p7 (n° 7) (la nouvelle)</td>
+          <td><b>N° 7 — Vin &amp; Spiritueux</b>. Une clé interne ne se montre jamais.</td></tr>
+      <tr><td>le bouton</td><td class="gris">—</td><td><b>Déplacer →</b></td></tr>
+      <tr><td>le dépôt du plan</td><td class="gris">—</td><td><b>Déposez le plan de votre magasin</b></td></tr>
+    </tbody>
+  </table>
+  <div class="note" style="margin-top:12px;"><b>Ce que je ne décide pas.</b> Aucune de ces phrases n'est au lexique. Dites-moi vos mots —
+  ou dites « celles-là » — et elles y entrent dans le commit qui les livre. Un concept sans votre mot ne s'invente pas.</div>
+</div>
+
+<div class="carte">
   <div class="uc">4 · Ce que les données disent, et qui change le geste</div>
   <div class="note"><b>Les numéros traversent les pôles.</b> Sur votre plan : n° 1, 2, 4, 7, 8 sont en <b>Cave</b> ; n° 3, 5, 6 en <b>Cuisine</b>.
   Un numéro tapé de travers ne déplace donc pas seulement la photo de meuble — il peut la faire <b>changer de pôle</b>, et avec elle les articles
@@ -90,7 +111,7 @@ Toutes les chaînes affichées sont des <b>propositions</b> — elles ne sont pa
 </div>
 
 <script>
-var MEUBLES = [{"no":1,"key":"p1","pole":"Cave","m":1.79},{"no":2,"key":"p2","pole":"Cave","m":4.12},{"no":3,"key":"p3","pole":"Cuisine","m":4.61},{"no":4,"key":"p4","pole":"Cave","m":2.65},{"no":5,"key":"p5","pole":"Cuisine","m":2.56},{"no":6,"key":"p6","pole":"Cuisine","m":10},{"no":7,"key":"p7","pole":"Cave","m":3.53},{"no":8,"key":"p8","pole":"Cave","m":7.16},{"no":9,"key":"p9","pole":"Cuisine","m":6.56},{"no":10,"key":"p10","pole":"Cuisine","m":3.06},{"no":11,"key":"p11","pole":"Maison","m":0.67},{"no":12,"key":"p12","pole":"Maison","m":1.28},{"no":13,"key":"p13","pole":"Maison","m":5.91},{"no":14,"key":"p14","pole":"Cave","m":2.13},{"no":15,"key":"p15","pole":"Cuisine","m":2.96},{"no":16,"key":"p16","pole":"Cuisine","m":5.94},{"no":17,"key":"p17","pole":"Épicerie sèche","m":3.08},{"no":18,"key":"p18","pole":"Épicerie sèche","m":2.74},{"no":19,"key":"p19","pole":"Épicerie sèche","m":null},{"no":20,"key":"p20","pole":"Cave","m":2.24},{"no":21,"key":"p21","pole":"Épicerie sèche","m":2.36},{"no":22,"key":"p22","pole":"Cuisine","m":2.5},{"no":23,"key":"p23","pole":"Maison","m":2.6},{"no":24,"key":"p24","pole":"Maison","m":4.8},{"no":25,"key":"p25","pole":"Maison","m":8.56},{"no":26,"key":"p26","pole":"Épicerie sèche","m":2.24},{"no":27,"key":"p27","pole":"Épicerie sèche","m":0.8},{"no":28,"key":"p28","pole":"Épicerie sèche","m":0.96},{"no":29,"key":"p29","pole":"Épicerie sèche","m":3.76},{"no":30,"key":"p30","pole":"Cuisine","m":1.7},{"no":31,"key":"p31","pole":"Épicerie sèche","m":6},{"no":32,"key":"p32","pole":"Maison","m":2.92},{"no":33,"key":"p33","pole":"Maison","m":8.94},{"no":34,"key":"p34","pole":"Maison","m":3.38},{"no":35,"key":"p35","pole":"Épicerie sèche","m":2.18},{"no":36,"key":"p36","pole":"Épicerie sèche","m":2.04},{"no":37,"key":"p37","pole":"Petit déjeuner","m":1.07},{"no":38,"key":"p38","pole":"Petit déjeuner","m":1.47},{"no":39,"key":"p39","pole":"Épicerie sèche","m":2.75},{"no":40,"key":"p40","pole":"Produits frais","m":1.6},{"no":41,"key":"p41","pole":"Produits frais","m":4.5},{"no":42,"key":"p42","pole":"Produits frais","m":5.64},{"no":43,"key":"p43","pole":"Produits frais","m":8.14},{"no":44,"key":"p44","pole":"Petit déjeuner","m":1.79},{"no":45,"key":"p45","pole":"Caisse","m":4.32},{"no":46,"key":"p46","pole":"Produits frais","m":11.2},{"no":47,"key":"p47","pole":"Petit déjeuner","m":3.1},{"no":48,"key":"p48","pole":"Épicerie sèche","m":8.42},{"no":49,"key":"p49","pole":"Cuisine","m":3},{"no":50,"key":"p50","pole":"Caisse","m":3.5},{"no":51,"key":"p51","pole":"Petit déjeuner","m":6.08},{"no":52,"key":"p52","pole":"Petit déjeuner","m":6.9}];
+var MEUBLES = [{"no":1,"key":"p1","pole":"Cave","nom":"N° 1 — Vin & Spiritueux","m":1.79},{"no":2,"key":"p2","pole":"Cave","nom":"N° 2 — Vin & Spiritueux","m":4.12},{"no":3,"key":"p3","pole":"Cuisine","nom":"N° 3 — Récipients","m":4.61},{"no":4,"key":"p4","pole":"Cave","nom":"N° 4 — Vin & Spiritueux","m":2.65},{"no":5,"key":"p5","pole":"Cuisine","nom":"N° 5 — Robots","m":2.56},{"no":6,"key":"p6","pole":"Cuisine","nom":"N° 6 — Récipients","m":10},{"no":7,"key":"p7","pole":"Cave","nom":"N° 7 — Vin & Spiritueux","m":3.53},{"no":8,"key":"p8","pole":"Cave","nom":"N° 8 — Ilot spiritueux","m":7.16},{"no":9,"key":"p9","pole":"Cuisine","nom":"N° 9 — Robots","m":6.56},{"no":10,"key":"p10","pole":"Cuisine","nom":"N° 10 — Ustensiles","m":3.06},{"no":11,"key":"p11","pole":"Maison","nom":"N° 11 — Art de la table","m":0.67},{"no":12,"key":"p12","pole":"Maison","nom":"N° 12 — Ilot maison","m":1.28},{"no":13,"key":"p13","pole":"Maison","nom":"N° 13 — Art de la table","m":5.91},{"no":14,"key":"p14","pole":"Cave","nom":"N° 14 — Vin & Spiritueux","m":2.13},{"no":15,"key":"p15","pole":"Cuisine","nom":"N° 15 — Robots","m":2.96},{"no":16,"key":"p16","pole":"Cuisine","nom":"N° 16 — Ustensiles","m":5.94},{"no":17,"key":"p17","pole":"Épicerie sèche","nom":"N° 17 — Condiments","m":3.08},{"no":18,"key":"p18","pole":"Épicerie sèche","nom":"N° 18 — Condiments","m":2.74},{"no":19,"key":"p19","pole":"Épicerie sèche","nom":"N° 19 — Conserves","m":null},{"no":20,"key":"p20","pole":"Cave","nom":"N° 20 — Vin & Spiritueux","m":2.24},{"no":21,"key":"p21","pole":"Épicerie sèche","nom":"N° 21 — Conserves","m":2.36},{"no":22,"key":"p22","pole":"Cuisine","nom":"N° 22 — Ustensiles","m":2.5},{"no":23,"key":"p23","pole":"Maison","nom":"N° 23 — Ilot varié","m":2.6},{"no":24,"key":"p24","pole":"Maison","nom":"N° 24 — Ilot maison","m":4.8},{"no":25,"key":"p25","pole":"Maison","nom":"N° 25 — Quincaillerie","m":8.56},{"no":26,"key":"p26","pole":"Épicerie sèche","nom":"N° 26 — Condiments","m":2.24},{"no":27,"key":"p27","pole":"Épicerie sèche","nom":"N° 27 — Condiments","m":0.8},{"no":28,"key":"p28","pole":"Épicerie sèche","nom":"N° 28 — Conserves","m":0.96},{"no":29,"key":"p29","pole":"Épicerie sèche","nom":"N° 29 — Conserves","m":3.76},{"no":30,"key":"p30","pole":"Cuisine","nom":"N° 30 — Ustensiles","m":1.7},{"no":31,"key":"p31","pole":"Épicerie sèche","nom":"N° 31 — Condiments","m":6},{"no":32,"key":"p32","pole":"Maison","nom":"N° 32 — Bougies","m":2.92},{"no":33,"key":"p33","pole":"Maison","nom":"N° 33 — Quincaillerie","m":8.94},{"no":34,"key":"p34","pole":"Maison","nom":"N° 34 — Quincaillerie","m":3.38},{"no":35,"key":"p35","pole":"Épicerie sèche","nom":"N° 35 — Apéritif & Entrées","m":2.18},{"no":36,"key":"p36","pole":"Épicerie sèche","nom":"N° 36 — Conserves","m":2.04},{"no":37,"key":"p37","pole":"Petit déjeuner","nom":"N° 37 — Thé","m":1.07},{"no":38,"key":"p38","pole":"Petit déjeuner","nom":"N° 38 — Thé","m":1.47},{"no":39,"key":"p39","pole":"Épicerie sèche","nom":"N° 39 — Riz & Pâtes","m":2.75},{"no":40,"key":"p40","pole":"Produits frais","nom":"N° 40 — Fruits & Légumes","m":1.6},{"no":41,"key":"p41","pole":"Produits frais","nom":"N° 41 — Fruits & Légumes","m":4.5},{"no":42,"key":"p42","pole":"Produits frais","nom":"N° 42 — Frigidaires","m":5.64},{"no":43,"key":"p43","pole":"Produits frais","nom":"N° 43 — Service traiteur","m":8.14},{"no":44,"key":"p44","pole":"Petit déjeuner","nom":"N° 44 — Thé","m":1.79},{"no":45,"key":"p45","pole":"Caisse","nom":"N° 45 — Caisse","m":4.32},{"no":46,"key":"p46","pole":"Produits frais","nom":"N° 46 — Fruits & Légumes","m":11.2},{"no":47,"key":"p47","pole":"Petit déjeuner","nom":"N° 47 — Ilot entrée","m":3.1},{"no":48,"key":"p48","pole":"Épicerie sèche","nom":"N° 48 — Épices","m":8.42},{"no":49,"key":"p49","pole":"Cuisine","nom":"N° 49 — Couteaux","m":3},{"no":50,"key":"p50","pole":"Caisse","nom":"N° 50 — Caisse","m":3.5},{"no":51,"key":"p51","pole":"Petit déjeuner","nom":"N° 51 — Petit déjeuner","m":6.08},{"no":52,"key":"p52","pole":"Petit déjeuner","nom":"N° 52 — Gâteaux","m":6.9}];
 var PHOTOS = [{"id":"ba04e652-262d-411d-98d5-7b2ad6ee68a9","no":4,"key":"p4","pole":"Cave","quand":"14/09/2026 à 20 h 12"},{"id":"ad1e1c7c-6c50-4c9b-8b5e-9b0d63dea66f","no":2,"key":"p2","pole":"Cave","quand":"14/09/2026 à 20 h 12"},{"id":"3ffd396f-6a49-48ff-bfd1-570fb3a05045","no":1,"key":"p1","pole":"Cave","quand":"14/09/2026 à 20 h 12"},{"id":"a6ed5f84-c6b3-442d-9edd-506cea7cdca2","no":null,"key":"p20","pole":"Cave","quand":"14/09/2026 à 18 h 18"},{"id":"88cc88ad-787b-4fcc-bb22-0bc73df69309","no":null,"key":"p14","pole":"Cave","quand":"14/09/2026 à 18 h 18"},{"id":"469639ab-c58b-47f2-8b67-056cf1ded0ec","no":null,"key":"p8","pole":"Cave","quand":"14/09/2026 à 18 h 18"},{"id":"679eec54-9278-40de-b547-053589cbacc6","no":null,"key":"p7","pole":"Cave","quand":"14/09/2026 à 18 h 18"},{"id":"e24a3d87-6954-4e6a-a6ab-de368020f3f4","no":null,"key":"p4","pole":"Cave","quand":"14/09/2026 à 18 h 17"},{"id":"dc1f9dfb-a9f4-4377-a6b7-9625f61091b0","no":null,"key":"p2","pole":"Cave","quand":"14/09/2026 à 18 h 17"},{"id":"09499b8b-4eaa-438f-a463-03b7b3d78b05","no":null,"key":"p1","pole":"Cave","quand":"14/09/2026 à 18 h 17"}];
 var parNo = {}; MEUBLES.forEach(function (m) { parNo[m.no] = m; });
 var e = function (s) { return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
@@ -113,8 +134,10 @@ var source = parNo[photo.no] || MEUBLES.find(function (m) { return m.key === pho
 var etat = { ouvert: false, saisi: "", deplacee: false, vers: null };
 
 function ligneMeuble(m, contenu) {
-  return '<div class="ligne"><div class="tete"><span class="nom">N° ' + e(m.no) + ' — ' + e(m.pole) + '</span>'
-    + '<span class="meta">' + (m.m != null ? fr1(m.m) + ' m de façade' : 'sans mesure') + '</span></div>' + contenu + '</div>';
+  // Le NOM tel qu'il est en base (« N° 4 — Vin & Spiritueux »), jamais un nom recomposé. Le pôle est une
+  // information de contexte : il passe à droite, avec la mesure.
+  return '<div class="ligne"><div class="tete"><span class="nom">' + e(m.nom || ('N° ' + m.no)) + '</span>'
+    + '<span class="meta">' + e(m.pole) + (m.m != null ? ' · ' + fr1(m.m) + ' m de façade' : '') + '</span></div>' + contenu + '</div>';
 }
 function rendre() {
   var a = document.getElementById("atelier");
@@ -123,27 +146,34 @@ function rendre() {
   if (etat.ouvert) {
     if (etat.saisi === "") vise = '<div class="vise gris">Tapez le numéro du meuble, tel qu\'il est sur votre plan.</div>';
     else if (!cible) vise = '<div class="vise attention">Aucun meuble ne porte le n° ' + e(etat.saisi) + ' sur votre plan.</div>';
-    else if (cible.pole !== source.pole) vise = '<div class="vise attention"><b>n° ' + e(cible.no) + ' · ' + e(cible.pole) + '</b> — ce meuble est dans un AUTRE pôle. Les articles lus sur cette photo passeront de ' + e(source.pole) + ' à ' + e(cible.pole) + '.</div>';
-    else vise = '<div class="vise ok"><b>n° ' + e(cible.no) + ' · ' + e(cible.pole) + '</b>' + (cible.m != null ? ' · ' + fr1(cible.m) + ' m de façade' : '') + '</div>';
+    else if (cible.pole !== source.pole) vise = '<div class="vise attention"><b>' + e(cible.nom) + '</b> — ce meuble est dans le pôle ' + e(cible.pole) + ', pas ' + e(source.pole) + '. Les articles lus sur cette photo passeront de ' + e(source.pole) + ' à ' + e(cible.pole) + '.</div>';
+    else vise = '<div class="vise ok"><b>' + e(cible.nom) + '</b> · ' + e(cible.pole) + (cible.m != null ? ' · ' + fr1(cible.m) + ' m de façade' : '') + '</div>';
   }
   var bloc;
   if (!etat.deplacee) {
     bloc = '<div class="meta" style="margin-top:6px;">Photo du ' + e(photo.quand) + (photo.no == null ? ' · <span class="attention">sans numéro</span>' : '') + '</div>'
       + '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
       + '<button class="cta alerte">Retirer →</button>'
-      + '<button class="cta" id="b-depl">Déplacer →<span class="ratifier">à ratifier</span></button>'
+      + '<button class="cta" id="b-depl">Déplacer →</button>'
       + (etat.ouvert ? '<input class="champ" id="c-no" inputmode="numeric" placeholder="N° sur le plan" value="' + e(etat.saisi) + '">'
           + '<button class="cta" id="b-ok"' + (cible ? '' : ' disabled style="opacity:.45;cursor:default;"') + '>Confirmer →</button>' : '')
       + '</div>' + vise;
     a.innerHTML = ligneMeuble(source, bloc);
   } else {
+    // L'ANCIENNE LIGNE dit ce que l'exploitant A FAIT, pas ce que l'app a enregistré : sujet « vous »,
+    // verbe = son geste, et le meuble d'arrivée NOMMÉ. « Cette photo est passée au n° 7 · Cave » disait
+    // le mécanisme avec un nom fabriqué — verdict owner : « je ne comprends pas ».
+    // LA NOUVELLE LIGNE ne dit RIEN de plus qu'une photo ordinaire. « arrivée du n° 4 » racontait le
+    // trajet à quelqu'un qui vient de le faire : l'ancienne ligne porte déjà l'annulation.
     var c = etat.vers;
-    a.innerHTML = ligneMeuble(source, '<div class="meta" style="margin-top:6px;">Cette photo est passée au n° ' + e(c.no) + ' · ' + e(c.pole)
-        + '<span class="ratifier">à ratifier</span> · <button class="cta" style="padding:2px 8px;" id="b-annul">Annuler</button></div>')
-      + ligneMeuble(c, '<div class="meta" style="margin-top:6px;">Photo du ' + e(photo.quand) + ' · <span class="ok">arrivée du n° ' + e(source.no) + '</span></div>');
+    a.innerHTML = ligneMeuble(source, '<div class="meta" style="margin-top:6px;">Aucune photo ici — vous l\'avez déplacée sur le ' + e(c.nom)
+        + '. <button class="cta" style="padding:2px 8px;" id="b-annul">Annuler</button></div>')
+      + ligneMeuble(c, '<div class="meta" style="margin-top:6px;">Photo du ' + e(photo.quand) + '</div>');
   }
-  document.getElementById("w-src").textContent = source.key + " (n° " + source.no + ")";
-  document.getElementById("w-dst").textContent = etat.vers ? etat.vers.key + " (n° " + etat.vers.no + ")" : "—";
+  // AUCUNE CLÉ INTERNE À L'ÉCRAN (mémoire « jamais d'identifiant montré ») : « p7 (n° 7) » ne veut rien
+  // dire pour personne. Le tableau nomme les meubles comme la page les nomme.
+  document.getElementById("w-src").textContent = source.nom;
+  document.getElementById("w-dst").textContent = etat.vers ? etat.vers.nom : "—";
   var bd = document.getElementById("b-depl"); if (bd) bd.addEventListener("click", function () { etat.ouvert = true; rendre(); });
   var cn = document.getElementById("c-no");
   if (cn) { cn.addEventListener("input", function () { etat.saisi = cn.value.trim(); rendre(); document.getElementById("c-no").focus(); }); }
