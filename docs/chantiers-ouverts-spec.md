@@ -15,6 +15,44 @@ manque**, et **la preuve exigée**.
 
 ---
 
+## Numéroter les composants sur le plan — MESURE FAITE, la voie automatique est ÉCARTÉE (15/09)
+
+**La question de l'owner** : « le système peut-il faire le leg work et le user éditer son travail
+plutôt que de faire 52 changements ? »
+
+**Ce que j'avais affirmé sans le vérifier, et qui était FAUX** : « votre plan porte déjà ses numéros
+imprimés ». Le plan déposé est un AutoCAD dont le seul texte est des cotes (90, 175, 196, 335…) —
+**aucun numéro de meuble**. Les 52 numéros ont été posés le 12/09 en lisant le plan (`space_measures`,
+source « plan », un déclarant) : ils sont À NOUS, rien dans le magasin ne les porte. La voie b
+reposait sur cette affirmation.
+
+**La mesure, trois fois.** Le plan est vectoriel et les meubles y ont leur couleur propre (181 formes
+remplies, 171 tombant dans les 7 contours de pôles) :
+
+| pôle | groupes trouvés | composants déclarés | appariés à ±20 % | Σ trouvée | Σ déclarée |
+|---|---|---|---|---|---|
+| Caisse | 1 | 2 | 1/2 | 1,8 m | 6,1 m |
+| Cave | 8 | 7 | 5/7 | 25,7 m | 18,9 m |
+| Cuisine | 3 | 10 | 2/10 | 11,0 m | 29,3 m |
+| Maison | 7 | 9 | 6/9 | 21,5 m | 24,3 m |
+| Petit déjeuner | 4 | 6 | 3/6 | 14,5 m | 15,4 m |
+| Produits frais | 1 | 5 | 1/5 | 5,7 m | 25,5 m |
+| Épicerie sèche | 4 | 13 | 3/13 | 12,3 m | 29,7 m |
+| **total** | **28** | **52** | **21/52 (40 %)** | | |
+
+**Ce n'est pas un réglage** : balayage de la tolérance de regroupement de 0 à 15 cm — 40 % partout, et
+30 groupes même à tolérance ZÉRO. Le dessin ne sépare pas deux meubles accolés : une rangée de
+gondoles est un tracé continu. **Ce n'est pas non plus un découpage** : les longueurs cumulées ne
+correspondent pas (−78 % à Produits frais, +36 % à Cave), et la somme des formes individuelles vaut
+448 m contre 149 m déclarés — les rectangles bleus sont les tablettes et les joues, pas les meubles.
+
+**Conclusion** : le système sait montrer OÙ sont les meubles ; il ne sait pas dire LEQUEL est le n° 24.
+Faire corriger une proposition à 40 % est plus pénible que de partir de zéro — c'est le seuil annoncé
+à l'owner AVANT la mesure, et il est franchi dans le mauvais sens.
+
+**Donc il n'y a qu'UN workflow à construire** : celui qui marche quand le plan ne dessine pas les
+meubles. Voir la note suivante.
+
 ## La page d'un pôle — les six retours de l'owner du 15/09, dans SON ordre
 
 Retours donnés sur le proto `tools/proto/pole-deux-vues-proto.html`. L'ordre est celui qu'il a fixé
