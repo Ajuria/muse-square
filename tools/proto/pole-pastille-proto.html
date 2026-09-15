@@ -30,6 +30,7 @@
      qu'on venait de retirer. Insécable, elle passe entière à la ligne suivante quand la place manque. */
   .num .u { font-size: 12px; font-weight: 500; color: var(--gris); margin-left: 3px; white-space: nowrap; }
   .phrase { font-size: 12px; margin-top: 5px; line-height: 1.45; color: #374151; }
+  .phrase .ligne { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .aujd { font-size: 11px; color: var(--gris); margin-top: 3px; }
   .note { font-size: 12px; color: var(--gris); margin-top: 12px; max-width: 78ch; line-height: 1.6; }
   .note b { color: #111827; }
@@ -80,28 +81,23 @@
 </div>
 
 <div class="piste">
-  <h2>A1a — la tendance brute, à côté du nom</h2>
-  <p class="quoi">La pastille répond à DEUX questions différentes : <b>« ça monte ou ça descend ? »</b> (à côté du nom)
-    et <b>« lequel dois-je ouvrir ? »</b> (le chiffre et la ligne du dessous). Ici la tendance est celle du pôle,
-    telle quelle. Sur vos données d'aujourd'hui, les sept sont vertes — c'est le magasin qui monte.</p>
+  <h2>Retenu — la tendance à côté du nom, la marge sur sa ligne</h2>
+  <p class="quoi">Deux questions, deux endroits : <b>« ça monte ou ça descend ? »</b> à côté du nom,
+    <b>« lequel dois-je ouvrir ? »</b> par le chiffre et les deux lignes du dessous. Sur vos données
+    d'aujourd'hui les sept tendances sont vertes — c'est le magasin qui monte de 43,9 %, et chaque pôle
+    le suit. Le mois où un pôle décrochera vraiment, c'est là que cette tendance parlera.</p>
   <div class="grille" id="gA1a"></div>
 </div>
 
-<div class="piste">
-  <h2>A1b — la tendance face au magasin</h2>
-  <p class="quoi">Même place, même rôle, mais le pôle est comparé à son magasin. Trois passent au rouge :
-    ils montent, mais <b>moins vite que la boutique</b>. C'est la même information, avec la conclusion juste.</p>
-  <div class="grille" id="gA1b"></div>
-</div>
-
 <p class="note">
-  <b>Mon avis : A1b.</b> Les deux disent la tendance à la même place ; A1b évite la conclusion fausse.
-  La Cave à « +35,0 % » se lit comme une réussite alors qu'elle décroche de 8,9 points sur son magasin —
-  et c'est précisément le pôle qui prend 11,7 % du linéaire pour 2,6 % de la marge. Les deux lignes se
-  renforcent au lieu de se contredire.
-  <br><br><b>L'unité est corrigée partout : « par mètre linéaire ».</b> Le modèle le dit
-  (<code>fct_client_space_30d</code> : « KPI 5 par mètre linéaire, KPI 12 par m² »), et la page du pôle
-  affiche aujourd'hui « 104 € de CA par mètre » juste à côté de « 58 € de CA par m² » — à corriger là aussi.
+  <b>Retenu par l'owner le 15/09 : cette forme.</b> La tendance du pôle à côté de son nom — en
+  pourcentage, parce que l'app ne parle nulle part en « points ». Le CA par mètre linéaire en grand.
+  Puis la place et ce qu'elle rapporte, <b>sur deux lignes</b>.
+  <br><br>
+  <b>Ce que ça suppose côté app, et qui n'est pas fait :</b> le pourcentage affiché est aujourd'hui
+  calculé sur <code>raw.client_transactions</code> et ne vaut pas celui de <code>semantic</code>
+  (la Cave : +45,7 % dans l'app, +35,0 % ici). Livrer cette pastille sans corriger cette lecture,
+  c'est mettre en évidence un chiffre faux.
 </p>
 
 <script>
@@ -152,11 +148,13 @@
       + '</div>';
   }).join("");
 
-  // — A1a / A1b : même corps, la tendance change de nature —
+  // — la pastille retenue —
+  // Owner 15/09 : « % de la marge should be in its own row ». Deux lignes, jamais une phrase qui se
+  // coupe — sur le téléphone, « 11,7 % du linéaire pour 2,6 » / « % de la marge » cassait le nombre
+  // en deux. La marge porte la couleur de la pastille : c'est elle qu'on compare au linéaire.
   var ligneTension = function (p) {
-    return p.partMarge >= p.partLin
-      ? '<b>' + frDec(p.partLin) + ' %</b> du linéaire, <b>' + frDec(p.partMarge) + ' %</b> de la marge'
-      : '<b>' + frDec(p.partLin) + ' %</b> du linéaire pour <b>' + frDec(p.partMarge) + ' %</b> de la marge';
+    return '<div class="ligne"><b>' + frDec(p.partLin) + '\u202F%</b> du linéaire</div>'
+      + '<div class="ligne"><b style="color:' + ptA1(p) + ';">' + frDec(p.partMarge) + '\u202F%</b> de la marge</div>';
   };
   var pastille = function (p, tendanceHtml) {
     return '<div class="tb-rb">' + tete(p, ptA1(p), tendanceHtml)
@@ -167,14 +165,6 @@
 
   document.getElementById("gA1a").innerHTML = POLES.map(function (p) {
     return pastille(p, '<span class="tend" style="color:#047857;">+' + frDec(p.ecart) + ' %</span>');
-  }).join("");
-
-  document.getElementById("gA1b").innerHTML = POLES.map(function (p) {
-    var r = relatif(p);
-    // « = » ne dit rien : la pastille est en POINTS face au magasin, donc « 0 pt » se lit sans clé.
-    var txt = Math.abs(r) < 1 ? '0 pt' : signe(r) + (Math.abs(r) < 2 ? ' pt' : ' pts');
-    var col = Math.abs(r) < 1 ? "#6B7280" : (r > 0 ? "#047857" : "#B45309");
-    return pastille(p, '<span class="tend" style="color:' + col + ';" title="face au magasin">' + txt + '</span>');
   }).join("");
 
   document.querySelectorAll(".bascule button").forEach(function (b) {
