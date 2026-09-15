@@ -77,6 +77,17 @@ const resolu = corps
 const restantes = resolu.match(/\{[^}]*\}/g);
 if (restantes) throw new Error(`expressions Astro non résolues : ${restantes.join(" ")}`);
 
+// LE CROQUIS DU CADRAGE — quatre cadres, quatre légendes (owner 14/09 : le cadrage se MONTRE, il ne
+// s'écrit pas ; le quatrième posé le 15/09 après la mesure des étagères). Le contrôle porte sur le
+// markup RÉSOLU : une légende retirée, un cadre en moins, ou un `<text>` que la copie ne remplit plus
+// fait tomber le harnais. Sans lui, la seule preuve du croquis serait de le regarder.
+const CADRES = ["releve_cadre_bon", "releve_cadre_pres", "releve_cadre_biais", "releve_cadre_bas"] as const;
+const manquantes = CADRES.filter((k) => !new RegExp(`<text[^>]*>${(copy[k] ?? "\u0000").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</text>`).test(resolu));
+const cadres = (resolu.match(/<clipPath id="rlc\d"/g) || []).length;
+if (manquantes.length) throw new Error(`croquis du cadrage : légende absente du rendu — ${manquantes.join(", ")}`);
+if (cadres !== CADRES.length) throw new Error(`croquis du cadrage : ${cadres} cadre(s) pour ${CADRES.length} légendes`);
+console.log(`  Cadrage montré : ${cadres} cadres — ${CADRES.map((k) => copy[k]).join(" · ")}`);
+
 // Le N\u00b0 DU PLAN, lu EXACTEMENT comme le rendu serveur de releve.astro le lit : la m\u00eame vue semantic,
 // le m\u00eame regroupement, la m\u00eame cl\u00e9 `dispositif:composant`. Si le harnais l'inventait, il prouverait
 // son propre code et pas celui de la page \u2014 le d\u00e9faut exact du 14/09 sur les cl\u00e9s de copie.

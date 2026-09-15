@@ -323,6 +323,12 @@ export const EVOL_COPY = {
   releve_cadre_bon: "entier, de face",
   releve_cadre_pres: "trop près",
   releve_cadre_biais: "de biais",
+  // 15/09 — LE QUATRIÈME CADRE. Mesuré sur six photos réelles du magasin : sur QUATRE, le bas du
+  // meuble est hors du cadre, et sans lui la hauteur d'une étagère ne veut rien dire — la rangée
+  // « 1 » serait comptée depuis le bord de la photo, donc changerait d'un mois à l'autre sans que
+  // rien n'ait bougé (data/shots/remesure-etageres-2026-09-15.md). C'est la faute la plus fréquente
+  // et la seule que les trois premiers cadres ne montraient pas.
+  releve_cadre_bas: "bas coupé",
   releve_etat_avance: "Avancez, puis arrêtez-vous deux secondes.",
   releve_etat_arret: "Ne bougez plus…",
   releve_etat_gardee: "Photo gardée.",
