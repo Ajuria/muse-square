@@ -30,10 +30,28 @@ export interface PhotoExtractionOutput {
   levels: number | null;            // entier, seulement si exposition = rayonnage
   families_present?: string[];      // parmi `families` ; absent quand la liste du site est vide
   checklist: Record<string, PhotoAnswer>;
-  /** `etagere` : la rangée de l'article EN PARTANT DU BAS (1 = la plus basse), null si indéterminable (13/09). */
+  /** `base_visible` : le BAS DU MEUBLE est-il dans le cadre ? (15/09) — sans lui, aucune position ne se défend. */
+  base_visible: boolean;
+  /** `etagere` : la rangée de l'article en partant du BAS DU MEUBLE (1 = la plus basse rangée DU MEUBLE,
+   *  même coupée par le bord de la photo), null si indéterminable ou si le bas du meuble est hors cadre (15/09). */
   items: Array<{ item_code: string; confidence: "haute" | "moyenne" | "faible"; etagere: number | null }>;
   prices: Array<{ label: string; price_eur: number; item_code: string | null }>;
 }
+
+// LA DOCTRINE DES ÉTAGÈRES — exportée, parce que la sonde qui la mesure doit lire CE texte et pas une
+// copie qui dérive (mesure du 15/09, `data/shots/verdict-lecture-etageres-2026-09-15.md`).
+// Ce qu'elle corrige : la version du 13/09 disait « 1 = la plus basse VISIBLE » — elle indexait donc
+// depuis LE CADRE. La même étagère photographiée un peu plus haut le mois suivant changeait de numéro
+// sans que rien n'ait bougé dans le magasin, et le produit aurait annoncé un déplacement qui n'a pas eu
+// lieu. L'ancre est désormais LE MEUBLE, et quand le bas du meuble est hors cadre on ne rend RIEN.
+export const ETAGERE_REGLE_FR = `base_visible — le BAS DU MEUBLE (sa rangée la plus basse, son socle ou le sol sous lui) est-il dans le cadre ? true seulement si tu le vois ; dans le doute, false.
+etagere — SUR QUELLE RANGÉE DU MEUBLE l'article se trouve, en partant du BAS DU MEUBLE : 1 = la rangée la plus basse DU MEUBLE, même si le bord de la photo la coupe ou si elle est à demi cachée. Tu ne comptes PAS depuis le bas de la photo. Au plus le nombre d'étagères du composant.
+- Si base_visible est false, toute etagere vaut null : sans le bas du meuble, tu ne peux pas savoir combien de rangées il y a en dessous.
+- Une rangée partiellement coupée par le bord de la photo COMPTE comme une rangée.
+- Ne sont PAS des étagères : une table d'exposition, un plan de travail, un comptoir, le sol. Un article posé dessus vaut null.
+- Sur un meuble à casiers, une RANGÉE de casiers compte pour une étagère.
+- Un article qui n'est pas sur ce meuble (au mur, suspendu, sur un autre meuble du fond) vaut null.
+Ne devine jamais une rangée : dans le doute, null.`;
 
 export function photoQuestions(inp: Pick<PhotoExtractionInput, "type" | "role">): ChecklistQuestion[] {
   return checklistFor(inp.type, inp.role);
@@ -54,6 +72,7 @@ export function photoExtractionSchema(questions: ChecklistQuestion[], families: 
       coverage: { type: "string", enum: ["entier", "partiel", "non_visible"] },
       exposition: { type: "string", enum: [...EXPOSITION_VALUES] },
       levels: { type: ["integer", "null"] },
+      base_visible: { type: "boolean" },
       // Les familles : ÉNUMÉRÉES depuis la liste du site ; pas de propriété du tout quand le site
       // n'en a aucune (Épices et Tout au 11/09 : 0 ligne de vente) — jamais du texte libre.
       ...(fams.length ? { families_present: { type: "array", items: { type: "string", enum: fams } } } : {}),
@@ -70,7 +89,7 @@ export function photoExtractionSchema(questions: ChecklistQuestion[], families: 
         items: { type: "object", properties: { label: { type: "string" }, price_eur: { type: "number" }, item_code: { type: ["string", "null"] } }, required: ["label", "price_eur", "item_code"], additionalProperties: false },
       },
     },
-    required: ["person_visible", "coverage", "exposition", "levels", ...(fams.length ? ["families_present"] : []), "checklist", "items", "prices"],
+    required: ["person_visible", "coverage", "exposition", "levels", "base_visible", ...(fams.length ? ["families_present"] : []), "checklist", "items", "prices"],
     additionalProperties: false,
   };
 }
@@ -90,11 +109,12 @@ export function photoExtractionSystem(inp: PhotoExtractionInput, questions: Chec
 
 RÈGLES
 1. Réponds à chaque question par « oui » si la photo le MONTRE, « non » si la photo montre le contraire, « non_visible » si la photo ne permet pas de trancher. Dans le doute : non_visible.
-2. Les articles reconnus sont désignés UNIQUEMENT par un code de la liste ci-dessous (recopie exacte). Un produit visible qui n'est dans aucune ligne de la liste n'est PAS reporté. La confiance dit si l'étiquette ou l'emballage est lisible (haute), reconnaissable (moyenne) ou deviné (faible). etagere — SUR QUELLE ÉTAGÈRE l'article se trouve, EN PARTANT DU BAS (1 = la plus basse visible), au plus le nombre d'étagères du composant ; null si le composant n'a pas d'étagères, si l'article n'est sur aucune, ou si tu ne peux pas trancher. Ne devine jamais une étagère : dans le doute, null.
+2. Les articles reconnus sont désignés UNIQUEMENT par un code de la liste ci-dessous (recopie exacte). Un produit visible qui n'est dans aucune ligne de la liste n'est PAS reporté. La confiance dit si l'étiquette ou l'emballage est lisible (haute), reconnaissable (moyenne) ou deviné (faible).
+${ETAGERE_REGLE_FR}
 3. Les prix : seulement ceux LISIBLES sur une étiquette, en euros, avec le libellé lu tel quel ; item_code seulement si l'étiquette est celle d'un article de la liste, sinon null.
 4. coverage : « entier » si tout le composant est dans le cadre, « partiel » s'il déborde, « non_visible » si ce n'est pas un composant de magasin.
 5. person_visible : true dès qu'une personne, un visage ou une silhouette est visible, même de dos ou floue.
-6. exposition — ${EXPOSITION_QUESTION_FR} Une seule valeur parmi EXPOSITION ci-dessous (recopie exacte de la clé). levels — ${LEVELS_QUESTION_FR} Un entier si le composant porte des étagères qui se comptent sur la photo, quelle que soit son exposition (une vitrine, un comptoir arrière ou une gondole peuvent en avoir) ; null s'il n'en porte pas ou si elles ne se comptent pas.${famRule}
+6. exposition — ${EXPOSITION_QUESTION_FR} Une seule valeur parmi EXPOSITION ci-dessous (recopie exacte de la clé). levels — ${LEVELS_QUESTION_FR} Un entier si le composant porte des étagères qui se comptent sur la photo, quelle que soit son exposition (une vitrine, un comptoir arrière ou une gondole peuvent en avoir) ; null s'il n'en porte pas ou si elles ne se comptent pas. MÊME ANCRE QUE CI-DESSUS : tu comptes les rangées DU MEUBLE — une rangée coupée par le bord compte ; si base_visible est false, levels vaut null, parce que tu ne sais pas ce qu'il y a sous le cadre.${famRule}
 
 QUESTIONS (clé : question)
 ${qs}

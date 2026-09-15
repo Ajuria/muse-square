@@ -20,6 +20,7 @@
     "dbt:run": "bash tools/build/dbt-run.sh",
     "harness:bottombar": "vitest run --config tools/harness/bottombar-render-verify.vitest.ts",
     "harness:family-photo": "npx tsx tools/harness/family-photo-harness.ts",
+    "harness:etageres": "npx tsx tools/harness/etageres-lecture-verify.mts",
     "harness:tableau-marge": "npx tsx tools/harness/tableau-marge-render-verify.mjs",
     "harness:tableau-espace": "npx tsx tools/harness/tableau-pole-espace-render-verify.mjs",
     "harness:explorer-blocks": "npx tsx tools/harness/explorer-blocks-render-verify.mjs",

@@ -135,11 +135,20 @@ par mutation (4/4), rien n'est réputé livré tant que l'owner n'a pas ouvert l
      alors qu'il la compte ailleurs (IMG_0114, IMG_0104). Constat de bordure : sur une photo de vins,
      2 DÉSIGNATIONS sur 12 sont fausses (Rully donné pour Puligny, Nuits pour Beaune) — sans effet sur la
      position, mais c'est le risque même de l'accrochage à un `item_code`.
-     **Donc : INTERDIT d'écrire une chaîne qui parle de hauteur ou de faire naître une version sur un
-     changement d'étagère.** Le travail autorisé est de corriger le contrat (indexer depuis le BAS DU
-     MEUBLE, `null` si le bas du meuble n'est pas dans le cadre, dire la règle des rangées partielles et
-     des tables d'exposition), puis de re-mesurer sur ces mêmes photos : le décalage d'IMG_0075 doit
-     tomber et les 11 justes le rester.
+     **CONTRAT CORRIGÉ ET RE-MESURÉ le 15/09** (`data/shots/remesure-etageres-2026-09-15.md`,
+     `npm run harness:etageres`) : l'ancre est le MEUBLE (`ETAGERE_REGLE_FR`), le champ `base_visible`
+     commande tout, et la porte ne rend ni `levels` ni aucune position quand le bas du meuble est hors
+     cadre. **Le défaut est fermé** — le meuble à casiers ne décale plus d'un cran, la table d'exposition
+     n'est plus comptée comme une étagère (2 étagères au lieu de 3, positions justes). **Et le prix est
+     lourd** : les 11 positions justes sur 11 d'IMG_0114 et IMG_0104 ne sortent plus, leur rangée du bas
+     étant coupée. 2 photos sur 6 rendent une hauteur contre 5 sur 6 avant — mais aucun des numéros
+     d'avant n'était comparable d'une photo à la suivante.
+     **CE QUI RESTE, ET CE N'EST PAS DU CODE** : sur une photo prise à hauteur d'homme, le bas d'un meuble
+     est presque toujours coupé — la hauteur ne se lira que si la marche du Relevé demande le meuble
+     ENTIER, du sol au-dessus. C'est une chaîne visible : elle se fait RATIFIER, elle ne s'improvise pas.
+     Rien n'est perdu en attendant : `dispositif_photos` compte 0 ligne, la correction tombe avant la
+     première photo réelle. **INTERDIT jusque-là** : toute chaîne qui parle de hauteur, toute version née
+     d'un changement d'étagère.
      **(2b) Cette position s'attache-t-elle à un article VENDU ?** Là, il faut un magasin qui ait à la fois
      les photos ET ses ventes — et aucun ne l'a. Les photos sont celles d'Épices et Tout
      (`a3b442c2-…`), dont l'audit du 11/09 relève qu'il n'a encore aucune vente ingérée ; le compte de test

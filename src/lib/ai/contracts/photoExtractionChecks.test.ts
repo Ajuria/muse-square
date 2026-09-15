@@ -13,7 +13,7 @@ const CODES = ["CF-001", "CF-002"];
 const FAMS = ["Épices", "Thés"];
 const good = () => ({
   person_visible: false, coverage: "entier",
-  exposition: "rayonnage", levels: 3, families_present: ["Épices"],
+  exposition: "rayonnage", levels: 3, base_visible: true, families_present: ["Épices"],
   checklist: Object.fromEntries(KEYS.map((k) => [k, "non_visible"])),
   items: [{ item_code: "CF-001", confidence: "haute" }],
   prices: [{ label: "Poivre de Kampot 12,90", price_eur: 12.9, item_code: "CF-001" }],
@@ -25,7 +25,7 @@ describe("validatePhotoExtraction — lie-bait", () => {
     // 13/09 — une ligne écrite AVANT ce jour n'a pas d'étagère : l'article passe, sa position vaut null.
     expect(r).toEqual({
       ok: true, errors: [], rejected_person: false, exposition: "rayonnage", levels: 3, families_present: ["Épices"],
-      items: [{ item_code: "CF-001", confidence: "haute", etagere: null }],
+      items: [{ item_code: "CF-001", confidence: "haute", etagere: null }], base_visible: true,
     });
   });
   it("v2 — une exposition hors des cinq mots owner tombe ; une exposition absente aussi", () => {
@@ -94,8 +94,9 @@ describe("validatePhotoExtraction — lie-bait", () => {
 // La règle de la porte : une INVENTION rejette (code, confiance), une position qu'on ne peut pas BORNER
 // est ramenée à null — on perd la position, jamais la photo.
 describe("l'étagère d'un article — bornée par les étagères du composant", () => {
-  const avecEtagere = (etagere: unknown, levels: unknown = 3) => {
-    const o: any = good(); o.levels = levels; o.items = [{ item_code: "CF-001", confidence: "haute", etagere }];
+  const avecEtagere = (etagere: unknown, levels: unknown = 3, base_visible: unknown = true) => {
+    const o: any = good(); o.levels = levels; o.base_visible = base_visible;
+    o.items = [{ item_code: "CF-001", confidence: "haute", etagere }];
     return validatePhotoExtraction(o, KEYS, CODES, FAMS);
   };
 
@@ -126,6 +127,47 @@ describe("l'étagère d'un article — bornée par les étagères du composant",
 
   it("le composant n'a pas d'étagères comptées : AUCUNE position n'est retenue — rien ne la borne", () => {
     expect(avecEtagere(2, null).items[0].etagere).toBeNull();
+  });
+
+  // ── 15/09 — L'ANCRE EST LE MEUBLE, PAS LE CADRE (mesure `data/shots/verdict-lecture-etageres-2026-09-15.md`).
+  // Ce que la mesure a montré : le modèle place JUSTE (11 positions sur 11 sur un rayonnage droit), mais
+  // le NUMÉRO qu'il rendait se comptait depuis le bas de la PHOTO. La même étagère cadrée un peu plus haut
+  // le mois suivant changeait de numéro sans que rien n'ait bougé dans le magasin — le produit aurait
+  // annoncé un déplacement qui n'a pas eu lieu. La porte le rend mécanique : sans le bas du meuble, rien.
+  it("le bas du meuble est hors cadre : la position la plus tenable du monde vaut null", () => {
+    const r = avecEtagere(2, 3, false);
+    expect(r.ok, "on perd la position, jamais la photo").toBe(true);
+    expect(r.items[0].etagere, "2 sur 3 est tenable — et pourtant on ne sait pas ce qu'il y a sous le cadre").toBeNull();
+  });
+
+  it("le bas du meuble est hors cadre : le COMPTE d'étagères ne sort pas non plus", () => {
+    const r = avecEtagere(null, 3, false);
+    expect(r.levels, "compter les rangées visibles serait compter le cadrage, pas le meuble").toBeNull();
+    expect(r.base_visible).toBe(false);
+  });
+
+  // LE PRIX DE L'ANCRE, dit ici plutôt que découvert dans six mois : une photo cadrée trop serré ne rend
+  // plus RIEN de sa hauteur, même quand le modèle avait vu juste. C'est le prix d'un numéro comparable.
+  it("le prix : une lecture entière ne perd que sa hauteur, tout le reste est gardé", () => {
+    const r = avecEtagere(2, 3, false);
+    expect(r.items[0]).toEqual({ item_code: "CF-001", confidence: "haute", etagere: null });
+    expect(r.exposition).toBe("rayonnage");
+    expect(r.families_present).toEqual(["Épices"]);
+  });
+
+  it("base_visible absent ou d'un autre type : la lecture est REJETÉE, pas devinée", () => {
+    const o: any = good(); delete o.base_visible;
+    expect(validatePhotoExtraction(o, KEYS, CODES, FAMS).errors.join(" ")).toContain("base_visible manquant");
+    for (const v of ["oui", 1, null]) {
+      const o2: any = good(); o2.base_visible = v;
+      expect(validatePhotoExtraction(o2, KEYS, CODES, FAMS).ok, `base_visible « ${JSON.stringify(v)} »`).toBe(false);
+    }
+  });
+
+  it("le schéma EXIGE base_visible : le modèle ne peut pas l'omettre", () => {
+    const sch: any = photoExtractionSchema(photoQuestions({ type: "lineaire", role: "expert" }), FAMS);
+    expect(sch.required).toContain("base_visible");
+    expect(sch.properties.base_visible).toEqual({ type: "boolean" });
   });
 
   it("un article REJETÉ n'est jamais écrit, même avec une étagère plausible", () => {
@@ -182,10 +224,16 @@ describe("photoExtraction — consigne et schéma générés depuis le registre"
     expect(sans).toContain("(aucun article connu pour ce site)");
     expect(sans).not.toContain("FAMILLES DU SITE"); expect(sans).not.toContain("families_present");
   });
-  it("13/09 — la consigne dit d'où se comptent les étagères d'un article, et de ne jamais en deviner une", () => {
+  // 15/09 — l'assertion du 13/09 vérifiait « EN PARTANT DU BAS », ce qui était vrai de la consigne
+  // FAUSSE comme de la juste : le bas de QUOI n'y était pas dit. Elle dit maintenant l'ANCRE.
+  it("la consigne ancre la position au MEUBLE, pas au cadre, et interdit de deviner une rangée", () => {
     const qs = photoQuestions({ type: "lineaire", role: "expert" });
     const sys = photoExtractionSystem({ type: "lineaire", role: "expert", items: [{ item_code: "A1", item_description: "Ethiopia 250 g" }], families: [] }, qs);
-    expect(sys).toContain("EN PARTANT DU BAS");
-    expect(sys).toContain("Ne devine jamais une étagère");
+    expect(sys).toContain("en partant du BAS DU MEUBLE");
+    expect(sys).toContain("Tu ne comptes PAS depuis le bas de la photo.");
+    expect(sys, "une rangée coupée par le bord compte, sinon le numéro dépend du cadrage").toContain("COMPTE comme une rangée");
+    expect(sys, "une table d'exposition n'est pas une étagère (mesuré sur IMG_0171)").toContain("Ne sont PAS des étagères");
+    expect(sys).toContain("Ne devine jamais une rangée");
+    expect(sys, "le champ qui commande tout le reste").toContain("base_visible");
   });
 });

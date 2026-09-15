@@ -2,9 +2,12 @@
 // passe que si TOUTE clé de check-list est du registre et TOUT code d'article est de la liste du
 // site — une invention est rejetée, jamais corrigée. Une personne visible n'est pas une erreur du
 // modèle : c'est un signal que l'appelant traduit en effacement de l'image, sans aucune ligne.
-// 13/09 : chaque article porte SON ÉTAGÈRE (en partant du bas) — c'est ce champ qui permettra de croiser
-// la hauteur avec la marge. Une étagère hors des étagères du composant est ramenée à null (on perd la
-// position, jamais la photo) ; la porte rend désormais les ARTICLES normalisés, que l'appelant écrit.
+// Chaque article porte SON ÉTAGÈRE — c'est ce champ qui permettra de croiser la hauteur avec la marge.
+// L'ancre est LE MEUBLE (15/09) : la rangée 1 est la plus basse DU MEUBLE, même coupée par le bord de la
+// photo. Tant que `base_visible` n'est pas vrai, ni le compte d'étagères ni aucune position ne sortent —
+// mesuré : indexer depuis le CADRE faisait changer de numéro une étagère qui n'avait pas bougé, au seul
+// changement de cadrage. Une étagère hors des étagères du composant est ramenée à null (on perd la
+// position, jamais la photo) ; la porte rend les ARTICLES normalisés, que l'appelant écrit.
 // v2 (owner 11/09) : l'exposition hors des cinq mots owner est rejetée ; des niveaux posés sur
 // autre chose qu'un rayonnage sont NORMALISÉS à null (le champ n'a pas de sens ailleurs —
 // ce n'est pas une invention, c'est un champ hors sujet) ; une famille hors de la liste du site est
@@ -18,6 +21,8 @@ export interface PhotoGateItem { item_code: string; confidence: string; etagere:
 export interface PhotoGateResult {
   ok: boolean; errors: string[]; rejected_person: boolean;
   exposition: string | null; levels: number | null; families_present: string[];
+  /** 15/09 — le bas du meuble est-il dans le cadre ? Quand il ne l'est pas, ni `levels` ni aucune `etagere` ne sortent. */
+  base_visible: boolean;
   /** 13/09 — les articles tels qu'il faut les ÉCRIRE (l'appelant n'écrit plus `out.items`). */
   items: PhotoGateItem[];
 }
@@ -31,7 +36,7 @@ export function validatePhotoExtraction(
   out: any, allowedKeys: readonly string[], allowedCodes: readonly string[], allowedFamilies: readonly string[] = [],
 ): PhotoGateResult {
   const errors: string[] = [];
-  const empty = { exposition: null, levels: null, families_present: [] as string[], items: [] as PhotoGateItem[] };
+  const empty = { exposition: null, levels: null, families_present: [] as string[], items: [] as PhotoGateItem[], base_visible: false };
   if (!out || typeof out !== "object") return { ok: false, errors: ["réponse absente"], rejected_person: false, ...empty };
   const keys = new Set(allowedKeys), codes = new Set(allowedCodes), fams = new Set(allowedFamilies);
   if (typeof out.person_visible !== "boolean") errors.push("person_visible manquant");
@@ -42,8 +47,15 @@ export function validatePhotoExtraction(
   else exposition = String(out.exposition);
   // Les étagères : un entier > 0 sur TOUT composant qui en porte (13/09, owner — la restriction au seul
   // rayonnage jetait les quatre étagères de la vitrine des couteaux) ; null quand il n'y en a pas.
+  // 15/09 — L'ANCRE. Une position se compte depuis le BAS DU MEUBLE, jamais depuis le bas de la PHOTO
+  // (mesuré : « 1 = la plus basse visible » faisait changer de numéro une étagère qui n'avait pas bougé,
+  // au seul changement de cadrage — le produit aurait annoncé un déplacement imaginaire). Quand le bas du
+  // meuble est hors cadre, on ne sait pas combien de rangées il y a en dessous : ni le compte ni les
+  // positions ne sortent. On perd la position, jamais la photo — et surtout on ne rend pas un numéro faux.
+  const base_visible = out.base_visible === true;
+  if (typeof out.base_visible !== "boolean") errors.push("base_visible manquant");
   let levels: number | null = null;
-  if (out.levels != null) {
+  if (out.levels != null && base_visible) {
     const n = Number(out.levels);
     if (!Number.isInteger(n) || n < 1 || n > LEVELS_MAX) errors.push(`étagères invalides « ${out.levels} »`);
     else levels = n;
@@ -76,7 +88,7 @@ export function validatePhotoExtraction(
   // Une étagère d'article ne vaut QUE si le composant a un nombre d'étagères lu : sans lui, rien ne borne
   // la position et elle ne se défend pas. Placer un article sur une étagère oblige donc à les avoir comptées.
   const items: PhotoGateItem[] = [];
-  const plafond = levels;
+  const plafond = base_visible ? levels : null;
   if (!Array.isArray(out.items)) errors.push("items manquants");
   else if (out.items.length > 60) errors.push("items : plus de 60 articles");
   else for (const it of out.items) {
@@ -98,5 +110,5 @@ export function validatePhotoExtraction(
     if (!p || typeof p.label !== "string" || !Number.isFinite(Number(p.price_eur)) || Number(p.price_eur) < 0) errors.push("prix illisible");
     else if (p.item_code != null && !codes.has(String(p.item_code))) errors.push(`prix rattaché à un article hors liste « ${p.item_code} »`);
   }
-  return { ok: errors.length === 0, errors, rejected_person: out.person_visible === true, exposition, levels, families_present, items };
+  return { ok: errors.length === 0, errors, rejected_person: out.person_visible === true, exposition, levels, families_present, items, base_visible };
 }
