@@ -21,9 +21,14 @@
   .grille { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .tb-rb { background: #fff; border: 1px solid var(--bord); border-radius: 12px; padding: 11px 13px; box-shadow: 0 1px 2px rgba(16,24,40,0.04); text-align: left; }
   .hd { display: flex; align-items: center; gap: 7px; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gris); font-weight: 600; }
+  .hd .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* La tendance, à côté du nom : elle répond à « ça monte ou ça descend ? », pas à « lequel ouvrir ». */
+  .tend { font-size: 10px; font-weight: 700; letter-spacing: 0; text-transform: none; flex: none; font-variant-numeric: tabular-nums; }
   .pt { width: 7px; height: 7px; border-radius: 50%; flex: none; display: inline-block; }
   .num { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin-top: 6px; }
-  .num .u { font-size: 12px; font-weight: 500; color: var(--gris); margin-left: 3px; }
+  /* L'unité ne se coupe JAMAIS en deux : « par mètre / linéaire » sur deux lignes, c'est l'ambiguïté
+     qu'on venait de retirer. Insécable, elle passe entière à la ligne suivante quand la place manque. */
+  .num .u { font-size: 12px; font-weight: 500; color: var(--gris); margin-left: 3px; white-space: nowrap; }
   .phrase { font-size: 12px; margin-top: 5px; line-height: 1.45; color: #374151; }
   .aujd { font-size: 11px; color: var(--gris); margin-top: 3px; }
   .note { font-size: 12px; color: var(--gris); margin-top: 12px; max-width: 78ch; line-height: 1.6; }
@@ -75,24 +80,28 @@
 </div>
 
 <div class="piste">
-  <h2>A1 — la tension : la place qu'il prend face à ce qu'il rapporte</h2>
-  <p class="quoi"><b>Structurel.</b> Bouge lentement, dit <b>où agir sur l'espace</b>. L'écart va de −9,1 à +21,2 points
-    selon le pôle : c'est ce qui sépare le plus vos sept pôles. La Cave prend 11,7 % du linéaire et rend 2,6 % de la marge.</p>
-  <div class="grille" id="gA1"></div>
+  <h2>A1a — la tendance brute, à côté du nom</h2>
+  <p class="quoi">La pastille répond à DEUX questions différentes : <b>« ça monte ou ça descend ? »</b> (à côté du nom)
+    et <b>« lequel dois-je ouvrir ? »</b> (le chiffre et la ligne du dessous). Ici la tendance est celle du pôle,
+    telle quelle. Sur vos données d'aujourd'hui, les sept sont vertes — c'est le magasin qui monte.</p>
+  <div class="grille" id="gA1a"></div>
 </div>
 
 <div class="piste">
-  <h2>A2 — le mouvement, face au magasin</h2>
-  <p class="quoi"><b>Conjoncturel.</b> Bouge chaque semaine, dit <b>ce qui vient de se passer</b>. Le pôle comparé à
-    son propre magasin, pas à lui-même : « +35 % » devient « −8,9 points » — le même fait, et enfin la bonne conclusion.</p>
-  <div class="grille" id="gA2"></div>
+  <h2>A1b — la tendance face au magasin</h2>
+  <p class="quoi">Même place, même rôle, mais le pôle est comparé à son magasin. Trois passent au rouge :
+    ils montent, mais <b>moins vite que la boutique</b>. C'est la même information, avec la conclusion juste.</p>
+  <div class="grille" id="gA1b"></div>
 </div>
 
 <p class="note">
-  <b>Mon avis : A1.</b> La pastille sert à choisir quel pôle ouvrir, et ce choix porte sur l'espace — c'est le seul
-  levier que la page du pôle vous donne. A2 dit ce qui a bougé, mais un mouvement se regarde une fois par semaine,
-  alors que la tension se regarde quand on décide. <b>Si vous voulez les deux</b>, A2 a sa place en haut de la page du
-  pôle, pas sur la pastille : une ligne de plus sur la pastille et on rouvre la porte au texte gris.
+  <b>Mon avis : A1b.</b> Les deux disent la tendance à la même place ; A1b évite la conclusion fausse.
+  La Cave à « +35,0 % » se lit comme une réussite alors qu'elle décroche de 8,9 points sur son magasin —
+  et c'est précisément le pôle qui prend 11,7 % du linéaire pour 2,6 % de la marge. Les deux lignes se
+  renforcent au lieu de se contredire.
+  <br><br><b>L'unité est corrigée partout : « par mètre linéaire ».</b> Le modèle le dit
+  (<code>fct_client_space_30d</code> : « KPI 5 par mètre linéaire, KPI 12 par m² »), et la page du pôle
+  affiche aujourd'hui « 104 € de CA par mètre » juste à côté de « 58 € de CA par m² » — à corriger là aussi.
 </p>
 
 <script>
@@ -115,9 +124,14 @@
   var relatif = function (p) { return Math.round((p.ecart - SITE) * 10) / 10; };
   // Le point : vert si le pôle rend plus de marge qu'il ne prend de place, ambre sinon.
   var ptA1 = function (p) { return p.partMarge >= p.partLin ? "#047857" : "#B45309"; };
-  var ptA2 = function (p) { return relatif(p) >= 0 ? "#047857" : "#B45309"; };
-  var tete = function (p, couleur) {
-    return '<div class="hd"><span class="pt" style="background:' + couleur + '"></span>' + esc(p.nom.toUpperCase()) + '</div>';
+  // L'UNITÉ SE DIT. `revenue_per_m` est le CA par mètre LINÉAIRE de façade (en-tête de
+  // fct_client_space_30d : « KPI 5 (par mètre linéaire) et KPI 12 (par m²) ») — et la page du pôle
+  // affiche aujourd'hui « 104 € de CA par mètre » juste à côté de « 58 € de CA par m² ».
+  var UNITE = 'par mètre linéaire';
+  var tete = function (p, couleur, tendance) {
+    return '<div class="hd"><span class="pt" style="background:' + couleur + '"></span>'
+      + '<span class="nom">' + esc(p.nom.toUpperCase()) + '</span>'
+      + (tendance || '') + '</div>';
   };
 
   // — le tableau de la mesure —
@@ -138,33 +152,29 @@
       + '</div>';
   }).join("");
 
-  // — A1 : la tension —
-  document.getElementById("gA1").innerHTML = POLES.map(function (p) {
-    var phrase = p.partMarge >= p.partLin
+  // — A1a / A1b : même corps, la tendance change de nature —
+  var ligneTension = function (p) {
+    return p.partMarge >= p.partLin
       ? '<b>' + frDec(p.partLin) + ' %</b> du linéaire, <b>' + frDec(p.partMarge) + ' %</b> de la marge'
       : '<b>' + frDec(p.partLin) + ' %</b> du linéaire pour <b>' + frDec(p.partMarge) + ' %</b> de la marge';
-    return '<div class="tb-rb">' + tete(p, ptA1(p))
-      + '<div class="num">' + frInt(p.parM) + ' €<span class="u">par mètre</span></div>'
-      + '<div class="phrase">' + phrase + '</div>'
+  };
+  var pastille = function (p, tendanceHtml) {
+    return '<div class="tb-rb">' + tete(p, ptA1(p), tendanceHtml)
+      + '<div class="num">' + frInt(p.parM) + '\u202F\u20AC<span class="u">' + UNITE + '</span></div>'
+      + '<div class="phrase">' + ligneTension(p) + '</div>'
       + '</div>';
+  };
+
+  document.getElementById("gA1a").innerHTML = POLES.map(function (p) {
+    return pastille(p, '<span class="tend" style="color:#047857;">+' + frDec(p.ecart) + ' %</span>');
   }).join("");
 
-  // — A2 : le mouvement face au magasin —
-  document.getElementById("gA2").innerHTML = POLES.map(function (p) {
+  document.getElementById("gA1b").innerHTML = POLES.map(function (p) {
     var r = relatif(p);
-    // « devant / derrière le magasin » n'est pas une phrase de commerçant : ce qu'il dit, c'est que
-    // le pôle MONTE plus ou moins vite que sa boutique. Et « 1,0 points » n'existe pas — singulier
-    // sous 2 (même exigence que « 1 enregistrée » au relevé).
-    var pts = Math.abs(r) < 2 ? ' pt' : ' pts';
-    var phrase = Math.abs(r) < 1
-      ? 'suit le magasin'
-      : (r > 0
-          ? 'monte plus vite que le magasin · <b>' + signe(r) + pts + '</b>'
-          : 'monte moins vite que le magasin · <b>' + signe(r) + pts + '</b>');
-    return '<div class="tb-rb">' + tete(p, ptA2(p))
-      + '<div class="num">' + frInt(p.parM) + ' €<span class="u">par mètre</span></div>'
-      + '<div class="phrase" style="color:' + (Math.abs(r) < 1 ? "#6B7280" : ptA2(p)) + ';">' + phrase + '</div>'
-      + '</div>';
+    // « = » ne dit rien : la pastille est en POINTS face au magasin, donc « 0 pt » se lit sans clé.
+    var txt = Math.abs(r) < 1 ? '0 pt' : signe(r) + (Math.abs(r) < 2 ? ' pt' : ' pts');
+    var col = Math.abs(r) < 1 ? "#6B7280" : (r > 0 ? "#047857" : "#B45309");
+    return pastille(p, '<span class="tend" style="color:' + col + ';" title="face au magasin">' + txt + '</span>');
   }).join("");
 
   document.querySelectorAll(".bascule button").forEach(function (b) {
