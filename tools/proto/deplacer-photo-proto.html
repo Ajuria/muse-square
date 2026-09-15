@@ -1,0 +1,157 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Déplacer une photo + le plan numéroté — proto</title>
+<style>
+ body{font-family:system-ui,-apple-system,sans-serif;margin:0;padding:26px 18px 70px;background:#F8FAFC;color:#111827;}
+ .doc{max-width:880px;margin:0 auto;}
+ h1{font-size:19px;margin:0 0 4px;} .sous{font-size:13px;color:#6b7280;margin:0 0 22px;}
+ .carte{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:22px 24px;margin-bottom:20px;}
+ .uc{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#111827;margin:0 0 10px;}
+ .ligne{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;margin-bottom:8px;}
+ .tete{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+ .nom{font-size:13px;font-weight:600;} .meta{font-size:12px;color:#6b7280;}
+ .cta{font-size:12px;font-weight:500;font-family:inherit;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;}
+ .cta.alerte{color:#B45309;border-color:#E7C89A;}
+ .champ{width:96px;font-size:13px;padding:5px 8px;border:1px solid #e5e7eb;border-radius:8px;font-family:inherit;}
+ .vise{font-size:12.5px;margin-top:7px;}
+ .ok{color:#0F6E56;} .attention{color:#B45309;} .gris{color:#6b7280;}
+ .note{font-size:12.5px;color:#374151;background:#fafbfd;border:1px solid #eef1f6;border-radius:10px;padding:12px 15px;line-height:1.6;}
+ .depose{border:1.5px dashed #c7cedb;border-radius:12px;padding:26px;text-align:center;color:#6b7280;font-size:13px;background:#FBFCFE;}
+ .onglets{display:flex;gap:10px;margin:2px 0 16px;}
+ .ong{font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border-radius:999px;padding:7px 18px;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;}
+ .ong.on{color:#fff;background:#1D3BB3;}
+ code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:#F3F4F6;padding:1px 5px;border-radius:4px;}
+ table{border-collapse:collapse;width:100%;font-size:12.5px;} th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #eef1f6;}
+ th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;font-weight:600;}
+ .ratifier{font-size:11px;font-weight:600;color:#92610a;background:#FEF6E7;border:1px solid #F5E3C0;border-radius:999px;padding:2px 9px;margin-left:8px;}
+</style></head><body><div class="doc">
+
+<h1>Déplacer une photo mal classée · le plan numéroté en bandeau</h1>
+<p class="sous">Proto sur les vraies lignes du compte : <b>52 meubles numérotés</b> (n° 1 à 52),
+<b>10 photos</b> dont 3 portent un numéro.
+Toutes les chaînes affichées sont des <b>propositions</b> — elles ne sont pas au lexique.</p>
+
+<div class="carte">
+  <div class="uc">1 · Le bandeau suit l'onglet</div>
+  <div class="onglets"><button class="ong on" data-o="Dispositif">Dispositif</button><button class="ong" data-o="Performance">Performance</button></div>
+  <div data-v="Dispositif">
+    <div class="depose" id="zone-plan">
+      <div style="font-size:26px;line-height:1;margin-bottom:8px;">▦</div>
+      <b style="color:#111827;">Déposez le plan de votre magasin<span class="ratifier">à ratifier</span></b><br>
+      Celui que vous lisez déjà, avec ses numéros. Vous y retrouverez vos meubles quand vous corrigez une photo.<br>
+      <button class="cta" style="margin-top:12px;" id="simuler-plan">Simuler un plan déposé</button>
+    </div>
+    <div id="plan-depose" hidden>
+      <svg viewBox="0 0 640 260" style="width:100%;height:auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;">
+        <rect x="14" y="14" width="612" height="232" fill="#FBFCFE" stroke="#e5e7eb"/>
+        <text x="320" y="118" text-anchor="middle" font-size="13" fill="#9CA3AF">votre plan, tel que vous l'avez déposé</text>
+        <text x="320" y="140" text-anchor="middle" font-size="12" fill="#c2c7cf">ses numéros sont déjà dessus — rien à replacer</text>
+      </svg>
+      <div class="meta" style="margin-top:8px;">Déposé le 15/09/2026 · <button class="cta" style="padding:2px 8px;">Remplacer</button></div>
+    </div>
+    <div class="note" style="margin-top:12px;"><b>Pourquoi cette voie.</b> Les contours qu'on a en base sont au grain <b>pôle</b> : 11 polygones pour 7 pôles,
+    aucune position par meuble. Dessiner les 52 numéros demanderait de les relever un par un. Votre plan les porte déjà imprimés.</div>
+  </div>
+  <div data-v="Performance" hidden>
+    <div class="note">Inchangé : le plan coloré par CA/m², tel qu'il est en production depuis aujourd'hui.</div>
+  </div>
+</div>
+
+<div class="carte">
+  <div class="uc">2 · Le geste, sur une vraie ligne</div>
+  <div id="atelier"></div>
+  <div class="note" style="margin-top:12px;"><b>Deux touchers, comme « Retirer&nbsp;→ ».</b> Le premier ouvre le champ et dit ce que vise le numéro ;
+  le second confirme. Aucun geste destructif au premier toucher — c'est le patron déjà en place sur ce bloc.</div>
+</div>
+
+<div class="carte">
+  <div class="uc">3 · Ce qui s'écrit — à arbitrer</div>
+  <div class="note" style="margin-bottom:12px;">La table des photos est <b>append-only</b>, et la lecture garde <b>la dernière ligne par (version, composant)</b>.
+  Une seule écriture ne suffit donc pas : sans marque à l'ancienne place, la photo s'afficherait <b>aux deux endroits</b>.</div>
+  <table>
+    <thead><tr><th>ordre</th><th>composant</th><th>ce qu'on écrit</th><th>effet sur la lecture</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code id="w-src">—</code> (l'ancienne place)</td><td><code>status = "deplacee"</code> + <code>deplacee_vers</code></td><td>la ligne cesse de montrer la photo, et dit où elle est partie</td></tr>
+      <tr><td>2</td><td><code id="w-dst">—</code> (la nouvelle)</td><td>la même photo, <code>component_key</code> et <code>fixture_no</code> neufs</td><td>la photo apparaît sous le bon meuble</td></tr>
+    </tbody>
+  </table>
+  <div class="note" style="margin-top:12px;"><b>La décision qui vous revient.</b> Aujourd'hui <code>status</code> ne connaît que <code>"read"</code> et <code>"error"</code>.
+  Ajouter <code>"deplacee"</code> est une valeur de plus dans une colonne qui existe — aucune migration. Mais toute lecture qui filtre sur <code>status</code>
+  doit l'apprendre, sinon une photo déplacée réapparaît quelque part. C'est le seul vrai risque du lot.</div>
+</div>
+
+<div class="carte">
+  <div class="uc">4 · Ce que les données disent, et qui change le geste</div>
+  <div class="note"><b>Les numéros traversent les pôles.</b> Sur votre plan : n° 1, 2, 4, 7, 8 sont en <b>Cave</b> ; n° 3, 5, 6 en <b>Cuisine</b>.
+  Un numéro tapé de travers ne déplace donc pas seulement la photo de meuble — il peut la faire <b>changer de pôle</b>, et avec elle les articles
+  qu'elle a fait lire (« Articles des photos » du pôle). Le geste doit le DIRE avant de confirmer, jamais après.<br><br>
+  <b>Une photo sur deux n'a pas de numéro.</b> 7 de vos 10 photos sont antérieures au champ.
+  « Pas de numéro » est donc un état normal de départ, pas une anomalie : le champ s'ouvre vide, il ne se pré-remplit pas d'un numéro inventé.</div>
+</div>
+
+<script>
+var MEUBLES = [{"no":1,"key":"p1","pole":"Cave","m":1.79},{"no":2,"key":"p2","pole":"Cave","m":4.12},{"no":3,"key":"p3","pole":"Cuisine","m":4.61},{"no":4,"key":"p4","pole":"Cave","m":2.65},{"no":5,"key":"p5","pole":"Cuisine","m":2.56},{"no":6,"key":"p6","pole":"Cuisine","m":10},{"no":7,"key":"p7","pole":"Cave","m":3.53},{"no":8,"key":"p8","pole":"Cave","m":7.16},{"no":9,"key":"p9","pole":"Cuisine","m":6.56},{"no":10,"key":"p10","pole":"Cuisine","m":3.06},{"no":11,"key":"p11","pole":"Maison","m":0.67},{"no":12,"key":"p12","pole":"Maison","m":1.28},{"no":13,"key":"p13","pole":"Maison","m":5.91},{"no":14,"key":"p14","pole":"Cave","m":2.13},{"no":15,"key":"p15","pole":"Cuisine","m":2.96},{"no":16,"key":"p16","pole":"Cuisine","m":5.94},{"no":17,"key":"p17","pole":"Épicerie sèche","m":3.08},{"no":18,"key":"p18","pole":"Épicerie sèche","m":2.74},{"no":19,"key":"p19","pole":"Épicerie sèche","m":null},{"no":20,"key":"p20","pole":"Cave","m":2.24},{"no":21,"key":"p21","pole":"Épicerie sèche","m":2.36},{"no":22,"key":"p22","pole":"Cuisine","m":2.5},{"no":23,"key":"p23","pole":"Maison","m":2.6},{"no":24,"key":"p24","pole":"Maison","m":4.8},{"no":25,"key":"p25","pole":"Maison","m":8.56},{"no":26,"key":"p26","pole":"Épicerie sèche","m":2.24},{"no":27,"key":"p27","pole":"Épicerie sèche","m":0.8},{"no":28,"key":"p28","pole":"Épicerie sèche","m":0.96},{"no":29,"key":"p29","pole":"Épicerie sèche","m":3.76},{"no":30,"key":"p30","pole":"Cuisine","m":1.7},{"no":31,"key":"p31","pole":"Épicerie sèche","m":6},{"no":32,"key":"p32","pole":"Maison","m":2.92},{"no":33,"key":"p33","pole":"Maison","m":8.94},{"no":34,"key":"p34","pole":"Maison","m":3.38},{"no":35,"key":"p35","pole":"Épicerie sèche","m":2.18},{"no":36,"key":"p36","pole":"Épicerie sèche","m":2.04},{"no":37,"key":"p37","pole":"Petit déjeuner","m":1.07},{"no":38,"key":"p38","pole":"Petit déjeuner","m":1.47},{"no":39,"key":"p39","pole":"Épicerie sèche","m":2.75},{"no":40,"key":"p40","pole":"Produits frais","m":1.6},{"no":41,"key":"p41","pole":"Produits frais","m":4.5},{"no":42,"key":"p42","pole":"Produits frais","m":5.64},{"no":43,"key":"p43","pole":"Produits frais","m":8.14},{"no":44,"key":"p44","pole":"Petit déjeuner","m":1.79},{"no":45,"key":"p45","pole":"Caisse","m":4.32},{"no":46,"key":"p46","pole":"Produits frais","m":11.2},{"no":47,"key":"p47","pole":"Petit déjeuner","m":3.1},{"no":48,"key":"p48","pole":"Épicerie sèche","m":8.42},{"no":49,"key":"p49","pole":"Cuisine","m":3},{"no":50,"key":"p50","pole":"Caisse","m":3.5},{"no":51,"key":"p51","pole":"Petit déjeuner","m":6.08},{"no":52,"key":"p52","pole":"Petit déjeuner","m":6.9}];
+var PHOTOS = [{"id":"ba04e652-262d-411d-98d5-7b2ad6ee68a9","no":4,"key":"p4","pole":"Cave","quand":"14/09/2026 à 20 h 12"},{"id":"ad1e1c7c-6c50-4c9b-8b5e-9b0d63dea66f","no":2,"key":"p2","pole":"Cave","quand":"14/09/2026 à 20 h 12"},{"id":"3ffd396f-6a49-48ff-bfd1-570fb3a05045","no":1,"key":"p1","pole":"Cave","quand":"14/09/2026 à 20 h 12"},{"id":"a6ed5f84-c6b3-442d-9edd-506cea7cdca2","no":null,"key":"p20","pole":"Cave","quand":"14/09/2026 à 18 h 18"},{"id":"88cc88ad-787b-4fcc-bb22-0bc73df69309","no":null,"key":"p14","pole":"Cave","quand":"14/09/2026 à 18 h 18"},{"id":"469639ab-c58b-47f2-8b67-056cf1ded0ec","no":null,"key":"p8","pole":"Cave","quand":"14/09/2026 à 18 h 18"},{"id":"679eec54-9278-40de-b547-053589cbacc6","no":null,"key":"p7","pole":"Cave","quand":"14/09/2026 à 18 h 18"},{"id":"e24a3d87-6954-4e6a-a6ab-de368020f3f4","no":null,"key":"p4","pole":"Cave","quand":"14/09/2026 à 18 h 17"},{"id":"dc1f9dfb-a9f4-4377-a6b7-9625f61091b0","no":null,"key":"p2","pole":"Cave","quand":"14/09/2026 à 18 h 17"},{"id":"09499b8b-4eaa-438f-a463-03b7b3d78b05","no":null,"key":"p1","pole":"Cave","quand":"14/09/2026 à 18 h 17"}];
+var parNo = {}; MEUBLES.forEach(function (m) { parNo[m.no] = m; });
+var e = function (s) { return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+var fr1 = function (n) { return String(Number(n).toFixed(1)).replace(".", ","); };  // virgule décimale (CLAUDE.md § Localization)
+
+document.querySelectorAll(".ong").forEach(function (b) {
+  b.addEventListener("click", function () {
+    document.querySelectorAll(".ong").forEach(function (x) { x.classList.toggle("on", x === b); });
+    document.querySelectorAll("[data-v]").forEach(function (s) { s.hidden = s.getAttribute("data-v") !== b.getAttribute("data-o"); });
+  });
+});
+document.getElementById("simuler-plan").addEventListener("click", function () {
+  document.getElementById("zone-plan").hidden = true;
+  document.getElementById("plan-depose").hidden = false;
+});
+
+// L'atelier : la photo RÉELLE la plus récente, sur sa ligne, avec le geste.
+var photo = PHOTOS[0];
+var source = parNo[photo.no] || MEUBLES.find(function (m) { return m.key === photo.key; }) || MEUBLES[0];
+var etat = { ouvert: false, saisi: "", deplacee: false, vers: null };
+
+function ligneMeuble(m, contenu) {
+  return '<div class="ligne"><div class="tete"><span class="nom">N° ' + e(m.no) + ' — ' + e(m.pole) + '</span>'
+    + '<span class="meta">' + (m.m != null ? fr1(m.m) + ' m de façade' : 'sans mesure') + '</span></div>' + contenu + '</div>';
+}
+function rendre() {
+  var a = document.getElementById("atelier");
+  var cible = etat.saisi === "" ? null : parNo[Number(etat.saisi)];
+  var vise = "";
+  if (etat.ouvert) {
+    if (etat.saisi === "") vise = '<div class="vise gris">Tapez le numéro du meuble, tel qu\'il est sur votre plan.</div>';
+    else if (!cible) vise = '<div class="vise attention">Aucun meuble ne porte le n° ' + e(etat.saisi) + ' sur votre plan.</div>';
+    else if (cible.pole !== source.pole) vise = '<div class="vise attention"><b>n° ' + e(cible.no) + ' · ' + e(cible.pole) + '</b> — ce meuble est dans un AUTRE pôle. Les articles lus sur cette photo passeront de ' + e(source.pole) + ' à ' + e(cible.pole) + '.</div>';
+    else vise = '<div class="vise ok"><b>n° ' + e(cible.no) + ' · ' + e(cible.pole) + '</b>' + (cible.m != null ? ' · ' + fr1(cible.m) + ' m de façade' : '') + '</div>';
+  }
+  var bloc;
+  if (!etat.deplacee) {
+    bloc = '<div class="meta" style="margin-top:6px;">Photo du ' + e(photo.quand) + (photo.no == null ? ' · <span class="attention">sans numéro</span>' : '') + '</div>'
+      + '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      + '<button class="cta alerte">Retirer →</button>'
+      + '<button class="cta" id="b-depl">Déplacer →<span class="ratifier">à ratifier</span></button>'
+      + (etat.ouvert ? '<input class="champ" id="c-no" inputmode="numeric" placeholder="N° sur le plan" value="' + e(etat.saisi) + '">'
+          + '<button class="cta" id="b-ok"' + (cible ? '' : ' disabled style="opacity:.45;cursor:default;"') + '>Confirmer →</button>' : '')
+      + '</div>' + vise;
+    a.innerHTML = ligneMeuble(source, bloc);
+  } else {
+    var c = etat.vers;
+    a.innerHTML = ligneMeuble(source, '<div class="meta" style="margin-top:6px;">Cette photo est passée au n° ' + e(c.no) + ' · ' + e(c.pole)
+        + '<span class="ratifier">à ratifier</span> · <button class="cta" style="padding:2px 8px;" id="b-annul">Annuler</button></div>')
+      + ligneMeuble(c, '<div class="meta" style="margin-top:6px;">Photo du ' + e(photo.quand) + ' · <span class="ok">arrivée du n° ' + e(source.no) + '</span></div>');
+  }
+  document.getElementById("w-src").textContent = source.key + " (n° " + source.no + ")";
+  document.getElementById("w-dst").textContent = etat.vers ? etat.vers.key + " (n° " + etat.vers.no + ")" : "—";
+  var bd = document.getElementById("b-depl"); if (bd) bd.addEventListener("click", function () { etat.ouvert = true; rendre(); });
+  var cn = document.getElementById("c-no");
+  if (cn) { cn.addEventListener("input", function () { etat.saisi = cn.value.trim(); rendre(); document.getElementById("c-no").focus(); }); }
+  var bo = document.getElementById("b-ok");
+  if (bo && cible) bo.addEventListener("click", function () { etat.deplacee = true; etat.vers = cible; rendre(); });
+  var ba = document.getElementById("b-annul");
+  if (ba) ba.addEventListener("click", function () { etat = { ouvert: false, saisi: "", deplacee: false, vers: null }; rendre(); });
+}
+rendre();
+</script>
+</div></body></html>
