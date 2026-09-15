@@ -75,7 +75,20 @@ writeFileSync(OUT, `<!doctype html><meta charset="utf-8"><title>Dépôt du plan 
       return Promise.resolve({ json: function () { return Promise.resolve(window.__data); } });
     }
     if (url.indexOf("/api/dispositifs/photos") >= 0) {
-      return Promise.resolve({ json: function () { return Promise.resolve({ ok: true, photos: [] }); } });
+      // Une VRAIE photo sur le premier composant : sans elle, aucune ligne ne porte « Déplacer → » et
+      // le harnais conclurait « geste absent » sur une page qui n'avait simplement rien à déplacer.
+      if (o && o.method === "POST") {
+        window.__envois.push({ url: url, corps: o.body ? JSON.parse(String(o.body)) : null });
+        peindre();
+        // Le stub répond comme la VRAIE règle sur le compte : n° 3 est en Cuisine, donc changement de pôle ;
+        // n° 99 n'existe pas. Sans ces cas, le harnais ne prouverait que le chemin heureux.
+        var n = String((o.body ? JSON.parse(String(o.body)) : {}).vers_fixture_no || "");
+        var rep = n === "3" ? { ok: true, plan: { vers: { nom: "N° 3 — Récipients", pole_label: "Cuisine" }, depuis: { pole_label: "Cave" }, change_de_pole: true } }
+          : n === "99" ? { ok: false, refus: "numero_inconnu" }
+          : { ok: true, plan: { vers: { nom: "N° 7 — Vin & Spiritueux", pole_label: "Cave" }, depuis: { pole_label: "Cave" }, change_de_pole: false } };
+        return Promise.resolve({ json: function () { return Promise.resolve(rep); } });
+      }
+      return Promise.resolve({ json: function () { return Promise.resolve({ ok: true, photos: [window.__photo] }); } });
     }
     return Promise.resolve({ json: function () { return Promise.resolve({ ok: true }); } });
   };
@@ -91,6 +104,8 @@ writeFileSync(OUT, `<!doctype html><meta charset="utf-8"><title>Dépôt du plan 
   }
   peindre();
   window.__data = ${JSON.stringify(data)};
+  window.__photo = ${JSON.stringify({ photo_id: "ph-essai", component_key: null, status: "read", url: "/api/x", created_at: "2026-09-14T20:12:00Z", questions: [], checklist: {}, items_matched: [], fixture_no: null })};
+  window.__photo.component_key = (window.__data.commitment.components || [{}])[0].key || "k1";
   var COPY = ${JSON.stringify(EVOL_COPY)};
   // PAGE est une CHAINE ("pole" ou "engagement"), pas un objet : la page compare nature contre PAGE
   // et REDIRIGE si ca differe. Premier jet du harnais : je passais un objet, la page partait en
@@ -100,7 +115,22 @@ writeFileSync(OUT, `<!doctype html><meta charset="utf-8"><title>Dépôt du plan 
 </script>
 <script>${cablage}</script>
 <script>
-  // LES DEUX GESTES, jouables depuis la console : __essai("clic") et __essai("glisser").
+  // LE GESTE DE DÉPLACEMENT d'une photo, joué lui aussi : il vit dans la MÊME page, et c'est le
+  // deuxième geste que j'avais livré sans jamais l'avoir joué.
+  window.__essaiDeplacer = function () {
+    var b = document.querySelector("[data-eg-photo-deplacer]");
+    if (!b) return { geste: "deplacer", bouton_present: false };
+    b.click();
+    var champ = document.querySelector("[data-eg-deplacer-no]");
+    if (!champ) return { geste: "deplacer", bouton_present: true, champ_ouvert: false };
+    champ.value = "7";
+    champ.dispatchEvent(new Event("input", { bubbles: true }));
+    var go = document.querySelector("[data-eg-deplacer-go]");
+    if (go) go.click();
+    return { geste: "deplacer", bouton_present: true, champ_ouvert: true, confirmer_present: !!go };
+  };
+
+  // LES DEUX GESTES DU PLAN, jouables depuis la console : __essai("clic") et __essai("glisser").
   window.__essai = function (quoi) {
     var zone = document.querySelector("[data-eg-depot-plan]");
     if (!zone) return "pas de zone de dépôt";

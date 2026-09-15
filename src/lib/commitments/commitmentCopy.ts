@@ -432,6 +432,7 @@ export const EVOL_COPY = {
   // place d'arrivée ne dit rien de plus qu'une photo ordinaire. Au lexique le jour même.
   pole_photo_deplacer: "Déplacer →",
   pole_photo_deplacer_champ: "N° sur le plan",
+  pole_photo_deplacer_vise: "{nom} · {pole}",
   pole_photo_deplacee: "Aucune photo ici — vous l'avez déplacée sur le {nom}.",
   pole_photo_deplacer_annuler: "Annuler",
   pole_photo_deplacer_vise_autre_pole: "{nom} — ce composant est dans le pôle {pole}, pas {depuis}. Les articles lus sur cette photo passeront de {depuis} à {pole}.",

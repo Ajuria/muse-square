@@ -48,7 +48,7 @@ const { id, page, backHref, backLabel } = Astro.props;
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/pole-form.js?v=6"></script>
-    <script is:inline src="/js/card-kit.js?v=118"></script>
+    <script is:inline src="/js/card-kit.js?v=119"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY, PAGE: page }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -187,6 +187,50 @@ const { id, page, backHref, backLabel } = Astro.props;
               z.removeAttribute("data-survol");
               var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
               if (f) envoyerPlan(f, z);
+            });
+            // Un champ qu'on TAPE émet `input` à chaque frappe ; `change` n'arrive qu'à la sortie du
+            // champ. Posé dans `change`, ce bloc n'aurait rien dit pendant la saisie — et c'est
+            // pendant la saisie qu'il sert.
+            docEl.addEventListener("input", function (ev) {
+              // 15/09 — CE QUE VISE LE NUMÉRO, demandé à l'API à chaque frappe (`dry: true`). Sans ce
+              // bloc, la ligne restait VIDE et « Confirmer → » restait désactivé pour toujours : le
+              // geste s'ouvrait et ne pouvait pas aboutir. Livré comme ça, et trouvé en le JOUANT au
+              // harnais — le rendu était juste, le geste mort. Deuxième fois le même jour.
+              var dno = ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-eg-deplacer-no") ? ev.target : null;
+              if (dno) {
+                var wrapV = dno.closest("[data-eg-photo-rm-wrap]");
+                var viseEl = wrapV && wrapV.querySelector("[data-eg-deplacer-vise]");
+                var goV = wrapV && wrapV.querySelector("[data-eg-deplacer-go]");
+                var pidV = wrapV && wrapV.getAttribute("data-eg-photo-rm-wrap");
+                var val = String(dno.value || "").trim();
+                var eteindre = function (txt) {
+                  if (viseEl) { viseEl.textContent = txt || ""; viseEl.style.color = "#6b7280"; }
+                  if (goV) { goV.disabled = true; goV.style.opacity = ".45"; }
+                };
+                if (!val) { eteindre(""); return; }
+                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "deplacer", dispositif_id: did, photo_id: pidV, vers_fixture_no: val, dry: true }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) {
+                    // La saisie a pu changer pendant l'aller-retour : une réponse en retard n'écrase pas
+                    // ce que l'exploitant est en train de taper.
+                    if (String(dno.value || "").trim() !== val) return;
+                    if (!j || !j.ok || !j.plan) {
+                      eteindre(j && j.refus === "numero_inconnu" ? t("pole_photo_deplacer_inconnu", { no: val }) : "");
+                      return;
+                    }
+                    var pl = j.plan;
+                    if (viseEl) {
+                      viseEl.textContent = pl.change_de_pole
+                        ? t("pole_photo_deplacer_vise_autre_pole", { nom: pl.vers.nom, pole: pl.vers.pole_label, depuis: pl.depuis.pole_label })
+                        : t("pole_photo_deplacer_vise", { nom: pl.vers.nom, pole: pl.vers.pole_label });
+                      viseEl.style.color = pl.change_de_pole ? "#B45309" : "#0F6E56";
+                    }
+                    if (goV) { goV.disabled = false; goV.style.opacity = "1"; }
+                  })
+                  .catch(function () { eteindre(""); });
+                return;
+              }
             });
             docEl.addEventListener("change", function (ev) {
               var f = ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-eg-depot-fichier") ? ev.target : null;
