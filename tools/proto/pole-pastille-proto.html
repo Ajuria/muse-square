@@ -63,10 +63,16 @@
 </div>
 
 <div class="alerte">
-  <b>À régler avant de livrer quoi que ce soit ici.</b> Le pourcentage des pastilles d'aujourd'hui est calculé sur
-  <code>raw.client_transactions</code> (<code>poleReading.ts:72</code>) — une lecture brute que le dépôt interdit.
-  Il ne donne pas le même résultat que la couche <code>semantic</code> : la Cave affiche <b>+45,7 %</b> dans l'app et
-  <b>+35,0 %</b> ici. Les chiffres de ce proto sont ceux de <code>semantic</code>.
+  <b>Correction du 15/09 — j'avais annoncé un chiffre faux, il ne l'était pas.</b> J'avais écrit que la
+  Cave affichait « +45,7 % dans l'app contre +35,0 % en semantic ». Je comparais une capture de 07:10 à
+  une requête lancée plus tard : <b>deux instants, pas deux couches</b> — la fenêtre de 30 jours glisse.
+  Mesuré depuis, même fenêtre et même instant : <b>raw et semantic donnent le MÊME chiffre, famille par
+  famille, à l'euro près.</b> Aucun nombre affiché n'est faux.
+  <br><br>
+  Le seul écart réel entre les deux couches sur ce compte : <code>raw</code> porte <b>15 jours à VENIR</b>
+  (jusqu'au 30/09, artefact de la graine) que <code>semantic</code> écarte — 28 496 € sur tout l'historique.
+  La requête des pastilles s'en protégeait déjà à la main. Elle lit désormais <code>semantic</code> : même
+  résultat, une garde de moins à tenir, et la règle du dépôt respectée.
 </div>
 
 <div class="bascule">
@@ -94,10 +100,9 @@
   pourcentage, parce que l'app ne parle nulle part en « points ». Le CA par mètre linéaire en grand.
   Puis la place et ce qu'elle rapporte, <b>sur deux lignes</b>.
   <br><br>
-  <b>Ce que ça suppose côté app, et qui n'est pas fait :</b> le pourcentage affiché est aujourd'hui
-  calculé sur <code>raw.client_transactions</code> et ne vaut pas celui de <code>semantic</code>
-  (la Cave : +45,7 % dans l'app, +35,0 % ici). Livrer cette pastille sans corriger cette lecture,
-  c'est mettre en évidence un chiffre faux.
+  <b>Côté app, la lecture est corrigée (15/09) :</b> la requête des pastilles lit maintenant
+  <code>semantic</code> et non <code>raw</code>. Vérifié avant/après sur les sept pôles :
+  <b>zéro écart</b> sur le CA, la part, les €/j, l'écart et le nombre de jours vendus.
 </p>
 
 <script>

@@ -187,7 +187,7 @@ const CLIQUET_BRUT: Record<string, number> = {
   "src/lib/context/dayContext.ts": 2,
   "src/lib/dispositifs/dispositifFamille.ts": 2,
   "src/lib/dispositifs/ideaPlacement.ts": 1,
-  "src/lib/dispositifs/poleReading.ts": 1,
+  "src/lib/dispositifs/poleReading.ts": 0,   // 15/09 : basculeé sur semantic.vw_insight_event_client_offering_daily
   "src/lib/events/eventLifecycleCards.ts": 2,
   "src/lib/explorer/entityReading.ts": 3,
   "src/lib/explorer/planPeriod.ts": 2,

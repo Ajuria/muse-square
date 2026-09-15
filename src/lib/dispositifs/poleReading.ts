@@ -1,8 +1,17 @@
 // src/lib/dispositifs/poleReading.ts
 // Lecture CONTINUE d'un pôle (spec poles-dispositifs-permanents, owner 27/08) — un dispositif
 // permanent n'a ni fenêtre ni verdict : sa mesure est le CA journalier de SES familles vs son
-// résultat habituel, en continu. Source = raw.client_transactions (item_category), le MÊME
-// référentiel que le KPI family_revenue (kpiRegistry.measureFamilyRevenueMean) — jamais forké.
+// résultat habituel, en continu. Source = `semantic.vw_insight_event_client_offering_daily`
+// (item_category), le MÊME référentiel que le KPI family_revenue — `kpiRegistry` lit cette vue, et
+// cette lecture-ci lisait `raw.client_transactions` : la promesse « jamais forké » de cet en-tête
+// était rompue depuis l'origine.
+// BASCULE DU 15/09, et ce qu'elle change VRAIMENT (mesuré avant d'écrire) : sur la fenêtre servie,
+// les deux couches donnent le MÊME chiffre, famille par famille, à l'euro près — aucun nombre
+// affiché n'était faux. Ce que la bascule apporte : (a) la règle du dépôt (l'app ne lit pas `raw`) ;
+// (b) la garde « jours futurs » n'est plus à tenir à la main — `raw` porte 15 jours À VENIR sur le
+// compte de démo (30/09 contre 15/09 en semantic, 28 496 € d'écart sur tout l'historique), que seul
+// le `transaction_date <= @winEnd` de cette requête écartait ; (c) sur un compte qui a des factures,
+// des canaux ou des ventes au poids, la vue applique ce que `raw` ignore.
 // Référentiels rendus AVEC leurs fenêtres réelles : 30 derniers jours vs les 90 jours qui les
 // précèdent ; < 5 jours vendus d'un côté → pas de comparaison (plancher maison n>=5), jamais
 // un % fabriqué. Les opérations rattachées se lisent par attached_pole_id (clé de rattachement,
@@ -69,7 +78,7 @@ export async function buildPoleReading(
             SELECT item_category, transaction_date, revenue,
                    item_category IN UNNEST(@fams) AS in_pole,
                    transaction_date >= @winStart AS d30
-            FROM \`${PROJECT}.raw.client_transactions\`
+            FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
             WHERE location_id = @loc
               AND transaction_date >= @baseStart
               AND transaction_date <= @winEnd
