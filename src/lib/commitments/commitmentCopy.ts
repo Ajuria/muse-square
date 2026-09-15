@@ -368,7 +368,7 @@ export const EVOL_COPY = {
   // COURANTE. Deux blocs, donc, et un seul porte la fenêtre. La comparaison aux autres pôles est
   // la section qui suit déjà (pole_rank_title) : rien à écrire pour elle.
   pole_setup_title: "Comment ce pôle est installé",
-  pole_yield_title: "Ce que cette place rapporte — 30 derniers jours",
+  pole_yield_title: "Ce que ce pôle rapporte — 30 derniers jours",
   pole_space_title: "Espace — 30 derniers jours",
   pole_space_lineaire: "{m} m de linéaire",
   pole_space_part: "Part de linéaire {pct}",

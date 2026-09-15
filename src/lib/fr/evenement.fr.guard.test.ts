@@ -109,3 +109,48 @@ describe("lexique FR du dossier d'événement", () => {
     });
   }
 });
+
+// ── 15/09 — LE LEXIQUE FAIT LOI, ET PLUS PERSONNE NE PEUT L'OUBLIER (owner : « on streamline le
+// lexique -> utilises-tu le lexique + intent.md comme spécifié dans CLAUDE.md ? »).
+//
+// CE QUI S'EST PASSÉ. Le 15/09 j'ai écrit deux titres de section — « Comment ce pôle est installé » et
+// « Ce que cette place rapporte » — après avoir montré le grep de `MOTS_BANNIS`. Le grep passait, et la
+// chaîne était fautive quand même : « place » était un SYNONYME de `pôle`, le mot de l'owner depuis le
+// 27/08. Chercher les mots INTERDITS ne dit pas si le concept avait DÉJÀ son mot, et la règle 7 du
+// lexique (un mot validé s'inscrit le JOUR MÊME) n'avait pas été appliquée non plus : les deux titres
+// n'étaient nulle part dans `docs/lexique.md`. Verdict owner : « Non -> Ce que ce pôle rapporte ».
+//
+// LA GARDE. Tout titre de section de la page d'un pôle doit se retrouver VERBATIM dans le lexique.
+// C'est le sens littéral de « le lexique fait loi sur toute chaîne visible » : une chaîne que le
+// lexique ne porte pas n'a pas de loi, donc pas d'arbitrage, donc elle dérive.
+//
+// LE CLIQUET. Six titres étaient déjà absents au moment où la garde est posée — une dette qui n'est pas
+// la mienne et qui ne se paie pas en réécrivant des chaînes que l'owner a approuvées ailleurs : leur
+// ligne de lexique demande SA raison et SA date, que je n'ai pas. Le chiffre ne peut donc que BAISSER.
+// Un titre NOUVEAU non inscrit fait échouer la suite, ce qui est exactement le défaut du 15/09.
+const CLIQUET_TITRES_HORS_LEXIQUE = 6;
+
+describe("le lexique fait loi sur les titres de la page d'un pôle", () => {
+  it(`au plus ${CLIQUET_TITRES_HORS_LEXIQUE} titres hors du lexique — un titre NOUVEAU s'y inscrit le jour même`, async () => {
+    const { EVOL_COPY } = await import("../commitments/commitmentCopy");
+    const lex = readFileSync("docs/lexique.md", "utf8");
+    const titres = Object.entries(EVOL_COPY as Record<string, unknown>)
+      .filter(([k, v]) => /^pole_.*_title$/.test(k) && typeof v === "string" && v.trim().length > 0);
+    const absents = titres.filter(([, v]) => !lex.includes(String(v))).map(([k, v]) => `${k} = « ${v} »`);
+    expect(titres.length).toBeGreaterThan(5);            // la liste ne s'est pas vidée en silence
+    expect(absents, absents.join("\n")).toHaveLength(CLIQUET_TITRES_HORS_LEXIQUE);
+  });
+
+  it("les deux titres de l'espace d'un pôle sont ceux du lexique, au mot près", async () => {
+    const { EVOL_COPY } = await import("../commitments/commitmentCopy");
+    const lex = readFileSync("docs/lexique.md", "utf8");
+    expect((EVOL_COPY as any).pole_setup_title).toBe("Comment ce pôle est installé");
+    expect((EVOL_COPY as any).pole_yield_title).toBe("Ce que ce pôle rapporte — 30 derniers jours");
+    expect(lex).toContain("Comment ce pôle est installé");
+    expect(lex).toContain("Ce que ce pôle rapporte — 30 derniers jours");
+    // « place » comme synonyme de pôle est l'erreur nommée : elle ne revient pas par une autre porte.
+    for (const v of Object.values(EVOL_COPY as Record<string, unknown>)) {
+      if (typeof v === "string") expect(v).not.toMatch(/cette place|la place de ce/i);
+    }
+  });
+});

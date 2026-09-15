@@ -24,11 +24,20 @@ Retours donnés sur le proto `tools/proto/pole-deux-vues-proto.html`. L'ordre es
 |---|---|---|
 | 7 | « En retrait sur votre résultat habituel / Aucun article vu sur les photos n'est en retrait. → Is it true or bullshit ? » | **fait** — la phrase était fausse : une liste vide avait deux causes et une seule était dite. Trois cas distincts (`poleReading.ts`, `card-kit.js`). |
 | 4 | « On n'a pas de vue jour des performances avec bar chart » | **fait** — `serie` au payload du pôle, `dayBars` réutilisé tel quel. Puis ses quatre retours de lisibilité : axe en diagonale, trait d'habituel gris, montant du jour plus lisible, colonnes chiffrées espacées. |
-| 5 | « Espace — 30 derniers jours → data shall answer 2 questions : how is the Pole set up + how does it compare to other poles » | **fait** — deux blocs : « Comment ce pôle est installé » (aucune fenêtre : les mètres ne sont pas une quantité de 30 jours) et « Ce que cette place rapporte — 30 derniers jours ». La 2e question est la section de classement qui suit déjà. |
+| 5 | « Espace — 30 derniers jours → data shall answer 2 questions : how is the Pole set up + how does it compare to other poles » | **fait** — deux blocs : « Comment ce pôle est installé » (aucune fenêtre : les mètres ne sont pas une quantité de 30 jours) et « Ce que ce pôle rapporte — 30 derniers jours ». La 2e question est la section de classement qui suit déjà. |
 | 6 | « Articles des photos — 30 derniers jours -> place section above list of photos » | **fait** — bloc déplacé au-dessus des Composants (où vit la liste des photos), pas réécrit. Une assertion de rang le garde : le déplacement seul laissait les 1 144 tests verts. |
 | 1 | « Some Poles are missing such as Produits frais » sur le plan | **fait** — un nom par POLYGONE (11 polygones, 7 libellés auparavant) ; la valeur reste sur le plus grand polygone du pôle. |
 | 2 | « Pole words are written too small » | **fait** — calque HTML à taille fixe (12 px) ; en `<text>` SVG la police suivait l'échelle : 5,06 px mesurés à l'écran. |
 | 3 | « Plan coloré légende : what does Cuisine 491 € means » | **fait** — chaque valeur porte son unité sur le plan ET dans la légende ; la page du pôle teinte par m². |
+
+### Six titres de la page d'un pôle ne sont pas au lexique — dette, cliquet posé
+
+Mesuré le 15/09 : 12 titres `pole_*_title`, **6 absents de `docs/lexique.md`** — `pole_items_title`,
+`pole_items_retrait_title`, `pole_items_unseen_title`, `pole_reading_title`, `pole_ops_title`,
+`pole_plan_title`. Ils ne se paient pas en les réécrivant : leur ligne de lexique demande LA raison et
+LA date de l'owner, que je n'ai pas. Le geste est de les lui faire ratifier un par un, puis de baisser
+`CLIQUET_TITRES_HORS_LEXIQUE` dans `src/lib/fr/evenement.fr.guard.test.ts`. Un titre NOUVEAU non
+inscrit fait déjà échouer la suite.
 
 ### Le placeur d'étiquettes d'un plan — « how can we fix it in long run for all kinds of maps ? »
 

@@ -522,12 +522,12 @@ it("l'espace du pôle : mètres, Part de linéaire, surface, puis le CA et la ma
   // d'int_client_pole_space, la mesure COURANTE). La 2e question de l'owner est la section qui suit
   // déjà (« Vos pôles · du plus au moins performant ») : rien de neuf, et aucun second classement.
   expect(html).toContain("Comment ce pôle est installé");
-  expect(html).toContain("Ce que cette place rapporte");
+  expect(html).toContain("Ce que ce pôle rapporte");
   expect(html).not.toContain("Espace — 30 derniers jours");
   // Le PARTAGE est le sujet du test : il se vérifie par la POSITION, pas par la présence.
   expect(html.indexOf("Comment ce pôle est installé")).toBeLessThan(html.indexOf("23,6 m de linéaire"));
-  expect(html.indexOf("23,6 m de linéaire")).toBeLessThan(html.indexOf("Ce que cette place rapporte"));
-  expect(html.indexOf("Ce que cette place rapporte")).toBeLessThan(html.indexOf("484 € de CA par mètre"));
+  expect(html.indexOf("23,6 m de linéaire")).toBeLessThan(html.indexOf("Ce que ce pôle rapporte"));
+  expect(html.indexOf("Ce que ce pôle rapporte")).toBeLessThan(html.indexOf("484 € de CA par mètre"));
   // ET LES DEUX BLOCS SONT FRÈRES, pas imbriqués. Assertion ajoutée après une mutation qui n'est PAS
   // tombée : refermer la section « installé » APRÈS « rapporte » laissait l'ordre des chaînes
   // inchangé, donc les trois indexOf ci-dessus passaient — alors que le rendu devenait une section
@@ -567,7 +567,7 @@ it("sans mesure d'espace, l'absence se DIT — jamais une section vide (lexique 
   expect(html).not.toContain("de CA par mètre linéaire");
   // 15/09 — depuis le partage en deux blocs : pas de mesure ⇒ le bloc « rapporte » n'existe PAS,
   // il ne dit pas son absence une seconde fois. L'absence se dit UNE fois, sous « installé ».
-  expect(html).not.toContain("Ce que cette place rapporte");
+  expect(html).not.toContain("Ce que ce pôle rapporte");
 });
 
 // 15/09 — LE CAS QUE LE PARTAGE CRÉE : mesuré, mais pas encore vendu. Le bloc « installé » a ses
@@ -582,7 +582,7 @@ it("mesuré mais sans vente : « installé » reste, « rapporte » ne s'écrit 
   const html = String(kit.renderEvolution(data, EVOL_COPY));
   expect(html).toContain("Comment ce pôle est installé");
   expect(html).toContain("23,6 m de linéaire");
-  expect(html).not.toContain("Ce que cette place rapporte");
+  expect(html).not.toContain("Ce que ce pôle rapporte");
 });
 
 // ── 13/09 — LA NOTE DE LA VERSION (owner : « on doit confirmer avec le user le changement réalisé »).

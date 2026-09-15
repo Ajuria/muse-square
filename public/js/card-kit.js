@@ -1232,7 +1232,7 @@
         // qui n'est pas une quantité de 30 jours (vérifié dans l'en-tête de fct_client_space_30d : la
         // fenêtre porte sur le CA et la marge ; les mètres viennent d'int_client_pole_space, la mesure
         // COURANTE). Le premier bloc dit COMMENT le pôle est installé et ne porte AUCUNE fenêtre ; le
-        // second dit ce que cette place RAPPORTE et porte la sienne. La seconde question de l'owner —
+        // second dit ce que ce pôle RAPPORTE et porte la sienne. La seconde question de l'owner —
         // comment il se compare — est la section qui suit déjà (`pole_rank_title`) : rien de neuf ici,
         // et surtout aucun second classement. `data-eg-espace` reste sur le premier bloc : c'est
         // l'ancre que les pages et le harnais visent déjà.
