@@ -1110,43 +1110,11 @@
         + '</div>';
       h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_fams_title')) + '</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + pFams.map(function (f) { return '<span style="font-size:12px;background:#F3F4F6;color:#374151;padding:4px 11px;border-radius:999px;">' + esc(f) + '</span>'; }).join('') + '</div></div>';
-      // Composants du dispositif (03/09, spec dispositifs-typologie § 3) : les unites physiques
-      // (lineaire, gondole, vitrine...) libellees par le serveur (registre dispositifTypes).
-      // Absence dite (lexique regle 7), jamais une section vide.
-      var pComps = Array.isArray(cm.components) ? cm.components : [];
-      // Photos (etape 4, 03/09) : une rangee par composant porte un emplacement [data-eg-photo]
-      // que la page remplit (GET /api/dispositifs/photos) et un CTA « Documenter » (mot owner)
-      // qui ouvre le depot d'une photo — le cablage vit dans engagement.astro, le kit ne rend.
-      // 13/09 (owner, ligne ratifiee) : la demande de photo dit son gain, sous le titre, une seule fois.
-      // Elle s'affiche des la premiere version — j'avais prevu de la reserver aux poles ayant deja une version
-      // precedente, mais cette condition rendait la fonctionnalite morte : sans photo prise a la V1, il n'y a
-      // rien a comparer a la V2, donc l'invitation doit venir AVANT. Ce qu'elle promet existe (l'historique du
-      // dispositif rend les photos des la deuxieme version) ; elle ne promet aucun verdict, un pole n'en a pas.
-      var _compHint = t2('pole_components_hint')
-        ? '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-bottom:8px;">' + esc(t2('pole_components_hint')) + '</div>' : '';
-      h += '<div class="eg-sec" data-eg-components data-eg-dispositif="' + esc(cm.dispositif_id || '') + '" data-eg-version="' + esc(cm.version_no != null ? String(cm.version_no) : '') + '"><div class="eg-uc">' + esc(t2('pole_components_title')) + '</div>'
-        + _compHint
-        + (pComps.length
-          ? pComps.map(function (c) {
-              var meta = [c.type_label_fr, c.role_label_fr].filter(function (x) { return !!x; }).join(' \u00b7 ');
-              // 14/09 (owner, option 3 : « typer sans versionner ») — la description du composant PORTE
-              // ses valeurs courantes, et son libelle reste un TEXTE ici. La page le remplace par deux
-              // listes quand les options du registre sont arrivees : si cette lecture echoue, la rangee
-              // retombe exactement sur l'affichage d'avant, jamais sur un trou.
-              return '<div data-eg-component="' + esc(c.key || '') + '" data-eg-comp-type="' + esc(c.type || '') + '" data-eg-comp-role="' + esc(c.role || '') + '" style="background:#fff;border:1px solid #e5e7eb;padding:8px 14px;margin-bottom:6px;">'
-                + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;">'
-                + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(c.label || c.type_label_fr || '') + '</span>'
-                + '<span style="display:inline-flex;align-items:center;gap:10px;"><span data-eg-comp-meta="' + esc(c.key || '') + '" style="font-size:12px;color:#6b7280;">' + esc(meta) + '</span>'
-                // v2 (11/09) : le numero du composant sur le plan, saisi par l'exploitant AVANT « Documenter » —
-                // la page le lit et l'envoie avec la photo (fixture_no) ; jamais lu sur l'image.
-                + (cm.status === 'open' ? '<input type="number" min="1" max="9999" step="1" inputmode="numeric" data-eg-fixture-no="' + esc(c.key || '') + '" placeholder="' + esc(t2('pole_photo_fixture_no')) + '" title="' + esc(t2('pole_photo_fixture_no')) + '" style="width:110px;font-size:12px;color:#111827;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:4px 8px;font-family:inherit;">' : '')
-                + (cm.status === 'open' ? '<button type="button" data-eg-photo-add="' + esc(c.key || '') + '" style="font-size:12px;font-weight:500;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit;">' + esc(t2('pole_photo_cta')) + '</button>' : '')
-                + '</span></div>'
-                + '<div data-eg-photo="' + esc(c.key || '') + '" style="margin-top:6px;font-size:12px;color:#6b7280;">' + esc(t2('pole_photo_none')) + '</div>'
-                + '</div>';
-            }).join('')
-          : '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_components_none')) + '</div>')
-        + '</div>';
+      // 15/09 (owner, point 6 : « Articles des photos — 30 derniers jours -> place section above
+      // list of photos ») — CE QUE LES PHOTOS ONT APPRIS PASSE AVANT LA LISTE DES PHOTOS. La liste
+      // vit dans les Composants (une rangée par composant, son emplacement [data-eg-photo] et son
+      // « Documenter → ») : la lecture arrivait donc APRÈS le geste qu'elle justifie. Bloc DÉPLACÉ,
+      // pas réécrit — même code, même ancre `data-eg-items`, seul son rang change.
       // Articles des photos face aux ventes (livrable 2, 03/09) : ce qui est expose et ne se vend
       // pas, ce qui se vend sans etre vu. Absence dite a chaque niveau, jamais une section vide.
       var pi = pr.items || null;
@@ -1185,6 +1153,43 @@
         else h += '<div style="font-size:12px;color:#374151;">' + pi.unseen.map(function (x) { return esc(x.item_description) + ' (' + Number(x.rev30_eur).toLocaleString('fr-FR') + ' \u20ac)'; }).join(' \u00b7 ') + '</div>';
       }
       h += '</div>';
+      // Composants du dispositif (03/09, spec dispositifs-typologie § 3) : les unites physiques
+      // (lineaire, gondole, vitrine...) libellees par le serveur (registre dispositifTypes).
+      // Absence dite (lexique regle 7), jamais une section vide.
+      var pComps = Array.isArray(cm.components) ? cm.components : [];
+      // Photos (etape 4, 03/09) : une rangee par composant porte un emplacement [data-eg-photo]
+      // que la page remplit (GET /api/dispositifs/photos) et un CTA « Documenter » (mot owner)
+      // qui ouvre le depot d'une photo — le cablage vit dans engagement.astro, le kit ne rend.
+      // 13/09 (owner, ligne ratifiee) : la demande de photo dit son gain, sous le titre, une seule fois.
+      // Elle s'affiche des la premiere version — j'avais prevu de la reserver aux poles ayant deja une version
+      // precedente, mais cette condition rendait la fonctionnalite morte : sans photo prise a la V1, il n'y a
+      // rien a comparer a la V2, donc l'invitation doit venir AVANT. Ce qu'elle promet existe (l'historique du
+      // dispositif rend les photos des la deuxieme version) ; elle ne promet aucun verdict, un pole n'en a pas.
+      var _compHint = t2('pole_components_hint')
+        ? '<div style="font-size:12.5px;color:#374151;line-height:1.5;margin-bottom:8px;">' + esc(t2('pole_components_hint')) + '</div>' : '';
+      h += '<div class="eg-sec" data-eg-components data-eg-dispositif="' + esc(cm.dispositif_id || '') + '" data-eg-version="' + esc(cm.version_no != null ? String(cm.version_no) : '') + '"><div class="eg-uc">' + esc(t2('pole_components_title')) + '</div>'
+        + _compHint
+        + (pComps.length
+          ? pComps.map(function (c) {
+              var meta = [c.type_label_fr, c.role_label_fr].filter(function (x) { return !!x; }).join(' \u00b7 ');
+              // 14/09 (owner, option 3 : « typer sans versionner ») — la description du composant PORTE
+              // ses valeurs courantes, et son libelle reste un TEXTE ici. La page le remplace par deux
+              // listes quand les options du registre sont arrivees : si cette lecture echoue, la rangee
+              // retombe exactement sur l'affichage d'avant, jamais sur un trou.
+              return '<div data-eg-component="' + esc(c.key || '') + '" data-eg-comp-type="' + esc(c.type || '') + '" data-eg-comp-role="' + esc(c.role || '') + '" style="background:#fff;border:1px solid #e5e7eb;padding:8px 14px;margin-bottom:6px;">'
+                + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;">'
+                + '<span style="font-size:13px;font-weight:600;color:#111827;">' + esc(c.label || c.type_label_fr || '') + '</span>'
+                + '<span style="display:inline-flex;align-items:center;gap:10px;"><span data-eg-comp-meta="' + esc(c.key || '') + '" style="font-size:12px;color:#6b7280;">' + esc(meta) + '</span>'
+                // v2 (11/09) : le numero du composant sur le plan, saisi par l'exploitant AVANT « Documenter » —
+                // la page le lit et l'envoie avec la photo (fixture_no) ; jamais lu sur l'image.
+                + (cm.status === 'open' ? '<input type="number" min="1" max="9999" step="1" inputmode="numeric" data-eg-fixture-no="' + esc(c.key || '') + '" placeholder="' + esc(t2('pole_photo_fixture_no')) + '" title="' + esc(t2('pole_photo_fixture_no')) + '" style="width:110px;font-size:12px;color:#111827;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:4px 8px;font-family:inherit;">' : '')
+                + (cm.status === 'open' ? '<button type="button" data-eg-photo-add="' + esc(c.key || '') + '" style="font-size:12px;font-weight:500;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit;">' + esc(t2('pole_photo_cta')) + '</button>' : '')
+                + '</span></div>'
+                + '<div data-eg-photo="' + esc(c.key || '') + '" style="margin-top:6px;font-size:12px;color:#6b7280;">' + esc(t2('pole_photo_none')) + '</div>'
+                + '</div>';
+            }).join('')
+          : '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_components_none')) + '</div>')
+        + '</div>';
       var pt = pr.totals || {};
       var ptLine = '';
       if (pt.rev30_eur != null) {

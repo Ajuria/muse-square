@@ -885,3 +885,26 @@ it("le trait du résultat habituel est GRIS, dans le graphique comme dans sa lé
   expect(html).not.toContain('stroke="#111827" stroke-width="2"');
   expect((html.match(/stroke="#8A93A2" stroke-width="2"/g) || []).length).toBe(31); // 30 traits + la légende
 });
+
+// 15/09 (owner, point 6 : « Articles des photos — 30 derniers jours -> place section above list of
+// photos ») — CE QUE LES PHOTOS ONT APPRIS PASSE AVANT LA LISTE DES PHOTOS. La liste vit dans les
+// Composants : une rangée par composant, son emplacement [data-eg-photo] et son « Documenter → ».
+// La lecture arrivait donc APRÈS le geste qu'elle justifie.
+// POURQUOI CE TEST EXISTE : le déplacement a laissé les 1 144 tests verts. Un rang que rien n'assert
+// se défait au prochain ajout de section, sans bruit — c'est le cas typique du « test rouge qu'on
+// laisse rouge », en pire : il n'y avait rien à rougir.
+it("« Articles des photos » se rend AVANT les composants et leurs photos", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  const iItems = html.indexOf('data-eg-items>');
+  const iComps = html.indexOf('data-eg-components');
+  const iPhoto = html.indexOf('data-eg-photo=');
+  expect(iItems).toBeGreaterThan(-1);
+  expect(iComps).toBeGreaterThan(-1);
+  expect(iPhoto).toBeGreaterThan(-1);
+  expect(iItems).toBeLessThan(iComps);
+  expect(iItems).toBeLessThan(iPhoto);
+  // CE QUE CE TEST NE DIT PAS, et que j'ai d'abord asserté à tort : sur la page réelle, l'espace du
+  // pôle est rendu APRÈS les composants — c'est le proto des deux vues qui réordonne les sections
+  // (`tools/generators/pole-deux-vues-proto.mts`, table ORDRE), pas le kit. Le rang inter-sections de
+  // la page réelle n'est PAS le rang du proto tant que les deux vues n'y sont pas câblées.
+});
