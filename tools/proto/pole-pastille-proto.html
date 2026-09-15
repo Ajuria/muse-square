@@ -1,55 +1,68 @@
-<!doctype html><meta charset="utf-8"><title>La pastille d'un pôle — trois pistes (proto)</title>
+<!doctype html><meta charset="utf-8"><title>La pastille d'un pôle — la ligne du dessous (proto)</title>
 <style>
   /* Valeurs COPIÉES de tableau.astro (.tb-rbgrid, .tb-rb) et de design-tokens.css — rien n'est réinventé. */
-  :root { --bleu: #1D3BB3; --brand: #0b37e5; --gris: #6B7280; --gris2: #9CA3AF; --bord: rgba(0,0,0,0.08); --vert: #047857; --ambre: #B45309; }
+  :root { --bleu: #1D3BB3; --gris: #6B7280; --bord: rgba(0,0,0,0.08); --vert: #047857; --ambre: #B45309; }
   body { font-family: system-ui, -apple-system, sans-serif; color: #111827; margin: 0; padding: 20px 24px 60px; background: #f7f8fa; }
   h1 { font-size: 19px; margin: 0 0 4px; }
-  .intro { color: var(--gris); font-size: 13px; margin-bottom: 22px; max-width: 78ch; line-height: 1.6; }
+  .intro { color: var(--gris); font-size: 13px; margin-bottom: 18px; max-width: 78ch; line-height: 1.6; }
+  .intro b { color: #111827; }
+  .mesure { background: #fff; border: 1px solid var(--bord); border-radius: 10px; padding: 12px 14px; margin-bottom: 22px; max-width: 78ch; }
+  .mesure table { border-collapse: collapse; font-size: 12px; width: 100%; }
+  .mesure td, .mesure th { padding: 3px 10px 3px 0; text-align: left; }
+  .mesure th { color: var(--gris); font-weight: 600; font-size: 11px; }
+  .mesure .n { text-align: right; font-variant-numeric: tabular-nums; }
   .bascule { display: flex; gap: 8px; margin-bottom: 18px; }
   .bascule button { padding: 8px 16px; border: 1px solid var(--bleu); border-radius: 10px; background: #fff; color: var(--bleu); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
   .bascule button.on { background: var(--bleu); color: #fff; }
   .piste { margin-bottom: 34px; }
   .piste > h2 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #111827; font-weight: 700; margin: 0 0 4px; }
   .piste > .quoi { font-size: 13px; color: var(--gris); margin: 0 0 14px; max-width: 78ch; line-height: 1.6; }
+  .piste > .quoi b { color: #111827; }
   .grille { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .tb-rb { background: #fff; border: 1px solid var(--bord); border-radius: 12px; padding: 11px 13px; box-shadow: 0 1px 2px rgba(16,24,40,0.04); text-align: left; }
   .hd { display: flex; align-items: center; gap: 7px; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gris); font-weight: 600; }
   .pt { width: 7px; height: 7px; border-radius: 50%; flex: none; display: inline-block; }
-  /* — commun aux pistes — */
   .num { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin-top: 6px; }
   .num .u { font-size: 12px; font-weight: 500; color: var(--gris); margin-left: 3px; }
-  .phrase { font-size: 12px; margin-top: 5px; line-height: 1.45; }
+  .phrase { font-size: 12px; margin-top: 5px; line-height: 1.45; color: #374151; }
   .aujd { font-size: 11px; color: var(--gris); margin-top: 3px; }
-  /* — barres de comparaison (pistes B et C) — */
-  .duo { margin-top: 8px; }
-  .duo .l { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
-  .duo .lbl { font-size: 10px; color: var(--gris); width: 48px; flex: none; white-space: nowrap; }
-  .duo .bar { height: 7px; border-radius: 3px; flex: 1; background: #EEF1F6; overflow: hidden; }
-  .duo .bar i { display: block; height: 100%; border-radius: 3px; }
-  .duo .val { font-size: 10px; color: #111827; width: 46px; text-align: right; flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  /* — piste C : la liste — */
-  .liste { background: #fff; border: 1px solid var(--bord); border-radius: 12px; overflow: hidden; }
-  .liste .r { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid #F1F3F7; }
-  .liste .r:last-child { border-bottom: 0; }
-  .liste .nom { font-size: 14px; font-weight: 600; flex: 1; }
-  .liste .m { font-size: 15px; font-weight: 700; width: 78px; text-align: right; font-variant-numeric: tabular-nums; }
-  .liste .t { font-size: 11px; color: var(--gris); width: 150px; text-align: right; }
   .note { font-size: 12px; color: var(--gris); margin-top: 12px; max-width: 78ch; line-height: 1.6; }
   .note b { color: #111827; }
+  .alerte { background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 10px; padding: 12px 14px; font-size: 12px; color: #7C2D12; line-height: 1.6; max-width: 78ch; margin-bottom: 22px; }
+  .alerte b { color: #7C2D12; }
   /* Le gabarit du téléphone : une colonne de 375 px, encadrée, pour qu'on voie qu'on la regarde. */
-  body.tel .piste, body.tel .note, body.tel .intro, body.tel h1, body.tel .bascule { max-width: 375px; }
-  body.tel .piste > .grille, body.tel .piste > .liste { width: 375px; box-sizing: border-box; outline: 1px dashed #C7D2FE; outline-offset: 6px; }
+  body.tel .piste, body.tel .note, body.tel .intro, body.tel h1, body.tel .bascule, body.tel .mesure, body.tel .alerte { max-width: 375px; }
+  body.tel .piste > .grille { width: 375px; box-sizing: border-box; outline: 1px dashed #C7D2FE; outline-offset: 6px; }
   body.tel .grille { grid-template-columns: repeat(2, 1fr); }
-  body.tel .liste .t { display: none; }
-  body.tel .liste .m { width: 64px; }
 </style>
 
-<h1>La pastille d'un pôle — trois pistes</h1>
+<h1>La pastille d'un pôle — la ligne du dessous</h1>
 <p class="intro">
-  Chiffres RÉELS du compte de test, 30 jours glissants, lus dans <code>vw_insight_event_space_30d</code>.
-  Ce qui s'arbitre : <b>ce qu'une pastille doit dire pour qu'on sache lequel ouvrir</b> — et rien de plus,
-  le reste appartient à la page du pôle.
+  Le grand chiffre reste le <b>CA par mètre</b> : c'est lui qui classe (65 → 491 €, un facteur 7,5), et un
+  pourcentage en tête effacerait la grandeur — <b>+50 % sur Petit déjeuner (65 €/m) et +50 % sur Cuisine
+  (491 €/m) ne sont pas le même événement.</b> Ce qui s'arbitre ici est la LIGNE DU DESSOUS.
 </p>
+
+<div class="mesure">
+  <b style="font-size:12px;">Pourquoi l'écart affiché aujourd'hui ne peut pas être la clé</b>
+  <table>
+    <tr><th>Pôle</th><th class="n">Son écart</th><th class="n">Le site</th><th class="n">Face au site</th></tr>
+    <tbody id="tbl"></tbody>
+  </table>
+  <div style="font-size:11px;color:#6B7280;margin-top:8px;line-height:1.5;">
+    €/j des jours vendus, 30 derniers contre les 90 précédents, sur <code>vw_insight_event_client_offering_daily</code>.
+    Les sept pôles vont de +35 % à +49 % et le site fait +43,9 % : <b>c'est le mouvement du magasin, répété sept fois.</b>
+    Le relatif ne creuse pas l'écart (c'est une soustraction) — il en change le SENS : trois pôles passent sous zéro.
+  </div>
+</div>
+
+<div class="alerte">
+  <b>À régler avant de livrer quoi que ce soit ici.</b> Le pourcentage des pastilles d'aujourd'hui est calculé sur
+  <code>raw.client_transactions</code> (<code>poleReading.ts:72</code>) — une lecture brute que le dépôt interdit.
+  Il ne donne pas le même résultat que la couche <code>semantic</code> : la Cave affiche <b>+45,7 %</b> dans l'app et
+  <b>+35,0 %</b> ici. Les chiffres de ce proto sont ceux de <code>semantic</code>.
+</div>
+
 <div class="bascule">
   <button data-l="bureau" class="on">Bureau</button>
   <button data-l="tel">Téléphone</button>
@@ -57,106 +70,100 @@
 
 <div class="piste">
   <h2>Aujourd'hui</h2>
-  <p class="quoi">Le CA du pôle, l'écart sur 90 jours, puis une ligne grise de cinq faits — coupée avant la fin.
-    Deux fenêtres de temps différentes dans la même pastille, et une phrase que personne ne lit jusqu'au bout.</p>
+  <p class="quoi">Le CA, l'écart sur 90 jours, puis cinq faits en gris — coupés avant la fin.</p>
   <div class="grille" id="g0"></div>
 </div>
 
 <div class="piste">
-  <h2>Piste A — le mètre décide, la tension se dit</h2>
-  <p class="quoi">Le <b>CA par mètre</b> en grand : c'est lui qui classe les pôles, et c'est déjà lui qu'utilise
-    « du plus au moins performant » plus bas dans la page. Dessous, UNE phrase — la place qu'il prend
-    face à ce qu'il rapporte. Une seule fenêtre de temps, plus de ligne grise.</p>
-  <div class="grille" id="gA"></div>
+  <h2>A1 — la tension : la place qu'il prend face à ce qu'il rapporte</h2>
+  <p class="quoi"><b>Structurel.</b> Bouge lentement, dit <b>où agir sur l'espace</b>. L'écart va de −9,1 à +21,2 points
+    selon le pôle : c'est ce qui sépare le plus vos sept pôles. La Cave prend 11,7 % du linéaire et rend 2,6 % de la marge.</p>
+  <div class="grille" id="gA1"></div>
 </div>
 
 <div class="piste">
-  <h2>Piste B — la tension se voit, sans lire</h2>
-  <p class="quoi">Le même chiffre, mais la tension devient <b>deux barres</b> : la part du linéaire qu'il occupe,
-    la part de la marge qu'il rapporte. Un pôle où la barre du bas est plus courte que celle du haut
-    prend de la place sans la rendre. Se lit d'un coup d'œil, sans chiffre à comparer de tête.</p>
-  <div class="grille" id="gB"></div>
-</div>
-
-<div class="piste">
-  <h2>Piste C — une liste, pas des pastilles</h2>
-  <p class="quoi">Sept pastilles sur un téléphone, c'est quatre rangées à faire défiler. Une liste ordonnée
-    tient dans un écran, se compare ligne à ligne, et dit l'ordre <b>par construction</b> — ce qu'une grille
-    ne dit jamais. Le prix : on perd la pastille comme objet qu'on touche.</p>
-  <div class="liste" id="gC"></div>
+  <h2>A2 — le mouvement, face au magasin</h2>
+  <p class="quoi"><b>Conjoncturel.</b> Bouge chaque semaine, dit <b>ce qui vient de se passer</b>. Le pôle comparé à
+    son propre magasin, pas à lui-même : « +35 % » devient « −8,9 points » — le même fait, et enfin la bonne conclusion.</p>
+  <div class="grille" id="gA2"></div>
 </div>
 
 <p class="note">
-  <b>Mon avis :</b> A pour la clarté, B si vous voulez que la tension saute aux yeux sans lecture.
-  C règle le vrai problème du téléphone mais change la nature de la surface — à n'ouvrir que si le défilement
-  vous gêne autant que le texte gris.
+  <b>Mon avis : A1.</b> La pastille sert à choisir quel pôle ouvrir, et ce choix porte sur l'espace — c'est le seul
+  levier que la page du pôle vous donne. A2 dit ce qui a bougé, mais un mouvement se regarde une fois par semaine,
+  alors que la tension se regarde quand on décide. <b>Si vous voulez les deux</b>, A2 a sa place en haut de la page du
+  pôle, pas sur la pastille : une ligne de plus sur la pastille et on rouvre la porte au texte gris.
 </p>
 
 <script>
-  // Les 7 pôles du compte, chiffres réels du 15/09 (30 jours glissants).
+  // Chiffres RÉELS du 15/09, TOUS calculés de la même façon (voir le tableau ci-dessus).
+  // `ecart` = écart du pôle ; `ecartSite` = 43,9 ; `relatif` = ecart − ecartSite.
+  var SITE = 43.9;
   var POLES = [
-    { nom: "Cuisine",        ca: 21064, parM: 491, lin: 42.9, partCA: 40.1, partLin: 21.2, partMarge: 42.4, delta: 45.2 },
-    { nom: "Maison",         ca: 15240, parM: 390, lin: 39.1, partCA: 29.0, partLin: 19.3, partMarge: 31.6, delta: 45.7 },
-    { nom: "Épicerie sèche", ca: 6251,  parM: 167, lin: 37.3, partCA: 11.9, partLin: 18.5, partMarge: 10.0, delta: 39.4 },
-    { nom: "Produits frais", ca: 5181,  parM: 167, lin: 31.1, partCA: 9.9,  partLin: 15.4, partMarge: 10.0, delta: 40.5 },
-    { nom: "Cave",           ca: 2672,  parM: 113, lin: 23.6, partCA: 5.1,  partLin: 11.7, partMarge: 2.6,  delta: 45.7 },
-    { nom: "Caisse",         ca: 815,   parM: 104, lin: 7.8,  partCA: 1.6,  partLin: 3.9,  partMarge: 1.8,  delta: 44.0 },
-    { nom: "Petit déjeuner", ca: 1332,  parM: 65,  lin: 20.4, partCA: 2.5,  partLin: 10.1, partMarge: 1.6,  delta: 51.5 }
+    { nom: "Cuisine",        ca: 21064, parM: 491, partLin: 21.2, partMarge: 42.4, partCA: 40.1, lin: 42.9, ecart: 44.9 },
+    { nom: "Maison",         ca: 15240, parM: 390, partLin: 19.3, partMarge: 31.6, partCA: 29.0, lin: 39.1, ecart: 44.2 },
+    { nom: "Épicerie sèche", ca: 6251,  parM: 167, partLin: 18.5, partMarge: 10.0, partCA: 11.9, lin: 37.3, ecart: 39.4 },
+    { nom: "Produits frais", ca: 5181,  parM: 167, partLin: 15.4, partMarge: 10.0, partCA: 9.9,  lin: 31.1, ecart: 41.5 },
+    { nom: "Cave",           ca: 2672,  parM: 113, partLin: 11.7, partMarge: 2.6,  partCA: 5.1,  lin: 23.6, ecart: 35.0 },
+    { nom: "Caisse",         ca: 815,   parM: 104, partLin: 3.9,  partMarge: 1.8,  partCA: 1.6,  lin: 7.8,  ecart: 43.8 },
+    { nom: "Petit déjeuner", ca: 1332,  parM: 65,  partLin: 10.1, partMarge: 1.6,  partCA: 2.5,  lin: 20.4, ecart: 48.8 }
   ];
   var frInt = function (n) { return Math.round(n).toLocaleString("fr-FR"); };
   var frDec = function (n) { return n.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }); };
+  var signe = function (n) { return (n >= 0 ? "+" : "−") + frDec(Math.abs(n)); };
   var esc = function (s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); };
-  // Le point de couleur : vert si le pôle rend plus de marge qu'il ne prend de place, ambre sinon.
-  var pt = function (p) { return p.partMarge >= p.partLin ? "#047857" : "#B45309"; };
+  var relatif = function (p) { return Math.round((p.ecart - SITE) * 10) / 10; };
+  // Le point : vert si le pôle rend plus de marge qu'il ne prend de place, ambre sinon.
+  var ptA1 = function (p) { return p.partMarge >= p.partLin ? "#047857" : "#B45309"; };
+  var ptA2 = function (p) { return relatif(p) >= 0 ? "#047857" : "#B45309"; };
+  var tete = function (p, couleur) {
+    return '<div class="hd"><span class="pt" style="background:' + couleur + '"></span>' + esc(p.nom.toUpperCase()) + '</div>';
+  };
 
-  var max = POLES.reduce(function (a, p) { return Math.max(a, p.partLin, p.partMarge); }, 0);
-  var barres = function (p) {
-    return '<div class="duo">'
-      + '<div class="l"><span class="lbl">Linéaire</span><span class="bar"><i style="width:' + (p.partLin / max * 100) + '%;background:#C7D2FE;"></i></span><span class="val">' + frDec(p.partLin) + ' %</span></div>'
-      + '<div class="l"><span class="lbl">Marge</span><span class="bar"><i style="width:' + (p.partMarge / max * 100) + '%;background:' + pt(p) + ';"></i></span><span class="val">' + frDec(p.partMarge) + ' %</span></div>'
-      + '</div>';
-  };
-  var tete = function (p) {
-    return '<div class="hd"><span class="pt" style="background:' + pt(p) + '"></span>' + esc(p.nom.toUpperCase()) + '</div>';
-  };
+  // — le tableau de la mesure —
+  document.getElementById("tbl").innerHTML = POLES.slice().sort(function (a, b) { return relatif(b) - relatif(a); }).map(function (p) {
+    var r = relatif(p);
+    return '<tr><td>' + esc(p.nom) + '</td>'
+      + '<td class="n">+' + frDec(p.ecart) + ' %</td>'
+      + '<td class="n" style="color:#9CA3AF;">+' + frDec(SITE) + ' %</td>'
+      + '<td class="n" style="font-weight:700;color:' + (r >= 0 ? "#047857" : "#B45309") + ';">' + signe(r) + ' pts</td></tr>';
+  }).join("");
 
   // — Aujourd'hui (reproduction fidèle de tableau.astro) —
   document.getElementById("g0").innerHTML = POLES.map(function (p) {
-    return '<div class="tb-rb">' + tete(p)
+    return '<div class="tb-rb">' + tete(p, "#047857")
       + '<div class="num">' + frInt(p.ca) + ' €<span class="u">sur 30 j</span></div>'
-      + '<div class="phrase" style="color:#047857;font-weight:600;">+' + frDec(p.delta) + ' % vs les 90 jours précédents</div>'
+      + '<div class="phrase" style="color:#047857;font-weight:600;">+' + frDec(p.ecart) + ' % vs les 90 jours précédents</div>'
       + '<div class="aujd" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Muse Square · ' + frDec(p.partCA) + ' % du CA · ' + frDec(p.lin) + ' m de linéaire · Part de linéaire ' + frDec(p.partLin) + ' % · aucune…</div>'
       + '</div>';
   }).join("");
 
-  // — Piste A —
-  document.getElementById("gA").innerHTML = POLES.map(function (p) {
-    var ecart = p.partMarge - p.partLin;
-    var phrase = ecart >= 0
+  // — A1 : la tension —
+  document.getElementById("gA1").innerHTML = POLES.map(function (p) {
+    var phrase = p.partMarge >= p.partLin
       ? '<b>' + frDec(p.partLin) + ' %</b> du linéaire, <b>' + frDec(p.partMarge) + ' %</b> de la marge'
       : '<b>' + frDec(p.partLin) + ' %</b> du linéaire pour <b>' + frDec(p.partMarge) + ' %</b> de la marge';
-    return '<div class="tb-rb">' + tete(p)
+    return '<div class="tb-rb">' + tete(p, ptA1(p))
       + '<div class="num">' + frInt(p.parM) + ' €<span class="u">par mètre</span></div>'
-      + '<div class="phrase" style="color:#374151;">' + phrase + '</div>'
+      + '<div class="phrase">' + phrase + '</div>'
       + '</div>';
   }).join("");
 
-  // — Piste B —
-  document.getElementById("gB").innerHTML = POLES.map(function (p) {
-    return '<div class="tb-rb">' + tete(p)
+  // — A2 : le mouvement face au magasin —
+  document.getElementById("gA2").innerHTML = POLES.map(function (p) {
+    var r = relatif(p);
+    // « devant / derrière le magasin » n'est pas une phrase de commerçant : ce qu'il dit, c'est que
+    // le pôle MONTE plus ou moins vite que sa boutique. Et « 1,0 points » n'existe pas — singulier
+    // sous 2 (même exigence que « 1 enregistrée » au relevé).
+    var pts = Math.abs(r) < 2 ? ' pt' : ' pts';
+    var phrase = Math.abs(r) < 1
+      ? 'suit le magasin'
+      : (r > 0
+          ? 'monte plus vite que le magasin · <b>' + signe(r) + pts + '</b>'
+          : 'monte moins vite que le magasin · <b>' + signe(r) + pts + '</b>');
+    return '<div class="tb-rb">' + tete(p, ptA2(p))
       + '<div class="num">' + frInt(p.parM) + ' €<span class="u">par mètre</span></div>'
-      + barres(p)
-      + '</div>';
-  }).join("");
-
-  // — Piste C —
-  document.getElementById("gC").innerHTML = POLES.map(function (p) {
-    var ecart = p.partMarge - p.partLin;
-    return '<div class="r">'
-      + '<span class="pt" style="background:' + pt(p) + '"></span>'
-      + '<span class="nom">' + esc(p.nom) + '</span>'
-      + '<span class="t">' + frDec(p.partLin) + ' % du linéaire · ' + frDec(p.partMarge) + ' % de la marge</span>'
-      + '<span class="m" style="color:' + (ecart >= 0 ? "#111827" : "#B45309") + '">' + frInt(p.parM) + ' €</span>'
+      + '<div class="phrase" style="color:' + (Math.abs(r) < 1 ? "#6B7280" : ptA2(p)) + ';">' + phrase + '</div>'
       + '</div>';
   }).join("");
 
