@@ -78,12 +78,27 @@ const TITRE = (el: any): string => {
   const u2 = el.querySelector?.(".eg-uc");
   return String((u2?.textContent ?? "") || "").trim();
 };
-const DISPOSITIF_TITRES = new Set([EVOL_COPY.pole_components_title, EVOL_COPY.pole_items_title, EVOL_COPY.lin_pole_titre, EVOL_COPY.vform_title].map(String));
-const PERFORMANCE_TITRES = new Set([EVOL_COPY.pole_fams_title, (EVOL_COPY as any).pole_reading_title, (EVOL_COPY as any).pole_ops_title].map(String));
+// 15/09 (owner) — LES CINQ MOUVEMENTS. L'opération raconte : ce que j'ai monté → est-ce que ça paie →
+// pourquoi → quoi changer → d'où ça vient (mesuré sur son rendu : « Votre dispositif », « Votre action
+// paie-t-elle ? », « Comprendre le résultat », « Ajuster le dispositif », « Sources & fiabilité »).
+// Le pôle raconte la MÊME histoire sans la nommer, en dix sections rangées dans un autre ordre. Ici
+// chaque section prend sa place dans le mouvement qui lui revient — c'est ça, streamliner : un seul
+// ordre pour les deux pages, pas deux ordres inventés séparément.
+// LE SEUL MOUVEMENT QUI GARDE DEUX NOMS : le deuxième. « Votre action paie-t-elle ? » est un VERDICT,
+// et un dispositif permanent n'est jamais jugé (règle du dépôt) — sur un pôle il reste « Résultats ».
+const T = (k: string) => String((EVOL_COPY as any)[k] ?? "");
+const ORDRE: Array<{ vue: "Dispositif" | "Performance" | "bandeau"; titres: string[] }> = [
+  { vue: "bandeau",     titres: [T("pole_plan_title")] },                                   // OÙ suis-je
+  { vue: "Dispositif",  titres: [T("pole_space_title"), T("pole_components_title"), T("pole_items_title"), T("lin_pole_titre"), T("vform_title")] },
+  { vue: "Performance", titres: [T("pole_reading_title"), T("pole_rank_title"), T("shape_title"), T("pole_fams_title"), T("pole_ops_title")] },
+];
+const RANG = new Map<string, { vue: string; i: number }>();
+ORDRE.forEach((m) => m.titres.filter(Boolean).forEach((t, i) => RANG.set(t, { vue: m.vue, i: RANG.size })));
 
 const tete: string[] = [];            // l'en-tête du document : nom, chips, responsable — dans les DEUX vues
-const dispo: string[] = [];
-const perf: string[] = [];
+const bandeau: string[] = [];         // le plan : commun aux deux vues, AU-DESSUS des onglets
+const dispo: Array<{ i: number; html: string }> = [];
+const perf: Array<{ i: number; html: string }> = [];
 const inconnues: string[] = [];
 
 Array.from(box.children as any[]).forEach((el: any, i: number) => {
@@ -92,16 +107,20 @@ Array.from(box.children as any[]).forEach((el: any, i: number) => {
   const estSection = el.classList?.contains("eg-sec") || el.hasAttribute?.("data-eg-items") || el.hasAttribute?.("data-eg-nextversion-sec");
   const texte = String(el.textContent || "");
   if (i === 0 && !estSection) { tete.push(html); return; }                       // l'en-tête du kit
-  if (el.hasAttribute?.("data-eg-components") || el.hasAttribute?.("data-eg-items") || el.hasAttribute?.("data-eg-nextversion-sec")) { dispo.push(html); return; }
-  if (t && DISPOSITIF_TITRES.has(t)) { dispo.push(html); return; }
-  if (t && PERFORMANCE_TITRES.has(t)) { perf.push(html); return; }
-  if (texte.indexOf(String(EVOL_COPY.lin_pole_titre)) >= 0) { dispo.push(html); return; }   // l'historique n'a pas de .eg-uc
-  if (texte.indexOf(String(EVOL_COPY.sources_title ?? "Sources")) >= 0) { tete.push(html); return; }
+  const r = t ? RANG.get(t) : undefined;
+  if (r) {
+    if (r.vue === "bandeau") bandeau.push(html);
+    else (r.vue === "Dispositif" ? dispo : perf).push({ i: r.i, html });
+    return;
+  }
+  // L'historique du dispositif n'a pas de `.eg-uc` : il se reconnaît à son titre dans le texte.
+  if (texte.indexOf(T("lin_pole_titre")) >= 0 && T("lin_pole_titre")) { dispo.push({ i: 900, html }); return; }
+  if (el.hasAttribute?.("data-eg-nextversion-sec")) { dispo.push({ i: 901, html }); return; }
   inconnues.push(html);
 });
 
-const vue = (titre: string, blocs: string[]) =>
-  `<section data-vue="${titre}"><div class="proto-doc">${tete.join("")}${blocs.join("")}${inconnues.join("")}</div></section>`;
+const vue = (titre: string, blocs: Array<{ i: number; html: string }>) =>
+  `<section data-vue="${titre}"><div class="proto-doc">${blocs.sort((a, b) => a.i - b.i).map((b) => b.html).join("")}${inconnues.join("")}</div></section>`;
 
 const html = `<!doctype html><meta charset="utf-8"><title>La page d'un pôle — deux vues (proto)</title>
 <style>
@@ -117,20 +136,32 @@ const html = `<!doctype html><meta charset="utf-8"><title>La page d'un pôle —
   .eg-sec { margin-bottom: 26px; }
   section[data-vue] { display: none; }
   section[data-vue].on { display: block; }
+  /* Le bandeau : au-dessus des onglets, donc commun aux deux vues — il répond à « où suis-je », que
+     ni les chiffres ni les photos ne disent. Il existait déjà sur la page, en 7e position sur 10. */
+  .bandeau { max-width: 820px; background: #fff; border: 1px solid rgba(0,0,0,0.10); border-radius: 10px; padding: 18px 28px 6px; margin-bottom: 14px; }
+  .bandeau .eg-sec { margin-bottom: 8px; }
+  .manque { max-width: 820px; font-size: 12px; color: #B45309; background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
   .note { font-size: 12px; color: #6B7280; margin-top: 16px; max-width: 76ch; line-height: 1.6; }
 </style>
 <h1>La page d'un pôle — deux vues</h1>
-<div class="intro">Rendu par le VRAI kit sur un VRAI pôle du compte de test : rien n'est redessiné, les sections sont
-celles que la page produit aujourd'hui, rangées autrement. Ce qui s'arbitre ici est la RÉPARTITION.
-Les photos ne s'affichent pas hors de l'app (bucket privé, proxy authentifié) : leurs emplacements montrent leur libellé.</div>
+<div class="intro">Rendu par le VRAI kit sur un VRAI pôle du compte de test : <b>rien n'est redessiné</b>, les sections
+sont celles que la page produit aujourd'hui, rangées dans <b>les cinq mouvements de la page d'une opération</b> —
+ce que j'ai monté → est-ce que ça paie → pourquoi → quoi changer → d'où ça vient. Le plan sort en bandeau : il dit
+OÙ, les deux vues disent QUOI. Les photos ne s'affichent pas hors de l'app (bucket privé, proxy authentifié) :
+leurs emplacements montrent leur libellé.</div>
+${tete.length ? `<div class="proto-doc" style="margin-bottom:14px;">${tete.join("")}</div>` : ""}
+${bandeau.length ? `<div class="bandeau">${bandeau.join("")}</div>` : `<div class="manque">Ce pôle n'a pas de plan (aucun contour mesuré) — le bandeau est vide, il ne s'invente pas.</div>`}
 <div class="onglets">
   <button type="button" class="onglet on" data-o="Dispositif">Dispositif</button>
   <button type="button" class="onglet" data-o="Performance">Performance</button>
 </div>
 ${vue("Dispositif", dispo)}
 ${vue("Performance", perf)}
-<div class="note">Dispositif : ${dispo.length} section(s). Performance : ${perf.length}. En-tête repris dans les deux : ${tete.length}.
-${inconnues.length ? `<b>${inconnues.length} section(s) non classée(s)</b> — rendues dans les DEUX vues pour qu'aucun bloc ne disparaisse en silence.` : "Aucune section non classée."}</div>
+<div class="note"><b>Dispositif</b> : ${dispo.length} section(s) — l'espace d'abord (m², mètres linéaires), les composants et leurs photos ensuite.
+<b>Performance</b> : ${perf.length} — résultats, classement, « Comprendre le résultat » (la SEULE section déjà commune aux deux pages), familles, opérations.
+Bandeau : ${bandeau.length}. En-tête : ${tete.length}.
+${inconnues.length ? `<b>${inconnues.length} section(s) non classée(s)</b> — rendues dans les DEUX vues pour qu'aucun bloc ne disparaisse en silence.` : "Aucune section non classée."}
+<br><br><b>Ce que le pôle n'a toujours pas</b> : « Sources &amp; fiabilité ». L'opération dit d'où viennent ses chiffres, le pôle non — c'est un manque, pas une différence de nature.</div>
 <script>
   document.querySelectorAll(".onglet").forEach(function (b) {
     b.addEventListener("click", function () {
@@ -142,6 +173,6 @@ ${inconnues.length ? `<b>${inconnues.length} section(s) non classée(s)</b> — 
 </script>`;
 
 writeFileSync(SORTIE, html);
-console.log(`Dispositif : ${dispo.length} section(s) · Performance : ${perf.length} · en-tête : ${tete.length} · non classées : ${inconnues.length}`);
+console.log(`Dispositif : ${dispo.length} · Performance : ${perf.length} · bandeau (plan) : ${bandeau.length} · en-tête : ${tete.length} · non classées : ${inconnues.length}`);
 if (inconnues.length) console.warn("ATTENTION — sections non classées, rendues dans les deux vues. Classez-les avant de livrer la page.");
 console.log(`Écrit : ${SORTIE}`);
