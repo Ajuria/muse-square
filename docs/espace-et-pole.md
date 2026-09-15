@@ -53,8 +53,9 @@ sur le composant (formulaire de pôle), jamais pendant le relevé ; **faces de p
   site 162/162 jours du compte owner, 50 lignes d'espace, 188 lignes pôle × classe.
 - Le plan d'Épices et Tout, mesuré (52 meubles, 202,23 m de façade, `~/Documents/Muse_Square/Clients/epices-et-tout/map/metres_lineaires_epices_et_tout_v2_2026-09-11.csv`) :
   Cuisine 42,89 m (21,2 %), Maison 39,05 m (19,3 %), Épicerie sèche 37,34 m (18,5 %), Produits frais 31,09 m
-  (15,4 %), Cave 23,62 m (11,7 %), Petit déjeuner 20,41 m (10,1 %), Caisse 7,83 m (3,9 %). Trois meubles à confirmer
-  sur place : n° 3 et 6 (le L « Récipients »), n° 19 (nature), n° 49 (part Couteaux / Céréales).
+  (15,4 %), Cave 23,62 m (11,7 %), Petit déjeuner 20,41 m (10,1 %), Caisse 7,83 m (3,9 %). Trois composants à confirmer
+  sur place : n° 8 et 10 (le L « Récipients »), n° 29 (nature), n° 17 (part Couteaux / Céréales) —
+  numérotation du 15/09 ; le CSV du plan les appelle encore 3 et 6, 19, 49 (§ ci-dessous).
 
 ## 4. Ce qui existe côté app, et ce qui reste (état au 11/09)
 
@@ -70,10 +71,21 @@ sur le composant (formulaire de pôle), jamais pendant le relevé ; **faces de p
   `fixture_no` = N°, Part de linéaire = 100 % de la famille du plan), par
   `tools/oneoff/2026-09-11-epices-et-tout-poles-et-mesures.mts`. En base après reconstruction ciblée (run dbt Cloud
   70471897084223) : 7 lignes pôle et 24 lignes famille dans `vw_insight_event_pole_space`, site 202,21 m (le
-  tableau du plan dit 202,23 : arrondi au cm de longueur × faces), n° 19 sans faces donc sans mètre. Les familles
+  tableau du plan dit 202,23 : arrondi au cm de longueur × faces), n° 29 sans faces donc sans mètre (n° 19 dans la numérotation d'alors). Les familles
   sont les libellés du plan, à rapprocher de la caisse à la première importation — cinq sont des noms de
   composant plutôt que des familles (Ilot spiritueux, Ilot maison, Ilot varié, Ilot entrée, Frigidaires).
   `vw_insight_event_space_30d` est vide pour ce site : la fenêtre 30 j se cale sur le dernier jour vendu.
+- **Numérotation contiguë par pôle (15/09)** : les N° du plan avaient été relevés dans l'ordre de la capture
+  (Cave 1, 2, 4, 7, 8, 14, 20 ; Cuisine 3, 5, 6, 9…) — devant le plan, un numéro ne disait pas son pôle. Ils sont
+  contigus et uniques sur le site : Cave 1-7, Cuisine 8-17, Maison 18-26, Épicerie sèche 27-39, Petit déjeuner
+  40-45, Produits frais 46-50, Caisse 51-52. Trois endroits portent le numéro et chacun est passé par SON foyer
+  d'écriture : `space_measures.fixture_no` (52 mesures réécrites en append-only, longueur, faces, parts et source
+  reportées telles quelles), le `label` de `action_commitments.components` (50 libellés, par `planDeRedescription`
+  + `readMergeWrite`), `dispositif_photos.fixture_no` (1 photo, UPDATE en place : renuméroter n'est pas une prise
+  de vue nouvelle). Les CLÉS ne bougent pas — `p45` porte « N° 51 — Caisse » —, parce que photos, mesures et points
+  du plan s'y accrochent ; `space_fixture_points` n'est pas concernée, un point tient au composant et non à son
+  numéro. La renumérotation est MONOTONE : l'ordre de la marche (`prochainAPlacer`) est le même avant et après.
+  `tools/oneoff/2026-09-15-renumeroter-composants.mts` (constat seul par défaut, `--appliquer` pour écrire).
 - **Surfaces des pôles (12/09)** : le plan ne trace aucun contour de pôle (les pointillés sont des cotes) ; les sept
   zones ont été CONSTRUITES depuis le vectoriel — sol de vente = intérieur des murs (trois portes fermées, vestibule
   PMR exclu) moins les zones hachurées non accessibles au public, chaque pixel allant au pôle de l'étiquette du plan la
