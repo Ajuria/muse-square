@@ -606,7 +606,19 @@
         photo_failures: k.filter(function (i) { return !!i.photo_echec; }).length,
         app_build: (window.MSReleve && window.MSReleve.build) || null,
       }),
-    }).catch(function () { run.marcheEcrite = false; });
+    }).then(function (r) {
+      // `fetch` ne rejette PAS sur un 4xx/5xx : sans ce contrôle, un refus serveur passait pour un
+      // succès et la marche était perdue sans trace. Mesuré le 15/09 : la marche de 22:12 a écrit ses
+      // 3 photos et sa ligne de marche n'existe pas.
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json().catch(function () { return {}; });
+    }).then(function (j) {
+      if (j && j.ok === false) throw new Error(j.error || "refus");
+    }).catch(function (e) {
+      run.marcheEcrite = false;
+      run.problems.push({ t: tOff(), pole: run.pole, reason: "marche_non_ecrite:" + String(e && e.message || e), kept: false });
+      if (window.console) console.warn("[releve] contexte de marche non ecrit :", e);
+    });
   }
   function srcDims() {
     try { return { w: srcW() || null, h: srcH() || null }; } catch (e) { return { w: null, h: null }; }
