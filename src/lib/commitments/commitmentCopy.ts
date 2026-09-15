@@ -360,6 +360,15 @@ export const EVOL_COPY = {
   // celles du volet, RECOPIÉES MOT POUR MOT (tableau.astro l. 2026-2049, 11/09) — elles entrent ici,
   // au foyer, parce que c'est le kit qui les rend désormais ; le volet garde les siennes en dur tant
   // qu'il ne reçoit pas EVOL_COPY, et c'est une duplication ÉCRITE, pas silencieuse.
+  // 15/09 (owner, point 5) — « Espace : data shall answer 2 questions : how is the Pole set up +
+  // how does it compare to other poles ». Un seul bloc mêlait les deux, et son titre DATAIT les
+  // mètres : « Espace — 30 derniers jours » chapeautait « 7,8 m de linéaire », qui n'est pas une
+  // quantité de 30 jours. Vérifié à la source (fct_client_space_30d, en-tête) : la fenêtre de 30
+  // jours porte sur le CA et la marge ; les mètres viennent d'int_client_pole_space, la mesure
+  // COURANTE. Deux blocs, donc, et un seul porte la fenêtre. La comparaison aux autres pôles est
+  // la section qui suit déjà (pole_rank_title) : rien à écrire pour elle.
+  pole_setup_title: "Comment ce pôle est installé",
+  pole_yield_title: "Ce que cette place rapporte — 30 derniers jours",
   pole_space_title: "Espace — 30 derniers jours",
   pole_space_lineaire: "{m} m de linéaire",
   pole_space_part: "Part de linéaire {pct}",

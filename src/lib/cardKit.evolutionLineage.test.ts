@@ -514,7 +514,25 @@ it("l'espace du pôle : mètres, Part de linéaire, surface, puis le CA et la ma
     revenue_share: 0.401, margin_share: 0.38, coverage_pct: 100,
   };
   const html = String(kit.renderEvolution(data, EVOL_COPY)).replace(/[  ]/g, " ");
-  expect(html).toContain("Espace — 30 derniers jours");
+  // 15/09 (owner, point 5 : « data shall answer 2 questions : how is the Pole set up + how does it
+  // compare to other poles ») — DEUX BLOCS, UNE QUESTION CHACUN, et un SEUL porte la fenêtre de 30
+  // jours. L'ancien titre unique DATAIT les mètres : « Comment ce pôle est installé » chapeautait
+  // « 23,6 m de linéaire », qui n'est pas une quantité de 30 jours (vérifié dans l'en-tête de
+  // fct_client_space_30d : la fenêtre porte sur le CA et la marge ; les mètres viennent
+  // d'int_client_pole_space, la mesure COURANTE). La 2e question de l'owner est la section qui suit
+  // déjà (« Vos pôles · du plus au moins performant ») : rien de neuf, et aucun second classement.
+  expect(html).toContain("Comment ce pôle est installé");
+  expect(html).toContain("Ce que cette place rapporte");
+  expect(html).not.toContain("Espace — 30 derniers jours");
+  // Le PARTAGE est le sujet du test : il se vérifie par la POSITION, pas par la présence.
+  expect(html.indexOf("Comment ce pôle est installé")).toBeLessThan(html.indexOf("23,6 m de linéaire"));
+  expect(html.indexOf("23,6 m de linéaire")).toBeLessThan(html.indexOf("Ce que cette place rapporte"));
+  expect(html.indexOf("Ce que cette place rapporte")).toBeLessThan(html.indexOf("484 € de CA par mètre"));
+  // ET LES DEUX BLOCS SONT FRÈRES, pas imbriqués. Assertion ajoutée après une mutation qui n'est PAS
+  // tombée : refermer la section « installé » APRÈS « rapporte » laissait l'ordre des chaînes
+  // inchangé, donc les trois indexOf ci-dessus passaient — alors que le rendu devenait une section
+  // DANS une section. Un test d'ordre ne voit pas l'imbrication ; celui-ci exige la fermeture.
+  expect(html).toContain('</div></div><div class="eg-sec" data-eg-rendement>');
   expect(html).toContain("23,6 m de linéaire · Part de linéaire 11,7 % · 45 m² de surface de vente");
   expect(html).toContain("484 € de CA par mètre linéaire · 473 € de CA net HT par mètre linéaire · 176 € de marge brute par mètre linéaire");
   expect(html).toContain("267 € de CA par m² · 260 € de CA net HT par m² · 97 € de marge brute par m²");
@@ -544,9 +562,27 @@ it("un montant par mètre est ARRONDI : les mesures réelles sont des flottants,
 
 it("sans mesure d'espace, l'absence se DIT — jamais une section vide (lexique règle 7)", () => {
   const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
-  expect(html).toContain("Espace — 30 derniers jours");
+  expect(html).toContain("Comment ce pôle est installé");
   expect(html).toContain("Aucune mesure d’espace pour l’instant.");
   expect(html).not.toContain("de CA par mètre linéaire");
+  // 15/09 — depuis le partage en deux blocs : pas de mesure ⇒ le bloc « rapporte » n'existe PAS,
+  // il ne dit pas son absence une seconde fois. L'absence se dit UNE fois, sous « installé ».
+  expect(html).not.toContain("Ce que cette place rapporte");
+});
+
+// 15/09 — LE CAS QUE LE PARTAGE CRÉE : mesuré, mais pas encore vendu. Le bloc « installé » a ses
+// mètres à montrer, le bloc « rapporte » n'a AUCUN € par mètre — un titre posé sur du vide est
+// exactement ce que la règle 7 du lexique interdit. L'ancien bloc unique n'avait pas ce cas.
+it("mesuré mais sans vente : « installé » reste, « rapporte » ne s'écrit pas", () => {
+  const data: any = polePhotos();
+  data.pole.space = { linear_m: 23.6, linear_share: 0.117, surface_m2: 45,
+    revenue_per_m: null, revenue_net_ht_per_m: null, margin_per_m: null,
+    revenue_per_m2: null, revenue_net_ht_per_m2: null, margin_per_m2: null,
+    revenue_share: null, margin_share: null, coverage_pct: null };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  expect(html).toContain("Comment ce pôle est installé");
+  expect(html).toContain("23,6 m de linéaire");
+  expect(html).not.toContain("Ce que cette place rapporte");
 });
 
 // ── 13/09 — LA NOTE DE LA VERSION (owner : « on doit confirmer avec le user le changement réalisé »).

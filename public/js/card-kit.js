@@ -1221,28 +1221,43 @@
         var m1 = function (v) { return String(Math.round(Number(v) * 10) / 10).replace('.', ','); };
         var pc = function (s) { return String(Math.round(Number(s) * 1000) / 10).replace('.', ',') + ' %'; };
         var ligne = function (txt) { return '<div style="font-size:12.5px;color:#374151;margin-bottom:4px;">' + esc(txt) + '</div>'; };
-        var b = '<div class="eg-sec" data-eg-espace><div class="eg-uc">' + esc(t2('pole_space_title')) + '</div>';
+        // 15/09 (owner, point 5 : « data shall answer 2 questions : how is the Pole set up + how does
+        // it compare to other poles ») — DEUX BLOCS, UNE QUESTION CHACUN. Un seul les mêlait, et son
+        // titre datait les mètres : « Espace — 30 derniers jours » chapeautait « 7,8 m de linéaire »,
+        // qui n'est pas une quantité de 30 jours (vérifié dans l'en-tête de fct_client_space_30d : la
+        // fenêtre porte sur le CA et la marge ; les mètres viennent d'int_client_pole_space, la mesure
+        // COURANTE). Le premier bloc dit COMMENT le pôle est installé et ne porte AUCUNE fenêtre ; le
+        // second dit ce que cette place RAPPORTE et porte la sienne. La seconde question de l'owner —
+        // comment il se compare — est la section qui suit déjà (`pole_rank_title`) : rien de neuf ici,
+        // et surtout aucun second classement. `data-eg-espace` reste sur le premier bloc : c'est
+        // l'ancre que les pages et le harnais visent déjà.
+        var installe = '<div class="eg-sec" data-eg-espace><div class="eg-uc">' + esc(t2('pole_setup_title')) + '</div>';
+        var rapporte = '';
         if (sp && sp.linear_m != null) {
           var l1 = [t2('pole_space_lineaire', { m: m1(sp.linear_m) }),
             sp.linear_share != null ? t2('pole_space_part', { pct: pc(sp.linear_share) }) : '',
             sp.surface_m2 != null ? t2('pole_space_surface', { m: m1(sp.surface_m2) }) : ''].filter(Boolean).join(' · ');
-          b += '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">' + esc(l1) + '</div>';
+          installe += '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">' + esc(l1) + '</div>';
+          var r = '';
           if (sp.revenue_per_m != null) {
-            b += ligne([t2('pole_space_par_metre', { ca: frInt(sp.revenue_per_m) }),
+            r += ligne([t2('pole_space_par_metre', { ca: frInt(sp.revenue_per_m) }),
               sp.revenue_net_ht_per_m != null ? t2('pole_space_net_par_metre', { ca: frInt(sp.revenue_net_ht_per_m) }) : '',
               sp.margin_per_m != null ? t2('pole_space_marge_par_metre', { ca: frInt(sp.margin_per_m) }) : ''].filter(Boolean).join(' · '));
           }
           if (sp.revenue_per_m2 != null) {
-            b += ligne([t2('pole_space_par_m2', { ca: frInt(sp.revenue_per_m2) }),
+            r += ligne([t2('pole_space_par_m2', { ca: frInt(sp.revenue_per_m2) }),
               sp.revenue_net_ht_per_m2 != null ? t2('pole_space_net_par_m2', { ca: frInt(sp.revenue_net_ht_per_m2) }) : '',
               sp.margin_per_m2 != null ? t2('pole_space_marge_par_m2', { ca: frInt(sp.margin_per_m2) }) : ''].filter(Boolean).join(' · '));
           }
-          if (sp.margin_share != null && sp.linear_share != null) b += ligne(t2('pole_space_marge_contre', { marge: pc(sp.margin_share), lin: pc(sp.linear_share) }));
-          else if (sp.revenue_share != null && sp.linear_share != null) b += ligne(t2('pole_space_ca_contre', { ca: pc(sp.revenue_share), lin: pc(sp.linear_share) }));
+          if (sp.margin_share != null && sp.linear_share != null) r += ligne(t2('pole_space_marge_contre', { marge: pc(sp.margin_share), lin: pc(sp.linear_share) }));
+          else if (sp.revenue_share != null && sp.linear_share != null) r += ligne(t2('pole_space_ca_contre', { ca: pc(sp.revenue_share), lin: pc(sp.linear_share) }));
+          // Un pôle mesuré qui n'a pas encore vendu n'a aucun € par mètre : le bloc ne s'écrit pas
+          // du tout plutôt que de poser un titre sur du vide (lexique règle 7).
+          if (r) rapporte = '<div class="eg-sec" data-eg-rendement><div class="eg-uc">' + esc(t2('pole_yield_title')) + '</div>' + r + '</div>';
         } else {
-          b += '<div style="font-size:12.5px;color:#374151;">' + esc(t2('pole_space_none')) + '</div>';
+          installe += '<div style="font-size:12.5px;color:#374151;">' + esc(t2('pole_space_none')) + '</div>';
         }
-        h += b + '</div>';
+        h += installe + '</div>' + rapporte;
       })();
       // 14/09 (owner : « comparaison vs autres poles ») — OU SE SITUE CE POLE. Juste sous l'Espace, parce
       // que c'est le meme indicateur (CA par metre) sur la meme fenetre de 30 jours : la page ne porte

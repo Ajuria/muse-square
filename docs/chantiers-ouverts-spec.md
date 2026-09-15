@@ -15,6 +15,36 @@ manque**, et **la preuve exigée**.
 
 ---
 
+## La page d'un pôle — les six retours de l'owner du 15/09, dans SON ordre
+
+Retours donnés sur le proto `tools/proto/pole-deux-vues-proto.html`. L'ordre est celui qu'il a fixé
+(« fais dans cet ordre et commence par 7 ») : 7, 4, 5, 6, 1, 2, 3.
+
+| # | Le retour, dans ses mots | État |
+|---|---|---|
+| 7 | « En retrait sur votre résultat habituel / Aucun article vu sur les photos n'est en retrait. → Is it true or bullshit ? » | **fait** — la phrase était fausse : une liste vide avait deux causes et une seule était dite. Trois cas distincts (`poleReading.ts`, `card-kit.js`). |
+| 4 | « On n'a pas de vue jour des performances avec bar chart » | **fait** — `serie` au payload du pôle, `dayBars` réutilisé tel quel. Puis ses quatre retours de lisibilité : axe en diagonale, trait d'habituel gris, montant du jour plus lisible, colonnes chiffrées espacées. |
+| 5 | « Espace — 30 derniers jours → data shall answer 2 questions : how is the Pole set up + how does it compare to other poles » | **fait** — deux blocs : « Comment ce pôle est installé » (aucune fenêtre : les mètres ne sont pas une quantité de 30 jours) et « Ce que cette place rapporte — 30 derniers jours ». La 2e question est la section de classement qui suit déjà. |
+| 6 | « Articles des photos — 30 derniers jours → place section above list of photos » | à faire |
+| 1 | « Some Poles are missing such as Produits frais » sur le plan | à faire — 11 polygones pour 7 libellés : c'est le POLYGONE qu'il faut étiqueter, pas le pôle. |
+| 2 | « Pole words are written too small » | à faire — calque HTML à taille fixe par-dessus le plan, au lieu d'un texte SVG qui suit l'échelle. |
+| 3 | « Plan coloré légende : what does Cuisine 491 € means → shouldn't it show CA/m² » | à faire — `PLAN_MESURES` porte déjà six mesures ; la légende doit dire son unité. |
+
+### Les trois retours du 15/09 en fin de journée
+
+1. **« Le plan n'a pas changé ! »** — exact : les points 1, 2 et 3 ci-dessus portent tous sur le plan et
+   aucun n'est commencé. Ils viennent juste après le 6 dans son ordre.
+2. **« Familles du pôle est vide : bug ? »** — **pas reproduit, et la donnée est là.** Les 7 pôles de
+   `f10c3e58` portent leurs familles dans `analytics.action_commitments.pole_families` ; la route
+   `/api/commitments/evolution` les rend dans `commitment.pole_families` pour les 7 ; le proto affiche
+   la puce (« Flavours » pour Caisse). Il manque la SURFACE où l'owner l'a vue vide — à lui demander.
+3. **« Opérations sur ce pôle est-il relié aux pages M'engager ? »** — **oui, et le rattachement est
+   FACULTATIF, ce qui explique la liste vide.** `poleReading.ts` lit
+   `action_commitments WHERE attached_pole_id = <dispositif_id>` ; le formulaire de M'engager
+   (`commit-form.js`, « Rattacher à un pôle ») pose cette colonne, et son option par défaut est
+   « Aucun ». Sur le compte : 7 opérations, **0** rattachée. Décision owner à prendre — laisser
+   facultatif, pré-sélectionner le pôle quand l'opération naît depuis sa page, ou le rendre obligatoire.
+
 ## Fermés le 13/09 — il ne reste que la preuve par l'owner
 
 Ces deux-là étaient les points 1 et 2 du plan du matin. Le code est écrit, les tests ont été vus rouges

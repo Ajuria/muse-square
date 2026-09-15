@@ -89,7 +89,7 @@ const TITRE = (el: any): string => {
 const T = (k: string) => String((EVOL_COPY as any)[k] ?? "");
 const ORDRE: Array<{ vue: "Dispositif" | "Performance" | "bandeau"; titres: string[] }> = [
   { vue: "bandeau",     titres: [T("pole_plan_title")] },                                   // OÙ suis-je
-  { vue: "Dispositif",  titres: [T("pole_space_title"), T("pole_components_title"), T("pole_items_title"), T("lin_pole_titre"), T("vform_title")] },
+  { vue: "Dispositif",  titres: [T("pole_setup_title"), T("pole_yield_title"), T("pole_components_title"), T("pole_items_title"), T("lin_pole_titre"), T("vform_title")] },
   { vue: "Performance", titres: [T("pole_reading_title"), T("pole_rank_title"), T("shape_title"), T("pole_fams_title"), T("pole_ops_title")] },
 ];
 const RANG = new Map<string, { vue: string; i: number }>();
