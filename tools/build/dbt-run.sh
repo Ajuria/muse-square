@@ -39,14 +39,16 @@ import json, sys
 print(json.dumps(["dbt build --select " + a for a in sys.argv[1:]]))' "$@")
 CAUSE="run ciblé — $*"
 
+export MS_DBT_HOST="$HOST"
 curl -s -X POST "https://${HOST}/api/v2/accounts/${DBT_ACCOUNT_ID}/jobs/${JOB}/run/" \
   -H "Authorization: Token ${DBT_API_TOKEN}" -H "Content-Type: application/json" \
   -d "{\"cause\": $(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$CAUSE"), \"steps_override\": ${STEPS}}" \
   | python3 -c '
-import sys, json
+import sys, json, os
 j = json.load(sys.stdin); d = j.get("data") or {}
 if not d:
     print("✗", j.get("status", {}).get("user_message", j)); sys.exit(1)
-print(f"  run {d.get(\"id\")} lancé — {d.get(\"status_humanized\")}")
-print(f"  suivi : https://cloud.getdbt.com/deploy/{d.get(\"account_id\")}/projects/{d.get(\"project_id\")}/runs/{d.get(\"id\")}/")
+host = os.environ.get("MS_DBT_HOST", "cloud.getdbt.com")
+print("  run {} lancé — {}".format(d.get("id"), d.get("status_humanized")))
+print("  suivi : https://{}/deploy/{}/projects/{}/runs/{}/".format(host, d.get("account_id"), d.get("project_id"), d.get("id")))
 '
