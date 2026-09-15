@@ -211,6 +211,7 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
         <button id="mainBtn" type="button" class="ms-btn" disabled={poles.length === 0}>{EVOL_COPY.releve_commencer}</button>
         <div id="summary">
           <div id="sumEtat"></div>
+          <div id="sumBilan" style="display:none;"></div>
           <div id="sumBody"></div>
           <div class="rl-row">
             <button id="sumBack" type="button" class="ms-btn">{EVOL_COPY.releve_reprendre}</button>
@@ -330,6 +331,13 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       #summary .sec { margin: 0 0 18px; }
       #summary .sec h3 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: #111827; font-weight: 700; margin: 0 0 8px; }
       #summary .sec .n { font-size: 13px; color: #6b7280; margin: 0 0 6px; }
+      /* 15/09 — LE BILAN DE LA MARCHE, en tête de la page de fin. Styles portés ICI et non en ligne :
+         ce bloc est écrit par le kit dans un conteneur qui EXISTE dans la page, donc un bloc scopé
+         l'atteint (à la différence du HTML injecté ailleurs, CLAUDE.md § Frontend). */
+      #sumBilan { background: #FBFCFE; border: 1px solid #eef1f6; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+      .rl-bilan-t { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #111827; margin-bottom: 6px; }
+      .rl-bilan-l { font-size: 13px; color: #374151; line-height: 1.55; }
+      .rl-bilan-w { font-size: 12.5px; color: #B45309; margin-top: 6px; }
       .rl-shot { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F3F4F6; }
       .rl-shot img { width: 96px; height: 110px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; flex: none; }
       .rl-shot .c { flex: 1; min-width: 0; }
@@ -395,6 +403,6 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       })();
     </script>
     <script is:inline src="/js/photo-capture.js?v=3"></script>
-    <script is:inline src="/js/releve-espace.js?v=11"></script>
+    <script is:inline src="/js/releve-espace.js?v=21"></script>
   </BaseLayout>
 </Show>

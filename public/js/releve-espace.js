@@ -475,6 +475,16 @@
       its.forEach(function (it) { sec.appendChild(ligneDePhoto(it)); });
       body.appendChild(sec);
     });
+    // LE BILAN EN TÊTE DE LA PAGE DE FIN : ce que la marche a donné, avant la liste des photos.
+    var bil = bilanDeMarche({ t: t, gardees: kept.length, dureeS: tOff(), problems: run.problems });
+    var bEl = $("sumBilan");
+    if (bEl) {
+      bEl.innerHTML = '<div class="rl-bilan-t">' + esc(t("releve_bilan_titre")) + '</div>'
+        + '<div class="rl-bilan-l">' + esc(bil.ligne1) + '</div>'
+        + '<div class="rl-bilan-l">' + esc(bil.ligne2) + '</div>'
+        + (bil.perdue ? '<div class="rl-bilan-w">' + esc(bil.perdue_texte) + '</div>' : '');
+      bEl.style.display = "block";
+    }
     compteRendu();
     $("summary").style.display = "block";
   }
@@ -637,6 +647,37 @@
     compteRendu();
   }
 
+  // ── LE BILAN DE LA MARCHE, EN MOTS (owner 15/09 : « le film prend beaucoup de photos dont beaucoup
+  // seront éliminées »). PUR : il ne lit que ce que la marche a compté, et ne touche à rien.
+  //
+  // POURQUOI IL EXISTE. Tout était déjà compté — `run.problems` porte chaque image écartée avec son
+  // MOTIF — mais seulement dans le JSON à télécharger. L'exploitant ne pouvait pas savoir ce que son
+  // film avait refusé, ni pourquoi. Or c'est le motif qui se corrige : « trop sombre » se répare en
+  // allumant, « trop floue » en s'arrêtant une seconde de plus. Un compte sans motif ne sert à rien.
+  //
+  // UNE ÉCARTÉE N'EST PAS UNE PERTE : l'appareil refuse le noir et le flou AVANT de garder. Le bilan
+  // dit donc ce que la marche a produit, pas ce qu'elle a raté.
+  function bilanDeMarche(e) {
+    var t = e.t;
+    var gardees = Math.max(0, Number(e.gardees) || 0);
+    var min = Math.max(1, Math.round((Number(e.dureeS) || 0) / 60));
+    var ecartes = (e.problems || []).filter(function (p) { return p && p.kept === false && (p.reason === "sombre" || p.reason === "floue"); });
+    var parMotif = {};
+    ecartes.forEach(function (p) { parMotif[p.reason] = (parMotif[p.reason] || 0) + 1; });
+    var motifs = Object.keys(parMotif).sort().map(function (k) {
+      return parMotif[k] + " " + t(k === "sombre" ? "releve_bilan_sombre" : "releve_bilan_floue");
+    }).join(" · ");
+    var l1 = (gardees === 1 ? t("releve_bilan_gardee_une") : t("releve_bilan_gardees").split("{n}").join(String(gardees)))
+      .split("{min}").join(String(min));
+    var l2 = !ecartes.length ? t("releve_bilan_aucune_ecartee")
+      : (ecartes.length === 1 ? t("releve_bilan_ecartee_une") : t("releve_bilan_ecartees").split("{n}").join(String(ecartes.length)))
+          .split("{motifs}").join(motifs);
+    // La marche non enregistrée se DIT : sans ça, le trou ne se découvre qu'en interrogeant la base,
+    // des semaines plus tard (mesuré le 15/09 — table vide, et personne ne le savait).
+    var perdue = (e.problems || []).some(function (p) { return p && String(p.reason || "").indexOf("marche_non_ecrite") === 0; });
+    return { ligne1: l1, ligne2: l2, perdue: perdue, perdue_texte: perdue ? t("releve_bilan_non_ecrite") : "" };
+  }
+
   function compteRendu() {
     var report = { surface: "releve-espace", startedAt: run.startedAt, endedAt: new Date().toISOString(), durationS: tOff(), camera: run.camera, ua: navigator.userAgent, viewport: [innerWidth, innerHeight],
       reglages: { tMove: cfg.tMove, tStill: cfg.tStill, stillMs: cfg.stillMs, winMs: cfg.winMs, sharpMin: cfg.sharpMin, brightMin: cfg.brightMin },
@@ -697,6 +738,7 @@
   // ── harnais (identiques) ──────────────────────────────────────────────────
   window.__releveAttach = function (s) { if (run.phase !== "running") start(); attach(s); };
   window.__releveStep = function (dt) { if (run.phase !== "running") start(); if (!stream) stream = true; var x = (det.tick || now()) + (dt || 120); det.tick = x; step(x, dt || 120); return window.__releveState(); };
+  window.__releveBilan = bilanDeMarche;
   window.__releveState = function () { return { phase: run.phase, state: det.state, armed: det.armed, m: Math.round(det.lastM * 10) / 10, scene: det.lastScene == null ? null : Math.round(det.lastScene * 10) / 10, s: Math.round(det.lastS), stillAcc: Math.round(det.stillAcc), ticks: det.ticks, lastError: det.lastError, overlay: overlay.style.display === "flex" ? $("ovTitle").textContent : null, etat: etatEl ? etatEl.getAttribute("data-mot") : null, plein_ecran: capture ? !capture.hidden : null, pole: run.pole, poles: POLES.length, items: run.items.map(function (i) { return { seq: i.seq, t: i.t, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, coverage: i.coverage || null, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, source: i.source, manual: i.manual, reason: i.reason }; }), switches: run.switches.length, problems: run.problems.slice(), mainBtn: $("mainBtn").textContent, clock: $("rl-clock").textContent }; };
 
   renderPoles();

@@ -272,6 +272,19 @@ export const EVOL_COPY = {
   releve_une_photo: "1 photo",
   releve_n_photos: "{n} photos",
   releve_non_rattache: "Non rattaché",
+  // 15/09 (owner : « le film prend beaucoup de photos dont beaucoup seront éliminées… ») — CE QUE LA
+  // MARCHE A DONNÉ, EN MOTS, sur la page de fin. Tout était déjà compté, mais seulement dans le JSON à
+  // télécharger : l'exploitant ne pouvait pas savoir ce que son film avait écarté, ni pourquoi. Les
+  // écarts se disent par leur MOTIF, parce qu'un motif se corrige à la marche suivante.
+  releve_bilan_titre: "Ce que cette marche a donné",
+  releve_bilan_gardees: "{n} photos gardées en {min} min",
+  releve_bilan_gardee_une: "1 photo gardée en {min} min",
+  releve_bilan_ecartees: "{n} écartées : {motifs}",
+  releve_bilan_ecartee_une: "1 écartée : {motifs}",
+  releve_bilan_aucune_ecartee: "Aucune écartée.",
+  releve_bilan_sombre: "trop sombre",
+  releve_bilan_floue: "trop floue",
+  releve_bilan_non_ecrite: "Le détail de cette marche n'a pas été enregistré. Vos photos, elles, sont en base.",
   releve_compte_rendu: "Compte rendu",
   // ── L'ÉCRAN DE PRISE DE VUE (owner 14/09, premier essai réel) ────────────────────────────────────
   // Verdict owner : « Je n'ai eu aucune instruction a l'affichage (pas guidé du tout) » et « on voit une
