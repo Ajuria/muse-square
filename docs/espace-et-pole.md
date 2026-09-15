@@ -86,6 +86,14 @@ sur le composant (formulaire de pôle), jamais pendant le relevé ; **faces de p
   du plan s'y accrochent ; `space_fixture_points` n'est pas concernée, un point tient au composant et non à son
   numéro. La renumérotation est MONOTONE : l'ordre de la marche (`prochainAPlacer`) est le même avant et après.
   `tools/oneoff/2026-09-15-renumeroter-composants.mts` (constat seul par défaut, `--appliquer` pour écrire).
+  **Le plan PDF porte la PLAGE de chaque pôle**, posée sous l'étiquette « Pôle X » qu'il écrit déjà
+  (`…/map/Plan_Poles_Epices_et_Tout_numerote_2026-09-15.pdf`, par
+  `tools/oneoff/2026-09-15-plan-numeros-par-pole.mts` : plages lues en base, positions lues dans la couche
+  texte du PDF, aucune place qui couvre un mot du plan). Les 52 numéros par composant n'y sont PAS, et ne
+  peuvent pas l'être automatiquement : le plan ne porte aucun repère par composant (couche texte = 7 noms de
+  pôle, 33 familles, des cotes), trois découpages des rectangles bleus rendent 134, 27 et 84 blocs au lieu de
+  52, et les 33 étiquettes de famille ne désignent un composant unique que dans 9 cas sur 52 (mesuré 15/09).
+  Ils se poseront depuis les points que l'exploitant tape sur le plan pendant la marche (`space_fixture_points`).
 - **Surfaces des pôles (12/09)** : le plan ne trace aucun contour de pôle (les pointillés sont des cotes) ; les sept
   zones ont été CONSTRUITES depuis le vectoriel — sol de vente = intérieur des murs (trois portes fermées, vestibule
   PMR exclu) moins les zones hachurées non accessibles au public, chaque pixel allant au pôle de l'étiquette du plan la
