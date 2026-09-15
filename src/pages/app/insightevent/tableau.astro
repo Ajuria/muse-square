@@ -111,7 +111,15 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
       .tb-rb:hover { border-color: #C7D2FE; }
       .tb-rb.on { border-color: #1D3BB3; box-shadow: 0 0 0 1px #1D3BB3 inset; }
       .tb-rb .hd { display: flex; align-items: center; gap: 7px; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: #6B7280; font-weight: 600; }
-      .tb-rb .hd .cv { margin-left: auto; color: #C7D2FE; font-size: 11px; }
+      .tb-rb .hd .nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      /* La tendance du pôle, à côté de son nom (owner 15/09) : elle répond à « ça monte ou ça
+         descend ? ». Le chiffre et les deux lignes du dessous répondent à « lequel ouvrir ? ». */
+      .tb-rb .hd .tend { font-size: 10px; font-weight: 700; letter-spacing: 0; text-transform: none; flex: none; font-variant-numeric: tabular-nums; }
+      .tb-rb .hd .cv { color: #C7D2FE; font-size: 11px; flex: none; }
+      /* Le linéaire et la marge, chacun sur SA ligne (owner 15/09) : en une phrase, le téléphone
+         coupait « 11,7 % du linéaire pour 2,6 » / « % de la marge » — le nombre était scindé. */
+      .tb-rb .ln { font-size: 11.5px; color: #374151; margin-top: 3px; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tb-rb .ln b { font-weight: 700; }
       .tb-rb .num { font-size: 18px; font-weight: 700; margin-top: 5px; letter-spacing: -0.01em; }
       .tb-rb .num .u { font-size: 11.5px; font-weight: 500; color: #6B7280; margin-left: 4px; }
       .tb-rb .rs2 { font-size: 10.5px; color: #9CA3AF; margin-top: 3px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -1061,25 +1069,48 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
               // « Fait » ne se dit QUE sur une disposition au préfixe 'fait' (la trace note
               // porte « fait · … » / « pas_encore · … ») — jamais sur un geste inconnu.
               var lastFait = (p.historique || []).filter(function (h) { return h.kind === "geste" && String(h.note || "").indexOf("fait") === 0 && h.author; })[0];
+              // 15/09 (owner) — LA PASTILLE REFAITE. Elle répond à DEUX questions, à deux endroits :
+              // « ça monte ou ça descend ? » par la tendance à côté du nom, « lequel dois-je ouvrir ? »
+              // par le CA au mètre et les deux lignes du dessous. Ce qui QUITTE la pastille — le
+              // responsable, les opérations, le dernier « Fait le » — est DANS LE VOLET, à un toucher,
+              // et le volet s'ouvre désormais sous sa propre rangée. Restent ici le nom du site
+              // (identité, quand le compte en a plusieurs) et « Pôle en projet » (une absence de vente
+              // n'est pas du bruit). Sans mesure d'espace, la pastille GARDE sa forme d'avant : on ne
+              // remplace pas un chiffre qui existe par un tiret.
+              var sp = p.space || null;
+              var auMetre = !!(sp && sp.revenue_per_m != null);
               var rs = [];
               if (J.multi_site && p.site_label) rs.push(esc(p.site_label));
-              if (rd.share_pct != null) rs.push(String(rd.share_pct).replace(".", ",") + " % du CA");
-              // Espace du pôle (11/09, docs/espace-et-pole.md E4-E6) : mètres de façade et Part de linéaire,
-              // lus sur vw_insight_event_space_30d (payload p.space) — absents sans mesure, jamais 0.
-              if (p.space && p.space.linear_m != null) {
-                rs.push(m1Fr(p.space.linear_m) + " m de linéaire" + (p.space.linear_share != null ? " · Part de linéaire " + pctFr(p.space.linear_share) : ""));
-              }
               if (p.projet_fr) rs.push(esc(p.projet_fr));
-              if (p.responsable) rs.push("Responsable(s) " + esc(p.responsable));
-              rs.push(p.ops_open ? p.ops_open + " opération" + (p.ops_open > 1 ? "s" : "") : "aucune opération rattachée");
-              if (lastFait) rs.push("Fait le " + frD(lastFait.d) + " — " + esc(lastFait.author));
+              if (!auMetre) {
+                // Sans € par mètre, les MÈTRES restent la seule information d'espace : un pôle qui
+                // occupe 23,6 m sans vendre, c'est précisément ce qu'il faut voir.
+                if (sp && sp.linear_m != null) {
+                  rs.push(m1Fr(sp.linear_m) + " m de linéaire" + (sp.linear_share != null ? " · Part de linéaire " + pctFr(sp.linear_share) : ""));
+                }
+                if (rd.share_pct != null) rs.push(String(rd.share_pct).replace(".", ",") + " % du CA");
+                rs.push(p.ops_open ? p.ops_open + " opération" + (p.ops_open > 1 ? "s" : "") : "aucune opération rattachée");
+                if (lastFait) rs.push("Fait le " + frD(lastFait.d) + " — " + esc(lastFait.author));
+              }
+              // La marge porte la couleur : c'est elle qu'on compare au linéaire, et la couleur fait
+              // la comparaison sans qu'on ait à lire les deux nombres.
+              var dotMarge = (sp && sp.margin_share != null && sp.linear_share != null)
+                ? (sp.margin_share >= sp.linear_share ? GREEN : AMBER) : GREY;
+              var titreN30 = (rd.n30 || 0) + " jour" + ((rd.n30 || 0) > 1 ? "s" : "") + " vendu" + ((rd.n30 || 0) > 1 ? "s" : "") + " sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté.";
               html += '<button type="button" class="tb-rb" data-tb-pole="' + esc(p.dispositif_id) + '">'
-                + '<span class="hd"><span style="width:7px;height:7px;border-radius:50%;background:' + dot + ';flex:none;display:inline-block;"></span>' + esc(p.name) + '<span class="cv">▾</span></span>'
-                + '<div class="num">' + (rd.rev30_eur != null ? frInt(rd.rev30_eur) + ' €' : '—') + '<span class="u">sur 30 j</span></div>'
+                + '<span class="hd"><span style="width:7px;height:7px;border-radius:50%;background:' + dot + ';flex:none;display:inline-block;"></span>'
+                + '<span class="nom">' + esc(p.name) + '</span>'
                 + (rd.delta_pct != null
-                  ? '<div style="font-size:11px;font-weight:600;color:' + dot + ';margin-top:3px;">' + pDeltaFr(rd.delta_pct) + ' vs les 90 jours précédents</div>'
-                  : '<div style="font-size:11px;font-weight:600;color:#9CA3AF;margin-top:3px;cursor:help;" title="' + (rd.n30 || 0) + ' jour' + ((rd.n30 || 0) > 1 ? 's' : '') + ' vendu' + ((rd.n30 || 0) > 1 ? 's' : '') + ' sur les 30 derniers — la comparaison demande au moins 5 jours vendus de chaque côté.">Données insuffisantes ⓘ</div>')
-                + '<div class="rs2">' + rs.join(" · ") + '</div></button>';
+                  ? '<span class="tend" style="color:' + dot + ';">' + pDeltaFr(rd.delta_pct) + '</span>'
+                  : '<span class="tend" style="color:#9CA3AF;cursor:help;" title="' + titreN30 + '">—</span>')
+                + '<span class="cv">▾</span></span>'
+                + (auMetre
+                  ? '<div class="num">' + frInt(sp.revenue_per_m) + '\u00A0€<span class="u">par mètre linéaire</span></div>'
+                    + (sp.linear_share != null ? '<div class="ln"><b>' + pctFr(sp.linear_share) + '</b> du linéaire</div>' : '')
+                    + (sp.margin_share != null ? '<div class="ln"><b style="color:' + dotMarge + ';">' + pctFr(sp.margin_share) + '</b> de la marge</div>' : '')
+                  : '<div class="num">' + (rd.rev30_eur != null ? frInt(rd.rev30_eur) + '\u00A0€' : '—') + '<span class="u">sur 30 j</span></div>')
+                + (rs.length ? '<div class="rs2">' + rs.join(" · ") + '</div>' : '')
+                + '</button>';
             });
             // « Non rattaché » (owner 09/09) : les familles qu'aucun pôle ne porte, dans la MÊME
             // grille — sinon le trou reste invisible, ce que la règle interdit. Une DIV, jamais un
@@ -2031,9 +2062,9 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
                   + (sp.surface_m2 != null ? ' · ' + m1Fr(sp.surface_m2) + ' m² de surface de vente' : '');
                 h += '<div style="font-size:13px;font-weight:600;color:#111827;margin-bottom:4px;">' + l1 + '</div>';
                 if (sp.revenue_per_m != null) {
-                  h += '<div style="font-size:12.5px;color:#374151;margin-bottom:4px;">' + frInt(sp.revenue_per_m) + ' € de CA par mètre'
-                    + (sp.revenue_net_ht_per_m != null ? ' · ' + frInt(sp.revenue_net_ht_per_m) + ' € de CA net HT par mètre' : '')
-                    + (sp.margin_per_m != null ? ' · ' + frInt(sp.margin_per_m) + ' € de marge brute par mètre' : '') + '</div>';
+                  h += '<div style="font-size:12.5px;color:#374151;margin-bottom:4px;">' + frInt(sp.revenue_per_m) + ' € de CA par mètre linéaire'
+                    + (sp.revenue_net_ht_per_m != null ? ' · ' + frInt(sp.revenue_net_ht_per_m) + ' € de CA net HT par mètre linéaire' : '')
+                    + (sp.margin_per_m != null ? ' · ' + frInt(sp.margin_per_m) + ' € de marge brute par mètre linéaire' : '') + '</div>';
                   if (sp.revenue_per_m2 != null) {
                     h += '<div style="font-size:12.5px;color:#374151;margin-bottom:4px;">' + frInt(sp.revenue_per_m2) + ' € de CA par m²'
                       + (sp.revenue_net_ht_per_m2 != null ? ' · ' + frInt(sp.revenue_net_ht_per_m2) + ' € de CA net HT par m²' : '')

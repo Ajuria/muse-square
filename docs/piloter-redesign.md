@@ -32,6 +32,40 @@ verdict** · Signaux traités · Connaissances créées. La tuile « Objectifs a
 plus : elle insistait sur un négatif qui relève du CALIBRAGE, pas de la performance (owner
 24/08 au soir). Le mot ne survit que dans une infobulle de ligne (« atteints k/n »).
 
+## La pastille d'un pôle — ce qu'elle dit (arbitrage owner 15/09)
+
+Une pastille de « Vos pôles » répond à **deux questions, à deux endroits** :
+
+| où | quoi |
+|---|---|
+| à côté du nom | **« ça monte ou ça descend ? »** — l'écart du pôle sur 30 j, en POURCENTAGE |
+| le grand chiffre | **« lequel dois-je ouvrir ? »** — le CA **par mètre linéaire** |
+| deux lignes | la part du linéaire, puis la part de la marge — **chacune sur SA ligne** |
+
+**Le grand chiffre est le CA par mètre, pas le CA ni l'écart.** C'est lui qui classe les pôles (65 →
+491 € sur le compte de test, un facteur 7,5) ; un pourcentage en tête effacerait la grandeur — +50 %
+sur 65 €/m et +50 % sur 491 €/m ne sont pas le même événement.
+
+**L'unité se NOMME : « par mètre linéaire ».** `revenue_per_m` est le CA par mètre linéaire de façade
+(en-tête de `fct_client_space_30d` : « KPI 5 par mètre linéaire, KPI 12 par m² ») — et la page disait
+« par mètre » juste à côté de « par m² ». Le mot est celui du lexique (owner 03/09).
+
+**La tendance est en POURCENTAGE, jamais en « points »** (owner : « we don't use points in UI anywhere
+else »). Une variante « écart face au magasin », en points, a été écrite puis écartée pour cette
+raison : une surface n'introduit pas une unité pour une seule pastille. Ce qu'elle apportait reste
+vrai et non rendu — sur le compte de test, le magasin monte de 43,9 % et les sept pôles le suivent,
+donc les sept tendances sont vertes alors que trois décrochent.
+
+**Ce qui QUITTE la pastille** : responsable, opérations rattachées, dernier « Fait le », part du CA.
+Tout cela est DANS LE VOLET, à un toucher, et le volet s'ouvre sous sa propre rangée depuis le 14/09.
+**Ce qui reste** : le nom du site (identité, en multi-site) et « Pôle en projet » (une absence de
+vente n'est pas du bruit). **Sans mesure d'espace, la pastille garde sa forme d'avant** — CA sur 30 j
+et mètres — plutôt qu'un tiret.
+
+Rendu prouvé par `npm run harness:tableau-espace` sur le payload RÉEL du compte : 7 pôles sur 7 disent
+« par mètre linéaire », la tendance porte un pourcentage, les deux lignes existent séparément. Trois
+mutations vues rouges (tendance retirée, marge privée de sa ligne, unité redevenue ambiguë).
+
 ## Multi-site
 
 Deux segments en tête de page — **site** (« Tous les sites · par site ») et **période**

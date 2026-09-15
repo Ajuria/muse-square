@@ -45,7 +45,14 @@ function polePayload(p, sp, extra) {
 }
 
 const astro = readFileSync(new URL("../../src/pages/app/insightevent/tableau.astro", import.meta.url), "utf8");
-const src = astro.match(/<script is:inline>\n([\s\S]*?)\n {4}<\/script>/)[1];
+// `tableau.astro` porte PLUSIEURS scripts en ligne (deux au 15/09) : prendre le premier donnait un
+// fragment qui contenait « </script> » et le harnais mourait avant sa première assertion — une porte
+// qui ne tourne plus n'est plus une porte. On prend le PLUS LONG, celui qui porte le rendu.
+const src = (() => {
+  const blocs = [...astro.matchAll(/<script is:inline>\n([\s\S]*?)\n {4,6}<\/script>/g)].map((m) => m[1]);
+  if (!blocs.length) throw new Error("aucun <script is:inline> dans tableau.astro");
+  return blocs.sort((a, b) => b.length - a.length)[0];
+})();
 async function render(p) {
   const win = new Window({ url: "https://app.local/app/insightevent/tableau?location_id=" + OWNER_LOC });
   const doc = win.document;
@@ -81,7 +88,7 @@ async function render(p) {
   body.querySelector("[data-tb-pole]").click(); await tick();
   const pt = body.querySelector("#tb-pole-panel").textContent;
   check("volet : « 18,5 m² de surface de vente »", pt.indexOf("18,5 m² de surface de vente") >= 0);
-  check("volet : « 412 € de CA par mètre · 400 € de CA net HT par mètre · 160 € de marge brute par mètre »", pt.indexOf("412 € de CA par mètre · 400 € de CA net HT par mètre · 160 € de marge brute par mètre") >= 0, pt);
+  check("volet : « 412 € de CA par mètre linéaire · 400 € de CA net HT par mètre linéaire · 160 € de marge brute par mètre linéaire »", pt.indexOf("412 € de CA par mètre linéaire · 400 € de CA net HT par mètre linéaire · 160 € de marge brute par mètre linéaire") >= 0, pt);
   check("volet : « 526 € de CA par m² · 511 € de CA net HT par m² »", pt.indexOf("526 € de CA par m² · 511 € de CA net HT par m²") >= 0);
   check("volet : « Part de marge 17,1 % contre Part de linéaire 11,7 % »", pt.indexOf("Part de marge 17,1 % contre Part de linéaire 11,7 %") >= 0);
 }
@@ -95,5 +102,33 @@ async function render(p) {
   card.click(); await tick();
   check("volet sans mesure : « Aucune mesure d’espace pour l’instant. »", body.querySelector("#tb-pole-panel").textContent.indexOf("Aucune mesure d’espace pour l’instant.") >= 0);
 }
+// 4. LA PASTILLE REFAITE (owner 15/09), sur le payload RÉEL du compte : tendance à côté du nom,
+//    CA par mètre LINÉAIRE en grand, puis le linéaire et la marge CHACUN SUR SA LIGNE.
+{
+  const { body } = await render(payload);
+  const cartes = [...body.querySelectorAll("[data-tb-pole]")];
+  check("payload réel : des pôles avec un CA au mètre", cartes.length > 0, cartes.length + " carte(s)");
+  const avecMetre = cartes.filter((c) => c.textContent.indexOf("par mètre linéaire") >= 0);
+  check("chaque pôle mesuré dit « par mètre linéaire », jamais « par mètre » seul",
+    avecMetre.length > 0 && cartes.every((c) => c.textContent.indexOf("par mètre") < 0 || c.textContent.indexOf("par mètre linéaire") >= 0),
+    avecMetre.length + "/" + cartes.length);
+  // Un harnais qui MEURT au premier échec cache tous les suivants : sans cette garde, la mutation
+  // « par mètre » (15/09) faisait tomber un contrôle et sautait les quatre d'après.
+  const c0 = avecMetre[0];
+  if (!c0) { check("pastille mesurée disponible pour les contrôles suivants", false, "aucune"); }
+  else {
+  // La PRÉSENCE de la pastille ne suffit pas : sans delta elle rend « — », et un contrôle qui se
+  // contente d'elle reste vert quand la tendance disparaît (mutation vue le 15/09).
+  const tend = c0.querySelector(".hd .tend");
+  check("la tendance est DANS l'en-tête, à côté du nom, et porte un POURCENTAGE",
+    !!tend && /^[+\u2212-]?\d+([,.]\d+)?\s*%$/.test(tend.textContent.trim()),
+    tend ? JSON.stringify(tend.textContent) : "(absente)");
+  const lignes = [...c0.querySelectorAll(".ln")].map((e) => e.textContent.trim());
+  check("le linéaire et la marge ont CHACUN leur ligne", lignes.length === 2 && /du linéaire$/.test(lignes[0]) && /de la marge$/.test(lignes[1]), JSON.stringify(lignes));
+  check("le nombre et son symbole ne se séparent pas (espace insécable)", c0.querySelector(".num").textContent.indexOf("\u00a0\u20ac") >= 0, JSON.stringify(c0.querySelector(".num").textContent));
+  check("la ligne grise de cinq faits a disparu des pôles mesurés", (c0.querySelector(".rs2") ? c0.querySelector(".rs2").textContent : "").indexOf(" % du CA") < 0, c0.querySelector(".rs2") ? c0.querySelector(".rs2").textContent : "(aucune)");
+  }
+}
+
 console.log(fails ? `\n${fails} échec(s).` : "\nTout vert.");
 process.exit(fails ? 1 : 0);
