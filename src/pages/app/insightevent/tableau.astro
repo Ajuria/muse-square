@@ -54,36 +54,6 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
           #tb-doc-menu { display: none; }
         }
       </style>
-      <script is:inline>
-        (function () {
-          // 14/09 (owner) — « DOCUMENTER » OUVRE LE RELEVÉ DE L'ESPACE, et rien d'autre. Le geste validé
-          // les 11-12/09 est la MARCHE dans le magasin (docs/marche-guidee-spec.md) : une photo par Point
-          // focal, les pôles touchés en route. Ce bouton ouvrait la caméra native pour UNE photo d'UN
-          // composant — le dépôt photo par photo que la mesure du 10/09 condamne (le coût est le tri) ;
-          // il n'a jamais été validé comme geste de ce bouton. La caméra se demande désormais sur la page
-          // du relevé, à « Commencer le relevé » : un geste utilisateur y est présent, donc naviguer ici
-          // ne coûte rien. Le site voyage dans l'adresse (`window._tbLoc`) : jamais le site de session
-          // quand le tableau en regarde un autre.
-          var ouvrir = function () {
-            var loc = window._tbLoc || "";
-            window.location.href = "/app/insightevent/releve" + (loc ? "?location_id=" + encodeURIComponent(loc) : "");
-          };
-          ["tb-doc", "tb-doc-menu"].forEach(function (id) {
-            var el = document.getElementById(id);
-            if (el) el.addEventListener("click", function () { var m2 = document.getElementById("tb-menu"); if (m2) m2.style.display = "none"; ouvrir(); });
-          });
-          var b = document.getElementById("tb-menu-btn"), m = document.getElementById("tb-menu");
-          if (!b || !m) return;
-          // 14/09 — la bascule du menu s'appelle `basculer`, JAMAIS `ouvrir` : les deux `var` vivaient
-          // dans cette même fonction, le second écrasait le premier au chargement, et « Documenter »
-          // refermait le menu au lieu d'ouvrir l'appareil photo. Aucune erreur console : le clic ne
-          // faisait rien. Deux noms, deux gestes.
-          var basculer = function (on) { m.style.display = on ? "block" : "none"; b.setAttribute("aria-expanded", String(on)); };
-          b.addEventListener("click", function (e) { e.stopPropagation(); basculer(m.style.display !== "block"); });
-          document.addEventListener("click", function (e) { if (!m.contains(e.target) && e.target !== b) basculer(false); });
-          document.addEventListener("keydown", function (e) { if (e.key === "Escape") basculer(false); });
-        })();
-      </script>
     </div>
 
 
@@ -144,6 +114,40 @@ const locParam = Astro.url.searchParams.get("location_id") || "";
     </style>
 
     <script is:inline>
+      // 15/09 — CE BLOC VIVAIT DANS UN SECOND `<script is:inline>` de cette page. Un fichier qui a
+      // déjà son script n'en reçoit pas un deuxième : l'extraction du harnais prenait le premier et
+      // mourait sur un SyntaxError avant sa première assertion — la porte de rendu de Piloter n'a
+      // rien vérifié pendant une journée, sans que rien ne le dise. Il est ici, au même endroit que
+      // le reste du câblage de la page.
+      (function () {
+        // 14/09 (owner) — « DOCUMENTER » OUVRE LE RELEVÉ DE L'ESPACE, et rien d'autre. Le geste validé
+        // les 11-12/09 est la MARCHE dans le magasin (docs/marche-guidee-spec.md) : une photo par Point
+        // focal, les pôles touchés en route. Ce bouton ouvrait la caméra native pour UNE photo d'UN
+        // composant — le dépôt photo par photo que la mesure du 10/09 condamne (le coût est le tri) ;
+        // il n'a jamais été validé comme geste de ce bouton. La caméra se demande désormais sur la page
+        // du relevé, à « Commencer le relevé » : un geste utilisateur y est présent, donc naviguer ici
+        // ne coûte rien. Le site voyage dans l'adresse (`window._tbLoc`) : jamais le site de session
+        // quand le tableau en regarde un autre.
+        var ouvrir = function () {
+          var loc = window._tbLoc || "";
+          window.location.href = "/app/insightevent/releve" + (loc ? "?location_id=" + encodeURIComponent(loc) : "");
+        };
+        ["tb-doc", "tb-doc-menu"].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.addEventListener("click", function () { var m2 = document.getElementById("tb-menu"); if (m2) m2.style.display = "none"; ouvrir(); });
+        });
+        var b = document.getElementById("tb-menu-btn"), m = document.getElementById("tb-menu");
+        if (!b || !m) return;
+        // 14/09 — la bascule du menu s'appelle `basculer`, JAMAIS `ouvrir` : les deux `var` vivaient
+        // dans cette même fonction, le second écrasait le premier au chargement, et « Documenter »
+        // refermait le menu au lieu d'ouvrir l'appareil photo. Aucune erreur console : le clic ne
+        // faisait rien. Deux noms, deux gestes.
+        var basculer = function (on) { m.style.display = on ? "block" : "none"; b.setAttribute("aria-expanded", String(on)); };
+        b.addEventListener("click", function (e) { e.stopPropagation(); basculer(m.style.display !== "block"); });
+        document.addEventListener("click", function (e) { if (!m.contains(e.target) && e.target !== b) basculer(false); });
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape") basculer(false); });
+      })();
+
       (function () {
         var root = document.getElementById("tb-root");
         var body = document.getElementById("tb-body");
