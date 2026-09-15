@@ -331,11 +331,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // Sa table part telle quelle ; la ligne de CE pôle se retrouve par sa CLÉ (jamais par son libellé) et
       // part en gras et en bleu donnée. Un seul pôle mesuré : il n'y a personne à qui se comparer, rien ne part.
       // 14/09 (owner, point 5) — LE PLAN AU SOL. Le plan coloré existe déjà (planColore.ts, bloc d'Explorer,
-      // primitive `plan` du kit) : on ne redessine RIEN. Même mesure que les deux sections au-dessus — le CA
-      // par mètre — donc la page entière ne porte qu'UN référentiel. La zone de CE pôle est marquée par sa
-      // CLÉ ; la composition, elle, ignore d'où on la regarde et reste identique pour Explorer.
+      // primitive `plan` du kit) : on ne redessine RIEN. La zone de CE pôle est marquée par sa CLÉ ; la
+      // composition, elle, ignore d'où on la regarde et reste identique pour Explorer.
+      // 15/09 (owner, point 3 : « shouldn't it show CA/m² instead of flat numbers ») — LE PLAN TEINTE PAR
+      // m², plus par mètre linéaire. Un plan colorie des SURFACES : le m² est l'unité de ce qu'on regarde,
+      // et « 491 € » sur une forme ne veut rien dire sans elle. Cela revient sur la règle du 14/09 qui
+      // voulait UN seul référentiel sur toute la page ; elle ne tient plus depuis que le tableau des pôles
+      // porte les DEUX densités côte à côte (owner, 15/09), chacune nommée par son unité.
       const _zones = currentZones(await _zonesP);
-      const _plan = _zones.length ? composePlan(_zones, _esp, "ca_par_metre") : null;
+      const _plan = _zones.length ? composePlan(_zones, _esp, "ca_par_m2") : null;
       (pole as any).plan = _plan && _plan.found
         ? {
             ..._plan.block,

@@ -14,6 +14,19 @@ import type { Point, SpaceZone } from "./spaceZones";
 // Une jointure de moins, c'est une occasion de moins d'écrire un nombre que la porte ne retrouve pas.
 export type PlanMesure = "ca_par_m2" | "marge_par_m2" | "ca_par_metre" | "marge_par_metre" | "ca" | "part_ca";
 export const PLAN_MESURES: PlanMesure[] = ["ca_par_m2", "marge_par_m2", "ca_par_metre", "marge_par_metre", "ca", "part_ca"];
+// 15/09 (owner, point 3 : « Plan coloré légende is ununderstandable : what does Cuisine 491 € means ? ») —
+// CHAQUE VALEUR PORTE SON UNITÉ, JUSQUE DANS LA LÉGENDE. « Cuisine 491 € » ne dit pas 491 € de quoi : le
+// titre gris au-dessus portait seul la mesure, et personne ne remonte au titre pour lire une pastille.
+// L'unité COURTE s'accroche donc à la valeur elle-même, partout où elle s'écrit.
+export const PLAN_UNITE_COURTE: Record<PlanMesure, string> = {
+  ca_par_m2: "/m²",
+  marge_par_m2: "/m²",
+  ca_par_metre: "/m linéaire",
+  marge_par_metre: "/m linéaire",
+  ca: "",
+  part_ca: " du CA",
+};
+
 export const PLAN_MESURE_FR: Record<PlanMesure, string> = {
   ca_par_m2: "CA par m² sur 30 jours",
   marge_par_m2: "marge brute par m² sur 30 jours",
@@ -41,6 +54,8 @@ export interface PlanBlock {
   type: "plan";
   mesure: PlanMesure;
   mesure_fr: string;
+  /** L'unité COURTE de `value_fr`, à coller à la valeur : « /m² », « /m linéaire », « du CA », ou rien. */
+  unite_courte: string;
   /** [x, y, largeur, hauteur] dans les unités du plan — le SVG s'y cale. */
   viewBox: [number, number, number, number];
   scale_pt_per_m: number;
@@ -88,7 +103,7 @@ export function composePlan(zones: SpaceZone[], espace: PoleSpaceRow[], mesure: 
   const marge = Math.max(8, (maxx - minx) * 0.03);
   const surface_totale_m2 = Math.round(zonesPlan.reduce((a, z) => a + z.area_m2, 0) * 100) / 100;
   const block: PlanBlock = {
-    type: "plan", mesure, mesure_fr: PLAN_MESURE_FR[mesure],
+    type: "plan", mesure, mesure_fr: PLAN_MESURE_FR[mesure], unite_courte: PLAN_UNITE_COURTE[mesure],
     viewBox: [Math.floor(minx - marge), Math.floor(miny - marge), Math.ceil(maxx - minx + 2 * marge), Math.ceil(maxy - miny + 2 * marge)],
     scale_pt_per_m: zones[0].scale_pt_per_m, zones: zonesPlan.sort((a, b) => a.label.localeCompare(b.label, "fr")), fenetre_fr, surface_totale_m2,
   };

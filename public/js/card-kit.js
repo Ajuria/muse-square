@@ -2309,6 +2309,150 @@
     }).join('');
   }
 
+  // ── LE PLACEUR D'ÉTIQUETTES D'UN PLAN (owner 15/09 : « most map labels are overlapping on my laptop…
+  // should work on both laptop and mobile. How can we fix it in long run for all kinds of maps ? »)
+  //
+  // LE DÉFAUT DE FOND, MESURÉ. La position d'une étiquette dépend de la largeur RENDUE du plan, que le
+  // kit ne connaît pas quand il écrit le HTML. Sur le plan de l'owner : à 640 px de large, 2 étiquettes
+  // se chevauchent ; à 244 px, 14. Aucun placement écrit d'avance ne peut donc tenir — ni en %, ni en
+  // unités SVG. Il faut MESURER après la mise en page, et replacer quand la largeur change.
+  //
+  // LA RÉPONSE, VALABLE POUR TOUT PLAN. Une fonction PURE décide des places à partir de boîtes mesurées
+  // (aucun DOM, donc testable), un adaptateur de dix lignes mesure et applique, et un observateur unique
+  // rejoue le placement à chaque changement de largeur. Toute surface qui rend un plan en hérite sans
+  // une ligne de câblage — c'est ce qui le rend durable plutôt que rapiécé.
+  //
+  // LA RÈGLE DE PLACEMENT. Les étiquettes se posent de la plus IMPORTANTE à la moins importante (le poids
+  // est l'aire du polygone : une grande forme garde son nom au centre). Chacune essaie, dans l'ordre : son
+  // centre, au-dessus, en dessous, à gauche, à droite ; puis les mêmes cinq SANS sa valeur, qui est la
+  // première chose qu'on sacrifie. Rien ne sort du cadre. Si aucune place ne tient, l'étiquette ne
+  // s'affiche pas : le nom reste dans la légende et dans l'info-bulle du polygone — mieux vaut une forme
+  // muette qu'un nom posé sur celui du voisin, qui les rend faux tous les deux.
+  function placementEtiquettes(boites, cadre) {
+    var G = 2;                                   // le jeu entre deux étiquettes, en pixels
+    var cw = Math.max(1, +cadre.w || 1), ch = Math.max(1, +cadre.h || 1);
+    var ordre = boites.map(function (b, i) { return i; }).sort(function (a, b) {
+      var d = (+boites[b].poids || 0) - (+boites[a].poids || 0);
+      return d !== 0 ? d : a - b;                // à poids égal, l'ordre d'entrée : la sortie est stable
+    });
+    var poses = [], out = boites.map(function (b) { return { i: b.i, x: 0, y: 0, montre: false, avecValeur: false }; });
+    var chevauche = function (r) {
+      for (var k = 0; k < poses.length; k++) {
+        var p = poses[k];
+        if (r.x1 < p.x2 + G && p.x1 < r.x2 + G && r.y1 < p.y2 + G && p.y1 < r.y2 + G) return true;
+      }
+      return false;
+    };
+    for (var n = 0; n < ordre.length; n++) {
+      var b = boites[ordre[n]];
+      var w = Math.max(1, +b.w || 1);
+      var essais = [
+        { h: Math.max(1, +b.h || 1), v: true }, { h: Math.max(1, +b.hNom || b.h || 1), v: false },
+      ];
+      var pose = null;
+      for (var e = 0; e < essais.length && !pose; e++) {
+        var h = essais[e].h;
+        // Le décalage vaut une HAUTEUR (ou une LARGEUR) PLEINE, plus le jeu : se décaler d'une
+        // demi-hauteur ne dégage pas une étiquette de même taille posée au même point — les deux
+        // moitiés restantes se recouvrent encore. Défaut attrapé par le test « deux étiquettes au
+        // même point », qui est resté rouge tant que le pas valait h / 2.
+        var dy = h + 2 * G, dx = w + 2 * G;
+        var cands = [[0, 0], [0, -dy], [0, dy], [-dx, 0], [dx, 0], [0, -2 * dy], [0, 2 * dy]];
+        for (var c = 0; c < cands.length && !pose; c++) {
+          // Le centre voulu, ramené DANS le cadre : une étiquette qui sort du plan est illisible autant
+          // qu'une étiquette couverte.
+          var cx = Math.min(cw - w / 2, Math.max(w / 2, b.ax + cands[c][0]));
+          var cy = Math.min(ch - h / 2, Math.max(h / 2, b.ay + cands[c][1]));
+          var r = { x1: cx - w / 2, x2: cx + w / 2, y1: cy - h / 2, y2: cy + h / 2 };
+          if (!chevauche(r)) { poses.push(r); pose = { x: cx, y: cy, avecValeur: essais[e].v }; }
+        }
+      }
+      if (pose) out[ordre[n]] = { i: b.i, x: pose.x, y: pose.y, montre: true, avecValeur: pose.avecValeur };
+    }
+    return out;
+  }
+
+  // L'ADAPTATEUR : il MESURE et il APPLIQUE, il ne décide de rien. Idempotent — il remet tout à zéro
+  // avant de mesurer, sinon le second passage mesurerait le résultat du premier.
+  function placerNomsDuPlan(calque) {
+    if (!calque || !calque.querySelectorAll) return;
+    var enveloppe = calque.parentNode, svg = enveloppe && enveloppe.querySelector ? enveloppe.querySelector('svg') : null;
+    if (!svg) return;
+    var vb = String(svg.getAttribute('viewBox') || '').trim().split(/\s+/).map(Number);
+    if (vb.length !== 4 || !(vb[2] > 0) || !(vb[3] > 0)) return;
+    var cadre = svg.getBoundingClientRect();
+    if (!(cadre.width > 0)) return;
+    var els = [].slice.call(calque.querySelectorAll('[data-plan-nom]'));
+    var boites = [];
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      el.hidden = false;
+      el.style.left = ''; el.style.top = ''; el.style.transform = '';
+      var val = el.querySelector('[data-plan-valeur]');
+      if (val) val.hidden = false;
+      var r = el.getBoundingClientRect();
+      var nom = el.querySelector('[data-plan-libelle]');
+      var hNom = nom ? nom.getBoundingClientRect().height : r.height;
+      boites.push({
+        i: i, w: r.width, h: r.height, hNom: hNom, poids: +el.getAttribute('data-poids') || 0,
+        ax: (+el.getAttribute('data-x') - vb[0]) / vb[2] * cadre.width,
+        ay: (+el.getAttribute('data-y') - vb[1]) / vb[3] * cadre.height,
+      });
+    }
+    var places = placementEtiquettes(boites, { w: cadre.width, h: cadre.height });
+    for (var k = 0; k < places.length; k++) {
+      var q = places[k], e2 = els[q.i], v2 = e2.querySelector('[data-plan-valeur]');
+      if (!q.montre) { e2.hidden = true; continue; }
+      if (v2) v2.hidden = !q.avecValeur;
+      e2.style.left = q.x.toFixed(1) + 'px';
+      e2.style.top = q.y.toFixed(1) + 'px';
+      e2.style.transform = 'translate(-50%,-50%)';
+    }
+  }
+
+  // L'OBSERVATEUR UNIQUE : tout plan inséré dans la page est placé, et replacé quand sa largeur change.
+  // Aucune surface n'a à l'appeler — c'est ce qui évite qu'on recâble le placement plan par plan.
+  var _placementInstalle = false;
+  function installerPlacementDesPlans() {
+    if (_placementInstalle) return;
+    if (typeof document === 'undefined' || typeof window === 'undefined' || !window.ResizeObserver) return;
+    _placementInstalle = true;
+    var vus = [];
+    var ro = new window.ResizeObserver(function (entrees) {
+      for (var i = 0; i < entrees.length; i++) {
+        var c = entrees[i].target.querySelector ? entrees[i].target.querySelector('[data-plan-noms]') : null;
+        if (c) placerNomsDuPlan(c);
+      }
+    });
+    var scanner = function () {
+      var l = document.querySelectorAll('[data-plan-noms]');
+      for (var i = 0; i < l.length; i++) {
+        if (vus.indexOf(l[i]) >= 0) continue;
+        vus.push(l[i]);
+        if (l[i].parentNode && l[i].parentNode.nodeType === 1) ro.observe(l[i].parentNode);
+        placerNomsDuPlan(l[i]);
+      }
+    };
+    scanner();
+    if (window.MutationObserver) {
+      // Le scan est DIFFÉRÉ à la frame suivante : sur une page qui écrit beaucoup (Piloter, Explorer),
+      // un querySelectorAll à chaque mutation se paierait sur le budget des 3 secondes. Une frame
+      // suffit — un plan qui vient d'être inséré n'est de toute façon pas encore mesurable.
+      var enAttente = false;
+      var differer = function () {
+        if (enAttente) return;
+        enAttente = true;
+        var suite = function () { enAttente = false; scanner(); };
+        if (window.requestAnimationFrame) window.requestAnimationFrame(suite); else setTimeout(suite, 16);
+      };
+      new window.MutationObserver(differer).observe(document.documentElement, { childList: true, subtree: true });
+    }
+  }
+  if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installerPlacementDesPlans);
+    else installerPlacementDesPlans();
+  }
+
   var AB_PRIMITIVES = {
     register: function (b) { return abRegister(b.register, b.facts_cited); },
     // 'lead' = .ie-ai-h (18px/650) — generic/discovery; 'section' = .ie-why-headline/.ie-section-h/.ie-lookup-headline (15px/500)
@@ -2577,29 +2721,62 @@
       if (!b || !Array.isArray(b.zones) || !b.zones.length || !Array.isArray(b.viewBox)) return '';
       var n = b.zones.filter(function (z) { return z.rang != null; }).length;
       var tint = function (z) { if (z.rang == null) return 'rgba(156,163,175,0.35)'; var a = n > 1 ? 0.22 + 0.68 * (1 - (z.rang - 1) / (n - 1)) : 0.9; return 'rgba(29,59,179,' + a.toFixed(2) + ')'; };
-      var polys = '', labels = '';
+      var vb = b.viewBox.map(function (v) { return +v; });
+      var unite = b.unite_courte || '';
+      var vfr = function (z) { return z.value_fr ? z.value_fr + unite : null; };
+      // L'aire d'un polygone (formule du lacet) : elle sert à désigner le polygone PRINCIPAL d'un pôle,
+      // celui qui portera la valeur. Les autres ne portent que le nom — la valeur d'un pôle ne s'écrit
+      // pas deux fois sur le même plan.
+      var aire = function (P) { var a = 0; for (var i = 0, j = P.length - 1; i < P.length; j = i++) { a += P[j][0] * P[i][1] - P[i][0] * P[j][1]; } return Math.abs(a / 2); };
+      var centre = function (P) { var x = 0, y = 0; for (var i = 0; i < P.length; i++) { x += +P[i][0]; y += +P[i][1]; } return [x / P.length, y / P.length]; };
+      var polys = '', etiquettes = '';
       b.zones.forEach(function (z) {
-        var all = [];
-        (z.polygons || []).forEach(function (pg) {
-          if (!Array.isArray(pg) || pg.length < 3) return;
+        var liste = (z.polygons || []).filter(function (pg) { return Array.isArray(pg) && pg.length >= 3; });
+        if (!liste.length) return;
+        var aires = liste.map(aire);
+        var iPrincipal = aires.indexOf(Math.max.apply(null, aires));
+        liste.forEach(function (pg, i) {
           // 14/09 : sur la page d'un pole, SA zone porte un contour net — c'est la seule chose qui distingue
           // « ou suis-je » d'un plan general. Sans le drapeau (Explorer), le trait blanc d'origine, inchange.
-          polys += '<polygon points="' + pg.map(function (p) { return (+p[0]).toFixed(1) + ',' + (+p[1]).toFixed(1); }).join(' ') + '" fill="' + tint(z) + '" stroke="' + (z.courant ? '#111827' : '#fff') + '" stroke-width="' + (z.courant ? '3' : '1.5') + '"><title>' + esc(z.label + (z.value_fr ? ' \u00b7 ' + z.value_fr : '') + ' \u00b7 ' + String(z.area_m2).replace('.', ',') + ' m\u00b2') + '</title></polygon>';
-          pg.forEach(function (p) { all.push(p); });
+          polys += '<polygon points="' + pg.map(function (p) { return (+p[0]).toFixed(1) + ',' + (+p[1]).toFixed(1); }).join(' ') + '" fill="' + tint(z) + '" stroke="' + (z.courant ? '#111827' : '#fff') + '" stroke-width="' + (z.courant ? '3' : '1.5') + '"><title>' + esc(z.label + (vfr(z) ? ' \u00b7 ' + vfr(z) : '') + ' \u00b7 ' + String(z.area_m2).replace('.', ',') + ' m\u00b2') + '</title></polygon>';
+          // 15/09 (owner, point 1 : « some Poles are missing such as Produits frais ») — UN NOM PAR
+          // POLYGONE, plus un par pôle. Mesuré sur le plan de l'owner : 11 polygones, 7 libellés — les 4
+          // seconds polygones (Épicerie sèche, Cuisine, Petit déjeuner, Produits frais) n'en portaient
+          // AUCUN, et une forme sans nom se lit « ce pôle manque ». Le nom est sur CHAQUE forme ; la
+          // valeur reste sur la principale, une seule fois par pôle.
+          var c = centre(pg);
+          var gauche = ((c[0] - vb[0]) / vb[2] * 100).toFixed(2);
+          var haut = ((c[1] - vb[1]) / vb[3] * 100).toFixed(2);
+          // 15/09 (owner, point 2 : « Pole words are written too small ») — LE NOM EST DU TEXTE HTML, À
+          // TAILLE FIXE. En <text> SVG, la police suit l'échelle du viewBox : mesuré sur le plan de
+          // l'owner, 11 unités SVG × 0,46 = 5,06 px à l'écran, illisible. Un calque HTML posé sur le SVG
+          // en POURCENTAGES du viewBox garde la position exacte et une police en pixels, quelle que soit
+          // la largeur du plan. La pastille blanche le détache de la teinte, claire comme foncée.
+          // Un polygone SECONDAIRE porte le nom en plus petit et sans valeur : il dit « cette forme-ci
+          // est aussi ce pôle », rien de plus, et il occupe d'autant moins de place dans les coins
+          // denses du magasin (mesuré : les seconds polygones sont 6 à 8 fois plus petits que le
+          // principal, et c'est là que les étiquettes se serrent).
+          var principal = (i === iPrincipal);
+          // L'étiquette PORTE SON ANCRE (le centre du polygone, en unités du viewBox) et son POIDS
+          // (l'aire) : c'est tout ce dont le placeur a besoin une fois la page mise en page. Le `%`
+          // reste comme position de départ — si le placement ne tournait pas (pas de ResizeObserver),
+          // le plan resterait celui d'avant plutôt qu'un tas d'étiquettes dans un coin.
+          etiquettes += '<div data-plan-nom data-x="' + c[0].toFixed(1) + '" data-y="' + c[1].toFixed(1) + '" data-poids="' + Math.round(aires[i]) + '"'
+            + ' style="position:absolute;left:' + gauche + '%;top:' + haut + '%;transform:translate(-50%,-50%);text-align:center;white-space:nowrap;pointer-events:none;">'
+            + '<span data-plan-libelle style="display:inline-block;background:rgba(255,255,255,0.88);border-radius:5px;padding:1px 5px;font-size:' + (principal ? '12px' : '10.5px') + ';font-weight:600;color:#111827;">' + esc(z.label) + '</span>'
+            + (principal && vfr(z) ? '<br><span data-plan-valeur style="display:inline-block;margin-top:2px;background:rgba(255,255,255,0.88);border-radius:5px;padding:0 5px;font-size:11px;font-weight:600;color:#374151;">' + esc(vfr(z)) + '</span>' : '')
+            + '</div>';
         });
-        if (!all.length) return;
-        var big = (z.polygons || []).slice().sort(function (p1, p2) { return p2.length - p1.length; })[0] || all;
-        var cx = 0, cy = 0; big.forEach(function (p) { cx += +p[0]; cy += +p[1]; }); cx /= big.length; cy /= big.length;
-        var dark = z.rang != null && n > 1 && (z.rang - 1) / (n - 1) < 0.5;
-        labels += '<text x="' + cx.toFixed(1) + '" y="' + cy.toFixed(1) + '" text-anchor="middle" font-size="11" font-weight="600" fill="' + (dark ? '#fff' : '#111827') + '">' + esc(z.label) + '</text>'
-          + (z.value_fr ? '<text x="' + cx.toFixed(1) + '" y="' + (cy + 13).toFixed(1) + '" text-anchor="middle" font-size="10" fill="' + (dark ? '#fff' : '#374151') + '">' + esc(z.value_fr) + '</text>' : '');
       });
       var legend = b.zones.slice().sort(function (a, c) { return (a.rang == null ? 99 : a.rang) - (c.rang == null ? 99 : c.rang); }).map(function (z) {
-        return '<span style="display:inline-flex;align-items:center;gap:6px;margin:3px 12px 3px 0;font-size:12px;color:#374151;"><span style="width:12px;height:12px;border-radius:3px;background:' + tint(z) + ';display:inline-block;"></span>' + esc(z.label) + (z.value_fr ? ' <span style="color:#6B7280;">' + esc(z.value_fr) + '</span>' : ' <span style="color:#9CA3AF;">aucune vente</span>') + '</span>';
+        return '<span style="display:inline-flex;align-items:center;gap:6px;margin:3px 12px 3px 0;font-size:12px;color:#374151;"><span style="width:12px;height:12px;border-radius:3px;background:' + tint(z) + ';display:inline-block;"></span>' + esc(z.label) + (vfr(z) ? ' <span style="color:#6B7280;">' + esc(vfr(z)) + '</span>' : ' <span style="color:#9CA3AF;">aucune vente</span>') + '</span>';
       }).join('');
       return '<div data-plan style="margin:6px 0 10px;">'
         + '<div style="font-size:12px;color:#6B7280;margin:0 0 6px;">' + esc(b.mesure_fr || '') + (b.fenetre_fr ? ' \u00b7 ' + esc(b.fenetre_fr) : '') + ' \u00b7 sol de vente ' + esc(String(b.surface_totale_m2).replace('.', ',')) + ' m\u00b2</div>'
-        + '<svg viewBox="' + b.viewBox.map(function (v) { return +v; }).join(' ') + '" style="width:100%;max-width:640px;height:auto;display:block;background:#F9FAFB;border-radius:10px;" role="img" aria-label="' + esc(b.mesure_fr || 'Plan') + '">' + polys + labels + '</svg>'
+        + '<div style="position:relative;width:100%;max-width:640px;">'
+        + '<svg viewBox="' + vb.join(' ') + '" style="width:100%;height:auto;display:block;background:#F9FAFB;border-radius:10px;" role="img" aria-label="' + esc(b.mesure_fr || 'Plan') + '">' + polys + '</svg>'
+        + '<div data-plan-noms style="position:absolute;inset:0;">' + etiquettes + '</div>'
+        + '</div>'
         + '<div style="margin-top:8px;">' + legend + '</div></div>';
     },
     // Phase 2 clarification chips (same inline styles as the ie-prompt.js originals)
@@ -2738,7 +2915,7 @@
       + '</div></details>';
   }
 
-  window.MSCardKit = { renderComponentPhoto: renderComponentPhoto,
+  window.MSCardKit = { placementEtiquettes: placementEtiquettes, placerNomsDuPlan: placerNomsDuPlan, renderComponentPhoto: renderComponentPhoto,
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
     msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msEngagementUrl: msEngagementUrl, msPoleUrl: msPoleUrl, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,

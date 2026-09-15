@@ -26,9 +26,25 @@ Retours donnés sur le proto `tools/proto/pole-deux-vues-proto.html`. L'ordre es
 | 4 | « On n'a pas de vue jour des performances avec bar chart » | **fait** — `serie` au payload du pôle, `dayBars` réutilisé tel quel. Puis ses quatre retours de lisibilité : axe en diagonale, trait d'habituel gris, montant du jour plus lisible, colonnes chiffrées espacées. |
 | 5 | « Espace — 30 derniers jours → data shall answer 2 questions : how is the Pole set up + how does it compare to other poles » | **fait** — deux blocs : « Comment ce pôle est installé » (aucune fenêtre : les mètres ne sont pas une quantité de 30 jours) et « Ce que cette place rapporte — 30 derniers jours ». La 2e question est la section de classement qui suit déjà. |
 | 6 | « Articles des photos — 30 derniers jours -> place section above list of photos » | **fait** — bloc déplacé au-dessus des Composants (où vit la liste des photos), pas réécrit. Une assertion de rang le garde : le déplacement seul laissait les 1 144 tests verts. |
-| 1 | « Some Poles are missing such as Produits frais » sur le plan | à faire — 11 polygones pour 7 libellés : c'est le POLYGONE qu'il faut étiqueter, pas le pôle. |
-| 2 | « Pole words are written too small » | à faire — calque HTML à taille fixe par-dessus le plan, au lieu d'un texte SVG qui suit l'échelle. |
-| 3 | « Plan coloré légende : what does Cuisine 491 € means → shouldn't it show CA/m² » | à faire — `PLAN_MESURES` porte déjà six mesures ; la légende doit dire son unité. |
+| 1 | « Some Poles are missing such as Produits frais » sur le plan | **fait** — un nom par POLYGONE (11 polygones, 7 libellés auparavant) ; la valeur reste sur le plus grand polygone du pôle. |
+| 2 | « Pole words are written too small » | **fait** — calque HTML à taille fixe (12 px) ; en `<text>` SVG la police suivait l'échelle : 5,06 px mesurés à l'écran. |
+| 3 | « Plan coloré légende : what does Cuisine 491 € means » | **fait** — chaque valeur porte son unité sur le plan ET dans la légende ; la page du pôle teinte par m². |
+
+### Le placeur d'étiquettes d'un plan — « how can we fix it in long run for all kinds of maps ? »
+
+**Le défaut de fond** : la position d'une étiquette dépend de la largeur RENDUE du plan, que le kit
+ignore quand il écrit le HTML. Mesuré sur le plan de l'owner : **2 chevauchements à 640 px, 14 à
+244 px**. Aucun placement écrit d'avance ne tient, ni en %, ni en unités SVG.
+
+**La réponse, valable pour tout plan** : une fonction PURE (`placementEtiquettes`, dans `card-kit.js`,
+le seul foyer du plan) qui décide à partir de boîtes MESURÉES ; un adaptateur qui mesure et applique
+sans rien décider ; un observateur unique qui rejoue le placement pour tout plan de la page, sans
+câblage par surface. **Vérifié à 640 / 480 / 360 / 300 / 240 px : 0 chevauchement partout.**
+
+**Ce qui reste, et qui est un choix, pas un défaut** : à 240 px, 5 noms sur 11 se masquent plutôt que
+de se superposer — la légende les porte. Si l'owner préfère les voir tous sur un petit écran, la voie
+est un plan agrandissable (pincer pour zoomer), pas une étiquette plus petite : sous 10 px elle
+redevient illisible, ce qui était le point 2.
 
 ### Les trois retours du 15/09 en fin de journée
 

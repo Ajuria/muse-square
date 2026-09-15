@@ -162,6 +162,12 @@ ${vue("Performance", perf)}
 Bandeau : ${bandeau.length}. En-tête : ${tete.length}.
 ${inconnues.length ? `<b>${inconnues.length} section(s) non classée(s)</b> — rendues dans les DEUX vues pour qu'aucun bloc ne disparaisse en silence.` : "Aucune section non classée."}
 <br><br><b>Ce que le pôle n'a toujours pas</b> : « Sources &amp; fiabilité ». L'opération dit d'où viennent ses chiffres, le pôle non — c'est un manque, pas une différence de nature.</div>
+<!-- 15/09 — LE KIT TOURNE AUSSI DANS LA PAGE, pas seulement à la génération. Le proto rendait le HTML
+     du kit côté Node et s'arrêtait là ; tout ce que le kit fait APRèS la mise en page — le placeur
+     d'étiquettes du plan, qui mesure et replace à chaque largeur — ne s'y jouait donc jamais, et le
+     proto montrait des chevauchements que la vraie page n'a pas. Un harnais qui n'exécute que la
+     moitié du kit ment sur l'autre moitié. -->
+<script>${readFileSync(new URL("../../public/js/card-kit.js", import.meta.url), "utf8")}</script>
 <script>
   document.querySelectorAll(".onglet").forEach(function (b) {
     b.addEventListener("click", function () {

@@ -740,16 +740,81 @@ it("une photo servie par une version ANCIENNE de l'API (sans champ precedentes) 
 const polePlan = () => {
   const data: any = polePhotos();
   data.pole.plan = {
-    type: "plan", mesure: "ca_par_metre", mesure_fr: "CA par mètre sur 30 jours",
+    type: "plan", mesure: "ca_par_m2", mesure_fr: "CA par m² sur 30 jours", unite_courte: "/m²",
     viewBox: [0, 0, 400, 300], scale_pt_per_m: 10, fenetre_fr: "du 13/08/2026 au 11/09/2026",
     surface_totale_m2: 308.77,
     zones: [
-      { pole_id: "d2", label: "Thés", polygons: [[[0, 0], [100, 0], [100, 80], [0, 80]]], area_m2: 80, value: 412, value_fr: "412 €", rang: 1 },
+      // « Thés » a DEUX polygones — le cas mesuré sur le plan de l'owner (11 polygones, 7 pôles).
+      // LE PETIT EST EN PREMIER, délibérément : si le grand l'était, « le premier » et « le plus grand »
+      // désigneraient la même forme et la mutation `iPrincipal = 0` ne pourrait PAS tomber. Elle n'est
+      // pas tombée au premier jet pour exactement cette raison.
+      { pole_id: "d2", label: "Thés", polygons: [[[0, 200], [40, 200], [40, 240], [0, 240]], [[0, 0], [100, 0], [100, 80], [0, 80]]], area_m2: 80, value: 412, value_fr: "412 €", rang: 1 },
       { pole_id: "d1", label: "Épices", polygons: [[[120, 0], [220, 0], [220, 90], [120, 90]]], area_m2: 90, value: 268, value_fr: "268 €", rang: 2, courant: true },
     ],
   };
   return data;
 };
+
+// ── 15/09 — LES TROIS RETOURS DE L'OWNER SUR LE PLAN, tous MESURÉS dans le navigateur sur son plan
+// réel (7 pôles, 11 polygones, viewBox 1149 × 549 rendue sur 529 px) avant d'écrire une ligne.
+it("point 1 — UN NOM PAR POLYGONE : une forme sans nom se lit « ce pôle manque »", () => {
+  // Mesuré : 11 polygones pour 7 libellés. Les 4 seconds polygones (Épicerie sèche, Cuisine, Petit
+  // déjeuner, Produits frais) n'en portaient aucun — d'où « some Poles are missing such as Produits
+  // frais ». Le nom est désormais sur CHAQUE forme ; la valeur reste sur la principale, UNE fois.
+  const html2 = String(kit.renderEvolution(polePlan(), EVOL_COPY));
+  const debut = html2.indexOf("data-plan-noms");
+  const calque = html2.slice(debut, html2.indexOf('<div style="margin-top:8px;">', debut)); // le calque, sans la légende
+  expect((calque.match(/>Thés</g) || []).length).toBe(2);     // ses deux polygones sont nommés
+  expect((calque.match(/>Épices</g) || []).length).toBe(1);
+  expect((calque.match(/>412 €\/m²</g) || []).length).toBe(1); // la valeur, une seule fois
+});
+
+it("point 1 bis — la valeur va sur le plus GRAND polygone, pas sur le premier venu", () => {
+  const html = String(kit.renderEvolution(polePlan(), EVOL_COPY));
+  const debut = html.indexOf("data-plan-noms");
+  const calque = html.slice(debut, html.indexOf('<div style="margin-top:8px;">', debut));
+  // Le grand polygone de « Thés » est centré en (50, 40) du viewBox 400 × 300 → 12,50 % / 13,33 %.
+  // Le petit est centré en (20, 220) → 5,00 % / 73,33 %. La valeur doit être au GRAND.
+  // CHAQUE étiquette est un div : on isole CELLE du grand et CELLE du petit, au lieu de découper entre
+  // deux positions. Ma première version découpait « du grand à la fin » et attrapait la LÉGENDE, qui
+  // porte la valeur elle aussi — la mutation `iPrincipal = 0` restait verte.
+  const etiquettes = calque.split("<div data-plan-nom ").filter((e) => e.indexOf("data-x=") === 0);
+  const duGrand = etiquettes.find((e) => e.indexOf("left:12.50%;top:13.33%") > 0);
+  const duPetit = etiquettes.find((e) => e.indexOf("left:5.00%;top:73.33%") > 0);
+  expect(duGrand).toBeDefined();
+  expect(duPetit).toBeDefined();
+  expect(String(duGrand)).toContain("412 €/m²");
+  expect(String(duPetit)).not.toContain("412 €/m²");
+});
+
+it("point 2 — les noms sont du HTML à taille FIXE, jamais du <text> SVG", () => {
+  // Mesuré sur le plan de l'owner : en <text> SVG la police suit l'échelle du viewBox — 11 unités
+  // × 0,46 = 5,06 px à l'écran. Un calque HTML posé en POURCENTAGES du viewBox garde la position
+  // exacte et une police en pixels, quelle que soit la largeur du plan.
+  const html = String(kit.renderEvolution(polePlan(), EVOL_COPY));
+  const i = html.indexOf("data-plan");
+  const bloc = html.slice(i, html.indexOf("</div></div>", i));
+  expect(bloc).not.toContain("<text");
+  // La taille se cherche SUR LE SPAN DU NOM. Asserter « font-size:12px » n'importe où dans le bloc ne
+  // prouvait rien : le titre gris au-dessus du plan la porte déjà, et il absorbait la mutation (le nom
+  // remis à 5 px — la taille mesurée du défaut — laissait le test vert).
+  expect(bloc).toContain("font-size:12px;font-weight:600;color:#111827;\">Thés<");
+  expect(bloc).toContain('<div data-plan-noms style="position:absolute;inset:0;">');
+  expect(bloc).toContain('style="position:relative;width:100%;max-width:640px;"');
+});
+
+it("point 3 — chaque valeur porte son unité, sur le plan ET dans la légende", () => {
+  // « Cuisine 491 € » ne dit pas 491 € de quoi. Le titre gris portait seul la mesure, et personne ne
+  // remonte au titre pour lire une pastille.
+  const html = String(kit.renderEvolution(polePlan(), EVOL_COPY));
+  const bloc = html.slice(html.indexOf("data-plan"));
+  expect(bloc).toContain("412 €/m²");
+  expect(bloc).toContain("268 €/m²");
+  expect(bloc).not.toMatch(/>412 €</);   // plus aucune valeur nue
+  const legende = bloc.slice(bloc.indexOf('<div style="margin-top:8px;">'));
+  expect(legende).toContain("412 €/m²");
+  expect(legende).toContain("268 €/m²");
+});
 
 it("le plan au sol : la primitive du plan coloré, la mesure et le sol de vente en légende", () => {
   const html = String(kit.renderEvolution(polePlan(), EVOL_COPY));
@@ -758,7 +823,7 @@ it("le plan au sol : la primitive du plan coloré, la mesure et le sol de vente 
   const bloc = html.slice(i, html.indexOf("</div></div>", i));
   expect(bloc).toContain("Plan coloré");
   expect(bloc).toContain("<svg viewBox=\"0 0 400 300\"");
-  expect(bloc).toContain("CA par mètre sur 30 jours");
+  expect(bloc).toContain("CA par m² sur 30 jours");
   expect(bloc).toContain("sol de vente 308,77 m²");
   expect(bloc).toContain("Thés");
   expect(bloc).toContain("Épices");
@@ -907,4 +972,66 @@ it("« Articles des photos » se rend AVANT les composants et leurs photos", () 
   // pôle est rendu APRÈS les composants — c'est le proto des deux vues qui réordonne les sections
   // (`tools/generators/pole-deux-vues-proto.mts`, table ORDRE), pas le kit. Le rang inter-sections de
   // la page réelle n'est PAS le rang du proto tant que les deux vues n'y sont pas câblées.
+});
+
+// ── 15/09 — LE PLACEUR D'ÉTIQUETTES (owner : « most map labels are overlapping on my laptop… should
+// work on both laptop and mobile. How can we fix it in long run for all kinds of maps ? »).
+//
+// LE DÉFAUT DE FOND, MESURÉ dans le navigateur sur SON plan : la position d'une étiquette dépend de la
+// largeur RENDUE, que le kit ne connaît pas quand il écrit le HTML. À 640 px de large, 2 étiquettes se
+// chevauchent ; à 244 px, 14. Aucun placement écrit d'avance ne peut tenir — ni en %, ni en unités SVG.
+// La réponse est une fonction PURE qui décide à partir de boîtes MESURÉES ; ces tests la tiennent. Le
+// reste (mesurer, appliquer, rejouer au redimensionnement) est un adaptateur sans décision.
+const boite = (i: number, ax: number, ay: number, poids: number, w = 60, h = 30, hNom = 16) =>
+  ({ i, ax, ay, w, h, hNom, poids });
+
+it("le placeur — deux étiquettes au même point ne se chevauchent JAMAIS", () => {
+  const out = kit.placementEtiquettes([boite(0, 100, 100, 900), boite(1, 100, 100, 100)], { w: 400, h: 300 });
+  expect(out.every((p: any) => p.montre)).toBe(true);
+  const r = (p: any, b: any) => ({ x1: p.x - b.w / 2, x2: p.x + b.w / 2, y1: p.y - (p.avecValeur ? b.h : b.hNom) / 2, y2: p.y + (p.avecValeur ? b.h : b.hNom) / 2 });
+  const a = r(out[0], boite(0, 0, 0, 0)), b = r(out[1], boite(1, 0, 0, 0));
+  expect(a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2).toBe(false);
+});
+
+it("le placeur — la forme la plus LOURDE garde son centre, la légère se décale", () => {
+  // Le poids est l'aire du polygone : une grande forme garde son nom au milieu d'elle-même, une
+  // petite cède la place. L'ordre d'entrée ne doit rien y faire — ici la légère est PREMIÈRE.
+  const out = kit.placementEtiquettes([boite(0, 100, 100, 50), boite(1, 100, 100, 5000)], { w: 400, h: 300 });
+  expect(out[1].x).toBe(100);
+  expect(out[1].y).toBe(100);
+  expect(out[0].y).not.toBe(100);
+});
+
+it("le placeur — la VALEUR est la première chose sacrifiée, l'étiquette disparaît en dernier", () => {
+  // Un cadre ÉTROIT (aucun décalage latéral possible) et juste assez HAUT pour deux étiquettes si la
+  // seconde renonce à sa valeur. La lourde garde nom + valeur ; la légère garde son NOM.
+  const out = kit.placementEtiquettes(
+    [boite(0, 35, 17, 900, 60, 34, 16), boite(1, 35, 45, 100, 60, 34, 16)], { w: 70, h: 60 });
+  expect(out[0]).toMatchObject({ montre: true, avecValeur: true });
+  expect(out[1]).toMatchObject({ montre: true, avecValeur: false });
+});
+
+it("le placeur — rien ne sort du cadre, même ancré sur un bord", () => {
+  // Une étiquette qui déborde du plan est aussi illisible qu'une étiquette couverte.
+  const out = kit.placementEtiquettes([boite(0, 0, 0, 100, 80, 30), boite(1, 400, 300, 90, 80, 30)], { w: 400, h: 300 });
+  for (const p of out) {
+    expect(p.x - 40).toBeGreaterThanOrEqual(-0.01);
+    expect(p.x + 40).toBeLessThanOrEqual(400.01);
+    expect(p.y - 15).toBeGreaterThanOrEqual(-0.01);
+    expect(p.y + 15).toBeLessThanOrEqual(300.01);
+  }
+});
+
+it("le placeur — aucune place tenable : l'étiquette ne s'affiche pas (la légende garde le nom)", () => {
+  // Mieux vaut une forme muette qu'un nom posé sur celui du voisin, qui les rend faux tous les deux.
+  const boites = [0, 1, 2, 3].map((i) => boite(i, 40, 20, 100 - i, 78, 38, 38));
+  const out = kit.placementEtiquettes(boites, { w: 80, h: 40 });
+  expect(out.filter((p: any) => p.montre).length).toBe(1);
+  expect(out.filter((p: any) => !p.montre).length).toBe(3);
+});
+
+it("le placeur — la sortie est STABLE : deux appels identiques donnent le même plan", () => {
+  const b = [boite(0, 100, 100, 500), boite(1, 110, 100, 500), boite(2, 120, 100, 500)];
+  expect(JSON.stringify(kit.placementEtiquettes(b, { w: 400, h: 300 })))
+    .toBe(JSON.stringify(kit.placementEtiquettes(b, { w: 400, h: 300 })));
 });
