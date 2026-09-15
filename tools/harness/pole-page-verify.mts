@@ -13,7 +13,7 @@
 //
 // Usage : npx tsx tools/harness/pole-page-verify.mts [--dump="<nom du pôle>"]
 import "dotenv/config";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import * as vm from "node:vm";
 import { makeBQClient } from "../../src/lib/bq";
 import { GET as evoGET } from "../../src/pages/api/commitments/evolution";
@@ -25,6 +25,12 @@ const P = process.env.BQ_PROJECT_ID || "muse-square-open-data";
 const LOC = "f10c3e58-326e-4e38-947c-d59fcbe51df5";           // le compte que l'owner teste (CLAUDE.md)
 const BUDGET_MS = 3000;
 const DUMP = (process.argv.find((a) => a.startsWith("--dump=")) || "").slice(7);
+// 15/09 — `--html=<chemin>` écrit la page OUVRABLE d'un pôle : le HTML du kit ET le kit lui-même. Les
+// deux vues (Dispositif / Performance) et le placeur d'étiquettes du plan ne se jouent qu'APRÈS la mise
+// en page, dans un navigateur : un fichier qui ne porte que le HTML rendu ne prouve rien sur eux. Ce
+// mode remplace `tools/proto/pole-deux-vues-proto.html`, supprimé avec la livraison des deux vues.
+const HTML_OUT = (process.argv.find((a) => a.startsWith("--html=")) || "").slice(7);
+const HTML_POLE = (process.argv.find((a) => a.startsWith("--pole=")) || "").slice(7);
 
 const bq = makeBQClient(P);
 
@@ -47,7 +53,8 @@ if (!poles.length) { console.error("Aucun pôle déclaré — rien à vérifier.
 const bac: any = { window: {}, console: { log() {}, warn() {}, error() {} } };
 bac.window.window = bac.window;
 vm.createContext(bac);
-vm.runInContext(readFileSync("public/js/card-kit.js", "utf8"), bac, { filename: "card-kit.js" });
+const kitSrc = readFileSync("public/js/card-kit.js", "utf8");
+vm.runInContext(kitSrc, bac, { filename: "card-kit.js" });
 const kit = bac.window.MSCardKit;
 
 type Ligne = { nom: string; ms: number; espace: string; comparaison: string; decomposition: string; plan: string; photos: string; octets: number };
@@ -126,6 +133,15 @@ for (const p of poles) {
 
   // --dump=<nom du pôle> : le TEXTE des trois sections, pour relire les nombres et les phrases à l'œil
   // (une valeur mal formatée passe tous les tests — le formatage français ne se déduit pas d'un vert).
+  if (HTML_OUT && (!HTML_POLE || String(p.name) === HTML_POLE)) {
+    writeFileSync(HTML_OUT, `<!doctype html><meta charset="utf-8"><title>${String(p.name)} — la page du pôle</title>
+<style>body{font-family:system-ui,sans-serif;margin:24px;background:#F8FAFC;color:#111827;}
+.eg-doc{max-width:860px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:26px 30px;}
+.eg-sec{margin:0 0 20px;} .eg-uc{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#111827;margin-bottom:8px;}</style>
+<div class="eg-doc">${html}</div><script>${kitSrc}</script>`, "utf8");
+    console.log(`  page ouvrable écrite : ${HTML_OUT} (${p.name})`);
+  }
+
   if (DUMP && String(p.name) === DUMP) {
     const bloc = (marqueur: string, fin: string) => {
       const i = html.indexOf(marqueur); if (i < 0) return "(absente)";

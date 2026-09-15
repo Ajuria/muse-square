@@ -846,11 +846,82 @@ it("sans contour relevé, aucune section — la page ne met pas un cadre vide", 
   expect(html).not.toContain("Plan coloré");
 });
 
-it("le plan se place SOUS la comparaison : elle dit combien, il dit où", () => {
+// 15/09 (owner : « use the map as the Pole sections banner ») — LE PLAN EST UN BANDEAU, AU-DESSUS DES
+// ONGLETS. Il ne se range donc plus sous la comparaison : il dit « où suis-je », ce qui vaut pour les
+// deux vues. Ce test disait l'inverse depuis le 14/09 ; il est instruit, pas contourné.
+it("le plan est le BANDEAU : au-dessus des onglets, hors des deux vues", () => {
   const data: any = polePlan();
   data.pole.comparaison = { cols: [{ label: "Pôle" }], rows: [{ id: "d1", cells: [{ v: "Épices" }] }, { id: "d2", cells: [{ v: "Thés" }] }] };
   const html = String(kit.renderEvolution(data, EVOL_COPY));
-  expect(html.indexOf("data-eg-poles-rank")).toBeLessThan(html.indexOf("data-eg-plan"));
+  expect(html.indexOf("data-eg-plan")).toBeLessThan(html.indexOf("data-eg-vue-onglet"));
+  expect(html.indexOf("data-eg-vue-onglet")).toBeLessThan(html.indexOf('data-eg-vue="Dispositif"'));
+  // et la comparaison est dans Performance, pas dans le bandeau
+  expect(html.indexOf('data-eg-vue="Performance"')).toBeLessThan(html.indexOf("data-eg-poles-rank"));
+});
+
+// ── 15/09 (owner : « ensuite câble les vraies vues dans la vraie page ») — LES DEUX VUES.
+it("la page d'un pôle rend DEUX vues : Dispositif ouverte, Performance repliée", () => {
+  const html = String(kit.renderEvolution(polePlan(), EVOL_COPY));
+  expect(html).toContain('<div data-eg-vues>');
+  expect(html).toContain('data-eg-vue-onglet="Dispositif" data-on="1"');
+  expect(html).toContain('data-eg-vue-onglet="Performance"');
+  expect(html).toContain('<div data-eg-vue="Dispositif">');
+  expect(html).toContain('<div data-eg-vue="Performance" hidden>');
+});
+
+it("chaque section est dans UNE vue, et AUCUNE ne disparaît", () => {
+  const data: any = polePlan();
+  data.pole.space = { linear_m: 23.6, linear_share: 0.117, surface_m2: 45, revenue_per_m: 484,
+    revenue_net_ht_per_m: 473, margin_per_m: 176, revenue_per_m2: 267, revenue_net_ht_per_m2: 260,
+    margin_per_m2: 97, revenue_share: 0.401, margin_share: 0.38, coverage_pct: 100 };
+  data.pole.comparaison = { cols: [{ label: "Pôle" }], rows: [{ id: "d1", cells: [{ v: "Épices" }] }, { id: "d2", cells: [{ v: "Thés" }] }] };
+  const html = String(kit.renderEvolution(data, EVOL_COPY));
+  const iD = html.indexOf('<div data-eg-vue="Dispositif">');
+  const iP = html.indexOf('<div data-eg-vue="Performance" hidden>');
+  const dispo = html.slice(iD, iP), perf = html.slice(iP);
+  // Dispositif : comment il est installé, ce qu'il rapporte, ce que les photos ont appris, ses composants.
+  for (const t of ["Comment ce pôle est installé", "Ce que ce pôle rapporte", "data-eg-items", "data-eg-components"]) {
+    expect(dispo, `${t} attendu dans Dispositif`).toContain(t);
+    expect(perf, `${t} ne doit PAS être dans Performance`).not.toContain(t);
+  }
+  // Performance : ses résultats, son classement, ses familles, ses opérations.
+  for (const t of ["Résultats — 30 derniers jours", "data-eg-poles-rank", "Familles du pôle", "Opérations sur ce pôle"]) {
+    expect(perf, `${t} attendu dans Performance`).toContain(t);
+    expect(dispo, `${t} ne doit PAS être dans Dispositif`).not.toContain(t);
+  }
+  // Le plan est le BANDEAU : au-dessus des onglets, dans aucune des deux vues.
+  expect(dispo).not.toContain("data-eg-plan");
+  expect(perf).not.toContain("data-eg-plan");
+  // Et la version suivante est un geste de montage : Dispositif.
+  expect(dispo).toContain("data-eg-nextversion-sec");
+  expect(perf).not.toContain("data-eg-nextversion-sec");
+  // L'ORDRE DANS LA VUE n'est pas l'ordre d'écriture : l'espace s'écrit après les résultats (le code
+  // lit d'abord le CA) mais se LIT en premier. Arbitré sur le proto : installé → rapporte → articles
+  // des photos → composants → version suivante.
+  const rang = (t: string) => dispo.indexOf(t);
+  expect(rang("Comment ce pôle est installé")).toBeLessThan(rang("Ce que ce pôle rapporte"));
+  expect(rang("Ce que ce pôle rapporte")).toBeLessThan(rang("data-eg-items"));
+  expect(rang("data-eg-items")).toBeLessThan(rang("data-eg-components"));
+  expect(rang("data-eg-components")).toBeLessThan(rang("data-eg-nextversion-sec"));
+  // Et dans Performance : résultats → classement → décomposition → familles → opérations.
+  const rp = (t: string) => perf.indexOf(t);
+  expect(rp("Résultats — 30 derniers jours")).toBeLessThan(rp("data-eg-poles-rank"));
+  expect(rp("data-eg-poles-rank")).toBeLessThan(rp("Familles du pôle"));
+  expect(rp("Familles du pôle")).toBeLessThan(rp("Opérations sur ce pôle"));
+  // AUCUNE section n'est rendue DEUX fois. La borne d'une section peut tomber au mauvais endroit sans
+  // rien casser en apparence — la mienne, pour les Composants, était tombée DANS un `.map()`, après un
+  // `return` : code mort, jamais exécuté, et la section basculait en silence dans l'autre vue.
+  for (const t of ["Comment ce pôle est installé", "Opérations sur ce pôle", "data-eg-components", "data-eg-plan"]) {
+    expect(html.split(t).length - 1, `${t} rendu plus d'une fois`).toBe(1);
+  }
+});
+
+it("le pôle sans aucune section classée retombe sur la page d'avant — jamais une page vide", () => {
+  // Garde-fou : si les bornes venaient à manquer, la branche rend `h` tel quel plutôt qu'un cadre
+  // avec deux vues vides. Un découpage qui rate doit dégrader, pas effacer.
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  expect(html).toContain("Comment ce pôle est installé");
+  expect(html).toContain("Opérations sur ce pôle");
 });
 
 // 15/09 (owner : « Is it true or bullshit? ») — UNE LISTE VIDE A DEUX CAUSES.
@@ -938,6 +1009,13 @@ it("les nombres au-dessus des barres s'espacent, et la dernière barre garde le 
   expect(euros).toBe(p30);
   // La dernière barre (le 30) est chiffrée : son montant est 129 €.
   expect(html).toContain(">129 €</text>");
+  // ET DEUX COLONNES CHIFFRÉES NE SONT JAMAIS VOISINES. Constaté au rendu de la vraie page (Cuisine,
+  // 30 jours) : compté depuis le DÉBUT, « un sur pasAxe plus la dernière » collait les colonnes 28 et
+  // 29, et « +55,4 % » chevauchait « +34,7 % ». Le pas se compte depuis la FIN : l'écart est constant.
+  const jours = Array.from({ length: 30 }, (_, i) => 100 + i);
+  const chiffres = jours.map((v) => html.indexOf(">" + v + " €</text>")).map((x, i) => (x >= 0 ? i : -1)).filter((i) => i >= 0);
+  const ecarts = chiffres.slice(1).map((v, i) => v - chiffres[i]);
+  expect(Math.min(...ecarts), `écarts : ${ecarts.join(",")}`).toBeGreaterThan(1);
   // Et les 30 barres restent DESSINÉES — on retire des nombres, jamais de la mesure.
   // `rx="4"` distingue une barre de la pastille de légende, qui porte le même bleu en `rx="2"`.
   expect((html.match(/rx="4" fill="#1D3BB3" fill-opacity="0\.85"/g) || []).length).toBe(30);
@@ -1034,4 +1112,23 @@ it("le placeur — la sortie est STABLE : deux appels identiques donnent le mêm
   const b = [boite(0, 100, 100, 500), boite(1, 110, 100, 500), boite(2, 120, 100, 500)];
   expect(JSON.stringify(kit.placementEtiquettes(b, { w: 400, h: 300 })))
     .toBe(JSON.stringify(kit.placementEtiquettes(b, { w: 400, h: 300 })));
+});
+
+it("une section ajoutée APRÈS la dernière borne n'est pas jetée : elle tombe dans Dispositif", () => {
+  // Le filet du « reste ». Il ne se déclenche jamais aujourd'hui — toutes les sections sont bornées —
+  // donc aucune mutation ne le faisait rougir : un filet qu'on ne voit pas tomber n'en est pas un.
+  // Il se teste ici directement, sur l'assembleur, avec des bornes qui ne couvrent pas la fin.
+  const t2 = (k: string) => (k === "pole_vue_dispositif" ? "Dispositif" : "Performance");
+  const h = "[TETE][A][B][SECTION-OUBLIEE]";
+  const bornes = [{ vue: "tete", de: 0, a: 6 }, { vue: "Dispositif", de: 6, a: 9 }, { vue: "Performance", de: 9, a: 12 }];
+  const out = String(kit.assemblerVuesDuPole(h, bornes, t2));
+  expect(out).toContain("[SECTION-OUBLIEE]");
+  const iD = out.indexOf('<div data-eg-vue="Dispositif">');
+  const iP = out.indexOf('<div data-eg-vue="Performance" hidden>');
+  expect(out.slice(iD, iP)).toContain("[SECTION-OUBLIEE]");
+});
+
+it("aucune borne du tout : la page d'avant, telle quelle — jamais un cadre à deux vues vides", () => {
+  const t2 = (k: string) => (k === "pole_vue_dispositif" ? "Dispositif" : "Performance");
+  expect(String(kit.assemblerVuesDuPole("[TOUT]", [], t2))).toBe("[TOUT]");
 });

@@ -849,7 +849,12 @@
       var s = '';
       series.forEach(function (d, i) {
         var cx = padL + slot * i + slot / 2;
-        var chiffre = (i % pasAxe === 0 || i === n - 1);
+        // 15/09 (constaté au rendu de la VRAIE page, pôle Cuisine, 30 jours) — LE PAS SE COMPTE DEPUIS
+        // LA FIN. Compté depuis le début, « un sur pasAxe, PLUS la dernière barre » collait les deux
+        // dernières colonnes dès que n-1 n'était pas un multiple du pas : sur 30 jours, les colonnes 28
+        // et 29 se touchaient et « +55,4 % » chevauchait « +34,7 % ». Depuis la fin, la dernière barre
+        // est chiffrée par construction et l'écart est constant partout — plus de cas particulier.
+        var chiffre = ((n - 1 - i) % pasAxe === 0);
         if (d.has_data) {
           var yv = y(d.daily_revenue), yh = y(d.expected_revenue);
           var dp = d.residual_pct != null ? d.residual_pct : (d.expected_revenue ? (d.daily_revenue - d.expected_revenue) / d.expected_revenue * 100 : 0);
@@ -1101,6 +1106,20 @@
       var nameParts = String(cm.committed_action_text || '').split(' — ');
       var pName = nameParts[0] || 'Pôle';
       var pLever = nameParts.slice(1).join(' — ');
+      // ── 15/09 (owner : « ensuite câble les vraies vues dans la vraie page ») — LA PAGE D'UN PÔLE A
+      // DEUX VUES. Le proto les montrait ; la page les rend maintenant, et le proto meurt avec sa
+      // livraison. Le plan reste EN BANDEAU, au-dessus des onglets : il dit « où suis-je », ce qui vaut
+      // pour les deux vues.
+      //
+      // COMMENT, SANS RÉÉCRIRE UNE SEULE SECTION. Le corps continue d'écrire dans `h`, exactement comme
+      // avant ; on note seulement OÙ chaque section se termine et à quelle vue elle appartient
+      // (`_fin(vue)`). L'assemblage découpe ensuite `h` sur ces bornes. Rien n'est déplacé, rien n'est
+      // dupliqué : une section qui change de vue, c'est UN mot à changer ici.
+      var _bornes = [], _dernier = 0;
+      // Le RANG dit l'ordre DANS la vue, qui n'est pas l'ordre d'écriture : l'espace d'un pôle s'écrit
+      // après ses résultats (le code lit d'abord le CA), mais se LIT en premier — « comment ce pôle est
+      // installé » avant « ce que les photos ont appris », avant ses composants. Arbitré sur le proto.
+      var _fin = function (vue, rang) { if (h.length > _dernier) { _bornes.push({ vue: vue, rang: rang || 0, de: _dernier, a: h.length }); _dernier = h.length; } };
       var h = '<div style="border-bottom:2px solid #111827;padding-bottom:14px;margin-bottom:20px;">'
         + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:19px;font-weight:700;color:#111827;">' + esc(pName) + '</span>'
         + '<span style="font-size:11px;font-weight:600;color:#0F6E56;background:#E6F6F0;padding:3px 10px;border-radius:999px;">' + esc(t2('pole_chip')) + '</span>'
@@ -1108,8 +1127,10 @@
         + (pLever ? '<div style="font-size:13px;color:#374151;line-height:1.55;margin-top:6px;">' + esc(pLever) + '</div>' : '')
         + (cm.owner_person_name ? '<div style="font-size:12px;color:#6b7280;margin-top:4px;">' + esc(t2('pole_resp')) + ' : ' + esc(cm.owner_person_name) + '</div>' : '')
         + '</div>';
+      _fin('tete');
       h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_fams_title')) + '</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + pFams.map(function (f) { return '<span style="font-size:12px;background:#F3F4F6;color:#374151;padding:4px 11px;border-radius:999px;">' + esc(f) + '</span>'; }).join('') + '</div></div>';
+      _fin('Performance', 4);
       // 15/09 (owner, point 6 : « Articles des photos — 30 derniers jours -> place section above
       // list of photos ») — CE QUE LES PHOTOS ONT APPRIS PASSE AVANT LA LISTE DES PHOTOS. La liste
       // vit dans les Composants (une rangée par composant, son emplacement [data-eg-photo] et son
@@ -1153,6 +1174,7 @@
         else h += '<div style="font-size:12px;color:#374151;">' + pi.unseen.map(function (x) { return esc(x.item_description) + ' (' + Number(x.rev30_eur).toLocaleString('fr-FR') + ' \u20ac)'; }).join(' \u00b7 ') + '</div>';
       }
       h += '</div>';
+      _fin('Dispositif', 2);
       // Composants du dispositif (03/09, spec dispositifs-typologie § 3) : les unites physiques
       // (lineaire, gondole, vitrine...) libellees par le serveur (registre dispositifTypes).
       // Absence dite (lexique regle 7), jamais une section vide.
@@ -1190,6 +1212,7 @@
             }).join('')
           : '<div style="font-size:12px;color:#6b7280;">' + esc(t2('pole_components_none')) + '</div>')
         + '</div>';
+      _fin('Dispositif', 3);
       var pt = pr.totals || {};
       var ptLine = '';
       if (pt.rev30_eur != null) {
@@ -1217,6 +1240,7 @@
         // calcul. Aucun objectif sur un pôle : `goalPct` reste null, comme pour une opération sans but.
         + ((pr.serie || []).length >= 2 ? '<div style="margin-top:14px;">' + dayBars(pr.serie, null) + '</div>' : '')
         + '</div>';
+      _fin('Performance', 1);
       // 14/09 (owner) — L'ESPACE DU PÔLE, juste après ses résultats : mètres de façade, Part de linéaire,
       // surface de vente, puis le CA et la marge par MÈTRE et par m². Les chiffres viennent du même foyer
       // que le volet de Piloter (listPoleSpace, servi par evolution) et les phrases sont les siennes, au
@@ -1263,6 +1287,7 @@
           installe += '<div style="font-size:12.5px;color:#374151;">' + esc(t2('pole_space_none')) + '</div>';
         }
         h += installe + '</div>' + rapporte;
+      _fin('Dispositif', 1);
       })();
       // 14/09 (owner : « comparaison vs autres poles ») — OU SE SITUE CE POLE. Juste sous l'Espace, parce
       // que c'est le meme indicateur (CA par metre) sur la meme fenetre de 30 jours : la page ne porte
@@ -1272,6 +1297,7 @@
       if (pr.comparaison && pr.comparaison.rows && pr.comparaison.rows.length) {
         h += '<div class="eg-sec" data-eg-poles-rank><div class="eg-uc">' + esc(t2('pole_rank_title')) + '</div>'
           + msTable(pr.comparaison.cols || [], pr.comparaison.rows) + '</div>';
+      _fin('Performance', 2);
       }
       // 14/09 (owner : « plan au sol ») — OU EST CE POLE DANS LE MAGASIN. Sous la comparaison : celle-ci dit
       // COMBIEN, le plan dit OU, et les deux portent la meme mesure (CA par metre) sur la meme fenetre. Le
@@ -1280,17 +1306,20 @@
       if (pr.plan && Array.isArray(pr.plan.zones) && pr.plan.zones.length) {
         h += '<div class="eg-sec" data-eg-plan><div class="eg-uc">' + esc(t2('pole_plan_title')) + '</div>'
           + AB_PRIMITIVES.plan(pr.plan) + '</div>';
+      _fin('bandeau');
       }
       // 14/09 (owner) — LA DÉCOMPOSITION, le MÊME bloc que sur une opération : nombre de ventes, panier
       // moyen, mix, heures. Le serveur l'a calculée sur le référentiel de l'en-tête (30 derniers jours
       // contre les 90 précédents), donc la page ne porte qu'UN référentiel. Rien n'est écrit ici : c'est
       // `shapeBlock`, celui des opérations, appelé tel quel — s'il n'y a pas de matière, il dit l'absence.
       if (data.shape) h += shapeBlock(data.shape, '', 30, 30, null, data.role === 'member' || (window && window._msMemberView === true));
+      _fin('Performance', 3);
       var mem = '';
       if (cm.dispositif_plus) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_plus')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_plus) + '</div></div>';
       if (cm.dispositif_why) mem += '<div style="margin-bottom:8px;"><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_why')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_why) + '</div></div>';
       if (cm.dispositif_resources) mem += '<div><div style="font-size:12px;font-weight:600;color:#374151;">' + esc(t2('vform_res')) + '</div><div style="font-size:13px;color:#374151;line-height:1.55;">' + esc(cm.dispositif_resources) + '</div></div>';
       if (mem) h += '<div class="eg-sec">' + mem + '</div>';
+      _fin('Dispositif', 4);
       h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_ops_title')) + '</div>'
         + ((pr.operations || []).length
           ? pr.operations.map(function (o) {
@@ -1302,6 +1331,7 @@
             }).join('')
           : '<div style="font-size:12.5px;color:#374151;">' + esc(t2('pole_ops_none')) + '</div>')
         + '</div>';
+      _fin('Performance', 5);
 
       // ── 13/09 (owner : « aucune surface ne cree la version suivante d'un pole », puis « le versionning du
       // pole est declaratif — sa page de reglages ; pas de question ») — LA VERSION SUIVANTE.
@@ -1320,6 +1350,7 @@
           + '</details>';
       }
       h += nextVersionB;
+      _fin('Dispositif', 6);
 
       // ── 13/09 (owner : « rien de l'historique n'est implemente ») — L'HISTORIQUE DU POLE, avec ses photos.
       // Il n'etait rendu que sur les pages d'operation : la page d'un pole sortait avant. Les MOTS different,
@@ -1356,8 +1387,10 @@
                 + msLinPhotosRow(v, _pAvecPhoto, t2);
             }).join('')
           + '</div>';
+      _fin('Dispositif', 5);
       }
-      return h;
+      _fin('Dispositif', 9);
+      return assemblerVuesDuPole(h, _bornes, t2);
     }
 
     var received = series.filter(function (d) { return d.has_data; });
@@ -2309,6 +2342,77 @@
     }).join('');
   }
 
+  // ── LES DEUX VUES DE LA PAGE D'UN PÔLE (owner 15/09 : « ensuite câble les vraies vues dans la
+  // vraie page »). Arbitré sur le proto : le plan en BANDEAU au-dessus des onglets (il dit « où
+  // suis-je », ce qui vaut pour les deux), puis **Dispositif** — comment le pôle est installé, ce
+  // qu'il rapporte, ce que les photos ont appris, ses composants, son historique, sa version suivante
+  // — et **Performance** — ses résultats et leur vue jour, son classement, la décomposition, ses
+  // familles, ses opérations.
+  //
+  // UNE SECTION NON CLASSÉE NE DISPARAÎT PAS : elle tombe dans Dispositif et le dit en console. Le
+  // proto avait la même règle, pour la même raison — un bloc qui s'évapore en silence est pire qu'un
+  // bloc mal rangé.
+  function assemblerVuesDuPole(h, bornes, t2) {
+    // AUCUNE BORNE : la page d'AVANT, telle quelle. Mon premier repli testait `!dispo && !perf`, et il
+    // était faux — sans borne, tout le document tombait dans le « reste », donc dans Dispositif, avec un
+    // onglet Performance vide à côté. Un découpage qui rate doit rendre la page entière, pas la ranger
+    // de travers. Attrapé par le test, pas par la relecture.
+    if (!bornes || !bornes.length) return h;
+    var part = function (vue) {
+      var l = [];
+      for (var i = 0; i < bornes.length; i++) if (bornes[i].vue === vue) l.push({ b: bornes[i], i: i });
+      // Tri STABLE par rang : à rang égal, l'ordre d'écriture. Un tri non stable ferait danser deux
+      // sections d'un rendu à l'autre, ce qu'aucun test d'ordre n'attraperait de façon fiable.
+      l.sort(function (x, y) { var d = (x.b.rang || 0) - (y.b.rang || 0); return d !== 0 ? d : x.i - y.i; });
+      var out = '';
+      for (var k = 0; k < l.length; k++) out += h.slice(l[k].b.de, l[k].b.a);
+      return out;
+    };
+    var reste = h.slice(bornes.length ? bornes[bornes.length - 1].a : 0);
+    if (reste.trim()) {
+      try { console.warn('[MSCardKit] section de pôle non classée — rendue dans Dispositif'); } catch (e) {}
+    }
+    var dispo = part('Dispositif') + reste, perf = part('Performance');
+    var onglet = function (nom, actif) {
+      return '<button type="button" data-eg-vue-onglet="' + esc(nom) + '"' + (actif ? ' data-on="1"' : '')
+        + ' style="font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border-radius:999px;padding:7px 18px;'
+        + (actif ? 'color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;' : 'color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;')
+        + '">' + esc(nom) + '</button>';
+    };
+    return '<div data-eg-vues>'
+      + part('tete') + part('bandeau')
+      + '<div style="display:flex;gap:10px;margin:4px 0 18px;">' + onglet(t2('pole_vue_dispositif'), true) + onglet(t2('pole_vue_performance'), false) + '</div>'
+      + '<div data-eg-vue="' + esc(t2('pole_vue_dispositif')) + '">' + dispo + '</div>'
+      + '<div data-eg-vue="' + esc(t2('pole_vue_performance')) + '" hidden>' + perf + '</div>'
+      + '</div>';
+  }
+
+  // LE BASCULEMENT S'INSTALLE SEUL, une fois, en délégation — comme le placeur d'étiquettes. Aucune
+  // surface n'a à le câbler : une page qui rend un pôle a ses onglets qui marchent, point. Un
+  // écouteur par bouton se serait dupliqué à chaque nouveau rendu du même document.
+  var _onglets_installes = false;
+  function installerOngletsDeVue() {
+    if (_onglets_installes || typeof document === 'undefined') return;
+    _onglets_installes = true;
+    document.addEventListener('click', function (ev) {
+      var b = ev.target && ev.target.closest ? ev.target.closest('[data-eg-vue-onglet]') : null;
+      if (!b) return;
+      var racine = b.closest('[data-eg-vues]');
+      if (!racine) return;
+      var vise = b.getAttribute('data-eg-vue-onglet');
+      var bs = racine.querySelectorAll('[data-eg-vue-onglet]');
+      for (var i = 0; i < bs.length; i++) {
+        var on = bs[i].getAttribute('data-eg-vue-onglet') === vise;
+        bs[i].setAttribute('data-on', on ? '1' : '0');
+        bs[i].style.color = on ? '#fff' : '#1D3BB3';
+        bs[i].style.background = on ? '#1D3BB3' : '#fff';
+      }
+      var vs = racine.querySelectorAll('[data-eg-vue]');
+      for (var k = 0; k < vs.length; k++) vs[k].hidden = vs[k].getAttribute('data-eg-vue') !== vise;
+    });
+  }
+  if (typeof document !== 'undefined') installerOngletsDeVue();
+
   // ── LE PLACEUR D'ÉTIQUETTES D'UN PLAN (owner 15/09 : « most map labels are overlapping on my laptop…
   // should work on both laptop and mobile. How can we fix it in long run for all kinds of maps ? »)
   //
@@ -2915,7 +3019,7 @@
       + '</div></details>';
   }
 
-  window.MSCardKit = { placementEtiquettes: placementEtiquettes, placerNomsDuPlan: placerNomsDuPlan, renderComponentPhoto: renderComponentPhoto,
+  window.MSCardKit = { assemblerVuesDuPole: assemblerVuesDuPole, placementEtiquettes: placementEtiquettes, placerNomsDuPlan: placerNomsDuPlan, renderComponentPhoto: renderComponentPhoto,
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
     msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msEngagementUrl: msEngagementUrl, msPoleUrl: msPoleUrl, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,

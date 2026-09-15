@@ -39,6 +39,14 @@ LA date de l'owner, que je n'ai pas. Le geste est de les lui faire ratifier un p
 `CLIQUET_TITRES_HORS_LEXIQUE` dans `src/lib/fr/evenement.fr.guard.test.ts`. Un titre NOUVEAU non
 inscrit fait déjà échouer la suite.
 
+### Les deux vues de la page d'un pôle — CÂBLÉES (15/09)
+
+Le proto est SUPPRIMÉ avec la livraison (`tools/proto/pole-deux-vues-proto.html` et son générateur) ;
+ce qu'il servait à vérifier se rejoue par `npx tsx tools/harness/pole-page-verify.mts --html=<chemin>`,
+qui écrit la page ouvrable avec le kit dedans. **Ce qui reste** : le déplacement d'une photo mal
+classée (avis donné le 15/09, rien de construit), et « Sources & fiabilité » — une opération dit d'où
+viennent ses chiffres, un pôle non.
+
 ### Le placeur d'étiquettes d'un plan — « how can we fix it in long run for all kinds of maps ? »
 
 **Le défaut de fond** : la position d'une étiquette dépend de la largeur RENDUE du plan, que le kit

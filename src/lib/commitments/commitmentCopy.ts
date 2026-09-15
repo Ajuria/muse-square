@@ -367,6 +367,9 @@ export const EVOL_COPY = {
   // jours porte sur le CA et la marge ; les mètres viennent d'int_client_pole_space, la mesure
   // COURANTE. Deux blocs, donc, et un seul porte la fenêtre. La comparaison aux autres pôles est
   // la section qui suit déjà (pole_rank_title) : rien à écrire pour elle.
+  // 15/09 (owner) — les DEUX vues de la page d'un pôle, arbitrées sur le proto. Au lexique.
+  pole_vue_dispositif: "Dispositif",
+  pole_vue_performance: "Performance",
   pole_setup_title: "Comment ce pôle est installé",
   pole_yield_title: "Ce que ce pôle rapporte — 30 derniers jours",
   pole_space_title: "Espace — 30 derniers jours",
