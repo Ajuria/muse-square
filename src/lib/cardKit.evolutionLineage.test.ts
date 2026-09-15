@@ -1197,7 +1197,10 @@ it("sans dépôt : l'écran d'envoi dit ce que l'exploitant y GAGNE, et le bouto
 it("un plan déposé : un PDF s'ouvre dans un cadre, une image dans une balise image", () => {
   const avec = (p: any) => { const d: any = polePhotos(); d.pole.plan_depose = p; return String(kit.renderEvolution(d, EVOL_COPY)); };
   const pdf = avec({ plan_id: "x", url: "/api/dispositifs/plan?file=x", est_pdf: true, created_at: "2026-09-15T10:00:00Z" });
-  expect(pdf).toContain('<iframe src="/api/dispositifs/plan?file=x"');
+  // 15/09 (owner, capture) — le cadre porte les paramètres qui FERMENT le panneau latéral du lecteur
+  // et calent la page : sans eux, Firefox déplie « Document outline » par-dessus le plan.
+  expect(pdf).toContain('<iframe src="/api/dispositifs/plan?file=x#pagemode=none&zoom=page-fit"');
+  expect(pdf).toContain("height:70vh");
   expect(pdf).toContain("Déposé le 15/09/2026");   // JJ/MM/AAAA, jamais l'ISO
   expect(pdf).toContain("Remplacer");
   const img = avec({ plan_id: "y", url: "/api/dispositifs/plan?file=y", est_pdf: false, created_at: "2026-09-15T10:00:00Z" });

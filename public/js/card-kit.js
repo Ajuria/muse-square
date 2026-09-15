@@ -2383,7 +2383,13 @@
         + '</div></div>';
     }
     var vue = p.est_pdf
-      ? '<iframe src="' + esc(p.url) + '" title="' + esc(t2('pole_plan_depose_titre')) + '" style="width:100%;height:420px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;"></iframe>'
+      // 15/09 (owner, capture) — LE LECTEUR PDF S'OUVRE AVEC SON PANNEAU LATÉRAL, par-dessus le plan.
+      // Constaté chez l'owner : Firefox (pdf.js) déplie « Document outline » et mange la moitié du
+      // cadre. Les paramètres de fragment de pdf.js le referment et calent la page entière :
+      // `pagemode=none` (aucun panneau) et `zoom=page-fit` (la page tient dans le cadre). Ils sont
+      // IGNORÉS par un lecteur qui ne les connaît pas — on ne casse donc rien ailleurs.
+      // Et le cadre passe à 70 % de la hauteur d'écran : un plan A3 dans 420 px ne se lit pas.
+      ? '<iframe src="' + esc(p.url) + '#pagemode=none&zoom=page-fit" title="' + esc(t2('pole_plan_depose_titre')) + '" style="width:100%;height:70vh;min-height:460px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;"></iframe>'
       : '<img src="' + esc(p.url) + '" alt="' + esc(t2('pole_plan_depose_titre')) + '" style="width:100%;height:auto;display:block;border:1px solid #e5e7eb;border-radius:10px;background:#fff;">';
     var d = String(p.created_at || '').slice(0, 10);
     var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
