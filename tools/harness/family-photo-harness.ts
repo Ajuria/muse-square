@@ -98,8 +98,8 @@ async function render(j: any, today: string): Promise<any> {
       ]) }, location: "EU",
     });
     const base = { location_id: OWNER, dispositif_id: DISP, version_no: 1, walk_id: null, seq: null, t_offset_s: null, gcs_uri: "gs://ms-dispositif-photo/probe", dispositif_role: null, status: "read" as const, checklist: null, items_matched: null, items_confirmed: null, prices_seen: null, coverage_flag: "entier", model: "probe", prompt_version: "probe", created_by: uid, levels: null };
-    await insertPhotoRow(bq, { ...base, photo_id: PFX + "p1", component_key: "c1", dispositif_type: "lineaire", exposition: "rayonnage", families_present: [fam], fixture_no: 7, created_at: new Date(now - 3600_000).toISOString() });
-    await insertPhotoRow(bq, { ...base, photo_id: PFX + "p2", component_key: "c2", dispositif_type: "table_ilot", exposition: "ilot", families_present: [fam, "Famille sonde"], fixture_no: 9, created_at: new Date(now).toISOString() });
+    await insertPhotoRow(bq, { ...base, photo_id: PFX + "p1", component_key: "c1", dispositif_type: "lineaire", exposition: "rayonnage", families_present: [fam], fixture_no: 7, deplacee_vers: null, created_at: new Date(now - 3600_000).toISOString() });
+    await insertPhotoRow(bq, { ...base, photo_id: PFX + "p2", component_key: "c2", dispositif_type: "table_ilot", exposition: "ilot", families_present: [fam, "Famille sonde"], fixture_no: 9, deplacee_vers: null, created_at: new Date(now).toISOString() });
 
     const t = Date.now(); const rows = await listFamilyPhotos(bq, OWNER); const dt = Date.now() - t;
     const probeRows = rows.filter((r) => r.photo_id.startsWith(PFX));

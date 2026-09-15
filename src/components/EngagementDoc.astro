@@ -48,7 +48,7 @@ const { id, page, backHref, backLabel } = Astro.props;
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/pole-form.js?v=6"></script>
-    <script is:inline src="/js/card-kit.js?v=114"></script>
+    <script is:inline src="/js/card-kit.js?v=115"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY, PAGE: page }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -170,7 +170,61 @@ const { id, page, backHref, backLabel } = Astro.props;
                   .catch(function () { cbtn.disabled = false; });
                 return;
               }
-              // ── RETIRER UNE PHOTO (owner 14/09) — deux touchers, et le second seulement après avoir
+              // ── DÉPLACER UNE PHOTO (owner 15/09) — MÊME patron que le retrait, dans le MÊME conteneur
+              // de gestes : premier toucher, le champ s'ouvre et l'API dit ce que vise le numéro (`dry`) ;
+              // second toucher, elle écrit. La règle vit dans lib/dispositifs/photoDeplacement.ts et la
+              // page n'en recalcule rien — elle affiche ce que le plan dit, y compris le changement de pôle.
+              var dp = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-deplacer]") : null;
+              if (dp) {
+                var pidD = dp.getAttribute("data-eg-photo-deplacer");
+                var wrapD = sec.querySelector('[data-eg-photo-rm-wrap="' + pidD + '"]');
+                if (!wrapD) return;
+                wrapD.innerHTML = '<input type="number" min="1" max="9999" step="1" inputmode="numeric" data-eg-deplacer-no="' + esc(pidD) + '" placeholder="' + esc(COPY.pole_photo_deplacer_champ || "") + '" style="width:120px;font-size:12px;color:#111827;background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:4px 8px;font-family:inherit;">'
+                  + '<button type="button" data-eg-deplacer-go="' + esc(pidD) + '" disabled style="font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:8px;padding:4px 12px;cursor:pointer;opacity:.45;">' + esc(COPY.pole_photo_confirm || "Confirmer →") + '</button>'
+                  + '<button type="button" data-eg-deplacer-no style="font-size:12px;font-weight:500;font-family:inherit;color:#6b7280;background:none;border:none;cursor:pointer;">' + esc(COPY.pole_photo_deplacer_annuler || "Annuler") + '</button>'
+                  + '<div data-eg-deplacer-vise style="flex-basis:100%;font-size:12.5px;color:#6b7280;margin-top:4px;"></div>';
+                var champ = wrapD.querySelector("[data-eg-deplacer-no]");
+                if (champ) champ.focus();
+                return;
+              }
+              if (ev.target && ev.target.closest && ev.target.closest("[data-eg-deplacer-no]")) {
+                var wrapC = ev.target.closest("[data-eg-photo-rm-wrap]");
+                var pidC = wrapC && wrapC.getAttribute("data-eg-photo-rm-wrap");
+                if (pidC) wrapC.innerHTML = MSCardKit.gestesDePhoto(pidC, COPY);
+                return;
+              }
+              var dgo = ev.target && ev.target.closest ? ev.target.closest("[data-eg-deplacer-go]") : null;
+              if (dgo && !dgo.disabled) {
+                var pidG2 = dgo.getAttribute("data-eg-deplacer-go");
+                var wrapG = dgo.closest("[data-eg-photo-rm-wrap]");
+                var noG = wrapG.querySelector("[data-eg-deplacer-no]");
+                dgo.disabled = true;
+                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "deplacer", dispositif_id: did, photo_id: pidG2, vers_fixture_no: noG ? noG.value : "" }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) {
+                    // La page se RECHARGE depuis l'API : les deux composants changent (celui qu'on
+                    // quitte et celui qui reçoit), et un rendu local en recopierait la logique.
+                    if (j && j.ok) load(); else { dgo.disabled = false; }
+                  })
+                  .catch(function () { dgo.disabled = false; });
+                return;
+              }
+              // L'annulation, depuis la place quittée : le déplacement inverse, par le même geste.
+              var dann = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-deplacer-annuler]") : null;
+              if (dann) {
+                var marque = dann.getAttribute("data-eg-photo-deplacer-annuler");
+                var compA = dann.closest("[data-eg-component]");
+                dann.disabled = true;
+                fetch("/api/dispositifs/photos", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ action: "annuler_deplacement", dispositif_id: did, photo_id: marque }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) { if (j && j.ok) load(); else dann.disabled = false; })
+                  .catch(function () { dann.disabled = false; });
+                return;
+              }
+
+              // ── RETIRER UNE PHOTO (owner 14/09) — deux touchers, et le second seulement après avoir              // ── RETIRER UNE PHOTO (owner 14/09) — deux touchers, et le second seulement après avoir
               // dit dans quel état le pôle se retrouve. Le PLAN vient de l'API (`dry`), jamais d'un
               // calcul ici : la règle vit dans lib/dispositifs/photoRetrait.ts, et une seule fois.
               var rm = ev.target && ev.target.closest ? ev.target.closest("[data-eg-photo-rm]") : null;

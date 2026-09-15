@@ -12,7 +12,14 @@ export interface PhotoRow {
   photo_id: string; location_id: string; dispositif_id: string; version_no: number; component_key: string;
   walk_id: string | null; seq: number | null; t_offset_s: number | null;
   gcs_uri: string; dispositif_type: string | null; dispositif_role: string | null;
-  status: "read" | "error";
+  // 15/09 — TROIS statuts, plus deux. « déplacée » n'est pas une photo : c'est la TRACE d'un départ,
+  // laissée à la place quittée pour que la lecture (dernière ligne par version × composant) cesse d'y
+  // montrer la photo. Sans elle, la photo s'afficherait AUX DEUX endroits. Le mot est accentué parce
+  // qu'un humain le lit (owner 15/09 : « écris en bon français ») ; `read` et `error` restent en
+  // anglais — une dette héritée que je signale plutôt que de réécrire des lignes déjà en base.
+  status: "read" | "error" | "déplacée";
+  /** Sur une ligne « déplacée » : la clé du composant où la photo est partie. Null partout ailleurs. */
+  deplacee_vers: string | null;
   checklist: Record<string, string> | null;
   // `etagere` (13/09) : la rangée de l'article EN PARTANT DU BAS, null si indéterminable. La colonne
   // `items_matched` est du JSON en base : le champ s'ajoute sans migration. Les lignes écrites avant le
@@ -45,6 +52,7 @@ export async function insertPhotoRow(bq: any, row: PhotoRow): Promise<void> {
     // d'insertion, qui avait fait gagner une vieille photo réinsérée en dernier (sonde lot 2).
     created_at: new Date(row.created_at),
     exposition: row.exposition, levels: row.levels, fixture_no: row.fixture_no,
+    deplacee_vers: row.deplacee_vers ?? null,
     // ARRAY<STRING> : jamais NULL en BigQuery — une absence s'écrit [] (le type est donné pour un tableau vide).
     families_present: Array.isArray(row.families_present) ? row.families_present.map((f) => String(f)) : [],
   };
@@ -52,7 +60,7 @@ export async function insertPhotoRow(bq: any, row: PhotoRow): Promise<void> {
     walk_id: "STRING", seq: "INT64", t_offset_s: "FLOAT64", dispositif_type: "STRING", dispositif_role: "STRING",
     checklist: "STRING", items_matched: "STRING", items_confirmed: "STRING", prices_seen: "STRING",
     coverage_flag: "STRING", model: "STRING", prompt_version: "STRING", created_by: "STRING", created_at: "TIMESTAMP",
-    exposition: "STRING", levels: "INT64", fixture_no: "INT64", families_present: ["STRING"],
+    exposition: "STRING", levels: "INT64", fixture_no: "INT64", deplacee_vers: "STRING", families_present: ["STRING"],
   };
   const cols = Object.keys(params);
   const [job] = await bq.createQueryJob({
@@ -70,7 +78,7 @@ export async function listPhotoRows(bq: any, dispositif_id: string, version_no?:
     query: `SELECT photo_id, location_id, dispositif_id, version_no, component_key, walk_id, seq, t_offset_s, gcs_uri,
                    dispositif_type, dispositif_role, status, checklist, items_matched, items_confirmed, prices_seen,
                    coverage_flag, model, prompt_version, created_by, CAST(created_at AS STRING) AS created_at,
-                   exposition, levels, families_present, fixture_no
+                   exposition, levels, families_present, fixture_no, deplacee_vers
             FROM \`${PHOTO_TABLE}\`
             WHERE dispositif_id = @d ${version_no != null ? "AND version_no = @v" : ""}
             ORDER BY created_at DESC LIMIT 500`,
@@ -84,7 +92,11 @@ export async function listPhotoRows(bq: any, dispositif_id: string, version_no?:
     t_offset_s: r.t_offset_s != null ? Number(flat(r.t_offset_s)) : null, gcs_uri: String(flat(r.gcs_uri)),
     dispositif_type: r.dispositif_type != null ? String(flat(r.dispositif_type)) : null,
     dispositif_role: r.dispositif_role != null ? String(flat(r.dispositif_role)) : null,
-    status: String(flat(r.status)) === "error" ? "error" : "read",
+    // Le statut se LIT, il ne se ramène plus à « read ». L'ancienne normalisation (« tout ce qui n'est
+    // pas error est read ») aurait relu « déplacée » comme une photo valide : la marque aurait été
+    // écrite en base et INVISIBLE à la lecture, donc la photo serait restée affichée à sa place quittée.
+    status: ((v) => (v === "error" ? "error" : v === "déplacée" ? "déplacée" : "read"))(String(flat(r.status))),
+    deplacee_vers: r.deplacee_vers != null ? String(flat(r.deplacee_vers)) : null,
     checklist: parseJson(r.checklist), items_matched: parseJson(r.items_matched), items_confirmed: parseJson(r.items_confirmed),
     prices_seen: parseJson(r.prices_seen), coverage_flag: r.coverage_flag != null ? String(flat(r.coverage_flag)) : null,
     model: r.model != null ? String(flat(r.model)) : null, prompt_version: r.prompt_version != null ? String(flat(r.prompt_version)) : null,

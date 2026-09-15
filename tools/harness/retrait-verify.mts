@@ -50,7 +50,7 @@ const sonde: PhotoRow = {
   dispositif_type: comp.type, dispositif_role: comp.role, status: "read", checklist: {}, items_matched: [],
   items_confirmed: null, prices_seen: [], coverage_flag: "entier", model: "sonde", prompt_version: "sonde",
   created_by: userId, created_at: new Date().toISOString(),
-  exposition: null, levels: null, families_present: [], fixture_no: null,
+  exposition: null, levels: null, families_present: [], fixture_no: null, deplacee_vers: null,
 } as PhotoRow;
 await insertPhotoRow(bq, sonde);
 const apresSonde = await compte();

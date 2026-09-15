@@ -2943,6 +2943,17 @@
   function renderComponentPhoto(photo, copy) {
     var t = function (k) { return (copy && copy[k]) || ''; };
     if (!photo) return esc(t('pole_photo_none'));
+    // 15/09 (owner : « déplacer la photo ») — UNE PLACE QUITTÉE N'EST PAS UNE PHOTO. La ligne « déplacée »
+    // dit ce que l'exploitant a fait et où la photo est partie, avec le meuble NOMMÉ par la base, et
+    // porte l'annulation. Elle n'a pas d'image : l'API ne lui en sert pas (`url` null).
+    if (photo.status === 'déplacée') {
+      var nomArrivee = photo.deplacee_vers_nom || '';
+      var phrase = String(t('pole_photo_deplacee')).split('{nom}').join(nomArrivee);
+      return '<div data-eg-photo-deplacee="' + esc(photo.photo_id || '') + '" style="font-size:12px;color:#6b7280;">'
+        + esc(phrase)
+        + (photo.deplacee_vers ? ' <button type="button" data-eg-photo-deplacer-annuler="' + esc(photo.photo_id || '') + '" style="font-size:12px;font-weight:500;font-family:inherit;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:2px 9px;cursor:pointer;">' + esc(t('pole_photo_deplacer_annuler')) + '</button>' : '')
+        + '</div>';
+    }
     var cl = photo.checklist || {}; var keys = Object.keys(cl);
     var n = { oui: 0, non: 0, non_visible: 0 }; keys.forEach(function (k) { if (n[cl[k]] != null) n[cl[k]]++; });
     var d = String(photo.created_at || '').slice(0, 10); var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
@@ -2988,8 +2999,23 @@
   // en couleur d'alerte ; la page (EngagementDoc) porte le cablage, le kit ne fait que rendre.
   function retraitBlock(photo, t) {
     if (!photo || !photo.photo_id) return '';
-    return '<div data-eg-photo-rm-wrap="' + esc(photo.photo_id) + '" style="margin-top:8px;">'
-      + '<button type="button" data-eg-photo-rm="' + esc(photo.photo_id) + '" style="font-size:12px;font-weight:500;font-family:inherit;color:#B45309;background:#fff;border:1px solid #B45309;border-radius:8px;padding:6px 12px;cursor:pointer;min-height:32px;">'
+    // 15/09 — « Déplacer → » vit dans le MÊME conteneur que « Retirer → » : un seul bloc de gestes sous
+    // la légende, un seul foyer de câblage. Deux touchers comme le retrait — le premier demande le PLAN
+    // à l'API (vers quel meuble, et si le pôle change), le second confirme.
+    return gestesDePhotoAvecT(photo.photo_id, t);
+  }
+
+  // 15/09 — LE BLOC DE GESTES D'UNE PHOTO, EXTRAIT pour avoir UN SEUL foyer. La page doit pouvoir le
+  // re-rendre quand l'exploitant renonce à déplacer : sans cette fonction elle recopierait le markup du
+  // kit, et les deux versions divergeraient au premier changement de bouton (c'est déjà arrivé sur
+  // « Retirer → », dont la page réécrit le bouton à la main juste en dessous).
+  function gestesDePhoto(photo_id, copy) {
+    return gestesDePhotoAvecT(photo_id, function (k) { return (copy && copy[k]) || ''; });
+  }
+  function gestesDePhotoAvecT(photo_id, t) {
+    return '<div data-eg-photo-rm-wrap="' + esc(photo_id) + '" style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      + '<button type="button" data-eg-photo-deplacer="' + esc(photo_id) + '" style="font-size:12px;font-weight:500;font-family:inherit;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:4px 10px;cursor:pointer;">' + esc(t('pole_photo_deplacer')) + '</button>'
+      + '<button type="button" data-eg-photo-rm="' + esc(photo_id) + '" style="font-size:12px;font-weight:500;font-family:inherit;color:#B45309;background:#fff;border:1px solid #B45309;border-radius:8px;padding:6px 12px;cursor:pointer;min-height:32px;">'
       + esc(t('pole_photo_retirer')) + '</button></div>';
   }
 
@@ -3019,7 +3045,7 @@
       + '</div></details>';
   }
 
-  window.MSCardKit = { assemblerVuesDuPole: assemblerVuesDuPole, placementEtiquettes: placementEtiquettes, placerNomsDuPlan: placerNomsDuPlan, renderComponentPhoto: renderComponentPhoto,
+  window.MSCardKit = { gestesDePhoto: gestesDePhoto, assemblerVuesDuPole: assemblerVuesDuPole, placementEtiquettes: placementEtiquettes, placerNomsDuPlan: placerNomsDuPlan, renderComponentPhoto: renderComponentPhoto,
     esc: esc, frInt: frInt, msPct: msPct, msRate: msRate, msEur2: msEur2, msDeltaCell: msDeltaCell,
     msTable: msTable, msMovers: msMovers, msStrip: msStrip, msScale: msScale, msDateFr: msDateFr, msEngagementUrl: msEngagementUrl, msPoleUrl: msPoleUrl, msSortTable: msSortTable, msDecision: msDecision,
     salesLevier: salesLevier, wxDayLabel: wxDayLabel,

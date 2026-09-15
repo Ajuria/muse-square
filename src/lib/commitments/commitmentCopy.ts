@@ -408,6 +408,18 @@ export const EVOL_COPY = {
   // Les deux phrases disent l'ÉTAT DANS LEQUEL LE PÔLE SE RETROUVE — la seule chose que l'exploitant ne
   // peut pas déduire de l'écran. Sujet nommé (le pôle, la version), verbe ordinaire, le numéro dans la
   // phrase. Tests 10/11/13 hors sujet : une conséquence de geste n'affirme rien sur le commerce.
+  // 15/09 (owner, mots ratifiés) — DÉPLACER UNE PHOTO POSÉE SUR LE MAUVAIS COMPOSANT.
+  // « meuble » est BANNI hors des consignes du relevé (arbitrage owner 14/09) : le mot de la page est
+  // « composant ». J'avais écrit « meuble » dans les deux phrases — le garde `evenement.fr.guard` les
+  // a rougies avant l'owner, ce qui est exactement son office. La place quittée dit
+  // ce que l'exploitant A FAIT, avec le meuble d'arrivée NOMMÉ (son nom de base, jamais recomposé) ; la
+  // place d'arrivée ne dit rien de plus qu'une photo ordinaire. Au lexique le jour même.
+  pole_photo_deplacer: "Déplacer →",
+  pole_photo_deplacer_champ: "N° sur le plan",
+  pole_photo_deplacee: "Aucune photo ici — vous l'avez déplacée sur le {nom}.",
+  pole_photo_deplacer_annuler: "Annuler",
+  pole_photo_deplacer_vise_autre_pole: "{nom} — ce composant est dans le pôle {pole}, pas {depuis}. Les articles lus sur cette photo passeront de {depuis} à {pole}.",
+  pole_photo_deplacer_inconnu: "Aucun composant ne porte le n° {no} sur votre plan.",
   pole_photo_retirer: "Retirer →",
   pole_photo_retirer_version: "Le pôle revient à la version {n} si vous retirez cette photo.",
   pole_photo_retirer_gardee: "La version {n} reste : d'autres photos la documentent.",

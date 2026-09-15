@@ -8,7 +8,7 @@ const photo = (o: Partial<PhotoRow> & { photo_id: string; version_no: number; cr
   version_no: o.version_no, walk_id: null, seq: null, t_offset_s: null, gcs_uri: "gs://b/x.jpg",
   dispositif_type: "rayonnage", dispositif_role: null, status: "read", checklist: {}, items_matched: [],
   items_confirmed: null, prices_seen: [], coverage_flag: "entier", model: "m", prompt_version: "v",
-  created_by: "u", created_at: o.created_at, exposition: null, levels: null, families_present: [], fixture_no: null,
+  created_by: "u", created_at: o.created_at, exposition: null, levels: null, families_present: [], fixture_no: null, deplacee_vers: null,
 } as PhotoRow);
 
 const versions = [{ commitment_id: "c1", version_no: 1 }, { commitment_id: "c2", version_no: 2 }];

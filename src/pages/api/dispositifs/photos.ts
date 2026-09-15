@@ -46,6 +46,8 @@ import { PHOTO_PROMPT_VERSION, photoQuestions, photoExtractionSchema, photoExtra
 import { validatePhotoExtraction } from "../../../lib/ai/contracts/photoExtractionChecks";
 import { callClaudeMessagesAPI } from "../../../lib/ai/runtime/claude";
 import { modelFor } from "../../../lib/ai/models";
+import { planDeDeplacement, STATUT_DEPLACEE, type MeublePourDeplacement } from "../../../lib/dispositifs/photoDeplacement";
+import { randomUUID } from "node:crypto";
 
 export const prerender = false;
 const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
@@ -97,10 +99,17 @@ const photoUrl = photoApiUrl;
 
 // La photo telle que la page la rend : les QUESTIONS du registre (clé + libellé) pour lire la
 // check-list, et la désignation des articles reconnus (jamais un code nu à l'écran).
-function publicRow(r: PhotoRow, itemsByCode: Record<string, string>, auteurs: Record<string, string> = {}) {
+function publicRow(r: PhotoRow, itemsByCode: Record<string, string>, auteurs: Record<string, string> = {}, nomsDeMeuble: Record<string, string> = {}) {
+  // 15/09 — UNE MARQUE N'EST PAS UNE PHOTO. Une ligne « déplacée » dit qu'il n'y a plus rien ici et où
+  // la photo est partie : elle ne porte donc PAS d'`url`. Sans ce point, la page recevait une adresse
+  // d'image pour une place vide et l'aurait affichée (mesuré au vrai endpoint : « statut déplacée ·
+  // url oui »). Le NOM de la destination vient de la base, jamais recomposé (CLAUDE.md, 15/09).
+  const partie = r.status === "déplacée";
   return {
     photo_id: r.photo_id, dispositif_id: r.dispositif_id, version_no: r.version_no, component_key: r.component_key,
-    url: photoUrl(r.dispositif_id, r.photo_id), status: r.status, checklist: r.checklist,
+    url: partie ? null : photoUrl(r.dispositif_id, r.photo_id), status: r.status, checklist: r.checklist,
+    deplacee_vers: r.deplacee_vers ?? null,
+    deplacee_vers_nom: r.deplacee_vers ? (nomsDeMeuble[r.deplacee_vers] ?? null) : null,
     questions: r.dispositif_type ? checklistFor(r.dispositif_type, r.dispositif_role).map((q) => ({ key: q.key, question_fr: q.question_fr })) : [],
     items_matched: (r.items_matched ?? []).map((it) => ({ ...it, item_description: itemsByCode[it.item_code] ?? null })),
     items_confirmed: r.items_confirmed ? r.items_confirmed.map((it) => ({ ...it, item_description: itemsByCode[it.item_code] ?? null })) : null,
@@ -138,7 +147,7 @@ async function versionSuivanteDepuisPhoto(
     .then((rows) => currentMeasures(rows).filter((m) => m.version_no === disp.version_no))
     .catch(() => []);
   const comps = enCours.filter((m) => m.component_key).map((m) => ({
-    component_key: m.component_key as string, fixture_no: m.fixture_no,
+    component_key: m.component_key as string, fixture_no: m.fixture_no, deplacee_vers: null,
     length_m: m.length_m, depth_m: m.depth_m, faces: m.faces, families_share: m.families_share,
   }));
   const surface = enCours.find((m) => !m.component_key)?.surface_m2 ?? null;
@@ -203,10 +212,28 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // sont en version 1, l'« Historique du dispositif » ne s'affiche donc sur aucun — sans ceci, toute
     // photo antérieure serait écrite et inatteignable.
     const parComposant = photosDuComposant(toutes.filter((r) => r.status === "read"));
+    // 15/09 — LES NOMS DES MEUBLES, lus en base, pour la phrase de la place quittée (« vous l'avez
+    // déplacée sur le N° 7 — Vin & Spiritueux »). Une seule lecture, et seulement s'il y a une marque
+    // à nommer : une page sans déplacement ne paie rien.
+    const aNommer = [...new Set(lues.filter((r) => r.deplacee_vers).map((r) => String(r.deplacee_vers)))];
+    const nomsDeMeuble: Record<string, string> = {};
+    if (aNommer.length) {
+      const nm = await bq.query({
+        query: `SELECT component_key, ANY_VALUE(component_label) AS nom
+                FROM \`${BQ_PROJECT}.semantic.vw_insight_event_dispositif_components\`
+                WHERE location_id = @l AND component_key IN UNNEST(@k) GROUP BY 1`,
+        params: { l: disp.location_id, k: aNommer }, types: { l: "STRING", k: ["STRING"] }, location: "EU",
+      }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
+      for (const r of nm as any[]) {
+        const k = r.component_key && typeof r.component_key === "object" ? r.component_key.value : r.component_key;
+        const n = r.nom && typeof r.nom === "object" ? r.nom.value : r.nom;
+        if (k && n) nomsDeMeuble[String(k)] = String(n);
+      }
+    }
     return json({
       ok: true, dispositif_id, version_no: version_no ?? disp.version_no,
       photos: lues.map((r) => ({
-        ...publicRow(r, codes, auteurs),
+        ...publicRow(r, codes, auteurs, nomsDeMeuble),
         precedentes: (parComposant[r.component_key] ?? [])
           .filter((x: PhotoRow) => x.photo_id !== r.photo_id)
           .map((x: PhotoRow) => publicRow(x, codes, auteurs)),
@@ -226,7 +253,121 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!body) return json({ ok: false, error: "Champs requis manquants" }, 400);
     const dispositif_id = String(body.dispositif_id || "").trim();
 
-    // ── RETIRER UNE PHOTO (owner 14/09 : « fais du retrait une action de la page du pôle ») ──────────
+    // ── ANNULER UN DÉPLACEMENT (owner 15/09) — le MÊME geste, dans l'autre sens. On repart de la
+    // MARQUE laissée à la place quittée : elle dit où la photo est allée, et elle porte l'image de la
+    // photo partie. On retrouve cette photo à sa destination PAR SON IMAGE, jamais par « la dernière
+    // d'ici » : si l'exploitant en a pris une autre depuis, c'est elle qui serait revenue.
+    if (String(body.action || "") === "annuler_deplacement") {
+      const marque_id = String(body.photo_id || "").trim();
+      if (!dispositif_id || !marque_id) return json({ ok: false, error: "dispositif_id, photo_id requis" }, 400);
+      const bqA = makeBQClient(BQ_PROJECT);
+      const dispA = await readDispositif(bqA, dispositif_id, null);
+      if (!dispA) return json({ ok: false, error: "dispositif introuvable" }, 404);
+      requireLocationOwnership(locals, dispA.location_id);
+      const toutesA = await listPhotoRows(bqA, dispositif_id);
+      const marque = toutesA.find((r) => r.photo_id === marque_id && r.status === "déplacée") || null;
+      if (!marque || !marque.deplacee_vers) return json({ ok: false, refus: "marque_introuvable" }, 404);
+      const partie = latestPerComponent(toutesA.filter((r) => r.version_no === marque.version_no && r.status === "read"))
+        .find((r) => r.component_key === marque.deplacee_vers && r.gcs_uri === marque.gcs_uri) || null;
+      if (!partie) return json({ ok: false, refus: "photo_deja_remplacee" }, 409);
+      const quandA = new Date().toISOString();
+      // CE QUE LA DESTINATION RETROUVE. Elle avait peut-être SA PROPRE photo avant que celle-ci n'y
+      // arrive : la lui rendre, plutôt que de la marquer « déplacée » — sa photo à elle n'a jamais
+      // bougé. Défaut trouvé en jouant l'aller-retour sur le compte réel, pas à la relecture : après
+      // annulation, le composant d'arrivée annonçait « vous l'avez déplacée sur le N° 4 » pour une
+      // photo qui était la sienne depuis le début. Sans photo d'avant, la marque, comme prévu.
+      const sienneAvant = toutesA
+        .filter((r) => r.component_key === marque.deplacee_vers && r.version_no === marque.version_no
+                    && r.status === "read" && r.gcs_uri !== marque.gcs_uri)
+        .sort((x, y) => (x.created_at < y.created_at ? 1 : -1))[0] || null;
+      await insertPhotoRow(bqA, sienneAvant
+        ? { ...sienneAvant, photo_id: randomUUID(), created_at: quandA }
+        : {
+            ...partie, photo_id: randomUUID(), status: STATUT_DEPLACEE as PhotoRow["status"],
+            deplacee_vers: marque.component_key, created_at: quandA,
+            items_matched: null, items_confirmed: null, prices_seen: null, checklist: null,
+          });
+      await insertPhotoRow(bqA, {
+        ...partie, photo_id: randomUUID(), dispositif_id: marque.dispositif_id,
+        component_key: marque.component_key, fixture_no: marque.fixture_no,
+        status: "read", deplacee_vers: null, created_at: quandA,
+      });
+      return json({ ok: true, revenue_sur: marque.component_key });
+    }
+
+    // ── DÉPLACER UNE PHOTO POSÉE SUR LE MAUVAIS MEUBLE (owner 15/09    // ── DÉPLACER UNE PHOTO POSÉE SUR LE MAUVAIS MEUBLE (owner 15/09 : « déplacer la photo ») ────────
+    // Même patron que « Retirer → » : `dry: true` rend le PLAN sans rien toucher — c'est ce que la page
+    // demande au premier toucher, pour dire vers quel meuble le numéro pointe et si la photo change de
+    // pôle. Le second toucher repasse ici sans `dry`. La règle vit dans `photoDeplacement.ts` et nulle
+    // part ailleurs : cette route l'EXÉCUTE.
+    //
+    // DEUX ÉCRITURES, et l'ordre compte. La MARQUE d'abord à la place quittée, la photo ensuite à sa
+    // nouvelle place : si la seconde échoue, la page montre une place vide et un message — état
+    // réparable. Dans l'autre ordre, un échec laisserait la photo AUX DEUX endroits, ce qui est
+    // exactement le défaut que la marque existe pour empêcher.
+    if (String(body.action || "") === "deplacer") {
+      const photo_id = String(body.photo_id || "").trim();
+      if (!dispositif_id || !photo_id) return json({ ok: false, error: "dispositif_id, photo_id requis" }, 400);
+      const bqD = makeBQClient(BQ_PROJECT);
+      const dispD = await readDispositif(bqD, dispositif_id, null);
+      if (!dispD) return json({ ok: false, error: "dispositif introuvable" }, 404);
+      requireLocationOwnership(locals, dispD.location_id);
+
+      // LES MEUBLES DU SITE ENTIER, avec le NOM que porte la base (`component_label`) — jamais un nom
+      // recomposé (CLAUDE.md, 15/09). Le site entier et pas le seul pôle : un numéro peut désigner un
+      // meuble d'un autre pôle, et c'est précisément le cas qu'il faut savoir annoncer.
+      const [photosD, meublesRows] = await Promise.all([
+        listPhotoRows(bqD, dispositif_id),
+        bqD.query({
+          query: `SELECT m.component_key, m.fixture_no, m.dispositif_id,
+                         ANY_VALUE(vc.component_label) AS nom, ANY_VALUE(vc.committed_action_text) AS pole_label
+                  FROM (SELECT * EXCEPT(rn) FROM (
+                          SELECT dispositif_id, component_key, fixture_no,
+                                 ROW_NUMBER() OVER (PARTITION BY dispositif_id, component_key ORDER BY created_at DESC) rn
+                          FROM \`${BQ_PROJECT}.analytics.space_measures\`
+                          WHERE location_id = @l AND component_key IS NOT NULL) WHERE rn = 1) m
+                  LEFT JOIN \`${BQ_PROJECT}.semantic.vw_insight_event_dispositif_components\` vc
+                         ON vc.location_id = @l AND vc.dispositif_id = m.dispositif_id AND vc.component_key = m.component_key
+                  WHERE m.fixture_no IS NOT NULL
+                  GROUP BY 1, 2, 3`,
+          params: { l: dispD.location_id }, types: { l: "STRING" }, location: "EU",
+        }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []),
+      ]);
+      const fl = (x: any): any => (x && typeof x === "object" && "value" in x ? x.value : x);
+      const meubles: MeublePourDeplacement[] = (meublesRows as any[]).map((r) => ({
+        component_key: String(fl(r.component_key)),
+        fixture_no: fl(r.fixture_no) == null ? null : Number(fl(r.fixture_no)),
+        nom: String(fl(r.nom) ?? "").trim(),
+        pole_label: String(fl(r.pole_label) ?? "").trim(),
+        dispositif_id: String(fl(r.dispositif_id)),
+      }));
+
+      const res = planDeDeplacement({ photo_id, vers_fixture_no: body.vers_fixture_no, photos: photosD, meubles });
+      if (!res.ok) return json({ ok: false, refus: res.refus }, res.refus === "photo_introuvable" ? 404 : 400);
+      if (body.dry) return json({ ok: true, plan: res.plan });
+
+      const source = photosD.find((r) => r.photo_id === photo_id)!;
+      const quand = new Date().toISOString();
+      // 1. LA MARQUE, à la place quittée. Ce n'est pas une photo : son statut le dit, et la lecture
+      //    (dernière ligne par version × composant) cesse d'y montrer quoi que ce soit.
+      await insertPhotoRow(bqD, {
+        ...source, photo_id: randomUUID(), status: STATUT_DEPLACEE as PhotoRow["status"],
+        deplacee_vers: res.plan.vers.component_key, created_at: quand,
+        items_matched: null, items_confirmed: null, prices_seen: null, checklist: null,
+      });
+      // 2. LA PHOTO, à sa nouvelle place. Elle garde son image, ses articles lus et son heure de prise
+      //    de vue — c'est la MÊME photo ; seul le meuble change, et le pôle avec lui s'il diffère.
+      await insertPhotoRow(bqD, {
+        ...source, photo_id: randomUUID(),
+        dispositif_id: res.plan.vers.dispositif_id,
+        component_key: res.plan.vers.component_key,
+        fixture_no: res.plan.vers.fixture_no,
+        status: "read", deplacee_vers: null, created_at: quand,
+      });
+      return json({ ok: true, plan: res.plan });
+    }
+
+    // ── RETIRER UNE PHOTO (owner 14/09    // ── RETIRER UNE PHOTO (owner 14/09 : « fais du retrait une action de la page du pôle ») ──────────
     // `dry: true` rend le PLAN sans rien toucher : c'est ce que la page demande au premier toucher de
     // « Retirer → », pour dire à l'exploitant dans quel état son pôle va se retrouver. Le second
     // toucher (« Confirmer → ») repasse ici sans `dry`. La règle vit dans `photoRetrait.ts` et nulle
@@ -419,6 +560,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       photo_id, location_id: disp.location_id, dispositif_id, version_no: disp.version_no, component_key,
       walk_id, seq, t_offset_s, gcs_uri: photoGcsUri(path),
       dispositif_type: comp.type, dispositif_role: comp.role, status: "read",
+      deplacee_vers: null,   // une photo qui naît n'a rien quitté
       // 13/09 — les articles viennent de la PORTE (gate.items), jamais de `out` : codes de la liste,
       // confiance connue, et l'étagère ramenée à null quand elle sort des étagères du composant.
       checklist: out.checklist, items_matched: gate.items, items_confirmed: null, prices_seen: out.prices,

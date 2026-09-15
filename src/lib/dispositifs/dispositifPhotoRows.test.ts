@@ -7,7 +7,7 @@ const row = (o: Partial<PhotoRow>): PhotoRow => ({
   photo_id: "p", location_id: "l", dispositif_id: "d", version_no: 1, component_key: "c", walk_id: null, seq: null,
   t_offset_s: null, gcs_uri: "gs://x", dispositif_type: null, dispositif_role: null, status: "read", checklist: null,
   items_matched: null, items_confirmed: null, prices_seen: null, coverage_flag: null, model: null, prompt_version: null,
-  created_by: null, created_at: "2026-09-03T10:00:00Z", exposition: null, levels: null, families_present: [], fixture_no: null, ...o,
+  created_by: null, created_at: "2026-09-03T10:00:00Z", exposition: null, levels: null, families_present: [], fixture_no: null, deplacee_vers: null, ...o,
 });
 const LABEL = (t: string | null) => (t === "vitrine" ? "Vitrine" : t === "lineaire" ? "Linéaire" : "");
 
@@ -71,7 +71,7 @@ describe("photosParVersion — l'identité affichable", () => {
     photo_id: "p", location_id: "l", dispositif_id: "d", version_no: 1, component_key: "c", walk_id: null, seq: null,
     t_offset_s: null, gcs_uri: "gs://x", dispositif_type: "vitrine", dispositif_role: null, status: "read", checklist: null,
     items_matched: null, items_confirmed: null, prices_seen: null, coverage_flag: null, model: null, prompt_version: null,
-    created_by: null, created_at: "2026-09-03T10:00:00Z", exposition: null, levels: null, families_present: [], fixture_no: null, ...o,
+    created_by: null, created_at: "2026-09-03T10:00:00Z", exposition: null, levels: null, families_present: [], fixture_no: null, deplacee_vers: null, ...o,
   });
   it("porte le nom court, le N° du plan et le NOM de l'auteur — jamais son identifiant", () => {
     const out = photosParVersion(

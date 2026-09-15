@@ -9,6 +9,7 @@ const photo = (over: Partial<PhotoRow> = {}): PhotoRow => ({
   photo_id: "p1", location_id: "loc", dispositif_id: "d1", version_no: 2, component_key: "k1",
   walk_id: null, seq: null, t_offset_s: null, gcs_uri: "gs://b/o",
   dispositif_type: "lineaire", dispositif_role: null, status: "read",
+  deplacee_vers: null,
   checklist: {}, items_matched: [], items_confirmed: null, prices_seen: [],
   coverage_flag: "entier", model: "m", prompt_version: "photo_extract_v2",
   created_by: "u1", created_at: "2026-09-13T10:00:00Z",

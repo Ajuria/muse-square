@@ -1132,3 +1132,39 @@ it("aucune borne du tout : la page d'avant, telle quelle — jamais un cadre à 
   const t2 = (k: string) => (k === "pole_vue_dispositif" ? "Dispositif" : "Performance");
   expect(String(kit.assemblerVuesDuPole("[TOUT]", [], t2))).toBe("[TOUT]");
 });
+
+// ── 15/09 (owner : « déplacer la photo », mots ratifiés) — LA PLACE QUITTÉE N'EST PAS UNE PHOTO.
+it("une place quittée dit ce que VOUS avez fait, nomme le composant d'arrivée, et porte l'annulation", () => {
+  const html = String(kit.renderComponentPhoto({
+    photo_id: "m1", status: "déplacée", url: null,
+    deplacee_vers: "p7", deplacee_vers_nom: "N° 7 — Vin & Spiritueux",
+  }, EVOL_COPY));
+  // Le nom passe par `esc` : « & » devient « &amp; » dans le HTML. L'assertion le dit, sinon elle
+  // échouerait sur un rendu CORRECT — ce qu'elle a fait au premier jet.
+  expect(html).toContain("Aucune photo ici — vous l'avez déplacée sur le N° 7 — Vin &amp; Spiritueux.");
+  expect(html).toContain("data-eg-photo-deplacer-annuler=\"m1\"");
+  // Elle n'a PAS d'image : l'API ne lui en sert pas, et le rendu n'en invente pas une.
+  expect(html).not.toContain("<img");
+});
+
+it("le NOM d'arrivée vient du serveur — le kit n'en recompose JAMAIS un", () => {
+  // La faute du 15/09 : « N° 7 · Cave » fabriqué à partir du numéro et du pôle, alors que le composant
+  // porte son nom en base. Sans nom servi, la phrase ne bricole rien à partir de la clé `p7`.
+  const html = String(kit.renderComponentPhoto({ photo_id: "m1", status: "déplacée", url: null, deplacee_vers: "p7" }, EVOL_COPY));
+  // La clé ne doit apparaître NULLE PART — ni dans la phrase, ni dans un attribut. Mon premier jet
+  // cherchait « p7 » suivi d'une espace ; la phrase rend « …sur le p7. », donc la mutation passait.
+  expect(html).not.toContain("p7");
+  expect(html).not.toMatch(/N° ?7 ?·/);
+});
+
+it("une photo ordinaire porte « Déplacer → » à côté de « Retirer → », dans le MÊME bloc de gestes", () => {
+  const html = String(kit.renderComponentPhoto({
+    photo_id: "ph1", status: "read", url: "/api/x", created_at: "2026-09-14T20:12:00Z", questions: [], checklist: {},
+  }, EVOL_COPY));
+  const i = html.indexOf("data-eg-photo-rm-wrap");
+  expect(i).toBeGreaterThan(-1);
+  const gestes = html.slice(i);
+  expect(gestes).toContain("data-eg-photo-deplacer=\"ph1\"");
+  expect(gestes).toContain("data-eg-photo-rm=\"ph1\"");
+  expect(gestes.indexOf("Déplacer →")).toBeLessThan(gestes.indexOf("Retirer →"));
+});
