@@ -1120,6 +1120,11 @@
       // après ses résultats (le code lit d'abord le CA), mais se LIT en premier — « comment ce pôle est
       // installé » avant « ce que les photos ont appris », avant ses composants. Arbitré sur le proto.
       var _fin = function (vue, rang) { if (h.length > _dernier) { _bornes.push({ vue: vue, rang: rang || 0, de: _dernier, a: h.length }); _dernier = h.length; } };
+      // 15/09 (owner : « ça implique 2 vues du plan dans banner ») — DEUX PLANS, UN PAR VUE. Dispositif
+      // ouvre sur LE PLAN DÉPOSÉ (celui qui porte les numéros, voie b) ; Performance ouvre sur le plan
+      // coloré par CA/m². Le bandeau commun au-dessus des onglets disparaît : un plan qui ne répond pas
+      // à la question de la vue n'a rien à y faire.
+      var _planDepose = pr.plan_depose || null;
       var h = '<div style="border-bottom:2px solid #111827;padding-bottom:14px;margin-bottom:20px;">'
         + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:19px;font-weight:700;color:#111827;">' + esc(pName) + '</span>'
         + '<span style="font-size:11px;font-weight:600;color:#0F6E56;background:#E6F6F0;padding:3px 10px;border-radius:999px;">' + esc(t2('pole_chip')) + '</span>'
@@ -1128,6 +1133,8 @@
         + (cm.owner_person_name ? '<div style="font-size:12px;color:#6b7280;margin-top:4px;">' + esc(t2('pole_resp')) + ' : ' + esc(cm.owner_person_name) + '</div>' : '')
         + '</div>';
       _fin('tete');
+      h += bandeauPlanDepose(_planDepose, t2, cm.location_id || '');
+      _fin('Dispositif', 0);
       h += '<div class="eg-sec"><div class="eg-uc">' + esc(t2('pole_fams_title')) + '</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;">' + pFams.map(function (f) { return '<span style="font-size:12px;background:#F3F4F6;color:#374151;padding:4px 11px;border-radius:999px;">' + esc(f) + '</span>'; }).join('') + '</div></div>';
       _fin('Performance', 4);
@@ -1306,7 +1313,7 @@
       if (pr.plan && Array.isArray(pr.plan.zones) && pr.plan.zones.length) {
         h += '<div class="eg-sec" data-eg-plan><div class="eg-uc">' + esc(t2('pole_plan_title')) + '</div>'
           + AB_PRIMITIVES.plan(pr.plan) + '</div>';
-      _fin('bandeau');
+      _fin('Performance', 0);   // 15/09 (owner) — le plan coloré est le bandeau de la vue PERFORMANCE
       }
       // 14/09 (owner) — LA DÉCOMPOSITION, le MÊME bloc que sur une opération : nombre de ventes, panier
       // moyen, mix, heures. Le serveur l'a calculée sur le référentiel de l'en-tête (30 derniers jours
@@ -2352,6 +2359,38 @@
   // UNE SECTION NON CLASSÉE NE DISPARAÎT PAS : elle tombe dans Dispositif et le dit en console. Le
   // proto avait la même règle, pour la même raison — un bloc qui s'évapore en silence est pire qu'un
   // bloc mal rangé.
+  // 15/09 (owner, voie b) — LE BANDEAU DE LA VUE DISPOSITIF : LE PLAN DÉPOSÉ, celui qui porte les
+  // numéros imprimés. Un PDF ne s'affiche pas dans une balise image : il s'ouvre dans un cadre, avec
+  // un lien de repli — les cadres de PDF sont inégaux sur téléphone. Sans dépôt, l'écran d'envoi, qui
+  // dit ce que l'exploitant y GAGNE et non ce que l'app enregistre (lexique règle 8).
+  function bandeauPlanDepose(p, t2, location_id) {
+    var titre = '<div class="eg-uc">' + esc(t2('pole_plan_depose_titre')) + '</div>';
+    var champ = '<input type="file" data-eg-depot-fichier accept="application/pdf,image/png,image/jpeg,image/webp" style="display:none;">';
+    if (!p || !p.url) {
+      return '<div class="eg-sec" data-eg-depot-plan>' + titre
+        + '<div style="border:1.5px dashed #c7cedb;border-radius:12px;padding:22px;text-align:center;background:#FBFCFE;">'
+        + '<div style="font-size:13px;font-weight:600;color:#111827;">' + esc(t2('pole_plan_depot_cta')) + '</div>'
+        + '<div style="font-size:12.5px;color:#374151;margin-top:4px;">' + esc(t2('pole_plan_depot_gain')) + '</div>'
+        + '<div style="font-size:11.5px;color:#9CA3AF;margin-top:2px;">' + esc(t2('pole_plan_depot_types')) + '</div>'
+        + champ
+        + '<button type="button" data-eg-depot-choisir="' + esc(location_id || '') + '" style="margin-top:12px;font-size:12px;font-weight:600;font-family:inherit;color:#fff;background:#1D3BB3;border:1px solid #1D3BB3;border-radius:8px;padding:6px 14px;cursor:pointer;">' + esc(t2('pole_plan_depot_bouton')) + '</button>'
+        + '<div data-eg-depot-msg style="font-size:12px;color:#b91c1c;margin-top:8px;"></div>'
+        + '</div></div>';
+    }
+    var vue = p.est_pdf
+      ? '<iframe src="' + esc(p.url) + '" title="' + esc(t2('pole_plan_depose_titre')) + '" style="width:100%;height:420px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;"></iframe>'
+      : '<img src="' + esc(p.url) + '" alt="' + esc(t2('pole_plan_depose_titre')) + '" style="width:100%;height:auto;display:block;border:1px solid #e5e7eb;border-radius:10px;background:#fff;">';
+    var d = String(p.created_at || '').slice(0, 10);
+    var dfr = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+    return '<div class="eg-sec" data-eg-depot-plan>' + titre + vue
+      + '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:12px;color:#6b7280;">'
+      + (dfr ? '<span>' + esc(String(t2('pole_plan_depose_le')).split('{date}').join(dfr)) + '</span>' : '')
+      + '<a href="' + esc(p.url) + '" target="_blank" rel="noopener" style="color:#1D3BB3;">' + esc(t2('pole_plan_ouvrir')) + '</a>'
+      + champ
+      + '<button type="button" data-eg-depot-choisir="' + esc(location_id || '') + '" style="font-size:12px;font-weight:500;font-family:inherit;color:#1D3BB3;background:#fff;border:1px solid #1D3BB3;border-radius:8px;padding:3px 10px;cursor:pointer;">' + esc(t2('pole_plan_remplacer')) + '</button>'
+      + '<span data-eg-depot-msg style="color:#b91c1c;"></span></div></div>';
+  }
+
   function assemblerVuesDuPole(h, bornes, t2) {
     // AUCUNE BORNE : la page d'AVANT, telle quelle. Mon premier repli testait `!dispo && !perf`, et il
     // était faux — sans borne, tout le document tombait dans le « reste », donc dans Dispositif, avec un

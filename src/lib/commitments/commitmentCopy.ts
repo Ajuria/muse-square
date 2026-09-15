@@ -397,6 +397,21 @@ export const EVOL_COPY = {
   // 14/09 (owner : « plan au sol » sur la page du dispositif) — LE MOT EST CELUI DU LEXIQUE (l. 133,
   // owner 13/09) : « plan coloré ». Le bloc porte déjà sa propre légende (la mesure, la fenêtre, le sol de
   // vente) : le titre de section ne la répète pas.
+  // 15/09 (owner, voie b — mots ratifiés) — LE PLAN DU MAGASIN, DÉPOSÉ. Le bandeau de la vue Dispositif
+  // le porte ; celui de la vue Performance garde le plan coloré par CA/m².
+  pole_plan_depose_titre: "Le plan de votre magasin",
+  pole_plan_depot_cta: "Déposez le plan de votre magasin",
+  pole_plan_depot_gain: "Vous y retrouverez vos numéros quand vous corrigez une photo.",
+  pole_plan_depot_types: "PDF, PNG ou JPEG, 3 Mo au plus.",
+  // Le BOUTON ne répète pas le titre : il suit la grammaire des CTA de la page (« Documenter → »,
+  // « Retirer → », « Déplacer → »). Constaté au rendu — la phrase s'affichait deux fois de suite.
+  pole_plan_depot_bouton: "Déposer →",
+  pole_plan_remplacer: "Remplacer",
+  pole_plan_depose_le: "Déposé le {date}",
+  pole_plan_ouvrir: "Ouvrir le plan →",
+  pole_plan_depot_refus_type: "Ce format ne convient pas : déposez un PDF, un PNG ou un JPEG.",
+  pole_plan_depot_refus_poids: "Ce fichier dépasse 3 Mo.",
+  pole_plan_depot_echec: "Le plan n'est pas parti. Réessayez.",
   pole_plan_title: "Plan coloré",
   pole_photo_prec_une: "Voir la photo précédente de ce composant",
   pole_photo_prec: "Voir les {n} photos précédentes de ce composant",

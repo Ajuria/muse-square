@@ -19,6 +19,7 @@ import { readLatestSnapshot } from "../../../lib/commitments/actionCommitments";
 import { buildPoleReading, buildPoleItemsReading, listPoleSpace, type PoleSpaceRow } from "../../../lib/dispositifs/poleReading";
 import { composePoleClassement } from "../../../lib/dispositifs/poleClassement";
 import { composePlan, type PlanBlock } from "../../../lib/dispositifs/planColore";
+import { listPlans, planEnVigueur, planApiUrl } from "../../../lib/dispositifs/spacePlans";
 import { listSpaceZonesEnVigueur, currentZones, type SpaceZone } from "../../../lib/dispositifs/spaceZones";
 import type { AnswerBlock } from "../../../lib/explorer/blocks";
 import { commitmentEffect } from "../../../lib/commitments/commitmentEffect";
@@ -338,6 +339,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
       // et « 491 € » sur une forme ne veut rien dire sans elle. Cela revient sur la règle du 14/09 qui
       // voulait UN seul référentiel sur toute la page ; elle ne tient plus depuis que le tableau des pôles
       // porte les DEUX densités côte à côte (owner, 15/09), chacune nommée par son unité.
+      // 15/09 (owner, voie b) — LE PLAN DÉPOSÉ, celui qui porte les numéros. Il vit au grain SITE, pas
+      // au grain pôle : la même fiche sert toutes les pages de pôle. Sans dépôt, `plan_depose` est null
+      // et la vue Dispositif affiche son écran d'envoi — une absence est un état, pas une erreur.
+      const _depose = planEnVigueur(await listPlans(bq, String(snap.location_id)).catch(() => []));
+      (pole as any).plan_depose = _depose
+        ? { plan_id: _depose.plan_id, url: planApiUrl(_depose.location_id, _depose.plan_id),
+            est_pdf: _depose.content_type.toLowerCase().indexOf("pdf") >= 0,
+            content_type: _depose.content_type, created_at: _depose.created_at }
+        : null;
       const _zones = currentZones(await _zonesP);
       const _plan = _zones.length ? composePlan(_zones, _esp, "ca_par_m2") : null;
       (pole as any).plan = _plan && _plan.found

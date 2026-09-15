@@ -846,17 +846,28 @@ it("sans contour relevé, aucune section — la page ne met pas un cadre vide", 
   expect(html).not.toContain("Plan coloré");
 });
 
-// 15/09 (owner : « use the map as the Pole sections banner ») — LE PLAN EST UN BANDEAU, AU-DESSUS DES
-// ONGLETS. Il ne se range donc plus sous la comparaison : il dit « où suis-je », ce qui vaut pour les
-// deux vues. Ce test disait l'inverse depuis le 14/09 ; il est instruit, pas contourné.
-it("le plan est le BANDEAU : au-dessus des onglets, hors des deux vues", () => {
+// 15/09 (owner : « ça implique 2 vues du plan dans banner — une vue avec numéros pour dispositif et
+// une vue avec CA/m² comme actuellement dans vue performance ») — DEUX PLANS, UN PAR VUE. Le bandeau
+// COMMUN au-dessus des onglets disparaît : un plan qui ne répond pas à la question de sa vue n'a rien
+// à y faire. Ce test a dit trois contrats successifs (14/09 sous la comparaison, 15/09 en bandeau
+// commun, 15/09 un par vue) — il est instruit à chaque fois, jamais contourné.
+it("chaque vue ouvre sur SON plan : le déposé dans Dispositif, le coloré dans Performance", () => {
   const data: any = polePlan();
   data.pole.comparaison = { cols: [{ label: "Pôle" }], rows: [{ id: "d1", cells: [{ v: "Épices" }] }, { id: "d2", cells: [{ v: "Thés" }] }] };
   const html = String(kit.renderEvolution(data, EVOL_COPY));
-  expect(html.indexOf("data-eg-plan")).toBeLessThan(html.indexOf("data-eg-vue-onglet"));
-  expect(html.indexOf("data-eg-vue-onglet")).toBeLessThan(html.indexOf('data-eg-vue="Dispositif"'));
-  // et la comparaison est dans Performance, pas dans le bandeau
-  expect(html.indexOf('data-eg-vue="Performance"')).toBeLessThan(html.indexOf("data-eg-poles-rank"));
+  const iD = html.indexOf('<div data-eg-vue="Dispositif">');
+  const iP = html.indexOf('<div data-eg-vue="Performance" hidden>');
+  const dispo = html.slice(iD, iP), perf = html.slice(iP);
+  // Le plan coloré ouvre Performance — il est le PREMIER bloc de sa vue, pas un bloc au milieu.
+  expect(perf).toContain("data-eg-plan");
+  expect(perf.indexOf("data-eg-plan")).toBeLessThan(perf.indexOf("data-eg-poles-rank"));
+  expect(dispo).not.toContain("data-eg-plan");
+  // Et le plan déposé ouvre Dispositif — ici sans dépôt, donc son écran d'envoi.
+  expect(dispo).toContain("data-eg-depot-plan");
+  expect(dispo.indexOf("data-eg-depot-plan")).toBeLessThan(dispo.indexOf("Comment ce pôle est installé"));
+  expect(perf).not.toContain("data-eg-depot-plan");
+  // Plus AUCUN bandeau commun au-dessus des onglets.
+  expect(html.slice(0, html.indexOf("data-eg-vue-onglet"))).not.toContain("data-eg-plan");
 });
 
 // ── 15/09 (owner : « ensuite câble les vraies vues dans la vraie page ») — LES DEUX VUES.
@@ -889,9 +900,9 @@ it("chaque section est dans UNE vue, et AUCUNE ne disparaît", () => {
     expect(perf, `${t} attendu dans Performance`).toContain(t);
     expect(dispo, `${t} ne doit PAS être dans Dispositif`).not.toContain(t);
   }
-  // Le plan est le BANDEAU : au-dessus des onglets, dans aucune des deux vues.
-  expect(dispo).not.toContain("data-eg-plan");
-  expect(perf).not.toContain("data-eg-plan");
+  // Chaque vue ouvre sur SON plan (owner 15/09) : le coloré dans Performance, le déposé dans Dispositif.
+  expect(perf).toContain("data-eg-plan");
+  expect(dispo).toContain("data-eg-depot-plan");
   // Et la version suivante est un geste de montage : Dispositif.
   expect(dispo).toContain("data-eg-nextversion-sec");
   expect(perf).not.toContain("data-eg-nextversion-sec");
@@ -1167,4 +1178,31 @@ it("une photo ordinaire porte « Déplacer → » à côté de « Retirer → »
   expect(gestes).toContain("data-eg-photo-deplacer=\"ph1\"");
   expect(gestes).toContain("data-eg-photo-rm=\"ph1\"");
   expect(gestes.indexOf("Déplacer →")).toBeLessThan(gestes.indexOf("Retirer →"));
+});
+
+// ── 15/09 (owner, voie b) — LE BANDEAU DU PLAN DÉPOSÉ.
+it("sans dépôt : l'écran d'envoi dit ce que l'exploitant y GAGNE, et le bouton ne répète pas le titre", () => {
+  const html = String(kit.renderEvolution(polePhotos(), EVOL_COPY));
+  const i = html.indexOf("data-eg-depot-plan");
+  expect(i).toBeGreaterThan(-1);
+  const bloc = html.slice(i, i + 2200);
+  expect(bloc).toContain("Déposez le plan de votre magasin");
+  expect(bloc).toContain("Vous y retrouverez vos numéros quand vous corrigez une photo.");
+  // Constaté au rendu : le titre et le bouton disaient la MÊME phrase, deux fois de suite.
+  expect((bloc.match(/Déposez le plan de votre magasin/g) || []).length).toBe(1);
+  expect(bloc).toContain("Déposer →");
+  expect(bloc).toContain('accept="application/pdf,image/png,image/jpeg,image/webp"');
+});
+
+it("un plan déposé : un PDF s'ouvre dans un cadre, une image dans une balise image", () => {
+  const avec = (p: any) => { const d: any = polePhotos(); d.pole.plan_depose = p; return String(kit.renderEvolution(d, EVOL_COPY)); };
+  const pdf = avec({ plan_id: "x", url: "/api/dispositifs/plan?file=x", est_pdf: true, created_at: "2026-09-15T10:00:00Z" });
+  expect(pdf).toContain('<iframe src="/api/dispositifs/plan?file=x"');
+  expect(pdf).toContain("Déposé le 15/09/2026");   // JJ/MM/AAAA, jamais l'ISO
+  expect(pdf).toContain("Remplacer");
+  const img = avec({ plan_id: "y", url: "/api/dispositifs/plan?file=y", est_pdf: false, created_at: "2026-09-15T10:00:00Z" });
+  expect(img).toContain('<img src="/api/dispositifs/plan?file=y"');
+  expect(img).not.toContain("<iframe");
+  // Et l'écran d'envoi a cédé la place : on ne redemande pas un plan qu'on a.
+  expect(img).not.toContain("Déposez le plan de votre magasin");
 });

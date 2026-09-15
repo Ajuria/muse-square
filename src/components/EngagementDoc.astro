@@ -48,7 +48,7 @@ const { id, page, backHref, backLabel } = Astro.props;
     <script is:inline src="/js/scope-form.js?v=1"></script>
     <script is:inline src="/js/commit-form.js?v=16"></script>
     <script is:inline src="/js/pole-form.js?v=6"></script>
-    <script is:inline src="/js/card-kit.js?v=115"></script>
+    <script is:inline src="/js/card-kit.js?v=116"></script>
     <script is:inline define:vars={{ COPY: EVOL_COPY, PAGE: page }}>
       (function () {
         var root = document.getElementById("eng-root");
@@ -151,6 +151,40 @@ const { id, page, backHref, backLabel } = Astro.props;
                 img.src = url;
               });
             }
+            // Le CHOIX du fichier n'est pas un clic : il se capte en « change », en délégation sur la
+            // section, pour que le sélecteur réinséré par un re-rendu du kit reste écouté.
+            sec.addEventListener("change", function (ev) {
+              var f = ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-eg-depot-fichier") ? ev.target : null;
+              if (!f || !f.files || !f.files[0]) return;
+              var zone = f.closest("[data-eg-depot-plan]");
+              var msgP = zone && zone.querySelector("[data-eg-depot-msg]");
+              var bouton = zone && zone.querySelector("[data-eg-depot-choisir]");
+              var loc = bouton ? bouton.getAttribute("data-eg-depot-choisir") : "";
+              var fichier = f.files[0];
+              if (msgP) msgP.textContent = "";
+              if (bouton) bouton.disabled = true;
+              var lect = new FileReader();
+              lect.onload = function () {
+                var s64 = String(lect.result || "");
+                var virgule = s64.indexOf(",");
+                fetch("/api/dispositifs/plan", { method: "POST", headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ location_id: loc, content_type: fichier.type,
+                    original_name: fichier.name, file_base64: virgule >= 0 ? s64.slice(virgule + 1) : s64 }) })
+                  .then(function (r) { return r.json(); })
+                  .then(function (j) {
+                    if (j && j.ok) { window.location.reload(); return; }
+                    if (bouton) bouton.disabled = false;
+                    if (msgP) {
+                      msgP.textContent = j && j.refus === "type_refuse" ? (COPY.pole_plan_depot_refus_type || "")
+                        : j && j.refus === "trop_lourd" ? (COPY.pole_plan_depot_refus_poids || "")
+                        : (COPY.pole_plan_depot_echec || "");
+                    }
+                  })
+                  .catch(function () { if (bouton) bouton.disabled = false; if (msgP) msgP.textContent = COPY.pole_plan_depot_echec || ""; });
+              };
+              lect.onerror = function () { if (bouton) bouton.disabled = false; if (msgP) msgP.textContent = COPY.pole_plan_depot_echec || ""; };
+              lect.readAsDataURL(fichier);
+            });
             sec.addEventListener("click", function (ev) {
               // Confirmer les articles (03/09) : les cases cochées partent en items_confirmed.
               var cbtn = ev.target && ev.target.closest ? ev.target.closest("[data-eg-items-submit]") : null;
@@ -168,6 +202,18 @@ const { id, page, backHref, backLabel } = Astro.props;
                     else { cbtn.disabled = false; }
                   })
                   .catch(function () { cbtn.disabled = false; });
+                return;
+              }
+              // ── DÉPOSER LE PLAN DU MAGASIN (owner 15/09, voie b) — le bouton ouvre le sélecteur de
+              // fichier caché du bandeau ; le choix déclenche l'envoi. Le fichier part en base64, comme
+              // une photo : un multipart demanderait un second chemin de lecture côté route pour un
+              // fichier par site. Le REFUS est dit par l'API (type, poids) et affiché tel quel — la page
+              // ne re-juge rien, elle n'aurait pas la même règle.
+              var dpc = ev.target && ev.target.closest ? ev.target.closest("[data-eg-depot-choisir]") : null;
+              if (dpc) {
+                var zone = dpc.closest("[data-eg-depot-plan]");
+                var inp = zone && zone.querySelector("[data-eg-depot-fichier]");
+                if (inp) inp.click();
                 return;
               }
               // ── DÉPLACER UNE PHOTO (owner 15/09) — MÊME patron que le retrait, dans le MÊME conteneur
