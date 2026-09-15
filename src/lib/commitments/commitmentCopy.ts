@@ -321,6 +321,14 @@ export const EVOL_COPY = {
   releve_envoi_en_cours_une: "{fait} sur 1 enregistrée…",
   releve_envoi_fini: "{n} enregistrées.",
   releve_envoi_fini_une: "1 enregistrée.",
+  // 15/09 (owner) — LE VERDICT PENDANT LA MARCHE, devant le composant. « Cette photo est-elle bonne ? »
+  // se répond LÀ : reprendre coûte trois secondes ; à la fin du relevé, il faut y retourner. Ce que la
+  // marche sait d'une image, c'est sa netteté et sa lumière — le cadrage, lui, est lu par le serveur et
+  // ne peut pas être annoncé ici. On ne promet donc que ce qu'on mesure.
+  releve_vu_gardee: "Gardée",
+  releve_vu_floue: "un peu floue",
+  releve_vu_sombre: "un peu sombre",
+  releve_vu_reprendre: "Reprendre",
   releve_a_reprendre: "À reprendre : le composant n'est pas entier sur la photo.",
   releve_floue_a_reprendre: "À reprendre : la photo est floue.",
   // 13/09 (owner : « Si photo change, versionning change » — le versionning d'un pôle se fait en

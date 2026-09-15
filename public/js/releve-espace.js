@@ -260,6 +260,7 @@
     // La page de fin porte « Reprendre le relevé » : un « Commencer » fixé en bas y ferait doublon.
     $("mainBtn").hidden = true;
     hideOverlay(); fermerFeuille(); tickClock();
+    fermerLesVerdicts();   // 15/09 : aucune photo ne reste en attente de verdict quand on arrête
     showSummary();
     enregistrerTout();   // owner 14/09 : arrêter, c'est enregistrer — en arrière-plan
   }
@@ -430,6 +431,48 @@
   }
 
   // ── une photo gardée ──────────────────────────────────────────────────────
+  // ── LE VERDICT PENDANT LA MARCHE (owner 15/09) ───────────────────────────────────────────────
+  //
+  // POURQUOI ICI ET PAS À LA FIN. Les deux questions du relevé n'ont pas le même bon moment :
+  // « quel composant ? » se répond À LA FIN, en une passe, parce qu'une erreur de rang est un DÉCALAGE
+  // et qu'une correction en répare douze (arbitrage owner du 14/09, inchangé). Mais « cette photo
+  // est-elle bonne ? » se répond DEVANT LE COMPOSANT : reprendre coûte trois secondes, alors qu'à la
+  // page de fin il faut retraverser le magasin. Mesuré sur le compte : 6 photos sur 10 n'ont pas le
+  // composant entier dans le cadre.
+  //
+  // CE QU'IL DIT, ET CE QU'IL NE PEUT PAS DIRE. La marche connaît la NETTETÉ et la LUMIÈRE de l'image
+  // (elle les mesure à chaque tick). Le CADRAGE, lui, est lu par le serveur après l'envoi : il ne peut
+  // pas être annoncé ici, et on ne le promet pas. Le verdict montre donc la VIGNETTE — voir l'image
+  // suffit à juger le cadrage soi-même — et le défaut qu'on sait nommer.
+  //
+  // L'ENVOI ATTEND. La file part 1,2 s après la prise ; le verdict la retient le temps de sa fenêtre.
+  // Sans ça, « Reprendre » devrait effacer une ligne déjà écrite, et un échec d'effacement laisserait
+  // une photo que l'exploitant croit reprise. Une photo non partie ne laisse RIEN à réparer.
+  var VERDICT_MS = 4000;
+  function montrerVerdict(it, reason) {
+    var box = $("verdict"); if (!box) return;
+    it.verdictJusqu = now() + VERDICT_MS;
+    var mot = reason === "floue" ? t("releve_vu_floue") : reason === "sombre" ? t("releve_vu_sombre") : "";
+    box.innerHTML = '<img alt="" src="' + it.dataUrl + '">'
+      + '<div class="v-c"><div class="v-t">' + esc(t("releve_vu_gardee")) + (mot ? " · " + esc(mot) : "") + "</div></div>"
+      + '<button type="button" class="v-r">' + esc(t("releve_vu_reprendre")) + "</button>";
+    box.className = mot ? "on defaut" : "on";
+    box.querySelector(".v-r").addEventListener("click", function () {
+      // REPRENDRE : la photo n'est jamais partie, donc rien à effacer. Le rang se referme tout seul —
+      // le composant attendu redevient celui qu'elle occupait.
+      it.removed = true; it.verdictJusqu = 0;
+      cacherVerdict(); renderPoles(); dire("releve_etat_avancez");
+    });
+    if (run.verdictT) clearTimeout(run.verdictT);
+    run.verdictT = setTimeout(function () {
+      it.verdictJusqu = 0; cacherVerdict(); enregistrerTout();
+    }, VERDICT_MS);
+  }
+  function cacherVerdict() { var b = $("verdict"); if (b) { b.className = ""; b.innerHTML = ""; } }
+  function verdictOuvert() {
+    return run.items.some(function (i) { return !i.removed && i.verdictJusqu && i.verdictJusqu > now(); });
+  }
+
   function commit(shot, manual, reason) {
     var last = run.items.length ? run.items[run.items.length - 1] : null;
     if (last && !manual && last.dataUrl === shot.dataUrl) { if (window.console) console.warn("[releve] image identique ignoree"); return; }
@@ -437,6 +480,7 @@
     // A — le rang décide : la photo prend le meuble attendu, sans rien demander.
     run.items.push({ seq: run.seq, t: tOff(), at: new Date().toISOString(), pole: run.pole, sharp: shot.sharp, bright: shot.bright, w: shot.w, h: shot.h, manual: !!manual, reason: reason || null, source: shot.source || run.camera, removed: false, dataUrl: shot.dataUrl, comp: run.pole ? prochainComposant(run.pole) : null, etat: "a_rattacher" });
     renderPoles(); dire("releve_etat_gardee");
+    montrerVerdict(run.items[run.items.length - 1], reason);
     if (shot.source !== "file") vraiePhoto(run.items[run.items.length - 1]);
     // 14/09 — ON ENREGISTRE AU FIL DE LA MARCHE, plus seulement à l'arrêt. Mesuré ce soir : l'owner
     // avait 5 photos dans le pôle Caisse et `analytics.dispositif_photos` était à 0 — rien ne partait
@@ -543,9 +587,12 @@
   // téléphone), elle ne bloque pas l'écran, et l'avancement se dit en une ligne. Une photo sans
   // composant attend : la route refuse une clé inconnue, et deviner le composant écrirait un faux.
   var enCours = false;
+  // Une photo dont le VERDICT est encore à l'écran n'est pas candidate : « Reprendre » doit pouvoir la
+  // retirer sans rien avoir à effacer en base. La fenêtre est de 4 s, et elle se referme d'elle-même.
+  function verdictEnCours(i) { return !!(i.verdictJusqu && i.verdictJusqu > now()); }
   function enregistrerTout() {
     if (enCours) return;
-    var file = gardees().filter(function (i) { return i.comp && (i.etat === "a_rattacher" || i.etat === "a_corriger"); });
+    var file = gardees().filter(function (i) { return i.comp && !verdictEnCours(i) && (i.etat === "a_rattacher" || i.etat === "a_corriger"); });
     if (!file.length) { avancement(); return; }
     enCours = true;
     var suivant = function () {
@@ -553,7 +600,7 @@
       if (!it) {
         // La file était un instantané : des photos ont pu arriver pendant l'envoi. On les reprend ici,
         // sinon elles restent « à rattacher » pour toujours — c'est ce qui a perdu 2 photos sur 5.
-        var reste = gardees().filter(function (x) { return x.comp && (x.etat === "a_rattacher" || x.etat === "a_corriger"); });
+        var reste = gardees().filter(function (x) { return x.comp && !verdictEnCours(x) && (x.etat === "a_rattacher" || x.etat === "a_corriger"); });
         if (reste.length) { file = reste; return suivant(); }
         enCours = false; avancement(); return;
       }
@@ -593,6 +640,15 @@
   // le nombre de photos \u00e9crites est vrai. NON BLOQUANT : les photos sont d\u00e9j\u00e0 en base, un \u00e9chec ici
   // ne perd rien et ne se montre pas. AUCUNE POSITION n'est envoy\u00e9e : elle demanderait une
   // autorisation \u00e0 l'exploitant, et c'est sa d\u00e9cision.
+  // « Fin du relevé » ne laisse aucune photo en attente de verdict : la fenêtre se ferme, et la file
+  // les prend. Sans ça, quitter la page pendant les 4 s perdrait la dernière photo — le défaut même
+  // que l'enregistrement au fil de la marche avait corrigé le 14/09.
+  function fermerLesVerdicts() {
+    run.items.forEach(function (i) { i.verdictJusqu = 0; });
+    if (run.verdictT) { clearTimeout(run.verdictT); run.verdictT = null; }
+    cacherVerdict();
+  }
+
   function envoyerMarche() {
     var loc = (window.MSReleve && window.MSReleve.location_id) || "";
     if (run.marcheEcrite || !run.walkId || !run.startedAt || !loc) return;
@@ -739,7 +795,7 @@
   window.__releveAttach = function (s) { if (run.phase !== "running") start(); attach(s); };
   window.__releveStep = function (dt) { if (run.phase !== "running") start(); if (!stream) stream = true; var x = (det.tick || now()) + (dt || 120); det.tick = x; step(x, dt || 120); return window.__releveState(); };
   window.__releveBilan = bilanDeMarche;
-  window.__releveState = function () { return { phase: run.phase, state: det.state, armed: det.armed, m: Math.round(det.lastM * 10) / 10, scene: det.lastScene == null ? null : Math.round(det.lastScene * 10) / 10, s: Math.round(det.lastS), stillAcc: Math.round(det.stillAcc), ticks: det.ticks, lastError: det.lastError, overlay: overlay.style.display === "flex" ? $("ovTitle").textContent : null, etat: etatEl ? etatEl.getAttribute("data-mot") : null, plein_ecran: capture ? !capture.hidden : null, pole: run.pole, poles: POLES.length, items: run.items.map(function (i) { return { seq: i.seq, t: i.t, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, coverage: i.coverage || null, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, source: i.source, manual: i.manual, reason: i.reason }; }), switches: run.switches.length, problems: run.problems.slice(), mainBtn: $("mainBtn").textContent, clock: $("rl-clock").textContent }; };
+  window.__releveState = function () { return { phase: run.phase, state: det.state, armed: det.armed, m: Math.round(det.lastM * 10) / 10, scene: det.lastScene == null ? null : Math.round(det.lastScene * 10) / 10, s: Math.round(det.lastS), stillAcc: Math.round(det.stillAcc), ticks: det.ticks, lastError: det.lastError, overlay: overlay.style.display === "flex" ? $("ovTitle").textContent : null, etat: etatEl ? etatEl.getAttribute("data-mot") : null, plein_ecran: capture ? !capture.hidden : null, pole: run.pole, poles: POLES.length, items: run.items.map(function (i) { return { seq: i.seq, t: i.t, pole: i.pole, composant: i.comp ? i.comp.component_key : null, etat: i.etat, coverage: i.coverage || null, sharp: i.sharp, bright: i.bright, w: i.w, h: i.h, source: i.source, manual: i.manual, reason: i.reason, removed: !!i.removed, verdict: !!(i.verdictJusqu && i.verdictJusqu > now()) }; }), switches: run.switches.length, problems: run.problems.slice(), mainBtn: $("mainBtn").textContent, clock: $("rl-clock").textContent }; };
 
   renderPoles();
   if (POLES.length === 1) switchPole(POLES[0].name);
