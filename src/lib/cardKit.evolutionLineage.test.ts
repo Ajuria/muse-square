@@ -784,3 +784,47 @@ it("aucune photo du tout : l'absence de photo se dit, inchangée", () => {
   expect(html).toContain(EVOL_COPY.pole_items_no_photos);
   expect(html).not.toContain(EVOL_COPY.pole_items_none_seen);
 });
+
+// 15/09 (owner : « on n'a pas de vue jour des performances ») — LE MÊME GRAPHIQUE POUR LES DEUX PAGES.
+// `dayBars` servait une fenêtre d'opération (7 à 14 jours) et écrivait une étiquette PAR barre. Sur les
+// 30 jours d'un pôle, « lundi 15/09 » trente fois se chevauche et l'axe devient illisible (mesuré au
+// rendu). Le pas d'étiquette vaut 1 à 8 barres ou moins : la page d'une opération courte ne bouge pas.
+const serieJours = (n: number) => Array.from({ length: n }, (_, i) => ({
+  date: `2026-09-${String(i + 1).padStart(2, "0")}`, has_data: true,
+  daily_revenue: 100 + i, expected_revenue: 110,
+  residual_pct: ((100 + i - 110) / 110) * 100, is_school_holiday: false,
+}));
+const opJours = (n: number) => ({
+  commitment: { commitment_id: "op-axe", status: "open", committed_action_text: "Op",
+    location_id: "l", window_start: "2026-09-01", window_end: `2026-09-${String(n).padStart(2, "0")}`,
+    created_at: "2026-09-01T00:00:00Z" },
+  series: serieJours(n), kpi: null, lineage: [], shape: null,
+});
+const etiquettes = (html: string) => (html.match(/font-size="10\.5"[^>]*>[^<]+<\/text>/g) || []).length;
+const pourcents = (html: string) => (html.match(/font-size="13"[^>]*>[^<]*%<\/text>/g) || []).length;
+
+it("une opération de 7 jours garde TOUTES ses étiquettes d'axe — le partage ne coûte rien à l'existant", () => {
+  expect(etiquettes(String(kit.renderEvolution(opJours(7) as any, EVOL_COPY)))).toBe(7);
+});
+
+it("au-delà de 8 jours les étiquettes s'espacent, l'axe reste lisible", () => {
+  const html = String(kit.renderEvolution(opJours(30) as any, EVOL_COPY));
+  const l30 = etiquettes(html);
+  expect(l30).toBeGreaterThanOrEqual(6);
+  expect(l30).toBeLessThanOrEqual(9);
+  // ET LA DERNIÈRE DATE EST TOUJOURS ÉCRITE. Sans elle, l'axe s'arrête au dernier multiple du pas
+  // (le 29 sur 30 jours) et la lecture croit que la série finit là. Assertion posée après une
+  // mutation qui n'était PAS tombée : le simple compte 8 ou 9 laissait passer la coupure.
+  const der = (html.match(/font-size="10\.5"[^>]*>([^<]+)<\/text>/g) || []).pop() || "";
+  expect(der).toContain("30/09");
+});
+
+it("la ligne de chiffres au-dessus des barres suit LE MÊME pas que l'axe", () => {
+  // Mesuré au rendu du proto (22 barres) : l'axe espacé ne se chevauchait plus, « +58,4 % » si —
+  // 21 collisions sur 22. Un seul pas gouverne les deux rangées, sinon on corrige une rangée et on
+  // laisse l'autre illisible. À 7 jours, rien ne bouge.
+  expect(pourcents(String(kit.renderEvolution(opJours(7) as any, EVOL_COPY)))).toBe(7);
+  const p30 = pourcents(String(kit.renderEvolution(opJours(30) as any, EVOL_COPY)));
+  expect(p30).toBe(etiquettes(String(kit.renderEvolution(opJours(30) as any, EVOL_COPY))));
+  expect(p30).toBeLessThanOrEqual(9);
+});

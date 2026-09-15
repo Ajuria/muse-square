@@ -827,9 +827,18 @@
       if (!(mx > 0)) return '';
       mx = mx * 1.12;
       var y = function (v) { return padT + plotH - (v / mx) * plotH; };
+      // 15/09 — UNE COLONNE CHIFFRÉE SUR `pasAxe`, jamais une par barre. Sur les 30 jours d'un pôle,
+      // « lundi 15/09 » écrit 30 fois se chevauche, et « +58,4 % » aussi : mesuré au rendu du proto
+      // (22 barres, 21 chevauchements sur 22 pour les pourcentages, 0 pour l'axe une fois espacé —
+      // le même défaut, une rangée plus haut). UN SEUL pas gouverne les deux rangées, pour que le jour
+      // daté soit exactement le jour chiffré. À 8 barres ou moins il vaut 1 : la page d'une opération
+      // ne change pas d'un pixel. La barre et son trait d'habituel restent dessinés TOUS les jours —
+      // on retire des nombres illisibles, jamais de la mesure.
+      var pasAxe = Math.max(1, Math.ceil(n / 8));
       var s = '';
       series.forEach(function (d, i) {
         var cx = padL + slot * i + slot / 2;
+        var chiffre = (i % pasAxe === 0 || i === n - 1);
         if (d.has_data) {
           var yv = y(d.daily_revenue), yh = y(d.expected_revenue);
           var dp = d.residual_pct != null ? d.residual_pct : (d.expected_revenue ? (d.daily_revenue - d.expected_revenue) / d.expected_revenue * 100 : 0);
@@ -839,12 +848,22 @@
             var yg = y(d.expected_revenue * (1 + goalPct / 100));
             s += '<line x1="' + (cx - bw / 2 - 5).toFixed(1) + '" y1="' + yg.toFixed(1) + '" x2="' + (cx + bw / 2 + 5).toFixed(1) + '" y2="' + yg.toFixed(1) + '" stroke="#1D3BB3" stroke-width="1.6" stroke-dasharray="4,3"/>';
           }
-          s += '<text x="' + cx.toFixed(1) + '" y="' + (yv - 20).toFixed(1) + '" font-size="13" font-weight="700" fill="' + (dp >= 0 ? '#0F6E56' : '#B45309') + '" text-anchor="middle">' + (dp >= 0 ? '+' : '−') + fr(Math.abs(dp)) + ' %</text>'
-            + '<text x="' + cx.toFixed(1) + '" y="' + (yv - 6).toFixed(1) + '" font-size="10" fill="#6b7280" text-anchor="middle">' + intfr(Math.round(d.daily_revenue)) + ' €</text>';
+          if (chiffre) {
+            s += '<text x="' + cx.toFixed(1) + '" y="' + (yv - 20).toFixed(1) + '" font-size="13" font-weight="700" fill="' + (dp >= 0 ? '#0F6E56' : '#B45309') + '" text-anchor="middle">' + (dp >= 0 ? '+' : '−') + fr(Math.abs(dp)) + ' %</text>'
+              + '<text x="' + cx.toFixed(1) + '" y="' + (yv - 6).toFixed(1) + '" font-size="10" fill="#6b7280" text-anchor="middle">' + intfr(Math.round(d.daily_revenue)) + ' €</text>';
+          }
         } else {
           s += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + y(mx * 0.55).toFixed(1) + '" width="' + bw + '" height="' + (padT + plotH - y(mx * 0.55)).toFixed(1) + '" rx="4" fill="none" stroke="#e5e7eb" stroke-width="1.4" stroke-dasharray="4,4"/>';
         }
-        s += '<text x="' + cx.toFixed(1) + '" y="' + (H - 30) + '" font-size="10.5" fill="' + (d.has_data ? '#374151' : '#c2c7cf') + '" text-anchor="middle">' + esc(msDayAxisFr(d.date)) + '</text>';
+        if (chiffre) {
+          // AUX DEUX BORDS, LA DATE S'ANCRE AU BORD. Centrée sur la première barre, « lundi 17/08 »
+          // déborde à gauche du cadre et se rend « undi 17/08 » ; la dernière perdait son mois
+          // (« mardi 15/0 »). Constaté au rendu du proto — invisible à 7 jours, où le créneau est
+          // large. Le texte reste au-dessus de SA barre, il est seulement aligné vers l'intérieur.
+          var ancre = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
+          var xa = i === 0 ? padL : (i === n - 1 ? W - 8 : cx);
+          s += '<text x="' + xa.toFixed(1) + '" y="' + (H - 30) + '" font-size="10.5" fill="' + (d.has_data ? '#374151' : '#c2c7cf') + '" text-anchor="' + ancre + '">' + esc(msDayAxisFr(d.date)) + '</text>';
+        }
         var marks = [];
         if (d.is_school_holiday) marks.push('vacances');
         if (d.impact_weather_pct != null && d.impact_weather_pct <= -5) marks.push('météo');
@@ -1167,6 +1186,12 @@
               + '<span style="font-size:12px;color:#6b7280;">' + pEurJ(fr2.avg30_eur_day) + (fr2.base_eur_day != null ? ' · ' + esc(t2('pole_reading_row', { n30: fr2.n30, base: Number(fr2.base_eur_day).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) })) : '') + '</span>'
               + right + '</div>';
           }).join('')
+        // 15/09 (owner : « on n'a pas de vue jour des performances ») — LE MÊME GRAPHIQUE QUE LA PAGE
+        // D'UNE OPÉRATION. `dayBars` est le composant de « Votre action paie-t-elle ? » ; le pôle a le
+        // même mouvement et n'avait rien à regarder. Barres = le jour, trait = l'habituel du pôle —
+        // le nombre est celui que la ligne au-dessus dit déjà (« habituel {x} €/j »), jamais un second
+        // calcul. Aucun objectif sur un pôle : `goalPct` reste null, comme pour une opération sans but.
+        + ((pr.serie || []).length >= 2 ? '<div style="margin-top:14px;">' + dayBars(pr.serie, null) + '</div>' : '')
         + '</div>';
       // 14/09 (owner) — L'ESPACE DU PÔLE, juste après ses résultats : mètres de façade, Part de linéaire,
       // surface de vente, puis le CA et la marge par MÈTRE et par m². Les chiffres viennent du même foyer

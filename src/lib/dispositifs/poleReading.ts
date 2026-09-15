@@ -44,6 +44,14 @@ export interface PoleTotals {
   n30: number;
 }
 
+// Un jour de la série du pôle — MÊME forme que `series` de la page d'une opération, pour que
+// `dayBars` la rende sans une seconde version du composant.
+export interface PoleSerieJour {
+  date: string; has_data: boolean;
+  daily_revenue: number; expected_revenue: number | null;
+  residual_pct: number | null; is_school_holiday: boolean;
+}
+
 export interface PoleOperationRow {
   commitment_id: string;
   status: string;
@@ -64,7 +72,7 @@ export async function buildPoleReading(
   // référentiel = la période PRÉCÉDENTE DE MÊME DURÉE (D1 arbitrée). Sans opts : le
   // comportement historique de la page pôle — 30 derniers jours vs les 90 précédents.
   opts?: { start: string; end: string },
-): Promise<{ families: PoleFamilyReading[]; operations: PoleOperationRow[]; totals: PoleTotals }> {
+): Promise<{ families: PoleFamilyReading[]; operations: PoleOperationRow[]; totals: PoleTotals; serie: PoleSerieJour[] }> {
   const wEnd = opts ? (opts.end < asOfIso ? opts.end : asOfIso) : asOfIso;
   const wStart = opts ? opts.start : null; // null => fenêtre glissante 30 j (historique)
   const spanDays = wStart ? Math.max(1, Math.round((Date.parse(wEnd) - Date.parse(wStart)) / 86400000) + 1) : 30;
@@ -109,6 +117,27 @@ export async function buildPoleReading(
         location: "EU",
       }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => [])
     : Promise.resolve([]);
+  // 15/09 (owner : « on n'a pas de vue jour des performances ») — LA SÉRIE PAR JOUR DU PÔLE.
+  // La page d'une OPÉRATION a ce graphique depuis toujours (`series` + `dayBars`) ; le pôle avait le
+  // même mouvement — « est-ce que ça paie » — sans rien à regarder. Même composant, même grammaire
+  // (barres = le jour, trait = l'habituel), autre référentiel : le pôle, pas le site.
+  // AJOUTÉE AU LOT PARALLÈLE : elle ne coûte que si elle est la plus lente (budget 3 s).
+  const serieP = families.length
+    ? bq.query({
+        query: `
+          SELECT CAST(transaction_date AS STRING) AS jour, SUM(revenue) AS ca
+          FROM \`${PROJECT}.semantic.vw_insight_event_client_offering_daily\`
+          WHERE location_id = @loc AND item_category IN UNNEST(@fams)
+            AND transaction_date >= @winStart AND transaction_date <= @winEnd
+          GROUP BY 1 ORDER BY 1`,
+        params: {
+          loc: location_id, fams: families,
+          winEnd: bq.date(wEnd),
+          winStart: bq.date(wStart ?? addDaysIso(wEnd, -(spanDays - 1))),
+        },
+        location: "EU",
+      }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => [])
+    : Promise.resolve([]);
   const opsP = bq.query({
     query: `
       SELECT commitment_id, status, verdict, committed_action_text,
@@ -128,7 +157,7 @@ export async function buildPoleReading(
     types: { d: "STRING", loc: "STRING" }, location: "EU",
   }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
 
-  const [frows, orows] = await Promise.all([famsP, opsP]);
+  const [frows, orows, srows] = await Promise.all([famsP, opsP, serieP]);
   const flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
   const byFam = new Map<string, any>();
   let aggRow: any = null;
@@ -177,7 +206,22 @@ export async function buildPoleReading(
       n30,
     };
   };
-  return { families: famReadings, operations, totals: mkAgg() };
+  // La série au format que `dayBars` attend DÉJÀ (celui de la page d'une opération) : une barre par
+  // jour vendu, et l'habituel du pôle en trait — c'est le même nombre que « habituel {x} €/j » de la
+  // section Résultats, jamais une moyenne réinventée. `has_data` reste vrai : un jour sans vente
+  // n'est pas dans la vue semantic, donc un jour absent est un jour non vendu, pas un trou de mesure.
+  const agg = mkAgg();
+  const habituel = agg.base_eur_day;
+  const serie = (srows as any[]).map((r) => ({
+    date: String(flat(r.jour)),
+    has_data: true,
+    daily_revenue: Math.round(Number(flat(r.ca))),
+    expected_revenue: habituel != null ? Math.round(habituel) : null,
+    residual_pct: habituel != null && habituel > 0
+      ? Math.round(((Number(flat(r.ca)) - habituel) / habituel) * 1000) / 10 : null,
+    is_school_holiday: false,
+  }));
+  return { families: famReadings, operations, totals: agg, serie };
 }
 
 // Les pôles OUVERTS du site — LE foyer de la liste (extrait de create_context le 27/08,
