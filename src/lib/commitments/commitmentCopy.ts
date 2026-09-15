@@ -276,6 +276,19 @@ export const EVOL_COPY = {
   // MARCHE A DONNÉ, EN MOTS, sur la page de fin. Tout était déjà compté, mais seulement dans le JSON à
   // télécharger : l'exploitant ne pouvait pas savoir ce que son film avait écarté, ni pourquoi. Les
   // écarts se disent par leur MOTIF, parce qu'un motif se corrige à la marche suivante.
+  // 15/09 (owner : « le tap sur le plan pendant la marche ») — PLACER LES COMPOSANTS, en fin de pôle,
+  // en une passe. L'exploitant vient de longer ces composants dans cet ordre : il refait un trajet
+  // frais, il ne décode pas une liste. Le rang décide, comme pour l'attribution des photos.
+  releve_plan_titre: "Placer ce pôle sur votre plan",
+  releve_plan_cta: "Placer sur le plan",
+  releve_plan_attendu: "{nom} · {m} m de façade",
+  releve_plan_avancement: "{fait} sur {total} placés",
+  releve_plan_touchez: "Touchez son emplacement sur le plan.",
+  releve_plan_fini: "Ce pôle est placé.",
+  releve_plan_aucun: "Déposez d'abord le plan de votre magasin, depuis la page d'un pôle.",
+  releve_plan_pdf: "Pour placer vos composants, déposez votre plan en image (PNG ou JPEG) : sur un PDF, le point touché ne peut pas être situé.",
+  releve_plan_echec: "Ce point n'est pas parti. Réessayez.",
+  releve_plan_fermer: "Fermer",
   releve_bilan_titre: "Ce que cette marche a donné",
   releve_bilan_gardees: "{n} photos gardées en {min} min",
   releve_bilan_gardee_une: "1 photo gardée en {min} min",

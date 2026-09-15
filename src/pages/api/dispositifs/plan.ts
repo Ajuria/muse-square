@@ -19,6 +19,7 @@ import {
   putPlanObject, getPlanObject, refusDeDepot, PLAN_MAX_BYTES,
 } from "../../../lib/dispositifs/spacePlans";
 import { randomUUID } from "node:crypto";
+import { appendPoint, listPoints, pointsEnVigueur, prochainAPlacer, refusDePoint, type ComposantAPlacer } from "../../../lib/dispositifs/spaceFixturePoints";
 
 export const prerender = false;
 const BQ_PROJECT = process.env.BQ_PROJECT_ID || "muse-square-open-data";
@@ -44,7 +45,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const bq = makeBQClient(BQ_PROJECT);
     const courant = planEnVigueur(await listPlans(bq, location_id));
     const file = String(url.searchParams.get("file") || "").trim();
-    if (!file) return json({ ok: true, plan: courant ? fiche(courant) : null });
+    if (!file) {
+      // Les POINTS voyagent avec la fiche : la page qui affiche le plan veut y poser les numéros, et
+      // celle qui fait placer veut savoir où elle en est. Une seule lecture pour les deux.
+      const pts = courant ? pointsEnVigueur(await listPoints(bq, location_id)) : new Map();
+      const places = [...pts.values()].filter((p) => !courant || p.plan_id === courant.plan_id)
+        .map((p) => ({ component_key: p.component_key, dispositif_id: p.dispositif_id, x: p.x, y: p.y }));
+      return json({ ok: true, plan: courant ? fiche(courant) : null, points: places });
+    }
 
     // LE FICHIER. On ne sert que le plan EN VIGUEUR de CE site : un identifiant deviné ne descend
     // pas un objet, et un plan remplacé ne se sert plus (ses numéros ne sont plus ceux du magasin).
@@ -68,6 +76,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const location_id = String(body?.location_id || "").trim();
     if (!body || !location_id) return json({ ok: false, error: "location_id, file_base64, content_type requis" }, 400);
     requireLocationOwnership(locals, location_id);
+
+    // ── PLACER UN COMPOSANT SUR LE PLAN (owner 15/09) ────────────────────────────────────────────
+    // Les coordonnées arrivent en FRACTION du plan (0 à 1), jamais en pixels : le plan se réaffiche à
+    // toutes les tailles, et des pixels ne survivraient pas au premier changement d'écran. La règle
+    // vit dans `lib/dispositifs/spaceFixturePoints.ts` ; cette route l'exécute.
+    if (String(body.action || "") === "placer") {
+      const bqP = makeBQClient(BQ_PROJECT);
+      const courantP = planEnVigueur(await listPlans(bqP, location_id));
+      if (!courantP) return json({ ok: false, refus: "plan_absent" }, 400);
+      const refus = refusDePoint({ x: body.x, y: body.y, component_key: body.component_key, plan_id: courantP.plan_id });
+      if (refus) return json({ ok: false, refus }, 400);
+      await appendPoint(bqP, {
+        location_id, dispositif_id: String(body.dispositif_id || "").trim(),
+        component_key: String(body.component_key).trim(), plan_id: courantP.plan_id,
+        x: Number(body.x), y: Number(body.y), created_by: userId,
+      });
+      // CE QUI RESTE À PLACER est relu en base, jamais déduit de ce qu'on vient d'écrire.
+      const pts = pointsEnVigueur(await listPoints(bqP, location_id));
+      const comps: ComposantAPlacer[] = Array.isArray(body.composants) ? body.composants : [];
+      return json({ ok: true, ...prochainAPlacer({ composants: comps, points: pts }) });
+    }
 
     const content_type = String(body.content_type || "").toLowerCase().split(";")[0].trim();
     const b64 = String(body.file_base64 || "");

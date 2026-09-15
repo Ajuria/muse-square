@@ -5,8 +5,8 @@
 "project": "muse-square-open-data",
 "region": "EU",
 "dbt_repo_sha_at_generation": "e6e7270",
-"table_count": 598,
-"column_count": 10682
+"table_count": 599,
+"column_count": 10691
 },
 "tables": {
 "airbyte_internal.rawagenda_occitanie2576a1549cf9b5f0f9ec078944344b3d": {
@@ -3700,6 +3700,47 @@
 {
 "name": "feedback_text",
 "type": "STRING"
+}
+]
+},
+"analytics.space_fixture_points": {
+"type": "BASE TABLE",
+"columns": [
+{
+"name": "point_id",
+"type": "STRING"
+},
+{
+"name": "location_id",
+"type": "STRING"
+},
+{
+"name": "dispositif_id",
+"type": "STRING"
+},
+{
+"name": "component_key",
+"type": "STRING"
+},
+{
+"name": "plan_id",
+"type": "STRING"
+},
+{
+"name": "x",
+"type": "FLOAT64"
+},
+{
+"name": "y",
+"type": "FLOAT64"
+},
+{
+"name": "created_by",
+"type": "STRING"
+},
+{
+"name": "created_at",
+"type": "TIMESTAMP"
 }
 ]
 },

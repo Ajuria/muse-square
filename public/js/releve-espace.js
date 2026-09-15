@@ -515,7 +515,10 @@
       if (p === null && !its.length) return;
       var sec = document.createElement("div"); sec.className = "sec";
       sec.innerHTML = "<h3>" + esc(p === null ? t("releve_non_rattache") : p) + "</h3>"
-        + '<p class="n">' + esc(nPhotos(its.length)) + "</p>";
+        + '<p class="n">' + esc(nPhotos(its.length)) + "</p>"
+        // 15/09 — PLACER CE PÔLE SUR LE PLAN, juste sous son titre : c'est là qu'on vient de finir de
+        // le parcourir. Jamais sur « Non rattaché », qui n'est pas un pôle.
+        + (p === null ? "" : '<button type="button" class="rl-placer" data-pole="' + esc(p) + '">' + esc(t("releve_plan_cta")) + "</button>");
       its.forEach(function (it) { sec.appendChild(ligneDePhoto(it)); });
       body.appendChild(sec);
     });
@@ -529,6 +532,11 @@
         + (bil.perdue ? '<div class="rl-bilan-w">' + esc(bil.perdue_texte) + '</div>' : '');
       bEl.style.display = "block";
     }
+    body.querySelectorAll(".rl-placer").forEach(function (b2) {
+      b2.addEventListener("click", function () {
+        chargerPlan().then(function () { ouvrirPlacement(b2.getAttribute("data-pole")); });
+      });
+    });
     compteRendu();
     $("summary").style.display = "block";
   }
@@ -732,6 +740,101 @@
     // des semaines plus tard (mesuré le 15/09 — table vide, et personne ne le savait).
     var perdue = (e.problems || []).some(function (p) { return p && String(p.reason || "").indexOf("marche_non_ecrite") === 0; });
     return { ligne1: l1, ligne2: l2, perdue: perdue, perdue_texte: perdue ? t("releve_bilan_non_ecrite") : "" };
+  }
+
+  // ── PLACER LES COMPOSANTS SUR LE PLAN, EN FIN DE PÔLE (owner 15/09) ──────────────────────────
+  //
+  // POURQUOI ICI. C'est la donnée qui manque depuis le début : `space_zones` tient les contours au
+  // grain PÔLE et rien au grain composant. Sans elle, pas de plan numéroté — et c'est ce qui a forcé
+  // la liste avec photos pour déplacer une photo. La voie automatique a été mesurée et écartée le
+  // 15/09 (40 % d'appariement, et ce n'était pas un réglage : le dessin ne sépare pas deux meubles
+  // accolés).
+  //
+  // POURQUOI À LA FIN DU PÔLE, ET EN UNE PASSE. L'exploitant vient de longer ces composants, dans cet
+  // ordre, il y a deux minutes : il refait un trajet frais au lieu de décoder une liste. Le RANG
+  // décide du composant annoncé, exactement comme il décide l'attribution des photos (owner 14/09).
+  //
+  // POURQUOI UNE IMAGE ET PAS UN PDF. Un point touché sur un PDF affiché dans un cadre ne se convertit
+  // PAS en coordonnées du plan : le zoom, le défilement et la barre d'outils du lecteur vivent dans
+  // son document et ne sont pas lisibles de l'extérieur. La page le DIT au lieu d'écrire un point faux.
+  var plan = { fiche: null, points: {}, charge: false };
+  function chargerPlan() {
+    var loc = (window.MSReleve && window.MSReleve.location_id) || "";
+    if (!loc || plan.charge) return Promise.resolve(plan);
+    plan.charge = true;
+    return fetch("/api/dispositifs/plan?location_id=" + encodeURIComponent(loc))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.ok) {
+          plan.fiche = j.plan || null;
+          (j.points || []).forEach(function (p) { plan.points[p.component_key] = p; });
+        }
+        return plan;
+      })
+      .catch(function () { return plan; });
+  }
+  // Les coordonnées sont des FRACTIONS du plan (0 à 1) : le plan se réaffiche à toutes les tailles, et
+  // des pixels ne survivraient pas au premier changement d'écran.
+  function fractionDuClic(img, ev) {
+    var r = img.getBoundingClientRect();
+    var cx = (ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX) - r.left;
+    var cy = (ev.touches && ev.touches[0] ? ev.touches[0].clientY : ev.clientY) - r.top;
+    return { x: Math.min(1, Math.max(0, cx / r.width)), y: Math.min(1, Math.max(0, cy / r.height)) };
+  }
+  function composantsDuPolePourPlan(nomPole) {
+    return composantsDuPole(nomPole).map(function (c) {
+      return { component_key: c.component_key || c.key, fixture_no: c.fixture_no == null ? null : Number(c.fixture_no),
+               nom: compLabel(c), length_m: c.length_m == null ? null : Number(c.length_m) };
+    });
+  }
+  function prochainDuPole(nomPole) {
+    var comps = composantsDuPolePourPlan(nomPole);
+    var restants = comps.filter(function (c) { return !plan.points[c.component_key]; })
+      .sort(function (a, b) {
+        var an = a.fixture_no == null ? Infinity : a.fixture_no, bn = b.fixture_no == null ? Infinity : b.fixture_no;
+        return an !== bn ? an - bn : String(a.component_key).localeCompare(String(b.component_key));
+      });
+    return { prochain: restants[0] || null, places: comps.length - restants.length, total: comps.length, comps: comps };
+  }
+  function ouvrirPlacement(nomPole) {
+    var box = $("placer"); if (!box) return;
+    var pole = poleByName(nomPole);
+    box.className = "on";
+    var fermer = '<button type="button" class="p-x">' + esc(t("releve_plan_fermer")) + "</button>";
+    if (!plan.fiche || !plan.fiche.url) { box.innerHTML = '<div class="p-m">' + esc(t("releve_plan_aucun")) + "</div>" + fermer; }
+    else if (plan.fiche.est_pdf) { box.innerHTML = '<div class="p-m">' + esc(t("releve_plan_pdf")) + "</div>" + fermer; }
+    else {
+      var e = prochainDuPole(nomPole);
+      var dit = e.prochain
+        ? t("releve_plan_attendu").split("{nom}").join(e.prochain.nom).split("{m}").join(e.prochain.length_m == null ? "?" : String(Math.round(e.prochain.length_m * 100) / 100).replace(".", ","))
+        : t("releve_plan_fini");
+      var pastilles = e.comps.filter(function (c) { return plan.points[c.component_key]; }).map(function (c) {
+        var p = plan.points[c.component_key];
+        return '<span class="p-n" style="left:' + (p.x * 100).toFixed(2) + '%;top:' + (p.y * 100).toFixed(2) + '%;">' + esc(c.fixture_no == null ? "·" : String(c.fixture_no)) + "</span>";
+      }).join("");
+      box.innerHTML = '<div class="p-h"><b>' + esc(t("releve_plan_titre")) + "</b> · " + esc(nomPole)
+        + '<span class="p-a">' + esc(t("releve_plan_avancement").split("{fait}").join(String(e.places)).split("{total}").join(String(e.total))) + "</span></div>"
+        + '<div class="p-d">' + esc(dit) + (e.prochain ? " — " + esc(t("releve_plan_touchez")) : "") + "</div>"
+        + '<div class="p-w"><img class="p-i" alt="" src="' + esc(plan.fiche.url) + '">' + pastilles + '<span class="p-msg"></span></div>' + fermer;
+      var img = box.querySelector(".p-i");
+      if (img && e.prochain) {
+        img.addEventListener("click", function (ev) {
+          var f = fractionDuClic(img, ev);
+          var msg = box.querySelector(".p-msg");
+          fetch("/api/dispositifs/plan", { method: "POST", headers: { "content-type": "application/json" },
+            body: JSON.stringify({ action: "placer", location_id: (window.MSReleve && window.MSReleve.location_id) || "",
+              dispositif_id: (pole && pole.dispositif_id) || "", component_key: e.prochain.component_key, x: f.x, y: f.y }) })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+              if (!j || !j.ok) { if (msg) msg.textContent = t("releve_plan_echec"); return; }
+              plan.points[e.prochain.component_key] = { component_key: e.prochain.component_key, x: f.x, y: f.y };
+              ouvrirPlacement(nomPole);   // le suivant s'annonce ; l'état vient de ce qu'on a écrit
+            })
+            .catch(function () { if (msg) msg.textContent = t("releve_plan_echec"); });
+        });
+      }
+    }
+    box.querySelector(".p-x").addEventListener("click", function () { box.className = ""; box.innerHTML = ""; });
   }
 
   function compteRendu() {

@@ -82,7 +82,10 @@ if (restantes) throw new Error(`expressions Astro non résolues : ${restantes.jo
 // son propre code et pas celui de la page \u2014 le d\u00e9faut exact du 14/09 sur les cl\u00e9s de copie.
 const _nums: any[] = await bq.query({
   query: `SELECT dispositif_id, component_key,
-                 ARRAY_AGG(fixture_no IGNORE NULLS ORDER BY version_no DESC, measured_at DESC LIMIT 1)[SAFE_OFFSET(0)] AS fixture_no
+                 ARRAY_AGG(fixture_no IGNORE NULLS ORDER BY version_no DESC, measured_at DESC LIMIT 1)[SAFE_OFFSET(0)] AS fixture_no,
+                 -- 15/09 : la LONGUEUR part avec le numéro, comme sur la page. Un harnais qui injecte
+                 -- une charge plus pauvre que la vraie vérifie autre chose que ce qui est servi.
+                 ARRAY_AGG(length_m IGNORE NULLS ORDER BY version_no DESC, measured_at DESC LIMIT 1)[SAFE_OFFSET(0)] AS length_m
           FROM \`${P}.semantic.vw_insight_event_component_space\`
           WHERE location_id = @l AND component_key IS NOT NULL
           GROUP BY 1, 2`,
@@ -90,15 +93,19 @@ const _nums: any[] = await bq.query({
 }).then((r: any) => (Array.isArray(r?.[0]) ? r[0] : [])).catch(() => []);
 const _flat = (v: any): any => (v && typeof v === "object" && "value" in v ? v.value : v);
 const numeros = new Map<string, number>();
+const longueurs = new Map<string, number | null>();
 for (const r of _nums) {
   const n = Number(_flat(r.fixture_no));
-  if (Number.isFinite(n) && n > 0) numeros.set(`${String(_flat(r.dispositif_id))}:${String(_flat(r.component_key))}`, n);
+  const cle = `${String(_flat(r.dispositif_id))}:${String(_flat(r.component_key))}`;
+  if (Number.isFinite(n) && n > 0) numeros.set(cle, n);
+  const lm = _flat(r.length_m) == null ? null : Number(_flat(r.length_m));
+  longueurs.set(cle, Number.isFinite(lm as number) ? (lm as number) : null);
 }
 console.log(`  N\u00b0 sur le plan : ${numeros.size} composant(s) en portent un`);
 
 const injecte = poles.map((p) => ({
   dispositif_id: p.dispositif_id, commitment_id: p.commitment_id, name: p.name,
-  components: (p.components || []).map((c) => ({ component_key: c.component_key, label: c.label, type_label_fr: c.type_label_fr, role_label_fr: c.role_label_fr, fixture_no: numeros.get(`${p.dispositif_id}:${c.component_key}`) ?? null })),
+  components: (p.components || []).map((c) => ({ component_key: c.component_key, label: c.label, type_label_fr: c.type_label_fr, role_label_fr: c.role_label_fr, fixture_no: numeros.get(`${p.dispositif_id}:${c.component_key}`) ?? null , length_m: longueurs.get(`${p.dispositif_id}:${c.component_key}`) ?? null })),
 }));
 const rl_copy = Object.fromEntries(Object.entries(copy).filter(([k]) => k.startsWith("releve_") || k.startsWith("capture_") || k.startsWith("pole_photo_")));
 const js = readFileSync("public/js/releve-espace.js", "utf8");

@@ -47,7 +47,7 @@ const BUILD = String(process.env.VERCEL_GIT_COMMIT_SHA || "local").slice(0, 7);
 
 // Les pôles du site, avec les composants de leur VERSION COURANTE : la seconde question du relevé
 // (« Quel composant ? ») n'a que ceux du pôle touché, donc trois ou quatre boutons — pas un tri.
-let poles: Array<{ dispositif_id: string; commitment_id: string | null; name: string; components: Array<{ component_key: string; label: string | null; type_label_fr: string | null; role_label_fr: string | null; fixture_no: number | null }> }> = [];
+let poles: Array<{ dispositif_id: string; commitment_id: string | null; name: string; components: Array<{ component_key: string; label: string | null; type_label_fr: string | null; role_label_fr: string | null; fixture_no: number | null; length_m: number | null }> }> = [];
 let sites: Array<{ location_id: string; label: string; poles: number }> = [];
 try {
   const bq = makeBQClient(process.env.BQ_PROJECT_ID || "muse-square-open-data");
@@ -76,7 +76,12 @@ try {
   // num\u00e9ro le plus r\u00e9cent gagne si un meuble a \u00e9t\u00e9 remesur\u00e9. Amorc\u00e9e en PARALL\u00c8LE (budget 3 s).
   const numsP = bq.query({
     query: `SELECT dispositif_id, component_key,
-                   ARRAY_AGG(fixture_no IGNORE NULLS ORDER BY version_no DESC, measured_at DESC LIMIT 1)[SAFE_OFFSET(0)] AS fixture_no
+                   ARRAY_AGG(fixture_no IGNORE NULLS ORDER BY version_no DESC, measured_at DESC LIMIT 1)[SAFE_OFFSET(0)] AS fixture_no,
+                   -- 15/09 : la LONGUEUR DE FAÇADE part avec le numéro. C'est elle qui départage les
+                   -- homonymes — mesuré sur ce compte : 40 composants sur 52 portent un libellé que
+                   -- partage un autre du même pôle (six « Vin & Spiritueux » dans la Cave). Sans elle,
+                   -- le composant annoncé au placement est indistinguable du suivant.
+                   ARRAY_AGG(length_m IGNORE NULLS ORDER BY version_no DESC, measured_at DESC LIMIT 1)[SAFE_OFFSET(0)] AS length_m
             FROM \`${PROJ}.semantic.vw_insight_event_component_space\`
             WHERE location_id = @l AND component_key IS NOT NULL
             GROUP BY 1, 2`,
@@ -87,8 +92,11 @@ try {
   sites = (_sites as any[]).map((r) => ({ location_id: String(flat(r.location_id)), label: String(flat(r.label) || ""), poles: Number(flat(r.n)) || 0 }))
     .filter((x) => x.label);
   const numeros = new Map<string, number>();
+  const longueurs = new Map<string, number | null>();
   for (const r of _nums as any[]) {
     const n = Number(flat(r.fixture_no));
+    const lm = flat(r.length_m) == null ? null : Number(flat(r.length_m));
+    longueurs.set(`${flat(r.dispositif_id)}:${flat(r.component_key)}`, Number.isFinite(lm as number) ? (lm as number) : null);
     if (Number.isFinite(n) && n > 0) numeros.set(`${String(flat(r.dispositif_id))}:${String(flat(r.component_key))}`, n);
   }
   poles = _poles.map((p) => ({
@@ -101,6 +109,7 @@ try {
       type_label_fr: c.type_label_fr,
       role_label_fr: c.role_label_fr,
       fixture_no: numeros.get(`${p.dispositif_id}:${c.component_key}`) ?? null,
+      length_m: longueurs.get(`${p.dispositif_id}:${c.component_key}`) ?? null,
     })),
   }));
 } catch { poles = []; }
@@ -212,6 +221,8 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
         <div id="summary">
           <div id="sumEtat"></div>
           <div id="sumBilan" style="display:none;"></div>
+          <!-- 15/09 — le calque de placement sur le plan, ouvert depuis le bouton d'un pôle. -->
+          <div id="placer"></div>
           <div id="sumBody"></div>
           <div class="rl-row">
             <button id="sumBack" type="button" class="ms-btn">{EVOL_COPY.releve_reprendre}</button>
@@ -352,6 +363,23 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       #verdict.defaut .v-t { color: #FCD9A6; }
       #verdict .v-r { flex: 0 0 auto; font-size: 13px; font-weight: 600; font-family: inherit; color: #111827;
                       background: #fff; border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+      /* PLACER LES COMPOSANTS SUR LE PLAN (15/09). Un calque plein écran : le plan doit être grand
+         pour qu'on touche le bon endroit du premier coup. */
+      .rl-placer { font-size: 12px; font-weight: 600; font-family: inherit; color: #1D3BB3; background: #fff;
+                   border: 1px solid #1D3BB3; border-radius: 8px; padding: 5px 12px; margin: 0 0 10px; cursor: pointer; }
+      #placer { display: none; }
+      #placer.on { display: block; position: fixed; inset: 0; z-index: 30; background: #fff; overflow: auto; padding: 14px; }
+      #placer .p-h { font-size: 13px; color: #111827; margin-bottom: 4px; }
+      #placer .p-a { float: right; font-size: 12px; color: #6b7280; }
+      #placer .p-d { font-size: 13px; color: #374151; margin-bottom: 10px; }
+      #placer .p-m { font-size: 13px; color: #374151; line-height: 1.6; margin-bottom: 12px; }
+      #placer .p-w { position: relative; display: inline-block; max-width: 100%; }
+      #placer .p-i { width: 100%; height: auto; display: block; border: 1px solid #e5e7eb; border-radius: 8px; cursor: crosshair; }
+      #placer .p-n { position: absolute; transform: translate(-50%, -50%); min-width: 20px; height: 20px; line-height: 20px;
+                     text-align: center; border-radius: 999px; background: #1D3BB3; color: #fff; font-size: 11px; font-weight: 700; }
+      #placer .p-msg { display: block; font-size: 12px; color: #b91c1c; margin-top: 6px; }
+      #placer .p-x { margin-top: 12px; font-size: 13px; font-weight: 600; font-family: inherit; color: #111827;
+                     background: #F3F4F6; border: 0; border-radius: 8px; padding: 8px 16px; cursor: pointer; }
       .rl-shot { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F3F4F6; }
       .rl-shot img { width: 96px; height: 110px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; flex: none; }
       .rl-shot .c { flex: 1; min-width: 0; }
@@ -417,6 +445,6 @@ const RELEVE_COPY: Record<string, string> = Object.fromEntries(
       })();
     </script>
     <script is:inline src="/js/photo-capture.js?v=3"></script>
-    <script is:inline src="/js/releve-espace.js?v=13"></script>
+    <script is:inline src="/js/releve-espace.js?v=14"></script>
   </BaseLayout>
 </Show>
