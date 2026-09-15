@@ -361,8 +361,53 @@ export function assertTermsPresent(row: Partial<CommitmentRow>): void {
   }
 }
 
+// GARDE D'IDENTITE (13/09) — une ligne ecrite APRES la creation porte le dispositif que portait
+// la ligne precedente. Sans elle, un append peut sortir sans identite et l'amputation se PROPAGE :
+// la ligne suivante herite du NULL par `...prior`, et la page de l'engagement perd son
+// « Historique du dispositif » pour toujours (buildLineage filtre sur dispositif_id). Mesure sur le
+// parc le 13/09 : 3 lignes amputees, 2 engagements, ecrites par le cron de resolution les 28 et
+// 29/08 — celle du 29/08 n'a fait qu'heriter du NULL de celle du 28/08. Une creation est exemptee :
+// c'est lineageFor() qui pose l'identite au POST, et deux crons creent encore sans elle
+// (daily-dispatch.ts:205, event-occurrences.ts:231).
+export function assertIdentityCarried(
+  prior: Pick<CommitmentRow, "dispositif_id" | "version_no"> | null,
+  merged: Partial<CommitmentRow>,
+): void {
+  if (!prior) return;
+  const lost: string[] = [];
+  if (prior.dispositif_id != null && merged.dispositif_id == null) lost.push("dispositif_id");
+  if (prior.version_no != null && merged.version_no == null) lost.push("version_no");
+  if (lost.length) {
+    throw new Error(
+      "action_commitments merge would drop identity [" + lost.join(", ") +
+      "] for commitment " + (merged.commitment_id || "?") +
+      " — refusing partial write.",
+    );
+  }
+}
+
+// GARDE DE DERIVE (13/09) — COLUMN_SPEC est la SEULE liste de colonnes ecrites : une colonne que la
+// ligne fusionnee porte mais que COLUMN_SPEC ignore n'entre pas dans l'INSERT, et BigQuery l'ecrit
+// NULL sans rien dire. C'est la cause mesuree des 28-29/08 : la table avait gagne dispositif_id et
+// version_no (ALTER + backfill, commit aa6e59b0 du 27/08 14:04) alors que le build en production
+// datait du 27/08 11:00 (main @ 09c27241, zero occurrence de dispositif_id dans COLUMN_SPEC) — le
+// cron de 02:01 a lu l'identite, l'a bien fusionnee en memoire, et l'a perdue a l'ecriture. Le
+// prochain ecart ALTER-avant-deploiement se voit au lieu de s'ecrire.
+export function assertSpecCoversRow(row: Partial<CommitmentRow>): void {
+  const known = new Set(COLUMN_SPEC.map(([name]) => name));
+  const unknown = Object.keys(row).filter((k) => !known.has(k) && (row as any)[k] != null);
+  if (unknown.length) {
+    throw new Error(
+      "action_commitments: colonne(s) [" + unknown.join(", ") + "] portee(s) par la ligne mais " +
+      "absente(s) de COLUMN_SPEC — le build ne connait pas la table (ALTER deploye avant le code). " +
+      "Refus d'ecrire une ligne amputee.",
+    );
+  }
+}
+
 // Typed INSERT DML driven entirely by COLUMN_SPEC (column list + params + types).
 async function insertRow(bq: any, row: CommitmentRow): Promise<void> {
+  assertSpecCoversRow(row);
   const cols = COLUMN_SPEC.map(([name]) => name);
   const params: Record<string, any> = {};
   const types: Record<string, string> = {};
@@ -421,6 +466,7 @@ export async function readMergeWrite(
       created_at: opts.create ? now : prior!.created_at,
     } as CommitmentRow;
     assertTermsPresent(merged); // runs on EVERY write, create included
+    assertIdentityCarried(prior, merged); // l'identite du dispositif se reporte, ligne apres ligne
     return merged;
   };
 

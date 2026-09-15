@@ -63,3 +63,94 @@ it("une opération datée garde TOUS ses termes obligatoires (la nature n'exempt
     committed_action_text: "x", pole_families: null,
   } as any)).toThrow(/window_kind/);
 });
+
+// ── L'IDENTITÉ SE REPORTE, LIGNE APRÈS LIGNE (13/09) ─────────────────────────────────────────
+// Journal append-only : une ligne écrite après la création doit porter le dispositif que portait
+// la précédente. Défaut mesuré sur le parc le 13/09 — 3 lignes amputées, 2 engagements, écrites
+// par le cron de résolution les 28 et 29/08 : la ligne du 29/08 n'a fait qu'hériter du NULL de
+// celle du 28/08, et la page de l'engagement 610d7c02 n'affiche plus son « Historique du
+// dispositif » (buildLineage court-circuité, evolution.ts:168).
+
+import { assertIdentityCarried, assertSpecCoversRow, readMergeWrite } from "./actionCommitments";
+
+const TERMES = {
+  measured_metric: "family_revenue", window_kind: "day_of",
+  window_start: "2026-08-27", window_end: "2026-08-27", window_days_expected: 1,
+  threshold_level: "standard", threshold_basis: "residual", threshold_value: 1,
+  committed_action_text: "Tête de gondole — fromages", owner_person_name: "Julen",
+};
+
+it("une ligne de transition qui perd le dispositif est REFUSÉE", () => {
+  expect(() => assertIdentityCarried(
+    { dispositif_id: "d-root", version_no: 3 } as any,
+    { commitment_id: "610d7c02", dispositif_id: null, version_no: null },
+  )).toThrow(/dispositif_id, version_no/);
+});
+
+it("le numéro de version perdu seul est refusé aussi", () => {
+  expect(() => assertIdentityCarried(
+    { dispositif_id: "d-root", version_no: 3 } as any,
+    { commitment_id: "c", dispositif_id: "d-root", version_no: null },
+  )).toThrow(/version_no/);
+});
+
+it("l'identité reportée passe", () => {
+  expect(() => assertIdentityCarried(
+    { dispositif_id: "d-root", version_no: 3 } as any,
+    { commitment_id: "c", dispositif_id: "d-root", version_no: 3 },
+  )).not.toThrow();
+});
+
+it("une CRÉATION n'a rien à reporter — lineageFor() pose l'identité au POST", () => {
+  expect(() => assertIdentityCarried(null, { commitment_id: "c" })).not.toThrow();
+});
+
+it("un engagement sans identité (créé par un cron, ou d'avant les colonnes) n'est pas bloqué", () => {
+  expect(() => assertIdentityCarried(
+    { dispositif_id: null, version_no: null } as any,
+    { commitment_id: "c", dispositif_id: null, version_no: null },
+  )).not.toThrow();
+});
+
+it("une colonne que la ligne porte mais que COLUMN_SPEC ignore est REFUSÉE (ALTER déployé avant le code)", () => {
+  expect(() => assertSpecCoversRow({ commitment_id: "c", colonne_future: "valeur" } as any))
+    .toThrow(/colonne_future/);
+});
+
+it("une ligne dont COLUMN_SPEC couvre toutes les colonnes passe", () => {
+  expect(() => assertSpecCoversRow({ commitment_id: "c", dispositif_id: "d", version_no: 2 } as any))
+    .not.toThrow();
+});
+
+// Le CHEMIN d'écriture du cron, bout à bout : ce qui compte est ce qui part dans les PARAMS de
+// l'INSERT — c'est là que les 28-29/08 ont perdu l'identité, pas dans la fusion en mémoire.
+function fauxBq(prior: any) {
+  const ecrits: any[] = [];
+  return {
+    ecrits,
+    timestamp: (v: any) => ({ ts: v }),
+    date: (v: any) => ({ d: v }),
+    async query(o: any) {
+      if (String(o.query).includes("INSERT INTO")) { ecrits.push(o.params); return [[]]; }
+      return [[{ ...prior }]];
+    },
+  };
+}
+
+it("le cron de résolution ÉCRIT l'identité du dispositif dans sa ligne", async () => {
+  const prior = {
+    ...TERMES, commitment_id: "610d7c02", user_id: "u", location_id: "f10c3e58",
+    status: "open", authorship: "user_authored",
+    created_at: "2026-08-27T12:51:16.000Z", updated_at: "2026-08-27T12:51:16.000Z",
+    transition_type: "created", dispositif_id: "49a325dd", version_no: 3,
+  };
+  const bq: any = fauxBq(prior);
+  const row = await readMergeWrite(bq, {
+    commitmentId: "610d7c02", transitionType: "resolved",
+    patch: { status: "resolved", verdict: "missed", window_days_resolved: 1, resolved_at: "2026-08-29T02:01:09.000Z" },
+  });
+  expect(row.dispositif_id).toBe("49a325dd");
+  expect(bq.ecrits).toHaveLength(1);
+  expect(bq.ecrits[0].dispositif_id).toBe("49a325dd");
+  expect(bq.ecrits[0].version_no).toBe(3);
+});
